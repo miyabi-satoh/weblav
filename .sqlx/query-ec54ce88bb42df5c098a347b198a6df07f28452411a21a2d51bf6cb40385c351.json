@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM archive_axes WHERE archive_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "ec54ce88bb42df5c098a347b198a6df07f28452411a21a2d51bf6cb40385c351"
+}

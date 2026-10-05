@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO archive_axes\n               (archive_id, name, source, dir_level, optional_in_title, filterable, position)\n           VALUES (?, ?, ?, ?, ?, ?, ?)\n           RETURNING id as \"id!\", name, source as \"source: AxisSource\", dir_level,\n                     optional_in_title as \"optional_in_title: bool\",\n                     filterable as \"filterable: bool\", position",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "source: AxisSource",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "dir_level",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "optional_in_title: bool",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "filterable: bool",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "position",
+        "ordinal": 6,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "aad82e3ab197ba9cedc1b4d080b9bfa2568a7a94209b67eee12627ff2ef27f47"
+}

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT EXISTS(\n           SELECT 1 FROM archive_axes WHERE archive_id = ? AND name = ? AND id IS NOT ?\n       ) as \"exists!: bool\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "exists!: bool",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "48b93b288f4de27d8c8449c02b7569ab7094fe06781b1ffede4a2c15ec79bf23"
+}

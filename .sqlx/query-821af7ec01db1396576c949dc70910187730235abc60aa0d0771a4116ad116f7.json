@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id as \"id!\", rel_path, published as \"published: bool\",\n                  created_at as \"created_at!\" FROM archive_items\n           WHERE archive_id = ? AND published = 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "rel_path",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "published: bool",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "created_at!",
+        "ordinal": 3,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "821af7ec01db1396576c949dc70910187730235abc60aa0d0771a4116ad116f7"
+}

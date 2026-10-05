@@ -1,0 +1,17 @@
+-- group型(仮想フォルダ)による無制限ネスト階層(parent_id)の実運用開始に伴うインデックス追加。
+--
+-- parent_idカラム自体は既存(20260907062548_create_contents.sql)で追加済みだが、これまで
+-- 常にNULL固定で使われていなかったためインデックスが無かった。今回から「直下1階層のみ取得」
+-- (WHERE parent_id = ? ORDER BY position, id)と「ルート直下のみ取得」
+-- (WHERE parent_id IS NULL ORDER BY position, id)の両方をこの複合インデックスでカバーする
+-- (SQLiteはNULLもインデックスに含めるため、IS NULL側もこのインデックスが使える)。
+--
+-- ON DELETE CASCADE は変更しない。SQLiteで自己参照FKのアクションを変えるにはテーブル全体を
+-- 作り直す必要があり(idx_contents_position/idx_contents_blob_hashの再作成、sqlxの
+-- マイグレーショントランザクション内ではPRAGMA foreign_keysを切り替えられない、という制約が
+-- 絡み複雑)、それだけの価値が無い。グループ削除時の「配下をルート直下へ昇格」は、
+-- アプリケーション層(src/api/contents.rs の delete_content)でトランザクション内
+-- UPDATE contents SET parent_id = NULL ... → DELETE ... の順に実行することで実現し、
+-- CASCADEが発火する前提(削除対象がまだ親として参照されている状態)自体を作らない。
+-- CASCADE定義はこの前提が万一崩れた場合の最終防御としてのみ残る。
+CREATE INDEX idx_contents_parent_id ON contents (parent_id, position, id);

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO link_previews (url, shown_at, bytes, image_file, icon_file) VALUES (?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "42eaa01d561754aca1e2edefbff43893f1f9c937e263931f2dafbff29a9234ed"
+}

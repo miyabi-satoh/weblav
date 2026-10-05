@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM archive_items WHERE archive_id = ? AND rel_path = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "988d4a8ab31a25a00018ab49aa52c84ccbf0deb2a4c507129a69bbd1ddde5465"
+}

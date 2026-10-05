@@ -1,0 +1,16 @@
+{
+  "binding": {
+    "installation": "0000000000000000",
+    "link_kid": 0,
+    "secret": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "email": "dev@example.com",
+    "permission": {
+      "kind": "proof",
+      "value": "eyJ2IjoyLCJwcm9vZl9raWQiOiJkZXYtbG9jYWwiLCJhY2NvdW50IjoiZGV2IiwiaW5zdGFsbGF0aW9uIjoiMDAwMDAwMDAwMDAwMDAwMCIsInBsYW4iOiJwZXJzb25hbCIsImlzc3VlZF9hdCI6MTc5MTA5MDAwMCwiZXhwaXJlc19hdCI6NDEwMjQ0NDgwMH0.--j0E7EURpgMK68bygtzpA-HkZv_1EgSfBh4Wo7ulTGd0RHMjuDilcr3gWj7MMn6h6O_i5nsPRIhiN9IF7rHCQ"
+    },
+    "last_checked_at": 4102444800,
+    "refusal": null
+  },
+  "pending": null,
+  "clock_high_water": 0
+}

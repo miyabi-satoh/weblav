@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id as \"id!\", username, password_hash, role as \"role: Role\",\n                  recovery_code_hash IS NOT NULL as \"has_recovery_code!: bool\"\n           FROM users WHERE username = ? COLLATE NOCASE",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "username",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "password_hash",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "role: Role",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "has_recovery_code!: bool",
+        "ordinal": 4,
+        "type_info": "Null"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "90eda95f8c202890e841a59dec1d533e898d292107d41afbaebcfb40b3f3b770"
+}

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT url, image_file, icon_file, bytes FROM link_previews ORDER BY shown_at, url",
+  "describe": {
+    "columns": [
+      {
+        "name": "url",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "image_file",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "icon_file",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "bytes",
+        "ordinal": 3,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "6b97b0e5e3c5a551e621c43b8207f50ca7dac1d6760c246ff0df5e6401df103e"
+}

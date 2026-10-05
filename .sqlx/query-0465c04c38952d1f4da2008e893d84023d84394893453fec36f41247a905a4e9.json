@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE link_previews SET\n               image_source = ?, image_file = ?, icon_source = ?, icon_file = ?,\n               etag = ?, last_modified = ?, fresh_until = ?, bytes = ?\n           WHERE url = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 9
+    },
+    "nullable": []
+  },
+  "hash": "0465c04c38952d1f4da2008e893d84023d84394893453fec36f41247a905a4e9"
+}

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT type as \"content_type: ContentType\", path, blob_hash, file_name\n           FROM contents WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "content_type: ContentType",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "path",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "blob_hash",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "file_name",
+        "ordinal": 3,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "c5da5d1c1986f9121a5d0d594777aaed168ef6140dbde5957e6c514074e5f4be"
+}

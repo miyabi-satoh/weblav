@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO archive_axis_values (axis_id, raw_value, display_name, position, match_position)\n             VALUES (?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "2cbfc8abfdfd0e64539072f8ee784174ad48c5c2dfac4e38a463d3bdaa524138"
+}

@@ -1,0 +1,20 @@
+<!doctype html>
+
+<html lang="%paraglide.lang%" dir="%paraglide.dir%">
+	<head>
+		<meta charset="utf-8" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+		<meta name="text-scale" content="scale" />
+		<!-- SPA (ssr=false) のため mode-watcher 本体の初期化は Svelte マウント後になり、
+		     それを待つと初回描画でダークモード利用者に白いフラッシュが見える。
+		     mode-watcher公式の初期化スクリプト(hooks.server.tsで差し込む)で先回りして
+		     .dark と color-scheme を設定し、FOUC を防ぐ。 -->
+		%modewatcher.snippet% %sveltekit.head%
+	</head>
+
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>

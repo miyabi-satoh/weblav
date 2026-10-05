@@ -1,0 +1,481 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn-svelte/tailwind.css';
+/* 書体は BIZ UDPGothic (→ docs/ui.md「UI 全般」)。閲覧者に生徒と非技術者が含まれるため
+ * UD 書体を選んでいる。
+ *
+ * fontsource の CSS を import せず @font-face を自分で書いているのは、あちらが
+ * woff2 と woff の両方を src に持ち、使われない woff までビルド成果物に出るため。
+ * 成果物は rust-embed でバイナリに載るので、その分がそのまま配布物のサイズになる。
+ * 併せて、キリル・ギリシャ等の不要なサブセットも持ち込まない。 */
+@font-face {
+	font-family: 'BIZ UDPGothic';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('@fontsource/biz-udpgothic/files/biz-udpgothic-latin-400-normal.woff2') format('woff2');
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+	font-family: 'BIZ UDPGothic';
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url('@fontsource/biz-udpgothic/files/biz-udpgothic-latin-700-normal.woff2') format('woff2');
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+	font-family: 'BIZ UDPGothic';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('@fontsource/biz-udpgothic/files/biz-udpgothic-japanese-400-normal.woff2')
+		format('woff2');
+}
+@font-face {
+	font-family: 'BIZ UDPGothic';
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url('@fontsource/biz-udpgothic/files/biz-udpgothic-japanese-700-normal.woff2')
+		format('woff2');
+}
+
+@custom-variant dark (&:is(.dark *));
+
+/* Tailwind に標準のユーティリティが無いプロパティは、任意値クラスではなくここで名前を付ける
+ * (→ AGENTS.md「コードの規約」)。iOS で長押しがメニューにならないようにする。 */
+@utility touch-callout-none {
+	-webkit-touch-callout: none;
+}
+
+/* ページ内プレイヤー(タブレット以上)の3カラムグリッド: 曲名(左)・操作(中央)・
+ * 閉じるボタン(右)。中央のカラムは内容の幅に合わせ、両端が余りを分け合う
+ * ことで操作が中央に来る (→ docs/ui.md「音声のページ内プレイヤー」)。 */
+@utility audio-player-grid {
+	grid-template-columns: 1fr auto 1fr;
+}
+
+/* コンテンツ管理の一覧で、グループの子を字下げする。深さは要素の style で `--depth` に渡す。
+ * スマートフォン幅では1段を狭め、深い行でもタイトルに幅を残す (→ docs/ui.md「UI 全般」)。
+ * 幅を変えたら、下の row-link-after-handle・row-link-before-handle も合わせる。 */
+@utility tree-indent {
+	padding-left: calc(var(--depth, 0) * 0.75rem);
+
+	@variant sm {
+		padding-left: calc(var(--depth, 0) * 1.25rem);
+	}
+}
+
+/* コンテンツ管理の一覧で、行いっぱいに広げたタイトルのリンクの押せる範囲を、つまみの右から始める
+ * (→ docs/ui.md「UI 全般」)。行の左の余白 (page-layout.ts) + 字下げ (tree-indent) + つまみの幅と押せる範囲の広がり (dragHandleClass)。 */
+@utility row-link-after-handle {
+	left: calc(1rem + var(--depth, 0) * 0.75rem + 2.375rem);
+
+	@variant sm {
+		left: calc(1rem + var(--depth, 0) * 1.25rem + 2.375rem);
+	}
+
+	@variant md {
+		left: calc(1.5rem + var(--depth, 0) * 1.25rem + 2.375rem);
+	}
+}
+
+/* 上の残り、つまみより左 (行の左の余白と字下げ) の押せる範囲。つまみの押せる範囲の広がりの手前まで。 */
+@utility row-link-before-handle {
+	width: calc(1rem + var(--depth, 0) * 0.75rem - 0.375rem);
+
+	@variant sm {
+		width: calc(1rem + var(--depth, 0) * 1.25rem - 0.375rem);
+	}
+
+	@variant md {
+		width: calc(1.5rem + var(--depth, 0) * 1.25rem - 0.375rem);
+	}
+}
+
+/* 管理画面の表で、タイトルの次に長い値 (親・場所・パス) の幅の上限 (→ table-columns.ts の cappedValueClass)。 */
+@utility capped-value-width {
+	max-width: min(16rem, 15vw);
+}
+
+/* 画面を移る途中に上端へ出すバー (→ navigation-progress.svelte)。進み具合は分からないので、
+ * 短い帯を左から右へ繰り返し流す。`prefers-reduced-motion` では動かさず、端から端まで塗る。 */
+@utility navigation-progress-bar {
+	width: 33%;
+	animation: navigation-progress 1.2s ease-in-out infinite;
+
+	@media (prefers-reduced-motion: reduce) {
+		width: 100%;
+		animation: none;
+	}
+}
+@keyframes navigation-progress {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(310%);
+	}
+}
+
+/* ページ内プレイヤーの曲名を囲む要素。はみ出した分は隠す。
+ * `prefers-reduced-motion` では、動かす代わりに横スクロールで手動で読めるようにする。
+ * 省略記号での切り詰めだと、はみ出している事実は分かっても全文を読む手段が無いため
+ * (→ docs/ui.md「音声のページ内プレイヤー」)。 */
+@utility audio-title-clip {
+	overflow: hidden;
+
+	@media (prefers-reduced-motion: reduce) {
+		overflow-x: auto;
+		overscroll-behavior-x: contain;
+	}
+}
+
+/* 曲名本体。はみ出す長さだけ (JS で計測) 要素の style で渡す `--marquee-distance` を
+ * 使って左右に流す。はみ出していなければ距離が 0px になり動かない。 */
+@utility audio-title-marquee {
+	animation: audio-title-marquee 8s ease-in-out infinite;
+
+	@media (prefers-reduced-motion: reduce) {
+		animation: none;
+	}
+}
+@keyframes audio-title-marquee {
+	0%,
+	15% {
+		transform: translateX(0);
+	}
+	45%,
+	55% {
+		transform: translateX(calc(-1 * var(--marquee-distance, 0px)));
+	}
+	85%,
+	100% {
+		transform: translateX(0);
+	}
+}
+
+/* ページ内プレイヤーのシークバー。`<input type="range">` の見た目をブラウザによらず揃える。
+ * 再生済みの長さは、要素の style で渡す `--seek-progress` (0%〜100%) で塗る。 */
+@utility audio-seek {
+	appearance: none;
+	background: transparent;
+	cursor: pointer;
+
+	&::-webkit-slider-runnable-track {
+		height: 4px;
+		border-radius: 9999px;
+		background: linear-gradient(
+			to right,
+			var(--primary) var(--seek-progress, 0%),
+			var(--border) var(--seek-progress, 0%)
+		);
+	}
+	&::-moz-range-track {
+		height: 4px;
+		border-radius: 9999px;
+		background: linear-gradient(
+			to right,
+			var(--primary) var(--seek-progress, 0%),
+			var(--border) var(--seek-progress, 0%)
+		);
+	}
+	&::-webkit-slider-thumb {
+		appearance: none;
+		width: 20px;
+		height: 20px;
+		margin-top: -8px;
+		border: none;
+		border-radius: 9999px;
+		background: var(--primary);
+	}
+	&::-moz-range-thumb {
+		width: 20px;
+		height: 20px;
+		border: none;
+		border-radius: 9999px;
+		background: var(--primary);
+	}
+}
+
+/* 中性色は docs/ui.md「UI 全般」の役割に次のように割り当てる。
+ * - 面: background / card / popover
+ * - 地: ground (body の下地)
+ * - 本文: foreground、副: sub-foreground、補助: muted-foreground
+ * - 罫: border (面の境界) / divider (行の区切り)
+ * 地を background にしないのは、shadcn の部品が bg-background を部品自身の面として
+ * 使うため (outline ボタン・選択中のタブなど)。 */
+:root {
+	--ground: oklch(0.9756 0.0026 106.45);
+	--background: oklch(1 0 0);
+	--foreground: oklch(0.217 0.0038 106.71);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.217 0.0038 106.71);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.217 0.0038 106.71);
+	/* 差し色は1色だけ (#146E6B → oklch)。中性色を地にして、コンテンツのタイトルが
+	 * 主役になるよう UI 自体を後ろに下げる (→ docs/ui.md「UI 全般」)。 */
+	--primary: oklch(0.4887 0.0787 191.4);
+	--primary-foreground: oklch(0.985 0 0);
+	/* secondary / muted / accent (ホバー・選択・フッターの塗り) は docs/ui.md に役割が無い。
+	 * 地より一段濃くして、面の上でも地の上でも塗りが見えるようにする。 */
+	--secondary: oklch(0.951 0.0053 106.5);
+	--secondary-foreground: oklch(0.217 0.0038 106.71);
+	--muted: oklch(0.951 0.0053 106.5);
+	--muted-foreground: oklch(0.5256 0.0107 106.76);
+	--sub-foreground: oklch(0.466 0.0079 106.7);
+	--accent: oklch(0.951 0.0053 106.5);
+	--accent-foreground: oklch(0.217 0.0038 106.71);
+	/* shadcn 既定 (L 0.577) より少し暗い。既定のままだと地の上で 4.5:1 を下回る。 */
+	--destructive: oklch(0.55 0.225 27.325);
+	--border: oklch(0.9175 0.0067 106.53);
+	--divider: oklch(0.951 0.0053 106.5);
+	/* 入力欄・チェックボックス・絞り込みの枠。border と同じ濃さだと地の上で輪郭が
+	 * 見えにくいため、一段濃くする。 */
+	--input: oklch(0.8525 0.0095 106.6);
+	--ring: oklch(0.4887 0.0787 191.4);
+	--chart-1: oklch(0.87 0 0);
+	--chart-2: oklch(0.556 0 0);
+	--chart-3: oklch(0.439 0 0);
+	--chart-4: oklch(0.371 0 0);
+	--chart-5: oklch(0.269 0 0);
+	--radius: 0.625rem;
+	--sidebar: oklch(0.985 0 0);
+	--sidebar-foreground: oklch(0.145 0 0);
+	--sidebar-primary: oklch(0.205 0 0);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.97 0 0);
+	--sidebar-accent-foreground: oklch(0.205 0 0);
+	--sidebar-border: oklch(0.922 0 0);
+	--sidebar-ring: oklch(0.708 0 0);
+	/* 注意を促す帯 (登録前の確認など) の色。差し色とは別系統にする (→ docs/ui.md「UI 全般」)。 */
+	--warning: oklch(0.9673 0.0111 89.72);
+	--warning-foreground: oklch(0.217 0.0038 106.71);
+	--warning-muted: oklch(0.5324 0.0575 88.81);
+	--warning-border: oklch(0.8941 0.0263 92.41);
+	--warning-icon: oklch(0.568 0.0756 87.04);
+}
+
+/* ライトと同じ色相 (106.7) のまま明度を反転する。
+ * 本文・副・補助は地・面・muted のどれの上でも 4.5:1 以上。 */
+.dark {
+	--ground: oklch(0.17 0.003 106.7);
+	--background: oklch(0.21 0.003 106.7);
+	--foreground: oklch(0.95 0.003 106.7);
+	--card: oklch(0.21 0.003 106.7);
+	--card-foreground: oklch(0.95 0.003 106.7);
+	--popover: oklch(0.21 0.003 106.7);
+	--popover-foreground: oklch(0.95 0.003 106.7);
+	/* ライトと同じ色相のまま明度を上げる。暗い地の上でコントラストを満たすため。 */
+	--primary: oklch(0.7 0.08 191.4);
+	--primary-foreground: oklch(0.217 0.0038 106.71);
+	--secondary: oklch(0.27 0.004 106.7);
+	--secondary-foreground: oklch(0.95 0.003 106.7);
+	--muted: oklch(0.27 0.004 106.7);
+	--muted-foreground: oklch(0.72 0.008 106.7);
+	--sub-foreground: oklch(0.8 0.006 106.7);
+	--accent: oklch(0.27 0.004 106.7);
+	--accent-foreground: oklch(0.95 0.003 106.7);
+	--destructive: oklch(0.704 0.191 22.216);
+	--border: oklch(0.33 0.005 106.7);
+	--divider: oklch(0.27 0.004 106.7);
+	/* ライトと同じく border より一段目立たせる (暗い地なので明るくする)。 */
+	--input: oklch(0.4 0.006 106.7);
+	--ring: oklch(0.7 0.08 191.4);
+	--chart-1: oklch(0.87 0 0);
+	--chart-2: oklch(0.556 0 0);
+	--chart-3: oklch(0.439 0 0);
+	--chart-4: oklch(0.371 0 0);
+	--chart-5: oklch(0.269 0 0);
+	--sidebar: oklch(0.205 0 0);
+	--sidebar-foreground: oklch(0.985 0 0);
+	--sidebar-primary: oklch(0.488 0.243 264.376);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.269 0 0);
+	--sidebar-accent-foreground: oklch(0.985 0 0);
+	--sidebar-border: oklch(1 0 0 / 10%);
+	--sidebar-ring: oklch(0.556 0 0);
+	--warning: oklch(0.27 0.02 89);
+	--warning-foreground: oklch(0.92 0.02 89);
+	--warning-muted: oklch(0.85 0.06 89);
+	--warning-border: oklch(0.38 0.03 89);
+	--warning-icon: oklch(0.8 0.06 89);
+}
+
+@theme inline {
+	--font-sans: 'BIZ UDPGothic', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+	/* マニュアルのコードにだけ使う (→ docs/ui.md「UI 全般」)。そのためだけに書体を配布物へ載せず、端末の等幅書体を使う。 */
+	--font-mono: ui-monospace, Menlo, Consolas, monospace;
+	--color-sidebar-ring: var(--sidebar-ring);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar: var(--sidebar);
+	--color-chart-5: var(--chart-5);
+	--color-chart-4: var(--chart-4);
+	--color-chart-3: var(--chart-3);
+	--color-chart-2: var(--chart-2);
+	--color-chart-1: var(--chart-1);
+	--color-ring: var(--ring);
+	--color-input: var(--input);
+	--color-border: var(--border);
+	--color-divider: var(--divider);
+	--color-destructive: var(--destructive);
+	--color-warning: var(--warning);
+	--color-warning-foreground: var(--warning-foreground);
+	--color-warning-muted: var(--warning-muted);
+	--color-warning-border: var(--warning-border);
+	--color-warning-icon: var(--warning-icon);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-accent: var(--accent);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-sub-foreground: var(--sub-foreground);
+	--color-muted: var(--muted);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-secondary: var(--secondary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-primary: var(--primary);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-popover: var(--popover);
+	--color-card-foreground: var(--card-foreground);
+	--color-card: var(--card);
+	--color-foreground: var(--foreground);
+	--color-background: var(--background);
+	--color-ground: var(--ground);
+	--radius-sm: calc(var(--radius) * 0.6);
+	--radius-md: calc(var(--radius) * 0.8);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) * 1.4);
+	--radius-2xl: calc(var(--radius) * 1.8);
+	--radius-3xl: calc(var(--radius) * 2.2);
+	--radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	body {
+		@apply bg-ground text-foreground;
+	}
+	/* 日本語を語の途中で折り返さない (→ docs/ui.md「UI 全般」)。
+	 * auto-phrase は Chrome だけが効き、Safari は通常の折り返しのまま。 */
+	:lang(ja) {
+		word-break: auto-phrase;
+	}
+	html {
+		@apply font-sans;
+	}
+}
+
+/* 部品が説明文に付ける text-balance・text-pretty を、日本語では外す。行の長さを揃えようとして、右端を空けて
+ * 語の途中で折り返すため (→ docs/ui.md「UI 全般」)。部品のクラスは utilities の層にあるので、層の外に書いて上書きする。 */
+:lang(ja) :is([data-slot='alert-dialog-description'], [data-slot='field-description']) {
+	text-wrap: wrap;
+}
+
+/* 画像のビューア (PhotoSwipe) の上部のバーに地を敷く。拡大した画像がバーの下に回っても、
+ * 数字・題名・ボタンが画像の明るさに負けないように (→ docs/ui.md「画像のプレビュー」)。
+ * PhotoSwipe の CSS は後から読まれるので、詳細度を上げて勝たせる。 */
+.pswp .pswp__top-bar {
+	background: rgb(0 0 0 / 0.6);
+}
+
+/* Markdown を組んだ本文 (マニュアル・テキストのビューアのプレビュー) に共通の組み方。
+ * 画面ごとに違う所 (h1 の上の余白・引用・画像・コードの塊の地など) は各画面の style に書く。
+ * 層に入れて、各画面の style (層の外) が詳細度によらず上書きできるようにする。 */
+@layer components {
+	/* 見出しは本文 (16px) から段を空けて、h1 は 24px・h2 は 20px・h3 は 18px (→ docs/help.md)。 */
+	.markdown-body h1 {
+		margin: 1.5rem 0 1rem;
+		font-size: 1.5rem;
+		font-weight: 700;
+	}
+	.markdown-body h2 {
+		margin: 2rem 0 0.5rem;
+		font-size: 1.25rem;
+		font-weight: 700;
+	}
+	.markdown-body h3 {
+		margin: 1.5rem 0 0.5rem;
+		font-size: 1.125rem;
+		font-weight: 700;
+	}
+	.markdown-body p {
+		margin: 0.75rem 0;
+	}
+	/* Tailwind の preflight が `list-style` を外すため、箇条書きがマーカーの無いただの字下げになる。ここで戻す。 */
+	.markdown-body :is(ul, ol) {
+		margin: 0.75rem 0;
+		padding-left: 1.5rem;
+	}
+	.markdown-body ul {
+		list-style: disc;
+	}
+	/* 入れ子の段が同じマーカーだと階層が読み取れない。 */
+	.markdown-body ul ul {
+		list-style: circle;
+	}
+	.markdown-body ol {
+		list-style: decimal;
+	}
+	.markdown-body li {
+		margin: 0.25rem 0;
+	}
+	/* 文字のリンクは常に下線を付ける (→ docs/ui.md「UI 全般」)。
+	 * プレビューは危ないリンクの href を外す (→ $lib/markdown-preview.ts) ので、href のあるものだけをリンクに見せる。 */
+	.markdown-body a[href] {
+		color: var(--primary);
+		text-decoration: underline;
+		text-underline-offset: 4px;
+	}
+	/* どの列を隠してよいか決められない (中身は任意の Markdown) ので、表だけを独立したスクロール領域にして、
+	 * ページ全体は横に動かさない (→ docs/ui.md「UI 全般」)。 */
+	.markdown-body .table-scroll {
+		margin: 0.75rem 0;
+		overflow-x: auto;
+	}
+	.markdown-body .table-scroll:focus-visible {
+		outline: 2px solid var(--ring);
+		outline-offset: 2px;
+	}
+	/* 折り返せるうちは折り返し、詰められなくなったときだけ横に送る。 */
+	.markdown-body table {
+		width: max-content;
+		max-width: 100%;
+		border-collapse: collapse;
+	}
+	.markdown-body :is(th, td) {
+		border: 1px solid var(--border);
+		padding: 0.5rem 0.75rem;
+		text-align: left;
+		vertical-align: top;
+	}
+	.markdown-body th {
+		background: var(--muted);
+		font-weight: 700;
+	}
+	.markdown-body pre {
+		margin: 0.75rem 0;
+		padding: 0.875rem 1rem;
+		border: 1px solid var(--border);
+		border-radius: 0.5rem;
+		overflow-x: auto;
+	}
+	.markdown-body code {
+		font-family: var(--font-mono);
+	}
+	.markdown-body :not(pre) > code {
+		padding: 0.125rem 0.375rem;
+		border-radius: 0.25rem;
+		background: var(--muted);
+	}
+}

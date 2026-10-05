@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM contents WHERE id = ?\n           RETURNING type as \"content_type: ContentType\", blob_hash",
+  "describe": {
+    "columns": [
+      {
+        "name": "content_type: ContentType",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "blob_hash",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "255083e5d7f2f3ac228fad3ec70ab5b7aa959a6d9be3b475e495f624ebb58d1f"
+}

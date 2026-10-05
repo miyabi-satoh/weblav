@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO users (username, password_hash, role, recovery_code_hash) VALUES (?, ?, ?, ?)\n           RETURNING id as \"id!\", created_at",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "30b84db13cf89779057b7773440d0ef80955f5b9911daa87d5fbeebd0e27f6f9"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE contents SET title_template = REPLACE(title_template, ?, ?) WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "d65e81646cce41074abfaae942d89d86673b04725f520dcec0509f9c1d6b363c"
+}

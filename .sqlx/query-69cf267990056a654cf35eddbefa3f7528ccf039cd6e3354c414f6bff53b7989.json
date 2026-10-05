@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO link_previews (url, shown_at) SELECT value, ? FROM json_each(?) WHERE true\n           ON CONFLICT (url) DO UPDATE SET shown_at = excluded.shown_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "69cf267990056a654cf35eddbefa3f7528ccf039cd6e3354c414f6bff53b7989"
+}

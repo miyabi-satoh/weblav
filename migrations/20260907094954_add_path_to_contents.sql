@@ -1,0 +1,15 @@
+-- folder コンテンツ用に path (サーバー上の絶対パス) を追加する。
+--
+-- 対応関係: type='link' の行は path=NULL/url必須、type='folder' の行は
+-- url=NULL/path必須 (「typeごとにどちらが必須か」はアプリケーション層(Rust)で検証する。
+-- 既存の url カラムと同じ方針)。
+--
+-- 保存する値は書き込み時に std::fs::canonicalize したシンボリックリンク解決済みの
+-- 絶対パス文字列にする(閲覧時に再度 canonicalize した実体パスと starts_with 比較して
+-- パストラバーサルを防ぐため。canonicalize しない生の入力を保存すると、macOSの
+-- /tmp -> /private/tmp のようなシンボリックリンクで比較が常に不一致になってしまう)。
+--
+-- ルートフォルダの事前登録・SMB共有対応(MOSK由来の構想)は、実ユーザーの要件が
+-- 出るまで着手しない(CLAUDE.local.md の YAGNI 判断を踏襲。管理画面から任意の
+-- 絶対パスを直接指定する運用とする)。
+ALTER TABLE contents ADD COLUMN path TEXT;

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT deleted_at IS NOT NULL as \"deleted!: bool\" FROM roots WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "deleted!: bool",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "84b14103cc0f2f8e2b04dd3694a5923675daaccd01de98627f6a71240e35a86d"
+}

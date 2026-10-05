@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "WITH RECURSIVE lineage(id, parent_id, title, visibility, created_by, depth) AS (\n               SELECT id, parent_id, title, visibility, created_by, 0 FROM contents WHERE id = ?1\n               UNION ALL\n               SELECT c.id, c.parent_id, c.title, c.visibility, c.created_by, l.depth + 1\n               FROM contents c JOIN lineage l ON c.id = l.parent_id\n           )\n           SELECT id as \"id!\", title as \"title!\", visibility as \"visibility!: Visibility\",\n                  created_by as \"created_by?\"\n           FROM lineage ORDER BY depth",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "title!",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "visibility!: Visibility",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_by?",
+        "ordinal": 3,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "ed84f307d5c16ac8a1cf679368ff6af35101abcf5c6a2eab23082aad8913aa1b"
+}

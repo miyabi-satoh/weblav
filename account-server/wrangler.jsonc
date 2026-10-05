@@ -1,0 +1,86 @@
+// 窓口 (→ docs/pro.md「アカウントと販売の窓口」)。秘密の値は `wrangler secret put` で置く (手元では .dev.vars)。
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "weblav-account",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-08-22",
+	"observability": { "enabled": true },
+	// 本番のホスト名 (→ docs/pro.md「アカウントと販売の窓口」)。workers.dev には出さず、窓口の URL を1つにする。
+	"routes": [{ "pattern": "weblav.amiiby.com", "custom_domain": true }],
+	"workers_dev": false,
+	// 紹介と規約類 (site/ をビルドしたもの)。窓口の画面 (`/account`) と WebLAV・Stripe が呼ぶ `/v1/` は Worker が受ける。
+	// `pnpm run deploy` と `just dev-account-server` が先にビルドする。テストは使わない。
+	"assets": {
+		"directory": "../site/dist",
+		"not_found_handling": "404-page",
+		"html_handling": "force-trailing-slash",
+		"run_worker_first": ["/account", "/account/*", "/v1/*"]
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "weblav-account",
+			// 本番の D1。手元 (wrangler dev・テスト) では使われない。
+			"database_id": "9b8c9b9b-7a31-45b2-b86d-8d2343329672",
+			"migrations_dir": "migrations"
+		}
+	],
+	// 送り主ごとの上限 (→ src/index.ts の limited)。period は 10 か 60 (秒) だけ。
+	// namespace_id はアカウントの中で重ならない数。
+	"ratelimits": [
+		// 結んだ WebLAV からの確かめと外す: IP ごと。1台の WebLAV が試し直しても当たらない数。
+		{
+			"name": "INSTALLATION_LIMITER",
+			"namespace_id": "1001",
+			"simple": { "limit": 10, "period": 60 }
+		},
+		// サインインのリンクを送る: IP ごと。宛先を変えての送りつけを止める。
+		{ "name": "EMAIL_LIMITER", "namespace_id": "1002", "simple": { "limit": 5, "period": 60 } },
+		// 結ぶ: アカウントごと。返しのコードのメールも送るため。
+		{ "name": "LINK_LIMITER", "namespace_id": "1003", "simple": { "limit": 10, "period": 60 } }
+	],
+	// 生成する型 (worker-configuration.d.ts) にも効く。手元の .dev.vars の中身で型が変わらないよう、ここで決める。
+	"secrets": { "required": ["PROOF_SIGNING_KEY", "PROOF_KID", "LINK_KEY", "LINK_KID"] },
+	"vars": {
+		"MAIL_FROM": "WebLAV <noreply@weblav.amiiby.com>",
+		// 払われたのに Pro を付けられなかった請求書を知らせる宛先。
+		"OPERATOR_EMAIL": "support@amiiby.com",
+		// 国内の支払いに付ける手動の税率「消費税 10%・税込み」(→ src/stripe.ts)。秘密ではないので vars に置く。
+		"STRIPE_TAX_RATE_ID": "txr_1UM7mJPXESUJaYKotwoV79Pu"
+	},
+	// サンドボックスの Stripe で買う流れを通して確かめる検証用。
+	// `--env staging` で置く。workers.dev に出し、本番のホスト名は使わない。
+	// 環境ごとに書き直す決まりの項目 (D1・上限・secret・vars) は、本番と同じ形で書き直す。
+	"env": {
+		"staging": {
+			"routes": [],
+			"workers_dev": true,
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "weblav-account-staging",
+					"database_id": "214d6e96-727c-48ce-9322-9dfeaf12b669",
+					"migrations_dir": "migrations"
+				}
+			],
+			"ratelimits": [
+				{
+					"name": "INSTALLATION_LIMITER",
+					"namespace_id": "1011",
+					"simple": { "limit": 10, "period": 60 }
+				},
+				{ "name": "EMAIL_LIMITER", "namespace_id": "1012", "simple": { "limit": 5, "period": 60 } },
+				{ "name": "LINK_LIMITER", "namespace_id": "1013", "simple": { "limit": 10, "period": 60 } }
+			],
+			"secrets": { "required": ["PROOF_SIGNING_KEY", "PROOF_KID", "LINK_KEY", "LINK_KID"] },
+			// メールは送らず、サインインのリンクをログに出す (`wrangler tail --env staging` で読む)。
+			"vars": {
+				"MAIL_FROM": "WebLAV <noreply@weblav.amiiby.com>",
+				"MAIL_LOG_ONLY": "1",
+				"OPERATOR_EMAIL": "support@amiiby.com",
+				// サンドボックスの税率。
+				"STRIPE_TAX_RATE_ID": "txr_1UM7jvBdeu1RIibiRtWDeFKZ"
+			}
+		}
+	}
+}

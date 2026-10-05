@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT role as \"role!: Role\", COUNT(*) as \"count!: i64\" FROM users GROUP BY role",
+  "describe": {
+    "columns": [
+      {
+        "name": "role!: Role",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "count!: i64",
+        "ordinal": 1,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "27af7c2386e2adf061b48548bb7781f1c68b42467e2ba1c3618f48569188feb8"
+}

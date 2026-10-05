@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM archive_items WHERE archive_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "503fd2361cea0d947c60c0fb2b1fc2327070afc48f9118ed299b3a3bedb96b6d"
+}

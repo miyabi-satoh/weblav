@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT b.path, b.bookmark FROM folder_bookmarks b\n         JOIN roots r ON r.path = b.path AND r.deleted_at IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "name": "path",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "bookmark",
+        "ordinal": 1,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "d7c361f6f56ab5f0529e1e8ba748ff1064d9b52a10c8941220b8df1b7005363a"
+}

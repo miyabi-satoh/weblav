@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE site_settings SET site_name = ?, home_heading = ? WHERE id = 1\n           RETURNING site_name as \"site_name!\", home_heading as \"home_heading!\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "site_name!",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "home_heading!",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "00fbe10abecd1fac6b3756dd9ee8c79a4fd5719202741d6e647d9d14245c9bc3"
+}

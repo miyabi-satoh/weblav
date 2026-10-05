@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT visibility as \"visibility: Visibility\" FROM contents WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "visibility: Visibility",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f9460a3fe31a09827fe510a2b505a29787a5c3da71c09da20fd3c698c07c541d"
+}

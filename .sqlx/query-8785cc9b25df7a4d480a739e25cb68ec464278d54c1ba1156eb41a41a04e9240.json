@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT rel_path, published FROM archive_items WHERE archive_id = ? ORDER BY rel_path",
+  "describe": {
+    "columns": [
+      {
+        "name": "rel_path",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "published",
+        "ordinal": 1,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "8785cc9b25df7a4d480a739e25cb68ec464278d54c1ba1156eb41a41a04e9240"
+}

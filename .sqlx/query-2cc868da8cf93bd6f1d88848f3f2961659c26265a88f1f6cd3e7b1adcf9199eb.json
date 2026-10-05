@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT (EXISTS(SELECT 1 FROM archive_axes WHERE archive_id = ?1)\n                   OR title_template IS NOT NULL) as \"replaces!: bool\"\n           FROM contents WHERE id = ?1",
+  "describe": {
+    "columns": [
+      {
+        "name": "replaces!: bool",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2cc868da8cf93bd6f1d88848f3f2961659c26265a88f1f6cd3e7b1adcf9199eb"
+}

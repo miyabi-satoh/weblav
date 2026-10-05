@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT EXISTS (\n               SELECT 1 FROM roots\n               WHERE name = ? COLLATE NOCASE AND deleted_at IS NULL AND id IS NOT ?\n           ) as \"taken!: bool\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "taken!: bool",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "74d5316c690c529841f93d4e828a1ad07b75fae7432a03dd5b3260d6d31a94a8"
+}

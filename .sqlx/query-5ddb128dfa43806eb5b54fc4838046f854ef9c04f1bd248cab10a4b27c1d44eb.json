@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT DISTINCT blob_hash as \"blob_hash!\" FROM contents WHERE blob_hash IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "name": "blob_hash!",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "5ddb128dfa43806eb5b54fc4838046f854ef9c04f1bd248cab10a4b27c1d44eb"
+}

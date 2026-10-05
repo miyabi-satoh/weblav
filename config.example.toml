@@ -1,0 +1,50 @@
+# weblav の設定ファイルサンプル。
+#
+# 実行時に読みに行く場所:
+#   - 環境変数 WEBLAV_HOME が設定されていれば $WEBLAV_HOME/config.toml
+#     (DB・セッション鍵・ログも同じディレクトリ直下に置かれる。Docker / systemd 向け)
+#   - 無ければユーザーのアプリデータディレクトリ (directories::ProjectDirs)
+#     - Windows: %APPDATA%\amiiby\weblav\config\config.toml
+#     - macOS:   ~/Library/Containers/com.amiiby.weblav/Data/Library/Application Support/com.amiiby.weblav/config.toml
+#                (.app はサンドボックスで動くのでコンテナの中。weblav-service は ~/Library/Application Support/com.amiiby.weblav)
+#     - Linux:   ~/.config/weblav/config.toml
+#   変えたら WebLAV を終了して起動し直す。
+# ファイルが存在しない場合はここに示す値がそのままデフォルトとして使われる。
+
+[server]
+# LAN 上の他端末 (タブレット・スマートフォン) から使う想定のため、既定では全インターフェースで
+# 待ち受ける。閉じたネットワークでの運用が前提で、インターネットには公開しない。
+# サーバー PC からしか使わない場合は "127.0.0.1" にする。
+bind = "0.0.0.0"
+port = 3000
+
+[log]
+# tracing-subscriber の EnvFilter 書式。環境変数 RUST_LOG があればそちらを優先する。
+# 管理画面のサイト設定で、起動し直さずに詳しいログ (debug) へ切り替えられる (起動し直すとここの値に戻る)。
+filter = "info"
+# "stdout" | "file"
+# file の場合の出力先 (日次ローテーション: weblav.log.YYYY-MM-DD、日付は UTC。14日分を残し、古いものから消す):
+#   - WEBLAV_HOME 設定時: $WEBLAV_HOME/logs/
+#   - macOS:   ~/Library/Containers/com.amiiby.weblav/Data/Library/Application Support/com.amiiby.weblav/logs/
+#   - Linux:   ~/.local/share/weblav/logs/
+#   - Windows: %LOCALAPPDATA%\amiiby\weblav\data\logs\
+# stdout はターミナルから動かす開発時向け。ダブルクリックで起動したタスクトレイは
+# コンソールを持たないので、出力先が無くログが消える。
+output = "file"
+
+[session]
+# セッションCookieの署名鍵。base64エンコードされた64バイトである必要がある。
+# 空のままにした場合は初回起動時に自動生成してデータディレクトリの session.key に保存し、
+# 以降は再利用する(このファイルを削除すると全セッションが失効する)。
+# 複数インスタンスで鍵を共有したい場合などにだけ明示設定する。
+secret = ""
+# セッションCookieにSecure属性を付与するか。
+# 既定は LAN 内の HTTP で使うため無効。
+# リバースプロキシ等でHTTPS終端している場合はtrueにする (→ マニュアル「設置する」の「HTTPS で使う」)。
+secure_cookie = false
+# 最終アクセスからこの日数が経過したセッションを失効させる。1以上の値のみ指定できる。
+expiry_days = 14
+
+[upload]
+# ファイルアップロード型コンテンツ1件あたりの最大サイズ(MiB)。
+max_size_mb = 100

@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE archive_axes\n           SET name = ?, source = ?, dir_level = ?, optional_in_title = ?,\n               filterable = ?, position = ?\n           WHERE id = ? AND archive_id = ?\n           RETURNING id as \"id!\", name, source as \"source: AxisSource\", dir_level,\n                     optional_in_title as \"optional_in_title: bool\",\n                     filterable as \"filterable: bool\", position",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "source: AxisSource",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "dir_level",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "optional_in_title: bool",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "filterable: bool",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "position",
+        "ordinal": 6,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 8
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "0f69f6564a2302d918346a1c020c3d8ecfd9fc255b348a104ab3e8e01965257c"
+}

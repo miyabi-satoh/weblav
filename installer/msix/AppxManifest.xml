@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  WebLAV の MSIX のマニフェスト (→ docs/distribution.md「MSIX (Windows)」)。
+  `just msix` (scripts/msix.mjs) が {{VERSION}}・{{PUBLISHER}} を埋め、exe とロゴを並べて makeappx に渡す。
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:desktop2="http://schemas.microsoft.com/appx/manifest/desktop/windows10/2"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap desktop desktop2 rescap">
+
+  <!-- Publisher は署名に使う証明書の Subject と一致させる。 -->
+  <Identity Name="amiiby.WebLAV" Publisher="{{PUBLISHER}}" Version="{{VERSION}}" ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>WebLAV</DisplayName>
+    <PublisherDisplayName>amiiby</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="ja-JP" />
+    <Resource Language="en-US" />
+  </Resources>
+
+  <Applications>
+    <Application Id="WebLAV" Executable="weblav.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="WebLAV"
+        Description="WebLAV"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png" />
+      <Extensions>
+        <!-- ログインしたときに起動する。利用者が一度起動した後に有効になり、「設定」やタスクマネージャーで止められる。 -->
+        <desktop:Extension Category="windows.startupTask" Executable="weblav.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="WebLAV" Enabled="true" DisplayName="WebLAV" />
+        </desktop:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Extensions>
+    <!-- ポートではなく exe で許可する (config.toml でポートを変えても効き続けるため)。パブリックのネットワークは許可しない (LAN の中だけで使う)。 -->
+    <desktop2:Extension Category="windows.firewallRules">
+      <desktop2:FirewallRules Executable="weblav.exe">
+        <desktop2:Rule Direction="in" IPProtocol="TCP" Profile="domainAndPrivate" />
+      </desktop2:FirewallRules>
+    </desktop2:Extension>
+  </Extensions>
+
+  <Capabilities>
+    <!-- internetClientServer は付けない: Windows の実機で確かめたところ、この capability があると
+         Windows が「パブリックのネットワークも含む」受信規則 (…-In-Allow-ServerCapability) を
+         自動で足してしまい、windows.firewallRules で絞った domainAndPrivate だけの規則より広く
+         穴を開けてしまう。パブリックのネットワークは許可しないので外す。
+         privateNetworkClientServer だけでも LAN からの接続は通ることを実機で確認済み。 -->
+    <Capability Name="privateNetworkClientServer" />
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

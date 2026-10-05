@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT type as \"content_type: ContentType\", blob_hash, file_name, file_size,\n                  visibility as \"visibility: Visibility\", created_by\n           FROM contents WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "content_type: ContentType",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "blob_hash",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "file_name",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "file_size",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "visibility: Visibility",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_by",
+        "ordinal": 5,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "de69646c072a53c6e63b2be03812a76c8f35021bb5d6aedafb1ab8cc239d6df8"
+}

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- macOS メニューバー用のテンプレート画像。色は使われず不透明度だけが効く。
+       隣に並ぶ線画のアイコンに合わせ、icon.svg の角丸の地を枠線にして「W」を置く。 -->
+  <rect x="2.5" y="2.5" width="27" height="27" rx="6.5" stroke="#000000" stroke-width="2.4" fill="none"/>
+  <path d="M9 11 12.6 21.5 16 14l3.4 7.5L23 11" stroke="#000000" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

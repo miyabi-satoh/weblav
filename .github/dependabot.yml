@@ -1,0 +1,73 @@
+version: 2
+
+# 各エコシステムの定期バージョン更新を1本のPRにまとめる。個別PRだとレビューの手間が
+# 依存の数だけ増えるため。間隔を monthly にしているのも同じ理由(開いたままのPRが
+# スケジュール実行やmainとの競合でリベースされるたびにレビューし直す手間を減らす)。
+# 更新の取り込みが月次チェックと既定の cooldown のぶん遅れることは、この規模の
+# プロジェクトでは許容する。
+#
+# まとめるのは minor / patch のみ。major は個別のPRのままにする。
+# major は破壊的変更を含みうるので手当てが要り、まとめると1件の失敗が同じPRに乗った
+# 他の更新まで巻き込む。
+# security update はこのファイルの groups の対象外 (applies-to の既定値が
+# version-updates のため) で、ここでまとめられることはない (リポジトリ・organization 側
+# の security update のグループ化設定は別)。起動もスケジュールではなく advisory 起点
+# なので、上記の月次スケジュールには従わない。セキュリティ更新は個別に判断したいので
+# このままでよい。
+updates:
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      cargo-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # crates.io にある最新の tower-sessions-sqlx-store 0.15.0 が sqlx ^0.8・
+      # tower-sessions ^0.14 を要求するため、sqlx は 0.8系、tower-sessions は 0.14系に
+      # 留めている (2026-09 時点。上流の main は sqlx 0.9・tower-sessions 0.15 に
+      # 移っているが未リリース)。0.x系は minor の繰り上がりも破壊的変更を意味しうる
+      # ため、semver-minor も合わせて無視し patch 更新のみ自動PR化する
+      # (固定バージョンを上げる場合は手動で Cargo.toml を更新すること)。
+      - dependency-name: "sqlx"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "tower-sessions"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "tower-sessions-sqlx-store"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "monthly"
+    groups:
+      npm-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "npm"
+    directory: "/account-server"
+    schedule:
+      interval: "monthly"
+    groups:
+      account-server-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "npm"
+    directory: "/site"
+    schedule:
+      interval: "monthly"
+    groups:
+      site-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]

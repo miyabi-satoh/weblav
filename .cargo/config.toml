@@ -1,0 +1,5 @@
+# Windows では MSVC のランタイムを exe に埋め込む (→ docs/distribution.md「ビルド・配布の方法」)。
+# 既定の動的リンクだと vcruntime140.dll などが要り、Visual C++ の再頒布可能パッケージが
+# 入っていない素の Windows で起動できないおそれがある。
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

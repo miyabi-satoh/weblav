@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT type as \"content_type!: ContentType\", COUNT(*) as \"count!: i64\" FROM contents GROUP BY type",
+  "describe": {
+    "columns": [
+      {
+        "name": "content_type!: ContentType",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "count!: i64",
+        "ordinal": 1,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "38a682bc3525b8cbdcec1cc3bf5422273fd89b5e2ee46a7160687f786ce6336c"
+}

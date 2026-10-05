@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT url, title, site_name, published_at, image_file, icon_file\n           FROM link_previews WHERE url IN (SELECT value FROM json_each(?))",
+  "describe": {
+    "columns": [
+      {
+        "name": "url",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "title",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "site_name",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "published_at",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "image_file",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "icon_file",
+        "ordinal": 5,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "a3799bac2c0f1df3424ce281d7cdd8c929c2a545a4c7ba9512229425cc3df7ef"
+}

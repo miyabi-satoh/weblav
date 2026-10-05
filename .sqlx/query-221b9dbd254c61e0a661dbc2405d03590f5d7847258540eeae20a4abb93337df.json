@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT site_name as \"site_name!\", home_heading as \"home_heading!\"\n           FROM site_settings WHERE id = 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "site_name!",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "home_heading!",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "221b9dbd254c61e0a661dbc2405d03590f5d7847258540eeae20a4abb93337df"
+}

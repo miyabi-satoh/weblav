@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT rel_path FROM archive_items WHERE id = ? AND archive_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "rel_path",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1c5d9d8553864be8d1a0de48880b5dbbdc42e3fa248e9f73c6db8db46d50d930"
+}

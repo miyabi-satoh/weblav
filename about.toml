@@ -1,0 +1,62 @@
+# 配布物に入る Rust の依存のライセンス表示を作る cargo-about の設定 (→ docs/third-party-licenses.md)。
+# `just licenses` から使う。ここに無いライセンスの依存が入ると生成が止まるので、そのときは中身を確かめてから足す。
+accepted = [
+    "0BSD",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    # ureq の native-tls 機能が引く webpki-root-certs (Mozilla のルート証明書の一覧というデータ)。
+    # 寛容なライセンスで、条文は生成物に同梱される。
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+# 配るのは Windows だが、参考扱いの macOS・Linux のビルドに入る依存も表示に含める。
+targets = ["x86_64-pc-windows-msvc", "aarch64-apple-darwin", "x86_64-unknown-linux-gnu"]
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+# weblav 自身は表示しない。
+private = { ignore = true }
+
+# 条文のファイルを同梱しているのに、cargo-about が読み取れずに SPDX のひな形 (著作権者が空欄) を出すクレート。
+# ファイルを指して読ませる。checksum は同梱のファイルの SHA-256 で、版が変わって中身が変わると一致しなくなり、
+# ひな形に戻る。そのときは scripts/generate-rust-licenses.mjs の検査が生成を止めるので、中身を確かめて直す。
+# ファイルを同梱していないクレートは、ここでは直せない (取りに行くとネットが要る) ので、
+# license-texts/ に置いた条文で差し替える (→ scripts/generate-rust-licenses.mjs の OVERRIDES)。
+[dpi.clarify]
+license = "Apache-2.0 AND MIT"
+
+[[dpi.clarify.files]]
+path = "LICENSE"
+license = "Apache-2.0"
+checksum = "6dc0e068dcf3a5bc8e054205b85b7720e1d49265bbc64bf515d2cf79197df69a"
+
+# dpi が同梱している、rust-lang/libm に由来する部分の条文と著作権表示。
+[[dpi.clarify.files]]
+path = "LICENSE-LIBM-MIT"
+license = "MIT"
+checksum = "9eff396a99bafd208e7126602420d6864f6066c08b84485a5b032320a9c01997"
+
+# ファイルを指さないと、ライセンスの注釈を頭に持つソースファイル (src/gb18030_2022.rs) を BSD-3-Clause の本文として拾う。
+[encoding_rs.clarify]
+license = "(Apache-2.0 OR MIT) AND BSD-3-Clause"
+
+[[encoding_rs.clarify.files]]
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+checksum = "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+
+[[encoding_rs.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "3fa4ca83dcc9237839b1bdeb2e6d16bdfb5ec0c5ce42b24694d8bbf0dcbef72c"
+
+[[encoding_rs.clarify.files]]
+path = "LICENSE-WHATWG"
+license = "BSD-3-Clause"
+checksum = "838118388fe5c2e7f1dbbaeed13e1c7f3ebf88be91319c7c1d77c18e987d1a50"

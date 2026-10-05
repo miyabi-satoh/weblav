@@ -1,0 +1,34 @@
+*.local.*
+.DS_Store
+
+# lefthook (pre-commit/pre-push hook) 導入用。ルート直下にのみ package.json を置く
+# (frontend/ は別管理)
+/node_modules
+
+# ローカル実行時の設定・データ(OSのアプリデータディレクトリではなくリポジトリ直下で試す場合用)
+/data
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# sqlx compile-time query check 用(DATABASE_URL は各自ローカルで設定する)
+.env
+
+# Added by cargo
+
+/target
+
+# `just msix` の配布物 (バージョン付きmsix)。都度生成するのでコミットしない
+/dist
+
+# Playwright CLI(ローカルでの動作確認用、npx @playwright/cli が生成する)
+/.playwright-cli
+
+# `just spec` の生成物(ローカルでの確認用、コミットしない)
+/docs/generated
+
+# 紹介サイト (site/) の依存と生成物
+/site/node_modules
+/site/dist
+/site/.astro

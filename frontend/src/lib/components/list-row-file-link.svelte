@@ -1,0 +1,45 @@
+<script lang="ts">
+	import type { Snippet } from 'svelte';
+	import FileIcon from '@lucide/svelte/icons/file';
+	import { fileViewer, type ViewerFile } from '$lib/file-viewer.svelte';
+	import { isPlainClick } from '$lib/image-viewer';
+	import { browseRowClass } from '$lib/list-row';
+	import ListRowIcon from '$lib/components/list-row-icon.svelte';
+
+	// 閲覧側の一覧の、ページ内のビューアで開く PDF・動画・テキストなどの行・タイル (→ $lib/list-row.ts)。
+	// 画像の行 (list-row-image-link.svelte) と同じく、元のファイルへの直リンクのまま置き、
+	// 修飾キー付きのクリックや長押しのメニューではブラウザに任せて新しいタブで開けるようにする。
+	let {
+		file,
+		files,
+		compact = false,
+		children
+	}: {
+		/** `files` と同じ組み立て方で作る (押した行を `files` の中から `src` で探すため)。 */
+		file: ViewerFile;
+		/** この行が並ぶ一覧の、ビューアで開くファイル (表示順)。ビューアの前・次のファイルになる。 */
+		files: ViewerFile[];
+		/** フォルダ一覧の詰めた行 (`browseRowClass(true)`) にする。タイルには効かない。 */
+		compact?: boolean;
+		/** アイコンの右に置く、行の文字。 */
+		children: Snippet;
+	} = $props();
+
+	function handleClick(event: MouseEvent) {
+		if (!isPlainClick(event)) return;
+		event.preventDefault();
+		fileViewer.show(file, files);
+	}
+</script>
+
+<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
+<a
+	href={file.src}
+	class={browseRowClass(compact)}
+	target="_blank"
+	rel="external noopener noreferrer"
+	onclick={handleClick}
+>
+	<ListRowIcon icon={FileIcon} {compact} thumbnail={file.thumbnail} />
+	{@render children()}
+</a>

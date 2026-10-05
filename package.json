@@ -1,0 +1,14 @@
+{
+  "name": "weblav",
+  "private": true,
+  "packageManager": "pnpm@11.3.0",
+  "devDependencies": {
+    "lefthook": "^2.1.14",
+    "sharp": "0.35.4",
+    "to-ico": "1.1.5"
+  },
+  "scripts": {
+    "prepare": "lefthook install",
+    "generate:icon": "node scripts/generate-icon.mjs"
+  }
+}

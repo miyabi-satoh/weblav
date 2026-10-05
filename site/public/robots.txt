@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: /account
+
+Sitemap: https://weblav.amiiby.com/sitemap-index.xml

@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT type as \"content_type: ContentType\", title, path, extensions,\n                  visibility as \"visibility: super::contents::Visibility\", created_by,\n                  title_template\n           FROM contents WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "content_type: ContentType",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "title",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "path",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "extensions",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "visibility: super::contents::Visibility",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_by",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "title_template",
+        "ordinal": 6,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "633636503fe6fde40a4499ac7b99c4ee93149364412ab5668d99075ee1ae4a62"
+}

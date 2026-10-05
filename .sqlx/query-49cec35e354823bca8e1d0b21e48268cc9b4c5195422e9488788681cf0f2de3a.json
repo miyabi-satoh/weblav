@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE users SET password_hash = ?, recovery_code_hash = ?\n           WHERE id = ? AND recovery_code_hash = ?\n           RETURNING username, role as \"role: Role\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "username",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "role: Role",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "49cec35e354823bca8e1d0b21e48268cc9b4c5195422e9488788681cf0f2de3a"
+}

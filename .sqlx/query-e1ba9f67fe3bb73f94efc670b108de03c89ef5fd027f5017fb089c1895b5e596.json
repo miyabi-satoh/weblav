@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO folder_bookmarks (path, bookmark) VALUES (?, ?)\n         ON CONFLICT (path) DO UPDATE SET bookmark = excluded.bookmark",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "e1ba9f67fe3bb73f94efc670b108de03c89ef5fd027f5017fb089c1895b5e596"
+}

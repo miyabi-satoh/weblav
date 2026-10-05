@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE link_previews SET checked_at = ?\n           WHERE url = ? AND fresh_until <= ? AND checked_at <= ?\n           RETURNING etag, last_modified, image_source, image_file, icon_source, icon_file",
+  "describe": {
+    "columns": [
+      {
+        "name": "etag",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "last_modified",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "image_source",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "image_file",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "icon_source",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "icon_file",
+        "ordinal": 5,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "c99ea0c1917c2b82c07badfd4d01407fde608e975f2757d2ad51556aef8967e1"
+}

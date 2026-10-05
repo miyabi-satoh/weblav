@@ -1,0 +1,27 @@
+# pre-commit hook。openapi.json / schema.d.ts / .sqlx の再生成漏れをローカルで検知する。
+#
+# - api-types: src/**/*.rs を変更したら openapi.json / frontend/src/lib/api/schema.d.ts が
+#   最新か確認する
+# - sqlx-prepare: src/**/*.rs または migrations/**/*.sql を変更したら .sqlx/ が最新か確認する
+#   (要 開発用の DB。作り方は DEVELOPMENT.md の「sqlx (コンパイル時クエリチェック)」)
+# - licenses: Cargo.lock / about.toml / 差し替えの条文・生成と整形のスクリプトを変更したら、Rust の依存のライセンス表示が最新か確認する
+pre-commit:
+  jobs:
+    - name: api-types
+      glob: "src/**"
+      run: just api-types-check
+
+    - name: sqlx-prepare
+      glob: "{src/**,migrations/**}"
+      run: just sqlx-prepare-check
+
+    - name: licenses
+      glob: "{Cargo.lock,about.toml,license-texts/**,scripts/generate-rust-licenses.mjs,scripts/license-display.mjs}"
+      run: just licenses-check
+
+# push の前に、すぐ終わる整形の検査だけを流す。CI (GitHub Actions) で落ちる理由のうち、いちばん多い整形の崩れを
+# 手元で先に止めるため。全部の検査 (`just ci`) は CI が PR ごとに流し、通ることをマージの条件にしている。
+pre-push:
+  commands:
+    fmt-check:
+      run: just fmt-check

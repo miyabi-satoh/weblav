@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT EXISTS (SELECT 1 FROM link_previews WHERE image_file = ?1 OR icon_file = ?1) as \"referenced!: bool\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "referenced!: bool",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c9219965b441c429682c1cab25e5226a6360ffb8927a589ad967c7d3021747e1"
+}

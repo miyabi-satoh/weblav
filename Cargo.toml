@@ -1,0 +1,175 @@
+[package]
+name = "weblav"
+version = "0.1.0"
+description = "Web-based Local Access Viewer"
+edition = "2024"
+# tray-icon 0.25 (と muda 0.20) が Rust 1.90 を要する。
+rust-version = "1.90"
+# crates.io には出さない。cargo-about の `private.ignore` もこれを見て、ライセンス表示から weblav 自身を外す。
+publish = false
+# CLI は src/bin/weblav-cli.rs、サーバーだけを動かす exe は src/bin/weblav-service.rs に分けてある
+# (→ docs/distribution.md「コンソールの扱い」・「常駐 (Windows)」)。`cargo run` はタスクトレイを起動する。
+default-run = "weblav"
+# Windows向けにexeのバージョン情報・アイコンを埋め込む(→ build.rs、docs/distribution.md)。
+# 他のOSではbuild.rs自体が何もしない (winresourceもcfg(windows)専用の依存)。
+build = "build.rs"
+
+# exeのプロパティに出る値 (→ build.rs)。ProductVersionは[package]のversionを
+# 既定で使う。FileDescriptionは既定だとcrate名("weblav")になる
+# (winresourceの仕様。Windowsがツールやダイアログにアプリ名として出す値のため)。
+[package.metadata.winresource]
+ProductName = "WebLAV"
+FileDescription = "WebLAV"
+OriginalFilename = "weblav.exe"
+
+[dependencies]
+argon2 = "0.6.0"
+# セッションストアを包むため (→ src/session.rs)。tower-sessions の `SessionStore` がこの形。既に引いている。
+async-trait = "0.1.92"
+axum = { version = "0.8.9", features = ["multipart"] }
+base64 = "0.23.1"
+directories = "6.0.0"
+# Pro の証明の署名を確かめる (→ src/pro.rs)。確かめるだけなので、署名を速くする前計算の表 (`fast`) は入れない。
+ed25519-dalek = { version = "3.0.0", default-features = false }
+# 初回セットアップのトークンとバックアップの作業用の名前の乱数に使う (→ src/api/random_hex)。
+# password-hash が同じ版を既に引いているため、依存が増えるわけではない。
+getrandom = "0.4.3"
+# Pro の結び付きの秘密と符号 (→ src/pro/link.rs)。sha2 0.11 と合う版。
+hkdf = "0.13.0"
+hmac = "0.13.0"
+# リンクのカードの情報を覚える期限を、応答の日付のヘッダーから決める (→ src/api/link_preview.rs)。hyper が既に引いている版。
+httpdate = "1.0.3"
+# 縮小画像とリンクのカードの画像に使う。`ico` はサイトのアイコン (favicon.ico) を読むため。
+image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "gif", "webp", "bmp", "ico"] }
+mime_guess = "2.0.5"
+open = "5.4.3"
+percent-encoding = "2.3.2"
+rfd = "0.17.2"
+rpassword = "7.5.4"
+rust-embed = "8.12.0"
+serde = { version = "1.0.229", features = ["derive"] }
+# バックアップの zip に入れる目録 (→ src/api/backup)。axum が既に引いている。
+serde_json = "1.0.151"
+sha2 = "0.11.0"
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "macros", "migrate"] }
+tao = "0.37.0"
+thiserror = "2.0.20"
+time = "0.3.55"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "net", "macros", "fs", "io-util", "signal", "time"] }
+# 管理画面からのログとバックアップのダウンロードを、メモリに載せずに流す (→ src/api/logs.rs・src/api/backup)。
+tokio-util = { version = "0.7.19", features = ["io", "io-util"] }
+toml = "1.1.5"
+# 管理画面から config.toml を書き換えるとき、手で書いたほかの項目とコメントを残す (→ src/api/server_settings.rs)。
+toml_edit = "0.25.15"
+tower = { version = "0.5.3", features = ["util"] }
+tower-http = { version = "0.7.1", features = ["compression-gzip", "fs", "set-header", "trace"] }
+tower-sessions = { version = "0.14", default-features = false, features = [
+    "axum-core",
+    "signed",
+] }
+tower-sessions-sqlx-store = { version = "0.15.0", features = ["sqlite"] }
+tracing = "0.1.44"
+tracing-appender = "0.2.5"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+tray-icon = "0.25.1"
+# リンクの作成時にページのタイトルを取る (→ src/api/link_title.rs)。TLS は OS の
+# 証明書ストアを使う native-tls にする。学校や事務所のプロキシが入れた証明書も通り、
+# ring のような C のビルドも要らない。native-tls は同梱の Mozilla のルート証明書も引くが、
+# 実行時は使わない (`RootCerts::PlatformVerifier`)。
+ureq = { version = "3.4.2", default-features = false, features = ["native-tls"] }
+# リンクのカードの画像とアイコンの相対 URL を、ページを基準に解決する (→ src/api/link_title.rs)。sqlx が既に引いている版。
+url = "2.5.8"
+utoipa = { version = "6.0.0", features = ["axum_extras"] }
+utoipa-axum = "0.3.0"
+walkdir = "2.5.0"
+# Pro の結び付きの秘密を、窓口の公開鍵と組み合わせて導く (→ src/pro/link.rs)。
+x25519-dalek = "3.0.0"
+# バックアップを1つの zip にする (→ src/api/backup)。圧縮は deflate だけにし、
+# 既に依存に入っている flate2 (zlib-rs) を使う。
+zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+
+[target."cfg(windows)".dependencies]
+windows = { version = "0.62.2", features = [
+    # トレイの「ログイン時に起動」(→ src/tray/login_item.rs) は MSIX の StartupTask を使う。
+    "ApplicationModel",
+    "Win32_Foundation",
+    "Win32_Storage_Packaging_Appx",
+    "Win32_System_Console",
+    "Win32_Globalization",
+    "Win32_UI_WindowsAndMessaging",
+    # OS が作る縮小画像 (→ src/os_thumbnail/windows.rs)。
+    "Win32_Graphics_Gdi",
+    "Win32_System_Com",
+    "Win32_UI_Shell",
+] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# 「ログイン時に起動」を出せる OS の版の判定 (→ src/tray/login_item.rs)。
+objc2 = "0.6.4"
+# フォルダ選択の窓を前面に出す (→ src/folder_picker.rs)。
+objc2-app-kit = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "NSApplication",
+    "NSResponder",
+    "NSRunningApplication",
+] }
+# トレイの表示言語 (→ src/tray/mod.rs の tray_locale)。
+# 公開できるフォルダの security-scoped bookmark (→ src/folder_access.rs)。
+objc2-foundation = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "NSArray",
+    "NSData",
+    "NSError",
+    "NSLocale",
+    "NSString",
+    "NSURL",
+] }
+# トレイの「ログイン時に起動」(→ src/tray/login_item.rs)。既定の feature は
+# 使わない login item 以外の API と依存 (objc2-security) まで引き込むので外す。
+objc2-service-management = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "objc2",
+    "objc2-foundation",
+    "SMAppService",
+] }
+# OS が作る縮小画像 (→ src/os_thumbnail)。Quick Look に PNG で書かせる。
+block2 = "0.6.2"
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = ["std", "CFCGTypes"] }
+objc2-quick-look-thumbnailing = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "block2",
+    "objc2-core-foundation",
+    "objc2-uniform-type-identifiers",
+    "QLThumbnailGenerationRequest",
+    "QLThumbnailGenerator",
+] }
+objc2-uniform-type-identifiers = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "UTCoreTypes",
+    "UTType",
+] }
+# mDNS で OS が名乗っている名前を読む (→ src/mdns.rs の os_hostname)。
+objc2-system-configuration = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "SCDynamicStoreCopySpecific",
+    "SCDynamicStore",
+] }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+# mDNS で OS が名乗っている名前を、コンピュータ名から求める (→ src/mdns.rs の os_hostname)。
+gethostname = "1.1.0"
+
+[target."cfg(windows)".build-dependencies]
+winresource = "0.1.31"
+
+[dev-dependencies]
+
+# tower はテストの oneshot(tower::ServiceExt) にも使うが、[dependencies] に昇格済み
+# (ServeFile 呼び出しで本体コードからも使うため)なのでここでは重複定義しない。
+
+# デバッグ情報を行番号だけに絞る。`target/debug` の大半は deps のデバッグ情報で、
+# 開発機のディスクを 20GB 規模で占めていた。パニックのバックトレースには行番号が
+# 残るので、普段の開発で困る場面は無い。
+# 変数を覗くデバッガを使うときだけ、一時的に `debug = true` に戻すこと。
+[profile.dev]
+debug = "line-tables-only"

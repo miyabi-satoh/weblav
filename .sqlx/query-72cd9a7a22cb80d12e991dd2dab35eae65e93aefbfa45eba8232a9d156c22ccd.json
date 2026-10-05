@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT rel_path, published as \"published: bool\"\n           FROM archive_items WHERE id = ? AND archive_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "rel_path",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "published: bool",
+        "ordinal": 1,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "72cd9a7a22cb80d12e991dd2dab35eae65e93aefbfa45eba8232a9d156c22ccd"
+}

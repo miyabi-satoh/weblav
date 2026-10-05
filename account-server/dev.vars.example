@@ -1,0 +1,16 @@
+# 手元で動かすときの秘密の値。`just dev-account-server` が .dev.vars に写して使う。
+# この鍵 (dev-local) を信じるのは開発版の WebLAV だけ (→ src/pro.rs)。配る版では通らないので、秘密鍵を置いてよい。
+PROOF_KID=dev-local
+# 結び付きの秘密を導く X25519 の鍵。開発版の WebLAV は link_kid 0 の公開鍵としてこれを信じる。
+LINK_KID=0
+LINK_KEY={"crv":"X25519","d":"ODl6MpMyEbG7dhKlSxSpO1XHNLBZtY8gyb7AnaXMqE8","x":"Ab_d7amGelE2ouDX5baO27gnwE0PVA8H1_mSE2v5Lns","kty":"OKP"}
+PROOF_SIGNING_KEY={"crv":"Ed25519","d":"OQMQDrVSrZUcMXztZbNSiDLqDAa4Kg0wNa7HyoralJQ","x":"c_N9ko2dFpV2b8wmK5N0cYw-VsxztZ1hieMoVkfZkm0","kty":"OKP"}
+
+# Stripe で買う流れを手元で試すときだけ、サンドボックスの値を .dev.vars に書く (名前は src/env.d.ts)。
+# 無ければ買うボタンは出ず、Pro は `just dev-account-grant` で付ける。
+# webhook は `stripe listen --forward-to 127.0.0.1:8787/v1/stripe/webhook` で手元へ回し、出た whsec_ を使う。
+# STRIPE_SECRET_KEY=
+# STRIPE_WEBHOOK_SECRET=
+# STRIPE_PERSONAL_MONTHLY_PRICE_ID=
+# STRIPE_PERSONAL_YEARLY_PRICE_ID=
+# STRIPE_ORG_PRICE_ID=
