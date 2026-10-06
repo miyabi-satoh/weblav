@@ -131,7 +131,8 @@ mod windows_owner {
     };
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::{
-        CreateWindowExW, DestroyWindow, SetForegroundWindow, WS_EX_TOPMOST, WS_POPUP,
+        CreateWindowExW, DestroyWindow, GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN,
+        SetForegroundWindow, WS_EX_TOPMOST, WS_POPUP,
     };
     use windows::core::w;
 
@@ -146,8 +147,10 @@ mod windows_owner {
                     w!("STATIC"),
                     None,
                     WS_POPUP,
-                    0,
-                    0,
+                    // 窓は左上を持ち主の位置に揃えて出る。既定の大きさは画面の半分なので、
+                    // 4分の1の位置に置くと画面の中ほどに出る。
+                    GetSystemMetrics(SM_CXSCREEN) / 4,
+                    GetSystemMetrics(SM_CYSCREEN) / 4,
                     0,
                     0,
                     None,
