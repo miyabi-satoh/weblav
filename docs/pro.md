@@ -75,7 +75,7 @@ Pro を売り、Pro かどうかを WebLAV が確かめる仕組みは、次の3
 
 ### 結ぶ
 
-1. 管理者がサイト設定の「Pro」の区画で「アカウントと結ぶ」を押す (`POST /api/v1/admin/pro/link`)。サーバーは新しい秘密を作って `pro.json` に結びかけとして残し、窓口の結ぶ画面の URL (`/account/link?r=<申し込み>&name=<サイト名>&lang=<言語>`) を返す。
+1. 管理者がサイト設定の「Pro」の区画で「アカウントと結ぶ」を押す (`POST /api/v1/admin/pro/link`)。サーバーは新しい秘密を作って `pro.json` に結びかけとして残し、窓口の結ぶ画面の URL (`/account/link?r=<申し込み>&name=<サイト名>&pc=<PC の名前>&lang=<言語>`) を返す。
    区画は設定の画面の最後に置く。タブを増やすほどの中身が無く、ほかの設定と同じく `admin` だけが触るため。
 2. 画面は、その URL の QR コード・「窓口を開く」のボタン (新しいタブ)・返しのコードの入力欄を出す。
 3. 管理者は窓口 (スマートフォンで QR コードを読むか、ボタンで開く) でサインインし、「この WebLAV を結ぶ」を押す。Pro が無ければその場で買える。
@@ -115,13 +115,13 @@ Pro を売り、Pro かどうかを WebLAV が確かめる仕組みは、次の3
 
 JSON。`account-server/` はこれに合わせる。
 
-- `POST /v1/installations/check` に `{ installation, auth, name }` (`auth` は確かめの認証。→ 「符号の作り方」) → `{ status: "ok", proof, email }`・`{ status: "no_plan", email }`・`{ status: "over_limit", email }`・`{ status: "unbound" }`
+- `POST /v1/installations/check` に `{ installation, auth, name, pc }` (`auth` は確かめの認証。→ 「符号の作り方」) → `{ status: "ok", proof, email }`・`{ status: "no_plan", email }`・`{ status: "over_limit", email }`・`{ status: "unbound" }`
   - 時刻は入れない。時計のずれた PC が確かめに失敗し続けないように。盗み見た要求を送り直されても、その WebLAV でしか使えない証明が返るだけ。
 - `POST /v1/installations/release` に `{ code }` → 204 (知らない・外し済みでも 204)
 
 - **手元で試す**: `just dev-account-server` で窓口を手元で動かし、開発版の WebLAV はこの手元の窓口 (`http://127.0.0.1:8787`) を使う。開発版は本番の鍵を信じないため。
   メールは送らず、サインインのリンクと返しのコードを窓口のログに出す。Pro は `just dev-account-grant <メールアドレス>` で付ける。
-- **外へ送るのは、結び付きの id・認証の符号・サイト名だけ**。コンテンツ・利用者・PC の情報は送らない。結んでいない WebLAV は一度も窓口へつながらない。
+- **外へ送るのは、結び付きの id・認証の符号・サイト名・PC の名前だけ**。コンテンツ・利用者の情報は送らない。PC の名前は mDNS のホスト名から `.local` を除いたもので (→ architecture.md「LAN からの到達性」)、窓口の一覧で見分けるためだけに使う。サイト名を付けていない WebLAV はどれも `WebLAV` になり、名前だけでは見分けられないため。結んでいない WebLAV は一度も窓口へつながらない。
 - 窓口の URL はビルドに埋め込み、`config.toml` には置かない。利用者が変える場面が無いため。開発版 (debug ビルド) は手元の窓口の URL を埋め込む。
 
 ## アカウントと販売の窓口
@@ -154,13 +154,14 @@ JSON。`account-server/` はこれに合わせる。
   - 外した結び付きは、WebLAV がそれを受け取った時点 (外した証しが届いた・確かめに `unbound` を返した) で消し、枠を空ける。受け取らないまま (オフラインの WebLAV を窓口だけで外した) なら、最後に出した許可の期限まで台数に数える。外して付け替えるだけで台数を超えて使えないように。
   - 申し込みの結び直しの部分 (前の id と符号) が、このアカウントの結び付きと合えば同じ行の公開鍵を入れ替える。合わなければ新しく結ぶ。
   - 名前が空 (サイト名を付けていない) なら `WebLAV` にする。確かめで空の名前が届いたときは、前の名前のままにする。
+  - 一覧・結ぶ画面・メールでは、PC の名前を添えて「サイト名 (PC の名前)」と出す。PC の名前が読めなかった WebLAV からは空で届くので、サイト名だけを出す。確かめで空が届いたときは、前の値のままにする。
 - **アカウントのページ**: Pro の種類と次の更新日・支払いの管理 (Stripe のカスタマーポータル)・結んでいる WebLAV の一覧 (名前・最後に確かめた日)・外す操作を出す。PC が壊れたときは、ここから外す。
 - **送り主ごとの上限** (Workers の Rate Limiting の binding。数え方はおおよそ): 認証の要らない書き込みで、D1 の書き込みの枠やメールを使い切られないように。
   - 確かめと外す (`/v1/installations/`): IP ごとに1分10回。1台の WebLAV が試し直しても当たらない数。
   - 結ぶ: アカウントごとに1分10回。返しのコードのメールも送るため。
   - メールのリンクを送る: IP ごとに1分5通。宛先を変えての送りつけを止める。
   - Workers の無料プランでも使える。
-- **表**: `accounts` (id・メールアドレス)、`identities` (provider・subject → account)、`email_logins`、`sessions`、`subscriptions` (Pro。account・plan・Stripe のサブスクの id・払い終えた期間の終わり・状態。サブスクの id ごとに1行で、知らせはこの行で持ち主を引く)、`purchases` (払われた請求書ごとの台帳。請求書と支払いの id・額・通貨・MP の取引か・カードの発行国・日時・取り消した日時)、`installations` (結んでいる WebLAV。account・`link_kid`・WebLAV の公開鍵・名前・結んだ日時・最後に確かめた日時・外した日時・最後に出した許可の期限)、`checkouts` (支払いの画面の予約)。
+- **表**: `accounts` (id・メールアドレス)、`identities` (provider・subject → account)、`email_logins`、`sessions`、`subscriptions` (Pro。account・plan・Stripe のサブスクの id・払い終えた期間の終わり・状態。サブスクの id ごとに1行で、知らせはこの行で持ち主を引く)、`purchases` (払われた請求書ごとの台帳。請求書と支払いの id・額・通貨・MP の取引か・カードの発行国・日時・取り消した日時)、`installations` (結んでいる WebLAV。account・`link_kid`・WebLAV の公開鍵・名前・PC の名前・結んだ日時・最後に確かめた日時・外した日時・最後に出した許可の期限)、`checkouts` (支払いの画面の予約)。
   - 台帳を Pro と分けるのは、移すと Pro の持ち主が変わり、消すと Pro だけが消えるため。返金・不審請求でも台帳の行は消さず、取り消した日時を入れる。
 - **売り方**: サブスク。払うのをやめたら、許可の期限で Free に戻る。
   - **個人向け**: 月額 480円・年額 4,800円。Stripe Checkout のサブスク (`mode=subscription`)。**Pro を付ける・延ばすのは webhook だけ**。戻り先の画面では付けない。

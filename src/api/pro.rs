@@ -109,7 +109,7 @@ async fn run_check(
 ) -> Result<bool, AppError> {
     let server = server.to_string();
     let target = check.target.clone();
-    let outcome = run_blocking(move || post_check(&server, &check, &name)).await??;
+    let outcome = run_blocking(move || post_check(&server, &check, &name, &pc_name())).await??;
     let pro = pro.clone();
     run_blocking(move || pro.apply_check(&target, outcome))
         .await?
@@ -121,6 +121,14 @@ async fn site_name(pool: &sqlx::SqlitePool) -> String {
     super::site_settings::load(pool)
         .await
         .map(|s| s.site_name)
+        .unwrap_or_default()
+}
+
+/// 窓口の一覧で見分けるための PC の名前 (mDNS のホスト名から `.local` を除いたもの)。
+/// 読めなければ空にし、窓口は前の名前のままにする。
+fn pc_name() -> String {
+    crate::mdns::os_hostname()
+        .map(|host| host.trim_end_matches(".local").to_string())
         .unwrap_or_default()
 }
 
@@ -159,6 +167,7 @@ async fn response(state: &AppState) -> Result<ProResponse, AppError> {
             &state.pro_renewal.server,
             &request,
             &site_name(&state.pool).await,
+            &pc_name(),
         )),
         None => None,
     };
@@ -179,10 +188,10 @@ async fn response(state: &AppState) -> Result<ProResponse, AppError> {
 }
 
 /// 窓口の結ぶ画面の URL。言語は画面が足す。
-fn link_url(server: &str, request: &str, name: &str) -> String {
+fn link_url(server: &str, request: &str, name: &str, pc: &str) -> String {
     with_query(
         &format!("{server}/account/link"),
-        &[("r", request), ("name", name)],
+        &[("r", request), ("name", name), ("pc", pc)],
     )
 }
 
@@ -402,6 +411,7 @@ struct CheckBody<'a> {
     installation: &'a str,
     auth: &'a str,
     name: &'a str,
+    pc: &'a str,
 }
 
 #[derive(Debug, Serialize)]
@@ -419,11 +429,17 @@ fn agent() -> Agent {
         .into()
 }
 
-fn post_check(server: &str, check: &CheckRequest, name: &str) -> Result<CheckOutcome, AppError> {
+fn post_check(
+    server: &str,
+    check: &CheckRequest,
+    name: &str,
+    pc: &str,
+) -> Result<CheckOutcome, AppError> {
     let body = serde_json::to_string(&CheckBody {
         installation: &check.installation,
         auth: &check.auth,
         name,
+        pc,
     })
     .map_err(|err| AppError::AccountServer(err.to_string()))?;
     let text = post(&format!("{server}/v1/installations/check"), &body)?;
@@ -491,11 +507,12 @@ mod tests {
                 assert_eq!(body["installation"], "0000000000000000");
                 assert_eq!(body["auth"], "ab");
                 assert_eq!(body["name"], "教室");
+                assert_eq!(body["pc"], "home-pc");
                 Json(serde_json::json!({ "status": "no_plan", "email": "a@example.com" }))
             }),
         ))
         .await;
-        let outcome = run_blocking(move || post_check(&server, &check(), "教室"))
+        let outcome = run_blocking(move || post_check(&server, &check(), "教室", "home-pc"))
             .await
             .expect("確かめを走らせられなかった")
             .expect("確かめが失敗した");
@@ -509,7 +526,7 @@ mod tests {
             axum::routing::post(|| async { axum::http::StatusCode::INTERNAL_SERVER_ERROR }),
         ))
         .await;
-        let result = run_blocking(move || post_check(&server, &check(), ""))
+        let result = run_blocking(move || post_check(&server, &check(), "", ""))
             .await
             .expect("確かめを走らせられなかった");
         assert!(matches!(result, Err(AppError::AccountServer(_))));
