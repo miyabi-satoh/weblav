@@ -11,7 +11,9 @@ import { csrf } from 'hono/csrf';
 import { messages, resolveLang, type Lang } from './i18n';
 import { sendMail } from './mail';
 import {
+	alreadyProPage,
 	checkingPurchasePage,
+	confirmPage,
 	confirmSignInPage,
 	homePage,
 	installationName,
@@ -75,6 +77,7 @@ import {
 	normalizeEmail,
 	now,
 	originOf,
+	PRICING_PATH,
 	randomHex,
 	safeNext,
 	sha256Hex,
@@ -605,7 +608,7 @@ accountApp.get('/', async (c) => {
 			billing: stripeConfig(c.env) !== undefined && rows.some((r) => r.stripe_customer_id),
 			limit,
 			installations: installationRows(list),
-			region: saleRegion(c)
+			forSale: stripeConfig(c.env) !== undefined
 		})
 	);
 });
@@ -906,7 +909,8 @@ async function showLink(
 		return c.html(messagePage(lang, t.linkTitle, t.linkOtherAccount), 409);
 	}
 	const active = await activePlan(c.env, account.id, at);
-	if (!active) return c.html(noProPage(lang, account.email, next, saleRegion(c)));
+	if (!active)
+		return c.html(noProPage(lang, account.email, next, stripeConfig(c.env) !== undefined));
 	const limit = PLAN_LIMITS[active.plan];
 	let list = await installationsOf(c.env, account.id, limit, at);
 	const atLimit = () =>
@@ -1043,13 +1047,31 @@ function buyerCountry(c: Context<App>): string | undefined {
 	return c.req.raw.cf?.country as string | undefined;
 }
 
-/** 申し込むボタンを出すか、出すならどちらの売り方の説明を添えるか。 */
+/** 最終確認の画面で、どちらの売り方の説明を出すか。売っていなければ `undefined`。 */
 function saleRegion(c: Context<App>): SaleRegion | undefined {
 	if (!stripeConfig(c.env)) return undefined;
 	return usesManagedPayments(buyerCountry(c)) ? 'overseas' : 'domestic';
 }
 
-/** 支払いの画面へ送る。済んだら `next` (結ぶ画面など) へ戻す。 */
+/** 料金ページで選んだプランの最終確認の画面。サインインしていなければ、サインインしてからこの画面へ戻す。 */
+accountApp.get('/buy', async (c) => {
+	const lang = resolveLang(c);
+	const t = messages[lang];
+	const plan = c.req.query('plan');
+	if (plan !== 'month' && plan !== 'year') return c.redirect(PRICING_PATH, 303);
+	const next = safeNext(c.req.query('next'));
+	const account = await currentAccount(c);
+	if (!account) {
+		return c.html(signIn(c, lang, `${ACCOUNT}/buy?${new URLSearchParams({ plan, next })}`));
+	}
+	const region = saleRegion(c);
+	if (!region) return c.html(messagePage(lang, t.buyTitle, t.notForSale), 404);
+	// 持っているのに申し込ませない。料金ページから来た人には、黙って戻さず理由を出す。
+	if (await activePlan(c.env, account.id, now())) return c.html(alreadyProPage(lang, next));
+	return c.html(confirmPage(lang, account.email, { interval: plan, region, next }));
+});
+
+/** 最終確認の画面から、支払いの画面へ送る。済んだら `next` (結ぶ画面など) へ戻す。 */
 accountApp.post('/buy', async (c) => {
 	const lang = resolveLang(c);
 	const t = messages[lang];

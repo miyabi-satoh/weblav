@@ -70,6 +70,8 @@ export function base64urlBytes(text: string): Uint8Array {
 
 /** 人が開く画面 (サインイン・結ぶ・申し込む・移す) を置くパス。ほかは紹介のページ (site/) が使う。 */
 export const ACCOUNT = '/account';
+/** 公開の料金ページ (site/src/pages/pricing.astro)。 */
+export const PRICING_PATH = '/pricing/';
 /** アカウントのページ。 */
 export const ACCOUNT_HOME = `${ACCOUNT}/`;
 /** Pro を別のアカウントへ移す画面。 */

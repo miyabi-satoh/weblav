@@ -181,6 +181,7 @@ describe('guards', () => {
 	const SIGN_IN_REQUIRED: [method: 'GET' | 'POST', path: string, status: number][] = [
 		['GET', '/account/', 200],
 		['GET', '/account/link?r=R&name=x', 200],
+		['GET', '/account/buy?plan=year', 200],
 		['GET', '/account/buy/done', 200],
 		['GET', '/account/transfer', 200],
 		['POST', '/account/link', 401],
@@ -228,10 +229,9 @@ describe('linking', () => {
 		const { cookie, location } = await signIn(email, linkPath(req.raw));
 		expect(location).toBe(linkPath(req.raw));
 
-		// Pro が無ければ、その場で申し込めて、済んだらこの画面へ戻る。
+		// Pro が無ければ料金ページへ案内し、申し込んだ後にこの画面へ戻れるよう戻り先を渡す。
 		const noPro = await (await request(linkPath(req.raw), { cookie })).text();
-		expect(noPro).toContain('action="/account/buy"');
-		expect(noPro).toContain(`value="${linkPath(req.raw).replace(/&/g, '&amp;')}"`);
+		expect(noPro).toContain(`href="/pricing/?${new URLSearchParams({ next: linkPath(req.raw) })}"`);
 		expect((await link(cookie, req.raw)).status).toBe(200);
 		expect(await installationsOf(email)).toEqual([]);
 
@@ -1063,24 +1063,61 @@ describe('subscribing to Pro', () => {
 		expect(stripe).not.toHaveBeenCalled();
 	});
 
-	it('offers both intervals with the terms on the account page', async () => {
+	it('sends the account page to the pricing page, which leads to a final review of the chosen plan', async () => {
 		const { cookie } = await signIn('nopro@example.com');
 		const home = await (await request('/account/', { cookie })).text();
-		expect(home).toContain('action="/account/buy"');
-		expect(home).toContain('name="interval" value="month"');
-		expect(home).toContain('name="interval" value="year"');
+		expect(home).toContain('href="/pricing/"');
+		expect(home).not.toContain('action="/account/buy"');
+
+		const next = '/account/link?r=R&name=x';
+		const review = await (
+			await request(`/account/buy?${new URLSearchParams({ plan: 'year', next })}`, { cookie })
+		).text();
 		// 最終確認画面に要る事項 (価格・自動の更新・解約・返金) と、規約類へのリンクをボタンの手前に出す。
-		expect(home).toContain('月額 480 円か年額 4,800 円');
-		expect(home).toContain('自動で更新');
-		expect(home).toContain('解約');
-		expect(home).toContain('href="/tokushoho/"');
-		expect(home).not.toContain('Link');
+		const button = review.indexOf('申し込みを確定して支払いへ');
+		for (const term of [
+			'お申し込み内容の最終確認',
+			'4,800\u00a0円 / 年',
+			'自動で更新',
+			'解約',
+			'href="/tokushoho/"'
+		]) {
+			expect(review.indexOf(term)).toBeGreaterThan(-1);
+			expect(review.indexOf(term)).toBeLessThan(button);
+		}
+		expect(review).toContain('name="interval" value="year"');
+		expect(review).toContain(`value="${next.replace(/&/g, '&amp;')}"`);
+		expect(review).toContain(`href="/pricing/?${new URLSearchParams({ next })}"`);
+		expect(review).not.toContain('Link');
+
+		const bad = await request('/account/buy?plan=week', { cookie, redirect: 'manual' });
+		expect(bad.status).toBe(303);
+		expect(bad.headers.get('location')).toBe('/pricing/');
+	});
+
+	it('tells an account that already has Pro instead of reviewing an order', async () => {
+		const { cookie } = await signIn('haspro@example.com');
+		await grantPro('haspro@example.com', 'personal');
+		const page = await (await request('/account/buy?plan=year', { cookie })).text();
+		expect(page).toContain('このアカウントには Pro があります');
+		expect(page).not.toContain('申し込みを確定して支払いへ');
+	});
+
+	it('brings back to the final review after signing in', async () => {
+		const path = '/account/buy?plan=month&next=%2Faccount%2F';
+		const before = await (await request(path)).text();
+		expect(before).toContain('action="/account/login/email"');
+		const { cookie, location } = await signIn('later@example.com', path);
+		expect(location).toBe(path);
+		expect(await (await request(path, { cookie })).text()).toContain('480\u00a0円 / 月');
 	});
 
 	it('sells through Managed Payments to buyers outside Japan', async () => {
 		const { cookie } = await signIn('abroad@example.com');
-		const home = await (await request('/account/', { cookie, country: 'US' })).text();
-		expect(home).toContain('Sold through Link, LLC');
+		const review = await (
+			await request('/account/buy?plan=month', { cookie, country: 'US' })
+		).text();
+		expect(review).toContain('Sold through Link, LLC');
 		const stripe = vi
 			.spyOn(globalThis, 'fetch')
 			.mockImplementation(async () =>

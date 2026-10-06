@@ -42,6 +42,8 @@
 		url.searchParams.set('lang', getLocale());
 		return url.href;
 	});
+	/** 料金のページ。窓口と同じホストの紹介サイトにある (→ docs/pro.md「売り方」)。紹介サイトは日本語だけ。 */
+	const pricingUrl = $derived(new URL('/pricing/', pro.accountUrl).href);
 	let linkQr = $state<string | null>(null);
 	$effect(() => {
 		const url = linkUrl;
@@ -295,9 +297,12 @@
 	)}
 {:else if !pro.bound}
 	<div class="flex flex-col gap-2">
-		<div>
+		<div class="flex flex-wrap gap-2">
 			<LoadingButton loading={busy === 'link'} onclick={startLink}
 				>{m.admin_settings_pro_link()}</LoadingButton
+			>
+			<Button variant="outline" href={pricingUrl} target="_blank" rel="noopener noreferrer"
+				>{m.admin_settings_pro_pricing()}</Button
 			>
 		</div>
 		<p class="text-sm text-muted-foreground">{m.admin_settings_pro_link_description()}</p>

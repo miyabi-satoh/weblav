@@ -5,6 +5,8 @@
 import type { Context } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
 import type { Plan } from './link';
+import type { SaleRegion } from './pages';
+import type { Interval } from './stripe';
 import { isHttps } from './util';
 
 export type Lang = 'ja' | 'en';
@@ -128,26 +130,43 @@ const ja = {
 		'コードの形が違います。WebLAV の画面に出たコードを、もう一度読み取るか打ち込んでください。',
 	noProHeading: 'このアカウントには Pro がありません',
 	noPro: 'ほかのメールアドレスで申し込んだときは、そのアドレスでサインインし直してください。',
-	noProBuy: 'ここで Pro (個人向け) を申し込むと、そのままこの PC を登録できます。',
+	noProBuy: 'Pro を申し込むと、そのままこの PC を登録できます。',
+	seePricing: 'Pro の料金と申し込み',
 	buyTitle: 'Pro を申し込む',
-	// 価格は本番の Stripe の Price と、紹介・規約類 (site/) に合わせる。
-	buyTerms: {
-		domestic: [
-			'Pro (個人向け) は、月額 480 円か年額 4,800 円 (どちらも税込み) のサブスクです。期間ごとに自動で更新し、同じ額を払います。',
-			'このアカウントに付き、PC を3台まで登録して Pro にできます。',
-			'支払いは Stripe の画面でカードで行い、申し込みの完了時と更新のたびに決済されます。支払いが済むとすぐ、このアカウントに Pro が付きます。',
-			'解約は、アカウントのページからいつでもできます。解約しても、払い終えた期間の終わりまでは Pro のまま使えます。払い終えた期間は、ご都合による返金はできません。二重に請求したとき、決済の処理を誤ったとき、支払いが済んだのに Pro が付かなかったときは、その分を返金します。'
-		],
-		overseas: [
-			'Pro (個人向け) は、月額 480 円か年額 4,800 円 (どちらも税込み) のサブスクです。期間ごとに自動で更新し、同じ額を払います。支払いの画面では、お住まいの国の通貨に換えた額で表示されることがあります。',
-			'このアカウントに付き、PC を3台まで登録して Pro にできます。',
-			'販売と決済は、Link (Sold through Link, LLC) が代わりに行います。カードの明細には「LINK.COM*」と出ます。払い方は支払いの画面で選べ、支払いが済むとすぐ、このアカウントに Pro が付きます。',
-			`解約は、アカウントのページからいつでもできます。解約しても、払い終えた期間の終わりまでは Pro のまま使えます。払い終えた期間は、ご都合による返金はできません。二重に請求したとき、決済の処理を誤ったとき、支払いが済んだのに Pro が付かなかったときは、その分を返金します。ただし購入から60日以内は、[Link の返金ポリシー](${LINK_REFUND_POLICY})によって返金されることがあります。`
-		]
-	},
+	// 特定商取引法 12条の6 の最終確認画面 (→ docs/pro.md「売り方」)。価格は本番の Stripe の Price と、紹介・規約類 (site/) に合わせる。
+	confirmTitle: 'お申し込み内容の最終確認',
+	confirmPlanLabel: 'プラン',
+	confirmPlan: (interval: Interval): string =>
+		interval === 'year' ? 'WebLAV Pro (個人向け)・年額' : 'WebLAV Pro (個人向け)・月額',
+	confirmPriceLabel: '価格',
+	confirmPrice: (interval: Interval): string =>
+		interval === 'year' ? '4,800 円 / 年 (税込み)' : '480 円 / 月 (税込み)',
+	confirmRenewLabel: '更新',
+	confirmRenew: (interval: Interval): string =>
+		interval === 'year'
+			? '1年ごとに自動で更新し、そのたびに 4,800 円を払います。'
+			: '1か月ごとに自動で更新し、そのたびに 480 円を払います。',
+	confirmPcsLabel: '登録できる PC',
+	confirmPcs: '3 台まで',
+	confirmPaymentLabel: '支払い',
+	confirmPayment: {
+		domestic: '次の画面 (Stripe) でカードで払います。払うとすぐ、このアカウントに Pro が付きます。',
+		overseas:
+			'次の画面で払い方を選びます。販売と決済は Link (Sold through Link, LLC) が代わりに行い、カードの明細には「LINK.COM*」と出ます。お住まいの国の通貨に換えた額で表示されることがあります。払うとすぐ、このアカウントに Pro が付きます。'
+	} as Record<SaleRegion, string>,
+	confirmCancelLabel: '解約と返金',
+	confirmCancel: {
+		domestic:
+			'アカウントのページからいつでも解約でき、払い終えた期間の終わりまで Pro のまま使えます。払い終えた期間は、ご都合による返金はできません。二重に請求したとき、決済の処理を誤ったとき、支払いが済んだのに Pro が付かなかったときは返金します。',
+		overseas: `アカウントのページからいつでも解約でき、払い終えた期間の終わりまで Pro のまま使えます。払い終えた期間は、ご都合による返金はできません。二重に請求したとき、決済の処理を誤ったとき、支払いが済んだのに Pro が付かなかったときは返金します。ただし購入から60 日以内は、[Link の返金ポリシー](${LINK_REFUND_POLICY})によって返金されることがあります。`
+	} as Record<SaleRegion, string>,
 	buyConsent: '{terms}・{privacy}・{tokushoho}に同意のうえ、進んでください。',
-	buyMonthButton: '同意して月額で申し込む',
-	buyYearButton: '同意して年額で申し込む',
+	confirmButton: '申し込みを確定して支払いへ',
+	changePlan: 'プランを変える',
+	alreadyProTitle: 'このアカウントには Pro があります',
+	alreadyPro:
+		'申し込み直す必要はありません。月額と年額を切り替えるときは、アカウントのページから解約し、払い終えた期間が終わってから申し込んでください。',
+	alreadyProContinue: '戻る',
 	checkoutNote: (tokushoho: string) =>
 		`期間ごとに自動で更新し、同じ額を払います。支払いが済むとすぐ、WebLAV のアカウントに Pro が付きます。解約はアカウントのページからいつでもでき、払い終えた期間の終わりまで使えます。払い終えた期間は、ご都合による返金はできません。二重に請求したとき、決済の処理を誤ったとき、支払いが済んだのに Pro が付かなかったときは、その分を返金します。詳しくは[特定商取引法に基づく表記](${tokushoho})をご覧ください。`,
 	notForSale: 'いまは Pro を買えません。',
@@ -290,25 +309,43 @@ const en: typeof ja = {
 	releaseInvalid: 'The code is malformed. Scan or enter the code shown in WebLAV again.',
 	noProHeading: "This account doesn't have Pro",
 	noPro: 'If you subscribed with another email address, sign in again with that address.',
-	noProBuy: 'Subscribe to Pro (personal) here and link this PC right away.',
+	noProBuy: 'Subscribe to Pro and link this PC right away.',
+	seePricing: 'Pro pricing and subscription',
 	buyTitle: 'Subscribe to Pro',
-	buyTerms: {
-		domestic: [
-			'Pro (personal) is a subscription of 480 yen a month or 4,800 yen a year, tax included. It renews automatically each period at the same price.',
-			'It is added to this account, and you can use Pro on up to 3 PCs.',
-			'You pay by card on a Stripe page, and you are charged when you subscribe and at each renewal. Pro is added to this account as soon as the payment is complete.',
-			'You can cancel at any time on your account page. After canceling, Pro keeps working until the end of the paid period. Paid periods are not refunded for personal reasons. We refund the amount if we charged you twice, made an error in processing the payment, or Pro was not added after your payment went through.'
-		],
-		overseas: [
-			'Pro (personal) is a subscription of 480 yen a month or 4,800 yen a year, tax included. It renews automatically each period at the same price. The payment page may show the amount converted to your local currency.',
-			'It is added to this account, and you can use Pro on up to 3 PCs.',
-			'The sale and payment are handled on our behalf by Link (Sold through Link, LLC), and your card statement shows "LINK.COM*". You choose how to pay on the payment page, and Pro is added to this account as soon as the payment is complete.',
-			`You can cancel at any time on your account page. After canceling, Pro keeps working until the end of the paid period. Paid periods are not refunded for personal reasons. We refund the amount if we charged you twice, made an error in processing the payment, or Pro was not added after your payment went through. Within 60 days of purchase, however, you may get a refund under [Link's refund policy](${LINK_REFUND_POLICY}).`
-		]
+	confirmTitle: 'Review your order',
+	confirmPlanLabel: 'Plan',
+	confirmPlan: (interval: Interval) =>
+		interval === 'year' ? 'WebLAV Pro (personal), yearly' : 'WebLAV Pro (personal), monthly',
+	confirmPriceLabel: 'Price',
+	confirmPrice: (interval: Interval) =>
+		interval === 'year' ? '4,800 yen / year (tax included)' : '480 yen / month (tax included)',
+	confirmRenewLabel: 'Renewal',
+	confirmRenew: (interval: Interval) =>
+		interval === 'year'
+			? 'Renews automatically every year. You pay 4,800 yen at each renewal.'
+			: 'Renews automatically every month. You pay 480 yen at each renewal.',
+	confirmPcsLabel: 'PCs you can link',
+	confirmPcs: 'Up to 3',
+	confirmPaymentLabel: 'Payment',
+	confirmPayment: {
+		domestic:
+			'You pay by card on the next page (Stripe). Pro is added to this account as soon as you pay.',
+		overseas:
+			'You choose how to pay on the next page. The sale and payment are handled on our behalf by Link (Sold through Link, LLC), and your card statement shows "LINK.COM*". The amount may be shown in your local currency. Pro is added to this account as soon as you pay.'
+	},
+	confirmCancelLabel: 'Cancellation and refunds',
+	confirmCancel: {
+		domestic:
+			'You can cancel at any time on your account page and keep using Pro until the end of the paid period. Paid periods are not refunded for personal reasons. We refund the amount if we charged you twice, made an error in processing the payment, or Pro was not added after your payment went through.',
+		overseas: `You can cancel at any time on your account page and keep using Pro until the end of the paid period. Paid periods are not refunded for personal reasons. We refund the amount if we charged you twice, made an error in processing the payment, or Pro was not added after your payment went through. Within 60 days of purchase, however, you may get a refund under [Link's refund policy](${LINK_REFUND_POLICY}).`
 	},
 	buyConsent: 'By continuing, you agree to the {terms}, the {privacy}, and the {tokushoho}.',
-	buyMonthButton: 'Agree and subscribe monthly',
-	buyYearButton: 'Agree and subscribe yearly',
+	confirmButton: 'Confirm and continue to payment',
+	changePlan: 'Change plan',
+	alreadyProTitle: 'This account already has Pro',
+	alreadyPro:
+		"You don't need to subscribe again. To switch between monthly and yearly, cancel on your account page and subscribe again after the paid period ends.",
+	alreadyProContinue: 'Back',
 	checkoutNote: (tokushoho: string) =>
 		`It renews automatically each period at the same price. Pro is added to your WebLAV account as soon as the payment is complete. You can cancel at any time on your account page and keep using Pro until the end of the paid period. Paid periods are not refunded for personal reasons. We refund the amount if we charged you twice, made an error in processing the payment, or Pro was not added after your payment went through. For details, see the [Specified Commercial Transactions Act notice](${tokushoho}).`,
 	notForSale: 'Pro is not available for purchase right now.',
