@@ -207,9 +207,13 @@ fn make_tray_icon() -> Icon {
 /// tray-icon はメインスレッドかつイベントループ稼働中に作る必要があるため、
 /// `NewEvents(Init)` を受けてから呼ぶこと。
 fn build_tray(menu: Menu, tooltip: &str) -> TrayIcon {
-    TrayIconBuilder::new()
-        .with_icon(make_tray_icon())
-        .with_icon_as_template(cfg!(target_os = "macos"))
+    let builder = TrayIconBuilder::new();
+    // macOS のメニューバーでは、明暗に合わせて OS が塗り直すテンプレートの絵として渡す。
+    #[cfg(target_os = "macos")]
+    let builder = builder.with_icon_templated(make_tray_icon());
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.with_icon(make_tray_icon());
+    builder
         .with_menu(Box::new(menu))
         .with_tooltip(tooltip)
         .build()

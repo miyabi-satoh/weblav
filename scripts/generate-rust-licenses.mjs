@@ -38,7 +38,7 @@ const OVERRIDES = {
 const OVERRIDDEN_NAMES = new Set(Object.keys(OVERRIDES).map((key) => key.replace(/@[^@]+$/, '')));
 
 // cargo-about が内部で呼ぶ `cargo metadata` は、どのプラットフォーム向けの依存も手元に要求する。
-// Windows でビルドしただけのレジストリには Linux 向けの libxdo などが無く、`--frozen` のまま
+// Windows でビルドしただけのレジストリには Linux 向けの gtk などが無く、`--frozen` のまま
 // 取りに行って落ちる。取るのは lockfile が指すものだけなので、先に取っても結果は変わらない。
 execFileSync('cargo', ['fetch', '--locked'], { stdio: 'inherit' });
 

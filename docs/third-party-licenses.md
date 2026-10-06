@@ -20,7 +20,7 @@
     cargo-about はビルドのときにだけ動く proc-macro とその依存も数えるが、それらは配らない。
     `--frozen` の前に `cargo fetch --locked` を流す。cargo-about が内部で呼ぶ `cargo metadata` は
     どのプラットフォーム向けの依存も手元に要求し、Windows でビルドしただけのレジストリには
-    Linux 向けの `libxdo` などが無いため。lockfile が指すものだけを取るので、結果は変わらない。
+    Linux 向けの `gtk` などが無いため。lockfile が指すものだけを取るので、結果は変わらない。
     出力は標準出力ではなく `-o` で一時ファイルに受ける。cargo-about は先祖に PowerShell がいると
     標準出力への書き出しを拒むので、Windows では `just licenses` がそのままでは通らない。
     `about.toml` の `accepted` に無いライセンスの依存が入ると生成が止まるので、そこで気づける。
