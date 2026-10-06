@@ -15,6 +15,7 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import BackupRestore from '$lib/components/backup-restore.svelte';
 	import ProSection from '$lib/components/pro-section.svelte';
+	import AboutSection from '$lib/components/about-section.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import type { components } from '$lib/api/schema';
@@ -346,6 +347,19 @@
 				<p class="text-sm text-destructive">{m.admin_settings_pro_fetch_failed()}</p>
 			{/if}
 		</section>
+
+		<!-- 版は問い合わせのときに読み上げてもらう。取れなければ区画ごと出さない (リンクだけ残しても用が足りないため)。 -->
+		{#if data.health}
+			<section
+				aria-labelledby="about-section-heading"
+				class="mt-6 flex flex-col gap-6 border-t pt-6"
+			>
+				<h2 id="about-section-heading" class="text-base font-semibold">
+					{m.admin_settings_about_heading()}
+				</h2>
+				<AboutSection version={data.health.version} build={data.health.build ?? null} />
+			</section>
+		{/if}
 	</div>
 </div>
 

@@ -46,6 +46,10 @@ Files inside shared folders are not included.
 
 Settings and data are kept.
 
+## Check the version
+
+The version appears under “About WebLAV” at the bottom of the “Site settings” tab in the admin pages. When contacting us, include the number in parentheses as well.
+
 ## Uninstall
 
 - **Windows**: Uninstall WebLAV from Settings > Apps.

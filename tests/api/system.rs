@@ -9,6 +9,12 @@ async fn health_endpoint_returns_ok(pool: SqlitePool) {
 
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains(r#""status":"ok""#), "{body}");
+    // 画面がサイト設定に出す版とビルド番号 (→ docs/distribution.md「版の番号」)。
+    assert!(
+        body.contains(&format!(r#""version":"{}""#, weblav::APP_VERSION)),
+        "{body}"
+    );
+    assert!(body.contains(r#""build":""#), "{body}");
 }
 
 #[sqlx::test]

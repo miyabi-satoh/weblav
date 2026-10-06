@@ -1810,6 +1810,8 @@ export interface components {
             groupTitle: string;
         };
         HealthResponse: {
+            /** @description ビルド番号。画面は版に添えて出す (→ docs/distribution.md「版の番号」)。 */
+            build?: string | null;
             status: string;
             version: string;
         };

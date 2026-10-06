@@ -8,15 +8,16 @@ import type { PageLoad } from './$types';
 export const load: PageLoad = async ({ parent, url }) => {
 	await parent();
 
-	const [settings, server, logSettings, pro] = await Promise.all([
+	const [settings, server, logSettings, pro, health] = await Promise.all([
 		fetchOrError(client.GET('/api/v1/site-settings'), m.site_settings_fetch_failed(), {
 			loginRedirectFrom: url
 		}),
 		loadServerSettings(),
 		fetchOrNull(client.GET('/api/v1/admin/log-settings')),
-		fetchOrNull(client.GET('/api/v1/admin/pro'))
+		fetchOrNull(client.GET('/api/v1/admin/pro')),
+		fetchOrNull(client.GET('/api/v1/health'))
 	]);
-	return { settings, ...server, logSettings, pro };
+	return { settings, ...server, logSettings, pro, health };
 };
 
 // サーバーの設定は、取れなくても画面ごと出せなくはしない。config.toml を手で壊したとき (409) も、
