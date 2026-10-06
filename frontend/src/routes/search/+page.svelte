@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -28,8 +28,22 @@
 	// 開いたときの語。以後は入力欄が持ち、URL はそれを追いかける。
 	let query = $state(page.url.searchParams.get('q') ?? '');
 	let input = $state<HTMLInputElement | null>(null);
+	/** 最後に URL へ送った語。これと違う `q` が届いたら、入力欄の外 (ヘッダーの虫眼鏡など) で変わったもの。 */
+	let sent = (page.url.searchParams.get('q') ?? '').trim();
 
-	onMount(() => input?.focus());
+	// 結果から戻ったときにキーボードを開いて結果を覆わないよう、語が空のときだけ欄にフォーカスを入れる。
+	onMount(() => {
+		if (query === '') input?.focus();
+	});
+
+	$effect.pre(() => {
+		const q = data.q;
+		untrack(() => {
+			if (q.trim() === sent) return;
+			query = q;
+			sent = q.trim();
+		});
+	});
 
 	function searchHref(q: string): string {
 		return withQuery(resolve('/search'), q === '' ? {} : { q });
@@ -37,6 +51,7 @@
 
 	// 履歴は置き換えにして、打つたびに戻るの段を増やさない。戻ると、検索を開く前の画面へ戻る。
 	function search(q: string) {
+		sent = q;
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」)
 		void goto(searchHref(q), { replaceState: true, keepFocus: true, noScroll: true });
 	}
@@ -85,11 +100,13 @@
 
 <svelte:head><title>{pageTitle(m.search_title())}</title></svelte:head>
 
-{#snippet sectionHeading(title: string, count: number)}
+{#snippet sectionHeading(title: string, count: number, truncated: boolean)}
 	<h2 class={['mb-2 flex items-baseline gap-2', browseGutterClass]}>
 		<span class="text-base font-semibold">{title}</span>
 		<span class="text-sm text-muted-foreground">
-			{m.search_section_count({ count: formatNumber(count) })}
+			{truncated
+				? m.search_section_count_truncated({ count: formatNumber(count) })
+				: m.search_section_count({ count: formatNumber(count) })}
 		</span>
 	</h2>
 {/snippet}
@@ -136,7 +153,11 @@
 	{:else if result}
 		{#if contentHits.length > 0}
 			<section>
-				{@render sectionHeading(m.search_contents_heading(), contentHits.length)}
+				{@render sectionHeading(
+					m.search_contents_heading(),
+					contentHits.length,
+					result.contentsTruncated
+				)}
 				<ContentList entries={contentHits.map((hit) => hit.content)} subtitle={contentSubtitle} />
 				{#if result.contentsTruncated}
 					{@render truncatedNote(contentHits.length)}
@@ -145,7 +166,7 @@
 		{/if}
 		{#if itemRows.length > 0}
 			<section class={contentHits.length > 0 ? 'mt-8' : undefined}>
-				{@render sectionHeading(m.search_items_heading(), itemRows.length)}
+				{@render sectionHeading(m.search_items_heading(), itemRows.length, result.itemsTruncated)}
 				<ArchiveViewList rows={itemRows} {linksHref} />
 				{#if result.itemsTruncated}
 					{@render truncatedNote(itemRows.length)}

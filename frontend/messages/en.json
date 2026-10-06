@@ -552,11 +552,12 @@
 	"search_nav_label": "Search",
 	"search_title": "Search",
 	"search_query_label": "Search for",
-	"search_query_description": "Searches titles, descriptions, and archive file names. Files inside folders are not searched.",
+	"search_query_description": "Searches the titles and descriptions of contents and archive files. Files inside folders are not searched.",
 	"search_section_count": "{count} items",
 	"search_contents_heading": "Contents",
 	"search_items_heading": "Archive files",
 	"search_empty": "Nothing matches “{query}”.",
 	"search_truncated": "Showing the first {count}. Add more words to narrow it down.",
-	"search_fetch_failed": "Search failed. Please try again later."
+	"search_fetch_failed": "Search failed. Please try again later.",
+	"search_section_count_truncated": "{count}+ items"
 }

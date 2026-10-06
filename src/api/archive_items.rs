@@ -146,9 +146,6 @@ async fn view_archive(
     let root = PathBuf::from(&meta.path);
     let (axes, items) = run_blocking(move || {
         let (axes, items) = build_archive_view(&axes, rows, template.as_deref(), &filters, order);
-        // 画像の大きさとテキストかを見るだけで中身は渡さないので、アイテムごとに配信と同じ `resolve_path` は通さない。
-        // 索引はリンクでないファイルだけを拾う (→ docs/archive.md「スキャン」) が、索引の後に
-        // リンクへ差し替えられたものは辿らない。
         let items = items
             .into_iter()
             .map(|(rel_path, item)| with_preview(&root, &rel_path, item))
@@ -369,6 +366,25 @@ pub(super) struct SearchableArchive {
     pub(super) title_template: Option<String>,
 }
 
+/// 検索で当たったアーカイブのファイル1件と、並べ替えに使う値。
+struct ItemHit {
+    /// `search_items` の `sources` の添字。
+    source: usize,
+    archive_id: i64,
+    rel_path: String,
+    sort_key: Vec<ValueKey>,
+    item: ArchiveViewItem,
+}
+
+/// 検索の結果のアーカイブのファイルの並び (→ docs/search.md「結果の並びと上限」)。
+/// タイトル順で、同じタイトルはアーカイブごとに、その一覧の既定の並び (軸の順) にする。
+fn item_hit_cmp(a: &ItemHit, b: &ItemHit) -> std::cmp::Ordering {
+    title_cmp(&a.item.title, &b.item.title)
+        .then(a.archive_id.cmp(&b.archive_id))
+        .then_with(|| a.sort_key.cmp(&b.sort_key))
+        .then_with(|| a.rel_path.cmp(&b.rel_path))
+}
+
 /// アーカイブの公開アイテムを、表示タイトルと軸の値で探す。表示タイトル順に並べ、
 /// `search::RESULT_LIMIT` 件で打ち切って、打ち切ったかを添えて返す。
 pub(super) async fn search_items(
@@ -394,7 +410,7 @@ pub(super) async fn search_items(
 
     // 導出は全アイテム × 軸 × 照合語の数だけ回り、行の情報はファイルを読むので、非同期のワーカーを塞がない。
     run_blocking(move || {
-        let mut hits: Vec<(usize, String, Vec<ValueKey>, ArchiveViewItem)> = Vec::new();
+        let mut hits: Vec<ItemHit> = Vec::new();
         for (index, (archive, axes, rows)) in sources.iter().enumerate() {
             let template = archive.title_template.as_deref();
             let template_axes = archive::template_placeholder_names(template);
@@ -414,11 +430,12 @@ pub(super) async fn search_items(
                     continue;
                 }
                 let subtitle = item_subtitle(axes, &derived, &template_axes, &no_filters);
-                hits.push((
-                    index,
-                    row.rel_path.clone(),
-                    derived.sort_key(),
-                    ArchiveViewItem {
+                hits.push(ItemHit {
+                    source: index,
+                    archive_id: archive.id,
+                    rel_path: row.rel_path.clone(),
+                    sort_key: derived.sort_key(),
+                    item: ArchiveViewItem {
                         id: row.id,
                         title: derived.title,
                         file_name: derived.file_name,
@@ -427,28 +444,26 @@ pub(super) async fn search_items(
                         is_text: false,
                         thumbnail: false,
                     },
-                ));
+                });
             }
         }
 
-        // 同じタイトルが年度や回の数だけ並ぶので、同じアーカイブの中ではその一覧の既定の並び (軸の順) にする。
-        hits.sort_by(|(a_index, a_path, a_key, a), (b_index, b_path, b_key, b)| {
-            title_cmp(&a.title, &b.title)
-                .then(sources[*a_index].0.id.cmp(&sources[*b_index].0.id))
-                .then_with(|| a_key.cmp(b_key))
-                .then_with(|| a_path.cmp(b_path))
-        });
+        hits.sort_by(item_hit_cmp);
         let truncated = hits.len() > super::search::RESULT_LIMIT;
         hits.truncate(super::search::RESULT_LIMIT);
 
         let hits = hits
             .into_iter()
-            .map(|(index, rel_path, _, item)| {
-                let archive = &sources[index].0;
+            .map(|hit| {
+                let archive = &sources[hit.source].0;
                 super::search::SearchItemHit {
                     archive_id: archive.id,
                     archive_title: archive.title.clone(),
-                    item: with_preview(std::path::Path::new(&archive.path), &rel_path, item),
+                    item: with_preview(
+                        std::path::Path::new(&archive.path),
+                        &hit.rel_path,
+                        hit.item,
+                    ),
                 }
             })
             .collect();
@@ -778,6 +793,48 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
 mod tests {
     use super::*;
     use crate::api::archive::{AxisDict, AxisDictRow, AxisIndex};
+
+    fn item_hit(title: &str, archive_id: i64, year: &str, rel_path: &str) -> ItemHit {
+        ItemHit {
+            source: 0,
+            archive_id,
+            rel_path: rel_path.to_string(),
+            sort_key: vec![ValueKey::Raw(year.to_string())],
+            item: ArchiveViewItem {
+                id: 0,
+                title: title.to_string(),
+                file_name: String::new(),
+                subtitle: None,
+                image: None,
+                is_text: false,
+                thumbnail: false,
+            },
+        }
+    }
+
+    /// タイトル順で、同じタイトルはアーカイブごとに軸の順に並ぶ (id の順ではない)。
+    #[test]
+    fn item_hit_cmp_orders_by_title_then_archive_then_axes() {
+        let mut hits = [
+            item_hit("第2回", 1, "2024", "2024/b.mp3"),
+            item_hit("第1回", 2, "2023", "2023/a.mp3"),
+            item_hit("第1回", 1, "2025", "2025/a.mp3"),
+            item_hit("第1回", 1, "2023", "2023/z.mp3"),
+            item_hit("第10回", 1, "2023", "2023/c.mp3"),
+        ];
+        hits.sort_by(item_hit_cmp);
+        let order: Vec<&str> = hits.iter().map(|hit| hit.rel_path.as_str()).collect();
+        assert_eq!(
+            order,
+            [
+                "2023/z.mp3",
+                "2025/a.mp3",
+                "2023/a.mp3",
+                "2024/b.mp3",
+                "2023/c.mp3"
+            ]
+        );
+    }
     use crate::api::archive_axes::{AxisMatchPosition, AxisSource};
     use crate::api::sort::ArchiveSortOrder;
 

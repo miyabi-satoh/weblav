@@ -1,7 +1,6 @@
 //! 閲覧の場の検索 (→ docs/search.md)。
 //!
-//! 照らすのは DB に入っているタイトルと、アーカイブのアイテムの導出済みタイトル・軸の値だけで、
-//! ディスクは読まない。見える範囲の判定は一覧と同じヘルパーを通す。
+//! 見える範囲の判定は一覧と同じヘルパー (`can_list`) を通す。
 
 use axum::Json;
 use axum::extract::{Query, State};
@@ -17,8 +16,8 @@ use crate::state::AppState;
 use super::archive_items::{self, ArchiveViewItem};
 use super::contents::{self, ContentResponse, GroupAncestor};
 
-/// ADR: 区画ごとに返す件数の上限。1文字だけ打ったときに数千件を並べないため。
-/// 100件あれば、語を足さずに目で探せる範囲は収まる。
+/// ADR: 区画ごとに返す件数の上限 (→ docs/search.md「結果の並びと上限」)。
+/// 語を足さずに目で追える数として 100 件にしている。
 pub(super) const RESULT_LIMIT: usize = 100;
 
 /// 比べる前の揃え方。NFKC で全角と半角をまとめ、英字を小文字にする。

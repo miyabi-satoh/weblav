@@ -1915,11 +1915,10 @@ async fn with_previews(
     Ok(contents)
 }
 
-/// 閲覧者がホームからたどって一覧で見られる行の id。自分と祖先のグループすべてが `can_list` を通るもの
-/// (→ docs/access.md「祖先のグループを辿る」)。
+/// 閲覧者がホームからたどって一覧で見られる行の id (→ docs/search.md「見える範囲」)。
 ///
-/// 一覧は親を開けることを確かめてから子を並べるが、検索は全体から拾うので、行ごとに祖先まで判定する。
-/// 全行を受けてメモリ上で親子を辿り、行ごとに再帰 CTE を投げない。循環が無い前提は `fetch_lineage` と同じ。
+/// 全行を受けてメモリ上で親子を辿り、行ごとに再帰 CTE を投げない。判定済みの祖先で打ち切るので、
+/// 各行を辿るのは1回だけになる。循環が無い前提は `fetch_lineage` と同じ。
 fn listable_ids(viewer: &Viewer, rows: &[ContentRow]) -> HashSet<i64> {
     let by_id: HashMap<i64, &ContentRow> = rows.iter().map(|row| (row.id, row)).collect();
     let mut known: HashMap<i64, bool> = HashMap::new();

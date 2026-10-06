@@ -7,7 +7,8 @@ import { setUpArchiveForBrowsing, withDirectoryContent } from './fixture-helpers
 test.use({ actionTimeout: 10_000, navigationTimeout: 10_000 });
 
 const SEARCH_LINK_NAME = /^検索$|^Search$/;
-const SEARCH_INPUT_LABEL = /^探す語$|^Search for$/;
+// ラベルは文言の前後で改行しているので、前後の空白を許す。
+const SEARCH_INPUT_LABEL = /^\s*(探す語|Search for)\s*$/;
 
 test('検索: ヘッダーから開いて打つと、アーカイブのファイルが出て、押すとその場で鳴る', async ({
 	page

@@ -548,6 +548,15 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
+	// 検索: 語で探した結果 (コンテンツとアーカイブのファイルの2区画)。
+	search: {
+		async run(page, ctx) {
+			await openAsAdmin(page, ctx.baseURL, `/search?q=${encodeURIComponent('リスニング')}`);
+			await page.getByRole('heading', { level: 2 }).first().waitFor();
+			await page.screenshot({ path: ctx.outFile });
+		}
+	},
+
 	// マニュアル: 目次(匿名で開ける)。
 	help_toc: {
 		async run(page, ctx) {
