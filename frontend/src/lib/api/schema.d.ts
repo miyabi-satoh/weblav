@@ -1164,6 +1164,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 閲覧者がホームからたどって一覧で見られるコンテンツと、アーカイブの公開アイテムを、
+         *     タイトルの文字列で探す (→ docs/search.md)。語が空なら空の結果を返す。
+         */
+        get: operations["search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/setup/admin": {
         parameters: {
             query?: never;
@@ -2053,6 +2073,29 @@ export interface components {
              *     登録中のほかの公開できるフォルダにも含まれるもの (入れ子) は数えない。
              */
             removedContentCount: number;
+        };
+        SearchContentHit: {
+            content: components["schemas"]["ContentResponse"];
+            /** @description タイトルでは当たらず、説明で当たったか。何で当たったか分かるよう、画面が説明を添える。 */
+            matchedInDescription: boolean;
+            parent?: components["schemas"]["GroupAncestor"] | null;
+        };
+        SearchItemHit: {
+            /** Format: int64 */
+            archiveId: number;
+            /** @description 行の2段目に、どこにあるかとして出す。 */
+            archiveTitle: string;
+            item: components["schemas"]["ArchiveViewItem"];
+        };
+        SearchResponse: {
+            /** @description タイトル順。区画ごとの上限 (100 件) で打ち切る。 */
+            contents: components["schemas"]["SearchContentHit"][];
+            /** @description `contents` を打ち切ったか。 */
+            contentsTruncated: boolean;
+            /** @description アーカイブのファイル。表示タイトル順。区画ごとの上限 (100 件) で打ち切る。 */
+            items: components["schemas"]["SearchItemHit"][];
+            /** @description `items` を打ち切ったか。 */
+            itemsTruncated: boolean;
         };
         /** @description 管理画面で変えられる設定。 */
         ServerSettings: {
@@ -5954,6 +5997,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    search: {
+        parameters: {
+            query?: {
+                /** @description 検索語。空白で区切ると、どの語も含むものに絞る。 */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 区画ごとの検索結果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResponse"];
                 };
             };
         };

@@ -39,6 +39,8 @@ hkdf = "0.13.0"
 hmac = "0.13.0"
 # リンクのカードの情報を覚える期限を、応答の日付のヘッダーから決める (→ src/api/link_preview.rs)。hyper が既に引いている版。
 httpdate = "1.0.3"
+# 検索で、全角と半角を揃えて照らす (NFKC。→ src/api/search.rs)。url が既に引いている版。
+icu_normalizer = { version = "2.3.0", default-features = false, features = ["compiled_data"] }
 # 縮小画像とリンクのカードの画像に使う。`ico` はサイトのアイコン (favicon.ico) を読むため。
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "gif", "webp", "bmp", "ico"] }
 mime_guess = "2.0.5"

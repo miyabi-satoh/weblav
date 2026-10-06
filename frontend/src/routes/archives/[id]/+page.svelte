@@ -3,41 +3,21 @@
 	import { resolve } from '$app/paths';
 	import { withQuery } from '$lib/href';
 	import * as m from '$lib/paraglide/messages.js';
-	import { archiveItemDownloadHref, archiveItemThumbnailHref } from '$lib/api/urls';
-	import { isAudioFileName, isLinksFileName, viewerFileKind } from '$lib/file-kind';
-	import { linksFileHref, LinksFileIcon } from '$lib/links-file';
-	import type { ViewerFile } from '$lib/file-viewer.svelte';
-	import type { Track } from '$lib/now-playing.svelte';
-	import type { ViewerImage } from '$lib/image-viewer';
+	import { linksFileHref } from '$lib/links-file';
 	import { ARCHIVE_SORT_OPTIONS, archiveSortHref, type ArchiveSort } from '$lib/archive-sort';
-	import {
-		browseControlsClass,
-		browseGutterClass,
-		browseItemClass,
-		browseListClass,
-		browseRowClass,
-		browseRowSubtitleClass,
-		browseRowTextClass,
-		browseRowTitleClass
-	} from '$lib/list-row';
+	import { browseControlsClass, browseGutterClass } from '$lib/list-row';
 	import * as Select from '$lib/components/ui/select';
 	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
 	import BrowseSelectTrigger from '$lib/components/browse-select-trigger.svelte';
 	import BrowseLayoutToggle from '$lib/components/browse-layout-toggle.svelte';
 	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
-	import ListRowGlyph from '$lib/components/list-row-glyph.svelte';
-	import ListRowIcon from '$lib/components/list-row-icon.svelte';
-	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
-	import ListRowImageLink from '$lib/components/list-row-image-link.svelte';
-	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
-	import FileIcon from '@lucide/svelte/icons/file';
+	import ArchiveViewList, { type ArchiveViewRow } from '$lib/components/archive-view-list.svelte';
 	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
 	import { pageHeadingClass, pageEmptyTextClass } from '$lib/page-layout';
 	import { formatNumber } from '$lib/format';
 
-	type ArchiveViewItem = components['schemas']['ArchiveViewItem'];
 	type ArchiveAxis = components['schemas']['ArchiveAxisResponse'];
 
 	let { data }: PageProps = $props();
@@ -97,70 +77,16 @@
 		);
 	}
 
-	function toTrack(item: ArchiveViewItem): Track {
-		return { src: archiveItemDownloadHref(contentId, item.id), title: item.title };
+	function linksHref(row: ArchiveViewRow): string {
+		return linksFileHref(contentId, { item: row.item.id }, data.filters);
 	}
 
-	let audioQueue = $derived(
-		view.items.filter((item) => isAudioFileName(item.fileName)).map(toTrack)
-	);
-
-	/** 画像の行なら、ビューアに渡す形。大きさが分からない (読めない) 画像は普通のファイルの行にする。 */
-	function toViewerImage(item: ArchiveViewItem): ViewerImage | undefined {
-		if (!item.image) return undefined;
-		return {
-			src: archiveItemDownloadHref(contentId, item.id),
-			thumbnailSrc: archiveItemThumbnailHref(contentId, item.id),
-			width: item.image.width,
-			height: item.image.height,
-			title: item.title
-		};
-	}
-
-	let viewerImages = $derived(view.items.map(toViewerImage).filter((image) => image !== undefined));
-
-	/** 画像でない行に縮小画像を出すなら、その URL (→ docs/ui.md「画像のプレビュー」)。 */
-	function rowThumbnail(item: ArchiveViewItem): { src: string; original: string } | undefined {
-		if (!item.thumbnail) return undefined;
-		return {
-			src: archiveItemThumbnailHref(contentId, item.id),
-			original: archiveItemDownloadHref(contentId, item.id)
-		};
-	}
-
-	function linksHref(item: ArchiveViewItem): string {
-		return linksFileHref(contentId, { item: item.id }, data.filters);
-	}
-
-	/** PDF・動画・テキストなど、ビューアで開く行なら、ビューアに渡す形 (→ docs/ui.md「PDF・動画・テキストのビューア」)。 */
-	function toViewerFile(item: ArchiveViewItem): ViewerFile | undefined {
-		const kind = viewerFileKind(item.fileName, item.isText);
-		if (!kind) return undefined;
-		return {
-			src: archiveItemDownloadHref(contentId, item.id),
-			title: item.title,
-			fileName: item.fileName,
-			kind,
-			thumbnail: rowThumbnail(item)
-		};
-	}
-
-	let viewerFiles = $derived(view.items.map(toViewerFile).filter((file) => file !== undefined));
+	let rows = $derived(view.items.map((item) => ({ archiveId: contentId, item })));
 
 	let resetHref = $derived(resolve('/archives/[id]', { id: String(contentId) }));
 </script>
 
 <svelte:head><title>{pageTitle(view.archiveTitle)}</title></svelte:head>
-
-<!-- 2段目は、同じタイトルが並んだときに見分けるための軸の値 (→ docs/ui.md「アーカイブの一覧画面」)。 -->
-{#snippet itemText(item: ArchiveViewItem)}
-	<span class={browseRowTextClass()}>
-		<span class={browseRowTitleClass()}>{item.title}</span>
-		{#if item.subtitle}
-			<span class={browseRowSubtitleClass()}>{item.subtitle}</span>
-		{/if}
-	</span>
-{/snippet}
 
 <div class="py-6">
 	<div class={browseGutterClass}>
@@ -226,45 +152,6 @@
 	{#if view.items.length === 0}
 		<p class={pageEmptyTextClass}>{m.archive_view_empty()}</p>
 	{:else}
-		<ul class={browseListClass()}>
-			{#each view.items as item (item.id)}
-				{@const image = toViewerImage(item)}
-				{@const viewerFile = toViewerFile(item)}
-				<li class={browseItemClass()}>
-					{#if isLinksFileName(item.fileName)}
-						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
-						<a href={linksHref(item)} class={browseRowClass()}>
-							<ListRowIcon icon={LinksFileIcon} />
-							{@render itemText(item)}
-							<ListRowGlyph />
-						</a>
-					{:else if isAudioFileName(item.fileName)}
-						<ListRowPlayButton track={toTrack(item)} queue={audioQueue}>
-							{@render itemText(item)}
-						</ListRowPlayButton>
-					{:else if image}
-						<ListRowImageLink {image} images={viewerImages}>
-							{@render itemText(item)}
-						</ListRowImageLink>
-					{:else if viewerFile}
-						<ListRowFileLink file={viewerFile} files={viewerFiles}>
-							{@render itemText(item)}
-						</ListRowFileLink>
-					{:else}
-						<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
-						<a
-							href={archiveItemDownloadHref(contentId, item.id)}
-							class={browseRowClass()}
-							target="_blank"
-							rel="external noopener noreferrer"
-						>
-							<ListRowIcon icon={FileIcon} thumbnail={rowThumbnail(item)} />
-							{@render itemText(item)}
-							<ListRowGlyph newTab />
-						</a>
-					{/if}
-				</li>
-			{/each}
-		</ul>
+		<ArchiveViewList {rows} {linksHref} />
 	{/if}
 </div>

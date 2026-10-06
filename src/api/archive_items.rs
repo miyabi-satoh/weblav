@@ -72,7 +72,7 @@ struct ArchiveAxisResponse {
 
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-struct ArchiveViewItem {
+pub(super) struct ArchiveViewItem {
     id: i64,
     title: String,
     /// `rel_path` の最後の要素。ページ内プレイヤーへの振り分け (→ docs/ui.md「音声のページ内プレイヤー」) に使う。
@@ -146,28 +146,9 @@ async fn view_archive(
     let root = PathBuf::from(&meta.path);
     let (axes, items) = run_blocking(move || {
         let (axes, items) = build_archive_view(&axes, rows, template.as_deref(), &filters, order);
-        // 画像の大きさとテキストかを見るだけで中身は渡さないので、アイテムごとに配信と同じ `resolve_path` は通さない。
-        // 索引はリンクでないファイルだけを拾う (→ docs/archive.md「スキャン」) が、索引の後に
-        // リンクへ差し替えられたものは辿らない。
         let items = items
             .into_iter()
-            .map(|(rel_path, item)| {
-                let path = root.join(rel_path);
-                let Some(size) = std::fs::symlink_metadata(&path)
-                    .ok()
-                    .filter(|metadata| metadata.is_file())
-                    .map(|metadata| metadata.len())
-                else {
-                    return item;
-                };
-                let preview = thumbnails::file_preview(&item.file_name, &path, size);
-                ArchiveViewItem {
-                    image: preview.image,
-                    is_text: preview.is_text,
-                    thumbnail: preview.thumbnail,
-                    ..item
-                }
-            })
+            .map(|(rel_path, item)| with_preview(&root, &rel_path, item))
             .collect::<Vec<_>>();
         (axes, items)
     })
@@ -181,6 +162,50 @@ async fn view_archive(
         axes,
         items,
     }))
+}
+
+/// 行に、ページ内で見せるための情報 (画像の大きさ・テキストか) を埋める。ファイルを読むので、非同期のワーカーの外で呼ぶ。
+///
+/// 画像の大きさとテキストかを見るだけで中身は渡さないので、アイテムごとに配信と同じ `resolve_path` は通さない。
+/// 索引はリンクでないファイルだけを拾う (→ docs/archive.md「スキャン」) が、索引の後に
+/// リンクへ差し替えられたものは辿らない。
+fn with_preview(root: &std::path::Path, rel_path: &str, item: ArchiveViewItem) -> ArchiveViewItem {
+    let path = root.join(rel_path);
+    let Some(size) = std::fs::symlink_metadata(&path)
+        .ok()
+        .filter(|metadata| metadata.is_file())
+        .map(|metadata| metadata.len())
+    else {
+        return item;
+    };
+    let preview = thumbnails::file_preview(&item.file_name, &path, size);
+    ArchiveViewItem {
+        image: preview.image,
+        is_text: preview.is_text,
+        thumbnail: preview.thumbnail,
+        ..item
+    }
+}
+
+/// 行の2段目に出す軸の値 (→ docs/ui.md「アーカイブの一覧画面」)。表示タイトルで使っていない軸のうち、
+/// 絞り込み中でない軸の値を、軸の並び順に空白で区切る。出す値が無ければ `None`。
+fn item_subtitle(
+    axes: &[archive::AxisIndex],
+    derived: &archive::DerivedItem,
+    template_axes: &std::collections::HashSet<&str>,
+    active_filters: &[Option<&str>],
+) -> Option<String> {
+    let parts: Vec<&str> = axes
+        .iter()
+        .zip(&derived.axis_values)
+        .zip(active_filters)
+        .filter(|((axis, _), filter)| {
+            filter.is_none()
+                && !(derived.title_from_template && template_axes.contains(axis.name.as_str()))
+        })
+        .filter_map(|((_, value), _)| Some(value.as_ref()?.display.as_str()))
+        .collect();
+    (!parts.is_empty()).then(|| parts.join(" "))
 }
 
 /// 閲覧用の一覧の、導出・絞り込み・並べ替え。`view_archive` から `run_blocking` で呼ぶ。
@@ -312,18 +337,7 @@ fn build_archive_view(
     let items: Vec<(String, ArchiveViewItem)> = matched
         .into_iter()
         .map(|(id, rel_path, derived, _)| {
-            let parts: Vec<&str> = axes
-                .iter()
-                .zip(&derived.axis_values)
-                .zip(&active_filters)
-                .filter(|((axis, _), filter)| {
-                    filter.is_none()
-                        && !(derived.title_from_template
-                            && template_axes.contains(axis.name.as_str()))
-                })
-                .filter_map(|((_, value), _)| Some(value.as_ref()?.display.as_str()))
-                .collect();
-            let subtitle = (!parts.is_empty()).then(|| parts.join(" "));
+            let subtitle = item_subtitle(axes, &derived, &template_axes, &active_filters);
             (
                 rel_path,
                 ArchiveViewItem {
@@ -340,6 +354,122 @@ fn build_archive_view(
         .collect();
 
     (axes_response, items)
+}
+
+// --- 検索 (→ docs/search.md) ---
+
+/// 検索の対象にするアーカイブ。閲覧者が一覧で見られることは、呼び出し側が確かめる。
+pub(super) struct SearchableArchive {
+    pub(super) id: i64,
+    pub(super) title: String,
+    pub(super) path: String,
+    pub(super) title_template: Option<String>,
+}
+
+/// 検索で当たったアーカイブのファイル1件と、並べ替えに使う値。
+struct ItemHit {
+    /// `search_items` の `sources` の添字。
+    source: usize,
+    archive_id: i64,
+    rel_path: String,
+    sort_key: Vec<ValueKey>,
+    item: ArchiveViewItem,
+}
+
+/// 検索の結果のアーカイブのファイルの並び (→ docs/search.md「結果の並びと上限」)。
+/// タイトル順で、同じタイトルはアーカイブごとに、その一覧の既定の並び (軸の順) にする。
+fn item_hit_cmp(a: &ItemHit, b: &ItemHit) -> std::cmp::Ordering {
+    title_cmp(&a.item.title, &b.item.title)
+        .then(a.archive_id.cmp(&b.archive_id))
+        .then_with(|| a.sort_key.cmp(&b.sort_key))
+        .then_with(|| a.rel_path.cmp(&b.rel_path))
+}
+
+/// アーカイブの公開アイテムを、表示タイトルと軸の値で探す。表示タイトル順に並べ、
+/// `search::RESULT_LIMIT` 件で打ち切って、打ち切ったかを添えて返す。
+pub(super) async fn search_items(
+    pool: &sqlx::SqlitePool,
+    archives: Vec<SearchableArchive>,
+    terms: super::search::Terms,
+) -> Result<(Vec<super::search::SearchItemHit>, bool), AppError> {
+    let mut sources = Vec::with_capacity(archives.len());
+    for archive in archives {
+        let axes = archive::load_axis_index(pool, archive.id).await?;
+        // 公開の条件は閲覧用の一覧 (`view_archive`) と同じ。
+        let rows = sqlx::query_as!(
+            ItemRow,
+            r#"SELECT id as "id!", rel_path, published as "published: bool",
+                      created_at as "created_at!" FROM archive_items
+               WHERE archive_id = ? AND published = 1"#,
+            archive.id
+        )
+        .fetch_all(pool)
+        .await?;
+        sources.push((archive, axes, rows));
+    }
+
+    // 導出は全アイテム × 軸 × 照合語の数だけ回り、行の情報はファイルを読むので、非同期のワーカーを塞がない。
+    run_blocking(move || {
+        let mut hits: Vec<ItemHit> = Vec::new();
+        for (index, (archive, axes, rows)) in sources.iter().enumerate() {
+            let template = archive.title_template.as_deref();
+            let template_axes = archive::template_placeholder_names(template);
+            let no_filters = vec![None; axes.len()];
+            for row in rows {
+                let derived = archive::derive_item(&row.rel_path, axes, template);
+                let mut fields = vec![super::search::normalize(&derived.title)];
+                fields.extend(
+                    derived
+                        .axis_values
+                        .iter()
+                        .flatten()
+                        .map(|value| super::search::normalize(&value.display)),
+                );
+                let fields: Vec<&str> = fields.iter().map(String::as_str).collect();
+                if !terms.matches(&fields) {
+                    continue;
+                }
+                let subtitle = item_subtitle(axes, &derived, &template_axes, &no_filters);
+                hits.push(ItemHit {
+                    source: index,
+                    archive_id: archive.id,
+                    rel_path: row.rel_path.clone(),
+                    sort_key: derived.sort_key(),
+                    item: ArchiveViewItem {
+                        id: row.id,
+                        title: derived.title,
+                        file_name: derived.file_name,
+                        subtitle,
+                        image: None,
+                        is_text: false,
+                        thumbnail: false,
+                    },
+                });
+            }
+        }
+
+        hits.sort_by(item_hit_cmp);
+        let truncated = hits.len() > super::search::RESULT_LIMIT;
+        hits.truncate(super::search::RESULT_LIMIT);
+
+        let hits = hits
+            .into_iter()
+            .map(|hit| {
+                let archive = &sources[hit.source].0;
+                super::search::SearchItemHit {
+                    archive_id: archive.id,
+                    archive_title: archive.title.clone(),
+                    item: with_preview(
+                        std::path::Path::new(&archive.path),
+                        &hit.rel_path,
+                        hit.item,
+                    ),
+                }
+            })
+            .collect();
+        (hits, truncated)
+    })
+    .await
 }
 
 // --- 管理用: 一覧・公開切り替え ---
@@ -663,6 +793,48 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
 mod tests {
     use super::*;
     use crate::api::archive::{AxisDict, AxisDictRow, AxisIndex};
+
+    fn item_hit(title: &str, archive_id: i64, year: &str, rel_path: &str) -> ItemHit {
+        ItemHit {
+            source: 0,
+            archive_id,
+            rel_path: rel_path.to_string(),
+            sort_key: vec![ValueKey::Raw(year.to_string())],
+            item: ArchiveViewItem {
+                id: 0,
+                title: title.to_string(),
+                file_name: String::new(),
+                subtitle: None,
+                image: None,
+                is_text: false,
+                thumbnail: false,
+            },
+        }
+    }
+
+    /// タイトル順で、同じタイトルはアーカイブごとに軸の順に並ぶ (id の順ではない)。
+    #[test]
+    fn item_hit_cmp_orders_by_title_then_archive_then_axes() {
+        let mut hits = [
+            item_hit("第2回", 1, "2024", "2024/b.mp3"),
+            item_hit("第1回", 2, "2023", "2023/a.mp3"),
+            item_hit("第1回", 1, "2025", "2025/a.mp3"),
+            item_hit("第1回", 1, "2023", "2023/z.mp3"),
+            item_hit("第10回", 1, "2023", "2023/c.mp3"),
+        ];
+        hits.sort_by(item_hit_cmp);
+        let order: Vec<&str> = hits.iter().map(|hit| hit.rel_path.as_str()).collect();
+        assert_eq!(
+            order,
+            [
+                "2023/z.mp3",
+                "2025/a.mp3",
+                "2023/a.mp3",
+                "2024/b.mp3",
+                "2023/c.mp3"
+            ]
+        );
+    }
     use crate::api::archive_axes::{AxisMatchPosition, AxisSource};
     use crate::api::sort::ArchiveSortOrder;
 

@@ -11,7 +11,7 @@
 //! (`POST /contents/upload` / `PUT /contents/{id}/upload`)で行う。JSONの
 //! `create_content`/`update_content` は`file`以外を扱う(`file`が来たら422にする)。
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path as FsPath, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -855,7 +855,7 @@ async fn list_contents(
         .filter(|row| can_list(&viewer, row.visibility, row.created_by))
         .map(ContentResponse::try_from)
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(Json(with_previews(&state, None, contents).await?))
+    Ok(Json(with_previews(&state, contents).await?))
 }
 
 /// 管理画面向けの一覧。`path`・公開範囲・作成者を含む。
@@ -1816,15 +1816,14 @@ async fn browse_group(
     Ok(Json(GroupBrowseResponse {
         group_title,
         ancestors,
-        entries: with_previews(&state, Some(id), entries).await?,
+        entries: with_previews(&state, entries).await?,
     }))
 }
 
 /// 一覧に並ぶ file コンテンツに、ページ内で見せるための情報 (画像の大きさ・テキストか) を埋める。
-/// `ContentRow` は `blob_hash` を持たないので、同じ親の file コンテンツの分をまとめて引き直す。
+/// `ContentRow` は `blob_hash` を持たないので、並んだ file コンテンツの分をまとめて引き直す。
 async fn with_previews(
     state: &AppState,
-    parent_id: Option<i64>,
     mut contents: Vec<ContentResponse>,
 ) -> Result<Vec<ContentResponse>, AppError> {
     let link_urls: Vec<String> = contents
@@ -1841,9 +1840,18 @@ async fn with_previews(
         }
     }
 
+    let file_ids: Vec<i64> = contents
+        .iter()
+        .filter_map(|content| match content {
+            ContentResponse::File { id, .. } => Some(*id),
+            _ => None,
+        })
+        .collect();
+    let file_ids_json = serde_json::to_string(&file_ids).expect("数の並びは JSON にできる");
     let hashes: HashMap<i64, Option<String>> = sqlx::query!(
-        r#"SELECT id as "id!", blob_hash FROM contents WHERE parent_id IS ? AND type = ?"#,
-        parent_id,
+        r#"SELECT id as "id!", blob_hash FROM contents
+           WHERE id IN (SELECT value FROM json_each(?)) AND type = ?"#,
+        file_ids_json,
         ContentType::File
     )
     .fetch_all(&state.pool)
@@ -1905,6 +1913,150 @@ async fn with_previews(
         }
     }
     Ok(contents)
+}
+
+/// 閲覧者がホームからたどって一覧で見られる行の id (→ docs/search.md「見える範囲」)。
+///
+/// 全行を受けてメモリ上で親子を辿り、行ごとに再帰 CTE を投げない。判定済みの祖先で打ち切るので、
+/// 各行を辿るのは1回だけになる。循環が無い前提は `fetch_lineage` と同じ。
+fn listable_ids(viewer: &Viewer, rows: &[ContentRow]) -> HashSet<i64> {
+    let by_id: HashMap<i64, &ContentRow> = rows.iter().map(|row| (row.id, row)).collect();
+    let mut known: HashMap<i64, bool> = HashMap::new();
+    for row in rows {
+        // 判定済みの祖先か、ルートまで登ってから、上から順に決める。
+        let mut chain = Vec::new();
+        let mut inherited = true;
+        let mut current = Some(row.id);
+        while let Some(id) = current {
+            if let Some(&listable) = known.get(&id) {
+                inherited = listable;
+                break;
+            }
+            let Some(node) = by_id.get(&id) else {
+                inherited = false;
+                break;
+            };
+            chain.push(*node);
+            current = node.parent_id;
+        }
+        for node in chain.into_iter().rev() {
+            inherited = inherited && can_list(viewer, node.visibility, node.created_by);
+            known.insert(node.id, inherited);
+        }
+    }
+    known
+        .into_iter()
+        .filter_map(|(id, listable)| listable.then_some(id))
+        .collect()
+}
+
+/// 検索の、コンテンツの区画の結果 (→ docs/search.md)。
+pub(super) struct ContentSearch {
+    pub(super) hits: Vec<super::search::SearchContentHit>,
+    pub(super) truncated: bool,
+    /// 閲覧者が一覧で見られるアーカイブ。アイテムの区画は、この中から探す。
+    pub(super) archives: Vec<super::archive_items::SearchableArchive>,
+}
+
+/// 閲覧者が一覧で見られるコンテンツを、タイトルと説明で探す。
+pub(super) async fn search_contents(
+    state: &AppState,
+    viewer: &Viewer,
+    terms: &super::search::Terms,
+) -> Result<ContentSearch, AppError> {
+    // 祖先をたどるため全行を読む。数千件の規模なら足りる。
+    let rows = sqlx::query_as!(
+        ContentRow,
+        r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
+                  description, created_at as "created_at!", file_name, file_size,
+                  visibility as "visibility: Visibility", created_by, extensions, title_template
+           FROM contents"#,
+    )
+    .fetch_all(&state.pool)
+    .await?;
+
+    let group_titles: HashMap<i64, String> = rows
+        .iter()
+        .filter(|row| row.content_type == ContentType::Group)
+        .map(|row| (row.id, row.title.clone()))
+        .collect();
+
+    let listable = listable_ids(viewer, &rows);
+    let rows: Vec<ContentRow> = rows
+        .into_iter()
+        .filter(|row| listable.contains(&row.id))
+        .collect();
+
+    // 照らすのは全行の文字列を揃える計算で、件数に比例して重くなる。
+    let terms_owned = terms.clone();
+    let (mut hits, archives) = run_blocking(move || {
+        let mut hits = Vec::new();
+        let mut archives = Vec::new();
+        for row in rows {
+            if row.content_type == ContentType::Archive {
+                archives.push((
+                    row.id,
+                    row.title.clone(),
+                    row.path.clone(),
+                    row.title_template.clone(),
+                ));
+            }
+            let title = super::search::normalize(&row.title);
+            if terms_owned.matches(&[&title]) {
+                hits.push((row, false));
+            } else if let Some(description) = &row.description
+                && terms_owned.matches(&[&title, &super::search::normalize(description)])
+            {
+                hits.push((row, true));
+            }
+        }
+        (hits, archives)
+    })
+    .await?;
+
+    hits.sort_by(|(a, _), (b, _)| title_cmp(&a.title, &b.title).then(a.id.cmp(&b.id)));
+    let truncated = hits.len() > super::search::RESULT_LIMIT;
+    hits.truncate(super::search::RESULT_LIMIT);
+
+    let mut placements = Vec::with_capacity(hits.len());
+    let mut contents = Vec::with_capacity(hits.len());
+    for (row, matched_in_description) in hits {
+        let parent = row.parent_id.map(|id| GroupAncestor {
+            id,
+            title: group_titles.get(&id).cloned().unwrap_or_default(),
+        });
+        placements.push((parent, matched_in_description));
+        contents.push(ContentResponse::try_from(row)?);
+    }
+    let contents = with_previews(state, contents).await?;
+
+    let archives = archives
+        .into_iter()
+        .map(|(id, title, path, title_template)| {
+            Ok(super::archive_items::SearchableArchive {
+                id,
+                title,
+                path: path.ok_or(AppError::DataIntegrity("archive content without a path"))?,
+                title_template,
+            })
+        })
+        .collect::<Result<Vec<_>, AppError>>()?;
+
+    Ok(ContentSearch {
+        hits: contents
+            .into_iter()
+            .zip(placements)
+            .map(
+                |(content, (parent, matched_in_description))| super::search::SearchContentHit {
+                    content,
+                    parent,
+                    matched_in_description,
+                },
+            )
+            .collect(),
+        truncated,
+        archives,
+    })
 }
 
 /// 同一オリジンでのインライン表示(ブラウザ内蔵ビューア)を許可するMIMEタイプかどうか。
@@ -2754,6 +2906,77 @@ mod tests {
         for input in [None, Some(""), Some("   "), Some("javascript:alert(1)")] {
             assert!(is_validation(&resolve_url(input).await), "{input:?}");
         }
+    }
+
+    fn viewer(id: i64, role: crate::auth::Role) -> Viewer {
+        Viewer::User(AuthUser {
+            id,
+            username: format!("user{id}"),
+            role,
+            has_recovery_code: false,
+        })
+    }
+
+    fn content_row(
+        id: i64,
+        content_type: ContentType,
+        parent_id: Option<i64>,
+        visibility: Visibility,
+        created_by: Option<i64>,
+    ) -> ContentRow {
+        ContentRow {
+            id,
+            content_type,
+            parent_id,
+            title: format!("row{id}"),
+            url: None,
+            path: None,
+            description: None,
+            created_at: String::new(),
+            file_name: None,
+            file_size: None,
+            visibility,
+            created_by,
+            extensions: None,
+            title_template: None,
+        }
+    }
+
+    fn sorted(ids: HashSet<i64>) -> Vec<i64> {
+        let mut ids: Vec<i64> = ids.into_iter().collect();
+        ids.sort();
+        ids
+    }
+
+    /// 検索で拾えるのは、自分と祖先のグループすべてが一覧に出るものだけ。
+    /// `hidden` のグループの中は、ログイン済みの人にも、作成者の `private` でも拾わない。
+    #[test]
+    fn listable_ids_requires_every_ancestor_to_be_listable() {
+        use crate::auth::Role;
+        use ContentType::{Group, Link};
+        use Visibility::{Authenticated, Hidden, Private, Public};
+        let rows = vec![
+            content_row(1, Group, None, Public, None),
+            content_row(2, Link, Some(1), Public, None),
+            content_row(3, Group, Some(1), Authenticated, None),
+            content_row(4, Link, Some(3), Public, None),
+            content_row(5, Group, None, Hidden, None),
+            content_row(6, Link, Some(5), Public, None),
+            content_row(7, Link, Some(5), Private, Some(10)),
+            content_row(8, Link, Some(1), Private, Some(10)),
+            content_row(9, Link, Some(3), Hidden, None),
+        ];
+
+        assert_eq!(sorted(listable_ids(&Viewer::Anonymous, &rows)), [1, 2]);
+        assert_eq!(
+            sorted(listable_ids(&viewer(10, Role::User), &rows)),
+            [1, 2, 3, 4, 8]
+        );
+        // 他人の `private` は、`admin` にも出さない。
+        assert_eq!(
+            sorted(listable_ids(&viewer(11, Role::Admin), &rows)),
+            [1, 2, 3, 4]
+        );
     }
 
     #[test]

@@ -4335,6 +4335,35 @@
         }
       }
     },
+    "/api/v1/search": {
+      "get": {
+        "summary": "閲覧者がホームからたどって一覧で見られるコンテンツと、アーカイブの公開アイテムを、\nタイトルの文字列で探す (→ docs/search.md)。語が空なら空の結果を返す。",
+        "operationId": "search",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "検索語。空白で区切ると、どの語も含むものに絞る。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "区画ごとの検索結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/setup/admin": {
       "post": {
         "operationId": "create_admin",
@@ -6737,6 +6766,87 @@
             "type": "integer",
             "description": "このフォルダを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「公開できるフォルダ」)。\n登録中のほかの公開できるフォルダにも含まれるもの (入れ子) は数えない。",
             "minimum": 0
+          }
+        }
+      },
+      "SearchContentHit": {
+        "type": "object",
+        "required": [
+          "content",
+          "matchedInDescription"
+        ],
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/ContentResponse"
+          },
+          "matchedInDescription": {
+            "type": "boolean",
+            "description": "タイトルでは当たらず、説明で当たったか。何で当たったか分かるよう、画面が説明を添える。"
+          },
+          "parent": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GroupAncestor",
+                "description": "親のグループ。ルート直下なら `None`。行の2段目に、どこにあるかとして出す。"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "SearchItemHit": {
+        "type": "object",
+        "required": [
+          "archiveId",
+          "archiveTitle",
+          "item"
+        ],
+        "properties": {
+          "archiveId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "archiveTitle": {
+            "type": "string",
+            "description": "行の2段目に、どこにあるかとして出す。"
+          },
+          "item": {
+            "$ref": "#/components/schemas/ArchiveViewItem"
+          }
+        }
+      },
+      "SearchResponse": {
+        "type": "object",
+        "required": [
+          "contents",
+          "contentsTruncated",
+          "items",
+          "itemsTruncated"
+        ],
+        "properties": {
+          "contents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchContentHit"
+            },
+            "description": "タイトル順。区画ごとの上限 (100 件) で打ち切る。"
+          },
+          "contentsTruncated": {
+            "type": "boolean",
+            "description": "`contents` を打ち切ったか。"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchItemHit"
+            },
+            "description": "アーカイブのファイル。表示タイトル順。区画ごとの上限 (100 件) で打ち切る。"
+          },
+          "itemsTruncated": {
+            "type": "boolean",
+            "description": "`items` を打ち切ったか。"
           }
         }
       },

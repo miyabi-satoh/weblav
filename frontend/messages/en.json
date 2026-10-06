@@ -548,5 +548,16 @@
 	"archive_axes_ai_import_button": "Import",
 	"archive_axes_ai_imported_toast": "Imported the axes.",
 	"error_detail_import_axis_invalid": "The axis \"{name}\" does not follow the rules (level number, empty or duplicate values, and so on). Ask the AI to fix it.",
-	"archive_axes_ai_preview_unset": "Not set"
+	"archive_axes_ai_preview_unset": "Not set",
+	"search_nav_label": "Search",
+	"search_title": "Search",
+	"search_query_label": "Search for",
+	"search_query_description": "Searches contents by title and description, and archive files by title and values such as the year. Files inside folders are not searched.",
+	"search_section_count": "{count} items",
+	"search_contents_heading": "Contents",
+	"search_items_heading": "Archive files",
+	"search_empty": "Nothing matches “{query}”.",
+	"search_truncated": "Showing the first {count}. Add more words to narrow it down.",
+	"search_fetch_failed": "Search failed. Please try again later.",
+	"search_section_count_truncated": "{count}+ items"
 }
