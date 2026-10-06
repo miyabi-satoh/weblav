@@ -23,6 +23,7 @@
 	import ListRowImageLink from '$lib/components/list-row-image-link.svelte';
 	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
 	import ListRowLink from '$lib/components/list-row-link.svelte';
+	import SeparatedText from '$lib/components/separated-text.svelte';
 	import * as m from '$lib/paraglide/messages.js';
 	import type { components } from '$lib/api/schema';
 
@@ -36,7 +37,7 @@
 	}: {
 		entries: ContentEntry[];
 		/** 行の2段目。省くと説明を出す。検索では、どこにあるかを出す。 */
-		subtitle?: (content: ContentEntry) => string | null | undefined;
+		subtitle?: (content: ContentEntry) => string | string[] | null | undefined;
 	} = $props();
 
 	function isAudioContent(content: ContentEntry): boolean {
@@ -105,7 +106,7 @@
 					{m.contents_visibility_private()}
 					{#if text}<span aria-hidden="true">·</span>{/if}
 				{/if}
-				{text}
+				{#if text}<SeparatedText {text} />{/if}
 			</span>
 		{/if}
 	</span>

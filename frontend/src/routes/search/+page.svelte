@@ -77,19 +77,19 @@
 	let placements = $derived(new Map(contentHits.map((hit) => [hit.content.id, hit])));
 
 	/** どこにあるか。説明だけで当たったものは、何で当たったか分かるよう説明を添える。 */
-	function contentSubtitle(content: ContentEntry): string {
+	function contentSubtitle(content: ContentEntry): string[] {
 		const hit = placements.get(content.id);
 		const location = hit?.parent?.title ?? m.breadcrumb_home();
 		return hit?.matchedInDescription && content.description
-			? `${location} · ${content.description}`
-			: location;
+			? [location, content.description]
+			: [location];
 	}
 
 	let itemRows = $derived<ArchiveViewRow[]>(
 		itemHits.map((hit) => ({
 			archiveId: hit.archiveId,
 			item: hit.item,
-			subtitle: [hit.archiveTitle, hit.item.subtitle].filter(Boolean).join(' · ')
+			subtitle: [hit.archiveTitle, hit.item.subtitle].filter((part): part is string => !!part)
 		}))
 	);
 

@@ -45,6 +45,24 @@ struct ItemRow {
     created_at: String,
 }
 
+/// 閲覧者に見せるアイテム (閲覧用の一覧と検索)。公開判定は「アーカイブのvisibility」と
+/// 「アイテムのpublished」の両方で (→ docs/archive.md「アイテムの公開」)、ここは後者だけを見る。
+/// 配信 (`item_file`) も同じ条件を見るので、片方を変えるときはもう片方も直す。
+async fn published_items(
+    pool: &sqlx::SqlitePool,
+    archive_id: i64,
+) -> Result<Vec<ItemRow>, AppError> {
+    Ok(sqlx::query_as!(
+        ItemRow,
+        r#"SELECT id as "id!", rel_path, published as "published: bool",
+                  created_at as "created_at!" FROM archive_items
+           WHERE archive_id = ? AND published = 1"#,
+        archive_id
+    )
+    .fetch_all(pool)
+    .await?)
+}
+
 // --- GET /contents/{id}/archive (閲覧用) ---
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -87,6 +105,21 @@ pub(super) struct ArchiveViewItem {
     thumbnail: bool,
 }
 
+impl ArchiveViewItem {
+    /// プレビューの情報はファイルを読むので空のまま作り、見せる行にだけ `with_preview` で足す。
+    fn new(id: i64, derived: archive::DerivedItem, subtitle: Option<String>) -> Self {
+        Self {
+            id,
+            title: derived.title,
+            file_name: derived.file_name,
+            subtitle,
+            image: None,
+            is_text: false,
+            thumbnail: false,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct ArchiveViewResponse {
@@ -127,19 +160,8 @@ async fn view_archive(
     // (→ docs/archive.md「エンドポイント一覧」、docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。軸フィルタとして解釈される前に取り除く。
     let order = super::sort::ArchiveSortOrder::from_query(filters.remove("sort").as_deref());
 
-    // 公開判定は「アーカイブのvisibility」と「アイテムのpublished」の両方
-    // (→ docs/archive.md「アイテムの公開」)。前者は上のload_viewable_archiveで確認済みなので、
-    // ここではpublishedだけをWHERE句で絞る。配信 (download_item) も同じ条件を見るので、
-    // 片方を変えるときはもう片方も直す。
-    let rows = sqlx::query_as!(
-        ItemRow,
-        r#"SELECT id as "id!", rel_path, published as "published: bool",
-                  created_at as "created_at!" FROM archive_items
-           WHERE archive_id = ? AND published = 1"#,
-        id
-    )
-    .fetch_all(&state.pool)
-    .await?;
+    // アーカイブのvisibilityは上のload_viewable_archiveで確認済みなので、アイテムのpublishedだけを見る。
+    let rows = published_items(&state.pool, id).await?;
 
     // 導出は全アイテム × 軸 × 照合語の数だけ回るので、非同期のワーカーを塞がない。
     let template = meta.title_template;
@@ -338,18 +360,7 @@ fn build_archive_view(
         .into_iter()
         .map(|(id, rel_path, derived, _)| {
             let subtitle = item_subtitle(axes, &derived, &template_axes, &active_filters);
-            (
-                rel_path,
-                ArchiveViewItem {
-                    id,
-                    title: derived.title,
-                    file_name: derived.file_name,
-                    subtitle,
-                    image: None,
-                    is_text: false,
-                    thumbnail: false,
-                },
-            )
+            (rel_path, ArchiveViewItem::new(id, derived, subtitle))
         })
         .collect();
 
@@ -395,16 +406,7 @@ pub(super) async fn search_items(
     let mut sources = Vec::with_capacity(archives.len());
     for archive in archives {
         let axes = archive::load_axis_index(pool, archive.id).await?;
-        // 公開の条件は閲覧用の一覧 (`view_archive`) と同じ。
-        let rows = sqlx::query_as!(
-            ItemRow,
-            r#"SELECT id as "id!", rel_path, published as "published: bool",
-                      created_at as "created_at!" FROM archive_items
-               WHERE archive_id = ? AND published = 1"#,
-            archive.id
-        )
-        .fetch_all(pool)
-        .await?;
+        let rows = published_items(pool, archive.id).await?;
         sources.push((archive, axes, rows));
     }
 
@@ -435,15 +437,7 @@ pub(super) async fn search_items(
                     archive_id: archive.id,
                     rel_path: row.rel_path.clone(),
                     sort_key: derived.sort_key(),
-                    item: ArchiveViewItem {
-                        id: row.id,
-                        title: derived.title,
-                        file_name: derived.file_name,
-                        subtitle,
-                        image: None,
-                        is_text: false,
-                        thumbnail: false,
-                    },
+                    item: ArchiveViewItem::new(row.id, derived, subtitle),
                 });
             }
         }
@@ -763,7 +757,7 @@ pub(super) async fn item_file(
     .ok_or(AppError::NotFound)?;
 
     // 非公開はログイン済みの閲覧者にも隠す (→ docs/archive.md「アイテムの公開」、docs/access.md「匿名閲覧の受け口」)。
-    // 一覧 (view_archive の WHERE句) も同じ条件を見るので、片方を変えるときはもう片方も直す。
+    // 一覧と検索 (published_items) も同じ条件を見るので、片方を変えるときはもう片方も直す。
     if !item.published {
         return Err(AppError::NotFound);
     }

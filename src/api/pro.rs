@@ -124,12 +124,10 @@ async fn site_name(pool: &sqlx::SqlitePool) -> String {
         .unwrap_or_default()
 }
 
-/// 窓口の一覧で見分けるための PC の名前 (mDNS のホスト名から `.local` を除いたもの)。
+/// 窓口の一覧で見分けるための PC の名前 (mDNS のホスト名の `.local` の前の部分)。
 /// 読めなければ空にし、窓口は前の名前のままにする。
 fn pc_name() -> String {
-    crate::mdns::os_hostname()
-        .map(|host| host.trim_end_matches(".local").to_string())
-        .unwrap_or_default()
+    crate::mdns::os_host_label().unwrap_or_default()
 }
 
 #[derive(Debug, Serialize, ToSchema)]

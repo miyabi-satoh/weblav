@@ -12,6 +12,7 @@
 	} from '$lib/list-row';
 	import ListRowGlyph from '$lib/components/list-row-glyph.svelte';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
+	import SeparatedText from '$lib/components/separated-text.svelte';
 	import * as m from '$lib/paraglide/messages.js';
 	import type { components } from '$lib/api/schema';
 
@@ -29,7 +30,8 @@
 		href: string;
 		/** 省くと、ページのタイトル (無ければホスト名) を出す。 */
 		title?: string;
-		description?: string | null;
+		/** 配列なら「·」で区切って並べる。 */
+		description?: string | string[] | null;
 		preview?: LinkPreview | null;
 		private?: boolean;
 	} = $props();
@@ -79,7 +81,7 @@
 		{/if}
 		{#if withDescription}
 			<span aria-hidden="true">·</span>
-			<span class="min-w-0 truncate">{description}</span>
+			<span class="min-w-0 truncate"><SeparatedText text={description ?? ''} /></span>
 		{/if}
 	</span>
 {/snippet}
@@ -104,7 +106,9 @@
 		<span class="flex w-full min-w-0 flex-col gap-1 px-3 pt-2.5 pb-3">
 			<span class="line-clamp-2 text-base leading-6 wrap-anywhere">{shownTitle}</span>
 			{#if description}
-				<span class="truncate text-xs text-muted-foreground">{description}</span>
+				<span class="truncate text-xs text-muted-foreground"
+					><SeparatedText text={description} /></span
+				>
 			{/if}
 			<span class="flex items-center gap-2 text-xs text-muted-foreground">
 				{@render meta(false)}
