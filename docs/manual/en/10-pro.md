@@ -53,7 +53,7 @@ After you subscribe again or unlink another PC, press “Check now” to apply t
 
 ## Unlink
 
-When you give the PC to someone else, or to link another PC instead, press “Unlink...” in the “Pro” section of that PC's WebLAV, then press “Unlink”.
+When you give the PC to someone else, or want to link another PC instead, press “Unlink...” in the “Pro” section of that PC's WebLAV, then press “Unlink”.
 
 - The PC goes back to Free. Nothing over the limits is deleted, and you can still view, edit and delete it. You just can't add more.
 - If WebLAV can't tell your account about the unlinking, a QR code appears. Scan it with a smartphone and press “Unlink” so you can link another PC.
