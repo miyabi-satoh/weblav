@@ -131,8 +131,7 @@ mod windows_owner {
     };
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::{
-        CreateWindowExW, DestroyWindow, SetForegroundWindow, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
-        WS_POPUP,
+        CreateWindowExW, DestroyWindow, SetForegroundWindow, WS_EX_TOPMOST, WS_POPUP,
     };
     use windows::core::w;
 
@@ -141,10 +140,9 @@ mod windows_owner {
 
     impl TopmostOwner {
         pub fn new() -> Option<Self> {
-            // タスクバーに出さないよう WS_EX_TOOLWINDOW にする。
             let hwnd = unsafe {
                 CreateWindowExW(
-                    WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
+                    WS_EX_TOPMOST,
                     w!("STATIC"),
                     None,
                     WS_POPUP,
@@ -210,6 +208,7 @@ fn bring_to_front() {
     app.activateIgnoringOtherApps(true);
 }
 
+/// Linux では手当てしていない (後ろに出るかを実機で確かめていない)。
 #[cfg(not(any(target_os = "macos", windows)))]
 fn bring_to_front() {}
 
