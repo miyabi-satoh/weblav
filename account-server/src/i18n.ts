@@ -337,8 +337,8 @@ const en: typeof ja = {
 	tooManyLink: 'Too many link attempts. Please reopen this page in a minute.',
 	tooManyRelease: 'Too many unlink attempts. Please try again in a minute.',
 	about: 'About WebLAV',
-	terms: 'Terms of use',
-	privacy: 'Privacy policy',
+	terms: 'Terms of Use',
+	privacy: 'Privacy Policy',
 	tokushoho: 'Specified Commercial Transactions Act notice',
 	transferTitle: 'Move Pro to another account',
 	transferLead:
