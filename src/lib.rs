@@ -39,6 +39,10 @@ use state::AppState;
 /// アプリの版 (`Cargo.toml` の `version`)。
 pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// ビルド番号 (ビルドしたコミットまでのコミットの数。`build.rs` が数える)。
+/// git の無い場所でビルドしたときは無い。
+pub const APP_BUILD: Option<&str> = option_env!("WEBLAV_BUILD");
+
 /// アプリケーション全体の `Router` を組み立てる。セッションストア用テーブルの作成もここで
 /// 行う。`main.rs` と統合テスト(`tests/api/`)の両方から共通で呼べるように公開している。
 ///

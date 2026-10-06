@@ -5975,6 +5975,13 @@
           "version"
         ],
         "properties": {
+          "build": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ビルド番号。画面は版に添えて出す (→ docs/distribution.md「版の番号」)。"
+          },
           "status": {
             "type": "string"
           },

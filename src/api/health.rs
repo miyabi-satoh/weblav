@@ -13,6 +13,8 @@ use crate::state::AppState;
 struct HealthResponse {
     status: &'static str,
     version: &'static str,
+    /// ビルド番号。画面は版に添えて出す (→ docs/distribution.md「版の番号」)。
+    build: Option<&'static str>,
 }
 
 // `path` はこのルーター自身から見た相対パス。`/api/v1` プレフィックスは
@@ -35,6 +37,7 @@ async fn health(State(state): State<AppState>) -> Result<Json<HealthResponse>, A
     Ok(Json(HealthResponse {
         status: "ok",
         version: crate::APP_VERSION,
+        build: crate::APP_BUILD,
     }))
 }
 
