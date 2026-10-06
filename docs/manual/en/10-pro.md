@@ -47,7 +47,7 @@ Pro linked with a code has an end date. When it gets close, a notice appears in 
 
 A computer connected to the internet checks with the Pro service from time to time and extends Pro by itself. You don't need to do anything.
 
-WebLAV sends the Pro service only a value that identifies the link, the site name, and the PC's name. The PC's name helps you tell your linked PCs apart on your account page. It does not send files or information about users.
+WebLAV sends the Pro service only a value that identifies the link, the site name, and the PC's name. The PC's name helps you tell your linked PCs apart on your account page. If you don't want to send that name, change your PC's name in the OS settings. It does not send files or information about users.
 
 After you subscribe again or remove another computer, press “Check now” to apply the change right away.
 

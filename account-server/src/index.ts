@@ -935,8 +935,9 @@ async function showLink(
 	if (target.previous) {
 		// 同じ枠のまま、秘密 (公開鍵) と id を入れ替える。外していた行なら、結び直しで戻す。
 		await c.env.DB.prepare(
-			`UPDATE installations SET id = ?, link_kid = ?, public_key = ?, name = ?, pc_name = ?, removed_at = NULL
-			 WHERE id = ? AND account_id = ?`
+			`UPDATE installations SET id = ?1, link_kid = ?2, public_key = ?3, name = ?4,
+			   pc_name = CASE WHEN ?5 = '' THEN pc_name ELSE ?5 END, removed_at = NULL
+			 WHERE id = ?6 AND account_id = ?7`
 		)
 			.bind(target.id, target.kid, target.publicKey, name, pcName, target.previous.id, account.id)
 			.run();
