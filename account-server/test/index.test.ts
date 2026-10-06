@@ -1095,6 +1095,14 @@ describe('subscribing to Pro', () => {
 		expect(bad.headers.get('location')).toBe('/pricing/');
 	});
 
+	it('tells an account that already has Pro instead of reviewing an order', async () => {
+		const { cookie } = await signIn('haspro@example.com');
+		await grantPro('haspro@example.com', 'personal');
+		const page = await (await request('/account/buy?plan=year', { cookie })).text();
+		expect(page).toContain('このアカウントには Pro があります');
+		expect(page).not.toContain('申し込みを確定して支払いへ');
+	});
+
 	it('brings back to the final review after signing in', async () => {
 		const path = '/account/buy?plan=month&next=%2Faccount%2F';
 		const before = await (await request(path)).text();

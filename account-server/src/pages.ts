@@ -348,6 +348,18 @@ export function confirmPage(
 	);
 }
 
+/** 料金ページから申し込もうとしたが、もう Pro がある。 */
+export function alreadyProPage(lang: Lang, next: string) {
+	const t = messages[lang];
+	return page(
+		lang,
+		t.buyTitle,
+		html`<h1>${t.alreadyProTitle}</h1>
+			<p>${t.alreadyPro}</p>
+			<p><a href="${next}">${t.alreadyProContinue}</a></p>`
+	);
+}
+
 /** 結ぶ画面で、Pro の無いアカウントに出す。料金ページから申し込めば、この画面へ戻る。 */
 export function noProPage(lang: Lang, email: string, next: string, forSale: boolean) {
 	const t = messages[lang];

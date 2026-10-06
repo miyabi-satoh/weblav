@@ -144,8 +144,8 @@ const ja = {
 	confirmRenewLabel: '更新',
 	confirmRenew: (interval: Interval): string =>
 		interval === 'year'
-			? '1年ごとに自動で更新し、次からも1年ごとに同じ日に 4,800 円を払います。'
-			: '1か月ごとに自動で更新し、次からも毎月同じ日に 480 円を払います。',
+			? '1年ごとに自動で更新し、そのたびに 4,800 円を払います。'
+			: '1か月ごとに自動で更新し、そのたびに 480 円を払います。',
 	confirmPcsLabel: '登録できる PC',
 	confirmPcs: '3 台まで',
 	confirmPaymentLabel: '支払い',
@@ -163,6 +163,10 @@ const ja = {
 	buyConsent: '{terms}・{privacy}・{tokushoho}に同意のうえ、進んでください。',
 	confirmButton: '申し込みを確定して支払いへ',
 	changePlan: 'プランを変える',
+	alreadyProTitle: 'このアカウントには Pro があります',
+	alreadyPro:
+		'申し込み直す必要はありません。月額と年額を切り替えるときは、アカウントのページから解約し、払い終えた期間が終わってから申し込んでください。',
+	alreadyProContinue: '戻る',
 	checkoutNote: (tokushoho: string) =>
 		`期間ごとに自動で更新し、同じ額を払います。支払いが済むとすぐ、WebLAV のアカウントに Pro が付きます。解約はアカウントのページからいつでもでき、払い終えた期間の終わりまで使えます。払い終えた期間は、ご都合による返金はできません。二重に請求したとき、決済の処理を誤ったとき、支払いが済んだのに Pro が付かなかったときは、その分を返金します。詳しくは[特定商取引法に基づく表記](${tokushoho})をご覧ください。`,
 	notForSale: 'いまは Pro を買えません。',
@@ -318,8 +322,8 @@ const en: typeof ja = {
 	confirmRenewLabel: 'Renewal',
 	confirmRenew: (interval: Interval) =>
 		interval === 'year'
-			? 'Renews automatically every year. You pay 4,800 yen on the same date each year.'
-			: 'Renews automatically every month. You pay 480 yen on the same date each month.',
+			? 'Renews automatically every year. You pay 4,800 yen at each renewal.'
+			: 'Renews automatically every month. You pay 480 yen at each renewal.',
 	confirmPcsLabel: 'PCs you can link',
 	confirmPcs: 'Up to 3',
 	confirmPaymentLabel: 'Payment',
@@ -338,6 +342,10 @@ const en: typeof ja = {
 	buyConsent: 'By continuing, you agree to the {terms}, the {privacy}, and the {tokushoho}.',
 	confirmButton: 'Confirm and continue to payment',
 	changePlan: 'Change plan',
+	alreadyProTitle: 'This account already has Pro',
+	alreadyPro:
+		"You don't need to subscribe again. To switch between monthly and yearly, cancel on your account page and subscribe again after the paid period ends.",
+	alreadyProContinue: 'Back',
 	checkoutNote: (tokushoho: string) =>
 		`It renews automatically each period at the same price. Pro is added to your WebLAV account as soon as the payment is complete. You can cancel at any time on your account page and keep using Pro until the end of the paid period. Paid periods are not refunded for personal reasons. We refund the amount if we charged you twice, made an error in processing the payment, or Pro was not added after your payment went through. For details, see the [Specified Commercial Transactions Act notice](${tokushoho}).`,
 	notForSale: 'Pro is not available for purchase right now.',

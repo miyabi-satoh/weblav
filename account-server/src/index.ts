@@ -11,6 +11,7 @@ import { csrf } from 'hono/csrf';
 import { messages, resolveLang, type Lang } from './i18n';
 import { sendMail } from './mail';
 import {
+	alreadyProPage,
 	checkingPurchasePage,
 	confirmPage,
 	confirmSignInPage,
@@ -1046,7 +1047,7 @@ function buyerCountry(c: Context<App>): string | undefined {
 	return c.req.raw.cf?.country as string | undefined;
 }
 
-/** 申し込むボタンを出すか、出すならどちらの売り方の説明を添えるか。 */
+/** 最終確認の画面で、どちらの売り方の説明を出すか。売っていなければ `undefined`。 */
 function saleRegion(c: Context<App>): SaleRegion | undefined {
 	if (!stripeConfig(c.env)) return undefined;
 	return usesManagedPayments(buyerCountry(c)) ? 'overseas' : 'domestic';
@@ -1065,8 +1066,8 @@ accountApp.get('/buy', async (c) => {
 	}
 	const region = saleRegion(c);
 	if (!region) return c.html(messagePage(lang, t.buyTitle, t.notForSale), 404);
-	// 持っているのに申し込ませない。
-	if (await activePlan(c.env, account.id, now())) return c.redirect(next, 303);
+	// 持っているのに申し込ませない。料金ページから来た人には、黙って戻さず理由を出す。
+	if (await activePlan(c.env, account.id, now())) return c.html(alreadyProPage(lang, next));
 	return c.html(confirmPage(lang, account.email, { interval: plan, region, next }));
 });
 
