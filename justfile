@@ -213,11 +213,13 @@ check-frontend: ensure-frontend-build
 # テストを実行する (cargo test + vitest)
 test: ensure-frontend-build
     cargo test
-    cd {{ frontend_dir }} && pnpm run test:unit -- --run
+    cd {{ frontend_dir }} && pnpm exec vitest run
 
 # 一連の品質チェック (フォーマット→lint→型検査→生成物→test→build→e2e)。
-# CI (GitHub Actions) が PR ごとに流す。e2e は build の後に置き、その時点のフロントで流す
-ci: fmt-check lint check-frontend api-types-check licenses-check test account-server-check site-check build e2e-local
+# CI (GitHub Actions) が PR ごとに流す。e2e は build の後に置き、その時点のフロントで流す。
+# 先に frontend-build を流すのは、残っている frontend/build で ensure-frontend-build が飛ばされ、
+# Paraglide の生成物が古いまま型検査に進まないようにするため (just は同じレシピを1回しか流さないので、build の分と重ならない)
+ci: frontend-build fmt-check lint check-frontend api-types-check licenses-check test account-server-check site-check build e2e-local
 
 # ビルド成果物を削除する
 [unix]

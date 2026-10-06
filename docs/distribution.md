@@ -230,7 +230,8 @@ Smart App Control も、Store の署名がある MSIX を許可する範囲に�
 - WACK (Windows App Certificate Kit) の必須のテストはすべて通る (WACK 10.0.26100.8249)。リポジトリの直下で、管理者の PowerShell から流す (`/?` にも管理者の権限が要る)。
   ```
   appcert.exe reset
-  appcert.exe test -appxpackagepath dist\weblav-v<version>.msix -reportoutputpath data\wack-report.xml
+  appcert.exe test -appxpackagepath dist\weblav-v<version>.msix -reportoutputpath "$PWD\data\wack-report.xml"
   ```
+  - `-reportoutputpath` は絶対パスで渡す。相対パスでは「有効なパスである必要があります」で止まる。
   - 落ちるのは任意のテスト「ブロック済みの実行可能ファイル」だけ。`weblav.exe` が `CreateProcessW` と `PowerShell`・`cmd.exe` などを参照しているため (`PowerShell` はトレイから URL を開く `open` クレート)。
   - 任意のテストは Store の審査の判定に使われず ([Windows Desktop Bridge app tests](https://learn.microsoft.com/en-us/windows/uwp/debug-test-perf/windows-desktop-bridge-app-tests))、このテストは S モードの Windows で動かないおそれを知らせるものなので、直さない。
