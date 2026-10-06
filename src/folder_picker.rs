@@ -102,12 +102,93 @@ impl PickRequest {
     }
 }
 
+#[cfg(not(windows))]
 fn show_dialog() -> Option<PathBuf> {
     bring_to_front();
     rfd::FileDialog::new().pick_folder()
 }
 
-/// 窓をブラウザより前に出す。rfd は前に出さないので、呼ぶ側で手当てする (→ docs/folders.md「公開できるフォルダ」)。
+/// 窓をブラウザより前に出す。rfd は前に出さないので、呼ぶ側で手当てする (→ docs/folders.md「選び方」)。
+///
+/// Windows は、前面にいないプロセス (ブラウザで押した続きのサーバー) が窓を前面にするのを許さない。
+/// 最前面に置く見えない窓を作って持ち主にし、窓をその上に出す。
+#[cfg(windows)]
+fn show_dialog() -> Option<PathBuf> {
+    let dialog = rfd::FileDialog::new();
+    match windows_owner::TopmostOwner::new() {
+        Some(owner) => dialog.set_parent(&owner).pick_folder(),
+        None => dialog.pick_folder(),
+    }
+}
+
+#[cfg(windows)]
+mod windows_owner {
+    use std::num::NonZeroIsize;
+
+    use raw_window_handle::{
+        DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawWindowHandle,
+        Win32WindowHandle, WindowHandle,
+    };
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        CreateWindowExW, DestroyWindow, GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN,
+        SetForegroundWindow, WS_EX_TOPMOST, WS_POPUP,
+    };
+    use windows::core::w;
+
+    /// 窓の持ち主にする、最前面の見えない窓。drop で消す。
+    pub struct TopmostOwner(HWND);
+
+    impl TopmostOwner {
+        pub fn new() -> Option<Self> {
+            let hwnd = unsafe {
+                CreateWindowExW(
+                    WS_EX_TOPMOST,
+                    w!("STATIC"),
+                    None,
+                    WS_POPUP,
+                    // 窓は左上を持ち主の位置に揃えて出る。既定の大きさは画面の半分なので、
+                    // 4分の1の位置に置くと画面の中ほどに出る。
+                    GetSystemMetrics(SM_CXSCREEN) / 4,
+                    GetSystemMetrics(SM_CYSCREEN) / 4,
+                    0,
+                    0,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+            }
+            .ok()?;
+            // 許されれば、窓に文字を打てるよう前面にもする。許されなくても窓は最前面に出る。
+            let _ = unsafe { SetForegroundWindow(hwnd) };
+            Some(Self(hwnd))
+        }
+    }
+
+    impl Drop for TopmostOwner {
+        fn drop(&mut self) {
+            let _ = unsafe { DestroyWindow(self.0) };
+        }
+    }
+
+    impl HasWindowHandle for TopmostOwner {
+        fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {
+            let hwnd = NonZeroIsize::new(self.0.0 as isize).ok_or(HandleError::Unavailable)?;
+            let raw = RawWindowHandle::Win32(Win32WindowHandle::new(hwnd));
+            // SAFETY: 窓は self と同じだけ生きる (drop で消す)。
+            Ok(unsafe { WindowHandle::borrow_raw(raw) })
+        }
+    }
+
+    impl HasDisplayHandle for TopmostOwner {
+        fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
+            Ok(DisplayHandle::windows())
+        }
+    }
+}
+
+/// 窓をブラウザより前に出す。rfd は前に出さないので、呼ぶ側で手当てする (→ docs/folders.md「選び方」)。
 ///
 /// macOS では、トレイだけのアプリ (やターミナルから動かした `weblav-service`) は前面のアプリにならないので、
 /// 窓がブラウザの後ろに出る。窓を出す前に自分を前面にする。
@@ -130,8 +211,8 @@ fn bring_to_front() {
     app.activateIgnoringOtherApps(true);
 }
 
-/// Windows では、ブラウザで押した続きなら手当てしなくても前に出る (実機で確認)。
-#[cfg(not(target_os = "macos"))]
+/// Linux では手当てしていない (後ろに出るかを実機で確かめていない)。
+#[cfg(not(any(target_os = "macos", windows)))]
 fn bring_to_front() {}
 
 #[cfg(test)]
