@@ -1,5 +1,6 @@
 // Windows版の MSIX を作る。`just build`(release exe)の後に呼び、Windows SDK の makeappx で
 // dist/weblav-v<version>.msix を作り、試しに入れるための自己署名の証明書で署名する (→ docs/distribution.md「MSIX (Windows)」)。
+// `--store` を付けると、Store に上げる dist/weblav-v<version>-store.msix を、Store の発行元で署名せずに作る。
 // 中身と宣言は installer/msix/AppxManifest.xml に書いてある。
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -7,8 +8,10 @@ import { join } from 'node:path';
 import { readVersion } from './cargo-version.mjs';
 
 // 試しに入れるときの発行元。installer/msix/new-test-cert.ps1 が作る証明書の Subject と揃える。
-// Store に出すときは、パートナー センターが示す発行元に替える。
 const TEST_PUBLISHER = 'CN=WebLAV Test';
+// Store での発行元。パートナー センターの製品の「Product identity」に出る値。
+// Store に上げる版は Store が署名するので、自分では署名しない (この発行元の証明書は手元に無い)。
+const STORE_PUBLISHER = 'CN=BA27F417-AAC4-43D9-9E55-3320F7F52C6F';
 const MANIFEST = 'installer/msix/AppxManifest.xml';
 const LOGO_DIR = 'assets/msix';
 const EXES = ['weblav.exe'];
@@ -48,7 +51,7 @@ function findSdkTool(name, envName) {
 	);
 }
 
-function layout(version) {
+function layout(version, publisher) {
 	rmSync(LAYOUT_DIR, { recursive: true, force: true });
 	mkdirSync(join(LAYOUT_DIR, 'Assets'), { recursive: true });
 	for (const exe of EXES) {
@@ -59,21 +62,26 @@ function layout(version) {
 	}
 	const manifest = readFileSync(MANIFEST, 'utf8')
 		.replaceAll('{{VERSION}}', msixVersion(version))
-		.replaceAll('{{PUBLISHER}}', TEST_PUBLISHER);
+		.replaceAll('{{PUBLISHER}}', publisher);
 	writeFileSync(join(LAYOUT_DIR, 'AppxManifest.xml'), manifest);
 }
 
 function main() {
+	const store = process.argv.includes('--store');
 	const version = readVersion();
 	const makeappx = findSdkTool('makeappx.exe', 'MAKEAPPX');
-	const signtool = findSdkTool('signtool.exe', 'SIGNTOOL');
-	const output = `dist/weblav-v${version}.msix`;
+	const output = `dist/weblav-v${version}${store ? '-store' : ''}.msix`;
 
-	layout(version);
+	layout(version, store ? STORE_PUBLISHER : TEST_PUBLISHER);
 	mkdirSync('dist', { recursive: true });
 	execFileSync(makeappx, ['pack', '/o', '/h', 'SHA256', '/d', LAYOUT_DIR, '/p', output], {
 		stdio: 'inherit',
 	});
+	if (store) {
+		console.log(`wrote ${output} (unsigned)`);
+		return;
+	}
+	const signtool = findSdkTool('signtool.exe', 'SIGNTOOL');
 	// 証明書は、今の人の証明書ストア (CurrentUser\My) から Subject で選ぶ。
 	const subject = TEST_PUBLISHER.replace(/^CN=/, '');
 	execFileSync(signtool, ['sign', '/fd', 'SHA256', '/s', 'My', '/n', subject, output], {

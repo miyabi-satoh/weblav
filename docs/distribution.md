@@ -189,7 +189,7 @@ Windows は Microsoft Store から MSIX で配り、ほかの形では配らな�
 Store に MSIX で出すと、審査のあとで Microsoft が署名し直すので、証明書を買わずに SmartScreen の警告を避けられる ([Code signing options](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options))。
 Smart App Control も、Store の署名がある MSIX を許可する範囲に入れている ([Smart App Control の許可の規則](https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/design/create-appcontrol-policy-for-lightly-managed-devices))。
 
-- マニフェストは `installer/msix/AppxManifest.xml`。`just msix` (`scripts/msix.mjs`) がバージョンと発行元を埋め、exe とロゴ (`assets/msix/`、`just generate-icon` で作る) を並べて `makeappx` で固め、`signtool` で署名する。要るのは Windows SDK。
+- マニフェストは `installer/msix/AppxManifest.xml`。`just msix` (`scripts/msix.mjs`) がバージョンと発行元を埋め、exe とロゴ (`assets/msix/`、`just generate-icon` で作る) を並べて `makeappx` で固め、試しに入れる版は `signtool` で署名する (`--store` では署名しない)。要るのは Windows SDK。
 - 中身は `weblav.exe` (→ 「exe の分担」)。
 - 宣言するもの
   - `runFullTrust`: 普通のデスクトップアプリとして動かす。Store で「ほとんど承認しない」とされる機能 (`packagedServices` など) は使わない
@@ -203,12 +203,12 @@ Smart App Control も、Store の署名がある MSIX を許可する範囲に�
   有線・Wi-Fi・VPN が重なるとどのネットワークを見るか決めにくく、出先ではパブリックが正しい状態で、確かめる場所も直す場所も Windows の設定のため。
 - 試しに入れるときの署名は、`installer/msix/new-test-cert.ps1` で作る自己署名の証明書 (`CN=WebLAV Test`) で行う。
   このスクリプトは、証明書を作る PC の「信頼されたユーザー」(LocalMachine の TrustedPeople) にも入れる。別の PC に入れるときは、そちらでも同じストアに入れる。
-- Store に出すときは、マニフェストの発行元をパートナー センターが示す値に替える。
+- Store に上げる版は `just msix --store` で作る (`dist/weblav-v<version>-store.msix`)。発行元をパートナー センターが示す値にし、署名はしない (Store が署名する)。
   - `Name`: `amiiby.WebLAV`・発行元の表示名: `amiiby`
   - Package Family Name: `amiiby.WebLAV_tv82n7df3ay6j`。マニュアルの「運用する」の置き場所はこれで書いている。自己署名で試しに入れたものは発行元が違うので、名前の後ろが変わる。
 - 最初の管理者は、入れるときには作らず、トレイの「セットアップ」から作る (→ access.md「初回セットアップ」)。
-- **Store に出す版番号は、先頭を 1 以上にする**。今の `0.1.0` から作る `0.1.0.0` は出せないので、初めて出すときに `1.0.0` などへ上げる。
-  4つ目は Store が使うので 0 のまま、先頭は 0 にできない ([App package requirements](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/app-package-requirements))。WACK はこれを咎めない (`0.1.0` のまま通った。下記「実機での確認」)。
+- **Store に出す版番号は、先頭を 1 以上にする**。`Cargo.toml` の `x.y.z` から `x.y.z.0` を作る。
+  4つ目は Store が使うので 0 のまま、先頭は 0 にできない ([App package requirements](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/app-package-requirements))。WACK はこれを咎めない (`0.1.0` でも通った)。
 - 同じ版番号のまま中身を替えたものは、上から入れられない (0x80073CFB。`-ForceUpdateFromAnyVersion` でも同じ)。
   試しに入れ直すときは、先に `Remove-AppxPackage` で外す。外すとデータ (下記) とログイン時の起動の状態も消える。
 
@@ -230,7 +230,7 @@ Smart App Control も、Store の署名がある MSIX を許可する範囲に�
 - WACK (Windows App Certificate Kit) の必須のテストはすべて通る (WACK 10.0.26100.8249)。リポジトリの直下で、管理者の PowerShell から流す (`/?` にも管理者の権限が要る)。
   ```
   appcert.exe reset
-  appcert.exe test -appxpackagepath dist\weblav-v0.1.0.msix -reportoutputpath data\wack-report.xml
+  appcert.exe test -appxpackagepath dist\weblav-v<version>.msix -reportoutputpath data\wack-report.xml
   ```
   - 落ちるのは任意のテスト「ブロック済みの実行可能ファイル」だけ。`weblav.exe` が `CreateProcessW` と `PowerShell`・`cmd.exe` などを参照しているため (`PowerShell` はトレイから URL を開く `open` クレート)。
   - 任意のテストは Store の審査の判定に使われず ([Windows Desktop Bridge app tests](https://learn.microsoft.com/en-us/windows/uwp/debug-test-perf/windows-desktop-bridge-app-tests))、このテストは S モードの Windows で動かないおそれを知らせるものなので、直さない。

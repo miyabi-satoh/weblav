@@ -1,6 +1,6 @@
 [package]
 name = "weblav"
-version = "0.1.0"
+version = "1.0.0"
 description = "Web-based Local Access Viewer"
 edition = "2024"
 # tray-icon 0.26 (と muda 0.21) が Rust 1.90 を要する。
