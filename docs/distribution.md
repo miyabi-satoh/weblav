@@ -189,7 +189,7 @@ Windows は Microsoft Store から MSIX で配り、ほかの形では配らな�
 Store に MSIX で出すと、審査のあとで Microsoft が署名し直すので、証明書を買わずに SmartScreen の警告を避けられる ([Code signing options](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options))。
 Smart App Control も、Store の署名がある MSIX を許可する範囲に入れている ([Smart App Control の許可の規則](https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/design/create-appcontrol-policy-for-lightly-managed-devices))。
 
-- マニフェストは `installer/msix/AppxManifest.xml`。`just msix` (`scripts/msix.mjs`) がバージョンと発行元を埋め、exe とロゴ (`assets/msix/`、`just generate-icon` で作る) を並べて `makeappx` で固め、`signtool` で署名する。要るのは Windows SDK。
+- マニフェストは `installer/msix/AppxManifest.xml`。`just msix` (`scripts/msix.mjs`) がバージョンと発行元を埋め、exe とロゴ (`assets/msix/`、`just generate-icon` で作る) を並べて `makeappx` で固め、試しに入れる版は `signtool` で署名する (`--store` では署名しない)。要るのは Windows SDK。
 - 中身は `weblav.exe` (→ 「exe の分担」)。
 - 宣言するもの
   - `runFullTrust`: 普通のデスクトップアプリとして動かす。Store で「ほとんど承認しない」とされる機能 (`packagedServices` など) は使わない
