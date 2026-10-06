@@ -7,8 +7,8 @@
 	export type ArchiveViewRow = {
 		archiveId: number;
 		item: ArchiveViewItem;
-		/** 2段目。省くと、アイテムの軸の値 (`item.subtitle`) を出す。 */
-		subtitle?: string | null;
+		/** 2段目。配列なら「·」で区切って並べる。省くと、アイテムの軸の値 (`item.subtitle`) を出す。 */
+		subtitle?: string | string[] | null;
 	};
 </script>
 
@@ -28,6 +28,7 @@
 		browseRowTitleClass
 	} from '$lib/list-row';
 	import ListRowGlyph from '$lib/components/list-row-glyph.svelte';
+	import SeparatedText from '$lib/components/separated-text.svelte';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
 	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
 	import ListRowImageLink from '$lib/components/list-row-image-link.svelte';
@@ -95,7 +96,7 @@
 	<span class={browseRowTextClass()}>
 		<span class={browseRowTitleClass()}>{row.item.title}</span>
 		{#if subtitle}
-			<span class={browseRowSubtitleClass()}>{subtitle}</span>
+			<span class={browseRowSubtitleClass()}><SeparatedText text={subtitle} /></span>
 		{/if}
 	</span>
 {/snippet}

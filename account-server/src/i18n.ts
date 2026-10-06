@@ -255,7 +255,7 @@ const en: typeof ja = {
 	linkLead: (name: string) => `Link "${name}" to this account.`,
 	relinkLead: (name: string) => `Link "${name}" again. It doesn't count as another PC.`,
 	linkWarning:
-		"Don't continue unless you opened this page from your own WebLAV. Otherwise someone else's WebLAV would use the Pro on this account.",
+		"Don't continue unless you opened this page from your own WebLAV. Otherwise someone else's PC would use the Pro on this account.",
 	linkCount: (count: number, limit: number) => `Linked PCs: ${count} of ${limit}`,
 	linkButton: 'Link this PC',
 	linkInvalidTitle: 'This link cannot be used',

@@ -7,22 +7,25 @@
 
 /// 今この PC が mDNS で名乗っている名前 (`.local` を含む、例: `my-pc.local`)。
 /// 読めなければ `None`。
-#[cfg(target_os = "macos")]
 pub fn os_hostname() -> Option<String> {
+    os_host_label().map(|label| format!("{label}.local"))
+}
+
+/// `os_hostname` の `.local` の前の部分 (例: `my-pc`)。読めなければ `None`。
+#[cfg(target_os = "macos")]
+pub fn os_host_label() -> Option<String> {
     use objc2_system_configuration::SCDynamicStore;
 
     // Bonjour の名前は「共有」のローカルホスト名 (LocalHostName)。`gethostname` は
     // DHCP で配られた名前などを返すことがあり、Bonjour の名前と一致するとはかぎらない。
     let name = SCDynamicStore::local_host_name(None)?.to_string();
-    (!name.is_empty()).then(|| format!("{name}.local"))
+    (!name.is_empty()).then_some(name)
 }
 
-/// 今この PC が mDNS で名乗っている名前 (`.local` を含む、例: `desktop-abc123.local`)。
-/// 読めなければ `None`。
+/// `os_hostname` の `.local` の前の部分 (例: `desktop-abc123`)。読めなければ `None`。
 #[cfg(not(target_os = "macos"))]
-pub fn os_hostname() -> Option<String> {
-    let label = hostname_label(&gethostname::gethostname().to_string_lossy())?;
-    Some(format!("{label}.local"))
+pub fn os_host_label() -> Option<String> {
+    hostname_label(&gethostname::gethostname().to_string_lossy())
 }
 
 /// OS のコンピュータ名から、OS が mDNS で名乗るホスト名ラベルを求める。
