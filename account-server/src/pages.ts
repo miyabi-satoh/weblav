@@ -119,6 +119,29 @@ function page(lang: Lang, title: string, body: Body) {
 						color: #1f1f1f;
 						text-decoration: none;
 					}
+					/* Apple の決まり (HIG の Sign in with Apple) に合わせ、明るい地では黒、暗い地では白にする。 */
+					a.apple {
+						display: inline-flex;
+						align-items: center;
+						gap: 0.75rem;
+						min-height: 44px;
+						padding: 0 1.25rem;
+						border-radius: 6px;
+						background: #000;
+						color: #fff;
+						text-decoration: none;
+					}
+					@media (prefers-color-scheme: dark) {
+						a.apple {
+							background: #fff;
+							color: #000;
+						}
+					}
+					.providers {
+						display: flex;
+						flex-wrap: wrap;
+						gap: 0.75rem;
+					}
 					.account {
 						margin-top: 2.5rem;
 					}
@@ -225,24 +248,48 @@ const GOOGLE_LOGO = html`<svg width="18" height="18" viewBox="0 0 48 48" aria-hi
 	/>
 </svg>`;
 
-/** `google`: Google でサインインできるとき (→ src/google.ts) に、そのボタンを先に出す。 */
+// Apple のロゴ。形は Apple Design Resources の Sign in with Apple のボタンと同じ。色は文言と同じ (HIG により黒か白だけ)。
+const APPLE_LOGO = html`<svg width="18" height="18" viewBox="4.48 9 22 22" aria-hidden="true">
+	<path
+		fill="currentColor"
+		d="M15.71 14.885c.858 0 1.933-.58 2.573-1.353.58-.7 1.002-1.679 1.002-2.657 0-.133-.012-.266-.036-.375-.954.036-2.102.64-2.79 1.45-.544.616-1.039 1.582-1.039 2.572 0 .145.024.29.036.339.06.012.157.024.254.024ZM12.69 29.5c1.172 0 1.691-.785 3.153-.785 1.486 0 1.812.76 3.116.76 1.28 0 2.138-1.183 2.947-2.342.906-1.329 1.28-2.634 1.305-2.694-.085-.024-2.537-1.027-2.537-3.841 0-2.44 1.933-3.539 2.042-3.624-1.28-1.836-3.225-1.884-3.757-1.884-1.437 0-2.609.87-3.346.87-.797 0-1.848-.822-3.092-.822-2.367 0-4.771 1.957-4.771 5.653 0 2.295.894 4.723 1.993 6.293.942 1.329 1.764 2.416 2.947 2.416Z"
+	/>
+</svg>`;
+
+/** `google`・`apple`: その方法でサインインできるとき (→ src/google.ts・src/apple.ts) に、そのボタンを先に出す。 */
 export function signInPage(
 	lang: Lang,
 	next: string,
-	{ error, google = false }: { error?: string; google?: boolean } = {}
+	{
+		error,
+		google = false,
+		apple = false
+	}: { error?: string; google?: boolean; apple?: boolean } = {}
 ) {
 	const t = messages[lang];
+	const query = new URLSearchParams({ next });
 	return page(
 		lang,
 		t.signInTitle,
 		html`<h1>${t.signInHeading}</h1>
 			${error ? html`<p role="alert">${error}</p>` : ''}
 			${
-				google
-					? html`<p>
-								<a class="google" href="${ACCOUNT}/login/google?${new URLSearchParams({ next })}"
-									>${GOOGLE_LOGO}${t.signInWithGoogle}</a
-								>
+				google || apple
+					? html`<p class="providers">
+								${
+									google
+										? html`<a class="google" href="${ACCOUNT}/login/google?${query}"
+												>${GOOGLE_LOGO}${t.signInWithGoogle}</a
+											>`
+										: ''
+								}
+								${
+									apple
+										? html`<a class="apple" href="${ACCOUNT}/login/apple?${query}"
+												>${APPLE_LOGO}${t.signInWithApple}</a
+											>`
+										: ''
+								}
 							</p>
 							<p>${t.signInWithEmail}</p>`
 					: html`<p>${t.signInLead}</p>`

@@ -1,6 +1,11 @@
 import { env } from 'cloudflare:workers';
-import { describe, expect, it } from 'vitest';
-import { stripeConfig, usesManagedPayments, verifyWebhook } from '../src/stripe';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+	createCheckoutSession,
+	stripeConfig,
+	usesManagedPayments,
+	verifyWebhook
+} from '../src/stripe';
 import { toHex, utf8 } from '../src/util';
 
 describe('verifyWebhook', () => {
@@ -50,5 +55,37 @@ describe('usesManagedPayments', () => {
 		expect(usesManagedPayments('JP')).toBe(false);
 		expect(usesManagedPayments('US')).toBe(true);
 		expect(usesManagedPayments(undefined)).toBe(true);
+	});
+});
+
+describe('createCheckoutSession', () => {
+	afterEach(() => vi.restoreAllMocks());
+
+	/** Stripe へ送った Checkout Session の項目。 */
+	async function sentFor(email: string) {
+		const stripe = vi
+			.spyOn(globalThis, 'fetch')
+			.mockImplementation(async () => Response.json({ id: 'cs_1', url: 'https://checkout.test' }));
+		await createCheckoutSession(stripeConfig(env)!, {
+			accountId: 'acct',
+			email,
+			interval: 'month',
+			lang: 'ja',
+			successUrl: 'https://account.test/done',
+			cancelUrl: 'https://account.test/',
+			expiresAt: 1_791_090_000,
+			managedPayments: false,
+			idempotencyKey: 'key'
+		});
+		return new URLSearchParams(String(stripe.mock.calls[0][1]!.body));
+	}
+
+	it('fills in the email of the account, except an Apple relay address', async () => {
+		expect((await sentFor('buyer@example.com')).get('customer_email')).toBe('buyer@example.com');
+		// 転送用アドレスの人は、支払いの画面でメールを入れる。
+		for (const email of ['buyer123@privaterelay.appleid.com', 'buyer456@private.icloud.com']) {
+			vi.restoreAllMocks();
+			expect((await sentFor(email)).has('customer_email'), email).toBe(false);
+		}
 	});
 });

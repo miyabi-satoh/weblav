@@ -33,6 +33,7 @@ import {
 	type SaleRegion
 } from './pages';
 import { finishGoogleSignIn, googleConfig, startGoogleSignIn } from './google';
+import { appleConfig, finishAppleSignIn, startAppleSignIn } from './apple';
 import {
 	checkAuth,
 	deriveSecret,
@@ -587,8 +588,17 @@ async function recordPaidInvoice(env: Env, paid: PaidInvoice, newOwner: string |
 
 // ---- 人が開く画面 ----
 
+/** Apple から戻る先。 */
+const APPLE_CALLBACK = `${ACCOUNT}/login/apple/callback`;
+
 const accountApp = new Hono<App>();
-accountApp.use(csrf());
+accountApp.use(
+	csrf({
+		// Apple はサインインの結果を、Apple のサイトから戻り先へ POST で送る。送り元が `null` で届くこともあるので、
+		// 戻り先だけは送り元を見ず、state の照らし合わせで守る (→ src/apple.ts)。
+		origin: (origin, c) => origin === originOf(c) || c.req.path === APPLE_CALLBACK
+	})
+);
 
 accountApp.get('/', async (c) => {
 	const lang = resolveLang(c);
@@ -708,29 +718,69 @@ accountApp.get('/login/google/callback', async (c) => {
 		const error = user.failure === 'unconfirmed_email' ? t.googleUnconfirmed : t.googleFailed;
 		return c.html(signIn(c, lang, user.next, error), 400);
 	}
-	const accountId = await googleAccount(c.env, user.subject, user.email);
-	if (!accountId) {
-		return c.html(signIn(c, lang, user.next, t.googleConflict), 409);
-	}
-	await startSession(c, accountId);
-	return c.redirect(safeNext(user.next), 303);
+	return externalSignedIn(c, lang, 'google', user, t.googleConflict);
 });
 
 function googleRedirectUri(c: Context<App>): string {
 	return `${originOf(c)}${ACCOUNT}/login/google/callback`;
 }
 
+// ---- Apple でサインイン (→ docs/pro.md「アカウントと販売の窓口」) ----
+
+accountApp.get('/login/apple', (c) => {
+	const config = appleConfig(c.env);
+	if (!config) return c.notFound();
+	const next = safeNext(c.req.query('next'));
+	return c.redirect(startAppleSignIn(c, config, appleRedirectUri(c), next, resolveLang(c)), 303);
+});
+
+accountApp.post('/login/apple/callback', async (c) => {
+	const config = appleConfig(c.env);
+	if (!config) return c.notFound();
+	const user = await finishAppleSignIn(c, config, appleRedirectUri(c), now());
+	const lang = user.lang ?? resolveLang(c);
+	const t = messages[lang];
+	if ('failure' in user) {
+		// 取り消したときは、何も言わずにサインインの画面へ戻す。
+		return user.failure === 'cancelled'
+			? c.html(signIn(c, lang, user.next))
+			: c.html(signIn(c, lang, user.next, t.appleFailed), 400);
+	}
+	return externalSignedIn(c, lang, 'apple', user, t.appleConflict);
+});
+
+function appleRedirectUri(c: Context<App>): string {
+	return `${originOf(c)}${APPLE_CALLBACK}`;
+}
+
+type Provider = 'google' | 'apple';
+
+/** 外部のサインインで確かめたアカウントでサインインし、元の画面へ戻す。結べなければ `conflict` を出す。 */
+async function externalSignedIn(
+	c: Context<App>,
+	lang: Lang,
+	provider: Provider,
+	user: { subject: string; email: string; next: string },
+	conflict: string
+) {
+	const accountId = await externalAccount(c.env, provider, user.subject, user.email);
+	if (!accountId) return c.html(signIn(c, lang, user.next, conflict), 409);
+	await startSession(c, accountId);
+	return c.redirect(safeNext(user.next), 303);
+}
+
 /**
- * Google のアカウントに結ぶ窓口のアカウント (→ docs/pro.md「アカウントと販売の窓口」)。
- * Google の識別子 (sub) → 同じメールアドレスのアカウント → 新しいアカウント、の順で探す。
- * 同じメールのアカウントに別の Google アカウントがもう結ばれていれば結ばず、`undefined` を返す。
+ * 外部のサインインのアカウントに結ぶ窓口のアカウント (→ docs/pro.md「アカウントと販売の窓口」)。確かめ済みのメールだけを渡す。
+ * 識別子 (sub) → 同じメールアドレスのアカウント → 新しいアカウント、の順で探す。
+ * 同じメールのアカウントに、同じ方法の別のアカウントがもう結ばれていれば結ばず、`undefined` を返す。
  */
-async function googleAccount(
+async function externalAccount(
 	env: Env,
+	provider: Provider,
 	subject: string,
 	email: string
 ): Promise<string | undefined> {
-	const linked = await googleIdentity(env, subject);
+	const linked = await identity(env, provider, subject);
 	if (linked) return linked.account_id;
 	const at = now();
 	const [account] = await env.DB.batch<{ id: string }>([
@@ -738,23 +788,20 @@ async function googleAccount(
 		upsertAccount(env, email, at),
 		env.DB.prepare(
 			`INSERT INTO identities (provider, subject, account_id, created_at)
-			 SELECT 'google', ?1, id, ?2 FROM accounts
-			 WHERE email = ?3
+			 SELECT ?1, ?2, id, ?3 FROM accounts
+			 WHERE email = ?4
 			   AND NOT EXISTS (SELECT 1 FROM identities
-			                   WHERE provider = 'google' AND account_id = accounts.id)
+			                   WHERE provider = ?1 AND account_id = accounts.id)
 			 ON CONFLICT DO NOTHING`
-		).bind(subject, at, email)
+		).bind(provider, subject, at, email)
 	]);
 	const id = account.results[0].id;
-	const identity = await googleIdentity(env, subject);
-	return identity?.account_id === id ? id : undefined;
+	return (await identity(env, provider, subject))?.account_id === id ? id : undefined;
 }
 
-function googleIdentity(env: Env, subject: string) {
-	return env.DB.prepare(
-		"SELECT account_id FROM identities WHERE provider = 'google' AND subject = ?"
-	)
-		.bind(subject)
+function identity(env: Env, provider: Provider, subject: string) {
+	return env.DB.prepare('SELECT account_id FROM identities WHERE provider = ? AND subject = ?')
+		.bind(provider, subject)
 		.first<{ account_id: string }>();
 }
 
@@ -774,9 +821,13 @@ function ensureAccount(env: Env, email: string, at: number) {
 	).bind(randomHex(16), email, at);
 }
 
-/** サインインの画面。Google でサインインできるときは、そのボタンも出す。 */
+/** サインインの画面。Google・Apple でサインインできるときは、そのボタンも出す。 */
 function signIn(c: Context<App>, lang: Lang, next: string, error?: string) {
-	return signInPage(lang, next, { error, google: googleConfig(c.env) !== undefined });
+	return signInPage(lang, next, {
+		error,
+		google: googleConfig(c.env) !== undefined,
+		apple: appleConfig(c.env) !== undefined
+	});
 }
 
 accountApp.post('/logout', async (c) => {

@@ -17,7 +17,7 @@ const COOKIE = 'lang';
 const LINK_REFUND_POLICY =
 	'https://support.link.com/questions/requesting-a-refund-for-a-sold-through-link-payment';
 
-function isLang(value: string | undefined): value is Lang {
+export function isLang(value: string | undefined): value is Lang {
 	return value === 'ja' || value === 'en';
 }
 
@@ -67,6 +67,8 @@ const ja = {
 	signInHeading: 'WebLAV にサインイン',
 	signInLead: 'メールアドレスにサインインのリンクを送ります。',
 	signInWithGoogle: 'Google でサインイン',
+	// Apple の決まり (HIG) の文言のまま。
+	signInWithApple: 'Appleでサインイン',
 	signInWithEmail: 'または、メールアドレスにサインインのリンクを送ります。',
 	signInConsent:
 		'サインインすると、{terms}と{privacy}に同意したことになります (アメリカ合衆国の事業者への個人情報の提供を含みます)。',
@@ -75,6 +77,9 @@ const ja = {
 		'この Google アカウントでは、メールアドレスの持ち主を確かめられません。メールアドレスに送るリンクでサインインしてください。',
 	googleConflict:
 		'このメールアドレスのアカウントには、別の Google アカウントがもう結び付いています。そちらの Google アカウントか、メールアドレスに送るリンクでサインインしてください。',
+	appleFailed: 'Apple でサインインできませんでした。もう一度試してください。',
+	appleConflict:
+		'このメールアドレスのアカウントには、別の Apple アカウントがもう結び付いています。そちらの Apple アカウントか、メールアドレスに送るリンクでサインインしてください。',
 	email: 'メールアドレス',
 	sendLink: 'リンクを送る',
 	invalidEmail: 'メールアドレスを確かめてください。',
@@ -248,6 +253,7 @@ const en: typeof ja = {
 	signInHeading: 'Sign in to WebLAV',
 	signInLead: 'We will email you a sign-in link.',
 	signInWithGoogle: 'Sign in with Google',
+	signInWithApple: 'Sign in with Apple',
 	signInWithEmail: 'Or we can email you a sign-in link.',
 	signInConsent:
 		'By signing in, you agree to the {terms} and the {privacy}, including providing your personal information to businesses in the United States.',
@@ -256,6 +262,9 @@ const en: typeof ja = {
 		"We can't confirm who owns the email address of this Google account. Please sign in with a link sent to your email address.",
 	googleConflict:
 		'Another Google account is already linked to the account for this email address. Sign in with that Google account or with a link sent to your email address.',
+	appleFailed: "We couldn't sign you in with Apple. Please try again.",
+	appleConflict:
+		'Another Apple Account is already linked to the account for this email address. Sign in with that Apple Account or with a link sent to your email address.',
 	email: 'Email address',
 	sendLink: 'Send link',
 	invalidEmail: 'Check your email address.',

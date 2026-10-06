@@ -160,6 +160,14 @@ async function verifyProof(proof: string) {
 	return { ok, claims: JSON.parse(new TextDecoder().decode(base64urlBytes(payload))) };
 }
 
+/** 応答で始まったセッションの Cookie。無ければ `undefined`。 */
+function sessionCookie(res: Response) {
+	return res.headers
+		.getSetCookie()
+		.find((c) => c.startsWith('session='))
+		?.split(';')[0];
+}
+
 afterEach(() => vi.restoreAllMocks());
 
 /** 全部の入口にかかる守り (Origin の確かめ・サインイン)。入口の一覧を表にして回す。 */
@@ -197,10 +205,14 @@ describe('guards', () => {
 		const { cookie } = await signIn(email);
 		await grantPro(email, 'personal');
 		for (const path of FORM_POSTS) {
-			const res = await postForm(path, { next: '/account/' }, cookie, {
-				origin: 'https://evil.test'
-			});
-			expect([res.status, await res.text()], `POST ${path}`).toEqual([403, 'Forbidden']);
+			// Apple のサイトから送ってよいのは、Apple から戻る先 (/account/login/apple/callback) だけ。
+			for (const origin of ['https://evil.test', 'https://appleid.apple.com']) {
+				const res = await postForm(path, { next: '/account/' }, cookie, { origin });
+				expect([res.status, await res.text()], `POST ${path} (${origin})`).toEqual([
+					403,
+					'Forbidden'
+				]);
+			}
 		}
 		// 断った要求は何も変えない (サインアウトしていない)。
 		expect(await (await request('/account/', { cookie })).text()).toContain(email);
@@ -588,13 +600,6 @@ describe('Google sign-in', () => {
 		});
 	}
 
-	function sessionCookie(res: Response) {
-		return res.headers
-			.getSetCookie()
-			.find((c) => c.startsWith('session='))
-			?.split(';')[0];
-	}
-
 	it('offers Google on the sign-in page', async () => {
 		const page = await (await request('/account/?lang=ja')).text();
 		expect(page).toContain('href="/account/login/google?next=%2Faccount%2F"');
@@ -695,6 +700,198 @@ describe('Google sign-in', () => {
 		expect(sent.get('client_secret')).toBe('google-secret');
 		expect(sent.get('grant_type')).toBe('authorization_code');
 		expect(sent.get('code_verifier')).toMatch(/^[0-9a-f]{64}$/);
+	});
+});
+
+describe('Apple sign-in', () => {
+	const APPLE = 'https://appleid.apple.com';
+
+	/** Apple の画面へ送り、戻ってきたときに要る Cookie と state・nonce を返す。 */
+	async function startApple(next = '/account/', lang = 'ja') {
+		const res = await request(`/account/login/apple?next=${encodeURIComponent(next)}`, {
+			headers: { 'accept-language': lang },
+			redirect: 'manual'
+		});
+		expect(res.status).toBe(303);
+		const to = new URL(res.headers.get('location')!);
+		expect(`${to.origin}${to.pathname}`).toBe(`${APPLE}/auth/authorize`);
+		expect(to.searchParams.get('client_id')).toBe('com.example.web');
+		expect(to.searchParams.get('response_mode')).toBe('form_post');
+		expect(to.searchParams.get('scope')).toBe('email');
+		expect(to.searchParams.get('redirect_uri')).toBe(`${ORIGIN}/account/login/apple/callback`);
+		return {
+			cookie: res.headers.get('set-cookie')!.split(';')[0],
+			state: to.searchParams.get('state')!,
+			nonce: to.searchParams.get('nonce')!
+		};
+	}
+
+	/** Apple のサイトから戻り先へ POST する。トークンのエンドポイントは、claims の ID トークンを返す。 */
+	async function back(
+		flow: { cookie: string; state: string; nonce: string },
+		claims: Record<string, unknown> = {},
+		fields: Record<string, string> = { code: 'c', state: flow.state },
+		origin = APPLE
+	) {
+		const body = btoa(
+			JSON.stringify({
+				iss: APPLE,
+				aud: 'com.example.web',
+				exp: now() + 300,
+				nonce: flow.nonce,
+				sub: 'apple-sub-1',
+				email: 'a@example.com',
+				email_verified: 'true',
+				...claims
+			})
+		).replaceAll('=', '');
+		const token = vi
+			.spyOn(globalThis, 'fetch')
+			.mockImplementation(async () => Response.json({ id_token: `e30.${body}.sig` }));
+		const res = await postForm('/account/login/apple/callback', fields, flow.cookie, { origin });
+		return { res, token };
+	}
+
+	it('offers Apple on the sign-in page', async () => {
+		const page = await (await request('/account/?lang=ja')).text();
+		expect(page).toContain('href="/account/login/apple?next=%2Faccount%2F"');
+		expect(page).toContain('Appleでサインイン');
+	});
+
+	it('signs in with a client secret signed by the Apple key and comes back to the same account', async () => {
+		const { res, token } = await back(await startApple('/account/transfer'), {
+			sub: 'a-new',
+			email: 'A-New@Example.com'
+		});
+		expect(res.status).toBe(303);
+		expect(res.headers.get('location')).toBe('/account/transfer');
+		const home = await (await request('/account/', { cookie: sessionCookie(res) })).text();
+		expect(home).toContain('a-new@example.com');
+
+		const [url, init] = token.mock.calls[0];
+		expect(url).toBe(`${APPLE}/auth/token`);
+		const sent = new URLSearchParams(String(init!.body));
+		expect(sent.get('client_id')).toBe('com.example.web');
+		expect(sent.get('grant_type')).toBe('authorization_code');
+		expect(sent.get('redirect_uri')).toBe(`${ORIGIN}/account/login/apple/callback`);
+		const [header, payload, signature] = sent.get('client_secret')!.split('.');
+		const decode = (part: string) => JSON.parse(new TextDecoder().decode(base64urlBytes(part)));
+		expect(decode(header)).toEqual({ alg: 'ES256', kid: 'KEY1234567' });
+		const claims = decode(payload);
+		expect(claims).toMatchObject({ iss: 'TEAM123456', aud: APPLE, sub: 'com.example.web' });
+		expect(claims.exp - claims.iat).toBe(300);
+		const key = await crypto.subtle.importKey(
+			'jwk',
+			JSON.parse(env.TEST_APPLE_PUBLIC_KEY),
+			{ name: 'ECDSA', namedCurve: 'P-256' },
+			false,
+			['verify']
+		);
+		expect(
+			await crypto.subtle.verify(
+				{ name: 'ECDSA', hash: 'SHA-256' },
+				key,
+				base64urlBytes(signature),
+				utf8(`${header}.${payload}`)
+			)
+		).toBe(true);
+
+		vi.restoreAllMocks();
+		// Apple でメールアドレスを変えても、識別子で同じアカウントに入る。
+		const again = await back(await startApple(), { sub: 'a-new', email: 'renamed-a@example.com' });
+		const page = await (await request('/account/', { cookie: sessionCookie(again.res) })).text();
+		expect(page).toContain('a-new@example.com');
+	});
+
+	it('joins the account that signed in by email with the same verified address', async () => {
+		await signIn('email-then-apple@example.com');
+		await grantPro('email-then-apple@example.com', 'personal');
+		const { res } = await back(await startApple(), {
+			sub: 'a-both',
+			email: 'email-then-apple@example.com',
+			// Apple は真偽値で返すこともある。
+			email_verified: true
+		});
+		const home = await (await request('/account/', { cookie: sessionCookie(res) })).text();
+		expect(home).toContain('Pro (個人向け)');
+	});
+
+	it('does not link a second Apple account to the same account', async () => {
+		await back(await startApple(), { sub: 'a-first', email: 'twice-a@example.com' });
+		vi.restoreAllMocks();
+		const { res } = await back(await startApple(), {
+			sub: 'a-second',
+			email: 'twice-a@example.com'
+		});
+		expect(res.status).toBe(409);
+		expect(sessionCookie(res)).toBeUndefined();
+	});
+
+	it('goes back to the sign-in page quietly when cancelled on Apple', async () => {
+		const flow = await startApple('/account/transfer');
+		const { res, token } = await back(
+			flow,
+			{},
+			{ error: 'user_cancelled_authorize', state: flow.state }
+		);
+		expect(res.status).toBe(200);
+		expect(token).not.toHaveBeenCalled();
+		const page = await res.text();
+		expect(page).not.toContain('role="alert"');
+		expect(page).toContain('value="/account/transfer"');
+	});
+
+	// ID トークンの確かめは finishAppleSignIn (Context を取る) の中にあり、切り出していないので、ここで場合ごとに確かめる。
+	it('rejects a wrong state, nonce, audience, issuer, an expired token or an unverified email', async () => {
+		for (const [claims, state] of [
+			[{}, 'wrong-state'],
+			[{ nonce: 'other' }, undefined],
+			[{ aud: 'someone-else' }, undefined],
+			[{ iss: 'https://evil.test' }, undefined],
+			[{ exp: now() - 1 }, undefined],
+			[{ email_verified: 'false' }, undefined],
+			[{ email: undefined }, undefined]
+		] as const) {
+			vi.restoreAllMocks();
+			const flow = await startApple('/account/transfer');
+			const { res } = await back(
+				flow,
+				{ sub: 'a-bad', email: 'bad-a@example.com', ...claims },
+				{ code: 'c', state: state ?? flow.state }
+			);
+			expect(res.status).toBe(400);
+			expect(sessionCookie(res)).toBeUndefined();
+			expect(await res.text()).toContain('value="/account/transfer"');
+		}
+		expect(
+			await env.DB.prepare("SELECT 1 FROM accounts WHERE email = 'bad-a@example.com'").first()
+		).toBeNull();
+		// 往復を始めていない (Cookie が無い) ときも。
+		const res = await postForm(
+			'/account/login/apple/callback',
+			{ code: 'c', state: 's' },
+			undefined,
+			{ origin: APPLE }
+		);
+		expect(res.status).toBe(400);
+	});
+
+	it('shows the page in the language used before going to Apple', async () => {
+		// Apple からの POST には言語の Cookie が付かず、ブラウザの言語 (postForm は日本語) だけが届く。
+		const flow = await startApple('/account/', 'en');
+		const { res } = await back(flow, {}, { error: 'user_cancelled_authorize', state: flow.state });
+		expect(await res.text()).toContain('Sign in to WebLAV');
+	});
+
+	it('accepts the way back even when Apple sends no origin', async () => {
+		const flow = await startApple();
+		const { res } = await back(
+			flow,
+			{ sub: 'a-null-origin', email: 'null-origin@example.com' },
+			{ code: 'c', state: flow.state },
+			'null'
+		);
+		expect(res.status).toBe(303);
 	});
 });
 
