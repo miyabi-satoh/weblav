@@ -210,7 +210,8 @@ Smart App Control も、Store の署名がある MSIX を許可する範囲に�
 - **Store に出す版番号は、先頭を 1 以上にする**。`Cargo.toml` の `x.y.z` から `x.y.z.0` を作る。
   4つ目は Store が使うので 0 のまま、先頭は 0 にできない ([App package requirements](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/app-package-requirements))。WACK はこれを咎めない (`0.1.0` でも通った)。
 - 同じ版番号のまま中身を替えたものは、上から入れられない (0x80073CFB。`-ForceUpdateFromAnyVersion` でも同じ)。
-  試しに入れ直すときは、先に `Remove-AppxPackage` で外す。外すとデータ (下記) とログイン時の起動の状態も消える。
+  外すとデータ (下記) とログイン時の起動の状態も消えるので、試しの版は版番号の4つ目をコミットの数にして、コミットが進むたびに上から入れられるようにしている。
+  `just install-windows` が、作って上から入れ直し、起動し直す。
 
 ### 設定とデータの置き場所
 

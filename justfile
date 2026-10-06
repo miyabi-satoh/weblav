@@ -56,6 +56,10 @@ generate-icon:
 msix *args: ci
     node scripts/msix.mjs {{ args }}
 
+# 試しの MSIX を作ってこの PC に上から入れ直し、起動し直す (データとログイン時の起動の設定は残る)
+[windows]
+install-windows: (msix "--install")
+
 # macOS 版の .app を作る (target/release/bundle/WebLAV.app)。公証していないため、まだ配らない (→ docs/distribution.md「ビルド・配布の方法」)
 [macos]
 bundle-mac: build
