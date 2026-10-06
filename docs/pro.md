@@ -143,19 +143,22 @@ JSON。`account-server/` はこれに合わせる。
   ルートに紹介、`/terms/`・`/privacy/`・`/tokushoho/` に規約類、`/account/` に窓口の画面を置く。
   - 紹介と規約類は `site/` (Astro) に置き、ビルドしたものを窓口の Worker が静的なアセットとして出す。`/account`・`/v1/` だけを Worker が受ける (`account-server/wrangler.jsonc`)。
 - **アカウントは WebLAV の Pro 専用**。
-  - メールのリンクを必ず置き、外部のサインインは Google だけにする。
+  - メールのリンクを必ず置き、外部のサインインは Google と Apple にする。どちらも、秘密の値がそろったときだけボタンを出す。
   - Google: OpenID Connect の Authorization Code + PKCE + `state`・`nonce`。往復の間の値は Cookie に持ち、認証の要らない D1 の書き込みを増やさない。
     - ID トークンは client secret でトークンのエンドポイントから直接受け取るので、署名は確かめず、発行元・宛先・期限・nonce を確かめる (Google の OpenID Connect の資料)。
     - Google の識別子 (`sub`) → 同じメールアドレスのアカウント → 新しいアカウント、の順で結ぶ。
     - Google が持ち主を確かだと言えるメール (Gmail か、`email_verified` が true で `hd` がある Google Workspace のもの) だけを受け付け、ほかは断ってメールのリンクへ案内する。ほかのメールは Google アカウントを作ったときに確かめただけで、今の持ち主かは分からない (Google の資料「Verify the Google ID token on your server side」)。受け付けると、他人のメールで作った Google アカウントから、そのメールのアカウントに入れてしまう。
     - 同じアカウントに別の Google アカウントがもう結ばれていれば結ばず、メールのリンクか前の Google アカウントで入ってもらう。
+  - Apple: Sign in with Apple の REST API の Authorization Code + `state`・`nonce` (Apple のエンドポイントに PKCE の項目が無い)。トークンと引き換える client secret は、Apple の秘密鍵 (.p8) で署名した ES256 の JWT を呼ぶたびに作る。結び方・確かめる項目・結ばないときは Google と同じで、`email_verified` が true のメールだけを受け付ける。
+    - 戻りは Apple のサイトからの POST (`form_post`)。往復の値の Cookie は `SameSite=None` にし、戻り先 (`/account/login/apple/callback`) だけは `Origin` を確かめず、`state` の照らし合わせで守る。言語の Cookie はこの POST に付かないので、言語も往復の値に持つ。そのため https でしか通らず、手元では試せない。確かめる環境 (`env.staging`) で試す。
+    - 「メールを非公開」を選んだ人は、Apple の転送用アドレス (`@privaterelay.appleid.com`、2026 年の後半からの新しいアドレスは `@private.icloud.com`) のアカウントになる。転送用アドレスには、Apple の開発者のページに登録した送り元のメールしか届かない。窓口が送るメールのドメインは登録しておき、Stripe の Checkout にはメールを渡さず、支払いの画面で入れてもらう。
   - メールのリンク: 1回きり・15分で切れるトークンを D1 にハッシュで持ち、Resend で送る。
     - リンクを開いただけではサインインせず、開いた画面のボタン (POST) で使い切る。メールのサービスがリンクを先に開いて確かめることがあり、そこで使い切られないように。
     - 同じアドレスへは1時間に5通まで。他人のアドレスへ送りつけるのに使われないように。
   - セッションは D1 (`sessions`) に id のハッシュを持ち、30日で切れる。Cookie は https で `__Host-` を付ける。
     `SameSite` は `Lax` にする。WebLAV の画面やメールのリンク (よそのサイトからの移動) で開いたときに、サインインが見えなくならないように。フォームの送信は `Origin` を確かめて守る。
-  - 同じメールアドレスなら、どの方法で入っても同じアカウント。Google で入ったあと、Google のメールアドレスが変わっても、識別子で同じアカウントに入る。
-  - **消す**: 削除の請求は問い合わせで受け、運営者が `account-server/scripts/delete-account.mjs` で消す。先にサブスクをその場で解約する (D1 の行に無い組織向けのサブスクも、Stripe で metadata の `account_email` から探して解約する)。結び付き・サインインの状態・Google の結び付きは消え、`subscriptions` の行は結び付きだけを外して残す (後から届く知らせで Pro を付け直したり、アカウントを作り直したりしないように)。購入の台帳は結び付きだけを外して7年残す。過ぎたものは、Stripe の知らせを受けるたびに消す。
+  - 同じメールアドレスなら、どの方法で入っても同じアカウント。Google・Apple で入ったあと、そちらのメールアドレスが変わっても、識別子で同じアカウントに入る。
+  - **消す**: 削除の請求は問い合わせで受け、運営者が `account-server/scripts/delete-account.mjs` で消す。先にサブスクをその場で解約する (D1 の行に無い組織向けのサブスクも、Stripe で metadata の `account_email` から探して解約する)。結び付き・サインインの状態・Google・Apple の結び付きは消え、`subscriptions` の行は結び付きだけを外して残す (後から届く知らせで Pro を付け直したり、アカウントを作り直したりしないように)。購入の台帳は結び付きだけを外して7年残す。過ぎたものは、Stripe の知らせを受けるたびに消す。
 - **結ぶ** (`/account/link`。→ 「結ぶ」):
   - サインインした後、結ぶ WebLAV の名前・今の台数と上限を出し、「この PC を登録」で結ぶ。結んだら返しのコードを画面に出し、メールでも送る (QR コードを読んだスマートフォンと、打ち込む PC の画面が離れていても見られるように)。
   - **台数の上限は、個人向け3台・組織向け10台** (両方持っていれば組織向け)。上限に当たっていれば結ばず、結んでいる WebLAV の一覧から外せるようにする。

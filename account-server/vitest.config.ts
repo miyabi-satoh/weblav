@@ -1,4 +1,5 @@
 import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-workers';
+import { generateKeyPairSync } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vitest/config';
 
@@ -11,6 +12,9 @@ function devVars(): Record<string, string> {
 			.map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)])
 	);
 }
+
+// Apple の秘密鍵 (.p8 と同じ PKCS#8 の P-256)。テストは公開鍵で client_secret の署名を確かめる。
+const appleKey = generateKeyPairSync('ec', { namedCurve: 'P-256' });
 
 // `secrets.required` の値が無いという警告を出さないよう、process.env にも置く。
 Object.assign(process.env, devVars());
@@ -31,6 +35,11 @@ export default defineConfig({
 					STRIPE_ORG_PRICE_ID: 'price_org',
 					GOOGLE_CLIENT_ID: 'google-client',
 					GOOGLE_CLIENT_SECRET: 'google-secret',
+					APPLE_TEAM_ID: 'TEAM123456',
+					APPLE_KEY_ID: 'KEY1234567',
+					APPLE_PRIVATE_KEY: appleKey.privateKey.export({ type: 'pkcs8', format: 'pem' }) as string,
+					APPLE_SERVICE_ID: 'com.example.web',
+					TEST_APPLE_PUBLIC_KEY: JSON.stringify(appleKey.publicKey.export({ format: 'jwk' })),
 					TEST_MIGRATIONS: await readD1Migrations('./migrations')
 				}
 			}

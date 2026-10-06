@@ -1,12 +1,11 @@
 /**
  * Google でのサインイン (→ docs/pro.md「アカウントと販売の窓口」)。OpenID Connect の Authorization Code + PKCE。
- * 往復の間の state・nonce・code_verifier は Cookie に持つ。認証の要らない D1 の書き込みを増やさないため。
+ * 往復の間の state・nonce・code_verifier は Cookie に持つ (→ src/cookie.ts の setFlowCookie)。
  * エンドポイントは Google の discovery の文書 (https://accounts.google.com/.well-known/openid-configuration) のもの。
  */
 import type { Context } from 'hono';
-import { getCookie } from 'hono/cookie';
-import { deleteHostCookie, hostCookieName, setHostCookie } from './cookie';
-import { ACCOUNT_HOME, base64url, decodeBase64url, normalizeEmail, randomHex, utf8 } from './util';
+import { setFlowCookie, takeFlowCookie } from './cookie';
+import { ACCOUNT_HOME, base64url, jwtClaims, normalizeEmail, randomHex, utf8 } from './util';
 
 const AUTHORIZATION_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
@@ -35,7 +34,7 @@ export async function startGoogleSignIn(
 	next: string
 ): Promise<string> {
 	const flow: Flow = { state: randomHex(16), nonce: randomHex(16), verifier: randomHex(32), next };
-	setHostCookie(c, COOKIE, btoa(JSON.stringify(flow)), FLOW_TTL);
+	setFlowCookie(c, COOKIE, flow, FLOW_TTL);
 	const challenge = new Uint8Array(await crypto.subtle.digest('SHA-256', utf8(flow.verifier)));
 	return `${AUTHORIZATION_ENDPOINT}?${new URLSearchParams({
 		client_id: config.clientId,
@@ -68,14 +67,8 @@ export async function finishGoogleSignIn(
 	redirectUri: string,
 	nowSeconds: number
 ): Promise<GoogleUser | GoogleFailure> {
-	const raw = getCookie(c, hostCookieName(c, COOKIE));
-	deleteHostCookie(c, COOKIE);
-	let flow: Flow;
-	try {
-		flow = JSON.parse(atob(raw ?? '')) as Flow;
-	} catch {
-		return { failure: 'invalid', next: ACCOUNT_HOME };
-	}
+	const flow = takeFlowCookie<Flow>(c, COOKIE);
+	if (!flow) return { failure: 'invalid', next: ACCOUNT_HOME };
 	// 断ったときも、メールのリンクで入り直して元の画面 (結ぶ画面など) へ戻れるように。
 	const fail = (failure: GoogleFailure['failure']): GoogleFailure => ({ failure, next: flow.next });
 	const code = c.req.query('code');
@@ -96,7 +89,7 @@ export async function finishGoogleSignIn(
 		return fail('invalid');
 	}
 	const { id_token: idToken } = await res.json<{ id_token?: string }>();
-	let claims: {
+	const claims = jwtClaims<{
 		iss?: string;
 		aud?: string;
 		exp?: number;
@@ -105,13 +98,9 @@ export async function finishGoogleSignIn(
 		email?: string;
 		email_verified?: boolean;
 		hd?: string;
-	};
-	try {
-		claims = JSON.parse(decodeBase64url(idToken?.split('.')[1] ?? ''));
-	} catch {
-		return fail('invalid');
-	}
+	}>(idToken);
 	if (
+		!claims ||
 		!ISSUERS.includes(claims.iss ?? '') ||
 		claims.aud !== config.clientId ||
 		(claims.exp ?? 0) <= nowSeconds ||

@@ -64,6 +64,15 @@ export function decodeBase64url(text: string): string {
 	return atob(text.replaceAll('-', '+').replaceAll('_', '/'));
 }
 
+/** JWT の中身 (claims)。署名は確かめない。読めなければ `undefined`。 */
+export function jwtClaims<T>(jwt: string | undefined): T | undefined {
+	try {
+		return JSON.parse(decodeBase64url(jwt?.split('.')[1] ?? '')) as T;
+	} catch {
+		return undefined;
+	}
+}
+
 export function base64urlBytes(text: string): Uint8Array {
 	return Uint8Array.from(decodeBase64url(text), (c) => c.charCodeAt(0));
 }

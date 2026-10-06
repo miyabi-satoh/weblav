@@ -15,6 +15,12 @@ const WEBHOOK_TOLERANCE = 300;
  */
 const PRODUCTS: Record<Plan, string> = { personal: 'weblav-pro', organization: 'weblav-org' };
 
+/**
+ * Sign in with Apple の転送用アドレスのドメイン。2026 年の後半から新しいアドレスは private.icloud.com で出て、
+ * 前からのアドレスも使い続けられる (Apple Developer News「Update: New domain for Sign in with Apple」2026-08-24)。
+ */
+const APPLE_RELAY_DOMAINS = ['privaterelay.appleid.com', 'private.icloud.com'];
+
 export function productOf(plan: Plan): string {
 	return PRODUCTS[plan];
 }
@@ -150,7 +156,6 @@ export async function createCheckoutSession(
 		'subscription_data[metadata][account_id]': accountId,
 		// 台帳に MP の取引かを残すため (請求書からは引けない)。
 		'subscription_data[metadata][managed_payments]': managedPayments ? '1' : '0',
-		customer_email: email,
 		locale: lang,
 		success_url: successUrl,
 		cancel_url: cancelUrl,
@@ -168,6 +173,11 @@ export async function createCheckoutSession(
 		})) {
 			params.set(key, value);
 		}
+	}
+	// Checkout は渡したメールを直させない。Apple の転送用アドレスには、登録していない Stripe からの領収書が届かないので、
+	// 渡さずに支払いの画面で入れてもらう。
+	if (!APPLE_RELAY_DOMAINS.some((domain) => email.endsWith(`@${domain}`))) {
+		params.set('customer_email', email);
 	}
 	// 特定商取引法 12条の6 の最終確認画面に要る、契約の期間・解約・引き渡し・返金の扱い。Markdown のリンクを書ける。
 	// MP の分は、同じ事項を買う画面 (→ src/pages.ts の buyForm) にだけ出す。

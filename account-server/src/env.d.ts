@@ -16,4 +16,9 @@ interface __BaseEnv_Env {
 	/** Google でのサインイン (→ src/google.ts)。2つそろったときだけ出す。 */
 	GOOGLE_CLIENT_ID?: string;
 	GOOGLE_CLIENT_SECRET?: string;
+	/** Apple でのサインイン (→ src/apple.ts)。4つそろったときだけ出す。秘密鍵は .p8 の中身。 */
+	APPLE_TEAM_ID?: string;
+	APPLE_KEY_ID?: string;
+	APPLE_PRIVATE_KEY?: string;
+	APPLE_SERVICE_ID?: string;
 }
