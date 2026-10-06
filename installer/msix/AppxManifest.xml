@@ -11,7 +11,7 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap desktop desktop2 rescap">
 
-  <!-- Publisher は署名に使う証明書の Subject と一致させる。 -->
+  <!-- Publisher は署名に使う証明書の Subject と一致させる (Store に上げる版は Store の発行元。→ scripts/msix.mjs)。 -->
   <Identity Name="amiiby.WebLAV" Publisher="{{PUBLISHER}}" Version="{{VERSION}}" ProcessorArchitecture="x64" />
 
   <Properties>

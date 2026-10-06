@@ -51,9 +51,10 @@ generate-icon:
 # 配布物だけ`test`を素通りして壊れたまま渡してしまわないようにするため (タスクトレイの絵の
 # サイズ不一致等はテストでしか検知しない、→ src/tray/mod.rsのtray_icon_asset_is_a_valid_square_rgba_buffer)。
 # 証明書は先に installer/msix/new-test-cert.ps1 で作っておく (→ docs/distribution.md「MSIX (Windows)」)。
+# Store に上げる版は `just msix --store` で、Store の発行元のまま署名せずに作る (dist/weblav-v<version>-store.msix)。
 [windows]
-msix: ci
-    node scripts/msix.mjs
+msix *args: ci
+    node scripts/msix.mjs {{ args }}
 
 # macOS 版の .app を作る (target/release/bundle/WebLAV.app)。公証していないため、まだ配らない (→ docs/distribution.md「ビルド・配布の方法」)
 [macos]
