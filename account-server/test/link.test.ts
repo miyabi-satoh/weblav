@@ -13,7 +13,8 @@ import {
 	linkKey,
 	parseRelease,
 	parseRequest,
-	relinkTag
+	relinkTag,
+	signProof
 } from '../src/link';
 import { fromHex, toHex } from '../src/util';
 
@@ -84,5 +85,32 @@ describe('link codes', () => {
 
 	it('refuses a small-order public key', async () => {
 		expect(await deriveSecret(await linkKey(env), new Uint8Array(32))).toBeUndefined();
+	});
+});
+
+describe('signProof', () => {
+	it('signs with a key exported by Node, which adds alg "Ed25519"', async () => {
+		// 本番の鍵は scripts/new-proof-key.mjs が Node 24 で作り、この形 (key_ops・ext・alg が付く) で置かれている。
+		const jwk = {
+			...JSON.parse(env.PROOF_SIGNING_KEY),
+			key_ops: ['sign'],
+			ext: true,
+			alg: 'Ed25519'
+		};
+		const proof = await signProof(
+			{ ...env, PROOF_SIGNING_KEY: JSON.stringify(jwk) },
+			{ account: 'a', installation: 'i', plan: 'personal', issuedAt: 1, expiresAt: 2 }
+		);
+		const [payload, signature] = proof.split('.');
+		const bytes = (s: string) =>
+			Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+		const key = await crypto.subtle.importKey(
+			'jwk',
+			{ kty: jwk.kty, crv: jwk.crv, x: jwk.x },
+			{ name: 'Ed25519' },
+			false,
+			['verify']
+		);
+		expect(await crypto.subtle.verify('Ed25519', key, bytes(signature), bytes(payload))).toBe(true);
 	});
 });
