@@ -419,7 +419,7 @@
 	"archive_axes_values_no_items": "スキャン済みのアイテムがありません。",
 	"archive_axes_template_title": "表示タイトルのテンプレート",
 	"archive_axes_template_saved_toast": "表示タイトルのテンプレートを保存しました",
-	"archive_axes_template_help": "軸の値が無いファイルは、ファイル名のまま表示します。",
+	"archive_axes_template_help": "軸の値が無いファイルは、ファイル名のまま表示します。軸の設定で、その部分を空にするように変えられます。",
 	"archive_axes_template_available_axes_label": "下の名前を押すと、テンプレートのカーソルの位置に差し込みます。",
 	"archive_tabs_axes": "軸",
 	"archive_tabs_items": "アイテム",
