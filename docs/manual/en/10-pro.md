@@ -53,12 +53,12 @@ After you subscribe again or unlink another PC, press “Check now” to apply t
 
 ## Unlink
 
-When you give the PC to someone else, or free a slot to link another PC, press “Unlink...” in the “Pro” section of that PC's WebLAV, then press “Unlink”.
+When you give the PC to someone else, or to link another PC instead, press “Unlink...” in the “Pro” section of that PC's WebLAV, then press “Unlink”.
 
 - The PC goes back to Free. Nothing over the limits is deleted, and you can still view, edit and delete it. You just can't add more.
-- If WebLAV can't tell your account about the unlinking, a QR code appears. Scan it with a smartphone and press “Unlink” to free the slot.
+- If WebLAV can't tell your account about the unlinking, a QR code appears. Scan it with a smartphone and press “Unlink” so you can link another PC.
 
-If the PC is broken and you can't open its WebLAV page, press “Unlink” under “Linked PCs” on the account page. The slot stays counted until the end date of the Pro that PC last received.
+If the PC is broken and you can't open its WebLAV page, press “Unlink” under “Linked PCs” on the account page. It still counts toward the limit until the end date of the Pro that PC last received.
 
 To move to a new PC, unlink the old one first, then link the new one. Backups don't include the link to the account, so link a PC restored from a backup again as well.
 

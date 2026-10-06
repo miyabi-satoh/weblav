@@ -134,13 +134,13 @@ const ja = {
 	buyTerms: {
 		domestic: [
 			'Pro (個人向け) は、月額 480 円か年額 4,800 円 (どちらも税込み) のサブスクです。期間ごとに自動で更新し、同じ額を払います。',
-			'このアカウントに付き、WebLAV を3台まで Pro にできます。',
+			'このアカウントに付き、PC を3台まで登録して Pro にできます。',
 			'支払いは Stripe の画面でカードで行い、申し込みの完了時と更新のたびに決済されます。支払いが済むとすぐ、このアカウントに Pro が付きます。',
 			'解約は、アカウントのページからいつでもできます。解約しても、払い終えた期間の終わりまでは Pro のまま使えます。払い終えた期間は、ご都合による返金はできません。二重に請求したとき、決済の処理を誤ったとき、支払いが済んだのに Pro が付かなかったときは、その分を返金します。'
 		],
 		overseas: [
 			'Pro (個人向け) は、月額 480 円か年額 4,800 円 (どちらも税込み) のサブスクです。期間ごとに自動で更新し、同じ額を払います。支払いの画面では、お住まいの国の通貨に換えた額で表示されることがあります。',
-			'このアカウントに付き、WebLAV を3台まで Pro にできます。',
+			'このアカウントに付き、PC を3台まで登録して Pro にできます。',
 			'販売と決済は、Link (Sold through Link, LLC) が代わりに行います。カードの明細には「LINK.COM*」と出ます。払い方は支払いの画面で選べ、支払いが済むとすぐ、このアカウントに Pro が付きます。',
 			`解約は、アカウントのページからいつでもできます。解約しても、払い終えた期間の終わりまでは Pro のまま使えます。払い終えた期間は、ご都合による返金はできません。二重に請求したとき、決済の処理を誤ったとき、支払いが済んだのに Pro が付かなかったときは、その分を返金します。ただし購入から60日以内は、[Link の返金ポリシー](${LINK_REFUND_POLICY})によって返金されることがあります。`
 		]
@@ -253,7 +253,7 @@ const en: typeof ja = {
 	next: 'Next',
 	linkTitle: 'Link a PC',
 	linkLead: (name: string) => `Link "${name}" to this account.`,
-	relinkLead: (name: string) => `Link "${name}" again. This doesn't use another slot.`,
+	relinkLead: (name: string) => `Link "${name}" again. It doesn't count as another PC.`,
 	linkWarning:
 		"Don't continue unless you opened this page from your own WebLAV. Otherwise someone else's WebLAV would use the Pro on this account.",
 	linkCount: (count: number, limit: number) => `Linked PCs: ${count} of ${limit}`,
@@ -286,7 +286,7 @@ const en: typeof ja = {
 	releaseCodeLabel: 'Code shown in WebLAV',
 	releaseButton: 'Unlink',
 	releasedTitle: 'Unlinked',
-	released: 'One PC slot is now free.',
+	released: 'You can now link one more PC.',
 	releaseInvalid: 'The code is malformed. Scan or enter the code shown in WebLAV again.',
 	noProHeading: "This account doesn't have Pro",
 	noPro: 'If you subscribed with another email address, sign in again with that address.',
@@ -295,13 +295,13 @@ const en: typeof ja = {
 	buyTerms: {
 		domestic: [
 			'Pro (personal) is a subscription of 480 yen a month or 4,800 yen a year, tax included. It renews automatically each period at the same price.',
-			'It is added to this account, and you can make up to 3 PCs Pro.',
+			'It is added to this account, and you can use Pro on up to 3 PCs.',
 			'You pay by card on a Stripe page, and you are charged when you subscribe and at each renewal. Pro is added to this account as soon as the payment is complete.',
 			'You can cancel at any time on your account page. After canceling, Pro keeps working until the end of the paid period. Paid periods are not refunded for personal reasons. We refund the amount if we charged you twice, made an error in processing the payment, or Pro was not added after your payment went through.'
 		],
 		overseas: [
 			'Pro (personal) is a subscription of 480 yen a month or 4,800 yen a year, tax included. It renews automatically each period at the same price. The payment page may show the amount converted to your local currency.',
-			'It is added to this account, and you can make up to 3 PCs Pro.',
+			'It is added to this account, and you can use Pro on up to 3 PCs.',
 			'The sale and payment are handled on our behalf by Link (Sold through Link, LLC), and your card statement shows "LINK.COM*". You choose how to pay on the payment page, and Pro is added to this account as soon as the payment is complete.',
 			`You can cancel at any time on your account page. After canceling, Pro keeps working until the end of the paid period. Paid periods are not refunded for personal reasons. We refund the amount if we charged you twice, made an error in processing the payment, or Pro was not added after your payment went through. Within 60 days of purchase, however, you may get a refund under [Link's refund policy](${LINK_REFUND_POLICY}).`
 		]
