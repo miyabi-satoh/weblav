@@ -138,6 +138,7 @@ just run    # build してバイナリを起動
 
 ```sh
 just msix         # Windows: dist/weblav-v<version>.msix を作る (build → makeappx、試しに入れるための自己署名つき)
+just install-windows  # Windows: 試しの MSIX を作って上から入れ直し、起動し直す
 just bundle-mac   # macOS: target/release/bundle/WebLAV.app を作る。公証していないので、まだ配らない
 just install-mac  # macOS: .app を作って /Applications に入れ直し、起動し直す
 ```

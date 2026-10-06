@@ -1,6 +1,7 @@
 // Windows版の MSIX を作る。`just build`(release exe)の後に呼び、Windows SDK の makeappx で
 // dist/weblav-v<version>.msix を作り、試しに入れるための自己署名の証明書で署名する (→ docs/distribution.md「MSIX (Windows)」)。
 // `--store` を付けると、Store に上げる dist/weblav-v<version>-store.msix を、Store の発行元で署名せずに作る。
+// `--install` を付けると、作った試しの版をこの PC に入れ直して起動し直す (`just install-windows`)。
 // 中身と宣言は installer/msix/AppxManifest.xml に書いてある。
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -20,12 +21,16 @@ const LAYOUT_DIR = 'target/msix';
 const SDK_BIN = 'C:\\Program Files (x86)\\Windows Kits\\10\\bin';
 
 // MSIX のバージョンは4つ組で、Store は最後を 0 に限る。
-function msixVersion(version) {
+// 試しの版は最後をコミットの数にする。同じ版番号のままでは上から入れられず、外すとデータが消えるため。
+function msixVersion(version, store) {
 	const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
 	if (!match) {
 		throw new Error(`MSIX にできないバージョンです (${version})。x.y.z の形にしてください`);
 	}
-	return `${match[1]}.${match[2]}.${match[3]}.0`;
+	const revision = store
+		? '0'
+		: execFileSync('git', ['rev-list', '--count', 'HEAD'], { encoding: 'utf8' }).trim();
+	return `${match[1]}.${match[2]}.${match[3]}.${revision}`;
 }
 
 // Windows SDK の中で、いちばん新しい版の x64 のツールを探す。別の場所なら環境変数 (MAKEAPPX・SIGNTOOL) で指定する。
@@ -51,7 +56,7 @@ function findSdkTool(name, envName) {
 	);
 }
 
-function layout(version, publisher) {
+function layout(version, store) {
 	rmSync(LAYOUT_DIR, { recursive: true, force: true });
 	mkdirSync(join(LAYOUT_DIR, 'Assets'), { recursive: true });
 	for (const exe of EXES) {
@@ -61,8 +66,8 @@ function layout(version, publisher) {
 		copyFileSync(join(LOGO_DIR, logo), join(LAYOUT_DIR, 'Assets', logo));
 	}
 	const manifest = readFileSync(MANIFEST, 'utf8')
-		.replaceAll('{{VERSION}}', msixVersion(version))
-		.replaceAll('{{PUBLISHER}}', publisher);
+		.replaceAll('{{VERSION}}', msixVersion(version, store))
+		.replaceAll('{{PUBLISHER}}', store ? STORE_PUBLISHER : TEST_PUBLISHER);
 	writeFileSync(join(LAYOUT_DIR, 'AppxManifest.xml'), manifest);
 }
 
@@ -72,7 +77,7 @@ function main() {
 	const makeappx = findSdkTool('makeappx.exe', 'MAKEAPPX');
 	const output = `dist/weblav-v${version}${store ? '-store' : ''}.msix`;
 
-	layout(version, store ? STORE_PUBLISHER : TEST_PUBLISHER);
+	layout(version, store);
 	mkdirSync('dist', { recursive: true });
 	execFileSync(makeappx, ['pack', '/o', '/h', 'SHA256', '/d', LAYOUT_DIR, '/p', output], {
 		stdio: 'inherit',
@@ -88,6 +93,21 @@ function main() {
 		stdio: 'inherit',
 	});
 	console.log(`wrote ${output}`);
+	if (process.argv.includes('--install')) {
+		install(output);
+	}
+}
+
+// 上から入れる (外さないので、データとログイン時の起動の設定が残る)。動いている WebLAV は止め、入れた後に起動し直す。
+function install(output) {
+	const script = [
+		`Add-AppxPackage -Path '${output}' -ForceApplicationShutdown`,
+		"$p = Get-AppxPackage -Name amiiby.WebLAV | Where-Object Publisher -eq 'CN=WebLAV Test'",
+		'$id = ($p | Get-AppxPackageManifest).Package.Applications.Application.Id',
+		'Start-Process "shell:AppsFolder\\$($p.PackageFamilyName)!$id"',
+		'Write-Output "installed $($p.Version)"',
+	].join('; ');
+	execFileSync('pwsh', ['-NoProfile', '-Command', script], { stdio: 'inherit' });
 }
 
 main();
