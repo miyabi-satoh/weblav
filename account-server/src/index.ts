@@ -14,6 +14,7 @@ import {
 	checkingPurchasePage,
 	confirmSignInPage,
 	homePage,
+	installationName,
 	LEGAL_PAGES,
 	linkAtLimitPage,
 	linkedPage,
@@ -179,6 +180,7 @@ type Installation = {
 	link_kid: number;
 	public_key: string;
 	name: string;
+	pc_name: string;
 	created_at: number;
 	checked_at: number | null;
 	removed_at: number | null;
@@ -221,7 +223,7 @@ function purgeRemoved(env: Env, accountId: string, at: number) {
 function installationRows(list: { row: Installation; overLimit: boolean }[]): InstallationRow[] {
 	return list.map(({ row, overLimit }) => ({
 		id: row.id,
-		name: row.name,
+		name: installationName(row.name, row.pc_name),
 		checkedAt: row.checked_at,
 		removedUntil: row.removed_at === null ? null : row.permission_expires_at,
 		overLimit
@@ -237,7 +239,7 @@ function cleanName(name: string | undefined): string {
 app.post('/v1/installations/check', async (c) => {
 	if (await limited(c, c.env.INSTALLATION_LIMITER)) return c.json({ error: 'rate_limited' }, 429);
 	const body = await c.req
-		.json<{ installation?: unknown; auth?: unknown; name?: unknown }>()
+		.json<{ installation?: unknown; auth?: unknown; name?: unknown; pc?: unknown }>()
 		.catch(() => ({}) as never);
 	if (typeof body.installation !== 'string' || typeof body.auth !== 'string') {
 		return c.json({ error: 'invalid_request' }, 400);
@@ -255,10 +257,14 @@ app.post('/v1/installations/check', async (c) => {
 		return c.json({ status: 'unbound' });
 	}
 	const name = cleanName(typeof body.name === 'string' ? body.name : undefined);
+	const pcName = cleanName(typeof body.pc === 'string' ? body.pc : undefined);
 	await c.env.DB.prepare(
-		"UPDATE installations SET checked_at = ?, name = CASE WHEN ? = '' THEN name ELSE ? END WHERE id = ?"
+		`UPDATE installations SET checked_at = ?1,
+		   name = CASE WHEN ?2 = '' THEN name ELSE ?2 END,
+		   pc_name = CASE WHEN ?3 = '' THEN pc_name ELSE ?3 END
+		 WHERE id = ?4`
 	)
-		.bind(at, name, name, row.id)
+		.bind(at, name, pcName, row.id)
 		.run();
 	const account = (await c.env.DB.prepare('SELECT email FROM accounts WHERE id = ?')
 		.bind(row.account_id)
@@ -852,15 +858,23 @@ async function linkTarget(
 	};
 }
 
-function linkUrl(raw: string, name: string) {
-	return `${ACCOUNT}/link?${new URLSearchParams({ r: raw, name })}`;
+function linkUrl(raw: string, name: string, pcName: string) {
+	return `${ACCOUNT}/link?${new URLSearchParams({ r: raw, name, ...(pcName ? { pc: pcName } : {}) })}`;
 }
 
-accountApp.get('/link', (c) => showLink(c, c.req.query('r') ?? '', c.req.query('name'), false));
+accountApp.get('/link', (c) =>
+	showLink(c, c.req.query('r') ?? '', c.req.query('name'), c.req.query('pc'), false)
+);
 
 accountApp.post('/link', async (c) => {
 	const form = await c.req.parseBody();
-	return showLink(c, formString(form, 'r') ?? '', formString(form, 'name'), true);
+	return showLink(
+		c,
+		formString(form, 'r') ?? '',
+		formString(form, 'name'),
+		formString(form, 'pc'),
+		true
+	);
 });
 
 /**
@@ -871,12 +885,14 @@ async function showLink(
 	c: Context<App>,
 	raw: string,
 	rawName: string | undefined,
+	rawPcName: string | undefined,
 	commit: boolean
 ) {
 	const lang = resolveLang(c);
 	const t = messages[lang];
 	const name = cleanName(rawName) || DEFAULT_NAME;
-	const next = linkUrl(raw, name);
+	const pcName = cleanName(rawPcName);
+	const next = linkUrl(raw, name, pcName);
 	const account = await currentAccount(c);
 	if (!account) return c.html(signIn(c, lang, next), commit ? 401 : 200);
 	if (await limited(c, c.env.LINK_LIMITER, account.id)) {
@@ -905,26 +921,34 @@ async function showLink(
 	if (!relink && list.length >= limit) return atLimit();
 	if (!commit) {
 		return c.html(
-			linkPage(lang, account.email, { request: raw, name, relink, count: list.length, limit, next })
+			linkPage(lang, account.email, {
+				request: raw,
+				name,
+				pcName,
+				relink,
+				count: list.length,
+				limit,
+				next
+			})
 		);
 	}
 	if (target.previous) {
 		// 同じ枠のまま、秘密 (公開鍵) と id を入れ替える。外していた行なら、結び直しで戻す。
 		await c.env.DB.prepare(
-			`UPDATE installations SET id = ?, link_kid = ?, public_key = ?, name = ?, removed_at = NULL
+			`UPDATE installations SET id = ?, link_kid = ?, public_key = ?, name = ?, pc_name = ?, removed_at = NULL
 			 WHERE id = ? AND account_id = ?`
 		)
-			.bind(target.id, target.kid, target.publicKey, name, target.previous.id, account.id)
+			.bind(target.id, target.kid, target.publicKey, name, pcName, target.previous.id, account.id)
 			.run();
 	} else {
 		// 数えるのと足すのを1つの文にする。別々だと、同時に結ばれたときに上限を超える。
 		const inserted = await c.env.DB.prepare(
-			`INSERT INTO installations (id, account_id, link_kid, public_key, name, created_at)
-			 SELECT ?1, ?2, ?3, ?4, ?5, ?6
+			`INSERT INTO installations (id, account_id, link_kid, public_key, name, pc_name, created_at)
+			 SELECT ?1, ?2, ?3, ?4, ?5, ?8, ?6
 			 WHERE (SELECT count(*) FROM installations WHERE account_id = ?2) < ?7
 			 ON CONFLICT DO NOTHING`
 		)
-			.bind(target.id, account.id, target.kid, target.publicKey, name, at, limit)
+			.bind(target.id, account.id, target.kid, target.publicKey, name, at, limit, pcName)
 			.run();
 		if (inserted.meta.changes !== 1) {
 			list = await installationsOf(c.env, account.id, limit, at);
@@ -937,7 +961,7 @@ async function showLink(
 		c.env,
 		account.email,
 		t.linkedCodeMailSubject,
-		t.linkedCodeMailBody(name, code)
+		t.linkedCodeMailBody(installationName(name, pcName), code)
 	).catch((e) => console.error('failed to send the link code', e));
 	return c.html(linkedPage(lang, code));
 }

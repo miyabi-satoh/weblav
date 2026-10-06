@@ -314,27 +314,44 @@ export function linkPage(
 	{
 		request,
 		name,
+		pcName,
 		relink,
 		count,
 		limit,
 		next
-	}: { request: string; name: string; relink: boolean; count: number; limit: number; next: string }
+	}: {
+		request: string;
+		name: string;
+		/** 結ぶ PC の名前。読めなかった WebLAV からは空で届く。 */
+		pcName: string;
+		relink: boolean;
+		count: number;
+		limit: number;
+		next: string;
+	}
 ) {
 	const t = messages[lang];
+	const shown = installationName(name, pcName);
 	return page(
 		lang,
 		t.linkTitle,
 		html`<h1>${t.linkTitle}</h1>
-			<p>${relink ? t.relinkLead(name) : t.linkLead(name)}</p>
+			<p>${relink ? t.relinkLead(shown) : t.linkLead(shown)}</p>
 			<p class="muted">${t.linkCount(count, limit)}</p>
 			<p>${t.linkWarning}</p>
 			<form method="post" action="${ACCOUNT}/link">
 				<input type="hidden" name="r" value="${request}" />
 				<input type="hidden" name="name" value="${name}" />
+				<input type="hidden" name="pc" value="${pcName}" />
 				<button>${t.linkButton}</button>
 			</form>
 			${signedInAs(lang, email, next)}`
 	);
+}
+
+/** 一覧・結ぶ画面・メールに出す WebLAV の名前。サイト名だけでは見分けられないので、PC の名前を添える。 */
+export function installationName(name: string, pcName: string): string {
+	return pcName === '' ? name : `${name} (${pcName})`;
 }
 
 export type InstallationRow = {

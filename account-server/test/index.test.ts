@@ -109,7 +109,7 @@ async function makeRequest({
 /** WebLAV のサーバーと同じ形で確かめる。 */
 async function check(
 	secret: Uint8Array,
-	{ name = '教室', ip }: { name?: string; ip?: string } = {}
+	{ name = '教室', pc = '', ip }: { name?: string; pc?: string; ip?: string } = {}
 ) {
 	return request('/v1/installations/check', {
 		method: 'POST',
@@ -117,15 +117,16 @@ async function check(
 		body: JSON.stringify({
 			installation: await installationId(secret),
 			auth: toHex(await checkAuth(secret)),
-			name
+			name,
+			pc
 		}),
 		ip
 	});
 }
 
 /** 結ぶ画面のボタンを押す。 */
-function link(cookie: string, raw: string, name = '教室') {
-	return postForm('/account/link', { r: raw, name }, cookie);
+function link(cookie: string, raw: string, name = '教室', pc = '') {
+	return postForm('/account/link', { r: raw, name, pc }, cookie);
 }
 
 /** 結んだ WebLAV の数。 */
@@ -135,7 +136,7 @@ async function installationsOf(email: string) {
 		 WHERE accounts.email = ? ORDER BY created_at, id`
 	)
 		.bind(email)
-		.all<{ id: string; name: string; removed_at: number | null }>();
+		.all<{ id: string; name: string; pc_name: string; removed_at: number | null }>();
 	return results;
 }
 
@@ -402,6 +403,21 @@ describe('linking', () => {
 		await link(cookie, req.raw);
 		const body = await (await check(req.secret)).json<{ proof: string }>();
 		expect((await verifyProof(body.proof)).claims.plan).toBe('organization');
+	});
+
+	it('shows the PC name beside the site name, and keeps it when an empty one comes', async () => {
+		const email = 'pc-names@example.com';
+		const { cookie } = await signIn(email);
+		await grantPro(email, 'personal');
+		const req = await makeRequest();
+		await link(cookie, req.raw, 'WebLAV', 'home-pc');
+		expect((await installationsOf(email))[0].pc_name).toBe('home-pc');
+		await check(req.secret, { pc: '' });
+		expect((await installationsOf(email))[0].pc_name).toBe('home-pc');
+		await check(req.secret, { pc: 'office-pc' });
+		expect((await installationsOf(email))[0].pc_name).toBe('office-pc');
+		const home = await (await request('/account/', { cookie })).text();
+		expect(home).toContain('教室 (office-pc)');
 	});
 
 	it('keeps the name when an empty one comes, and answers unbound to strangers', async () => {
