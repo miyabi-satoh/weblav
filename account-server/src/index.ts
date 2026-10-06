@@ -12,6 +12,7 @@ import { messages, resolveLang, type Lang } from './i18n';
 import { sendMail } from './mail';
 import {
 	checkingPurchasePage,
+	confirmPage,
 	confirmSignInPage,
 	homePage,
 	installationName,
@@ -75,6 +76,7 @@ import {
 	normalizeEmail,
 	now,
 	originOf,
+	PRICING_PATH,
 	randomHex,
 	safeNext,
 	sha256Hex,
@@ -605,7 +607,7 @@ accountApp.get('/', async (c) => {
 			billing: stripeConfig(c.env) !== undefined && rows.some((r) => r.stripe_customer_id),
 			limit,
 			installations: installationRows(list),
-			region: saleRegion(c)
+			forSale: stripeConfig(c.env) !== undefined
 		})
 	);
 });
@@ -906,7 +908,8 @@ async function showLink(
 		return c.html(messagePage(lang, t.linkTitle, t.linkOtherAccount), 409);
 	}
 	const active = await activePlan(c.env, account.id, at);
-	if (!active) return c.html(noProPage(lang, account.email, next, saleRegion(c)));
+	if (!active)
+		return c.html(noProPage(lang, account.email, next, stripeConfig(c.env) !== undefined));
 	const limit = PLAN_LIMITS[active.plan];
 	let list = await installationsOf(c.env, account.id, limit, at);
 	const atLimit = () =>
@@ -1049,7 +1052,25 @@ function saleRegion(c: Context<App>): SaleRegion | undefined {
 	return usesManagedPayments(buyerCountry(c)) ? 'overseas' : 'domestic';
 }
 
-/** 支払いの画面へ送る。済んだら `next` (結ぶ画面など) へ戻す。 */
+/** 料金ページで選んだプランの最終確認の画面。サインインしていなければ、サインインしてからこの画面へ戻す。 */
+accountApp.get('/buy', async (c) => {
+	const lang = resolveLang(c);
+	const t = messages[lang];
+	const plan = c.req.query('plan');
+	if (plan !== 'month' && plan !== 'year') return c.redirect(PRICING_PATH, 303);
+	const next = safeNext(c.req.query('next'));
+	const account = await currentAccount(c);
+	if (!account) {
+		return c.html(signIn(c, lang, `${ACCOUNT}/buy?${new URLSearchParams({ plan, next })}`));
+	}
+	const region = saleRegion(c);
+	if (!region) return c.html(messagePage(lang, t.buyTitle, t.notForSale), 404);
+	// 持っているのに申し込ませない。
+	if (await activePlan(c.env, account.id, now())) return c.redirect(next, 303);
+	return c.html(confirmPage(lang, account.email, { interval: plan, region, next }));
+});
+
+/** 最終確認の画面から、支払いの画面へ送る。済んだら `next` (結ぶ画面など) へ戻す。 */
 accountApp.post('/buy', async (c) => {
 	const lang = resolveLang(c);
 	const t = messages[lang];

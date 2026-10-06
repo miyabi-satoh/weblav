@@ -15,13 +15,13 @@ While on Free, see the current counts in the “Pro” section of the “Site se
 
 ## Pro pricing
 
-Pro (personal) is a subscription of 480 yen a month or 4,800 yen a year (tax included). It renews automatically each period.
+Pro (personal) is a subscription of 480 yen a month or 4,800 yen a year (tax included). It renews automatically each period. For details, see the [pricing page](https://weblav.amiiby.com/pricing/) (in Japanese).
 
 Pro belongs to an account, and one account can link up to 3 PCs. You create the account by signing in with Google or with a link sent to your email. It is separate from WebLAV users. The account page is at `https://weblav.amiiby.com/account/`.
 
 ## Subscribe and link this PC
 
-1. In the admin pages, open the “Site settings” tab and press “Link this PC” in the “Pro” section.
+1. In the admin pages, open the “Site settings” tab and press “Get Pro” in the “Pro” section.
 
    ![The Pro section in Site settings](images/settings-pro.webp)
 
@@ -30,7 +30,7 @@ Pro belongs to an account, and one account can link up to 3 PCs. You create the 
    ![The page for linking a PC](images/pro-link.webp)
 
 3. Sign in on the page that opens.
-4. If you don't have Pro yet, press “Agree and subscribe monthly” or “Agree and subscribe yearly”, and pay on the payment page.
+4. If you don't have Pro yet, choose yearly or monthly on the pricing page, review your order, press “Confirm and continue to payment”, and pay on the payment page.
 5. Press “Link this PC”.
 
 On a PC with internet access, the WebLAV page switches to Pro within a few seconds.

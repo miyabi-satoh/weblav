@@ -1,0 +1,212 @@
+---
+// 料金のページ。Free と Pro を並べ、選んだプランで窓口の最終確認の画面 (/account/buy) へ進む (→ docs/pro.md「売り方」)。
+// 申し込むボタンがあるので特定商取引法 11条の広告に当たり、価格・支払い・提供の時期・解約と返金を料金表の近くに出す。
+// 価格は窓口の文言 (account-server/src/i18n.ts) と本番の Stripe の Price に合わせる。
+import { getEntry } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import Breadcrumb from '../components/Breadcrumb.astro';
+
+const { data } = (await getEntry('product', 'index'))!;
+---
+
+<Base title="料金 | WebLAV" description="WebLAV は無料で使えます。ユーザーやフォルダなどを多く登録するときは Pro（税込み 月額 480 円・年額 4,800 円）を申し込みます。">
+  <Breadcrumb items={[{ label: 'WebLAV', href: '/' }, { label: '料金' }]} />
+  <div class="pricing" style={`--c: ${data.color}`}>
+    <h1>料金</h1>
+    <p class="lead">無料で使えます。ユーザーやフォルダなどを多く登録するときは、Pro を申し込みます。</p>
+
+    <ul class="plans">
+      <li class="plan">
+        <h2>Free</h2>
+        <p class="price"><span class="amount">0&nbsp;円</span></p>
+        <ul class="features">
+          <li>管理者 1&nbsp;人・ユーザー 3&nbsp;人まで</li>
+          <li>アーカイブ 3&nbsp;個まで</li>
+          <li>フォルダ・ファイル・リンク 各 10&nbsp;個まで</li>
+          <li>見られる形式やスマホからの使い方は Pro と同じ</li>
+        </ul>
+      </li>
+      <li class="plan recommended">
+        <p class="badge">おすすめ・2か月分お得</p>
+        <h2>Pro 年額</h2>
+        <p class="price"><span class="amount">4,800&nbsp;円</span><span class="per">/ 年（税込み）</span></p>
+        <p class="note">月あたり 400&nbsp;円</p>
+        <ul class="features">
+          <li>管理者・ユーザー・コンテンツの数の上限なし</li>
+          <li>1つのアカウントで PC 3&nbsp;台まで</li>
+        </ul>
+        <a class="buy primary" data-plan href="/account/buy?plan=year">年額で申し込む</a>
+      </li>
+      <li class="plan">
+        <h2>Pro 月額</h2>
+        <p class="price"><span class="amount">480&nbsp;円</span><span class="per">/ 月（税込み）</span></p>
+        <ul class="features">
+          <li>管理者・ユーザー・コンテンツの数の上限なし</li>
+          <li>1つのアカウントで PC 3&nbsp;台まで</li>
+        </ul>
+        <a class="buy" data-plan href="/account/buy?plan=month">月額で申し込む</a>
+      </li>
+    </ul>
+
+    <h2 id="terms">お申し込みの前に</h2>
+    <dl class="terms">
+      <dt>支払い</dt>
+      <dd>カードで、申し込んだときと、更新のたびに同じ額を払います。</dd>
+      <dt>使い始め</dt>
+      <dd>支払いが済むとすぐ、WebLAV のアカウントに Pro が付きます。PC は WebLAV の管理画面から登録します。</dd>
+      <dt>更新と解約</dt>
+      <dd>期間ごとに自動で更新します。解約はアカウントのページからいつでもでき、払い終えた期間の終わりまで Pro のまま使えます。</dd>
+      <dt>返金</dt>
+      <dd>払い終えた期間は、ご都合による返金はできません。二重に請求したとき、決済の処理を誤ったとき、支払いが済んだのに Pro が付かなかったときは返金します。</dd>
+      <dt>日本の外から</dt>
+      <dd>販売と決済は Link（Sold through Link, LLC）が代わりに行い、購入から 60&nbsp;日以内は Link の返金ポリシーによって返金されることがあります。</dd>
+    </dl>
+    <p>詳しくは<a href="/tokushoho/">特定商取引法に基づく表記</a>と<a href="/terms/">利用規約</a>をご覧ください。</p>
+  </div>
+</Base>
+
+<script>
+  // WebLAV の PC の登録の途中から来たときは、申し込んだ後にその画面へ戻れるよう、戻り先を窓口へ引き継ぐ。
+  const next = new URLSearchParams(location.search).get('next');
+  if (next?.startsWith('/account/')) {
+    for (const link of document.querySelectorAll<HTMLAnchorElement>('a[data-plan]')) {
+      const url = new URL(link.href);
+      url.searchParams.set('next', next);
+      link.href = url.href;
+    }
+  }
+</script>
+
+<style>
+  .pricing {
+    --accent: var(--c);
+    /* 料金表は3列を並べるので、読み物の本文の幅 (44rem) より広げる。文の段は本文の幅のまま */
+    max-width: 64rem;
+    word-break: auto-phrase;
+  }
+
+  .pricing > :not(.plans) {
+    max-width: 44rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .pricing {
+      --accent: color-mix(in oklab, var(--c), white 45%);
+    }
+  }
+
+  .plans {
+    display: grid;
+    gap: 1rem;
+    margin: 2rem 0 2.5rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 48rem) {
+    .plans {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .plan {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 1.5rem;
+    border: 1px solid var(--rule);
+    border-radius: 0.75rem;
+  }
+
+  .plan.recommended {
+    border: 2px solid var(--accent);
+  }
+
+  .plan h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.125rem;
+  }
+
+  .badge {
+    align-self: flex-start;
+    margin: 0 0 0.75rem;
+    padding: 0.1rem 0.75rem;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--paper);
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+
+  .price {
+    margin: 0;
+    color: var(--ink-strong);
+  }
+
+  .amount {
+    font-family: 'M PLUS 1 Variable', 'BIZ UDPGothic', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .per {
+    white-space: nowrap;
+    margin-left: 0.25rem;
+    color: var(--muted);
+    font-size: 0.9375rem;
+  }
+
+  .note {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9375rem;
+  }
+
+  .features {
+    margin: 1rem 0 1.5rem;
+    padding-left: 1.25em;
+    font-size: 0.9375rem;
+  }
+
+  .buy {
+    display: block;
+    margin-top: auto;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--accent);
+    border-radius: 0.5rem;
+    color: var(--accent);
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+  }
+
+  .buy.primary {
+    background: var(--accent);
+    color: var(--paper);
+  }
+
+  .buy:hover {
+    text-decoration: underline;
+  }
+
+  .terms {
+    display: grid;
+    gap: 0.25rem 1.5rem;
+  }
+
+  @media (min-width: 40rem) {
+    .terms {
+      grid-template-columns: max-content 1fr;
+    }
+  }
+
+  .terms dt {
+    font-weight: 700;
+    color: var(--ink-strong);
+  }
+
+  .terms dd {
+    margin: 0 0 0.75rem;
+  }
+</style>

@@ -2,7 +2,8 @@ import { html } from 'hono/html';
 import type { HtmlEscapedString } from 'hono/utils/html';
 import { formatDate, messages, type Lang } from './i18n';
 import type { Plan } from './link';
-import { ACCOUNT, ACCOUNT_HOME, TRANSFER_PATH } from './util';
+import type { Interval } from './stripe';
+import { ACCOUNT, ACCOUNT_HOME, PRICING_PATH, TRANSFER_PATH } from './util';
 
 /** 規約類 (site/) のパス。 */
 export const LEGAL_PAGES = {
@@ -48,6 +49,8 @@ function page(lang: Lang, title: string, body: Body) {
 						color: var(--fg);
 						font-family: system-ui, sans-serif;
 						line-height: 1.7;
+						/* 日本語を文節の切れ目で折り返す (対応していないブラウザでは、ふつうの折り返し)。 */
+						word-break: auto-phrase;
 					}
 					main {
 						max-width: 28rem;
@@ -87,6 +90,7 @@ function page(lang: Lang, title: string, body: Body) {
 						border-radius: 6px;
 						background: transparent;
 						color: inherit;
+						word-break: normal;
 					}
 					button {
 						min-height: 44px;
@@ -130,6 +134,33 @@ function page(lang: Lang, title: string, body: Body) {
 					}
 					footer a {
 						color: var(--muted);
+					}
+					/* 申し込みの条件の枠。項目名と中身を縦に重ね、スマートフォンの幅でも読める形にする。 */
+					dl.order {
+						margin: 1.5rem 0;
+						padding: 1rem 1.25rem;
+						border: 1px solid var(--border);
+						border-radius: 8px;
+					}
+					dl.order dt {
+						font-weight: bold;
+					}
+					dl.order dd {
+						margin: 0 0 0.75rem;
+					}
+					dl.order dd:last-child {
+						margin-bottom: 0;
+					}
+					/* 料金ページへ進むリンク。押す先が別の画面なので、見た目はボタンに揃える。 */
+					a.action {
+						display: inline-flex;
+						align-items: center;
+						min-height: 44px;
+						padding: 0 1.25rem;
+						border-radius: 6px;
+						background: var(--accent);
+						color: #fff;
+						text-decoration: none;
 					}
 					button.secondary {
 						background: transparent;
@@ -272,34 +303,62 @@ function signedInAs(lang: Lang, email: string, next: string) {
 /** 国内 (Stripe で直接売る) と海外 (Managed Payments で、Link が代わりに売る)。売り方で説明が変わる。 */
 export type SaleRegion = 'domestic' | 'overseas';
 
-/**
- * 個人向けの Pro を申し込むボタン (月額・年額)。支払いは Stripe の画面で行い、済んだら `next` へ戻る。
- * 特定商取引法 12条の6 の最終確認画面に要る事項 (価格・契約の期間・支払い・引き渡し・解約・返金) を、ボタンの手前に出す。
- */
-function buyForm(lang: Lang, next: string, region: SaleRegion) {
-	const t = messages[lang];
-	return html`<form method="post" action="${ACCOUNT}/buy">
-		<ul>
-			${t.buyTerms[region].map((term) => html`<li>${withLinks(term)}</li>`)}
-		</ul>
-		<p class="muted">${withLegalLinks(lang, t.buyConsent)}</p>
-		<input type="hidden" name="next" value="${next}" />
-		<button name="interval" value="month">${t.buyMonthButton}</button>
-		<button name="interval" value="year">${t.buyYearButton}</button>
-	</form>`;
+/** 公開の料金ページ (site/)。プランを選ぶのはここだけで、窓口の中では選ばせない。`next` は申し込んだ後の戻り先。 */
+function pricingHref(next: string) {
+	return next === ACCOUNT_HOME ? PRICING_PATH : `${PRICING_PATH}?${new URLSearchParams({ next })}`;
 }
 
-/** 結ぶ画面で、Pro の無いアカウントに出す。申し込めば、この画面へ戻る。 */
-export function noProPage(lang: Lang, email: string, next: string, region?: SaleRegion) {
+/**
+ * 選んだプランの最終確認の画面 (特定商取引法 12条の6)。支払いは次の Stripe の画面で行い、済んだら `next` へ戻る。
+ * 条件はボタンより上に、畳まずに出す (→ docs/pro.md「売り方」)。
+ */
+export function confirmPage(
+	lang: Lang,
+	email: string,
+	{ interval, region, next }: { interval: Interval; region: SaleRegion; next: string }
+) {
+	const t = messages[lang];
+	const rows: [string, string][] = [
+		[t.confirmPlanLabel, t.confirmPlan(interval)],
+		[t.confirmPriceLabel, t.confirmPrice(interval)],
+		[t.confirmRenewLabel, t.confirmRenew(interval)],
+		[t.confirmPcsLabel, t.confirmPcs],
+		[t.confirmPaymentLabel, t.confirmPayment[region]],
+		[t.confirmCancelLabel, t.confirmCancel[region]]
+	];
+	return page(
+		lang,
+		t.confirmTitle,
+		html`<h1>${t.confirmTitle}</h1>
+			<dl class="order">
+				${rows.map(
+					([label, value]) =>
+						html`<dt>${label}</dt>
+							<dd>${withLinks(value)}</dd>`
+				)}
+			</dl>
+			<form method="post" action="${ACCOUNT}/buy">
+				<p class="muted">${withLegalLinks(lang, t.buyConsent)}</p>
+				<input type="hidden" name="next" value="${next}" />
+				<input type="hidden" name="interval" value="${interval}" />
+				<button>${t.confirmButton}</button>
+			</form>
+			<p><a href="${pricingHref(next)}">${t.changePlan}</a></p>
+			${signedInAs(lang, email, next)}`
+	);
+}
+
+/** 結ぶ画面で、Pro の無いアカウントに出す。料金ページから申し込めば、この画面へ戻る。 */
+export function noProPage(lang: Lang, email: string, next: string, forSale: boolean) {
 	const t = messages[lang];
 	return page(
 		lang,
 		t.linkTitle,
 		html`<h1>${t.noProHeading}</h1>
 			${
-				region
+				forSale
 					? html`<p>${t.noProBuy}</p>
-							${buyForm(lang, next, region)}`
+							<p><a class="action" href="${pricingHref(next)}">${t.seePricing}</a></p>`
 					: ''
 			}
 			<p>${t.noPro}</p>
@@ -451,13 +510,13 @@ export function homePage(
 		billing,
 		limit,
 		installations,
-		region
+		forSale
 	}: {
 		plans: { plan: Plan; paidThrough: number }[];
 		billing: boolean;
 		limit: number;
 		installations: InstallationRow[];
-		region?: SaleRegion;
+		forSale: boolean;
 	}
 ) {
 	const t = messages[lang];
@@ -483,7 +542,11 @@ export function homePage(
 					: ''
 			}
 			${plans.length > 0 ? html`<p><a href="${TRANSFER_PATH}">${t.transferTitle}</a></p>` : ''}
-			${plans.length === 0 && region ? buyForm(lang, next, region) : ''}
+			${
+				plans.length === 0 && forSale
+					? html`<p><a class="action" href="${pricingHref(next)}">${t.seePricing}</a></p>`
+					: ''
+			}
 			<h2>${t.installationsHeading}</h2>
 			${installations.some((i) => i.overLimit) ? html`<p role="alert">${t.overLimit(limit)}</p>` : ''}
 			${installationList(lang, installations, next)} ${signedInAs(lang, email, next)}`
