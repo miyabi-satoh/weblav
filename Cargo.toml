@@ -71,7 +71,7 @@ tower-sessions-sqlx-store = { version = "0.15.0", features = ["sqlite"] }
 tracing = "0.1.44"
 tracing-appender = "0.2.5"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
-tray-icon = "0.25.1"
+tray-icon = "0.26.0"
 # リンクの作成時にページのタイトルを取る (→ src/api/link_title.rs)。TLS は OS の
 # 証明書ストアを使う native-tls にする。学校や事務所のプロキシが入れた証明書も通り、
 # ring のような C のビルドも要らない。native-tls は同梱の Mozilla のルート証明書も引くが、
