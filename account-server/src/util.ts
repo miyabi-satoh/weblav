@@ -60,7 +60,7 @@ export function base64url(bytes: Uint8Array): string {
 		.replace(/=+$/, '');
 }
 
-export function decodeBase64url(text: string): string {
+function decodeBase64url(text: string): string {
 	return atob(text.replaceAll('-', '+').replaceAll('_', '/'));
 }
 
