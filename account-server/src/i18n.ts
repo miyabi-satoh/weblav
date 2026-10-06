@@ -87,49 +87,48 @@ const ja = {
 	signedInAs: (email: string) => `${email} でサインインしています。`,
 	signOut: 'サインアウト',
 	next: '次へ',
-	linkTitle: 'WebLAV を結ぶ',
-	linkLead: (name: string) => `「${name}」をこのアカウントに結びます。`,
-	relinkLead: (name: string) => `「${name}」を結び直します。台数は増えません。`,
+	linkTitle: 'PC を登録',
+	linkLead: (name: string) => `「${name}」をこのアカウントに登録します。`,
+	relinkLead: (name: string) => `「${name}」を登録し直します。台数は増えません。`,
 	linkWarning:
-		'自分の WebLAV の画面から開いたのでなければ、押さないでください。他の人の WebLAV に、このアカウントの Pro を使わせることになります。',
-	linkCount: (count: number, limit: number) => `結んでいる WebLAV: ${count} / ${limit} 台`,
-	linkButton: 'この WebLAV を結ぶ',
+		'自分の WebLAV の画面から開いたのでなければ、押さないでください。他の人の PC に、このアカウントの Pro を使わせることになります。',
+	linkCount: (count: number, limit: number) => `登録している PC: ${count} / ${limit} 台`,
+	linkButton: 'この PC を登録',
 	linkInvalidTitle: 'このリンクは使えません',
 	linkInvalid:
-		'リンクの形が違うか、作ってから24時間を過ぎました。WebLAV の画面の「アカウントと結ぶ」からやり直してください。',
+		'リンクの形が違うか、作ってから24時間を過ぎました。WebLAV の画面の「この PC を登録」からやり直してください。',
 	linkOtherAccount:
-		'この WebLAV は別のアカウントに結ばれています。そのアカウントでサインインし直してください。',
-	linkAtLimitHeading: '結べる台数の上限に達しています',
+		'この PC は別のアカウントに登録されています。そのアカウントでサインインし直してください。',
+	linkAtLimitHeading: '登録できる台数の上限に達しています',
 	linkAtLimit: (limit: number) =>
-		`このアカウントで結べるのは ${limit} 台までです。使っていない WebLAV を外してから、もう一度このページを開いてください。`,
-	linkedTitle: '結びました',
+		`このアカウントに登録できるのは ${limit} 台までです。使っていない PC の登録を解除してから、このページを開き直してください。`,
+	linkedTitle: '登録しました',
 	linkedLead:
-		'WebLAV の画面に戻ってください。ネットにつながる WebLAV なら、数秒で Pro に切り替わります。',
+		'WebLAV の画面に戻ってください。インターネットにつながる PC なら、数秒で Pro に切り替わります。',
 	linkedCodeLead:
-		'ネットにつながらない WebLAV では、次のコードを WebLAV の画面に打ち込んでください。同じコードをメールでも送りました。',
-	linkedCodeMailSubject: 'WebLAV の返しのコード',
+		'インターネットにつながらない PC では、次のコードを WebLAV の画面に入れてください。同じコードをメールでも送りました。',
+	linkedCodeMailSubject: 'WebLAV の登録コード',
 	linkedCodeMailBody: (name: string, code: string) =>
 		[
-			`「${name}」をアカウントに結びました。`,
+			`「${name}」をアカウントに登録しました。`,
 			'',
-			'ネットにつながらない WebLAV では、次のコードを WebLAV の画面に打ち込んでください。ネットにつながる WebLAV は、打ち込まなくても Pro に切り替わります。',
+			'インターネットにつながらない PC では、次のコードを WebLAV の画面に入れてください。',
 			'',
 			code,
 			'',
-			'心当たりが無ければ、アカウントのページで、この WebLAV を外してください。'
+			'心当たりが無ければ、アカウントのページでこの PC の登録を解除してください。'
 		].join('\n'),
-	releaseTitle: 'WebLAV を外したことを伝える',
-	releaseLead:
-		'WebLAV の画面で外した WebLAV の枠を、アカウントで空けます。サインインは要りません。',
+	releaseTitle: 'PC の登録を解除',
+	releaseLead: 'WebLAV の画面で解除した登録を、アカウントに伝えます。サインインは要りません。',
 	releaseCodeLabel: 'WebLAV の画面に出たコード',
-	releaseButton: '枠を空ける',
-	releasedTitle: '枠を空けました',
-	released: 'この WebLAV は、アカウントから外れました。',
+	releaseButton: '登録を解除',
+	releasedTitle: '登録を解除しました',
+	released: '登録できる台数が1台空きました。',
 	releaseInvalid:
 		'コードの形が違います。WebLAV の画面に出たコードを、もう一度読み取るか打ち込んでください。',
 	noProHeading: 'このアカウントには Pro がありません',
 	noPro: 'ほかのメールアドレスで申し込んだときは、そのアドレスでサインインし直してください。',
-	noProBuy: 'ここで Pro (個人向け) を申し込むと、そのままこの WebLAV を結べます。',
+	noProBuy: 'ここで Pro (個人向け) を申し込むと、そのままこの PC を登録できます。',
 	buyTitle: 'Pro を申し込む',
 	// 価格は本番の Stripe の Price と、紹介・規約類 (site/) に合わせる。
 	buyTerms: {
@@ -164,19 +163,20 @@ const ja = {
 	planUntil: (plan: Plan, date: string): string =>
 		`Pro (${ja.planName[plan]}): ${date} まで払い済み`,
 	manageBilling: '支払いを管理する (解約・支払い方法・領収書)',
-	installationsHeading: '結んでいる WebLAV',
-	noInstallations: 'まだ結んでいる WebLAV はありません。WebLAV の管理画面の「Pro」から結べます。',
+	installationsHeading: '登録している PC',
+	noInstallations:
+		'登録している PC はまだありません。WebLAV のサイト設定の「Pro」から登録できます。',
 	installationLine: (name: string, checked: string | undefined) =>
 		checked ? `${name} (最後に確かめた日: ${checked})` : `${name} (ネットで確かめていません)`,
-	removeButton: '外す',
+	removeButton: '登録を解除',
 	overLimitShort: '上限を超えた分',
 	removedPending: (until: string) =>
-		`外しました。WebLAV がそれを受け取るまで、長くて ${until} まで台数に数えます。`,
+		`登録を解除しました。その PC が受け取るまで、長くて ${until} まで台数に数えます。`,
 	overLimit: (limit: number) =>
-		`結んでいる WebLAV が上限 (${limit} 台) を超えています。超えた分 (新しく結んだもの) は Pro になりません。使っていないものを外してください。`,
+		`登録している PC が上限 (${limit} 台) を超えています。超えた分 (新しく登録したもの) は Pro になりません。使っていない PC の登録を解除してください。`,
 	tooManyTitle: 'しばらくお待ちください',
-	tooManyLink: '結ぶ操作の回数が多すぎます。1分ほどしてから開き直してください。',
-	tooManyRelease: '枠を空ける操作の回数が多すぎます。1分ほどしてから押し直してください。',
+	tooManyLink: '登録の操作の回数が多すぎます。1分ほどしてから開き直してください。',
+	tooManyRelease: '登録の解除の回数が多すぎます。1分ほどしてから押し直してください。',
 	about: 'WebLAV について',
 	terms: '利用規約',
 	privacy: 'プライバシーポリシー',
@@ -188,7 +188,7 @@ const ja = {
 	transferToSelf: '今サインインしているアドレスとは別のアドレスを入れてください。',
 	transferConfirm: (plans: string, to: string) => `${plans} を ${to} へ移します。`,
 	transferWarning:
-		'移すと、このアカウントには Pro が残りません。結んでいる WebLAV も移し先へ移ります。戻すには、移し先のアカウントから移し直してもらいます。支払いの宛先と方法は変わらないので、移し先の人がアカウントのページの「支払いを管理する」から直してください。',
+		'移すと、このアカウントには Pro が残りません。登録している PC も移し先へ移ります。戻すには、移し先のアカウントから移し直してもらいます。支払いの宛先と方法は変わらないので、移し先の人がアカウントのページの「支払いを管理する」から直してください。',
 	transferButton: '移す',
 	transferBack: 'アドレスを入れ直す',
 	transferredTitle: 'Pro を移しました',
@@ -202,14 +202,14 @@ const ja = {
 		[
 			`あなたの WebLAV のアカウントの Pro を ${to} へ移しました。`,
 			'',
-			'結んでいた WebLAV も移し先へ移りました。'
+			'登録していた PC も移し先へ移りました。'
 		].join('\n'),
 	transferredToSubject: 'WebLAV の Pro が移されました',
 	transferredToBody: (from: string, link: string) =>
 		[
 			`${from} から、このメールアドレスの WebLAV のアカウントへ Pro が移されました。`,
 			'',
-			'次のページで、このアドレスでサインインすると確かめられます。WebLAV を結ぶときも、このアドレスでサインインしてください。',
+			'次のページで、このアドレスでサインインすると確かめられます。PC を登録するときも、このアドレスでサインインしてください。',
 			'',
 			link
 		].join('\n'),
@@ -251,57 +251,57 @@ const en: typeof ja = {
 	signedInAs: (email: string) => `Signed in as ${email}.`,
 	signOut: 'Sign out',
 	next: 'Next',
-	linkTitle: 'Link WebLAV',
+	linkTitle: 'Link a PC',
 	linkLead: (name: string) => `Link "${name}" to this account.`,
 	relinkLead: (name: string) => `Link "${name}" again. This doesn't use another slot.`,
 	linkWarning:
 		"Don't continue unless you opened this page from your own WebLAV. Otherwise someone else's WebLAV would use the Pro on this account.",
-	linkCount: (count: number, limit: number) => `Linked WebLAV installations: ${count} of ${limit}`,
-	linkButton: 'Link this WebLAV',
+	linkCount: (count: number, limit: number) => `Linked PCs: ${count} of ${limit}`,
+	linkButton: 'Link this PC',
 	linkInvalidTitle: 'This link cannot be used',
 	linkInvalid:
-		'The link is malformed or more than 24 hours old. Start again from "Link to account" in WebLAV.',
-	linkOtherAccount: 'This WebLAV is linked to another account. Sign in again with that account.',
+		'The link is malformed or more than 24 hours old. Start again from "Link this PC" in WebLAV.',
+	linkOtherAccount: 'This PC is linked to another account. Sign in again with that account.',
 	linkAtLimitHeading: 'You have reached the limit',
 	linkAtLimit: (limit: number) =>
-		`This account can link up to ${limit} WebLAV installations. Remove one you no longer use, then open this page again.`,
+		`This account can link up to ${limit} PCs. Unlink one you no longer use, then open this page again.`,
 	linkedTitle: 'Linked',
 	linkedLead:
-		'Go back to WebLAV. If it is connected to the internet, it switches to Pro in a few seconds.',
+		'Go back to WebLAV. On a PC with internet access, it switches to Pro in a few seconds.',
 	linkedCodeLead:
-		'If the WebLAV is not connected to the internet, enter the following code in WebLAV. We also emailed it to you.',
+		'On a PC without internet access, enter the following code in WebLAV. We also emailed it to you.',
 	linkedCodeMailSubject: 'Your WebLAV code',
 	linkedCodeMailBody: (name: string, code: string) =>
 		[
 			`"${name}" has been linked to your account.`,
 			'',
-			'If the WebLAV is not connected to the internet, enter the following code in WebLAV. A WebLAV connected to the internet switches to Pro without it.',
+			'On a PC without internet access, enter the following code in WebLAV.',
 			'',
 			code,
 			'',
-			"If you don't recognize this, remove the WebLAV on your account page."
+			"If you don't recognize this, unlink the PC on your account page."
 		].join('\n'),
-	releaseTitle: 'Report a removed WebLAV',
-	releaseLead: 'Frees the slot of a WebLAV you removed in WebLAV. No sign-in is needed.',
+	releaseTitle: 'Unlink a PC',
+	releaseLead: 'Tells your account about a PC you unlinked in WebLAV. No sign-in is needed.',
 	releaseCodeLabel: 'Code shown in WebLAV',
-	releaseButton: 'Free the slot',
-	releasedTitle: 'The slot is free',
-	released: 'This WebLAV has been removed from the account.',
+	releaseButton: 'Unlink',
+	releasedTitle: 'Unlinked',
+	released: 'One PC slot is now free.',
 	releaseInvalid: 'The code is malformed. Scan or enter the code shown in WebLAV again.',
 	noProHeading: "This account doesn't have Pro",
 	noPro: 'If you subscribed with another email address, sign in again with that address.',
-	noProBuy: 'Subscribe to Pro (personal) here and link this WebLAV right away.',
+	noProBuy: 'Subscribe to Pro (personal) here and link this PC right away.',
 	buyTitle: 'Subscribe to Pro',
 	buyTerms: {
 		domestic: [
 			'Pro (personal) is a subscription of 480 yen a month or 4,800 yen a year, tax included. It renews automatically each period at the same price.',
-			'It is added to this account, and you can make up to 3 WebLAV installations Pro.',
+			'It is added to this account, and you can make up to 3 PCs Pro.',
 			'You pay by card on a Stripe page, and you are charged when you subscribe and at each renewal. Pro is added to this account as soon as the payment is complete.',
 			'You can cancel at any time on your account page. After canceling, Pro keeps working until the end of the paid period. Paid periods are not refunded for personal reasons. We refund the amount if we charged you twice, made an error in processing the payment, or Pro was not added after your payment went through.'
 		],
 		overseas: [
 			'Pro (personal) is a subscription of 480 yen a month or 4,800 yen a year, tax included. It renews automatically each period at the same price. The payment page may show the amount converted to your local currency.',
-			'It is added to this account, and you can make up to 3 WebLAV installations Pro.',
+			'It is added to this account, and you can make up to 3 PCs Pro.',
 			'The sale and payment are handled on our behalf by Link (Sold through Link, LLC), and your card statement shows "LINK.COM*". You choose how to pay on the payment page, and Pro is added to this account as soon as the payment is complete.',
 			`You can cancel at any time on your account page. After canceling, Pro keeps working until the end of the paid period. Paid periods are not refunded for personal reasons. We refund the amount if we charged you twice, made an error in processing the payment, or Pro was not added after your payment went through. Within 60 days of purchase, however, you may get a refund under [Link's refund policy](${LINK_REFUND_POLICY}).`
 		]
@@ -323,19 +323,19 @@ const en: typeof ja = {
 	noPlans: 'No Pro.',
 	planUntil: (plan: Plan, date: string) => `Pro (${en.planName[plan]}): paid through ${date}`,
 	manageBilling: 'Manage billing (cancel, payment method, receipts)',
-	installationsHeading: 'Linked WebLAV installations',
-	noInstallations: 'No WebLAV is linked yet. You can link one from "Pro" in the WebLAV admin page.',
+	installationsHeading: 'Linked PCs',
+	noInstallations: 'No PC is linked yet. You can link one from "Pro" in the WebLAV site settings.',
 	installationLine: (name: string, checked: string | undefined) =>
 		checked ? `${name} (last checked: ${checked})` : `${name} (not checked online)`,
-	removeButton: 'Remove',
+	removeButton: 'Unlink',
 	overLimitShort: 'over the limit',
 	removedPending: (until: string) =>
-		`Removed. It counts toward the limit until the WebLAV receives this, at most until ${until}.`,
+		`Unlinked. It counts toward the limit until the PC receives this, at most until ${until}.`,
 	overLimit: (limit: number) =>
-		`You have more linked WebLAV installations than the limit (${limit}). The ones over the limit (linked most recently) don't get Pro. Remove ones you no longer use.`,
+		`You have more linked PCs than the limit (${limit}). The ones over the limit (linked most recently) don't get Pro. Unlink PCs you no longer use.`,
 	tooManyTitle: 'Please wait',
 	tooManyLink: 'Too many link attempts. Please reopen this page in a minute.',
-	tooManyRelease: 'Too many attempts to free a slot. Please try again in a minute.',
+	tooManyRelease: 'Too many unlink attempts. Please try again in a minute.',
 	about: 'About WebLAV',
 	terms: 'Terms of use',
 	privacy: 'Privacy policy',
@@ -347,7 +347,7 @@ const en: typeof ja = {
 	transferToSelf: 'Enter an address other than the one you are signed in with.',
 	transferConfirm: (plans: string, to: string) => `Move ${plans} to ${to}.`,
 	transferWarning:
-		'After moving, this account has no Pro. Linked WebLAV installations move too. To get it back, the other account has to move it back. The billing contact and payment method stay the same, so the new owner should update them with "Manage billing" on the account page.',
+		'After moving, this account has no Pro. Linked PCs move too. To get it back, the other account has to move it back. The billing contact and payment method stay the same, so the new owner should update them with "Manage billing" on the account page.',
 	transferButton: 'Move',
 	transferBack: 'Enter the address again',
 	transferredTitle: 'Pro has been moved',
@@ -361,14 +361,14 @@ const en: typeof ja = {
 		[
 			`The Pro on your WebLAV account has been moved to ${to}.`,
 			'',
-			'The linked WebLAV installations have moved too.'
+			'The linked PCs have moved too.'
 		].join('\n'),
 	transferredToSubject: 'WebLAV Pro has been moved to you',
 	transferredToBody: (from: string, link: string) =>
 		[
 			`${from} has moved WebLAV Pro to the account for this email address.`,
 			'',
-			'Sign in with this address on the following page to see it. Use this address to sign in when you link WebLAV, too.',
+			'Sign in with this address on the following page to see it. Use this address to sign in when you link a PC, too.',
 			'',
 			link
 		].join('\n'),

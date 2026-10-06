@@ -237,7 +237,7 @@ describe('linking', () => {
 
 		await grantPro(email, 'personal');
 		const confirm = await (await request(linkPath(req.raw), { cookie })).text();
-		expect(confirm).toContain('「教室」をこのアカウントに結びます');
+		expect(confirm).toContain('「教室」をこのアカウントに登録します');
 		expect(confirm).toContain('0 / 3 台');
 		expect(confirm).toContain('自分の WebLAV の画面から開いたのでなければ');
 
@@ -322,14 +322,14 @@ describe('linking', () => {
 		for (const r of reqs) expect((await link(cookie, r.raw)).status).toBe(200);
 		const fourth = await makeRequest();
 		const atLimit = await (await link(cookie, fourth.raw)).text();
-		expect(atLimit).toContain('結べる台数の上限に達しています');
+		expect(atLimit).toContain('登録できる台数の上限に達しています');
 		expect(atLimit).toContain('action="/account/installations/remove"');
 
 		// 窓口で外しても、出した許可の期限までは台数に数える。
 		await postForm('/account/installations/remove', { id: reqs[0].id, next: '/account/' }, cookie);
-		expect(await (await link(cookie, fourth.raw)).text()).toContain('結べる台数の上限');
+		expect(await (await link(cookie, fourth.raw)).text()).toContain('登録できる台数の上限');
 		const home = await (await request('/account/', { cookie })).text();
-		expect(home).toContain('WebLAV がそれを受け取るまで');
+		expect(home).toContain('その PC が受け取るまで');
 		// WebLAV が確かめで外されたことを受け取ると、枠が空く。
 		expect(await (await check(reqs[0].secret)).json()).toEqual({ status: 'unbound' });
 		expect((await link(cookie, fourth.raw)).status).toBe(200);
@@ -357,7 +357,7 @@ describe('linking', () => {
 		await link(cookie, first.raw);
 		const second = await makeRequest({ previous: first.secret });
 		expect(await (await request(linkPath(second.raw), { cookie })).text()).toContain(
-			'結び直します'
+			'登録し直します'
 		);
 		expect((await link(cookie, second.raw)).status).toBe(200);
 		expect(await installationsOf(email)).toMatchObject([{ id: second.id }]);
@@ -458,7 +458,7 @@ describe('linking', () => {
 		expect(page).toContain('action="/account/release"');
 		expect(await installationsOf(email)).toHaveLength(1);
 		const done = await postForm('/account/release', { c: code });
-		expect(await done.text()).toContain('枠を空けました');
+		expect(await done.text()).toContain('登録を解除しました');
 		expect(await installationsOf(email)).toEqual([]);
 		expect((await postForm('/account/release', { c: 'XYZ' })).status).toBe(400);
 	});
