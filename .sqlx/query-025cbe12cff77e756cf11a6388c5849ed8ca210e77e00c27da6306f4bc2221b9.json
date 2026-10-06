@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE contents SET description = 'リスニングの練習' WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "025cbe12cff77e756cf11a6388c5849ed8ca210e77e00c27da6306f4bc2221b9"
+}

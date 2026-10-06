@@ -28,9 +28,16 @@
 
 	type ContentEntry = components['schemas']['ContentResponse'];
 
-	// トップページ(`/`)と`/groups/[id]`の両方で使う一覧。片方だけの改修で
+	// トップページ(`/`)・`/groups/[id]`・検索の結果で使う一覧。片方だけの改修で
 	// もう片方が古びるのを防ぐため、コンテンツ種別ごとの表示分岐をここに集約する。
-	let { entries }: { entries: ContentEntry[] } = $props();
+	let {
+		entries,
+		subtitle = (content) => content.description
+	}: {
+		entries: ContentEntry[];
+		/** 行の2段目。省くと説明を出す。検索では、どこにあるかを出す。 */
+		subtitle?: (content: ContentEntry) => string | null | undefined;
+	} = $props();
 
 	function isAudioContent(content: ContentEntry): boolean {
 		return content.type === 'file' && isAudioFileName(content.fileName);
@@ -89,15 +96,16 @@
 {#snippet rowText(content: ContentEntry)}
 	<!-- 作成者にしか届かない行の印 (→ docs/ui.md「UI 全般」)。タイルは幅が狭いので2段目の頭に置く。 -->
 	{@const privateInText = content.private && browseLayout.tile}
+	{@const text = subtitle(content)}
 	<span class={browseRowTextClass()}>
 		<span class={browseRowTitleClass()}>{content.title}</span>
-		{#if privateInText || content.description}
+		{#if privateInText || text}
 			<span class={browseRowSubtitleClass()}>
 				{#if privateInText}
 					{m.contents_visibility_private()}
-					{#if content.description}<span aria-hidden="true">·</span>{/if}
+					{#if text}<span aria-hidden="true">·</span>{/if}
 				{/if}
-				{content.description}
+				{text}
 			</span>
 		{/if}
 	</span>
@@ -125,7 +133,7 @@
 				<ListRowLink
 					href={content.url}
 					title={content.title}
-					description={content.description}
+					description={subtitle(content)}
 					preview={refreshed.get(content.url) ?? content.preview}
 					private={content.private}
 				/>

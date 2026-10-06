@@ -11,7 +11,8 @@
 	import { client } from '$lib/api/client';
 	import { GENERIC_ERROR_MESSAGE, errorMessage, messageForCode } from '$lib/api/errors';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { headerTextActionClass } from '$lib/header-action';
+	import { headerIconActionClass, headerTextActionClass } from '$lib/header-action';
+	import SearchIcon from '@lucide/svelte/icons/search';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import ModeToggle from '$lib/components/mode-toggle.svelte';
 	import LanguageToggle from '$lib/components/language-toggle.svelte';
@@ -112,6 +113,11 @@
 		>
 		<!-- 押せる範囲が横で重なるのを許し、間隔は 2px にする (→ docs/ui.md「UI 全般」)。 -->
 		<div class="flex min-w-0 items-center gap-0.5">
+			<!-- どの画面からでも探せるよう、ヘッダーに置く (→ docs/search.md)。 -->
+			<a href={resolve('/search')} class={headerIconActionClass}>
+				<SearchIcon class="size-5" />
+				<span class="sr-only">{m.search_nav_label()}</span>
+			</a>
 			<ConnectionInfoDialog />
 			<LanguageToggle />
 			<ModeToggle />

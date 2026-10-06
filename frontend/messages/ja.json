@@ -548,5 +548,15 @@
 	"archive_axes_ai_import_button": "取り込む",
 	"archive_axes_ai_imported_toast": "軸を取り込みました",
 	"error_detail_import_axis_invalid": "「{name}」の軸に、決まりに合わないところがあります (階層の番号、値の空や重複など)。AI に直してもらってください。",
-	"archive_axes_ai_preview_unset": "未設定"
+	"archive_axes_ai_preview_unset": "未設定",
+	"search_nav_label": "検索",
+	"search_title": "検索",
+	"search_query_label": "探す語",
+	"search_query_description": "タイトル・説明と、アーカイブのファイルの名前から探します。フォルダの中は探しません。",
+	"search_section_count": "{count} 件",
+	"search_contents_heading": "コンテンツ",
+	"search_items_heading": "アーカイブのファイル",
+	"search_empty": "「{query}」に当たるものはありません。",
+	"search_truncated": "先頭の {count} 件を出しています。語を足すと絞れます。",
+	"search_fetch_failed": "検索に失敗しました。しばらくしてから再度お試しください。"
 }

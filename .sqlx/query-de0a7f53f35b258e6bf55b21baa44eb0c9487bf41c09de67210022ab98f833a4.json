@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE archive_items SET published = 1 WHERE archive_id = ? AND rel_path = 'リスニング第1回.mp3'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "de0a7f53f35b258e6bf55b21baa44eb0c9487bf41c09de67210022ab98f833a4"
+}

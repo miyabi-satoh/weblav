@@ -72,7 +72,7 @@ struct ArchiveAxisResponse {
 
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-struct ArchiveViewItem {
+pub(super) struct ArchiveViewItem {
     id: i64,
     title: String,
     /// `rel_path` の最後の要素。ページ内プレイヤーへの振り分け (→ docs/ui.md「音声のページ内プレイヤー」) に使う。
@@ -151,23 +151,7 @@ async fn view_archive(
         // リンクへ差し替えられたものは辿らない。
         let items = items
             .into_iter()
-            .map(|(rel_path, item)| {
-                let path = root.join(rel_path);
-                let Some(size) = std::fs::symlink_metadata(&path)
-                    .ok()
-                    .filter(|metadata| metadata.is_file())
-                    .map(|metadata| metadata.len())
-                else {
-                    return item;
-                };
-                let preview = thumbnails::file_preview(&item.file_name, &path, size);
-                ArchiveViewItem {
-                    image: preview.image,
-                    is_text: preview.is_text,
-                    thumbnail: preview.thumbnail,
-                    ..item
-                }
-            })
+            .map(|(rel_path, item)| with_preview(&root, &rel_path, item))
             .collect::<Vec<_>>();
         (axes, items)
     })
@@ -181,6 +165,50 @@ async fn view_archive(
         axes,
         items,
     }))
+}
+
+/// 行に、ページ内で見せるための情報 (画像の大きさ・テキストか) を埋める。ファイルを読むので、非同期のワーカーの外で呼ぶ。
+///
+/// 画像の大きさとテキストかを見るだけで中身は渡さないので、アイテムごとに配信と同じ `resolve_path` は通さない。
+/// 索引はリンクでないファイルだけを拾う (→ docs/archive.md「スキャン」) が、索引の後に
+/// リンクへ差し替えられたものは辿らない。
+fn with_preview(root: &std::path::Path, rel_path: &str, item: ArchiveViewItem) -> ArchiveViewItem {
+    let path = root.join(rel_path);
+    let Some(size) = std::fs::symlink_metadata(&path)
+        .ok()
+        .filter(|metadata| metadata.is_file())
+        .map(|metadata| metadata.len())
+    else {
+        return item;
+    };
+    let preview = thumbnails::file_preview(&item.file_name, &path, size);
+    ArchiveViewItem {
+        image: preview.image,
+        is_text: preview.is_text,
+        thumbnail: preview.thumbnail,
+        ..item
+    }
+}
+
+/// 行の2段目に出す軸の値 (→ docs/ui.md「アーカイブの一覧画面」)。表示タイトルで使っていない軸のうち、
+/// 絞り込み中でない軸の値を、軸の並び順に空白で区切る。出す値が無ければ `None`。
+fn item_subtitle(
+    axes: &[archive::AxisIndex],
+    derived: &archive::DerivedItem,
+    template_axes: &std::collections::HashSet<&str>,
+    active_filters: &[Option<&str>],
+) -> Option<String> {
+    let parts: Vec<&str> = axes
+        .iter()
+        .zip(&derived.axis_values)
+        .zip(active_filters)
+        .filter(|((axis, _), filter)| {
+            filter.is_none()
+                && !(derived.title_from_template && template_axes.contains(axis.name.as_str()))
+        })
+        .filter_map(|((_, value), _)| Some(value.as_ref()?.display.as_str()))
+        .collect();
+    (!parts.is_empty()).then(|| parts.join(" "))
 }
 
 /// 閲覧用の一覧の、導出・絞り込み・並べ替え。`view_archive` から `run_blocking` で呼ぶ。
@@ -312,18 +340,7 @@ fn build_archive_view(
     let items: Vec<(String, ArchiveViewItem)> = matched
         .into_iter()
         .map(|(id, rel_path, derived, _)| {
-            let parts: Vec<&str> = axes
-                .iter()
-                .zip(&derived.axis_values)
-                .zip(&active_filters)
-                .filter(|((axis, _), filter)| {
-                    filter.is_none()
-                        && !(derived.title_from_template
-                            && template_axes.contains(axis.name.as_str()))
-                })
-                .filter_map(|((_, value), _)| Some(value.as_ref()?.display.as_str()))
-                .collect();
-            let subtitle = (!parts.is_empty()).then(|| parts.join(" "));
+            let subtitle = item_subtitle(axes, &derived, &template_axes, &active_filters);
             (
                 rel_path,
                 ArchiveViewItem {
@@ -340,6 +357,104 @@ fn build_archive_view(
         .collect();
 
     (axes_response, items)
+}
+
+// --- 検索 (→ docs/search.md) ---
+
+/// 検索の対象にするアーカイブ。閲覧者が一覧で見られることは、呼び出し側が確かめる。
+pub(super) struct SearchableArchive {
+    pub(super) id: i64,
+    pub(super) title: String,
+    pub(super) path: String,
+    pub(super) title_template: Option<String>,
+}
+
+/// アーカイブの公開アイテムを、表示タイトルと軸の値で探す。表示タイトル順に並べ、
+/// `search::RESULT_LIMIT` 件で打ち切って、打ち切ったかを添えて返す。
+pub(super) async fn search_items(
+    pool: &sqlx::SqlitePool,
+    archives: Vec<SearchableArchive>,
+    terms: super::search::Terms,
+) -> Result<(Vec<super::search::SearchItemHit>, bool), AppError> {
+    let mut sources = Vec::with_capacity(archives.len());
+    for archive in archives {
+        let axes = archive::load_axis_index(pool, archive.id).await?;
+        // 公開の条件は閲覧用の一覧 (`view_archive`) と同じ。
+        let rows = sqlx::query_as!(
+            ItemRow,
+            r#"SELECT id as "id!", rel_path, published as "published: bool",
+                      created_at as "created_at!" FROM archive_items
+               WHERE archive_id = ? AND published = 1"#,
+            archive.id
+        )
+        .fetch_all(pool)
+        .await?;
+        sources.push((archive, axes, rows));
+    }
+
+    // 導出は全アイテム × 軸 × 照合語の数だけ回り、行の情報はファイルを読むので、非同期のワーカーを塞がない。
+    run_blocking(move || {
+        let mut hits: Vec<(usize, String, Vec<ValueKey>, ArchiveViewItem)> = Vec::new();
+        for (index, (archive, axes, rows)) in sources.iter().enumerate() {
+            let template = archive.title_template.as_deref();
+            let template_axes = archive::template_placeholder_names(template);
+            let no_filters = vec![None; axes.len()];
+            for row in rows {
+                let derived = archive::derive_item(&row.rel_path, axes, template);
+                let mut fields = vec![super::search::normalize(&derived.title)];
+                fields.extend(
+                    derived
+                        .axis_values
+                        .iter()
+                        .flatten()
+                        .map(|value| super::search::normalize(&value.display)),
+                );
+                let fields: Vec<&str> = fields.iter().map(String::as_str).collect();
+                if !terms.matches(&fields) {
+                    continue;
+                }
+                let subtitle = item_subtitle(axes, &derived, &template_axes, &no_filters);
+                hits.push((
+                    index,
+                    row.rel_path.clone(),
+                    derived.sort_key(),
+                    ArchiveViewItem {
+                        id: row.id,
+                        title: derived.title,
+                        file_name: derived.file_name,
+                        subtitle,
+                        image: None,
+                        is_text: false,
+                        thumbnail: false,
+                    },
+                ));
+            }
+        }
+
+        // 同じタイトルが年度や回の数だけ並ぶので、同じアーカイブの中ではその一覧の既定の並び (軸の順) にする。
+        hits.sort_by(|(a_index, a_path, a_key, a), (b_index, b_path, b_key, b)| {
+            title_cmp(&a.title, &b.title)
+                .then(sources[*a_index].0.id.cmp(&sources[*b_index].0.id))
+                .then_with(|| a_key.cmp(b_key))
+                .then_with(|| a_path.cmp(b_path))
+        });
+        let truncated = hits.len() > super::search::RESULT_LIMIT;
+        hits.truncate(super::search::RESULT_LIMIT);
+
+        let hits = hits
+            .into_iter()
+            .map(|(index, rel_path, _, item)| {
+                let archive = &sources[index].0;
+                super::search::SearchItemHit {
+                    archive_id: archive.id,
+                    archive_title: archive.title.clone(),
+                    item: with_preview(std::path::Path::new(&archive.path), &rel_path, item),
+                }
+            })
+            .collect();
+        (hits, truncated)
+    })
+    .await
 }
 
 // --- 管理用: 一覧・公開切り替え ---

@@ -4363,6 +4363,7 @@ dependencies = [
  "hkdf 0.13.0",
  "hmac 0.13.0",
  "httpdate",
+ "icu_normalizer",
  "image",
  "mime_guess",
  "objc2",

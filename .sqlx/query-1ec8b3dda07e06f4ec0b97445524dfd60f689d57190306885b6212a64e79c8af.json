@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\", blob_hash FROM contents WHERE parent_id IS ? AND type = ?",
+  "query": "SELECT id as \"id!\", blob_hash FROM contents\n           WHERE id IN (SELECT value FROM json_each(?)) AND type = ?",
   "describe": {
     "columns": [
       {
@@ -22,5 +22,5 @@
       true
     ]
   },
-  "hash": "00ced031bb4036440f2864f5efc6bbb5c3fb9c16e346345f76ca3b70364e6209"
+  "hash": "1ec8b3dda07e06f4ec0b97445524dfd60f689d57190306885b6212a64e79c8af"
 }

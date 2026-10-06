@@ -33,6 +33,7 @@ mod minimal_input;
 mod private;
 mod pro;
 mod roots;
+mod search;
 mod settings;
 mod setup;
 mod system;
