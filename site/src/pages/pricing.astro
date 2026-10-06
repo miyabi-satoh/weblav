@@ -9,11 +9,11 @@ import Breadcrumb from '../components/Breadcrumb.astro';
 const { data } = (await getEntry('product', 'index'))!;
 ---
 
-<Base title="料金 | WebLAV" description="WebLAV は無料で使えます。ユーザーやフォルダなどを多く登録するときは Pro（税込み 月額 480 円・年額 4,800 円）を申し込みます。">
+<Base title="料金 | WebLAV" description="WebLAV は無料で使えます。Pro（税込み 月額 480 円・年額 4,800 円）にすると、ユーザーやフォルダなどの数の上限が外れます。">
   <Breadcrumb items={[{ label: 'WebLAV', href: '/' }, { label: '料金' }]} />
   <div class="pricing" style={`--c: ${data.color}`}>
     <h1>料金</h1>
-    <p class="lead">無料で使えます。ユーザーやフォルダなどを多く登録するときは、Pro を申し込みます。</p>
+    <p class="lead">無料で使えます。Pro にすると、ユーザーやフォルダなどの数の上限が外れます。</p>
 
     <ul class="plans">
       <li class="plan">
