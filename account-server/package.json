@@ -16,13 +16,13 @@
 		"deploy": "pnpm --dir ../site run build && wrangler deploy"
 	},
 	"dependencies": {
-		"hono": "^4.13.9"
+		"hono": "^4.13.12"
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.22.0",
 		"prettier": "^3.9.9",
 		"typescript": "^7.0.2",
 		"vitest": "^4.1.11",
-		"wrangler": "^4.141.0"
+		"wrangler": "^4.147.0"
 	}
 }
