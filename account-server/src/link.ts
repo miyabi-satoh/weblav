@@ -253,13 +253,11 @@ export async function signProof(
 			expires_at: claims.expiresAt
 		})
 	);
-	const key = await crypto.subtle.importKey(
-		'jwk',
-		JSON.parse(env.PROOF_SIGNING_KEY),
-		{ name: 'Ed25519' },
-		false,
-		['sign']
-	);
+	// FIX: Node 24 の `exportKey('jwk')` は Ed25519 の鍵に `alg: "Ed25519"` (RFC 9864) を付けるが、
+	// Workers の Web Crypto はこの `alg` を断る。鍵は `scripts/new-proof-key.mjs` が Node で作るので、
+	// `alg` を外して読む (曲線は `crv` で決まる)。
+	const { alg: _alg, ...jwk } = JSON.parse(env.PROOF_SIGNING_KEY) as JsonWebKey;
+	const key = await crypto.subtle.importKey('jwk', jwk, { name: 'Ed25519' }, false, ['sign']);
 	const signature = await crypto.subtle.sign('Ed25519', key, payload);
 	return `${base64url(payload)}.${base64url(new Uint8Array(signature))}`;
 }
