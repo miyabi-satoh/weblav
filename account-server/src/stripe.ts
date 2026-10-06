@@ -16,8 +16,8 @@ const WEBHOOK_TOLERANCE = 300;
 const PRODUCTS: Record<Plan, string> = { personal: 'weblav-pro', organization: 'weblav-org' };
 
 /**
- * Sign in with Apple の転送用アドレスのドメイン。2026 年の後半から新しいアドレスは private.icloud.com で出て、
- * 前からのアドレスも使い続けられる (Apple Developer News「Update: New domain for Sign in with Apple」2026-08-24)。
+ * Sign in with Apple の転送用アドレスのドメイン。新しく出るアドレスの private.icloud.com と、
+ * 前から出ていて今も使われる privaterelay.appleid.com の両方を見る。
  */
 const APPLE_RELAY_DOMAINS = ['privaterelay.appleid.com', 'private.icloud.com'];
 
