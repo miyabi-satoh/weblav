@@ -552,7 +552,7 @@
 	"search_nav_label": "検索",
 	"search_title": "検索",
 	"search_query_label": "探す語",
-	"search_query_description": "コンテンツとアーカイブのファイルを、タイトルと説明から探します。フォルダの中は探しません。",
+	"search_query_description": "コンテンツはタイトルと説明から、アーカイブのファイルはタイトルと年度などの値から探します。フォルダの中は探しません。",
 	"search_section_count": "{count} 件",
 	"search_contents_heading": "コンテンツ",
 	"search_items_heading": "アーカイブのファイル",
