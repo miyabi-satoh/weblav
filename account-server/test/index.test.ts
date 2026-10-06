@@ -883,7 +883,7 @@ describe('Apple sign-in', () => {
 		expect(await res.text()).toContain('Sign in to WebLAV');
 	});
 
-	it('accepts the way back even when Apple sends no origin', async () => {
+	it('accepts the way back even when Apple sends a null origin', async () => {
 		const flow = await startApple();
 		const { res } = await back(
 			flow,
