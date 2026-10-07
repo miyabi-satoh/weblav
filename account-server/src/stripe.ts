@@ -201,6 +201,7 @@ export type Subscription = {
 	customer: string;
 	metadata: Record<string, string> | null;
 	cancel_at_period_end?: boolean;
+	cancel_at?: number | null;
 	/** 期間の終わりの切り替えを予約したときの、サブスクのスケジュールの id。 */
 	schedule?: string | null;
 	items: {
@@ -309,16 +310,10 @@ export async function switchToYearly(
 	return false;
 }
 
-export type Schedule = {
+type Schedule = {
 	id: string;
-	status: string;
-	current_phase: { start_date: number; end_date: number } | null;
-	phases: { start_date: number; end_date: number; items: { price: string }[] }[];
+	phases: { start_date: number; end_date: number }[];
 };
-
-export function getSchedule(config: StripeConfig, id: string): Promise<Schedule> {
-	return stripeFetch(config, 'GET', `subscription_schedules/${encodeURIComponent(id)}`);
-}
 
 /** 予約を取り消す。サブスクは今の Price のまま残る。 */
 export async function releaseSchedule(config: StripeConfig, id: string) {

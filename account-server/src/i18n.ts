@@ -211,8 +211,6 @@ const ja = {
 		`年額の期間の終わり (${date}) で、月額に切り替えます。それまでは年額のまま使えます。年額の残りの期間の返金はありません。`,
 	switchDateLabel: '切り替わる日',
 	switchMonthlyButton: (date: string): string => `${date} から月額に切り替える`,
-	switchReservedNote:
-		'切り替えを予約している間は、「支払いを管理する」から解約できません。解約するときは、先にこの画面で予約を取り消してください。',
 	planReserved: (date: string): string =>
 		`${date} から月額 (480 円 / 月) に切り替わります。それまでは年額のまま使えます。`,
 	switchReleaseButton: '予約を取り消す',
@@ -433,8 +431,6 @@ const en: typeof ja = {
 		`Switches to monthly at the end of your yearly period (${date}). You keep the yearly plan until then. The rest of the yearly period is not refunded.`,
 	switchDateLabel: 'Switch date',
 	switchMonthlyButton: (date: string) => `Switch to monthly on ${date}`,
-	switchReservedNote:
-		'While a switch is scheduled, you can\'t cancel under "Manage billing". To cancel, first cancel the scheduled switch on this page.',
 	planReserved: (date: string) =>
 		`Switches to monthly (480 yen / month) on ${date}. You keep the yearly plan until then.`,
 	switchReleaseButton: 'Cancel the scheduled switch',

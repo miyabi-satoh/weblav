@@ -745,7 +745,6 @@ export function planSwitchPage(lang: Lang, email: string, view: PlanSwitch, noti
 					[t.confirmRenewLabel, t.confirmRenew('month')],
 					[t.confirmCancelLabel, t.confirmCancel[view.region]]
 				])}
-				<p class="muted">${t.switchReservedNote}</p>
 				${form(
 					'month',
 					t.switchMonthlyButton(date),
@@ -755,7 +754,6 @@ export function planSwitchPage(lang: Lang, email: string, view: PlanSwitch, noti
 		}
 		case 'reserved':
 			body = html`<p>${t.planReserved(formatDate(lang, view.switchAt))}</p>
-				<p class="muted">${t.switchReservedNote}</p>
 				${form('release', t.switchReleaseButton)}`;
 			break;
 		case 'canceled':
