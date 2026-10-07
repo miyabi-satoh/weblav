@@ -193,7 +193,11 @@ export const nowPlaying = {
 	},
 	togglePlay() {
 		if (!element) return;
-		if (element.paused) resume();
+		// 読み込めなかった曲は、失敗した要素を鳴らし直しても鳴らないので、読み込み直す。
+		if (failed) {
+			paused = false;
+			load();
+		} else if (element.paused) resume();
 		else element.pause();
 	},
 	pause() {
