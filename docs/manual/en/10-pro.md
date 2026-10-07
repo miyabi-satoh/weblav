@@ -62,6 +62,13 @@ If the PC is broken and you can't open its WebLAV page, press “Unlink” under
 
 To move to a new PC, unlink the old one first, then link the new one. Backups don't include the link to the account, so link a PC restored from a backup again as well.
 
+## Switch between monthly and yearly
+
+Use "Switch between monthly and yearly" on your account page.
+
+- From monthly to yearly, the switch happens right away. You pay the yearly price minus the unused part of your monthly plan.
+- From yearly to monthly, the switch happens at the end of your yearly period. You keep the yearly plan until then, and the rest of the yearly period is not refunded. While a switch is scheduled you can't cancel, so to cancel, first cancel the scheduled switch on the same page.
+
 ## Cancel
 
 1. Open the account page. You can also open it with “Open the account page” in the “Pro” section of WebLAV.

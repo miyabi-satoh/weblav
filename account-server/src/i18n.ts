@@ -52,6 +52,23 @@ export function resolveLang(c: Context): Lang {
 	return preferredLang(c.req.header('accept-language')) ?? 'en';
 }
 
+/**
+ * Stripe の額 (最小の単位) を、その言語の形で。円は料金の表記 (「4,800 円」) にそろえ、
+ * ほかの通貨 (Managed Payments で買い手の国の通貨になったもの) は通貨記号で出す。
+ */
+export function formatMoney(lang: Lang, amount: number, currency: string): string {
+	const code = currency.toUpperCase();
+	if (code === 'JPY') {
+		const n = amount.toLocaleString('en-US');
+		return lang === 'ja' ? `${n}\u00a0円` : `${n} yen`;
+	}
+	const format = new Intl.NumberFormat(lang === 'ja' ? 'ja-JP' : 'en-US', {
+		style: 'currency',
+		currency: code
+	});
+	return format.format(amount / 10 ** (format.resolvedOptions().maximumFractionDigits ?? 2));
+}
+
 /** 日付だけを、その言語の形で (日本時間)。 */
 export function formatDate(lang: Lang, unix: number): string {
 	return new Date(unix * 1000).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'en-US', {
@@ -170,8 +187,45 @@ const ja = {
 	changePlan: 'プランを変える',
 	alreadyProTitle: 'このアカウントには Pro があります',
 	alreadyPro:
-		'申し込み直す必要はありません。月額と年額を切り替えるときは、アカウントのページから解約し、払い終えた期間が終わってから申し込んでください。',
+		'申し込み直す必要はありません。月額と年額は、アカウントのページの「月額と年額を切り替える」から切り替えられます。',
 	alreadyProContinue: '戻る',
+	// 月額と年額の切り替え (→ docs/pro.md「売り方」)。年額へは今すぐ、月額へは年額の期間の終わりに切り替える。
+	planSwitchTitle: '月額と年額を切り替える',
+	planSwitchUnavailable: '切り替えられる Pro (個人向け) がありません。',
+	planCanceled: (date: string): string =>
+		`解約済みのため切り替えられません (${date} まで Pro のまま使えます)。切り替えるときは、アカウントのページの「支払いを管理する」で解約を取り消してください。`,
+	planCurrent: (interval: Interval): string =>
+		interval === 'year' ? '今の払い方: 年額 (4,800 円 / 年)' : '今の払い方: 月額 (480 円 / 月)',
+	switchTodayLabel: '今日の支払い',
+	switchToday: (total: string, credit: string): string =>
+		`${total} (月額の使っていない分 ${credit} を差し引いた額)`,
+	switchYearlyRenew: (date: string): string =>
+		`${date} に自動で更新し、そのあとも1年ごとに 4,800 円を払います。`,
+	switchPayment: {
+		domestic: '登録している支払い方法で、今すぐ払います。払えなかったときは切り替えません。',
+		overseas:
+			'登録している支払い方法で、今すぐ払います。販売と決済は Link (Sold through Link, LLC) が代わりに行い、お住まいの国の通貨に換えた額になることがあります。払えなかったときは切り替えません。'
+	} as Record<SaleRegion, string>,
+	switchYearlyButton: '年額に切り替えて支払う',
+	switchMonthlyLead: (date: string): string =>
+		`年額の期間の終わり (${date}) で、月額に切り替えます。それまでは年額のまま使えます。年額の残りの期間の返金はありません。`,
+	switchDateLabel: '切り替わる日',
+	switchMonthlyButton: (date: string): string => `${date} から月額に切り替える`,
+	switchReservedNote:
+		'切り替えを予約している間は、「支払いを管理する」から解約できません。解約するときは、先にこの画面で予約を取り消してください。',
+	planReserved: (date: string): string =>
+		`${date} から月額 (480 円 / 月) に切り替わります。それまでは年額のまま使えます。`,
+	switchReleaseButton: '予約を取り消す',
+	switchExpired:
+		'確かめてから時間がたったので、今日の支払いを計算し直しました。内容を確かめて、もう一度押してください。',
+	switchedYearlyTitle: '年額に切り替えました',
+	switchedYearly: (date: string): string =>
+		`次の更新は ${date} です。領収書は、アカウントのページの「支払いを管理する」から出せます。`,
+	switchFailed:
+		'支払いができなかったため、切り替えていません。アカウントのページの「支払いを管理する」で支払い方法を確かめてから、もう一度切り替えてください。',
+	scheduledMonthlyTitle: '月額への切り替えを予約しました',
+	switchReleasedTitle: '予約を取り消しました',
+	switchReleased: '年額のまま更新します。',
 	checkoutNote: (tokushoho: string) =>
 		`期間ごとに自動で更新し、同じ額を払います。支払いが済むとすぐ、WebLAV のアカウントに Pro が付きます。解約はアカウントのページからいつでもでき、払い終えた期間の終わりまで使えます。払い終えた期間は、ご都合による返金はできません。二重に請求したとき、決済の処理を誤ったとき、支払いが済んだのに Pro が付かなかったときは、その分を返金します。詳しくは[特定商取引法に基づく表記](${tokushoho})をご覧ください。`,
 	notForSale: 'いまは Pro を買えません。',
@@ -353,8 +407,47 @@ const en: typeof ja = {
 	changePlan: 'Change plan',
 	alreadyProTitle: 'This account already has Pro',
 	alreadyPro:
-		"You don't need to subscribe again. To switch between monthly and yearly, cancel on your account page and subscribe again after the paid period ends.",
+		'You don\'t need to subscribe again. To switch between monthly and yearly, use "Switch between monthly and yearly" on your account page.',
 	alreadyProContinue: 'Back',
+	planSwitchTitle: 'Switch between monthly and yearly',
+	planSwitchUnavailable: 'There is no personal Pro subscription to switch.',
+	planCanceled: (date: string) =>
+		`This subscription is canceled, so it can't be switched (you keep Pro until ${date}). To switch, undo the cancellation under "Manage billing" on your account page.`,
+	planCurrent: (interval: Interval) =>
+		interval === 'year'
+			? 'Current billing: yearly (4,800 yen / year)'
+			: 'Current billing: monthly (480 yen / month)',
+	switchTodayLabel: 'Due today',
+	switchToday: (total: string, credit: string) =>
+		`${total} (after deducting ${credit} for the unused part of your monthly plan)`,
+	switchYearlyRenew: (date: string) =>
+		`Renews automatically on ${date}, and every year after that for 4,800 yen.`,
+	switchPayment: {
+		domestic:
+			"You pay now with your saved payment method. If the payment doesn't go through, nothing is switched.",
+		overseas:
+			"You pay now with your saved payment method. The sale and payment are handled on our behalf by Link (Sold through Link, LLC), and the amount may be in your local currency. If the payment doesn't go through, nothing is switched."
+	},
+	switchYearlyButton: 'Switch to yearly and pay',
+	switchMonthlyLead: (date: string) =>
+		`Switches to monthly at the end of your yearly period (${date}). You keep the yearly plan until then. The rest of the yearly period is not refunded.`,
+	switchDateLabel: 'Switch date',
+	switchMonthlyButton: (date: string) => `Switch to monthly on ${date}`,
+	switchReservedNote:
+		'While a switch is scheduled, you can\'t cancel under "Manage billing". To cancel, first cancel the scheduled switch on this page.',
+	planReserved: (date: string) =>
+		`Switches to monthly (480 yen / month) on ${date}. You keep the yearly plan until then.`,
+	switchReleaseButton: 'Cancel the scheduled switch',
+	switchExpired:
+		'Some time has passed, so the amount due today was recalculated. Check the details and press the button again.',
+	switchedYearlyTitle: 'Switched to yearly',
+	switchedYearly: (date: string) =>
+		`Your next renewal is on ${date}. You can get receipts under "Manage billing" on your account page.`,
+	switchFailed:
+		'The payment didn\'t go through, so nothing was switched. Check your payment method under "Manage billing" on your account page, then try again.',
+	scheduledMonthlyTitle: 'Switch to monthly scheduled',
+	switchReleasedTitle: 'Scheduled switch canceled',
+	switchReleased: 'Your plan renews as yearly.',
 	checkoutNote: (tokushoho: string) =>
 		`It renews automatically each period at the same price. Pro is added to your WebLAV account as soon as the payment is complete. You can cancel at any time on your account page and keep using Pro until the end of the paid period. Paid periods are not refunded for personal reasons. We refund the amount if we charged you twice, made an error in processing the payment, or Pro was not added after your payment went through. For details, see the [Specified Commercial Transactions Act notice](${tokushoho}).`,
 	notForSale: 'Pro is not available for purchase right now.',
