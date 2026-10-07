@@ -2,13 +2,27 @@
 	import { resolve } from '$app/paths';
 	import { withQuery } from '$lib/href';
 	import * as m from '$lib/paraglide/messages.js';
-	import { archiveItemDownloadHref, contentDownloadHref } from '$lib/api/urls';
+	import { archiveItemDownloadHref, contentDownloadHref, linksFileRemoteHref } from '$lib/api/urls';
+	import { remoteFileKind, remoteFileName } from '$lib/file-kind';
+	import type { ViewerFile } from '$lib/file-viewer.svelte';
+	import type { Track } from '$lib/now-playing.svelte';
+	import { videoEmbedUrl } from '$lib/video-embed';
 	import { breadcrumbLinkClass, pathCrumbs } from '$lib/breadcrumb';
 	import { RefreshedLinkPreviews } from '$lib/link-previews.svelte';
 	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
 	import BrowseLayoutToggle from '$lib/components/browse-layout-toggle.svelte';
+	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
 	import ListRowLink from '$lib/components/list-row-link.svelte';
-	import { browseGutterClass, browseItemClass, browseListClass } from '$lib/list-row';
+	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
+	import SeparatedText from '$lib/components/separated-text.svelte';
+	import {
+		browseGutterClass,
+		browseItemClass,
+		browseListClass,
+		browseRowSubtitleClass,
+		browseRowTextClass,
+		browseRowTitleClass
+	} from '$lib/list-row';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
 	import { pageHeadingClass, pageEmptyTextClass } from '$lib/page-layout';
@@ -41,11 +55,68 @@
 			: contentDownloadHref(contentId, target.path)
 	);
 
+	type Link = NonNullable<typeof linksFile.links>[number];
+
+	// URL のファイルと動画サイトの動画は、一覧のコンテンツと同じく、ファイルの行・ビューアで開く
+	// (→ docs/ui.md「URL のファイル」「動画サイトの埋め込み」)。
+	/** ページのタイトルが取れなければ、ファイルはファイル名、ほかはホスト名 (リンクのカードと同じ)。 */
+	function linkTitle(link: Link): string {
+		const title = (refreshed.get(link.url) ?? link.preview)?.title;
+		if (title) return title;
+		if (remoteFileKind(link.url)) return remoteFileName(link.url) ?? link.url;
+		return new URL(link.url).host;
+	}
+
+	function toTrack(link: Link): Track {
+		return {
+			src: linksFileRemoteHref(contentId, target, link.url),
+			title: linkTitle(link),
+			originalUrl: link.url
+		};
+	}
+
+	function toViewerFile(link: Link): ViewerFile | undefined {
+		const embed = videoEmbedUrl(link.url);
+		if (embed) {
+			return {
+				src: embed,
+				title: linkTitle(link),
+				fileName: '',
+				kind: 'embed',
+				originalUrl: link.url
+			};
+		}
+		const kind = remoteFileKind(link.url);
+		if (!kind || kind === 'audio') return undefined;
+		return {
+			src: linksFileRemoteHref(contentId, target, link.url),
+			title: linkTitle(link),
+			fileName: remoteFileName(link.url) ?? '',
+			kind,
+			originalUrl: link.url
+		};
+	}
+
+	let links = $derived(linksFile.links ?? []);
+	let audioQueue = $derived(
+		links.filter((link) => remoteFileKind(link.url) === 'audio').map(toTrack)
+	);
+	let viewerFiles = $derived(links.map(toViewerFile).filter((file) => file !== undefined));
+
 	// カードは覚えている情報ですぐ出し、サーバーに取り直しを頼んだ答えで差し替える (→ docs/ui.md「リンクのカード」)。
 	const refreshed = new RefreshedLinkPreviews(() =>
 		linksFile.links?.length ? { contentIds: [], linksFile: { contentId, ...target } } : undefined
 	);
 </script>
+
+{#snippet rowText(link: Link)}
+	<span class={browseRowTextClass()}>
+		<span class={browseRowTitleClass()}>{linkTitle(link)}</span>
+		{#if link.note}
+			<span class={browseRowSubtitleClass()}><SeparatedText text={link.note} /></span>
+		{/if}
+	</span>
+{/snippet}
 
 <svelte:head><title>{pageTitle(linksFile.title)}</title></svelte:head>
 
@@ -99,8 +170,25 @@
 		<ul class={browseListClass()}>
 			{#each linksFile.links as link, index (`${index}:${link.url}`)}
 				{@const preview = refreshed.get(link.url) ?? link.preview}
+				{@const kind = remoteFileKind(link.url)}
+				{@const viewerFile = toViewerFile(link)}
 				<li class={browseItemClass()}>
-					<ListRowLink href={link.url} description={link.note} {preview} />
+					{#if kind === 'audio'}
+						<ListRowPlayButton track={toTrack(link)} queue={audioQueue}>
+							{@render rowText(link)}
+						</ListRowPlayButton>
+					{:else if kind && viewerFile}
+						<ListRowFileLink file={viewerFile} files={viewerFiles}>
+							{@render rowText(link)}
+						</ListRowFileLink>
+					{:else}
+						<ListRowLink
+							href={link.url}
+							description={link.note}
+							{preview}
+							viewer={viewerFile && { file: viewerFile, files: viewerFiles }}
+						/>
+					{/if}
 				</li>
 			{/each}
 		</ul>

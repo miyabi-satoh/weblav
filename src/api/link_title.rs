@@ -22,8 +22,10 @@ use crate::error::{AppError, run_blocking};
 /// 取得全体の時間切れ。作成のボタンを押してから待たされる時間の上限になる。
 const TIMEOUT: Duration = Duration::from_secs(5);
 
-/// 読む本文の上限。`og:title` と `<title>` は先頭近く (`<head>`) にあるので、巨大なページは先頭だけを読む。
-const MAX_BODY_BYTES: u64 = 256 * 1024;
+/// 読む本文の上限。`og:title` と `<title>` は `<head>` にあるので、巨大なページは先頭だけを読む。
+/// YouTube の動画のページは `<head>` の前に 700KB ほどのスクリプトを置くので、それが収まる大きさにする。
+/// 同時に取りに行くのは数件 (`link_preview::MAX_CONCURRENT_FETCHES`) なので、メモリは数 MB に収まる。
+const MAX_BODY_BYTES: u64 = 2 * 1024 * 1024;
 
 /// タイトルの長さの上限 (文字数)。長い `<title>` (SEO 用の文言など) をそのまま入れない。
 const MAX_TITLE_CHARS: usize = 200;

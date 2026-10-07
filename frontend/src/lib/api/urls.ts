@@ -38,6 +38,22 @@ export function contentRemoteHref(contentId: number): string {
 	return `/api/v1/contents/${contentId}/remote`;
 }
 
+/**
+ * `GET /api/v1/contents/{id}/links/remote` へのリンク。リンクの一覧のファイルの中のリンクの URL のファイルを、
+ * サーバーが取ってきて流す。一覧の指し方は `GET /contents/{id}/links` と同じ。
+ */
+export function linksFileRemoteHref(
+	contentId: number,
+	target: { path?: string; item?: number },
+	url: string
+): string {
+	return withQuery(`/api/v1/contents/${contentId}/links/remote`, {
+		...(target.path === undefined || target.path === '' ? {} : { path: target.path }),
+		...(target.item === undefined ? {} : { item: String(target.item) }),
+		url
+	});
+}
+
 /** `GET /api/v1/contents/{id}/thumbnail` へのリンク。`path` は `contentDownloadHref` と同じ。 */
 export function contentThumbnailHref(contentId: number, path?: string): string {
 	const base = `/api/v1/contents/${contentId}/thumbnail`;
