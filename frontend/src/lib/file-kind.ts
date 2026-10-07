@@ -23,7 +23,7 @@ export function isAudioFileName(fileName: string): boolean {
  * ページ内のビューアで開く、音声と PhotoSwipe で開く画像のほかのファイル
  * (→ docs/ui.md「PDF・動画・テキストのビューア」)。
  */
-export type ViewerFileKind = 'pdf' | 'video' | 'image' | 'office' | 'text';
+export type ViewerFileKind = 'pdf' | 'video' | 'image' | 'office' | 'text' | 'embed';
 
 // 動画と画像は、表示できるかがブラウザによる形式も入れる (mov・HEIC など)。表示できなければ、
 // ビューアが「読めなかったとき」の案内を出す。wmv・avi のように、どのブラウザでも表示できない形式は入れない。

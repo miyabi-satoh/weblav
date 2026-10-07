@@ -15,6 +15,7 @@
 	import type { Track } from '$lib/now-playing.svelte';
 	import type { ViewerImage } from '$lib/image-viewer';
 	import { browseLayout } from '$lib/browse-layout.svelte';
+	import { videoEmbedUrl } from '$lib/video-embed';
 	import {
 		browseItemClass,
 		browseListClass,
@@ -90,6 +91,8 @@
 
 	/** PDF・動画・テキストなど、ビューアで開く file コンテンツなら、ビューアに渡す形 (→ docs/ui.md「PDF・動画・テキストのビューア」)。 */
 	function toViewerFile(content: ContentEntry): ViewerFile | undefined {
+		const embed = toViewerEmbed(content);
+		if (embed) return embed;
 		const remote = remoteKind(content);
 		if (content.type === 'link' && remote && remote !== 'audio') {
 			return {
@@ -113,6 +116,17 @@
 	}
 
 	let viewerFiles = $derived(entries.map(toViewerFile).filter((file) => file !== undefined));
+
+	/**
+	 * 動画サイトの動画を指す link コンテンツなら、ビューアに渡す形 (→ docs/ui.md「動画サイトの埋め込み」)。
+	 * 行はリンクのカードのまま置き、サムネイルと題名を出す。
+	 */
+	function toViewerEmbed(content: ContentEntry): ViewerFile | undefined {
+		if (!isLinkCard(content)) return undefined;
+		const src = videoEmbedUrl(content.url);
+		if (!src) return undefined;
+		return { src, title: content.title, fileName: '', kind: 'embed', originalUrl: content.url };
+	}
 
 	/** リンクのカードで出す link コンテンツ。URL のファイルはファイルの行で出す。 */
 	function isLinkCard(content: ContentEntry): content is LinkEntry {
@@ -170,6 +184,7 @@
 					description={subtitle(content)}
 					preview={refreshed.get(content.url) ?? content.preview}
 					private={content.private}
+					viewer={viewerFile && { file: viewerFile, files: viewerFiles }}
 				/>
 			{:else if content.type === 'folder'}
 				<a href={resolve('/folders/[id]', { id: String(content.id) })} class={browseRowClass()}>

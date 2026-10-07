@@ -177,6 +177,18 @@
 								fileName={current.fileName}
 								onerror={() => (failed = true)}
 							/>
+						{:else if current.kind === 'embed'}
+							<!-- 動画サイトのプレイヤー (→ docs/ui.md「動画サイトの埋め込み」)。音声のプレイヤーは開いた時点で止める。
+							     YouTube はリファラーの届かない埋め込みを断るので、オリジンだけは渡す。 -->
+							<iframe
+								src={current.src}
+								title={current.title}
+								class="size-full"
+								allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+								allowfullscreen
+								referrerpolicy="strict-origin-when-cross-origin"
+								onload={() => nowPlaying.pause()}
+							></iframe>
 						{:else if current.kind === 'image'}
 							<img
 								src={current.src}
