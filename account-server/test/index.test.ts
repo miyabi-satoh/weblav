@@ -1799,21 +1799,33 @@ describe('subscribing to Pro', () => {
 			expect((await subscriptionOf(sub))!.paid_through).toBe(yearEnd);
 		});
 
-		it('does not grant an invoice whose negative line is not a proration of the switch', async () => {
+		it('does not grant an invoice with a credit unless every line is a proration of the switch', async () => {
 			const fake = newFake();
 			const { sub } = await subscriber('bad-credit@example.com', fake, 'month');
 			const before = (await subscriptionOf(sub))!.paid_through;
-			// 日割りの印が無いマイナスの項目 (値引きなど) は、切り替えの請求書と見なさない。
-			fake.invoices.in_odd = invoice('in_odd', sub, {
-				amount: 4320,
-				lines: [
-					invoiceLine('price_month', -480, now() + 30 * DAY),
-					invoiceLine('price_year', 4800, now() + 365 * DAY)
-				]
-			});
+			const yearEnd = now() + 365 * DAY;
 			vi.spyOn(console, 'log').mockImplementation(() => {});
-			await webhook(event('invoice.paid', { id: 'in_odd' }));
-			expect((await subscriptionOf(sub))!.paid_through).toBe(before);
+			const cases = {
+				// 日割りの印が無いマイナス (値引きなど)
+				uncredited: [
+					invoiceLine('price_month', -480, now() + 30 * DAY),
+					invoiceLine('price_year', 4800, yearEnd, true)
+				],
+				// 日割りでない通常の請求に、マイナスが混ざったもの
+				regular: [
+					invoiceLine('price_month', -480, now() + 30 * DAY, true),
+					invoiceLine('price_year', 4800, yearEnd)
+				],
+				zero: [
+					invoiceLine('price_month', 0, now() + 30 * DAY, true),
+					invoiceLine('price_year', 4320, yearEnd, true)
+				]
+			};
+			for (const [name, lines] of Object.entries(cases)) {
+				fake.invoices[`in_${name}`] = invoice(`in_${name}`, sub, { amount: 4320, lines });
+				await webhook(event('invoice.paid', { id: `in_${name}` }));
+				expect((await subscriptionOf(sub))!.paid_through, name).toBe(before);
+			}
 		});
 
 		it('does not switch when the payment fails, and voids the pending invoice', async () => {

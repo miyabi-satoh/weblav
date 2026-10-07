@@ -334,7 +334,9 @@ export async function scheduleMonthly(config: StripeConfig, sub: Subscription) {
 		config,
 		'POST',
 		'subscription_schedules',
-		new URLSearchParams({ from_subscription: sub.id })
+		new URLSearchParams({ from_subscription: sub.id }),
+		// 二重に押しても、スケジュールは1つだけ作る (同じサブスクに2つ目は作れず、Stripe に断られる)。
+		`weblav-monthly-${sub.id}-${sub.items.data[0].current_period_end}`
 	);
 	const current = created.phases[0];
 	// 渡さない項目は外されるので、税率も今のものを渡し直す (国内の分だけ付いている)。
@@ -478,6 +480,7 @@ export async function confirmInvoice(
 	const lines = invoice.lines.data;
 	// 払った期間の項目は1つ。月額から年額へ切り替えた請求書には、前の Price の使わなかった分 (日割りのマイナス) も並ぶ。
 	const charged = lines.filter((l) => l.amount > 0);
+	const credits = lines.filter((l) => l.amount <= 0);
 	const plan = planOfPrice(config, charged[0]?.pricing?.price_details?.price);
 	if (!plan) return undefined;
 	const subscription = await getSubscription(config, subscriptionId);
@@ -494,9 +497,13 @@ export async function confirmInvoice(
 			(l) =>
 				l.quantity !== 1 ||
 				l.discount_amounts.some((d) => d.amount !== 0) ||
-				planOfPrice(config, l.pricing?.price_details?.price) !== plan ||
-				(l.amount <= 0 && l.parent?.subscription_item_details?.proration !== true)
+				planOfPrice(config, l.pricing?.price_details?.price) !== plan
 		) ||
+		// 切り替えの請求書は、どの項目も Stripe が日割りにしたもので、差し引く項目は 0 円より小さい。
+		(credits.length > 0 &&
+			lines.some(
+				(l) => l.amount === 0 || l.parent?.subscription_item_details?.proration !== true
+			)) ||
 		lines.reduce((sum, l) => sum + l.amount, 0) !== invoice.total ||
 		invoice.amount_paid !== invoice.total ||
 		invoice.payments.has_more ||
