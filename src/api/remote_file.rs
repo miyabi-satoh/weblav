@@ -11,6 +11,7 @@ use axum::body::Body;
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
+use tokio::sync::{Semaphore, SemaphorePermit};
 use tokio_util::io::{ReaderStream, SyncIoBridge};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -25,6 +26,13 @@ use crate::state::AppState;
 /// 相手から受け取って閲覧側へ送るまでの溜めの大きさ。閲覧側が読まない間 (動画の一時停止など) は
 /// 相手からの受け取りも止まり、これより多くはメモリに載せない。
 const RELAY_BUFFER_BYTES: usize = 256 * 1024;
+
+/// 同時に中継する数の上限。中継は受け取り終えるまで blocking のスレッドを1本持つので、
+/// 開いたままの接続でスレッドを使い切られないよう絞る。教室の 40 台ほどが一斉に動画を開き、
+/// それぞれが Range で2本ずつつないでも足り、tokio の blocking のスレッドの既定 (512) には届かない数。
+const MAX_CONCURRENT_RELAYS: usize = 128;
+
+static RELAY_PERMITS: Semaphore = Semaphore::const_new(MAX_CONCURRENT_RELAYS);
 
 /// 相手の応答から、そのまま閲覧側へ渡すヘッダー。Range と、ブラウザが取り直しを判断するもの。
 /// `Content-Type` は渡さず、こちらで拡張子から決める (→ `relay_response`)。
@@ -48,6 +56,7 @@ const PASSED_HEADERS: [header::HeaderName; 5] = [
         (status = 401, body = crate::error::ErrorResponse, description = "閲覧にログインが必要"),
         (status = 404, body = crate::error::ErrorResponse, description = "見えない・存在しない・中継しない URL、または相手から取れない"),
         (status = 416, description = "相手が Range を満たせなかった"),
+        (status = 429, body = crate::error::ErrorResponse, description = "同時に中継している数が上限に達した"),
     )
 )]
 async fn remote_content(
@@ -72,6 +81,10 @@ async fn remote_content(
         .ok_or(AppError::DataIntegrity("link content without a url"))?;
     let file_name = relayed_file_name(&url).ok_or(AppError::NotFound)?;
 
+    // 待たせずに断る。ブラウザの動画・音声は、読めなければ画面が案内を出す。
+    let permit = RELAY_PERMITS
+        .try_acquire()
+        .map_err(|_| AppError::TooManyRequests)?;
     let range = headers
         .get(header::RANGE)
         .and_then(|value| value.to_str().ok())
@@ -79,7 +92,7 @@ async fn remote_content(
     let upstream = run_blocking(move || link_title::open_file_blocking(&url, range.as_deref()))
         .await?
         .ok_or(AppError::NotFound)?;
-    relay_response(upstream, &file_name)
+    relay_response(upstream, &file_name, permit)
 }
 
 /// URL を中継するなら、そのファイル名 (パスの最後の部分を戻したもの)。
@@ -101,6 +114,7 @@ pub(super) fn relayed_file_name(url: &str) -> Option<String> {
 fn relay_response(
     upstream: ureq::http::Response<ureq::Body>,
     file_name: &str,
+    permit: SemaphorePermit<'static>,
 ) -> Result<Response, AppError> {
     let status = upstream.status().as_u16();
     if !matches!(status, 200 | 206 | 416) {
@@ -144,6 +158,8 @@ fn relay_response(
     let finished_by_writer = Arc::clone(&finished);
     let mut body = upstream.into_body().into_reader();
     tokio::task::spawn_blocking(move || {
+        // 受け取り終えるか、閲覧側が切るまで、中継の数に数える。
+        let _permit = permit;
         let mut writer = SyncIoBridge::new(writer);
         match std::io::copy(&mut body, &mut writer) {
             // 終わった印を付けてから閉じる。読む側は閉じたのを見てから印を見る。

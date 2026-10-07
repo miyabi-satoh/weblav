@@ -5687,6 +5687,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description 同時に中継している数が上限に達した */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     rescan: {

@@ -3913,6 +3913,16 @@
           },
           "416": {
             "description": "相手が Range を満たせなかった"
+          },
+          "429": {
+            "description": "同時に中継している数が上限に達した",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
