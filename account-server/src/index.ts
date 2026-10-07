@@ -59,7 +59,6 @@ import {
 	confirmInvoice,
 	createCheckoutSession,
 	expireCheckoutSession,
-	getSchedule,
 	getSubscription,
 	intervalOf,
 	InvoiceError,
@@ -1121,28 +1120,11 @@ accountApp.post('/billing', async (c) => {
 		.bind(account.id)
 		.first<{ stripe_customer_id: string }>();
 	if (!config || !row) return c.redirect(ACCOUNT_HOME, 303);
-	await releaseFinishedSchedule(c.env, config, account.id);
 	return c.redirect(
 		await billingPortalUrl(config, row.stripe_customer_id, `${originOf(c)}${ACCOUNT_HOME}`, lang),
 		303
 	);
 });
-
-/**
- * 月額へ切り替わった後も、スケジュールは次の1か月が過ぎるまでサブスクに付いたままになる。
- * 付いている間はカスタマーポータルで解約できないので、ポータルを開く前に外す。まだ年額の間 (予約中) は外さない。
- */
-async function releaseFinishedSchedule(env: Env, config: StripeConfig, accountId: string) {
-	const id = await switchableSubscription(env, accountId);
-	if (!id) return;
-	const sub = await getSubscription(config, id);
-	if (!sub.schedule) return;
-	const schedule = await getSchedule(config, sub.schedule);
-	const last = schedule.phases.at(-1);
-	if (schedule.current_phase && last && schedule.current_phase.start_date >= last.start_date) {
-		await releaseSchedule(config, schedule.id);
-	}
-}
 
 // ---- 月額と年額を切り替える (→ docs/pro.md「売り方」) ----
 
@@ -1168,7 +1150,10 @@ async function planSwitchView(
 	const interval = intervalOf(config, sub);
 	if (!interval) return undefined;
 	const periodEnd = sub.items.data[0].current_period_end;
-	if (sub.cancel_at_period_end) return { kind: 'canceled', until: periodEnd };
+	// 柔軟な請求 (billing_mode flexible) のサブスクは、ポータルで解約すると cancel_at_period_end でなく cancel_at が付く。
+	if (sub.cancel_at_period_end || sub.cancel_at) {
+		return { kind: 'canceled', until: sub.cancel_at ?? periodEnd };
+	}
 	const region = saleRegionOf(sub);
 	if (interval === 'year') {
 		return sub.schedule

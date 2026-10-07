@@ -1876,6 +1876,18 @@ describe('subscribing to Pro', () => {
 			await postForm('/account/plan', { action: 'release' }, cookie);
 			expect(posted(fake, 'subscription_schedules/sub_sched_1/release')).toHaveLength(1);
 		});
+
+		it('does not switch a subscription canceled in the portal with cancel_at', async () => {
+			const fake = newFake();
+			const { sub, cookie } = await subscriber('canceled-at@example.com', fake, 'year');
+			fake.subscriptions[sub].cancel_at = now() + 365 * DAY;
+			expect(await (await request('/account/plan', { cookie })).text()).toContain(
+				'解約済みのため切り替えられません'
+			);
+			const res = await postForm('/account/plan', { action: 'month' }, cookie);
+			expect(res.status).toBe(409);
+			expect(posted(fake, 'subscription_schedules')).toHaveLength(0);
+		});
 	});
 
 	describe('organization', () => {

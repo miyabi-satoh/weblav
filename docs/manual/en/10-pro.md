@@ -67,7 +67,7 @@ To move to a new PC, unlink the old one first, then link the new one. Backups do
 Use "Switch between monthly and yearly" on your account page.
 
 - From monthly to yearly, the switch happens right away. You pay the yearly price minus the unused part of your monthly plan.
-- From yearly to monthly, the switch happens at the end of your yearly period. You keep the yearly plan until then, and the rest of the yearly period is not refunded. While a switch is scheduled you can't cancel, so to cancel, first cancel the scheduled switch on the same page.
+- From yearly to monthly, the switch happens at the end of your yearly period. You keep the yearly plan until then, and the rest of the yearly period is not refunded.
 
 ## Cancel
 
