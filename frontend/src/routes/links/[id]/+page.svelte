@@ -61,7 +61,8 @@
 	// (→ docs/ui.md「URL のファイル」「動画サイトの埋め込み」)。
 	/** ページのタイトルが取れなければ、ファイルはファイル名、ほかはホスト名 (リンクのカードと同じ)。 */
 	function linkTitle(link: Link): string {
-		if (link.preview?.title) return link.preview.title;
+		const title = (refreshed.get(link.url) ?? link.preview)?.title;
+		if (title) return title;
 		if (remoteFileKind(link.url)) return remoteFileName(link.url) ?? link.url;
 		return new URL(link.url).host;
 	}
