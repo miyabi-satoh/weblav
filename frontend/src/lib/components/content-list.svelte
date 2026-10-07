@@ -60,9 +60,10 @@
 	}
 
 	function toTrack(content: ContentEntry): Track {
-		const src =
-			content.type === 'link' ? contentRemoteHref(content.id) : contentDownloadHref(content.id);
-		return { src, title: content.title };
+		if (content.type === 'link') {
+			return { src: contentRemoteHref(content.id), title: content.title, originalUrl: content.url };
+		}
+		return { src: contentDownloadHref(content.id), title: content.title };
 	}
 
 	let audioQueue = $derived(entries.filter(isAudioContent).map(toTrack));

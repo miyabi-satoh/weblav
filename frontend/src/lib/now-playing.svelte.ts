@@ -3,7 +3,12 @@
  * (→ docs/ui.md「音声のページ内プレイヤー」)なので、ページ・コンポーネント単位ではなくモジュール
  * スコープの単一の$stateで持つ。
  */
-export type Track = { src: string; title: string };
+export type Track = {
+	src: string;
+	title: string;
+	/** URL のファイルの元の URL。再生できなかったとき、案内からここを開く (→ docs/ui.md「URL のファイル」)。 */
+	originalUrl?: string;
+};
 
 /** 「続けて再生」の状態を端末に覚えさせるキー。 */
 const AUTO_ADVANCE_STORAGE_KEY = 'weblav:audio-auto-advance';
@@ -15,6 +20,8 @@ let index = $state(-1);
 let autoAdvance = $state(readAutoAdvance());
 // 前・次の曲では止めたまま曲だけ替えるので、一時停止の状態は曲をまたいで持つ。
 let paused = $state(true);
+/** 今の曲を読み込めなかった。曲を替えるまで、プレイヤーは再生位置の代わりに案内を出す。 */
+let failed = $state(false);
 
 // ADR: `<audio>` は1つだけ置いて使い回し、曲の差し替えと play() は押された操作の中で同期的に行う。
 // Safari は、操作の後に作り直した要素や、非同期に呼んだ play() を利用者の操作と見なさず再生を拒むため。
@@ -98,6 +105,7 @@ function resume() {
 /** 今の曲を要素に読み込ませる。止めていなければ鳴らす。 */
 function load() {
 	if (!element) return;
+	failed = false;
 	const track = queue[index];
 	if (!track) {
 		element.pause();
@@ -121,6 +129,9 @@ export const nowPlaying = {
 	},
 	get paused() {
 		return paused;
+	},
+	get failed() {
+		return failed;
 	},
 	get autoAdvance() {
 		return autoAdvance;
@@ -156,13 +167,21 @@ export const nowPlaying = {
 	syncPaused() {
 		if (element) paused = element.paused;
 	},
+	/** 要素の error イベントで、今の曲を読み込めなかったことにする。 */
+	markFailed() {
+		// 曲を外したとき (`load()` で src を外す) に届くものは、曲の失敗ではない。
+		if (!queue[index]) return;
+		failed = true;
+		paused = true;
+	},
 	/**
 	 * 一覧の行から再生を始める。止めていても鳴らす。
 	 * `list` は、押した行が並んでいた一覧の音声 (表示順)。1つの一覧の中で `src` は重ならない。
 	 */
 	play(track: Track, list: Track[] = [track]) {
 		// 今の曲の行なら、頭に戻さず続きから鳴らす (src を入れ直すと読み込み直しになる)。
-		if (element && queue[index]?.src === track.src) {
+		// 読み込めなかった曲は、押し直したら読み込み直す。
+		if (element && queue[index]?.src === track.src && !failed) {
 			resume();
 			return;
 		}

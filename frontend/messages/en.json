@@ -488,6 +488,7 @@
 	"audio_player_next_button": "Next track",
 	"audio_player_auto_advance_button": "Play next automatically",
 	"audio_player_mute_button": "Mute",
+	"audio_player_error": "This audio could not be played here.",
 	"image_viewer_zoom_button": "Zoom in or out",
 	"image_viewer_previous_button": "Previous image",
 	"image_viewer_next_button": "Next image",
