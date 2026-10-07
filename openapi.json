@@ -3869,6 +3869,54 @@
         }
       }
     },
+    "/api/v1/contents/{id}/remote": {
+      "get": {
+        "summary": "`link` コンテンツの URL のファイルを、取りに行って流す。\n中継しない URL (拡張子で開き方が決まらない・リンクでない) と、相手が応答しない・エラーを返すときは 404。",
+        "operationId": "remote_content",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "URL のファイルの中身"
+          },
+          "206": {
+            "description": "Range で頼まれた部分"
+          },
+          "401": {
+            "description": "閲覧にログインが必要",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "見えない・存在しない・中継しない URL、または相手から取れない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "416": {
+            "description": "相手が Range を満たせなかった"
+          }
+        }
+      }
+    },
     "/api/v1/contents/{id}/rescan": {
       "post": {
         "summary": "アーカイブの再スキャン。",

@@ -41,7 +41,9 @@ pub(super) fn is_text_file(name: &str, path: &Path, size: u64) -> bool {
     !prefix.contains(&0)
 }
 
-fn kind_by_extension(name: &str) -> bool {
+/// 画像・音声・PDF・動画など、拡張子で開き方の決まるファイルか。URL のファイルの中継も、
+/// これで中継するかを決める (`remote_file`。画面の `file-kind.ts` と同じ一覧)。
+pub(super) fn kind_by_extension(name: &str) -> bool {
     super::thumbnails::is_image_file_name(name) || has_extension_in(name, &KIND_BY_EXTENSION)
 }
 

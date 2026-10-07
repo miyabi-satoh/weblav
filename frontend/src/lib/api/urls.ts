@@ -33,6 +33,11 @@ export function adminBackupHref(): string {
 	return '/api/v1/admin/backup';
 }
 
+/** `GET /api/v1/contents/{id}/remote` へのリンク。`link` コンテンツの URL のファイルを、サーバーが取ってきて流す。 */
+export function contentRemoteHref(contentId: number): string {
+	return `/api/v1/contents/${contentId}/remote`;
+}
+
 /** `GET /api/v1/contents/{id}/thumbnail` へのリンク。`path` は `contentDownloadHref` と同じ。 */
 export function contentThumbnailHref(contentId: number, path?: string): string {
 	const base = `/api/v1/contents/${contentId}/thumbnail`;

@@ -32,6 +32,7 @@ mod login;
 mod minimal_input;
 mod private;
 mod pro;
+mod remote_files;
 mod roots;
 mod search;
 mod settings;

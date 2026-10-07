@@ -1,8 +1,14 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { contentDownloadHref, contentThumbnailHref } from '$lib/api/urls';
+	import { contentDownloadHref, contentRemoteHref, contentThumbnailHref } from '$lib/api/urls';
 	import { contentTypeIcon } from '$lib/content-types';
-	import { isAudioFileName, isLinksFileName, viewerFileKind } from '$lib/file-kind';
+	import {
+		isAudioFileName,
+		isLinksFileName,
+		remoteFileKind,
+		remoteFileName,
+		viewerFileKind
+	} from '$lib/file-kind';
 	import { linksFileHref, LinksFileIcon } from '$lib/links-file';
 	import { RefreshedLinkPreviews } from '$lib/link-previews.svelte';
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
@@ -28,6 +34,7 @@
 	import type { components } from '$lib/api/schema';
 
 	type ContentEntry = components['schemas']['ContentResponse'];
+	type LinkEntry = Extract<ContentEntry, { type: 'link' }>;
 
 	// トップページ(`/`)・`/groups/[id]`・検索の結果で使う一覧。片方だけの改修で
 	// もう片方が古びるのを防ぐため、コンテンツ種別ごとの表示分岐をここに集約する。
@@ -40,12 +47,22 @@
 		subtitle?: (content: ContentEntry) => string | string[] | null | undefined;
 	} = $props();
 
+	/** URL のファイルを指す link コンテンツなら、その種類。サーバーの中継で、ファイルと同じ行・ビューアで開く (→ docs/ui.md「URL のファイル」)。 */
+	function remoteKind(content: ContentEntry) {
+		return content.type === 'link' ? remoteFileKind(content.url) : undefined;
+	}
+
 	function isAudioContent(content: ContentEntry): boolean {
-		return content.type === 'file' && isAudioFileName(content.fileName);
+		return (
+			(content.type === 'file' && isAudioFileName(content.fileName)) ||
+			remoteKind(content) === 'audio'
+		);
 	}
 
 	function toTrack(content: ContentEntry): Track {
-		return { src: contentDownloadHref(content.id), title: content.title };
+		const src =
+			content.type === 'link' ? contentRemoteHref(content.id) : contentDownloadHref(content.id);
+		return { src, title: content.title };
 	}
 
 	let audioQueue = $derived(entries.filter(isAudioContent).map(toTrack));
@@ -72,6 +89,16 @@
 
 	/** PDF・動画・テキストなど、ビューアで開く file コンテンツなら、ビューアに渡す形 (→ docs/ui.md「PDF・動画・テキストのビューア」)。 */
 	function toViewerFile(content: ContentEntry): ViewerFile | undefined {
+		const remote = remoteKind(content);
+		if (content.type === 'link' && remote && remote !== 'audio') {
+			return {
+				src: contentRemoteHref(content.id),
+				title: content.title,
+				fileName: remoteFileName(content.url) ?? '',
+				kind: remote,
+				originalUrl: content.url
+			};
+		}
 		if (content.type !== 'file') return undefined;
 		const kind = viewerFileKind(content.fileName, content.isText);
 		if (!kind) return undefined;
@@ -86,10 +113,15 @@
 
 	let viewerFiles = $derived(entries.map(toViewerFile).filter((file) => file !== undefined));
 
+	/** リンクのカードで出す link コンテンツ。URL のファイルはファイルの行で出す。 */
+	function isLinkCard(content: ContentEntry): content is LinkEntry {
+		return content.type === 'link' && !remoteKind(content);
+	}
+
 	// リンクのカードは覚えている情報ですぐ出し、サーバーに取り直しを頼んだ答えで差し替える
 	// (→ docs/ui.md「リンクのカード」)。取り直せなくても、覚えている情報のまま出しておけば足りる。
 	const refreshed = new RefreshedLinkPreviews(() => {
-		const contentIds = entries.filter((entry) => entry.type === 'link').map((entry) => entry.id);
+		const contentIds = entries.filter(isLinkCard).map((entry) => entry.id);
 		return contentIds.length === 0 ? undefined : { contentIds };
 	});
 </script>
@@ -130,7 +162,7 @@
 		{@const image = toViewerImage(content)}
 		{@const viewerFile = toViewerFile(content)}
 		<li class={browseItemClass()}>
-			{#if content.type === 'link'}
+			{#if isLinkCard(content)}
 				<ListRowLink
 					href={content.url}
 					title={content.title}

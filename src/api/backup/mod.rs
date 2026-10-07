@@ -6,10 +6,8 @@
 
 mod archive;
 
-use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
 use axum::Json;
@@ -18,13 +16,14 @@ use axum::extract::{DefaultBodyLimit, Multipart, State};
 use axum::http::{StatusCode, header};
 use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
-use tokio::io::{AsyncRead, AsyncWriteExt, DuplexStream, ReadBuf};
+use tokio::io::AsyncWriteExt;
 use tokio_util::io::{ReaderStream, SyncIoBridge};
 use tower_sessions::Session;
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
+use super::completed_reader::CompletedReader;
 use crate::auth::AdminUser;
 use crate::error::{AppError, AppJson, multipart_error_to_app_error, run_blocking};
 use crate::state::AppState;
@@ -177,36 +176,12 @@ async fn download_backup(
             // ファイル名は画面が付ける (`download` 属性)。作った日時を利用者の時刻で入れるため。
             (header::CONTENT_DISPOSITION, "attachment"),
         ],
-        Body::from_stream(ReaderStream::new(CompletedReader { reader, finished })),
+        Body::from_stream(ReaderStream::new(CompletedReader::new(
+            reader,
+            finished,
+            "the backup was not completed",
+        ))),
     ))
-}
-
-/// 書く側が最後まで書けずに閉じたとき、読み終わりをエラーにする。
-///
-/// ただ閉じると、途中までの zip が正常に届いたように見えてしまう。エラーで終えると
-/// 接続が切られ、ブラウザはダウンロードの失敗として扱う。
-struct CompletedReader {
-    reader: DuplexStream,
-    finished: Arc<AtomicBool>,
-}
-
-impl AsyncRead for CompletedReader {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut ReadBuf<'_>,
-    ) -> Poll<std::io::Result<()>> {
-        let before = buf.filled().len();
-        let poll = Pin::new(&mut self.reader).poll_read(cx, buf);
-        if matches!(poll, Poll::Ready(Ok(())))
-            && buf.filled().len() == before
-            && buf.remaining() > 0
-            && !self.finished.load(Ordering::Acquire)
-        {
-            return Poll::Ready(Err(std::io::Error::other("the backup was not completed")));
-        }
-        poll
-    }
 }
 
 /// 戻すバックアップを受け取り、目録を返す。まだ何も置き換えない。
