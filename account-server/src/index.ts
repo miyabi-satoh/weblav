@@ -132,12 +132,17 @@ async function limited(c: Context<App>, limiter: RateLimit, key?: string): Promi
 
 // ---- Pro と結び付き ----
 
-type PlanRow = { plan: Plan; paid_through: number; stripe_customer_id: string | null };
+type PlanRow = {
+	plan: Plan;
+	paid_through: number;
+	stripe_customer_id: string | null;
+	status: string;
+};
 
 /** アカウントのサブスクの行のうち、打ち切っていないもの。猶予を過ぎた行も含む (有効かは `isLive` で見る)。新しく払った順。 */
 async function subscriptionsOf(env: Env, accountId: string): Promise<PlanRow[]> {
 	const { results } = await env.DB.prepare(
-		`SELECT plan, paid_through, stripe_customer_id FROM subscriptions
+		`SELECT plan, paid_through, stripe_customer_id, status FROM subscriptions
 		 WHERE account_id = ? AND revoked_at IS NULL ORDER BY paid_through DESC`
 	)
 		.bind(accountId)
@@ -145,9 +150,16 @@ async function subscriptionsOf(env: Env, accountId: string): Promise<PlanRow[]> 
 	return results;
 }
 
-/** 払い終えた期間の終わりに猶予を足した時点までは有効。 */
+/**
+ * 有効な期間の終わり。払い終えた期間の終わりに猶予を足す。
+ * 解約した行は払われることがもう無いので、猶予を足さない (足すと、解約して期間が終わった人が猶予の間は申し込み直せない)。
+ */
+function liveUntil(row: PlanRow): number {
+	return row.status === 'canceled' ? row.paid_through : row.paid_through + GRACE[row.plan];
+}
+
 function isLive(row: PlanRow, at: number): boolean {
-	return row.paid_through + GRACE[row.plan] > at;
+	return liveUntil(row) > at;
 }
 
 /**
@@ -166,7 +178,7 @@ function bestPlan(rows: PlanRow[], at: number): { plan: Plan; expiresAt: number 
 	let best: { plan: Plan; expiresAt: number } | undefined;
 	for (const row of rows) {
 		if (!isLive(row, at)) continue;
-		const expiresAt = row.paid_through + GRACE[row.plan];
+		const expiresAt = liveUntil(row);
 		if (
 			!best ||
 			(row.plan === 'organization' && best.plan === 'personal') ||
