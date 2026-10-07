@@ -17,6 +17,7 @@
 	import ModeToggle from '$lib/components/mode-toggle.svelte';
 	import LanguageToggle from '$lib/components/language-toggle.svelte';
 	import ConnectionInfoDialog from '$lib/components/connection-info-dialog.svelte';
+	import ShareButton from '$lib/components/share-button.svelte';
 	import UserMenu from '$lib/components/user-menu.svelte';
 	import AudioPlayerBar from '$lib/components/audio-player-bar.svelte';
 	import FileViewer from '$lib/components/file-viewer.svelte';
@@ -118,6 +119,7 @@
 				<SearchIcon class="size-5" />
 				<span class="sr-only">{m.search_nav_label()}</span>
 			</a>
+			<ShareButton />
 			<ConnectionInfoDialog />
 			<LanguageToggle />
 			<ModeToggle />
