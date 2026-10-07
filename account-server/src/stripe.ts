@@ -200,11 +200,172 @@ export type Subscription = {
 	status: string;
 	customer: string;
 	metadata: Record<string, string> | null;
-	items: { data: { price: { id: string } }[] };
+	cancel_at_period_end?: boolean;
+	/** 期間の終わりの切り替えを予約したときの、サブスクのスケジュールの id。 */
+	schedule?: string | null;
+	items: {
+		data: {
+			id: string;
+			current_period_end: number;
+			price: { id: string };
+			tax_rates?: { id: string }[];
+		}[];
+	};
 };
 
 export function getSubscription(config: StripeConfig, id: string): Promise<Subscription> {
 	return stripeFetch(config, 'GET', `subscriptions/${encodeURIComponent(id)}`);
+}
+
+/** 個人向けのサブスクの今の払い方。項目が1つで個人向けの Price でなければ `undefined`。 */
+export function intervalOf(config: StripeConfig, sub: Subscription): Interval | undefined {
+	const items = sub.items.data;
+	if (items.length !== 1) return undefined;
+	const price = items[0].price.id;
+	if (price === config.personalPrices.month) return 'month';
+	if (price === config.personalPrices.year) return 'year';
+	return undefined;
+}
+
+/** 月額から年額へ今すぐ切り替える請求書の見込み。`at` を切り替えるときにも渡すと、同じ額になる。 */
+export type YearlySwitch = {
+	/** 今日払う額 (年額から、月額の使っていない分を差し引いた額)。最小の単位。 */
+	total: number;
+	/** 差し引く、月額の使っていない分 (正の数)。 */
+	credit: number;
+	currency: string;
+	/** 年額の期間の終わり (次の更新)。 */
+	periodEnd: number;
+};
+
+/** 月額から年額へ切り替える頼みの中身。`nest` を付けると、請求書の見込みの `subscription_details[...]` の形になる。 */
+function yearlySwitchParams(config: StripeConfig, sub: Subscription, at: number, nest?: string) {
+	const fields: [string[], string][] = [
+		[['items', '0', 'id'], sub.items.data[0].id],
+		[['items', '0', 'price'], config.personalPrices.year],
+		[['proration_behavior'], 'always_invoice'],
+		// 確かめの画面で見せた額と、切り替えで払う額をそろえる (日割りは秒単位で、時刻がずれると額が変わる)。
+		[['proration_date'], String(at)]
+	];
+	return new URLSearchParams(
+		fields.map(([[head, ...rest], value]) => {
+			const path = nest
+				? [head, ...rest].map((p) => `[${p}]`).join('')
+				: rest.map((p) => `[${p}]`).join('');
+			return [nest ? `${nest}${path}` : `${head}${path}`, value];
+		})
+	);
+}
+
+export async function previewYearlySwitch(
+	config: StripeConfig,
+	sub: Subscription,
+	at: number
+): Promise<YearlySwitch> {
+	const params = yearlySwitchParams(config, sub, at, 'subscription_details');
+	params.set('subscription', sub.id);
+	const preview = await stripeFetch<Invoice>(config, 'POST', 'invoices/create_preview', params);
+	const lines = preview.lines.data;
+	const charged = lines.find((l) => l.amount > 0);
+	return {
+		total: preview.total,
+		credit: -lines.filter((l) => l.amount < 0).reduce((sum, l) => sum + l.amount, 0),
+		currency: preview.currency,
+		periodEnd: charged?.period.end ?? 0
+	};
+}
+
+/**
+ * 月額から年額へ今すぐ切り替える。払えたときだけ切り替わる (払えなければ Stripe は変更を保留する)。
+ * 払えなかったら、保留の請求書を無効にして `false` を返す。あとで払われて、知らないうちに切り替わらないように。
+ */
+export async function switchToYearly(
+	config: StripeConfig,
+	sub: Subscription,
+	at: number
+): Promise<boolean> {
+	const params = yearlySwitchParams(config, sub, at);
+	params.set('payment_behavior', 'pending_if_incomplete');
+	params.set('expand[]', 'latest_invoice');
+	const updated = await stripeFetch<{
+		pending_update: object | null;
+		latest_invoice: { id: string } | null;
+	}>(
+		config,
+		'POST',
+		`subscriptions/${encodeURIComponent(sub.id)}`,
+		params,
+		// 二重に押しても、1回だけ切り替える。
+		`weblav-yearly-${sub.id}-${at}`
+	);
+	if (!updated.pending_update) return true;
+	if (updated.latest_invoice) {
+		await stripeFetch(
+			config,
+			'POST',
+			`invoices/${encodeURIComponent(updated.latest_invoice.id)}/void`
+		);
+	}
+	return false;
+}
+
+export type Schedule = {
+	id: string;
+	status: string;
+	current_phase: { start_date: number; end_date: number } | null;
+	phases: { start_date: number; end_date: number; items: { price: string }[] }[];
+};
+
+export function getSchedule(config: StripeConfig, id: string): Promise<Schedule> {
+	return stripeFetch(config, 'GET', `subscription_schedules/${encodeURIComponent(id)}`);
+}
+
+/** 予約を取り消す。サブスクは今の Price のまま残る。 */
+export async function releaseSchedule(config: StripeConfig, id: string) {
+	await stripeFetch(config, 'POST', `subscription_schedules/${encodeURIComponent(id)}/release`);
+}
+
+/**
+ * 年額の期間の終わりで月額に切り替わるよう予約する (→ docs/pro.md「売り方」)。
+ * スケジュールを作ってから、今の期間 (年額) と次の1か月 (月額) の2つに分ける。1か月が過ぎるとスケジュールは外れる。
+ */
+export async function scheduleMonthly(config: StripeConfig, sub: Subscription) {
+	const created = await stripeFetch<Schedule>(
+		config,
+		'POST',
+		'subscription_schedules',
+		new URLSearchParams({ from_subscription: sub.id })
+	);
+	const current = created.phases[0];
+	// 渡さない項目は外されるので、税率も今のものを渡し直す (国内の分だけ付いている)。
+	const taxRates = sub.items.data[0].tax_rates ?? [];
+	const params = new URLSearchParams({
+		end_behavior: 'release',
+		'phases[0][items][0][price]': config.personalPrices.year,
+		'phases[0][items][0][quantity]': '1',
+		'phases[0][start_date]': String(current.start_date),
+		'phases[0][end_date]': String(current.end_date),
+		'phases[1][items][0][price]': config.personalPrices.month,
+		'phases[1][items][0][quantity]': '1',
+		'phases[1][duration][interval]': 'month',
+		'phases[1][duration][interval_count]': '1'
+	});
+	taxRates.forEach((rate, i) => {
+		params.set(`phases[0][items][0][tax_rates][${i}]`, rate.id);
+		params.set(`phases[1][items][0][tax_rates][${i}]`, rate.id);
+	});
+	try {
+		await stripeFetch(
+			config,
+			'POST',
+			`subscription_schedules/${encodeURIComponent(created.id)}`,
+			params
+		);
+	} catch (e) {
+		// 予約にできなかったスケジュールを残すと、カスタマーポータルで解約できなくなる。
+		await releaseSchedule(config, created.id);
+		throw e;
+	}
 }
 
 /** その場で解約する (返金・不審請求・アカウントの削除)。もう終わっていれば何もしない。 */
@@ -273,6 +434,7 @@ type Invoice = {
 			period: { start: number; end: number };
 			pricing: { price_details?: { price: string } } | null;
 			discount_amounts: { amount: number }[];
+			parent?: { subscription_item_details?: { proration: boolean } | null } | null;
 		}[];
 	};
 	payments: {
@@ -294,7 +456,8 @@ type Invoice = {
 /**
  * 知らせの本文は信じず、請求書とサブスクを Stripe から取り直して、付けてよい支払いかを確かめる。
  * この製品のものでない・払われていないときは `undefined`。
- * この製品の Price なのに、項目が1つ (数量 1・値引き無し) でない・Stripe で全額を1回で払っていないなら `InvoiceError`。
+ * この製品の Price なのに、払った期間の項目が1つ (数量 1・値引き無し) でない・ほかの項目が切り替えの日割りのマイナスでない・
+ * Stripe で全額を1回で払っていないなら `InvoiceError`。
  */
 export async function confirmInvoice(
 	config: StripeConfig,
@@ -313,7 +476,9 @@ export async function confirmInvoice(
 	const subscriptionId = invoice.parent?.subscription_details?.subscription;
 	if (invoice.status !== 'paid' || !subscriptionId) return undefined;
 	const lines = invoice.lines.data;
-	const plan = planOfPrice(config, lines[0]?.pricing?.price_details?.price);
+	// 払った期間の項目は1つ。月額から年額へ切り替えた請求書には、前の Price の使わなかった分 (日割りのマイナス) も並ぶ。
+	const charged = lines.filter((l) => l.amount > 0);
+	const plan = planOfPrice(config, charged[0]?.pricing?.price_details?.price);
 	if (!plan) return undefined;
 	const subscription = await getSubscription(config, subscriptionId);
 	const product = productOf(plan);
@@ -324,10 +489,15 @@ export async function confirmInvoice(
 	const intent = paid[0]?.payment.payment_intent;
 	if (
 		invoice.lines.has_more ||
-		lines.length !== 1 ||
-		lines[0].quantity !== 1 ||
-		lines[0].discount_amounts.some((d) => d.amount !== 0) ||
-		lines[0].amount !== invoice.total ||
+		charged.length !== 1 ||
+		lines.some(
+			(l) =>
+				l.quantity !== 1 ||
+				l.discount_amounts.some((d) => d.amount !== 0) ||
+				planOfPrice(config, l.pricing?.price_details?.price) !== plan ||
+				(l.amount <= 0 && l.parent?.subscription_item_details?.proration !== true)
+		) ||
+		lines.reduce((sum, l) => sum + l.amount, 0) !== invoice.total ||
 		invoice.amount_paid !== invoice.total ||
 		invoice.payments.has_more ||
 		paid.length !== 1 ||
@@ -336,7 +506,7 @@ export async function confirmInvoice(
 		paid[0].amount_paid !== invoice.total
 	) {
 		throw new InvoiceError(
-			'項目が WebLAV Pro の Price の1つ (数量 1・値引き無し) でないか、Stripe で全額を1回で払ったものでない。'
+			'項目が WebLAV Pro の Price の1つ (数量 1・値引き無し。切り替えの日割りのマイナスは除く) でないか、Stripe で全額を1回で払ったものでない。'
 		);
 	}
 	const charge = intent.latest_charge
@@ -353,7 +523,7 @@ export async function confirmInvoice(
 		paymentIntentId: intent.id,
 		amount: invoice.total,
 		currency: invoice.currency,
-		periodEnd: lines[0].period.end,
+		periodEnd: charged[0].period.end,
 		managedPayments: subscription.metadata?.managed_payments === '1',
 		cardCountry: charge?.payment_method_details?.card?.country ?? null
 	};

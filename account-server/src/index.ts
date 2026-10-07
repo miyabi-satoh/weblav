@@ -8,7 +8,7 @@
  */
 import { Hono, type Context } from 'hono';
 import { csrf } from 'hono/csrf';
-import { messages, resolveLang, type Lang } from './i18n';
+import { formatDate, formatMoney, messages, resolveLang, type Lang } from './i18n';
 import { sendMail } from './mail';
 import {
 	alreadyProPage,
@@ -24,12 +24,15 @@ import {
 	mailSentPage,
 	messagePage,
 	noProPage,
+	planSwitchedPage,
+	planSwitchPage,
 	releasePage,
 	transferConfirmPage,
 	transferPage,
 	transferredPage,
 	signInPage,
 	type InstallationRow,
+	type PlanSwitch,
 	type SaleRegion
 } from './pages';
 import { finishGoogleSignIn, googleConfig, startGoogleSignIn } from './google';
@@ -56,15 +59,22 @@ import {
 	confirmInvoice,
 	createCheckoutSession,
 	expireCheckoutSession,
+	getSchedule,
 	getSubscription,
+	intervalOf,
 	InvoiceError,
 	orgAccountEmail,
+	previewYearlySwitch,
 	productOf,
+	releaseSchedule,
+	scheduleMonthly,
 	StripeError,
 	stripeConfig,
+	switchToYearly,
 	type Interval,
 	type PaidInvoice,
 	type StripeConfig,
+	type Subscription,
 	usesManagedPayments,
 	verifyWebhook
 } from './stripe';
@@ -78,6 +88,7 @@ import {
 	normalizeEmail,
 	now,
 	originOf,
+	PLAN_PATH,
 	PRICING_PATH,
 	randomHex,
 	safeNext,
@@ -133,6 +144,7 @@ async function limited(c: Context<App>, limiter: RateLimit, key?: string): Promi
 // ---- Pro と結び付き ----
 
 type PlanRow = {
+	id: string;
 	plan: Plan;
 	paid_through: number;
 	stripe_customer_id: string | null;
@@ -142,7 +154,7 @@ type PlanRow = {
 /** アカウントのサブスクの行のうち、打ち切っていないもの。猶予を過ぎた行も含む (有効かは `isLive` で見る)。新しく払った順。 */
 async function subscriptionsOf(env: Env, accountId: string): Promise<PlanRow[]> {
 	const { results } = await env.DB.prepare(
-		`SELECT plan, paid_through, stripe_customer_id, status FROM subscriptions
+		`SELECT id, plan, paid_through, stripe_customer_id, status FROM subscriptions
 		 WHERE account_id = ? AND revoked_at IS NULL ORDER BY paid_through DESC`
 	)
 		.bind(accountId)
@@ -160,6 +172,16 @@ function liveUntil(row: PlanRow): number {
 
 function isLive(row: PlanRow, at: number): boolean {
 	return liveUntil(row) > at;
+}
+
+/** 月額と年額を切り替えられる行。窓口の Checkout で買った、個人向けの Stripe のサブスクで、解約していないもの。 */
+function switchable(row: PlanRow, at: number): boolean {
+	return (
+		row.plan === 'personal' &&
+		row.stripe_customer_id !== null &&
+		row.status !== 'canceled' &&
+		isLive(row, at)
+	);
 }
 
 /**
@@ -624,10 +646,12 @@ accountApp.get('/', async (c) => {
 	const active = bestPlan(rows, at);
 	const limit = PLAN_LIMITS[active?.plan ?? 'personal'];
 	const list = await installationsOf(c.env, account.id, limit, at);
+	const billing = stripeConfig(c.env) !== undefined;
 	return c.html(
 		homePage(lang, account.email, {
 			plans,
-			billing: stripeConfig(c.env) !== undefined && rows.some((r) => r.stripe_customer_id),
+			billing: billing && rows.some((r) => r.stripe_customer_id),
+			switchable: billing && rows.some((r) => switchable(r, at)),
 			limit,
 			installations: installationRows(list),
 			forSale: stripeConfig(c.env) !== undefined
@@ -1097,10 +1121,132 @@ accountApp.post('/billing', async (c) => {
 		.bind(account.id)
 		.first<{ stripe_customer_id: string }>();
 	if (!config || !row) return c.redirect(ACCOUNT_HOME, 303);
+	await releaseFinishedSchedule(c.env, config, account.id);
 	return c.redirect(
 		await billingPortalUrl(config, row.stripe_customer_id, `${originOf(c)}${ACCOUNT_HOME}`, lang),
 		303
 	);
+});
+
+/**
+ * 月額へ切り替わった後も、スケジュールは次の1か月が過ぎるまでサブスクに付いたままになる。
+ * 付いている間はカスタマーポータルで解約できないので、ポータルを開く前に外す。まだ年額の間 (予約中) は外さない。
+ */
+async function releaseFinishedSchedule(env: Env, config: StripeConfig, accountId: string) {
+	const id = await switchableSubscription(env, accountId);
+	if (!id) return;
+	const sub = await getSubscription(config, id);
+	if (!sub.schedule) return;
+	const schedule = await getSchedule(config, sub.schedule);
+	const last = schedule.phases.at(-1);
+	if (schedule.current_phase && last && schedule.current_phase.start_date >= last.start_date) {
+		await releaseSchedule(config, schedule.id);
+	}
+}
+
+// ---- 月額と年額を切り替える (→ docs/pro.md「売り方」) ----
+
+/** 確かめの画面で見せた今日の支払いを、そのまま使ってよい間。過ぎたら計算し直して見せ直す。 */
+const SWITCH_QUOTE_TTL = 60 * 60;
+
+/** 切り替えられる個人向けのサブスクの id。払い終えた期間が最も遅いもの。 */
+async function switchableSubscription(env: Env, accountId: string): Promise<string | undefined> {
+	const at = now();
+	return (await subscriptionsOf(env, accountId)).find((r) => switchable(r, at))?.id;
+}
+
+function saleRegionOf(sub: Subscription): SaleRegion {
+	return sub.metadata?.managed_payments === '1' ? 'overseas' : 'domestic';
+}
+
+/** 今のサブスクの状態から、切り替えの画面の中身を決める。切り替えられない形なら `undefined`。 */
+async function planSwitchView(
+	config: StripeConfig,
+	lang: Lang,
+	sub: Subscription
+): Promise<PlanSwitch | undefined> {
+	const interval = intervalOf(config, sub);
+	if (!interval) return undefined;
+	const periodEnd = sub.items.data[0].current_period_end;
+	if (sub.cancel_at_period_end) return { kind: 'canceled', until: periodEnd };
+	const region = saleRegionOf(sub);
+	if (interval === 'year') {
+		return sub.schedule
+			? { kind: 'reserved', switchAt: periodEnd }
+			: { kind: 'toMonthly', region, switchAt: periodEnd };
+	}
+	const at = now();
+	const preview = await previewYearlySwitch(config, sub, at);
+	return {
+		kind: 'toYearly',
+		region,
+		total: formatMoney(lang, preview.total, preview.currency),
+		credit: formatMoney(lang, preview.credit, preview.currency),
+		renewsAt: preview.periodEnd,
+		at
+	};
+}
+
+accountApp.get('/plan', async (c) => {
+	const lang = resolveLang(c);
+	const t = messages[lang];
+	const account = await currentAccount(c);
+	if (!account) return c.html(signIn(c, lang, PLAN_PATH));
+	const config = stripeConfig(c.env);
+	const id = config && (await switchableSubscription(c.env, account.id));
+	const view = id && (await planSwitchView(config, lang, await getSubscription(config, id)));
+	if (!view) return c.html(messagePage(lang, t.planSwitchTitle, t.planSwitchUnavailable), 404);
+	return c.html(planSwitchPage(lang, account.email, view));
+});
+
+// 画面を開いた後にほかのタブで切り替えていたら、今の状態の画面を出し直す (押した操作はしない)。
+accountApp.post('/plan', async (c) => {
+	const lang = resolveLang(c);
+	const t = messages[lang];
+	const account = await currentAccount(c);
+	if (!account) return c.html(signIn(c, lang, PLAN_PATH), 401);
+	const config = stripeConfig(c.env);
+	const id = config && (await switchableSubscription(c.env, account.id));
+	const sub = id ? await getSubscription(config, id) : undefined;
+	const view = sub && (await planSwitchView(config!, lang, sub));
+	if (!view) return c.html(messagePage(lang, t.planSwitchTitle, t.planSwitchUnavailable), 404);
+	const form = await c.req.parseBody();
+	const action = formString(form, 'action');
+	if (action === 'year' && view.kind === 'toYearly') {
+		const quoted = Number(formString(form, 'at'));
+		// 見せた額のまま払わせる。古い (または作った) 時刻なら、計算し直した額を見せて押し直してもらう。
+		if (!(quoted <= view.at && view.at - quoted <= SWITCH_QUOTE_TTL)) {
+			return c.html(planSwitchPage(lang, account.email, view, t.switchExpired), 409);
+		}
+		// 月額へ切り替わった直後で、スケジュールがまだ付いていると、次の区切りで上書きされる。
+		if (sub.schedule) await releaseSchedule(config!, sub.schedule);
+		if (!(await switchToYearly(config!, sub, quoted))) {
+			return c.html(planSwitchPage(lang, account.email, view, t.switchFailed), 402);
+		}
+		// 払い終えた期間は、支払いの知らせ (invoice.paid) で延びる。
+		return c.html(
+			planSwitchedPage(
+				lang,
+				t.switchedYearlyTitle,
+				t.switchedYearly(formatDate(lang, view.renewsAt))
+			)
+		);
+	}
+	if (action === 'month' && view.kind === 'toMonthly') {
+		await scheduleMonthly(config!, sub);
+		return c.html(
+			planSwitchedPage(
+				lang,
+				t.scheduledMonthlyTitle,
+				t.planReserved(formatDate(lang, view.switchAt))
+			)
+		);
+	}
+	if (action === 'release' && view.kind === 'reserved') {
+		await releaseSchedule(config!, sub.schedule!);
+		return c.html(planSwitchedPage(lang, t.switchReleasedTitle, t.switchReleased));
+	}
+	return c.html(planSwitchPage(lang, account.email, view), 409);
 });
 
 // ---- 個人向けの Pro を申し込む (→ docs/pro.md「売り方」) ----

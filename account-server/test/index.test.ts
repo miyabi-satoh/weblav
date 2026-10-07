@@ -10,6 +10,7 @@ import {
 	relinkTag,
 	type Plan
 } from '../src/link';
+import type { Interval } from '../src/stripe';
 import { DELETE_ACCOUNT_STATEMENTS } from '../src/account-deletion';
 import { base64urlBytes, now, toHex, utf8 } from '../src/util';
 
@@ -182,6 +183,7 @@ describe('guards', () => {
 		'/account/installations/remove',
 		'/account/billing',
 		'/account/buy',
+		'/account/plan',
 		'/account/transfer'
 	];
 
@@ -192,10 +194,12 @@ describe('guards', () => {
 		['GET', '/account/buy?plan=year', 200],
 		['GET', '/account/buy/done', 200],
 		['GET', '/account/transfer', 200],
+		['GET', '/account/plan', 200],
 		['POST', '/account/link', 401],
 		['POST', '/account/installations/remove', 401],
 		['POST', '/account/billing', 401],
 		['POST', '/account/buy', 401],
+		['POST', '/account/plan', 401],
 		['POST', '/account/transfer', 401]
 	];
 
@@ -1108,13 +1112,37 @@ describe('subscribing to Pro', () => {
 		invoices: Record<string, Record<string, unknown>>;
 		subscriptions: Record<string, Record<string, unknown>>;
 		canceled: string[];
+		/** 請求書の見込み (`invoices/create_preview`) が返すもの。 */
+		preview?: Record<string, unknown>;
+		/** サブスクを変えたとき、払えずに保留になったことにする。 */
+		pendingUpdate?: boolean;
+		schedules: Record<string, Record<string, unknown>>;
+		/** 書き込む頼み (GET 以外)。どの API に何を送ったかを確かめる。 */
+		posted: { path: string; body: URLSearchParams }[];
 	};
 
-	/** 請求書。払い終えた期間の終わりは `periodEnd`、払ったのは `pi_<id>`。 */
+	/** 請求書の項目。`proration` は、切り替えで Stripe が日割りにした項目。 */
+	function invoiceLine(price: string, amount: number, periodEnd: number, proration = false) {
+		return {
+			amount,
+			quantity: 1,
+			period: { start: periodEnd - 30 * DAY, end: periodEnd },
+			pricing: { price_details: { price } },
+			discount_amounts: [],
+			parent: { subscription_item_details: { proration } }
+		};
+	}
+
+	/** 請求書。払い終えた期間の終わりは `periodEnd`、払ったのは `pi_<id>`。`lines` を渡さなければ項目は1つ。 */
 	function invoice(
 		id: string,
 		subscription: string,
-		{ price = 'price_month', amount = 480, periodEnd = now() + 30 * DAY } = {}
+		{
+			price = 'price_month',
+			amount = 480,
+			periodEnd = now() + 30 * DAY,
+			lines = [invoiceLine(price, amount, periodEnd)]
+		} = {}
 	) {
 		return {
 			id,
@@ -1123,18 +1151,7 @@ describe('subscribing to Pro', () => {
 			total: amount,
 			amount_paid: amount,
 			parent: { subscription_details: { subscription } },
-			lines: {
-				has_more: false,
-				data: [
-					{
-						amount,
-						quantity: 1,
-						period: { start: periodEnd - 30 * DAY, end: periodEnd },
-						pricing: { price_details: { price } },
-						discount_amounts: []
-					}
-				]
-			},
+			lines: { has_more: false, data: lines },
 			payments: {
 				has_more: false,
 				data: [
@@ -1162,7 +1179,33 @@ describe('subscribing to Pro', () => {
 	function stripeApi(fake: Fake) {
 		return vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
 			const path = new URL(String(url)).pathname;
-			const [, , kind, id] = path.split('/');
+			const [, , kind, id, action] = path.split('/');
+			if (init?.method === 'POST') {
+				fake.posted.push({
+					path: path.slice('/v1/'.length),
+					body: new URLSearchParams(String(init.body))
+				});
+			}
+			if (kind === 'invoices' && id === 'create_preview') return Response.json(fake.preview);
+			if (kind === 'invoices' && action === 'void') return Response.json({});
+			if (kind === 'subscription_schedules') {
+				if (!id) {
+					const sub = fake.subscriptions[init!.body!.toString().split('=')[1]];
+					const end = (sub.items as { data: { current_period_end: number }[] }).data[0]
+						.current_period_end;
+					return Response.json({
+						id: 'sub_sched_1',
+						phases: [{ start_date: end - 365 * DAY, end_date: end, items: [] }]
+					});
+				}
+				return Response.json(fake.schedules[id] ?? {});
+			}
+			if (kind === 'subscriptions' && init?.method === 'POST') {
+				return Response.json({
+					pending_update: fake.pendingUpdate ? { expires_at: now() + DAY } : null,
+					latest_invoice: { id: 'in_switch' }
+				});
+			}
 			if (kind === 'invoices') {
 				// 本物と同じく、expand は4段までしか受け付けない。
 				const tooDeep = new URL(String(url)).searchParams
@@ -1209,7 +1252,7 @@ describe('subscribing to Pro', () => {
 	}
 
 	function newFake(): Fake {
-		return { invoices: {}, subscriptions: {}, canceled: [] };
+		return { invoices: {}, subscriptions: {}, canceled: [], schedules: {}, posted: [] };
 	}
 
 	it('sends the buyer to Stripe Checkout for a subscription', async () => {
@@ -1671,6 +1714,156 @@ describe('subscribing to Pro', () => {
 		expect(res.headers.get('location')).toBe('https://billing.stripe.test/p');
 		const call = stripe.mock.calls.find(([u]) => String(u).includes('billing_portal'))!;
 		expect(new URLSearchParams(String(call[1]!.body)).get('customer')).toBe(`cus_${sub}`);
+	});
+
+	describe('switching between monthly and yearly', () => {
+		/** 窓口で `interval` を申し込み、最初の請求書が払われたところ (国内なので税率が付いている)。 */
+		async function subscriber(email: string, fake: Fake, interval: Interval) {
+			const sub = await personalSubscriber(email, fake);
+			fake.subscriptions[sub].items = {
+				data: [
+					{
+						id: `si_${sub}`,
+						current_period_end: now() + (interval === 'year' ? 365 : 30) * DAY,
+						price: { id: `price_${interval}` },
+						tax_rates: [{ id: 'txr_test' }]
+					}
+				]
+			};
+			stripeApi(fake);
+			await webhook(event('invoice.paid', { id: `in_${sub}` }));
+			const { cookie } = await signIn(email);
+			return { sub, cookie };
+		}
+
+		function posted(fake: Fake, path: string) {
+			return fake.posted.filter((p) => p.path === path).map((p) => p.body);
+		}
+
+		it('switches to yearly right away, charging the year minus the unused month', async () => {
+			const fake = newFake();
+			const { sub, cookie } = await subscriber('to-yearly@example.com', fake, 'month');
+			const yearEnd = now() + 365 * DAY;
+			fake.preview = {
+				total: 4320,
+				currency: 'jpy',
+				lines: {
+					data: [
+						{ amount: -480, period: { end: now() + 30 * DAY } },
+						{ amount: 4800, period: { end: yearEnd } }
+					]
+				}
+			};
+			expect(await (await request('/account/', { cookie })).text()).toContain(
+				'href="/account/plan"'
+			);
+
+			const review = await (await request('/account/plan', { cookie })).text();
+			// 最終確認画面と同じ事項 (価格・今日の支払い・更新・解約) をボタンの手前に出す。
+			const button = review.indexOf('年額に切り替えて支払う');
+			for (const term of [
+				'4,800\u00a0円 / 年',
+				'4,320\u00a0円',
+				'480\u00a0円 を差し引いた',
+				'自動で更新',
+				'解約',
+				'href="/tokushoho/"'
+			]) {
+				expect(review.indexOf(term), term).toBeGreaterThan(-1);
+				expect(review.indexOf(term), term).toBeLessThan(button);
+			}
+			const at = Number(/name="at" value="(\d+)"/.exec(review)![1]);
+			const [preview] = posted(fake, 'invoices/create_preview');
+			expect(preview.get('subscription')).toBe(sub);
+			expect(preview.get('subscription_details[items][0][price]')).toBe('price_year');
+			expect(preview.get('subscription_details[proration_date]')).toBe(String(at));
+
+			const done = await postForm('/account/plan', { action: 'year', at: String(at) }, cookie);
+			expect(done.status).toBe(200);
+			expect(await done.text()).toContain('年額に切り替えました');
+			const [update] = posted(fake, `subscriptions/${sub}`);
+			expect(update.get('items[0][id]')).toBe(`si_${sub}`);
+			expect(update.get('items[0][price]')).toBe('price_year');
+			expect(update.get('payment_behavior')).toBe('pending_if_incomplete');
+			expect(update.get('proration_date')).toBe(String(at));
+
+			// 切り替えの請求書 (使わなかった月額の分のマイナスと、年額) が払われたら、年額の終わりまで延びる。
+			fake.invoices.in_switch = invoice('in_switch', sub, {
+				amount: 4320,
+				lines: [
+					invoiceLine('price_month', -480, now() + 30 * DAY, true),
+					invoiceLine('price_year', 4800, yearEnd, true)
+				]
+			});
+			await webhook(event('invoice.paid', { id: 'in_switch' }));
+			expect((await subscriptionOf(sub))!.paid_through).toBe(yearEnd);
+		});
+
+		it('does not grant an invoice whose negative line is not a proration of the switch', async () => {
+			const fake = newFake();
+			const { sub } = await subscriber('bad-credit@example.com', fake, 'month');
+			const before = (await subscriptionOf(sub))!.paid_through;
+			// 日割りの印が無いマイナスの項目 (値引きなど) は、切り替えの請求書と見なさない。
+			fake.invoices.in_odd = invoice('in_odd', sub, {
+				amount: 4320,
+				lines: [
+					invoiceLine('price_month', -480, now() + 30 * DAY),
+					invoiceLine('price_year', 4800, now() + 365 * DAY)
+				]
+			});
+			vi.spyOn(console, 'log').mockImplementation(() => {});
+			await webhook(event('invoice.paid', { id: 'in_odd' }));
+			expect((await subscriptionOf(sub))!.paid_through).toBe(before);
+		});
+
+		it('does not switch when the payment fails, and voids the pending invoice', async () => {
+			const fake = newFake();
+			const { cookie } = await subscriber('declined@example.com', fake, 'month');
+			fake.preview = { total: 4320, currency: 'jpy', lines: { data: [] } };
+			fake.pendingUpdate = true;
+			const at = now();
+			const res = await postForm('/account/plan', { action: 'year', at: String(at) }, cookie);
+			expect(res.status).toBe(402);
+			expect(await res.text()).toContain('切り替えていません');
+			expect(posted(fake, 'invoices/in_switch/void')).toHaveLength(1);
+		});
+
+		it('shows the recalculated amount instead of charging an old quote', async () => {
+			const fake = newFake();
+			const { sub, cookie } = await subscriber('stale@example.com', fake, 'month');
+			fake.preview = { total: 4320, currency: 'jpy', lines: { data: [] } };
+			const res = await postForm(
+				'/account/plan',
+				{ action: 'year', at: String(now() - 2 * 60 * 60) },
+				cookie
+			);
+			expect(res.status).toBe(409);
+			expect(await res.text()).toContain('計算し直しました');
+			expect(posted(fake, `subscriptions/${sub}`)).toHaveLength(0);
+		});
+
+		it('schedules yearly to become monthly at the end of the period, and cancels the reservation', async () => {
+			const fake = newFake();
+			const { sub, cookie } = await subscriber('to-monthly@example.com', fake, 'year');
+			const review = await (await request('/account/plan', { cookie })).text();
+			expect(review).toContain('月額に切り替える');
+			expect(review).toContain('返金はありません');
+
+			const res = await postForm('/account/plan', { action: 'month' }, cookie);
+			expect(await res.text()).toContain('月額への切り替えを予約しました');
+			expect(posted(fake, 'subscription_schedules')[0].get('from_subscription')).toBe(sub);
+			const [phases] = posted(fake, 'subscription_schedules/sub_sched_1');
+			expect(phases.get('phases[0][items][0][price]')).toBe('price_year');
+			expect(phases.get('phases[1][items][0][price]')).toBe('price_month');
+			// 税率を渡し直さないと、次の期間から外れる。
+			expect(phases.get('phases[1][items][0][tax_rates][0]')).toBe('txr_test');
+
+			fake.subscriptions[sub].schedule = 'sub_sched_1';
+			const reserved = await (await request('/account/plan', { cookie })).text();
+			expect(reserved).toContain('予約を取り消す');
+			await postForm('/account/plan', { action: 'release' }, cookie);
+			expect(posted(fake, 'subscription_schedules/sub_sched_1/release')).toHaveLength(1);
+		});
 	});
 
 	describe('organization', () => {

@@ -3,7 +3,7 @@ import type { HtmlEscapedString } from 'hono/utils/html';
 import { formatDate, messages, type Lang } from './i18n';
 import type { Plan } from './link';
 import type { Interval } from './stripe';
-import { ACCOUNT, ACCOUNT_HOME, PRICING_PATH, TRANSFER_PATH } from './util';
+import { ACCOUNT, ACCOUNT_HOME, PLAN_PATH, PRICING_PATH, TRANSFER_PATH } from './util';
 
 /** 規約類 (site/) のパス。 */
 export const LEGAL_PAGES = {
@@ -569,10 +569,13 @@ export function homePage(
 		billing,
 		limit,
 		installations,
-		forSale
+		forSale,
+		switchable
 	}: {
 		plans: { plan: Plan; paidThrough: number }[];
 		billing: boolean;
+		/** 月額と年額を切り替えられる、個人向けの Stripe のサブスクがある。 */
+		switchable: boolean;
 		limit: number;
 		installations: InstallationRow[];
 		forSale: boolean;
@@ -600,6 +603,7 @@ export function homePage(
 						</form>`
 					: ''
 			}
+			${switchable ? html`<p><a href="${PLAN_PATH}">${t.planSwitchTitle}</a></p>` : ''}
 			${plans.length > 0 ? html`<p><a href="${TRANSFER_PATH}">${t.transferTitle}</a></p>` : ''}
 			${
 				plans.length === 0 && forSale
@@ -671,5 +675,111 @@ export function transferConfirmPage(lang: Lang, email: string, to: string, plans
 			</form>
 			<p><a href="${TRANSFER_PATH}">${t.transferBack}</a></p>
 			${signedInAs(lang, email, TRANSFER_PATH)}`
+	);
+}
+
+/** 月額と年額を切り替える画面の中身。 */
+export type PlanSwitch =
+	| {
+			kind: 'toYearly';
+			region: SaleRegion;
+			/** 今日払う額と差し引く額 (書式を整えたもの)、年額の次の更新。 */
+			total: string;
+			credit: string;
+			renewsAt: number;
+			/** 日割りを計算した時刻。切り替えるときにも同じ時刻で計算させる。 */
+			at: number;
+	  }
+	| { kind: 'toMonthly'; region: SaleRegion; switchAt: number }
+	| { kind: 'reserved'; switchAt: number }
+	| { kind: 'canceled'; until: number };
+
+/**
+ * 月額と年額を切り替える画面。年額へは今すぐ払うので、申し込みの最終確認の画面と同じ事項をボタンより上に出す
+ * (特定商取引法 12条の6)。月額へは年額の期間の終わりに切り替わるよう予約する。
+ */
+export function planSwitchPage(lang: Lang, email: string, view: PlanSwitch, notice?: string) {
+	const t = messages[lang];
+	const order = (rows: [string, string][]) =>
+		html`<dl class="order">
+			${rows.map(
+				([label, value]) =>
+					html`<dt>${label}</dt>
+						<dd>${withLinks(value)}</dd>`
+			)}
+		</dl>`;
+	const form = (action: string, button: string, extra = html``) =>
+		html`<form method="post" action="${PLAN_PATH}">
+			${extra}
+			<input type="hidden" name="action" value="${action}" />
+			<button>${button}</button>
+		</form>`;
+	let body;
+	switch (view.kind) {
+		case 'toYearly':
+			body = html`<p>${t.planCurrent('month')}</p>
+				${order([
+					[t.confirmPlanLabel, t.confirmPlan('year')],
+					[t.confirmPriceLabel, t.confirmPrice('year')],
+					[t.switchTodayLabel, t.switchToday(view.total, view.credit)],
+					[t.confirmRenewLabel, t.switchYearlyRenew(formatDate(lang, view.renewsAt))],
+					[t.confirmPcsLabel, t.confirmPcs],
+					[t.confirmPaymentLabel, t.switchPayment[view.region]],
+					[t.confirmCancelLabel, t.confirmCancel[view.region]]
+				])}
+				${form(
+					'year',
+					t.switchYearlyButton,
+					html`<p class="muted">${withLegalLinks(lang, t.buyConsent)}</p>
+						<input type="hidden" name="at" value="${view.at}" />`
+				)}`;
+			break;
+		case 'toMonthly': {
+			const date = formatDate(lang, view.switchAt);
+			body = html`<p>${t.planCurrent('year')}</p>
+				<p>${t.switchMonthlyLead(date)}</p>
+				${order([
+					[t.confirmPlanLabel, t.confirmPlan('month')],
+					[t.confirmPriceLabel, t.confirmPrice('month')],
+					[t.switchDateLabel, date],
+					[t.confirmRenewLabel, t.confirmRenew('month')],
+					[t.confirmCancelLabel, t.confirmCancel[view.region]]
+				])}
+				<p class="muted">${t.switchReservedNote}</p>
+				${form(
+					'month',
+					t.switchMonthlyButton(date),
+					html`<p class="muted">${withLegalLinks(lang, t.buyConsent)}</p>`
+				)}`;
+			break;
+		}
+		case 'reserved':
+			body = html`<p>${t.planReserved(formatDate(lang, view.switchAt))}</p>
+				<p class="muted">${t.switchReservedNote}</p>
+				${form('release', t.switchReleaseButton)}`;
+			break;
+		case 'canceled':
+			body = html`<p>${t.planCanceled(formatDate(lang, view.until))}</p>`;
+			break;
+	}
+	return page(
+		lang,
+		t.planSwitchTitle,
+		html`<h1>${t.planSwitchTitle}</h1>
+			${notice ? html`<p role="alert">${notice}</p>` : ''} ${body}
+			<p><a href="${ACCOUNT_HOME}">${t.backToAccount}</a></p>
+			${signedInAs(lang, email, PLAN_PATH)}`
+	);
+}
+
+/** 切り替えた・予約した・取り消した後。アカウントのページへ戻す。 */
+export function planSwitchedPage(lang: Lang, title: string, message: string) {
+	const t = messages[lang];
+	return page(
+		lang,
+		title,
+		html`<h1>${title}</h1>
+			<p>${message}</p>
+			<p><a href="${ACCOUNT_HOME}">${t.backToAccount}</a></p>`
 	);
 }

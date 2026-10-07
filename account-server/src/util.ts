@@ -85,6 +85,8 @@ export const PRICING_PATH = '/pricing/';
 export const ACCOUNT_HOME = `${ACCOUNT}/`;
 /** Pro を別のアカウントへ移す画面。 */
 export const TRANSFER_PATH = `${ACCOUNT}/transfer`;
+/** 月額と年額を切り替える画面。 */
+export const PLAN_PATH = `${ACCOUNT}/plan`;
 
 /**
  * サインインの後に戻る先。よそのサイトへ送られないよう、このサイトの中のパスだけを通す。
