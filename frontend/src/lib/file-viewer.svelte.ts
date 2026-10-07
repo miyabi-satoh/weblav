@@ -6,7 +6,7 @@
 import type { ViewerFileKind } from '$lib/file-kind';
 
 export type ViewerFile = {
-	/** ダウンロードの URL。 */
+	/** ダウンロードの URL。`embed` では、動画サイトの埋め込みプレイヤーの URL (→ $lib/video-embed.ts)。 */
 	src: string;
 	title: string;
 	/** 元のファイル名。テキストに色を付けるかを拡張子で決める (→ $lib/code-highlight.ts)。 */

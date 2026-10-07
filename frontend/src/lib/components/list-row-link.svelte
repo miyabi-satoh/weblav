@@ -2,7 +2,9 @@
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { browseLayout } from '$lib/browse-layout.svelte';
+	import { fileViewer, type ViewerFile } from '$lib/file-viewer.svelte';
 	import { formatTimeAgo } from '$lib/format';
+	import { isPlainClick } from '$lib/image-viewer';
 	import {
 		browseRowClass,
 		browseRowSubtitleClass,
@@ -25,7 +27,8 @@
 		title,
 		description,
 		preview,
-		private: isPrivate = false
+		private: isPrivate = false,
+		viewer
 	}: {
 		href: string;
 		/** 省くと、ページのタイトル (無ければホスト名) を出す。 */
@@ -34,7 +37,18 @@
 		description?: string | string[] | null;
 		preview?: LinkPreview | null;
 		private?: boolean;
+		/**
+		 * 動画サイトの動画なら、ビューアで開くもの (→ docs/ui.md「動画サイトの埋め込み」)。
+		 * 修飾キーなしのクリックだけをビューアに回し、ほかは元の URL を新しいタブで開く。
+		 */
+		viewer?: { file: ViewerFile; files: ViewerFile[] };
 	} = $props();
+
+	function handleClick(event: MouseEvent) {
+		if (!viewer || !isPlainClick(event)) return;
+		event.preventDefault();
+		fileViewer.show(viewer.file, viewer.files);
+	}
 
 	let host = $derived.by(() => {
 		try {
@@ -87,7 +101,13 @@
 {/snippet}
 
 {#if browseLayout.tile}
-	<a {href} class={linkTileClass} target="_blank" rel="external noopener noreferrer">
+	<a
+		{href}
+		class={linkTileClass}
+		target="_blank"
+		rel="external noopener noreferrer"
+		onclick={handleClick}
+	>
 		<span class="flex aspect-video w-full items-center justify-center overflow-hidden bg-muted">
 			{#if imageUrl}
 				<!-- 行のタイトルが何の画像かを伝えるので、読み上げでは飛ばす。 -->
@@ -112,13 +132,21 @@
 			{/if}
 			<span class="flex items-center gap-2 text-xs text-muted-foreground">
 				{@render meta(false)}
-				<span class="sr-only">{m.contents_opens_in_new_tab()}</span>
-				<ExternalLinkIcon class="ml-auto size-4 shrink-0" strokeWidth={1.8} />
+				{#if !viewer}
+					<span class="sr-only">{m.contents_opens_in_new_tab()}</span>
+					<ExternalLinkIcon class="ml-auto size-4 shrink-0" strokeWidth={1.8} />
+				{/if}
 			</span>
 		</span>
 	</a>
 {:else}
-	<a {href} class={browseRowClass()} target="_blank" rel="external noopener noreferrer">
+	<a
+		{href}
+		class={browseRowClass()}
+		target="_blank"
+		rel="external noopener noreferrer"
+		onclick={handleClick}
+	>
 		<ListRowIcon
 			icon={LinkIcon}
 			thumbnail={imageUrl ? { src: imageUrl, original: href } : undefined}
@@ -130,6 +158,9 @@
 		{#if isPrivate}
 			<span class="shrink-0 text-sm text-muted-foreground">{m.contents_visibility_private()}</span>
 		{/if}
-		<ListRowGlyph newTab />
+		<!-- ビューアで開く行には、ファイルの行と同じくグリフを付けない (→ docs/ui.md「PDF・動画・テキストのビューア」)。 -->
+		{#if !viewer}
+			<ListRowGlyph newTab />
+		{/if}
 	</a>
 {/if}
