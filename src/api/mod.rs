@@ -5,6 +5,7 @@ mod archive_items;
 mod auth;
 pub mod backup;
 mod browser;
+mod completed_reader;
 mod connection_info;
 mod contents;
 pub mod error_detail;
@@ -18,6 +19,7 @@ mod links_file;
 mod local;
 mod logs;
 pub mod pro;
+mod remote_file;
 mod roots;
 mod search;
 pub mod server_settings;
@@ -83,6 +85,7 @@ fn routes(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
         .merge(archive_axis_hints::router())
         .merge(archive_items::router())
         .merge(links_file::router())
+        .merge(remote_file::router())
         .merge(fs::router())
         .merge(help::router())
         .merge(link_preview::router())

@@ -951,10 +951,13 @@ async fn create_content(
             Some(metadata) => metadata,
             None => super::link_title::fetch_link_metadata(url).await?,
         };
+        // ページのタイトルが無ければ、ファイルを指す URL はファイル名、ほかはホスト名にする。
+        // ファイル名のほうが、ファイルの行として出たときに中身を見分けられるため (→ docs/ui.md「URL のファイル」)。
         let title = needs_link_title.then(|| {
-            metadata
-                .title
-                .unwrap_or_else(|| super::link_title::host_of(url))
+            metadata.title.unwrap_or_else(|| {
+                super::remote_file::relayed_file_name(url)
+                    .unwrap_or_else(|| super::link_title::host_of(url))
+            })
         });
         let description = needs_link_description
             .then_some(metadata.description)
@@ -2063,7 +2066,7 @@ pub(super) async fn search_contents(
 /// `text/html`・`image/svg+xml` はスクリプト実行が可能なため、インライン表示は
 /// セッションCookieを持つこのアプリのオリジン上でXSSの経路になり得る。ホワイトリストに
 /// 無いものは安全側で強制ダウンロード(`attachment`)にする。
-fn is_inline_allowed(mime: &mime_guess::Mime) -> bool {
+pub(super) fn is_inline_allowed(mime: &mime_guess::Mime) -> bool {
     if mime.essence_str() == "image/svg+xml" {
         return false;
     }
@@ -2077,7 +2080,7 @@ fn is_inline_allowed(mime: &mime_guess::Mime) -> bool {
 /// `Content-Disposition` ヘッダーの値を組み立てる。ファイル名は日本語等の非ASCII文字を
 /// 含み得るため、ASCII近似のフォールバック(`filename=`)と RFC 5987 のパーセントエンコード
 /// (`filename*=UTF-8''...`)の両方を付与する(モダンなブラウザは後者を優先する)。
-fn content_disposition_header(disposition: &str, file_name: &str) -> HeaderValue {
+pub(super) fn content_disposition_header(disposition: &str, file_name: &str) -> HeaderValue {
     let ascii_fallback: String = file_name
         .chars()
         .map(|c| {

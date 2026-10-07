@@ -17,6 +17,11 @@ export type ViewerFile = {
 	 * 読めなければ行がアイコンに戻す。
 	 */
 	thumbnail?: { src: string; original: string };
+	/**
+	 * URL のファイルの元の URL (→ docs/ui.md「URL のファイル」)。「新しいタブで開く」は、`src` (中継) でなく
+	 * これを開く。中継できない相手 (名前を引くと LAN を指すものなど) も、閲覧する端末からは開けるため。
+	 */
+	originalUrl?: string;
 };
 
 let files = $state<ViewerFile[]>([]);

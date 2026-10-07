@@ -220,23 +220,41 @@
 			{/if}
 			{@render iconButton(XIcon, m.action_close(), nowPlaying.stop)}
 		</div>
-		<div
-			class="order-4 flex w-full items-center gap-3 text-xs text-muted-foreground md:order-none md:col-span-3 md:row-start-2"
-		>
-			<span class="shrink-0">{formatDuration(currentTime)}</span>
-			<input
-				type="range"
-				class="audio-seek h-11 min-w-0 flex-1"
-				style:--seek-progress="{progress}%"
-				min="0"
-				max={duration || 0}
-				step="any"
-				aria-label={m.audio_player_seek_label()}
-				aria-valuetext="{formatDuration(currentTime)} / {formatDuration(duration)}"
-				bind:value={() => currentTime, seek}
-			/>
-			<span class="shrink-0">{formatDuration(duration)}</span>
-		</div>
+		{#if nowPlaying.failed}
+			<p
+				class="order-4 flex min-h-11 w-full flex-wrap items-center gap-x-3 text-sm md:order-none md:col-span-3 md:row-start-2"
+				role="alert"
+			>
+				{m.audio_player_error()}
+				<!-- API への直リンクか、URL のファイルの元の URL (→ $lib/api/urls.ts)。 -->
+				<a
+					href={track.originalUrl ?? track.src}
+					class="underline underline-offset-4"
+					target="_blank"
+					rel="external noopener noreferrer"
+				>
+					{m.contents_opens_in_new_tab()}
+				</a>
+			</p>
+		{:else}
+			<div
+				class="order-4 flex w-full items-center gap-3 text-xs text-muted-foreground md:order-none md:col-span-3 md:row-start-2"
+			>
+				<span class="shrink-0">{formatDuration(currentTime)}</span>
+				<input
+					type="range"
+					class="audio-seek h-11 min-w-0 flex-1"
+					style:--seek-progress="{progress}%"
+					min="0"
+					max={duration || 0}
+					step="any"
+					aria-label={m.audio_player_seek_label()}
+					aria-valuetext="{formatDuration(currentTime)} / {formatDuration(duration)}"
+					bind:value={() => currentTime, seek}
+				/>
+				<span class="shrink-0">{formatDuration(duration)}</span>
+			</div>
+		{/if}
 		<div
 			class="order-3 flex w-full items-center justify-between md:order-none md:col-start-2 md:row-start-1 md:w-auto md:gap-1 md:justify-self-center"
 		>
@@ -285,4 +303,5 @@
 	ontimeupdate={(event) => (currentTime = event.currentTarget.currentTime)}
 	ondurationchange={(event) => (duration = event.currentTarget.duration || 0)}
 	onended={handleEnded}
+	onerror={nowPlaying.markFailed}
 ></audio>

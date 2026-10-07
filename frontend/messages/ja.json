@@ -488,6 +488,7 @@
 	"audio_player_next_button": "次の曲",
 	"audio_player_auto_advance_button": "続けて再生",
 	"audio_player_mute_button": "ミュート",
+	"audio_player_error": "この音声は、ここでは再生できませんでした。",
 	"image_viewer_zoom_button": "拡大・縮小",
 	"image_viewer_previous_button": "前の画像",
 	"image_viewer_next_button": "次の画像",

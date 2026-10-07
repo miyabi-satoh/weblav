@@ -63,3 +63,76 @@ export function viewerFileKind(fileName: string, isText: boolean): ViewerFileKin
 	const kind = extension === undefined ? undefined : VIEWER_EXTENSIONS[extension];
 	return kind ?? (isText ? 'text' : undefined);
 }
+
+/**
+ * URL のファイルで、ビューアの画像として開く拡張子。サーバーの `thumbnails` の `IMAGE_EXTENSIONS` と揃える。
+ * URL のファイルは大きさを読まないので、PhotoSwipe でなくビューアで開く (→ docs/ui.md「URL のファイル」)。
+ */
+const REMOTE_IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']);
+
+export type RemoteFileKind = ViewerFileKind | 'audio';
+
+/** URL のパスの最後の部分を戻したファイル名。http・https でない・読めない URL は `undefined`。 */
+export function remoteFileName(url: string): string | undefined {
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return undefined;
+	}
+	if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return undefined;
+	const last = parsed.pathname.split('/').pop() ?? '';
+	try {
+		return decodeURIComponent(last);
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * LAN の相手を指す URL か (IP が公開アドレスでない・`.local`・ドットの無い名前)。サーバーは公開アドレスにだけ
+ * つなぐので、中継しない。名前を引いた先が LAN のものはここでは見分けられず、ビューアの読めなかったときの
+ * 案内から、元の URL を新しいタブで開く。
+ */
+export function isLanUrl(url: string): boolean {
+	let host: string;
+	try {
+		host = new URL(url).hostname.toLowerCase();
+	} catch {
+		return false;
+	}
+	if (host.startsWith('[')) {
+		const v6 = host.slice(1, -1);
+		return v6 === '::1' || /^f[cd]/.test(v6) || /^fe[89ab]/.test(v6);
+	}
+	const v4 = host.split('.').map(Number);
+	if (v4.length === 4 && v4.every((part) => Number.isInteger(part) && part >= 0 && part <= 255)) {
+		const [a, b] = v4;
+		return (
+			a === 0 ||
+			a === 10 ||
+			a === 127 ||
+			(a === 100 && b >= 64 && b <= 127) ||
+			(a === 169 && b === 254) ||
+			(a === 172 && b >= 16 && b <= 31) ||
+			(a === 192 && b === 168)
+		);
+	}
+	return !host.includes('.') || host.endsWith('.local');
+}
+
+/**
+ * `link` コンテンツの URL を、サーバーの中継を通してプレイヤー・ビューアで開くなら、その種類
+ * (→ docs/ui.md「URL のファイル」)。拡張子で開き方の決まるファイルだけで、サーバーの
+ * `remote_file::relayed_file_name` と揃える。LAN の URL と、それ以外のページは `undefined` (新しいタブで開く)。
+ */
+export function remoteFileKind(url: string): RemoteFileKind | undefined {
+	if (isLanUrl(url)) return undefined;
+	const fileName = remoteFileName(url);
+	if (fileName === undefined) return undefined;
+	if (isAudioFileName(fileName)) return 'audio';
+	const extension = fileExtension(fileName);
+	if (extension === undefined) return undefined;
+	if (REMOTE_IMAGE_EXTENSIONS.has(extension)) return 'image';
+	return VIEWER_EXTENSIONS[extension];
+}

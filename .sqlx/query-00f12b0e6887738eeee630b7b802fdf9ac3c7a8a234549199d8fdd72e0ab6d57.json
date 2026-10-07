@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT type as \"content_type: ContentType\", url FROM contents WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "content_type: ContentType",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "url",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "00f12b0e6887738eeee630b7b802fdf9ac3c7a8a234549199d8fdd72e0ab6d57"
+}

@@ -7,7 +7,7 @@
 //!
 //! 取得先はログイン済みなら誰でも指定できる。サーバーと同じ LAN の機器を突くのに
 //! 使われないよう、公開アドレスにだけ接続する (`PublicOnlyResolver`)。リダイレクト先にも
-//! 同じ判定が掛かる。外向きの通信はこのモジュールだけに閉じる。
+//! 同じ判定が掛かる。外向きの通信はこのモジュールだけに閉じる (URL のファイルの中継も、開くのはここ)。
 
 use std::io::Read;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, ToSocketAddrs};
@@ -107,10 +107,15 @@ fn is_lan_host(without_scheme: &str) -> bool {
     }
 }
 
-/// 公開アドレスにだけつなぐ取得の口。外へつなぐ取得は、どれもこれを通す。
+/// ページと画像を取る口。全体を `TIMEOUT` で切る。
 fn agent() -> Agent {
-    let config = Agent::config_builder()
-        .timeout_global(Some(TIMEOUT))
+    public_only_agent(Agent::config_builder().timeout_global(Some(TIMEOUT)))
+}
+
+/// 公開アドレスにだけつなぐ取得の口。外へつなぐ取得は、どれもこれを通す。
+/// 時間切れの決め方だけを呼び出し側が `config` で渡す。
+fn public_only_agent(config: ureq::config::ConfigBuilder<ureq::typestate::AgentScope>) -> Agent {
+    let config = config
         .max_redirects(MAX_REDIRECTS)
         .http_status_as_error(false)
         // 環境変数のプロキシを使うと、接続先の判定が回避される。
@@ -119,6 +124,34 @@ fn agent() -> Agent {
         .tls_config(super::native_tls_config())
         .build();
     Agent::with_parts(config, DefaultConnector::default(), PublicOnlyResolver)
+}
+
+/// ファイルの中継で、応答の頭が届くまでの上限。ページの取得 (`TIMEOUT`) より長くするのは、
+/// 動画の配信元などが Range の頭を返すまでに時間の掛かることがあるため。
+const FILE_RESPONSE_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// ファイルの中継で、本文を受け取り終えるまでの上限。閲覧側が読む速さで受け取るので、
+/// 動画を見ている間はつながったままになる。止まった相手のためにスレッドを持ち続けないための上限で、
+/// 切れても動画はブラウザが Range で続きを頼み直す。
+const FILE_BODY_TIMEOUT: Duration = Duration::from_secs(30 * 60);
+
+/// URL のファイルを中継するために開く (→ `remote_file`)。`range` は閲覧側の `Range` をそのまま渡す。
+/// 応答が無ければ `None` (状態の判断は呼び出し側)。
+pub(super) fn open_file_blocking(
+    url: &str,
+    range: Option<&str>,
+) -> Option<ureq::http::Response<ureq::Body>> {
+    let agent = public_only_agent(
+        Agent::config_builder()
+            .timeout_connect(Some(TIMEOUT))
+            .timeout_recv_response(Some(FILE_RESPONSE_TIMEOUT))
+            .timeout_recv_body(Some(FILE_BODY_TIMEOUT)),
+    );
+    let mut request = agent.get(url);
+    if let Some(range) = range {
+        request = request.header("Range", range);
+    }
+    request.call().ok()
 }
 
 /// ページを取り、タイトルと説明を返す。相手から応答が無ければ `None`

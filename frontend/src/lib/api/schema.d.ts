@@ -1005,6 +1005,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/{id}/remote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * `link` コンテンツの URL のファイルを、取りに行って流す。
+         *     中継しない URL (拡張子で開き方が決まらない・リンクでない) と、相手が応答しない・エラーを返すときは 404。
+         */
+        get: operations["remote_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/{id}/rescan": {
         parameters: {
             query?: never;
@@ -5608,6 +5628,67 @@ export interface operations {
             };
             /** @description 見えない・存在しない、または一覧のファイルでない */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    remote_content: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description URL のファイルの中身 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Range で頼まれた部分 */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 閲覧にログインが必要 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見えない・存在しない・中継しない URL、または相手から取れない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 相手が Range を満たせなかった */
+            416: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 同時に中継している数が上限に達した */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

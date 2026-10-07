@@ -41,4 +41,4 @@ Some contents are visible only to signed-in users (→ [Sign in and display](03-
 
   ![An open PDF, with zoom and Open in new tab buttons at the top and buttons at the sides to move between files](images/viewing-viewer.webp)
 
-- Select a link to open it in a new tab. Select a file whose name ends with `.links.toml` to list the links in it.
+- Select a link to open it in a new tab. If the link points to a file such as a PDF, video, audio file, or image, it opens in place, just like a file. Select a file whose name ends with `.links.toml` to list the links in it.

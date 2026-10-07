@@ -32,9 +32,10 @@
 	}
 </script>
 
-<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
+<!-- API への直リンクか、URL のファイルの元の URL (→ $lib/api/urls.ts)。
+     中継の URL は Office をダウンロードにし、LAN を指す名前では開けないため、元の URL にする。 -->
 <a
-	href={file.src}
+	href={file.originalUrl ?? file.src}
 	class={browseRowClass(compact)}
 	target="_blank"
 	rel="external noopener noreferrer"

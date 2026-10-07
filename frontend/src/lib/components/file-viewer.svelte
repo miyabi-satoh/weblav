@@ -125,9 +125,9 @@
 							</div>
 						</div>
 					{/if}
-					<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
+					<!-- API への直リンクか、URL のファイルの元の URL (→ $lib/api/urls.ts)。 -->
 					<a
-						href={current.src}
+						href={current.originalUrl ?? current.src}
 						class={barButtonClass}
 						target="_blank"
 						rel="external noopener noreferrer"
@@ -148,9 +148,9 @@
 								class="flex size-full flex-col items-center justify-center gap-4 p-4 text-center"
 							>
 								<p>{m.file_viewer_error()}</p>
-								<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
+								<!-- API への直リンクか、URL のファイルの元の URL (→ $lib/api/urls.ts)。 -->
 								<a
-									href={current.src}
+									href={current.originalUrl ?? current.src}
 									class="text-white underline underline-offset-4"
 									target="_blank"
 									rel="external noopener noreferrer"
