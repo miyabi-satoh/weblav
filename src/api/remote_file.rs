@@ -8,17 +8,20 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use axum::body::Body;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
+use serde::Deserialize;
 use tokio::sync::{Semaphore, SemaphorePermit};
 use tokio_util::io::{ReaderStream, SyncIoBridge};
+use utoipa::IntoParams;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use super::completed_reader::CompletedReader;
 use super::contents::{self, ContentType};
 use super::link_title;
+use super::links_file::{self, LinksFileQuery};
 use crate::auth::Viewer;
 use crate::error::{AppError, run_blocking};
 use crate::state::AppState;
@@ -79,6 +82,57 @@ async fn remote_content(
     let url = row
         .url
         .ok_or(AppError::DataIntegrity("link content without a url"))?;
+    relay(url, &headers).await
+}
+
+/// リンクの一覧のファイル (`.links.toml`) の中のリンクの URL のファイルを、取りに行って流す。
+#[derive(Debug, Deserialize, IntoParams)]
+#[serde(rename_all = "camelCase")]
+#[into_params(parameter_in = Query)]
+struct LinksRemoteQuery {
+    /// 一覧のファイルの指し方 (`GET /contents/{id}/links` と同じ)。
+    #[serde(default)]
+    path: String,
+    item: Option<i64>,
+    /// 一覧に書かれたリンクの URL (`GET /contents/{id}/links` が返したまま)。
+    url: String,
+}
+
+/// 一覧のファイルの中のリンクの URL のファイルを、取りに行って流す (→ docs/ui.md「URL のファイル」)。
+/// 中継するのは、閲覧できる一覧に書かれた URL だけ。誰でも任意の URL を取らせられる口にしないため。
+#[utoipa::path(
+    get,
+    path = "/contents/{id}/links/remote",
+    params(("id" = i64, Path), LinksRemoteQuery),
+    responses(
+        (status = OK, description = "URL のファイルの中身"),
+        (status = 206, description = "Range で頼まれた部分"),
+        (status = 401, body = crate::error::ErrorResponse, description = "閲覧にログインが必要"),
+        (status = 404, body = crate::error::ErrorResponse, description = "見えない・存在しない一覧、一覧に無い・中継しない URL、または相手から取れない"),
+        (status = 416, description = "相手が Range を満たせなかった"),
+        (status = 429, body = crate::error::ErrorResponse, description = "同時に中継している数が上限に達した"),
+    )
+)]
+async fn links_remote_content(
+    viewer: Viewer,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Query(query): Query<LinksRemoteQuery>,
+    headers: HeaderMap,
+) -> Result<Response, AppError> {
+    let file = LinksFileQuery {
+        path: query.path,
+        item: query.item,
+    };
+    let urls = links_file::viewable_urls(&state, &viewer, id, &file).await?;
+    if !urls.contains(&query.url) {
+        return Err(AppError::NotFound);
+    }
+    relay(query.url, &headers).await
+}
+
+/// 中継する URL を、公開アドレスにだけつないで取り、閲覧側の `Range` を渡して流す。
+async fn relay(url: String, headers: &HeaderMap) -> Result<Response, AppError> {
     let file_name = relayed_file_name(&url).ok_or(AppError::NotFound)?;
 
     // 待たせずに断る。ブラウザの動画・音声は、読めなければ画面が案内を出す。
@@ -186,7 +240,9 @@ fn relay_response(
 }
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
-    OpenApiRouter::new().routes(routes!(remote_content))
+    OpenApiRouter::new()
+        .routes(routes!(remote_content))
+        .routes(routes!(links_remote_content))
 }
 
 #[cfg(test)]

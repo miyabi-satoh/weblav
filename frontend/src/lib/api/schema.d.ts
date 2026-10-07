@@ -1005,6 +1005,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/{id}/links/remote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 一覧のファイルの中のリンクの URL のファイルを、取りに行って流す (→ docs/ui.md「URL のファイル」)。
+         *     中継するのは、閲覧できる一覧に書かれた URL だけ。誰でも任意の URL を取らせられる口にしないため。
+         */
+        get: operations["links_remote_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/{id}/remote": {
         parameters: {
             query?: never;
@@ -5628,6 +5648,73 @@ export interface operations {
             };
             /** @description 見えない・存在しない、または一覧のファイルでない */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    links_remote_content: {
+        parameters: {
+            query: {
+                /** @description 一覧のファイルの指し方 (`GET /contents/{id}/links` と同じ)。 */
+                path?: string;
+                item?: number;
+                /** @description 一覧に書かれたリンクの URL (`GET /contents/{id}/links` が返したまま)。 */
+                url: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description URL のファイルの中身 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Range で頼まれた部分 */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 閲覧にログインが必要 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見えない・存在しない一覧、一覧に無い・中継しない URL、または相手から取れない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 相手が Range を満たせなかった */
+            416: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 同時に中継している数が上限に達した */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

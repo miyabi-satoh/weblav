@@ -173,3 +173,58 @@ async fn links_file_content_is_named_by_its_registered_title(pool: SqlitePool) {
     assert_eq!(json["title"], "今朝の記事", "{json}");
     assert!(json["containerTitle"].is_null(), "{json}");
 }
+
+const REMOTE_LINKS_TOML: &str = r#"
+[[links]]
+url = "http://127.0.0.1:9/handout.pdf"
+"#;
+
+/// 一覧の中の URL のファイルも、URL のファイルの中継と同じく LAN の相手にはつながない。
+#[sqlx::test]
+async fn links_file_remote_on_a_private_address_is_not_relayed(pool: SqlitePool) {
+    let (_dir, id) = public_folder_with(
+        &pool,
+        "links-file-remote",
+        "a.links.toml",
+        REMOTE_LINKS_TOML.as_bytes(),
+    )
+    .await;
+    let app = test_app(pool).await;
+
+    let (status, body) = send_anon(
+        app,
+        "GET",
+        &format!(
+            "/api/v1/contents/{id}/links/remote?path=a.links.toml&url=http%3A%2F%2F127.0.0.1%3A9%2Fhandout.pdf"
+        ),
+    )
+    .await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
+}
+
+/// 閲覧の権限は、一覧を読む前に確かめる。
+#[sqlx::test]
+async fn links_file_remote_in_a_folder_for_signed_in_users_requires_login(pool: SqlitePool) {
+    let dir = temp_test_dir("links-file-remote-auth");
+    std::fs::write(dir.join("a.links.toml"), REMOTE_LINKS_TOML).expect("書けるはず");
+    let id = insert_folder_by(
+        &pool,
+        "教材",
+        dir.display().to_string(),
+        "authenticated",
+        None,
+        None,
+    )
+    .await;
+    let app = test_app(pool).await;
+
+    let (status, body) = send_anon(
+        app,
+        "GET",
+        &format!(
+            "/api/v1/contents/{id}/links/remote?path=a.links.toml&url=http%3A%2F%2F127.0.0.1%3A9%2Fhandout.pdf"
+        ),
+    )
+    .await;
+    assert_error(status, &body, StatusCode::UNAUTHORIZED, "unauthorized");
+}

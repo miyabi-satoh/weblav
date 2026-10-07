@@ -3869,6 +3869,91 @@
         }
       }
     },
+    "/api/v1/contents/{id}/links/remote": {
+      "get": {
+        "summary": "一覧のファイルの中のリンクの URL のファイルを、取りに行って流す (→ docs/ui.md「URL のファイル」)。\n中継するのは、閲覧できる一覧に書かれた URL だけ。誰でも任意の URL を取らせられる口にしないため。",
+        "operationId": "links_remote_content",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "一覧のファイルの指し方 (`GET /contents/{id}/links` と同じ)。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "item",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "url",
+            "in": "query",
+            "description": "一覧に書かれたリンクの URL (`GET /contents/{id}/links` が返したまま)。",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "URL のファイルの中身"
+          },
+          "206": {
+            "description": "Range で頼まれた部分"
+          },
+          "401": {
+            "description": "閲覧にログインが必要",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "見えない・存在しない一覧、一覧に無い・中継しない URL、または相手から取れない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "416": {
+            "description": "相手が Range を満たせなかった"
+          },
+          "429": {
+            "description": "同時に中継している数が上限に達した",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contents/{id}/remote": {
       "get": {
         "summary": "`link` コンテンツの URL のファイルを、取りに行って流す。\n中継しない URL (拡張子で開き方が決まらない・リンクでない) と、相手が応答しない・エラーを返すときは 404。",
