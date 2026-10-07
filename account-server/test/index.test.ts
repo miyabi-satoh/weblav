@@ -1300,6 +1300,21 @@ describe('subscribing to Pro', () => {
 		expect(page).not.toContain('申し込みを確定して支払いへ');
 	});
 
+	it('lets an account order again once a canceled subscription has run out, without the grace', async () => {
+		const email = 'switch@example.com';
+		const { cookie } = await signIn(email);
+		await grantPro(email, 'personal', now() - DAY);
+		const review = () => request('/account/buy?plan=year', { cookie }).then((r) => r.text());
+		// 払い直しを待っている間 (猶予の中) は、まだ Pro がある。
+		expect(await review()).toContain('このアカウントには Pro があります');
+		await env.DB.prepare(
+			"UPDATE subscriptions SET status = 'canceled' WHERE account_id = (SELECT id FROM accounts WHERE email = ?)"
+		)
+			.bind(email)
+			.run();
+		expect(await review()).toContain('申し込みを確定して支払いへ');
+	});
+
 	it('brings back to the final review after signing in', async () => {
 		const path = '/account/buy?plan=month&next=%2Faccount%2F';
 		const before = await (await request(path)).text();
