@@ -13,7 +13,7 @@
 
 ## 開く
 
-1. WebLAV を動かしているパソコンで、通知領域 (macOS はメニューバー) の WebLAV アイコンから「ブラウザで開く」を選ぶ。開くのは `http://localhost:3000` です
+1. WebLAV を動かしているパソコンで、通知領域 (macOS はメニューバー、Ubuntu は画面右上) の WebLAV アイコンから「ブラウザで開く」を選ぶ。開くのは `http://localhost:3000` です
 
    ![通知領域の WebLAV アイコンのメニュー (Windows)](images/quickstart-tray-menu.webp)
 
@@ -31,7 +31,7 @@
 
    ![フォルダを追加のボタン](images/roots-page.webp)
 
-2. 開いたフォルダを選ぶ窓で、見せたいフォルダを選ぶ (Windows では「フォルダーの選択」、macOS では「開く」を押す)
+2. 開いたフォルダを選ぶ窓で、見せたいフォルダを選ぶ (Windows では「フォルダーの選択」、macOS では「開く」、Ubuntu では「選択」を押す)
 
 選ぶとすぐに一覧に追加されます。
 

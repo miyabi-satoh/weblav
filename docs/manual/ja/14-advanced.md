@@ -15,6 +15,12 @@
   cd ~/Library/Containers/com.amiiby.weblav/Data/Library/Application\ Support/com.amiiby.weblav && touch config.toml && open -e config.toml
   ```
 
+- **Ubuntu**: ターミナルで次のとおり打つと、テキストエディターで開く
+
+  ```
+  mkdir -p ~/.config/weblav && touch ~/.config/weblav/config.toml && xdg-open ~/.config/weblav/config.toml
+  ```
+
 ## 設定の一覧
 
 書かなかった項目は既定値で動きます。

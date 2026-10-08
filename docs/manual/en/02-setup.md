@@ -18,9 +18,13 @@ After you start WebLAV once, it starts automatically when you sign in. To stop t
 
 To start automatically, turn on “Start at login” from the WebLAV icon in the menu bar. If “Start at login (allow it in System Settings)” appears, select it, then turn on WebLAV in “Login Items”.
 
+### Ubuntu
+
+To start automatically, turn on “Start at login” from the WebLAV icon at the top right of the screen.
+
 ## 2. Create the first administrator
 
-1. Choose “Setup” from the WebLAV icon in the task tray (menu bar on macOS).
+1. Choose “Setup” from the WebLAV icon in the task tray (menu bar on macOS, top right of the screen on Ubuntu).
 
    ![WebLAV icon menu in the task tray on Windows](images/quickstart-tray-menu.webp)
 
