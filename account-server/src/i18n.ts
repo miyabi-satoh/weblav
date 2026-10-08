@@ -13,6 +13,9 @@ export type Lang = 'ja' | 'en';
 
 const COOKIE = 'lang';
 
+/** 特定商取引法に基づく表記。運営者の全製品で共通のページで、価格などの製品ごとの条件は料金のページに書く。 */
+export const TOKUSHOHO_URL = 'https://amiiby.com/tokushoho/';
+
 /** Managed Payments で売った分の返金の決まり。購入から60日以内は、こちらの決まりより Link のものが優先する。 */
 const LINK_REFUND_POLICY =
 	'https://support.link.com/questions/requesting-a-refund-for-a-sold-through-link-payment';
@@ -197,9 +200,8 @@ const ja = {
 	confirmPcs: '3 台まで',
 	confirmCancelLabel: '解約と返金',
 	confirmCancel: {
-		domestic:
-			'解約はアカウントのページからいつでもできます。解約後も、支払い済みの期間の終わりまで Pro を使えます。支払い済みの期間は返金できません (こちらの誤りによる請求などを除きます。詳しくは[特定商取引法に基づく表記](/tokushoho/))。',
-		overseas: `解約はアカウントのページからいつでもできます。解約後も、支払い済みの期間の終わりまで Pro を使えます。支払い済みの期間は返金できません (こちらの誤りによる請求などを除きます。詳しくは[特定商取引法に基づく表記](/tokushoho/))。購入から 60 日以内は、[Link の返金ポリシー](${LINK_REFUND_POLICY})で返金されることがあります。`
+		domestic: `解約はアカウントのページからいつでもできます。解約後も、支払い済みの期間の終わりまで Pro を使えます。支払い済みの期間は返金できません (こちらの誤りによる請求などを除きます。詳しくは[特定商取引法に基づく表記](${TOKUSHOHO_URL}))。`,
+		overseas: `解約はアカウントのページからいつでもできます。解約後も、支払い済みの期間の終わりまで Pro を使えます。支払い済みの期間は返金できません (こちらの誤りによる請求などを除きます。詳しくは[特定商取引法に基づく表記](${TOKUSHOHO_URL}))。購入から 60 日以内は、[Link の返金ポリシー](${LINK_REFUND_POLICY})で返金されることがあります。`
 	} as Record<SaleRegion, string>,
 	buyConsent: '{terms}・{privacy}・{tokushoho}に同意のうえ、進んでください。',
 	confirmButton: '申し込みを確定して支払いへ',
@@ -427,9 +429,8 @@ const en: typeof ja = {
 	confirmPcs: 'Up to 3',
 	confirmCancelLabel: 'Cancellation and refunds',
 	confirmCancel: {
-		domestic:
-			'You can cancel at any time on your account page. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side (see the [Specified Commercial Transactions Act notice](/tokushoho/)).',
-		overseas: `You can cancel at any time on your account page. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side (see the [Specified Commercial Transactions Act notice](/tokushoho/)). Within 60 days of purchase, you may get a refund under [Link's refund policy](${LINK_REFUND_POLICY}).`
+		domestic: `You can cancel at any time on your account page. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side (see the [Specified Commercial Transactions Act notice](${TOKUSHOHO_URL})).`,
+		overseas: `You can cancel at any time on your account page. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side (see the [Specified Commercial Transactions Act notice](${TOKUSHOHO_URL})). Within 60 days of purchase, you may get a refund under [Link's refund policy](${LINK_REFUND_POLICY}).`
 	},
 	buyConsent: 'By continuing, you agree to the {terms}, the {privacy}, and the {tokushoho}.',
 	confirmButton: 'Confirm and continue to payment',

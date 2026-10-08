@@ -1,15 +1,15 @@
 import { html } from 'hono/html';
 import type { HtmlEscapedString } from 'hono/utils/html';
-import { formatDate, messages, type Lang } from './i18n';
+import { formatDate, messages, TOKUSHOHO_URL, type Lang } from './i18n';
 import type { Plan } from './link';
 import type { Interval } from './stripe';
 import { ACCOUNT, ACCOUNT_HOME, PLAN_PATH, PRICING_PATH, TRANSFER_PATH } from './util';
 
-/** 規約類 (site/) のパス。 */
+/** 規約類の場所。利用規約とプライバシーポリシーは site/ に、特定商取引法に基づく表記は運営者の共通のページにある。 */
 export const LEGAL_PAGES = {
 	terms: '/terms/',
 	privacy: '/privacy/',
-	tokushoho: '/tokushoho/'
+	tokushoho: TOKUSHOHO_URL
 } as const;
 
 type Body = HtmlEscapedString | Promise<HtmlEscapedString>;
@@ -220,9 +220,9 @@ function withLegalLinks(lang: Lang, text: string) {
 		);
 }
 
-/** 文言の `[文](https://…)`・`[文](/…)` をリンクにする。文言はこちらで書くもので、利用者の入力は通さない。 */
+/** 文言の `[文](https://…)` をリンクにする。文言はこちらで書くもので、利用者の入力は通さない。 */
 function withLinks(text: string) {
-	const parts = text.split(/\[([^\]]+)\]\(((?:https:\/\/|\/)[^)\s]+)\)/);
+	const parts = text.split(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/);
 	return parts.map((part, i) =>
 		i % 3 === 1 ? html`<a href="${parts[i + 1]}">${part}</a>` : i % 3 === 2 ? '' : part
 	);

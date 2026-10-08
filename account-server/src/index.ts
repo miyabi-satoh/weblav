@@ -1338,7 +1338,7 @@ accountApp.post('/buy', async (c) => {
 			expiresAt: checkout.expires_at,
 			submitMessage: managedPayments
 				? undefined
-				: messages[checkout.lang].checkoutNote(`${origin}${LEGAL_PAGES.tokushoho}`),
+				: messages[checkout.lang].checkoutNote(LEGAL_PAGES.tokushoho),
 			managedPayments,
 			idempotencyKey: `weblav-checkout-${checkout.id}`
 		});
