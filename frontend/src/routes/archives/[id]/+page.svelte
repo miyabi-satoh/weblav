@@ -133,20 +133,23 @@
 			</div>
 		{/if}
 
-		<div class="mt-2 flex min-h-11 items-center justify-between gap-3 text-sm">
-			<p class="text-muted-foreground">
-				{m.archive_view_count({ count: formatNumber(view.items.length) })}
-			</p>
-			{#if hasFilters}
-				<!-- パンくずと同じく実URL遷移にする。ブラウザの戻る/進むを機能させるため。 -->
-				<a
-					href={resetHref}
-					class="inline-flex h-11 items-center px-1 text-primary underline underline-offset-4"
-				>
-					{m.archive_view_reset_filters()}
-				</a>
-			{/if}
-		</div>
+		<!-- フォルダが無いときは、件数を数える物が無い (下に「フォルダが見つかりません。」だけを出す)。 -->
+		{#if !view.folderMissing}
+			<div class="mt-2 flex min-h-11 items-center justify-between gap-3 text-sm">
+				<p class="text-muted-foreground">
+					{m.archive_view_count({ count: formatNumber(view.items.length) })}
+				</p>
+				{#if hasFilters}
+					<!-- パンくずと同じく実URL遷移にする。ブラウザの戻る/進むを機能させるため。 -->
+					<a
+						href={resetHref}
+						class="inline-flex h-11 items-center px-1 text-primary underline underline-offset-4"
+					>
+						{m.archive_view_reset_filters()}
+					</a>
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	{#if view.items.length === 0}

@@ -6,6 +6,8 @@ Create `config.toml` at the settings location (→ [Maintain WebLAV](09-maintena
 If you have saved the “Server” section in Site settings, the file already exists, so add to it. Do not write the same section heading, such as `[server]`, twice.
 After saving, restart WebLAV.
 
+If saving Site settings shows “The settings file (config.toml) cannot be read.”, what you wrote has a mistake (an unclosed quote, the same section heading written twice, and so on). Fix `config.toml`, then save again.
+
 - **Windows**: Write it in Notepad, then save it as `config.toml` at the settings location with “All Files” selected as the file type.
 - **macOS**: Enter the following in Terminal to open it in TextEdit.
 
