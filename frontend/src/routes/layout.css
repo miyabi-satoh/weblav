@@ -160,9 +160,10 @@
 	}
 }
 
-/* ページ内プレイヤーのシークバー。`<input type="range">` の見た目をブラウザによらず揃える。
- * 再生済みの長さは、要素の style で渡す `--seek-progress` (0%〜100%) で塗る。 */
-@utility audio-seek {
+/* 音声のプレイヤーと動画のビューアのシークバー。`<input type="range">` の見た目をブラウザによらず揃える。
+ * 再生済みの長さは、要素の style で渡す `--seek-progress` (0%〜100%) で塗る。
+ * 黒い地のビューアでは `--seek-fill`・`--seek-track` で色を替える。 */
+@utility media-seek {
 	appearance: none;
 	background: transparent;
 	cursor: pointer;
@@ -172,8 +173,8 @@
 		border-radius: 9999px;
 		background: linear-gradient(
 			to right,
-			var(--primary) var(--seek-progress, 0%),
-			var(--border) var(--seek-progress, 0%)
+			var(--seek-fill, var(--primary)) var(--seek-progress, 0%),
+			var(--seek-track, var(--border)) var(--seek-progress, 0%)
 		);
 	}
 	&::-moz-range-track {
@@ -181,8 +182,8 @@
 		border-radius: 9999px;
 		background: linear-gradient(
 			to right,
-			var(--primary) var(--seek-progress, 0%),
-			var(--border) var(--seek-progress, 0%)
+			var(--seek-fill, var(--primary)) var(--seek-progress, 0%),
+			var(--seek-track, var(--border)) var(--seek-progress, 0%)
 		);
 	}
 	&::-webkit-slider-thumb {
@@ -192,14 +193,14 @@
 		margin-top: -8px;
 		border: none;
 		border-radius: 9999px;
-		background: var(--primary);
+		background: var(--seek-fill, var(--primary));
 	}
 	&::-moz-range-thumb {
 		width: 20px;
 		height: 20px;
 		border: none;
 		border-radius: 9999px;
-		background: var(--primary);
+		background: var(--seek-fill, var(--primary));
 	}
 }
 

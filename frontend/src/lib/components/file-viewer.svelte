@@ -14,6 +14,8 @@
 	import PdfView from '$lib/components/pdf-view.svelte';
 	import TextView from '$lib/components/text-view.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import VideoPlayer from '$lib/components/video-player.svelte';
+	import { viewerButtonClass } from '$lib/viewer-button';
 	import * as m from '$lib/paraglide/messages.js';
 
 	// PDF・動画・テキストなどをページの上に重ねて表示するビューア (→ docs/ui.md「PDF・動画・テキストのビューア」)。
@@ -42,14 +44,9 @@
 		markdownSource = false;
 	});
 
-	// バーのボタン。画像のビューア (PhotoSwipe) と同じく、黒い地の上に白で置く。
-	// 見た目は 44px 四方 (→ docs/ui.md「UI 全般」)。
-	const barButtonClass =
-		'inline-flex size-11 shrink-0 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-30';
-
 	function handleKeydown(event: KeyboardEvent) {
-		// 動画の再生位置の操作と、拡大した PDF の横のスクロールと重ねない。
-		if (event.target instanceof HTMLVideoElement || zoomStep > 0) return;
+		// 動画のシークバーの左右キーと、拡大した PDF の横のスクロールと重ねない。
+		if (event.target instanceof HTMLInputElement || zoomStep > 0) return;
 		// Markdown のプレビューの表は、フォーカスを当てて左右キーで横に送る (→ $lib/manual-markdown.ts)。
 		if (event.target instanceof Element && event.target.closest('.table-scroll')) return;
 		// Excel の表 (→ docs/ui.md「PDF・動画・テキストのビューア」)。
@@ -84,7 +81,7 @@
 					{#if current.kind === 'pdf' && !failed}
 						<button
 							type="button"
-							class={barButtonClass}
+							class={viewerButtonClass}
 							disabled={zoomStep === 0}
 							onclick={() => (zoomStep -= 1)}
 						>
@@ -93,7 +90,7 @@
 						</button>
 						<button
 							type="button"
-							class={barButtonClass}
+							class={viewerButtonClass}
 							disabled={zoomStep === ZOOM_STEPS.length - 1}
 							onclick={() => (zoomStep += 1)}
 						>
@@ -133,14 +130,14 @@
 					<!-- API への直リンクか、URL のファイルの元の URL (→ $lib/api/urls.ts)。 -->
 					<a
 						href={current.originalUrl ?? current.src}
-						class={barButtonClass}
+						class={viewerButtonClass}
 						target="_blank"
 						rel="external noopener noreferrer"
 					>
 						<ExternalLinkIcon class="size-5" />
 						<span class="sr-only">{m.contents_opens_in_new_tab()}</span>
 					</a>
-					<DialogPrimitive.Close class={barButtonClass}>
+					<DialogPrimitive.Close class={viewerButtonClass}>
 						<XIcon class="size-5" />
 						<span class="sr-only">{m.action_close()}</span>
 					</DialogPrimitive.Close>
@@ -202,17 +199,7 @@
 								onerror={() => (failed = true)}
 							/>
 						{:else}
-							<!-- 音声のプレイヤーと同時に鳴らさない。
-							     字幕は、置かれた動画のファイルしか無いので付けられない。 -->
-							<!-- svelte-ignore a11y_media_has_caption -->
-							<video
-								src={current.src}
-								class="size-full object-contain"
-								controls
-								playsinline
-								onplay={() => nowPlaying.pause()}
-								onerror={() => (failed = true)}
-							></video>
+							<VideoPlayer src={current.src} onerror={() => (failed = true)} />
 						{/if}
 					{/key}
 
@@ -220,7 +207,7 @@
 						<!-- 前後のファイルへ。画像のビューアと同じく、左右の端の中ほどに置く。 -->
 						<button
 							type="button"
-							class={[barButtonClass, 'absolute top-1/2 left-1 -translate-y-1/2 bg-black/50']}
+							class={[viewerButtonClass, 'absolute top-1/2 left-1 -translate-y-1/2 bg-black/50']}
 							disabled={fileViewer.leaving || fileViewer.index === 0}
 							onclick={() => fileViewer.previous()}
 						>
@@ -233,7 +220,7 @@
 						</button>
 						<button
 							type="button"
-							class={[barButtonClass, 'absolute top-1/2 right-1 -translate-y-1/2 bg-black/50']}
+							class={[viewerButtonClass, 'absolute top-1/2 right-1 -translate-y-1/2 bg-black/50']}
 							disabled={fileViewer.leaving || fileViewer.index === fileViewer.count - 1}
 							onclick={() => fileViewer.next()}
 						>

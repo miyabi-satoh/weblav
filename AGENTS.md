@@ -150,13 +150,14 @@ grep 例: `grep -rn "ADR:" src/ frontend/src/`・`grep -rn "FIX:" src/ frontend/
 - 複数の画面・コンポーネントで同じ文言を使うものは、**横断プレフィックスにまとめて重複させない**。
   文言が画面ごとに変わるもの (「戻る」「このフォルダにする」等) は、同じ役割のボタンでも画面側のプレフィックスに置く。
   新しい横断プレフィックスは、実際に重複が出た時点で足す。
-  現状は次の6つ。
+  現状は次の7つ。
   - `error_` — API エラーの表示文言 (下記)
   - `contents_` — コンテンツ関連
   - `action_` — 画面によらず同じ汎用の操作ラベル (`action_cancel`・`action_close`)
   - `common_` — 画面によらず同じ汎用の文言のうち、ラベル以外 (`common_error_title`)
   - `site_settings_` — サイト設定関連 (ホームの見出しと管理画面のサイト設定の両方で使う)
   - `account_` — 自分のアカウントの操作 (ユーザーメニューのダイアログ) で共有する文言 (`account_current_password_label`)
+  - `media_` — 音声のプレイヤーと動画のビューアで共有する再生の操作 (`media_play_button`)
 - **API エラーの表示文言は `error_<code>` に統一**し、`AppError::status_and_code()` が返す `code` 文字列とそのまま対応させる。
   例: `code: "not_found"` → キー `error_not_found`。
   個々の API 呼び出し側で文言を作り分けない。
