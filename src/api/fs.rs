@@ -455,6 +455,9 @@ struct CountResponse {
     /// があり、後者では `count` が上限より小さいまま `true` になる。
     /// UI側の扱いはどちらも「これ以上ある」で同じなので、理由は分けない。
     truncated: bool,
+    /// 最初に読めなかった場所の相対パス (登録先そのものなら空文字)。`count` はそこを除いた数。
+    /// アーカイブは読めない場所があると再スキャンできないので (→ docs/archive.md「スキャン」)、登録の前に知らせる。
+    unreadable: Option<String>,
 }
 
 /// カンマ区切りの拡張子指定を比較用の小文字リストに直す。空の要素は無視する。
@@ -650,6 +653,7 @@ async fn count_target_files(
         Ok(Json(CountResponse {
             count: result.rel_paths.len(),
             truncated: result.truncated,
+            unreadable: result.unreadable,
         }))
     })
     .await?

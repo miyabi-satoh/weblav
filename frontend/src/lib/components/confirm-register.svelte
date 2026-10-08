@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { client } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
+	import { GENERIC_ERROR_MESSAGE, errorMessage, unreadableFolderMessage } from '$lib/api/errors';
 	import * as m from '$lib/paraglide/messages.js';
 	import type { components } from '$lib/api/schema';
 	import { contentTypeLabel } from '$lib/content-labels';
@@ -51,6 +51,8 @@
 
 	let count = $state<number | null>(null);
 	let truncated = $state(false);
+	/** 最初に読めなかった場所。読めない場所があると、アーカイブは再スキャンできない (→ docs/archive.md「スキャン」)。 */
+	let unreadable = $state<string | null>(null);
 	let loading = $state(false);
 	let loadError = $state('');
 
@@ -64,6 +66,7 @@
 			requests.invalidate();
 			count = null;
 			truncated = false;
+			unreadable = null;
 			loadError = '';
 			loading = false;
 			return;
@@ -77,6 +80,7 @@
 		loadError = '';
 		count = null;
 		truncated = false;
+		unreadable = null;
 		try {
 			const { data, error, response } = await client.GET('/api/v1/admin/fs/count', {
 				params: { query: { path: target, extensions: targetExtensions } }
@@ -88,6 +92,7 @@
 			}
 			count = data.count;
 			truncated = data.truncated;
+			unreadable = data.unreadable ?? null;
 		} catch {
 			if (isCurrent()) loadError = GENERIC_ERROR_MESSAGE();
 		} finally {
@@ -171,6 +176,9 @@
 				<span class="text-4xl leading-none tracking-tight">{formattedCount}</span>
 				<span class="text-sm text-muted-foreground">{countHeadline}</span>
 			</p>
+			{#if unreadable !== null}
+				<p class="text-sm text-destructive">{unreadableFolderMessage(unreadable)}</p>
+			{/if}
 
 			<WarningBand>
 				<p class="text-sm leading-relaxed">{scopeMessage}</p>

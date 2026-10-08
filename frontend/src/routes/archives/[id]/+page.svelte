@@ -151,7 +151,7 @@
 
 	{#if view.items.length === 0}
 		<p class={pageEmptyTextClass}>
-			{view.folderMissing ? m.archive_view_folder_missing() : m.archive_view_empty()}
+			{view.folderMissing ? m.error_detail_archive_folder_missing() : m.archive_view_empty()}
 		</p>
 	{:else}
 		<ArchiveViewList {rows} {linksHref} />

@@ -1661,6 +1661,11 @@ export interface components {
              *     UI側の扱いはどちらも「これ以上ある」で同じなので、理由は分けない。
              */
             truncated: boolean;
+            /**
+             * @description 最初に読めなかった場所の相対パス (登録先そのものなら空文字)。`count` はそこを除いた数。
+             *     アーカイブは読めない場所があると再スキャンできないので (→ docs/archive.md「スキャン」)、登録の前に知らせる。
+             */
+            unreadable?: string | null;
         };
         CreateAdminRequest: {
             password: string;
