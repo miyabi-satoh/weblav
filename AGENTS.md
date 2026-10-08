@@ -209,8 +209,8 @@ Codex は依頼文にあることしか知らないので、依頼文に次を�
 ## マージまでの基本フロー
 
 1. 変更をコミット。
-2. Codex レビューと `/code-review` (そうしたセルフレビュー機能がある場合。レビューを依頼する側だけの手順)。
-   指摘があれば修正コミットを重ね、両方で指摘がなくなるまで再レビューを繰り返す。
+2. 二重のレビュー (→ Claude Code の CLAUDE.md「レビュー」。順番は `codex-review` skill の「0. 投げる前に」)。
+   指摘があれば修正コミットを重ね、指摘がなくなるまで再レビューを繰り返す。
 3. プッシュしてPR作成。
    push 時、lefthook の pre-push フック (→ `just install`) が整形 (`just fmt-check`) を確かめる。
    PR を作ると、GitHub Actions の CI が `just ci` を流す。
