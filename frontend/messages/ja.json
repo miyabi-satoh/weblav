@@ -32,7 +32,7 @@
 	"error_conflict": "他の操作と競合しました。しばらくしてから再度お試しください。",
 	"error_free_limit_reached": "Free の上限に当たったため、追加できません。Pro にすると上限が外れます。",
 	"error_config_unreadable": "設定ファイル (config.toml) を読めません。",
-	"error_account_server_unavailable": "WebLAV のアカウントのサービスにつながりませんでした。",
+	"error_account_server_unavailable": "WebLAV のアカウントのサービスにつながりませんでした。しばらくしてから再度お試しください。",
 	"error_pro_code_invalid": "コードが合いません。登録のページかメールに出たコードを、打ち間違いが無いか確かめて入れ直してください。",
 	"error_pro_clock_behind": "この PC の時計が遅れています。",
 	"error_generic": "通信エラーが発生しました。しばらくしてから再度お試しください。",
