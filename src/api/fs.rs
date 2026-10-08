@@ -498,6 +498,10 @@ pub(super) struct ScanResult {
     /// (途中までの結果で同期すると、走査できなかった分が「消えた」と見なされて
     /// 公開フラグごと消える)。
     pub(super) truncated: bool,
+    /// 最初に読めなかった場所の相対パス (`/` 区切り。登録先そのものなら空文字)。
+    /// 読めなかった分は `rel_paths` から欠けるので、再スキャンはこれがあれば同期しない
+    /// (欠けた分が「消えた」と見なされて公開フラグごと消えるため)。
+    pub(super) unreadable: Option<String>,
 }
 
 /// `root` 配下を再帰的に走査し、索引対象のファイルを集める。
@@ -510,8 +514,8 @@ pub(super) struct ScanResult {
 /// 再帰しない」だけで、リンクをエントリとして拾わない意味ではないため、
 /// リンク自体の除外は明示的に行う。
 ///
-/// 読み取れないディレクトリは読み飛ばす。途中で失敗して索引を作れない方が、
-/// 数えられなかった分だけ欠ける状態より役に立たない。
+/// 読み取れないディレクトリは読み飛ばし、最初の1か所を `unreadable` に残す。
+/// 登録前の確認は欠けたまま数え、再スキャンは同期をやめる (→ docs/archive.md「スキャン」)。
 ///
 /// `own_dirs` (→ `roots::OwnDirs`) の中は索引しない
 /// (→ docs/folders.md「公開できるフォルダ」)。
@@ -524,6 +528,7 @@ pub(super) fn scan_files(
 ) -> ScanResult {
     let mut rel_paths = Vec::new();
     let mut scanned = 0;
+    let mut unreadable = None;
 
     let walker = WalkDir::new(root)
         .follow_links(false)
@@ -554,8 +559,19 @@ pub(super) fn scan_files(
         });
 
     for entry in walker {
-        let Ok(entry) = entry else {
-            continue;
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                if unreadable.is_none() {
+                    let rel = error
+                        .path()
+                        .and_then(|path| path.strip_prefix(root).ok())
+                        .map(|rel| normalize_rel_path(&rel.to_string_lossy()))
+                        .unwrap_or_default();
+                    unreadable = Some(rel);
+                }
+                continue;
+            }
         };
         // 登録先そのもの (depth 0) は、配下のエントリではないので数えない。
         if entry.depth() == 0 {
@@ -566,6 +582,7 @@ pub(super) fn scan_files(
             return ScanResult {
                 rel_paths,
                 truncated: true,
+                unreadable,
             };
         }
         if !entry.file_type().is_file() {
@@ -587,6 +604,7 @@ pub(super) fn scan_files(
             return ScanResult {
                 rel_paths,
                 truncated: true,
+                unreadable,
             };
         }
     }
@@ -594,6 +612,7 @@ pub(super) fn scan_files(
     ScanResult {
         rel_paths,
         truncated: false,
+        unreadable,
     }
 }
 
@@ -867,6 +886,30 @@ mod tests {
             &OwnDirs::resolve(&[data_dir]),
         );
         assert_eq!(result.rel_paths, vec!["a.mp3".to_string()]);
+    }
+
+    /// 権限で読めなくするので Unix だけ。Windows の ACL は手元で組めない。
+    #[cfg(unix)]
+    #[test]
+    fn scan_files_reports_the_first_unreadable_directory() {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = temp_dir("scan-unreadable");
+        let dir = std::fs::canonicalize(tmp.path()).expect("canonicalize できなかった");
+        std::fs::create_dir_all(dir.join("ok")).expect("ディレクトリを作れなかった");
+        std::fs::create_dir_all(dir.join("locked")).expect("ディレクトリを作れなかった");
+        std::fs::write(dir.join("ok/a.mp3"), b"").expect("ファイルを作れなかった");
+        std::fs::write(dir.join("locked/b.mp3"), b"").expect("ファイルを作れなかった");
+        let set_mode = |mode| {
+            std::fs::set_permissions(dir.join("locked"), std::fs::Permissions::from_mode(mode))
+                .expect("権限を変えられなかった");
+        };
+        set_mode(0o000);
+        let result = scan_files(&dir, None, SCAN_LIMIT, ITEM_LIMIT, &OwnDirs::default());
+        // 一時ディレクトリを片付けられるよう、確かめる前に戻す。
+        set_mode(0o755);
+
+        assert_eq!(result.rel_paths, vec!["ok/a.mp3".to_string()]);
+        assert_eq!(result.unreadable.as_deref(), Some("locked"));
     }
 
     #[test]

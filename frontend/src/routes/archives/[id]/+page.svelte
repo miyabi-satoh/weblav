@@ -150,7 +150,9 @@
 	</div>
 
 	{#if view.items.length === 0}
-		<p class={pageEmptyTextClass}>{m.archive_view_empty()}</p>
+		<p class={pageEmptyTextClass}>
+			{view.folderMissing ? m.archive_view_folder_missing() : m.archive_view_empty()}
+		</p>
 	{:else}
 		<ArchiveViewList {rows} {linksHref} />
 	{/if}

@@ -1345,6 +1345,8 @@ export interface components {
         AdminArchiveItemResponse: {
             /** Format: int64 */
             id: number;
+            /** @description ファイルが消えている・読めない。再スキャンすると一覧から外れる。 */
+            missing: boolean;
             /**
              * Format: int64
              * @description UNIXエポックミリ秒。取得できない場合は `None`。
@@ -1460,6 +1462,8 @@ export interface components {
             ancestors: components["schemas"]["GroupAncestor"][];
             archiveTitle: string;
             axes: components["schemas"]["ArchiveAxisResponse"][];
+            /** @description アーカイブの登録先のフォルダが見つからない。画面は空の一覧の代わりにそう出す。 */
+            folderMissing: boolean;
             items: components["schemas"]["ArchiveViewItem"][];
         };
         /**
@@ -2340,6 +2344,13 @@ export interface components {
             appVersion: string;
             /** @enum {string} */
             kind: "backupTooNew";
+        } | {
+            /** @enum {string} */
+            kind: "archiveFolderMissing";
+        } | {
+            /** @enum {string} */
+            kind: "archiveFolderUnreadable";
+            path: string;
         } | {
             /** @enum {string} */
             kind: "freeLimit";
@@ -5841,7 +5852,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 登録先を読み取れない・大きすぎる */
+            /** @description 登録先が見つからない・読めない場所がある・大きすぎる */
             422: {
                 headers: {
                     [name: string]: unknown;

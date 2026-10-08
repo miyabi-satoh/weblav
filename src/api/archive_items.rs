@@ -129,6 +129,8 @@ struct ArchiveViewResponse {
     ancestors: Vec<super::contents::GroupAncestor>,
     axes: Vec<ArchiveAxisResponse>,
     items: Vec<ArchiveViewItem>,
+    /// アーカイブの登録先のフォルダが見つからない。画面は空の一覧の代わりにそう出す。
+    folder_missing: bool,
 }
 
 /// 閲覧用のアーカイブ一覧。軸の定義・選択肢・導出済みタイトル付きのアイテム一覧を
@@ -166,13 +168,20 @@ async fn view_archive(
     // 導出は全アイテム × 軸 × 照合語の数だけ回るので、非同期のワーカーを塞がない。
     let template = meta.title_template;
     let root = PathBuf::from(&meta.path);
-    let (axes, items) = run_blocking(move || {
+    let (axes, items, folder_missing) = run_blocking(move || {
+        let folder_missing = std::fs::metadata(&root)
+            .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound);
+        // 選択肢と件数も実体のある行だけで数えるよう、組み立ての前に外す。
+        let (rows, sizes) = present_rows(&root, rows);
         let (axes, items) = build_archive_view(&axes, rows, template.as_deref(), &filters, order);
         let items = items
             .into_iter()
-            .map(|(rel_path, item)| with_preview(&root, &rel_path, item))
+            .map(|(rel_path, item)| {
+                let size = sizes[&item.id];
+                with_preview(&root, &rel_path, size, item)
+            })
             .collect::<Vec<_>>();
-        (axes, items)
+        (axes, items, folder_missing)
     })
     .await?;
 
@@ -183,23 +192,46 @@ async fn view_archive(
         ancestors,
         axes,
         items,
+        folder_missing,
     }))
 }
 
-/// 行に、ページ内で見せるための情報 (画像の大きさ・テキストか) を埋める。ファイルを読むので、非同期のワーカーの外で呼ぶ。
+/// アイテムの実体の情報。消えている・読めないものは `None`。ファイルを読むので、非同期のワーカーの外で呼ぶ。
 ///
-/// 画像の大きさとテキストかを見るだけで中身は渡さないので、アイテムごとに配信と同じ `resolve_path` は通さない。
+/// 中身は渡さないので、アイテムごとに配信と同じ `resolve_path` は通さない。
 /// 索引はリンクでないファイルだけを拾う (→ docs/archive.md「スキャン」) が、索引の後に
 /// リンクへ差し替えられたものは辿らない。
-fn with_preview(root: &std::path::Path, rel_path: &str, item: ArchiveViewItem) -> ArchiveViewItem {
-    let path = root.join(rel_path);
-    let Some(size) = std::fs::symlink_metadata(&path)
+fn item_metadata(root: &std::path::Path, rel_path: &str) -> Option<std::fs::Metadata> {
+    std::fs::symlink_metadata(root.join(rel_path))
         .ok()
         .filter(|metadata| metadata.is_file())
-        .map(|metadata| metadata.len())
-    else {
-        return item;
-    };
+}
+
+/// 閲覧者に見せる行のうち、実体のあるものだけを残し、その大きさを `id` ごとに添える
+/// (→ docs/archive.md「アイテムの配信」)。開けない行を並べないため。
+fn present_rows(root: &std::path::Path, rows: Vec<ItemRow>) -> (Vec<ItemRow>, HashMap<i64, u64>) {
+    let mut sizes = HashMap::new();
+    let rows = rows
+        .into_iter()
+        .filter(|row| {
+            let Some(metadata) = item_metadata(root, &row.rel_path) else {
+                return false;
+            };
+            sizes.insert(row.id, metadata.len());
+            true
+        })
+        .collect();
+    (rows, sizes)
+}
+
+/// 行に、ページ内で見せるための情報 (画像の大きさ・テキストか) を埋める。ファイルを読むので、非同期のワーカーの外で呼ぶ。
+fn with_preview(
+    root: &std::path::Path,
+    rel_path: &str,
+    size: u64,
+    item: ArchiveViewItem,
+) -> ArchiveViewItem {
+    let path = root.join(rel_path);
     let preview = thumbnails::file_preview(&item.file_name, &path, size);
     ArchiveViewItem {
         image: preview.image,
@@ -412,8 +444,15 @@ pub(super) async fn search_items(
 
     // 導出は全アイテム × 軸 × 照合語の数だけ回り、行の情報はファイルを読むので、非同期のワーカーを塞がない。
     run_blocking(move || {
+        let sources: Vec<_> = sources
+            .into_iter()
+            .map(|(archive, axes, rows)| {
+                let (rows, sizes) = present_rows(std::path::Path::new(&archive.path), rows);
+                (archive, axes, rows, sizes)
+            })
+            .collect();
         let mut hits: Vec<ItemHit> = Vec::new();
-        for (index, (archive, axes, rows)) in sources.iter().enumerate() {
+        for (index, (archive, axes, rows, _)) in sources.iter().enumerate() {
             let template = archive.title_template.as_deref();
             let template_axes = archive::template_placeholder_names(template);
             let no_filters = vec![None; axes.len()];
@@ -449,13 +488,15 @@ pub(super) async fn search_items(
         let hits = hits
             .into_iter()
             .map(|hit| {
-                let archive = &sources[hit.source].0;
+                let (archive, _, _, sizes) = &sources[hit.source];
+                let size = sizes[&hit.item.id];
                 super::search::SearchItemHit {
                     archive_id: archive.id,
                     archive_title: archive.title.clone(),
                     item: with_preview(
                         std::path::Path::new(&archive.path),
                         &hit.rel_path,
+                        size,
                         hit.item,
                     ),
                 }
@@ -475,6 +516,8 @@ struct AdminArchiveItemResponse {
     rel_path: String,
     published: bool,
     title: String,
+    /// ファイルが消えている・読めない。再スキャンすると一覧から外れる。
+    missing: bool,
     /// ファイルが消えている・読めないときは `None`。
     size: Option<u64>,
     /// UNIXエポックミリ秒。取得できない場合は `None`。
@@ -492,9 +535,7 @@ fn to_admin_response(
     let sort_key = derived.sort_key();
     // DB には持たず、その時点の値を出す (再スキャンまで古い値が出ないように)。
     // 閲覧と同じく、索引の後にリンクへ差し替えられたものは辿らない。
-    let metadata = std::fs::symlink_metadata(root.join(&row.rel_path))
-        .ok()
-        .filter(|metadata| metadata.is_file());
+    let metadata = item_metadata(root, &row.rel_path);
     (
         sort_key,
         AdminArchiveItemResponse {
@@ -502,6 +543,7 @@ fn to_admin_response(
             rel_path: row.rel_path,
             published: row.published,
             title: derived.title,
+            missing: metadata.is_none(),
             size: metadata.as_ref().map(|metadata| metadata.len()),
             modified_at: metadata.as_ref().and_then(contents::modified_at_millis),
         },

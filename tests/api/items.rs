@@ -389,11 +389,45 @@ async fn archive_list_items_reads_size_and_modified_at_from_files(pool: SqlitePo
         kokugo["modifiedAt"].as_i64().is_some_and(|ms| ms > 0),
         "{body}"
     );
+    assert_eq!(kokugo["missing"], false, "{body}");
     let eigo = item("2024_eigo.pdf");
     assert!(
-        eigo["size"].is_null() && eigo["modifiedAt"].is_null(),
+        eigo["missing"] == true && eigo["size"].is_null() && eigo["modifiedAt"].is_null(),
         "{body}"
     );
+}
+
+/// 閲覧の一覧は、索引の後に実体が消えた行を外す (→ docs/archive.md「アイテムの配信」)。
+/// 登録先のフォルダごと無ければ、そう分かるように返す。
+#[sqlx::test]
+async fn archive_view_hides_items_whose_file_vanished_after_scan(pool: SqlitePool) {
+    let (app, _cookie, id, dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
+    publish_all_items(&pool, id).await;
+    std::fs::remove_file(dir.join("2024_eigo.pdf")).expect("ファイルを消せなかった");
+
+    let (status, body) = view_archive(app.clone(), "", id, &[]).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    let mut file_names: Vec<&str> = parsed["items"]
+        .as_array()
+        .expect("配列でなかった")
+        .iter()
+        .map(|item| item["fileName"].as_str().expect("fileNameが無かった"))
+        .collect();
+    file_names.sort_unstable();
+    assert_eq!(
+        file_names,
+        vec!["2024_kokugo.pdf", "2024_unknown.pdf"],
+        "{body}"
+    );
+    assert_eq!(parsed["folderMissing"], false, "{body}");
+
+    std::fs::remove_dir_all(&*dir).expect("フォルダを消せなかった");
+    let (status, body) = view_archive(app, "", id, &[]).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    assert_eq!(parsed["items"], serde_json::json!([]), "{body}");
+    assert_eq!(parsed["folderMissing"], true, "{body}");
 }
 
 /// データ置き場の祖先を指す folder でも、データ置き場の中は一覧にも配信にも出さない。

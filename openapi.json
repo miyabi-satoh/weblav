@@ -4080,7 +4080,7 @@
             }
           },
           "422": {
-            "description": "登録先を読み取れない・大きすぎる",
+            "description": "登録先が見つからない・読めない場所がある・大きすぎる",
             "content": {
               "application/json": {
                 "schema": {
@@ -4767,12 +4767,17 @@
           "id",
           "relPath",
           "published",
-          "title"
+          "title",
+          "missing"
         ],
         "properties": {
           "id": {
             "type": "integer",
             "format": "int64"
+          },
+          "missing": {
+            "type": "boolean",
+            "description": "ファイルが消えている・読めない。再スキャンすると一覧から外れる。"
           },
           "modifiedAt": {
             "type": [
@@ -5008,7 +5013,8 @@
           "archiveTitle",
           "ancestors",
           "axes",
-          "items"
+          "items",
+          "folderMissing"
         ],
         "properties": {
           "ancestors": {
@@ -5026,6 +5032,10 @@
             "items": {
               "$ref": "#/components/schemas/ArchiveAxisResponse"
             }
+          },
+          "folderMissing": {
+            "type": "boolean",
+            "description": "アーカイブの登録先のフォルダが見つからない。画面は空の一覧の代わりにそう出す。"
           },
           "items": {
             "type": "array",
@@ -7624,6 +7634,40 @@
                 "enum": [
                   "backupTooNew"
                 ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "再スキャンで、アーカイブの登録先のフォルダが見つからない (→ docs/archive.md「スキャン」)。",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "archiveFolderMissing"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "再スキャンで、読めない場所があった (→ docs/archive.md「スキャン」)。\n`path` は最初に読めなかった場所の、登録先からの相対パス。登録先そのものなら空文字。",
+            "required": [
+              "path",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "archiveFolderUnreadable"
+                ]
+              },
+              "path": {
+                "type": "string"
               }
             }
           },

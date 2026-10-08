@@ -53,6 +53,12 @@ pub enum ValidationDetail {
     /// 受け取ったバックアップが、今より新しい版で作られている (→ docs/access.md「バックアップとリストア」)。
     #[serde(rename_all = "camelCase")]
     BackupTooNew { app_version: String },
+    /// 再スキャンで、アーカイブの登録先のフォルダが見つからない (→ docs/archive.md「スキャン」)。
+    ArchiveFolderMissing,
+    /// 再スキャンで、読めない場所があった (→ docs/archive.md「スキャン」)。
+    /// `path` は最初に読めなかった場所の、登録先からの相対パス。登録先そのものなら空文字。
+    #[serde(rename_all = "camelCase")]
+    ArchiveFolderUnreadable { path: String },
     /// Free の上限に当たった (→ docs/pro.md「上限を数えて止める」)。409 に付ける。
     #[serde(rename_all = "camelCase")]
     FreeLimit {

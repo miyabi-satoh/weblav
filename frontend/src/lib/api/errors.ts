@@ -116,6 +116,13 @@ function detailMessage(detail: ValidationDetail): string | undefined {
 			return m.error_detail_root_already_registered({ name: detail.name });
 		case 'rootInsideOwnDirs':
 			return m.error_detail_root_inside_own_dirs();
+		case 'archiveFolderMissing':
+			return m.error_detail_archive_folder_missing();
+		case 'archiveFolderUnreadable':
+			// 空文字は登録先そのもの (→ `src/api/error_detail.rs`)。
+			return detail.path === ''
+				? m.error_detail_archive_folder_unreadable_root()
+				: m.error_detail_archive_folder_unreadable({ path: detail.path });
 		case 'backupInvalid':
 			return m.error_detail_backup_invalid();
 		case 'backupTooNew':

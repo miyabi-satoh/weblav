@@ -17,6 +17,7 @@
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import PathTail from '$lib/components/path-tail.svelte';
+	import WarningBand from '$lib/components/warning-band.svelte';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import {
 		columnFromLgClass,
@@ -297,6 +298,11 @@
 	{:else if items.length === 0}
 		<p class="text-sm text-muted-foreground">{m.archive_items_empty()}</p>
 	{:else}
+		{#if items.some((item) => item.missing)}
+			<WarningBand class="rounded-md border">
+				<p class="text-sm leading-relaxed">{m.archive_items_missing_warning()}</p>
+			</WarningBand>
+		{/if}
 		<!-- 入力欄の下端を再スキャンのボタンと揃えるため、件数は欄の外 (段の下) に置く。
 		     打つたびに変わる件数を読み上げさせるため、要素は常に置いて中身だけ替える。
 		     空のときも隠さず (隠すと最初の読み上げを落とす)、上の余白を打ち消して高さ0で置く。 -->
@@ -372,6 +378,9 @@
 									</a>
 									<!-- パスの列を隠す幅では、同じタイトルの行を見分けられるよう2段目に出す (→ docs/ui.md「UI 全般」)。 -->
 									<PathTail path={item.relPath} class="text-xs text-muted-foreground md:hidden" />
+									{#if item.missing}
+										<p class="text-xs text-destructive">{m.archive_items_missing_label()}</p>
+									{/if}
 								</Table.Cell>
 								<!-- タイトルと余りの幅を分け合う。タイトルは短い語の繰り返しで、見分けはパスに頼るため (→ docs/ui.md「UI 全般」)。 -->
 								<Table.Cell
