@@ -2,7 +2,8 @@
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { browseLayout } from '$lib/browse-layout.svelte';
-	import { fileViewer, type ViewerFile } from '$lib/file-viewer.svelte';
+	import type { ViewerFile } from '$lib/file-viewer.svelte';
+	import { openViewerItem, type ViewerItem } from '$lib/viewer-items';
 	import { formatTimeAgo } from '$lib/format';
 	import { isPlainClick } from '$lib/image-viewer';
 	import {
@@ -41,13 +42,17 @@
 		 * 動画サイトの動画なら、ビューアで開くもの (→ docs/ui.md「動画サイトの埋め込み」)。
 		 * 修飾キーなしのクリックだけをビューアに回し、ほかは元の URL を新しいタブで開く。
 		 */
-		viewer?: { file: ViewerFile; files: ViewerFile[] };
+		viewer?: { file: ViewerFile; items: ViewerItem[] };
 	} = $props();
 
 	function handleClick(event: MouseEvent) {
 		if (!viewer || !isPlainClick(event)) return;
 		event.preventDefault();
-		fileViewer.show(viewer.file, viewer.files);
+		void openViewerItem(
+			{ type: 'file', file: viewer.file },
+			viewer.items,
+			new AbortController().signal
+		);
 	}
 
 	let host = $derived.by(() => {

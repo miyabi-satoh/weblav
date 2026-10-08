@@ -1,8 +1,9 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import FileIcon from '@lucide/svelte/icons/file';
-	import { fileViewer, type ViewerFile } from '$lib/file-viewer.svelte';
+	import type { ViewerFile } from '$lib/file-viewer.svelte';
 	import { isPlainClick } from '$lib/image-viewer';
+	import { openViewerItem, type ViewerItem } from '$lib/viewer-items';
 	import { browseRowClass } from '$lib/list-row';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
 
@@ -11,14 +12,14 @@
 	// 修飾キー付きのクリックや長押しのメニューではブラウザに任せて新しいタブで開けるようにする。
 	let {
 		file,
-		files,
+		items,
 		compact = false,
 		children
 	}: {
-		/** `files` と同じ組み立て方で作る (押した行を `files` の中から `src` で探すため)。 */
+		/** `items` と同じ組み立て方で作る (押した行を `items` の中から `src` で探すため)。 */
 		file: ViewerFile;
-		/** この行が並ぶ一覧の、ビューアで開くファイル (表示順)。ビューアの前・次のファイルになる。 */
-		files: ViewerFile[];
+		/** この行が並ぶ一覧の、ページ内で開くもの (表示順。→ $lib/viewer-items.ts)。ビューアの前・次になる。 */
+		items: ViewerItem[];
 		/** フォルダ一覧の詰めた行 (`browseRowClass(true)`) にする。タイルには効かない。 */
 		compact?: boolean;
 		/** アイコンの右に置く、行の文字。 */
@@ -28,7 +29,7 @@
 	function handleClick(event: MouseEvent) {
 		if (!isPlainClick(event)) return;
 		event.preventDefault();
-		fileViewer.show(file, files);
+		void openViewerItem({ type: 'file', file }, items, new AbortController().signal);
 	}
 </script>
 

@@ -9,6 +9,7 @@
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
 	import type { Track } from '$lib/now-playing.svelte';
 	import type { ViewerImage } from '$lib/image-viewer';
+	import { viewerItems } from '$lib/viewer-items';
 	import { breadcrumbLinkClass, pathCrumbs } from '$lib/breadcrumb';
 	import { SORT_OPTIONS, DEFAULT_BROWSE_SORT, type BrowseSort } from '$lib/browse-sort';
 	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
@@ -108,10 +109,6 @@
 		};
 	}
 
-	let viewerImages = $derived(
-		browse.entries.map(toViewerImage).filter((image) => image !== undefined)
-	);
-
 	/** PDF・動画・テキストなど、ビューアで開く行なら、ビューアに渡す形 (→ docs/ui.md「PDF・動画・テキストのビューア」)。 */
 	function toViewerFile(entry: FolderEntry): ViewerFile | undefined {
 		const kind = entry.isDir ? undefined : viewerFileKind(entry.name, entry.isText);
@@ -125,7 +122,7 @@
 		};
 	}
 
-	let viewerFiles = $derived(browse.entries.map(toViewerFile).filter((file) => file !== undefined));
+	let viewerList = $derived(viewerItems(browse.entries, toViewerImage, toViewerFile));
 </script>
 
 <svelte:head><title>{pageTitle(currentName)}</title></svelte:head>
@@ -204,11 +201,11 @@
 							{@render entryText(entry)}
 						</ListRowPlayButton>
 					{:else if image}
-						<ListRowImageLink {image} images={viewerImages} compact>
+						<ListRowImageLink {image} items={viewerList} compact>
 							{@render entryText(entry)}
 						</ListRowImageLink>
 					{:else if viewerFile}
-						<ListRowFileLink file={viewerFile} files={viewerFiles} compact>
+						<ListRowFileLink file={viewerFile} items={viewerList} compact>
 							{@render entryText(entry)}
 						</ListRowFileLink>
 					{:else}

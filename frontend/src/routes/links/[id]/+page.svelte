@@ -5,6 +5,7 @@
 	import { archiveItemDownloadHref, contentDownloadHref, linksFileRemoteHref } from '$lib/api/urls';
 	import { remoteFileKind, remoteFileName } from '$lib/file-kind';
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
+	import { viewerItems } from '$lib/viewer-items';
 	import type { Track } from '$lib/now-playing.svelte';
 	import { videoEmbedUrl } from '$lib/video-embed';
 	import { breadcrumbLinkClass, pathCrumbs } from '$lib/breadcrumb';
@@ -101,7 +102,7 @@
 	let audioQueue = $derived(
 		links.filter((link) => remoteFileKind(link.url) === 'audio').map(toTrack)
 	);
-	let viewerFiles = $derived(links.map(toViewerFile).filter((file) => file !== undefined));
+	let viewerList = $derived(viewerItems(links, () => undefined, toViewerFile));
 
 	// カードは覚えている情報ですぐ出し、サーバーに取り直しを頼んだ答えで差し替える (→ docs/ui.md「リンクのカード」)。
 	const refreshed = new RefreshedLinkPreviews(() =>
@@ -178,7 +179,7 @@
 							{@render rowText(link)}
 						</ListRowPlayButton>
 					{:else if kind && viewerFile}
-						<ListRowFileLink file={viewerFile} files={viewerFiles}>
+						<ListRowFileLink file={viewerFile} items={viewerList}>
 							{@render rowText(link)}
 						</ListRowFileLink>
 					{:else}
@@ -186,7 +187,7 @@
 							href={link.url}
 							description={link.note}
 							{preview}
-							viewer={viewerFile && { file: viewerFile, files: viewerFiles }}
+							viewer={viewerFile && { file: viewerFile, items: viewerList }}
 						/>
 					{/if}
 				</li>

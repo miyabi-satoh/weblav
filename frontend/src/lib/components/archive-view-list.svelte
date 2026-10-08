@@ -19,6 +19,7 @@
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
 	import type { Track } from '$lib/now-playing.svelte';
 	import type { ViewerImage } from '$lib/image-viewer';
+	import { viewerItems } from '$lib/viewer-items';
 	import {
 		browseItemClass,
 		browseListClass,
@@ -63,8 +64,6 @@
 		};
 	}
 
-	let viewerImages = $derived(rows.map(toViewerImage).filter((image) => image !== undefined));
-
 	/** 画像でない行に縮小画像を出すなら、その URL (→ docs/ui.md「画像のプレビュー」)。 */
 	function rowThumbnail(row: ArchiveViewRow): { src: string; original: string } | undefined {
 		if (!row.item.thumbnail) return undefined;
@@ -87,7 +86,7 @@
 		};
 	}
 
-	let viewerFiles = $derived(rows.map(toViewerFile).filter((file) => file !== undefined));
+	let viewerList = $derived(viewerItems(rows, toViewerImage, toViewerFile));
 </script>
 
 <!-- 2段目は、アーカイブの一覧では同じタイトルが並んだときに見分けるための軸の値 (→ docs/ui.md「アーカイブの一覧画面」)。 -->
@@ -118,11 +117,11 @@
 					{@render itemText(row)}
 				</ListRowPlayButton>
 			{:else if image}
-				<ListRowImageLink {image} images={viewerImages}>
+				<ListRowImageLink {image} items={viewerList}>
 					{@render itemText(row)}
 				</ListRowImageLink>
 			{:else if viewerFile}
-				<ListRowFileLink file={viewerFile} files={viewerFiles}>
+				<ListRowFileLink file={viewerFile} items={viewerList}>
 					{@render itemText(row)}
 				</ListRowFileLink>
 			{:else}

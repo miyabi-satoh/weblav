@@ -13,10 +13,11 @@
 	import OfficeView from '$lib/components/office-view.svelte';
 	import PdfView from '$lib/components/pdf-view.svelte';
 	import TextView from '$lib/components/text-view.svelte';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import * as m from '$lib/paraglide/messages.js';
 
 	// PDF・動画・テキストなどをページの上に重ねて表示するビューア (→ docs/ui.md「PDF・動画・テキストのビューア」)。
-	// 画面に1つだけ置き (→ routes/+layout.svelte)、一覧の行は `fileViewer` を通して開く。
+	// 画面に1つだけ置き (→ routes/+layout.svelte)、一覧の行は `$lib/viewer-items.ts` を通して開く。
 
 	/** PDF の倍率の段階。1 はページを幅に合わせた大きさ。 */
 	const ZOOM_STEPS = [1, 1.5, 2, 3];
@@ -68,14 +69,18 @@
 		>
 			{#if current}
 				<div class="flex min-h-13 shrink-0 flex-wrap items-center gap-x-1 px-1 md:min-h-14 md:px-2">
-					{#if fileViewer.files.length > 1}
+					{#if fileViewer.count > 1}
 						<span class="shrink-0 px-2 text-sm text-white/80">
-							{fileViewer.index + 1} / {fileViewer.files.length}
+							{fileViewer.index + 1} / {fileViewer.count}
 						</span>
 					{/if}
 					<DialogPrimitive.Title class="min-w-0 flex-1 truncate px-2 text-sm">
 						{current.title}
 					</DialogPrimitive.Title>
+					{#if fileViewer.leaving}
+						<!-- 隣の画像を読み終えるまで待つ間 (→ docs/ui.md「画像のプレビュー」)。 -->
+						<Spinner class="mx-2 size-5 text-white/80" aria-label={m.common_loading()} />
+					{/if}
 					{#if current.kind === 'pdf' && !failed}
 						<button
 							type="button"
@@ -211,12 +216,12 @@
 						{/if}
 					{/key}
 
-					{#if fileViewer.files.length > 1}
+					{#if fileViewer.count > 1}
 						<!-- 前後のファイルへ。画像のビューアと同じく、左右の端の中ほどに置く。 -->
 						<button
 							type="button"
 							class={[barButtonClass, 'absolute top-1/2 left-1 -translate-y-1/2 bg-black/50']}
-							disabled={fileViewer.index === 0}
+							disabled={fileViewer.leaving || fileViewer.index === 0}
 							onclick={() => fileViewer.previous()}
 						>
 							<ChevronLeftIcon class="size-6" />
@@ -225,7 +230,7 @@
 						<button
 							type="button"
 							class={[barButtonClass, 'absolute top-1/2 right-1 -translate-y-1/2 bg-black/50']}
-							disabled={fileViewer.index === fileViewer.files.length - 1}
+							disabled={fileViewer.leaving || fileViewer.index === fileViewer.count - 1}
 							onclick={() => fileViewer.next()}
 						>
 							<ChevronRightIcon class="size-6" />
