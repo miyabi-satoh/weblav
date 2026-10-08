@@ -241,17 +241,21 @@
 				class="order-4 flex w-full items-center gap-3 text-xs text-muted-foreground md:order-none md:col-span-3 md:row-start-2"
 			>
 				<span class="shrink-0">{formatDuration(currentTime)}</span>
-				<input
-					type="range"
-					class="audio-seek h-11 min-w-0 flex-1"
-					style:--seek-progress="{progress}%"
-					min="0"
-					max={duration || 0}
-					step="any"
-					aria-label={m.audio_player_seek_label()}
-					aria-valuetext="{formatDuration(currentTime)} / {formatDuration(duration)}"
-					bind:value={() => currentTime, seek}
-				/>
+				<!-- FIX: WebKit は、値を書き込んでいない range の max が変わると、値を min と max の中ほどに置き直す。
+				     長さが分かったときに一度だけ作り直して、今の位置を書き込ませる (一度書けば、その後 max が変わっても動かない)。 -->
+				{#key duration > 0}
+					<input
+						type="range"
+						class="media-seek h-11 min-w-0 flex-1"
+						style:--seek-progress="{progress}%"
+						min="0"
+						max={duration || 0}
+						step="any"
+						aria-label={m.media_seek_label()}
+						aria-valuetext="{formatDuration(currentTime)} / {formatDuration(duration)}"
+						bind:value={() => currentTime, seek}
+					/>
+				{/key}
 				<span class="shrink-0">{formatDuration(duration)}</span>
 			</div>
 		{/if}
@@ -265,13 +269,11 @@
 				{ pressed: nowPlaying.autoAdvance }
 			)}
 			{@render iconButton(SkipBackIcon, m.audio_player_previous_button(), previous)}
-			{@render iconButton(RotateCcwIcon, m.audio_player_rewind_button(), () => skip(-SKIP_SECONDS))}
+			{@render iconButton(RotateCcwIcon, m.media_rewind_button(), () => skip(-SKIP_SECONDS))}
 			<Button
 				size="icon-lg"
 				class="size-12 rounded-full"
-				aria-label={nowPlaying.paused
-					? m.audio_player_play_button()
-					: m.audio_player_pause_button()}
+				aria-label={nowPlaying.paused ? m.media_play_button() : m.media_pause_button()}
 				onclick={nowPlaying.togglePlay}
 			>
 				{#if nowPlaying.paused}
@@ -280,13 +282,13 @@
 					<PauseIcon class="size-5 fill-current" />
 				{/if}
 			</Button>
-			{@render iconButton(RotateCwIcon, m.audio_player_forward_button(), () => skip(SKIP_SECONDS))}
+			{@render iconButton(RotateCwIcon, m.media_forward_button(), () => skip(SKIP_SECONDS))}
 			{@render iconButton(SkipForwardIcon, m.audio_player_next_button(), () => nowPlaying.next(), {
 				disabled: !nowPlaying.hasNext
 			})}
 			{@render iconButton(
 				nowPlaying.muted ? VolumeXIcon : Volume2Icon,
-				m.audio_player_mute_button(),
+				m.media_mute_button(),
 				() => (nowPlaying.muted = !nowPlaying.muted),
 				{ pressed: nowPlaying.muted }
 			)}
