@@ -28,15 +28,25 @@ export type ViewerFile = {
 let items = $state<ViewerItem[]>([]);
 let index = $state(0);
 let open = $state(false);
-/** 隣が画像のとき、画像のビューアへ渡す (→ $lib/viewer-items.ts)。 */
-let leave: (target: number) => void = () => {};
+/**
+ * 隣が画像のとき、画像のビューアへ渡す (→ $lib/viewer-items.ts)。画像を読み終えるまで待つので、
+ * 待つ間に閉じたら (Esc・画面の移動など) `signal` を中断し、後から画像のビューアを出さない。
+ */
+let leave: (target: number, signal: AbortSignal) => Promise<void> = async () => {};
+/** 画像のビューアへ渡している途中。待つ間の前後の操作は受けない (押しっぱなしで画像のビューアが重なるため)。 */
+let handoff = $state<AbortController | null>(null);
 
 export const fileViewer = {
 	get open() {
 		return open;
 	},
 	set open(value: boolean) {
+		if (!value) cancelHandoff();
 		open = value;
+	},
+	/** 隣の画像を読み込んでいる。 */
+	get leaving() {
+		return handoff !== null;
 	},
 	/** 開いた一覧に並ぶ、ページ内で開くものの数。画像も数える。 */
 	get count() {
@@ -50,7 +60,12 @@ export const fileViewer = {
 		return item?.type === 'file' ? item.file : undefined;
 	},
 	/** `items[at]` (ファイル) を開く。行からは `$lib/viewer-items.ts` の `openViewerItem` を通す。 */
-	show(list: ViewerItem[], at: number, onLeave: (target: number) => void) {
+	show(
+		list: ViewerItem[],
+		at: number,
+		onLeave: (target: number, signal: AbortSignal) => Promise<void>
+	) {
+		cancelHandoff();
 		items = list;
 		index = at;
 		leave = onLeave;
@@ -65,6 +80,19 @@ export const fileViewer = {
 };
 
 function move(target: number) {
-	if (items[target].type === 'file') index = target;
-	else leave(target);
+	if (handoff) return;
+	if (items[target].type === 'file') {
+		index = target;
+		return;
+	}
+	const controller = new AbortController();
+	handoff = controller;
+	void leave(target, controller.signal).finally(() => {
+		if (handoff === controller) handoff = null;
+	});
+}
+
+function cancelHandoff() {
+	handoff?.abort();
+	handoff = null;
 }

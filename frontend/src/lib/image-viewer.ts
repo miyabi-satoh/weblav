@@ -79,7 +79,7 @@ function preloadImage(src: string, signal: AbortSignal): Promise<boolean> {
 export type OpenImageViewerOptions = {
 	/** 開閉のアニメーション。ファイルのビューアから移ってきたときは付けない (行の縮小画像は後ろに隠れている)。 */
 	animate?: boolean;
-	/** 開く直前に呼ぶ。 */
+	/** 開く直前 (`PhotoSwipe` を作る前) に呼ぶ。 */
 	beforeOpen?: () => void;
 	/** 画像の並びの端から、隣のファイル (`items[target]`) へ移るときに呼ぶ。呼んだ後、このビューアはすぐに消える。 */
 	onLeave: (target: number) => void;
@@ -115,6 +115,9 @@ export async function openImageViewer(
 	]);
 	if (signal.aborted) return;
 
+	// PhotoSwipe は作った時点のフォーカスを覚え、閉じたらそこへ戻す。ファイルのビューアから移ってきたときは、
+	// 消えるビューアのボタンを覚えないよう、先に閉じ切っておく。
+	beforeOpen?.();
 	const viewer = new PhotoSwipe({
 		dataSource: images.map((image, i) => ({
 			src: image.src,
@@ -164,6 +167,8 @@ export async function openImageViewer(
 
 	/** 連なりの端から、隣のファイルへ。ファイルのビューアを先に開いてから消し、間にページを見せない。 */
 	const leaveTo = (target: number) => {
+		// 開くアニメーションの間は閉じられず (`close()` が何もしない)、PhotoSwipe が画面に残ってしまう。
+		if (viewer.opener.isOpening) return;
 		onLeave(target);
 		viewer.destroy();
 	};
@@ -205,7 +210,7 @@ export async function openImageViewer(
 			ui.registerElement({
 				name,
 				className: `pswp__button--arrow pswp__button--leave pswp__button--arrow--${forward ? 'next' : 'prev'}`,
-				title: forward ? m.image_viewer_next_button() : m.image_viewer_previous_button(),
+				title: forward ? m.file_viewer_next() : m.file_viewer_previous(),
 				isButton: true,
 				appendTo: 'wrapper',
 				html: icon('<path d="m15 18-6-6 6-6"/>', { ...ARROW, outlined: true }),
@@ -238,6 +243,5 @@ export async function openImageViewer(
 		});
 	});
 
-	beforeOpen?.();
 	viewer.init();
 }

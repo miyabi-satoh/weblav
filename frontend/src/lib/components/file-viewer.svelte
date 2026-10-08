@@ -13,6 +13,7 @@
 	import OfficeView from '$lib/components/office-view.svelte';
 	import PdfView from '$lib/components/pdf-view.svelte';
 	import TextView from '$lib/components/text-view.svelte';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import * as m from '$lib/paraglide/messages.js';
 
 	// PDF・動画・テキストなどをページの上に重ねて表示するビューア (→ docs/ui.md「PDF・動画・テキストのビューア」)。
@@ -76,6 +77,10 @@
 					<DialogPrimitive.Title class="min-w-0 flex-1 truncate px-2 text-sm">
 						{current.title}
 					</DialogPrimitive.Title>
+					{#if fileViewer.leaving}
+						<!-- 隣の画像を読み終えるまで待つ間 (→ docs/ui.md「画像のプレビュー」)。 -->
+						<Spinner class="mx-2 size-5 text-white/80" aria-label={m.common_loading()} />
+					{/if}
 					{#if current.kind === 'pdf' && !failed}
 						<button
 							type="button"

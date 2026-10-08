@@ -52,13 +52,13 @@ function openAt(items: ViewerItem[], index: number, signal: AbortSignal): Promis
 }
 
 function showFile(items: ViewerItem[], index: number) {
-	fileViewer.show(items, index, (target) => {
+	fileViewer.show(items, index, (target, signal) =>
 		// ファイルから隣の画像へ。画像を読み終えるまでファイルを出したままにし、間にページを見せない。
 		// 2つのビューアがどちらもフォーカスを中に閉じ込めるので、画像のビューアを開く直前に閉じ切る。
-		void openImageViewer(items, target, new AbortController().signal, {
+		openImageViewer(items, target, signal, {
 			animate: false,
 			beforeOpen: () => flushSync(() => (fileViewer.open = false)),
 			onLeave: (next) => showFile(items, next)
-		});
-	});
+		})
+	);
 }
