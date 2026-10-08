@@ -1,9 +1,10 @@
 /**
  * ページ内で PDF・動画・テキストなどを重ねて表示するビューアの状態 (→ docs/ui.md「PDF・動画・テキストのビューア」)。
- * 画面に置くのは `file-viewer.svelte` の1つだけで、一覧の行はここを通して開く。
+ * 画面に置くのは `file-viewer.svelte` の1つだけ。前後には画像も並び、隣が画像なら画像のビューアへ渡す。
  */
 
 import type { ViewerFileKind } from '$lib/file-kind';
+import type { ViewerItem } from '$lib/viewer-items';
 
 export type ViewerFile = {
 	/** ダウンロードの URL。`embed` では、動画サイトの埋め込みプレイヤーの URL (→ $lib/video-embed.ts)。 */
@@ -24,9 +25,11 @@ export type ViewerFile = {
 	originalUrl?: string;
 };
 
-let files = $state<ViewerFile[]>([]);
+let items = $state<ViewerItem[]>([]);
 let index = $state(0);
 let open = $state(false);
+/** 隣が画像のとき、画像のビューアへ渡す (→ $lib/viewer-items.ts)。 */
+let leave: (target: number) => void = () => {};
 
 export const fileViewer = {
 	get open() {
@@ -35,26 +38,33 @@ export const fileViewer = {
 	set open(value: boolean) {
 		open = value;
 	},
-	get files() {
-		return files;
+	/** 開いた一覧に並ぶ、ページ内で開くものの数。画像も数える。 */
+	get count() {
+		return items.length;
 	},
 	get index() {
 		return index;
 	},
 	get current(): ViewerFile | undefined {
-		return files[index];
+		const item = items[index];
+		return item?.type === 'file' ? item.file : undefined;
 	},
-	/** `file` を開く。前後は `list` (開いた一覧に並ぶ、ビューアで開くファイルの表示順)。 */
-	show(file: ViewerFile, list: ViewerFile[]) {
-		const at = list.findIndex((candidate) => candidate.src === file.src);
-		files = at < 0 ? [file] : list;
-		index = Math.max(at, 0);
+	/** `items[at]` (ファイル) を開く。行からは `$lib/viewer-items.ts` の `openViewerItem` を通す。 */
+	show(list: ViewerItem[], at: number, onLeave: (target: number) => void) {
+		items = list;
+		index = at;
+		leave = onLeave;
 		open = true;
 	},
 	previous() {
-		if (index > 0) index -= 1;
+		if (index > 0) move(index - 1);
 	},
 	next() {
-		if (index < files.length - 1) index += 1;
+		if (index < items.length - 1) move(index + 1);
 	}
 };
+
+function move(target: number) {
+	if (items[target].type === 'file') index = target;
+	else leave(target);
+}

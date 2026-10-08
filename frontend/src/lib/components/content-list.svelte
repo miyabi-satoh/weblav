@@ -14,6 +14,7 @@
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
 	import type { Track } from '$lib/now-playing.svelte';
 	import type { ViewerImage } from '$lib/image-viewer';
+	import { viewerItems } from '$lib/viewer-items';
 	import { browseLayout } from '$lib/browse-layout.svelte';
 	import { videoEmbedUrl } from '$lib/video-embed';
 	import {
@@ -81,8 +82,6 @@
 		};
 	}
 
-	let viewerImages = $derived(entries.map(toViewerImage).filter((image) => image !== undefined));
-
 	/** 画像でない file コンテンツの行に縮小画像を出すなら、その URL (→ docs/ui.md「画像のプレビュー」)。 */
 	function rowThumbnail(content: ContentEntry): { src: string; original: string } | undefined {
 		if (content.type !== 'file' || !content.thumbnail) return undefined;
@@ -115,7 +114,7 @@
 		};
 	}
 
-	let viewerFiles = $derived(entries.map(toViewerFile).filter((file) => file !== undefined));
+	let viewerList = $derived(viewerItems(entries, toViewerImage, toViewerFile));
 
 	/**
 	 * 動画サイトの動画を指す link コンテンツなら、ビューアに渡す形 (→ docs/ui.md「動画サイトの埋め込み」)。
@@ -184,7 +183,7 @@
 					description={subtitle(content)}
 					preview={refreshed.get(content.url) ?? content.preview}
 					private={content.private}
-					viewer={viewerFile && { file: viewerFile, files: viewerFiles }}
+					viewer={viewerFile && { file: viewerFile, items: viewerList }}
 				/>
 			{:else if content.type === 'folder'}
 				<a href={resolve('/folders/[id]', { id: String(content.id) })} class={browseRowClass()}>
@@ -210,11 +209,11 @@
 					{@render rowText(content)}
 				</ListRowPlayButton>
 			{:else if image}
-				<ListRowImageLink {image} images={viewerImages}>
+				<ListRowImageLink {image} items={viewerList}>
 					{@render rowText(content)}
 				</ListRowImageLink>
 			{:else if viewerFile}
-				<ListRowFileLink file={viewerFile} files={viewerFiles}>
+				<ListRowFileLink file={viewerFile} items={viewerList}>
 					{@render rowText(content)}
 				</ListRowFileLink>
 			{:else if content.type === 'file'}

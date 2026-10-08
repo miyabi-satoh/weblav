@@ -390,6 +390,19 @@
 	background: rgb(0 0 0 / 0.6);
 }
 
+/* 画像の連なりの端から、隣のファイルへ移る矢印と、ファイルも含めた何件目か (→ $lib/image-viewer.ts)。
+ * PhotoSwipe は画像が1枚のときとタッチの端末で矢印を隠し、1枚のときは数字も隠すが、ファイルへはスワイプで移れないので出す。 */
+.pswp .pswp__button--arrow.pswp__button--leave {
+	display: block;
+	visibility: visible;
+}
+.pswp .pswp__button--arrow.pswp__button--leave[hidden] {
+	display: none;
+}
+.pswp .pswp__counter.pswp__counter--items {
+	display: block;
+}
+
 /* Markdown を組んだ本文 (マニュアル・テキストのビューアのプレビュー) に共通の組み方。
  * 画面ごとに違う所 (h1 の上の余白・引用・画像・コードの塊の地など) は各画面の style に書く。
  * 層に入れて、各画面の style (層の外) が詳細度によらず上書きできるようにする。 */

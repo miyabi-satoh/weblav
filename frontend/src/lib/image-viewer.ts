@@ -6,6 +6,7 @@
  */
 
 import * as m from '$lib/paraglide/messages.js';
+import type { ViewerItem } from '$lib/viewer-items';
 
 export type ViewerImage = {
 	/** 元の画像 (ダウンロードの URL)。 */
@@ -75,19 +76,42 @@ function preloadImage(src: string, signal: AbortSignal): Promise<boolean> {
 	]).finally(() => clearTimeout(timer));
 }
 
+export type OpenImageViewerOptions = {
+	/** 開閉のアニメーション。ファイルのビューアから移ってきたときは付けない (行の縮小画像は後ろに隠れている)。 */
+	animate?: boolean;
+	/** 開く直前に呼ぶ。 */
+	beforeOpen?: () => void;
+	/** 画像の並びの端から、隣のファイル (`items[target]`) へ移るときに呼ぶ。呼んだ後、このビューアはすぐに消える。 */
+	onLeave: (target: number) => void;
+};
+
 /**
+ * `items[index]` (画像) を開く。前後は `items` のうち、`index` を含む画像の連なり。
+ * 連なりの端で前・次を押すと、隣のファイルへ `onLeave` で渡す (→ $lib/viewer-items.ts)。
+ *
  * 元の画像を読み終えてから開く (上限を過ぎたら縮小画像で開く)。開き始めたら解決する。
  * 待つ間に行が消えたら (ページを移ったなど) `signal` を中断し、開かないようにする。
  */
 export async function openImageViewer(
-	images: ViewerImage[],
+	items: ViewerItem[],
 	index: number,
-	signal: AbortSignal
+	signal: AbortSignal,
+	{ animate = true, beforeOpen, onLeave }: OpenImageViewerOptions
 ): Promise<void> {
+	// PhotoSwipe には、隣り合う画像の連なりだけを渡す (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+	let start = index;
+	while (start > 0 && items[start - 1].type === 'image') start -= 1;
+	let end = index;
+	while (end < items.length - 1 && items[end + 1].type === 'image') end += 1;
+	const images = items
+		.slice(start, end + 1)
+		.flatMap((item) => (item.type === 'image' ? [item.image] : []));
+	const at = index - start;
+
 	const [{ default: PhotoSwipe }, , preloaded] = await Promise.all([
 		import('photoswipe'),
 		import('photoswipe/style.css'),
-		preloadImage(images[index].src, signal)
+		preloadImage(images[at].src, signal)
 	]);
 	if (signal.aborted) return;
 
@@ -99,12 +123,17 @@ export async function openImageViewer(
 			// PhotoSwipe は開くアニメーションが終わるまで元の画像を出さず、仮の表示 (msrc) を
 			// 引き伸ばして見せる。読み終えていれば仮の表示にも元の画像を使い、粗い縮小画像から
 			// 切り替わって見えないようにする。仮の表示を使うのは開いた1枚目だけ。
-			msrc: i === index && preloaded ? image.src : image.thumbnailSrc,
+			msrc: i === at && preloaded ? image.src : image.thumbnailSrc,
 			alt: image.title,
 			// 行の縮小画像は中央を正方形に切り抜いてあるので、切り抜きを戻しながら開く。
 			thumbCropped: true
 		})),
-		index,
+		index: at,
+		// 連なりの端は、ループせずに隣のファイルへ渡す。
+		loop: false,
+		showHideAnimationType: animate ? 'zoom' : 'none',
+		// 何件目かは、ファイルも含めた並びで数える (下の `position`)。
+		counter: false,
 		// 後ろの画面を透かさない。既定の 0.8 では、ヘッダーの文字が上部のバーの数字や題名と重なる。
 		bgOpacity: 1,
 		// 上部のバーの下から画像を置く。バーに地を敷くので、画像の上端が隠れないように。
@@ -133,6 +162,64 @@ export async function openImageViewer(
 		return (rowThumbnail ?? thumbnail) as HTMLElement;
 	});
 
+	/** 連なりの端から、隣のファイルへ。ファイルのビューアを先に開いてから消し、間にページを見せない。 */
+	const leaveTo = (target: number) => {
+		onLeave(target);
+		viewer.destroy();
+	};
+	const hasPreviousFile = start > 0;
+	const hasNextFile = end < items.length - 1;
+	const atFirst = () => viewer.currIndex === 0;
+	const atLast = () => viewer.currIndex === images.length - 1;
+
+	viewer.on('keydown', (event) => {
+		const { key } = event.originalEvent;
+		if (key === 'ArrowLeft' && hasPreviousFile && atFirst()) leaveTo(start - 1);
+		else if (key === 'ArrowRight' && hasNextFile && atLast()) leaveTo(end + 1);
+		else return;
+		event.preventDefault();
+	});
+
+	viewer.on('uiRegister', () => {
+		const ui = viewer.ui;
+		if (!ui) return;
+		ui.registerElement({
+			name: 'position',
+			// PhotoSwipe の数字 (`.pswp__counter`) と同じ見た目。画像が1枚でも、並びにファイルがあれば出す。
+			className: 'pswp__counter pswp__counter--items',
+			appendTo: 'bar',
+			order: 5,
+			onInit: (element) => {
+				viewer.on('change', () => {
+					element.textContent =
+						items.length > 1 ? `${start + viewer.currIndex + 1} / ${items.length}` : '';
+				});
+			}
+		});
+		// 連なりの端の、隣のファイルへ移る矢印。PhotoSwipe の矢印は、ループしないと端で消える。
+		// タッチの端末では PhotoSwipe の矢印は出ない (スワイプで移る) が、ファイルへはスワイプで移れないので、これは出す。
+		for (const [name, forward] of [
+			['leavePrevious', false],
+			['leaveNext', true]
+		] as const) {
+			ui.registerElement({
+				name,
+				className: `pswp__button--arrow pswp__button--leave pswp__button--arrow--${forward ? 'next' : 'prev'}`,
+				title: forward ? m.image_viewer_next_button() : m.image_viewer_previous_button(),
+				isButton: true,
+				appendTo: 'wrapper',
+				html: icon('<path d="m15 18-6-6 6-6"/>', { ...ARROW, outlined: true }),
+				order: forward ? 11 : 10,
+				onClick: () => leaveTo(forward ? end + 1 : start - 1),
+				onInit: (element) => {
+					viewer.on('change', () => {
+						element.hidden = forward ? !(hasNextFile && atLast()) : !(hasPreviousFile && atFirst());
+					});
+				}
+			});
+		}
+	});
+
 	// 何の画像かを上部のバーに出す。PhotoSwipe は題名を出す部品を持たない。
 	viewer.on('uiRegister', () => {
 		viewer.ui?.registerElement({
@@ -151,5 +238,6 @@ export async function openImageViewer(
 		});
 	});
 
+	beforeOpen?.();
 	viewer.init();
 }
