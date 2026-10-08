@@ -162,7 +162,8 @@
 
 /* 音声のプレイヤーと動画のビューアのシークバー。`<input type="range">` の見た目をブラウザによらず揃える。
  * 再生済みの長さは、要素の style で渡す `--seek-progress` (0%〜100%) で塗る。
- * 黒い地のビューアでは `--seek-fill`・`--seek-track` で色を替える。 */
+ * 黒い地のビューアでは `--seek-fill`・`--seek-track` で色を替える。
+ * つまみの幅は `$lib/seek-drag.ts` が触れた位置から値を出すのに使うので、変えるときは揃える。 */
 @utility media-seek {
 	appearance: none;
 	background: transparent;

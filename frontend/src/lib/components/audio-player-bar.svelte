@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { nowPlaying } from '$lib/now-playing.svelte';
 	import { formatDuration } from '$lib/format';
+	import { seekDrag } from '$lib/seek-drag';
 	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
 	import AudioSpectrum from '$lib/components/audio-spectrum.svelte';
@@ -246,7 +247,7 @@
 				{#key duration > 0}
 					<input
 						type="range"
-						class="media-seek h-11 min-w-0 flex-1"
+						class="media-seek h-11 min-w-0 flex-1 touch-none"
 						style:--seek-progress="{progress}%"
 						min="0"
 						max={duration || 0}
@@ -254,6 +255,7 @@
 						aria-label={m.media_seek_label()}
 						aria-valuetext="{formatDuration(currentTime)} / {formatDuration(duration)}"
 						bind:value={() => currentTime, seek}
+						{@attach seekDrag(seek)}
 					/>
 				{/key}
 				<span class="shrink-0">{formatDuration(duration)}</span>
