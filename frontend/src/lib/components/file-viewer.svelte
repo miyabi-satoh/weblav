@@ -221,7 +221,7 @@
 						<button
 							type="button"
 							class={[barButtonClass, 'absolute top-1/2 left-1 -translate-y-1/2 bg-black/50']}
-							disabled={fileViewer.index === 0}
+							disabled={fileViewer.leaving || fileViewer.index === 0}
 							onclick={() => fileViewer.previous()}
 						>
 							<ChevronLeftIcon class="size-6" />
@@ -230,7 +230,7 @@
 						<button
 							type="button"
 							class={[barButtonClass, 'absolute top-1/2 right-1 -translate-y-1/2 bg-black/50']}
-							disabled={fileViewer.index === fileViewer.count - 1}
+							disabled={fileViewer.leaving || fileViewer.index === fileViewer.count - 1}
 							onclick={() => fileViewer.next()}
 						>
 							<ChevronRightIcon class="size-6" />
