@@ -136,12 +136,15 @@
 >
 	<div class="relative min-h-0 flex-1">
 		<!-- 押すと再生・一時停止 (動画サイトのプレイヤーと同じ)。キーボードでは下の再生ボタンを使う。
+		     押したときにフォーカスを取り、続く左右キーを再生位置に回す (→ handleKeydown)。
+		     Tab の巡回には入れない。キーボードでは下の操作に入れば左右キーが効くため。
 		     字幕は、置かれた動画のファイルしか無いので付けられない。 -->
 		<!-- svelte-ignore a11y_media_has_caption -->
 		<video
 			bind:this={video}
 			{src}
-			class="size-full object-contain"
+			class="size-full object-contain outline-none"
+			tabindex="-1"
 			playsinline
 			loop={videoLoop.value}
 			bind:muted
