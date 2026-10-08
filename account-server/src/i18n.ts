@@ -222,6 +222,7 @@ const ja = {
 		`${total} (月額の使っていない分 ${credit} を差し引いた額)`,
 	switchYearlyTiming: (date: string): string =>
 		`今日 (上の額) と、${date} からの毎年の更新日 (各回 ${personalPrice('ja', 'year')}・税込み)`,
+	switchStartLabel: '切り替わる時期',
 	switchStart: '支払いの完了後すぐ',
 	switchPayment: {
 		domestic: '登録している支払い方法 (今すぐ請求。支払いができなかったときは切り替えません)',
@@ -450,6 +451,7 @@ const en: typeof ja = {
 		`${total} (after deducting ${credit} for the unused part of your monthly plan)`,
 	switchYearlyTiming: (date: string) =>
 		`Today (the amount above), then on each yearly renewal date from ${date} (${personalPrice('en', 'year')} each time, tax included)`,
+	switchStartLabel: 'When it switches',
 	switchStart: 'Right after the payment is complete',
 	switchPayment: {
 		domestic:

@@ -721,7 +721,7 @@ export function planSwitchPage(lang: Lang, email: string, view: PlanSwitch, noti
 					[t.confirmRenewLabel, t.confirmRenew('year')],
 					[t.confirmTimingLabel, t.switchYearlyTiming(formatDate(lang, view.renewsAt))],
 					[t.confirmPaymentLabel, t.switchPayment[view.region]],
-					[t.switchDateLabel, t.switchStart],
+					[t.switchStartLabel, t.switchStart],
 					[t.confirmPcsLabel, t.confirmPcs],
 					[t.confirmCancelLabel, t.confirmCancel[view.region]]
 				])}
