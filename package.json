@@ -1,7 +1,7 @@
 {
   "name": "weblav",
   "private": true,
-  "packageManager": "pnpm@11.3.0",
+  "packageManager": "pnpm@12.10.1",
   "devDependencies": {
     "lefthook": "^2.1.14",
     "sharp": "0.35.4",

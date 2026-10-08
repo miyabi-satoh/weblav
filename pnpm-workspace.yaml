@@ -1,2 +1,4 @@
 allowBuilds:
   lefthook: true
+minimumReleaseAge: 1440
+minimumReleaseAgeExcludePrune: true
