@@ -718,9 +718,11 @@ export function planSwitchPage(lang: Lang, email: string, view: PlanSwitch, noti
 					[t.confirmPlanLabel, t.confirmPlan('year')],
 					[t.confirmPriceLabel, t.confirmPrice('year')],
 					[t.switchTodayLabel, t.switchToday(view.total, view.credit)],
-					[t.confirmRenewLabel, t.switchYearlyRenew(formatDate(lang, view.renewsAt))],
-					[t.confirmPcsLabel, t.confirmPcs],
+					[t.confirmRenewLabel, t.confirmRenew('year')],
+					[t.confirmNextChargeLabel, t.switchYearlyNextCharge(formatDate(lang, view.renewsAt))],
 					[t.confirmPaymentLabel, t.switchPayment[view.region]],
+					[t.switchDateLabel, t.switchStart],
+					[t.confirmPcsLabel, t.confirmPcs],
 					[t.confirmCancelLabel, t.confirmCancel[view.region]]
 				])}
 				${form(

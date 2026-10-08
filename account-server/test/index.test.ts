@@ -1320,11 +1320,12 @@ describe('subscribing to Pro', () => {
 			'4,800\u00a0円 / 年',
 			'自動更新',
 			'解約',
-			'href="/tokushoho/"'
+			'<a href="/tokushoho/">特定商取引法に基づく表記</a>)'
 		]) {
 			expect(review.indexOf(term)).toBeGreaterThan(-1);
 			expect(review.indexOf(term)).toBeLessThan(button);
 		}
+		expect(review).not.toContain('](/tokushoho/)');
 		expect(review).toContain('name="interval" value="year"');
 		expect(review).toContain(`value="${next.replace(/&/g, '&amp;')}"`);
 		expect(review).toContain(`href="/pricing/?${new URLSearchParams({ next })}"`);
@@ -1767,7 +1768,7 @@ describe('subscribing to Pro', () => {
 				'480\u00a0円 を差し引いた',
 				'自動更新',
 				'解約',
-				'href="/tokushoho/"'
+				'<a href="/tokushoho/">特定商取引法に基づく表記</a>)'
 			]) {
 				expect(review.indexOf(term), term).toBeGreaterThan(-1);
 				expect(review.indexOf(term), term).toBeLessThan(button);

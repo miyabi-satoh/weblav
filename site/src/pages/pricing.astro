@@ -208,7 +208,7 @@ const { data } = (await getEntry('product', 'index'))!;
     color: var(--ink-strong);
   }
 
-  /* 説明の列を本文の幅にそろえる。左の見出しの列の分だけ欄を広げ、説明が次の文の途中で折れないようにする */
+  /* 見出しの列の分だけ説明が本文より狭くならないよう、欄は本文の幅に絞らず、説明の列を本文の幅 (44rem) に絞る */
   .terms dd {
     margin: 0 0 0.75rem;
     max-width: 44rem;

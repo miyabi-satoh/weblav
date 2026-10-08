@@ -220,13 +220,13 @@ const ja = {
 	switchTodayLabel: '今日の支払い',
 	switchToday: (total: string, credit: string): string =>
 		`${total} (月額の使っていない分 ${credit} を差し引いた額)`,
-	switchYearlyRenew: (date: string): string =>
-		`${date} に自動更新。以降は毎年の更新日に ${personalPrice('ja', 'year')} (税込み) を請求します。`,
+	switchYearlyNextCharge: (date: string): string =>
+		`${date} から毎年の更新日に ${personalPrice('ja', 'year')} (税込み)`,
+	switchStart: '支払いの完了後すぐ',
 	switchPayment: {
-		domestic:
-			'登録している支払い方法に、今すぐ請求します。支払いができなかったときは切り替えません。',
+		domestic: '登録している支払い方法 (今すぐ請求。支払いができなかったときは切り替えません)',
 		overseas:
-			'登録している支払い方法に、今すぐ請求します。販売と決済は Link (Sold through Link, LLC) が代行し、お住まいの国の通貨で請求されることがあります。支払いができなかったときは切り替えません。'
+			'登録している支払い方法 (今すぐ請求。支払いができなかったときは切り替えません)。販売と決済は Link (Sold through Link, LLC) が代行し、お住まいの国の通貨で請求されることがあります。'
 	} as Record<SaleRegion, string>,
 	switchYearlyButton: '年額に切り替えて支払う',
 	switchMonthlyLead: (date: string): string =>
@@ -427,8 +427,8 @@ const en: typeof ja = {
 	confirmCancelLabel: 'Cancellation and refunds',
 	confirmCancel: {
 		domestic:
-			'You can cancel at any time on your account page. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except for billing errors on our side (see the [Specified Commercial Transactions Act notice](/tokushoho/)).',
-		overseas: `You can cancel at any time on your account page. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except for billing errors on our side (see the [Specified Commercial Transactions Act notice](/tokushoho/)). Within 60 days of purchase, you may get a refund under [Link's refund policy](${LINK_REFUND_POLICY}).`
+			'You can cancel at any time on your account page. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side (see the [Specified Commercial Transactions Act notice](/tokushoho/)).',
+		overseas: `You can cancel at any time on your account page. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side (see the [Specified Commercial Transactions Act notice](/tokushoho/)). Within 60 days of purchase, you may get a refund under [Link's refund policy](${LINK_REFUND_POLICY}).`
 	},
 	buyConsent: 'By continuing, you agree to the {terms}, the {privacy}, and the {tokushoho}.',
 	confirmButton: 'Confirm and continue to payment',
@@ -448,13 +448,14 @@ const en: typeof ja = {
 	switchTodayLabel: 'Due today',
 	switchToday: (total: string, credit: string) =>
 		`${total} (after deducting ${credit} for the unused part of your monthly plan)`,
-	switchYearlyRenew: (date: string) =>
-		`Renews automatically on ${date}, and every year after that for ${personalPrice('en', 'year')}.`,
+	switchYearlyNextCharge: (date: string) =>
+		`${personalPrice('en', 'year')} on each yearly renewal date from ${date} (tax included)`,
+	switchStart: 'Right after the payment is complete',
 	switchPayment: {
 		domestic:
-			"We charge your saved payment method now. If the payment doesn't go through, nothing is switched.",
+			"Your saved payment method (charged now; if the payment doesn't go through, nothing is switched)",
 		overseas:
-			"We charge your saved payment method now. Link (Sold through Link, LLC) handles the sale and payment on our behalf, and the amount may be charged in your local currency. If the payment doesn't go through, nothing is switched."
+			"Your saved payment method (charged now; if the payment doesn't go through, nothing is switched). Link (Sold through Link, LLC) handles the sale and payment on our behalf, and the amount may be charged in your local currency."
 	},
 	switchYearlyButton: 'Switch to yearly and pay',
 	switchMonthlyLead: (date: string) =>
@@ -475,7 +476,7 @@ const en: typeof ja = {
 	switchReleasedTitle: 'Scheduled switch canceled',
 	switchReleased: 'Your plan renews as yearly.',
 	checkoutNote: (tokushoho: string) =>
-		`It renews automatically each period at the same price. Pro is added to your WebLAV account as soon as the payment is complete. You can cancel at any time on your account page and keep using Pro until the end of the paid period. Paid periods are not refunded, except for billing errors on our side. For details, see the [Specified Commercial Transactions Act notice](${tokushoho}).`,
+		`It renews automatically each period at the same price. Pro is added to your WebLAV account as soon as the payment is complete. You can cancel at any time on your account page and keep using Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side. For details, see the [Specified Commercial Transactions Act notice](${tokushoho}).`,
 	notForSale: 'Pro is not available for purchase right now.',
 	buyBusy: 'Preparing the payment page. Please try again in a moment.',
 	checkingPurchase: 'Confirming your payment. Please wait.',
