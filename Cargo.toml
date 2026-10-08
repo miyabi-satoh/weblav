@@ -21,6 +21,7 @@ build = "build.rs"
 ProductName = "WebLAV"
 FileDescription = "WebLAV"
 OriginalFilename = "weblav.exe"
+LegalCopyright = "Copyright © 2026 amiiby"
 
 [dependencies]
 argon2 = "0.6.0"
