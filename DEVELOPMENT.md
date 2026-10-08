@@ -173,7 +173,7 @@ just install-mac  # macOS: .app を作って /Applications に入れ直し、起
 
 ```
 weblav                                     タスクトレイに常駐し、サーバーを同じプロセスで動かす (引数は取らない)
-weblav-service                             サーバーだけを動かす (Ctrl+C / SIGTERM まで動く。開発と、systemd などから動かすとき用)
+weblav-service                             サーバーだけを動かす (Ctrl+C / SIGTERM まで動く。開発と e2e 用)
 weblav-cli --create-user [<name>] [--admin]  ユーザーを作成する (名前を省くと対話入力、パスワードは常に対話入力)
 weblav-cli --openapi                       OpenAPI 仕様 (JSON) を標準出力に書き出す
 weblav-cli -v | --version                  バージョンを表示する

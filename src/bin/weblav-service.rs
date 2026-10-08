@@ -1,4 +1,4 @@
-//! サーバーだけを動かす exe。画面を持たない。開発 (`just dev-backend`・e2e) と、Linux で systemd などから動かすのに使う。
+//! サーバーだけを動かす exe。画面を持たない。開発 (`just dev-backend`・e2e) で使う。
 //! Ctrl+C (Unix では SIGTERM も) を受けるか、サーバーが自分で落ちるまで動く (→ docs/distribution.md「常駐 (Windows)」)。
 
 use std::process::ExitCode;
@@ -65,13 +65,13 @@ fn run_in_foreground() -> ExitCode {
     if stopped_by_signal {
         ExitCode::SUCCESS
     } else {
-        // サーバーが自分で落ちた。0 以外で終わり、systemd などの再起動に委ねる。
+        // サーバーが自分で落ちた。0 以外で終わり、呼び出し元に失敗を知らせる。
         eprintln!("the server stopped unexpectedly");
         ExitCode::FAILURE
     }
 }
 
-/// Ctrl+C か、Unix では SIGTERM を待つ。systemd はサービスを止めるときに SIGTERM を送る。
+/// Ctrl+C か、Unix では SIGTERM を待つ。e2e はバックエンドを止めるときに SIGTERM を送る (frontend/scripts/backend-process.ts)。
 /// tokio の signal はランタイムを要するので、待つあいだだけ軽量な current-thread ランタイムを持つ。
 fn wait_for_shutdown_signal() {
     let rt = tokio::runtime::Builder::new_current_thread()
