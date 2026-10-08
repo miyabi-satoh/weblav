@@ -1290,7 +1290,7 @@ describe('subscribing to Pro', () => {
 		);
 		expect(sent.get('cancel_url')).toBe(`${ORIGIN}/account/link?r=R&name=x`);
 		expect(sent.get('custom_text[submit][message]')).toContain(`${ORIGIN}/tokushoho/`);
-		expect(sent.get('custom_text[submit][message]')).toContain('自動で更新');
+		expect(sent.get('custom_text[submit][message]')).toContain('自動更新');
 	});
 
 	it('does not sell again to an account that has Pro', async () => {
@@ -1318,7 +1318,7 @@ describe('subscribing to Pro', () => {
 		for (const term of [
 			'お申し込み内容の最終確認',
 			'4,800\u00a0円 / 年',
-			'自動で更新',
+			'自動更新',
 			'解約',
 			'href="/tokushoho/"'
 		]) {
@@ -1765,7 +1765,7 @@ describe('subscribing to Pro', () => {
 				'4,800\u00a0円 / 年',
 				'4,320\u00a0円',
 				'480\u00a0円 を差し引いた',
-				'自動で更新',
+				'自動更新',
 				'解約',
 				'href="/tokushoho/"'
 			]) {
