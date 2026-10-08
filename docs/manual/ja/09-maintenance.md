@@ -3,7 +3,7 @@
 ## 起動する・終了する
 
 - 起動: スタートメニュー (macOS は「アプリケーション」フォルダ) から WebLAV を開く
-- 終了: 通知領域 (macOS はメニューバー) の WebLAV アイコンから「終了する」を選ぶ
+- 終了: 通知領域 (macOS はメニューバー、Ubuntu は画面右上) の WebLAV アイコンから「終了する」を選ぶ
 
   ![通知領域の WebLAV アイコンのメニュー (Windows)](images/quickstart-tray-menu.webp)
 
@@ -66,5 +66,6 @@
 |---|---|---|
 | Windows | `%LOCALAPPDATA%\Packages\amiiby.WebLAV_tv82n7df3ay6j\LocalCache\Roaming\amiiby\weblav\config` | `%LOCALAPPDATA%\Packages\amiiby.WebLAV_tv82n7df3ay6j\LocalCache\Local\amiiby\weblav\data` |
 | macOS | `~/Library/Containers/com.amiiby.weblav/Data/Library/Application Support/com.amiiby.weblav` | 設定と同じ |
+| Ubuntu | `~/.config/weblav` | `~/.local/share/weblav` |
 
 環境変数 `WEBLAV_HOME` を指定すると、その場所にまとめて置かれます。

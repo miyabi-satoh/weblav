@@ -13,7 +13,7 @@ Folders inside it appear only after you register them as “Folder” or “Arch
 
 ## Open it
 
-1. On the computer running WebLAV, choose “Open in browser” from the WebLAV icon in the task tray (menu bar on macOS). This opens `http://localhost:3000`.
+1. On the computer running WebLAV, choose “Open in browser” from the WebLAV icon in the task tray (menu bar on macOS, top right of the screen on Ubuntu). This opens `http://localhost:3000`.
 
    ![WebLAV icon menu in the task tray on Windows](images/quickstart-tray-menu.webp)
 
@@ -31,7 +31,7 @@ Folders inside it appear only after you register them as “Folder” or “Arch
 
    ![The Add a folder button](images/roots-page.webp)
 
-2. In the folder selection window that opens, choose the folder you want to show (select “Select Folder” on Windows or “Open” on macOS).
+2. In the folder selection window that opens, choose the folder you want to show (select “Select Folder” on Windows, “Open” on macOS, or “Select” on Ubuntu).
 
 It is added to the list immediately.
 

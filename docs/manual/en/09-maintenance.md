@@ -3,7 +3,7 @@
 ## Start and quit
 
 - Start: Open WebLAV from the Start menu (or the Applications folder on macOS).
-- Quit: Choose “Quit” from the WebLAV icon in the task tray (menu bar on macOS).
+- Quit: Choose “Quit” from the WebLAV icon in the task tray (menu bar on macOS, top right of the screen on Ubuntu).
 
   ![WebLAV icon menu in the task tray on Windows](images/quickstart-tray-menu.webp)
 
@@ -65,5 +65,6 @@ Files inside shared folders are not deleted.
 |---|---|---|
 | Windows | `%LOCALAPPDATA%\Packages\amiiby.WebLAV_tv82n7df3ay6j\LocalCache\Roaming\amiiby\weblav\config` | `%LOCALAPPDATA%\Packages\amiiby.WebLAV_tv82n7df3ay6j\LocalCache\Local\amiiby\weblav\data` |
 | macOS | `~/Library/Containers/com.amiiby.weblav/Data/Library/Application Support/com.amiiby.weblav` | Same as settings |
+| Ubuntu | `~/.config/weblav` | `~/.local/share/weblav` |
 
 Set the `WEBLAV_HOME` environment variable to store everything together in that location.

@@ -15,6 +15,12 @@ If saving Site settings shows “The settings file (config.toml) cannot be read.
   cd ~/Library/Containers/com.amiiby.weblav/Data/Library/Application\ Support/com.amiiby.weblav && touch config.toml && open -e config.toml
   ```
 
+- **Ubuntu**: Enter the following in Terminal to open it in Text Editor.
+
+  ```
+  mkdir -p ~/.config/weblav && touch ~/.config/weblav/config.toml && xdg-open ~/.config/weblav/config.toml
+  ```
+
 ## Configuration reference
 
 Items you do not write use their default values.
