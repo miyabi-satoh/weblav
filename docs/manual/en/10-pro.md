@@ -79,3 +79,8 @@ After you cancel, Pro stays until the end of the period you have paid for. When 
 ## When someone else takes over
 
 With “Move Pro to another account” on the account page, you can move Pro and the linked PCs together to the account of another email address. You don't need to link the PCs again. The billing contact and payment method don't move, so the new owner updates them with “Manage billing (cancel, payment method, receipts)” on the account page.
+
+## Troubleshooting
+
+- **“Couldn't reach the WebLAV account service.”**: Check that the PC is connected to the internet, wait a while, then press the button again.
+- **“This PC's clock is behind.” / “This PC's clock is behind, so WebLAV is running as Free.”**: Set the PC's date and time. If the clock is behind, WebLAV cannot check the Pro expiry correctly. If the message appeared after you pressed a button, press it again after setting the clock.
