@@ -565,10 +565,12 @@ pub(super) fn scan_files(
         let entry = match entry {
             Ok(entry) => entry,
             // 走査の途中で消えたものは、見つからなかったものと同じに扱う (同期で行が外れる)。
+            // 登録先そのもの (深さ0) が消えたときは読み飛ばさない。空の結果で同期すると全件が消えるため。
             Err(error)
-                if error
-                    .io_error()
-                    .is_some_and(|io| io.kind() == std::io::ErrorKind::NotFound) =>
+                if error.depth() > 0
+                    && error
+                        .io_error()
+                        .is_some_and(|io| io.kind() == std::io::ErrorKind::NotFound) =>
             {
                 continue;
             }
