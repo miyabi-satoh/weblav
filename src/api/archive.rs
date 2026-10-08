@@ -292,7 +292,7 @@ pub struct RescanResponse {
         (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの"),
         (status = 404, body = crate::error::ErrorResponse, description = "存在しない・アーカイブでない"),
         (status = 409, body = crate::error::ErrorResponse, description = "同じアーカイブを走査中"),
-        (status = 422, body = crate::error::ErrorResponse, description = "登録先を読み取れない・大きすぎる"),
+        (status = 422, body = crate::error::ErrorResponse, description = "登録先が見つからない・読めない場所がある・大きすぎる"),
     )
 )]
 async fn rescan(
@@ -318,6 +318,16 @@ async fn rescan(
     let roots = super::roots::load_roots(&state.pool).await?;
     let result = run_blocking(move || {
         let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
+        // 無いことを伝えても、任意のパスの有無を探る道具にはならない (見るのは登録済みのパスだけ)。
+        // ルートの外を1つの文言に寄せる `canonical_dir_within_roots` より先に見分ける。
+        if std::fs::metadata(&scan_root)
+            .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound)
+        {
+            return Err(AppError::ValidationDetailed {
+                message: "the archive folder was not found".to_string(),
+                detail: ValidationDetail::ArchiveFolderMissing,
+            });
+        }
         // 「公開できるフォルダ」の外は再走査でも拒む (理由は `contents::resolve_path` と同じ)。
         let root = super::fs::canonical_dir_within_roots(&scan_root, &roots, &own_dirs)?;
         Ok::<_, AppError>(super::fs::scan_files(
@@ -332,6 +342,13 @@ async fn rescan(
 
     if result.truncated {
         return Err(AppError::Validation("too many files to index".to_string()));
+    }
+    // 読めなかった分は走査の結果から欠けているので、同期すると公開フラグごと消える。
+    if let Some(path) = result.unreadable {
+        return Err(AppError::ValidationDetailed {
+            message: "some folders could not be read".to_string(),
+            detail: ValidationDetail::ArchiveFolderUnreadable { path },
+        });
     }
 
     sync_items(&state, id, &archive.path, &result.rel_paths).await

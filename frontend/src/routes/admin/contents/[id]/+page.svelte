@@ -165,7 +165,9 @@
 					);
 				} else {
 					errorDialog.show(
-						m.contents_edit_scan_failed({ reason: scan.message }),
+						scan.retryable
+							? m.contents_edit_scan_failed({ reason: scan.message })
+							: m.contents_edit_scan_blocked({ reason: scan.message }),
 						m.archive_scan_failed_title()
 					);
 				}

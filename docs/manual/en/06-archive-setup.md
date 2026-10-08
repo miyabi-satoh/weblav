@@ -112,3 +112,16 @@ Changing the source or level and saving clears that axis’s values table.
    ![Two selected items and the Publish selected button](images/archive-items-publish.webp)
 
 To stop publishing files, select them, then choose “Unpublish selected”.
+
+## When files or folders are not found
+
+- Files you deleted or moved no longer appear in viewers’ lists. On the “Items” tab of the admin page they show “Not found”, and rescanning removes them from the list.
+- If you move or rename a file inside the archive, rescanning adds it as a new file, and it starts unpublished again. Publish it again.
+
+If rescanning shows one of the following, the item list and the publish settings stay as they were.
+
+- **“The folder was not found.”**: The archive folder was deleted, moved, or renamed, or an external drive was disconnected.
+  - If you moved or renamed it, select “Change...” under “Path” on the “Details” tab and choose it. The publish settings start over.
+  - If you disconnected a drive, connect it and rescan.
+  - Viewers also see “The folder was not found.”
+- **“Could not read (folder).”**: WebLAV cannot read that folder. Check the folder’s permissions on the computer, make it readable, then rescan. For a network drive, check that it is connected.

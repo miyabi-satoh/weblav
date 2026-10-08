@@ -330,6 +330,76 @@ async fn archive_rescan_keeps_published_flags_and_removes_vanished_items(pool: S
     assert_eq!(published, vec![("keep.mp3", 1), ("new.mp3", 0)]);
 }
 
+/// 登録先のフォルダが無くなっていたら、再スキャンは索引を変えずに、そうと分かる内訳で断る
+/// (→ docs/archive.md「スキャン」)。
+#[sqlx::test]
+async fn archive_rescan_reports_a_missing_folder_and_keeps_the_index(pool: SqlitePool) {
+    let base = temp_test_dir("archive-rescan-missing");
+    let dir = base.join("録音");
+    std::fs::create_dir_all(&dir).expect("ディレクトリを作れなかった");
+    std::fs::write(dir.join("a.mp3"), b"").expect("ファイルを作れなかった");
+    let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
+
+    std::fs::remove_dir_all(&dir).expect("フォルダを消せなかった");
+    let (status, body) = rescan(app, &cookie, id).await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    assert_eq!(
+        parsed["error"]["detail"]["kind"], "archiveFolderMissing",
+        "{body}"
+    );
+    assert_eq!(item_count(&pool, id).await, 1);
+}
+
+/// 読めない場所があれば、再スキャンは索引を変えずに、最初に読めなかった場所を添えて断る。
+/// 同期すると、読めなかった分が「消えた」と見なされて公開フラグごと消えるため (→ docs/archive.md「スキャン」)。
+/// 権限で読めなくするので Unix だけ。
+#[cfg(unix)]
+#[sqlx::test]
+async fn archive_rescan_refuses_to_sync_when_a_folder_is_unreadable(pool: SqlitePool) {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = temp_test_dir("archive-rescan-unreadable");
+    std::fs::create_dir_all(dir.join("locked")).expect("ディレクトリを作れなかった");
+    std::fs::write(dir.join("locked/a.mp3"), b"").expect("ファイルを作れなかった");
+    let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
+
+    let set_mode = |mode| {
+        std::fs::set_permissions(dir.join("locked"), std::fs::Permissions::from_mode(mode))
+            .expect("権限を変えられなかった");
+    };
+    set_mode(0o000);
+    let (status, body) = rescan(app, &cookie, id).await;
+    // 一時ディレクトリを片付けられるよう、確かめる前に戻す。
+    set_mode(0o755);
+
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    assert_eq!(
+        parsed["error"]["detail"],
+        serde_json::json!({"kind": "archiveFolderUnreadable", "path": "locked"}),
+        "{body}"
+    );
+    assert_eq!(item_count(&pool, id).await, 1);
+}
+
+async fn item_count(pool: &SqlitePool, id: i64) -> i64 {
+    sqlx::query_scalar("SELECT COUNT(*) FROM archive_items WHERE archive_id = ?")
+        .bind(id)
+        .fetch_one(pool)
+        .await
+        .expect("索引を数えられなかった")
+}
+
 /// 拡張子の変更では索引を消さない。対象であり続けたアイテムは公開フラグを保ち、
 /// 対象から外れた行だけが次の走査で消える (→ docs/archive.md「スキャン」)。
 #[sqlx::test]

@@ -4080,7 +4080,7 @@
             }
           },
           "422": {
-            "description": "登録先を読み取れない・大きすぎる",
+            "description": "登録先が見つからない・読めない場所がある・大きすぎる",
             "content": {
               "application/json": {
                 "schema": {
@@ -4767,12 +4767,17 @@
           "id",
           "relPath",
           "published",
-          "title"
+          "title",
+          "missing"
         ],
         "properties": {
           "id": {
             "type": "integer",
             "format": "int64"
+          },
+          "missing": {
+            "type": "boolean",
+            "description": "ファイルが消えている・読めない。再スキャンすると一覧から外れる。"
           },
           "modifiedAt": {
             "type": [
@@ -5008,7 +5013,8 @@
           "archiveTitle",
           "ancestors",
           "axes",
-          "items"
+          "items",
+          "folderMissing"
         ],
         "properties": {
           "ancestors": {
@@ -5026,6 +5032,10 @@
             "items": {
               "$ref": "#/components/schemas/ArchiveAxisResponse"
             }
+          },
+          "folderMissing": {
+            "type": "boolean",
+            "description": "アーカイブの登録先のフォルダが見つからない。画面は空の一覧の代わりにそう出す。"
           },
           "items": {
             "type": "array",
@@ -5577,6 +5587,13 @@
           "truncated": {
             "type": "boolean",
             "description": "上限を超えて走査を打ち切ったか。`true` なら実際のファイル数は `count` 以上ある。\n\n打ち切りの理由は区別しない。件数の上限を超えた場合と、走査したエントリ数の\n上限を超えた場合 (対象拡張子に一致しないファイルやディレクトリばかりのツリー)\nがあり、後者では `count` が上限より小さいまま `true` になる。\nUI側の扱いはどちらも「これ以上ある」で同じなので、理由は分けない。"
+          },
+          "unreadable": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "最初に読めなかった場所の相対パス (登録先そのものなら空文字)。`count` はそこを除いた数。\nアーカイブは読めない場所があると再スキャンできないので (→ docs/archive.md「スキャン」)、登録の前に知らせる。"
           }
         }
       },
@@ -7624,6 +7641,40 @@
                 "enum": [
                   "backupTooNew"
                 ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "再スキャンで、アーカイブの登録先のフォルダが見つからない (→ docs/archive.md「スキャン」)。",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "archiveFolderMissing"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "再スキャンで、読めない場所があった (→ docs/archive.md「スキャン」)。\n`path` は最初に読めなかった場所の、登録先からの相対パス。登録先そのものなら空文字。",
+            "required": [
+              "path",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "archiveFolderUnreadable"
+                ]
+              },
+              "path": {
+                "type": "string"
               }
             }
           },

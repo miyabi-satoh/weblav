@@ -208,7 +208,9 @@
 					formOpen = false;
 					await invalidateAll();
 					errorDialog.show(
-						m.contents_create_scan_failed({ reason: scan.message }),
+						scan.retryable
+							? m.contents_create_scan_failed({ reason: scan.message })
+							: m.contents_create_scan_blocked({ reason: scan.message }),
 						m.archive_scan_failed_title()
 					);
 					return;

@@ -48,6 +48,20 @@ describe('errorMessage', () => {
 		}
 	});
 
+	it('names the unreadable folder, or the archive folder itself when the path is empty', () => {
+		const unreadable = (path: string) =>
+			errorMessage({
+				error: {
+					code: 'invalid_request_body',
+					message: 'x',
+					detail: { kind: 'archiveFolderUnreadable', path }
+				}
+			});
+		expect(unreadable('英検/2024')).toContain('英検/2024');
+		expect(unreadable('')).not.toBe(unreadable('英検/2024'));
+		expect(unreadable('')).not.toContain('{path}');
+	});
+
 	it('falls back to the generic message for malformed bodies', () => {
 		expect(errorMessage(undefined)).toBe(GENERIC_ERROR_MESSAGE());
 	});

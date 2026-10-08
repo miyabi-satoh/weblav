@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { client } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
+	import { GENERIC_ERROR_MESSAGE, errorMessage, unreadableFolderMessage } from '$lib/api/errors';
 	import * as m from '$lib/paraglide/messages.js';
 	import type { components } from '$lib/api/schema';
 	import { contentTypeLabel } from '$lib/content-labels';
@@ -51,6 +51,8 @@
 
 	let count = $state<number | null>(null);
 	let truncated = $state(false);
+	/** 最初に読めなかった場所。読めない場所があると、アーカイブは再スキャンできない (→ docs/archive.md「スキャン」)。 */
+	let unreadable = $state<string | null>(null);
 	let loading = $state(false);
 	let loadError = $state('');
 
@@ -64,6 +66,7 @@
 			requests.invalidate();
 			count = null;
 			truncated = false;
+			unreadable = null;
 			loadError = '';
 			loading = false;
 			return;
@@ -77,6 +80,7 @@
 		loadError = '';
 		count = null;
 		truncated = false;
+		unreadable = null;
 		try {
 			const { data, error, response } = await client.GET('/api/v1/admin/fs/count', {
 				params: { query: { path: target, extensions: targetExtensions } }
@@ -88,6 +92,7 @@
 			}
 			count = data.count;
 			truncated = data.truncated;
+			unreadable = data.unreadable ?? null;
 		} catch {
 			if (isCurrent()) loadError = GENERIC_ERROR_MESSAGE();
 		} finally {
@@ -96,6 +101,7 @@
 	}
 
 	let formattedCount = $derived(formatNumber(count));
+	let archiveUnscannable = $derived(contentType === 'archive' && unreadable !== null);
 
 	/** 件数の見出し。打ち切られた場合は下限値であることを示す。 */
 	let countHeadline = $derived(
@@ -171,13 +177,28 @@
 				<span class="text-4xl leading-none tracking-tight">{formattedCount}</span>
 				<span class="text-sm text-muted-foreground">{countHeadline}</span>
 			</p>
+			{#if unreadable !== null}
+				<p class="text-sm text-destructive">{unreadableFolderMessage(unreadable)}</p>
+			{/if}
 
-			<WarningBand>
-				<p class="text-sm leading-relaxed">{scopeMessage}</p>
-				{#if noteMessage !== null}
-					<p class="mt-1.5 text-xs leading-relaxed text-warning-muted">{noteMessage}</p>
-				{/if}
-			</WarningBand>
+			<!-- 読めない場所があるアーカイブは、直すまで1件も索引されないので「N 個が索引されます」は出さない。 -->
+			{#if !archiveUnscannable || noteMessage !== null}
+				<WarningBand>
+					{#if !archiveUnscannable}
+						<p class="text-sm leading-relaxed">{scopeMessage}</p>
+					{/if}
+					{#if noteMessage !== null}
+						<p
+							class={[
+								'text-xs leading-relaxed text-warning-muted',
+								!archiveUnscannable && 'mt-1.5'
+							]}
+						>
+							{noteMessage}
+						</p>
+					{/if}
+				</WarningBand>
+			{/if}
 		{/if}
 
 		<Dialog.Footer>
