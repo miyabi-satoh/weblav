@@ -4,12 +4,15 @@ name: CI
 # スカッシュマージ後の main への push では流さない。pull_request は main の先端とのマージ結果に対して走り、
 # マージの前に main へ追いつくことも保護で求めるので、同じ内容をもう一度確かめても情報が増えない。
 on:
-  # ADR: paths-ignore で文書だけの PR を飛ばさない。必須のチェックが走らないと、その PR はマージできなくなる。
+  # ADR: 文書だけの PR も paths-ignore で飛ばさない。必須のチェックが来ないと、その PR はマージできなくなる。
+  # ジョブは必ず起動させ、文書だけのときは中の手順を飛ばす (下の changes)。
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
+  # paths-filter が PR の変更ファイルを API で読む。
+  pull-requests: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -25,30 +28,52 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # 文書だけ (ビルドもテストも読まないもの) の PR では、以降の手順を飛ばす。
+      # docs/manual/ はバイナリに埋め込み、テストでも読むので文書だけに含めない。
+      # pull_request 以外 (workflow_dispatch) ではこの手順が走らず、出力が空になるので全部流れる。
+      - id: changes
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v4
+        with:
+          predicate-quantifier: some-with-excludes
+          filters: |
+            code:
+              - '**'
+              - '!*.md'
+              - '!.claude/CLAUDE.md'
+              - '!docs/*.md'
+
       # tao と tray-icon (と muda) が Linux では GTK 3・AppIndicator を使う。
-      - name: Install system libraries for the tray
+      - if: steps.changes.outputs.code != 'false'
+        name: Install system libraries for the tray
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libayatana-appindicator3-dev
 
-      - uses: dtolnay/rust-toolchain@stable
+      - if: steps.changes.outputs.code != 'false'
+        uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@v2
+      - if: steps.changes.outputs.code != 'false'
+        uses: Swatinem/rust-cache@v2
 
       # licenses-check が使う。版は DEVELOPMENT.md のセットアップと揃える。
-      - uses: taiki-e/install-action@v2
+      - if: steps.changes.outputs.code != 'false'
+        uses: taiki-e/install-action@v2
         with:
           tool: cargo-about@0.9.2
 
-      - uses: extractions/setup-just@v4
+      - if: steps.changes.outputs.code != 'false'
+        uses: extractions/setup-just@v4
 
-      - uses: pnpm/action-setup@v6
+      - if: steps.changes.outputs.code != 'false'
+        uses: pnpm/action-setup@v6
         with:
           package_json_file: frontend/package.json
 
-      - uses: actions/setup-node@v7
+      - if: steps.changes.outputs.code != 'false'
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
@@ -58,7 +83,8 @@ jobs:
             account-server/pnpm-lock.yaml
             site/pnpm-lock.yaml
 
-      - name: Install dependencies
+      - if: steps.changes.outputs.code != 'false'
+        name: Install dependencies
         run: |
           pnpm install --frozen-lockfile
           pnpm --dir frontend install --frozen-lockfile
@@ -66,9 +92,11 @@ jobs:
           pnpm --dir site install --frozen-lockfile
 
       # vitest のコンポーネントテストと e2e が chromium で動くため。
-      - name: Install Playwright browser (chromium)
+      - if: steps.changes.outputs.code != 'false'
+        name: Install Playwright browser (chromium)
         working-directory: frontend
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run CI checks
+      - if: steps.changes.outputs.code != 'false'
+        name: Run CI checks
         run: just ci
