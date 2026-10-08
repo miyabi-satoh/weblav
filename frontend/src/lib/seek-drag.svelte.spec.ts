@@ -31,4 +31,30 @@ describe('seekDrag', () => {
 		// 続く左右キーをシークバーが受ける。
 		expect(document.activeElement).toBe(input);
 	});
+
+	it('keeps following the drag after the pointer leaves the bar until it is released', async () => {
+		const onseek = vi.fn();
+		mount(onseek);
+		const rect = input.getBoundingClientRect();
+		const y = rect.top + rect.height / 2;
+		input.dispatchEvent(
+			new PointerEvent('pointerdown', {
+				pointerId: 1,
+				button: 0,
+				clientX: rect.left + 70,
+				clientY: y,
+				bubbles: true
+			})
+		);
+		// バーの外 (下へ 100px) で左へ動かしても追う。
+		window.dispatchEvent(
+			new PointerEvent('pointermove', { pointerId: 1, clientX: rect.left + 30, clientY: y + 100 })
+		);
+		expect(onseek).toHaveBeenLastCalledWith(10);
+		window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1 }));
+		window.dispatchEvent(
+			new PointerEvent('pointermove', { pointerId: 1, clientX: rect.left + 210 })
+		);
+		expect(onseek).toHaveBeenCalledTimes(2);
+	});
 });
