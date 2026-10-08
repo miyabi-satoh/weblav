@@ -721,7 +721,8 @@ export function planSwitchPage(lang: Lang, email: string, view: PlanSwitch, noti
 					[t.confirmRenewLabel, t.confirmRenew('year')],
 					[t.confirmTimingLabel, t.switchYearlyTiming(formatDate(lang, view.renewsAt))],
 					[t.confirmPaymentLabel, t.switchPayment[view.region]],
-					[t.switchStartLabel, t.switchStart],
+					// 切り替えも、申し込みと同じく支払いの完了後すぐに効く。
+					[t.switchStartLabel, t.confirmStart],
 					[t.confirmPcsLabel, t.confirmPcs],
 					[t.confirmCancelLabel, t.confirmCancel[view.region]]
 				])}

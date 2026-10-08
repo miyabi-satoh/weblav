@@ -8,12 +8,12 @@
 	import RotateCwIcon from '@lucide/svelte/icons/rotate-cw';
 	import Volume2Icon from '@lucide/svelte/icons/volume-2';
 	import VolumeXIcon from '@lucide/svelte/icons/volume-x';
-	import { formatDuration } from '$lib/format';
-	import { seekDrag } from '$lib/seek-drag';
 	import { nowPlaying } from '$lib/now-playing.svelte';
 	import { videoLoop } from '$lib/video-loop.svelte';
 	import { viewerButtonClass } from '$lib/viewer-button';
 	import * as m from '$lib/paraglide/messages.js';
+	import MediaSeekBar from '$lib/components/media-seek-bar.svelte';
+	import { clampTime, SKIP_SECONDS } from '$lib/media';
 
 	// ファイルのビューアの動画 (→ docs/ui.md「PDF・動画・テキストのビューア」)。
 	// 操作は `<video controls>` を使わずに自前で置く。
@@ -25,9 +25,6 @@
 		src: string;
 		onerror: () => void;
 	} = $props();
-
-	/** 10秒戻す・進むの幅 (秒)。音声のプレイヤーと揃える。 */
-	const SKIP_SECONDS = 10;
 
 	// Safari の接頭辞付きの全画面。iPadOS 16.4 より前は接頭辞付きしか無く、
 	// iPhone は要素の全画面が無く、動画だけを OS の全画面にできる。
@@ -48,8 +45,6 @@
 	let currentTime = $state(0);
 	let duration = $state(0);
 	let fullscreen = $state(false);
-
-	let progress = $derived(duration > 0 ? (currentTime / duration) * 100 : 0);
 
 	// ビューアは開いてから描くので、document は常にある。
 	const doc = document as WebkitDocument;
@@ -82,8 +77,7 @@
 
 	function seek(seconds: number) {
 		if (!video) return;
-		const end = duration > 0 ? duration : Number.POSITIVE_INFINITY;
-		video.currentTime = currentTime = Math.min(Math.max(seconds, 0), end);
+		video.currentTime = currentTime = clampTime(seconds, duration);
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
@@ -179,26 +173,7 @@
 		<div
 			class="flex w-full items-center gap-3 px-2 text-xs text-white/80 md:order-2 md:w-auto md:flex-1"
 		>
-			<span class="shrink-0">{formatDuration(currentTime)}</span>
-			<!-- FIX: WebKit は、値を書き込んでいない range の max が変わると、値を min と max の中ほどに置き直す。
-			     長さが分かったときに一度だけ作り直して、今の位置を書き込ませる (一度書けば、その後 max が変わっても動かない)。 -->
-			{#key duration > 0}
-				<input
-					type="range"
-					class="media-seek h-11 min-w-0 flex-1 touch-none"
-					style:--seek-progress="{progress}%"
-					style:--seek-fill="white"
-					style:--seek-track="rgb(255 255 255 / 0.3)"
-					min="0"
-					max={duration || 0}
-					step="any"
-					aria-label={m.media_seek_label()}
-					aria-valuetext="{formatDuration(currentTime)} / {formatDuration(duration)}"
-					bind:value={() => currentTime, seek}
-					{@attach seekDrag(seek)}
-				/>
-			{/key}
-			<span class="shrink-0">{formatDuration(duration)}</span>
+			<MediaSeekBar {currentTime} {duration} onseek={seek} onDark />
 		</div>
 		<div class="flex items-center md:order-1">
 			{@render iconButton(

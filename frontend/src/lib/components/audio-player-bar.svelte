@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { nowPlaying } from '$lib/now-playing.svelte';
-	import { formatDuration } from '$lib/format';
-	import { seekDrag } from '$lib/seek-drag';
 	import * as m from '$lib/paraglide/messages.js';
+	import MediaSeekBar from '$lib/components/media-seek-bar.svelte';
+	import { clampTime, SKIP_SECONDS } from '$lib/media';
 	import { Button } from '$lib/components/ui/button';
 	import AudioSpectrum from '$lib/components/audio-spectrum.svelte';
 	import ListEndIcon from '@lucide/svelte/icons/list-end';
@@ -23,8 +23,6 @@
 		height?: number;
 	} = $props();
 
-	/** 10秒戻す・進むの幅 (秒)。 */
-	const SKIP_SECONDS = 10;
 	/** 「前の曲」を押したとき、これより進んでいれば曲の頭へ戻す (秒)。 */
 	const RESTART_THRESHOLD_SECONDS = 3;
 
@@ -35,8 +33,6 @@
 	// 投げ直したりする。状態は要素のイベントで読み、動かすときだけ要素へ書く。
 	let currentTime = $state(0);
 	let duration = $state(0);
-
-	let progress = $derived(duration > 0 ? (currentTime / duration) * 100 : 0);
 
 	$effect(() => {
 		if (audio) return nowPlaying.attach(audio);
@@ -88,8 +84,7 @@
 
 	function seek(seconds: number) {
 		if (!audio) return;
-		const end = duration > 0 ? duration : Number.POSITIVE_INFINITY;
-		audio.currentTime = currentTime = Math.min(Math.max(seconds, 0), end);
+		audio.currentTime = currentTime = clampTime(seconds, duration);
 	}
 
 	function skip(seconds: number) {
@@ -241,24 +236,7 @@
 			<div
 				class="order-4 flex w-full items-center gap-3 text-xs text-muted-foreground md:order-none md:col-span-3 md:row-start-2"
 			>
-				<span class="shrink-0">{formatDuration(currentTime)}</span>
-				<!-- FIX: WebKit は、値を書き込んでいない range の max が変わると、値を min と max の中ほどに置き直す。
-				     長さが分かったときに一度だけ作り直して、今の位置を書き込ませる (一度書けば、その後 max が変わっても動かない)。 -->
-				{#key duration > 0}
-					<input
-						type="range"
-						class="media-seek h-11 min-w-0 flex-1 touch-none"
-						style:--seek-progress="{progress}%"
-						min="0"
-						max={duration || 0}
-						step="any"
-						aria-label={m.media_seek_label()}
-						aria-valuetext="{formatDuration(currentTime)} / {formatDuration(duration)}"
-						bind:value={() => currentTime, seek}
-						{@attach seekDrag(seek)}
-					/>
-				{/key}
-				<span class="shrink-0">{formatDuration(duration)}</span>
+				<MediaSeekBar {currentTime} {duration} onseek={seek} />
 			</div>
 		{/if}
 		<div

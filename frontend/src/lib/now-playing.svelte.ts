@@ -1,3 +1,5 @@
+import { readStored, writeStored } from '$lib/stored';
+
 /**
  * ページ下部の音声プレイヤーが再生する対象。同時に鳴らせるのは1トラックのみ
  * (→ docs/ui.md「音声のページ内プレイヤー」)なので、ページ・コンポーネント単位ではなくモジュール
@@ -17,7 +19,7 @@ const AUTO_ADVANCE_STORAGE_KEY = 'weblav:audio-auto-advance';
 // 絞り込みを変えたりしても、鳴っている曲の前後が入れ替わらないようにするため。
 let queue = $state<Track[]>([]);
 let index = $state(-1);
-let autoAdvance = $state(readAutoAdvance());
+let autoAdvance = $state(readStored(AUTO_ADVANCE_STORAGE_KEY) === 'true');
 // 前・次の曲では止めたまま曲だけ替えるので、一時停止の状態は曲をまたいで持つ。
 let paused = $state(true);
 /** 今の曲を読み込めなかった。曲を替えるまで、プレイヤーは再生位置の代わりに案内を出す。 */
@@ -75,15 +77,6 @@ function connectGraph(target: HTMLAudioElement) {
 	if (graph && graph.context.state !== 'running') void graph.context.resume();
 }
 
-function readAutoAdvance(): boolean {
-	// プライベートブラウズ等で localStorage が使えなくても、オフとして動かす。
-	try {
-		return globalThis.localStorage?.getItem(AUTO_ADVANCE_STORAGE_KEY) === 'true';
-	} catch {
-		return false;
-	}
-}
-
 function resume() {
 	const target = element;
 	if (!target) return;
@@ -138,11 +131,7 @@ export const nowPlaying = {
 	},
 	set autoAdvance(value: boolean) {
 		autoAdvance = value;
-		try {
-			globalThis.localStorage?.setItem(AUTO_ADVANCE_STORAGE_KEY, String(value));
-		} catch {
-			// 覚えられなくても、今の画面での切り替えは効かせる。
-		}
+		writeStored(AUTO_ADVANCE_STORAGE_KEY, String(value));
 	},
 	get muted() {
 		return muted;
