@@ -32,7 +32,7 @@
 	"error_conflict": "This conflicted with another operation. Please try again later.",
 	"error_free_limit_reached": "You have reached a limit of the Free edition. Pro removes the limits.",
 	"error_config_unreadable": "The settings file (config.toml) cannot be read.",
-	"error_account_server_unavailable": "Couldn't reach the WebLAV account service.",
+	"error_account_server_unavailable": "Couldn't reach the WebLAV account service. Please try again later.",
 	"error_pro_code_invalid": "The code doesn't match. Check the code shown on the linking page or in the email for typos and enter it again.",
 	"error_pro_clock_behind": "This PC's clock is behind.",
 	"error_generic": "A communication error occurred. Please try again later.",
