@@ -564,6 +564,14 @@ pub(super) fn scan_files(
     for entry in walker {
         let entry = match entry {
             Ok(entry) => entry,
+            // 走査の途中で消えたものは、見つからなかったものと同じに扱う (同期で行が外れる)。
+            Err(error)
+                if error
+                    .io_error()
+                    .is_some_and(|io| io.kind() == std::io::ErrorKind::NotFound) =>
+            {
+                continue;
+            }
             Err(error) => {
                 if unreadable.is_none() {
                     let rel = error

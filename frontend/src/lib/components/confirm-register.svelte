@@ -101,6 +101,7 @@
 	}
 
 	let formattedCount = $derived(formatNumber(count));
+	let archiveUnscannable = $derived(contentType === 'archive' && unreadable !== null);
 
 	/** 件数の見出し。打ち切られた場合は下限値であることを示す。 */
 	let countHeadline = $derived(
@@ -180,12 +181,24 @@
 				<p class="text-sm text-destructive">{unreadableFolderMessage(unreadable)}</p>
 			{/if}
 
-			<WarningBand>
-				<p class="text-sm leading-relaxed">{scopeMessage}</p>
-				{#if noteMessage !== null}
-					<p class="mt-1.5 text-xs leading-relaxed text-warning-muted">{noteMessage}</p>
-				{/if}
-			</WarningBand>
+			<!-- 読めない場所があるアーカイブは、直すまで1件も索引されないので「N 個が索引されます」は出さない。 -->
+			{#if !archiveUnscannable || noteMessage !== null}
+				<WarningBand>
+					{#if !archiveUnscannable}
+						<p class="text-sm leading-relaxed">{scopeMessage}</p>
+					{/if}
+					{#if noteMessage !== null}
+						<p
+							class={[
+								'text-xs leading-relaxed text-warning-muted',
+								!archiveUnscannable && 'mt-1.5'
+							]}
+						>
+							{noteMessage}
+						</p>
+					{/if}
+				</WarningBand>
+			{/if}
 		{/if}
 
 		<Dialog.Footer>
