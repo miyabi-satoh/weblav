@@ -517,6 +517,7 @@
 	"file_viewer_markdown_view": "View",
 	"file_viewer_markdown_preview": "Preview",
 	"file_viewer_markdown_source": "Source",
+	"video_player_region_label": "Video player",
 	"video_player_loop_button": "Loop",
 	"video_player_fullscreen_button": "Full screen",
 	"video_player_exit_fullscreen_button": "Exit full screen",

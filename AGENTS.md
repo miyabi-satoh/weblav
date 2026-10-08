@@ -107,7 +107,7 @@ grep 例: `grep -rn "ADR:" src/ frontend/src/`・`grep -rn "FIX:" src/ frontend/
 
 - Svelte 5 runes のみを使う (`$props()` / `$state()` / `$derived()` 等)。
 - **複数の画面で共有する Tailwind の class は `$lib/*.ts` に定数として置く**
-  (`list-row.ts`・`breadcrumb.ts`・`header-action.ts`・`table-columns.ts`)。
+  (`list-row.ts`・`breadcrumb.ts`・`header-action.ts`・`table-columns.ts`・`viewer-button.ts`)。
   同じ長い class 文字列を画面ごとに書かない。
 - **Tailwind の任意値クラス (`text-[13px]`・`h-(--x)`・`[mask-type:luminance]` など) は使わない**。
   近い標準の段階に丸める (→ docs/ui.md「UI 全般」)。

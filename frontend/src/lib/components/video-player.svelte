@@ -85,6 +85,18 @@
 		video.currentTime = currentTime = Math.min(Math.max(seconds, 0), end);
 	}
 
+	function handleKeydown(event: KeyboardEvent) {
+		// シークバーは、自身の左右キーで位置を動かす。
+		if (event.target instanceof HTMLInputElement) return;
+		// 標準の操作部品と同じく、動画の中の左右キーは再生位置に使い、ビューアの前後の移動に回さない。
+		// 全画面で見ている間に、別のファイルへ替わって全画面が解けないようにするため。
+		if (event.key === 'ArrowLeft') seek(currentTime - SKIP_SECONDS);
+		else if (event.key === 'ArrowRight') seek(currentTime + SKIP_SECONDS);
+		else return;
+		event.preventDefault();
+		event.stopPropagation();
+	}
+
 	function toggleFullscreen() {
 		if (!container || !video) return;
 		if (fullscreen) {
@@ -113,7 +125,15 @@
 	</button>
 {/snippet}
 
-<div bind:this={container} class="flex size-full flex-col bg-black">
+<!-- 中のボタンから上がってきた左右キーを受けるだけで、この要素自体はフォーカスを受けない。 -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<div
+	bind:this={container}
+	class="flex size-full flex-col bg-black"
+	role="region"
+	aria-label={m.video_player_region_label()}
+	onkeydown={handleKeydown}
+>
 	<div class="relative min-h-0 flex-1">
 		<!-- 押すと再生・一時停止 (動画サイトのプレイヤーと同じ)。キーボードでは下の再生ボタンを使う。
 		     字幕は、置かれた動画のファイルしか無いので付けられない。 -->
@@ -156,19 +176,23 @@
 			class="flex w-full items-center gap-3 px-2 text-xs text-white/80 md:order-2 md:w-auto md:flex-1"
 		>
 			<span class="shrink-0">{formatDuration(currentTime)}</span>
-			<input
-				type="range"
-				class="media-seek h-11 min-w-0 flex-1"
-				style:--seek-progress="{progress}%"
-				style:--seek-fill="white"
-				style:--seek-track="rgb(255 255 255 / 0.3)"
-				min="0"
-				max={duration || 0}
-				step="any"
-				aria-label={m.media_seek_label()}
-				aria-valuetext="{formatDuration(currentTime)} / {formatDuration(duration)}"
-				bind:value={() => currentTime, seek}
-			/>
+			<!-- FIX: WebKit は、値を書き込んでいない range の max が変わると、値を min と max の中ほどに置き直す。
+			     長さが分かったときに一度だけ作り直して、今の位置を書き込ませる (一度書けば、その後 max が変わっても動かない)。 -->
+			{#key duration > 0}
+				<input
+					type="range"
+					class="media-seek h-11 min-w-0 flex-1"
+					style:--seek-progress="{progress}%"
+					style:--seek-fill="white"
+					style:--seek-track="rgb(255 255 255 / 0.3)"
+					min="0"
+					max={duration || 0}
+					step="any"
+					aria-label={m.media_seek_label()}
+					aria-valuetext="{formatDuration(currentTime)} / {formatDuration(duration)}"
+					bind:value={() => currentTime, seek}
+				/>
+			{/key}
 			<span class="shrink-0">{formatDuration(duration)}</span>
 		</div>
 		<div class="flex items-center md:order-1">

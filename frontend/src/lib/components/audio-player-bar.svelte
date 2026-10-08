@@ -241,17 +241,21 @@
 				class="order-4 flex w-full items-center gap-3 text-xs text-muted-foreground md:order-none md:col-span-3 md:row-start-2"
 			>
 				<span class="shrink-0">{formatDuration(currentTime)}</span>
-				<input
-					type="range"
-					class="media-seek h-11 min-w-0 flex-1"
-					style:--seek-progress="{progress}%"
-					min="0"
-					max={duration || 0}
-					step="any"
-					aria-label={m.media_seek_label()}
-					aria-valuetext="{formatDuration(currentTime)} / {formatDuration(duration)}"
-					bind:value={() => currentTime, seek}
-				/>
+				<!-- FIX: WebKit は、値を書き込んでいない range の max が変わると、値を min と max の中ほどに置き直す。
+				     長さが分かったときに一度だけ作り直して、今の位置を書き込ませる (一度書けば、その後 max が変わっても動かない)。 -->
+				{#key duration > 0}
+					<input
+						type="range"
+						class="media-seek h-11 min-w-0 flex-1"
+						style:--seek-progress="{progress}%"
+						min="0"
+						max={duration || 0}
+						step="any"
+						aria-label={m.media_seek_label()}
+						aria-valuetext="{formatDuration(currentTime)} / {formatDuration(duration)}"
+						bind:value={() => currentTime, seek}
+					/>
+				{/key}
 				<span class="shrink-0">{formatDuration(duration)}</span>
 			</div>
 		{/if}
