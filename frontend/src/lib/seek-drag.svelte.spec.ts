@@ -20,7 +20,7 @@ describe('seekDrag', () => {
 		cleanup = seekDrag(onseek)(input);
 	}
 
-	it('seeks to where the bar is pressed, measured between the thumb centers at both ends', async () => {
+	it('seeks to where the bar is pressed and keeps the focus on the bar', async () => {
 		const onseek = vi.fn();
 		mount(onseek);
 		// 左端からつまみの半分 (10px) + 残り 200px の 30% の位置。
@@ -28,5 +28,7 @@ describe('seekDrag', () => {
 		expect(onseek).toHaveBeenCalledOnce();
 		// 押した位置は小数の px に丸められて届く。
 		expect(onseek.mock.calls[0][0]).toBeCloseTo(30, 0);
+		// 続く左右キーをシークバーが受ける。
+		expect(document.activeElement).toBe(input);
 	});
 });

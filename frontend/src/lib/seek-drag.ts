@@ -20,8 +20,10 @@ export function seekDrag(onseek: (seconds: number) => void): Attachment<HTMLInpu
 
 		function handleDown(event: PointerEvent) {
 			if (event.button !== 0) return;
-			// range 自身のドラッグと二重に動かさない。
+			// range 自身のドラッグと二重に動かさない。止めるとフォーカスも移らないので、自分で渡す。
+			// 渡さないと、続く左右キーがシークバーでなくビューアの前後の移動に回る。
 			event.preventDefault();
+			input.focus({ preventScroll: true });
 			input.setPointerCapture(event.pointerId);
 			onseek(valueAt(event.clientX));
 		}
