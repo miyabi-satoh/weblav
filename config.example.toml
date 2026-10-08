@@ -2,7 +2,7 @@
 #
 # 実行時に読みに行く場所:
 #   - 環境変数 WEBLAV_HOME が設定されていれば $WEBLAV_HOME/config.toml
-#     (DB・セッション鍵・ログも同じディレクトリ直下に置かれる。Docker / systemd 向け)
+#     (DB・セッション鍵・ログも同じディレクトリ直下に置かれる。開発・e2e や、配置場所を固定したいとき向け)
 #   - 無ければユーザーのアプリデータディレクトリ (directories::ProjectDirs)
 #     - Windows: %APPDATA%\amiiby\weblav\config\config.toml
 #     - macOS:   ~/Library/Containers/com.amiiby.weblav/Data/Library/Application Support/com.amiiby.weblav/config.toml

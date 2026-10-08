@@ -14,7 +14,7 @@ const APP_ORGANIZATION: &str = "amiiby";
 const APP_APPLICATION: &str = "weblav";
 
 /// この環境変数が設定されていれば、設定・データ・ログをすべてそのディレクトリ直下に置く。
-/// Docker / systemd のように HOME が無い、あるいは配置場所を固定したい運用向け。
+/// 開発・e2e で置き場所を分けたいときや、配置場所を固定したい運用向け。
 pub const HOME_ENV: &str = "WEBLAV_HOME";
 
 const CONFIG_FILE_NAME: &str = "config.toml";

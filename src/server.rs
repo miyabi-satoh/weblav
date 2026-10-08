@@ -30,7 +30,7 @@ const PORT_FALLBACK_ATTEMPTS: u16 = 10;
 /// 設定のポートが使えなかったときの扱い (→ docs/distribution.md「常駐 (Windows)」)。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OnPortUnavailable {
-    /// 起動に失敗する。systemd などから動かすときに、黙って別のポートで動かないように。
+    /// 起動に失敗する。開発や e2e で動かすときに、黙って別のポートで動かないように。
     Fail,
     /// 上の番号へずらして起動する。トレイ版で使う。
     TryNext,
@@ -101,7 +101,7 @@ impl Running {
 /// サーバースレッドが終わったことを知らせる受け口。
 /// こちらから停止を指示していないのに `wait` が返ったら、サーバーが自分で落ちたということ
 /// (`axum::serve` の異常終了など)。呼び出し元 (トレイ・コンソール) は、これを検知して
-/// プロセスを終わらせる。コンソールで動かしたときは systemd などの再起動に委ねる (→ docs/distribution.md「常駐 (Windows)」)。
+/// プロセスを終わらせる。コンソールで動かしたときは 0 以外の終了コードで呼び出し元に知らせる (→ docs/distribution.md「常駐 (Windows)」)。
 pub struct ServerExited(mpsc::Receiver<()>);
 
 impl ServerExited {
