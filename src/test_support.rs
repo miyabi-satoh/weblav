@@ -54,6 +54,34 @@ impl Drop for TempDir {
     }
 }
 
+/// `path` を読めなくし、`Drop` で読めるように戻す。途中で `panic!` しても、一時ディレクトリを片付けられるようにするため。
+/// 権限で読めなくするので Unix だけ。
+#[cfg(unix)]
+#[allow(dead_code)]
+pub(crate) struct Unreadable(PathBuf);
+
+#[cfg(unix)]
+#[allow(dead_code)]
+impl Unreadable {
+    pub(crate) fn new(path: PathBuf) -> Self {
+        Self::set_mode(&path, 0o000);
+        Self(path)
+    }
+
+    fn set_mode(path: &Path, mode: u32) {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))
+            .expect("権限を変えられなかった");
+    }
+}
+
+#[cfg(unix)]
+impl Drop for Unreadable {
+    fn drop(&mut self) {
+        Self::set_mode(&self.0, 0o755);
+    }
+}
+
 /// テスト用の一時ディレクトリ。`CARGO_MANIFEST_DIR` 配下の `target/` に作る。
 /// `subdir` は呼び出し元(ファイル)ごとの名前空間。
 ///

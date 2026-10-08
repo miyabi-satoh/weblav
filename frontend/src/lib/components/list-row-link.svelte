@@ -48,11 +48,7 @@
 	function handleClick(event: MouseEvent) {
 		if (!viewer || !isPlainClick(event)) return;
 		event.preventDefault();
-		void openViewerItem(
-			{ type: 'file', file: viewer.file },
-			viewer.items,
-			new AbortController().signal
-		);
+		void openViewerItem({ type: 'file', file: viewer.file }, viewer.items);
 	}
 
 	let host = $derived.by(() => {

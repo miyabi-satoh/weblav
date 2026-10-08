@@ -362,20 +362,14 @@ async fn archive_rescan_reports_a_missing_folder_and_keeps_the_index(pool: Sqlit
 #[cfg(unix)]
 #[sqlx::test]
 async fn archive_rescan_refuses_to_sync_when_a_folder_is_unreadable(pool: SqlitePool) {
-    use std::os::unix::fs::PermissionsExt;
     let dir = temp_test_dir("archive-rescan-unreadable");
     std::fs::create_dir_all(dir.join("locked")).expect("ディレクトリを作れなかった");
     std::fs::write(dir.join("locked/a.mp3"), b"").expect("ファイルを作れなかった");
     let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
 
-    let set_mode = |mode| {
-        std::fs::set_permissions(dir.join("locked"), std::fs::Permissions::from_mode(mode))
-            .expect("権限を変えられなかった");
-    };
-    set_mode(0o000);
+    let locked = test_support::Unreadable::new(dir.join("locked"));
     let (status, body) = rescan(app, &cookie, id).await;
-    // 一時ディレクトリを片付けられるよう、確かめる前に戻す。
-    set_mode(0o755);
+    drop(locked);
 
     assert_error(
         status,
@@ -393,11 +387,13 @@ async fn archive_rescan_refuses_to_sync_when_a_folder_is_unreadable(pool: Sqlite
 }
 
 async fn item_count(pool: &SqlitePool, id: i64) -> i64 {
-    sqlx::query_scalar("SELECT COUNT(*) FROM archive_items WHERE archive_id = ?")
-        .bind(id)
-        .fetch_one(pool)
-        .await
-        .expect("索引を数えられなかった")
+    sqlx::query_scalar!(
+        "SELECT COUNT(*) FROM archive_items WHERE archive_id = ?",
+        id
+    )
+    .fetch_one(pool)
+    .await
+    .expect("索引を数えられなかった")
 }
 
 /// 拡張子の変更では索引を消さない。対象であり続けたアイテムは公開フラグを保ち、
@@ -483,14 +479,7 @@ async fn archive_path_change_clears_indexed_items(pool: SqlitePool) {
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
 
-    let remaining = sqlx::query_scalar!(
-        "SELECT COUNT(*) FROM archive_items WHERE archive_id = ?",
-        id
-    )
-    .fetch_one(&pool)
-    .await
-    .expect("索引を数えられなかった");
-    assert_eq!(remaining, 0);
+    assert_eq!(item_count(&pool, id).await, 0);
 }
 
 /// 走査はシンボリックリンクを索引しない。`follow_links(false)` はリンク先へ再帰

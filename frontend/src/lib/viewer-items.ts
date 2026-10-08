@@ -30,11 +30,14 @@ function itemSrc(item: ViewerItem): string {
 	return item.type === 'image' ? item.image.src : item.file.src;
 }
 
-/** 行から開く。`item` は `items` と同じ組み立て方で作る (押した行を `items` の中から `src` で探すため)。 */
+/**
+ * 行から開く。`item` は `items` と同じ組み立て方で作る (押した行を `items` の中から `src` で探すため)。
+ * `signal` は画像の行が渡す (→ `openImageViewer`)。ファイルはすぐ開くので要らない。
+ */
 export function openViewerItem(
 	item: ViewerItem,
 	items: ViewerItem[],
-	signal: AbortSignal
+	signal = new AbortController().signal
 ): Promise<void> {
 	const at = items.findIndex((candidate) => itemSrc(candidate) === itemSrc(item));
 	return openAt(at < 0 ? [item] : items, Math.max(at, 0), signal);

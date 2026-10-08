@@ -71,6 +71,13 @@ export const fileViewer = {
 		leave = onLeave;
 		open = true;
 	},
+	/** 前後のボタンの読み上げを、行き先の種類に合わせる (画像のビューアの端の矢印と同じ)。 */
+	get previousIsImage() {
+		return items[index - 1]?.type === 'image';
+	},
+	get nextIsImage() {
+		return items[index + 1]?.type === 'image';
+	},
 	previous() {
 		if (index > 0) move(index - 1);
 	},
