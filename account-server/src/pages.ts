@@ -220,9 +220,9 @@ function withLegalLinks(lang: Lang, text: string) {
 		);
 }
 
-/** 文言の `[文](https://…)` をリンクにする。文言はこちらで書くもので、利用者の入力は通さない。 */
+/** 文言の `[文](https://…)`・`[文](/…)` をリンクにする。文言はこちらで書くもので、利用者の入力は通さない。 */
 function withLinks(text: string) {
-	const parts = text.split(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/);
+	const parts = text.split(/\[([^\]]+)\]\(((?:https:\/\/|\/)[^)\s]+)\)/);
 	return parts.map((part, i) =>
 		i % 3 === 1 ? html`<a href="${parts[i + 1]}">${part}</a>` : i % 3 === 2 ? '' : part
 	);
@@ -382,8 +382,10 @@ export function confirmPage(
 		[t.confirmPlanLabel, t.confirmPlan(interval)],
 		[t.confirmPriceLabel, t.confirmPrice(interval)],
 		[t.confirmRenewLabel, t.confirmRenew(interval)],
-		[t.confirmPcsLabel, t.confirmPcs],
+		[t.confirmTimingLabel, t.confirmTiming(interval)],
 		[t.confirmPaymentLabel, t.confirmPayment[region]],
+		[t.confirmStartLabel, t.confirmStart],
+		[t.confirmPcsLabel, t.confirmPcs],
 		[t.confirmCancelLabel, t.confirmCancel[region]]
 	];
 	return page(
@@ -716,9 +718,11 @@ export function planSwitchPage(lang: Lang, email: string, view: PlanSwitch, noti
 					[t.confirmPlanLabel, t.confirmPlan('year')],
 					[t.confirmPriceLabel, t.confirmPrice('year')],
 					[t.switchTodayLabel, t.switchToday(view.total, view.credit)],
-					[t.confirmRenewLabel, t.switchYearlyRenew(formatDate(lang, view.renewsAt))],
-					[t.confirmPcsLabel, t.confirmPcs],
+					[t.confirmRenewLabel, t.confirmRenew('year')],
+					[t.confirmTimingLabel, t.switchYearlyTiming(formatDate(lang, view.renewsAt))],
 					[t.confirmPaymentLabel, t.switchPayment[view.region]],
+					[t.switchStartLabel, t.switchStart],
+					[t.confirmPcsLabel, t.confirmPcs],
 					[t.confirmCancelLabel, t.confirmCancel[view.region]]
 				])}
 				${form(

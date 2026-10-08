@@ -50,16 +50,18 @@ const { data } = (await getEntry('product', 'index'))!;
 
     <h2 id="terms">お申し込みの前に</h2>
     <dl class="terms">
-      <dt>支払い</dt>
-      <dd>申し込んだときと、更新のたびに同じ額を払います。日本からはクレジットカードで払います。</dd>
-      <dt>使い始め</dt>
-      <dd>支払いが済むとすぐ、WebLAV のアカウントに Pro が付きます。パソコンは WebLAV の管理画面から登録します。</dd>
+      <dt>支払いの時期</dt>
+      <dd>申し込み時と、以降の更新日ごと（同じ額）</dd>
+      <dt>支払い方法</dt>
+      <dd>日本からはクレジットカード</dd>
+      <dt>利用開始</dt>
+      <dd>支払いの完了後すぐ。パソコンは WebLAV の管理画面から登録します。</dd>
       <dt>更新と解約</dt>
-      <dd>期間ごとに自動で更新します。解約はアカウントのページからいつでもでき、払い終えた期間の終わりまで Pro のまま使えます。月額と年額も、アカウントのページで切り替えられます。</dd>
+      <dd>解約するまで自動更新。解約はアカウントのページからいつでもでき、支払い済みの期間の終わりまで Pro を使えます。月額と年額も、アカウントのページで切り替えられます。</dd>
       <dt>返金</dt>
-      <dd>払い終えた期間は、ご都合による返金はできません。二重に請求したとき、決済の処理を誤ったとき、支払いが済んだのに Pro が付かなかったときは返金します。</dd>
+      <dd>支払い済みの期間は返金できません（こちらの誤りによる請求などを除きます）。</dd>
       <dt>日本の外から</dt>
-      <dd>支払方法は、決済ページに表示されるものから選びます。販売と決済は Link（Sold through Link, LLC）が代わりに行い、購入から 60&nbsp;日以内は<a href="https://support.link.com/questions/requesting-a-refund-for-a-sold-through-link-payment">Link の返金ポリシー</a>によって返金されることがあります。</dd>
+      <dd>支払い方法は決済ページで選択。販売と決済は Link（Sold through Link, LLC）が代行し、購入から 60&nbsp;日以内は <a href="https://support.link.com/questions/requesting-a-refund-for-a-sold-through-link-payment">Link の返金ポリシー</a>で返金されることがあります。</dd>
     </dl>
     <p>詳しくは<a href="/tokushoho/">特定商取引法に基づく表記</a>と<a href="/terms/">利用規約</a>をご覧ください。</p>
   </div>
@@ -85,7 +87,7 @@ const { data } = (await getEntry('product', 'index'))!;
     word-break: auto-phrase;
   }
 
-  .pricing > :not(.plans) {
+  .pricing > :not(.plans, .terms) {
     max-width: 44rem;
   }
 
@@ -206,7 +208,9 @@ const { data } = (await getEntry('product', 'index'))!;
     color: var(--ink-strong);
   }
 
+  /* 見出しの列の分だけ説明が本文より狭くならないよう、欄は本文の幅に絞らず、説明の列を本文の幅 (44rem) に絞る */
   .terms dd {
     margin: 0 0 0.75rem;
+    max-width: 44rem;
   }
 </style>

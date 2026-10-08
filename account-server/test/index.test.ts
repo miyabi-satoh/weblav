@@ -1290,7 +1290,7 @@ describe('subscribing to Pro', () => {
 		);
 		expect(sent.get('cancel_url')).toBe(`${ORIGIN}/account/link?r=R&name=x`);
 		expect(sent.get('custom_text[submit][message]')).toContain(`${ORIGIN}/tokushoho/`);
-		expect(sent.get('custom_text[submit][message]')).toContain('自動で更新');
+		expect(sent.get('custom_text[submit][message]')).toContain('自動更新');
 	});
 
 	it('does not sell again to an account that has Pro', async () => {
@@ -1318,13 +1318,19 @@ describe('subscribing to Pro', () => {
 		for (const term of [
 			'お申し込み内容の最終確認',
 			'4,800\u00a0円 / 年',
-			'自動で更新',
+			'自動更新',
+			'支払いの時期',
+			'申し込み時',
+			'支払い方法',
+			'利用開始',
+			'登録できる PC',
 			'解約',
-			'href="/tokushoho/"'
+			'<a href="/tokushoho/">特定商取引法に基づく表記</a>)'
 		]) {
 			expect(review.indexOf(term)).toBeGreaterThan(-1);
 			expect(review.indexOf(term)).toBeLessThan(button);
 		}
+		expect(review).not.toContain('](/tokushoho/)');
 		expect(review).toContain('name="interval" value="year"');
 		expect(review).toContain(`value="${next.replace(/&/g, '&amp;')}"`);
 		expect(review).toContain(`href="/pricing/?${new URLSearchParams({ next })}"`);
@@ -1765,9 +1771,14 @@ describe('subscribing to Pro', () => {
 				'4,800\u00a0円 / 年',
 				'4,320\u00a0円',
 				'480\u00a0円 を差し引いた',
-				'自動で更新',
+				'自動更新',
+				'支払いの時期',
+				'今日 (上の額)',
+				'支払い方法',
+				'切り替わる時期',
+				'登録できる PC',
 				'解約',
-				'href="/tokushoho/"'
+				'<a href="/tokushoho/">特定商取引法に基づく表記</a>)'
 			]) {
 				expect(review.indexOf(term), term).toBeGreaterThan(-1);
 				expect(review.indexOf(term), term).toBeLessThan(button);

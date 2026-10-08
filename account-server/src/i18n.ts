@@ -175,24 +175,31 @@ const ja = {
 		interval === 'year'
 			? `${personalPrice('ja', 'year')} / 年 (税込み)`
 			: `${personalPrice('ja', 'month')} / 月 (税込み)`,
-	confirmRenewLabel: '更新',
+	confirmRenewLabel: '契約期間',
 	confirmRenew: (interval: Interval): string =>
 		interval === 'year'
-			? `1年ごとに自動で更新し、そのたびに ${personalPrice('ja', 'year')}を払います。`
-			: `1か月ごとに自動で更新し、そのたびに ${personalPrice('ja', 'month')}を払います。`,
+			? '1年ごとの自動更新 (解約するまで続きます)'
+			: '1か月ごとの自動更新 (解約するまで続きます)',
+	confirmTimingLabel: '支払いの時期',
+	confirmTiming: (interval: Interval): string =>
+		interval === 'year'
+			? `申し込み時と、以降の毎年の更新日 (各回 ${personalPrice('ja', 'year')}・税込み)`
+			: `申し込み時と、以降の毎月の更新日 (各回 ${personalPrice('ja', 'month')}・税込み)`,
+	confirmPaymentLabel: '支払い方法',
+	confirmPayment: {
+		domestic: 'クレジットカード (次の画面で入力)',
+		overseas:
+			'次の画面で選択。販売と決済は Link (Sold through Link, LLC) が代行し、カードの明細の表記は「LINK.COM*」です。お住まいの国の通貨で表示されることがあります。'
+	} as Record<SaleRegion, string>,
+	confirmStartLabel: '利用開始',
+	confirmStart: '支払いの完了後すぐ',
 	confirmPcsLabel: '登録できる PC',
 	confirmPcs: '3 台まで',
-	confirmPaymentLabel: '支払い',
-	confirmPayment: {
-		domestic: '次の画面 (Stripe) でカードで払います。払うとすぐ、このアカウントに Pro が付きます。',
-		overseas:
-			'次の画面で払い方を選びます。販売と決済は Link (Sold through Link, LLC) が代わりに行い、カードの明細には「LINK.COM*」と出ます。お住まいの国の通貨に換えた額で表示されることがあります。払うとすぐ、このアカウントに Pro が付きます。'
-	} as Record<SaleRegion, string>,
 	confirmCancelLabel: '解約と返金',
 	confirmCancel: {
 		domestic:
-			'アカウントのページからいつでも解約でき、払い終えた期間の終わりまで Pro のまま使えます。払い終えた期間は、ご都合による返金はできません。二重に請求したとき、決済の処理を誤ったとき、支払いが済んだのに Pro が付かなかったときは返金します。',
-		overseas: `アカウントのページからいつでも解約でき、払い終えた期間の終わりまで Pro のまま使えます。払い終えた期間は、ご都合による返金はできません。二重に請求したとき、決済の処理を誤ったとき、支払いが済んだのに Pro が付かなかったときは返金します。ただし購入から60 日以内は、[Link の返金ポリシー](${LINK_REFUND_POLICY})によって返金されることがあります。`
+			'解約はアカウントのページからいつでもできます。解約後も、支払い済みの期間の終わりまで Pro を使えます。支払い済みの期間は返金できません (こちらの誤りによる請求などを除きます。詳しくは[特定商取引法に基づく表記](/tokushoho/))。',
+		overseas: `解約はアカウントのページからいつでもできます。解約後も、支払い済みの期間の終わりまで Pro を使えます。支払い済みの期間は返金できません (こちらの誤りによる請求などを除きます。詳しくは[特定商取引法に基づく表記](/tokushoho/))。購入から 60 日以内は、[Link の返金ポリシー](${LINK_REFUND_POLICY})で返金されることがあります。`
 	} as Record<SaleRegion, string>,
 	buyConsent: '{terms}・{privacy}・{tokushoho}に同意のうえ、進んでください。',
 	confirmButton: '申し込みを確定して支払いへ',
@@ -208,17 +215,19 @@ const ja = {
 		`解約済みのため切り替えられません (${date} まで Pro のまま使えます)。切り替えるときは、アカウントのページの「支払いを管理する」で解約を取り消してください。`,
 	planCurrent: (interval: Interval): string =>
 		interval === 'year'
-			? `今の払い方: 年額 (${personalPrice('ja', 'year')} / 年)`
-			: `今の払い方: 月額 (${personalPrice('ja', 'month')} / 月)`,
+			? `今の契約: 年額 (${personalPrice('ja', 'year')} / 年)`
+			: `今の契約: 月額 (${personalPrice('ja', 'month')} / 月)`,
 	switchTodayLabel: '今日の支払い',
 	switchToday: (total: string, credit: string): string =>
 		`${total} (月額の使っていない分 ${credit} を差し引いた額)`,
-	switchYearlyRenew: (date: string): string =>
-		`${date} に自動で更新し、そのあとも1年ごとに ${personalPrice('ja', 'year')}を払います。`,
+	switchYearlyTiming: (date: string): string =>
+		`今日 (上の額) と、${date} からの毎年の更新日 (各回 ${personalPrice('ja', 'year')}・税込み)`,
+	switchStartLabel: '切り替わる時期',
+	switchStart: '支払いの完了後すぐ',
 	switchPayment: {
-		domestic: '登録している支払い方法で、今すぐ払います。払えなかったときは切り替えません。',
+		domestic: '登録している支払い方法 (今すぐ請求。支払いができなかったときは切り替えません)',
 		overseas:
-			'登録している支払い方法で、今すぐ払います。販売と決済は Link (Sold through Link, LLC) が代わりに行い、お住まいの国の通貨に換えた額になることがあります。払えなかったときは切り替えません。'
+			'登録している支払い方法 (今すぐ請求。支払いができなかったときは切り替えません)。販売と決済は Link (Sold through Link, LLC) が代行し、お住まいの国の通貨で請求されることがあります。'
 	} as Record<SaleRegion, string>,
 	switchYearlyButton: '年額に切り替えて支払う',
 	switchMonthlyLead: (date: string): string =>
@@ -239,7 +248,7 @@ const ja = {
 	switchReleasedTitle: '予約を取り消しました',
 	switchReleased: '年額のまま更新します。',
 	checkoutNote: (tokushoho: string) =>
-		`期間ごとに自動で更新し、同じ額を払います。支払いが済むとすぐ、WebLAV のアカウントに Pro が付きます。解約はアカウントのページからいつでもでき、払い終えた期間の終わりまで使えます。払い終えた期間は、ご都合による返金はできません。二重に請求したとき、決済の処理を誤ったとき、支払いが済んだのに Pro が付かなかったときは、その分を返金します。詳しくは[特定商取引法に基づく表記](${tokushoho})をご覧ください。`,
+		`期間ごとに同じ額で自動更新します。支払いの完了後すぐ、WebLAV のアカウントに Pro が付きます。解約はアカウントのページからいつでもでき、支払い済みの期間の終わりまで使えます。支払い済みの期間は返金できません (こちらの誤りによる請求などを除きます)。詳しくは[特定商取引法に基づく表記](${tokushoho})をご覧ください。`,
 	notForSale: 'いまは Pro を買えません。',
 	buyBusy: '支払いの画面を用意しています。少ししてから、もう一度押してください。',
 	checkingPurchase: '支払いを確かめています。このままお待ちください。',
@@ -251,7 +260,7 @@ const ja = {
 	plans: (plans: Plan[]): string => `Pro (${plans.map((p) => ja.planName[p]).join('・')})`,
 	noPlans: 'Pro はありません。',
 	planUntil: (plan: Plan, date: string): string =>
-		`Pro (${ja.planName[plan]}): ${date} まで払い済み`,
+		`Pro (${ja.planName[plan]}): ${date} まで支払い済み`,
 	manageBilling: '支払いを管理する (解約・支払い方法・領収書)',
 	installationsHeading: '登録している PC',
 	noInstallations:
@@ -396,25 +405,31 @@ const en: typeof ja = {
 		interval === 'year'
 			? `${personalPrice('en', 'year')} / year (tax included)`
 			: `${personalPrice('en', 'month')} / month (tax included)`,
-	confirmRenewLabel: 'Renewal',
+	confirmRenewLabel: 'Term',
 	confirmRenew: (interval: Interval) =>
 		interval === 'year'
-			? `Renews automatically every year. You pay ${personalPrice('en', 'year')} at each renewal.`
-			: `Renews automatically every month. You pay ${personalPrice('en', 'month')} at each renewal.`,
+			? 'Renews automatically every year until you cancel'
+			: 'Renews automatically every month until you cancel',
+	confirmTimingLabel: 'When you pay',
+	confirmTiming: (interval: Interval) =>
+		interval === 'year'
+			? `At sign-up, then on each yearly renewal date (${personalPrice('en', 'year')} each time, tax included)`
+			: `At sign-up, then on each monthly renewal date (${personalPrice('en', 'month')} each time, tax included)`,
+	confirmPaymentLabel: 'Payment method',
+	confirmPayment: {
+		domestic: 'Card (entered on the next page)',
+		overseas:
+			'Chosen on the next page. Link (Sold through Link, LLC) handles the sale and payment on our behalf, and your card statement shows "LINK.COM*". The amount may be shown in your local currency.'
+	},
+	confirmStartLabel: 'Start',
+	confirmStart: 'Right after the payment is complete',
 	confirmPcsLabel: 'PCs you can link',
 	confirmPcs: 'Up to 3',
-	confirmPaymentLabel: 'Payment',
-	confirmPayment: {
-		domestic:
-			'You pay by card on the next page (Stripe). Pro is added to this account as soon as you pay.',
-		overseas:
-			'You choose how to pay on the next page. The sale and payment are handled on our behalf by Link (Sold through Link, LLC), and your card statement shows "LINK.COM*". The amount may be shown in your local currency. Pro is added to this account as soon as you pay.'
-	},
 	confirmCancelLabel: 'Cancellation and refunds',
 	confirmCancel: {
 		domestic:
-			'You can cancel at any time on your account page and keep using Pro until the end of the paid period. Paid periods are not refunded for personal reasons. We refund the amount if we charged you twice, made an error in processing the payment, or Pro was not added after your payment went through.',
-		overseas: `You can cancel at any time on your account page and keep using Pro until the end of the paid period. Paid periods are not refunded for personal reasons. We refund the amount if we charged you twice, made an error in processing the payment, or Pro was not added after your payment went through. Within 60 days of purchase, however, you may get a refund under [Link's refund policy](${LINK_REFUND_POLICY}).`
+			'You can cancel at any time on your account page. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side (see the [Specified Commercial Transactions Act notice](/tokushoho/)).',
+		overseas: `You can cancel at any time on your account page. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side (see the [Specified Commercial Transactions Act notice](/tokushoho/)). Within 60 days of purchase, you may get a refund under [Link's refund policy](${LINK_REFUND_POLICY}).`
 	},
 	buyConsent: 'By continuing, you agree to the {terms}, the {privacy}, and the {tokushoho}.',
 	confirmButton: 'Confirm and continue to payment',
@@ -434,13 +449,15 @@ const en: typeof ja = {
 	switchTodayLabel: 'Due today',
 	switchToday: (total: string, credit: string) =>
 		`${total} (after deducting ${credit} for the unused part of your monthly plan)`,
-	switchYearlyRenew: (date: string) =>
-		`Renews automatically on ${date}, and every year after that for ${personalPrice('en', 'year')}.`,
+	switchYearlyTiming: (date: string) =>
+		`Today (the amount above), then on each yearly renewal date from ${date} (${personalPrice('en', 'year')} each time, tax included)`,
+	switchStartLabel: 'When it switches',
+	switchStart: 'Right after the payment is complete',
 	switchPayment: {
 		domestic:
-			"You pay now with your saved payment method. If the payment doesn't go through, nothing is switched.",
+			"Your saved payment method (charged now; if the payment doesn't go through, nothing is switched)",
 		overseas:
-			"You pay now with your saved payment method. The sale and payment are handled on our behalf by Link (Sold through Link, LLC), and the amount may be in your local currency. If the payment doesn't go through, nothing is switched."
+			"Your saved payment method (charged now; if the payment doesn't go through, nothing is switched). Link (Sold through Link, LLC) handles the sale and payment on our behalf, and the amount may be charged in your local currency."
 	},
 	switchYearlyButton: 'Switch to yearly and pay',
 	switchMonthlyLead: (date: string) =>
@@ -461,7 +478,7 @@ const en: typeof ja = {
 	switchReleasedTitle: 'Scheduled switch canceled',
 	switchReleased: 'Your plan renews as yearly.',
 	checkoutNote: (tokushoho: string) =>
-		`It renews automatically each period at the same price. Pro is added to your WebLAV account as soon as the payment is complete. You can cancel at any time on your account page and keep using Pro until the end of the paid period. Paid periods are not refunded for personal reasons. We refund the amount if we charged you twice, made an error in processing the payment, or Pro was not added after your payment went through. For details, see the [Specified Commercial Transactions Act notice](${tokushoho}).`,
+		`It renews automatically each period at the same price. Pro is added to your WebLAV account as soon as the payment is complete. You can cancel at any time on your account page and keep using Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side. For details, see the [Specified Commercial Transactions Act notice](${tokushoho}).`,
 	notForSale: 'Pro is not available for purchase right now.',
 	buyBusy: 'Preparing the payment page. Please try again in a moment.',
 	checkingPurchase: 'Confirming your payment. Please wait.',
