@@ -318,11 +318,8 @@ async fn rescan(
     let roots = super::roots::load_roots(&state.pool).await?;
     let result = run_blocking(move || {
         let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
-        // 無いことを伝えても、任意のパスの有無を探る道具にはならない (見るのは登録済みのパスだけ)。
-        // ルートの外を1つの文言に寄せる `canonical_dir_within_roots` より先に見分ける。
-        if std::fs::metadata(&scan_root)
-            .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound)
-        {
+        // `canonical_dir_within_roots` より先に見分ける (→ docs/archive.md「スキャン」)。
+        if super::archive_items::folder_missing(std::path::Path::new(&scan_root)) {
             return Err(AppError::ValidationDetailed {
                 message: "the archive folder was not found".to_string(),
                 detail: ValidationDetail::ArchiveFolderMissing,
@@ -343,7 +340,7 @@ async fn rescan(
     if result.truncated {
         return Err(AppError::Validation("too many files to index".to_string()));
     }
-    // 読めなかった分は走査の結果から欠けているので、同期すると公開フラグごと消える。
+    // 読めなかった分は同期しない (→ docs/archive.md「スキャン」)。
     if let Some(path) = result.unreadable {
         return Err(AppError::ValidationDetailed {
             message: "some folders could not be read".to_string(),

@@ -115,7 +115,7 @@ export async function openImageViewer(
 	]);
 	if (signal.aborted) return;
 
-	// PhotoSwipe は作った時点のフォーカスを覚え、閉じたらそこへ戻す。ファイルのビューアから移ってきたときは、
+	// FIX: PhotoSwipe は作った時点のフォーカスを覚え、閉じたらそこへ戻す。ファイルのビューアから移ってきたときは、
 	// 消えるビューアのボタンを覚えないよう、先に閉じ切っておく。
 	beforeOpen?.();
 	const viewer = new PhotoSwipe({
@@ -167,7 +167,7 @@ export async function openImageViewer(
 
 	/** 連なりの端から、隣のファイルへ。ファイルのビューアを先に開いてから消し、間にページを見せない。 */
 	const leaveTo = (target: number) => {
-		// 開くアニメーションの間は閉じられず (`close()` が何もしない)、PhotoSwipe が画面に残ってしまう。
+		// FIX: PhotoSwipe は開くアニメーションの間は閉じられず (`close()` が何もしない)、PhotoSwipe が画面に残ってしまう。
 		if (viewer.opener.isOpening) return;
 		onLeave(target);
 		viewer.destroy();

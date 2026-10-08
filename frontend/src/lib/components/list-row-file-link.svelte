@@ -29,7 +29,7 @@
 	function handleClick(event: MouseEvent) {
 		if (!isPlainClick(event)) return;
 		event.preventDefault();
-		void openViewerItem({ type: 'file', file }, items, new AbortController().signal);
+		void openViewerItem({ type: 'file', file }, items);
 	}
 </script>
 

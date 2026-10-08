@@ -566,17 +566,17 @@ pub(super) fn scan_files(
             Ok(entry) => entry,
             // 走査の途中で消えたものは、見つからなかったものと同じに扱う (同期で行が外れる)。
             // 登録先そのもの (深さ0) が消えたときは読み飛ばさない。空の結果で同期すると全件が消えるため。
-            Err(error)
-                if error.depth() > 0
-                    && error
+            Err(err)
+                if err.depth() > 0
+                    && err
                         .io_error()
                         .is_some_and(|io| io.kind() == std::io::ErrorKind::NotFound) =>
             {
                 continue;
             }
-            Err(error) => {
+            Err(err) => {
                 if unreadable.is_none() {
-                    let rel = error
+                    let rel = err
                         .path()
                         .and_then(|path| path.strip_prefix(root).ok())
                         .map(|rel| normalize_rel_path(&rel.to_string_lossy()))
@@ -906,21 +906,15 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn scan_files_reports_the_first_unreadable_directory() {
-        use std::os::unix::fs::PermissionsExt;
         let tmp = temp_dir("scan-unreadable");
         let dir = std::fs::canonicalize(tmp.path()).expect("canonicalize できなかった");
         std::fs::create_dir_all(dir.join("ok")).expect("ディレクトリを作れなかった");
         std::fs::create_dir_all(dir.join("locked")).expect("ディレクトリを作れなかった");
         std::fs::write(dir.join("ok/a.mp3"), b"").expect("ファイルを作れなかった");
         std::fs::write(dir.join("locked/b.mp3"), b"").expect("ファイルを作れなかった");
-        let set_mode = |mode| {
-            std::fs::set_permissions(dir.join("locked"), std::fs::Permissions::from_mode(mode))
-                .expect("権限を変えられなかった");
-        };
-        set_mode(0o000);
+        let locked = crate::test_support::Unreadable::new(dir.join("locked"));
         let result = scan_files(&dir, None, SCAN_LIMIT, ITEM_LIMIT, &OwnDirs::default());
-        // 一時ディレクトリを片付けられるよう、確かめる前に戻す。
-        set_mode(0o755);
+        drop(locked);
 
         assert_eq!(result.rel_paths, vec!["ok/a.mp3".to_string()]);
         assert_eq!(result.unreadable.as_deref(), Some("locked"));

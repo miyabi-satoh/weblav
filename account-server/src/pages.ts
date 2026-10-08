@@ -329,13 +329,26 @@ export function confirmSignInPage(lang: Lang, token: string) {
 	);
 }
 
-export function messagePage(lang: Lang, title: string, message: string) {
+/** `backToAccount` は、アカウントのページから来る画面に付ける。行き止まりにしないため。 */
+export function messagePage(lang: Lang, title: string, message: string, backToAccount = false) {
 	return page(
 		lang,
 		title,
 		html`<h1>${title}</h1>
-			<p>${message}</p>`
+			<p>${message}</p>
+			${backToAccount ? html`<p><a href="${ACCOUNT_HOME}">${messages[lang].backToAccount}</a></p>` : ''}`
 	);
+}
+
+/** 申し込みの最終確認と同じ事項の並び (特定商取引法 12条の6)。2つの画面で同じ見た目に保つ。 */
+function orderList(rows: [string, string][]) {
+	return html`<dl class="order">
+		${rows.map(
+			([label, value]) =>
+				html`<dt>${label}</dt>
+					<dd>${withLinks(value)}</dd>`
+		)}
+	</dl>`;
 }
 
 function signedInAs(lang: Lang, email: string, next: string) {
@@ -377,13 +390,7 @@ export function confirmPage(
 		lang,
 		t.confirmTitle,
 		html`<h1>${t.confirmTitle}</h1>
-			<dl class="order">
-				${rows.map(
-					([label, value]) =>
-						html`<dt>${label}</dt>
-							<dd>${withLinks(value)}</dd>`
-				)}
-			</dl>
+			${orderList(rows)}
 			<form method="post" action="${ACCOUNT}/buy">
 				<p class="muted">${withLegalLinks(lang, t.buyConsent)}</p>
 				<input type="hidden" name="next" value="${next}" />
@@ -651,13 +658,8 @@ export function transferPage(lang: Lang, email: string, error?: string) {
 
 export function transferredPage(lang: Lang, to: string, notified: boolean) {
 	const t = messages[lang];
-	return page(
-		lang,
-		t.transferredTitle,
-		html`<h1>${t.transferredTitle}</h1>
-			<p>${notified ? t.transferred(to) : t.transferredNotNotified(to)}</p>
-			<p><a href="${ACCOUNT_HOME}">${t.backToAccount}</a></p>`
-	);
+	const message = notified ? t.transferred(to) : t.transferredNotNotified(to);
+	return messagePage(lang, t.transferredTitle, message, true);
 }
 
 export function transferConfirmPage(lang: Lang, email: string, to: string, plans: Plan[]) {
@@ -700,14 +702,6 @@ export type PlanSwitch =
  */
 export function planSwitchPage(lang: Lang, email: string, view: PlanSwitch, notice?: string) {
 	const t = messages[lang];
-	const order = (rows: [string, string][]) =>
-		html`<dl class="order">
-			${rows.map(
-				([label, value]) =>
-					html`<dt>${label}</dt>
-						<dd>${withLinks(value)}</dd>`
-			)}
-		</dl>`;
 	const form = (action: string, button: string, extra = html``) =>
 		html`<form method="post" action="${PLAN_PATH}">
 			${extra}
@@ -718,7 +712,7 @@ export function planSwitchPage(lang: Lang, email: string, view: PlanSwitch, noti
 	switch (view.kind) {
 		case 'toYearly':
 			body = html`<p>${t.planCurrent('month')}</p>
-				${order([
+				${orderList([
 					[t.confirmPlanLabel, t.confirmPlan('year')],
 					[t.confirmPriceLabel, t.confirmPrice('year')],
 					[t.switchTodayLabel, t.switchToday(view.total, view.credit)],
@@ -738,7 +732,7 @@ export function planSwitchPage(lang: Lang, email: string, view: PlanSwitch, noti
 			const date = formatDate(lang, view.switchAt);
 			body = html`<p>${t.planCurrent('year')}</p>
 				<p>${t.switchMonthlyLead(date)}</p>
-				${order([
+				${orderList([
 					[t.confirmPlanLabel, t.confirmPlan('month')],
 					[t.confirmPriceLabel, t.confirmPrice('month')],
 					[t.switchDateLabel, date],
@@ -767,17 +761,5 @@ export function planSwitchPage(lang: Lang, email: string, view: PlanSwitch, noti
 			${notice ? html`<p role="alert">${notice}</p>` : ''} ${body}
 			<p><a href="${ACCOUNT_HOME}">${t.backToAccount}</a></p>
 			${signedInAs(lang, email, PLAN_PATH)}`
-	);
-}
-
-/** 切り替えた・予約した・取り消した後。アカウントのページへ戻す。 */
-export function planSwitchedPage(lang: Lang, title: string, message: string) {
-	const t = messages[lang];
-	return page(
-		lang,
-		title,
-		html`<h1>${title}</h1>
-			<p>${message}</p>
-			<p><a href="${ACCOUNT_HOME}">${t.backToAccount}</a></p>`
 	);
 }

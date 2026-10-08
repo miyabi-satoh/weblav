@@ -225,7 +225,11 @@
 							onclick={() => fileViewer.previous()}
 						>
 							<ChevronLeftIcon class="size-6" />
-							<span class="sr-only">{m.file_viewer_previous()}</span>
+							<span class="sr-only">
+								{fileViewer.previousIsImage
+									? m.image_viewer_previous_button()
+									: m.file_viewer_previous()}
+							</span>
 						</button>
 						<button
 							type="button"
@@ -234,7 +238,9 @@
 							onclick={() => fileViewer.next()}
 						>
 							<ChevronRightIcon class="size-6" />
-							<span class="sr-only">{m.file_viewer_next()}</span>
+							<span class="sr-only">
+								{fileViewer.nextIsImage ? m.image_viewer_next_button() : m.file_viewer_next()}
+							</span>
 						</button>
 					{/if}
 				</div>

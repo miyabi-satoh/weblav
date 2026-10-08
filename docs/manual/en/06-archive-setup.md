@@ -124,4 +124,4 @@ If rescanning shows one of the following, the item list and the publish settings
   - If you moved or renamed it, select “Change...” under “Path” on the “Details” tab and choose it. The publish settings start over.
   - If you disconnected a drive, connect it and rescan.
   - Viewers also see “The folder was not found.”
-- **“Could not read (folder).”**: WebLAV cannot read that folder. Check the folder’s permissions on the computer, make it readable, then rescan. For a network drive, check that it is connected.
+- **“Could not read "(folder)".” / “The folder could not be read.”**: WebLAV cannot read that folder (in the latter case, the archive folder itself). Check the folder’s permissions on the computer, make it readable, then rescan. For a network drive, check that it is connected.

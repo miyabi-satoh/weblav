@@ -53,6 +53,16 @@ export function resolveLang(c: Context): Lang {
 }
 
 /**
+ * 個人向けの Pro の価格 (税込みの円)。画面の文言はここから組み立てる。
+ * 本番の Stripe の Price と、紹介・規約類 (site/) に合わせる。
+ */
+const PERSONAL_PRICE_YEN: Record<Interval, number> = { year: 4800, month: 480 };
+
+function personalPrice(lang: Lang, interval: Interval): string {
+	return formatMoney(lang, PERSONAL_PRICE_YEN[interval], 'jpy');
+}
+
+/**
  * Stripe の額 (最小の単位) を、その言語の形で。円は料金の表記 (「4,800 円」) にそろえ、
  * ほかの通貨 (Managed Payments で買い手の国の通貨になったもの) は通貨記号で出す。
  */
@@ -60,7 +70,7 @@ export function formatMoney(lang: Lang, amount: number, currency: string): strin
 	const code = currency.toUpperCase();
 	if (code === 'JPY') {
 		const n = amount.toLocaleString('en-US');
-		return lang === 'ja' ? `${n}\u00a0円` : `${n} yen`;
+		return lang === 'ja' ? `${n}\u00a0円` : `${n}\u00a0yen`;
 	}
 	const format = new Intl.NumberFormat(lang === 'ja' ? 'ja-JP' : 'en-US', {
 		style: 'currency',
@@ -155,19 +165,21 @@ const ja = {
 	noProBuy: 'Pro を申し込むと、そのままこの PC を登録できます。',
 	seePricing: 'Pro の料金と申し込み',
 	buyTitle: 'Pro を申し込む',
-	// 特定商取引法 12条の6 の最終確認画面 (→ docs/pro.md「売り方」)。価格は本番の Stripe の Price と、紹介・規約類 (site/) に合わせる。
+	// 特定商取引法 12条の6 の最終確認画面 (→ docs/pro.md「売り方」)。価格は `PERSONAL_PRICE_YEN`。
 	confirmTitle: 'お申し込み内容の最終確認',
 	confirmPlanLabel: 'プラン',
 	confirmPlan: (interval: Interval): string =>
 		interval === 'year' ? 'WebLAV Pro (個人向け)・年額' : 'WebLAV Pro (個人向け)・月額',
 	confirmPriceLabel: '価格',
 	confirmPrice: (interval: Interval): string =>
-		interval === 'year' ? '4,800 円 / 年 (税込み)' : '480 円 / 月 (税込み)',
+		interval === 'year'
+			? `${personalPrice('ja', 'year')} / 年 (税込み)`
+			: `${personalPrice('ja', 'month')} / 月 (税込み)`,
 	confirmRenewLabel: '更新',
 	confirmRenew: (interval: Interval): string =>
 		interval === 'year'
-			? '1年ごとに自動で更新し、そのたびに 4,800 円を払います。'
-			: '1か月ごとに自動で更新し、そのたびに 480 円を払います。',
+			? `1年ごとに自動で更新し、そのたびに ${personalPrice('ja', 'year')}を払います。`
+			: `1か月ごとに自動で更新し、そのたびに ${personalPrice('ja', 'month')}を払います。`,
 	confirmPcsLabel: '登録できる PC',
 	confirmPcs: '3 台まで',
 	confirmPaymentLabel: '支払い',
@@ -195,12 +207,14 @@ const ja = {
 	planCanceled: (date: string): string =>
 		`解約済みのため切り替えられません (${date} まで Pro のまま使えます)。切り替えるときは、アカウントのページの「支払いを管理する」で解約を取り消してください。`,
 	planCurrent: (interval: Interval): string =>
-		interval === 'year' ? '今の払い方: 年額 (4,800 円 / 年)' : '今の払い方: 月額 (480 円 / 月)',
+		interval === 'year'
+			? `今の払い方: 年額 (${personalPrice('ja', 'year')} / 年)`
+			: `今の払い方: 月額 (${personalPrice('ja', 'month')} / 月)`,
 	switchTodayLabel: '今日の支払い',
 	switchToday: (total: string, credit: string): string =>
 		`${total} (月額の使っていない分 ${credit} を差し引いた額)`,
 	switchYearlyRenew: (date: string): string =>
-		`${date} に自動で更新し、そのあとも1年ごとに 4,800 円を払います。`,
+		`${date} に自動で更新し、そのあとも1年ごとに ${personalPrice('ja', 'year')}を払います。`,
 	switchPayment: {
 		domestic: '登録している支払い方法で、今すぐ払います。払えなかったときは切り替えません。',
 		overseas:
@@ -212,7 +226,7 @@ const ja = {
 	switchDateLabel: '切り替わる日',
 	switchMonthlyButton: (date: string): string => `${date} から月額に切り替える`,
 	planReserved: (date: string): string =>
-		`${date} から月額 (480 円 / 月) に切り替わります。それまでは年額のまま使えます。`,
+		`${date} から月額 (${personalPrice('ja', 'month')} / 月) に切り替わります。それまでは年額のまま使えます。`,
 	switchReleaseButton: '予約を取り消す',
 	switchExpired:
 		'確かめてから時間がたったので、今日の支払いを計算し直しました。内容を確かめて、もう一度押してください。',
@@ -379,12 +393,14 @@ const en: typeof ja = {
 		interval === 'year' ? 'WebLAV Pro (personal), yearly' : 'WebLAV Pro (personal), monthly',
 	confirmPriceLabel: 'Price',
 	confirmPrice: (interval: Interval) =>
-		interval === 'year' ? '4,800 yen / year (tax included)' : '480 yen / month (tax included)',
+		interval === 'year'
+			? `${personalPrice('en', 'year')} / year (tax included)`
+			: `${personalPrice('en', 'month')} / month (tax included)`,
 	confirmRenewLabel: 'Renewal',
 	confirmRenew: (interval: Interval) =>
 		interval === 'year'
-			? 'Renews automatically every year. You pay 4,800 yen at each renewal.'
-			: 'Renews automatically every month. You pay 480 yen at each renewal.',
+			? `Renews automatically every year. You pay ${personalPrice('en', 'year')} at each renewal.`
+			: `Renews automatically every month. You pay ${personalPrice('en', 'month')} at each renewal.`,
 	confirmPcsLabel: 'PCs you can link',
 	confirmPcs: 'Up to 3',
 	confirmPaymentLabel: 'Payment',
@@ -413,13 +429,13 @@ const en: typeof ja = {
 		`This subscription is canceled, so it can't be switched (you keep Pro until ${date}). To switch, undo the cancellation under "Manage billing" on your account page.`,
 	planCurrent: (interval: Interval) =>
 		interval === 'year'
-			? 'Current billing: yearly (4,800 yen / year)'
-			: 'Current billing: monthly (480 yen / month)',
+			? `Current billing: yearly (${personalPrice('en', 'year')} / year)`
+			: `Current billing: monthly (${personalPrice('en', 'month')} / month)`,
 	switchTodayLabel: 'Due today',
 	switchToday: (total: string, credit: string) =>
 		`${total} (after deducting ${credit} for the unused part of your monthly plan)`,
 	switchYearlyRenew: (date: string) =>
-		`Renews automatically on ${date}, and every year after that for 4,800 yen.`,
+		`Renews automatically on ${date}, and every year after that for ${personalPrice('en', 'year')}.`,
 	switchPayment: {
 		domestic:
 			"You pay now with your saved payment method. If the payment doesn't go through, nothing is switched.",
@@ -432,7 +448,7 @@ const en: typeof ja = {
 	switchDateLabel: 'Switch date',
 	switchMonthlyButton: (date: string) => `Switch to monthly on ${date}`,
 	planReserved: (date: string) =>
-		`Switches to monthly (480 yen / month) on ${date}. You keep the yearly plan until then.`,
+		`Switches to monthly (${personalPrice('en', 'month')} / month) on ${date}. You keep the yearly plan until then.`,
 	switchReleaseButton: 'Cancel the scheduled switch',
 	switchExpired:
 		'Some time has passed, so the amount due today was recalculated. Check the details and press the button again.',

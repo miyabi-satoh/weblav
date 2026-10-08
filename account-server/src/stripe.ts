@@ -526,9 +526,14 @@ export async function confirmInvoice(
 		amount: invoice.total,
 		currency: invoice.currency,
 		periodEnd: charged[0].period.end,
-		managedPayments: subscription.metadata?.managed_payments === '1',
+		managedPayments: managedPaymentsOf(subscription),
 		cardCountry: charge?.payment_method_details?.card?.country ?? null
 	};
+}
+
+/** MP (Managed Payments) で売ったサブスクか。Checkout で metadata に書いた印で見る。 */
+export function managedPaymentsOf(subscription: Subscription): boolean {
+	return subscription.metadata?.managed_payments === '1';
 }
 
 /** 組織向けのサブスクの metadata の `account_email`。無い・形が違えば `InvoiceError`。 */

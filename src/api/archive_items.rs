@@ -169,8 +169,7 @@ async fn view_archive(
     let template = meta.title_template;
     let root = PathBuf::from(&meta.path);
     let (axes, items, folder_missing) = run_blocking(move || {
-        let folder_missing = std::fs::metadata(&root)
-            .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound);
+        let folder_missing = folder_missing(&root);
         // 選択肢と件数も実体のある行だけで数えるよう、組み立ての前に外す。
         let (rows, sizes) = present_rows(&root, rows);
         let (axes, items) = build_archive_view(&axes, rows, template.as_deref(), &filters, order);
@@ -205,6 +204,11 @@ fn item_metadata(root: &std::path::Path, rel_path: &str) -> Option<std::fs::Meta
     std::fs::symlink_metadata(root.join(rel_path))
         .ok()
         .filter(|metadata| metadata.is_file())
+}
+
+/// 登録先のフォルダごと無いか。読めないだけのものは含めない。ファイルシステムを見るので、非同期のワーカーの外で呼ぶ。
+pub(super) fn folder_missing(path: &std::path::Path) -> bool {
+    std::fs::metadata(path).is_err_and(|err| err.kind() == std::io::ErrorKind::NotFound)
 }
 
 /// 閲覧者に見せる行のうち、実体のあるものだけを残し、その大きさを `id` ごとに添える

@@ -24,7 +24,6 @@ import {
 	mailSentPage,
 	messagePage,
 	noProPage,
-	planSwitchedPage,
 	planSwitchPage,
 	releasePage,
 	transferConfirmPage,
@@ -62,6 +61,7 @@ import {
 	getSubscription,
 	intervalOf,
 	InvoiceError,
+	managedPaymentsOf,
 	orgAccountEmail,
 	previewYearlySwitch,
 	productOf,
@@ -653,7 +653,7 @@ accountApp.get('/', async (c) => {
 			switchable: billing && rows.some((r) => switchable(r, at)),
 			limit,
 			installations: installationRows(list),
-			forSale: stripeConfig(c.env) !== undefined
+			forSale: billing
 		})
 	);
 });
@@ -1138,7 +1138,7 @@ async function switchableSubscription(env: Env, accountId: string): Promise<stri
 }
 
 function saleRegionOf(sub: Subscription): SaleRegion {
-	return sub.metadata?.managed_payments === '1' ? 'overseas' : 'domestic';
+	return managedPaymentsOf(sub) ? 'overseas' : 'domestic';
 }
 
 /** 今のサブスクの状態から、切り替えの画面の中身を決める。切り替えられない形なら `undefined`。 */
@@ -1172,16 +1172,26 @@ async function planSwitchView(
 	};
 }
 
+/** 切り替えの画面の2つの口が使う、今のサブスクとその画面の中身。切り替えられなければ `undefined`。 */
+async function currentPlanSwitch(env: Env, accountId: string, lang: Lang) {
+	const config = stripeConfig(env);
+	const id = config && (await switchableSubscription(env, accountId));
+	if (!id) return undefined;
+	const sub = await getSubscription(config, id);
+	const view = await planSwitchView(config, lang, sub);
+	return view && { config, sub, view };
+}
+
 accountApp.get('/plan', async (c) => {
 	const lang = resolveLang(c);
 	const t = messages[lang];
 	const account = await currentAccount(c);
 	if (!account) return c.html(signIn(c, lang, PLAN_PATH));
-	const config = stripeConfig(c.env);
-	const id = config && (await switchableSubscription(c.env, account.id));
-	const view = id && (await planSwitchView(config, lang, await getSubscription(config, id)));
-	if (!view) return c.html(messagePage(lang, t.planSwitchTitle, t.planSwitchUnavailable), 404);
-	return c.html(planSwitchPage(lang, account.email, view));
+	const current = await currentPlanSwitch(c.env, account.id, lang);
+	if (!current) {
+		return c.html(messagePage(lang, t.planSwitchTitle, t.planSwitchUnavailable, true), 404);
+	}
+	return c.html(planSwitchPage(lang, account.email, current.view));
 });
 
 // 画面を開いた後にほかのタブで切り替えていたら、今の状態の画面を出し直す (押した操作はしない)。
@@ -1190,11 +1200,11 @@ accountApp.post('/plan', async (c) => {
 	const t = messages[lang];
 	const account = await currentAccount(c);
 	if (!account) return c.html(signIn(c, lang, PLAN_PATH), 401);
-	const config = stripeConfig(c.env);
-	const id = config && (await switchableSubscription(c.env, account.id));
-	const sub = id ? await getSubscription(config, id) : undefined;
-	const view = sub && (await planSwitchView(config!, lang, sub));
-	if (!view) return c.html(messagePage(lang, t.planSwitchTitle, t.planSwitchUnavailable), 404);
+	const current = await currentPlanSwitch(c.env, account.id, lang);
+	if (!current) {
+		return c.html(messagePage(lang, t.planSwitchTitle, t.planSwitchUnavailable, true), 404);
+	}
+	const { config, sub, view } = current;
 	const form = await c.req.parseBody();
 	const action = formString(form, 'action');
 	if (action === 'year' && view.kind === 'toYearly') {
@@ -1204,32 +1214,22 @@ accountApp.post('/plan', async (c) => {
 			return c.html(planSwitchPage(lang, account.email, view, t.switchExpired), 409);
 		}
 		// 月額へ切り替わった直後で、スケジュールがまだ付いていると、次の区切りで上書きされる。
-		if (sub.schedule) await releaseSchedule(config!, sub.schedule);
-		if (!(await switchToYearly(config!, sub, quoted))) {
+		if (sub.schedule) await releaseSchedule(config, sub.schedule);
+		if (!(await switchToYearly(config, sub, quoted))) {
 			return c.html(planSwitchPage(lang, account.email, view, t.switchFailed), 402);
 		}
 		// 払い終えた期間は、支払いの知らせ (invoice.paid) で延びる。
-		return c.html(
-			planSwitchedPage(
-				lang,
-				t.switchedYearlyTitle,
-				t.switchedYearly(formatDate(lang, view.renewsAt))
-			)
-		);
+		const message = t.switchedYearly(formatDate(lang, view.renewsAt));
+		return c.html(messagePage(lang, t.switchedYearlyTitle, message, true));
 	}
 	if (action === 'month' && view.kind === 'toMonthly') {
-		await scheduleMonthly(config!, sub);
-		return c.html(
-			planSwitchedPage(
-				lang,
-				t.scheduledMonthlyTitle,
-				t.planReserved(formatDate(lang, view.switchAt))
-			)
-		);
+		await scheduleMonthly(config, sub);
+		const message = t.planReserved(formatDate(lang, view.switchAt));
+		return c.html(messagePage(lang, t.scheduledMonthlyTitle, message, true));
 	}
 	if (action === 'release' && view.kind === 'reserved') {
-		await releaseSchedule(config!, sub.schedule!);
-		return c.html(planSwitchedPage(lang, t.switchReleasedTitle, t.switchReleased));
+		await releaseSchedule(config, sub.schedule!);
+		return c.html(messagePage(lang, t.switchReleasedTitle, t.switchReleased, true));
 	}
 	return c.html(planSwitchPage(lang, account.email, view), 409);
 });
