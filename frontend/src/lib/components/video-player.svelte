@@ -9,6 +9,7 @@
 	import Volume2Icon from '@lucide/svelte/icons/volume-2';
 	import VolumeXIcon from '@lucide/svelte/icons/volume-x';
 	import { formatDuration } from '$lib/format';
+	import { seekDrag } from '$lib/seek-drag';
 	import { nowPlaying } from '$lib/now-playing.svelte';
 	import { videoLoop } from '$lib/video-loop.svelte';
 	import { viewerButtonClass } from '$lib/viewer-button';
@@ -184,7 +185,7 @@
 			{#key duration > 0}
 				<input
 					type="range"
-					class="media-seek h-11 min-w-0 flex-1"
+					class="media-seek h-11 min-w-0 flex-1 touch-none"
 					style:--seek-progress="{progress}%"
 					style:--seek-fill="white"
 					style:--seek-track="rgb(255 255 255 / 0.3)"
@@ -194,6 +195,7 @@
 					aria-label={m.media_seek_label()}
 					aria-valuetext="{formatDuration(currentTime)} / {formatDuration(duration)}"
 					bind:value={() => currentTime, seek}
+					{@attach seekDrag(seek)}
 				/>
 			{/key}
 			<span class="shrink-0">{formatDuration(duration)}</span>
