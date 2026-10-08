@@ -4,7 +4,7 @@ WebLAV lets you view files on your computer in a browser on phones and tablets o
 
 ![WebLAV open in a phone browser: a list of registered contents, a list of photos, and an open photo, while audio plays at the bottom of the screen](images/intro-overview.webp)
 
-You can open this manual at any time from “Manual” on the WebLAV icon in the task tray (menu bar on macOS).
+You can open this manual at any time from “Manual” on the WebLAV icon in the task tray (menu bar on macOS, top right of the screen on Ubuntu).
 
 ## What you can do
 
@@ -26,7 +26,7 @@ Only contents registered in the admin pages appear for viewers.
 
 1. Install and start WebLAV. On Windows, get “WebLAV” from Microsoft Store and open it. On macOS, put `WebLAV.app` in the Applications folder and open it.
 
-2. Choose “Setup” from the WebLAV icon in the task tray (menu bar on macOS), then create an administrator. Keep the recovery code shown.
+2. Choose “Setup” from the WebLAV icon in the task tray (menu bar on macOS, top right of the screen on Ubuntu), then create an administrator. Keep the recovery code shown.
 
    ![WebLAV icon menu in the task tray on Windows](images/quickstart-tray-menu.webp)
 

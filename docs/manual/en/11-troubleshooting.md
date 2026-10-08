@@ -12,6 +12,7 @@ Check these in order.
 3. Check the server computer settings.
    - **Windows**: In Settings > Network & internet > the network you use, set “Network profile type” to “Private network”.
    - **macOS**: In System Settings > Network > Firewall > Options, set WebLAV to “Allow incoming connections”.
+   - **Ubuntu**: If you have turned on the firewall (ufw), enter `sudo ufw allow 3000/tcp` in Terminal (if the number after `:` in the address in “Connect from another device” is not 3000, use that number).
 4. Check the device settings, if it opens in Safari but not Chrome or another browser.
    - **iPhone and iPad**: In Settings > Privacy & Security > Local Network, turn on the browser.
    - **Mac**: In System Settings > Privacy & Security > Local Network, turn on the browser.
@@ -41,6 +42,7 @@ Set your computer so that it does not sleep.
 
 - **Windows**: Settings > System > Power
 - **macOS**: System Settings > Energy (or Battery on a laptop)
+- **Ubuntu**: In Settings > Power, turn off Automatic Suspend
 
 ## WebLAV does not start
 
