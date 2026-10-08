@@ -180,11 +180,11 @@ const ja = {
 		interval === 'year'
 			? '1年ごとの自動更新 (解約するまで続きます)'
 			: '1か月ごとの自動更新 (解約するまで続きます)',
-	confirmNextChargeLabel: '次回からの請求',
-	confirmNextCharge: (interval: Interval): string =>
+	confirmTimingLabel: '支払いの時期',
+	confirmTiming: (interval: Interval): string =>
 		interval === 'year'
-			? `毎年の更新日に ${personalPrice('ja', 'year')} (税込み)`
-			: `毎月の更新日に ${personalPrice('ja', 'month')} (税込み)`,
+			? `申し込み時と、以降の毎年の更新日 (各回 ${personalPrice('ja', 'year')}・税込み)`
+			: `申し込み時と、以降の毎月の更新日 (各回 ${personalPrice('ja', 'month')}・税込み)`,
 	confirmPaymentLabel: '支払い方法',
 	confirmPayment: {
 		domestic: 'クレジットカード (次の画面で入力)',
@@ -220,8 +220,8 @@ const ja = {
 	switchTodayLabel: '今日の支払い',
 	switchToday: (total: string, credit: string): string =>
 		`${total} (月額の使っていない分 ${credit} を差し引いた額)`,
-	switchYearlyNextCharge: (date: string): string =>
-		`${date} から毎年の更新日に ${personalPrice('ja', 'year')} (税込み)`,
+	switchYearlyTiming: (date: string): string =>
+		`今日 (上の額) と、${date} からの毎年の更新日 (各回 ${personalPrice('ja', 'year')}・税込み)`,
 	switchStart: '支払いの完了後すぐ',
 	switchPayment: {
 		domestic: '登録している支払い方法 (今すぐ請求。支払いができなかったときは切り替えません)',
@@ -409,11 +409,11 @@ const en: typeof ja = {
 		interval === 'year'
 			? 'Renews automatically every year until you cancel'
 			: 'Renews automatically every month until you cancel',
-	confirmNextChargeLabel: 'Next charges',
-	confirmNextCharge: (interval: Interval) =>
+	confirmTimingLabel: 'When you pay',
+	confirmTiming: (interval: Interval) =>
 		interval === 'year'
-			? `${personalPrice('en', 'year')} on each yearly renewal date (tax included)`
-			: `${personalPrice('en', 'month')} on each monthly renewal date (tax included)`,
+			? `At sign-up, then on each yearly renewal date (${personalPrice('en', 'year')} each time, tax included)`
+			: `At sign-up, then on each monthly renewal date (${personalPrice('en', 'month')} each time, tax included)`,
 	confirmPaymentLabel: 'Payment method',
 	confirmPayment: {
 		domestic: 'Card (entered on the next page)',
@@ -428,7 +428,7 @@ const en: typeof ja = {
 	confirmCancel: {
 		domestic:
 			'You can cancel at any time on your account page. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side (see the [Specified Commercial Transactions Act notice](/tokushoho/)).',
-		overseas: `You can cancel at any time on your account page. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side (see the [Specified Commercial Transactions Act notice](/tokushoho/)). Within 60 days of purchase, you may get a refund under [Link's refund policy](${LINK_REFUND_POLICY}).`
+		overseas: `You can cancel at any time on your account page. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side (see the [Specified Commercial Transactions Act notice](/tokushoho/)). Within 60 days of purchase, you may get a refund under [Link's refund policy](${LINK_REFUND_POLICY}).`
 	},
 	buyConsent: 'By continuing, you agree to the {terms}, the {privacy}, and the {tokushoho}.',
 	confirmButton: 'Confirm and continue to payment',
@@ -448,8 +448,8 @@ const en: typeof ja = {
 	switchTodayLabel: 'Due today',
 	switchToday: (total: string, credit: string) =>
 		`${total} (after deducting ${credit} for the unused part of your monthly plan)`,
-	switchYearlyNextCharge: (date: string) =>
-		`${personalPrice('en', 'year')} on each yearly renewal date from ${date} (tax included)`,
+	switchYearlyTiming: (date: string) =>
+		`Today (the amount above), then on each yearly renewal date from ${date} (${personalPrice('en', 'year')} each time, tax included)`,
 	switchStart: 'Right after the payment is complete',
 	switchPayment: {
 		domestic:
