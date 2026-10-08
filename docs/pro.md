@@ -141,7 +141,7 @@ JSON。`account-server/` はこれに合わせる。
 
 - **置き場所**: このリポジトリの `account-server/` (TypeScript・wrangler・Hono)。許可の形を WebLAV と一緒に変えるため。`just ci` から `just account-server-check` (整形・生成した型・型検査・テスト) を流す。
   ホスト名は `weblav.amiiby.com`。
-  ルートに紹介、`/terms/`・`/privacy/`・`/tokushoho/` に規約類、`/account/` に窓口の画面を置く。
+  ルートに紹介、`/pricing/` に料金、`/terms/`・`/privacy/` に規約類、`/account/` に窓口の画面を置く。
   - 紹介と規約類は `site/` (Astro) に置き、ビルドしたものを窓口の Worker が静的なアセットとして出す。`/account`・`/v1/` だけを Worker が受ける (`account-server/wrangler.jsonc`)。
 - **アカウントは WebLAV の Pro 専用**。
   - メールのリンクを必ず置き、外部のサインインは Google と Apple にする。どちらも、秘密の値がそろったときだけボタンを出す。
@@ -213,5 +213,7 @@ JSON。`account-server/` はこれに合わせる。
     失ったら新しい `proof_kid`・`link_kid` の版を出す。X25519 の鍵を失うと、それで結んだ WebLAV は確かめられなくなり、結び直してもらうことになる。
 - **メールの送り主**: `WebLAV <noreply@weblav.amiiby.com>`。Resend で、送り主のドメインを確かめてから使う。
   Cloudflare の Email Service は、任意の宛先へ送るのに有料プラン (Workers Paid) が要るので使わない ([Pricing](https://developers.cloudflare.com/email-service/platform/pricing/))。
-- **規約類**: 規約・プライバシーポリシー・特定商取引法に基づく表記は `site/` (`/terms/`・`/privacy/`・`/tokushoho/`) に置く。
+- **規約類**: 規約とプライバシーポリシーは `site/` (`/terms/`・`/privacy/`) に置く。
+  特定商取引法に基づく表記は運営者の全製品で共通のページ (`https://amiiby.com/tokushoho/`) にあり、価格・動作環境と WebLAV に限った条件は料金のページ (`/pricing/`) に書く。
+  `/tokushoho/` は共通のページへ 301 で送る (`site/public/_redirects`)。
   - 同意は、サインインの画面のボタンの下の一文で取る。買うボタンの手前には、価格・引き渡し・返金と規約類へのリンクを出し、国内の Session は、Checkout の支払いのボタンの下 (`custom_text.submit`) にも引き渡しと返金を出す (MP の Session では `custom_text` を使えない)。

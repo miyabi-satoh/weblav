@@ -1,6 +1,7 @@
 ---
 // 料金のページ。Free と Pro を並べ、選んだプランで窓口の最終確認の画面 (/account/buy) へ進む (→ docs/pro.md「売り方」)。
 // 申し込むボタンがあるので特定商取引法 11条の広告に当たり、価格・支払い・提供の時期・解約と返金を料金表の近くに出す。
+// 事業者の項目と共通の条件は amiiby.com の共通の表記が持ち、ここは価格・動作環境と WebLAV に限った条件を持つ。
 // 価格は窓口の文言 (account-server/src/i18n.ts) と本番の Stripe の Price に合わせる。
 import { getEntry } from 'astro:content';
 import Base from '../layouts/Base.astro';
@@ -60,10 +61,12 @@ const { data } = (await getEntry('product', 'index'))!;
       <dd>解約するまで自動更新。解約はアカウントのページからいつでもでき、支払い済みの期間の終わりまで Pro を使えます。月額と年額も、アカウントのページで切り替えられます。</dd>
       <dt>返金</dt>
       <dd>支払い済みの期間は返金できません（こちらの誤りによる請求などを除きます）。</dd>
+      <dt>動作環境</dt>
+      <dd>Windows 10 以降（64&nbsp;ビット）。パソコンの登録と、Pro かどうかの確認に、インターネットへの接続が要ります（つながらないパソコンは、スマートフォンなどで手続きできます）。</dd>
       <dt>日本の外から</dt>
-      <dd>支払い方法は決済ページで選択。販売と決済は Link（Sold through Link, LLC）が代行し、購入から 60&nbsp;日以内は <a href="https://support.link.com/questions/requesting-a-refund-for-a-sold-through-link-payment">Link の返金ポリシー</a>で返金されることがあります。</dd>
+      <dd>支払い方法は決済ページで選択。価格は、お住まいの国の通貨に換えた額で表示・決済されることがあります。販売と決済は Link（Sold through Link, LLC）が代行し、購入から 60&nbsp;日以内は <a href="https://support.link.com/questions/requesting-a-refund-for-a-sold-through-link-payment">Link の返金ポリシー</a>で返金されることがあります。</dd>
     </dl>
-    <p>詳しくは<a href="/tokushoho/">特定商取引法に基づく表記</a>と<a href="/terms/">利用規約</a>をご覧ください。</p>
+    <p>販売事業者と連絡先は<a href="https://amiiby.com/tokushoho/">特定商取引法に基づく表記</a>、申し込みの条件は<a href="/terms/">利用規約</a>をご覧ください。</p>
   </div>
 </Base>
 

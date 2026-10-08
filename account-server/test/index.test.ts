@@ -1289,7 +1289,7 @@ describe('subscribing to Pro', () => {
 			`${ORIGIN}/account/buy/done?next=%2Faccount%2Flink%3Fr%3DR%26name%3Dx&lang=ja`
 		);
 		expect(sent.get('cancel_url')).toBe(`${ORIGIN}/account/link?r=R&name=x`);
-		expect(sent.get('custom_text[submit][message]')).toContain(`${ORIGIN}/tokushoho/`);
+		expect(sent.get('custom_text[submit][message]')).toContain('https://amiiby.com/tokushoho/');
 		expect(sent.get('custom_text[submit][message]')).toContain('自動更新');
 	});
 
@@ -1325,12 +1325,12 @@ describe('subscribing to Pro', () => {
 			'利用開始',
 			'登録できる PC',
 			'解約',
-			'<a href="/tokushoho/">特定商取引法に基づく表記</a>)'
+			'<a href="https://amiiby.com/tokushoho/">特定商取引法に基づく表記</a>)'
 		]) {
 			expect(review.indexOf(term)).toBeGreaterThan(-1);
 			expect(review.indexOf(term)).toBeLessThan(button);
 		}
-		expect(review).not.toContain('](/tokushoho/)');
+		expect(review).not.toContain('](https://');
 		expect(review).toContain('name="interval" value="year"');
 		expect(review).toContain(`value="${next.replace(/&/g, '&amp;')}"`);
 		expect(review).toContain(`href="/pricing/?${new URLSearchParams({ next })}"`);
@@ -1778,7 +1778,7 @@ describe('subscribing to Pro', () => {
 				'切り替わる時期',
 				'登録できる PC',
 				'解約',
-				'<a href="/tokushoho/">特定商取引法に基づく表記</a>)'
+				'<a href="https://amiiby.com/tokushoho/">特定商取引法に基づく表記</a>)'
 			]) {
 				expect(review.indexOf(term), term).toBeGreaterThan(-1);
 				expect(review.indexOf(term), term).toBeLessThan(button);
