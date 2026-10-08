@@ -140,14 +140,9 @@
   (メッセージの ja / en を同時に足すのと同じ理由。)
 - 他のページへのリンクは原典のファイル名で書く (`[設置する](02-setup.md)`。→ `docs/help.md`)。
 
-## Codex レビューの依頼
-
-`codex-review` skill の手順で依頼する。
-
 ## マージまでの流れ
 
 共通の流れ (→ 共通の AGENTS.md「git の運用」) に、このリポジトリでは次が加わる。
 
 - push 時、lefthook の pre-push フック (→ `just install`) が整形 (`just fmt-check`) を確かめる。
 - PR を作ると、GitHub Actions の CI が `just ci` を流す。
-- main のブランチの保護が、CI の通過と main に追いついていることをマージの条件にしている。
