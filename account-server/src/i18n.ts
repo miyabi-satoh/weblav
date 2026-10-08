@@ -225,7 +225,6 @@ const ja = {
 	switchYearlyTiming: (date: string): string =>
 		`今日 (上の額) と、${date} からの毎年の更新日 (各回 ${personalPrice('ja', 'year')}・税込み)`,
 	switchStartLabel: '切り替わる時期',
-	switchStart: '支払いの完了後すぐ',
 	switchPayment: {
 		domestic: '登録している支払い方法 (今すぐ請求。支払いができなかったときは切り替えません)',
 		overseas:
@@ -249,8 +248,7 @@ const ja = {
 	scheduledMonthlyTitle: '月額への切り替えを予約しました',
 	switchReleasedTitle: '予約を取り消しました',
 	switchReleased: '年額のまま更新します。',
-	checkoutNote: (tokushoho: string) =>
-		`期間ごとに同じ額で自動更新します。支払いの完了後すぐ、WebLAV のアカウントに Pro が付きます。解約はアカウントのページからいつでもでき、支払い済みの期間の終わりまで使えます。支払い済みの期間は返金できません (こちらの誤りによる請求などを除きます)。詳しくは[特定商取引法に基づく表記](${tokushoho})をご覧ください。`,
+	checkoutNote: `期間ごとに同じ額で自動更新します。支払いの完了後すぐ、WebLAV のアカウントに Pro が付きます。解約はアカウントのページからいつでもでき、支払い済みの期間の終わりまで使えます。支払い済みの期間は返金できません (こちらの誤りによる請求などを除きます)。詳しくは[特定商取引法に基づく表記](${TOKUSHOHO_URL})をご覧ください。`,
 	notForSale: 'いまは Pro を買えません。',
 	buyBusy: '支払いの画面を用意しています。少ししてから、もう一度押してください。',
 	checkingPurchase: '支払いを確かめています。このままお待ちください。',
@@ -453,7 +451,6 @@ const en: typeof ja = {
 	switchYearlyTiming: (date: string) =>
 		`Today (the amount above), then on each yearly renewal date from ${date} (${personalPrice('en', 'year')} each time, tax included)`,
 	switchStartLabel: 'When it switches',
-	switchStart: 'Right after the payment is complete',
 	switchPayment: {
 		domestic:
 			"Your saved payment method (charged now; if the payment doesn't go through, nothing is switched)",
@@ -478,8 +475,7 @@ const en: typeof ja = {
 	scheduledMonthlyTitle: 'Switch to monthly scheduled',
 	switchReleasedTitle: 'Scheduled switch canceled',
 	switchReleased: 'Your plan renews as yearly.',
-	checkoutNote: (tokushoho: string) =>
-		`It renews automatically each period at the same price. Pro is added to your WebLAV account as soon as the payment is complete. You can cancel at any time on your account page and keep using Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side. For details, see the [Specified Commercial Transactions Act notice](${tokushoho}).`,
+	checkoutNote: `It renews automatically each period at the same price. Pro is added to your WebLAV account as soon as the payment is complete. You can cancel at any time on your account page and keep using Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side. For details, see the [Specified Commercial Transactions Act notice](${TOKUSHOHO_URL}).`,
 	notForSale: 'Pro is not available for purchase right now.',
 	buyBusy: 'Preparing the payment page. Please try again in a moment.',
 	checkingPurchase: 'Confirming your payment. Please wait.',

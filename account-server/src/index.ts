@@ -17,7 +17,6 @@ import {
 	confirmSignInPage,
 	homePage,
 	installationName,
-	LEGAL_PAGES,
 	linkAtLimitPage,
 	linkedPage,
 	linkPage,
@@ -1336,9 +1335,7 @@ accountApp.post('/buy', async (c) => {
 			successUrl: `${origin}${ACCOUNT}/buy/done?${done}`,
 			cancelUrl: `${origin}${checkout.next}`,
 			expiresAt: checkout.expires_at,
-			submitMessage: managedPayments
-				? undefined
-				: messages[checkout.lang].checkoutNote(LEGAL_PAGES.tokushoho),
+			submitMessage: managedPayments ? undefined : messages[checkout.lang].checkoutNote,
 			managedPayments,
 			idempotencyKey: `weblav-checkout-${checkout.id}`
 		});
