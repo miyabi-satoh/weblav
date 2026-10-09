@@ -6,6 +6,7 @@
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
 	import { openViewerItem, type ViewerItem } from '$lib/viewer-items';
 	import { formatTimeAgo } from '$lib/format';
+	import { urlHost } from '$lib/file-kind';
 	import { isPlainClick } from '$lib/image-viewer';
 	import {
 		browseRowClass,
@@ -52,13 +53,7 @@
 		void openViewerItem({ type: 'file', file: viewer.file }, viewer.items);
 	}
 
-	let host = $derived.by(() => {
-		try {
-			return new URL(href).host;
-		} catch {
-			return href;
-		}
-	});
+	let host = $derived(urlHost(href));
 	let siteName = $derived(preview?.siteName ?? host);
 	let shownTitle = $derived(title ?? preview?.title ?? host);
 	let timeAgo = $derived(formatTimeAgo(preview?.publishedAt));
