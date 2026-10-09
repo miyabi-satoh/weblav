@@ -1,6 +1,6 @@
 // 使い捨ての backend (`target/debug/weblav-service`) を起動・停止する。
 // `weblav` はトレイを出すので、トレイを出さないサーバーだけの exe を使う。
-// `just spec` (generate-spec.ts) と `just e2e-local` (run-e2e.ts) で共有する。
+// `just spec` (generate-spec.ts)・`just e2e-local` (run-e2e.ts)・`just manual-shots` (manual-shots.ts) で共有する。
 //
 // 一時 WEBLAV_HOME と空きポートで起動するので、開発用 DB にも、並行して動いている
 // 開発サーバー (:3000) にも影響しない。呼び出し側は必ず `stop()` を呼ぶこと。
@@ -11,6 +11,7 @@ import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { TEST_ADMIN } from './test-account.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
 const BIN_PATH = path.join(
@@ -101,6 +102,17 @@ async function killAndWait(proc: ChildProcess, timeoutMs = 5000): Promise<void> 
 		});
 		proc.kill('SIGTERM');
 	});
+}
+
+/** 管理者 (test-account.ts の TEST_ADMIN) を1人入れる。初回セットアップを通さずにログインできる。 */
+export function insertTestAdmin(dbPath: string): void {
+	withDatabase(dbPath, (db) =>
+		db
+			.prepare(
+				"INSERT INTO users (username, password_hash, role, recovery_code_hash) VALUES (?, ?, 'admin', ?)"
+			)
+			.run(TEST_ADMIN.username, TEST_ADMIN.passwordHash, TEST_ADMIN.recoveryCodeHash)
+	);
 }
 
 /**

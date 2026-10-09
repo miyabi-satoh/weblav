@@ -22,15 +22,46 @@ import {
 	openAddDialog,
 	waitForDialog
 } from '../e2e/helpers.ts';
-import { startBackend, withDatabase, type Backend } from './backend-process.ts';
+import { insertTestAdmin, startBackend, type Backend } from './backend-process.ts';
 import { TEST_ADMIN } from './test-account.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
 const OUT_DIR = path.join(REPO_ROOT, 'docs/manual/ja/images');
 const DIAGRAM_HTML = path.join(import.meta.dirname, 'manual-shots/how-it-works.html');
 
+/** 撮れる画像。Pro の WebLAV・Free の WebLAV・図のどれで撮るかで分ける。 */
+const ADMIN_SHOTS = [
+	'roots-page',
+	'settings-page',
+	'maintenance-backup',
+	'contents-page',
+	'row-menu',
+	'register-group-menu',
+	'quickstart-add-folder',
+	'add-folder-form',
+	'add-folder-picker',
+	'add-folder-ready',
+	'quickstart-roots',
+	'add-archive-picker',
+	'axis-add-dir',
+	'roots-delete',
+	'axis-row-actions'
+];
+const FREE_SHOTS = ['settings-pro', 'pro-link'];
+const DIAGRAM_SHOTS = ['how-it-works'];
+
 /** 撮る画像の名前。既定は全部。 */
 const ONLY = new Set(process.argv.slice(2));
+const unknown = [...ONLY].filter(
+	(name) => ![...ADMIN_SHOTS, ...FREE_SHOTS, ...DIAGRAM_SHOTS].includes(name)
+);
+if (unknown.length > 0) {
+	// 名前を打ち間違えたまま、何も撮らずに成功で終えないため。
+	console.error(
+		`撮れない画像の名前です: ${unknown.join(', ')}\n撮れるもの: ${[...ADMIN_SHOTS, ...FREE_SHOTS, ...DIAGRAM_SHOTS].join(', ')}`
+	);
+	process.exit(1);
+}
 const want = (name: string) => ONLY.size === 0 || ONLY.has(name);
 
 /** 管理画面を撮る幅。表の列が詰まらず、画像が本文の幅に収まる。 */
@@ -134,13 +165,7 @@ async function startWithAdmin(pro: boolean): Promise<Backend> {
 	liveBackends.add(backend);
 	// 管理者を入れられなかったら、呼び出し側の finally に届かないので、ここで止める。
 	try {
-		withDatabase(backend.dbPath, (db) =>
-			db
-				.prepare(
-					"INSERT INTO users (username, password_hash, role, recovery_code_hash) VALUES (?, ?, 'admin', ?)"
-				)
-				.run(TEST_ADMIN.username, TEST_ADMIN.passwordHash, TEST_ADMIN.recoveryCodeHash)
-		);
+		insertTestAdmin(backend.dbPath);
 	} catch (err) {
 		await stopBackend(backend);
 		throw err;
@@ -180,6 +205,13 @@ async function save(page: Page, name: string, png: Buffer) {
 	console.log(`[shot] ${name}`);
 }
 
+/** 要素の位置。画面の文言を変えて要素が見つからなくなったら、どの画像のどの要素かを出して止める。 */
+async function box(name: string, locator: Locator) {
+	const found = await locator.boundingBox();
+	if (!found) throw new Error(`${name}: 要素が見つかりません (${locator})`);
+	return found;
+}
+
 /** 上端の要素から下端の要素までを、ページの横幅いっぱいに撮る。 */
 async function shotBetween(
 	page: Page,
@@ -188,14 +220,17 @@ async function shotBetween(
 	bottom: Locator,
 	{ padTop = 0, padBottom = 0 } = {}
 ) {
-	const a = (await top.boundingBox())!;
-	const b = (await bottom.boundingBox())!;
+	const a = await box(name, top);
+	const b = await box(name, bottom);
 	const y = a.y - padTop;
 	const width = page.viewportSize()!.width;
 	await save(
 		page,
 		name,
-		await page.screenshot({ clip: { x: 0, y, width, height: b.y + b.height + padBottom - y } })
+		await page.screenshot({
+			animations: 'disabled',
+			clip: { x: 0, y, width, height: b.y + b.height + padBottom - y }
+		})
 	);
 }
 
@@ -208,15 +243,16 @@ async function shotSection(page: Page, name: string, heading: Locator, bottom?: 
 	await heading.evaluate((el) => el.scrollIntoView({ block: 'start' }));
 	await page.evaluate(() => window.scrollBy(0, -40));
 	const section = page.locator('section').filter({ has: heading }).last();
-	const s = (await section.boundingBox())!;
-	const h = (await heading.boundingBox())!;
-	const b = bottom ? (await bottom.boundingBox())! : undefined;
+	const s = await box(name, section);
+	const h = await box(name, heading);
+	const b = bottom ? await box(name, bottom) : undefined;
 	const end = b ? b.y + b.height + 16 : s.y + s.height;
 	const y = h.y - 20;
 	await save(
 		page,
 		name,
 		await page.screenshot({
+			animations: 'disabled',
 			clip: { x: s.x - PAD, y, width: s.width + PAD * 2, height: end + PAD - y }
 		})
 	);
@@ -225,7 +261,6 @@ async function shotSection(page: Page, name: string, heading: Locator, bottom?: 
 /** ダイアログなどの要素だけを撮る。ボタンにホバーの色が付かないよう、ポインターを外してから。 */
 async function shotElement(page: Page, name: string, locator: Locator) {
 	await page.mouse.move(1, 1);
-	await page.waitForTimeout(300);
 	await save(page, name, await locator.screenshot({ animations: 'disabled' }));
 }
 
@@ -298,7 +333,7 @@ async function shootAdmin() {
 			await shotBetween(page, 'contents-page', adminNav(page), row(page, '書類'));
 		if (want('row-menu')) {
 			await row(page, '写真').getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).click();
-			await page.waitForTimeout(400);
+			await page.getByRole('menu').waitFor();
 			await shotBetween(page, 'row-menu', row(page, '写真'), row(page, '書類'), { padTop: 8 });
 			await page.keyboard.press('Escape');
 		}
@@ -306,7 +341,7 @@ async function shootAdmin() {
 			await row(page, '旅行の思い出')
 				.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME })
 				.click();
-			await page.waitForTimeout(400);
+			await page.getByRole('menu').waitFor();
 			await shotBetween(page, 'register-group-menu', row(page, '書類'), row(page, '集合写真'));
 			await page.keyboard.press('Escape');
 		}
@@ -329,7 +364,7 @@ async function shootAdmin() {
 			await dialog(page).getByText('この中にフォルダーはありません。').waitFor();
 			if (want('add-folder-picker')) await shotElement(page, 'add-folder-picker', dialog(page));
 			await dialog(page).getByRole('button', { name: USE_THIS_FOLDER_BUTTON_NAME }).click();
-			await page.waitForTimeout(400);
+			await dialog(page).getByRole('button', { name: '選び直す...' }).waitFor();
 			if (want('add-folder-ready')) await shotElement(page, 'add-folder-ready', dialog(page));
 		}
 
@@ -406,6 +441,8 @@ async function shootAdmin() {
 			);
 		}
 	} finally {
+		// 差し替えた応答が、止めた backend へ問い合わせないよう、先にページを閉じる。
+		await Promise.all(browser.contexts().map((context) => context.close()));
 		await stopBackend(backend);
 	}
 }
@@ -457,6 +494,8 @@ async function shootFree() {
 			await shotSection(page, 'pro-link', heading, cancel);
 		}
 	} finally {
+		// 差し替えた応答が、止めた backend へ問い合わせないよう、先にページを閉じる。
+		await Promise.all(browser.contexts().map((context) => context.close()));
 		await stopBackend(backend);
 	}
 }
@@ -475,13 +514,11 @@ async function shootDiagram() {
 	await context.close();
 }
 
-const FREE_SHOTS = ['settings-pro', 'pro-link'];
-const DIAGRAM_SHOTS = ['how-it-works'];
-
 async function cleanUp() {
+	// 一時フォルダーは await より前に消す。backend の起動中の中断では、backend-process.ts が先に終えることがある。
+	for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
 	await browser.close().catch(() => {});
 	await Promise.all([...liveBackends].map(stopBackend));
-	for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
 }
 
 // Ctrl-C で抜けても、backend・一時フォルダーを残さない (→ backend-process.ts の onInterrupt と同じ)。
@@ -498,11 +535,7 @@ process.once('SIGINT', () => {
 });
 
 try {
-	if (
-		ONLY.size === 0 ||
-		[...ONLY].some((name) => ![...FREE_SHOTS, ...DIAGRAM_SHOTS].includes(name))
-	)
-		await shootAdmin();
+	if (ADMIN_SHOTS.some(want)) await shootAdmin();
 	if (FREE_SHOTS.some(want)) await shootFree();
 	await shootDiagram();
 } catch (err) {
@@ -510,3 +543,5 @@ try {
 } finally {
 	await cleanUp();
 }
+// backend の起動の早い段階で中断されると、どちらの SIGINT の処理も終えないままここに来る。
+if (interrupted) process.exitCode = 130;
