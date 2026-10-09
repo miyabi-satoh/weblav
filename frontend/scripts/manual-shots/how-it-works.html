@@ -1,0 +1,226 @@
+<!doctype html>
+<!-- マニュアルの仕組みの図 (docs/manual/ja/images/how-it-works.webp)。`just manual-shots` が #fig を2倍で撮る。
+     画面ではなく図なので、色は routes/layout.css の値を写し、書体は画面と同じ BIZ UDPGothic を使う。 -->
+<html lang="ja">
+	<head>
+		<meta charset="utf-8" />
+		<style>
+			@font-face {
+				font-family: 'BL';
+				font-weight: 400;
+				src: url('../../node_modules/@fontsource/biz-udpgothic/files/biz-udpgothic-latin-400-normal.woff2');
+			}
+			@font-face {
+				font-family: 'BL';
+				font-weight: 700;
+				src: url('../../node_modules/@fontsource/biz-udpgothic/files/biz-udpgothic-latin-700-normal.woff2');
+			}
+			@font-face {
+				font-family: 'BJ';
+				font-weight: 400;
+				src: url('../../node_modules/@fontsource/biz-udpgothic/files/biz-udpgothic-japanese-400-normal.woff2');
+			}
+			@font-face {
+				font-family: 'BJ';
+				font-weight: 700;
+				src: url('../../node_modules/@fontsource/biz-udpgothic/files/biz-udpgothic-japanese-700-normal.woff2');
+			}
+			:root {
+				--fg: oklch(0.217 0.0038 106.71);
+				--muted: oklch(0.5256 0.0107 106.76);
+				--faint: oklch(0.72 0.006 106.5);
+				--primary: oklch(0.4887 0.0787 191.4);
+				--chip: oklch(0.92 0.035 191.4);
+				--border: oklch(0.9175 0.0067 106.53);
+			}
+			html,
+			body {
+				margin: 0;
+				background: #fff;
+			}
+			body {
+				font-family: 'BL', 'BJ', sans-serif;
+				color: var(--fg);
+				font-size: 14px;
+			}
+			#fig {
+				position: relative;
+				width: 680px;
+				height: 318px;
+			}
+			.abs {
+				position: absolute;
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				height: 24px;
+				transform: translateY(-50%);
+				white-space: nowrap;
+			}
+			.head {
+				font-size: 13px;
+				font-weight: 700;
+				color: var(--muted);
+			}
+			.muted {
+				color: var(--muted);
+			}
+			.faint {
+				color: var(--faint);
+			}
+			.teal {
+				color: var(--primary);
+			}
+			.bold {
+				font-weight: 700;
+			}
+			svg.folder {
+				width: 17px;
+				height: 17px;
+				fill: none;
+				stroke: currentColor;
+				stroke-width: 2;
+				stroke-linecap: round;
+				stroke-linejoin: round;
+			}
+			.chip {
+				background: var(--chip);
+				color: var(--primary);
+				font-weight: 700;
+				padding: 0 10px;
+				height: 30px;
+				border-radius: 6px;
+			}
+			.box {
+				position: absolute;
+				left: 25px;
+				top: 129px;
+				width: 217px;
+				height: 170px;
+				border: 2px dashed var(--primary);
+				border-radius: 12px;
+				box-sizing: border-box;
+			}
+			.phone {
+				position: absolute;
+				left: 497px;
+				top: 118px;
+				width: 171px;
+				height: 191px;
+				border: 2px solid var(--fg);
+				border-radius: 16px;
+				box-sizing: border-box;
+			}
+			.phone .title {
+				position: absolute;
+				left: 10px;
+				top: 14px;
+				font-weight: 700;
+				font-size: 13px;
+			}
+			.phone .rule {
+				position: absolute;
+				left: 6px;
+				right: 6px;
+				top: 40px;
+				border-top: 1px solid var(--border);
+			}
+			.card {
+				position: absolute;
+				left: 6px;
+				right: 6px;
+				border: 1px solid var(--border);
+				border-radius: 6px;
+				padding: 0 10px;
+				box-sizing: border-box;
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				font-weight: 700;
+				font-size: 13px;
+			}
+			.card small {
+				font-weight: 400;
+				font-size: 10px;
+				color: var(--muted);
+			}
+			.line {
+				position: absolute;
+				height: 0;
+				border-top: 2px solid var(--primary);
+			}
+			.line.dash {
+				border-top: 2px dashed var(--faint);
+			}
+			.head-arrow {
+				position: absolute;
+				width: 0;
+				height: 0;
+				border-top: 5px solid transparent;
+				border-bottom: 5px solid transparent;
+				border-left: 9px solid var(--primary);
+				transform: translateY(-50%);
+			}
+		</style>
+	</head>
+	<body>
+		<svg width="0" height="0" style="position: absolute">
+			<symbol id="f" viewBox="0 0 24 24">
+				<path
+					d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"
+				/>
+			</symbol>
+		</svg>
+		<div id="fig">
+			<div class="abs head" style="left: 12px; top: 22px">パソコンのフォルダー</div>
+			<div class="abs head" style="left: 496px; top: 22px">見る人の画面</div>
+
+			<div class="abs faint" style="left: 12px; top: 60px">
+				<svg class="folder"><use href="#f" /></svg>ドキュメント
+			</div>
+			<div class="abs faint" style="left: 37px; top: 104px">
+				<svg class="folder"><use href="#f" /></svg>家計簿
+			</div>
+			<div class="abs muted" style="left: 252px; top: 104px">範囲の外。WebLAV では選べない</div>
+
+			<div class="box"></div>
+			<div class="abs" style="left: 37px; top: 148px">
+				<svg class="folder"><use href="#f" /></svg><span class="bold">共有</span
+				><span class="teal bold" style="font-size: 12px; margin-left: 8px"
+					>公開できるフォルダー</span
+				>
+			</div>
+			<div class="abs teal" style="left: 252px; top: 148px">この中から選んで登録する</div>
+
+			<div class="abs chip" style="left: 60px; top: 192px">
+				<svg class="folder"><use href="#f" /></svg>教材
+			</div>
+			<div class="abs teal bold" style="left: 252px; top: 192px">フォルダーとして登録</div>
+			<div class="line" style="left: 395px; width: 92px; top: 191px"></div>
+			<div class="head-arrow" style="left: 488px; top: 192px"></div>
+
+			<div class="abs chip" style="left: 60px; top: 236px">
+				<svg class="folder"><use href="#f" /></svg>英検
+			</div>
+			<div class="abs teal bold" style="left: 252px; top: 236px">アーカイブとして登録</div>
+			<div class="line" style="left: 395px; width: 92px; top: 235px"></div>
+			<div class="head-arrow" style="left: 488px; top: 236px"></div>
+
+			<div class="abs" style="left: 67px; top: 279px">
+				<svg class="folder"><use href="#f" /></svg>下書き
+			</div>
+			<div class="abs muted" style="left: 252px; top: 279px">登録していない</div>
+			<div class="line dash" style="left: 356px; width: 142px; top: 278px"></div>
+
+			<div class="phone">
+				<div class="title">WebLAV</div>
+				<div class="rule"></div>
+				<div class="card" style="top: 55px; height: 35px">教材</div>
+				<div class="card" style="top: 100px; height: 35px; line-height: 1.15">
+					英検<small>年度・回で絞り込み</small>
+				</div>
+				<div class="abs faint" style="left: 10px; top: 160px; font-size: 13px">出ない</div>
+			</div>
+		</div>
+	</body>
+</html>

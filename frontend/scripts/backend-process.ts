@@ -113,20 +113,26 @@ const liveBackends = new Set<() => Promise<void>>();
 /**
  * backend を起動し、health が応答するまで待つ。起動に失敗したら、ログを出して片付けてから投げる。
  * `tmpPrefix` は一時 WEBLAV_HOME の名前の頭 (どのスクリプトの残骸か分かるようにする)。
+ * `pro: false` なら Free で動かす (Free の画面を撮るとき)。
  */
-export async function startBackend(tmpPrefix: string): Promise<Backend> {
+export async function startBackend(
+	tmpPrefix: string,
+	{ pro = true }: { pro?: boolean } = {}
+): Promise<Backend> {
 	const port = await getFreePort();
 	const home = mkdtempSync(path.join(tmpdir(), tmpPrefix));
 	writeFileSync(
 		path.join(home, 'config.toml'),
 		`[server]\nbind = "127.0.0.1"\nport = ${port}\n\n[log]\nfilter = "info"\noutput = "stdout"\n\n[session]\nsecret = ""\nsecure_cookie = false\nexpiry_days = 14\n`
 	);
-	// Pro で動かす。e2e はテストごとにコンテンツを作るので、並べて流すと Free の上限に当たる。
+	// 既定は Pro。e2e はテストごとにコンテンツを作るので、並べて流すと Free の上限に当たる。
 	// 開発版だけが信じる鍵で署名したもの (→ src/pro.rs)。確かめに行かないよう、最後に確かめた日時を先に置いてある。
-	copyFileSync(
-		path.join(REPO_ROOT, 'tests', 'fixtures', 'dev-pro.json'),
-		path.join(home, 'pro.json')
-	);
+	if (pro) {
+		copyFileSync(
+			path.join(REPO_ROOT, 'tests', 'fixtures', 'dev-pro.json'),
+			path.join(home, 'pro.json')
+		);
+	}
 
 	const proc = spawn(BIN_PATH, [], {
 		env: { ...process.env, WEBLAV_HOME: home },
