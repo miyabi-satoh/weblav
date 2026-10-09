@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
+	import { beforeNavigate } from '$app/navigation';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { buttonVariants } from '$lib/components/ui/button';
 	import SeparatedText from '$lib/components/separated-text.svelte';
@@ -18,6 +19,16 @@
 	// 読めなかった画像は隠す。開き直したら改めて読みに行く。
 	let failedImage = $state.raw<string | null>(null);
 	let failedIcon = $state.raw<string | null>(null);
+	$effect.pre(() => {
+		void linkDetail.current;
+		failedImage = null;
+		failedIcon = null;
+	});
+
+	// 戻るなどで画面を移ったら閉じる。移った先の上に、前の画面のリンクを残さない (ファイルのビューアと同じ)。
+	beforeNavigate(() => {
+		linkDetail.open = false;
+	});
 	let imageUrl = $derived(preview?.imageUrl !== failedImage ? preview?.imageUrl : null);
 	let iconUrl = $derived(preview?.iconUrl !== failedIcon ? preview?.iconUrl : null);
 

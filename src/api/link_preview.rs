@@ -340,6 +340,8 @@ struct Settled {
     image_bytes: i64,
     icon: Slot,
     icon_bytes: i64,
+    /// 新しい画像かアイコンが取れず、前のものを使い続けている。
+    fell_back: bool,
 }
 
 /// ページが指す画像とアイコンを置き場にそろえる。元が変わったときに加えて、前に取れなかった・
@@ -381,7 +383,8 @@ async fn settle_images(
                     file: Some(file),
                 },
                 // 新しい画像が取れなければ、置いてある前の画像を使い続ける。元の URL は前のままにして、
-                // 次に取り直すときにまた取りに行く。一度の失敗で、画像の無いカードにしないため。
+                // 次に取り直すときにまた取りに行く (検証子を残さないので、ページは 304 でなく取り直される → save)。
+                // 一度の失敗で、画像の無いカードにしないため。
                 None if old_file.is_some() => Slot {
                     source: old_source,
                     file: old_file,
@@ -393,8 +396,12 @@ async fn settle_images(
             }
         };
         let [old_image, old_icon] = old;
+        let wanted = sources.clone();
         let image = settle(sources.0, old_image, ImageKind::Card);
         let icon = settle(sources.1, old_icon, ImageKind::Icon);
+        // 前のものを使い続けると、元の URL がページの指すものと食い違う。
+        let fell_back = (image.file.is_some() && image.source != wanted.0)
+            || (icon.file.is_some() && icon.source != wanted.1);
         let size = |slot: &Slot| {
             slot.file
                 .as_ref()
@@ -406,6 +413,7 @@ async fn settle_images(
             image,
             icon_bytes: size(&icon),
             icon,
+            fell_back,
         }
     })
     .await
@@ -443,6 +451,13 @@ async fn save(
     if drop_missing_files(&state.link_previews.dir, &mut settled).await? {
         fresh_until = now;
     }
+    // 前の画像を使い続けるときは検証子を残さない。残すと次の確認が 304 になり、
+    // 覚えている元の URL (前のもの) のまま、ページの指す新しい画像を取りに行かなくなる。
+    let (etag, last_modified) = if settled.fell_back {
+        (None, None)
+    } else {
+        (headers.etag.clone(), headers.last_modified.clone())
+    };
     let new_files = [&settled.image.file, &settled.icon.file];
     let bytes = settled.image_bytes + settled.icon_bytes;
     if let Some(card) = card {
@@ -466,8 +481,8 @@ async fn save(
         settled.image.file,
         settled.icon.source,
         settled.icon.file,
-        headers.etag,
-        headers.last_modified,
+        etag,
+        last_modified,
         fresh_until,
         bytes,
         url
@@ -870,7 +885,7 @@ mod tests {
         assert!(shrink(b"<html></html>", ImageKind::Card).is_none());
     }
 
-    /// 元が同じで置いたファイルが残っていれば使い回し、無くなっていれば取り直す (ここでは外へつながらず取れない)。
+    /// 新しい画像が取れなければ前の画像を使い続け、次の取り直しでまた取りに行けるようにする。
     #[tokio::test]
     async fn settle_images_keeps_the_old_image_when_the_new_one_cannot_be_fetched() {
         let dir = crate::test_support::project_temp_dir("link_preview", "settle_keep");
@@ -899,8 +914,13 @@ mod tests {
             "元の URL は前のままにして、次の取り直しでまた取りに行く"
         );
         assert_eq!(settled.image_bytes, 3);
+        assert!(
+            settled.fell_back,
+            "前の画像を使い続けたことを save に伝え、検証子を残させない"
+        );
     }
 
+    /// 元が同じで置いたファイルが残っていれば使い回し、無くなっていれば取り直す (ここでは外へつながらず取れない)。
     #[tokio::test]
     async fn settle_images_refetches_when_the_stored_file_is_gone() {
         let dir = crate::test_support::project_temp_dir("link_preview", "settle");
@@ -928,6 +948,7 @@ mod tests {
             "無くなった画像は取り直し、取れなければ無しにする"
         );
         assert_eq!((settled.image_bytes, settled.icon_bytes), (0, 3));
+        assert!(!settled.fell_back);
     }
 
     #[tokio::test]
@@ -946,6 +967,7 @@ mod tests {
                 file: Some(kept.clone()),
             },
             icon_bytes: 3,
+            fell_back: false,
         };
 
         let missing = drop_missing_files(&dir, &mut settled)
