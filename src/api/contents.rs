@@ -1926,16 +1926,22 @@ async fn with_previews(
 }
 
 /// 閲覧者がホームからたどって一覧で見られる行の id (→ docs/search.md「見える範囲」)。
+/// `start` を渡すと、そのグループからたどって見られる子孫だけにする (`start` 自身は含めない)。
+/// `start` と祖先を開けることは、呼び出し側が確かめる。
 ///
 /// 全行を受けてメモリ上で親子を辿り、行ごとに再帰 CTE を投げない。判定済みの祖先で打ち切るので、
 /// 各行を辿るのは1回だけになる。循環が無い前提は `fetch_lineage` と同じ。
-fn listable_ids(viewer: &Viewer, rows: &[ContentRow]) -> HashSet<i64> {
+fn listable_ids(viewer: &Viewer, rows: &[ContentRow], start: Option<i64>) -> HashSet<i64> {
     let by_id: HashMap<i64, &ContentRow> = rows.iter().map(|row| (row.id, row)).collect();
     let mut known: HashMap<i64, bool> = HashMap::new();
+    if let Some(start) = start {
+        known.insert(start, true);
+    }
     for row in rows {
         // 判定済みの祖先か、ルートまで登ってから、上から順に決める。
+        // `start` を通らずにルートへ着いたものは、範囲の外。
         let mut chain = Vec::new();
-        let mut inherited = true;
+        let mut inherited = start.is_none();
         let mut current = Some(row.id);
         while let Some(id) = current {
             if let Some(&listable) = known.get(&id) {
@@ -1956,8 +1962,71 @@ fn listable_ids(viewer: &Viewer, rows: &[ContentRow]) -> HashSet<i64> {
     }
     known
         .into_iter()
-        .filter_map(|(id, listable)| listable.then_some(id))
+        .filter_map(|(id, listable)| (listable && Some(id) != start).then_some(id))
         .collect()
+}
+
+/// 検索を絞る場所 (→ docs/search.md「範囲」)。
+pub(super) struct SearchScope {
+    id: i64,
+    content_type: ContentType,
+    /// フォルダの中の階層 (登録パスからの相対パス)。フォルダ全体なら空。
+    path: String,
+    /// 切り替えに出す名前。フォルダの中の階層なら、その階層の名前。
+    pub(super) title: String,
+}
+
+/// 範囲にできる種類と階層の形か。階層を持てるのはフォルダだけで、空の区切り (`a//b`・末尾の `/`) は
+/// 受けない。`resolve_path` は区切りを均して通すが、範囲の名前と結果のパスがずれるため。
+fn check_scope_target(content_type: ContentType, path: &str) -> Result<(), AppError> {
+    let container = matches!(
+        content_type,
+        ContentType::Group | ContentType::Folder | ContentType::Archive
+    );
+    let path_ok = path.is_empty()
+        || (content_type == ContentType::Folder && path.split('/').all(|part| !part.is_empty()));
+    if container && path_ok {
+        Ok(())
+    } else {
+        Err(AppError::NotFound)
+    }
+}
+
+/// 範囲に指定されたグループ・フォルダ・アーカイブを、開けることを確かめて引く。
+/// 開けなければ、その画面を開くのと同じく 401/404 にする。ほかの種類と、無い階層は 404。
+pub(super) async fn search_scope(
+    state: &AppState,
+    viewer: &Viewer,
+    id: i64,
+    path: &str,
+) -> Result<SearchScope, AppError> {
+    let row = sqlx::query!(
+        r#"SELECT type as "content_type: ContentType", title, path FROM contents WHERE id = ?"#,
+        id
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(AppError::NotFound)?;
+    check_scope_target(row.content_type, path)?;
+    // ファイルシステムに触る前に確かめる (理由は `folder_root` と同じ)。
+    ensure_viewable(&state.pool, viewer, id).await?;
+    let mut title = row.title;
+    // フォルダは、階層が無くても登録先を確かめる。消えた登録先を範囲にすると、どの語でも空になるため。
+    if row.content_type == ContentType::Folder {
+        let target = resolve_path(state, &folder_path(row.path)?, path).await?;
+        if !path_is_dir(&target).await? {
+            return Err(AppError::NotFound);
+        }
+    }
+    if !path.is_empty() {
+        title = path.rsplit('/').next().unwrap_or(path).to_string();
+    }
+    Ok(SearchScope {
+        id,
+        content_type: row.content_type,
+        path: path.to_string(),
+        title,
+    })
 }
 
 /// 検索の、コンテンツの区画の結果 (→ docs/search.md)。
@@ -1973,10 +2042,13 @@ pub(super) struct ContentSearch {
 }
 
 /// 閲覧者が一覧で見られるコンテンツを、タイトルと説明で探す。
+/// `scope` がグループならその子孫だけを探す。フォルダ・アーカイブなら、コンテンツは探さず、
+/// 中を探す対象をそれ1つにする。
 pub(super) async fn search_contents(
     state: &AppState,
     viewer: &Viewer,
     terms: &super::search::Terms,
+    scope: Option<&SearchScope>,
 ) -> Result<ContentSearch, AppError> {
     // 祖先をたどるため全行を読む。数千件の規模なら足りる。
     let rows = sqlx::query_as!(
@@ -1995,11 +2067,27 @@ pub(super) async fn search_contents(
         .map(|row| (row.id, row.title.clone()))
         .collect();
 
-    let listable = listable_ids(viewer, &rows);
-    let rows: Vec<ContentRow> = rows
-        .into_iter()
-        .filter(|row| listable.contains(&row.id))
-        .collect();
+    let (rows, match_contents) = match scope {
+        Some(scope) if scope.content_type != ContentType::Group => (
+            rows.into_iter()
+                .filter(|row| row.id == scope.id)
+                .collect::<Vec<_>>(),
+            false,
+        ),
+        _ => {
+            let listable = listable_ids(viewer, &rows, scope.map(|scope| scope.id));
+            let rows = rows
+                .into_iter()
+                .filter(|row| listable.contains(&row.id))
+                .collect();
+            (rows, true)
+        }
+    };
+    // フォルダの中の階層に絞るときの、その階層。
+    let folder_sub_path = scope
+        .filter(|scope| scope.content_type == ContentType::Folder)
+        .map(|scope| scope.path.clone())
+        .unwrap_or_default();
 
     // 照らすのは全行の文字列を揃える計算で、件数に比例して重くなる。
     let terms_owned = terms.clone();
@@ -2029,6 +2117,9 @@ pub(super) async fn search_contents(
                     });
                 }
                 _ => {}
+            }
+            if !match_contents {
+                continue;
             }
             let title = super::search::normalize(&row.title);
             if terms_owned.matches(&[&title]) {
@@ -2077,6 +2168,7 @@ pub(super) async fn search_contents(
                 id,
                 title,
                 path: folder_path(path)?,
+                sub_path: folder_sub_path.clone(),
             })
         })
         .collect::<Result<Vec<_>, AppError>>()?;
@@ -3008,16 +3100,69 @@ mod tests {
             content_row(9, Link, Some(3), Hidden, None),
         ];
 
-        assert_eq!(sorted(listable_ids(&Viewer::Anonymous, &rows)), [1, 2]);
         assert_eq!(
-            sorted(listable_ids(&viewer(10, Role::User), &rows)),
+            sorted(listable_ids(&Viewer::Anonymous, &rows, None)),
+            [1, 2]
+        );
+        assert_eq!(
+            sorted(listable_ids(&viewer(10, Role::User), &rows, None)),
             [1, 2, 3, 4, 8]
         );
         // 他人の `private` は、`admin` にも出さない。
         assert_eq!(
-            sorted(listable_ids(&viewer(11, Role::Admin), &rows)),
+            sorted(listable_ids(&viewer(11, Role::Admin), &rows, None)),
             [1, 2, 3, 4]
         );
+    }
+
+    /// 範囲のグループから探すときは、その子孫のうち、範囲からたどって一覧に出るものだけ。
+    /// 範囲自身と祖先は、開けることを呼び出し側が確かめるので問わない (`hidden` のグループの中でも探せる)。
+    #[test]
+    fn listable_ids_from_a_start_group_covers_only_its_listable_descendants() {
+        use ContentType::{Group, Link};
+        use Visibility::{Authenticated, Hidden, Public};
+        let rows = vec![
+            content_row(1, Group, None, Hidden, None),
+            content_row(2, Link, Some(1), Public, None),
+            content_row(3, Group, Some(1), Public, None),
+            content_row(4, Link, Some(3), Public, None),
+            content_row(5, Group, Some(1), Authenticated, None),
+            content_row(6, Link, Some(5), Public, None),
+            content_row(7, Link, None, Public, None),
+        ];
+
+        assert_eq!(
+            sorted(listable_ids(&Viewer::Anonymous, &rows, Some(1))),
+            [2, 3, 4]
+        );
+        assert_eq!(
+            sorted(listable_ids(&Viewer::Anonymous, &rows, Some(3))),
+            [4]
+        );
+    }
+
+    #[test]
+    fn check_scope_target_accepts_only_containers_and_clean_folder_levels() {
+        use ContentType::{Archive, File, Folder, Group, Link};
+        for (content_type, path, ok) in [
+            (Group, "", true),
+            (Folder, "", true),
+            (Archive, "", true),
+            (Folder, "2024/リスニング", true),
+            (Link, "", false),
+            (File, "", false),
+            (Group, "2024", false),
+            (Archive, "2024", false),
+            (Folder, "2024/", false),
+            (Folder, "/2024", false),
+            (Folder, "2024//a", false),
+        ] {
+            assert_eq!(
+                check_scope_target(content_type, path).is_ok(),
+                ok,
+                "{content_type:?} {path:?}"
+            );
+        }
     }
 
     #[test]

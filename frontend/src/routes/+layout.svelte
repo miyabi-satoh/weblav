@@ -24,10 +24,16 @@
 	import NavigationProgress from '$lib/components/navigation-progress.svelte';
 	import { Toaster } from '$lib/components/ui/sonner';
 	import { nowPlaying } from '$lib/now-playing.svelte';
+	import { searchHref, searchScopeOf } from '$lib/search-scope';
 
 	let { children } = $props();
 
 	const errorDialog = new ErrorDialogState();
+
+	// エラーの画面 (消えたグループなど) は、開けない場所なので範囲にしない。
+	let searchScope = $derived(
+		page.error ? null : searchScopeOf(page.route.id, page.params, page.url)
+	);
 
 	let playerHeight = $state(0);
 
@@ -115,7 +121,9 @@
 		<!-- 押せる範囲が横で重なるのを許し、間隔は 2px にする (→ docs/ui.md「UI 全般」)。 -->
 		<div class="flex min-w-0 items-center gap-0.5">
 			<!-- どの画面からでも探せるよう、ヘッダーに置く (→ docs/search.md)。 -->
-			<a href={resolve('/search')} class={headerIconActionClass}>
+			<!-- 閲覧ページから開いたときは、そのページの中を範囲にする (→ docs/search.md「範囲」)。 -->
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- searchHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
+			<a href={searchHref('', searchScope)} class={headerIconActionClass}>
 				<SearchIcon class="size-5" />
 				<span class="sr-only">{m.search_nav_label()}</span>
 			</a>

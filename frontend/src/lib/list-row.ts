@@ -34,6 +34,10 @@ const compactListRowClass = `flex min-h-16 w-full items-center gap-3.5 py-2.5 te
 /** 一覧の上の段。左に並び順 (と絞り込み)、右端にリストとタイルの切り替えを置く (→ docs/ui.md「UI 全般」)。 */
 export const browseControlsClass = 'flex items-start justify-between gap-3';
 
+/** 一覧の上の段に置く切り替え (リストとタイル・検索の範囲) の1つずつ。高さは並び順のドロップダウンと揃える。 */
+export const browseToggleItemClass =
+	'h-14 bg-background text-muted-foreground data-[state=on]:bg-primary/10 data-[state=on]:text-primary';
+
 /** タイルの並べ。1枚の幅が 170〜230px ほどに収まるよう、幅に応じて列を増やす (→ docs/ui.md「UI 全般」)。 */
 const tileListClass = `grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 ${browseGutterClass}`;
 
