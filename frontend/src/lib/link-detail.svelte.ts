@@ -12,9 +12,16 @@ export type LinkDetail = {
 	preview?: LinkPreview | null;
 };
 
-/**
- * 行に出すのと同じ題で、詳しい表示に出すリンクを組む。題を省くと、ページのタイトル (無ければホスト名)。
- */
+/** リンクの行と詳しい表示に出す題。題を省くと、ページのタイトル (無ければホスト名)。 */
+export function linkTitleOf(
+	href: string,
+	title: string | undefined,
+	preview: LinkPreview | null | undefined
+): string {
+	return title ?? preview?.title ?? urlHost(href);
+}
+
+/** 行に出すのと同じ題 (`linkTitleOf`) で、詳しい表示に出すリンクを組む。 */
 export function linkDetailOf(link: {
 	href: string;
 	title?: string;
@@ -23,7 +30,7 @@ export function linkDetailOf(link: {
 }): LinkDetail {
 	return {
 		href: link.href,
-		title: link.title ?? link.preview?.title ?? urlHost(link.href),
+		title: linkTitleOf(link.href, link.title, link.preview),
 		description: link.description,
 		preview: link.preview
 	};

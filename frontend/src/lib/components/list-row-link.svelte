@@ -10,6 +10,7 @@
 	import {
 		linkDetail,
 		linkDetailOf,
+		linkTitleOf,
 		opensLinkDetail,
 		type LinkDetail
 	} from '$lib/link-detail.svelte';
@@ -74,7 +75,7 @@
 
 	let host = $derived(urlHost(href));
 	let siteName = $derived(preview?.siteName ?? host);
-	let shownTitle = $derived(title ?? preview?.title ?? host);
+	let shownTitle = $derived(linkTitleOf(href, title, preview));
 	let timeAgo = $derived(formatTimeAgo(preview?.publishedAt));
 
 	// 読めなかったときの preview を覚える。取り直しの答えで差し替わったら、同じ URL でも改めて読みに行く。

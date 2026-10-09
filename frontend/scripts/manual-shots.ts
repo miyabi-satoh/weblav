@@ -25,6 +25,7 @@ import {
 	waitForDialog
 } from '../e2e/helpers.ts';
 import { insertTestAdmin, startBackend, type Backend } from './backend-process.ts';
+import { waitForPageReady } from './shots.ts';
 import { TEST_ADMIN } from './test-account.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -181,6 +182,12 @@ async function startWithAdmin(pro: boolean): Promise<Backend> {
 	return backend;
 }
 
+/** 撮り終えた backend を止める。差し替えた応答が止めた backend へ問い合わせないよう、先にページを閉じる。 */
+async function closePagesAndStop(backend: Backend) {
+	await Promise.allSettled(browser.contexts().map((context) => context.close()));
+	await stopBackend(backend);
+}
+
 async function stopBackend(backend: Backend) {
 	liveBackends.delete(backend);
 	await backend.stop();
@@ -188,8 +195,7 @@ async function stopBackend(backend: Backend) {
 
 async function goto(page: Page, url: string) {
 	await page.goto(url);
-	await page.waitForLoadState('networkidle');
-	await page.evaluate(() => document.fonts.ready);
+	await waitForPageReady(page);
 }
 
 /** PNG を、ブラウザーの WebP エンコーダーで変換して書き出す。cwebp などを入れずに済む。 */
@@ -454,9 +460,7 @@ async function shootAdmin() {
 			);
 		}
 	} finally {
-		// 差し替えた応答が、止めた backend へ問い合わせないよう、先にページを閉じる。
-		await Promise.allSettled(browser.contexts().map((context) => context.close()));
-		await stopBackend(backend);
+		await closePagesAndStop(backend);
 	}
 }
 
@@ -507,9 +511,7 @@ async function shootFree() {
 			await shotSection(page, 'pro-link', heading, cancel);
 		}
 	} finally {
-		// 差し替えた応答が、止めた backend へ問い合わせないよう、先にページを閉じる。
-		await Promise.allSettled(browser.contexts().map((context) => context.close()));
-		await stopBackend(backend);
+		await closePagesAndStop(backend);
 	}
 }
 

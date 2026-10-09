@@ -105,7 +105,7 @@ async function logout(page: Page) {
  * データはSvelteKitの`load()`がコンポーネントの描画前に解決している(→各+page.ts)
  * ため、ヘッダーが描画された時点でページ本体のデータも揃っている。
  */
-async function waitForPageReady(page: Page): Promise<void> {
+export async function waitForPageReady(page: Page): Promise<void> {
 	await page.getByRole('link', { name: 'WebLAV' }).waitFor({ timeout: 5000 });
 	await page.evaluate(() => document.fonts.ready);
 }
