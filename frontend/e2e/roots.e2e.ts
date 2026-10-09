@@ -12,6 +12,7 @@ import {
 	sharedContentRoot
 } from './fixture-helpers';
 import {
+	CHANGE_PATH_BUTTON_NAME,
 	clickRowMenuItem,
 	confirmDelete,
 	DELETE_MENU_ITEM_NAME,
@@ -195,7 +196,7 @@ test('登録を消したフォルダーを指すコンテンツでも、ピッ�
 				rootId = null;
 
 				await page.goto(`/admin/contents/${content.id}`);
-				await page.getByRole('button', { name: /^選び直す\.\.\.$|^Change\.\.\.$/ }).click();
+				await page.getByRole('button', { name: CHANGE_PATH_BUTTON_NAME }).click();
 
 				// 上位の一覧 (登録済みの「公開できるフォルダー」。名前で並ぶ) に落ちていること。
 				// 開発用 DB では置き場の登録が別の名前・親のフォルダーのこともあるので、実際の名前を引く。

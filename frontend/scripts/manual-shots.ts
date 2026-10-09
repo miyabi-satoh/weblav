@@ -3,7 +3,8 @@
 // 画面の文言や見た目を変えたら流し直す。名前を渡すと、その画像だけを撮る (`just manual-shots roots-page`)。
 //
 // ここに無い画像 (タスクトレイ・OS の窓・閲覧側の画面など) は手で撮っている。
-// 撮れるものを足すときは、下の撮影の流れに足す。データは元の画像に写っていた名前に合わせてある。
+// 撮れるものを足すときは、名前を ADMIN_SHOTS などの一覧に足し、下の撮影の流れに `want('名前')` で足す。
+// データは元の画像に写っていた名前に合わせてある。
 
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -11,6 +12,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { chromium, type APIRequestContext, type Locator, type Page, type Route } from 'playwright';
 import {
+	CHANGE_PATH_BUTTON_NAME,
 	CHOOSE_PATH_BUTTON_NAME,
 	CONTENT_ADD_BUTTON_NAME,
 	DELETE_MENU_ITEM_NAME,
@@ -49,16 +51,22 @@ const ADMIN_SHOTS = [
 ];
 const FREE_SHOTS = ['settings-pro', 'pro-link'];
 const DIAGRAM_SHOTS = ['how-it-works'];
+const ALL_SHOTS = [...ADMIN_SHOTS, ...FREE_SHOTS, ...DIAGRAM_SHOTS];
+/** コンテンツを追加の画面を順に進めて撮るもの。 */
+const FOLDER_SHOTS = [
+	'quickstart-add-folder',
+	'add-folder-form',
+	'add-folder-picker',
+	'add-folder-ready'
+];
 
 /** 撮る画像の名前。既定は全部。 */
 const ONLY = new Set(process.argv.slice(2));
-const unknown = [...ONLY].filter(
-	(name) => ![...ADMIN_SHOTS, ...FREE_SHOTS, ...DIAGRAM_SHOTS].includes(name)
-);
+const unknown = [...ONLY].filter((name) => !ALL_SHOTS.includes(name));
 if (unknown.length > 0) {
 	// 名前を打ち間違えたまま、何も撮らずに成功で終えないため。
 	console.error(
-		`撮れない画像の名前です: ${unknown.join(', ')}\n撮れるもの: ${[...ADMIN_SHOTS, ...FREE_SHOTS, ...DIAGRAM_SHOTS].join(', ')}`
+		`撮れない画像の名前です: ${unknown.join(', ')}\n撮れるもの: ${ALL_SHOTS.join(', ')}`
 	);
 	process.exit(1);
 }
@@ -70,6 +78,8 @@ const DESKTOP_WIDTH = 800;
 const MOBILE_WIDTH = 450;
 /** 欄が画面の下にはみ出さない高さ。はみ出すと clip の外が切れる。 */
 const VIEWPORT_HEIGHT = 2400;
+/** 要素が出るのを待つ上限。管理画面の操作はどれも1秒もかからないので、遅いマシンでも足りる長さ。 */
+const ELEMENT_TIMEOUT_MS = 15_000;
 /** WebP の品質。1枚あたり数十 KB に収まり、文字が滲まない (→ docs/help.md)。 */
 const WEBP_QUALITY = 0.85;
 /**
@@ -131,6 +141,8 @@ async function newPage(backend: Backend, width: number, sharedPath?: string): Pr
 		baseURL: backend.baseURL,
 		locale: 'ja-JP'
 	});
+	// 画面の文言を変えて要素が見つからなくなったとき、待ち続けずに止める (既定は待ち続ける)。
+	context.setDefaultTimeout(ELEMENT_TIMEOUT_MS);
 	await context.addCookies([{ name: 'WEBLAV_LOCALE', value: 'ja', url: backend.baseURL }]);
 	const page = await context.newPage();
 	await send(page.request, 'POST', '/auth/login', {
@@ -207,8 +219,10 @@ async function save(page: Page, name: string, png: Buffer) {
 
 /** 要素の位置。画面の文言を変えて要素が見つからなくなったら、どの画像のどの要素かを出して止める。 */
 async function box(name: string, locator: Locator) {
-	const found = await locator.boundingBox();
-	if (!found) throw new Error(`${name}: 要素が見つかりません (${locator})`);
+	const found = await locator.boundingBox().catch((err: Error) => {
+		throw new Error(`${name}: 要素が見つかりません (${locator}): ${err.message}`);
+	});
+	if (!found) throw new Error(`${name}: 要素が見えていません (${locator})`);
 	return found;
 }
 
@@ -351,17 +365,12 @@ async function shootAdmin() {
 			// 閉じるのを待つ。次のメニューを待つときに、閉じかけのこのメニューを拾わないため。
 			await page.getByRole('menu').waitFor({ state: 'hidden' });
 		}
-		const folderShots = [
-			'quickstart-add-folder',
-			'add-folder-form',
-			'add-folder-picker',
-			'add-folder-ready'
-		];
-		if (folderShots.some(want)) {
+		if (FOLDER_SHOTS.some(want)) {
 			await openAddDialog(page, CONTENT_ADD_BUTTON_NAME);
 			if (want('quickstart-add-folder'))
 				await shotElement(page, 'quickstart-add-folder', dialog(page));
 			await chooseContentType(page, 'folder');
+			await dialog(page).getByRole('button', { name: CHOOSE_PATH_BUTTON_NAME }).waitFor();
 			if (want('add-folder-form')) await shotElement(page, 'add-folder-form', dialog(page));
 			await dialog(page).getByRole('button', { name: CHOOSE_PATH_BUTTON_NAME }).click();
 			await picker(page).waitFor();
@@ -370,7 +379,8 @@ async function shootAdmin() {
 			await dialog(page).getByText('この中にフォルダーはありません。').waitFor();
 			if (want('add-folder-picker')) await shotElement(page, 'add-folder-picker', dialog(page));
 			await dialog(page).getByRole('button', { name: USE_THIS_FOLDER_BUTTON_NAME }).click();
-			await dialog(page).getByRole('button', { name: '選び直す...' }).waitFor();
+			await picker(page).waitFor({ state: 'hidden' });
+			await dialog(page).getByRole('button', { name: CHANGE_PATH_BUTTON_NAME }).waitFor();
 			if (want('add-folder-ready')) await shotElement(page, 'add-folder-ready', dialog(page));
 		}
 
@@ -423,6 +433,7 @@ async function shootAdmin() {
 			await goto(page, '/admin/roots');
 			await page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).first().click();
 			await page.getByRole('menuitem', { name: DELETE_MENU_ITEM_NAME }).click();
+			await page.getByRole('alertdialog').waitFor();
 			await shotElement(page, 'roots-delete', page.getByRole('alertdialog'));
 		}
 
@@ -448,7 +459,7 @@ async function shootAdmin() {
 		}
 	} finally {
 		// 差し替えた応答が、止めた backend へ問い合わせないよう、先にページを閉じる。
-		await Promise.all(browser.contexts().map((context) => context.close()));
+		await Promise.allSettled(browser.contexts().map((context) => context.close()));
 		await stopBackend(backend);
 	}
 }
@@ -501,7 +512,7 @@ async function shootFree() {
 		}
 	} finally {
 		// 差し替えた応答が、止めた backend へ問い合わせないよう、先にページを閉じる。
-		await Promise.all(browser.contexts().map((context) => context.close()));
+		await Promise.allSettled(browser.contexts().map((context) => context.close()));
 		await stopBackend(backend);
 	}
 }
