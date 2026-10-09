@@ -6,7 +6,8 @@
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
 	import { openViewerItem, type ViewerItem } from '$lib/viewer-items';
 	import { formatTimeAgo } from '$lib/format';
-	import { urlHost } from '$lib/file-kind';
+	import { isLanUrl, urlHost } from '$lib/file-kind';
+	import { linkDetail } from '$lib/link-detail.svelte';
 	import { isPlainClick } from '$lib/image-viewer';
 	import {
 		browseRowClass,
@@ -47,10 +48,19 @@
 		viewer?: { file: ViewerFile; items: ViewerItem[] };
 	} = $props();
 
+	// ビューアで開かないリンクは、詳しい表示を挟んでから新しいタブで開く (→ docs/ui.md「リンクのカード」)。
+	// LAN の URL はサーバーが取りに行かず見せるものが無いので、今までどおり直接開く。
+	let opensDetail = $derived(!viewer && !isLanUrl(href));
+
 	function handleClick(event: MouseEvent) {
-		if (!viewer || !isPlainClick(event)) return;
-		event.preventDefault();
-		void openViewerItem({ type: 'file', file: viewer.file }, viewer.items);
+		if (!isPlainClick(event)) return;
+		if (viewer) {
+			event.preventDefault();
+			void openViewerItem({ type: 'file', file: viewer.file }, viewer.items);
+		} else if (opensDetail) {
+			event.preventDefault();
+			linkDetail.show({ href, title: shownTitle, description, preview });
+		}
 	}
 
 	let host = $derived(urlHost(href));
@@ -131,7 +141,7 @@
 			{/if}
 			<span class="flex items-center gap-2 text-xs text-muted-foreground">
 				{@render meta(false)}
-				{#if !viewer}
+				{#if !viewer && !opensDetail}
 					<span class="sr-only">{m.contents_opens_in_new_tab()}</span>
 					<ExternalLinkIcon class="ml-auto size-4 shrink-0" strokeWidth={1.8} />
 				{/if}
@@ -157,8 +167,8 @@
 		{#if isPrivate}
 			<span class="shrink-0 text-sm text-muted-foreground">{m.contents_visibility_private()}</span>
 		{/if}
-		<!-- ビューアで開く行には、ファイルの行と同じくグリフを付けない (→ docs/ui.md「PDF・動画・テキストのビューア」)。 -->
-		{#if !viewer}
+		<!-- ページの中で開く行 (ビューア・詳しい表示) には、ファイルの行と同じくグリフを付けない (→ docs/ui.md「PDF・動画・テキストのビューア」)。 -->
+		{#if !viewer && !opensDetail}
 			<ListRowGlyph newTab />
 		{/if}
 	</a>

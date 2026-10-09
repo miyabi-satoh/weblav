@@ -210,6 +210,8 @@ fn utf8_prefix(body: Vec<u8>) -> Option<String> {
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub(super) struct PageCard {
     pub title: Option<String>,
+    /// ページの説明。リンクの詳しい表示に出す (→ docs/ui.md「リンクのカード」)。
+    pub description: Option<String>,
     pub site_name: Option<String>,
     /// `article:published_time` のまま。形は相手しだいなので、読めるかは画面が決める。
     pub published_at: Option<String>,
@@ -326,6 +328,7 @@ fn extract_card(html: &str, base: &url::Url) -> PageCard {
         .or_else(|| extract_meta_content(html, &lower, "twitter:image", MAX_URL_CHARS));
     PageCard {
         title: extract_page_title(html, &lower),
+        description: extract_page_description(html, &lower),
         site_name: extract_meta_content(html, &lower, "og:site_name", MAX_TITLE_CHARS),
         published_at: extract_meta_content(html, &lower, "article:published_time", MAX_TITLE_CHARS),
         image_url: image.and_then(|image| resolve_web_url(base, &image)),
@@ -703,9 +706,11 @@ mod tests {
             r#"<head><meta property="og:image" content="/img/a.jpg?x=1&amp;y=2">
                <meta property="og:site_name" content="Example News">
                <meta property="article:published_time" content="2026-10-05T09:00:00+09:00">
+               <meta property="og:description" content="About &quot;Hello&quot;">
                <link rel="shortcut icon" href="favicon.png"><title>Hello</title></head>"#,
         );
         assert_eq!(card.title.as_deref(), Some("Hello"));
+        assert_eq!(card.description.as_deref(), Some("About \"Hello\""));
         assert_eq!(card.site_name.as_deref(), Some("Example News"));
         assert_eq!(
             card.published_at.as_deref(),

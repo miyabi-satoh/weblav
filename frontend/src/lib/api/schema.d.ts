@@ -1945,6 +1945,8 @@ export interface components {
         };
         /** @description リンクのカードに出す情報。URL はこのサーバーから配る画像の URL。 */
         LinkPreview: {
+            /** @description ページの説明 (`og:description`、無ければ `<meta name="description">`)。 */
+            description?: string | null;
             iconUrl?: string | null;
             imageUrl?: string | null;
             /** @description ページの `article:published_time` のまま。読めなければ経過を出さない。 */

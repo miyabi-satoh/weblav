@@ -6437,6 +6437,13 @@
         "type": "object",
         "description": "リンクのカードに出す情報。URL はこのサーバーから配る画像の URL。",
         "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ページの説明 (`og:description`、無ければ `<meta name=\"description\">`)。"
+          },
           "iconUrl": {
             "type": [
               "string",
