@@ -11,7 +11,7 @@ Windows 版の配布物を作る手段。
   - 画面の無い Linux (systemd で `weblav-service` を動かす形) は、「共有フォルダを設定できない人」に向けた WebLAV の相手から外れるので、対象にしない。
   - Ubuntu のトレイは、Windows・macOS と同じ `tao`・`tray-icon` で出す。アイコンのクリックは届かず右クリックのメニューだけになるので、トレイの操作はメニューに置く。
     起動のたびにログへ出る `gtk_widget_get_scale_factor: assertion 'GTK_IS_WIDGET (widget)' failed` は、`tray-icon` が使う libayatana-appindicator 由来で、トレイの動きには響かない (tao #534)。
-  - **macOS は、App Store からも配れるよう、サンドボックスで動く作りにする** (App Review Guidelines 2.4.5 (i))。App Store から配っても、開発者 ID の署名と公証で自分のサイトから配っても、作り直さずに済むようにする。
+  - **macOS は、App Store の外から配るが、サンドボックスで動く作りにする**。LAN にファイルを出すサーバーなので、パスの扱いに不具合があっても、読めるのを利用者が窓で選んだフォルダに抑えるため。
     - 権限 (`installer/macos/weblav.entitlements`) は、サンドボックス・ネットワークの受信と送信・窓で選んだ場所を読むこと・ブックマークだけ。
       ad-hoc 署名のままでも、この権限でサンドボックスの中で動く (実機で確認)。`just bundle-mac` の .app は常にサンドボックスで動かす。
     - 公開できるフォルダは、OS のフォルダ選択の窓 (NSOpenPanel) で選ばせる (→ folders.md「公開できるフォルダ」)。サンドボックスでは、利用者が窓で選んだ場所しか読めず、その許可は起動し直すと消える。
