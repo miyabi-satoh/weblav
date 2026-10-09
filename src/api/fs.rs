@@ -494,6 +494,75 @@ fn normalize_rel_path(rel: &str) -> String {
     rel.replace('\\', "/")
 }
 
+/// 再帰の走査で辿るエントリか。除外の規則は一覧と揃える (`is_visible_entry`・`own_dirs`・Windows の隠し属性)。
+///
+/// ルート自身は名前で判定しない。登録先そのものがドット始まりでも、選んだのは管理者なので対象にする。
+fn is_walkable(entry: &walkdir::DirEntry, own_dirs: &OwnDirs) -> bool {
+    if entry.depth() == 0 {
+        return true;
+    }
+    let name = entry.file_name().to_string_lossy();
+    if !is_visible_entry(&name, Some(entry.file_type())) {
+        return false;
+    }
+    // リンクを辿らないので、根が実体パスならエントリのパスも実体パスのまま比べられる。
+    if own_dirs.contains(entry.path()) {
+        return false;
+    }
+    // Windowsの隠し属性 (理由は `is_hidden_by_attribute`)。
+    #[cfg(windows)]
+    if entry
+        .metadata()
+        .is_ok_and(|metadata| is_hidden_by_attribute(&metadata))
+    {
+        return false;
+    }
+    true
+}
+
+/// 検索で辿ったエントリ。`rel_path` は `/` 区切りの、登録先からの相対パス。
+#[derive(Debug, PartialEq, Eq)]
+pub(super) struct WalkedEntry {
+    pub(super) rel_path: String,
+    pub(super) is_dir: bool,
+}
+
+/// `root` 配下のファイルとディレクトリを、一覧と同じ除外で再帰的に集める (→ docs/search.md「フォルダの中」)。
+/// `limit` 件を超えたら打ち切り、打ち切ったかを添えて返す。
+///
+/// 読めない場所は読み飛ばす。検索は見つかった分だけを出せばよく、索引の同期のように欠けが害にならないため。
+///
+/// ブロッキングI/Oを行うため、呼び出し側は `spawn_blocking` の中で呼ぶこと。
+pub(super) fn walk_entries(
+    root: &FsPath,
+    limit: usize,
+    own_dirs: &OwnDirs,
+) -> (Vec<WalkedEntry>, bool) {
+    let mut entries = Vec::new();
+    let walker = WalkDir::new(root)
+        .follow_links(false)
+        .min_depth(1)
+        .into_iter()
+        .filter_entry(|entry| is_walkable(entry, own_dirs));
+    for entry in walker.flatten() {
+        if entries.len() >= limit {
+            return (entries, true);
+        }
+        let Ok(rel) = entry.path().strip_prefix(root) else {
+            continue;
+        };
+        // UTF-8 として扱えないパスは出さない。URL のクエリに載せて開き直せないため。
+        let Some(rel) = rel.to_str() else {
+            continue;
+        };
+        entries.push(WalkedEntry {
+            rel_path: normalize_rel_path(rel),
+            is_dir: entry.file_type().is_dir(),
+        });
+    }
+    (entries, false)
+}
+
 /// 走査の結果。索引対象のファイルの相対パス (`/` 区切り) を集めたもの。
 pub(super) struct ScanResult {
     pub(super) rel_paths: Vec<String>,
@@ -536,30 +605,7 @@ pub(super) fn scan_files(
     let walker = WalkDir::new(root)
         .follow_links(false)
         .into_iter()
-        .filter_entry(|entry| {
-            // ルート自身は名前で判定しない。登録先そのものがドット始まりでも、
-            // 選んだのは管理者なので索引の対象にする。
-            if entry.depth() == 0 {
-                return true;
-            }
-            let name = entry.file_name().to_string_lossy();
-            if !is_visible_entry(&name, Some(entry.file_type())) {
-                return false;
-            }
-            // リンクを辿らないので、根が実体パスならエントリのパスも実体パスのまま比べられる。
-            if own_dirs.contains(entry.path()) {
-                return false;
-            }
-            // Windowsの隠し属性 (理由は `is_hidden_by_attribute`)。
-            #[cfg(windows)]
-            if entry
-                .metadata()
-                .is_ok_and(|metadata| is_hidden_by_attribute(&metadata))
-            {
-                return false;
-            }
-            true
-        });
+        .filter_entry(|entry| is_walkable(entry, own_dirs));
 
     for entry in walker {
         let entry = match entry {
@@ -880,6 +926,59 @@ mod tests {
         assert!(has_dot_component(root, &root.join(".git").join("config")));
         assert!(!has_dot_component(root, &root.join("a.mp3")));
         assert!(!has_dot_component(root, root));
+    }
+
+    /// 検索の走査は、ファイルとディレクトリの両方を出し、一覧と同じものを外す。
+    #[test]
+    fn walk_entries_lists_files_and_directories_like_the_folder_list() {
+        let tmp = temp_dir("walk-entries");
+        let dir = std::fs::canonicalize(tmp.path()).expect("canonicalize できなかった");
+        let data_dir = dir.join("weblav");
+        std::fs::create_dir_all(dir.join("2024")).expect("ディレクトリを作れなかった");
+        std::fs::create_dir_all(dir.join(".git")).expect("ディレクトリを作れなかった");
+        std::fs::create_dir_all(&data_dir).expect("データ置き場を作れなかった");
+        std::fs::write(dir.join("2024/a.mp3"), b"").expect("ファイルを作れなかった");
+        std::fs::write(dir.join(".git/config"), b"").expect("ファイルを作れなかった");
+        std::fs::write(dir.join(".DS_Store"), b"").expect("ファイルを作れなかった");
+        std::fs::write(data_dir.join("weblav.db"), b"").expect("ファイルを作れなかった");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(dir.join("2024"), dir.join("link"))
+            .expect("リンクを作れなかった");
+
+        let (mut entries, truncated) =
+            walk_entries(&dir, ITEM_LIMIT, &OwnDirs::resolve(&[data_dir]));
+        entries.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
+
+        assert!(!truncated);
+        assert_eq!(
+            entries,
+            vec![
+                WalkedEntry {
+                    rel_path: "2024".to_string(),
+                    is_dir: true
+                },
+                WalkedEntry {
+                    rel_path: "2024/a.mp3".to_string(),
+                    is_dir: false
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn walk_entries_stops_at_the_limit() {
+        let tmp = temp_dir("walk-entries-limit");
+        let dir = std::fs::canonicalize(tmp.path()).expect("canonicalize できなかった");
+        for name in ["a", "b", "c"] {
+            std::fs::write(dir.join(name), b"").expect("ファイルを作れなかった");
+        }
+
+        let (entries, truncated) = walk_entries(&dir, 2, &OwnDirs::default());
+        assert_eq!(entries.len(), 2);
+        assert!(truncated);
+        let (entries, truncated) = walk_entries(&dir, 3, &OwnDirs::default());
+        assert_eq!(entries.len(), 3);
+        assert!(!truncated, "ちょうど上限なら打ち切らない");
     }
 
     /// 登録先がデータ置き場の祖先でも、データ置き場の中は索引しない。

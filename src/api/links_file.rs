@@ -122,15 +122,15 @@ async fn open(
     Ok(opened)
 }
 
-fn is_links_file_name(name: &str) -> bool {
+pub(super) fn is_links_file_name(name: &str) -> bool {
     name.to_lowercase().ends_with(LINKS_FILE_SUFFIX)
 }
 
 /// 読み取った一覧。
 #[derive(Debug, PartialEq, Eq)]
-struct LinksFile {
-    title: Option<String>,
-    links: Vec<(String, Option<String>)>,
+pub(super) struct LinksFile {
+    pub(super) title: Option<String>,
+    pub(super) links: Vec<(String, Option<String>)>,
 }
 
 /// TOML として書かれた一覧。行ごとの誤り (`url` が無い・文字列でない) で一覧全体を読めなくしないよう、
@@ -173,16 +173,18 @@ fn parse(bytes: &[u8]) -> Option<LinksFile> {
 /// 一覧のファイルを読む。大きすぎる・読めないものは `None`。
 async fn read(file: &ServedFile) -> Result<Option<LinksFile>, AppError> {
     let path = file.path.clone();
-    run_blocking(move || {
-        let Ok(metadata) = std::fs::metadata(&path) else {
-            return None;
-        };
-        if metadata.len() > MAX_LINKS_FILE_BYTES {
-            return None;
-        }
-        parse(&std::fs::read(&path).ok()?)
-    })
-    .await
+    run_blocking(move || read_path(&path)).await
+}
+
+/// `read` のブロッキングの本体。検索がまとめて読むときにも使う。
+///
+/// ブロッキングI/Oを行うため、呼び出し側は `spawn_blocking` の中で呼ぶこと。
+pub(super) fn read_path(path: &std::path::Path) -> Option<LinksFile> {
+    let metadata = std::fs::metadata(path).ok()?;
+    if metadata.len() > MAX_LINKS_FILE_BYTES {
+        return None;
+    }
+    parse(&std::fs::read(path).ok()?)
 }
 
 /// 一覧のファイルの中の URL。リンクのカードの取り直しで、見られる一覧のものだけを取りに行くため。

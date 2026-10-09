@@ -1212,8 +1212,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * 閲覧者がホームからたどって一覧で見られるコンテンツと、アーカイブの公開アイテムを、
-         *     タイトルの文字列で探す (→ docs/search.md)。語が空なら空の結果を返す。
+         * 閲覧者がホームからたどって一覧で見られるコンテンツ・アーカイブの公開アイテム・フォルダの中・
+         *     リンクの一覧のファイルの中のリンクを、タイトルの文字列で探す (→ docs/search.md)。語が空なら空の結果を返す。
          */
         get: operations["search"];
         put?: never;
@@ -2131,6 +2131,15 @@ export interface components {
             matchedInDescription: boolean;
             parent?: components["schemas"]["GroupAncestor"] | null;
         };
+        SearchFileHit: {
+            /** Format: int64 */
+            contentId: number;
+            entry: components["schemas"]["FolderEntry"];
+            /** @description 行の2段目に、どこにあるかとして出す。 */
+            folderTitle: string;
+            /** @description フォルダの登録パスからの相対パス (`/` 区切り)。エントリ自身の名前まで含む。 */
+            path: string;
+        };
         SearchItemHit: {
             /** Format: int64 */
             archiveId: number;
@@ -2138,15 +2147,46 @@ export interface components {
             archiveTitle: string;
             item: components["schemas"]["ArchiveViewItem"];
         };
+        SearchLinkHit: {
+            /** @description フォルダ・アーカイブの中の一覧なら、そのコンテンツのタイトル。 */
+            containerTitle?: string | null;
+            /**
+             * Format: int64
+             * @description 一覧のファイルを持つコンテンツ (フォルダ・アーカイブ・`file`)。
+             */
+            contentId: number;
+            /** @description 一覧のファイルの題。`title` が無ければ、`file` コンテンツは登録したタイトル、ほかはファイル名。 */
+            fileTitle: string;
+            /**
+             * Format: int64
+             * @description アーカイブの中の一覧なら、そのアイテムの id。
+             */
+            item?: number | null;
+            /** @description 題では当たらず、`note` で当たったか。何で当たったか分かるよう、画面が `note` を添える。 */
+            matchedInNote: boolean;
+            note?: string | null;
+            /** @description フォルダの中の一覧なら、その相対パス。 */
+            path?: string | null;
+            preview?: components["schemas"]["LinkPreview"] | null;
+            url: string;
+        };
         SearchResponse: {
             /** @description タイトル順。区画ごとの上限 (100 件) で打ち切る。 */
             contents: components["schemas"]["SearchContentHit"][];
             /** @description `contents` を打ち切ったか。 */
             contentsTruncated: boolean;
+            /** @description フォルダの中のファイルとディレクトリ。名前順。区画ごとの上限 (100 件) で打ち切る。 */
+            files: components["schemas"]["SearchFileHit"][];
+            /** @description `files` を打ち切ったか。辿るエントリ数の上限で、フォルダを辿りきれなかったときも含む。 */
+            filesTruncated: boolean;
             /** @description アーカイブのファイル。表示タイトル順。区画ごとの上限 (100 件) で打ち切る。 */
             items: components["schemas"]["SearchItemHit"][];
             /** @description `items` を打ち切ったか。 */
             itemsTruncated: boolean;
+            /** @description リンクの一覧のファイルの中のリンク。題の順。区画ごとの上限 (100 件) で打ち切る。 */
+            links: components["schemas"]["SearchLinkHit"][];
+            /** @description `links` を打ち切ったか。 */
+            linksTruncated: boolean;
         };
         /** @description 管理画面で変えられる設定。 */
         ServerSettings: {

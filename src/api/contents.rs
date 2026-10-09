@@ -1462,9 +1462,9 @@ struct BrowseQuery {
 
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-struct FolderEntry {
-    name: String,
-    is_dir: bool,
+pub(super) struct FolderEntry {
+    pub(super) name: String,
+    pub(super) is_dir: bool,
     /// ディレクトリの場合は `None`。
     size: Option<u64>,
     /// UNIXエポックミリ秒。取得できない場合は `None`。
@@ -1662,22 +1662,9 @@ fn read_entries(
         // ここまで来ればシンボリックリンクではないので、`std::fs::metadata` を呼んでも
         // 実体(非リンク)のメタデータがそのまま返る。取得自体が失敗した場合
         // (権限エラー等)はそのエントリだけ読み飛ばす。
-        let Ok(metadata) = std::fs::metadata(entry.path()) else {
-            continue;
-        };
-        let is_dir = metadata.is_dir();
-        let size = (!is_dir).then_some(metadata.len());
-        let modified_at = modified_at_millis(&metadata);
-        let preview = size.map(|size| super::thumbnails::file_preview(&name, &entry.path(), size));
-        entries.push(FolderEntry {
-            name,
-            is_dir,
-            size,
-            modified_at,
-            image: preview.as_ref().and_then(|preview| preview.image),
-            is_text: preview.as_ref().is_some_and(|preview| preview.is_text),
-            thumbnail: preview.as_ref().is_some_and(|preview| preview.thumbnail),
-        });
+        if let Some(entry) = folder_entry(name, &entry.path()) {
+            entries.push(entry);
+        }
     }
     entries.sort_by(|a, b| {
         b.is_dir.cmp(&a.is_dir).then_with(|| match order {
@@ -1691,6 +1678,26 @@ fn read_entries(
         })
     });
     Ok(entries)
+}
+
+/// 一覧の行の形にする。メタデータを読めなければ `None`。`path` はリンクでない実体のパス。
+///
+/// ブロッキングI/Oを行うため、呼び出し側は `spawn_blocking` の中で呼ぶこと。
+pub(super) fn folder_entry(name: String, path: &FsPath) -> Option<FolderEntry> {
+    let metadata = std::fs::metadata(path).ok()?;
+    let is_dir = metadata.is_dir();
+    let size = (!is_dir).then_some(metadata.len());
+    let modified_at = modified_at_millis(&metadata);
+    let preview = size.map(|size| super::thumbnails::file_preview(&name, path, size));
+    Some(FolderEntry {
+        name,
+        is_dir,
+        size,
+        modified_at,
+        image: preview.as_ref().and_then(|preview| preview.image),
+        is_text: preview.as_ref().is_some_and(|preview| preview.is_text),
+        thumbnail: preview.as_ref().is_some_and(|preview| preview.thumbnail),
+    })
 }
 
 /// folder配下のファイル/サブディレクトリ一覧。公開範囲の判定は `folder_root` で行う。
@@ -1959,6 +1966,10 @@ pub(super) struct ContentSearch {
     pub(super) truncated: bool,
     /// 閲覧者が一覧で見られるアーカイブ。アイテムの区画は、この中から探す。
     pub(super) archives: Vec<super::archive_items::SearchableArchive>,
+    /// 閲覧者が一覧で見られるフォルダ。フォルダの中の区画は、この中から探す。
+    pub(super) folders: Vec<super::folder_search::SearchableFolder>,
+    /// 閲覧者が一覧で見られる、リンクの一覧のファイルの `file` コンテンツ。
+    pub(super) links_files: Vec<super::folder_search::LinksFileContent>,
 }
 
 /// 閲覧者が一覧で見られるコンテンツを、タイトルと説明で探す。
@@ -1992,17 +2003,32 @@ pub(super) async fn search_contents(
 
     // 照らすのは全行の文字列を揃える計算で、件数に比例して重くなる。
     let terms_owned = terms.clone();
-    let (mut hits, archives) = run_blocking(move || {
+    let (mut hits, archives, folders, links_files) = run_blocking(move || {
         let mut hits = Vec::new();
         let mut archives = Vec::new();
+        let mut folders = Vec::new();
+        let mut links_files = Vec::new();
         for row in rows {
-            if row.content_type == ContentType::Archive {
-                archives.push((
+            match row.content_type {
+                ContentType::Archive => archives.push((
                     row.id,
                     row.title.clone(),
                     row.path.clone(),
                     row.title_template.clone(),
-                ));
+                )),
+                ContentType::Folder => folders.push((row.id, row.title.clone(), row.path.clone())),
+                ContentType::File
+                    if row
+                        .file_name
+                        .as_deref()
+                        .is_some_and(super::links_file::is_links_file_name) =>
+                {
+                    links_files.push(super::folder_search::LinksFileContent {
+                        id: row.id,
+                        title: row.title.clone(),
+                    });
+                }
+                _ => {}
             }
             let title = super::search::normalize(&row.title);
             if terms_owned.matches(&[&title]) {
@@ -2013,7 +2039,7 @@ pub(super) async fn search_contents(
                 hits.push((row, true));
             }
         }
-        (hits, archives)
+        (hits, archives, folders, links_files)
     })
     .await?;
 
@@ -2044,6 +2070,16 @@ pub(super) async fn search_contents(
             })
         })
         .collect::<Result<Vec<_>, AppError>>()?;
+    let folders = folders
+        .into_iter()
+        .map(|(id, title, path)| {
+            Ok(super::folder_search::SearchableFolder {
+                id,
+                title,
+                path: folder_path(path)?,
+            })
+        })
+        .collect::<Result<Vec<_>, AppError>>()?;
 
     Ok(ContentSearch {
         hits: contents
@@ -2059,6 +2095,8 @@ pub(super) async fn search_contents(
             .collect(),
         truncated,
         archives,
+        folders,
+        links_files,
     })
 }
 
