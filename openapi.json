@@ -7193,7 +7193,7 @@
               "string",
               "null"
             ],
-            "description": "`within` の場所の名前。切り替えの「『…』の中」に出す。`within` が無ければ `None`。"
+            "description": "`within` のコンテンツのタイトル。切り替えの「『…』の中」に出す。`within` が無ければ `None`。"
           }
         }
       },

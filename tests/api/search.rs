@@ -210,7 +210,7 @@ async fn search_within_a_folder_level_walks_only_below_it(pool: SqlitePool) {
         .map(|hit| hit["path"].as_str().expect("path は文字列"))
         .collect();
     assert_eq!(paths, vec!["2024/リスニング.pdf"], "{found}");
-    assert_eq!(found["scopeTitle"], "2024", "{found}");
+    assert_eq!(found["scopeTitle"], "リスニング教材", "{found}");
 }
 
 /// 範囲の場所を開けなければ、その画面と同じく 401/404 にする。

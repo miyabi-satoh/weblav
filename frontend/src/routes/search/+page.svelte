@@ -18,11 +18,18 @@
 	import { browseControlsClass, browseGutterClass, browseToggleItemClass } from '$lib/list-row';
 	import { pageEmptyTextClass, pageHeadingClass } from '$lib/page-layout';
 	import { pageTitle } from '$lib/page-title';
-	import { searchHref } from '$lib/search-scope';
+	import { searchHref, searchScopeLevels } from '$lib/search-scope';
 	import { formatNumber } from '$lib/format';
 	import type { PageProps } from './$types';
 
 	type ContentEntry = components['schemas']['ContentResponse'];
+
+	// 範囲の名前は、幅が足りなければフォルダの名前だけを切り詰める。訳の語順を崩さないよう、
+	// 文言を目印で組んでから、名前の前と後ろに分ける。
+	const SCOPE_TITLE_MARK = '\u0000';
+	let scopeLabelParts = $derived(
+		m.search_scope_within({ title: SCOPE_TITLE_MARK }).split(SCOPE_TITLE_MARK)
+	);
 
 	/** 打ち止めてから探すまでの間。1文字ごとに問い合わせず、打っている間に結果が揺れないようにする。 */
 	const SEARCH_DELAY_MS = 300;
@@ -202,7 +209,8 @@
 
 		{#if data.scopeTitle !== null || hasHits}
 			<!-- 並び順と同じく範囲は左に、リストとタイルの切り替えは右端に置く (→ docs/ui.md「UI 全般」)。 -->
-			<div class={['mt-6 mb-4', browseControlsClass]}>
+			<!-- 範囲の名前が収まらなければ、切り替えを折り返して1段を使わせる。 -->
+			<div class={['mt-6 mb-4 flex-wrap', browseControlsClass]}>
 				{#if data.scopeTitle !== null}
 					<!-- 閲覧ページから開いたときだけ出す。最初はそのページの中を選んでおく (→ docs/search.md「範囲」)。 -->
 					<ToggleGroup.Root
@@ -218,8 +226,26 @@
 							}
 						}
 					>
-						<ToggleGroup.Item value="within" class={['min-w-0 px-4', browseToggleItemClass]}>
-							<span class="truncate">{m.search_scope_within({ title: data.scopeTitle })}</span>
+						<!-- 部品の既定の shrink-0 を外し、幅が足りなければこちらを縮める。 -->
+						<ToggleGroup.Item value="within" class={['min-w-0 shrink px-4', browseToggleItemClass]}>
+							{@const [before, after] = scopeLabelParts}
+							{@const levels = searchScopeLevels(data.scope?.path)}
+							<!-- 幅が足りなければフォルダの名前 (頭の1字は残す) だけを縮める。階層は見分けるのに要るので縮めず、 -->
+							<!-- スマートフォンの幅では、切り替えが1段に収まるよう上限を決めて、超えた分だけを切り詰める。 -->
+							<span class="flex min-w-0">
+								<span class="shrink-0">{before}</span>
+								<span class="min-w-7 truncate">{data.scopeTitle}</span>
+								<!-- 先頭の空白 (` / 2025`) が flex の項目の端で詰められないよう、空白をそのまま残す。 -->
+								<span
+									class="max-w-16 shrink-0 overflow-hidden text-ellipsis whitespace-pre sm:max-w-none"
+									>{levels.upper}</span
+								>
+								<span
+									class="max-w-24 shrink-0 overflow-hidden text-ellipsis whitespace-pre sm:max-w-none"
+									>{levels.last}</span
+								>
+								<span class="shrink-0">{after}</span>
+							</span>
 						</ToggleGroup.Item>
 						<ToggleGroup.Item value="all" class={['shrink-0 px-4', browseToggleItemClass]}>
 							{m.search_scope_all()}

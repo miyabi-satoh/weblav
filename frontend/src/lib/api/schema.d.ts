@@ -2193,7 +2193,7 @@ export interface components {
             links: components["schemas"]["SearchLinkHit"][];
             /** @description `links` を打ち切ったか。 */
             linksTruncated: boolean;
-            /** @description `within` の場所の名前。切り替えの「『…』の中」に出す。`within` が無ければ `None`。 */
+            /** @description `within` のコンテンツのタイトル。切り替えの「『…』の中」に出す。`within` が無ければ `None`。 */
             scopeTitle?: string | null;
         };
         /** @description 管理画面で変えられる設定。 */

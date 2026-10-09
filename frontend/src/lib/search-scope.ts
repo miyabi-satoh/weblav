@@ -30,6 +30,21 @@ export function searchScopeOf(
 	}
 }
 
+/**
+ * 切り替えに出す範囲の名前の、フォルダの名前の後ろに続ける階層。フォルダの中の階層でなければ、どちらも空。
+ * 同じ名前の階層 (`2024` など) を見分けられるよう最後の2段までを出し、それより上は `…` に詰める。
+ * 上の段 (`upper`) と最後の段 (`last`) は、画面がスマートフォンの幅で別々の上限で切り詰める (→ docs/search.md「範囲」)。
+ */
+export function searchScopeLevels(path: string | undefined): { upper: string; last: string } {
+	if (!path) return { upper: '', last: '' };
+	const parts = path.split('/');
+	const upper = parts.length > 2 ? ['…', parts[parts.length - 2]] : parts.slice(0, -1);
+	return {
+		upper: upper.map((part) => ` / ${part}`).join(''),
+		last: ` / ${parts[parts.length - 1]}`
+	};
+}
+
 /** 検索の画面の URL に載っている範囲。 */
 export function searchScopeFromQuery(url: URL): SearchScopeQuery | null {
 	const within = url.searchParams.get('within');
