@@ -234,7 +234,7 @@
 				variant="ghost"
 				loading={busy === 'cancel'}
 				onclick={() => run('cancel', () => client.DELETE('/api/v1/admin/pro/link'))}
-				>{m.admin_settings_pro_cancel_link()}</LoadingButton
+				>{m.action_cancel()}</LoadingButton
 			>
 		</div>
 	</form>

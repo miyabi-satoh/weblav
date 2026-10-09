@@ -111,10 +111,10 @@ const ja = {
 	appleConflict:
 		'このメールアドレスのアカウントには、別の Apple アカウントがもう結び付いています。そちらの Apple アカウントか、メールアドレスに送るリンクでサインインしてください。',
 	email: 'メールアドレス',
-	sendLink: 'リンクを送る',
+	sendLink: 'リンクを送信する',
 	invalidEmail: 'メールアドレスを確かめてください。',
 	tooManyLinks: 'リンクを送った回数が多すぎます。しばらくしてから試してください。',
-	mailSentTitle: 'メールを送りました',
+	mailSentTitle: 'メールを送信しました',
 	mailSent: (email: string, minutes: number) =>
 		`${email} に届いたリンクを開いてください。リンクは${minutes}分で切れます。`,
 	mailSentHint: '届かないときは、迷惑メールのフォルダーも確かめてください。',
@@ -251,10 +251,10 @@ const ja = {
 	checkoutNote: `期間ごとに同じ額で自動更新します。支払いの完了後すぐ、WebLAV のアカウントに Pro が付きます。解約はアカウントのページからいつでもでき、支払い済みの期間の終わりまで使えます。支払い済みの期間は返金できません (こちらの誤りによる請求などを除きます)。詳しくは[特定商取引法に基づく表記](${TOKUSHOHO_URL})をご覧ください。`,
 	notForSale: 'いまは Pro を買えません。',
 	buyBusy: '支払いの画面を用意しています。少ししてから、もう一度押してください。',
-	checkingPurchase: '支払いを確かめています。このままお待ちください。',
+	checkingPurchase: '支払いを確認しています。このままお待ちください。',
 	purchaseNotYet:
-		'支払いをまだ確かめられていません。少ししてから確かめ直してください。買い直す前に、領収のメールが届いていないかも確かめてください。',
-	checkAgain: 'もう一度確かめる',
+		'支払いをまだ確認できていません。少ししてから確かめ直してください。買い直す前に、領収のメールが届いていないかも確かめてください。',
+	checkAgain: 'もう一度確認',
 	accountTitle: 'アカウント',
 	planName: { personal: '個人向け', organization: '組織向け' } as Record<Plan, string>,
 	plans: (plans: Plan[]): string => `Pro (${plans.map((p) => ja.planName[p]).join('・')})`,
@@ -266,7 +266,7 @@ const ja = {
 	noInstallations:
 		'登録している PC はまだありません。WebLAV のサイト設定の「Pro」から登録できます。',
 	installationLine: (name: string, checked: string | undefined) =>
-		checked ? `${name} (最後に確かめた日: ${checked})` : `${name} (ネットで確かめていません)`,
+		checked ? `${name} (最後に確認した日: ${checked})` : `${name} (ネットで確認していません)`,
 	removeButton: '登録を解除',
 	overLimitShort: '上限を超えた分',
 	removedPending: (until: string) =>

@@ -148,7 +148,6 @@
 	"admin_settings_pro_code_label": "Code",
 	"admin_settings_pro_code_description": "On a PC without internet access, enter the code shown on the linking page or in the email.",
 	"admin_settings_pro_code_submit": "Link with the code",
-	"admin_settings_pro_cancel_link": "Cancel",
 	"admin_settings_pro_linked_toast": "Linked this PC.",
 	"admin_settings_pro_current_personal": "Running as Pro (personal). There are no item limits.",
 	"admin_settings_pro_current_organization": "Running as Pro (organization). There are no item limits.",
