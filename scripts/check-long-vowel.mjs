@@ -8,8 +8,14 @@ import path from 'node:path';
 
 const root = path.join(import.meta.dirname, '..');
 
-// 利用者が読む文言の置き場。テスト・コメント・開発の文書は対象外。
-const targets = ['frontend/messages/ja.json', 'docs/manual/ja', 'site/src', 'src/tray'];
+// 利用者が読む文言の置き場 (Pro の窓口の画面とメールは i18n.ts)。テスト・コメント・開発の文書は対象外。
+const targets = [
+  'frontend/messages/ja.json',
+  'account-server/src/i18n.ts',
+  'docs/manual/ja',
+  'site/src',
+  'src/tray'
+];
 const extensions = /\.(json|md|mdx|astro|ts|svelte|rs)$/;
 
 const words = [
@@ -33,7 +39,8 @@ const words = [
   'マネージャ',
   'コントローラ'
 ];
-const pattern = new RegExp(`(?:${words.join('|')})(?!ー)`, 'g');
+// 後ろにカタカナが続くものは別の語 (「ユーザビリティ」「フィルタリング」) なので除く。
+const pattern = new RegExp(`(?:${words.join('|')})(?![ー\u30A0-\u30FF])`, 'g');
 
 function files(relative) {
   const absolute = path.join(root, relative);
