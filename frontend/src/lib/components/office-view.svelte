@@ -3,7 +3,7 @@
 	import { fileExtension } from '$lib/file-kind';
 	import * as m from '$lib/paraglide/messages.js';
 
-	// ビューアの Office のファイル (Word・Excel・PowerPoint) の本文 (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+	// ビューアーの Office のファイル (Word・Excel・PowerPoint) の本文 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
 	let { src, fileName, onerror }: { src: string; fileName: string; onerror: () => void } = $props();
 
 	let loading = $state(true);
@@ -47,7 +47,7 @@
 	}
 </script>
 
-<!-- Excel のビューアは中に z-index の付いた要素を重ねる。ビューアの前後のボタンの上に出ないよう、重なりをここで閉じる。 -->
+<!-- Excel のビューアーは中に z-index の付いた要素を重ねる。ビューアーの前後のボタンの上に出ないよう、重なりをここで閉じる。 -->
 <div class="relative isolate size-full" data-office-view>
 	<div class={['size-full', extension === 'xlsx' && !loading && 'bg-white']} {@attach mount}></div>
 	{#if loading}

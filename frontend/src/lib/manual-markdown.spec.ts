@@ -4,7 +4,7 @@ import { collapseCjkLineBreaks, renderManual } from './manual-markdown';
 describe('collapseCjkLineBreaks', () => {
 	it('日本語どうしの改行だけを詰める', () => {
 		expect(collapseCjkLineBreaks('です。\nログイン')).toBe('です。ログイン');
-		expect(collapseCjkLineBreaks('ブラウザから\n見られる')).toBe('ブラウザから見られる');
+		expect(collapseCjkLineBreaks('ブラウザーから\n見られる')).toBe('ブラウザーから見られる');
 	});
 
 	it('連続する改行をすべて詰める', () => {

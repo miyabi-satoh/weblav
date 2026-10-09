@@ -1,12 +1,12 @@
 import { resolve } from '$app/paths';
 import { withQuery } from '$lib/href';
 
-/** 検索の範囲のクエリ (→ docs/search.md「範囲」)。`within` はグループ・フォルダ・アーカイブの id。 */
+/** 検索の範囲のクエリ (→ docs/search.md「範囲」)。`within` はグループ・フォルダー・アーカイブの id。 */
 export type SearchScopeQuery = { within: string; path?: string };
 
 /**
  * 今開いている閲覧ページを、検索の範囲にしたもの。範囲にならない画面 (ホームなど) は `null`。
- * リンクの一覧のページは、その一覧を入れているフォルダの階層かアーカイブにする。
+ * リンクの一覧のページは、その一覧を入れているフォルダーの階層かアーカイブにする。
  */
 export function searchScopeOf(
 	routeId: string | null,
@@ -31,7 +31,7 @@ export function searchScopeOf(
 }
 
 /**
- * 切り替えに出す範囲の名前の、フォルダの名前の後ろに続ける階層。フォルダの中の階層でなければ、どちらも空。
+ * 切り替えに出す範囲の名前の、フォルダーの名前の後ろに続ける階層。フォルダーの中の階層でなければ、どちらも空。
  * 同じ名前の階層 (`2024` など) を見分けられるよう最後の2段までを出し、それより上は `…` に詰める。
  * 上の段 (`upper`) と最後の段 (`last`) は、画面がスマートフォンの幅で別々の上限で切り詰める (→ docs/search.md「範囲」)。
  */

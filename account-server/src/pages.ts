@@ -49,7 +49,7 @@ function page(lang: Lang, title: string, body: Body) {
 						color: var(--fg);
 						font-family: system-ui, sans-serif;
 						line-height: 1.7;
-						/* 日本語を文節の切れ目で折り返す (対応していないブラウザでは、ふつうの折り返し)。 */
+						/* 日本語を文節の切れ目で折り返す (対応していないブラウザーでは、ふつうの折り返し)。 */
 						word-break: auto-phrase;
 					}
 					main {

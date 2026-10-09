@@ -3,7 +3,7 @@
 //! バックエンドの `message` は英語のデバッグ用で、画面には出さない。表示する文言は
 //! `frontend/messages/*.json` が持ち、ここで渡す値 (タイトル・軸名・公開範囲) を
 //! 差し込んで組み立てる。サーバー側に翻訳を持たせないのは、表示言語を知っているのが
-//! ブラウザ側だけであり、同じ語を2箇所で管理したくないため。
+//! ブラウザー側だけであり、同じ語を2箇所で管理したくないため。
 //!
 //! **全ての 422 に付けるわけではない**。汎用の「入力内容を確認してください」で用が
 //! 足りるものはそのままにし、値を見せないと直しようがないものだけを足す。
@@ -40,20 +40,20 @@ pub enum ValidationDetail {
     UsernameTaken { name: String },
     /// 最後の管理者は降格・削除できない (→ docs/access.md「admin の最後の1人」)。
     LastAdmin,
-    /// 同じ名前の「公開できるフォルダ」が既にある (→ docs/folders.md「公開できるフォルダ」)。
+    /// 同じ名前の「公開できるフォルダー」が既にある (→ docs/folders.md「公開できるフォルダー」)。
     #[serde(rename_all = "camelCase")]
     RootNameTaken { name: String },
-    /// そのフォルダは「公開できるフォルダ」に登録済み (→ docs/folders.md「公開できるフォルダ」)。
+    /// そのフォルダーは「公開できるフォルダー」に登録済み (→ docs/folders.md「公開できるフォルダー」)。
     #[serde(rename_all = "camelCase")]
     RootAlreadyRegistered { name: String },
-    /// WebLAV 自身の置き場 (設定とデータ) の中は、公開できるフォルダにできない (→ docs/folders.md「公開できるフォルダ」)。
+    /// WebLAV 自身の置き場 (設定とデータ) の中は、公開できるフォルダーにできない (→ docs/folders.md「公開できるフォルダー」)。
     RootInsideOwnDirs,
     /// 受け取ったファイルが WebLAV のバックアップではない・壊れている (→ docs/access.md「バックアップとリストア」)。
     BackupInvalid,
     /// 受け取ったバックアップが、今より新しい版で作られている (→ docs/access.md「バックアップとリストア」)。
     #[serde(rename_all = "camelCase")]
     BackupTooNew { app_version: String },
-    /// 再スキャンで、アーカイブの登録先のフォルダが見つからない (→ docs/archive.md「スキャン」)。
+    /// 再スキャンで、アーカイブの登録先のフォルダーが見つからない (→ docs/archive.md「スキャン」)。
     ArchiveFolderMissing,
     /// 再スキャンで、読めない場所があった (→ docs/archive.md「スキャン」)。
     /// `path` は最初に読めなかった場所の、登録先からの相対パス。登録先そのものなら空文字。

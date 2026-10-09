@@ -1,4 +1,4 @@
-//! 閲覧する一覧の並び順 (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+//! 閲覧する一覧の並び順 (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
 //!
 //! 並べ替えをSQLではなくここで行うのは、「第2回」を「第10回」より前に置くために
 //! 数字を数値として比べる必要があるため。1つの一覧は数十件規模なので、
@@ -9,29 +9,29 @@ use std::cmp::Ordering;
 use serde::Deserialize;
 use utoipa::IntoParams;
 
-/// 閲覧する一覧の並び順を受けるクエリ。ホーム・グループ・フォルダで共有する
+/// 閲覧する一覧の並び順を受けるクエリ。ホーム・グループ・フォルダーで共有する
 /// (この3つは `SortOrder` の意味論がすべて同じため)。
 #[derive(Debug, Deserialize, IntoParams)]
 pub(super) struct SortQuery {
     /// 並び順。`title` (既定、タイトル順) か `new` (新しい順)。
-    /// 知らない値は既定として扱う (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+    /// 知らない値は既定として扱う (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
     #[serde(default)]
     pub(super) sort: Option<String>,
 }
 
-/// ホーム・グループ・フォルダの一覧の並び順。
+/// ホーム・グループ・フォルダーの一覧の並び順。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(super) enum SortOrder {
     /// タイトルの昇順 (既定)。
     #[default]
     Title,
-    /// 追加した日時 (フォルダはファイルの更新日時) の降順。
+    /// 追加した日時 (フォルダーはファイルの更新日時) の降順。
     New,
 }
 
 impl SortOrder {
     /// クエリの値から並び順を決める。知らない値は既定として扱い、422にはしない。
-    /// 共有されたリンクを壊さないため (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+    /// 共有されたリンクを壊さないため (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
     pub(super) fn from_query(value: Option<&str>) -> Self {
         match value {
             Some("new") => Self::New,
@@ -40,8 +40,8 @@ impl SortOrder {
     }
 }
 
-/// アーカイブの一覧の並び順。軸ベースの並びが既定な点がホーム/グループ/フォルダと違うため、
-/// `SortOrder` とは別の型にする (→ docs/archive.md「エンドポイント一覧」, docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+/// アーカイブの一覧の並び順。軸ベースの並びが既定な点がホーム/グループ/フォルダーと違うため、
+/// `SortOrder` とは別の型にする (→ docs/archive.md「エンドポイント一覧」, docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(super) enum ArchiveSortOrder {
     /// 軸の並び順 (既定)。

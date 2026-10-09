@@ -4,7 +4,7 @@
 	import { isMarkdownFileName, renderMarkdownPreview } from '$lib/markdown-preview';
 	import * as m from '$lib/paraglide/messages.js';
 
-	// ビューアのテキストの本文 (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+	// ビューアーのテキストの本文 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
 	let {
 		src,
 		fileName,
@@ -136,7 +136,7 @@
 </div>
 
 <style>
-	/* ソースの色 (→ docs/ui.md「PDF・動画・テキストのビューア」)。 */
+	/* ソースの色 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。 */
 	.code-view {
 		--code-keyword: #cf222e;
 		--code-title: #8250df;

@@ -16,7 +16,7 @@
 	import { pageHeadingClass, pageEmptyTextClass } from '$lib/page-layout';
 
 	// リンクの一覧のファイルを開いた画面 (→ docs/ui.md「リンクの一覧のファイル」)。
-	// フォルダの中・アーカイブのアイテム・file コンテンツのどれも、この1つの画面で開く。
+	// フォルダーの中・アーカイブのアイテム・file コンテンツのどれも、この1つの画面で開く。
 	let { data }: PageProps = $props();
 
 	// ページ内の絞り込み (→ docs/ui.md「一覧の絞り込み」)。一覧の部品が context から読む。
@@ -27,7 +27,7 @@
 	let target = $derived(data.target);
 	let linksFile = $derived(data.linksFile);
 
-	// フォルダの中なら、ファイルの手前のディレクトリをパンくずに並べる (フォルダの画面と同じ形)。
+	// フォルダーの中なら、ファイルの手前のディレクトリをパンくずに並べる (フォルダーの画面と同じ形)。
 	let folderCrumbs = $derived(pathCrumbs(target.path ?? '').slice(0, -1));
 
 	function folderHref(path: string): string {

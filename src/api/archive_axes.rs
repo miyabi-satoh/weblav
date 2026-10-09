@@ -29,7 +29,7 @@ use crate::state::AppState;
 #[serde(rename_all = "camelCase")]
 #[sqlx(rename_all = "snake_case")]
 pub enum AxisSource {
-    /// アーカイブの登録先フォルダを起点にした第N階層のディレクトリ名。
+    /// アーカイブの登録先フォルダーを起点にした第N階層のディレクトリ名。
     DirLevel,
     /// 拡張子を除いたファイル名に対する部分一致。
     FilenameWord,
@@ -70,7 +70,7 @@ fn validate_axis_name(name: &str) -> Result<String, AppError> {
             detail: ValidationDetail::AxisNameReserved { name },
         });
     }
-    // `sort` は並び順のクエリキーで予約している (→ docs/archive.md「エンドポイント一覧」, docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+    // `sort` は並び順のクエリキーで予約している (→ docs/archive.md「エンドポイント一覧」, docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
     // 同名の軸を許すと、その軸の絞り込みクエリが常に並び順として消費され、
     // 絞り込めなくなる (`build_archive_view` が `"sort"` キーを軸名より先に取り出すため)。
     // `filter` は画面のページ内の絞り込みのクエリキーで、画面がサーバーへ送らずに取り除くので、同名の軸は絞り込めない
@@ -875,7 +875,7 @@ pub struct ImportPreviewItem {
 pub struct ImportPreviewResponse {
     item_count: usize,
     axes: Vec<ImportPreviewAxis>,
-    /// `rel_path` の順に、全体から間を空けて選んだアイテム。別のフォルダのものも入るように。
+    /// `rel_path` の順に、全体から間を空けて選んだアイテム。別のフォルダーのものも入るように。
     examples: Vec<ImportPreviewItem>,
     /// 取り込むと置き換わる、今の軸か表示タイトルのテンプレートがあるか。
     replaces_existing: bool,

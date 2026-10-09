@@ -75,7 +75,7 @@ export class ContentFormState {
 	 */
 	files = $state<FileList | undefined>(undefined);
 	/**
-	 * ファイルの入力欄を作り直すための連番。`files` を空にしても、ブラウザは入力欄に
+	 * ファイルの入力欄を作り直すための連番。`files` を空にしても、ブラウザーは入力欄に
 	 * 選んだファイルを残す。保存後もページに留まる編集で、選択済みに見えないようにする。
 	 */
 	fileInputVersion = $state(0);

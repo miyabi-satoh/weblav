@@ -26,7 +26,7 @@
 		form: ContentFormState;
 		/**
 		 * `create` は作成ダイアログの2段目。種別は1段目で選び済みで、その種別の必須項目だけを出す。
-		 * 公開範囲はフォルダにだけ出す (ファイル単位で隠せず、登録した時点で公開されるため
+		 * 公開範囲はフォルダーにだけ出す (ファイル単位で隠せず、登録した時点で公開されるため
 		 * → docs/folders.md「登録前の確認」)。
 		 * `edit` は編集ページ。すべての項目を出す。種別は変えられず、ファイルは差し替えの任意項目になる。
 		 */
@@ -74,7 +74,7 @@
 	{#if form.type === 'link'}
 		<Field.Field>
 			<Field.FieldLabel for="content-url" required>{m.contents_form_url_label()}</Field.FieldLabel>
-			<!-- type="url" だとブラウザが `example.com` のようにプロトコルを省いた値を弾くので、text にする。
+			<!-- type="url" だとブラウザーが `example.com` のようにプロトコルを省いた値を弾くので、text にする。
 			     スキームはサーバーが補う (→ docs/ui.md「UI 全般」)。inputmode でスマートフォンの URL 用キーボードは残す。 -->
 			<Input
 				id="content-url"
@@ -92,7 +92,7 @@
 			<!-- 絶対パスはテキスト入力させず、サーバー上のディレクトリを辿って選ばせる
 			     (→ docs/folders.md「登録前の確認」)。 -->
 			<div class="flex items-center gap-3">
-				<!-- 省略すると末尾 (選んだフォルダ名) が隠れる。折り返して全部見せる。 -->
+				<!-- 省略すると末尾 (選んだフォルダー名) が隠れる。折り返して全部見せる。 -->
 				<span class="min-w-0 flex-1 text-sm wrap-anywhere">
 					{#if form.path === ''}
 						<span class="text-muted-foreground">{m.contents_form_path_unset()}</span>

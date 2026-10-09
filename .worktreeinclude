@@ -1,5 +1,5 @@
 # EnterWorktree (Claude Code) で worktree を作るときに写す、git 管理外のファイル。
-# data/ は写さず元の clone のものを使う (justfile の data_dir)。.env は写さなくても親のフォルダから読まれる。
+# data/ は写さず元の clone のものを使う (justfile の data_dir)。.env は写さなくても親のフォルダーから読まれる。
 CLAUDE.local.md
 .claude/settings.local.json
 account-server/.dev.vars

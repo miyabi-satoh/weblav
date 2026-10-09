@@ -337,7 +337,7 @@
 					<Field.FieldLabel for="user-username" required
 						>{m.admin_users_dialog_username_label()}</Field.FieldLabel
 					>
-					<!-- ブラウザのパスワードマネージャーが管理者自身の資格情報を入れてしまう
+					<!-- ブラウザーのパスワードマネージャーが管理者自身の資格情報を入れてしまう
 					     (入れたまま保存すると、新しいユーザーに管理者と同じパスワードが付く)。
 					     ログインフォームと判定させないため、自動入力を切る。 -->
 					<Input id="user-username" autocomplete="off" bind:value={createUsername} required />
@@ -405,7 +405,7 @@
 					<Field.FieldLabel for="reset-password" required
 						>{m.admin_users_dialog_password_label()}</Field.FieldLabel
 					>
-					<!-- 再設定はユーザー名の欄が無く、ブラウザにログインフォームと判定されない。
+					<!-- 再設定はユーザー名の欄が無く、ブラウザーにログインフォームと判定されない。
 					     `new-password` にすると Chrome のパスワード生成が2つの欄に干渉し、
 					     確認欄が空のまま残ることがあるため、こちらは `off` にする。 -->
 					<PasswordInput

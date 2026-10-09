@@ -262,7 +262,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * サーバーの PC に OS 標準のフォルダ選択の窓を出し、選ばれたパスを返す (→ docs/folders.md「選び方」)。
+         * サーバーの PC に OS 標準のフォルダー選択の窓を出し、選ばれたパスを返す (→ docs/folders.md「選び方」)。
          * @description 窓は同時に1つだけ。要求した側が待つのをやめても、窓が閉じるまでは開いている扱いにする
          *     (番は `run_blocking` の中で持つ。ハンドラが drop されても、ブロッキングの処理は最後まで走る)。
          */
@@ -813,7 +813,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** フォルダの階層ごとの値。軸の追加ダイアログで、階層番号の代わりに実際の値を見て選ばせる。 */
+        /** フォルダーの階層ごとの値。軸の追加ダイアログで、階層番号の代わりに実際の値を見て選ばせる。 */
         get: operations["list_dir_levels"];
         put?: never;
         post?: never;
@@ -1174,7 +1174,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 覚えた画像を配る。名前は中身のハッシュなので、ブラウザには取り直させない。 */
+        /** 覚えた画像を配る。名前は中身のハッシュなので、ブラウザーには取り直させない。 */
         get: operations["link_preview_file"];
         put?: never;
         post?: never;
@@ -1212,7 +1212,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * 閲覧者がホームからたどって一覧で見られるコンテンツ・アーカイブの公開アイテム・フォルダの中・
+         * 閲覧者がホームからたどって一覧で見られるコンテンツ・アーカイブの公開アイテム・フォルダーの中・
          *     リンクの一覧のファイルの中のリンクを、タイトルの文字列で探す (→ docs/search.md)。語が空なら空の結果を返す。
          *     `within` を渡すと、その場所の中だけを探す (→ docs/search.md「範囲」)。
          */
@@ -1364,8 +1364,8 @@ export interface components {
         };
         /**
          * @description 管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。
-         *     `user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「公開できるフォルダ」の配下だけ
-         *     なので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「公開できるフォルダ」)。
+         *     `user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「公開できるフォルダー」の配下だけ
+         *     なので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「公開できるフォルダー」)。
          */
         AdminContentResponse: {
             /**
@@ -1394,18 +1394,18 @@ export interface components {
             parentId?: number | null;
             path?: string | null;
             /**
-             * @description `root_name` のフォルダから先の相対パス (`/` 区切り)。フォルダそのものなら空文字列。
+             * @description `root_name` のフォルダーから先の相対パス (`/` 区切り)。フォルダーそのものなら空文字列。
              *     `root_name` が `None` なら `None`。
              */
             pathInRoot?: string | null;
             /**
-             * @description `root_name` の公開できるフォルダが削除済みか。画面では名前の代わりに
-             *     「存在しない公開フォルダ」と出す。`root_name` が `None` なら `false`。
+             * @description `root_name` の公開できるフォルダーが削除済みか。画面では名前の代わりに
+             *     「存在しない公開フォルダー」と出す。`root_name` が `None` なら `false`。
              */
             rootDeleted: boolean;
             /**
-             * @description `path` を含む「公開できるフォルダ」の名前。画面では起点のフルパスの代わりに出す
-             *     (→ docs/folders.md「公開できるフォルダ」)。`path` が無いか、どの公開できるフォルダにも含まれなければ `None`。
+             * @description `path` を含む「公開できるフォルダー」の名前。画面では起点のフルパスの代わりに出す
+             *     (→ docs/folders.md「公開できるフォルダー」)。`path` が無いか、どの公開できるフォルダーにも含まれなければ `None`。
              */
             rootName?: string | null;
             title: string;
@@ -1447,7 +1447,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             image?: components["schemas"]["ImageSize"] | null;
-            /** @description テキストのビューアで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューア」)。 */
+            /** @description テキストのビューアーで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューアー」)。 */
             isText: boolean;
             /** @description 行の2段目に出す軸の値 (→ docs/ui.md「アーカイブの一覧画面」)。出す値が無ければ `None`。 */
             subtitle?: string | null;
@@ -1463,7 +1463,7 @@ export interface components {
             ancestors: components["schemas"]["GroupAncestor"][];
             archiveTitle: string;
             axes: components["schemas"]["ArchiveAxisResponse"][];
-            /** @description アーカイブの登録先のフォルダが見つからない。画面は空の一覧の代わりにそう出す。 */
+            /** @description アーカイブの登録先のフォルダーが見つからない。画面は空の一覧の代わりにそう出す。 */
             folderMissing: boolean;
             items: components["schemas"]["ArchiveViewItem"][];
         };
@@ -1617,7 +1617,7 @@ export interface components {
             id: number;
             image?: components["schemas"]["ImageSize"] | null;
             /**
-             * @description テキストのビューアで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+             * @description テキストのビューアーで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
              *     `image` と同じく、一覧でだけ埋める。
              */
             isText: boolean;
@@ -1707,9 +1707,9 @@ export interface components {
             currentPassword: string;
         };
         CreateRootRequest: {
-            /** @description 名前。前後の空白は除く。省くか空ならフォルダ名にする。 */
+            /** @description 名前。前後の空白は除く。省くか空ならフォルダー名にする。 */
             name?: string | null;
-            /** @description 絶対パス。フォルダ選択の窓 (`/admin/roots/pick`) が返す値をそのまま渡す。 */
+            /** @description 絶対パス。フォルダー選択の窓 (`/admin/roots/pick`) が返す値をそのまま渡す。 */
             path: string;
         };
         CreateUserRequest: {
@@ -1737,7 +1737,7 @@ export interface components {
             itemCount: number;
             /**
              * Format: int64
-             * @description 1始まりの階層番号。フォルダの階層の軸の `dirLevel` と同じ数え方。
+             * @description 1始まりの階層番号。フォルダーの階層の軸の `dirLevel` と同じ数え方。
              */
             level: number;
             /** @description 値の例。件数の多い順、同数なら値の昇順で最大5つ。 */
@@ -1748,18 +1748,18 @@ export interface components {
         DirsResponse: {
             entries: components["schemas"]["DirEntryItem"][];
             /**
-             * @description 1つ上の階層。上位の一覧では `None`。登録済みの「公開できるフォルダ」そのものからは
+             * @description 1つ上の階層。上位の一覧では `None`。登録済みの「公開できるフォルダー」そのものからは
              *     空文字列 (= 上位の一覧) へ戻る。
              */
             parent?: string | null;
             /** @description 正規化済みの現在位置。ルートの一覧では空文字列。 */
             path: string;
             /**
-             * @description パンくずの起点。現在位置を含む「公開できるフォルダ」。上位の一覧では `None`。
+             * @description パンくずの起点。現在位置を含む「公開できるフォルダー」。上位の一覧では `None`。
              *     パンくずを辿れるところから始めるために使う (→ docs/folders.md「一覧 API」)。
              */
             root?: string | null;
-            /** @description `root` の名前。パンくずの先頭に、フルパスの代わりに出す (→ docs/folders.md「公開できるフォルダ」)。 */
+            /** @description `root` の名前。パンくずの先頭に、フルパスの代わりに出す (→ docs/folders.md「公開できるフォルダー」)。 */
             rootName?: string | null;
             /** @description 現在位置そのものを登録先に選べるか。ルートの一覧では `false`。 */
             selectable: boolean;
@@ -1806,7 +1806,7 @@ export interface components {
         FolderBrowseResponse: {
             /**
              * @description ルートに近い順の祖先グループ。自分自身は含まない。
-             *     フォルダもグループの下に置けるため、閲覧側のパンくずで上へ戻れるようにする。
+             *     フォルダーもグループの下に置けるため、閲覧側のパンくずで上へ戻れるようにする。
              */
             ancestors: components["schemas"]["GroupAncestor"][];
             entries: components["schemas"]["FolderEntry"][];
@@ -1816,7 +1816,7 @@ export interface components {
         FolderEntry: {
             image?: components["schemas"]["ImageSize"] | null;
             isDir: boolean;
-            /** @description テキストのビューアで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューア」)。 */
+            /** @description テキストのビューアーで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューアー」)。 */
             isText: boolean;
             /**
              * Format: int64
@@ -1924,7 +1924,7 @@ export interface components {
         };
         ImportPreviewResponse: {
             axes: components["schemas"]["ImportPreviewAxis"][];
-            /** @description `rel_path` の順に、全体から間を空けて選んだアイテム。別のフォルダのものも入るように。 */
+            /** @description `rel_path` の順に、全体から間を空けて選んだアイテム。別のフォルダーのものも入るように。 */
             examples: components["schemas"]["ImportPreviewItem"][];
             itemCount: number;
             /** @description 取り込むと置き換わる、今の軸か表示タイトルのテンプレートがあるか。 */
@@ -1959,20 +1959,20 @@ export interface components {
             preview?: components["schemas"]["LinkPreview"] | null;
             url: string;
         };
-        /** @description どの一覧のファイルか。フォルダの中は `path`、アーカイブのアイテムは `item`、`file` コンテンツは id だけで指す。 */
+        /** @description どの一覧のファイルか。フォルダーの中は `path`、アーカイブのアイテムは `item`、`file` コンテンツは id だけで指す。 */
         LinksFileQuery: {
             /**
              * Format: int64
              * @description アーカイブのアイテムの id。アーカイブの中のファイルのときだけ使う。
              */
             item?: number | null;
-            /** @description フォルダの登録パスからの相対パス。フォルダの中のファイルのときだけ使う。 */
+            /** @description フォルダーの登録パスからの相対パス。フォルダーの中のファイルのときだけ使う。 */
             path?: string;
         };
         LinksFileResponse: {
             /** @description ルートに近い順の祖先グループ。コンテンツ自身は含まない。 */
             ancestors: components["schemas"]["GroupAncestor"][];
-            /** @description フォルダ・アーカイブの中のファイルなら、そのコンテンツのタイトル。`file` コンテンツなら無し。 */
+            /** @description フォルダー・アーカイブの中のファイルなら、そのコンテンツのタイトル。`file` コンテンツなら無し。 */
             containerTitle?: string | null;
             /** @description 書いた順のリンク。読めなければ無し (画面は読めなかった旨と、ファイルを新規タブで開く手段を出す)。 */
             links?: components["schemas"]["LinksFileEntry"][] | null;
@@ -1998,7 +1998,7 @@ export interface components {
         PermissionKind: "online" | "offline";
         PickRootResponse: {
             /**
-             * @description 選ばれたフォルダの絶対パス。キャンセルされたら `null`。登録はしていないので、
+             * @description 選ばれたフォルダーの絶対パス。キャンセルされたら `null`。登録はしていないので、
              *     登録するには `POST /admin/roots` へそのまま渡す。
              */
             path?: string | null;
@@ -2063,7 +2063,7 @@ export interface components {
          */
         Refusal: "noPlan" | "overLimit";
         RenameRootRequest: {
-            /** @description 新しい名前。前後の空白は除く。空ならフォルダ名にする。 */
+            /** @description 新しい名前。前後の空白は除く。空ならフォルダー名にする。 */
             name: string;
         };
         RenameUserRequest: {
@@ -2114,7 +2114,7 @@ export interface components {
          */
         Role: "admin" | "user";
         RootResponse: {
-            /** @description このフォルダの中にある登録済みコンテンツの数。 */
+            /** @description このフォルダーの中にある登録済みコンテンツの数。 */
             contentCount: number;
             /** Format: int64 */
             id: number;
@@ -2123,8 +2123,8 @@ export interface components {
             /** @description canonicalize 済みの絶対パス。 */
             path: string;
             /**
-             * @description このフォルダを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「公開できるフォルダ」)。
-             *     登録中のほかの公開できるフォルダにも含まれるもの (入れ子) は数えない。
+             * @description このフォルダーを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「公開できるフォルダー」)。
+             *     登録中のほかの公開できるフォルダーにも含まれるもの (入れ子) は数えない。
              */
             removedContentCount: number;
         };
@@ -2140,7 +2140,7 @@ export interface components {
             entry: components["schemas"]["FolderEntry"];
             /** @description 行の2段目に、どこにあるかとして出す。 */
             folderTitle: string;
-            /** @description フォルダの登録パスからの相対パス (`/` 区切り)。エントリ自身の名前まで含む。 */
+            /** @description フォルダーの登録パスからの相対パス (`/` 区切り)。エントリ自身の名前まで含む。 */
             path: string;
         };
         SearchItemHit: {
@@ -2151,11 +2151,11 @@ export interface components {
             item: components["schemas"]["ArchiveViewItem"];
         };
         SearchLinkHit: {
-            /** @description フォルダ・アーカイブの中の一覧なら、そのコンテンツのタイトル。 */
+            /** @description フォルダー・アーカイブの中の一覧なら、そのコンテンツのタイトル。 */
             containerTitle?: string | null;
             /**
              * Format: int64
-             * @description 一覧のファイルを持つコンテンツ (フォルダ・アーカイブ・`file`)。
+             * @description 一覧のファイルを持つコンテンツ (フォルダー・アーカイブ・`file`)。
              */
             contentId: number;
             /** @description 一覧のファイルの題。`title` が無ければ、`file` コンテンツは登録したタイトル、ほかはファイル名。 */
@@ -2168,7 +2168,7 @@ export interface components {
             /** @description 題では当たらず、`note` で当たったか。何で当たったか分かるよう、画面が `note` を添える。 */
             matchedInNote: boolean;
             note?: string | null;
-            /** @description フォルダの中の一覧なら、その相対パス。 */
+            /** @description フォルダーの中の一覧なら、その相対パス。 */
             path?: string | null;
             preview?: components["schemas"]["LinkPreview"] | null;
             url: string;
@@ -2178,12 +2178,12 @@ export interface components {
             contents: components["schemas"]["SearchContentHit"][];
             /** @description `contents` を打ち切ったか。 */
             contentsTruncated: boolean;
-            /** @description フォルダの中のファイルとディレクトリ。名前順。区画ごとの上限 (100 件) で打ち切る。 */
+            /** @description フォルダーの中のファイルとディレクトリ。名前順。区画ごとの上限 (100 件) で打ち切る。 */
             files: components["schemas"]["SearchFileHit"][];
             /** @description `files` を打ち切ったか。 */
             filesTruncated: boolean;
             /**
-             * @description 大きなフォルダを途中までしか辿っていないか (1つのフォルダで 20,000 件まで)。
+             * @description 大きなフォルダーを途中までしか辿っていないか (1つのフォルダーで 20,000 件まで)。
              *     その先のファイルとリンクの一覧は探していない。語を足しても広がらないので、打ち切りとは分けて伝える。
              */
             foldersIncomplete: boolean;
@@ -2650,7 +2650,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description パスが存在しない・ディレクトリでない・公開できるフォルダの外 */
+            /** @description パスが存在しない・ディレクトリでない・公開できるフォルダーの外 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2664,7 +2664,7 @@ export interface operations {
     list_dirs: {
         parameters: {
             query?: {
-                /** @description 一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「公開できるフォルダ」の一覧。 */
+                /** @description 一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「公開できるフォルダー」の一覧。 */
                 path?: string;
             };
             header?: never;
@@ -2691,7 +2691,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description パスが存在しない・ディレクトリでない・公開できるフォルダの外 */
+            /** @description パスが存在しない・ディレクトリでない・公開できるフォルダーの外 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3213,7 +3213,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description 登録したフォルダ */
+            /** @description 登録したフォルダー */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -3331,7 +3331,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description 名前を変えたフォルダ */
+            /** @description 名前を変えたフォルダー */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -4289,7 +4289,7 @@ export interface operations {
             query?: {
                 /**
                  * @description 並び順。`title` (既定、タイトル順) か `new` (新しい順)。
-                 *     知らない値は既定として扱う (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+                 *     知らない値は既定として扱う (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
                  */
                 sort?: string | null;
             };
@@ -5132,7 +5132,7 @@ export interface operations {
                 path?: string;
                 /**
                  * @description 並び順。`title` (既定、タイトル順) か `new` (新しい順)。
-                 *     ディレクトリ優先の並びは変えず、その中の順だけを切り替える (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+                 *     ディレクトリ優先の並びは変えず、その中の順だけを切り替える (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
                  *     知らない値は既定として扱う。
                  */
                 sort?: string | null;
@@ -5283,7 +5283,7 @@ export interface operations {
                 path?: string;
                 /**
                  * @description 並び順。`title` (既定、タイトル順) か `new` (新しい順)。
-                 *     ディレクトリ優先の並びは変えず、その中の順だけを切り替える (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+                 *     ディレクトリ優先の並びは変えず、その中の順だけを切り替える (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
                  *     知らない値は既定として扱う。
                  */
                 sort?: string | null;
@@ -5368,7 +5368,7 @@ export interface operations {
             query?: {
                 /**
                  * @description 並び順。`title` (既定、タイトル順) か `new` (新しい順)。
-                 *     知らない値は既定として扱う (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+                 *     知らない値は既定として扱う (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
                  */
                 sort?: string | null;
             };
@@ -5681,7 +5681,7 @@ export interface operations {
     links_file: {
         parameters: {
             query?: {
-                /** @description フォルダの登録パスからの相対パス。フォルダの中のファイルのときだけ使う。 */
+                /** @description フォルダーの登録パスからの相対パス。フォルダーの中のファイルのときだけ使う。 */
                 path?: string;
                 /** @description アーカイブのアイテムの id。アーカイブの中のファイルのときだけ使う。 */
                 item?: number;
@@ -5925,7 +5925,7 @@ export interface operations {
                 path?: string;
                 /**
                  * @description 並び順。`title` (既定、タイトル順) か `new` (新しい順)。
-                 *     ディレクトリ優先の並びは変えず、その中の順だけを切り替える (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+                 *     ディレクトリ優先の並びは変えず、その中の順だけを切り替える (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
                  *     知らない値は既定として扱う。
                  */
                 sort?: string | null;
@@ -6242,9 +6242,9 @@ export interface operations {
             query?: {
                 /** @description 検索語。空白で区切ると、どの語も含むものに絞る。 */
                 q?: string;
-                /** @description 探す場所のグループ・フォルダ・アーカイブの id。無ければ全体を探す。 */
+                /** @description 探す場所のグループ・フォルダー・アーカイブの id。無ければ全体を探す。 */
                 within?: number | null;
-                /** @description `within` がフォルダのとき、その中の階層 (登録パスからの相対パス)。 */
+                /** @description `within` がフォルダーのとき、その中の階層 (登録パスからの相対パス)。 */
                 path?: string;
                 /** @description `true` なら `within` で絞らず全体を探す。範囲の名前は返すので、画面は切り替えを出したままにできる。 */
                 all?: boolean;
@@ -6273,7 +6273,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 範囲の場所が無いか、開けないか、グループ・フォルダ・アーカイブでない */
+            /** @description 範囲の場所が無いか、開けないか、グループ・フォルダー・アーカイブでない */
             404: {
                 headers: {
                     [name: string]: unknown;

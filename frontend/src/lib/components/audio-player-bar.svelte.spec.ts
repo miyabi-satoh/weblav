@@ -93,7 +93,7 @@ describe('AudioPlayerBar', () => {
 	it('plays a track chosen from a list', async () => {
 		const first = { src: silentWavUrl(8), title: 'first' };
 		await render(AudioPlayerBar);
-		// 操作の無いページの再生はブラウザに拒まれるので、一覧の行を押したときと同じく先に操作しておく。
+		// 操作の無いページの再生はブラウザーに拒まれるので、一覧の行を押したときと同じく先に操作しておく。
 		await userEvent.click(document.body);
 		nowPlaying.play(first, [first]);
 

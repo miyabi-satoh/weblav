@@ -11,7 +11,7 @@ use tokio::io::{AsyncRead, DuplexStream, ReadBuf};
 /// 書く側は、書き終えたら `finished` に印を付けてから閉じる。
 ///
 /// ただ閉じると、途中までの中身が正常に届いたように見えてしまう。エラーで終えると
-/// 接続が切られ、ブラウザはダウンロードの失敗として扱う。
+/// 接続が切られ、ブラウザーはダウンロードの失敗として扱う。
 pub(super) struct CompletedReader {
     reader: DuplexStream,
     finished: Arc<AtomicBool>,

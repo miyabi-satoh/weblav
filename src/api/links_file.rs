@@ -20,12 +20,12 @@ const LINKS_FILE_SUFFIX: &str = ".links.toml";
 /// 読む大きさの上限。手やジョブが書くリンクの一覧は数十KBに収まるので、それより大きいものは一覧とみなさない。
 const MAX_LINKS_FILE_BYTES: u64 = 1024 * 1024;
 
-/// どの一覧のファイルか。フォルダの中は `path`、アーカイブのアイテムは `item`、`file` コンテンツは id だけで指す。
+/// どの一覧のファイルか。フォルダーの中は `path`、アーカイブのアイテムは `item`、`file` コンテンツは id だけで指す。
 #[derive(Debug, Default, Deserialize, IntoParams, ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[into_params(parameter_in = Query)]
 pub(super) struct LinksFileQuery {
-    /// フォルダの登録パスからの相対パス。フォルダの中のファイルのときだけ使う。
+    /// フォルダーの登録パスからの相対パス。フォルダーの中のファイルのときだけ使う。
     #[serde(default)]
     pub(super) path: String,
     /// アーカイブのアイテムの id。アーカイブの中のファイルのときだけ使う。
@@ -41,7 +41,7 @@ struct LinksFileResponse {
     name: String,
     /// ルートに近い順の祖先グループ。コンテンツ自身は含まない。
     ancestors: Vec<GroupAncestor>,
-    /// フォルダ・アーカイブの中のファイルなら、そのコンテンツのタイトル。`file` コンテンツなら無し。
+    /// フォルダー・アーカイブの中のファイルなら、そのコンテンツのタイトル。`file` コンテンツなら無し。
     container_title: Option<String>,
     /// 書いた順のリンク。読めなければ無し (画面は読めなかった旨と、ファイルを新規タブで開く手段を出す)。
     links: Option<Vec<LinksFileEntry>>,

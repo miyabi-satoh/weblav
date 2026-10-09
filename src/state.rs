@@ -24,8 +24,8 @@ pub struct AppState {
     /// リンクのカードの画像の置き場と、同時に取りに行く数の上限 (→ `api::link_preview`)。
     pub link_previews: Arc<crate::api::link_preview::LinkPreviews>,
     /// weblav 自身の置き場 (`AppDirs` の設定とデータ)。設定ファイル・DB・セッション鍵・blobが入る。
-    /// ここ自身とその中は、公開できるフォルダの中にあっても登録先・一覧・配信に使わせない
-    /// (→ `api::roots::OwnDirs`、docs/folders.md「公開できるフォルダ」)。
+    /// ここ自身とその中は、公開できるフォルダーの中にあっても登録先・一覧・配信に使わせない
+    /// (→ `api::roots::OwnDirs`、docs/folders.md「公開できるフォルダー」)。
     pub own_dirs: Vec<PathBuf>,
     /// 管理画面から書き換える設定ファイル (`AppDirs::config_path()`、→ `api::server_settings`)。
     pub config_path: PathBuf,
@@ -91,7 +91,7 @@ pub struct AppState {
     pub restore_staging: Arc<crate::api::backup::RestoreStaging>,
     /// リストアで消したセッション。書き戻させないために覚えておく (→ `session::Store`)。
     pub revoked_sessions: Arc<crate::session::RevokedSessions>,
-    /// サーバーの PC にフォルダ選択の窓を出す手段 (→ `api::roots`、docs/folders.md「選び方」)。
+    /// サーバーの PC にフォルダー選択の窓を出す手段 (→ `api::roots`、docs/folders.md「選び方」)。
     pub folder_picker: crate::folder_picker::FolderPicker,
     /// 他の端末に mDNS の名前 (→ `crate::mdns`) とあわせて案内するポート。
     /// 全インターフェースで待ち受けていないときは`None`。

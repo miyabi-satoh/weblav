@@ -13,7 +13,7 @@ type ContentType = components['schemas']['ContentType'];
 /**
  * サーバー上のディレクトリを登録する種類 (`folder` / `archive`) か。
  *
- * この種類だけがパスを持ち、登録には「公開できるフォルダ」が要る (→ docs/folders.md「公開できるフォルダ」)。
+ * この種類だけがパスを持ち、登録には「公開できるフォルダー」が要る (→ docs/folders.md「公開できるフォルダー」)。
  */
 export function isDirectoryContentType(type: ContentType): boolean {
 	return type === 'folder' || type === 'archive';

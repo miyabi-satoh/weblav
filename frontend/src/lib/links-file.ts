@@ -1,7 +1,7 @@
 import { resolve } from '$app/paths';
 import { withQuery } from '$lib/href';
 
-/** どの一覧のファイルか。フォルダの中は `path`、アーカイブのアイテムは `item`、`file` コンテンツは指さない。 */
+/** どの一覧のファイルか。フォルダーの中は `path`、アーカイブのアイテムは `item`、`file` コンテンツは指さない。 */
 export type LinksFileTarget = { path?: string; item?: number };
 
 /**

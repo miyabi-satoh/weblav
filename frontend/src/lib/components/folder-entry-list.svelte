@@ -3,10 +3,10 @@
 
 	type FolderEntry = components['schemas']['FolderEntry'];
 
-	/** 1行分。検索では、ほかのフォルダの行も並ぶので、行ごとにフォルダを持つ。 */
+	/** 1行分。検索では、ほかのフォルダーの行も並ぶので、行ごとにフォルダーを持つ。 */
 	export type FolderEntryRow = {
 		contentId: number;
-		/** フォルダの登録パスからの相対パス。エントリ自身の名前まで含む。 */
+		/** フォルダーの登録パスからの相対パス。エントリ自身の名前まで含む。 */
 		path: string;
 		entry: FolderEntry;
 		/** 2段目。配列なら「·」で区切って並べる。省くと、ファイルの大きさと更新日時を出す。 */
@@ -43,7 +43,7 @@
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import FileIcon from '@lucide/svelte/icons/file';
 
-	// フォルダの一覧 (`/folders/[id]`) と検索の結果で使う、フォルダの中のファイル・ディレクトリの行。
+	// フォルダーの一覧 (`/folders/[id]`) と検索の結果で使う、フォルダーの中のファイル・ディレクトリの行。
 	// 押したときの動きを両方で揃えるため、種類ごとの描き分けをここに集める。
 	let {
 		rows: allRows,
@@ -81,7 +81,7 @@
 		rows.filter((row) => !row.entry.isDir && isAudioFileName(row.entry.name)).map(toTrack)
 	);
 
-	/** 画像の行なら、ビューアに渡す形。大きさが分からない (読めない) 画像は普通のファイルの行にする。 */
+	/** 画像の行なら、ビューアーに渡す形。大きさが分からない (読めない) 画像は普通のファイルの行にする。 */
 	function toViewerImage(row: FolderEntryRow): ViewerImage | undefined {
 		if (row.entry.isDir || !row.entry.image) return undefined;
 		return {
@@ -93,7 +93,7 @@
 		};
 	}
 
-	/** PDF・動画・テキストなど、ビューアで開く行なら、ビューアに渡す形 (→ docs/ui.md「PDF・動画・テキストのビューア」)。 */
+	/** PDF・動画・テキストなど、ビューアーで開く行なら、ビューアーに渡す形 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。 */
 	function toViewerFile(row: FolderEntryRow): ViewerFile | undefined {
 		const kind = row.entry.isDir ? undefined : viewerFileKind(row.entry.name, row.entry.isText);
 		if (!kind) return undefined;

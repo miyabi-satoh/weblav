@@ -1,6 +1,6 @@
 /**
- * コンテンツの登録側の画面に出す場所。起点のフルパスの代わりに「公開できるフォルダ」の
- * 名前を出し、そこから先だけを続ける (例:「教材 / 英検 / 2024」→ docs/folders.md「公開できるフォルダ」)。
+ * コンテンツの登録側の画面に出す場所。起点のフルパスの代わりに「公開できるフォルダー」の
+ * 名前を出し、そこから先だけを続ける (例:「教材 / 英検 / 2024」→ docs/folders.md「公開できるフォルダー」)。
  *
  * 画面に出すだけの文字列で、パスとしては使わない。API に渡すのは絶対パスのまま。
  */
@@ -15,7 +15,7 @@ type User = components['schemas']['UserResponse'];
 /** 階層の名前の区切り。コンテンツの親グループを並べるときも同じ見た目にする。 */
 export const LOCATION_SEPARATOR = ' / ';
 
-/** 名前と、そこから先の階層 (`/` 区切り、フォルダそのものなら空) をつなぐ。 */
+/** 名前と、そこから先の階層 (`/` 区切り、フォルダーそのものなら空) をつなぐ。 */
 export function rootLocationLabel(rootName: string, pathInRoot: string): string {
 	return [rootName, ...pathInRoot.split('/').filter((segment) => segment !== '')].join(
 		LOCATION_SEPARATOR
@@ -28,8 +28,8 @@ export function joinLocationLabels(labels: string[]): string {
 }
 
 /**
- * 「公開できるフォルダ」を登録・削除できる人か。サーバーの PC から開いた管理者
- * (→ docs/folders.md「公開できるフォルダ」)。画面の出し分けにだけ使い、実際の可否はサーバーが決める。
+ * 「公開できるフォルダー」を登録・削除できる人か。サーバーの PC から開いた管理者
+ * (→ docs/folders.md「公開できるフォルダー」)。画面の出し分けにだけ使い、実際の可否はサーバーが決める。
  */
 export function canManageRoots(user: User | null | undefined, hostname: string): boolean {
 	return isAdmin(user) && isLoopbackHost(hostname);
@@ -38,11 +38,11 @@ export function canManageRoots(user: User | null | undefined, hostname: string):
 /**
  * コンテンツの場所 (`path`) の出し方。
  *
- * - 登録中の公開できるフォルダの中: 「名前 / その先」
- * - 公開できるフォルダの登録を削除した後: 登録・削除できる人にはフルパス、
- *   それ以外には「(存在しない公開フォルダ) / その先」。起点のパスは見せない
- * - どの公開できるフォルダの記録にも含まれない: 登録・削除できる人にはフルパス、
- *   それ以外には「(存在しない公開フォルダ)」だけ (どこまでが起点か分からないため)
+ * - 登録中の公開できるフォルダーの中: 「名前 / その先」
+ * - 公開できるフォルダーの登録を削除した後: 登録・削除できる人にはフルパス、
+ *   それ以外には「(存在しない公開フォルダー) / その先」。起点のパスは見せない
+ * - どの公開できるフォルダーの記録にも含まれない: 登録・削除できる人にはフルパス、
+ *   それ以外には「(存在しない公開フォルダー)」だけ (どこまでが起点か分からないため)
  */
 export function contentPathLabel(content: Content, canSeeFullPath: boolean): string | null {
 	if (content.path == null) return null;

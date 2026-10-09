@@ -70,7 +70,7 @@ async fn search_with_a_blank_query_returns_nothing(pool: SqlitePool) {
     assert_eq!(found["items"], serde_json::json!([]), "{found}");
 }
 
-/// フォルダの中はファイルとディレクトリの名前で、リンクの一覧のファイルの中は題と `note` で当たる。
+/// フォルダーの中はファイルとディレクトリの名前で、リンクの一覧のファイルの中は題と `note` で当たる。
 /// 辿り方の除外 (ドット始まりなど) は `src/api/fs.rs` の単体テストで見る。
 #[sqlx::test]
 async fn search_finds_entries_in_folders_and_links_in_links_files(pool: SqlitePool) {
@@ -173,7 +173,7 @@ async fn search_within_a_group_finds_only_its_descendants(pool: SqlitePool) {
     assert_eq!(found["scopeTitle"], "教材", "{found}");
 }
 
-/// フォルダの中の階層を範囲にすると、その下だけを辿り、パスは登録パスからの相対で返す。
+/// フォルダーの中の階層を範囲にすると、その下だけを辿り、パスは登録パスからの相対で返す。
 /// コンテンツの区画は探さない。
 #[sqlx::test]
 async fn search_within_a_folder_level_walks_only_below_it(pool: SqlitePool) {

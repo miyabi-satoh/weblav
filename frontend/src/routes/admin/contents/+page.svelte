@@ -67,7 +67,7 @@
 
 	let { data }: PageProps = $props();
 	let contents = $derived(data.contents);
-	// 「公開できるフォルダ」が0件なら、パスを持つ種別は選ばせない (→ docs/folders.md「公開できるフォルダ」)。
+	// 「公開できるフォルダー」が0件なら、パスを持つ種別は選ばせない (→ docs/folders.md「公開できるフォルダー」)。
 	let unavailableTypes = $derived(
 		data.hasSharedFolders ? [] : (['folder', 'archive'] as ContentType[])
 	);
@@ -148,7 +148,7 @@
 		// 種別を選んだだけでは入力途中として扱わない。外側のクリックで閉じられるようにするため。
 		const wasDirty = form.dirty;
 		form.type = type;
-		// 公開範囲はフォルダの2段目にしか出ない。戻って別の種別を選んだときに、見えない値を残さない。
+		// 公開範囲はフォルダーの2段目にしか出ない。戻って別の種別を選んだときに、見えない値を残さない。
 		if (type !== 'folder') form.visibility = 'public';
 		if (!wasDirty) form.markPristine();
 		createStep = 'form';

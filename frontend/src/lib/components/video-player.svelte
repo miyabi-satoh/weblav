@@ -16,7 +16,7 @@
 	import { clampTime, SKIP_SECONDS } from '$lib/media';
 	import { videoKeyAction } from '$lib/video-keys';
 
-	// ファイルのビューアの動画 (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+	// ファイルのビューアーの動画 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
 	// 操作は `<video controls>` を使わずに自前で置く。
 
 	let {
@@ -47,7 +47,7 @@
 	let duration = $state(0);
 	let fullscreen = $state(false);
 
-	// ビューアは開いてから描くので、document は常にある。
+	// ビューアーは開いてから描くので、document は常にある。
 	const doc = document as WebkitDocument;
 	let canFullscreen = $derived(
 		doc.fullscreenEnabled ||
@@ -84,7 +84,7 @@
 	function handleKeydown(event: KeyboardEvent) {
 		// シークバーは、自身の左右キーで位置を動かす。
 		if (event.target instanceof HTMLInputElement) return;
-		// 標準の操作部品と同じく、動画の中の左右キーは再生位置に使い、ビューアの前後の移動に回さない。
+		// 標準の操作部品と同じく、動画の中の左右キーは再生位置に使い、ビューアーの前後の移動に回さない。
 		// 全画面で見ている間に、別のファイルへ替わって全画面が解けないようにするため。
 		if (event.key === 'ArrowLeft') seek(currentTime - SKIP_SECONDS);
 		else if (event.key === 'ArrowRight') seek(currentTime + SKIP_SECONDS);
@@ -93,7 +93,7 @@
 		event.stopPropagation();
 	}
 
-	// 左右キーのほかは、ビューアのどこにフォーカスがあっても効かせる (動画サイトと同じキー → $lib/video-keys.ts)。
+	// 左右キーのほかは、ビューアーのどこにフォーカスがあっても効かせる (動画サイトと同じキー → $lib/video-keys.ts)。
 	// 開いた直後のフォーカスは動画の外にあり、動画の中だけで受けると押しても効かないため。
 	function handleDocumentKeydown(event: KeyboardEvent) {
 		const action = videoKeyAction(event);

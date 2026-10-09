@@ -87,7 +87,7 @@ const ADMIN_ONLY_APIS: &[(&str, &str)] = &[
     ("PUT", "/api/v1/admin/users/{user}/username"),
 ];
 
-/// この PC の中からだけ使える口 (→ `api::local::LocalRequest`)。「公開できるフォルダ」は管理者だけの口でもある。
+/// この PC の中からだけ使える口 (→ `api::local::LocalRequest`)。「公開できるフォルダー」は管理者だけの口でもある。
 const LOCAL_ONLY_APIS: &[(&str, &str)] = &[
     ("GET", "/api/v1/setup/status"),
     ("POST", "/api/v1/setup/token"),
@@ -107,7 +107,7 @@ fn is_roots_api(uri: &str) -> bool {
 }
 
 /// 本文を付けずに送る。本文の検証より先にログインを確かめていなければ、401 でなく 415・422 などになる。
-/// 「公開できるフォルダ」は LAN からだと 404 になるので、この PC の中から送る。
+/// 「公開できるフォルダー」は LAN からだと 404 になるので、この PC の中から送る。
 #[sqlx::test]
 async fn login_required_apis_reject_requests_without_a_session(pool: SqlitePool) {
     let app = test_app(pool).await;

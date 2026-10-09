@@ -39,7 +39,7 @@ export interface ShotFixtures {
 	folderId: number;
 	archiveId: number;
 	fileId: number;
-	/** 登録済みの「公開できるフォルダ」の絶対パス (→ docs/folders.md「公開できるフォルダ」)。 */
+	/** 登録済みの「公開できるフォルダー」の絶対パス (→ docs/folders.md「公開できるフォルダー」)。 */
 	sharedFolder: string;
 	/** `sharedFolder` の名前。ピッカーの最初の一覧に、フルパスの代わりに出る。 */
 	sharedFolderName: string;
@@ -110,7 +110,7 @@ async function waitForPageReady(page: Page): Promise<void> {
 	await page.evaluate(() => document.fonts.ready);
 }
 
-/** フィクスチャの `写真` フォルダを開き、行の縮小画像が読み込まれるまで待つ。 */
+/** フィクスチャの `写真` フォルダーを開き、行の縮小画像が読み込まれるまで待つ。 */
 async function openPhotoFolder(page: Page, ctx: ShotContext): Promise<void> {
 	const url = new URL(`/folders/${ctx.fixtures.folderId}`, ctx.baseURL);
 	url.searchParams.set('path', '写真');
@@ -245,7 +245,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// 作成ダイアログの2段目。フォルダを選んだ状態 (公開範囲はフォルダにだけ出る)。
+	// 作成ダイアログの2段目。フォルダーを選んだ状態 (公開範囲はフォルダーにだけ出る)。
 	admin_contents_add_form: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, '/admin/contents');
@@ -256,8 +256,8 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// ディレクトリ選択ダイアログ。登録済みの「公開できるフォルダ」から1階層降りた状態
-	// (パンくずが公開できるフォルダから始まる)。
+	// ディレクトリ選択ダイアログ。登録済みの「公開できるフォルダー」から1階層降りた状態
+	// (パンくずが公開できるフォルダーから始まる)。
 	admin_contents_dir_picker: {
 		viewports: ['desktop'],
 		async run(page, ctx) {
@@ -266,7 +266,7 @@ export const shots: Record<string, ShotEntry> = {
 			await chooseContentType(page, 'folder');
 			await page.getByRole('button', { name: CHOOSE_PATH_BUTTON_NAME }).click();
 			await page.getByRole('dialog', { name: DIR_PICKER_NAME }).waitFor({ timeout: 5000 });
-			// 最初の一覧は登録済みの「公開できるフォルダ」。その中へ1階層降りる。
+			// 最初の一覧は登録済みの「公開できるフォルダー」。その中へ1階層降りる。
 			// ボタンの accessible name はアイコンのSVGを含んで完全一致しないため、
 			// 行内のテキストで特定する (クリックは親のbuttonへバブルする)。
 			await page.getByText(ctx.fixtures.sharedFolderName, { exact: true }).click();
@@ -321,7 +321,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// 管理画面: 公開できるフォルダ。seed.sql の登録済みフォルダが並ぶ。
+	// 管理画面: 公開できるフォルダー。seed.sql の登録済みフォルダーが並ぶ。
 	admin_roots: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, '/admin/roots');
@@ -329,8 +329,8 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// 管理画面: 公開できるフォルダの追加で、OS のフォルダ選択の窓が閉じるのを待っているところ。
-	// 窓はブラウザの外に出るので、撮るときは窓を開く口の応答を返さずに待たせる。
+	// 管理画面: 公開できるフォルダーの追加で、OS のフォルダー選択の窓が閉じるのを待っているところ。
+	// 窓はブラウザーの外に出るので、撮るときは窓を開く口の応答を返さずに待たせる。
 	admin_roots_picking: {
 		viewports: ['desktop', 'mobile'],
 		async run(page, ctx) {
@@ -342,7 +342,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// 管理画面: 公開できるフォルダの名前の変更ダイアログ。行の⋮メニューから開く。
+	// 管理画面: 公開できるフォルダーの名前の変更ダイアログ。行の⋮メニューから開く。
 	admin_roots_rename: {
 		viewports: ['desktop'],
 		async run(page, ctx) {
@@ -353,7 +353,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// 管理画面: 公開できるフォルダの削除の確認。中のコンテンツの件数が文中に入る。
+	// 管理画面: 公開できるフォルダーの削除の確認。中のコンテンツの件数が文中に入る。
 	admin_roots_delete_confirm: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, '/admin/roots');
@@ -384,7 +384,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// フォルダ閲覧: 英検/2024配下に降りた状態(パンくず2階層、音声/PDFが混在する一覧)。
+	// フォルダー閲覧: 英検/2024配下に降りた状態(パンくず2階層、音声/PDFが混在する一覧)。
 	folder_browse: {
 		async run(page, ctx) {
 			const url = new URL(`/folders/${ctx.fixtures.folderId}`, ctx.baseURL);
@@ -394,7 +394,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// フォルダ閲覧: 写真の並ぶフォルダ。画像の行は先頭に縮小画像が出る (→ docs/ui.md「画像のプレビュー」)。
+	// フォルダー閲覧: 写真の並ぶフォルダー。画像の行は先頭に縮小画像が出る (→ docs/ui.md「画像のプレビュー」)。
 	folder_browse_images: {
 		async run(page, ctx) {
 			await openPhotoFolder(page, ctx);
@@ -402,7 +402,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// フォルダ閲覧: 写真の並ぶフォルダをタイルに切り替えた状態 (→ docs/ui.md「UI 全般」)。
+	// フォルダー閲覧: 写真の並ぶフォルダーをタイルに切り替えた状態 (→ docs/ui.md「UI 全般」)。
 	// 並べ方は端末 (viewport ごとの context) に覚えさせるので、撮ったらリストに戻して後のショットに持ち越さない。
 	folder_browse_images_tile: {
 		async run(page, ctx) {
@@ -418,7 +418,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// 画像のビューア: 写真の行を押し、ページの上に重ねて開いた状態。
+	// 画像のビューアー: 写真の行を押し、ページの上に重ねて開いた状態。
 	image_viewer: {
 		async run(page, ctx) {
 			await openPhotoFolder(page, ctx);
@@ -444,7 +444,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// PDF・動画・テキストのビューア: PDF を開き、1ページ目を描き終えた状態。
+	// PDF・動画・テキストのビューアー: PDF を開き、1ページ目を描き終えた状態。
 	file_viewer: {
 		async run(page, ctx) {
 			const url = new URL(`/folders/${ctx.fixtures.folderId}`, ctx.baseURL);
@@ -505,7 +505,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// 管理画面: アーカイブの軸の追加ダイアログ。フォルダの階層を、階層ごとの値の例を見て選ぶ。
+	// 管理画面: アーカイブの軸の追加ダイアログ。フォルダーの階層を、階層ごとの値の例を見て選ぶ。
 	admin_archive_axes_add_dialog: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.archiveId}/axes`);

@@ -693,7 +693,7 @@ accountApp.post('/login/email', async (c) => {
 	if (inserted.meta.changes === 0) {
 		return c.html(signIn(c, lang, next, t.tooManyLinks), 429);
 	}
-	// 別のブラウザで開いても同じ言語になるよう、リンクに言語を付ける。
+	// 別のブラウザーで開いても同じ言語になるよう、リンクに言語を付ける。
 	await sendMail(
 		c.env,
 		email,

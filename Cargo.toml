@@ -105,13 +105,13 @@ windows = { version = "0.62.2", features = [
     "Win32_System_Com",
     "Win32_UI_Shell",
 ] }
-# フォルダ選択の窓の持ち主を rfd に渡す (→ src/folder_picker.rs)。
+# フォルダー選択の窓の持ち主を rfd に渡す (→ src/folder_picker.rs)。
 raw-window-handle = "0.6.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # 「ログイン時に起動」を出せる OS の版の判定 (→ src/tray/login_item.rs)。
 objc2 = "0.6.4"
-# フォルダ選択の窓を前面に出す (→ src/folder_picker.rs)。
+# フォルダー選択の窓を前面に出す (→ src/folder_picker.rs)。
 objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "std",
     "NSApplication",
@@ -119,7 +119,7 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "NSRunningApplication",
 ] }
 # トレイの表示言語 (→ src/tray/mod.rs の tray_locale)。
-# 公開できるフォルダの security-scoped bookmark (→ src/folder_access.rs)。
+# 公開できるフォルダーの security-scoped bookmark (→ src/folder_access.rs)。
 objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "std",
     "NSArray",

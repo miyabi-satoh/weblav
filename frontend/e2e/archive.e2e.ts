@@ -1,4 +1,4 @@
-// フォルダ・アーカイブの画面 (管理者ログイン済み)。
+// フォルダー・アーカイブの画面 (管理者ログイン済み)。
 // ファイルシステムの実体が要るので、テストごとに target/ 配下へ小さな木を作り、API で登録する
 // (→ fixture-helpers.ts の withDirectoryContent)。サーバーからそのパスが見えなければテストを飛ばす。
 import { test, expect, type Page } from '@playwright/test';
@@ -75,7 +75,7 @@ test('軸: 軸を足して値の辞書と表示タイトルを保存すると、
 	);
 });
 
-test('軸の追加: フォルダの階層は、階層ごとの値の例を見て選べる', async ({ page }) => {
+test('軸の追加: フォルダーの階層は、階層ごとの値の例を見て選べる', async ({ page }) => {
 	await withDirectoryContent(
 		page.request,
 		{
@@ -96,7 +96,7 @@ test('軸の追加: フォルダの階層は、階層ごとの値の例を見て
 			const dialog = page.getByRole('dialog');
 			await dialog.getByLabel(requiredLabel('軸名', 'Axis name')).fill('回');
 
-			// 新規の抽出元はフォルダの階層で、第1階層が選ばれている。値の例は件数の多い順。
+			// 新規の抽出元はフォルダーの階層で、第1階層が選ばれている。値の例は件数の多い順。
 			const level1 = dialog.getByLabel(dirLevelRadioLabel(1));
 			const level2 = dialog.getByLabel(dirLevelRadioLabel(2));
 			await expect(level1).toBeChecked();
@@ -112,7 +112,7 @@ test('軸の追加: フォルダの階層は、階層ごとの値の例を見て
 			await dialog.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
 			await expect(page.getByRole('dialog')).toHaveCount(0);
 
-			await expect(axisRow(page, '回')).toContainText(/フォルダの第2階層|Folder level 2/);
+			await expect(axisRow(page, '回')).toContainText(/フォルダーの第2階層|Folder level 2/);
 		}
 	);
 });
@@ -235,7 +235,7 @@ test('プレイヤーの続けて再生: 切り替えた状態を、読み込み
 	);
 });
 
-test('フォルダの閲覧: 下の階層へ移り、パンくずで戻れる', async ({ page }) => {
+test('フォルダーの閲覧: 下の階層へ移り、パンくずで戻れる', async ({ page }) => {
 	await withDirectoryContent(
 		page.request,
 		{ type: 'folder', namePrefix: 'e2e-folder' },
@@ -262,16 +262,16 @@ test('フォルダの閲覧: 下の階層へ移り、パンくずで戻れる', 
 	);
 });
 
-test('ファイルのビューア: テキストと PDF をページ内で開き、前後に移れる', async ({ page }) => {
+test('ファイルのビューアー: テキストと PDF をページ内で開き、前後に移れる', async ({ page }) => {
 	await withDirectoryContent(
 		page.request,
 		{
 			type: 'folder',
 			namePrefix: 'e2e-viewer',
 			// テキストは拡張子でなく中身で決まるので、.txt でないファイルで確かめる。
-			// PDF は中身が PDF でないので読めず、ビューアは新しいタブで開く案内に替わる。
+			// PDF は中身が PDF でないので読めず、ビューアーは新しいタブで開く案内に替わる。
 			files: {
-				'a-config.yml': 'ビューアの本文',
+				'a-config.yml': 'ビューアーの本文',
 				'b-answer.pdf': 'not a pdf',
 				'c-listening.mp3': 'ID3'
 			}
@@ -280,7 +280,7 @@ test('ファイルのビューア: テキストと PDF をページ内で開き�
 			await page.goto(`/folders/${folder.id}`);
 			await page.getByRole('link', { name: /a-config\.yml/ }).click();
 			const viewer = page.getByRole('dialog', { name: 'a-config.yml' });
-			await expect(viewer.getByText('ビューアの本文')).toBeVisible();
+			await expect(viewer.getByText('ビューアーの本文')).toBeVisible();
 			await expect(viewer.getByText('1 / 2')).toBeVisible();
 
 			// 音声の行は前後に入らない。

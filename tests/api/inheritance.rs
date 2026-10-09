@@ -100,7 +100,7 @@ async fn group_inside_restricted_ancestor_is_unauthorized_anonymously(pool: Sqli
     }
 }
 
-/// フォルダの閲覧・配信も、祖先のグループを開けなければ401になる。
+/// フォルダーの閲覧・配信も、祖先のグループを開けなければ401になる。
 #[sqlx::test]
 async fn folder_inside_authenticated_group_is_unauthorized_anonymously(pool: SqlitePool) {
     let dir = temp_test_dir("browse-anon-inherited");
@@ -548,7 +548,7 @@ async fn folder_content_create_by_admin_succeeds(pool: SqlitePool) {
     );
 }
 
-/// パスの決まりの場合分け (無いパス・ファイル・公開できるフォルダの外) は
+/// パスの決まりの場合分け (無いパス・ファイル・公開できるフォルダーの外) は
 /// `fs::canonical_dir_within_roots` の単体テストで見る。
 #[sqlx::test]
 async fn folder_content_create_with_relative_path_is_validation_error(pool: SqlitePool) {
@@ -582,7 +582,7 @@ async fn fs_dirs_is_open_to_regular_users(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK);
 }
 
-/// `path` を省略すると、登録済みの「公開できるフォルダ」が並ぶ (→ docs/folders.md「公開できるフォルダ」)。
+/// `path` を省略すると、登録済みの「公開できるフォルダー」が並ぶ (→ docs/folders.md「公開できるフォルダー」)。
 /// ドライブの一覧ではない。
 #[sqlx::test]
 async fn fs_dirs_without_path_returns_the_shared_folders(pool: SqlitePool) {
@@ -607,11 +607,11 @@ async fn fs_dirs_without_path_returns_the_shared_folders(pool: SqlitePool) {
     assert_eq!(entries[0]["path"], expected, "{body}");
     // 名前は登録した名前 (→ `register_root` はパスと同じにしている)。
     assert_eq!(entries[0]["name"], expected, "{body}");
-    // 登録済みのフォルダそのものは、コンテンツの登録先に選べる。
+    // 登録済みのフォルダーそのものは、コンテンツの登録先に選べる。
     assert_eq!(entries[0]["selectable"], true, "{body}");
 }
 
-/// 「公開できるフォルダ」の外は、一覧そのものを見せない。
+/// 「公開できるフォルダー」の外は、一覧そのものを見せない。
 #[sqlx::test]
 async fn fs_dirs_rejects_a_path_outside_the_shared_folders(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
@@ -686,7 +686,7 @@ async fn fs_count_counts_recursively_and_filters_by_extension(pool: SqlitePool) 
     assert!(body.contains(r#""count":1"#), "{body}");
 }
 
-/// 件数APIも「公開できるフォルダ」の外を拒否する
+/// 件数APIも「公開できるフォルダー」の外を拒否する
 /// (件数を出せる = 登録できる、と読めてしまうのを防ぐ)。
 #[sqlx::test]
 async fn fs_count_rejects_a_directory_outside_the_shared_folders(pool: SqlitePool) {
@@ -734,7 +734,7 @@ async fn admin_contents_list_includes_path_and_is_open_to_regular_users(pool: Sq
     );
 
     // 管理画面の一覧は `user` にも開放されている。`path` が見えるのは要件が許容している
-    // (登録できるのは「公開できるフォルダ」の中だけなので、見せたくないパスは登録されない)。
+    // (登録できるのは「公開できるフォルダー」の中だけなので、見せたくないパスは登録されない)。
     let (user_admin_list_status, user_admin_list_body) =
         send_empty(app, "GET", "/api/v1/admin/contents", &user_cookie).await;
     assert_eq!(user_admin_list_status, StatusCode::OK);

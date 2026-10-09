@@ -1,6 +1,6 @@
 //! 画像のプレビュー (→ docs/ui.md「画像のプレビュー」)。
 //!
-//! - 一覧に出す画像の大きさ (`file_preview`)。ページ内のビューアが開く前に要る。
+//! - 一覧に出す画像の大きさ (`file_preview`)。ページ内のビューアーが開く前に要る。
 //! - 一覧の行に出す縮小画像 (`thumbnail_response`)。作ったものは `Thumbnails::dir` に置いて使い回す。
 //!   画像でないファイル (動画・PDF など) は OS に作らせる (`crate::os_thumbnail`)。
 
@@ -24,7 +24,7 @@ use crate::error::{AppError, run_blocking};
 use crate::file_ext::has_extension_in;
 use crate::os_thumbnail::Failure;
 
-/// プレビューする画像の拡張子。どのブラウザも表示でき、`image` crate で縮小画像を作れる形式に絞る。
+/// プレビューする画像の拡張子。どのブラウザーも表示でき、`image` crate で縮小画像を作れる形式に絞る。
 const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "jpeg", "png", "gif", "webp", "bmp"];
 
 /// 大きさを読むのに渡す先頭のバイト数。
@@ -71,12 +71,12 @@ pub(super) struct ImageSize {
     height: u32,
 }
 
-/// 一覧の行に添える、プレビューのための情報。一覧ごとの型 (アーカイブのアイテム・フォルダの
+/// 一覧の行に添える、プレビューのための情報。一覧ごとの型 (アーカイブのアイテム・フォルダーの
 /// エントリ・file コンテンツ) に同じ名前のフィールドで写す。
 pub(super) struct FilePreview {
     /// ページ内でプレビューする画像なら、その大きさ。
     pub(super) image: Option<ImageSize>,
-    /// テキストのビューアで見せるファイルか。
+    /// テキストのビューアーで見せるファイルか。
     pub(super) is_text: bool,
     /// 行に縮小画像を出してみるか。
     pub(super) thumbnail: bool,
@@ -125,7 +125,7 @@ fn size_from_reader(reader: impl BufRead + Seek) -> Option<ImageSize> {
     Some(oriented_size(width, height, orientation))
 }
 
-/// ブラウザは EXIF の向きを当てて表示するので、90度回すものは縦横を入れ替える。
+/// ブラウザーは EXIF の向きを当てて表示するので、90度回すものは縦横を入れ替える。
 fn oriented_size(width: u32, height: u32, orientation: Orientation) -> ImageSize {
     match orientation {
         Orientation::Rotate90
@@ -146,7 +146,7 @@ fn oriented_size(width: u32, height: u32, orientation: Orientation) -> ImageSize
 pub struct Thumbnails {
     dir: PathBuf,
     /// デコードは CPU とメモリを大きく使うので、同時に作る数をコアの半分までに絞る。
-    /// 教室の端末が一斉に同じフォルダを開いても、配信や他の操作を止めないため。
+    /// 教室の端末が一斉に同じフォルダーを開いても、配信や他の操作を止めないため。
     permits: Semaphore,
 }
 
@@ -196,7 +196,7 @@ enum Cached {
 /// `source` (配信の検証を通した実体のパス) の縮小画像を返す。
 /// `file_name` は拡張子の判定に使う (file コンテンツの実体は拡張子を持たないため)。
 ///
-/// 元のファイルが変わるとキーが変わるので、ブラウザには毎回 ETag で問い合わせさせる。
+/// 元のファイルが変わるとキーが変わるので、ブラウザーには毎回 ETag で問い合わせさせる。
 /// 縮小画像を作れないファイルは 404 にして、画面にはファイルのアイコンを出させる。
 pub(super) async fn thumbnail_response(
     thumbnails: &Thumbnails,

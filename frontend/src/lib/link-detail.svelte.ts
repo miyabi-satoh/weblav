@@ -30,7 +30,7 @@ export function linkDetailOf(link: {
 }
 
 /**
- * 押すと詳しい表示を出すリンクか。ビューアで開くもの (動画サイト・URL のファイル) はビューアで開き、
+ * 押すと詳しい表示を出すリンクか。ビューアーで開くもの (動画サイト・URL のファイル) はビューアーで開き、
  * LAN の URL はサーバーが取りに行かず見せるものが無いので、直接開く (→ docs/ui.md「リンクのカード」)。
  */
 export function opensLinkDetail(href: string, opensInViewer: boolean): boolean {

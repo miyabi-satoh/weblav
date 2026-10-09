@@ -300,7 +300,7 @@ pub(super) async fn restore_staged(state: &AppState, id: &str) -> Result<(), App
     )
     .await;
     match result {
-        // 戻した DB の公開フォルダを読めるようにする (→ docs/distribution.md「ビルド・配布の方法」)。
+        // 戻した DB の公開フォルダーを読めるようにする (→ docs/distribution.md「ビルド・配布の方法」)。
         Ok(()) => {
             crate::folder_access::restore(&state.pool).await;
             Ok(())

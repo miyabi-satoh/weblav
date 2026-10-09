@@ -7,9 +7,9 @@
 	import { browseRowClass } from '$lib/list-row';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
 
-	// 閲覧側の一覧の、ページ内のビューアで開く PDF・動画・テキストなどの行・タイル (→ $lib/list-row.ts)。
+	// 閲覧側の一覧の、ページ内のビューアーで開く PDF・動画・テキストなどの行・タイル (→ $lib/list-row.ts)。
 	// 画像の行 (list-row-image-link.svelte) と同じく、元のファイルへの直リンクのまま置き、
-	// 修飾キー付きのクリックや長押しのメニューではブラウザに任せて新しいタブで開けるようにする。
+	// 修飾キー付きのクリックや長押しのメニューではブラウザーに任せて新しいタブで開けるようにする。
 	let {
 		file,
 		items,
@@ -18,9 +18,9 @@
 	}: {
 		/** `items` と同じ組み立て方で作る (押した行を `items` の中から `src` で探すため)。 */
 		file: ViewerFile;
-		/** この行が並ぶ一覧の、ページ内で開くもの (表示順。→ $lib/viewer-items.ts)。ビューアの前・次になる。 */
+		/** この行が並ぶ一覧の、ページ内で開くもの (表示順。→ $lib/viewer-items.ts)。ビューアーの前・次になる。 */
 		items: ViewerItem[];
-		/** フォルダ一覧の詰めた行 (`browseRowClass(true)`) にする。タイルには効かない。 */
+		/** フォルダー一覧の詰めた行 (`browseRowClass(true)`) にする。タイルには効かない。 */
 		compact?: boolean;
 		/** アイコンの右に置く、行の文字。 */
 		children: Snippet;

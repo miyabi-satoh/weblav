@@ -325,7 +325,7 @@ async fn rescan(
                 detail: ValidationDetail::ArchiveFolderMissing,
             });
         }
-        // 「公開できるフォルダ」の外は再走査でも拒む (理由は `contents::resolve_path` と同じ)。
+        // 「公開できるフォルダー」の外は再走査でも拒む (理由は `contents::resolve_path` と同じ)。
         let root = super::fs::canonical_dir_within_roots(&scan_root, &roots, &own_dirs)?;
         Ok::<_, AppError>(super::fs::scan_files(
             &root,
@@ -848,7 +848,7 @@ pub(super) fn derive_item(
         .collect();
 
     // 拡張子を除いたファイル名。軸が全て埋まっていても同じタイトルに潰れる
-    // (同じフォルダに複数のファイルがある) ケースを、テンプレート側で区別できるようにする。
+    // (同じフォルダーに複数のファイルがある) ケースを、テンプレート側で区別できるようにする。
     let file_stem = file_name
         .rsplit_once('.')
         .map_or(file_name.as_str(), |(stem, _)| stem);

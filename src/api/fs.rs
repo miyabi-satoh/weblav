@@ -3,7 +3,7 @@
 //! いずれもログイン済みなら `role` を問わない (→ docs/access.md「ロールと操作」)。`folder`/`archive` の
 //! 登録先を選ばせるためだけの読み取り専用エンドポイント。
 //!
-//! 登録先に選べるのは「公開できるフォルダ」(→ `api::roots`) の配下だけ。判定そのものは
+//! 登録先に選べるのは「公開できるフォルダー」(→ `api::roots`) の配下だけ。判定そのものは
 //! `api::roots` に置き、ここは辿り方 (`listing`) を持つ。
 
 use std::fs::{DirEntry, FileType};
@@ -83,7 +83,7 @@ pub(super) fn is_hidden_by_attribute(metadata: &std::fs::Metadata) -> bool {
 
 /// `root` から `rel` までの途中と末尾に、一覧に出さないもの (ドット始まり・シンボリックリンク・
 /// Windows の隠し属性) が含まれるか。配信の経路で、一覧と同じ規則を掛けるために使う
-/// (→ docs/archive.md「スキャン」・docs/folders.md「公開できるフォルダ」)。`root` そのものは見ない (登録先を選んだのは設置者のため)。
+/// (→ docs/archive.md「スキャン」・docs/folders.md「公開できるフォルダー」)。`root` そのものは見ない (登録先を選んだのは設置者のため)。
 ///
 /// `rel` は `Component::Normal` だけであること (→ `contents::reject_traversal_components`)。
 /// リンクを辿らずに調べる (`symlink_metadata`)。調べられない階層は含まれるものとして扱う。
@@ -139,7 +139,7 @@ pub(super) fn visible_entry(entry: &DirEntry) -> Option<(String, FileType)> {
 
 #[derive(Debug, Deserialize, IntoParams)]
 pub(super) struct DirsQuery {
-    /// 一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「公開できるフォルダ」の一覧。
+    /// 一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「公開できるフォルダー」の一覧。
     #[serde(default)]
     pub path: String,
 }
@@ -160,20 +160,20 @@ pub(super) struct DirEntryItem {
 pub(super) struct DirsResponse {
     /// 正規化済みの現在位置。ルートの一覧では空文字列。
     pub path: String,
-    /// 1つ上の階層。上位の一覧では `None`。登録済みの「公開できるフォルダ」そのものからは
+    /// 1つ上の階層。上位の一覧では `None`。登録済みの「公開できるフォルダー」そのものからは
     /// 空文字列 (= 上位の一覧) へ戻る。
     parent: Option<String>,
-    /// パンくずの起点。現在位置を含む「公開できるフォルダ」。上位の一覧では `None`。
+    /// パンくずの起点。現在位置を含む「公開できるフォルダー」。上位の一覧では `None`。
     /// パンくずを辿れるところから始めるために使う (→ docs/folders.md「一覧 API」)。
     root: Option<String>,
-    /// `root` の名前。パンくずの先頭に、フルパスの代わりに出す (→ docs/folders.md「公開できるフォルダ」)。
+    /// `root` の名前。パンくずの先頭に、フルパスの代わりに出す (→ docs/folders.md「公開できるフォルダー」)。
     root_name: Option<String>,
     /// 現在位置そのものを登録先に選べるか。ルートの一覧では `false`。
     selectable: bool,
     entries: Vec<DirEntryItem>,
 }
 
-/// `path` が空のときの一覧。登録済みの「公開できるフォルダ」を、登録した名前で並べる (→ docs/folders.md「公開できるフォルダ」)。
+/// `path` が空のときの一覧。登録済みの「公開できるフォルダー」を、登録した名前で並べる (→ docs/folders.md「公開できるフォルダー」)。
 /// `roots` は実体を辿れたものだけ (→ `roots::load_roots`)。
 fn top_entries(roots: &[Root], own_dirs: &OwnDirs) -> Vec<DirEntryItem> {
     roots
@@ -191,7 +191,7 @@ fn top_entries(roots: &[Root], own_dirs: &OwnDirs) -> Vec<DirEntryItem> {
 
 /// `dir` 直下のディレクトリを列挙する。ファイルは返さない
 /// (それ以外の除外規則は `visible_entry` に集約。→ docs/archive.md「スキャン」)。
-/// weblav 自身の置き場 (設定とデータ) は、選んでも中身が出ないので並べない (→ docs/folders.md「公開できるフォルダ」)。
+/// weblav 自身の置き場 (設定とデータ) は、選んでも中身が出ないので並べない (→ docs/folders.md「公開できるフォルダー」)。
 fn read_dirs(
     dir: &FsPath,
     roots: &[Root],
@@ -239,7 +239,7 @@ fn read_dirs(
 /// ディレクトリでない・UTF-8として扱えない場合は422にする (存在を隠すための404にはしない)。
 ///
 /// **理由を区別して返すので、admin かつサーバーと同じ端末からの経路でだけ使う**
-/// (「公開できるフォルダ」の登録)。ログイン済みなら誰でも叩ける経路は
+/// (「公開できるフォルダー」の登録)。ログイン済みなら誰でも叩ける経路は
 /// `canonical_dir_within_roots` を使う。
 pub(super) fn canonical_dir(path: &str) -> Result<PathBuf, AppError> {
     let input = require_absolute(path)?;
@@ -250,15 +250,15 @@ pub(super) fn canonical_dir(path: &str) -> Result<PathBuf, AppError> {
     Ok(canonical)
 }
 
-/// canonicalize し、「公開できるフォルダ」の外なら422にする。
+/// canonicalize し、「公開できるフォルダー」の外なら422にする。
 ///
 /// 選択UIを用意しても、APIを直接叩けば外のパスを登録できてしまう。歯止めは登録操作の
-/// 側に置く (→ docs/folders.md「公開できるフォルダ」)。
+/// 側に置く (→ docs/folders.md「公開できるフォルダー」)。
 ///
 /// **ルートの外は理由を1つに寄せる**。ログイン済みなら誰でも叩ける口なので
 /// (→ docs/access.md「ロールと操作」)、「存在しない」「ディレクトリでない」の区別がルートの外にも
 /// 及ぶと、任意の絶対パスの存在を確かめる道具になる。ルートの中は区別したままにする。
-/// 選んだのがフォルダでなかった、という直せる誤りを伝えるため。
+/// 選んだのがフォルダーでなかった、という直せる誤りを伝えるため。
 ///
 /// **判定の順は「canonicalize → ルートの内外 → ディレクトリか」で、canonicalize は1回だけ**。
 /// 存在するパスと存在しないパスで触るI/Oの量が変わると、文言を寄せても処理時間の差から
@@ -298,13 +298,13 @@ fn require_dir(canonical: &FsPath) -> Result<(), AppError> {
     Ok(())
 }
 
-/// 「公開できるフォルダ」の外を指されたときの 422。理由を1つに寄せて、
-/// ルートの外のことは何も教えない (→ docs/folders.md「公開できるフォルダ」)。
+/// 「公開できるフォルダー」の外を指されたときの 422。理由を1つに寄せて、
+/// ルートの外のことは何も教えない (→ docs/folders.md「公開できるフォルダー」)。
 fn outside_roots() -> AppError {
     AppError::Validation("path is not inside a shared folder".to_string())
 }
 
-/// weblav 自身の置き場 (設定とデータ) の中を指されたときの 422 (→ docs/folders.md「公開できるフォルダ」)。
+/// weblav 自身の置き場 (設定とデータ) の中を指されたときの 422 (→ docs/folders.md「公開できるフォルダー」)。
 pub(super) fn inside_own_dirs() -> AppError {
     AppError::ValidationDetailed {
         message: "path is inside a weblav directory".to_string(),
@@ -367,7 +367,7 @@ pub(super) fn path_to_string(path: PathBuf) -> Result<String, AppError> {
     responses(
         (status = OK, body = DirsResponse, description = "ディレクトリの一覧"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 422, body = crate::error::ErrorResponse, description = "パスが存在しない・ディレクトリでない・公開できるフォルダの外"),
+        (status = 422, body = crate::error::ErrorResponse, description = "パスが存在しない・ディレクトリでない・公開できるフォルダーの外"),
     )
 )]
 async fn list_dirs(
@@ -390,7 +390,7 @@ async fn list_dirs(
     .await?
 }
 
-/// ディレクトリ1階層ぶんの一覧を組み立てる。登録済みの「公開できるフォルダ」の配下だけを辿る
+/// ディレクトリ1階層ぶんの一覧を組み立てる。登録済みの「公開できるフォルダー」の配下だけを辿る
 /// (外は一覧そのものを見せない)。`roots` は canonicalize 済み (→ `roots::load_roots`)。
 ///
 /// ブロッキングI/Oを行うため、呼び出し側は `spawn_blocking` の中で呼ぶこと。
@@ -410,7 +410,7 @@ fn listing(requested: &str, roots: &[Root], own_dirs: &OwnDirs) -> Result<DirsRe
     let entries = read_dirs(&canonical, roots, own_dirs)
         .map_err(|_| AppError::Validation("cannot read this directory".to_string()))?;
     let anchor = super::roots::containing_root(roots, &canonical);
-    // 上位の一覧に並ぶ位置 (公開できるフォルダそのもの) からは、上位の一覧 (`path: ""`) へ戻す。
+    // 上位の一覧に並ぶ位置 (公開できるフォルダーそのもの) からは、上位の一覧 (`path: ""`) へ戻す。
     let parent = if anchor.map(|anchor| anchor.path.as_path()) == Some(canonical.as_path()) {
         Some(String::new())
     } else {
@@ -527,7 +527,7 @@ pub(super) struct WalkedEntry {
     pub(super) is_dir: bool,
 }
 
-/// `root` 配下のファイルとディレクトリを、一覧と同じ除外で再帰的に集める (→ docs/search.md「フォルダの中」)。
+/// `root` 配下のファイルとディレクトリを、一覧と同じ除外で再帰的に集める (→ docs/search.md「フォルダーの中」)。
 /// `limit` 件を超えたら打ち切り、打ち切ったかを添えて返す。
 ///
 /// 読めない場所は読み飛ばす。検索は見つかった分だけを出せばよく、索引の同期のように欠けが害にならないため。
@@ -590,7 +590,7 @@ pub(super) struct ScanResult {
 /// 登録前の確認は欠けたまま数え、再スキャンは同期をやめる (→ docs/archive.md「スキャン」)。
 ///
 /// `own_dirs` (→ `roots::OwnDirs`) の中は索引しない
-/// (→ docs/folders.md「公開できるフォルダ」)。
+/// (→ docs/folders.md「公開できるフォルダー」)。
 pub(super) fn scan_files(
     root: &FsPath,
     extensions: Option<&[String]>,
@@ -683,7 +683,7 @@ pub(super) fn scan_files(
     responses(
         (status = OK, body = CountResponse, description = "対象ファイル数"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 422, body = crate::error::ErrorResponse, description = "パスが存在しない・ディレクトリでない・公開できるフォルダの外"),
+        (status = 422, body = crate::error::ErrorResponse, description = "パスが存在しない・ディレクトリでない・公開できるフォルダーの外"),
     )
 )]
 async fn count_target_files(
@@ -737,14 +737,14 @@ mod tests {
     }
 
     /// 判定に関わらないデータ置き場。テスト対象のディレクトリの配下にならない場所に作る
-    /// (置き場の中は「公開できるフォルダ」から外れるため)。
+    /// (置き場の中は「公開できるフォルダー」から外れるため)。
     /// `name` はテストごとに変える (同じパスを複数のテストが共有すると、片方の
     /// 後始末でもう片方が消える)。
     fn unrelated_data_dir(name: &str) -> crate::test_support::TempDir {
         crate::test_support::project_temp_dir("fs-tests-data", name)
     }
 
-    /// 登録済みのフォルダの配下だけが通る。外は422。
+    /// 登録済みのフォルダーの配下だけが通る。外は422。
     #[test]
     fn canonical_dir_within_roots_accepts_only_paths_under_a_root() {
         let data = unrelated_data_dir("within-roots");
@@ -822,7 +822,7 @@ mod tests {
         );
     }
 
-    /// 登録済みのフォルダそのものからは、上位の一覧へ戻す (`parent` が空文字列)。
+    /// 登録済みのフォルダーそのものからは、上位の一覧へ戻す (`parent` が空文字列)。
     #[test]
     fn listing_within_roots_returns_the_roots_at_the_top() {
         let data = unrelated_data_dir("listing-roots");
@@ -845,14 +845,14 @@ mod tests {
         assert!(at_root.selectable);
         assert_eq!(at_root.root, path_to_string(root.clone()).ok());
 
-        // 配下では、パンくずを始める位置として登録済みのフォルダを返す。
+        // 配下では、パンくずを始める位置として登録済みのフォルダーを返す。
         let inside = listing(&root.join("2026").to_string_lossy(), &roots, &own_dirs)
             .expect("一覧を取れなかった");
         assert_eq!(inside.root, path_to_string(root.clone()).ok());
         assert_eq!(inside.root_name.as_deref(), Some("materials"));
     }
 
-    /// 登録済みのフォルダの外は、一覧そのものを見せない。
+    /// 登録済みのフォルダーの外は、一覧そのものを見せない。
     #[test]
     fn listing_within_roots_rejects_a_path_outside() {
         let data = unrelated_data_dir("listing-outside");

@@ -18,7 +18,7 @@ const ORIGIN = 'http://account.test';
 
 /**
  * 送り主 (IP) は、指定が無ければ毎回変える。IP ごとの上限を確かめるテスト以外で当たらないように。
- * 言語は、指定が無ければ日本語のブラウザにする。
+ * 言語は、指定が無ければ日本語のブラウザーにする。
  */
 function request(
 	path: string,
@@ -881,7 +881,7 @@ describe('Apple sign-in', () => {
 	});
 
 	it('shows the page in the language used before going to Apple', async () => {
-		// Apple からの POST には言語の Cookie が付かず、ブラウザの言語 (postForm は日本語) だけが届く。
+		// Apple からの POST には言語の Cookie が付かず、ブラウザーの言語 (postForm は日本語) だけが届く。
 		const flow = await startApple('/account/', 'en');
 		const { res } = await back(flow, {}, { error: 'user_cancelled_authorize', state: flow.state });
 		expect(await res.text()).toContain('Sign in to WebLAV');

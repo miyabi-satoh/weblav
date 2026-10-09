@@ -3,7 +3,7 @@ import { RECOVERY_CODE_KEPT_BUTTON_NAME, RECOVERY_CODE_SAVE_BUTTON_NAME } from '
 
 /**
  * 見せているリカバリコードを保存してから「保管しました」を押し、コードを返す。
- * コピーはヘッドレスのブラウザではクリップボードの許可が要るので、保存で済ませる。
+ * コピーはヘッドレスのブラウザーではクリップボードの許可が要るので、保存で済ませる。
  */
 export async function keepRecoveryCode(page: Page): Promise<string> {
 	const code = (await page.locator('output').textContent())?.trim() ?? '';

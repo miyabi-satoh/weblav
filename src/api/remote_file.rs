@@ -1,4 +1,4 @@
-//! URL のファイルを中継し、ファイルと同じビューアで開けるようにする (→ docs/ui.md「URL のファイル」)。
+//! URL のファイルを中継し、ファイルと同じビューアーで開けるようにする (→ docs/ui.md「URL のファイル」)。
 //!
 //! 中継するのは `link` コンテンツに登録された URL だけで、閲覧の権限を確かめてから取りに行く。
 //! 誰でも任意の URL を取らせられる口にしないため。外へつなぐのは `link_title` の取得の口
@@ -37,7 +37,7 @@ const MAX_CONCURRENT_RELAYS: usize = 128;
 
 static RELAY_PERMITS: Semaphore = Semaphore::const_new(MAX_CONCURRENT_RELAYS);
 
-/// 相手の応答から、そのまま閲覧側へ渡すヘッダー。Range と、ブラウザが取り直しを判断するもの。
+/// 相手の応答から、そのまま閲覧側へ渡すヘッダー。Range と、ブラウザーが取り直しを判断するもの。
 /// `Content-Type` は渡さず、こちらで拡張子から決める (→ `relay_response`)。
 const PASSED_HEADERS: [header::HeaderName; 5] = [
     header::CONTENT_LENGTH,
@@ -135,7 +135,7 @@ async fn links_remote_content(
 async fn relay(url: String, headers: &HeaderMap) -> Result<Response, AppError> {
     let file_name = relayed_file_name(&url).ok_or(AppError::NotFound)?;
 
-    // 待たせずに断る。ブラウザの動画・音声は、読めなければ画面が案内を出す。
+    // 待たせずに断る。ブラウザーの動画・音声は、読めなければ画面が案内を出す。
     let permit = RELAY_PERMITS
         .try_acquire()
         .map_err(|_| AppError::TooManyRequests)?;
@@ -150,7 +150,7 @@ async fn relay(url: String, headers: &HeaderMap) -> Result<Response, AppError> {
 }
 
 /// URL を中継するなら、そのファイル名 (パスの最後の部分を戻したもの)。
-/// 拡張子で開き方が決まるファイル (画面がビューア・プレイヤーで開くもの) だけを中継する。
+/// 拡張子で開き方が決まるファイル (画面がビューアー・プレイヤーで開くもの) だけを中継する。
 pub(super) fn relayed_file_name(url: &str) -> Option<String> {
     let url = url::Url::parse(url).ok()?;
     if !matches!(url.scheme(), "http" | "https") {

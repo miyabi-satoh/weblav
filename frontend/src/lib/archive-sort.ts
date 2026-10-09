@@ -1,7 +1,7 @@
 import { withQuery } from '$lib/href';
 import * as m from '$lib/paraglide/messages.js';
 
-/** アーカイブの一覧の並び順 (→ docs/archive.md「エンドポイント一覧」, docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。 */
+/** アーカイブの一覧の並び順 (→ docs/archive.md「エンドポイント一覧」, docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。 */
 export type ArchiveSort = 'axis' | 'title' | 'new';
 
 const DEFAULT_ARCHIVE_SORT: ArchiveSort = 'axis';

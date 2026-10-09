@@ -3,7 +3,7 @@
 	import { seekDrag } from '$lib/seek-drag';
 	import * as m from '$lib/paraglide/messages.js';
 
-	// 音声のプレイヤーと動画のビューアのシークバー。今の位置・シークバー・長さを横に並べる。
+	// 音声のプレイヤーと動画のビューアーのシークバー。今の位置・シークバー・長さを横に並べる。
 	// 並べる行 (幅・文字色) は呼び出し側が用意する。
 
 	let {
@@ -15,7 +15,7 @@
 		currentTime: number;
 		duration: number;
 		onseek: (seconds: number) => void;
-		/** 黒い地 (動画のビューア) に置く。 */
+		/** 黒い地 (動画のビューアー) に置く。 */
 		onDark?: boolean;
 	} = $props();
 

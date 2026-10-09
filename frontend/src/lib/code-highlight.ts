@@ -1,5 +1,5 @@
 /**
- * テキストのビューアで、ソースに言語に合わせた色を付ける (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+ * テキストのビューアーで、ソースに言語に合わせた色を付ける (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
  * highlight.js の本体と言語の定義は、色を付けるファイルを開いたときに読み込む。
  */
 
@@ -69,10 +69,10 @@ add('xml', () => import('highlight.js/lib/languages/xml'), [
 ]);
 add('yaml', () => import('highlight.js/lib/languages/yaml'), ['yml', 'yaml']);
 
-/** 色を付ける・Markdown を組むテキストの上限 (UTF-16 の文字数。→ docs/ui.md「PDF・動画・テキストのビューア」)。 */
+/** 色を付ける・Markdown を組むテキストの上限 (UTF-16 の文字数。→ docs/ui.md「PDF・動画・テキストのビューアー」)。 */
 export const MAX_FORMATTED_LENGTH = 256 * 1024;
 
-/** 色を付けるファイルか。拡張子で決める (→ docs/ui.md「PDF・動画・テキストのビューア」)。 */
+/** 色を付けるファイルか。拡張子で決める (→ docs/ui.md「PDF・動画・テキストのビューアー」)。 */
 export function isCodeFileName(fileName: string): boolean {
 	return languageOf(fileName) !== undefined;
 }

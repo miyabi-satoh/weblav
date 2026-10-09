@@ -24,7 +24,7 @@
 
 	type ContentEntry = components['schemas']['ContentResponse'];
 
-	// 範囲の名前は、幅が足りなければフォルダの名前だけを切り詰める。訳の語順を崩さないよう、
+	// 範囲の名前は、幅が足りなければフォルダーの名前だけを切り詰める。訳の語順を崩さないよう、
 	// 文言を目印で組んでから、名前の前と後ろに分ける。
 	const SCOPE_TITLE_MARK = '\u0000';
 	let scopeLabelParts = $derived(
@@ -127,7 +127,7 @@
 		return linksFileHref(row.archiveId, { item: row.item.id });
 	}
 
-	/** フォルダの中の行の2段目。フォルダの名前と、その中のどこにあるか。 */
+	/** フォルダーの中の行の2段目。フォルダーの名前と、その中のどこにあるか。 */
 	let fileRows = $derived<FolderEntryRow[]>(
 		fileHits.map((hit) => ({
 			contentId: hit.contentId,
@@ -230,7 +230,7 @@
 						<ToggleGroup.Item value="within" class={['min-w-0 shrink px-4', browseToggleItemClass]}>
 							{@const [before, after] = scopeLabelParts}
 							{@const levels = searchScopeLevels(data.scope?.path)}
-							<!-- 幅が足りなければフォルダの名前 (頭の1字は残す) だけを縮める。階層は見分けるのに要るので縮めず、 -->
+							<!-- 幅が足りなければフォルダーの名前 (頭の1字は残す) だけを縮める。階層は見分けるのに要るので縮めず、 -->
 							<!-- スマートフォンの幅では、切り替えが1段に収まるよう上限を決めて、超えた分だけを切り詰める。 -->
 							<span class="flex min-w-0">
 								<span class="shrink-0">{before}</span>

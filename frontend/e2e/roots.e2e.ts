@@ -1,4 +1,4 @@
-// 「公開できるフォルダ」の管理画面 (→ docs/folders.md「公開できるフォルダ」)。
+// 「公開できるフォルダー」の管理画面 (→ docs/folders.md「公開できるフォルダー」)。
 // サーバーの PC からしか触れない画面なので、別のマシンのサーバーに当てるときは飛ばす。
 // ファイルシステムの実体が要るため、admin.e2e.ts ではなくこちらに置く。
 import { realpathSync } from 'node:fs';
@@ -25,7 +25,7 @@ import { SERVER_IS_REMOTE, SERVER_IS_REMOTE_REASON } from './server-location';
 
 test.skip(SERVER_IS_REMOTE, SERVER_IS_REMOTE_REASON);
 
-test('登録したフォルダが並び、画面から削除できる', async ({ page }) => {
+test('登録したフォルダーが並び、画面から削除できる', async ({ page }) => {
 	const root = createRootFixtureTree(uniqueId('roots'));
 	let id: number | null = null;
 	try {
@@ -48,15 +48,15 @@ test('登録したフォルダが並び、画面から削除できる', async ({
 });
 
 /**
- * OS のフォルダ選択の窓 (→ docs/folders.md「選び方」) の代わりに、窓を開く口の応答を差し替える。
- * 窓はブラウザの外に出て自動では操作できないので、サーバーには届かせない。
+ * OS のフォルダー選択の窓 (→ docs/folders.md「選び方」) の代わりに、窓を開く口の応答を差し替える。
+ * 窓はブラウザーの外に出て自動では操作できないので、サーバーには届かせない。
  */
 async function stubFolderPicker(page: Page, respond: (route: Route) => Promise<void>) {
 	await page.route('**/api/v1/admin/roots/pick', respond);
 }
 
-// 窓で選ぶとすぐフォルダ名で追加する。一覧には名前とフルパスの両方が出る (→ docs/folders.md「公開できるフォルダ」)。
-test('フォルダを選ぶとフォルダ名で追加されて名前とフルパスが並び、名前を変えられる', async ({
+// 窓で選ぶとすぐフォルダー名で追加する。一覧には名前とフルパスの両方が出る (→ docs/folders.md「公開できるフォルダー」)。
+test('フォルダーを選ぶとフォルダー名で追加されて名前とフルパスが並び、名前を変えられる', async ({
 	page
 }) => {
 	const root = createRootFixtureTree(uniqueId('roots-named'));
@@ -67,7 +67,7 @@ test('フォルダを選ぶとフォルダ名で追加されて名前とフル�
 		await page.goto('/admin/roots');
 		await page.getByRole('button', { name: ROOT_ADD_BUTTON_NAME }).click();
 
-		// 名前は入力させない。フォルダ名で追加される。
+		// 名前は入力させない。フォルダー名で追加される。
 		const name = path.basename(target);
 		const row = page.getByRole('listitem').filter({ hasText: target });
 		await expect(row.getByText(name, { exact: true })).toBeVisible();
@@ -119,8 +119,8 @@ test('窓を閉じるまで案内を出し、キャンセルなら何も追加�
 	await expect(page.getByRole('alertdialog')).toHaveCount(0);
 });
 
-// 窓ではどのフォルダでも選べるので、断られたら理由を出す (→ docs/folders.md「選び方」)。
-test('登録済みのフォルダを選ぶと、登録済みだと伝える', async ({ page }) => {
+// 窓ではどのフォルダーでも選べるので、断られたら理由を出す (→ docs/folders.md「選び方」)。
+test('登録済みのフォルダーを選ぶと、登録済みだと伝える', async ({ page }) => {
 	const root = createRootFixtureTree(uniqueId('roots-twice'));
 	let id: number | null = null;
 	try {
@@ -154,7 +154,7 @@ test('窓がすでに開いているときは、そう伝える', async ({ page 
 
 	await expect(
 		page.getByText(
-			/^フォルダを選ぶ窓が、すでに開いています。|^A window for choosing a folder is already open\./
+			/^フォルダーを選ぶ窓が、すでに開いています。|^A window for choosing a folder is already open\./
 		)
 	).toBeVisible();
 });
@@ -163,17 +163,17 @@ test('管理画面のタブから開ける', async ({ page }) => {
 	await page.goto('/admin/contents');
 	await page
 		.getByRole('navigation')
-		.getByRole('link', { name: /^公開できるフォルダ$|^Shared folders$/ })
+		.getByRole('link', { name: /^公開できるフォルダー$|^Shared folders$/ })
 		.click();
 
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-		/^公開できるフォルダ$|^Shared folders$/
+		/^公開できるフォルダー$|^Shared folders$/
 	);
 });
 
-// 登録を消しても、そのフォルダを指すコンテンツの登録は残る。その編集ページのピッカーが、
-// 辿れない位置で行き止まりにならず、上位の一覧から選び直せること (→ docs/folders.md「公開できるフォルダ」)。
-test('登録を消したフォルダを指すコンテンツでも、ピッカーは上位の一覧から開き直せる', async ({
+// 登録を消しても、そのフォルダーを指すコンテンツの登録は残る。その編集ページのピッカーが、
+// 辿れない位置で行き止まりにならず、上位の一覧から選び直せること (→ docs/folders.md「公開できるフォルダー」)。
+test('登録を消したフォルダーを指すコンテンツでも、ピッカーは上位の一覧から開き直せる', async ({
 	page
 }) => {
 	const root = createRootFixtureTree(uniqueId('roots-gone'));
@@ -197,8 +197,8 @@ test('登録を消したフォルダを指すコンテンツでも、ピッカ�
 				await page.goto(`/admin/contents/${content.id}`);
 				await page.getByRole('button', { name: /^選び直す\.\.\.$|^Change\.\.\.$/ }).click();
 
-				// 上位の一覧 (登録済みの「公開できるフォルダ」。名前で並ぶ) に落ちていること。
-				// 開発用 DB では置き場の登録が別の名前・親のフォルダのこともあるので、実際の名前を引く。
+				// 上位の一覧 (登録済みの「公開できるフォルダー」。名前で並ぶ) に落ちていること。
+				// 開発用 DB では置き場の登録が別の名前・親のフォルダーのこともあるので、実際の名前を引く。
 				const shared = await sharedContentRoot(page.request);
 				test.skip(shared === null, FIXTURE_UNREACHABLE);
 				await expect(page.getByText(shared!.rootName, { exact: true })).toBeVisible();

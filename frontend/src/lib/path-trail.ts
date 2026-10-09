@@ -62,7 +62,7 @@ function rootLength(full: string, windows: boolean): number {
  * 絶対パスをパンくず用に分解する。空文字列 (上位の一覧) では現在位置が無いため、空の配列を返す。
  *
  * `root` を渡すと、そこから先だけを返す。コンテンツの登録先を選ぶ一覧は「公開できる
- * フォルダ」の外を辿れないので、押しても 422 になる上位を出さない (→ docs/folders.md「一覧 API」)。
+ * フォルダー」の外を辿れないので、押しても 422 になる上位を出さない (→ docs/folders.md「一覧 API」)。
  */
 export function pathTrail(full: string, root?: string | null): PathCrumb[] {
 	if (full === '') return [];

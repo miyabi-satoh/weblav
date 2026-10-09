@@ -17,10 +17,10 @@ const TEMPLATES: Record<string, string> = { ja, en };
 
 /** プロンプトに載せる語の数。よく出る語で軸の見当が付けば足り、多いと貼り付けが重くなる。 */
 const WORD_LIMIT = 40;
-/** プロンプトに載せるパスの数。フォルダの構造とファイル名の付け方が分かれば足りる。 */
+/** プロンプトに載せるパスの数。フォルダーの構造とファイル名の付け方が分かれば足りる。 */
 const PATH_LIMIT = 150;
 
-/** 全体から間を空けて `limit` 件を選ぶ。並びの先頭だけだと、最初のフォルダのファイルに偏るため。 */
+/** 全体から間を空けて `limit` 件を選ぶ。並びの先頭だけだと、最初のフォルダーのファイルに偏るため。 */
 export function spread<T>(items: T[], limit: number): T[] {
 	if (items.length <= limit) return items;
 	const step = items.length / limit;

@@ -32,7 +32,7 @@ const BLOBS_PREFIX: &str = "blobs/";
 const MAX_MANIFEST_BYTES: u64 = 64 * 1024;
 /// tower-sessions が作るセッションの表。戻さずに中身を消す。
 pub(super) const SESSION_TABLE: &str = "tower_sessions";
-/// この Mac で選んだフォルダへの読む許可 (→ docs/distribution.md「ビルド・配布の方法」)。データではなくこの PC の状態なので、
+/// この Mac で選んだフォルダーへの読む許可 (→ docs/distribution.md「ビルド・配布の方法」)。データではなくこの PC の状態なので、
 /// 戻さずに今の行を残す。
 const FOLDER_BOOKMARKS_TABLE: &str = "folder_bookmarks";
 /// リンクのカードの情報 (→ `api::link_preview`)。画像の実体はこの PC の置き場にあり、バックアップに入らないので、

@@ -10,7 +10,7 @@ export const load: PageLoad = async ({ parent, params, url }) => {
 
 	const contentId = Number(params.id);
 	const path = url.searchParams.get('path') ?? '';
-	// 並び順はホーム/グループと同じ扱い (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+	// 並び順はホーム/グループと同じ扱い (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
 	const sort = parseBrowseSort(url.searchParams.get('sort'));
 
 	const browse = await fetchOrError(

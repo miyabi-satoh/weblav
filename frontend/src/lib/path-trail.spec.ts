@@ -76,7 +76,7 @@ describe('pathTrail', () => {
 		]);
 	});
 
-	// コンテンツの登録先を選ぶ一覧は、「公開できるフォルダ」より上を辿れない (→ docs/folders.md「一覧 API」)。
+	// コンテンツの登録先を選ぶ一覧は、「公開できるフォルダー」より上を辿れない (→ docs/folders.md「一覧 API」)。
 	it('starts at the shared folder when one is given', () => {
 		expect(pathTrail('/srv/media/2026/eiken', '/srv/media')).toEqual([
 			{ label: 'media', path: '/srv/media' },

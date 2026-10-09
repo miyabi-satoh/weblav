@@ -57,7 +57,7 @@
 	const filter = listFilter();
 	let entries = $derived(filter ? filter.apply(allEntries, (item) => item.title) : allEntries);
 
-	/** URL のファイルを指す link コンテンツなら、その種類。サーバーの中継で、ファイルと同じ行・ビューアで開く (→ docs/ui.md「URL のファイル」)。 */
+	/** URL のファイルを指す link コンテンツなら、その種類。サーバーの中継で、ファイルと同じ行・ビューアーで開く (→ docs/ui.md「URL のファイル」)。 */
 	function remoteKind(content: ContentEntry) {
 		return content.type === 'link' ? remoteFileKind(content.url) : undefined;
 	}
@@ -78,7 +78,7 @@
 
 	let audioQueue = $derived(entries.filter(isAudioContent).map(toTrack));
 
-	/** 画像の file コンテンツなら、ビューアに渡す形。大きさが分からない (読めない) 画像は普通のファイルの行にする。 */
+	/** 画像の file コンテンツなら、ビューアーに渡す形。大きさが分からない (読めない) 画像は普通のファイルの行にする。 */
 	function toViewerImage(content: ContentEntry): ViewerImage | undefined {
 		if (content.type !== 'file' || !content.image) return undefined;
 		return {
@@ -96,7 +96,7 @@
 		return { src: contentThumbnailHref(content.id), original: contentDownloadHref(content.id) };
 	}
 
-	/** PDF・動画・テキストなど、ビューアで開く file コンテンツなら、ビューアに渡す形 (→ docs/ui.md「PDF・動画・テキストのビューア」)。 */
+	/** PDF・動画・テキストなど、ビューアーで開く file コンテンツなら、ビューアーに渡す形 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。 */
 	function toViewerFile(content: ContentEntry): ViewerFile | undefined {
 		const embed = toViewerEmbed(content);
 		if (embed) return embed;
@@ -125,7 +125,7 @@
 	let viewerList = $derived(viewerItems(entries, toViewerImage, toViewerFile));
 
 	/**
-	 * 動画サイトの動画を指す link コンテンツなら、ビューアに渡す形 (→ docs/ui.md「動画サイトの埋め込み」)。
+	 * 動画サイトの動画を指す link コンテンツなら、ビューアーに渡す形 (→ docs/ui.md「動画サイトの埋め込み」)。
 	 * 行はリンクのカードのまま置き、サムネイルと題名を出す。
 	 */
 	function toViewerEmbed(content: ContentEntry): ViewerFile | undefined {

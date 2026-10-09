@@ -180,7 +180,7 @@ async fn restoring_keeps_ids_of_deleted_users_retired(pool: SqlitePool) {
     assert_eq!(restored, retired);
 }
 
-/// フォルダへの読む許可のブックマークはこの PC の状態なので、戻しても今のものを残す。
+/// フォルダーへの読む許可のブックマークはこの PC の状態なので、戻しても今のものを残す。
 #[sqlx::test]
 async fn restoring_keeps_the_folder_bookmarks_of_this_pc(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;

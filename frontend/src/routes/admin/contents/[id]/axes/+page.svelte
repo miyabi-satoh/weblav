@@ -1049,7 +1049,7 @@
 								onclick={() => (selectedAxisId = axis.id)}
 							>
 								<p class="truncate text-sm font-medium">{axis.name}</p>
-								<!-- 「フォルダの第1階層」が「第1階 / 層」と割れないようにする。 -->
+								<!-- 「フォルダーの第1階層」が「第1階 / 層」と割れないようにする。 -->
 								<p class="text-xs break-keep text-muted-foreground">{axisSourceLabel(axis)}</p>
 								{#if !axis.filterable}
 									<p class="text-xs text-muted-foreground">{m.archive_axes_not_filterable()}</p>

@@ -47,7 +47,7 @@
 		document.documentElement.dir = getTextDirection();
 	});
 
-	// ブラウザが直接開いたファイルの取得に失敗すると、サーバーはここへ理由を載せて
+	// ブラウザーが直接開いたファイルの取得に失敗すると、サーバーはここへ理由を載せて
 	// 送ってくる (→ `src/api/browser.rs`)。生の JSON をタブに出さないため。
 	$effect(() => {
 		const code = page.url.searchParams.get('error');

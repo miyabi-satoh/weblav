@@ -1,5 +1,5 @@
 /**
- * 画面とメールの言語。「クエリの `lang` (`ja`・`en`) > cookie > ブラウザの言語 > 英語」で決める (→ docs/pro.md「アカウントと販売の窓口」)。
+ * 画面とメールの言語。「クエリの `lang` (`ja`・`en`) > cookie > ブラウザーの言語 > 英語」で決める (→ docs/pro.md「アカウントと販売の窓口」)。
  * WebLAV の画面から開くリンクには `lang` が付き、WebLAV で選んでいる言語に合わせる。
  */
 import type { Context } from 'hono';
@@ -117,7 +117,7 @@ const ja = {
 	mailSentTitle: 'メールを送りました',
 	mailSent: (email: string, minutes: number) =>
 		`${email} に届いたリンクを開いてください。リンクは${minutes}分で切れます。`,
-	mailSentHint: '届かないときは、迷惑メールのフォルダも確かめてください。',
+	mailSentHint: '届かないときは、迷惑メールのフォルダーも確かめてください。',
 	signIn: 'サインインする',
 	linkUnusableTitle: 'このリンクは使えません',
 	linkUnusable: 'リンクの期限が切れたか、もう使われています。サインインをやり直してください。',

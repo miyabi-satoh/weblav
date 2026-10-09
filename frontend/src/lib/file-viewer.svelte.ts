@@ -1,6 +1,6 @@
 /**
- * ページ内で PDF・動画・テキストなどを重ねて表示するビューアの状態 (→ docs/ui.md「PDF・動画・テキストのビューア」)。
- * 画面に置くのは `file-viewer.svelte` の1つだけ。前後には画像も並び、隣が画像なら画像のビューアへ渡す。
+ * ページ内で PDF・動画・テキストなどを重ねて表示するビューアーの状態 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
+ * 画面に置くのは `file-viewer.svelte` の1つだけ。前後には画像も並び、隣が画像なら画像のビューアーへ渡す。
  */
 
 import type { ViewerFileKind } from '$lib/file-kind';
@@ -29,11 +29,11 @@ let items = $state<ViewerItem[]>([]);
 let index = $state(0);
 let open = $state(false);
 /**
- * 隣が画像のとき、画像のビューアへ渡す (→ $lib/viewer-items.ts)。画像を読み終えるまで待つので、
- * 待つ間に閉じたら (Esc・画面の移動など) `signal` を中断し、後から画像のビューアを出さない。
+ * 隣が画像のとき、画像のビューアーへ渡す (→ $lib/viewer-items.ts)。画像を読み終えるまで待つので、
+ * 待つ間に閉じたら (Esc・画面の移動など) `signal` を中断し、後から画像のビューアーを出さない。
  */
 let leave: (target: number, signal: AbortSignal) => Promise<void> = async () => {};
-/** 画像のビューアへ渡している途中。待つ間の前後の操作は受けない (押しっぱなしで画像のビューアが重なるため)。 */
+/** 画像のビューアーへ渡している途中。待つ間の前後の操作は受けない (押しっぱなしで画像のビューアーが重なるため)。 */
 let handoff = $state<AbortController | null>(null);
 
 export const fileViewer = {
@@ -71,7 +71,7 @@ export const fileViewer = {
 		leave = onLeave;
 		open = true;
 	},
-	/** 前後のボタンの読み上げを、行き先の種類に合わせる (画像のビューアの端の矢印と同じ)。 */
+	/** 前後のボタンの読み上げを、行き先の種類に合わせる (画像のビューアーの端の矢印と同じ)。 */
 	get previousIsImage() {
 		return items[index - 1]?.type === 'image';
 	},

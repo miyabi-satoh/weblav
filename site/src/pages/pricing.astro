@@ -10,11 +10,11 @@ import Breadcrumb from '../components/Breadcrumb.astro';
 const { data } = (await getEntry('product', 'index'))!;
 ---
 
-<Base title="料金 | WebLAV" description="WebLAV は無料で使えます。Pro（税込み 月額 480 円・年額 4,800 円）にすると、ユーザーやフォルダなどの数の上限が外れます。">
+<Base title="料金 | WebLAV" description="WebLAV は無料で使えます。Pro（税込み 月額 480 円・年額 4,800 円）にすると、ユーザーやフォルダーなどの数の上限が外れます。">
   <Breadcrumb items={[{ label: 'WebLAV', href: '/' }, { label: '料金' }]} />
   <div class="pricing" style={`--c: ${data.color}`}>
     <h1>料金</h1>
-    <p class="lead">無料で使えます。Pro にすると、ユーザーやフォルダなどの数の上限が外れます。</p>
+    <p class="lead">無料で使えます。Pro にすると、ユーザーやフォルダーなどの数の上限が外れます。</p>
 
     <ul class="plans">
       <li class="plan">
@@ -23,7 +23,7 @@ const { data } = (await getEntry('product', 'index'))!;
         <ul class="features">
           <li>管理者 1&nbsp;人・ユーザー 3&nbsp;人まで</li>
           <li>アーカイブ 3&nbsp;個まで</li>
-          <li>フォルダ・ファイル・リンク 各 10&nbsp;個まで</li>
+          <li>フォルダー・ファイル・リンク 各 10&nbsp;個まで</li>
           <li>見られる形式やスマホからの使い方は Pro と同じ</li>
         </ul>
       </li>

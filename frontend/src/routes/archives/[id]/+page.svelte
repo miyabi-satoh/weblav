@@ -148,7 +148,7 @@
 			</div>
 		{/if}
 
-		<!-- フォルダが無いときは、件数を数える物が無い (下に「フォルダが見つかりません。」だけを出す)。 -->
+		<!-- フォルダーが無いときは、件数を数える物が無い (下に「フォルダーが見つかりません。」だけを出す)。 -->
 		{#if !view.folderMissing}
 			<div class="mt-2 flex min-h-11 items-center justify-between gap-3 text-sm">
 				<p class="text-muted-foreground">
@@ -160,7 +160,7 @@
 						: m.archive_view_count({ count: formatNumber(view.items.length) })}
 				</p>
 				{#if hasFilters}
-					<!-- パンくずと同じく実URL遷移にする。ブラウザの戻る/進むを機能させるため。 -->
+					<!-- パンくずと同じく実URL遷移にする。ブラウザーの戻る/進むを機能させるため。 -->
 					<!-- eslint-disable svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
 					<a
 						href={resetHref}

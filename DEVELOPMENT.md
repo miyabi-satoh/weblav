@@ -101,7 +101,7 @@ worktree で `cargo check` などを直に流すときは `SQLX_OFFLINE=true` �
   `data/dev-runtime/session.key` は消さなくてよい。
   ほかの環境に渡って適用されたマイグレーションは、編集も改名もせず、変更は新しいファイルとして足す (→ docs/architecture.md「既存テーブルの変更」)。
 - **公開範囲の継承を取りこぼさない**。
-  祖先の判定は、単体で開く全経路 (グループ・フォルダ・ファイル配信・アーカイブ) が `ensure_viewable` を呼ぶ (→ docs/access.md「祖先のグループを辿る」)。
+  祖先の判定は、単体で開く全経路 (グループ・フォルダー・ファイル配信・アーカイブ) が `ensure_viewable` を呼ぶ (→ docs/access.md「祖先のグループを辿る」)。
 - **公開範囲の比較を SQL に持ち込まない**。
   `visibility` は TEXT で保存しており、SQLite の文字列比較は `'authenticated' < 'public'` となる。
   レベルの順序 (`public` < `authenticated`) と逆になるため、`WHERE visibility < ?` は黙って期待と反対の結果を返す。
@@ -186,14 +186,14 @@ API を変更したら `just api-types` で型を再生成してコミットす�
 再生成漏れは pre-commit hook(lefthook)と `just ci` (CI が流す) の両方で検知する。
 
 エラーは常に `{"error":{"code":"...","message":"..."}}` の形で返る。
-ただしこれは `fetch` から呼ぶクライアント向けの契約で、**ブラウザが URL を直接開く経路 (ファイルのダウンロード) だけは画面へリダイレクトする** (→ `docs/architecture.md`「エラーの契約と表示言語」)。
+ただしこれは `fetch` から呼ぶクライアント向けの契約で、**ブラウザーが URL を直接開く経路 (ファイルのダウンロード) だけは画面へリダイレクトする** (→ `docs/architecture.md`「エラーの契約と表示言語」)。
 
 ## その他のコマンド
 
 ```sh
 just openapi     # openapi.json を生成
 just api-types   # openapi.json から frontend 用の TypeScript 型を生成
-just spec        # アプリ仕様書を生成して mo に追加する。ブラウザは開かない (要 mo)
+just spec        # アプリ仕様書を生成して mo に追加する。ブラウザーは開かない (要 mo)
 just sqlx-prepare # sqlx::query! 系マクロのオフラインキャッシュ (.sqlx/) を再生成 (要 開発用 DB)
 just licenses    # Rust の依存のライセンス表示 (frontend/static/third-party-licenses/rust.json) を再生成 (要 cargo-about)
 just fmt         # コード整形 (cargo fmt + prettier)
@@ -207,6 +207,6 @@ just clean       # ビルド成果物を削除
 
 ### アプリ仕様書
 
-原稿は公開していない (作者の手元にだけある)。そのフォルダを環境変数 `WEBLAV_SPEC_DIR` で渡す (相対パスはリポジトリの直下から)。
+原稿は公開していない (作者の手元にだけある)。そのフォルダーを環境変数 `WEBLAV_SPEC_DIR` で渡す (相対パスはリポジトリの直下から)。
 `just spec` でシード投入 → スクリーンショット撮影 → プレースホルダー置換のうえ `docs/generated/spec/` に生成する。
 要: `mo`。

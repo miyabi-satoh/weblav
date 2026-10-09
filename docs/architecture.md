@@ -35,7 +35,7 @@
 ### エラーの契約と表示言語
 
 API のエラーは共通の envelope で返す。
-**この契約は `fetch` から呼ぶ API クライアント向けのもの**で、ブラウザが URL を直接開く経路は別に扱う (下記)。
+**この契約は `fetch` から呼ぶ API クライアント向けのもの**で、ブラウザーが URL を直接開く経路は別に扱う (下記)。
 
 ```jsonc
 {
@@ -51,7 +51,7 @@ API のエラーは共通の envelope で返す。
 ```
 
 - **バックエンドが出す文字列は英語で統一する**。CLI の出力・ログ・`message` の全て。
-  翻訳はブラウザ側 (Paraglide) だけが持つ。表示言語を知っているのはブラウザであり、
+  翻訳はブラウザー側 (Paraglide) だけが持つ。表示言語を知っているのはブラウザーであり、
   サーバーに翻訳を持たせると同じ語を2箇所で管理することになるため。
 - `code` だけでは「入力内容を確認してください」までしか言えない。
   **値を見せないと直しようがない 422 には `detail` を添える**
@@ -62,7 +62,7 @@ API のエラーは共通の envelope で返す。
   増やす基準は「利用者がその値を知らないと直せないか」。
 - 未知の `kind` (サーバーだけ先に更新された場合) では、画面は `code` の汎用文言に落ちる。
 
-#### ブラウザが直接開く経路
+#### ブラウザーが直接開く経路
 
 ファイルは `<a href target="_blank">` で `GET /contents/{id}/download` をそのまま開く。
 ここで envelope をそのまま返すと、タブに `{"error":{"code":"unauthorized",...}}` が出るだけで、そこから戻る手がかりが無い。
@@ -86,7 +86,7 @@ API のエラーは共通の envelope で返す。
   `code` を取るには本文を読み切る必要があるうえ、ここで分けたい粒度は「ログインへ送るか、伝えて終わるか」しかない。
 - 文言は画面側が `?error=` の値から組み立てる。翻訳を持つのはフロントエンドだけという方針 (上記) を崩さない。
 - 掛けるのは**ダウンロード系のルートだけ**。他の API は今までどおり JSON を返す。
-- 401 の戻り先は API のパスになる。**SvelteKit のルートではないので `goto` では解決できず**、ログインの成功後は `window.location` でブラウザに開かせる。
+- 401 の戻り先は API のパスになる。**SvelteKit のルートではないので `goto` では解決できず**、ログインの成功後は `window.location` でブラウザーに開かせる。
   インライン表示できない型 (docx・zip 等) はダウンロードが始まるだけで文書は遷移しないので、先に `invalidateAll()` で画面の状態を更新しておく。
   ログイン済みで `/login?redirect=/api/...` を開いた場合は戻り先を捨ててトップへ送る (ファイルは開き直せるため、ここで凝らない)。
 - **管理画面のアーカイブのアイテム一覧では、未公開のアイテムもタイトルをリンクにし、管理用の配信 (→ archive.md「アイテムの配信」) で開く**。
@@ -109,8 +109,8 @@ API のエラーは共通の envelope で返す。
     LAN の外から使う要望が出たとき。
 - インターネットには公開しない。閉じたネットワーク (LAN) での運用を前提にする。
   HTTPS 終端を前段に置く構成 (上記) を採った運用者は、`session.secure_cookie` を自分で有効にする。
-  **トレイがブラウザで開くのは `http://localhost:<port>`** (`127.0.0.1` ではなく)。
-  `secure_cookie` を有効にすると、Edge・Chrome は HTTP の `127.0.0.1` ではログインの Cookie を受け取らず、`localhost` だけを例外にするため (実測)。PC の前での管理 (→ access.md「初回セットアップ」・folders.md「公開できるフォルダ」) が HTTPS 化の後も続けられる。
+  **トレイがブラウザーで開くのは `http://localhost:<port>`** (`127.0.0.1` ではなく)。
+  `secure_cookie` を有効にすると、Edge・Chrome は HTTP の `127.0.0.1` ではログインの Cookie を受け取らず、`localhost` だけを例外にするため (実測)。PC の前での管理 (→ access.md「初回セットアップ」・folders.md「公開できるフォルダー」) が HTTPS 化の後も続けられる。
   非ループバックで待ち受けながら無効のままであることは起動時に記録するが、
   **既定の構成で必ず通るので `warn` にはしない** (推奨どおり設置した管理者が毎回警告を見ることになり、ログ全体を無視させるため)。
 - **サーバーのアドレスはタスクトレイのメニューにもツールチップにも出さない**。
@@ -143,9 +143,9 @@ API のエラーは共通の envelope で返す。
 
 ### タスクトレイの表示言語
 
-- **メニュー (`ブラウザで開く`/`Quit` に相当する項目) は OS の表示言語に合わせる**。日本語の OS なら
+- **メニュー (`ブラウザーで開く`/`Quit` に相当する項目) は OS の表示言語に合わせる**。日本語の OS なら
   日本語、それ以外は英語にする (二択、フロントエンドの言語トグルとは独立)。
-  共有フォルダの設定より前に、使うのが難しい人が最初に触るのがトレイのため。
+  共有フォルダーの設定より前に、使うのが難しい人が最初に触るのがトレイのため。
   `src/tray/mod.rs` が判定する。Windows は `GetUserDefaultUILanguage`、macOS は OS の優先する言語の一覧
   (`NSLocale.preferredLanguages`) の先頭、Linux は POSIX のロケール環境変数
   (`LC_ALL` → `LC_MESSAGES` → `LANG` の優先順) を見る
@@ -200,7 +200,7 @@ type ごとの必須カラムの検証 (`url` / `path` / `blob_hash`) は結局
 既存のマイグレーションは他のワークツリーへ適用済みのため書き換えない (下記)。
 既存の行は `created_by` が NULL (作成者なし) になる。
 
-コンテンツは表示順 (`position`) を持たない (→ ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+コンテンツは表示順 (`position`) を持たない (→ ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
 既存の列は、索引を作り直してから `ALTER TABLE DROP COLUMN` する新しいマイグレーションで落とす。
 
 **一度でもマイグレーションを他の環境へ共有・適用した時点で、この判断は使えなくなる**。
@@ -253,7 +253,7 @@ CREATE INDEX idx_contents_created_by ON contents (created_by);
 CREATE TABLE archive_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     archive_id INTEGER NOT NULL REFERENCES contents (id) ON DELETE CASCADE,
-    -- アーカイブの登録先フォルダからの相対パス。区切りは '/' に正規化して保存する。
+    -- アーカイブの登録先フォルダーからの相対パス。区切りは '/' に正規化して保存する。
     -- 同一性の判断はこの値のみで行う。
     rel_path TEXT NOT NULL,
     -- 0=非公開。スキャンで新しく見つかった行は必ず 0 から始まる。
@@ -315,7 +315,7 @@ CREATE TABLE site_settings (
     home_heading TEXT NOT NULL DEFAULT ''
 );
 
--- 公開できるフォルダ (→ folders.md「公開できるフォルダ」)。path は canonicalize 済みの絶対パス。
+-- 公開できるフォルダー (→ folders.md「公開できるフォルダー」)。path は canonicalize 済みの絶対パス。
 -- 削除しても行は残し deleted_at を付ける (残ったコンテンツの場所を、起点を隠して出すため)。
 CREATE TABLE roots (
     id INTEGER PRIMARY KEY,
@@ -326,7 +326,7 @@ CREATE TABLE roots (
 );
 CREATE UNIQUE INDEX roots_name_nocase ON roots (name COLLATE NOCASE) WHERE deleted_at IS NULL;
 
--- macOS のサンドボックスで、窓で選んだフォルダを次の起動でも読むためのブックマーク (→ distribution.md「ビルド・配布の方法」)。
+-- macOS のサンドボックスで、窓で選んだフォルダーを次の起動でも読むためのブックマーク (→ distribution.md「ビルド・配布の方法」)。
 -- 窓で選んだ時点 (登録の前) に書くので roots と分ける。path は canonicalize 済みの絶対パス。
 CREATE TABLE folder_bookmarks (
     path TEXT PRIMARY KEY NOT NULL,
