@@ -34,8 +34,14 @@ export class ListFilterState {
 				this.value = incoming;
 			});
 		});
-		// 書きかけの URL を、移った先の画面に書かないよう取り消す。
-		beforeNavigate(() => clearTimeout(this.#pendingWrite));
+		// 書きかけは、移る前に今の画面の履歴へ書く (戻ったときに語が残るように)。
+		// 戻る・進むでは履歴がもう移った先を指しているので、書かずに取り消す。
+		beforeNavigate((navigation) => {
+			if (this.#pendingWrite === undefined) return;
+			clearTimeout(this.#pendingWrite);
+			this.#pendingWrite = undefined;
+			if (navigation.type !== 'popstate') this.#write();
+		});
 		$effect(() => () => clearTimeout(this.#pendingWrite));
 	}
 
@@ -60,7 +66,10 @@ export class ListFilterState {
 	set(next: string) {
 		this.value = next;
 		clearTimeout(this.#pendingWrite);
-		this.#pendingWrite = setTimeout(() => this.#write(), URL_WRITE_DELAY_MS);
+		this.#pendingWrite = setTimeout(() => {
+			this.#pendingWrite = undefined;
+			this.#write();
+		}, URL_WRITE_DELAY_MS);
 	}
 
 	#write() {

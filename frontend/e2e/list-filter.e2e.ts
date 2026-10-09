@@ -22,14 +22,15 @@ test('一覧の絞り込み: 打つと当たる行だけが残り、語が URL �
 			await expect(rows).toHaveCount(1);
 			await expect(rows.first()).toContainText('2023');
 			await expect(rows.first().locator('mark')).not.toHaveCount(0);
-			await expect(page).toHaveURL(/[?&]filter=23%E3%83%AA/);
 
-			// 別の画面へ行って戻っても、語と絞った行が残る (shallow routing の語は page.state から戻る)。
+			// URL に写す前 (打ち止めて 0.3 秒) に別の画面へ移って戻っても、語と絞った行が残り、URL にも載る。
+			// 移る前に書きかけを書き、shallow routing の語は page.state から戻るため。
 			await page.getByRole('link', { name: 'WebLAV', exact: true }).click();
 			await page.waitForURL((url) => url.pathname === '/');
 			await page.goBack();
 			await expect(input).toHaveValue('23リ');
 			await expect(rows).toHaveCount(1);
+			await expect(page).toHaveURL(/[?&]filter=23%E3%83%AA/);
 		}
 	);
 });
