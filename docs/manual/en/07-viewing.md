@@ -43,4 +43,6 @@ Some contents are visible only to signed-in users (→ [Sign in and display](03-
 
   ![An open PDF, with zoom and Open in new tab buttons at the top and buttons at the sides to move between files](images/viewing-viewer.webp)
 
+- You can also control videos with the same keys as YouTube (Space or K to play or pause, J and L to go back or forward 10 seconds, M to mute, F for full screen, Home and End to jump to the start or end, 0 to 9 to jump to 0% to 90% of the video).
+
 - Select a link to open it in a new tab. If the link points to a file such as a PDF, video, audio file, or image, it opens in place, just like a file. Select a file whose name ends with `.links.toml` to list the links in it.
