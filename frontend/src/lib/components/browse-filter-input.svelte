@@ -19,7 +19,7 @@
 	<!-- 消すボタンを label の外に置く。中に置くと、ボタンの文言まで入力欄の名前に入るため。 -->
 	<div
 		class={[
-			'flex h-14 w-48 items-center gap-1 rounded-lg border border-input bg-background pr-1 pl-4 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 dark:bg-input/30',
+			'flex h-14 w-40 items-center gap-1 rounded-lg border border-input bg-background pr-1 pl-4 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 dark:bg-input/30',
 			filter.active && 'border-primary bg-primary/10 dark:bg-primary/10'
 		]}
 	>
@@ -43,7 +43,7 @@
 				onclick={clear}
 			>
 				<XIcon class="size-4" />
-				<span class="sr-only">{m.browse_filter_clear()}</span>
+				<span class="sr-only">{m.browse_filter_clear_button()}</span>
 			</button>
 		{/if}
 	</div>

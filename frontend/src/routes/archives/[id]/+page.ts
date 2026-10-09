@@ -1,7 +1,7 @@
 import { client } from '$lib/api/client';
 import { fetchOrError } from '$lib/api/load';
 import { parseArchiveSort } from '$lib/archive-sort';
-import { LIST_FILTER_QUERY } from '$lib/list-filter.svelte';
+import { LIST_FILTER_QUERY } from '$lib/list-filter';
 import * as m from '$lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 

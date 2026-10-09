@@ -1,5 +1,8 @@
 // 一覧のページ内の絞り込みの当たり方 (→ docs/ui.md「一覧の絞り込み」)。
 
+/** 絞り込みの語を持つ URL クエリのキー。アーカイブの軸の名前としては使えない (→ docs/ui.md「一覧の絞り込み」)。 */
+export const LIST_FILTER_QUERY = 'filter';
+
 /** 揃える。全角と半角・大文字と小文字を区別しない (ヘッダーの検索と同じ揃え方)。 */
 function normalize(text: string): string {
 	return text.normalize('NFKC').toLowerCase();

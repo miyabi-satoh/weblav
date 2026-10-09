@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FilterHighlight from '$lib/components/filter-highlight.svelte';
 	import { listFilter } from '$lib/list-filter.svelte';
-	import { pageEmptyTextClass } from '$lib/page-layout';
+	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
 	import { resolve } from '$app/paths';
 	import { contentDownloadHref, contentRemoteHref, contentThumbnailHref } from '$lib/api/urls';
 	import { contentTypeIcon } from '$lib/content-types';
@@ -54,9 +54,7 @@
 
 	// ページ内の絞り込みが置かれていれば、タイトルで行を絞る (→ docs/ui.md「一覧の絞り込み」)。
 	const filter = listFilter();
-	let entries = $derived(
-		filter?.active ? allEntries.filter((item) => filter.match(item.title) !== null) : allEntries
-	);
+	let entries = $derived(filter ? filter.apply(allEntries, (item) => item.title) : allEntries);
 
 	/** URL のファイルを指す link コンテンツなら、その種類。サーバーの中継で、ファイルと同じ行・ビューアで開く (→ docs/ui.md「URL のファイル」)。 */
 	function remoteKind(content: ContentEntry) {
@@ -181,7 +179,7 @@
 {/snippet}
 
 {#if filter?.active && entries.length === 0}
-	<p class={pageEmptyTextClass}>{m.browse_filter_empty({ query: filter.value.trim() })}</p>
+	<ListFilterEmpty />
 {:else}
 	<ul class={browseListClass()}>
 		{#each entries as content (content.id)}

@@ -19,8 +19,7 @@
 <script lang="ts">
 	import FilterHighlight from '$lib/components/filter-highlight.svelte';
 	import { listFilter } from '$lib/list-filter.svelte';
-	import { pageEmptyTextClass } from '$lib/page-layout';
-	import * as m from '$lib/paraglide/messages.js';
+	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
 	import { linksFileRemoteHref } from '$lib/api/urls';
 	import { remoteFileKind, remoteFileName } from '$lib/file-kind';
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
@@ -53,9 +52,7 @@
 
 	// ページ内の絞り込みが置かれていれば、タイトルで行を絞る (→ docs/ui.md「一覧の絞り込み」)。
 	const filter = listFilter();
-	let rows = $derived(
-		filter?.active ? allRows.filter((item) => filter.match(linkTitle(item)) !== null) : allRows
-	);
+	let rows = $derived(filter ? filter.apply(allRows, linkTitle) : allRows);
 
 	/** ページのタイトルが取れなければ、ファイルはファイル名、ほかはホスト名 (リンクのカードと同じ)。 */
 	function linkTitle(row: LinksEntryRow): string {
@@ -114,7 +111,7 @@
 {/snippet}
 
 {#if filter?.active && rows.length === 0}
-	<p class={pageEmptyTextClass}>{m.browse_filter_empty({ query: filter.value.trim() })}</p>
+	<ListFilterEmpty />
 {:else}
 	<ul class={browseListClass()}>
 		{#each rows as row, index (`${index}:${row.contentId}:${row.url}`)}

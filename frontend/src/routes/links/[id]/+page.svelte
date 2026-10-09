@@ -84,7 +84,7 @@
 		<h1 class={pageHeadingClass}>{linksFile.title}</h1>
 
 		{#if linksFile.links?.length}
-			<div class={['mb-4', browseControlsClass]}>
+			<div class={['mb-4 flex-wrap', browseControlsClass]}>
 				<BrowseFilterInput />
 				<BrowseLayoutToggle />
 			</div>

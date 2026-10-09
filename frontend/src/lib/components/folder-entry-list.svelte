@@ -17,8 +17,7 @@
 <script lang="ts">
 	import FilterHighlight from '$lib/components/filter-highlight.svelte';
 	import { listFilter } from '$lib/list-filter.svelte';
-	import { pageEmptyTextClass } from '$lib/page-layout';
-	import * as m from '$lib/paraglide/messages.js';
+	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
 	import { contentDownloadHref, contentThumbnailHref } from '$lib/api/urls';
 	import { formatByteSize, formatDate } from '$lib/format';
 	import { isAudioFileName, isLinksFileName, viewerFileKind } from '$lib/file-kind';
@@ -58,9 +57,7 @@
 
 	// ページ内の絞り込みが置かれていれば、タイトルで行を絞る (→ docs/ui.md「一覧の絞り込み」)。
 	const filter = listFilter();
-	let rows = $derived(
-		filter?.active ? allRows.filter((item) => filter.match(item.entry.name) !== null) : allRows
-	);
+	let rows = $derived(filter ? filter.apply(allRows, (item) => item.entry.name) : allRows);
 
 	function downloadHref(row: FolderEntryRow): string {
 		return contentDownloadHref(row.contentId, row.path);
@@ -129,7 +126,7 @@
 {/snippet}
 
 {#if filter?.active && rows.length === 0}
-	<p class={pageEmptyTextClass}>{m.browse_filter_empty({ query: filter.value.trim() })}</p>
+	<ListFilterEmpty />
 {:else}
 	<ul class={browseListClass()}>
 		{#each rows as row (`${row.contentId}:${row.path}`)}

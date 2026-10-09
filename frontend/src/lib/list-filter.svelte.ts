@@ -1,13 +1,16 @@
 import { getContext, setContext, untrack } from 'svelte';
-import { replaceState } from '$app/navigation';
+import { beforeNavigate, replaceState } from '$app/navigation';
 import { page } from '$app/state';
 import { withQuery } from '$lib/href';
-import { matchFilter, parseFilterTerms } from '$lib/list-filter';
-
-/** 絞り込みの語を持つ URL クエリのキー。アーカイブの軸の名前としては使えない (→ docs/ui.md「一覧の絞り込み」)。 */
-export const LIST_FILTER_QUERY = 'filter';
+import { LIST_FILTER_QUERY, matchFilter, parseFilterTerms } from '$lib/list-filter';
 
 const CONTEXT_KEY = Symbol('list-filter');
+
+/**
+ * 打ち止めてから URL に写すまでの間。Safari は短い間に何度も履歴を書き換えると例外を投げ、
+ * IME の変換中も入力が届くため、打つたびには写さない。行はその場で絞る。
+ */
+const URL_WRITE_DELAY_MS = 300;
 
 /**
  * 一覧のページ内の絞り込み (→ docs/ui.md「一覧の絞り込み」)。ページが作って context に置き、
@@ -16,18 +19,24 @@ const CONTEXT_KEY = Symbol('list-filter');
 export class ListFilterState {
 	value = $state('');
 	terms = $derived(parseFilterTerms(this.value));
-	/** 最後に URL へ書いた語。これと違う語が URL に来たら、戻る・進むなど外で変わったもの。 */
-	#written = '';
+	/** 前に読んだ、外から来た語。変わったときだけ受け取る (同じ語での読み込み直しで、打った値を戻さないため)。 */
+	#seen: string | undefined;
+	#pendingWrite: ReturnType<typeof setTimeout> | undefined;
 
 	constructor() {
+		// shallow routing の replaceState は page.url を変えないので、語は page.state にも持ち、そちらを先に読む。
+		// 戻る・進むでは page.state が戻り、読み込み直し (再読み込み・共有されたリンク) では URL から読む。
 		$effect.pre(() => {
-			const fromUrl = page.url.searchParams.get(LIST_FILTER_QUERY) ?? '';
+			const incoming = page.state.listFilter ?? page.url.searchParams.get(LIST_FILTER_QUERY) ?? '';
 			untrack(() => {
-				if (fromUrl === this.#written) return;
-				this.value = fromUrl;
-				this.#written = fromUrl;
+				if (incoming === this.#seen) return;
+				this.#seen = incoming;
+				this.value = incoming;
 			});
 		});
+		// 書きかけの URL を、移った先の画面に書かないよう取り消す。
+		beforeNavigate(() => clearTimeout(this.#pendingWrite));
+		$effect(() => () => clearTimeout(this.#pendingWrite));
 	}
 
 	get active(): boolean {
@@ -39,14 +48,24 @@ export class ListFilterState {
 		return this.active ? matchFilter(text, this.terms) : [];
 	}
 
+	/** タイトルで当たる行だけを、並びを変えずに返す。 */
+	apply<T>(rows: T[], titleOf: (row: T) => string): T[] {
+		return this.active ? rows.filter((row) => this.match(titleOf(row)) !== null) : rows;
+	}
+
 	/**
-	 * 語を変え、URL にも写す。読み込み直さないよう、履歴は shallow routing で置き換える。
+	 * 語を変え、間を置いて URL にも写す。読み込み直さないよう、履歴は shallow routing で置き換える。
 	 * 打つたびに戻るの段を増やさないため。
 	 */
 	set(next: string) {
 		this.value = next;
-		const query = next.trim() === '' ? '' : next;
-		this.#written = query;
+		clearTimeout(this.#pendingWrite);
+		this.#pendingWrite = setTimeout(() => this.#write(), URL_WRITE_DELAY_MS);
+	}
+
+	#write() {
+		const query = this.value.trim() === '' ? '' : this.value;
+		this.#seen = query;
 		const params = Object.fromEntries(page.url.searchParams);
 		delete params[LIST_FILTER_QUERY];
 		const href = withQuery(
@@ -54,7 +73,7 @@ export class ListFilterState {
 			query === '' ? params : { ...params, [LIST_FILTER_QUERY]: query }
 		);
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の URL のパスをそのまま使う (→ AGENTS.md「コードの規約」)
-		replaceState(href, page.state);
+		replaceState(href, { ...page.state, listFilter: query });
 	}
 
 	/** ほかのクエリ (並び順など) へ移る href に、今の語を引き継ぐための項目。 */

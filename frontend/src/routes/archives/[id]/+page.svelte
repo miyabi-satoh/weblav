@@ -91,7 +91,13 @@
 
 	let rows = $derived(view.items.map((item) => ({ archiveId: contentId, item })));
 
-	let resetHref = $derived(resolve('/archives/[id]', { id: String(contentId) }));
+	// 軸の絞り込みだけを解除し、名前の絞り込みは残す。別の欄で打ったもので、解除の対象に見えないため。
+	let resetHref = $derived(
+		withQuery(resolve('/archives/[id]', { id: String(contentId) }), listFilter.query)
+	);
+
+	/** 名前の絞り込みで残る行の数。一覧の部品と同じくタイトルで照らす。 */
+	let shownCount = $derived(listFilter.apply(view.items, (item) => item.title).length);
 </script>
 
 <svelte:head><title>{pageTitle(view.archiveTitle)}</title></svelte:head>
@@ -146,16 +152,23 @@
 		{#if !view.folderMissing}
 			<div class="mt-2 flex min-h-11 items-center justify-between gap-3 text-sm">
 				<p class="text-muted-foreground">
-					{m.archive_view_count({ count: formatNumber(view.items.length) })}
+					{listFilter.active
+						? m.archive_view_count_filtered({
+								shown: formatNumber(shownCount),
+								count: formatNumber(view.items.length)
+							})
+						: m.archive_view_count({ count: formatNumber(view.items.length) })}
 				</p>
 				{#if hasFilters}
 					<!-- パンくずと同じく実URL遷移にする。ブラウザの戻る/進むを機能させるため。 -->
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
 					<a
 						href={resetHref}
 						class="inline-flex h-11 items-center px-1 text-primary underline underline-offset-4"
 					>
 						{m.archive_view_reset_filters()}
 					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				{/if}
 			</div>
 		{/if}
