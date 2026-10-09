@@ -5,7 +5,7 @@
 Check these in order.
 
 1. Check that the device is connected to the same Wi-Fi as the server computer.
-2. Check that you are opening the current address shown by “Show QR code...” under the share icon at the top right.
+2. Check that you are opening the current address. To see it, select the share icon at the top right, then choose “Show QR code...”.
 
    ![The Share this page screen](images/share-qr.webp)
 
@@ -22,7 +22,7 @@ Check these in order.
 ## The port number changed
 
 This applies when the menu says “Port 3000 was unavailable; running on 3001”.
-Open the current address shown by “Show QR code...” under the share icon at the top right.
+Open the current address. To see it, select the share icon at the top right, then choose “Show QR code...”.
 
 If it changes often, change the port.
 
