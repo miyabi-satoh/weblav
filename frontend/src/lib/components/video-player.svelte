@@ -14,6 +14,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import MediaSeekBar from '$lib/components/media-seek-bar.svelte';
 	import { clampTime, SKIP_SECONDS } from '$lib/media';
+	import { videoKeyAction } from '$lib/video-keys';
 
 	// ファイルのビューアの動画 (→ docs/ui.md「PDF・動画・テキストのビューア」)。
 	// 操作は `<video controls>` を使わずに自前で置く。
@@ -92,6 +93,26 @@
 		event.stopPropagation();
 	}
 
+	// 左右キーのほかは、ビューアのどこにフォーカスがあっても効かせる (動画サイトと同じキー → $lib/video-keys.ts)。
+	// 開いた直後のフォーカスは動画の外にあり、動画の中だけで受けると押しても効かないため。
+	function handleDocumentKeydown(event: KeyboardEvent) {
+		const action = videoKeyAction(event);
+		if (!action) return;
+		if (action.type === 'toggle-play') togglePlay();
+		else if (action.type === 'rewind') seek(currentTime - SKIP_SECONDS);
+		else if (action.type === 'forward') seek(currentTime + SKIP_SECONDS);
+		else if (action.type === 'toggle-mute') muted = !muted;
+		else if (action.type === 'toggle-fullscreen') {
+			if (!canFullscreen) return;
+			// フォーカスが全画面にする要素の外 (「新しいタブで開く」など) にあると、body に落ちて左右キーがどこにも届かなくなる。
+			// ボタンで入ったときと同じく、動画の中に置く。
+			if (!fullscreen) video?.focus({ preventScroll: true });
+			toggleFullscreen();
+		} else if (duration > 0) seek(duration * action.fraction);
+		else return;
+		event.preventDefault();
+	}
+
 	function toggleFullscreen() {
 		if (!container || !video) return;
 		if (fullscreen) {
@@ -107,6 +128,8 @@
 		}
 	}
 </script>
+
+<svelte:document onkeydown={handleDocumentKeydown} />
 
 {#snippet iconButton(Icon: typeof PlayIcon, label: string, onclick: () => void, pressed?: boolean)}
 	<button

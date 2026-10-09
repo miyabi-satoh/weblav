@@ -40,6 +40,7 @@ Some contents are visible only to signed-in users (→ [Sign in and display](03-
 
 - Select an image, PDF, video, text, Word, Excel, or PowerPoint file to open it in place. Use the buttons at the sides or swipe to move between files.
 - To print or save, first open it in a new tab with the arrow button at the top.
+- You can also control videos with the same keys as YouTube (Space or K to play or pause, J and L to go back or forward 10 seconds, M to mute, F for full screen).
 
   ![An open PDF, with zoom and Open in new tab buttons at the top and buttons at the sides to move between files](images/viewing-viewer.webp)
 

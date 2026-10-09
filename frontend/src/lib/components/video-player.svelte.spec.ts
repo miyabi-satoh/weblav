@@ -22,4 +22,11 @@ describe('VideoPlayer', () => {
 		await render(VideoPlayer, { src: '', onerror: () => {} });
 		expect(document.querySelector('video')?.loop).toBe(true);
 	});
+
+	it('video keys work while focus is outside the player', async () => {
+		await render(VideoPlayer, { src: '', onerror: () => {} });
+		await userEvent.keyboard('m');
+
+		expect(document.querySelector('video')?.muted).toBe(true);
+	});
 });
