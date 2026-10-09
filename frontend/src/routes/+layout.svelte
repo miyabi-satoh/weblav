@@ -30,7 +30,10 @@
 
 	const errorDialog = new ErrorDialogState();
 
-	let searchScope = $derived(searchScopeOf(page.route.id, page.params, page.url));
+	// エラーの画面 (消えたグループなど) は、開けない場所なので範囲にしない。
+	let searchScope = $derived(
+		page.error ? null : searchScopeOf(page.route.id, page.params, page.url)
+	);
 
 	let playerHeight = $state(0);
 

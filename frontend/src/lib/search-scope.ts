@@ -33,7 +33,8 @@ export function searchScopeOf(
 /** 検索の画面の URL に載っている範囲。 */
 export function searchScopeFromQuery(url: URL): SearchScopeQuery | null {
 	const within = url.searchParams.get('within');
-	if (within === null) return null;
+	// 手で書き換えた URL などで id でなければ、範囲を持たない。
+	if (within === null || !/^\d+$/.test(within)) return null;
 	return withPath(within, url.searchParams.get('path') ?? '');
 }
 

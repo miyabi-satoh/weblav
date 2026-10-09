@@ -1976,6 +1976,22 @@ pub(super) struct SearchScope {
     pub(super) title: String,
 }
 
+/// 範囲にできる種類と階層の形か。階層を持てるのはフォルダだけで、空の区切り (`a//b`・末尾の `/`) は
+/// 受けない。`resolve_path` は区切りを均して通すが、範囲の名前と結果のパスがずれるため。
+fn check_scope_target(content_type: ContentType, path: &str) -> Result<(), AppError> {
+    let container = matches!(
+        content_type,
+        ContentType::Group | ContentType::Folder | ContentType::Archive
+    );
+    let path_ok = path.is_empty()
+        || (content_type == ContentType::Folder && path.split('/').all(|part| !part.is_empty()));
+    if container && path_ok {
+        Ok(())
+    } else {
+        Err(AppError::NotFound)
+    }
+}
+
 /// 範囲に指定されたグループ・フォルダ・アーカイブを、開けることを確かめて引く。
 /// 開けなければ、その画面を開くのと同じく 401/404 にする。ほかの種類と、無い階層は 404。
 pub(super) async fn search_scope(
@@ -1991,19 +2007,11 @@ pub(super) async fn search_scope(
     .fetch_optional(&state.pool)
     .await?
     .ok_or(AppError::NotFound)?;
-    if !matches!(
-        row.content_type,
-        ContentType::Group | ContentType::Folder | ContentType::Archive
-    ) {
-        return Err(AppError::NotFound);
-    }
+    check_scope_target(row.content_type, path)?;
     // ファイルシステムに触る前に確かめる (理由は `folder_root` と同じ)。
     ensure_viewable(&state.pool, viewer, id).await?;
     let mut title = row.title;
     if !path.is_empty() {
-        if row.content_type != ContentType::Folder {
-            return Err(AppError::NotFound);
-        }
         let target = resolve_path(state, &folder_path(row.path)?, path).await?;
         if !path_is_dir(&target).await? {
             return Err(AppError::NotFound);
@@ -3128,6 +3136,30 @@ mod tests {
             sorted(listable_ids(&Viewer::Anonymous, &rows, Some(3))),
             [4]
         );
+    }
+
+    #[test]
+    fn check_scope_target_accepts_only_containers_and_clean_folder_levels() {
+        use ContentType::{Archive, File, Folder, Group, Link};
+        for (content_type, path, ok) in [
+            (Group, "", true),
+            (Folder, "", true),
+            (Archive, "", true),
+            (Folder, "2024/リスニング", true),
+            (Link, "", false),
+            (File, "", false),
+            (Group, "2024", false),
+            (Archive, "2024", false),
+            (Folder, "2024/", false),
+            (Folder, "/2024", false),
+            (Folder, "2024//a", false),
+        ] {
+            assert_eq!(
+                check_scope_target(content_type, path).is_ok(),
+                ok,
+                "{content_type:?} {path:?}"
+            );
+        }
     }
 
     #[test]

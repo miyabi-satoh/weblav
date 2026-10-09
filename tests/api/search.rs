@@ -213,21 +213,12 @@ async fn search_within_a_folder_level_walks_only_below_it(pool: SqlitePool) {
     assert_eq!(found["scopeTitle"], "2024", "{found}");
 }
 
-/// 範囲は、その画面を開けるグループ・フォルダ・アーカイブと、フォルダの中の階層だけ。
+/// 範囲の場所を開けなければ、その画面と同じく 401/404 にする。
+/// 範囲にできる種類と階層の形は `src/api/contents.rs` の単体テストで場合ごとに見る。
 #[sqlx::test]
 async fn search_within_rejects_places_that_cannot_be_opened(pool: SqlitePool) {
     let members = insert_group_under(&pool, "ログインした人", "authenticated", None).await;
     let link = insert_link_by(&pool, "リンク", "public", None, None).await;
-    let dir = temp_test_dir("search-scope-reject");
-    let folder = insert_folder_by(
-        &pool,
-        "教材",
-        dir.display().to_string(),
-        "public",
-        None,
-        None,
-    )
-    .await;
     let app = test_app(pool).await;
 
     let (status, body) = send_anon(
@@ -237,18 +228,6 @@ async fn search_within_rejects_places_that_cannot_be_opened(pool: SqlitePool) {
     )
     .await;
     assert_error(status, &body, StatusCode::UNAUTHORIZED, "unauthorized");
-    let (status, body) = send_anon(
-        app.clone(),
-        "GET",
-        &search_uri("a", &format!("within={link}")),
-    )
-    .await;
-    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
-    let (status, body) = send_anon(
-        app,
-        "GET",
-        &search_uri("a", &format!("within={folder}&path=..")),
-    )
-    .await;
+    let (status, body) = send_anon(app, "GET", &search_uri("a", &format!("within={link}"))).await;
     assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
 }

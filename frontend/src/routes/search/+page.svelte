@@ -15,7 +15,7 @@
 	import FolderEntryList, { type FolderEntryRow } from '$lib/components/folder-entry-list.svelte';
 	import LinksEntryList, { type LinksEntryRow } from '$lib/components/links-entry-list.svelte';
 	import type { components } from '$lib/api/schema';
-	import { browseControlsClass, browseGutterClass } from '$lib/list-row';
+	import { browseControlsClass, browseGutterClass, browseToggleItemClass } from '$lib/list-row';
 	import { pageEmptyTextClass, pageHeadingClass } from '$lib/page-layout';
 	import { pageTitle } from '$lib/page-title';
 	import { searchHref } from '$lib/search-scope';
@@ -24,11 +24,10 @@
 
 	type ContentEntry = components['schemas']['ContentResponse'];
 
-	const scopeItemClass =
-		'h-14 min-w-0 px-4 bg-background text-muted-foreground data-[state=on]:bg-primary/10 data-[state=on]:text-primary';
-
 	/** 打ち止めてから探すまでの間。1文字ごとに問い合わせず、打っている間に結果が揺れないようにする。 */
 	const SEARCH_DELAY_MS = 300;
+	/** 打ち止め待ちの検索。範囲を切り替えたら取り消す。残すと、切り替える前の範囲で URL を上書きするため。 */
+	let pendingSearch: ReturnType<typeof setTimeout> | undefined;
 
 	let { data }: PageProps = $props();
 
@@ -67,15 +66,20 @@
 	function switchScope(all: boolean) {
 		const q = query.trim();
 		sent = q;
+		clearTimeout(pendingSearch);
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- searchHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」)
-		void goto(searchHref(q, data.scope, all), { replaceState: true, noScroll: true });
+		void goto(searchHref(q, data.scope, all), {
+			replaceState: true,
+			keepFocus: true,
+			noScroll: true
+		});
 	}
 
 	$effect(() => {
 		const next = query.trim();
 		if (next === data.q.trim()) return;
-		const timer = setTimeout(() => search(next), SEARCH_DELAY_MS);
-		return () => clearTimeout(timer);
+		pendingSearch = setTimeout(() => search(next), SEARCH_DELAY_MS);
+		return () => clearTimeout(pendingSearch);
 	});
 
 	function handleSubmit(event: SubmitEvent) {
@@ -214,10 +218,10 @@
 							}
 						}
 					>
-						<ToggleGroup.Item value="within" class={scopeItemClass}>
+						<ToggleGroup.Item value="within" class={['min-w-0 px-4', browseToggleItemClass]}>
 							<span class="truncate">{m.search_scope_within({ title: data.scopeTitle })}</span>
 						</ToggleGroup.Item>
-						<ToggleGroup.Item value="all" class={['shrink-0', scopeItemClass]}>
+						<ToggleGroup.Item value="all" class={['shrink-0 px-4', browseToggleItemClass]}>
 							{m.search_scope_all()}
 						</ToggleGroup.Item>
 					</ToggleGroup.Root>

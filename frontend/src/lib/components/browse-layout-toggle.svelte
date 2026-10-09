@@ -4,6 +4,7 @@
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import { browseLayout, type BrowseLayout } from '$lib/browse-layout.svelte';
 	import * as m from '$lib/paraglide/messages.js';
+	import { browseToggleItemClass } from '$lib/list-row';
 
 	const options: { value: BrowseLayout; label: () => string; icon: typeof ListIcon }[] = [
 		{ value: 'list', label: m.browse_layout_list, icon: ListIcon },
@@ -28,7 +29,7 @@
 		<ToggleGroup.Item
 			value={option.value}
 			aria-label={option.label()}
-			class="h-14 w-12 bg-background text-muted-foreground data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
+			class={['w-12', browseToggleItemClass]}
 		>
 			<option.icon class="size-5" strokeWidth={1.8} />
 		</ToggleGroup.Item>
