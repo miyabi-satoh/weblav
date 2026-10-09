@@ -228,7 +228,7 @@ async fn start_link(
     Ok(Json(response(&state).await?))
 }
 
-/// 結びかけを捨てる (「やめる」)。
+/// 結びかけを捨てる (「キャンセル」)。
 #[utoipa::path(
     delete,
     path = "/admin/pro/link",
@@ -306,7 +306,7 @@ async fn accept_code(
     Ok(Json(response(&state).await?))
 }
 
-/// 条件によらず、その場で窓口に確かめる (「今すぐ確かめる」)。買った直後・外した直後に合わせるため。
+/// 条件によらず、その場で窓口に確かめる (「今すぐ確認する」)。買った直後・外した直後に合わせるため。
 #[utoipa::path(
     post,
     path = "/admin/pro/check",

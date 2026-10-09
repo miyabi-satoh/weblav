@@ -506,7 +506,7 @@ async function shootFree() {
 			await page.route('**/api/v1/admin/pro/link/poll', linking);
 			await goto(page, '/admin/settings');
 			await page.getByRole('button', { name: 'Pro にする' }).click();
-			const cancel = page.getByRole('button', { name: 'やめる' });
+			const cancel = page.getByRole('button', { name: 'キャンセル' });
 			await cancel.waitFor();
 			await shotSection(page, 'pro-link', heading, cancel);
 		}

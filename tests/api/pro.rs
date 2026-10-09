@@ -284,7 +284,7 @@ async fn removing_pro_turns_the_limits_on(pool: SqlitePool) {
     assert_free_limit(status, &body, "admin", 1);
 }
 
-/// 結びかけると窓口の結ぶ画面の URL が出て、「やめる」で消える。
+/// 結びかけると窓口の結ぶ画面の URL が出て、「キャンセル」で消える。
 #[sqlx::test]
 async fn link_can_be_started_and_cancelled(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;

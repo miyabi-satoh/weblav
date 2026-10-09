@@ -511,7 +511,7 @@
     },
     "/api/v1/admin/pro/check": {
       "post": {
-        "summary": "条件によらず、その場で窓口に確かめる (「今すぐ確かめる」)。買った直後・外した直後に合わせるため。",
+        "summary": "条件によらず、その場で窓口に確かめる (「今すぐ確認する」)。買った直後・外した直後に合わせるため。",
         "operationId": "check_now",
         "responses": {
           "200": {
@@ -605,7 +605,7 @@
         }
       },
       "delete": {
-        "summary": "結びかけを捨てる (「やめる」)。",
+        "summary": "結びかけを捨てる (「キャンセル」)。",
         "operationId": "cancel_link",
         "responses": {
           "200": {
