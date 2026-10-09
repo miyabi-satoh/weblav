@@ -173,7 +173,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** 条件によらず、その場で窓口に確かめる (「今すぐ確かめる」)。買った直後・外した直後に合わせるため。 */
+        /** 条件によらず、その場で窓口に確かめる (「今すぐ確認する」)。買った直後・外した直後に合わせるため。 */
         post: operations["check_now"];
         delete?: never;
         options?: never;
@@ -192,7 +192,7 @@ export interface paths {
         put?: never;
         /** 結びかけを作る (→ docs/pro.md「結ぶ」)。前の結びかけは捨てる。結んであれば、同じ枠の結び直しにする。 */
         post: operations["start_link"];
-        /** 結びかけを捨てる (「やめる」)。 */
+        /** 結びかけを捨てる (「キャンセル」)。 */
         delete: operations["cancel_link"];
         options?: never;
         head?: never;

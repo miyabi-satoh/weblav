@@ -385,7 +385,7 @@ impl Pro {
         due.then(|| check_request(binding)).flatten()
     }
 
-    /// 結んであれば、確かめる中身 (「今すぐ確かめる」)。
+    /// 結んであれば、確かめる中身 (「今すぐ確認する」)。
     pub fn bound_check(&self) -> Option<CheckRequest> {
         check_request(self.lock().file.binding.as_ref()?)
     }
