@@ -120,9 +120,17 @@ async function newPage(backend: Backend, width: number, sharedPath?: string): Pr
 
 /** 起動したまま、まだ止めていない backend。中断されたときにまとめて止める。 */
 const liveBackends = new Set<Backend>();
+/** backend を起動している最中か。その間の Ctrl-C は backend-process.ts が片付けて終える。 */
+let starting = false;
 
 async function startWithAdmin(pro: boolean): Promise<Backend> {
-	const backend = await startBackend('weblav-manual-shots-', { pro });
+	starting = true;
+	let backend: Backend;
+	try {
+		backend = await startBackend('weblav-manual-shots-', { pro });
+	} finally {
+		starting = false;
+	}
 	liveBackends.add(backend);
 	// 管理者を入れられなかったら、呼び出し側の finally に届かないので、ここで止める。
 	try {
@@ -481,7 +489,12 @@ async function cleanUp() {
 let interrupted = false;
 process.once('SIGINT', () => {
 	interrupted = true;
-	void cleanUp().finally(() => process.exit(130));
+	// 起動の最中なら、起動しかけの backend を止めてから終えるのは backend-process.ts の側。
+	// こちらが先に終えると、あちらの片付けを途中で切ってしまう。
+	const exitAfter = !starting;
+	void cleanUp().finally(() => {
+		if (exitAfter) process.exit(130);
+	});
 });
 
 try {
