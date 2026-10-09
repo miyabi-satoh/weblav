@@ -40,9 +40,9 @@ Only contents registered in the admin pages appear for viewers.
 
    ![Choosing a type when adding content](images/quickstart-add-folder.webp)
 
-5. Select the QR code icon at the top right, then scan it with a phone on the same Wi-Fi network.
+5. Select the share icon at the top right, choose “Show QR code...”, then scan it with a phone on the same Wi-Fi network.
 
-   ![The Connect from another device screen](images/quickstart-connect.webp)
+   ![The Share this page screen](images/share-qr.webp)
 
 - Detailed instructions → [Set up](02-setup.md)
 - Other types and visibility → [Register contents](05-register-content.md)

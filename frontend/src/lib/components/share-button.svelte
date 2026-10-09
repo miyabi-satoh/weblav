@@ -103,11 +103,11 @@
 		{:else if url}
 			<QrAddress {url} qrAlt={m.share_qr_alt()} />
 		{:else if connection?.port === 0}
-			<p class="text-sm text-muted-foreground">{m.connection_info_bind_local()}</p>
+			<p class="text-sm text-muted-foreground">{m.share_bind_local()}</p>
 		{:else if connection}
-			<p class="text-sm text-muted-foreground">{m.connection_info_unavailable()}</p>
+			<p class="text-sm text-muted-foreground">{m.share_unavailable()}</p>
 		{:else}
-			<p class="text-sm text-muted-foreground">{m.connection_info_load_failed()}</p>
+			<p class="text-sm text-muted-foreground">{m.share_load_failed()}</p>
 		{/if}
 	</Dialog.Content>
 </Dialog.Root>

@@ -11,8 +11,9 @@ import {
 } from './helpers';
 
 const RECOVERY_CODE_COPY_BUTTON_NAME = /^コピー$|^Copy$/;
-const CONNECTION_INFO_TRIGGER_NAME = /^他の端末からつなぐ$|^Connect from another device$/;
-const CONNECTION_INFO_COPY_BUTTON_NAME = /^コピーする$|^Copy$/;
+const SHARE_TRIGGER_NAME = /^このページを共有$|^Share this page$/;
+const SHARE_QR_MENU_ITEM_NAME = /^QRコードを表示\.\.\.$|^Show QR code\.\.\.$/;
+const SHARE_COPY_BUTTON_NAME = /^コピーする$|^Copy$/;
 
 type WindowWithClipboard = Window & { __realClipboard?: Clipboard };
 
@@ -58,7 +59,7 @@ test('管理者のメニューから作ったリカバリコードをコピー�
 	}
 });
 
-test('「他の端末からつなぐ」のアドレスをコピーできる', async ({ browser, baseURL }) => {
+test('共有の QR コードの画面から、ページのアドレスをコピーできる', async ({ browser, baseURL }) => {
 	const page = await insecurePage(browser, baseURL);
 	try {
 		// mDNS が使えない環境でもアドレスを出すよう、ホスト名を返させる。
@@ -66,12 +67,13 @@ test('「他の端末からつなぐ」のアドレスをコピーできる', as
 			route.fulfill({ json: { mdnsHostname: 'e2e-host.local', port: 3000 } })
 		);
 		await page.goto('/');
-		await page.getByRole('button', { name: CONNECTION_INFO_TRIGGER_NAME }).click();
+		await page.getByRole('button', { name: SHARE_TRIGGER_NAME }).click();
+		await page.getByRole('menuitem', { name: SHARE_QR_MENU_ITEM_NAME }).click();
 		const dialog = page.getByRole('dialog');
-		const copyButton = dialog.getByRole('button', { name: CONNECTION_INFO_COPY_BUTTON_NAME });
+		const copyButton = dialog.getByRole('button', { name: SHARE_COPY_BUTTON_NAME });
 		await copyButton.click();
 		await expect(copyButton).toBeFocused();
-		expect(await readClipboard(page)).toBe(`${new URL(baseURL!).protocol}//e2e-host.local:3000`);
+		expect(await readClipboard(page)).toBe(`${new URL(baseURL!).protocol}//e2e-host.local:3000/`);
 	} finally {
 		await page.context().close();
 	}

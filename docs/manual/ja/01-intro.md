@@ -40,9 +40,9 @@ WebLAV は、パソコンの中のファイルを、同じネットワークに�
 
    ![コンテンツを追加するときの種類の選択](images/quickstart-add-folder.webp)
 
-5. 画面右上の QR コードのアイコンを押し、同じ Wi-Fi のスマートフォンで読み取る
+5. 画面右上の共有のアイコンを押して「QRコードを表示...」を選び、同じ Wi-Fi のスマートフォンで読み取る
 
-   ![他の端末からつなぐの画面](images/quickstart-connect.webp)
+   ![「このページを共有」の画面](images/share-qr.webp)
 
 - 詳しい手順 → [設置する](02-setup.md)
 - ほかの種類や公開範囲 → [コンテンツを登録する](05-register-content.md)

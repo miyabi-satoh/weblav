@@ -5,14 +5,14 @@
 Check these in order.
 
 1. Check that the device is connected to the same Wi-Fi as the server computer.
-2. Check that you are opening the current address shown in “Connect from another device” (the QR code icon at the top right).
+2. Check that you are opening the current address shown by “Show QR code...” under the share icon at the top right.
 
-   ![The Connect from another device screen](images/quickstart-connect.webp)
+   ![The Share this page screen](images/share-qr.webp)
 
 3. Check the server computer settings.
    - **Windows**: In Settings > Network & internet > the network you use, set “Network profile type” to “Private network”.
    - **macOS**: In System Settings > Network > Firewall > Options, set WebLAV to “Allow incoming connections”.
-   - **Ubuntu**: If you have turned on the firewall (ufw), enter `sudo ufw allow 3000/tcp` in Terminal (if the number after `:` in the address in “Connect from another device” is not 3000, use that number).
+   - **Ubuntu**: If you have turned on the firewall (ufw), enter `sudo ufw allow 3000/tcp` in Terminal (if the number after `:` in that address is not 3000, use that number).
 4. Check the device settings, if it opens in Safari but not Chrome or another browser.
    - **iPhone and iPad**: In Settings > Privacy & Security > Local Network, turn on the browser.
    - **Mac**: In System Settings > Privacy & Security > Local Network, turn on the browser.
@@ -22,7 +22,7 @@ Check these in order.
 ## The port number changed
 
 This applies when the menu says “Port 3000 was unavailable; running on 3001”.
-Open the current address shown in “Connect from another device”.
+Open the current address shown by “Show QR code...” under the share icon at the top right.
 
 If it changes often, change the port.
 

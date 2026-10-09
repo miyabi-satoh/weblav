@@ -17,7 +17,6 @@
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import ModeToggle from '$lib/components/mode-toggle.svelte';
 	import LanguageToggle from '$lib/components/language-toggle.svelte';
-	import ConnectionInfoDialog from '$lib/components/connection-info-dialog.svelte';
 	import ShareButton from '$lib/components/share-button.svelte';
 	import UserMenu from '$lib/components/user-menu.svelte';
 	import AudioPlayerBar from '$lib/components/audio-player-bar.svelte';
@@ -111,7 +110,7 @@
 
 <div class="flex min-h-svh flex-col">
 	<header
-		class="relative z-10 flex h-13 items-center justify-between gap-2 border-b bg-background px-4 md:h-14 md:gap-4 md:px-6"
+		class="relative z-10 flex h-13 items-center justify-between gap-4 border-b bg-background px-4 md:h-14 md:px-6"
 	>
 		<!-- 押せる範囲 (::after) だけを 44px に広げる (→ docs/ui.md「UI 全般」)。 -->
 		<a
@@ -129,7 +128,6 @@
 				<span class="sr-only">{m.search_nav_label()}</span>
 			</a>
 			<ShareButton />
-			<ConnectionInfoDialog />
 			<LanguageToggle />
 			<ModeToggle />
 			{#if page.data.user}
