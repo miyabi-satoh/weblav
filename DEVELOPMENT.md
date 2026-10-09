@@ -22,7 +22,7 @@
 ## セットアップ
 
 ```sh
-just install   # frontend の依存関係と lefthook の pre-commit/pre-push hook をインストール (pnpm)
+just install   # frontend の依存関係と lefthook の hook をインストール (pnpm)
 ```
 
 第三者のライセンス表示を作るのに cargo-about が要る (`just licenses` / `just licenses-check`。
@@ -52,9 +52,9 @@ just dev-frontend  # frontend だけ起動 (HMR 付き、/api は backend にプ
 - clone・pull したら、`just check`・`just ci` の前に一度 `just dev` で起動できることを確かめる。
   依存の入れ忘れにも気づけるうえ、paraglide の生成物 (`frontend/src/lib/paraglide`、Git 管理外) が作り直される。
   この生成物は vite が起動したときにしか作られず、古いままだと、足したメッセージのキーが見つからず `check` が止まる。
-- 開発用 DB を作ってある環境では、pull すると lefthook (post-merge) が `just dev-db-migrate` で増えたマイグレーションを当てる (要 sqlx-cli。→ 下の「sqlx (コンパイル時クエリチェック)」)。
+- 開発用 DB を作ってある元の clone では、pull・rebase の後に lefthook (post-merge・post-rewrite) が `just dev-db-migrate` で増えたマイグレーションを当てる (要 sqlx-cli。→ 下の「sqlx (コンパイル時クエリチェック)」)。
   `sqlx::query!` はビルドの時点で開発用 DB を見るので、未適用のマイグレーションがあると `no such table` でビルドが止まる。
-  起動時のマイグレーションはビルドの後なので、`just dev` では当たらない。pull 以外で `migrations/` が増えたとき (rebase など) は、`just dev-db-migrate` を手で流す。
+  起動時のマイグレーションはビルドの後なので、`just dev` では当たらない。それ以外で `migrations/` が増えたとき (`git merge` など) は、`just dev-db-migrate` を手で流す。
 
 ### sqlx (コンパイル時クエリチェック)
 

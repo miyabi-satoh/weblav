@@ -24,7 +24,7 @@ const result = spawnSync('cargo', ['sqlx', 'migrate', 'run'], {
 });
 if (result.status !== 0) {
   console.warn(
-    '開発用の DB にマイグレーションを当てられませんでした。sqlx-cli が無ければ入れてから `just dev-db-migrate` を流してください:\n' +
-      '  cargo install sqlx-cli --no-default-features --features sqlite'
+    '開発用の DB にマイグレーションを当てられませんでした。上の sqlx の出力を見て直し、`just dev-db-migrate` を流し直してください。\n' +
+      'sqlx-cli が無いときは: cargo install sqlx-cli --no-default-features --features sqlite'
   );
 }
