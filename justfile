@@ -193,6 +193,7 @@ lint: ensure-frontend-build
     cargo clippy --all-targets -- -D warnings
     cd {{ frontend_dir }} && pnpm run lint
     node scripts/check-tailwind-arbitrary.mjs
+    node scripts/check-long-vowel.mjs
 
 # 窓口 (account-server/) を検査する (整形・生成した型・型検査・テスト)
 account-server-check:
