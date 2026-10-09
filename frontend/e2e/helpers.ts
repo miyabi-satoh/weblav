@@ -140,6 +140,8 @@ export const CONTENT_SUBMIT_BUTTON_NAME = /^追加する$|^Add$/;
 export const CHOOSE_PATH_BUTTON_NAME = /^選ぶ\.\.\.$|^Choose\.\.\.$/;
 export const DIR_PICKER_NAME = /^フォルダーを選ぶ$|^Choose a folder$/;
 export const USE_THIS_FOLDER_BUTTON_NAME = /^このフォルダーにする$|^Use this folder$/;
+/** 登録の画面で、選んだパスを選び直すボタン。 */
+export const CHANGE_PATH_BUTTON_NAME = /^選び直す\.\.\.$|^Change\.\.\.$/;
 
 /** 登録前の確認ダイアログと、その確定ボタン。 */
 export const CONFIRM_REGISTER_NAME = /^この内容で登録しますか$|^Register with these settings\?$/;

@@ -168,6 +168,12 @@ licenses:
 licenses-check: licenses
     node scripts/check-generated.mjs licenses frontend/static/third-party-licenses/rust.json
 
+# マニュアルの画像のうち、管理画面と仕組みの図を、使い捨ての backend で撮り直す (→ docs/help.md)。
+# 名前を渡すと、その画像だけを撮る (例: just manual-shots roots-page settings-pro)
+manual-shots *names: frontend-build
+    cargo build --bin weblav-service
+    cd {{ frontend_dir }} && node scripts/manual-shots.ts {{ names }}
+
 # ビルドより前に、原稿のフォルダーの指定を確かめる (相対パスはリポジトリの直下から)
 _spec-dir:
     @node -e "const d = process.env.WEBLAV_SPEC_DIR; if (!d || !require('fs').statSync(d, { throwIfNoEntry: false })?.isDirectory()) { console.error('WEBLAV_SPEC_DIR に仕様書の原稿のフォルダーを指定してください'); process.exit(1); }"

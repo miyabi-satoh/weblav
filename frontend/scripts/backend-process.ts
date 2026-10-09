@@ -1,6 +1,6 @@
 // 使い捨ての backend (`target/debug/weblav-service`) を起動・停止する。
 // `weblav` はトレイを出すので、トレイを出さないサーバーだけの exe を使う。
-// `just spec` (generate-spec.ts) と `just e2e-local` (run-e2e.ts) で共有する。
+// `just spec` (generate-spec.ts)・`just e2e-local` (run-e2e.ts)・`just manual-shots` (manual-shots.ts) で共有する。
 //
 // 一時 WEBLAV_HOME と空きポートで起動するので、開発用 DB にも、並行して動いている
 // 開発サーバー (:3000) にも影響しない。呼び出し側は必ず `stop()` を呼ぶこと。
@@ -11,6 +11,7 @@ import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { TEST_ADMIN } from './test-account.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
 const BIN_PATH = path.join(
@@ -103,6 +104,17 @@ async function killAndWait(proc: ChildProcess, timeoutMs = 5000): Promise<void> 
 	});
 }
 
+/** 管理者 (test-account.ts の TEST_ADMIN) を1人入れる。初回セットアップを通さずにログインできる。 */
+export function insertTestAdmin(dbPath: string): void {
+	withDatabase(dbPath, (db) =>
+		db
+			.prepare(
+				"INSERT INTO users (username, password_hash, role, recovery_code_hash) VALUES (?, ?, 'admin', ?)"
+			)
+			.run(TEST_ADMIN.username, TEST_ADMIN.passwordHash, TEST_ADMIN.recoveryCodeHash)
+	);
+}
+
 /**
  * 起動したまま、まだ止めていない backend の片付け。
  * 1つのスクリプトが続けて複数を起動する (→ run-e2e.ts) と、後のものの起動待ちで中断されたとき、
@@ -113,20 +125,26 @@ const liveBackends = new Set<() => Promise<void>>();
 /**
  * backend を起動し、health が応答するまで待つ。起動に失敗したら、ログを出して片付けてから投げる。
  * `tmpPrefix` は一時 WEBLAV_HOME の名前の頭 (どのスクリプトの残骸か分かるようにする)。
+ * `pro: false` なら Free で動かす (Free の画面を撮るとき)。
  */
-export async function startBackend(tmpPrefix: string): Promise<Backend> {
+export async function startBackend(
+	tmpPrefix: string,
+	{ pro = true }: { pro?: boolean } = {}
+): Promise<Backend> {
 	const port = await getFreePort();
 	const home = mkdtempSync(path.join(tmpdir(), tmpPrefix));
 	writeFileSync(
 		path.join(home, 'config.toml'),
 		`[server]\nbind = "127.0.0.1"\nport = ${port}\n\n[log]\nfilter = "info"\noutput = "stdout"\n\n[session]\nsecret = ""\nsecure_cookie = false\nexpiry_days = 14\n`
 	);
-	// Pro で動かす。e2e はテストごとにコンテンツを作るので、並べて流すと Free の上限に当たる。
+	// 既定は Pro。e2e はテストごとにコンテンツを作るので、並べて流すと Free の上限に当たる。
 	// 開発版だけが信じる鍵で署名したもの (→ src/pro.rs)。確かめに行かないよう、最後に確かめた日時を先に置いてある。
-	copyFileSync(
-		path.join(REPO_ROOT, 'tests', 'fixtures', 'dev-pro.json'),
-		path.join(home, 'pro.json')
-	);
+	if (pro) {
+		copyFileSync(
+			path.join(REPO_ROOT, 'tests', 'fixtures', 'dev-pro.json'),
+			path.join(home, 'pro.json')
+		);
+	}
 
 	const proc = spawn(BIN_PATH, [], {
 		env: { ...process.env, WEBLAV_HOME: home },

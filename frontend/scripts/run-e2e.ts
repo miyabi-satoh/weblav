@@ -8,7 +8,7 @@
 
 import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
 import path from 'node:path';
-import { startBackend, withDatabase, type Backend } from './backend-process.ts';
+import { insertTestAdmin, startBackend, type Backend } from './backend-process.ts';
 import { TEST_ADMIN } from './test-account.ts';
 
 /** 中断されたときの終了コード (SIGINT で終わったプロセスの慣習)。 */
@@ -119,13 +119,7 @@ async function main(): Promise<number> {
 	let setupBackend: Backend | undefined;
 	try {
 		setupBackend = await startBackend('weblav-e2e-setup-');
-		withDatabase(backend.dbPath, (db) =>
-			db
-				.prepare(
-					"INSERT INTO users (username, password_hash, role, recovery_code_hash) VALUES (?, ?, 'admin', ?)"
-				)
-				.run(TEST_ADMIN.username, TEST_ADMIN.passwordHash, TEST_ADMIN.recoveryCodeHash)
-		);
+		insertTestAdmin(backend.dbPath);
 		// 準備の途中で中断されたら、テストを始めずに片付ける。
 		if (interrupted) return INTERRUPTED_EXIT_CODE;
 		const storageState = path.join(path.dirname(backend.dbPath), 'e2e-admin.json');
