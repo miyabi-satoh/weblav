@@ -13,6 +13,7 @@
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { headerIconActionClass, headerTextActionClass } from '$lib/header-action';
 	import SearchIcon from '@lucide/svelte/icons/search';
+	import LogInIcon from '@lucide/svelte/icons/log-in';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import ModeToggle from '$lib/components/mode-toggle.svelte';
 	import LanguageToggle from '$lib/components/language-toggle.svelte';
@@ -110,7 +111,7 @@
 
 <div class="flex min-h-svh flex-col">
 	<header
-		class="relative z-10 flex h-13 items-center justify-between gap-4 border-b bg-background px-4 md:h-14 md:px-6"
+		class="relative z-10 flex h-13 items-center justify-between gap-2 border-b bg-background px-4 md:h-14 md:gap-4 md:px-6"
 	>
 		<!-- 押せる範囲 (::after) だけを 44px に広げる (→ docs/ui.md「UI 全般」)。 -->
 		<a
@@ -134,7 +135,11 @@
 			{#if page.data.user}
 				<UserMenu username={page.data.user.username} onlogout={handleLogout} />
 			{:else}
-				<a href={resolve('/login')} class={headerTextActionClass}>{m.login_nav_label()}</a>
+				<!-- スマートフォン幅では文字を読み上げにだけ渡す (→ docs/ui.md「UI 全般」)。 -->
+				<a href={resolve('/login')} class={headerTextActionClass}>
+					<LogInIcon data-icon="inline-start" class="size-5" />
+					<span class="max-md:sr-only">{m.login_nav_label()}</span>
+				</a>
 			{/if}
 		</div>
 	</header>
