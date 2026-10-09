@@ -33,7 +33,7 @@ export function searchScopeOf(
 /**
  * 切り替えに出す範囲の名前の、フォルダの名前の後ろに続ける階層。フォルダの中の階層でなければ、どちらも空。
  * 同じ名前の階層 (`2024` など) を見分けられるよう最後の2段までを出し、それより上は `…` に詰める。
- * 画面は、幅が足りなければフォルダの名前・上の段 (`upper`)・最後の段 (`last`) の順に切り詰める。
+ * 上の段 (`upper`) と最後の段 (`last`) は、画面がスマートフォンの幅で別々の上限で切り詰める (→ docs/search.md「範囲」)。
  */
 export function searchScopeLevels(path: string | undefined): { upper: string; last: string } {
 	if (!path) return { upper: '', last: '' };
