@@ -45,4 +45,4 @@ Some contents are visible only to signed-in users (→ [Sign in and display](03-
 
 - You can also control videos with the same keys as YouTube (Space or K to play or pause, J and L to go back or forward 10 seconds, M to mute, F for full screen, Home and End to jump to the start or end, 0 to 9 to jump to 0% to 90% of the video).
 
-- Select a link to see its image, title, and description in full. Select “Open in new tab” to open the page in a new tab. If the link points to a file such as a PDF, video, audio file, or image, it opens in place, just like a file. Select a file whose name ends with `.links.toml` to list the links in it.
+- Select a link to see its image, title, and description in full. Select “Open in new tab” to open the page in a new tab. Use the arrow buttons at the bottom left to move between links. If the link points to a file such as a PDF, video, audio file, or image, it opens in place, just like a file. Select a file whose name ends with `.links.toml` to list the links in it.

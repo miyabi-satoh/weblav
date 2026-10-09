@@ -23,6 +23,7 @@
 	import { linksFileRemoteHref } from '$lib/api/urls';
 	import { remoteFileKind, remoteFileName, urlHost } from '$lib/file-kind';
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
+	import { linkDetailOf, opensLinkDetail } from '$lib/link-detail.svelte';
 	import { viewerItems } from '$lib/viewer-items';
 	import type { Track } from '$lib/now-playing.svelte';
 	import { videoEmbedUrl } from '$lib/video-embed';
@@ -95,6 +96,18 @@
 	let audioQueue = $derived(rows.filter((row) => remoteFileKind(row.url) === 'audio').map(toTrack));
 	let viewerList = $derived(viewerItems(rows, () => undefined, toViewerFile));
 
+	// 詳しい表示で前後へ移る、詳しい表示を出すリンクの並び (→ docs/ui.md「リンクのカード」)。
+	// 音声と URL のファイルはファイルの行で出すので入れない。
+	let linkDetailRows = $derived(
+		rows.filter((row) => !remoteFileKind(row.url) && opensLinkDetail(row.url, !!toViewerFile(row)))
+	);
+	let linkDetails = $derived(
+		linkDetailRows.map((row) =>
+			linkDetailOf({ href: row.url, description: subtitleOf(row), preview: previewOf(row) })
+		)
+	);
+	let linkDetailIndex = $derived(new Map(linkDetailRows.map((row, index) => [row, index])));
+
 	function subtitleOf(row: LinksEntryRow): string | string[] | null | undefined {
 		return row.subtitle === undefined ? row.note : row.subtitle;
 	}
@@ -132,6 +145,7 @@
 						description={subtitleOf(row)}
 						preview={previewOf(row)}
 						viewer={viewerFile && { file: viewerFile, items: viewerList }}
+						details={{ items: linkDetails, index: linkDetailIndex.get(row) ?? -1 }}
 					/>
 				{/if}
 			</li>

@@ -1,8 +1,10 @@
 <script lang="ts">
+	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { beforeNavigate } from '$app/navigation';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import { buttonVariants } from '$lib/components/ui/button';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import SeparatedText from '$lib/components/separated-text.svelte';
 	import { urlHost } from '$lib/file-kind';
 	import { formatTimeAgo } from '$lib/format';
@@ -16,10 +18,11 @@
 	let siteName = $derived(preview?.siteName ?? (detail ? urlHost(detail.href) : ''));
 	let timeAgo = $derived(formatTimeAgo(preview?.publishedAt));
 
-	// 読めなかった画像は隠す。開き直したら改めて読みに行く。
+	// 読めなかった画像は隠す。開き直したり前後へ移ったりしたら、改めて読みに行く。
 	let failedImage = $state.raw<string | null>(null);
 	let failedIcon = $state.raw<string | null>(null);
 	$effect.pre(() => {
+		void linkDetail.open;
 		void linkDetail.current;
 		failedImage = null;
 		failedIcon = null;
@@ -38,12 +41,32 @@
 	);
 
 	let openButton = $state<HTMLAnchorElement | null>(null);
+
+	// 端に着いて押したボタンが押せなくなると、フォーカスが外れて左右キーが届かなくなる。開くボタンへ移す。
+	function previous() {
+		linkDetail.previous();
+		if (linkDetail.index === 0) openButton?.focus();
+	}
+
+	function next() {
+		linkDetail.next();
+		if (linkDetail.index === linkDetail.count - 1) openButton?.focus();
+	}
+
+	// 左右キーで前後のリンクへ移る (ファイルのビューアと同じ)。
+	function handleKeydown(event: KeyboardEvent) {
+		if (event.key === 'ArrowLeft') linkDetail.previous();
+		else if (event.key === 'ArrowRight') linkDetail.next();
+		else return;
+		event.preventDefault();
+	}
 </script>
 
 <Dialog.Root bind:open={linkDetail.open}>
 	<!-- 開いたら「新しいタブで開く」にフォーカスを置く。開くだけの人が Enter 1回で済むように。 -->
 	<Dialog.Content
 		class="sm:max-w-xl"
+		onkeydown={handleKeydown}
 		onOpenAutoFocus={(event) => {
 			event.preventDefault();
 			openButton?.focus();
@@ -51,6 +74,9 @@
 	>
 		{#if detail}
 			<Dialog.Header>
+				{#if linkDetail.count > 1}
+					<p class="text-muted-foreground">{linkDetail.index + 1} / {linkDetail.count}</p>
+				{/if}
 				<!-- 右上の閉じるボタンの下に、長い題が潜らないよう空ける。題は2行以上になることがあるので、行の間も空ける。 -->
 				<Dialog.Title class="pr-8 leading-snug wrap-anywhere">{detail.title}</Dialog.Title>
 				<!-- サイトのアイコンは、隣のサイト名が何かを伝えるので、読み上げでは飛ばす。 -->
@@ -91,13 +117,34 @@
 				</div>
 			{/if}
 			<p class="text-xs break-all text-muted-foreground">{detail.href}</p>
-			<Dialog.Footer>
+			<!-- 前後のボタンを左に、開くボタンを右に置く。狭い幅では開くボタンが下の段に回る。 -->
+			<Dialog.Footer class="flex-row flex-wrap items-center">
+				{#if linkDetail.count > 1}
+					<Button
+						variant="outline"
+						size="icon-lg"
+						disabled={linkDetail.index === 0}
+						onclick={previous}
+					>
+						<ChevronLeftIcon />
+						<span class="sr-only">{m.link_detail_previous_button()}</span>
+					</Button>
+					<Button
+						variant="outline"
+						size="icon-lg"
+						disabled={linkDetail.index === linkDetail.count - 1}
+						onclick={next}
+					>
+						<ChevronRightIcon />
+						<span class="sr-only">{m.link_detail_next_button()}</span>
+					</Button>
+				{/if}
 				<a
 					bind:this={openButton}
 					href={detail.href}
 					target="_blank"
 					rel="external noopener noreferrer"
-					class={buttonVariants()}
+					class={[buttonVariants(), 'ml-auto']}
 					onclick={() => (linkDetail.open = false)}
 				>
 					<ExternalLinkIcon data-icon="inline-start" />

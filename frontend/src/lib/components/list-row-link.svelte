@@ -6,8 +6,13 @@
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
 	import { openViewerItem, type ViewerItem } from '$lib/viewer-items';
 	import { formatTimeAgo } from '$lib/format';
-	import { isLanUrl, urlHost } from '$lib/file-kind';
-	import { linkDetail } from '$lib/link-detail.svelte';
+	import { urlHost } from '$lib/file-kind';
+	import {
+		linkDetail,
+		linkDetailOf,
+		opensLinkDetail,
+		type LinkDetail
+	} from '$lib/link-detail.svelte';
 	import { isPlainClick } from '$lib/image-viewer';
 	import {
 		browseRowClass,
@@ -32,7 +37,8 @@
 		description,
 		preview,
 		private: isPrivate = false,
-		viewer
+		viewer,
+		details
 	}: {
 		href: string;
 		/** 省くと、ページのタイトル (無ければホスト名) を出す。 */
@@ -46,11 +52,13 @@
 		 * 修飾キーなしのクリックだけをビューアに回し、ほかは元の URL を新しいタブで開く。
 		 */
 		viewer?: { file: ViewerFile; items: ViewerItem[] };
+		/** 開いた一覧に並ぶ、詳しい表示を出すリンクと、その中のこの行の位置。詳しい表示で前後へ移るのに使う。 */
+		details?: { items: LinkDetail[]; index: number };
 	} = $props();
 
 	// ビューアで開かないリンクは、詳しい表示を挟んでから新しいタブで開く (→ docs/ui.md「リンクのカード」)。
 	// LAN の URL はサーバーが取りに行かず見せるものが無いので、今までどおり直接開く。
-	let opensDetail = $derived(!viewer && !isLanUrl(href));
+	let opensDetail = $derived(opensLinkDetail(href, !!viewer));
 
 	function handleClick(event: MouseEvent) {
 		if (!isPlainClick(event)) return;
@@ -59,7 +67,8 @@
 			void openViewerItem({ type: 'file', file: viewer.file }, viewer.items);
 		} else if (opensDetail) {
 			event.preventDefault();
-			linkDetail.show({ href, title: shownTitle, description, preview });
+			if (details && details.index >= 0) linkDetail.show(details.items, details.index);
+			else linkDetail.show([linkDetailOf({ href, title, description, preview })], 0);
 		}
 	}
 
