@@ -47,7 +47,8 @@ const WEBP_QUALITY = 0.85;
  */
 const WINDOWS_SHARED_PATH = 'C:\\Users\\user\\Documents\\共有';
 
-const browser = await chromium.launch();
+// Ctrl-C はこちらで受けて片付ける (下の SIGINT)。Playwright に先にブラウザーを閉じさせない。
+const browser = await chromium.launch({ handleSIGINT: false });
 /** makeSharedDir が作った一時フォルダー。最後に消す。 */
 const tempDirs: string[] = [];
 
@@ -117,16 +118,31 @@ async function newPage(backend: Backend, width: number, sharedPath?: string): Pr
 	return page;
 }
 
+/** 起動したまま、まだ止めていない backend。中断されたときにまとめて止める。 */
+const liveBackends = new Set<Backend>();
+
 async function startWithAdmin(pro: boolean): Promise<Backend> {
 	const backend = await startBackend('weblav-manual-shots-', { pro });
-	withDatabase(backend.dbPath, (db) =>
-		db
-			.prepare(
-				"INSERT INTO users (username, password_hash, role, recovery_code_hash) VALUES (?, ?, 'admin', ?)"
-			)
-			.run(TEST_ADMIN.username, TEST_ADMIN.passwordHash, TEST_ADMIN.recoveryCodeHash)
-	);
+	liveBackends.add(backend);
+	// 管理者を入れられなかったら、呼び出し側の finally に届かないので、ここで止める。
+	try {
+		withDatabase(backend.dbPath, (db) =>
+			db
+				.prepare(
+					"INSERT INTO users (username, password_hash, role, recovery_code_hash) VALUES (?, ?, 'admin', ?)"
+				)
+				.run(TEST_ADMIN.username, TEST_ADMIN.passwordHash, TEST_ADMIN.recoveryCodeHash)
+		);
+	} catch (err) {
+		await stopBackend(backend);
+		throw err;
+	}
 	return backend;
+}
+
+async function stopBackend(backend: Backend) {
+	liveBackends.delete(backend);
+	await backend.stop();
 }
 
 async function goto(page: Page, url: string) {
@@ -382,7 +398,7 @@ async function shootAdmin() {
 			);
 		}
 	} finally {
-		await backend.stop();
+		await stopBackend(backend);
 	}
 }
 
@@ -433,7 +449,7 @@ async function shootFree() {
 			await shotSection(page, 'pro-link', heading, cancel);
 		}
 	} finally {
-		await backend.stop();
+		await stopBackend(backend);
 	}
 }
 
@@ -454,6 +470,20 @@ async function shootDiagram() {
 const FREE_SHOTS = ['settings-pro', 'pro-link'];
 const DIAGRAM_SHOTS = ['how-it-works'];
 
+async function cleanUp() {
+	await browser.close().catch(() => {});
+	await Promise.all([...liveBackends].map(stopBackend));
+	for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
+}
+
+// Ctrl-C で抜けても、backend・一時フォルダーを残さない (→ backend-process.ts の onInterrupt と同じ)。
+// 撮影の途中の操作はブラウザーを閉じたところで失敗するので、その失敗は出さずに 130 で終える。
+let interrupted = false;
+process.once('SIGINT', () => {
+	interrupted = true;
+	void cleanUp().finally(() => process.exit(130));
+});
+
 try {
 	if (
 		ONLY.size === 0 ||
@@ -462,7 +492,8 @@ try {
 		await shootAdmin();
 	if (FREE_SHOTS.some(want)) await shootFree();
 	await shootDiagram();
+} catch (err) {
+	if (!interrupted) throw err;
 } finally {
-	await browser.close();
-	for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
+	await cleanUp();
 }
