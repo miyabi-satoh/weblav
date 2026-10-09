@@ -329,6 +329,8 @@
 	"group_browse_empty": "This group has nothing to show.",
 	"contents_opens_in_new_tab": "Opens in a new tab",
 	"link_detail_open_button": "Open in new tab",
+	"link_detail_previous_button": "Previous link",
+	"link_detail_next_button": "Next link",
 	"dir_picker_title": "Choose a folder",
 	"dir_picker_description": "Browse inside the registered shared folders.",
 	"dir_picker_breadcrumb_label": "Current location",

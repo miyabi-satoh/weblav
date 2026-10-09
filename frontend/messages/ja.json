@@ -329,6 +329,8 @@
 	"group_browse_empty": "このグループには表示できる項目がありません。",
 	"contents_opens_in_new_tab": "新しいタブで開く",
 	"link_detail_open_button": "新しいタブで開く",
+	"link_detail_previous_button": "前のリンク",
+	"link_detail_next_button": "次のリンク",
 	"dir_picker_title": "フォルダを選ぶ",
 	"dir_picker_description": "登録された「公開できるフォルダ」の中を辿ります。",
 	"dir_picker_breadcrumb_label": "現在の場所",

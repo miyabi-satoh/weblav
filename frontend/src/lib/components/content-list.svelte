@@ -17,6 +17,7 @@
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
 	import type { Track } from '$lib/now-playing.svelte';
 	import type { ViewerImage } from '$lib/image-viewer';
+	import { linkDetailOf, opensLinkDetail } from '$lib/link-detail.svelte';
 	import { viewerItems } from '$lib/viewer-items';
 	import { browseLayout } from '$lib/browse-layout.svelte';
 	import { videoEmbedUrl } from '$lib/video-embed';
@@ -145,6 +146,26 @@
 		const contentIds = entries.filter(isLinkCard).map((entry) => entry.id);
 		return contentIds.length === 0 ? undefined : { contentIds };
 	});
+
+	// 詳しい表示で前後へ移る、詳しい表示を出すリンクの並び (→ docs/ui.md「リンクのカード」)。
+	let linkDetailEntries = $derived(
+		entries
+			.filter(isLinkCard)
+			.filter((content) => opensLinkDetail(content.url, !!toViewerFile(content)))
+	);
+	let linkDetails = $derived(
+		linkDetailEntries.map((content) =>
+			linkDetailOf({
+				href: content.url,
+				title: content.title,
+				description: subtitle(content),
+				preview: refreshed.get(content.url) ?? content.preview
+			})
+		)
+	);
+	let linkDetailIndex = $derived(
+		new Map(linkDetailEntries.map((content, index) => [content.id, index]))
+	);
 </script>
 
 {#snippet rowText(content: ContentEntry)}
@@ -194,6 +215,7 @@
 						preview={refreshed.get(content.url) ?? content.preview}
 						private={content.private}
 						viewer={viewerFile && { file: viewerFile, items: viewerList }}
+						details={{ items: linkDetails, index: linkDetailIndex.get(content.id) ?? -1 }}
 					/>
 				{:else if content.type === 'folder'}
 					<a href={resolve('/folders/[id]', { id: String(content.id) })} class={browseRowClass()}>

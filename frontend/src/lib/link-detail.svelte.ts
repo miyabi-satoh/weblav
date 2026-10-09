@@ -1,8 +1,9 @@
 import type { components } from '$lib/api/schema';
+import { isLanUrl, urlHost } from '$lib/file-kind';
 
 type LinkPreview = components['schemas']['LinkPreview'];
 
-/** 詳しい表示に出すリンク。題は行に出しているものをそのまま渡す。 */
+/** 詳しい表示に出すリンク。 */
 export type LinkDetail = {
 	href: string;
 	title: string;
@@ -11,11 +12,38 @@ export type LinkDetail = {
 	preview?: LinkPreview | null;
 };
 
+/**
+ * 行に出すのと同じ題で、詳しい表示に出すリンクを組む。題を省くと、ページのタイトル (無ければホスト名)。
+ */
+export function linkDetailOf(link: {
+	href: string;
+	title?: string;
+	description?: string | string[] | null;
+	preview?: LinkPreview | null;
+}): LinkDetail {
+	return {
+		href: link.href,
+		title: link.title ?? link.preview?.title ?? urlHost(link.href),
+		description: link.description,
+		preview: link.preview
+	};
+}
+
+/**
+ * 押すと詳しい表示を出すリンクか。ビューアで開くもの (動画サイト・URL のファイル) はビューアで開き、
+ * LAN の URL はサーバーが取りに行かず見せるものが無いので、直接開く (→ docs/ui.md「リンクのカード」)。
+ */
+export function opensLinkDetail(href: string, opensInViewer: boolean): boolean {
+	return !opensInViewer && !isLanUrl(href);
+}
+
 let open = $state(false);
-let current = $state.raw<LinkDetail | null>(null);
+let items = $state.raw<LinkDetail[]>([]);
+let index = $state(0);
 
 /**
  * リンクの詳しい表示 (→ docs/ui.md「リンクのカード」)。一覧の行ごとにダイアログを持たず、レイアウトの1つを使い回す。
+ * 前後は、開いた一覧に並ぶ、詳しい表示を出すリンクの表示順。
  */
 export const linkDetail = {
 	get open() {
@@ -25,11 +53,24 @@ export const linkDetail = {
 		open = value;
 	},
 	/** 閉じるアニメーションの間も中身を残すため、閉じても消さない。 */
-	get current() {
-		return current;
+	get current(): LinkDetail | null {
+		return items[index] ?? null;
 	},
-	show(detail: LinkDetail) {
-		current = detail;
+	get index() {
+		return index;
+	},
+	get count() {
+		return items.length;
+	},
+	show(list: LinkDetail[], at: number) {
+		items = list;
+		index = at;
 		open = true;
+	},
+	previous() {
+		if (index > 0) index -= 1;
+	},
+	next() {
+		if (index < items.length - 1) index += 1;
 	}
 };
