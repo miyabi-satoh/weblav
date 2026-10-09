@@ -7084,6 +7084,7 @@
           "itemsTruncated",
           "files",
           "filesTruncated",
+          "foldersIncomplete",
           "links",
           "linksTruncated"
         ],
@@ -7108,7 +7109,11 @@
           },
           "filesTruncated": {
             "type": "boolean",
-            "description": "`files` を打ち切ったか。辿るエントリ数の上限で、フォルダを辿りきれなかったときも含む。"
+            "description": "`files` を打ち切ったか。"
+          },
+          "foldersIncomplete": {
+            "type": "boolean",
+            "description": "大きなフォルダを途中までしか辿っていないか (1つのフォルダで 20,000 件まで)。\nその先のファイルとリンクの一覧は探していない。語を足しても広がらないので、打ち切りとは分けて伝える。"
           },
           "items": {
             "type": "array",

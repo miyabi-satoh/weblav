@@ -71,6 +71,8 @@ pub(super) struct SearchLinkHit {
 pub(super) struct FolderSearch {
     pub(super) files: Vec<SearchFileHit>,
     pub(super) files_truncated: bool,
+    /// 辿るエントリ数の上限で、辿りきれなかったフォルダがあるか。その先のファイルと一覧のファイルは探していない。
+    pub(super) incomplete: bool,
     pub(super) links: Vec<SearchLinkHit>,
     pub(super) links_truncated: bool,
 }
@@ -111,7 +113,7 @@ pub(super) async fn search(
     let folder_titles: Vec<String> = folders.iter().map(|folder| folder.title.clone()).collect();
 
     // 辿るのはディスクの I/O で、フォルダの大きさに比例して重くなる。
-    let (mut candidates, mut walk_truncated, mut sources) = run_blocking(move || {
+    let (mut candidates, incomplete, mut sources) = run_blocking(move || {
         let own_dirs = OwnDirs::resolve(&own_dirs);
         let mut candidates = Vec::new();
         let mut truncated = false;
@@ -164,7 +166,7 @@ pub(super) async fn search(
             .then_with(|| title_cmp(&folder_titles[a.folder], &folder_titles[b.folder]))
             .then_with(|| a.rel_path.cmp(&b.rel_path))
     });
-    walk_truncated |= candidates.len() > RESULT_LIMIT;
+    let files_truncated = candidates.len() > RESULT_LIMIT;
     candidates.truncate(RESULT_LIMIT);
     let files = run_blocking(move || {
         candidates
@@ -188,7 +190,8 @@ pub(super) async fn search(
 
     Ok(FolderSearch {
         files,
-        files_truncated: walk_truncated,
+        files_truncated,
+        incomplete,
         links,
         links_truncated,
     })

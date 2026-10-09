@@ -2177,8 +2177,13 @@ export interface components {
             contentsTruncated: boolean;
             /** @description フォルダの中のファイルとディレクトリ。名前順。区画ごとの上限 (100 件) で打ち切る。 */
             files: components["schemas"]["SearchFileHit"][];
-            /** @description `files` を打ち切ったか。辿るエントリ数の上限で、フォルダを辿りきれなかったときも含む。 */
+            /** @description `files` を打ち切ったか。 */
             filesTruncated: boolean;
+            /**
+             * @description 大きなフォルダを途中までしか辿っていないか (1つのフォルダで 20,000 件まで)。
+             *     その先のファイルとリンクの一覧は探していない。語を足しても広がらないので、打ち切りとは分けて伝える。
+             */
+            foldersIncomplete: boolean;
             /** @description アーカイブのファイル。表示タイトル順。区画ごとの上限 (100 件) で打ち切る。 */
             items: components["schemas"]["SearchItemHit"][];
             /** @description `items` を打ち切ったか。 */

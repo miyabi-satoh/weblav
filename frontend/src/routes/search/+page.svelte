@@ -194,6 +194,9 @@
 		<p class={['mt-6', pageEmptyTextClass]}>{m.search_fetch_failed()}</p>
 	{:else if result && !hasHits}
 		<p class={['mt-6', pageEmptyTextClass]}>{m.search_empty({ query: data.q.trim() })}</p>
+		{#if result.foldersIncomplete}
+			<p class={['mt-2', pageEmptyTextClass]}>{m.search_folders_incomplete()}</p>
+		{/if}
 	{:else if result}
 		{#if contentHits.length > 0}
 			<section>
@@ -236,6 +239,9 @@
 					{@render truncatedNote(linkRows.length)}
 				{/if}
 			</section>
+		{/if}
+		{#if result.foldersIncomplete}
+			<p class={['mt-8', pageEmptyTextClass]}>{m.search_folders_incomplete()}</p>
 		{/if}
 	{/if}
 </div>

@@ -89,8 +89,11 @@ struct SearchResponse {
     items_truncated: bool,
     /// フォルダの中のファイルとディレクトリ。名前順。区画ごとの上限 (100 件) で打ち切る。
     files: Vec<SearchFileHit>,
-    /// `files` を打ち切ったか。辿るエントリ数の上限で、フォルダを辿りきれなかったときも含む。
+    /// `files` を打ち切ったか。
     files_truncated: bool,
+    /// 大きなフォルダを途中までしか辿っていないか (1つのフォルダで 20,000 件まで)。
+    /// その先のファイルとリンクの一覧は探していない。語を足しても広がらないので、打ち切りとは分けて伝える。
+    folders_incomplete: bool,
     /// リンクの一覧のファイルの中のリンク。題の順。区画ごとの上限 (100 件) で打ち切る。
     links: Vec<SearchLinkHit>,
     /// `links` を打ち切ったか。
@@ -120,6 +123,7 @@ async fn search(
             items_truncated: false,
             files: Vec::new(),
             files_truncated: false,
+            folders_incomplete: false,
             links: Vec::new(),
             links_truncated: false,
         }));
@@ -148,6 +152,7 @@ async fn search(
         items_truncated,
         files: in_folders.files,
         files_truncated: in_folders.files_truncated,
+        folders_incomplete: in_folders.incomplete,
         links: in_folders.links,
         links_truncated: in_folders.links_truncated,
     }))

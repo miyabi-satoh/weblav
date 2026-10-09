@@ -120,4 +120,5 @@ async fn search_finds_entries_in_folders_and_links_in_links_files(pool: SqlitePo
     assert_eq!(links[0]["matchedInNote"], true, "{found}");
     assert_eq!(found["filesTruncated"], false, "{found}");
     assert_eq!(found["linksTruncated"], false, "{found}");
+    assert_eq!(found["foldersIncomplete"], false, "{found}");
 }
