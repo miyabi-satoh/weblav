@@ -39,8 +39,9 @@ const words = [
   'マネージャ',
   'コントローラ'
 ];
-// 後ろにカタカナが続くものは別の語 (「ユーザビリティ」「フィルタリング」) なので除く。
-const pattern = new RegExp(`(?:${words.join('|')})(?![ー\u30A0-\u30FF])`, 'g');
+// 上の語で始まる別の語。後ろのカタカナで一律に除くと「サーバレス」のような複合語の抜けを見逃すので、1語ずつ並べる。
+const exceptions = ['ユーザビリティ', 'フィルタリング', 'モニタリング'];
+const pattern = new RegExp(`(?!${exceptions.join('|')})(?:${words.join('|')})(?!ー)`, 'g');
 
 function files(relative) {
   const absolute = path.join(root, relative);
@@ -61,7 +62,7 @@ for (const file of targets.flatMap(files)) {
 }
 
 if (violations.length > 0) {
-  console.error('外来語の語末の長音を付けてください (→ docs/ui.md「UI 全般」):');
+  console.error('外来語の語末の長音を付けてください (→ docs/ui.md「UI 全般」。長音の無い別の語なら scripts/check-long-vowel.mjs の exceptions に足す):');
   for (const violation of violations) console.error(`  ${violation}`);
   process.exit(1);
 }
