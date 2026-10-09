@@ -15,6 +15,7 @@ use crate::state::AppState;
 
 use super::archive_items::{self, ArchiveViewItem};
 use super::contents::{self, ContentResponse, GroupAncestor};
+use super::folder_search::{self, SearchFileHit, SearchLinkHit};
 
 /// ADR: 区画ごとに返す件数の上限 (→ docs/search.md「結果の並びと上限」)。
 /// 語を足さずに目で追える数として 100 件にしている。
@@ -86,10 +87,21 @@ struct SearchResponse {
     items: Vec<SearchItemHit>,
     /// `items` を打ち切ったか。
     items_truncated: bool,
+    /// フォルダの中のファイルとディレクトリ。名前順。区画ごとの上限 (100 件) で打ち切る。
+    files: Vec<SearchFileHit>,
+    /// `files` を打ち切ったか。
+    files_truncated: bool,
+    /// 大きなフォルダを途中までしか辿っていないか (1つのフォルダで 20,000 件まで)。
+    /// その先のファイルとリンクの一覧は探していない。語を足しても広がらないので、打ち切りとは分けて伝える。
+    folders_incomplete: bool,
+    /// リンクの一覧のファイルの中のリンク。題の順。区画ごとの上限 (100 件) で打ち切る。
+    links: Vec<SearchLinkHit>,
+    /// `links` を打ち切ったか。
+    links_truncated: bool,
 }
 
-/// 閲覧者がホームからたどって一覧で見られるコンテンツと、アーカイブの公開アイテムを、
-/// タイトルの文字列で探す (→ docs/search.md)。語が空なら空の結果を返す。
+/// 閲覧者がホームからたどって一覧で見られるコンテンツ・アーカイブの公開アイテム・フォルダの中・
+/// リンクの一覧のファイルの中のリンクを、タイトルの文字列で探す (→ docs/search.md)。語が空なら空の結果を返す。
 #[utoipa::path(
     get,
     path = "/search",
@@ -109,9 +121,28 @@ async fn search(
             contents_truncated: false,
             items: Vec::new(),
             items_truncated: false,
+            files: Vec::new(),
+            files_truncated: false,
+            folders_incomplete: false,
+            links: Vec::new(),
+            links_truncated: false,
         }));
     };
     let found = contents::search_contents(&state, &viewer, &terms).await?;
+    let archives = found
+        .archives
+        .iter()
+        .map(|archive| (archive.id, archive.title.clone()))
+        .collect();
+    let in_folders = folder_search::search(
+        &state,
+        &viewer,
+        found.folders,
+        archives,
+        found.links_files,
+        &terms,
+    )
+    .await?;
     let (items, items_truncated) =
         archive_items::search_items(&state.pool, found.archives, terms).await?;
     Ok(Json(SearchResponse {
@@ -119,6 +150,11 @@ async fn search(
         contents_truncated: found.truncated,
         items,
         items_truncated,
+        files: in_folders.files,
+        files_truncated: in_folders.files_truncated,
+        folders_incomplete: in_folders.incomplete,
+        links: in_folders.links,
+        links_truncated: in_folders.links_truncated,
     }))
 }
 

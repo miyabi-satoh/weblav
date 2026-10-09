@@ -578,12 +578,15 @@
 	"search_nav_label": "検索",
 	"search_title": "検索",
 	"search_query_label": "探す語",
-	"search_query_description": "コンテンツはタイトルと説明から、アーカイブのファイルはタイトルと年度などの値から探します。フォルダの中は探しません。",
+	"search_query_description": "コンテンツはタイトルと説明から、アーカイブのファイルはタイトルと年度などの値から、フォルダの中はファイルとフォルダの名前から、リンクの一覧の中はリンクの題と説明から探します。",
 	"search_section_count": "{count} 件",
 	"search_contents_heading": "コンテンツ",
 	"search_items_heading": "アーカイブのファイル",
+	"search_files_heading": "フォルダの中",
+	"search_links_heading": "リンクの一覧の中",
 	"search_empty": "「{query}」に当たるものはありません。",
 	"search_truncated": "先頭の {count} 件を出しています。語を足すと絞れます。",
+	"search_folders_incomplete": "大きなフォルダは、途中までしか探していません。",
 	"search_fetch_failed": "検索に失敗しました。しばらくしてから再度お試しください。",
 	"search_section_count_truncated": "{count} 件以上"
 }

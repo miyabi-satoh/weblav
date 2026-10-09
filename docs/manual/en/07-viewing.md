@@ -28,7 +28,7 @@ Some contents are visible only to signed-in users (→ [Sign in and display](03-
   ![The Sort menu open](images/viewing-sort.webp)
 
 - Use the buttons to the right of “Sort” to switch between a list and tiles. Tiles fit more items on a wide screen. This device remembers your choice.
-- Select the magnifying glass at the top right and type words to search contents by title and description, and archive files by title and values such as the year. Separate words with spaces to find items that contain all of them. Case and full-width or half-width characters do not matter. Files inside folders are not searched.
+- Select the magnifying glass at the top right and type words to search contents by title and description, and archive files by title and values such as the year. Separate words with spaces to find items that contain all of them. Case and full-width or half-width characters do not matter. Files and folders inside folders are found by name, and links in files whose names end with `.links.toml` by page title and description (`note`).
 
 ## Play or open files
 

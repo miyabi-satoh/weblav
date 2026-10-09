@@ -11,6 +11,8 @@
 	import ArchiveViewList, { type ArchiveViewRow } from '$lib/components/archive-view-list.svelte';
 	import BrowseLayoutToggle from '$lib/components/browse-layout-toggle.svelte';
 	import ContentList from '$lib/components/content-list.svelte';
+	import FolderEntryList, { type FolderEntryRow } from '$lib/components/folder-entry-list.svelte';
+	import LinksEntryList, { type LinksEntryRow } from '$lib/components/links-entry-list.svelte';
 	import type { components } from '$lib/api/schema';
 	import { browseControlsClass, browseGutterClass } from '$lib/list-row';
 	import { pageEmptyTextClass, pageHeadingClass } from '$lib/page-layout';
@@ -72,7 +74,11 @@
 	let result = $derived(data.result);
 	let contentHits = $derived(result?.contents ?? []);
 	let itemHits = $derived(result?.items ?? []);
-	let hasHits = $derived(contentHits.length > 0 || itemHits.length > 0);
+	let fileHits = $derived(result?.files ?? []);
+	let linkHits = $derived(result?.links ?? []);
+	let hasHits = $derived(
+		contentHits.length + itemHits.length + fileHits.length + linkHits.length > 0
+	);
 
 	let placements = $derived(new Map(contentHits.map((hit) => [hit.content.id, hit])));
 
@@ -96,6 +102,44 @@
 	function linksHref(row: ArchiveViewRow): string {
 		return linksFileHref(row.archiveId, { item: row.item.id });
 	}
+
+	/** フォルダの中の行の2段目。フォルダの名前と、その中のどこにあるか。 */
+	let fileRows = $derived<FolderEntryRow[]>(
+		fileHits.map((hit) => ({
+			contentId: hit.contentId,
+			path: hit.path,
+			entry: hit.entry,
+			subtitle: [hit.folderTitle, ...hit.path.split('/').slice(0, -1)].join(' / ')
+		}))
+	);
+
+	function folderHref(row: FolderEntryRow): string {
+		return withQuery(resolve('/folders/[id]', { id: String(row.contentId) }), { path: row.path });
+	}
+
+	function folderLinksHref(row: FolderEntryRow): string {
+		return linksFileHref(row.contentId, { path: row.path });
+	}
+
+	/** 一覧のファイルの中のリンクの2段目。どの一覧にあるかと、`note` で当たったときは `note`。 */
+	let linkRows = $derived<LinksEntryRow[]>(
+		linkHits.map((hit) => {
+			const location = [hit.containerTitle, hit.fileTitle]
+				.filter((part): part is string => !!part)
+				.join(' / ');
+			return {
+				contentId: hit.contentId,
+				target: {
+					...(hit.path != null ? { path: hit.path } : {}),
+					...(hit.item != null ? { item: hit.item } : {})
+				},
+				url: hit.url,
+				note: hit.note,
+				preview: hit.preview,
+				subtitle: hit.matchedInNote && hit.note ? [location, hit.note] : [location]
+			};
+		})
+	);
 </script>
 
 <svelte:head><title>{pageTitle(m.search_title())}</title></svelte:head>
@@ -150,6 +194,9 @@
 		<p class={['mt-6', pageEmptyTextClass]}>{m.search_fetch_failed()}</p>
 	{:else if result && !hasHits}
 		<p class={['mt-6', pageEmptyTextClass]}>{m.search_empty({ query: data.q.trim() })}</p>
+		{#if result.foldersIncomplete}
+			<p class={['mt-2', pageEmptyTextClass]}>{m.search_folders_incomplete()}</p>
+		{/if}
 	{:else if result}
 		{#if contentHits.length > 0}
 			<section>
@@ -172,6 +219,29 @@
 					{@render truncatedNote(itemRows.length)}
 				{/if}
 			</section>
+		{/if}
+		{#if fileRows.length > 0}
+			<section class={contentHits.length + itemRows.length > 0 ? 'mt-8' : undefined}>
+				{@render sectionHeading(m.search_files_heading(), fileRows.length, result.filesTruncated)}
+				<FolderEntryList rows={fileRows} dirHref={folderHref} linksHref={folderLinksHref} />
+				{#if result.filesTruncated}
+					{@render truncatedNote(fileRows.length)}
+				{/if}
+			</section>
+		{/if}
+		{#if linkRows.length > 0}
+			<section
+				class={contentHits.length + itemRows.length + fileRows.length > 0 ? 'mt-8' : undefined}
+			>
+				{@render sectionHeading(m.search_links_heading(), linkRows.length, result.linksTruncated)}
+				<LinksEntryList rows={linkRows} />
+				{#if result.linksTruncated}
+					{@render truncatedNote(linkRows.length)}
+				{/if}
+			</section>
+		{/if}
+		{#if result.foldersIncomplete}
+			<p class={['mt-8', pageEmptyTextClass]}>{m.search_folders_incomplete()}</p>
 		{/if}
 	{/if}
 </div>

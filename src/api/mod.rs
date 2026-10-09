@@ -9,6 +9,7 @@ mod completed_reader;
 mod connection_info;
 mod contents;
 pub mod error_detail;
+mod folder_search;
 pub mod free_limit;
 mod fs;
 mod health;

@@ -578,12 +578,15 @@
 	"search_nav_label": "Search",
 	"search_title": "Search",
 	"search_query_label": "Search for",
-	"search_query_description": "Searches contents by title and description, and archive files by title and values such as the year. Files inside folders are not searched.",
+	"search_query_description": "Searches contents by title and description, archive files by title and values such as the year, files and folders inside folders by name, and links in link lists by title and description.",
 	"search_section_count": "{count} items",
 	"search_contents_heading": "Contents",
 	"search_items_heading": "Archive files",
+	"search_files_heading": "In folders",
+	"search_links_heading": "In link lists",
 	"search_empty": "Nothing matches “{query}”.",
 	"search_truncated": "Showing the first {count}. Add more words to narrow it down.",
+	"search_folders_incomplete": "Large folders were searched only partway.",
 	"search_fetch_failed": "Search failed. Please try again later.",
 	"search_section_count_truncated": "{count}+ items"
 }
