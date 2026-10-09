@@ -41,8 +41,8 @@ const MAX_REFRESH_TARGETS: usize = 200;
 /// 取りに行く画像の大きさの上限。カードの画像は縮めて使うので、大きな原寸は要らない。
 const MAX_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
 
-/// カードの画像の長い辺 (px)。タイルのカードの幅の2倍を目安にする。
-const CARD_IMAGE_SIZE: u32 = 640;
+/// カードの画像の長い辺 (px)。リンクの詳しい表示で幅いっぱいに出すので、`og:image` の推奨の大きさ (1200×630) を縮めずに残す。
+const CARD_IMAGE_SIZE: u32 = 1200;
 
 /// サイトのアイコンの一辺 (px)。小さく出すので、2倍の解像度の画面でも足りる大きさ。
 const ICON_SIZE: u32 = 64;
@@ -73,6 +73,8 @@ impl LinkPreviews {
 #[serde(rename_all = "camelCase")]
 pub struct LinkPreview {
     pub title: Option<String>,
+    /// ページの説明 (`og:description`、無ければ `<meta name="description">`)。
+    pub description: Option<String>,
     pub site_name: Option<String>,
     /// ページの `article:published_time` のまま。読めなければ経過を出さない。
     pub published_at: Option<String>,
@@ -83,6 +85,7 @@ pub struct LinkPreview {
 struct PreviewRow {
     url: String,
     title: Option<String>,
+    description: Option<String>,
     site_name: Option<String>,
     published_at: Option<String>,
     image_file: Option<String>,
@@ -93,6 +96,7 @@ impl From<PreviewRow> for LinkPreview {
     fn from(row: PreviewRow) -> Self {
         Self {
             title: row.title,
+            description: row.description,
             site_name: row.site_name,
             published_at: row.published_at,
             image_url: row.image_file.map(|file| file_url(&file)),
@@ -124,7 +128,7 @@ pub(super) async fn cached(
     let urls_json = serde_json::to_string(urls).expect("文字列の並びは JSON にできる");
     let rows = sqlx::query_as!(
         PreviewRow,
-        r#"SELECT url, title, site_name, published_at, image_file, icon_file
+        r#"SELECT url, title, description, site_name, published_at, image_file, icon_file
            FROM link_previews WHERE url IN (SELECT value FROM json_each(?))"#,
         urls_json
     )
@@ -429,8 +433,9 @@ async fn save(
     let bytes = settled.image_bytes + settled.icon_bytes;
     if let Some(card) = card {
         sqlx::query!(
-            "UPDATE link_previews SET title = ?, site_name = ?, published_at = ? WHERE url = ?",
+            "UPDATE link_previews SET title = ?, description = ?, site_name = ?, published_at = ? WHERE url = ?",
             card.title,
+            card.description,
             card.site_name,
             card.published_at,
             url

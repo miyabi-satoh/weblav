@@ -361,6 +361,7 @@ mod tests {
     fn preview(title: Option<&str>) -> LinkPreview {
         LinkPreview {
             title: title.map(str::to_string),
+            description: None,
             site_name: None,
             published_at: None,
             image_url: None,

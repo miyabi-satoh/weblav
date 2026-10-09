@@ -328,6 +328,7 @@
 	"group_browse_fetch_failed": "Failed to load the group contents. Please try again later.",
 	"group_browse_empty": "This group has nothing to show.",
 	"contents_opens_in_new_tab": "Opens in a new tab",
+	"link_detail_open_button": "Open in new tab",
 	"dir_picker_title": "Choose a folder",
 	"dir_picker_description": "Browse inside the registered shared folders.",
 	"dir_picker_breadcrumb_label": "Current location",
