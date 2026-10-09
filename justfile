@@ -17,7 +17,7 @@ bin_name := "weblav"
 default:
     @just --list
 
-# frontend の依存関係と lefthook の pre-commit/pre-push hook をインストールする
+# frontend の依存関係と lefthook の hook をインストールする
 install:
     pnpm install
     cd {{ frontend_dir }} && pnpm install
@@ -135,6 +135,11 @@ e2e $E2E_BASE_URL $E2E_ADMIN_PASSWORD $E2E_ADMIN_USER="admin":
 e2e-local: ensure-frontend-build
     cargo build --bin weblav-service
     cd {{ frontend_dir }} && node scripts/run-e2e.ts
+
+# 開発用の DB に、まだ当てていないマイグレーションを当てる (DB が無い clone と worktree の中では何もしない)。
+# pull・rebase の後に lefthook (post-merge・post-rewrite) が流す
+dev-db-migrate:
+    node scripts/dev-db-migrate.mjs
 
 # sqlx::query! 系マクロのオフラインキャッシュ(.sqlx/)を再生成する (クエリ変更時に実行してコミットする)。
 # DB は just dev-backend と同じもの (DATABASE_URL)

@@ -25,3 +25,16 @@ pre-push:
   commands:
     fmt-check:
       run: just fmt-check
+
+# pull の後に、開発用の DB に増えたマイグレーションを当てる。sqlx のマクロはビルドの時点でこの DB を見るので、
+# 当て忘れるとビルドやリントが止まる。マシンが複数あり、pull を別のセッションがすることもあるので、手順に頼らない。
+# pull が rebase になったとき (pull.rebase で手元のコミットがあるとき) は post-merge が走らないので、post-rewrite でも流す。
+post-merge:
+  jobs:
+    - name: dev-db-migrate
+      run: just dev-db-migrate
+
+post-rewrite:
+  jobs:
+    - name: dev-db-migrate
+      run: just dev-db-migrate
