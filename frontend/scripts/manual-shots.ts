@@ -78,8 +78,6 @@ const DESKTOP_WIDTH = 800;
 const MOBILE_WIDTH = 450;
 /** 欄が画面の下にはみ出さない高さ。はみ出すと clip の外が切れる。 */
 const VIEWPORT_HEIGHT = 2400;
-/** 要素が出るのを待つ上限。管理画面の操作はどれも1秒もかからないので、遅いマシンでも足りる長さ。 */
-const ELEMENT_TIMEOUT_MS = 15_000;
 /** WebP の品質。1枚あたり数十 KB に収まり、文字が滲まない (→ docs/help.md)。 */
 const WEBP_QUALITY = 0.85;
 /**
@@ -141,8 +139,6 @@ async function newPage(backend: Backend, width: number, sharedPath?: string): Pr
 		baseURL: backend.baseURL,
 		locale: 'ja-JP'
 	});
-	// 画面の文言を変えて要素が見つからなくなったとき、待ち続けずに止める (既定は待ち続ける)。
-	context.setDefaultTimeout(ELEMENT_TIMEOUT_MS);
 	await context.addCookies([{ name: 'WEBLAV_LOCALE', value: 'ja', url: backend.baseURL }]);
 	const page = await context.newPage();
 	await send(page.request, 'POST', '/auth/login', {
@@ -524,7 +520,6 @@ async function shootDiagram() {
 		viewport: { width: 700, height: 340 },
 		deviceScaleFactor: 2
 	});
-	context.setDefaultTimeout(ELEMENT_TIMEOUT_MS);
 	const page = await context.newPage();
 	await page.goto(pathToFileURL(DIAGRAM_HTML).href);
 	await page.evaluate(() => document.fonts.ready);
