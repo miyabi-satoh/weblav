@@ -55,8 +55,8 @@
 
 	// 左右キーで前後のリンクへ移る (ファイルのビューアと同じ)。
 	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'ArrowLeft') linkDetail.previous();
-		else if (event.key === 'ArrowRight') linkDetail.next();
+		if (event.key === 'ArrowLeft') previous();
+		else if (event.key === 'ArrowRight') next();
 		else return;
 		event.preventDefault();
 	}
@@ -117,8 +117,8 @@
 				</div>
 			{/if}
 			<p class="text-xs break-all text-muted-foreground">{detail.href}</p>
-			<!-- 前後のボタンを左に、開くボタンを右に置く。狭い幅では開くボタンが下の段に回る。 -->
-			<Dialog.Footer class="flex-row flex-wrap items-center">
+			<!-- 前後へ移れるときは、前後のボタンを左に、開くボタンを右に置く。1件だけなら、ほかのダイアログと同じ並べ方にする。 -->
+			<Dialog.Footer class={[linkDetail.count > 1 && 'flex-row flex-wrap items-center']}>
 				{#if linkDetail.count > 1}
 					<Button
 						variant="outline"
@@ -144,7 +144,7 @@
 					href={detail.href}
 					target="_blank"
 					rel="external noopener noreferrer"
-					class={[buttonVariants(), 'ml-auto']}
+					class={[buttonVariants(), linkDetail.count > 1 && 'ml-auto']}
 					onclick={() => (linkDetail.open = false)}
 				>
 					<ExternalLinkIcon data-icon="inline-start" />
