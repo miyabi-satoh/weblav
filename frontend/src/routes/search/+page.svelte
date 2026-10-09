@@ -18,7 +18,7 @@
 	import { browseControlsClass, browseGutterClass, browseToggleItemClass } from '$lib/list-row';
 	import { pageEmptyTextClass, pageHeadingClass } from '$lib/page-layout';
 	import { pageTitle } from '$lib/page-title';
-	import { searchHref } from '$lib/search-scope';
+	import { searchHref, searchScopeLabel } from '$lib/search-scope';
 	import { formatNumber } from '$lib/format';
 	import type { PageProps } from './$types';
 
@@ -219,7 +219,11 @@
 						}
 					>
 						<ToggleGroup.Item value="within" class={['min-w-0 px-4', browseToggleItemClass]}>
-							<span class="truncate">{m.search_scope_within({ title: data.scopeTitle })}</span>
+							<span class="truncate"
+								>{m.search_scope_within({
+									title: searchScopeLabel(data.scopeTitle, data.scope?.path)
+								})}</span
+							>
 						</ToggleGroup.Item>
 						<ToggleGroup.Item value="all" class={['shrink-0 px-4', browseToggleItemClass]}>
 							{m.search_scope_all()}

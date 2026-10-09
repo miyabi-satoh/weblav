@@ -1972,7 +1972,7 @@ pub(super) struct SearchScope {
     content_type: ContentType,
     /// フォルダの中の階層 (登録パスからの相対パス)。フォルダ全体なら空。
     path: String,
-    /// 切り替えに出す名前。フォルダの中の階層なら、その階層の名前。
+    /// 範囲のコンテンツのタイトル。フォルダの中の階層との組み立ては画面がする。
     pub(super) title: String,
 }
 
@@ -2010,7 +2010,6 @@ pub(super) async fn search_scope(
     check_scope_target(row.content_type, path)?;
     // ファイルシステムに触る前に確かめる (理由は `folder_root` と同じ)。
     ensure_viewable(&state.pool, viewer, id).await?;
-    let mut title = row.title;
     // フォルダは、階層が無くても登録先を確かめる。消えた登録先を範囲にすると、どの語でも空になるため。
     if row.content_type == ContentType::Folder {
         let target = resolve_path(state, &folder_path(row.path)?, path).await?;
@@ -2018,14 +2017,11 @@ pub(super) async fn search_scope(
             return Err(AppError::NotFound);
         }
     }
-    if !path.is_empty() {
-        title = path.rsplit('/').next().unwrap_or(path).to_string();
-    }
     Ok(SearchScope {
         id,
         content_type: row.content_type,
         path: path.to_string(),
-        title,
+        title: row.title,
     })
 }
 

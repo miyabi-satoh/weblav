@@ -87,7 +87,7 @@ pub(super) struct SearchItemHit {
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct SearchResponse {
-    /// `within` の場所の名前。切り替えの「『…』の中」に出す。`within` が無ければ `None`。
+    /// `within` のコンテンツのタイトル。切り替えの「『…』の中」に出す。`within` が無ければ `None`。
     scope_title: Option<String>,
     /// タイトル順。区画ごとの上限 (100 件) で打ち切る。
     contents: Vec<SearchContentHit>,

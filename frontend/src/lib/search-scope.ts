@@ -30,6 +30,17 @@ export function searchScopeOf(
 	}
 }
 
+/**
+ * 切り替えに出す範囲の名前。フォルダの中の階層は、同じ名前の階層 (`2024` など) を見分けられるよう、フォルダの名前を前に付ける。
+ * 2段より深い階層は間を詰める。切り替えは幅が狭く、末尾を切り詰めると肝心の階層の名前が消えるため。
+ */
+export function searchScopeLabel(title: string, path: string | undefined): string {
+	if (!path) return title;
+	const parts = path.split('/');
+	const last = parts[parts.length - 1];
+	return parts.length === 1 ? `${title} / ${last}` : `${title} / … / ${last}`;
+}
+
 /** 検索の画面の URL に載っている範囲。 */
 export function searchScopeFromQuery(url: URL): SearchScopeQuery | null {
 	const within = url.searchParams.get('within');
