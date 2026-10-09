@@ -5,7 +5,10 @@ declare global {
 		// interface Error {}
 		// interface Locals {}
 		// interface PageData {}
-		// interface PageState {}
+		interface PageState {
+			/** 一覧のページ内の絞り込みの語 (→ $lib/list-filter.svelte.ts)。 */
+			listFilter?: string;
+		}
 		// interface Platform {}
 	}
 }

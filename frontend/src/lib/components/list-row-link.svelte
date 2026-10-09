@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FilterHighlight from '$lib/components/filter-highlight.svelte';
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { browseLayout } from '$lib/browse-layout.svelte';
@@ -125,7 +126,9 @@
 			{/if}
 		</span>
 		<span class="flex w-full min-w-0 flex-col gap-1 px-3 pt-2.5 pb-3">
-			<span class="line-clamp-2 text-base leading-6 wrap-anywhere">{shownTitle}</span>
+			<span class="line-clamp-2 text-base leading-6 wrap-anywhere"
+				><FilterHighlight text={shownTitle} /></span
+			>
 			{#if description}
 				<span class="truncate text-xs text-muted-foreground"
 					><SeparatedText text={description} /></span
@@ -153,7 +156,7 @@
 			thumbnail={imageUrl ? { src: imageUrl, original: href } : undefined}
 		/>
 		<span class={browseRowTextClass()}>
-			<span class={browseRowTitleClass()}>{shownTitle}</span>
+			<span class={browseRowTitleClass()}><FilterHighlight text={shownTitle} /></span>
 			<span class={[browseRowSubtitleClass(), 'flex']}>{@render meta(!!description)}</span>
 		</span>
 		{#if isPrivate}

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import BrowseFilterInput from '$lib/components/browse-filter-input.svelte';
+	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { withQuery } from '$lib/href';
@@ -21,6 +23,10 @@
 	type ArchiveAxis = components['schemas']['ArchiveAxisResponse'];
 
 	let { data }: PageProps = $props();
+
+	// ページ内の絞り込み (→ docs/ui.md「一覧の絞り込み」)。一覧の部品が context から読む。
+	const listFilter = new ListFilterState();
+	provideListFilter(listFilter);
 
 	let contentId = $derived(data.contentId);
 	let view = $derived(data.view);
@@ -55,7 +61,8 @@
 	}
 
 	function filterHref(axis: ArchiveAxis, value: string): string {
-		const nextFilters: Record<string, string> = { ...data.filters };
+		// 軸を選び直しても、打った絞り込みは残す。
+		const nextFilters: Record<string, string> = { ...data.filters, ...listFilter.query };
 		if (value === allValueFor(axis)) {
 			delete nextFilters[axis.name];
 		} else {
@@ -72,7 +79,8 @@
 	function sortHref(sort: ArchiveSort): string {
 		return archiveSortHref(
 			resolve('/archives/[id]', { id: String(contentId) }),
-			data.filters,
+			// 並び順を変えても、打った絞り込みは残す。
+			{ ...data.filters, ...listFilter.query },
 			sort
 		);
 	}
@@ -83,7 +91,13 @@
 
 	let rows = $derived(view.items.map((item) => ({ archiveId: contentId, item })));
 
-	let resetHref = $derived(resolve('/archives/[id]', { id: String(contentId) }));
+	// 軸の絞り込みだけを解除し、名前の絞り込みは残す。別の欄で打ったもので、解除の対象に見えないため。
+	let resetHref = $derived(
+		withQuery(resolve('/archives/[id]', { id: String(contentId) }), listFilter.query)
+	);
+
+	/** 名前の絞り込みで残る行の数。一覧の部品と同じくタイトルで照らす。 */
+	let shownCount = $derived(listFilter.apply(view.items, (item) => item.title).length);
 </script>
 
 <svelte:head><title>{pageTitle(view.archiveTitle)}</title></svelte:head>
@@ -101,6 +115,7 @@
 			<div class={browseControlsClass}>
 				<div class="flex flex-wrap gap-2.5">
 					<BrowseSortSelect value={data.sort} options={ARCHIVE_SORT_OPTIONS} href={sortHref} />
+					<BrowseFilterInput />
 					{#each view.axes as axis (axis.name)}
 						{@const filtered = selectedOption(axis) !== undefined}
 						<Select.Root
@@ -137,16 +152,23 @@
 		{#if !view.folderMissing}
 			<div class="mt-2 flex min-h-11 items-center justify-between gap-3 text-sm">
 				<p class="text-muted-foreground">
-					{m.archive_view_count({ count: formatNumber(view.items.length) })}
+					{listFilter.active
+						? m.archive_view_count_filtered({
+								shown: formatNumber(shownCount),
+								count: formatNumber(view.items.length)
+							})
+						: m.archive_view_count({ count: formatNumber(view.items.length) })}
 				</p>
 				{#if hasFilters}
 					<!-- パンくずと同じく実URL遷移にする。ブラウザの戻る/進むを機能させるため。 -->
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
 					<a
 						href={resetHref}
 						class="inline-flex h-11 items-center px-1 text-primary underline underline-offset-4"
 					>
 						{m.archive_view_reset_filters()}
 					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				{/if}
 			</div>
 		{/if}

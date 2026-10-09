@@ -1,4 +1,7 @@
 <script lang="ts">
+	import FilterHighlight from '$lib/components/filter-highlight.svelte';
+	import { listFilter } from '$lib/list-filter.svelte';
+	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
 	import { resolve } from '$app/paths';
 	import { contentDownloadHref, contentRemoteHref, contentThumbnailHref } from '$lib/api/urls';
 	import { contentTypeIcon } from '$lib/content-types';
@@ -41,13 +44,17 @@
 	// トップページ(`/`)・`/groups/[id]`・検索の結果で使う一覧。片方だけの改修で
 	// もう片方が古びるのを防ぐため、コンテンツ種別ごとの表示分岐をここに集約する。
 	let {
-		entries,
+		entries: allEntries,
 		subtitle = (content) => content.description
 	}: {
 		entries: ContentEntry[];
 		/** 行の2段目。省くと説明を出す。検索では、どこにあるかを出す。 */
 		subtitle?: (content: ContentEntry) => string | string[] | null | undefined;
 	} = $props();
+
+	// ページ内の絞り込みが置かれていれば、タイトルで行を絞る (→ docs/ui.md「一覧の絞り込み」)。
+	const filter = listFilter();
+	let entries = $derived(filter ? filter.apply(allEntries, (item) => item.title) : allEntries);
 
 	/** URL のファイルを指す link コンテンツなら、その種類。サーバーの中継で、ファイルと同じ行・ビューアで開く (→ docs/ui.md「URL のファイル」)。 */
 	function remoteKind(content: ContentEntry) {
@@ -145,7 +152,7 @@
 	{@const privateInText = content.private && browseLayout.tile}
 	{@const text = subtitle(content)}
 	<span class={browseRowTextClass()}>
-		<span class={browseRowTitleClass()}>{content.title}</span>
+		<span class={browseRowTitleClass()}><FilterHighlight text={content.title} /></span>
 		{#if privateInText || text}
 			<span class={browseRowSubtitleClass()}>
 				{#if privateInText}
@@ -171,62 +178,66 @@
 	<ListRowGlyph newTab={opensNewTab} />
 {/snippet}
 
-<ul class={browseListClass()}>
-	{#each entries as content (content.id)}
-		{@const image = toViewerImage(content)}
-		{@const viewerFile = toViewerFile(content)}
-		<li class={browseItemClass()}>
-			{#if isLinkCard(content)}
-				<ListRowLink
-					href={content.url}
-					title={content.title}
-					description={subtitle(content)}
-					preview={refreshed.get(content.url) ?? content.preview}
-					private={content.private}
-					viewer={viewerFile && { file: viewerFile, items: viewerList }}
-				/>
-			{:else if content.type === 'folder'}
-				<a href={resolve('/folders/[id]', { id: String(content.id) })} class={browseRowClass()}>
-					{@render rowBody(content, false)}
-				</a>
-			{:else if content.type === 'archive'}
-				<a href={resolve('/archives/[id]', { id: String(content.id) })} class={browseRowClass()}>
-					{@render rowBody(content, false)}
-				</a>
-			{:else if content.type === 'group'}
-				<a href={resolve('/groups/[id]', { id: String(content.id) })} class={browseRowClass()}>
-					{@render rowBody(content, false)}
-				</a>
-			{:else if content.type === 'file' && isLinksFileName(content.fileName)}
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
-				<a href={linksFileHref(content.id)} class={browseRowClass()}>
-					<ListRowIcon icon={LinksFileIcon} />
-					{@render rowText(content)}
-					<ListRowGlyph />
-				</a>
-			{:else if isAudioContent(content)}
-				<ListRowPlayButton track={toTrack(content)} queue={audioQueue}>
-					{@render rowText(content)}
-				</ListRowPlayButton>
-			{:else if image}
-				<ListRowImageLink {image} items={viewerList}>
-					{@render rowText(content)}
-				</ListRowImageLink>
-			{:else if viewerFile}
-				<ListRowFileLink file={viewerFile} items={viewerList}>
-					{@render rowText(content)}
-				</ListRowFileLink>
-			{:else if content.type === 'file'}
-				<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
-				<a
-					href={contentDownloadHref(content.id)}
-					class={browseRowClass()}
-					target="_blank"
-					rel="external noopener noreferrer"
-				>
-					{@render rowBody(content, true)}
-				</a>
-			{/if}
-		</li>
-	{/each}
-</ul>
+{#if filter?.active && entries.length === 0}
+	<ListFilterEmpty />
+{:else}
+	<ul class={browseListClass()}>
+		{#each entries as content (content.id)}
+			{@const image = toViewerImage(content)}
+			{@const viewerFile = toViewerFile(content)}
+			<li class={browseItemClass()}>
+				{#if isLinkCard(content)}
+					<ListRowLink
+						href={content.url}
+						title={content.title}
+						description={subtitle(content)}
+						preview={refreshed.get(content.url) ?? content.preview}
+						private={content.private}
+						viewer={viewerFile && { file: viewerFile, items: viewerList }}
+					/>
+				{:else if content.type === 'folder'}
+					<a href={resolve('/folders/[id]', { id: String(content.id) })} class={browseRowClass()}>
+						{@render rowBody(content, false)}
+					</a>
+				{:else if content.type === 'archive'}
+					<a href={resolve('/archives/[id]', { id: String(content.id) })} class={browseRowClass()}>
+						{@render rowBody(content, false)}
+					</a>
+				{:else if content.type === 'group'}
+					<a href={resolve('/groups/[id]', { id: String(content.id) })} class={browseRowClass()}>
+						{@render rowBody(content, false)}
+					</a>
+				{:else if content.type === 'file' && isLinksFileName(content.fileName)}
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
+					<a href={linksFileHref(content.id)} class={browseRowClass()}>
+						<ListRowIcon icon={LinksFileIcon} />
+						{@render rowText(content)}
+						<ListRowGlyph />
+					</a>
+				{:else if isAudioContent(content)}
+					<ListRowPlayButton track={toTrack(content)} queue={audioQueue}>
+						{@render rowText(content)}
+					</ListRowPlayButton>
+				{:else if image}
+					<ListRowImageLink {image} items={viewerList}>
+						{@render rowText(content)}
+					</ListRowImageLink>
+				{:else if viewerFile}
+					<ListRowFileLink file={viewerFile} items={viewerList}>
+						{@render rowText(content)}
+					</ListRowFileLink>
+				{:else if content.type === 'file'}
+					<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
+					<a
+						href={contentDownloadHref(content.id)}
+						class={browseRowClass()}
+						target="_blank"
+						rel="external noopener noreferrer"
+					>
+						{@render rowBody(content, true)}
+					</a>
+				{/if}
+			</li>
+		{/each}
+	</ul>
+{/if}

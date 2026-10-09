@@ -27,6 +27,7 @@ Some contents are visible only to signed-in users (→ [Sign in and display](03-
 
   ![The Sort menu open](images/viewing-sort.webp)
 
+- Type in the “Filter” box to keep only the rows whose names match. A row matches when the letters you type appear in its name in that order, even with other letters in between (“eng2” matches “English listening 2”). Matching letters are highlighted.
 - Use the buttons to the right of “Sort” to switch between a list and tiles. Tiles fit more items on a wide screen. This device remembers your choice.
 - Select the magnifying glass at the top right and type words to search contents by title and description, and archive files by title and values such as the year. Separate words with spaces to find items that contain all of them. Case and full-width or half-width characters do not matter. Files and folders inside folders are found by name, and links in files whose names end with `.links.toml` by page title and description (`note`).
   - If you select it while a group, folder, or archive is open, it searches inside that place. Select “Everywhere” below the search box to search everything.

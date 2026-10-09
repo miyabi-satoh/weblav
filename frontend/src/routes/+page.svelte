@@ -1,4 +1,6 @@
 <script lang="ts">
+	import BrowseFilterInput from '$lib/components/browse-filter-input.svelte';
+	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
@@ -13,6 +15,10 @@
 
 	let { data }: PageProps = $props();
 
+	// ページ内の絞り込み (→ docs/ui.md「一覧の絞り込み」)。一覧の部品が context から読む。
+	const listFilter = new ListFilterState();
+	provideListFilter(listFilter);
+
 	// コンテンツ管理はログイン済みなら `role` を問わず開ける (→ docs/access.md「管理画面の一覧が `user` に見えること」)。
 	// 自分で追加できる人に「管理者に追加を依頼してください」と出さない。
 	let canAddContents = $derived(page.data.user != null);
@@ -21,7 +27,8 @@
 	let homeHeading = $derived(data.siteSettings.homeHeading);
 
 	function sortHref(sort: BrowseSort): string {
-		return browseSortHref(resolve('/'), sort);
+		// 並び順を変えても、打った絞り込みは残す。
+		return browseSortHref(resolve('/'), sort, listFilter.query);
 	}
 </script>
 
@@ -60,7 +67,10 @@
 		{/if}
 	{:else}
 		<div class={['mb-4', browseControlsClass, browseGutterClass]}>
-			<BrowseSortSelect value={data.sort} options={SORT_OPTIONS} href={sortHref} />
+			<div class="flex flex-wrap gap-2.5">
+				<BrowseSortSelect value={data.sort} options={SORT_OPTIONS} href={sortHref} />
+				<BrowseFilterInput />
+			</div>
 			<BrowseLayoutToggle />
 		</div>
 		<ContentList entries={data.contents} />

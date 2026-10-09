@@ -17,6 +17,9 @@
 </script>
 
 <script lang="ts">
+	import FilterHighlight from '$lib/components/filter-highlight.svelte';
+	import { listFilter } from '$lib/list-filter.svelte';
+	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
 	import { linksFileRemoteHref } from '$lib/api/urls';
 	import { remoteFileKind, remoteFileName } from '$lib/file-kind';
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
@@ -39,13 +42,17 @@
 	// URL のファイルと動画サイトの動画は、一覧のコンテンツと同じく、ファイルの行・ビューアで開く
 	// (→ docs/ui.md「URL のファイル」「動画サイトの埋め込み」)。
 	let {
-		rows,
+		rows: allRows,
 		previewOf = (row) => row.preview
 	}: {
 		rows: LinksEntryRow[];
 		/** カードに出す情報。一覧のファイルの画面は、取り直した答えで差し替える。 */
 		previewOf?: (row: LinksEntryRow) => LinkPreview | null | undefined;
 	} = $props();
+
+	// ページ内の絞り込みが置かれていれば、タイトルで行を絞る (→ docs/ui.md「一覧の絞り込み」)。
+	const filter = listFilter();
+	let rows = $derived(filter ? filter.apply(allRows, linkTitle) : allRows);
 
 	/** ページのタイトルが取れなければ、ファイルはファイル名、ほかはホスト名 (リンクのカードと同じ)。 */
 	function linkTitle(row: LinksEntryRow): string {
@@ -96,34 +103,38 @@
 {#snippet rowText(row: LinksEntryRow)}
 	{@const subtitle = subtitleOf(row)}
 	<span class={browseRowTextClass()}>
-		<span class={browseRowTitleClass()}>{linkTitle(row)}</span>
+		<span class={browseRowTitleClass()}><FilterHighlight text={linkTitle(row)} /></span>
 		{#if subtitle}
 			<span class={browseRowSubtitleClass()}><SeparatedText text={subtitle} /></span>
 		{/if}
 	</span>
 {/snippet}
 
-<ul class={browseListClass()}>
-	{#each rows as row, index (`${index}:${row.contentId}:${row.url}`)}
-		{@const kind = remoteFileKind(row.url)}
-		{@const viewerFile = toViewerFile(row)}
-		<li class={browseItemClass()}>
-			{#if kind === 'audio'}
-				<ListRowPlayButton track={toTrack(row)} queue={audioQueue}>
-					{@render rowText(row)}
-				</ListRowPlayButton>
-			{:else if kind && viewerFile}
-				<ListRowFileLink file={viewerFile} items={viewerList}>
-					{@render rowText(row)}
-				</ListRowFileLink>
-			{:else}
-				<ListRowLink
-					href={row.url}
-					description={subtitleOf(row)}
-					preview={previewOf(row)}
-					viewer={viewerFile && { file: viewerFile, items: viewerList }}
-				/>
-			{/if}
-		</li>
-	{/each}
-</ul>
+{#if filter?.active && rows.length === 0}
+	<ListFilterEmpty />
+{:else}
+	<ul class={browseListClass()}>
+		{#each rows as row, index (`${index}:${row.contentId}:${row.url}`)}
+			{@const kind = remoteFileKind(row.url)}
+			{@const viewerFile = toViewerFile(row)}
+			<li class={browseItemClass()}>
+				{#if kind === 'audio'}
+					<ListRowPlayButton track={toTrack(row)} queue={audioQueue}>
+						{@render rowText(row)}
+					</ListRowPlayButton>
+				{:else if kind && viewerFile}
+					<ListRowFileLink file={viewerFile} items={viewerList}>
+						{@render rowText(row)}
+					</ListRowFileLink>
+				{:else}
+					<ListRowLink
+						href={row.url}
+						description={subtitleOf(row)}
+						preview={previewOf(row)}
+						viewer={viewerFile && { file: viewerFile, items: viewerList }}
+					/>
+				{/if}
+			</li>
+		{/each}
+	</ul>
+{/if}
