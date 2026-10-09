@@ -72,6 +72,15 @@ const REMOTE_IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'b
 
 export type RemoteFileKind = ViewerFileKind | 'audio';
 
+/** URL のホスト名。ページのタイトルが取れないリンクの題にする。読めない URL はそのまま返す。 */
+export function urlHost(url: string): string {
+	try {
+		return new URL(url).host;
+	} catch {
+		return url;
+	}
+}
+
 /** URL のパスの最後の部分を戻したファイル名。http・https でない・読めない URL は `undefined`。 */
 export function remoteFileName(url: string): string | undefined {
 	let parsed: URL;

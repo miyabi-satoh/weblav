@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isLanUrl, remoteFileKind, remoteFileName } from './file-kind';
+import { isLanUrl, remoteFileKind, remoteFileName, urlHost } from './file-kind';
 
 describe('remoteFileKind', () => {
 	it('パスの最後の部分の拡張子で種類を決める', () => {
@@ -28,6 +28,16 @@ describe('remoteFileName', () => {
 	it('http・https でない URL は読まない', () => {
 		expect(remoteFileName('ftp://example.com/a.pdf')).toBeUndefined();
 		expect(remoteFileName('not a url')).toBeUndefined();
+	});
+});
+
+describe('urlHost', () => {
+	it('ポートがあれば付けたホスト名を返す', () => {
+		expect(urlHost('https://example.com:8080/a?b=1')).toBe('example.com:8080');
+	});
+
+	it('読めない URL はそのまま返す', () => {
+		expect(urlHost('not a url')).toBe('not a url');
 	});
 });
 

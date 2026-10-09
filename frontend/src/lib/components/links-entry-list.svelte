@@ -21,7 +21,7 @@
 	import { listFilter } from '$lib/list-filter.svelte';
 	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
 	import { linksFileRemoteHref } from '$lib/api/urls';
-	import { remoteFileKind, remoteFileName } from '$lib/file-kind';
+	import { remoteFileKind, remoteFileName, urlHost } from '$lib/file-kind';
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
 	import { viewerItems } from '$lib/viewer-items';
 	import type { Track } from '$lib/now-playing.svelte';
@@ -59,7 +59,7 @@
 		const title = previewOf(row)?.title;
 		if (title) return title;
 		if (remoteFileKind(row.url)) return remoteFileName(row.url) ?? row.url;
-		return new URL(row.url).host;
+		return urlHost(row.url);
 	}
 
 	function remoteHref(row: LinksEntryRow): string {
