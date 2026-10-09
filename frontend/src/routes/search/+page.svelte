@@ -8,6 +8,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
+	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import ArchiveViewList, { type ArchiveViewRow } from '$lib/components/archive-view-list.svelte';
 	import BrowseLayoutToggle from '$lib/components/browse-layout-toggle.svelte';
 	import ContentList from '$lib/components/content-list.svelte';
@@ -17,10 +18,14 @@
 	import { browseControlsClass, browseGutterClass } from '$lib/list-row';
 	import { pageEmptyTextClass, pageHeadingClass } from '$lib/page-layout';
 	import { pageTitle } from '$lib/page-title';
+	import { searchHref } from '$lib/search-scope';
 	import { formatNumber } from '$lib/format';
 	import type { PageProps } from './$types';
 
 	type ContentEntry = components['schemas']['ContentResponse'];
+
+	const scopeItemClass =
+		'h-14 min-w-0 px-4 bg-background text-muted-foreground data-[state=on]:bg-primary/10 data-[state=on]:text-primary';
 
 	/** 打ち止めてから探すまでの間。1文字ごとに問い合わせず、打っている間に結果が揺れないようにする。 */
 	const SEARCH_DELAY_MS = 300;
@@ -47,15 +52,23 @@
 		});
 	});
 
-	function searchHref(q: string): string {
-		return withQuery(resolve('/search'), q === '' ? {} : { q });
-	}
-
 	// 履歴は置き換えにして、打つたびに戻るの段を増やさない。戻ると、検索を開く前の画面へ戻る。
 	function search(q: string) {
 		sent = q;
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」)
-		void goto(searchHref(q), { replaceState: true, keepFocus: true, noScroll: true });
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- searchHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」)
+		void goto(searchHref(q, data.scope, data.all), {
+			replaceState: true,
+			keepFocus: true,
+			noScroll: true
+		});
+	}
+
+	/** 範囲の切り替え。語はまだ URL に送っていない打ちかけの分も含めて、そのまま探し直す。 */
+	function switchScope(all: boolean) {
+		const q = query.trim();
+		sent = q;
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- searchHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」)
+		void goto(searchHref(q, data.scope, all), { replaceState: true, noScroll: true });
 	}
 
 	$effect(() => {
@@ -183,9 +196,35 @@
 			</Field.Field>
 		</form>
 
-		{#if hasHits}
-			<div class={['mt-6 mb-4 justify-end', browseControlsClass]}>
-				<BrowseLayoutToggle />
+		{#if data.scopeTitle !== null || hasHits}
+			<!-- 並び順と同じく範囲は左に、リストとタイルの切り替えは右端に置く (→ docs/ui.md「UI 全般」)。 -->
+			<div class={['mt-6 mb-4', browseControlsClass]}>
+				{#if data.scopeTitle !== null}
+					<!-- 閲覧ページから開いたときだけ出す。最初はそのページの中を選んでおく (→ docs/search.md「範囲」)。 -->
+					<ToggleGroup.Root
+						type="single"
+						variant="outline"
+						class="min-w-0"
+						aria-label={m.search_scope_label()}
+						bind:value={
+							() => (data.all ? 'all' : 'within'),
+							// 選んでいる側をもう一度押すと選択が外れる (空の値が来る) が、どちらかは常に選んでおく。
+							(next) => {
+								if (next === 'within' || next === 'all') switchScope(next === 'all');
+							}
+						}
+					>
+						<ToggleGroup.Item value="within" class={scopeItemClass}>
+							<span class="truncate">{m.search_scope_within({ title: data.scopeTitle })}</span>
+						</ToggleGroup.Item>
+						<ToggleGroup.Item value="all" class={['shrink-0', scopeItemClass]}>
+							{m.search_scope_all()}
+						</ToggleGroup.Item>
+					</ToggleGroup.Root>
+				{/if}
+				{#if hasHits}
+					<div class="ml-auto"><BrowseLayoutToggle /></div>
+				{/if}
 			</div>
 		{/if}
 	</div>

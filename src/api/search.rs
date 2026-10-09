@@ -55,6 +55,14 @@ struct SearchQuery {
     /// 検索語。空白で区切ると、どの語も含むものに絞る。
     #[serde(default)]
     q: String,
+    /// 探す場所のグループ・フォルダ・アーカイブの id。無ければ全体を探す。
+    within: Option<i64>,
+    /// `within` がフォルダのとき、その中の階層 (登録パスからの相対パス)。
+    #[serde(default)]
+    path: String,
+    /// `true` なら `within` で絞らず全体を探す。範囲の名前は返すので、画面は切り替えを出したままにできる。
+    #[serde(default)]
+    all: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -79,6 +87,8 @@ pub(super) struct SearchItemHit {
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct SearchResponse {
+    /// `within` の場所の名前。切り替えの「『…』の中」に出す。`within` が無ければ `None`。
+    scope_title: Option<String>,
     /// タイトル順。区画ごとの上限 (100 件) で打ち切る。
     contents: Vec<SearchContentHit>,
     /// `contents` を打ち切ったか。
@@ -102,12 +112,15 @@ struct SearchResponse {
 
 /// 閲覧者がホームからたどって一覧で見られるコンテンツ・アーカイブの公開アイテム・フォルダの中・
 /// リンクの一覧のファイルの中のリンクを、タイトルの文字列で探す (→ docs/search.md)。語が空なら空の結果を返す。
+/// `within` を渡すと、その場所の中だけを探す (→ docs/search.md「範囲」)。
 #[utoipa::path(
     get,
     path = "/search",
     params(SearchQuery),
     responses(
         (status = OK, body = SearchResponse, description = "区画ごとの検索結果"),
+        (status = 401, body = crate::error::ErrorResponse, description = "範囲の場所を開くにはログインが要る"),
+        (status = 404, body = crate::error::ErrorResponse, description = "範囲の場所が無いか、開けないか、グループ・フォルダ・アーカイブでない"),
     )
 )]
 async fn search(
@@ -115,8 +128,15 @@ async fn search(
     State(state): State<AppState>,
     Query(query): Query<SearchQuery>,
 ) -> Result<Json<SearchResponse>, AppError> {
+    let scope = match query.within {
+        Some(id) => Some(contents::search_scope(&state, &viewer, id, &query.path).await?),
+        None => None,
+    };
+    let scope_title = scope.as_ref().map(|scope| scope.title.clone());
+    let scope = scope.filter(|_| !query.all);
     let Some(terms) = Terms::parse(&query.q) else {
         return Ok(Json(SearchResponse {
+            scope_title,
             contents: Vec::new(),
             contents_truncated: false,
             items: Vec::new(),
@@ -128,7 +148,7 @@ async fn search(
             links_truncated: false,
         }));
     };
-    let found = contents::search_contents(&state, &viewer, &terms).await?;
+    let found = contents::search_contents(&state, &viewer, &terms, scope.as_ref()).await?;
     let archives = found
         .archives
         .iter()
@@ -146,6 +166,7 @@ async fn search(
     let (items, items_truncated) =
         archive_items::search_items(&state.pool, found.archives, terms).await?;
     Ok(Json(SearchResponse {
+        scope_title,
         contents: found.hits,
         contents_truncated: found.truncated,
         items,

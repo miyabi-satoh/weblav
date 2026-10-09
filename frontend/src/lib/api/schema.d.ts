@@ -1214,6 +1214,7 @@ export interface paths {
         /**
          * 閲覧者がホームからたどって一覧で見られるコンテンツ・アーカイブの公開アイテム・フォルダの中・
          *     リンクの一覧のファイルの中のリンクを、タイトルの文字列で探す (→ docs/search.md)。語が空なら空の結果を返す。
+         *     `within` を渡すと、その場所の中だけを探す (→ docs/search.md「範囲」)。
          */
         get: operations["search"];
         put?: never;
@@ -2192,6 +2193,8 @@ export interface components {
             links: components["schemas"]["SearchLinkHit"][];
             /** @description `links` を打ち切ったか。 */
             linksTruncated: boolean;
+            /** @description `within` の場所の名前。切り替えの「『…』の中」に出す。`within` が無ければ `None`。 */
+            scopeTitle?: string | null;
         };
         /** @description 管理画面で変えられる設定。 */
         ServerSettings: {
@@ -6237,6 +6240,12 @@ export interface operations {
             query?: {
                 /** @description 検索語。空白で区切ると、どの語も含むものに絞る。 */
                 q?: string;
+                /** @description 探す場所のグループ・フォルダ・アーカイブの id。無ければ全体を探す。 */
+                within?: number | null;
+                /** @description `within` がフォルダのとき、その中の階層 (登録パスからの相対パス)。 */
+                path?: string;
+                /** @description `true` なら `within` で絞らず全体を探す。範囲の名前は返すので、画面は切り替えを出したままにできる。 */
+                all?: boolean;
             };
             header?: never;
             path?: never;
@@ -6251,6 +6260,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+            /** @description 範囲の場所を開くにはログインが要る */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 範囲の場所が無いか、開けないか、グループ・フォルダ・アーカイブでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

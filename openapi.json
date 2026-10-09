@@ -4480,7 +4480,7 @@
     },
     "/api/v1/search": {
       "get": {
-        "summary": "閲覧者がホームからたどって一覧で見られるコンテンツ・アーカイブの公開アイテム・フォルダの中・\nリンクの一覧のファイルの中のリンクを、タイトルの文字列で探す (→ docs/search.md)。語が空なら空の結果を返す。",
+        "summary": "閲覧者がホームからたどって一覧で見られるコンテンツ・アーカイブの公開アイテム・フォルダの中・\nリンクの一覧のファイルの中のリンクを、タイトルの文字列で探す (→ docs/search.md)。語が空なら空の結果を返す。\n`within` を渡すと、その場所の中だけを探す (→ docs/search.md「範囲」)。",
         "operationId": "search",
         "parameters": [
           {
@@ -4491,6 +4491,37 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "within",
+            "in": "query",
+            "description": "探す場所のグループ・フォルダ・アーカイブの id。無ければ全体を探す。",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "`within` がフォルダのとき、その中の階層 (登録パスからの相対パス)。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "all",
+            "in": "query",
+            "description": "`true` なら `within` で絞らず全体を探す。範囲の名前は返すので、画面は切り替えを出したままにできる。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -4500,6 +4531,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "範囲の場所を開くにはログインが要る",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "範囲の場所が無いか、開けないか、グループ・フォルダ・アーカイブでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -7136,6 +7187,13 @@
           "linksTruncated": {
             "type": "boolean",
             "description": "`links` を打ち切ったか。"
+          },
+          "scopeTitle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`within` の場所の名前。切り替えの「『…』の中」に出す。`within` が無ければ `None`。"
           }
         }
       },

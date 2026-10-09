@@ -37,3 +37,31 @@ test('検索: ヘッダーから開いて打つと、アーカイブのファイ
 		}
 	);
 });
+
+test('検索: 閲覧ページから開くとその中を探し、「すべて」で全体に切り替わる', async ({ page }) => {
+	await withDirectoryContent(
+		page.request,
+		{ type: 'archive', namePrefix: 'e2e-search-scope' },
+		async (archive, name) => {
+			await setUpArchiveForBrowsing(page.request, archive);
+
+			await page.goto(`/archives/${archive.id}`);
+			await page.getByRole('link', { name: SEARCH_LINK_NAME }).click();
+			const scope = page.getByRole('group', { name: /^(探す範囲|Where to search)$/ });
+			const within = scope.getByRole('radio', { name: new RegExp(name) });
+			await expect(within).toBeChecked();
+			await page.getByLabel(SEARCH_INPUT_LABEL).fill('2023 リスニング');
+			await page.waitForURL((url) => url.searchParams.get('q') === '2023 リスニング');
+			await expect(page).toHaveURL(new RegExp(`within=${archive.id}`));
+
+			// 範囲の中の行は、どれもこのアーカイブのもの。
+			const rows = page.getByRole('button', { name: /2023 リスニング/ });
+			await expect(rows.first()).toBeVisible();
+			await expect(rows.filter({ hasNotText: name })).toHaveCount(0);
+
+			await scope.getByRole('radio', { name: /^(すべて|Everywhere)$/ }).click();
+			await page.waitForURL((url) => url.searchParams.get('all') === '1');
+			await expect(within).not.toBeChecked();
+		}
+	);
+});

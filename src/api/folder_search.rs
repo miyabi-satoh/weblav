@@ -29,6 +29,8 @@ pub(super) struct SearchableFolder {
     pub(super) id: i64,
     pub(super) title: String,
     pub(super) path: String,
+    /// 辿り始める階層 (登録パスからの相対パス)。フォルダ全体なら空。`contents::search_scope` で確かめ済み。
+    pub(super) sub_path: String,
 }
 
 /// リンクの一覧のファイルの `file` コンテンツ。閲覧者が一覧で見られることは、呼び出し側が確かめる。
@@ -126,9 +128,14 @@ pub(super) async fn search(
             if !super::roots::is_within_roots(&roots, &root, &own_dirs) {
                 continue;
             }
-            let (entries, cut) = super::fs::walk_entries(&root, FOLDER_WALK_LIMIT, &own_dirs);
+            let (entries, cut) =
+                super::fs::walk_entries(&root.join(&folder.sub_path), FOLDER_WALK_LIMIT, &own_dirs);
             truncated |= cut;
-            for entry in entries {
+            for mut entry in entries {
+                // 結果のパスは、階層の中からでなく、フォルダの登録パスからの相対にする。
+                if !folder.sub_path.is_empty() {
+                    entry.rel_path = format!("{}/{}", folder.sub_path, entry.rel_path);
+                }
                 let name = entry
                     .rel_path
                     .rsplit('/')
