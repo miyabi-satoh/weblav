@@ -2011,11 +2011,14 @@ pub(super) async fn search_scope(
     // ファイルシステムに触る前に確かめる (理由は `folder_root` と同じ)。
     ensure_viewable(&state.pool, viewer, id).await?;
     let mut title = row.title;
-    if !path.is_empty() {
+    // フォルダは、階層が無くても登録先を確かめる。消えた登録先を範囲にすると、どの語でも空になるため。
+    if row.content_type == ContentType::Folder {
         let target = resolve_path(state, &folder_path(row.path)?, path).await?;
         if !path_is_dir(&target).await? {
             return Err(AppError::NotFound);
         }
+    }
+    if !path.is_empty() {
         title = path.rsplit('/').next().unwrap_or(path).to_string();
     }
     Ok(SearchScope {
