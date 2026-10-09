@@ -1,4 +1,6 @@
 <script lang="ts">
+	import BrowseFilterInput from '$lib/components/browse-filter-input.svelte';
+	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { resolve } from '$app/paths';
 	import { withQuery } from '$lib/href';
 	import * as m from '$lib/paraglide/messages.js';
@@ -8,7 +10,7 @@
 	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
 	import BrowseLayoutToggle from '$lib/components/browse-layout-toggle.svelte';
 	import LinksEntryList, { type LinksEntryRow } from '$lib/components/links-entry-list.svelte';
-	import { browseGutterClass } from '$lib/list-row';
+	import { browseControlsClass, browseGutterClass } from '$lib/list-row';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
 	import { pageHeadingClass, pageEmptyTextClass } from '$lib/page-layout';
@@ -16,6 +18,10 @@
 	// リンクの一覧のファイルを開いた画面 (→ docs/ui.md「リンクの一覧のファイル」)。
 	// フォルダの中・アーカイブのアイテム・file コンテンツのどれも、この1つの画面で開く。
 	let { data }: PageProps = $props();
+
+	// ページ内の絞り込み (→ docs/ui.md「一覧の絞り込み」)。一覧の部品が context から読む。
+	const listFilter = new ListFilterState();
+	provideListFilter(listFilter);
 
 	let contentId = $derived(data.contentId);
 	let target = $derived(data.target);
@@ -78,7 +84,8 @@
 		<h1 class={pageHeadingClass}>{linksFile.title}</h1>
 
 		{#if linksFile.links?.length}
-			<div class="mb-4 flex justify-end">
+			<div class={['mb-4', browseControlsClass]}>
+				<BrowseFilterInput />
 				<BrowseLayoutToggle />
 			</div>
 		{/if}

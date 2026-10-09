@@ -15,6 +15,10 @@
 </script>
 
 <script lang="ts">
+	import FilterHighlight from '$lib/components/filter-highlight.svelte';
+	import { listFilter } from '$lib/list-filter.svelte';
+	import { pageEmptyTextClass } from '$lib/page-layout';
+	import * as m from '$lib/paraglide/messages.js';
 	import { contentDownloadHref, contentThumbnailHref } from '$lib/api/urls';
 	import { formatByteSize, formatDate } from '$lib/format';
 	import { isAudioFileName, isLinksFileName, viewerFileKind } from '$lib/file-kind';
@@ -43,7 +47,7 @@
 	// フォルダの一覧 (`/folders/[id]`) と検索の結果で使う、フォルダの中のファイル・ディレクトリの行。
 	// 押したときの動きを両方で揃えるため、種類ごとの描き分けをここに集める。
 	let {
-		rows,
+		rows: allRows,
 		dirHref,
 		linksHref
 	}: {
@@ -51,6 +55,12 @@
 		dirHref: (row: FolderEntryRow) => string;
 		linksHref: (row: FolderEntryRow) => string;
 	} = $props();
+
+	// ページ内の絞り込みが置かれていれば、タイトルで行を絞る (→ docs/ui.md「一覧の絞り込み」)。
+	const filter = listFilter();
+	let rows = $derived(
+		filter?.active ? allRows.filter((item) => filter.match(item.entry.name) !== null) : allRows
+	);
 
 	function downloadHref(row: FolderEntryRow): string {
 		return contentDownloadHref(row.contentId, row.path);
@@ -105,7 +115,7 @@
 {#snippet entryText(row: FolderEntryRow)}
 	{@const entry = row.entry}
 	<span class={browseRowTextClass()}>
-		<span class={browseRowTitleClass(true)}>{entry.name}</span>
+		<span class={browseRowTitleClass(true)}><FilterHighlight text={entry.name} /></span>
 		{#if row.subtitle !== undefined}
 			<span class={browseRowSubtitleClass()}><SeparatedText text={row.subtitle} /></span>
 		{:else if !entry.isDir}
@@ -118,50 +128,54 @@
 	</span>
 {/snippet}
 
-<ul class={browseListClass()}>
-	{#each rows as row (`${row.contentId}:${row.path}`)}
-		{@const image = toViewerImage(row)}
-		{@const viewerFile = toViewerFile(row)}
-		<li class={browseItemClass()}>
-			{#if row.entry.isDir}
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
-				<a href={dirHref(row)} class={browseRowClass(true)}>
-					<ListRowIcon icon={FolderIcon} compact />
-					{@render entryText(row)}
-					<ListRowGlyph />
-				</a>
-			{:else if isLinksFileName(row.entry.name)}
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
-				<a href={linksHref(row)} class={browseRowClass(true)}>
-					<ListRowIcon icon={LinksFileIcon} compact />
-					{@render entryText(row)}
-					<ListRowGlyph />
-				</a>
-			{:else if isAudioFileName(row.entry.name)}
-				<ListRowPlayButton track={toTrack(row)} queue={audioQueue} compact>
-					{@render entryText(row)}
-				</ListRowPlayButton>
-			{:else if image}
-				<ListRowImageLink {image} items={viewerList} compact>
-					{@render entryText(row)}
-				</ListRowImageLink>
-			{:else if viewerFile}
-				<ListRowFileLink file={viewerFile} items={viewerList} compact>
-					{@render entryText(row)}
-				</ListRowFileLink>
-			{:else}
-				<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
-				<a
-					href={downloadHref(row)}
-					class={browseRowClass(true)}
-					target="_blank"
-					rel="external noopener noreferrer"
-				>
-					<ListRowIcon icon={FileIcon} compact thumbnail={rowThumbnail(row)} />
-					{@render entryText(row)}
-					<ListRowGlyph newTab />
-				</a>
-			{/if}
-		</li>
-	{/each}
-</ul>
+{#if filter?.active && rows.length === 0}
+	<p class={pageEmptyTextClass}>{m.browse_filter_empty({ query: filter.value.trim() })}</p>
+{:else}
+	<ul class={browseListClass()}>
+		{#each rows as row (`${row.contentId}:${row.path}`)}
+			{@const image = toViewerImage(row)}
+			{@const viewerFile = toViewerFile(row)}
+			<li class={browseItemClass()}>
+				{#if row.entry.isDir}
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
+					<a href={dirHref(row)} class={browseRowClass(true)}>
+						<ListRowIcon icon={FolderIcon} compact />
+						{@render entryText(row)}
+						<ListRowGlyph />
+					</a>
+				{:else if isLinksFileName(row.entry.name)}
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
+					<a href={linksHref(row)} class={browseRowClass(true)}>
+						<ListRowIcon icon={LinksFileIcon} compact />
+						{@render entryText(row)}
+						<ListRowGlyph />
+					</a>
+				{:else if isAudioFileName(row.entry.name)}
+					<ListRowPlayButton track={toTrack(row)} queue={audioQueue} compact>
+						{@render entryText(row)}
+					</ListRowPlayButton>
+				{:else if image}
+					<ListRowImageLink {image} items={viewerList} compact>
+						{@render entryText(row)}
+					</ListRowImageLink>
+				{:else if viewerFile}
+					<ListRowFileLink file={viewerFile} items={viewerList} compact>
+						{@render entryText(row)}
+					</ListRowFileLink>
+				{:else}
+					<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
+					<a
+						href={downloadHref(row)}
+						class={browseRowClass(true)}
+						target="_blank"
+						rel="external noopener noreferrer"
+					>
+						<ListRowIcon icon={FileIcon} compact thumbnail={rowThumbnail(row)} />
+						{@render entryText(row)}
+						<ListRowGlyph newTab />
+					</a>
+				{/if}
+			</li>
+		{/each}
+	</ul>
+{/if}

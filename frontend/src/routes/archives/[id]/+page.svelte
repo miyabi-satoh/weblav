@@ -1,4 +1,6 @@
 <script lang="ts">
+	import BrowseFilterInput from '$lib/components/browse-filter-input.svelte';
+	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { withQuery } from '$lib/href';
@@ -21,6 +23,10 @@
 	type ArchiveAxis = components['schemas']['ArchiveAxisResponse'];
 
 	let { data }: PageProps = $props();
+
+	// ページ内の絞り込み (→ docs/ui.md「一覧の絞り込み」)。一覧の部品が context から読む。
+	const listFilter = new ListFilterState();
+	provideListFilter(listFilter);
 
 	let contentId = $derived(data.contentId);
 	let view = $derived(data.view);
@@ -55,7 +61,8 @@
 	}
 
 	function filterHref(axis: ArchiveAxis, value: string): string {
-		const nextFilters: Record<string, string> = { ...data.filters };
+		// 軸を選び直しても、打った絞り込みは残す。
+		const nextFilters: Record<string, string> = { ...data.filters, ...listFilter.query };
 		if (value === allValueFor(axis)) {
 			delete nextFilters[axis.name];
 		} else {
@@ -72,7 +79,8 @@
 	function sortHref(sort: ArchiveSort): string {
 		return archiveSortHref(
 			resolve('/archives/[id]', { id: String(contentId) }),
-			data.filters,
+			// 並び順を変えても、打った絞り込みは残す。
+			{ ...data.filters, ...listFilter.query },
 			sort
 		);
 	}
@@ -101,6 +109,7 @@
 			<div class={browseControlsClass}>
 				<div class="flex flex-wrap gap-2.5">
 					<BrowseSortSelect value={data.sort} options={ARCHIVE_SORT_OPTIONS} href={sortHref} />
+					<BrowseFilterInput />
 					{#each view.axes as axis (axis.name)}
 						{@const filtered = selectedOption(axis) !== undefined}
 						<Select.Root

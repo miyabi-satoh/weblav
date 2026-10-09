@@ -73,7 +73,9 @@ fn validate_axis_name(name: &str) -> Result<String, AppError> {
     // `sort` は並び順のクエリキーで予約している (→ docs/archive.md「エンドポイント一覧」, docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
     // 同名の軸を許すと、その軸の絞り込みクエリが常に並び順として消費され、
     // 絞り込めなくなる (`build_archive_view` が `"sort"` キーを軸名より先に取り出すため)。
-    if name == "sort" {
+    // `filter` は画面のページ内の絞り込みのクエリキーで、画面がサーバーへ送らずに取り除くので、同名の軸は絞り込めない
+    // (→ docs/ui.md「一覧の絞り込み」)。
+    if name == "sort" || name == "filter" {
         return Err(AppError::ValidationDetailed {
             message: format!("axis name '{name}' is reserved"),
             detail: ValidationDetail::AxisNameReserved { name },
@@ -1070,11 +1072,13 @@ mod tests {
         )
     }
 
-    /// 前後の空白を落とす。空・`{` `}` を含む名前・予約した名前 (`fileName`・`sort`) は弾く。
+    /// 前後の空白を落とす。空・`{` `}` を含む名前・予約した名前 (`fileName`・`sort`・`filter`) は弾く。
     #[test]
     fn validate_axis_name_rejects_names_unusable_as_placeholders() {
         assert_eq!(validate_axis_name(" 科目 ").expect("通るはず"), "科目");
-        for name in ["", "  ", "{科目}", "科{目", "科目}", "fileName", "sort"] {
+        for name in [
+            "", "  ", "{科目}", "科{目", "科目}", "fileName", "sort", "filter",
+        ] {
             assert!(is_validation(&validate_axis_name(name)), "{name:?}");
         }
         assert!(matches!(

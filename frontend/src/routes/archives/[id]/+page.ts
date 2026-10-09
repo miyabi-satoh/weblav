@@ -1,6 +1,7 @@
 import { client } from '$lib/api/client';
 import { fetchOrError } from '$lib/api/load';
 import { parseArchiveSort } from '$lib/archive-sort';
+import { LIST_FILTER_QUERY } from '$lib/list-filter.svelte';
 import * as m from '$lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
@@ -13,7 +14,10 @@ export const load: PageLoad = async ({ parent, params, url }) => {
 	// クエリキーは軸名(`?科目=国語`)。軸名に一致しないキーはサーバー側が無視するため、
 	// ここで検証せずそのまま転送する(→ docs/archive.md「エンドポイント一覧」、共有されたリンクを壊さないため)。
 	// `sort` は並び順のクエリなので filters とは別に持つ(→ docs/archive.md「エンドポイント一覧」)。
-	const filters = Object.fromEntries(url.searchParams);
+	// ページ内の絞り込みの語は画面だけのもので、サーバーには送らない (→ docs/ui.md「一覧の絞り込み」)。
+	const filters = Object.fromEntries(
+		[...url.searchParams].filter(([key]) => key !== LIST_FILTER_QUERY)
+	);
 	const sort = parseArchiveSort(url.searchParams.get('sort'));
 
 	// utoipaが動的クエリ(軸名がキー)を型付けできないため、生成された型ではこの

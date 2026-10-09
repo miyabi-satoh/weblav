@@ -1,4 +1,6 @@
 <script lang="ts">
+	import BrowseFilterInput from '$lib/components/browse-filter-input.svelte';
+	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { resolve } from '$app/paths';
 	import { withQuery } from '$lib/href';
 	import * as m from '$lib/paraglide/messages.js';
@@ -15,6 +17,10 @@
 	import { pageHeadingClass, pageEmptyTextClass } from '$lib/page-layout';
 
 	let { data }: PageProps = $props();
+
+	// ページ内の絞り込み (→ docs/ui.md「一覧の絞り込み」)。一覧の部品が context から読む。
+	const listFilter = new ListFilterState();
+	provideListFilter(listFilter);
 
 	let browse = $derived(data.browse);
 	let contentId = $derived(data.contentId);
@@ -34,7 +40,9 @@
 	function sortHref(sort: BrowseSort): string {
 		return withQuery(resolve('/folders/[id]', { id: String(contentId) }), {
 			...(browse.path === '' ? {} : { path: browse.path }),
-			...(sort === DEFAULT_BROWSE_SORT ? {} : { sort })
+			...(sort === DEFAULT_BROWSE_SORT ? {} : { sort }),
+			// 並び順を変えても、打った絞り込みは残す。階層を移るとき (browseHref) は、別の一覧なので引き継がない。
+			...listFilter.query
 		});
 	}
 
@@ -86,7 +94,10 @@
 
 		{#if browse.entries.length > 0}
 			<div class={['mb-4', browseControlsClass]}>
-				<BrowseSortSelect value={data.sort} options={SORT_OPTIONS} href={sortHref} />
+				<div class="flex flex-wrap gap-2.5">
+					<BrowseSortSelect value={data.sort} options={SORT_OPTIONS} href={sortHref} />
+					<BrowseFilterInput />
+				</div>
 				<BrowseLayoutToggle />
 			</div>
 		{/if}

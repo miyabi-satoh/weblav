@@ -13,6 +13,10 @@
 </script>
 
 <script lang="ts">
+	import FilterHighlight from '$lib/components/filter-highlight.svelte';
+	import { listFilter } from '$lib/list-filter.svelte';
+	import { pageEmptyTextClass } from '$lib/page-layout';
+	import * as m from '$lib/paraglide/messages.js';
 	import { archiveItemDownloadHref, archiveItemThumbnailHref } from '$lib/api/urls';
 	import { isAudioFileName, isLinksFileName, viewerFileKind } from '$lib/file-kind';
 	import { LinksFileIcon } from '$lib/links-file';
@@ -38,8 +42,16 @@
 
 	// アーカイブの一覧 (`/archives/[id]`) と検索の結果で使う、アーカイブのファイルの行。
 	// 押したときの動きを両方で揃えるため、種類ごとの描き分けをここに集める。
-	let { rows, linksHref }: { rows: ArchiveViewRow[]; linksHref: (row: ArchiveViewRow) => string } =
-		$props();
+	let {
+		rows: allRows,
+		linksHref
+	}: { rows: ArchiveViewRow[]; linksHref: (row: ArchiveViewRow) => string } = $props();
+
+	// ページ内の絞り込みが置かれていれば、タイトルで行を絞る (→ docs/ui.md「一覧の絞り込み」)。
+	const filter = listFilter();
+	let rows = $derived(
+		filter?.active ? allRows.filter((item) => filter.match(item.item.title) !== null) : allRows
+	);
 
 	function downloadHref(row: ArchiveViewRow): string {
 		return archiveItemDownloadHref(row.archiveId, row.item.id);
@@ -93,50 +105,54 @@
 {#snippet itemText(row: ArchiveViewRow)}
 	{@const subtitle = row.subtitle === undefined ? row.item.subtitle : row.subtitle}
 	<span class={browseRowTextClass()}>
-		<span class={browseRowTitleClass()}>{row.item.title}</span>
+		<span class={browseRowTitleClass()}><FilterHighlight text={row.item.title} /></span>
 		{#if subtitle}
 			<span class={browseRowSubtitleClass()}><SeparatedText text={subtitle} /></span>
 		{/if}
 	</span>
 {/snippet}
 
-<ul class={browseListClass()}>
-	{#each rows as row (`${row.archiveId}-${row.item.id}`)}
-		{@const image = toViewerImage(row)}
-		{@const viewerFile = toViewerFile(row)}
-		<li class={browseItemClass()}>
-			{#if isLinksFileName(row.item.fileName)}
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
-				<a href={linksHref(row)} class={browseRowClass()}>
-					<ListRowIcon icon={LinksFileIcon} />
-					{@render itemText(row)}
-					<ListRowGlyph />
-				</a>
-			{:else if isAudioFileName(row.item.fileName)}
-				<ListRowPlayButton track={toTrack(row)} queue={audioQueue}>
-					{@render itemText(row)}
-				</ListRowPlayButton>
-			{:else if image}
-				<ListRowImageLink {image} items={viewerList}>
-					{@render itemText(row)}
-				</ListRowImageLink>
-			{:else if viewerFile}
-				<ListRowFileLink file={viewerFile} items={viewerList}>
-					{@render itemText(row)}
-				</ListRowFileLink>
-			{:else}
-				<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
-				<a
-					href={downloadHref(row)}
-					class={browseRowClass()}
-					target="_blank"
-					rel="external noopener noreferrer"
-				>
-					<ListRowIcon icon={FileIcon} thumbnail={rowThumbnail(row)} />
-					{@render itemText(row)}
-					<ListRowGlyph newTab />
-				</a>
-			{/if}
-		</li>
-	{/each}
-</ul>
+{#if filter?.active && rows.length === 0}
+	<p class={pageEmptyTextClass}>{m.browse_filter_empty({ query: filter.value.trim() })}</p>
+{:else}
+	<ul class={browseListClass()}>
+		{#each rows as row (`${row.archiveId}-${row.item.id}`)}
+			{@const image = toViewerImage(row)}
+			{@const viewerFile = toViewerFile(row)}
+			<li class={browseItemClass()}>
+				{#if isLinksFileName(row.item.fileName)}
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
+					<a href={linksHref(row)} class={browseRowClass()}>
+						<ListRowIcon icon={LinksFileIcon} />
+						{@render itemText(row)}
+						<ListRowGlyph />
+					</a>
+				{:else if isAudioFileName(row.item.fileName)}
+					<ListRowPlayButton track={toTrack(row)} queue={audioQueue}>
+						{@render itemText(row)}
+					</ListRowPlayButton>
+				{:else if image}
+					<ListRowImageLink {image} items={viewerList}>
+						{@render itemText(row)}
+					</ListRowImageLink>
+				{:else if viewerFile}
+					<ListRowFileLink file={viewerFile} items={viewerList}>
+						{@render itemText(row)}
+					</ListRowFileLink>
+				{:else}
+					<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
+					<a
+						href={downloadHref(row)}
+						class={browseRowClass()}
+						target="_blank"
+						rel="external noopener noreferrer"
+					>
+						<ListRowIcon icon={FileIcon} thumbnail={rowThumbnail(row)} />
+						{@render itemText(row)}
+						<ListRowGlyph newTab />
+					</a>
+				{/if}
+			</li>
+		{/each}
+	</ul>
+{/if}
