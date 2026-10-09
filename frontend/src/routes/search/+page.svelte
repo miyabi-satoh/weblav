@@ -18,11 +18,18 @@
 	import { browseControlsClass, browseGutterClass, browseToggleItemClass } from '$lib/list-row';
 	import { pageEmptyTextClass, pageHeadingClass } from '$lib/page-layout';
 	import { pageTitle } from '$lib/page-title';
-	import { searchHref, searchScopeLabel } from '$lib/search-scope';
+	import { searchHref, searchScopeLevel } from '$lib/search-scope';
 	import { formatNumber } from '$lib/format';
 	import type { PageProps } from './$types';
 
 	type ContentEntry = components['schemas']['ContentResponse'];
+
+	// 範囲の名前は、幅が足りなければフォルダの名前だけを切り詰める。訳の語順を崩さないよう、
+	// 文言を目印で組んでから、名前の前と後ろに分ける。
+	const SCOPE_TITLE_MARK = '\u0000';
+	let scopeLabelParts = $derived(
+		m.search_scope_within({ title: SCOPE_TITLE_MARK }).split(SCOPE_TITLE_MARK)
+	);
 
 	/** 打ち止めてから探すまでの間。1文字ごとに問い合わせず、打っている間に結果が揺れないようにする。 */
 	const SEARCH_DELAY_MS = 300;
@@ -218,12 +225,17 @@
 							}
 						}
 					>
-						<ToggleGroup.Item value="within" class={['min-w-0 px-4', browseToggleItemClass]}>
-							<span class="truncate"
-								>{m.search_scope_within({
-									title: searchScopeLabel(data.scopeTitle, data.scope?.path)
-								})}</span
-							>
+						<!-- 部品の既定の shrink-0 を外し、幅が足りなければこちらを縮める。 -->
+						<ToggleGroup.Item value="within" class={['min-w-0 shrink px-4', browseToggleItemClass]}>
+							{@const [before, after] = scopeLabelParts}
+							<span class="flex min-w-0">
+								<span class="shrink-0">{before}</span>
+								<span class="truncate">{data.scopeTitle}</span>
+								<!-- 先頭の空白 (` / 2025`) が flex の項目の端で詰められないよう、空白をそのまま残す。 -->
+								<span class="shrink-0 whitespace-pre"
+									>{searchScopeLevel(data.scope?.path)}{after}</span
+								>
+							</span>
 						</ToggleGroup.Item>
 						<ToggleGroup.Item value="all" class={['shrink-0 px-4', browseToggleItemClass]}>
 							{m.search_scope_all()}

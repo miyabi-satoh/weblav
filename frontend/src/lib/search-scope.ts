@@ -31,14 +31,15 @@ export function searchScopeOf(
 }
 
 /**
- * 切り替えに出す範囲の名前。フォルダの中の階層は、同じ名前の階層 (`2024` など) を見分けられるよう、フォルダの名前を前に付ける。
- * 2段より深い階層は間を詰める。切り替えは幅が狭く、末尾を切り詰めると肝心の階層の名前が消えるため。
+ * 切り替えに出す範囲の名前の、フォルダの名前の後ろに続ける階層 (` / 2025 / 2`)。フォルダの中の階層でなければ空。
+ * 同じ名前の階層 (`2024` など) を見分けられるよう最後の2段までを出し、それより上は `…` に詰める。
+ * 画面は、幅が足りなければフォルダの名前だけを切り詰め、これは切り詰めない。
  */
-export function searchScopeLabel(title: string, path: string | undefined): string {
-	if (!path) return title;
+export function searchScopeLevel(path: string | undefined): string {
+	if (!path) return '';
 	const parts = path.split('/');
-	const last = parts[parts.length - 1];
-	return parts.length === 1 ? `${title} / ${last}` : `${title} / … / ${last}`;
+	const shown = parts.length > 2 ? ['…', ...parts.slice(-2)] : parts;
+	return shown.map((part) => ` / ${part}`).join('');
 }
 
 /** 検索の画面の URL に載っている範囲。 */

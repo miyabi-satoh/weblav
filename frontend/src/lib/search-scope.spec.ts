@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { searchScopeLabel } from './search-scope';
+import { searchScopeLevel } from './search-scope';
 
-describe('searchScopeLabel', () => {
-	it('uses the title alone outside folder levels', () => {
-		expect(searchScopeLabel('教材', undefined)).toBe('教材');
+describe('searchScopeLevel', () => {
+	it('is empty outside folder levels', () => {
+		expect(searchScopeLevel(undefined)).toBe('');
+		expect(searchScopeLevel('')).toBe('');
 	});
 
-	it('puts the folder title before the level', () => {
-		expect(searchScopeLabel('英検', '2025')).toBe('英検 / 2025');
+	it('shows up to the last two levels', () => {
+		expect(searchScopeLevel('2025')).toBe(' / 2025');
+		expect(searchScopeLevel('2025/2')).toBe(' / 2025 / 2');
 	});
 
-	it('elides the middle of deeper levels', () => {
-		expect(searchScopeLabel('英検', '2025/2/grade_1')).toBe('英検 / … / grade_1');
+	it('elides the levels above the last two', () => {
+		expect(searchScopeLevel('eiken/2025/2')).toBe(' / … / 2025 / 2');
 	});
 });
