@@ -524,6 +524,7 @@ async function shootDiagram() {
 		viewport: { width: 700, height: 340 },
 		deviceScaleFactor: 2
 	});
+	context.setDefaultTimeout(ELEMENT_TIMEOUT_MS);
 	const page = await context.newPage();
 	await page.goto(pathToFileURL(DIAGRAM_HTML).href);
 	await page.evaluate(() => document.fonts.ready);
