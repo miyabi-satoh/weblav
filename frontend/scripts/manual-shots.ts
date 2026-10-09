@@ -240,6 +240,7 @@ async function shotBetween(
  */
 async function shotSection(page: Page, name: string, heading: Locator, bottom?: Locator) {
 	const PAD = 24;
+	await box(name, heading); // 見出しが無ければ、画像の名前を出して止める
 	await heading.evaluate((el) => el.scrollIntoView({ block: 'start' }));
 	await page.evaluate(() => window.scrollBy(0, -40));
 	const section = page.locator('section').filter({ has: heading }).last();
@@ -260,6 +261,7 @@ async function shotSection(page: Page, name: string, heading: Locator, bottom?: 
 
 /** ダイアログなどの要素だけを撮る。ボタンにホバーの色が付かないよう、ポインターを外してから。 */
 async function shotElement(page: Page, name: string, locator: Locator) {
+	await box(name, locator); // 要素が無ければ、画像の名前を出して止める
 	await page.mouse.move(1, 1);
 	await save(page, name, await locator.screenshot({ animations: 'disabled' }));
 }
@@ -336,6 +338,8 @@ async function shootAdmin() {
 			await page.getByRole('menu').waitFor();
 			await shotBetween(page, 'row-menu', row(page, '写真'), row(page, '書類'), { padTop: 8 });
 			await page.keyboard.press('Escape');
+			// 閉じるのを待つ。次のメニューを待つときに、閉じかけのこのメニューを拾わないため。
+			await page.getByRole('menu').waitFor({ state: 'hidden' });
 		}
 		if (want('register-group-menu')) {
 			await row(page, '旅行の思い出')
@@ -344,6 +348,8 @@ async function shootAdmin() {
 			await page.getByRole('menu').waitFor();
 			await shotBetween(page, 'register-group-menu', row(page, '書類'), row(page, '集合写真'));
 			await page.keyboard.press('Escape');
+			// 閉じるのを待つ。次のメニューを待つときに、閉じかけのこのメニューを拾わないため。
+			await page.getByRole('menu').waitFor({ state: 'hidden' });
 		}
 		const folderShots = [
 			'quickstart-add-folder',
