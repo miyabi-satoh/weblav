@@ -365,17 +365,31 @@ async fn settle_images(
                     file: None,
                 };
             };
-            let kept = old_file.filter(|file| {
-                old_source.as_deref() == Some(source.as_str()) && dir.join(file).is_file()
-            });
-            let file = kept.or_else(|| {
-                link_title::fetch_image_blocking(&source, MAX_IMAGE_BYTES)
-                    .and_then(|bytes| shrink(&bytes, kind))
-                    .and_then(|(bytes, format)| store_file(&dir, &bytes, format).ok())
-            });
-            Slot {
-                source: Some(source),
-                file,
+            let old_file = old_file.filter(|file| dir.join(file).is_file());
+            if old_source.as_deref() == Some(source.as_str()) && old_file.is_some() {
+                return Slot {
+                    source: Some(source),
+                    file: old_file,
+                };
+            }
+            let fetched = link_title::fetch_image_blocking(&source, MAX_IMAGE_BYTES)
+                .and_then(|bytes| shrink(&bytes, kind))
+                .and_then(|(bytes, format)| store_file(&dir, &bytes, format).ok());
+            match fetched {
+                Some(file) => Slot {
+                    source: Some(source),
+                    file: Some(file),
+                },
+                // 新しい画像が取れなければ、置いてある前の画像を使い続ける。元の URL は前のままにして、
+                // 次に取り直すときにまた取りに行く。一度の失敗で、画像の無いカードにしないため。
+                None if old_file.is_some() => Slot {
+                    source: old_source,
+                    file: old_file,
+                },
+                None => Slot {
+                    source: Some(source),
+                    file: None,
+                },
             }
         };
         let [old_image, old_icon] = old;
@@ -857,6 +871,36 @@ mod tests {
     }
 
     /// 元が同じで置いたファイルが残っていれば使い回し、無くなっていれば取り直す (ここでは外へつながらず取れない)。
+    #[tokio::test]
+    async fn settle_images_keeps_the_old_image_when_the_new_one_cannot_be_fetched() {
+        let dir = crate::test_support::project_temp_dir("link_preview", "settle_keep");
+        let old_file = format!("{}.jpg", "c".repeat(64));
+        std::fs::write(dir.join(&old_file), b"jpg").expect("書けるはず");
+        // 公開アドレスでない相手には取りに行かないので、取れない画像になる。
+        let new_source = Some("http://127.0.0.1/new.jpg".to_string());
+        let old = Slots {
+            image: Slot {
+                source: None,
+                file: Some(old_file.clone()),
+            },
+            icon: Slot {
+                source: None,
+                file: None,
+            },
+        };
+
+        let settled = settle_images(&dir, &old, (new_source, None))
+            .await
+            .expect("揃えられるはず");
+
+        assert_eq!(settled.image.file.as_deref(), Some(old_file.as_str()));
+        assert_eq!(
+            settled.image.source, None,
+            "元の URL は前のままにして、次の取り直しでまた取りに行く"
+        );
+        assert_eq!(settled.image_bytes, 3);
+    }
+
     #[tokio::test]
     async fn settle_images_refetches_when_the_stored_file_is_gone() {
         let dir = crate::test_support::project_temp_dir("link_preview", "settle");
