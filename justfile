@@ -136,6 +136,11 @@ e2e-local: ensure-frontend-build
     cargo build --bin weblav-service
     cd {{ frontend_dir }} && node scripts/run-e2e.ts
 
+# 開発用の DB に、まだ当てていないマイグレーションを当てる (DB が無い clone と worktree の中では何もしない)。
+# pull の後に lefthook (post-merge) が流す
+dev-db-migrate:
+    node scripts/dev-db-migrate.mjs
+
 # sqlx::query! 系マクロのオフラインキャッシュ(.sqlx/)を再生成する (クエリ変更時に実行してコミットする)。
 # DB は just dev-backend と同じもの (DATABASE_URL)
 sqlx-prepare: ensure-frontend-build
