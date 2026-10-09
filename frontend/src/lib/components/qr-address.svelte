@@ -9,7 +9,7 @@
 	import { CopiedState } from '$lib/copied-state.svelte';
 	import { qrCardClass, qrImageClass } from '$lib/qr-card';
 
-	// ほかの端末で開くアドレスの、QR コードと控えるための全文・コピー (「他の端末からつなぐ」とページの共有)。
+	// ほかの端末で開くアドレスの、QR コードと控えるための全文・コピー (ページの共有)。
 	let { url, qrAlt }: { url: string; qrAlt: string } = $props();
 
 	let qrDataUrl = $state<string | null>(null);
@@ -57,12 +57,7 @@
 		<!-- アイコンのみ (→ GitHub等の「表示中テキストをコピー」ボタンの作法に合わせる)。
 		     成功のフィードバックはアイコンを一時的にチェックマークへ切り替えるだけにし
 		     (トーストはこの軽い操作には大げさ)、失敗時だけトーストで知らせる。 -->
-		<Button
-			variant="outline"
-			size="icon-sm"
-			onclick={copyUrl}
-			aria-label={m.connection_info_copy_button()}
-		>
+		<Button variant="outline" size="icon-sm" onclick={copyUrl} aria-label={m.share_copy_button()}>
 			{#if copyFeedback.copied}
 				<CheckIcon />
 			{:else}

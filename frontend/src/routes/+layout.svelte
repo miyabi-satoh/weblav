@@ -13,10 +13,10 @@
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { headerIconActionClass, headerTextActionClass } from '$lib/header-action';
 	import SearchIcon from '@lucide/svelte/icons/search';
+	import LogInIcon from '@lucide/svelte/icons/log-in';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import ModeToggle from '$lib/components/mode-toggle.svelte';
 	import LanguageToggle from '$lib/components/language-toggle.svelte';
-	import ConnectionInfoDialog from '$lib/components/connection-info-dialog.svelte';
 	import ShareButton from '$lib/components/share-button.svelte';
 	import UserMenu from '$lib/components/user-menu.svelte';
 	import AudioPlayerBar from '$lib/components/audio-player-bar.svelte';
@@ -128,13 +128,16 @@
 				<span class="sr-only">{m.search_nav_label()}</span>
 			</a>
 			<ShareButton />
-			<ConnectionInfoDialog />
 			<LanguageToggle />
 			<ModeToggle />
 			{#if page.data.user}
 				<UserMenu username={page.data.user.username} onlogout={handleLogout} />
 			{:else}
-				<a href={resolve('/login')} class={headerTextActionClass}>{m.login_nav_label()}</a>
+				<!-- スマートフォン幅では文字を読み上げにだけ渡す (→ docs/ui.md「UI 全般」)。 -->
+				<a href={resolve('/login')} class={headerTextActionClass}>
+					<LogInIcon data-icon="inline-start" class="size-5" />
+					<span class="max-md:sr-only">{m.login_nav_label()}</span>
+				</a>
 			{/if}
 		</div>
 	</header>

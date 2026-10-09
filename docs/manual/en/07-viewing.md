@@ -4,11 +4,11 @@
 
 On a device connected to the same Wi-Fi as the computer running WebLAV, open the address you were given or scan the QR code.
 
-Select the QR code icon at the top right of WebLAV to find the address and QR code.
+Select the share icon at the top right of WebLAV and choose “Show QR code...” to find the address and QR code. It shows the address of the page you have open, so open a folder or other page first to let others open that page directly.
 
 ![The icon at the top right](images/header-login.webp)
 
-![The Connect from another device screen](images/quickstart-connect.webp)
+![The Share this page screen](images/share-qr.webp)
 
 Some contents are visible only to signed-in users (→ [Sign in and display](03-account.md)).
 
