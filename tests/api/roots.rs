@@ -1,4 +1,4 @@
-//! 公開できるフォルダ (→ docs/folders.md「公開できるフォルダ」)
+//! 公開できるフォルダー (→ docs/folders.md「公開できるフォルダー」)
 
 use super::*;
 
@@ -15,10 +15,10 @@ async fn roots_can_be_registered_listed_and_deleted(pool: SqlitePool) {
     .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
     assert!(body.contains(&json_string(&path)), "{body}");
-    // 名前を省くとフォルダ名になる。
+    // 名前を省くとフォルダー名になる。
     let folder_name = dir
         .file_name()
-        .expect("フォルダ名があるはず")
+        .expect("フォルダー名があるはず")
         .to_string_lossy()
         .into_owned();
     assert!(
@@ -46,7 +46,7 @@ async fn roots_can_be_registered_listed_and_deleted(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(!body.contains(&json_string(&path)), "{body}");
 
-    // 行は削除済みの印を付けて残る (→ docs/folders.md「公開できるフォルダ」)。
+    // 行は削除済みの印を付けて残る (→ docs/folders.md「公開できるフォルダー」)。
     let deleted: bool = sqlx::query_scalar!(
         r#"SELECT deleted_at IS NOT NULL as "deleted!: bool" FROM roots WHERE id = ?"#,
         id
@@ -57,15 +57,15 @@ async fn roots_can_be_registered_listed_and_deleted(pool: SqlitePool) {
     assert!(deleted);
 }
 
-/// 名前を変えられる。空ならフォルダ名に戻り、他と重なる名前は拒む。削除済みの名前は使える。
+/// 名前を変えられる。空ならフォルダー名に戻り、他と重なる名前は拒む。削除済みの名前は使える。
 #[sqlx::test]
 async fn a_root_can_be_renamed(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
     let base = temp_root_dir("roots-rename");
     let first = base.join("a");
     let second = base.join("b");
-    std::fs::create_dir_all(&first).expect("フォルダを作れなかった");
-    std::fs::create_dir_all(&second).expect("フォルダを作れなかった");
+    std::fs::create_dir_all(&first).expect("フォルダーを作れなかった");
+    std::fs::create_dir_all(&second).expect("フォルダーを作れなかった");
     let register = |dir: std::path::PathBuf, name: &'static str| {
         let app = app.clone();
         let cookie = cookie.clone();
@@ -132,8 +132,8 @@ async fn a_root_can_be_renamed(pool: SqlitePool) {
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 }
 
-/// 削除済みのフォルダは、判定から外れ、中を辿れない
-/// (行は場所の表示のためだけに残す → docs/folders.md「公開できるフォルダ」)。
+/// 削除済みのフォルダーは、判定から外れ、中を辿れない
+/// (行は場所の表示のためだけに残す → docs/folders.md「公開できるフォルダー」)。
 #[sqlx::test]
 async fn a_deleted_root_is_left_out_of_every_check(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
@@ -246,8 +246,8 @@ async fn picking_a_root_returns_the_chosen_path(pool: SqlitePool) {
     assert_eq!(body, r#"{"path":null}"#);
 }
 
-/// macOS では、窓で選んだフォルダのブックマークを残す (→ docs/distribution.md「ビルド・配布の方法」)。
-/// 同じフォルダを選び直したら書き直し、登録したフォルダの分は起動時に戻せる。
+/// macOS では、窓で選んだフォルダーのブックマークを残す (→ docs/distribution.md「ビルド・配布の方法」)。
+/// 同じフォルダーを選び直したら書き直し、登録したフォルダーの分は起動時に戻せる。
 #[cfg(target_os = "macos")]
 #[sqlx::test]
 async fn picking_a_root_keeps_a_bookmark_on_macos(pool: SqlitePool) {
@@ -333,15 +333,15 @@ async fn only_one_root_picker_opens_at_a_time(pool: SqlitePool) {
 }
 
 /// 名前は前後の空白を除いて保存し、同じ名前 (大文字小文字だけの違いも含む) は拒む。
-/// 名前がフルパスの代わりに見分ける手掛かりになるため (→ docs/folders.md「公開できるフォルダ」)。
+/// 名前がフルパスの代わりに見分ける手掛かりになるため (→ docs/folders.md「公開できるフォルダー」)。
 #[sqlx::test]
 async fn a_root_name_is_trimmed_and_must_be_unique(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
     let base = temp_root_dir("roots-names");
     let first = base.join("a");
     let second = base.join("b");
-    std::fs::create_dir_all(&first).expect("フォルダを作れなかった");
-    std::fs::create_dir_all(&second).expect("フォルダを作れなかった");
+    std::fs::create_dir_all(&first).expect("フォルダーを作れなかった");
+    std::fs::create_dir_all(&second).expect("フォルダーを作れなかった");
     let request_body = |dir: &std::path::Path, name: &str| {
         json_path_and_name(
             &canonical_path_as_api_returns_it(
@@ -377,7 +377,7 @@ async fn a_root_name_is_trimmed_and_must_be_unique(pool: SqlitePool) {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     assert!(body.contains(r#""kind":"rootNameTaken""#), "{body}");
 
-    // 空の名前はフォルダ名になる。
+    // 空の名前はフォルダー名になる。
     let (status, body) = send(
         app,
         roots_request(
@@ -411,7 +411,7 @@ async fn admin_contents_locate_a_path_by_its_root_name(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
     let parent = temp_test_dir("root-location");
     let dir = parent.join("英検");
-    std::fs::create_dir_all(&dir).expect("フォルダを作れなかった");
+    std::fs::create_dir_all(&dir).expect("フォルダーを作れなかった");
     let dir = std::fs::canonicalize(&dir).expect("canonicalize できなかった");
     let id = create_archive(app.clone(), &cookie, &dir, None).await;
     // `register_root` は名前をパスと同じにするので、パスを返しても通ってしまう。違う名前にしておく。
@@ -428,7 +428,7 @@ async fn admin_contents_locate_a_path_by_its_root_name(pool: SqlitePool) {
     let thread_dir = dir
         .parent()
         .and_then(|parent| parent.file_name())
-        .expect("親フォルダ名があるはず")
+        .expect("親フォルダー名があるはず")
         .to_string_lossy()
         .into_owned();
     assert_eq!(content["rootName"], "教材", "{content}");
@@ -454,13 +454,13 @@ async fn admin_contents_locate_a_path_by_its_root_name(pool: SqlitePool) {
     );
 }
 
-/// 入れ子は登録できる。同じフォルダの二重登録だけを拒み、登録済みの名前を返す (→ docs/folders.md「公開できるフォルダ」)。
+/// 入れ子は登録できる。同じフォルダーの二重登録だけを拒み、登録済みの名前を返す (→ docs/folders.md「公開できるフォルダー」)。
 #[sqlx::test]
 async fn a_root_can_be_nested_but_not_registered_twice(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
     let parent = root_dir("roots-nested");
     let child = parent.join("child");
-    std::fs::create_dir_all(&child).expect("フォルダを作れなかった");
+    std::fs::create_dir_all(&child).expect("フォルダーを作れなかった");
     let post = |path: &std::path::Path| {
         roots_request(
             "POST",
@@ -481,13 +481,13 @@ async fn a_root_can_be_nested_but_not_registered_twice(pool: SqlitePool) {
     assert!(body.contains(r#""name":"child""#), "{body}");
 }
 
-/// 入れ子では、外側を起点にする。外側から内側へ辿っても、「上へ」で外側へ戻れる (→ docs/folders.md「公開できるフォルダ」)。
+/// 入れ子では、外側を起点にする。外側から内側へ辿っても、「上へ」で外側へ戻れる (→ docs/folders.md「公開できるフォルダー」)。
 #[sqlx::test]
 async fn browsing_into_a_nested_root_keeps_the_outer_one_as_the_start(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
     let outer = root_dir("roots-nested-browse");
     let inner = outer.join("inner");
-    std::fs::create_dir_all(&inner).expect("フォルダを作れなかった");
+    std::fs::create_dir_all(&inner).expect("フォルダーを作れなかった");
     let outer_path = canonical_path_as_api_returns_it(&outer);
     let inner_path = canonical_path_as_api_returns_it(&inner);
     for path in [&outer_path, &inner_path] {
@@ -519,7 +519,7 @@ async fn browsing_into_a_nested_root_keeps_the_outer_one_as_the_start(pool: Sqli
 }
 
 /// 登録し直すと、中に残っていたコンテンツの件数が戻る。削除でコンテンツの登録は
-/// 消していないため (→ docs/folders.md「公開できるフォルダ」)。
+/// 消していないため (→ docs/folders.md「公開できるフォルダー」)。
 #[sqlx::test]
 async fn re_registering_a_root_reports_the_contents_left_inside(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;

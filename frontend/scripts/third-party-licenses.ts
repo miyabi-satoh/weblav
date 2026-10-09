@@ -114,7 +114,7 @@ export function thirdPartyLicenses(): Plugin {
 	return {
 		name: 'weblav:third-party-licenses',
 		apply: 'build',
-		// サーバー側のビルドは配らないので、ブラウザに届く分だけを数える。
+		// サーバー側のビルドは配らないので、ブラウザーに届く分だけを数える。
 		applyToEnvironment: (environment) => environment.name === 'client',
 		generateBundle(_options, bundle) {
 			const packageDirs = new Set<string>();

@@ -2,13 +2,13 @@
 
 use super::*;
 
-/// フォルダはタイトルを省くと、選んだフォルダの名前になる。同じ親に同じ名前があれば連番を付ける。
+/// フォルダーはタイトルを省くと、選んだフォルダーの名前になる。同じ親に同じ名前があれば連番を付ける。
 #[sqlx::test]
 async fn a_folder_without_a_title_is_named_after_the_folder_and_numbered(pool: SqlitePool) {
     let dir = temp_test_dir("auto-title-folder");
     let folder_name = dir
         .file_name()
-        .expect("フォルダ名がある")
+        .expect("フォルダー名がある")
         .to_string_lossy()
         .into_owned();
     let (app, cookie) = admin_app(&pool).await;
@@ -57,14 +57,14 @@ async fn an_upload_without_a_title_is_named_after_the_file(pool: SqlitePool) {
     assert!(body.contains(r#""title":"問題""#), "{body}");
 }
 
-/// 公開できるフォルダは、名前を省くとフォルダ名になり、重なれば連番を付ける。
+/// 公開できるフォルダーは、名前を省くとフォルダー名になり、重なれば連番を付ける。
 #[sqlx::test]
 async fn a_root_without_a_name_gets_a_numbered_folder_name(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
     let first = root_dir("roots-auto-name-1").join("same");
     let second = root_dir("roots-auto-name-2").join("same");
-    std::fs::create_dir_all(&first).expect("フォルダを作れなかった");
-    std::fs::create_dir_all(&second).expect("フォルダを作れなかった");
+    std::fs::create_dir_all(&first).expect("フォルダーを作れなかった");
+    std::fs::create_dir_all(&second).expect("フォルダーを作れなかった");
 
     for (dir, expected) in [(&first, "same"), (&second, "same (1)")] {
         let path = canonical_path_as_api_returns_it(

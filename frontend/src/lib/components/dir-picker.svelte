@@ -21,8 +21,8 @@
 		/** ダイアログを開いたときの初期位置。空ならルートの一覧から始める。 */
 		initialPath?: string;
 		/**
-		 * 「このフォルダにする」で選ばれた絶対パスと、画面に出す場所。
-		 * 場所は、公開できるフォルダの中なら「名前 / その先」。
+		 * 「このフォルダーにする」で選ばれた絶対パスと、画面に出す場所。
+		 * 場所は、公開できるフォルダーの中なら「名前 / その先」。
 		 */
 		onselect: (path: string, label: string) => void;
 	};
@@ -37,8 +37,8 @@
 	let loadError = $state('');
 
 	let crumbs = $derived(listing === null ? [] : pathTrail(listing.path, listing.root));
-	// 公開できるフォルダの中では、先頭 (公開できるフォルダそのもの) にフルパスではなく名前を出す
-	// (→ docs/folders.md「公開できるフォルダ」)。起点が見つからないと `pathTrail` は切らずに全部返すので、
+	// 公開できるフォルダーの中では、先頭 (公開できるフォルダーそのもの) にフルパスではなく名前を出す
+	// (→ docs/folders.md「公開できるフォルダー」)。起点が見つからないと `pathTrail` は切らずに全部返すので、
 	// そのときは置き換えない (先頭だけ名前にすると、途中の階層が名前の後ろに続いて見える)。
 	let rootName = $derived(
 		listing?.rootName != null &&
@@ -74,8 +74,8 @@
 			if (!isCurrent()) return;
 			if (!response.ok || !data) {
 				// 開いた位置が辿れる範囲の外だと 422 になる。既存コンテンツのパスを初期位置に
-				// 渡しているので、「公開できるフォルダ」を消した後などに起こる
-				// (→ docs/folders.md「公開できるフォルダ」)。行き止まりにせず、上位の一覧から選び直させる。
+				// 渡しているので、「公開できるフォルダー」を消した後などに起こる
+				// (→ docs/folders.md「公開できるフォルダー」)。行き止まりにせず、上位の一覧から選び直させる。
 				if (response.status === 422 && path !== '') {
 					await load('');
 					return;
@@ -117,7 +117,7 @@
 </script>
 
 {#snippet entryRow(entry: DirEntryItem)}
-	<!-- 選べないディレクトリも辿れる (→ docs/folders.md「公開できるフォルダ」)。
+	<!-- 選べないディレクトリも辿れる (→ docs/folders.md「公開できるフォルダー」)。
 	     選択の可否だけを落とし、中を見ることは妨げない。 -->
 	<button type="button" class={rowClass} onclick={() => load(entry.path)}>
 		<FolderIcon
@@ -201,7 +201,7 @@
 			<span class="shrink-0 pt-0.5 text-xs text-muted-foreground"
 				>{m.dir_picker_selected_label()}</span
 			>
-			<!-- 省略すると末尾 (選んだフォルダ名) が隠れる。折り返して全部見せる。 -->
+			<!-- 省略すると末尾 (選んだフォルダー名) が隠れる。折り返して全部見せる。 -->
 			<span class="min-w-0 flex-1 text-sm wrap-anywhere">
 				{#if selectedLabel !== ''}
 					{selectedLabel}

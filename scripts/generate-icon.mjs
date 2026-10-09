@@ -1,6 +1,6 @@
 // assets/icon.svg から、exeに埋め込む.ico (build.rs → winresource)・
 // タスクトレイ用の生RGBA (src/tray/mod.rsがinclude_bytes!で読む)・MSIX のロゴ (scripts/msix.mjs)・
-// ブラウザのタブのアイコン (frontend の favicon.svg、元のSVGをそのまま写す) を、
+// ブラウザーのタブのアイコン (frontend の favicon.svg、元のSVGをそのまま写す) を、
 // assets/tray-icon-mac.svg から macOS のメニューバー用の生RGBAを生成する。
 // sharp・to-icoはどちらもNode製で、Windows専用の外部ツール(Inkscape等)を要らない
 // ため、Macでもこのまま実行できる。

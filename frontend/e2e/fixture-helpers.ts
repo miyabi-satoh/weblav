@@ -1,8 +1,8 @@
-// フォルダ・アーカイブの e2e 用に、実在するディレクトリを用意する。
+// フォルダー・アーカイブの e2e 用に、実在するディレクトリを用意する。
 //
 // サーバーが同じマシンで動いている前提で、リポジトリの target/ 配下にファイルの木を作り、
-// その絶対パスを API で登録する。木の置き場そのものを「公開できるフォルダ」に登録して
-// おかないと、コンテンツ側の登録が通らない (→ auth.setup.ts、docs/folders.md「公開できるフォルダ」)。
+// その絶対パスを API で登録する。木の置き場そのものを「公開できるフォルダー」に登録して
+// おかないと、コンテンツ側の登録が通らない (→ auth.setup.ts、docs/folders.md「公開できるフォルダー」)。
 // サーバーからパスが見えない (別のマシンで動いている等) ときは、登録が 422 になるので
 // テストを飛ばす。
 import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -14,22 +14,22 @@ import { SERVER_IS_REMOTE } from './server-location';
 
 const FIXTURE_BASE = path.resolve(import.meta.dirname, '../../target/e2e-fixtures');
 
-/** コンテンツの登録先に使う木の置き場。ここ自身を「公開できるフォルダ」に登録する。 */
+/** コンテンツの登録先に使う木の置き場。ここ自身を「公開できるフォルダー」に登録する。 */
 const CONTENT_ROOT = path.join(FIXTURE_BASE, 'content');
 /**
- * `CONTENT_ROOT` を登録するときの名前。フォルダ名 (`content`) のままだと、開発用 DB に
- * 同じ名前のフォルダが登録されていたときに、名前の重なりで断られる。
+ * `CONTENT_ROOT` を登録するときの名前。フォルダー名 (`content`) のままだと、開発用 DB に
+ * 同じ名前のフォルダーが登録されていたときに、名前の重なりで断られる。
  */
 const CONTENT_ROOT_NAME = 'e2e-content';
 
 /**
- * 「公開できるフォルダ」の登録そのものを試す木の置き場。`CONTENT_ROOT` の外に置く
- * (登録済みのフォルダと範囲が重なるものは登録できないため)。
+ * 「公開できるフォルダー」の登録そのものを試す木の置き場。`CONTENT_ROOT` の外に置く
+ * (登録済みのフォルダーと範囲が重なるものは登録できないため)。
  */
 const ROOT_FIXTURE_BASE = path.join(FIXTURE_BASE, 'roots');
 
 /**
- * 年度のフォルダの下に、音声と PDF を置いた小さな木。ファイル名の語 (listening / answer) で
+ * 年度のフォルダーの下に、音声と PDF を置いた小さな木。ファイル名の語 (listening / answer) で
  * 種類の軸を、第1階層で年度の軸を作れる。中身は再生・表示できなくてよい (画面の動きだけを見る)。
  */
 const FIXTURE_FILES: Record<string, string> = {
@@ -49,7 +49,7 @@ export function createFixtureTree(
 	return createTreeIn(CONTENT_ROOT, name, files);
 }
 
-/** 「公開できるフォルダ」として登録するための木。登録済みのフォルダの外に作る。 */
+/** 「公開できるフォルダー」として登録するための木。登録済みのフォルダーの外に作る。 */
 export function createRootFixtureTree(name: string): string {
 	return createTreeIn(ROOT_FIXTURE_BASE, name, FIXTURE_FILES);
 }
@@ -87,7 +87,7 @@ const PATH_NOT_ACCESSIBLE = 'path does not exist or is not accessible';
 const ROOT_ALREADY_REGISTERED = '"kind":"rootAlreadyRegistered"';
 
 /**
- * コンテンツの木の置き場を「公開できるフォルダ」に登録する (→ auth.setup.ts)。
+ * コンテンツの木の置き場を「公開できるフォルダー」に登録する (→ auth.setup.ts)。
  *
  * 開発用サーバーに当てる `just e2e` では前回の登録が残っているので、二重登録の 422 は
  * 登録済みとみなす。サーバーからパスが見えないときも通す (個々のテストが飛ばす)。
@@ -107,7 +107,7 @@ export async function registerContentRoot(request: APIRequestContext): Promise<v
 	) {
 		return;
 	}
-	throw new Error(`公開できるフォルダの登録に失敗しました (${res.status()}): ${text}`);
+	throw new Error(`公開できるフォルダーの登録に失敗しました (${res.status()}): ${text}`);
 }
 
 /**
@@ -141,7 +141,7 @@ export const FIXTURE_UNREACHABLE =
 
 /** 登録先を選ぶ一覧で、コンテンツの木の置き場へ辿るための位置 (→ `sharedContentRoot`)。 */
 export type SharedContentRoot = {
-	/** 上位の一覧に並ぶ、置き場を含む登録済みのフォルダ。置き場そのものとは限らない。 */
+	/** 上位の一覧に並ぶ、置き場を含む登録済みのフォルダー。置き場そのものとは限らない。 */
 	root: string;
 	/** `root` の名前。一覧とパンくずには、フルパスではなくこれが出る。 */
 	rootName: string;
@@ -152,7 +152,7 @@ export type SharedContentRoot = {
 /**
  * 登録先を選ぶ一覧の上位から、コンテンツの木の置き場へ辿れるか。辿れなければ `null`。
  *
- * 上位に並ぶのは登録済みのフォルダだけで、置き場そのものとは限らない。開発用 DB で置き場を
+ * 上位に並ぶのは登録済みのフォルダーだけで、置き場そのものとは限らない。開発用 DB で置き場を
  * 含む親 (リポジトリなど) が先に登録されていると、置き場の登録は重なりで断られる
  * (→ `registerContentRoot`) が、その親から辿れる。
  * サーバーは canonicalize した形で返すので、こちらも実体パスにして比べる。
@@ -179,7 +179,7 @@ export const LOCATION_SEPARATOR = ' / ';
 
 /**
  * 置き場の中の `dirName` が、登録側の画面でどう出るか。フルパスではなく
- * 「公開できるフォルダの名前 / その先」になる (→ docs/folders.md「公開できるフォルダ」)。
+ * 「公開できるフォルダーの名前 / その先」になる (→ docs/folders.md「公開できるフォルダー」)。
  */
 export function sharedLocationLabel(shared: SharedContentRoot, dirName: string): string {
 	const target = path.join(shared.contentRoot, dirName);

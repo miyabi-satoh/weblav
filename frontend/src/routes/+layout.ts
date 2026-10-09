@@ -11,7 +11,7 @@ import type { LayoutLoad } from './$types';
 // サーバーサイドレンダリングは行わず SPA として動かす。
 export const ssr = false;
 
-// ssr = false のため、これはブラウザでのみ実行される。
+// ssr = false のため、これはブラウザーでのみ実行される。
 // アプリ起動時・全ページ遷移時に `/auth/me` を呼び、ログイン状態を `user` として配る。
 // 未ログイン(401)はエラーにせず `user: null` として扱い、`/admin` 配下だけログインへ
 // 誘導する (→ docs/access.md「フロントエンドのガード反転」)。

@@ -26,7 +26,7 @@
 
 	let { data }: PageProps = $props();
 
-	// 窓を開いてから、選ばれたフォルダを登録し終えるまで。
+	// 窓を開いてから、選ばれたフォルダーを登録し終えるまで。
 	let adding = $state(false);
 	// 名前の変更ダイアログの対象。閉じるアニメーションの間も中身を出し続けるので、
 	// 対象は閉じても消さず、開閉は別に持つ。
@@ -41,8 +41,8 @@
 	let deletingRoot = $state<Root | null>(null);
 	const errorDialog = new ErrorDialogState();
 
-	// このパソコンに OS のフォルダ選択の窓を出し、選んだらすぐ追加する (→ docs/folders.md「選び方」)。
-	// 名前はサーバーがフォルダ名で付け、重なるときは連番を付ける (変えたいときは一覧の「名前の変更」)。
+	// このパソコンに OS のフォルダー選択の窓を出し、選んだらすぐ追加する (→ docs/folders.md「選び方」)。
+	// 名前はサーバーがフォルダー名で付け、重なるときは連番を付ける (変えたいときは一覧の「名前の変更」)。
 	async function handleAdd() {
 		if (adding) return;
 		adding = true;
@@ -64,7 +64,7 @@
 		try {
 			const { data, error, response } = await client.POST('/api/v1/admin/roots/pick');
 			if (response.ok) return data?.path ?? null;
-			// 窓がほかの画面から開かれたまま。ブラウザの後ろに隠れていることもあるので、そう伝える。
+			// 窓がほかの画面から開かれたまま。ブラウザーの後ろに隠れていることもあるので、そう伝える。
 			errorDialog.show(
 				response.status === 409 ? m.admin_roots_picker_already_open() : errorMessage(error)
 			);
@@ -133,7 +133,7 @@
 		</div>
 		<LoadingButton loading={adding} onclick={handleAdd}>{m.admin_roots_add()}</LoadingButton>
 	</div>
-	<!-- 窓はブラウザの外に出るので、どこで選ぶのかを添える。 -->
+	<!-- 窓はブラウザーの外に出るので、どこで選ぶのかを添える。 -->
 	<p class={['text-sm text-muted-foreground', adding && 'mt-2']} aria-live="polite">
 		{adding ? m.admin_roots_picking() : ''}
 	</p>
@@ -149,7 +149,7 @@
 	<ul class={listClass}>
 		{#each data.roots as root (root.id)}
 			<li class={[listItemClass, 'flex min-h-14 items-center gap-4 px-4 py-3 md:px-6']}>
-				<!-- 名前と併せてフルパスも出す (→ docs/folders.md「公開できるフォルダ」)。 -->
+				<!-- 名前と併せてフルパスも出す (→ docs/folders.md「公開できるフォルダー」)。 -->
 				<div class="min-w-0 flex-1">
 					<span class="block text-sm wrap-anywhere">{root.name}</span>
 					<span class="mt-0.5 block text-xs wrap-anywhere text-muted-foreground">{root.path}</span>

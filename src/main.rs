@@ -19,7 +19,7 @@ fn main() {
 
     // サーバーを同じプロセスで動かしてから、トレイを出す (→ docs/distribution.md「常駐 (Windows)」)。
     // 設定のポートが使えなければずらして起動し、トレイで知らせる (→ docs/distribution.md「常駐 (Windows)」)。
-    // フォルダ選択の窓はメインスレッドでしか開けない OS があるので、トレイのイベントループで開く。
+    // フォルダー選択の窓はメインスレッドでしか開けない OS があるので、トレイのイベントループで開く。
     let (folder_picker, pick_requests) = weblav::folder_picker::on_main_thread();
     match weblav::server::start(weblav::server::OnPortUnavailable::TryNext, folder_picker) {
         Ok((server, exited)) => tray::run(server, exited, pick_requests),

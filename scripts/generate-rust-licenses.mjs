@@ -147,6 +147,6 @@ function linkedCrates() {
 /** @param {unknown} url */
 function httpOrNull(url) {
   // 画面はリンクにするので、URL でないものは出さない (npm 側の `repositoryUrl` と同じ扱い)。
-  // 末尾の `.git` はリポジトリの取得用の書き方なので、ブラウザで開くページの URL にする。
+  // 末尾の `.git` はリポジトリの取得用の書き方なので、ブラウザーで開くページの URL にする。
   return typeof url === 'string' && /^https?:\/\//.test(url) ? url.replace(/\.git$/, '') : null;
 }

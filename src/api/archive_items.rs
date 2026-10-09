@@ -99,7 +99,7 @@ pub(super) struct ArchiveViewItem {
     subtitle: Option<String>,
     /// ページ内でプレビューする画像なら、その大きさ (→ docs/ui.md「画像のプレビュー」)。
     image: Option<thumbnails::ImageSize>,
-    /// テキストのビューアで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+    /// テキストのビューアーで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
     is_text: bool,
     /// 行に縮小画像を出してみるか (→ docs/ui.md「画像のプレビュー」)。
     thumbnail: bool,
@@ -129,7 +129,7 @@ struct ArchiveViewResponse {
     ancestors: Vec<super::contents::GroupAncestor>,
     axes: Vec<ArchiveAxisResponse>,
     items: Vec<ArchiveViewItem>,
-    /// アーカイブの登録先のフォルダが見つからない。画面は空の一覧の代わりにそう出す。
+    /// アーカイブの登録先のフォルダーが見つからない。画面は空の一覧の代わりにそう出す。
     folder_missing: bool,
 }
 
@@ -159,7 +159,7 @@ async fn view_archive(
     let axes = archive::load_axis_index(&state.pool, id).await?;
 
     // `sort` は並び順の予約キーであり、軸の絞り込みには使わない
-    // (→ docs/archive.md「エンドポイント一覧」、docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。軸フィルタとして解釈される前に取り除く。
+    // (→ docs/archive.md「エンドポイント一覧」、docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。軸フィルタとして解釈される前に取り除く。
     let order = super::sort::ArchiveSortOrder::from_query(filters.remove("sort").as_deref());
 
     // アーカイブのvisibilityは上のload_viewable_archiveで確認済みなので、アイテムのpublishedだけを見る。
@@ -206,7 +206,7 @@ fn item_metadata(root: &std::path::Path, rel_path: &str) -> Option<std::fs::Meta
         .filter(|metadata| metadata.is_file())
 }
 
-/// 登録先のフォルダごと無いか。読めないだけのものは含めない。ファイルシステムを見るので、非同期のワーカーの外で呼ぶ。
+/// 登録先のフォルダーごと無いか。読めないだけのものは含めない。ファイルシステムを見るので、非同期のワーカーの外で呼ぶ。
 pub(super) fn folder_missing(path: &std::path::Path) -> bool {
     std::fs::metadata(path).is_err_and(|err| err.kind() == std::io::ErrorKind::NotFound)
 }
@@ -368,7 +368,7 @@ fn build_archive_view(
         .into_iter()
         .filter(|(_, _, derived, _)| matches_filters(derived, &active_filters, None))
         .collect();
-    // 並び順は3択 (→ docs/archive.md「エンドポイント一覧」, docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。`Axis`(既定)は今までと同じ軸ベースの
+    // 並び順は3択 (→ docs/archive.md「エンドポイント一覧」, docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。`Axis`(既定)は今までと同じ軸ベースの
     // 並びで、`rel_path`は最後のタイブレーク。`Title`/`New`も同じくタイブレークする。
     matched.sort_by(
         |(_, a_path, a_derived, a_created), (_, b_path, b_derived, b_created)| {
@@ -528,7 +528,7 @@ struct AdminArchiveItemResponse {
     modified_at: Option<i64>,
 }
 
-/// `root` はアーカイブのフォルダ。大きさと更新日時をファイルから読むので、非同期のワーカーの外で呼ぶ。
+/// `root` はアーカイブのフォルダー。大きさと更新日時をファイルから読むので、非同期のワーカーの外で呼ぶ。
 fn to_admin_response(
     row: ItemRow,
     axes: &[archive::AxisIndex],
@@ -812,7 +812,7 @@ pub(super) async fn item_file(
 }
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
-    // ブラウザが直接開くルートだけ、エラーを画面へのリダイレクトに変える
+    // ブラウザーが直接開くルートだけ、エラーを画面へのリダイレクトに変える
     // (→ `api::browser`)。他のルートを巻き込まないよう別に組み立てて merge する。
     let download_routes = OpenApiRouter::new()
         .routes(routes!(download_item))

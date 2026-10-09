@@ -42,7 +42,7 @@ pub enum OnPortUnavailable {
 pub struct StartupError {
     pub message: String,
     /// 同じ置き場所を使うサーバーが既に動いていたとき。
-    /// トレイは、これがあればエラーを出す代わりに、動いているほうの画面をブラウザで開く。
+    /// トレイは、これがあればエラーを出す代わりに、動いているほうの画面をブラウザーで開く。
     pub already_running: Option<AlreadyRunning>,
 }
 
@@ -113,7 +113,7 @@ impl ServerExited {
 
 /// 設定の読み込みからポートの bind までを済ませ、サーバーを動かし始める。
 ///
-/// `folder_picker` は「公開できるフォルダ」を選ぶ窓を出す手段 (→ `crate::folder_picker`)。
+/// `folder_picker` は「公開できるフォルダー」を選ぶ窓を出す手段 (→ `crate::folder_picker`)。
 pub fn start(
     on_port_unavailable: OnPortUnavailable,
     folder_picker: FolderPicker,

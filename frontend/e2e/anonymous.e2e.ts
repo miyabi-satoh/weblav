@@ -50,7 +50,7 @@ test('どのページにも当たらない URL は、見出しとホームへの
 });
 
 test('開けないファイルを直接開いても、JSON ではなく知らせが出る', async ({ page }) => {
-	// ブラウザは <a target="_blank"> で API の URL をそのまま開く。生の envelope を
+	// ブラウザーは <a target="_blank"> で API の URL をそのまま開く。生の envelope を
 	// タブに出すと戻る手がかりが無くなるため、画面へ送る (→ src/api/browser.rs)。
 	await page.goto('/api/v1/contents/999999/download');
 	await expect(page.getByRole('alertdialog')).toBeVisible();
@@ -101,7 +101,7 @@ test('マニュアル: スマートフォン幅の個別ページでは目次を
 
 test('マニュアル: 画面の表示言語で本文が返る', async ({ page, context, baseURL }) => {
 	// マニュアルの言語は画面の表示言語に従う (→ docs/help.md)。
-	// cookie が無いときはブラウザの言語設定で決まり、playwright.config.ts が en に固定している。
+	// cookie が無いときはブラウザーの言語設定で決まり、playwright.config.ts が en に固定している。
 	await page.goto('/help/setup');
 	await expect(page.locator('.help-body')).toHaveAttribute('lang', 'en');
 	await expect(
@@ -114,7 +114,7 @@ test('マニュアル: 画面の表示言語で本文が返る', async ({ page, 
 	await page.goto('/help/setup');
 	await expect(page.locator('.help-body')).toHaveAttribute('lang', 'ja');
 	await expect(
-		page.locator('.help-body').getByRole('link', { name: '公開できるフォルダを追加する' })
+		page.locator('.help-body').getByRole('link', { name: '公開できるフォルダーを追加する' })
 	).toBeVisible();
 });
 
@@ -144,25 +144,25 @@ test('ライセンス: マニュアルの目次から移れる', async ({ page }
 	await expect(page.getByRole('heading', { name: 'Third-party software' })).toBeVisible();
 });
 
-// 初回の表示言語はブラウザの言語設定で決まる (→ docs/ui.md「UI 全般」)。
+// 初回の表示言語はブラウザーの言語設定で決まる (→ docs/ui.md「UI 全般」)。
 // strategy の並びや cookie 名を取り違えても画面は出てしまうので、言語を変えた context で確かめる。
 // `<html lang>` は起動時に解決した言語を映す (→ `src/routes/+layout.svelte`)。
 test.describe('初回の表示言語', () => {
 	test.use({ locale: 'ja-JP' });
 
-	test('cookie が無ければブラウザの言語設定に従う', async ({ page }) => {
+	test('cookie が無ければブラウザーの言語設定に従う', async ({ page }) => {
 		await page.goto('/');
 		await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
 	});
 
-	test('WEBLAV_LOCALE はブラウザの言語設定より優先する', async ({ page, context, baseURL }) => {
+	test('WEBLAV_LOCALE はブラウザーの言語設定より優先する', async ({ page, context, baseURL }) => {
 		await context.addCookies([localeCookie('WEBLAV_LOCALE', 'en', baseURL)]);
 		await page.goto('/');
 		await expect(page.locator('html')).toHaveAttribute('lang', 'en');
 	});
 });
 
-test.describe('翻訳を持たない言語のブラウザ', () => {
+test.describe('翻訳を持たない言語のブラウザー', () => {
 	test.use({ locale: 'de-DE' });
 
 	test('翻訳が無ければ baseLocale の英語にする', async ({ page }) => {

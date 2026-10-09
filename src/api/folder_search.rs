@@ -1,6 +1,6 @@
-//! 検索の、フォルダの中とリンクの一覧のファイルの中 (→ docs/search.md「フォルダの中」「リンクの一覧のファイルの中」)。
+//! 検索の、フォルダーの中とリンクの一覧のファイルの中 (→ docs/search.md「フォルダーの中」「リンクの一覧のファイルの中」)。
 //!
-//! どちらも索引を持たず、検索のたびにディスクを読む。見える範囲は、呼び出し側が渡すフォルダ・アーカイブ・
+//! どちらも索引を持たず、検索のたびにディスクを読む。見える範囲は、呼び出し側が渡すフォルダー・アーカイブ・
 //! `file` コンテンツ (閲覧者が一覧で見られるもの) で決まる。
 
 use std::path::PathBuf;
@@ -19,17 +19,17 @@ use crate::auth::Viewer;
 use crate::error::{AppError, run_blocking};
 use crate::state::AppState;
 
-/// ADR: 1つのフォルダで、検索のたびに辿るエントリ数の上限。
-/// 索引を持たずに打つたび辿るので、巨大なツリーを指したフォルダで検索ごと遅くならないよう抑える。
+/// ADR: 1つのフォルダーで、検索のたびに辿るエントリ数の上限。
+/// 索引を持たずに打つたび辿るので、巨大なツリーを指したフォルダーで検索ごと遅くならないよう抑える。
 /// 登録前の確認・アーカイブの索引の上限 (`fs::ITEM_LIMIT`) と同じ桁にしている。
 const FOLDER_WALK_LIMIT: usize = 20_000;
 
-/// 検索の対象にするフォルダ。閲覧者が一覧で見られることは、呼び出し側が確かめる。
+/// 検索の対象にするフォルダー。閲覧者が一覧で見られることは、呼び出し側が確かめる。
 pub(super) struct SearchableFolder {
     pub(super) id: i64,
     pub(super) title: String,
     pub(super) path: String,
-    /// 辿り始める階層 (登録パスからの相対パス)。フォルダ全体なら空。`contents::search_scope` で確かめ済み。
+    /// 辿り始める階層 (登録パスからの相対パス)。フォルダー全体なら空。`contents::search_scope` で確かめ済み。
     pub(super) sub_path: String,
 }
 
@@ -45,7 +45,7 @@ pub(super) struct SearchFileHit {
     pub(super) content_id: i64,
     /// 行の2段目に、どこにあるかとして出す。
     pub(super) folder_title: String,
-    /// フォルダの登録パスからの相対パス (`/` 区切り)。エントリ自身の名前まで含む。
+    /// フォルダーの登録パスからの相対パス (`/` 区切り)。エントリ自身の名前まで含む。
     pub(super) path: String,
     pub(super) entry: FolderEntry,
 }
@@ -53,15 +53,15 @@ pub(super) struct SearchFileHit {
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct SearchLinkHit {
-    /// 一覧のファイルを持つコンテンツ (フォルダ・アーカイブ・`file`)。
+    /// 一覧のファイルを持つコンテンツ (フォルダー・アーカイブ・`file`)。
     pub(super) content_id: i64,
-    /// フォルダの中の一覧なら、その相対パス。
+    /// フォルダーの中の一覧なら、その相対パス。
     pub(super) path: Option<String>,
     /// アーカイブの中の一覧なら、そのアイテムの id。
     pub(super) item: Option<i64>,
     /// 一覧のファイルの題。`title` が無ければ、`file` コンテンツは登録したタイトル、ほかはファイル名。
     pub(super) file_title: String,
-    /// フォルダ・アーカイブの中の一覧なら、そのコンテンツのタイトル。
+    /// フォルダー・アーカイブの中の一覧なら、そのコンテンツのタイトル。
     pub(super) container_title: Option<String>,
     pub(super) url: String,
     pub(super) note: Option<String>,
@@ -73,7 +73,7 @@ pub(super) struct SearchLinkHit {
 pub(super) struct FolderSearch {
     pub(super) files: Vec<SearchFileHit>,
     pub(super) files_truncated: bool,
-    /// 辿るエントリ数の上限で、辿りきれなかったフォルダがあるか。その先のファイルと一覧のファイルは探していない。
+    /// 辿るエントリ数の上限で、辿りきれなかったフォルダーがあるか。その先のファイルと一覧のファイルは探していない。
     pub(super) incomplete: bool,
     pub(super) links: Vec<SearchLinkHit>,
     pub(super) links_truncated: bool,
@@ -91,7 +91,7 @@ struct LinksSource {
     file_name: String,
 }
 
-/// 名前で当たったフォルダの中のエントリ。行の形にするのは打ち切った後の分だけ。
+/// 名前で当たったフォルダーの中のエントリ。行の形にするのは打ち切った後の分だけ。
 struct FileCandidate {
     folder: usize,
     rel_path: String,
@@ -99,7 +99,7 @@ struct FileCandidate {
     absolute: PathBuf,
 }
 
-/// フォルダの中のファイル・ディレクトリを名前で、リンクの一覧のファイルの中のリンクを題と `note` で探す。
+/// フォルダーの中のファイル・ディレクトリを名前で、リンクの一覧のファイルの中のリンクを題と `note` で探す。
 pub(super) async fn search(
     state: &AppState,
     viewer: &Viewer,
@@ -114,14 +114,14 @@ pub(super) async fn search(
     let folder_ids: Vec<i64> = folders.iter().map(|folder| folder.id).collect();
     let folder_titles: Vec<String> = folders.iter().map(|folder| folder.title.clone()).collect();
 
-    // 辿るのはディスクの I/O で、フォルダの大きさに比例して重くなる。
+    // 辿るのはディスクの I/O で、フォルダーの大きさに比例して重くなる。
     let (mut candidates, incomplete, mut sources) = run_blocking(move || {
         let own_dirs = OwnDirs::resolve(&own_dirs);
         let mut candidates = Vec::new();
         let mut truncated = false;
         let mut sources = Vec::new();
         for (index, folder) in folders.into_iter().enumerate() {
-            // 配信と同じく、公開できるフォルダの外は辿らない (→ contents::resolve_path)。
+            // 配信と同じく、公開できるフォルダーの外は辿らない (→ contents::resolve_path)。
             let Ok(root) = std::fs::canonicalize(&folder.path) else {
                 continue;
             };
@@ -132,7 +132,7 @@ pub(super) async fn search(
                 super::fs::walk_entries(&root.join(&folder.sub_path), FOLDER_WALK_LIMIT, &own_dirs);
             truncated |= cut;
             for mut entry in entries {
-                // 結果のパスは、階層の中からでなく、フォルダの登録パスからの相対にする。
+                // 結果のパスは、階層の中からでなく、フォルダーの登録パスからの相対にする。
                 if !folder.sub_path.is_empty() {
                     entry.rel_path = format!("{}/{}", folder.sub_path, entry.rel_path);
                 }

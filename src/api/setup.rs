@@ -26,7 +26,7 @@ use super::backup::{StageBackupRequest, StagedBackupResponse};
 use super::local::LocalRequest;
 use super::validate;
 
-/// ADR: 発行したトークンの寿命。タスクトレイから押してブラウザで入力を終えるまでの時間で、
+/// ADR: 発行したトークンの寿命。タスクトレイから押してブラウザーで入力を終えるまでの時間で、
 /// 迷っても足り、開いたまま放置された画面がいつまでも使えることもない長さにする。
 const TOKEN_TTL: Duration = Duration::from_secs(10 * 60);
 

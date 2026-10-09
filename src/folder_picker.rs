@@ -1,4 +1,4 @@
-//! サーバーの PC に OS 標準のフォルダ選択の窓を出す (→ docs/folders.md「選び方」)。
+//! サーバーの PC に OS 標準のフォルダー選択の窓を出す (→ docs/folders.md「選び方」)。
 //!
 //! macOS の窓 (NSOpenPanel) はメインスレッドでしか開けない。そのため窓を開く頼みはメインスレッドへ回し
 //! (`on_main_thread`)、実行ファイルのメインスレッドが `PickRequest::serve` で応える。
@@ -108,9 +108,9 @@ fn show_dialog() -> Option<PathBuf> {
     rfd::FileDialog::new().pick_folder()
 }
 
-/// 窓をブラウザより前に出す。rfd は前に出さないので、呼ぶ側で手当てする (→ docs/folders.md「選び方」)。
+/// 窓をブラウザーより前に出す。rfd は前に出さないので、呼ぶ側で手当てする (→ docs/folders.md「選び方」)。
 ///
-/// Windows は、前面にいないプロセス (ブラウザで押した続きのサーバー) が窓を前面にするのを許さない。
+/// Windows は、前面にいないプロセス (ブラウザーで押した続きのサーバー) が窓を前面にするのを許さない。
 /// 最前面に置く見えない窓を作って持ち主にし、窓をその上に出す。
 #[cfg(windows)]
 fn show_dialog() -> Option<PathBuf> {
@@ -188,10 +188,10 @@ mod windows_owner {
     }
 }
 
-/// 窓をブラウザより前に出す。rfd は前に出さないので、呼ぶ側で手当てする (→ docs/folders.md「選び方」)。
+/// 窓をブラウザーより前に出す。rfd は前に出さないので、呼ぶ側で手当てする (→ docs/folders.md「選び方」)。
 ///
 /// macOS では、トレイだけのアプリ (やターミナルから動かした `weblav-service`) は前面のアプリにならないので、
-/// 窓がブラウザの後ろに出る。窓を出す前に自分を前面にする。
+/// 窓がブラウザーの後ろに出る。窓を出す前に自分を前面にする。
 #[cfg(target_os = "macos")]
 fn bring_to_front() {
     use objc2::MainThreadMarker;
@@ -206,7 +206,7 @@ fn bring_to_front() {
         let _ = app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
     }
     // macOS 14 からの `activate` は、ほかのアプリが譲ったときしか前面にならない。
-    // ブラウザは譲らないので、非推奨でも強く前面にするほうを使う。
+    // ブラウザーは譲らないので、非推奨でも強く前面にするほうを使う。
     #[allow(deprecated)]
     app.activateIgnoringOtherApps(true);
 }

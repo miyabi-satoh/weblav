@@ -21,7 +21,7 @@ enum UserEvent {
     ServerExited,
     // 「ログイン時に起動」の読み直しの結果。読めなければ `None`。
     LoginState(Option<login_item::State>),
-    // フォルダ選択の窓を開く頼み (→ weblav::folder_picker)。
+    // フォルダー選択の窓を開く頼み (→ weblav::folder_picker)。
     PickFolder(PickRequest),
 }
 
@@ -29,7 +29,7 @@ enum UserEvent {
 ///
 /// `tao` のイベントループ(`event_loop.run`)は正常終了時も `-> !` で戻ってこない。
 /// そのため `server` の所有権をイベントループに移し、終了メニュー選択時に止める。
-/// `pick_requests` は、サーバーからのフォルダ選択の窓を開く頼み。メインスレッドで開く。
+/// `pick_requests` は、サーバーからのフォルダー選択の窓を開く頼み。メインスレッドで開く。
 pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
     // タスクトレイ常駐モード。ターミナルから起動された場合でもそのターミナルは
     // 巻き込まず、このプロセスだけをコンソールから切り離す。

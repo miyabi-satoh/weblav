@@ -1,6 +1,6 @@
 // e2e の準備と後片付けを API で行う。
 // 確かめたいのは閲覧・管理の画面の動きなので、準備まで画面で組むと遅く、壊れる箇所も増える。
-// `request` はブラウザのコンテキストのもの (`page.request`・`context.request`) を渡し、
+// `request` はブラウザーのコンテキストのもの (`page.request`・`context.request`) を渡し、
 // そのコンテキストのログイン状態で呼ぶ。
 import type { APIRequestContext } from '@playwright/test';
 
@@ -119,7 +119,7 @@ export async function withContentByApi<T>(
 }
 
 /**
- * 「公開できるフォルダ」を登録し、id を返す。サーバーからパスが見えないとき (422) は `null`。
+ * 「公開できるフォルダー」を登録し、id を返す。サーバーからパスが見えないとき (422) は `null`。
  * 呼べるのは admin のログイン状態で、サーバーと同じ PC からだけ。
  */
 export async function createRootByApi(
@@ -130,7 +130,7 @@ export async function createRootByApi(
 	if (res.status() === 422) return null;
 	if (res.status() !== 201) {
 		throw new Error(
-			`公開できるフォルダの登録に失敗しました (${res.status()}): ${await res.text()}`
+			`公開できるフォルダーの登録に失敗しました (${res.status()}): ${await res.text()}`
 		);
 	}
 	return ((await res.json()) as { id: number }).id;
@@ -138,7 +138,7 @@ export async function createRootByApi(
 
 /** 後片付け専用 (→ `removeByApi`)。 */
 export async function removeRootByApi(request: APIRequestContext, id: number): Promise<void> {
-	await removeByApi(request, `/admin/roots/${id}`, '公開できるフォルダ');
+	await removeByApi(request, `/admin/roots/${id}`, '公開できるフォルダー');
 }
 
 /** 編集者 (`user`) を作り、id を返す。呼べるのは admin のログイン状態だけ。 */

@@ -61,7 +61,7 @@
 	// 続けて鳴らすのは、この一覧の中の音声。
 	let audioQueue = $derived(rows.filter((row) => isAudioFileName(row.item.fileName)).map(toTrack));
 
-	/** 画像の行なら、ビューアに渡す形。大きさが分からない (読めない) 画像は普通のファイルの行にする。 */
+	/** 画像の行なら、ビューアーに渡す形。大きさが分からない (読めない) 画像は普通のファイルの行にする。 */
 	function toViewerImage(row: ArchiveViewRow): ViewerImage | undefined {
 		if (!row.item.image) return undefined;
 		return {
@@ -82,7 +82,7 @@
 		};
 	}
 
-	/** PDF・動画・テキストなど、ビューアで開く行なら、ビューアに渡す形 (→ docs/ui.md「PDF・動画・テキストのビューア」)。 */
+	/** PDF・動画・テキストなど、ビューアーで開く行なら、ビューアーに渡す形 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。 */
 	function toViewerFile(row: ArchiveViewRow): ViewerFile | undefined {
 		const kind = viewerFileKind(row.item.fileName, row.item.isText);
 		if (!kind) return undefined;

@@ -49,12 +49,12 @@ pub const APP_BUILD: Option<&str> = option_env!("WEBLAV_BUILD");
 /// `dirs` から、ファイルアップロード型コンテンツの実体 (`blobs_dir`)・画像の縮小画像
 /// (`thumbnails_dir`)・管理画面から書き換える設定ファイル (`config_path`) の置き場を取る。
 /// どれもディレクトリの作成は最初に書くときまで遅らせる (DB・セッション鍵と同じ方針)。
-/// 設定とデータの置き場そのものは、公開できるフォルダの中でも見せない場所として判定に使う
+/// 設定とデータの置き場そのものは、公開できるフォルダーの中でも見せない場所として判定に使う
 /// (→ `api::roots::OwnDirs`)。
 ///
 /// `config` は動いている値として管理画面に出す (→ `api::server_settings`)。
 ///
-/// `folder_picker` は「公開できるフォルダ」を選ぶ窓を出す手段 (→ `folder_picker`)。
+/// `folder_picker` は「公開できるフォルダー」を選ぶ窓を出す手段 (→ `folder_picker`)。
 pub async fn build_app(
     pool: SqlitePool,
     session_key: Key,

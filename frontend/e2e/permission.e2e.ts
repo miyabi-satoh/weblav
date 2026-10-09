@@ -187,7 +187,7 @@ test('編集者: 管理のタブが出ず、ユーザー管理とサイト設定
 				await editorPage.waitForURL((url) => url.pathname === '/admin/contents');
 			}
 
-			// フォルダとアーカイブも編集者に開いている (→ docs/access.md「ロールと操作」)。
+			// フォルダーとアーカイブも編集者に開いている (→ docs/access.md「ロールと操作」)。
 			await editorPage.getByRole('button', { name: CONTENT_ADD_BUTTON_NAME }).click();
 			await waitForDialog(editorPage);
 			const dialog = editorPage.getByRole('dialog');

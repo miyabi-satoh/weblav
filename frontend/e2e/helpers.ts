@@ -136,10 +136,10 @@ export async function saveForm(
 /** コンテンツの作成ダイアログの2段目の確定ボタン。 */
 export const CONTENT_SUBMIT_BUTTON_NAME = /^追加する$|^Add$/;
 
-/** フォルダ・アーカイブのパスを選ぶ。ボタン・ダイアログ・確定の順。 */
+/** フォルダー・アーカイブのパスを選ぶ。ボタン・ダイアログ・確定の順。 */
 export const CHOOSE_PATH_BUTTON_NAME = /^選ぶ\.\.\.$|^Choose\.\.\.$/;
-export const DIR_PICKER_NAME = /^フォルダを選ぶ$|^Choose a folder$/;
-export const USE_THIS_FOLDER_BUTTON_NAME = /^このフォルダにする$|^Use this folder$/;
+export const DIR_PICKER_NAME = /^フォルダーを選ぶ$|^Choose a folder$/;
+export const USE_THIS_FOLDER_BUTTON_NAME = /^このフォルダーにする$|^Use this folder$/;
 
 /** 登録前の確認ダイアログと、その確定ボタン。 */
 export const CONFIRM_REGISTER_NAME = /^この内容で登録しますか$|^Register with these settings\?$/;
@@ -148,18 +148,18 @@ export const REGISTER_BUTTON_NAME = /^登録する$|^Register$/;
 /** 管理画面の一覧の上にある追加ボタン。表示言語 (ja/en) のどちらでも見つかるようにする。 */
 export const CONTENT_ADD_BUTTON_NAME = /^新規追加\.\.\.$|^Add\.\.\.$/;
 export const USER_ADD_BUTTON_NAME = /^ユーザーを追加\.\.\.$|^Add user\.\.\.$/;
-/** 公開できるフォルダの行の⋮メニューにある「名前を変更」。 */
+/** 公開できるフォルダーの行の⋮メニューにある「名前を変更」。 */
 export const RENAME_MENU_ITEM_NAME = /^名前を変更\.\.\.$|^Rename\.\.\.$/;
-export const ROOT_ADD_BUTTON_NAME = /^フォルダを追加\.\.\.$|^Add a folder\.\.\.$/;
-/** 公開できるフォルダの追加で、OS のフォルダ選択の窓が閉じるのを待っている間の案内。 */
+export const ROOT_ADD_BUTTON_NAME = /^フォルダーを追加\.\.\.$|^Add a folder\.\.\.$/;
+/** 公開できるフォルダーの追加で、OS のフォルダー選択の窓が閉じるのを待っている間の案内。 */
 export const ROOT_PICKING_TEXT =
-	/^開いた窓で、公開してよいフォルダを選んでください。$|^Choose a folder you are willing to share in the window that opened\.$/;
+	/^開いた窓で、公開してよいフォルダーを選んでください。$|^Choose a folder you are willing to share in the window that opened\.$/;
 
 /** コンテンツの作成ダイアログで選ぶ種別のボタン。名前には説明が続くので前方一致で探す。 */
 export const CONTENT_TYPE_NAME = {
 	link: /^リンク|^Link/,
 	file: /^ファイル|^File/,
-	folder: /^フォルダ|^Folder/,
+	folder: /^フォルダー|^Folder/,
 	archive: /^アーカイブ|^Archive/,
 	group: /^グループ|^Group/
 } as const;
@@ -279,7 +279,7 @@ export const ROW_ACTIONS_BUTTON_NAME = /の操作$|^Actions for /;
  * コンテンツ管理の一覧で、`title` の行をつまみで掴み、少し動かしてドラッグを始める (離すのは呼び出し側)。
  * Pointer Events を直接使う実装のため (→ `reparent-drag.svelte.ts`)、`dragTo` (HTML5 DnD 前提) ではなく
  * `mouse.move`/`down`/`up` を組み立てて操作する。押した直後・移動の途中・落とす直前と複数回に
- * 分けて動かすのは、1回で飛ばすとドラッグ開始や当たり判定の直前状態を拾えないブラウザがあるため。
+ * 分けて動かすのは、1回で飛ばすとドラッグ開始や当たり判定の直前状態を拾えないブラウザーがあるため。
  */
 export async function startDraggingContentRow(page: Page, title: string) {
 	const handle = contentRow(page, title).getByTestId('reparent-handle');

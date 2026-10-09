@@ -23,10 +23,10 @@
 		/** プレイヤーに載っている曲の行なら、鳴っているか (`playing`) 止まっているか (`paused`)。 */
 		current?: 'playing' | 'paused';
 		accent?: boolean;
-		/** フォルダ一覧の詰めた行 (`browseRowClass(true)`) と組み合わせる。タイルには効かない。 */
+		/** フォルダー一覧の詰めた行 (`browseRowClass(true)`) と組み合わせる。タイルには効かない。 */
 		compact?: boolean;
 		/**
-		 * `src` は縮小画像、`original` は元のファイルの URL。画像のビューアは `original` で行の縮小画像を探し、
+		 * `src` は縮小画像、`original` は元のファイルの URL。画像のビューアーは `original` で行の縮小画像を探し、
 		 * 開閉のアニメーションの起点にする (→ $lib/image-viewer.ts)。
 		 */
 		thumbnail?: { src: string; original: string };

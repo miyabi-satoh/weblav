@@ -122,7 +122,7 @@
 		];
 		for (const [action, handler] of handlers) {
 			// 閉じたら OS 側の操作も外す。
-			// FIX: 対応していない action を渡すと例外になるブラウザがある。
+			// FIX: 対応していない action を渡すと例外になるブラウザーがある。
 			try {
 				session.setActionHandler(action, track ? handler : null);
 			} catch {

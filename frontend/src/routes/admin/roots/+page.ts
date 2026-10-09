@@ -5,7 +5,7 @@ import { isLoopbackHost } from '$lib/loopback';
 import * as m from '$lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
-// 可否を決めるのは API 側 (admin かつサーバーの PC からの要求、→ docs/folders.md「公開できるフォルダ」)。
+// 可否を決めるのは API 側 (admin かつサーバーの PC からの要求、→ docs/folders.md「公開できるフォルダー」)。
 // LAN の端末から開くと API は 404 になる。タブもその場合は出さない (+layout.svelte)。
 // ブックマークなどで開かれたときは、消えたページと取り違えないよう、ここで開けない理由を出す。
 // 画面は Host で LAN と分かっているので、伏せる対象 (API の口) を明かすことにはならない。

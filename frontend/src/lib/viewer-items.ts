@@ -1,9 +1,9 @@
 /**
  * ページ内で開くもの (画像・PDF・動画・テキストなど) の並びと、その間の前後の移動
- * (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+ * (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
  *
- * 画像は PhotoSwipe (`$lib/image-viewer.ts`)、ほかは `file-viewer.svelte` で開き、ビューアは2つのまま、
- * 前後だけを一覧の表示順でつなぐ。隣が別の種類なら、今のビューアから相手のビューアへ渡す。
+ * 画像は PhotoSwipe (`$lib/image-viewer.ts`)、ほかは `file-viewer.svelte` で開き、ビューアーは2つのまま、
+ * 前後だけを一覧の表示順でつなぐ。隣が別の種類なら、今のビューアーから相手のビューアーへ渡す。
  */
 
 import { flushSync } from 'svelte';
@@ -46,7 +46,7 @@ export function openViewerItem(
 function openAt(items: ViewerItem[], index: number, signal: AbortSignal): Promise<void> {
 	if (items[index].type === 'image') {
 		return openImageViewer(items, index, signal, {
-			// 画像の並びの端から、隣のファイルへ。ファイルのビューアを先に開いてから画像のビューアを閉じる。
+			// 画像の並びの端から、隣のファイルへ。ファイルのビューアーを先に開いてから画像のビューアーを閉じる。
 			onLeave: (target) => showFile(items, target)
 		});
 	}
@@ -57,7 +57,7 @@ function openAt(items: ViewerItem[], index: number, signal: AbortSignal): Promis
 function showFile(items: ViewerItem[], index: number) {
 	fileViewer.show(items, index, (target, signal) =>
 		// ファイルから隣の画像へ。画像を読み終えるまでファイルを出したままにし、間にページを見せない。
-		// 2つのビューアがどちらもフォーカスを中に閉じ込めるので、画像のビューアを開く直前に閉じ切る。
+		// 2つのビューアーがどちらもフォーカスを中に閉じ込めるので、画像のビューアーを開く直前に閉じ切る。
 		openImageViewer(items, target, signal, {
 			animate: false,
 			beforeOpen: () => flushSync(() => (fileViewer.open = false)),

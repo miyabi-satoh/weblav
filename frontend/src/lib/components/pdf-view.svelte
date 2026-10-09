@@ -4,9 +4,9 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as m from '$lib/paraglide/messages.js';
 
-	// ビューアの PDF の本文 (→ docs/ui.md「PDF・動画・テキストのビューア」)。ページを縦に並べる。
+	// ビューアーの PDF の本文 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。ページを縦に並べる。
 	// PDF.js の本体と worker は、PDF を開くときに取りに行く。
-	// ADR: legacy の版を使う。modern の版は最新のブラウザにしか無い API (`Map.prototype.getOrInsertComputed` など) を
+	// ADR: legacy の版を使う。modern の版は最新のブラウザーにしか無い API (`Map.prototype.getOrInsertComputed` など) を
 	// 補わずに呼ぶので、OS を更新できない iPad では1つも開けない。legacy は core-js で補っている。
 	let {
 		src,
@@ -16,7 +16,7 @@
 		src: string;
 		/** 幅に合わせた大きさを 1 とする倍率。 */
 		zoom: number;
-		/** 読めなかったとき。ビューアが代わりの案内を出す。 */
+		/** 読めなかったとき。ビューアーが代わりの案内を出す。 */
 		onerror: () => void;
 	} = $props();
 

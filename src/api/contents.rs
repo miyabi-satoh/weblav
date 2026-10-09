@@ -1,7 +1,7 @@
-//! コンテンツ(リンク/フォルダ/アップロードファイル/グループ)のCRUD API、および
+//! コンテンツ(リンク/フォルダー/アップロードファイル/グループ)のCRUD API、および
 //! folder/file/groupコンテンツの閲覧・配信API。
 //!
-//! `type = 'group'` は仮想フォルダで、`parent_id`(自己参照)により無制限にネストできる。
+//! `type = 'group'` は仮想フォルダーで、`parent_id`(自己参照)により無制限にネストできる。
 //! 親に指定できるのは`group`のみ(`folder`はFS上の実ディレクトリを指すコンテナであり、
 //! その「子」はDB行ではなくFSのエントリなので、DB階層の親にはなれない)。循環参照は
 //! `validate_parent`で拒否する。
@@ -53,7 +53,7 @@ pub enum ContentType {
     Folder,
     File,
     Group,
-    /// サーバー上のフォルダを索引し、属性軸で絞り込めるフラットな一覧として見せる。
+    /// サーバー上のフォルダーを索引し、属性軸で絞り込めるフラットな一覧として見せる。
     /// `Folder`(階層をそのまま辿る)とは性質も用途も違うため別の型にしてある
     /// (→ docs/archive.md)。
     Archive,
@@ -281,7 +281,7 @@ struct ContentRow {
     url: Option<String>,
     path: Option<String>,
     description: Option<String>,
-    /// 「新しい順」の並べ替えに使う (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。レスポンスには出さない。
+    /// 「新しい順」の並べ替えに使う (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。レスポンスには出さない。
     created_at: String,
     // `blob_hash`は選択しない: `ContentResponse`/`AdminContentResponse`のどちらも
     // 公開しない内部実装detail(delete/replace時のGCは別途ad-hocなクエリで取得する)。
@@ -336,13 +336,13 @@ pub enum ContentResponse {
         /// ページ内でプレビューする画像なら、その大きさ (→ docs/ui.md「画像のプレビュー」)。
         /// 一覧 (`list_contents`・`browse_group`) でだけ埋める。
         image: Option<super::thumbnails::ImageSize>,
-        /// テキストのビューアで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+        /// テキストのビューアーで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
         /// `image` と同じく、一覧でだけ埋める。
         is_text: bool,
         /// 行に縮小画像を出してみるか (→ docs/ui.md「画像のプレビュー」)。一覧でだけ埋める。
         thumbnail: bool,
     },
-    /// 仮想フォルダ。子一覧は含めない(別途 `GET /contents/{id}/group` で取得する)。
+    /// 仮想フォルダー。子一覧は含めない(別途 `GET /contents/{id}/group` で取得する)。
     Group {
         id: i64,
         title: String,
@@ -422,8 +422,8 @@ impl TryFrom<ContentRow> for ContentResponse {
 }
 
 /// 管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。
-/// `user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「公開できるフォルダ」の配下だけ
-/// なので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「公開できるフォルダ」)。
+/// `user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「公開できるフォルダー」の配下だけ
+/// なので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「公開できるフォルダー」)。
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AdminContentResponse {
@@ -435,14 +435,14 @@ pub struct AdminContentResponse {
     pub title: String,
     pub url: Option<String>,
     pub path: Option<String>,
-    /// `path` を含む「公開できるフォルダ」の名前。画面では起点のフルパスの代わりに出す
-    /// (→ docs/folders.md「公開できるフォルダ」)。`path` が無いか、どの公開できるフォルダにも含まれなければ `None`。
+    /// `path` を含む「公開できるフォルダー」の名前。画面では起点のフルパスの代わりに出す
+    /// (→ docs/folders.md「公開できるフォルダー」)。`path` が無いか、どの公開できるフォルダーにも含まれなければ `None`。
     pub root_name: Option<String>,
-    /// `root_name` のフォルダから先の相対パス (`/` 区切り)。フォルダそのものなら空文字列。
+    /// `root_name` のフォルダーから先の相対パス (`/` 区切り)。フォルダーそのものなら空文字列。
     /// `root_name` が `None` なら `None`。
     pub path_in_root: Option<String>,
-    /// `root_name` の公開できるフォルダが削除済みか。画面では名前の代わりに
-    /// 「存在しない公開フォルダ」と出す。`root_name` が `None` なら `false`。
+    /// `root_name` の公開できるフォルダーが削除済みか。画面では名前の代わりに
+    /// 「存在しない公開フォルダー」と出す。`root_name` が `None` なら `false`。
     pub root_deleted: bool,
     pub description: Option<String>,
     /// `type = 'file'` の場合のみ`Some`。`blob_hash`(内部実装detail)は含めない。
@@ -609,7 +609,7 @@ async fn resolve_create_title(
     }))
 }
 
-/// フォルダの絶対パスから付ける自動のタイトル。末尾のフォルダ名で、ドライブの
+/// フォルダーの絶対パスから付ける自動のタイトル。末尾のフォルダー名で、ドライブの
 /// ルートのように名前が無いときはパス全体。
 fn title_from_path(path: &str) -> String {
     super::roots::default_name(FsPath::new(path))
@@ -692,7 +692,7 @@ async fn validate_folder_path(state: &AppState, path: Option<&str>) -> Result<St
     super::validate::non_empty(&path, "path is required")?;
 
     // 検証は全てブロッキングI/Oなので1つの `spawn_blocking` にまとめる。
-    // 「公開できるフォルダ」はその前に読む (`run_blocking` の中ではDBに触れない)。
+    // 「公開できるフォルダー」はその前に読む (`run_blocking` の中ではDBに触れない)。
     let roots = super::roots::load_roots(&state.pool).await?;
     let own_dirs = state.own_dirs.clone();
     let canonical = run_blocking(move || {
@@ -804,7 +804,7 @@ fn resolve_visibility_for_update(
     Ok(next)
 }
 
-/// 閲覧する一覧を指定された順に並べる。同じ値なら `id` で決める (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+/// 閲覧する一覧を指定された順に並べる。同じ値なら `id` で決める (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
 fn sort_rows(rows: &mut [ContentRow], order: SortOrder) {
     match order {
         SortOrder::Title => {
@@ -1454,7 +1454,7 @@ struct BrowseQuery {
     #[serde(default)]
     path: String,
     /// 並び順。`title` (既定、タイトル順) か `new` (新しい順)。
-    /// ディレクトリ優先の並びは変えず、その中の順だけを切り替える (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+    /// ディレクトリ優先の並びは変えず、その中の順だけを切り替える (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
     /// 知らない値は既定として扱う。
     #[serde(default)]
     sort: Option<String>,
@@ -1471,7 +1471,7 @@ pub(super) struct FolderEntry {
     modified_at: Option<i64>,
     /// ページ内でプレビューする画像なら、その大きさ (→ docs/ui.md「画像のプレビュー」)。
     image: Option<super::thumbnails::ImageSize>,
-    /// テキストのビューアで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+    /// テキストのビューアーで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
     is_text: bool,
     /// 行に縮小画像を出してみるか (→ docs/ui.md「画像のプレビュー」)。
     thumbnail: bool,
@@ -1491,18 +1491,18 @@ pub(super) fn modified_at_millis(metadata: &std::fs::Metadata) -> Option<i64> {
 struct FolderBrowseResponse {
     folder_title: String,
     /// ルートに近い順の祖先グループ。自分自身は含まない。
-    /// フォルダもグループの下に置けるため、閲覧側のパンくずで上へ戻れるようにする。
+    /// フォルダーもグループの下に置けるため、閲覧側のパンくずで上へ戻れるようにする。
     ancestors: Vec<GroupAncestor>,
     path: String,
     entries: Vec<FolderEntry>,
 }
 
-/// `id` が指す `type = 'folder'` の行から、フォルダのタイトルと登録済みルートパス
+/// `id` が指す `type = 'folder'` の行から、フォルダーのタイトルと登録済みルートパス
 /// (書き込み時にcanonicalize済み)を取得する。folder以外(link等)のidや存在しないidは
 /// 404にする(browse/download はfolder専用のエンドポイントであるため)。
 ///
 /// 公開範囲の判定もここで行う。**ファイルシステムに触る前に済ませること**が重要で、
-/// 後回しにすると匿名の呼び出し元が401と404の差から`authenticated`なフォルダの中身の
+/// 後回しにすると匿名の呼び出し元が401と404の差から`authenticated`なフォルダーの中身の
 /// 有無を探れてしまう。
 pub(super) async fn folder_root(
     state: &AppState,
@@ -1546,7 +1546,7 @@ async fn path_exists(path: &FsPath) -> Result<bool, AppError> {
 /// 安価な一次フィルタ。`..`・ルート・(Windowsの)ドライブプレフィックス等を弾く。
 ///
 /// Windows では `:` を含む名前も弾く。`a.mp3:stream` は代替データストリームを指し、
-/// 一覧に出ないものを配信できてしまうため (→ docs/folders.md「公開できるフォルダ」)。
+/// 一覧に出ないものを配信できてしまうため (→ docs/folders.md「公開できるフォルダー」)。
 fn reject_traversal_components(rel: &str) -> Result<(), AppError> {
     for component in FsPath::new(rel).components() {
         match component {
@@ -1578,7 +1578,7 @@ fn reject_traversal_components(rel: &str) -> Result<(), AppError> {
 /// 塞ぐには Unix の `openat` + `O_NOFOLLOW` でファイルディスクリプタを固定する再設計
 /// (`ServeFile`も自前のストリーミング実装に置き換える)が要るが、今回のスコープ外とした。
 /// **folderの登録先(および祖先ディレクトリ)には、weblavプロセス以外の信頼できない主体に
-/// 書き込み権限を与えないこと。** 書き込み可能な第三者がいる共有フォルダはサポート対象外。
+/// 書き込み権限を与えないこと。** 書き込み可能な第三者がいる共有フォルダーはサポート対象外。
 /// SMB/NFS共有・他のログインユーザーによる書き込み等でこの前提が崩れる場合は、この制限の
 /// 解消(上記の再設計)が必須になる。なお`file`コンテンツ(アップロード)はこのTOCTOUの
 /// 対象外: 実体は`blobs_dir`配下にweblavプロセス自身だけが書くcontent-addressedな
@@ -1596,10 +1596,10 @@ async fn resolve_path(state: &AppState, root: &str, rel: &str) -> Result<PathBuf
         let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
         let canonical_root = std::fs::canonicalize(&root).map_err(|_| AppError::NotFound)?;
 
-        // 「公開できるフォルダ」の外は**配信の側でも**拒む。登録時の検証
+        // 「公開できるフォルダー」の外は**配信の側でも**拒む。登録時の検証
         // (`validate_folder_path`) は書き込み経路にしか掛からないので、登録を
-        // 消したあとや、登録済みのフォルダを削除したあとも配信され続ける
-        // (→ docs/folders.md「公開できるフォルダ」)。
+        // 消したあとや、登録済みのフォルダーを削除したあとも配信され続ける
+        // (→ docs/folders.md「公開できるフォルダー」)。
         //
         // **候補パスに触る前に判定する**。触ってから弾くと、候補が実在するかどうかで
         // 応答までの時間が変わり、存在を推し量る手がかりになる。
@@ -1615,8 +1615,8 @@ async fn resolve_path(state: &AppState, root: &str, rel: &str) -> Result<PathBuf
         }
         // 一覧に出さないもの (ドット始まり・シンボリックリンク・隠し属性) は配信もしない。
         // 一覧に出ないだけでパスを知っていれば落とせる、という食い違いを残さないため。
-        // weblav 自身の置き場 (設定とデータ) の中も同じ (公開できるフォルダが `C:\` のような祖先でもありうる)。
-        // いずれも存在を伏せるため 404 (→ docs/folders.md「公開できるフォルダ」)。
+        // weblav 自身の置き場 (設定とデータ) の中も同じ (公開できるフォルダーが `C:\` のような祖先でもありうる)。
+        // いずれも存在を伏せるため 404 (→ docs/folders.md「公開できるフォルダー」)。
         //
         // 名前は、要求の名前と実体の名前の両方で見る。Windows の 8.3 短縮名 (`ENV~1`) は
         // ドットで始まらないまま `.env` に解決されるため。リンクを見分けるには、辿る前の
@@ -1635,7 +1635,7 @@ async fn resolve_path(state: &AppState, root: &str, rel: &str) -> Result<PathBuf
 }
 
 /// `dir` 直下のエントリを列挙する。ドットファイル(`.DS_Store`等)と weblav 自身の置き場
-/// (`own_dirs`。→ docs/folders.md「公開できるフォルダ」) は除外し、
+/// (`own_dirs`。→ docs/folders.md「公開できるフォルダー」) は除外し、
 /// ディレクトリ優先(固定)→`order`で選んだ順(タイトル順か新しい順)でソートする。
 ///
 /// シンボリックリンクは一覧に表示しない(ポリシー)。もし表示してリンク先を
@@ -1970,13 +1970,13 @@ fn listable_ids(viewer: &Viewer, rows: &[ContentRow], start: Option<i64>) -> Has
 pub(super) struct SearchScope {
     id: i64,
     content_type: ContentType,
-    /// フォルダの中の階層 (登録パスからの相対パス)。フォルダ全体なら空。
+    /// フォルダーの中の階層 (登録パスからの相対パス)。フォルダー全体なら空。
     path: String,
-    /// 範囲のコンテンツのタイトル。フォルダの中の階層との組み立ては画面がする。
+    /// 範囲のコンテンツのタイトル。フォルダーの中の階層との組み立ては画面がする。
     pub(super) title: String,
 }
 
-/// 範囲にできる種類と階層の形か。階層を持てるのはフォルダだけで、空の区切り (`a//b`・末尾の `/`) は
+/// 範囲にできる種類と階層の形か。階層を持てるのはフォルダーだけで、空の区切り (`a//b`・末尾の `/`) は
 /// 受けない。`resolve_path` は区切りを均して通すが、範囲の名前と結果のパスがずれるため。
 fn check_scope_target(content_type: ContentType, path: &str) -> Result<(), AppError> {
     let container = matches!(
@@ -1992,7 +1992,7 @@ fn check_scope_target(content_type: ContentType, path: &str) -> Result<(), AppEr
     }
 }
 
-/// 範囲に指定されたグループ・フォルダ・アーカイブを、開けることを確かめて引く。
+/// 範囲に指定されたグループ・フォルダー・アーカイブを、開けることを確かめて引く。
 /// 開けなければ、その画面を開くのと同じく 401/404 にする。ほかの種類と、無い階層は 404。
 pub(super) async fn search_scope(
     state: &AppState,
@@ -2010,7 +2010,7 @@ pub(super) async fn search_scope(
     check_scope_target(row.content_type, path)?;
     // ファイルシステムに触る前に確かめる (理由は `folder_root` と同じ)。
     ensure_viewable(&state.pool, viewer, id).await?;
-    // フォルダは、階層が無くても登録先を確かめる。消えた登録先を範囲にすると、どの語でも空になるため。
+    // フォルダーは、階層が無くても登録先を確かめる。消えた登録先を範囲にすると、どの語でも空になるため。
     if row.content_type == ContentType::Folder {
         let target = resolve_path(state, &folder_path(row.path)?, path).await?;
         if !path_is_dir(&target).await? {
@@ -2031,14 +2031,14 @@ pub(super) struct ContentSearch {
     pub(super) truncated: bool,
     /// 閲覧者が一覧で見られるアーカイブ。アイテムの区画は、この中から探す。
     pub(super) archives: Vec<super::archive_items::SearchableArchive>,
-    /// 閲覧者が一覧で見られるフォルダ。フォルダの中の区画は、この中から探す。
+    /// 閲覧者が一覧で見られるフォルダー。フォルダーの中の区画は、この中から探す。
     pub(super) folders: Vec<super::folder_search::SearchableFolder>,
     /// 閲覧者が一覧で見られる、リンクの一覧のファイルの `file` コンテンツ。
     pub(super) links_files: Vec<super::folder_search::LinksFileContent>,
 }
 
 /// 閲覧者が一覧で見られるコンテンツを、タイトルと説明で探す。
-/// `scope` がグループならその子孫だけを探す。フォルダ・アーカイブなら、コンテンツは探さず、
+/// `scope` がグループならその子孫だけを探す。フォルダー・アーカイブなら、コンテンツは探さず、
 /// 中を探す対象をそれ1つにする。
 pub(super) async fn search_contents(
     state: &AppState,
@@ -2079,7 +2079,7 @@ pub(super) async fn search_contents(
             (rows, true)
         }
     };
-    // フォルダの中の階層に絞るときの、その階層。
+    // フォルダーの中の階層に絞るときの、その階層。
     let folder_sub_path = scope
         .filter(|scope| scope.content_type == ContentType::Folder)
         .map(|scope| scope.path.clone())
@@ -2188,7 +2188,7 @@ pub(super) async fn search_contents(
     })
 }
 
-/// 同一オリジンでのインライン表示(ブラウザ内蔵ビューア)を許可するMIMEタイプかどうか。
+/// 同一オリジンでのインライン表示(ブラウザー内蔵ビューアー)を許可するMIMEタイプかどうか。
 /// `text/html`・`image/svg+xml` はスクリプト実行が可能なため、インライン表示は
 /// セッションCookieを持つこのアプリのオリジン上でXSSの経路になり得る。ホワイトリストに
 /// 無いものは安全側で強制ダウンロード(`attachment`)にする。
@@ -2205,7 +2205,7 @@ pub(super) fn is_inline_allowed(mime: &mime_guess::Mime) -> bool {
 
 /// `Content-Disposition` ヘッダーの値を組み立てる。ファイル名は日本語等の非ASCII文字を
 /// 含み得るため、ASCII近似のフォールバック(`filename=`)と RFC 5987 のパーセントエンコード
-/// (`filename*=UTF-8''...`)の両方を付与する(モダンなブラウザは後者を優先する)。
+/// (`filename*=UTF-8''...`)の両方を付与する(モダンなブラウザーは後者を優先する)。
 pub(super) fn content_disposition_header(disposition: &str, file_name: &str) -> HeaderValue {
     let ascii_fallback: String = file_name
         .chars()
@@ -2451,7 +2451,7 @@ pub(super) fn is_valid_blob_hash(hash: &str) -> bool {
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
-/// multipartの`file`フィールド名から保存用のファイル名を作る。ブラウザによっては
+/// multipartの`file`フィールド名から保存用のファイル名を作る。ブラウザーによっては
 /// パス区切りを含む値を送ることがあるため、basenameだけを取り出す。空になった場合は
 /// "download" にフォールバックする。
 fn sanitize_file_name(name: &str) -> String {
@@ -2944,7 +2944,7 @@ pub(crate) fn router(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
         .routes(routes!(replace_content_upload))
         .layer(DefaultBodyLimit::max(upload_body_limit));
 
-    // ブラウザが直接開くルートだけ、エラーを画面へのリダイレクトに変える
+    // ブラウザーが直接開くルートだけ、エラーを画面へのリダイレクトに変える
     // (→ `api::browser`)。他のルートを巻き込まないよう、アップロード系と同じく
     // 別の `OpenApiRouter` に分けてから merge する。
     let download_routes = OpenApiRouter::new()

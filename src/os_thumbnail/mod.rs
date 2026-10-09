@@ -20,7 +20,7 @@ pub const SUPPORTED: bool = cfg!(any(target_os = "macos", windows));
 #[cfg(any(target_os = "macos", windows))]
 const TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
-/// OS に縮小画像を頼む拡張子。動画・PDF・Office の文書・ブラウザによって表示できない画像。
+/// OS に縮小画像を頼む拡張子。動画・PDF・Office の文書・ブラウザーによって表示できない画像。
 /// 何でも頼むと、縮小画像の無いファイル (テキストなど) のたびに OS を呼ぶことになるので絞る。
 const EXTENSIONS: [&str; 19] = [
     "mp4", "m4v", "mov", "webm", "avi", "wmv", "mkv", "pdf", "doc", "docx", "xls", "xlsx", "ppt",

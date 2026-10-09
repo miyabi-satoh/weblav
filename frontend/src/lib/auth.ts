@@ -53,10 +53,10 @@ export function loginPathWithRedirect(loginPath: string, target: string): string
 /**
  * 戻り先が API のパスか。
  *
- * ブラウザが直接開いたファイルの取得が 401 になると、サーバーは
+ * ブラウザーが直接開いたファイルの取得が 401 になると、サーバーは
  * `/login?redirect=/api/v1/...` へ送ってくる (→ `src/api/browser.rs`)。
  * API のパスは SvelteKit のルートではないので `goto` では解決できず、
- * ブラウザのナビゲーションとして開く必要がある。
+ * ブラウザーのナビゲーションとして開く必要がある。
  */
 export function isApiTarget(target: string): boolean {
 	return target.startsWith('/api/');
@@ -65,7 +65,7 @@ export function isApiTarget(target: string): boolean {
 /**
  * `redirect` クエリの値を戻り先として使ってよいか検証する。
  *
- * 自サイト内の絶対パスだけを許可する。`//example.com` や `/\example.com` はブラウザから
+ * 自サイト内の絶対パスだけを許可する。`//example.com` や `/\example.com` はブラウザーから
  * 別オリジンへのスキーム相対URLとして解釈されるため、オープンリダイレクトになる。
  * 許可できない値は `null` を返し、呼び出し側で既定の遷移先へ落とす。
  */

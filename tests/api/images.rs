@@ -32,7 +32,7 @@ async fn get_with_headers(
     .await
 }
 
-/// フォルダの一覧は画像に大きさを添え、縮小画像は ETag で問い合わせられる。
+/// フォルダーの一覧は画像に大きさを添え、縮小画像は ETag で問い合わせられる。
 /// 画像でないファイルには大きさを付けず、縮小画像も 404 にする。
 #[sqlx::test]
 async fn folder_images_get_sizes_and_thumbnails(pool: SqlitePool) {
@@ -74,7 +74,7 @@ async fn folder_images_get_sizes_and_thumbnails(pool: SqlitePool) {
         serde_json::json!({"width": 300, "height": 200})
     );
     assert!(entry("note.txt")["image"].is_null(), "{body}");
-    // テキストのビューアへの振り分けも同じ一覧に載る (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+    // テキストのビューアーへの振り分けも同じ一覧に載る (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
     assert_eq!(entry("note.txt")["isText"], true, "{body}");
     assert_eq!(entry("data.bin")["isText"], false, "{body}");
     assert_eq!(entry("photo.png")["isText"], false, "{body}");
@@ -178,7 +178,7 @@ async fn uploaded_image_gets_size_in_home_list_and_thumbnail(pool: SqlitePool) {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
-/// アップロードしたテキストは、ホームの一覧でテキストのビューアに振り分けられる。
+/// アップロードしたテキストは、ホームの一覧でテキストのビューアーに振り分けられる。
 #[sqlx::test]
 async fn uploaded_text_file_is_marked_as_text_in_home_list(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;

@@ -11,7 +11,7 @@ import type { PageLoad } from './$types';
 export const load: PageLoad = async ({ parent, url }) => {
 	await parent();
 
-	// 並び順はURLクエリに持つ (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。知らない値はサーバー側でも
+	// 並び順はURLクエリに持つ (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。知らない値はサーバー側でも
 	// 既定として扱われるが、選択UIの表示を合わせるためここでも読み直す。
 	const sort = parseBrowseSort(url.searchParams.get('sort'));
 

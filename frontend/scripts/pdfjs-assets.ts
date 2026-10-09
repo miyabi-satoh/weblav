@@ -1,8 +1,8 @@
 // PDF.js が描画中に取りに行くファイル (日本語の CMap・画像の展開用の wasm・ICC) を
-// 配る物に入れる Vite プラグイン (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+// 配る物に入れる Vite プラグイン (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
 // どれも import で辿れないので、置き場ごと写す。置き場の URL は `virtual:pdfjs-assets` で渡す。
 // ADR: 標準フォントの置き場 (`standard_fonts`) は写さない。Liberation が GPL-2.0 で、配る物に入れられないため。
-// 埋め込まれていない標準フォントは、ブラウザのフォントで描く (PDF.js の `useSystemFonts` の既定)。
+// 埋め込まれていない標準フォントは、ブラウザーのフォントで描く (PDF.js の `useSystemFonts` の既定)。
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -17,7 +17,7 @@ const PDFJS_ASSET_DIRS = ['cmaps', 'wasm', 'iccs'] as const;
 
 // 写さないファイル。
 // - 条文: 画面のライセンス表示に載せる (third-party-licenses.ts の EXTRA_TEXT_FILES)。
-// - `*_nowasm_fallback.js`: WebAssembly を使えないブラウザ向け。対象のブラウザはどれも使える。
+// - `*_nowasm_fallback.js`: WebAssembly を使えないブラウザー向け。対象のブラウザーはどれも使える。
 // - `quickjs-eval.*`: PDF の中のスクリプトを動かすためのもの。スクリプトは動かさない。
 const SKIP = /^LICENSE|_nowasm_fallback\.js$|^quickjs-eval\./;
 

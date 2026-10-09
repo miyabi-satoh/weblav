@@ -248,7 +248,7 @@
             }
           },
           "422": {
-            "description": "パスが存在しない・ディレクトリでない・公開できるフォルダの外",
+            "description": "パスが存在しない・ディレクトリでない・公開できるフォルダーの外",
             "content": {
               "application/json": {
                 "schema": {
@@ -268,7 +268,7 @@
           {
             "name": "path",
             "in": "query",
-            "description": "一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「公開できるフォルダ」の一覧。",
+            "description": "一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「公開できるフォルダー」の一覧。",
             "required": false,
             "schema": {
               "type": "string"
@@ -297,7 +297,7 @@
             }
           },
           "422": {
-            "description": "パスが存在しない・ディレクトリでない・公開できるフォルダの外",
+            "description": "パスが存在しない・ディレクトリでない・公開できるフォルダーの外",
             "content": {
               "application/json": {
                 "schema": {
@@ -830,7 +830,7 @@
         },
         "responses": {
           "201": {
-            "description": "登録したフォルダ",
+            "description": "登録したフォルダー",
             "content": {
               "application/json": {
                 "schema": {
@@ -884,7 +884,7 @@
     },
     "/api/v1/admin/roots/pick": {
       "post": {
-        "summary": "サーバーの PC に OS 標準のフォルダ選択の窓を出し、選ばれたパスを返す (→ docs/folders.md「選び方」)。",
+        "summary": "サーバーの PC に OS 標準のフォルダー選択の窓を出し、選ばれたパスを返す (→ docs/folders.md「選び方」)。",
         "description": "窓は同時に1つだけ。要求した側が待つのをやめても、窓が閉じるまでは開いている扱いにする\n(番は `run_blocking` の中で持つ。ハンドラが drop されても、ブロッキングの処理は最後まで走る)。",
         "operationId": "pick_root",
         "responses": {
@@ -967,7 +967,7 @@
         },
         "responses": {
           "200": {
-            "description": "名前を変えたフォルダ",
+            "description": "名前を変えたフォルダー",
             "content": {
               "application/json": {
                 "schema": {
@@ -2018,7 +2018,7 @@
           {
             "name": "sort",
             "in": "query",
-            "description": "並び順。`title` (既定、タイトル順) か `new` (新しい順)。\n知らない値は既定として扱う (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。",
+            "description": "並び順。`title` (既定、タイトル順) か `new` (新しい順)。\n知らない値は既定として扱う (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。",
             "required": false,
             "schema": {
               "type": [
@@ -3105,7 +3105,7 @@
           {
             "name": "sort",
             "in": "query",
-            "description": "並び順。`title` (既定、タイトル順) か `new` (新しい順)。\nディレクトリ優先の並びは変えず、その中の順だけを切り替える (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。\n知らない値は既定として扱う。",
+            "description": "並び順。`title` (既定、タイトル順) か `new` (新しい順)。\nディレクトリ優先の並びは変えず、その中の順だけを切り替える (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。\n知らない値は既定として扱う。",
             "required": false,
             "schema": {
               "type": [
@@ -3231,7 +3231,7 @@
     },
     "/api/v1/contents/{id}/dir-levels": {
       "get": {
-        "summary": "フォルダの階層ごとの値。軸の追加ダイアログで、階層番号の代わりに実際の値を見て選ばせる。",
+        "summary": "フォルダーの階層ごとの値。軸の追加ダイアログで、階層番号の代わりに実際の値を見て選ばせる。",
         "operationId": "list_dir_levels",
         "parameters": [
           {
@@ -3307,7 +3307,7 @@
           {
             "name": "sort",
             "in": "query",
-            "description": "並び順。`title` (既定、タイトル順) か `new` (新しい順)。\nディレクトリ優先の並びは変えず、その中の順だけを切り替える (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。\n知らない値は既定として扱う。",
+            "description": "並び順。`title` (既定、タイトル順) か `new` (新しい順)。\nディレクトリ優先の並びは変えず、その中の順だけを切り替える (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。\n知らない値は既定として扱う。",
             "required": false,
             "schema": {
               "type": [
@@ -3410,7 +3410,7 @@
           {
             "name": "sort",
             "in": "query",
-            "description": "並び順。`title` (既定、タイトル順) か `new` (新しい順)。\n知らない値は既定として扱う (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。",
+            "description": "並び順。`title` (既定、タイトル順) か `new` (新しい順)。\n知らない値は既定として扱う (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。",
             "required": false,
             "schema": {
               "type": [
@@ -3818,7 +3818,7 @@
           {
             "name": "path",
             "in": "query",
-            "description": "フォルダの登録パスからの相対パス。フォルダの中のファイルのときだけ使う。",
+            "description": "フォルダーの登録パスからの相対パス。フォルダーの中のファイルのときだけ使う。",
             "required": false,
             "schema": {
               "type": "string"
@@ -4118,7 +4118,7 @@
           {
             "name": "sort",
             "in": "query",
-            "description": "並び順。`title` (既定、タイトル順) か `new` (新しい順)。\nディレクトリ優先の並びは変えず、その中の順だけを切り替える (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。\n知らない値は既定として扱う。",
+            "description": "並び順。`title` (既定、タイトル順) か `new` (新しい順)。\nディレクトリ優先の並びは変えず、その中の順だけを切り替える (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。\n知らない値は既定として扱う。",
             "required": false,
             "schema": {
               "type": [
@@ -4404,7 +4404,7 @@
     },
     "/api/v1/link-previews/files/{name}": {
       "get": {
-        "summary": "覚えた画像を配る。名前は中身のハッシュなので、ブラウザには取り直させない。",
+        "summary": "覚えた画像を配る。名前は中身のハッシュなので、ブラウザーには取り直させない。",
         "operationId": "link_preview_file",
         "parameters": [
           {
@@ -4480,7 +4480,7 @@
     },
     "/api/v1/search": {
       "get": {
-        "summary": "閲覧者がホームからたどって一覧で見られるコンテンツ・アーカイブの公開アイテム・フォルダの中・\nリンクの一覧のファイルの中のリンクを、タイトルの文字列で探す (→ docs/search.md)。語が空なら空の結果を返す。\n`within` を渡すと、その場所の中だけを探す (→ docs/search.md「範囲」)。",
+        "summary": "閲覧者がホームからたどって一覧で見られるコンテンツ・アーカイブの公開アイテム・フォルダーの中・\nリンクの一覧のファイルの中のリンクを、タイトルの文字列で探す (→ docs/search.md)。語が空なら空の結果を返す。\n`within` を渡すと、その場所の中だけを探す (→ docs/search.md「範囲」)。",
         "operationId": "search",
         "parameters": [
           {
@@ -4495,7 +4495,7 @@
           {
             "name": "within",
             "in": "query",
-            "description": "探す場所のグループ・フォルダ・アーカイブの id。無ければ全体を探す。",
+            "description": "探す場所のグループ・フォルダー・アーカイブの id。無ければ全体を探す。",
             "required": false,
             "schema": {
               "type": [
@@ -4508,7 +4508,7 @@
           {
             "name": "path",
             "in": "query",
-            "description": "`within` がフォルダのとき、その中の階層 (登録パスからの相対パス)。",
+            "description": "`within` がフォルダーのとき、その中の階層 (登録パスからの相対パス)。",
             "required": false,
             "schema": {
               "type": "string"
@@ -4546,7 +4546,7 @@
             }
           },
           "404": {
-            "description": "範囲の場所が無いか、開けないか、グループ・フォルダ・アーカイブでない",
+            "description": "範囲の場所が無いか、開けないか、グループ・フォルダー・アーカイブでない",
             "content": {
               "application/json": {
                 "schema": {
@@ -4860,7 +4860,7 @@
       },
       "AdminContentResponse": {
         "type": "object",
-        "description": "管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。\n`user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「公開できるフォルダ」の配下だけ\nなので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「公開できるフォルダ」)。",
+        "description": "管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。\n`user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「公開できるフォルダー」の配下だけ\nなので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「公開できるフォルダー」)。",
         "required": [
           "id",
           "type",
@@ -4934,18 +4934,18 @@
               "string",
               "null"
             ],
-            "description": "`root_name` のフォルダから先の相対パス (`/` 区切り)。フォルダそのものなら空文字列。\n`root_name` が `None` なら `None`。"
+            "description": "`root_name` のフォルダーから先の相対パス (`/` 区切り)。フォルダーそのものなら空文字列。\n`root_name` が `None` なら `None`。"
           },
           "rootDeleted": {
             "type": "boolean",
-            "description": "`root_name` の公開できるフォルダが削除済みか。画面では名前の代わりに\n「存在しない公開フォルダ」と出す。`root_name` が `None` なら `false`。"
+            "description": "`root_name` の公開できるフォルダーが削除済みか。画面では名前の代わりに\n「存在しない公開フォルダー」と出す。`root_name` が `None` なら `false`。"
           },
           "rootName": {
             "type": [
               "string",
               "null"
             ],
-            "description": "`path` を含む「公開できるフォルダ」の名前。画面では起点のフルパスの代わりに出す\n(→ docs/folders.md「公開できるフォルダ」)。`path` が無いか、どの公開できるフォルダにも含まれなければ `None`。"
+            "description": "`path` を含む「公開できるフォルダー」の名前。画面では起点のフルパスの代わりに出す\n(→ docs/folders.md「公開できるフォルダー」)。`path` が無いか、どの公開できるフォルダーにも含まれなければ `None`。"
           },
           "title": {
             "type": "string"
@@ -5040,7 +5040,7 @@
           },
           "isText": {
             "type": "boolean",
-            "description": "テキストのビューアで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューア」)。"
+            "description": "テキストのビューアーで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューアー」)。"
           },
           "subtitle": {
             "type": [
@@ -5086,7 +5086,7 @@
           },
           "folderMissing": {
             "type": "boolean",
-            "description": "アーカイブの登録先のフォルダが見つからない。画面は空の一覧の代わりにそう出す。"
+            "description": "アーカイブの登録先のフォルダーが見つからない。画面は空の一覧の代わりにそう出す。"
           },
           "items": {
             "type": "array",
@@ -5521,7 +5521,7 @@
               },
               "isText": {
                 "type": "boolean",
-                "description": "テキストのビューアで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューア」)。\n`image` と同じく、一覧でだけ埋める。"
+                "description": "テキストのビューアーで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューアー」)。\n`image` と同じく、一覧でだけ埋める。"
               },
               "private": {
                 "type": "boolean"
@@ -5543,7 +5543,7 @@
           },
           {
             "type": "object",
-            "description": "仮想フォルダ。子一覧は含めない(別途 `GET /contents/{id}/group` で取得する)。",
+            "description": "仮想フォルダー。子一覧は含めない(別途 `GET /contents/{id}/group` で取得する)。",
             "required": [
               "id",
               "title",
@@ -5759,11 +5759,11 @@
               "string",
               "null"
             ],
-            "description": "名前。前後の空白は除く。省くか空ならフォルダ名にする。"
+            "description": "名前。前後の空白は除く。省くか空ならフォルダー名にする。"
           },
           "path": {
             "type": "string",
-            "description": "絶対パス。フォルダ選択の窓 (`/admin/roots/pick`) が返す値をそのまま渡す。"
+            "description": "絶対パス。フォルダー選択の窓 (`/admin/roots/pick`) が返す値をそのまま渡す。"
           }
         }
       },
@@ -5847,7 +5847,7 @@
           "level": {
             "type": "integer",
             "format": "int64",
-            "description": "1始まりの階層番号。フォルダの階層の軸の `dirLevel` と同じ数え方。"
+            "description": "1始まりの階層番号。フォルダーの階層の軸の `dirLevel` と同じ数え方。"
           },
           "samples": {
             "type": "array",
@@ -5882,7 +5882,7 @@
               "string",
               "null"
             ],
-            "description": "1つ上の階層。上位の一覧では `None`。登録済みの「公開できるフォルダ」そのものからは\n空文字列 (= 上位の一覧) へ戻る。"
+            "description": "1つ上の階層。上位の一覧では `None`。登録済みの「公開できるフォルダー」そのものからは\n空文字列 (= 上位の一覧) へ戻る。"
           },
           "path": {
             "type": "string",
@@ -5893,14 +5893,14 @@
               "string",
               "null"
             ],
-            "description": "パンくずの起点。現在位置を含む「公開できるフォルダ」。上位の一覧では `None`。\nパンくずを辿れるところから始めるために使う (→ docs/folders.md「一覧 API」)。"
+            "description": "パンくずの起点。現在位置を含む「公開できるフォルダー」。上位の一覧では `None`。\nパンくずを辿れるところから始めるために使う (→ docs/folders.md「一覧 API」)。"
           },
           "rootName": {
             "type": [
               "string",
               "null"
             ],
-            "description": "`root` の名前。パンくずの先頭に、フルパスの代わりに出す (→ docs/folders.md「公開できるフォルダ」)。"
+            "description": "`root` の名前。パンくずの先頭に、フルパスの代わりに出す (→ docs/folders.md「公開できるフォルダー」)。"
           },
           "selectable": {
             "type": "boolean",
@@ -6034,7 +6034,7 @@
             "items": {
               "$ref": "#/components/schemas/GroupAncestor"
             },
-            "description": "ルートに近い順の祖先グループ。自分自身は含まない。\nフォルダもグループの下に置けるため、閲覧側のパンくずで上へ戻れるようにする。"
+            "description": "ルートに近い順の祖先グループ。自分自身は含まない。\nフォルダーもグループの下に置けるため、閲覧側のパンくずで上へ戻れるようにする。"
           },
           "entries": {
             "type": "array",
@@ -6075,7 +6075,7 @@
           },
           "isText": {
             "type": "boolean",
-            "description": "テキストのビューアで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューア」)。"
+            "description": "テキストのビューアーで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューアー」)。"
           },
           "modifiedAt": {
             "type": [
@@ -6392,7 +6392,7 @@
             "items": {
               "$ref": "#/components/schemas/ImportPreviewItem"
             },
-            "description": "`rel_path` の順に、全体から間を空けて選んだアイテム。別のフォルダのものも入るように。"
+            "description": "`rel_path` の順に、全体から間を空けて選んだアイテム。別のフォルダーのものも入るように。"
           },
           "itemCount": {
             "type": "integer",
@@ -6507,7 +6507,7 @@
       },
       "LinksFileQuery": {
         "type": "object",
-        "description": "どの一覧のファイルか。フォルダの中は `path`、アーカイブのアイテムは `item`、`file` コンテンツは id だけで指す。",
+        "description": "どの一覧のファイルか。フォルダーの中は `path`、アーカイブのアイテムは `item`、`file` コンテンツは id だけで指す。",
         "properties": {
           "item": {
             "type": [
@@ -6519,7 +6519,7 @@
           },
           "path": {
             "type": "string",
-            "description": "フォルダの登録パスからの相対パス。フォルダの中のファイルのときだけ使う。"
+            "description": "フォルダーの登録パスからの相対パス。フォルダーの中のファイルのときだけ使う。"
           }
         }
       },
@@ -6543,7 +6543,7 @@
               "string",
               "null"
             ],
-            "description": "フォルダ・アーカイブの中のファイルなら、そのコンテンツのタイトル。`file` コンテンツなら無し。"
+            "description": "フォルダー・アーカイブの中のファイルなら、そのコンテンツのタイトル。`file` コンテンツなら無し。"
           },
           "links": {
             "type": [
@@ -6613,7 +6613,7 @@
               "string",
               "null"
             ],
-            "description": "選ばれたフォルダの絶対パス。キャンセルされたら `null`。登録はしていないので、\n登録するには `POST /admin/roots` へそのまま渡す。"
+            "description": "選ばれたフォルダーの絶対パス。キャンセルされたら `null`。登録はしていないので、\n登録するには `POST /admin/roots` へそのまま渡す。"
           }
         }
       },
@@ -6831,7 +6831,7 @@
         "properties": {
           "name": {
             "type": "string",
-            "description": "新しい名前。前後の空白は除く。空ならフォルダ名にする。"
+            "description": "新しい名前。前後の空白は除く。空ならフォルダー名にする。"
           }
         }
       },
@@ -6972,7 +6972,7 @@
         "properties": {
           "contentCount": {
             "type": "integer",
-            "description": "このフォルダの中にある登録済みコンテンツの数。",
+            "description": "このフォルダーの中にある登録済みコンテンツの数。",
             "minimum": 0
           },
           "id": {
@@ -6989,7 +6989,7 @@
           },
           "removedContentCount": {
             "type": "integer",
-            "description": "このフォルダを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「公開できるフォルダ」)。\n登録中のほかの公開できるフォルダにも含まれるもの (入れ子) は数えない。",
+            "description": "このフォルダーを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「公開できるフォルダー」)。\n登録中のほかの公開できるフォルダーにも含まれるもの (入れ子) は数えない。",
             "minimum": 0
           }
         }
@@ -7043,7 +7043,7 @@
           },
           "path": {
             "type": "string",
-            "description": "フォルダの登録パスからの相対パス (`/` 区切り)。エントリ自身の名前まで含む。"
+            "description": "フォルダーの登録パスからの相対パス (`/` 区切り)。エントリ自身の名前まで含む。"
           }
         }
       },
@@ -7082,12 +7082,12 @@
               "string",
               "null"
             ],
-            "description": "フォルダ・アーカイブの中の一覧なら、そのコンテンツのタイトル。"
+            "description": "フォルダー・アーカイブの中の一覧なら、そのコンテンツのタイトル。"
           },
           "contentId": {
             "type": "integer",
             "format": "int64",
-            "description": "一覧のファイルを持つコンテンツ (フォルダ・アーカイブ・`file`)。"
+            "description": "一覧のファイルを持つコンテンツ (フォルダー・アーカイブ・`file`)。"
           },
           "fileTitle": {
             "type": "string",
@@ -7116,7 +7116,7 @@
               "string",
               "null"
             ],
-            "description": "フォルダの中の一覧なら、その相対パス。"
+            "description": "フォルダーの中の一覧なら、その相対パス。"
           },
           "preview": {
             "oneOf": [
@@ -7163,7 +7163,7 @@
             "items": {
               "$ref": "#/components/schemas/SearchFileHit"
             },
-            "description": "フォルダの中のファイルとディレクトリ。名前順。区画ごとの上限 (100 件) で打ち切る。"
+            "description": "フォルダーの中のファイルとディレクトリ。名前順。区画ごとの上限 (100 件) で打ち切る。"
           },
           "filesTruncated": {
             "type": "boolean",
@@ -7171,7 +7171,7 @@
           },
           "foldersIncomplete": {
             "type": "boolean",
-            "description": "大きなフォルダを途中までしか辿っていないか (1つのフォルダで 20,000 件まで)。\nその先のファイルとリンクの一覧は探していない。語を足しても広がらないので、打ち切りとは分けて伝える。"
+            "description": "大きなフォルダーを途中までしか辿っていないか (1つのフォルダーで 20,000 件まで)。\nその先のファイルとリンクの一覧は探していない。語を足しても広がらないので、打ち切りとは分けて伝える。"
           },
           "items": {
             "type": "array",
@@ -7746,7 +7746,7 @@
           },
           {
             "type": "object",
-            "description": "同じ名前の「公開できるフォルダ」が既にある (→ docs/folders.md「公開できるフォルダ」)。",
+            "description": "同じ名前の「公開できるフォルダー」が既にある (→ docs/folders.md「公開できるフォルダー」)。",
             "required": [
               "name",
               "kind"
@@ -7765,7 +7765,7 @@
           },
           {
             "type": "object",
-            "description": "そのフォルダは「公開できるフォルダ」に登録済み (→ docs/folders.md「公開できるフォルダ」)。",
+            "description": "そのフォルダーは「公開できるフォルダー」に登録済み (→ docs/folders.md「公開できるフォルダー」)。",
             "required": [
               "name",
               "kind"
@@ -7784,7 +7784,7 @@
           },
           {
             "type": "object",
-            "description": "WebLAV 自身の置き場 (設定とデータ) の中は、公開できるフォルダにできない (→ docs/folders.md「公開できるフォルダ」)。",
+            "description": "WebLAV 自身の置き場 (設定とデータ) の中は、公開できるフォルダーにできない (→ docs/folders.md「公開できるフォルダー」)。",
             "required": [
               "kind"
             ],
@@ -7833,7 +7833,7 @@
           },
           {
             "type": "object",
-            "description": "再スキャンで、アーカイブの登録先のフォルダが見つからない (→ docs/archive.md「スキャン」)。",
+            "description": "再スキャンで、アーカイブの登録先のフォルダーが見つからない (→ docs/archive.md「スキャン」)。",
             "required": [
               "kind"
             ],

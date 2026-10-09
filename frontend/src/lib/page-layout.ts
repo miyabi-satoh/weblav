@@ -21,7 +21,7 @@ export const adminPageHeaderClass = 'mb-6 flex items-center justify-between';
 export const adminPageClass = 'p-4 md:px-6';
 
 /**
- * 管理画面の一覧の表を包む帯。公開できるフォルダの一覧 (`listClass`) と同じく、本文の余白を越えて端から端まで
+ * 管理画面の一覧の表を包む帯。公開できるフォルダーの一覧 (`listClass`) と同じく、本文の余白を越えて端から端まで
  * 面の色で塗り、上下に罫を引く (→ docs/ui.md「UI 全般」)。端の列の文字は本文の余白の線に揃える。
  * `adminPageClass` の中に置く。端の列の余白を変えたら、`layout.css` の `row-link-after-handle`・`row-link-before-handle` と、
  * コンテンツ管理の一覧の掴んだ行の複製の余白も合わせる。

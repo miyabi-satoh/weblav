@@ -158,7 +158,7 @@ h3 {
   font-family: 'M PLUS 1 Variable', 'BIZ UDPGothic', sans-serif;
   font-weight: 800;
   color: var(--ink-strong);
-  /* 見出しは文節の切れ目で折り返す（対応していないブラウザでは、ふつうの折り返し） */
+  /* 見出しは文節の切れ目で折り返す（対応していないブラウザーでは、ふつうの折り返し） */
   word-break: auto-phrase;
 }
 

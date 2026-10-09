@@ -32,7 +32,7 @@ describe('videoKeyAction', () => {
 		expect(key('End')).toEqual({ type: 'seek-fraction', fraction: 1 });
 	});
 
-	it('左右キーはビューアの前後の移動に残すので扱わない', () => {
+	it('左右キーはビューアーの前後の移動に残すので扱わない', () => {
 		expect(key('ArrowLeft')).toBeNull();
 		expect(key('ArrowRight')).toBeNull();
 	});

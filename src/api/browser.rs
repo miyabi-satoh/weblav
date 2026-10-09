@@ -1,4 +1,4 @@
-//! ブラウザが直接開く経路のエラーを、人間向けの応答に変える。
+//! ブラウザーが直接開く経路のエラーを、人間向けの応答に変える。
 //!
 //! ファイルは `<a href target="_blank">` で API の URL をそのまま開く。
 //! 失敗したときに JSON の envelope をそのまま返すと、タブに
@@ -19,7 +19,7 @@ use crate::error::ErrorCode;
 
 /// `Accept` が HTML を求めているか。
 ///
-/// ブラウザのトップレベルナビゲーションは `text/html` を候補の先頭に置く。
+/// ブラウザーのトップレベルナビゲーションは `text/html` を候補の先頭に置く。
 /// `fetch` の既定は `*/*` なので、`text/html` を名指ししているかどうかで見分けられる。
 /// ワイルドカード (`*/*`) を HTML 扱いにしないのは、それを送るのが API クライアント側だから。
 fn wants_html(headers: &HeaderMap) -> bool {
@@ -111,7 +111,7 @@ mod tests {
         headers
     }
 
-    /// ブラウザがアドレスバーから開くときの `Accept`。
+    /// ブラウザーがアドレスバーから開くときの `Accept`。
     #[test]
     fn navigation_accept_wants_html() {
         let accept = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,*/*;q=0.8";

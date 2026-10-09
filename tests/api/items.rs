@@ -2,7 +2,7 @@
 
 use super::*;
 
-/// ディレクトリ・フォルダの一覧の応答から、エントリの名前を並び順のまま取り出す。
+/// ディレクトリ・フォルダーの一覧の応答から、エントリの名前を並び順のまま取り出す。
 fn entry_names(body: &str) -> Vec<String> {
     let json: serde_json::Value = serde_json::from_str(body).expect("一覧を読めなかった");
     json["entries"]
@@ -398,7 +398,7 @@ async fn archive_list_items_reads_size_and_modified_at_from_files(pool: SqlitePo
 }
 
 /// 閲覧の一覧は、索引の後に実体が消えた行を外す (→ docs/archive.md「アイテムの配信」)。
-/// 登録先のフォルダごと無ければ、そう分かるように返す。
+/// 登録先のフォルダーごと無ければ、そう分かるように返す。
 #[sqlx::test]
 async fn archive_view_hides_items_whose_file_vanished_after_scan(pool: SqlitePool) {
     let (app, _cookie, id, dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
@@ -422,7 +422,7 @@ async fn archive_view_hides_items_whose_file_vanished_after_scan(pool: SqlitePoo
     );
     assert_eq!(parsed["folderMissing"], false, "{body}");
 
-    std::fs::remove_dir_all(&*dir).expect("フォルダを消せなかった");
+    std::fs::remove_dir_all(&*dir).expect("フォルダーを消せなかった");
     let (status, body) = view_archive(app, "", id, &[]).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
@@ -432,14 +432,14 @@ async fn archive_view_hides_items_whose_file_vanished_after_scan(pool: SqlitePoo
 
 /// データ置き場の祖先を指す folder でも、データ置き場の中は一覧にも配信にも出さない。
 /// 一覧に出さないもの (ドット始まり・シンボリックリンク) も、パスを知っていても配信しない
-/// (→ docs/archive.md「スキャン」・docs/folders.md「公開できるフォルダ」)。
+/// (→ docs/archive.md「スキャン」・docs/folders.md「公開できるフォルダー」)。
 #[sqlx::test]
 async fn a_folder_never_serves_the_data_dir_or_hidden_entries(pool: SqlitePool) {
     let base = temp_test_dir("serve-hidden");
     let data_dir = base.join("weblav");
     std::fs::create_dir_all(data_dir.join("blobs")).expect("データ置き場を作れなかった");
     std::fs::write(data_dir.join("weblav.db"), b"secret").expect("ファイルを作れなかった");
-    std::fs::create_dir_all(base.join(".git")).expect("フォルダを作れなかった");
+    std::fs::create_dir_all(base.join(".git")).expect("フォルダーを作れなかった");
     std::fs::write(base.join(".git").join("config"), b"x").expect("ファイルを作れなかった");
     std::fs::write(base.join(".env"), b"x").expect("ファイルを作れなかった");
     std::fs::write(base.join("a.mp3"), b"x").expect("ファイルを作れなかった");
@@ -489,7 +489,7 @@ async fn a_folder_never_serves_the_data_dir_or_hidden_entries(pool: SqlitePool) 
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 }
 
-/// 自身の置き場 (設定とデータ) の祖先は「公開できるフォルダ」に登録できるが、置き場の中は登録できない。
+/// 自身の置き場 (設定とデータ) の祖先は「公開できるフォルダー」に登録できるが、置き場の中は登録できない。
 #[sqlx::test]
 async fn a_root_may_contain_own_dirs_but_not_be_inside_them(pool: SqlitePool) {
     let base = root_dir("roots-data-ancestor");
@@ -537,7 +537,7 @@ async fn a_root_may_contain_own_dirs_but_not_be_inside_them(pool: SqlitePool) {
     assert_eq!(status, StatusCode::CREATED, "{body}");
 
     // 登録先を選ぶ一覧に、設定とデータの置き場そのものが並ばない。
-    std::fs::create_dir_all(base.join("other")).expect("フォルダを作れなかった");
+    std::fs::create_dir_all(base.join("other")).expect("フォルダーを作れなかった");
     let uri = format!(
         "/api/v1/admin/fs/dirs?path={}",
         canonical_path_as_api_returns_it(&base)
@@ -547,7 +547,7 @@ async fn a_root_may_contain_own_dirs_but_not_be_inside_them(pool: SqlitePool) {
     assert_eq!(entry_names(&body), vec!["other"], "{uri}: {body}");
 }
 
-/// 「公開できるフォルダ」の外を指す既存の行は、**配信の側でも**拒む (→ docs/folders.md「公開できるフォルダ」)。
+/// 「公開できるフォルダー」の外を指す既存の行は、**配信の側でも**拒む (→ docs/folders.md「公開できるフォルダー」)。
 ///
 /// 登録時の検証は書き込み経路にしか掛からないので、登録を消したあとの行や、データ置き場を
 /// 移したあとの行が残りうる。ここでは「weblav 自身のデータ置き場を指す folder」をDBへ
@@ -584,7 +584,7 @@ async fn browse_rejects_a_folder_pointing_at_the_data_dir(pool: SqlitePool) {
         .expect("failed to insert folder content");
     }
 
-    // 1件目 (データ置き場) は 404、2件目 (隣の教材フォルダ) は 200。
+    // 1件目 (データ置き場) は 404、2件目 (隣の教材フォルダー) は 200。
     let (status, body) = send_anon(app.clone(), "GET", "/api/v1/contents/1/browse?path=").await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
     let (status, body) = send_anon(app.clone(), "GET", "/api/v1/contents/2/browse?path=").await;

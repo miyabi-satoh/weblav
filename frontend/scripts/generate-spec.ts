@@ -6,7 +6,7 @@
 // 3. Playwright でスクリーンショットを撮り、paraglideのメッセージを直接importして文言を取る。
 //    各ショットは既定で desktop/tablet/mobile の3サイズを撮る(shots.ts の viewports で
 //    絞り込み可能)。3サイズ撮ったものは `{{shot:id}}` の置換先が横並び比較表になる。
-// 4. 仕様書の原稿 (環境変数 WEBLAV_SPEC_DIR のフォルダの *.md) の `{{msg:key}}` `{{shot:id}}` プレースホルダーを実際の値に置換し、
+// 4. 仕様書の原稿 (環境変数 WEBLAV_SPEC_DIR のフォルダーの *.md) の `{{msg:key}}` `{{shot:id}}` プレースホルダーを実際の値に置換し、
 //    docs/generated/spec/ (+ assets/*.png) として書き出す。生成物は .gitignore 対象。
 //
 // frontend/build は呼び出し元(justfile)が事前にビルド済みである前提
@@ -49,7 +49,7 @@ const SEED_SQL_PATH = path.join(import.meta.dirname, 'seed.sql');
 // seed.sql に folder を入れられないのは、実在する絶対パスが要るため。置き場を target/
 // 配下にしてあるのは、片付け漏れが普段見ない場所 (macOS の `/var/folders/...`) に
 // 溜まらないようにするため。この置き場自身を `roots` に入れてから登録する
-// (→ docs/folders.md「公開できるフォルダ」)。
+// (→ docs/folders.md「公開できるフォルダー」)。
 const FIXTURE_ROOT_DIR = path.join(REPO_ROOT, 'target/spec-fixtures');
 const FIXTURE_DIR = path.join(FIXTURE_ROOT_DIR, '教材');
 /** `FIXTURE_ROOT_DIR` を登録するときの名前。ピッカーやコンテンツの場所に、フルパスの代わりに出る。 */
@@ -61,8 +61,8 @@ const FIXTURE_TREE: Record<string, string[]> = {
 	共通テスト: ['2024_リスニング.mp3', '2024_問題.pdf']
 };
 // 画像のプレビュー (→ docs/ui.md「画像のプレビュー」) のショット用。空のファイルでは縮小画像も
-// ビューアも出ないので、中身のある PNG をここで組み立てる。横長と縦長を混ぜ、
-// 行では正方形に切り抜き、ビューアでは縦横比を保って開くことを見せる。
+// ビューアーも出ないので、中身のある PNG をここで組み立てる。横長と縦長を混ぜ、
+// 行では正方形に切り抜き、ビューアーでは縦横比を保って開くことを見せる。
 type Rgb = [number, number, number];
 const FIXTURE_IMAGES: Record<string, { width: number; height: number; from: Rgb; to: Rgb }> = {
 	'写真/運動会_入場.png': { width: 1200, height: 800, from: [70, 130, 180], to: [240, 200, 120] },
@@ -100,9 +100,9 @@ function gradientPng(width: number, height: number, from: Rgb, to: Rgb): Buffer 
 	]);
 }
 
-// フォルダ閲覧画面は更新日時を表示するため、実行時刻のままだと生成物が毎回差分を
+// フォルダー閲覧画面は更新日時を表示するため、実行時刻のままだと生成物が毎回差分を
 // 持ってしまう。固定日時にして再現性を持たせる。
-/** 中身のある PDF。ほかの PDF は空で、ビューアでは読めない案内になる。 */
+/** 中身のある PDF。ほかの PDF は空で、ビューアーでは読めない案内になる。 */
 const FIXTURE_PDFS: Record<string, string[]> = {
 	'共通テスト/2024_問題.pdf': [
 		'2024 Listening Test',
@@ -147,18 +147,18 @@ function setFixedMtimes(dir: string, mtime: Date): void {
 	}
 	utimesSync(dir, mtime, mtime);
 }
-// 原稿のフォルダの *.md をそれぞれ docs/generated/spec/<同名> に生成する。
-// mo はフォルダ内の複数Markdownをサイドバー切り替えで表示するビューアのため、
+// 原稿のフォルダーの *.md をそれぞれ docs/generated/spec/<同名> に生成する。
+// mo はフォルダー内の複数Markdownをサイドバー切り替えで表示するビューアーのため、
 // 単一の巨大ファイルではなくページ単位で分割している。
 // 原稿はリポジトリの外に置くので、場所は WEBLAV_SPEC_DIR で受け取る。
 // 相対パスは、just のレシピが動くリポジトリの直下から見る。
-// 撮影を終えてから気づかないよう、読み込みの時点でフォルダがあるかを確かめる。
+// 撮影を終えてから気づかないよう、読み込みの時点でフォルダーがあるかを確かめる。
 const SPEC_SRC_DIR = path.resolve(REPO_ROOT, process.env.WEBLAV_SPEC_DIR ?? '');
 if (
 	!process.env.WEBLAV_SPEC_DIR ||
 	!statSync(SPEC_SRC_DIR, { throwIfNoEntry: false })?.isDirectory()
 ) {
-	throw new Error('WEBLAV_SPEC_DIR に仕様書の原稿のフォルダを指定してください');
+	throw new Error('WEBLAV_SPEC_DIR に仕様書の原稿のフォルダーを指定してください');
 }
 const OUT_DIR = path.join(REPO_ROOT, 'docs/generated/spec');
 const ASSETS_DIR = path.join(OUT_DIR, 'assets');
@@ -179,7 +179,7 @@ function seedDatabase(dbPath: string): { groupId: number; folderId: number } {
 		// (→ 原稿の 05-groups.md のショット用、shots.ts参照)。
 		const groupId = selectId(db, "SELECT id FROM contents WHERE title = '教材(グループ)'");
 
-		// 公開できるフォルダ (→ docs/folders.md「公開できるフォルダ」)。フィクスチャの木の親を登録する。
+		// 公開できるフォルダー (→ docs/folders.md「公開できるフォルダー」)。フィクスチャの木の親を登録する。
 		// folder の行と同じく絶対パスが環境依存なので、seed.sql ではなくここで入れる。
 		db.prepare('INSERT INTO roots (name, path) VALUES (?, ?)').run(
 			FIXTURE_ROOT_NAME,
@@ -385,7 +385,7 @@ async function main(): Promise<void> {
 		// login()/logout()で明示的に管理するので、viewport単位の共有で問題ない。
 		const pages = new Map<ViewportName, Page>();
 		for (const viewport of Object.keys(VIEWPORTS) as ViewportName[]) {
-			// localeを固定するのは、cookieが無ければ表示言語がブラウザの言語で決まり
+			// localeを固定するのは、cookieが無ければ表示言語がブラウザーの言語で決まり
 			// (→ docs/ui.md「UI 全般」)、日時の書式もそれに従うため。実行するPCの言語で
 			// スクショが変わってしまう。
 			const context = await browser.newContext({

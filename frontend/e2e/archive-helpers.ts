@@ -8,7 +8,7 @@ export const ADD_AXIS_BUTTON_NAME = /^軸を追加\.\.\.$|^Add axis\.\.\.$/;
 // ラベルは文言の前後で改行しているので、前後の空白を許す。
 const SOURCE_LABEL = /^\s*(抽出元|Source)\s*$/;
 
-/** 軸の追加・編集ダイアログで、フォルダの階層を選ぶラジオ (「第N階層」)。 */
+/** 軸の追加・編集ダイアログで、フォルダーの階層を選ぶラジオ (「第N階層」)。 */
 export function dirLevelRadioLabel(level: number): RegExp {
 	return new RegExp(`^\\s*(第${level}階層|Level ${level})\\s*$`);
 }
@@ -26,7 +26,7 @@ async function waitForAxisValuesLoaded(page: Page, name: string) {
 
 /**
  * 軸の追加ダイアログを開いて、名前と抽出元を入れて保存する。
- * フォルダの階層は、スキャン済みのアイテムの階層ごとの選択肢から選ぶ (アイテムがある前提)。
+ * フォルダーの階層は、スキャン済みのアイテムの階層ごとの選択肢から選ぶ (アイテムがある前提)。
  */
 export async function addAxis(
 	page: Page,
@@ -39,7 +39,7 @@ export async function addAxis(
 	await dialog.getByLabel(requiredLabel('軸名', 'Axis name')).fill(name);
 	await dialog.getByLabel(SOURCE_LABEL).click();
 	if ('dirLevel' in source) {
-		await page.getByRole('option', { name: /^フォルダの階層$|^Folder level$/ }).click();
+		await page.getByRole('option', { name: /^フォルダーの階層$|^Folder level$/ }).click();
 		await dialog.getByLabel(dirLevelRadioLabel(source.dirLevel)).check();
 	} else {
 		await page

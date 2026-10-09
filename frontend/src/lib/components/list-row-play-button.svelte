@@ -18,7 +18,7 @@
 		track: Track;
 		/** この行が並ぶ一覧の音声 (表示順)。プレイヤーの前・次の曲になる。 */
 		queue: Track[];
-		/** フォルダ一覧の詰めた行 (`browseRowClass(true)`) にする。タイルには効かない。 */
+		/** フォルダー一覧の詰めた行 (`browseRowClass(true)`) にする。タイルには効かない。 */
 		compact?: boolean;
 		/** アイコンと「再生中」の印の間に置く、行の文字。 */
 		children: Snippet;

@@ -1,7 +1,7 @@
 import { withQuery } from '$lib/href';
 import * as m from '$lib/paraglide/messages.js';
 
-/** ホームとグループの一覧の並び順 (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。 */
+/** ホームとグループの一覧の並び順 (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。 */
 export type BrowseSort = 'title' | 'new';
 
 export const DEFAULT_BROWSE_SORT: BrowseSort = 'title';
@@ -14,7 +14,7 @@ export const SORT_OPTIONS: { value: BrowseSort; label: () => string }[] = [
 
 /**
  * URL クエリの値を並び順として読む。知らない値は既定として扱う
- * (サーバー側と同じ扱い。共有されたリンクを壊さないため → docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+ * (サーバー側と同じ扱い。共有されたリンクを壊さないため → docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
  */
 export function parseBrowseSort(value: string | null): BrowseSort {
 	return value === 'new' ? 'new' : DEFAULT_BROWSE_SORT;

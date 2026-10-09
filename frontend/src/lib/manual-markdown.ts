@@ -4,7 +4,7 @@ import { escapeHtml } from '$lib/html';
 
 /**
  * 横に送れる表を、キーボードでも操作できる領域で包む renderer。
- * マニュアルと、テキストのビューアの Markdown のプレビュー (→ $lib/markdown-preview.ts) で使う。
+ * マニュアルと、テキストのビューアーの Markdown のプレビュー (→ $lib/markdown-preview.ts) で使う。
  *
  * 表そのものを `overflow` のコンテナにすると、表の中に押せる要素が無い状態では
  * フォーカスが当たらず、見切れた列にキーボードだけで到達できない

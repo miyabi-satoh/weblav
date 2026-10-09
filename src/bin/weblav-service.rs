@@ -17,7 +17,7 @@ fn main() -> ExitCode {
 enum Wake {
     Signal,
     ServerExited,
-    /// フォルダ選択の窓を開く頼み。macOS ではメインスレッドでしか開けない (→ weblav::folder_picker)。
+    /// フォルダー選択の窓を開く頼み。macOS ではメインスレッドでしか開けない (→ weblav::folder_picker)。
     PickFolder(weblav::folder_picker::PickRequest),
 }
 
@@ -32,7 +32,7 @@ fn run_in_foreground() -> ExitCode {
             }
         };
 
-    // 停止シグナル・サーバーの異常終了・フォルダ選択の窓を開く頼みを、1つのチャネルで待つ。
+    // 停止シグナル・サーバーの異常終了・フォルダー選択の窓を開く頼みを、1つのチャネルで待つ。
     let (wake_tx, wake_rx) = mpsc::channel();
     let pick_tx = wake_tx.clone();
     pick_requests.forward(move |request| pick_tx.send(Wake::PickFolder(request)).is_ok());

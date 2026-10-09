@@ -28,7 +28,7 @@
 		failedIcon = null;
 	});
 
-	// 戻るなどで画面を移ったら閉じる。移った先の上に、前の画面のリンクを残さない (ファイルのビューアと同じ)。
+	// 戻るなどで画面を移ったら閉じる。移った先の上に、前の画面のリンクを残さない (ファイルのビューアーと同じ)。
 	beforeNavigate(() => {
 		linkDetail.open = false;
 	});
@@ -53,7 +53,7 @@
 		if (linkDetail.index === linkDetail.count - 1) openButton?.focus();
 	}
 
-	// 左右キーで前後のリンクへ移る (ファイルのビューアと同じ)。
+	// 左右キーで前後のリンクへ移る (ファイルのビューアーと同じ)。
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'ArrowLeft') previous();
 		else if (event.key === 'ArrowRight') next();

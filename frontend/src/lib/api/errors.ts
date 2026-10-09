@@ -40,7 +40,7 @@ export const GENERIC_ERROR_MESSAGE = m.error_generic;
 /**
  * `code` の文字列から表示文言を引く。
  *
- * envelope ではなく `code` だけが手元にある経路のためにある。ブラウザが直接開いた
+ * envelope ではなく `code` だけが手元にある経路のためにある。ブラウザーが直接開いた
  * ファイルの取得に失敗すると、サーバーは `/?error=<code>` へ送ってくる
  * (→ `src/api/browser.rs`)。
  * 知らない値は汎用文言に落とす。URL は利用者が書き換えられるため。

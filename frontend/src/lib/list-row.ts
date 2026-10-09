@@ -1,12 +1,12 @@
 import { browseLayout } from '$lib/browse-layout.svelte';
 
 /**
- * 閲覧側の一覧 (トップ・グループ・アーカイブ・フォルダ) で共有する class。
+ * 閲覧側の一覧 (トップ・グループ・アーカイブ・フォルダー) で共有する class。
  * 1列リストとタイルの2つの並べ方を持ち、`browse*Class()` が端末で選んだ方を返す (→ $lib/browse-layout.svelte.ts)。
  * 行の中身は `list-row-icon.svelte` / `list-row-glyph.svelte`。行そのもの (`<a>` / `<button>`) は
  * 各画面に置く。`resolve()` や `rel="external"` を eslint (svelte/no-navigation-without-resolve) が
  * 静的に見られるようにするため。
- * 管理画面「公開できるフォルダ」(`admin/roots`) は `listClass`/`listItemClass` (枠) だけを使い、
+ * 管理画面「公開できるフォルダー」(`admin/roots`) は `listClass`/`listItemClass` (枠) だけを使い、
  * 行本体はクリック不可・ホバーなしの一覧なので別に持つ。
  */
 export const listClass = 'border-y bg-background';
@@ -22,13 +22,13 @@ const listRowClass = `flex min-h-18 w-full items-center gap-4 py-3 text-left tra
 /** 行の1段目 (タイトル・名前)。 */
 const listRowTitleClass = 'block text-lg leading-6';
 
-/** フォルダ一覧用のタイトル。行と同じく、スマートフォン幅では一段小さくする (→ docs/ui.md「UI 全般」)。 */
+/** フォルダー一覧用のタイトル。行と同じく、スマートフォン幅では一段小さくする (→ docs/ui.md「UI 全般」)。 */
 const compactListRowTitleClass = 'block truncate text-base leading-6 sm:text-lg';
 
-/** 行の2段目 (ホーム・グループの説明、アーカイブの軸の値、フォルダのサイズと日時)。 */
+/** 行の2段目 (ホーム・グループの説明、アーカイブの軸の値、フォルダーのサイズと日時)。 */
 const listRowSubtitleClass = 'mt-0.5 block text-xs text-muted-foreground sm:text-sm';
 
-/** フォルダ一覧用。名前が生のまま出るため、スマートフォン幅では一段小さくする (→ docs/ui.md「UI 全般」)。 */
+/** フォルダー一覧用。名前が生のまま出るため、スマートフォン幅では一段小さくする (→ docs/ui.md「UI 全般」)。 */
 const compactListRowClass = `flex min-h-16 w-full items-center gap-3.5 py-2.5 text-left transition-colors hover:bg-muted/50 sm:min-h-18 sm:gap-4 sm:py-3 ${browseGutterClass}`;
 
 /** 一覧の上の段。左に並び順 (と絞り込み)、右端にリストとタイルの切り替えを置く (→ docs/ui.md「UI 全般」)。 */
@@ -65,7 +65,7 @@ export function browseItemClass(): string {
 	return browseLayout.tile ? 'min-w-0' : listItemClass;
 }
 
-/** 閲覧側の一覧の行・タイル。`compact` はフォルダ一覧の行で、タイルには効かない。 */
+/** 閲覧側の一覧の行・タイル。`compact` はフォルダー一覧の行で、タイルには効かない。 */
 export function browseRowClass(compact = false): string {
 	if (browseLayout.tile) return tileClass;
 	return compact ? compactListRowClass : listRowClass;

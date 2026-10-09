@@ -1,4 +1,4 @@
-//! 軸を設定するときの手がかり。アーカイブのアイテムから、フォルダの階層ごとの値と
+//! 軸を設定するときの手がかり。アーカイブのアイテムから、フォルダーの階層ごとの値と
 //! ファイル名によく出る語を集計して返す。
 //!
 //! どちらも `archive_items` のスキャン結果だけから計算し、何も保存しない。
@@ -30,7 +30,7 @@ pub struct DirLevelSample {
 #[derive(Debug, PartialEq, Eq, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DirLevelSummary {
-    /// 1始まりの階層番号。フォルダの階層の軸の `dirLevel` と同じ数え方。
+    /// 1始まりの階層番号。フォルダーの階層の軸の `dirLevel` と同じ数え方。
     level: i64,
     /// この階層に現れる、異なる値の数。
     value_count: usize,
@@ -78,7 +78,7 @@ fn summarize_dir_levels(rel_paths: &[String]) -> Vec<DirLevelSummary> {
         .collect()
 }
 
-/// フォルダの階層ごとの値。軸の追加ダイアログで、階層番号の代わりに実際の値を見て選ばせる。
+/// フォルダーの階層ごとの値。軸の追加ダイアログで、階層番号の代わりに実際の値を見て選ばせる。
 #[utoipa::path(
     get,
     path = "/contents/{id}/dir-levels",

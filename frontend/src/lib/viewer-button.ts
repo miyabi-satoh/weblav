@@ -1,5 +1,5 @@
 /**
- * ビューアのボタンで共有する class。画像のビューア (PhotoSwipe) と同じく、黒い地の上に白で置く。
+ * ビューアーのボタンで共有する class。画像のビューアー (PhotoSwipe) と同じく、黒い地の上に白で置く。
  * 見た目は 44px 四方 (→ docs/ui.md「UI 全般」)。
  */
 export const viewerButtonClass =

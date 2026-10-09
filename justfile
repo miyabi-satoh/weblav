@@ -42,7 +42,7 @@ run: build
 run: build
     .\target\release\{{ bin_name }}.exe
 
-# assets/icon.svg・tray-icon-mac.svg から exe・タスクトレイ・メニューバー・MSIX・ブラウザのタブ用の画像 (assets/icon.ico・tray-icon-64.rgba・tray-icon-mac-64.rgba・msix/*.png・frontend の favicon.svg) を再生成する
+# assets/icon.svg・tray-icon-mac.svg から exe・タスクトレイ・メニューバー・MSIX・ブラウザーのタブ用の画像 (assets/icon.ico・tray-icon-64.rgba・tray-icon-mac-64.rgba・msix/*.png・frontend の favicon.svg) を再生成する
 generate-icon:
     pnpm run generate:icon
 
@@ -119,7 +119,7 @@ dev-frontend:
 dev:
     cd {{ frontend_dir }} && pnpm exec concurrently -n backend,frontend -c blue,green "just dev-backend" "just dev-frontend"
 
-# E2Eブラウザテストを実行する。backendの起動方法は複数あり一つに決め打てないため、
+# E2Eブラウザーテストを実行する。backendの起動方法は複数あり一つに決め打てないため、
 # 事前に起動しておくこと (`just dev-backend`等)。e2e はテストごとにコンテンツを作り Free の上限に当たるので、
 # debug ビルドの backend の WEBLAV_HOME に tests/fixtures/dev-pro.json を pro.json として置いておく
 # (release ビルドはこの証明を信じない。→ docs/pro.md「結び付きと許可」)。管理者アカウントでの
@@ -130,7 +130,7 @@ dev:
 e2e $E2E_BASE_URL $E2E_ADMIN_PASSWORD $E2E_ADMIN_USER="admin":
     cd {{ frontend_dir }} && pnpm run test:e2e
 
-# E2Eブラウザテストを、使い捨てのbackend (一時WEBLAV_HOME・空きポート・管理者1人) に対して実行する。
+# E2Eブラウザーテストを、使い捨てのbackend (一時WEBLAV_HOME・空きポート・管理者1人) に対して実行する。
 # 開発用DBを使わないので、途中で落ちても汚さない。`just ci` (CI) から呼ばれる
 e2e-local: ensure-frontend-build
     cargo build --bin weblav-service
@@ -168,11 +168,11 @@ licenses:
 licenses-check: licenses
     node scripts/check-generated.mjs licenses frontend/static/third-party-licenses/rust.json
 
-# ビルドより前に、原稿のフォルダの指定を確かめる (相対パスはリポジトリの直下から)
+# ビルドより前に、原稿のフォルダーの指定を確かめる (相対パスはリポジトリの直下から)
 _spec-dir:
-    @node -e "const d = process.env.WEBLAV_SPEC_DIR; if (!d || !require('fs').statSync(d, { throwIfNoEntry: false })?.isDirectory()) { console.error('WEBLAV_SPEC_DIR に仕様書の原稿のフォルダを指定してください'); process.exit(1); }"
+    @node -e "const d = process.env.WEBLAV_SPEC_DIR; if (!d || !require('fs').statSync(d, { throwIfNoEntry: false })?.isDirectory()) { console.error('WEBLAV_SPEC_DIR に仕様書の原稿のフォルダーを指定してください'); process.exit(1); }"
 
-# アプリ仕様書を生成してmoに追加する (ブラウザは開かない。要: mo。原稿のフォルダを WEBLAV_SPEC_DIR で渡す)
+# アプリ仕様書を生成してmoに追加する (ブラウザーは開かない。要: mo。原稿のフォルダーを WEBLAV_SPEC_DIR で渡す)
 spec: _spec-dir frontend-build
     cargo build
     cd {{ frontend_dir }} && node scripts/generate-spec.ts
@@ -193,6 +193,7 @@ lint: ensure-frontend-build
     cargo clippy --all-targets -- -D warnings
     cd {{ frontend_dir }} && pnpm run lint
     node scripts/check-tailwind-arbitrary.mjs
+    node scripts/check-long-vowel.mjs
 
 # 窓口 (account-server/) を検査する (整形・生成した型・型検査・テスト)
 account-server-check:

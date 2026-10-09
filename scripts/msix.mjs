@@ -16,7 +16,7 @@ const STORE_PUBLISHER = 'CN=BA27F417-AAC4-43D9-9E55-3320F7F52C6F';
 const MANIFEST = 'installer/msix/AppxManifest.xml';
 const LOGO_DIR = 'assets/msix';
 const EXES = ['weblav.exe'];
-// makeappx に渡すフォルダ。毎回作り直す。
+// makeappx に渡すフォルダー。毎回作り直す。
 const LAYOUT_DIR = 'target/msix';
 const SDK_BIN = 'C:\\Program Files (x86)\\Windows Kits\\10\\bin';
 

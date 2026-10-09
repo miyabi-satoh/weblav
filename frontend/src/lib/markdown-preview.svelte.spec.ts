@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderMarkdownPreview } from './markdown-preview';
 
-// 無害化は DOM が要るので、ブラウザで走らせる (ファイル名の `.svelte.spec` → vite.config.ts)。
+// 無害化は DOM が要るので、ブラウザーで走らせる (ファイル名の `.svelte.spec` → vite.config.ts)。
 
 /** 組んだ HTML を要素にして返す。 */
 async function render(markdown: string): Promise<HTMLElement> {

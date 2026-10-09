@@ -55,9 +55,9 @@ struct SearchQuery {
     /// 検索語。空白で区切ると、どの語も含むものに絞る。
     #[serde(default)]
     q: String,
-    /// 探す場所のグループ・フォルダ・アーカイブの id。無ければ全体を探す。
+    /// 探す場所のグループ・フォルダー・アーカイブの id。無ければ全体を探す。
     within: Option<i64>,
-    /// `within` がフォルダのとき、その中の階層 (登録パスからの相対パス)。
+    /// `within` がフォルダーのとき、その中の階層 (登録パスからの相対パス)。
     #[serde(default)]
     path: String,
     /// `true` なら `within` で絞らず全体を探す。範囲の名前は返すので、画面は切り替えを出したままにできる。
@@ -97,11 +97,11 @@ struct SearchResponse {
     items: Vec<SearchItemHit>,
     /// `items` を打ち切ったか。
     items_truncated: bool,
-    /// フォルダの中のファイルとディレクトリ。名前順。区画ごとの上限 (100 件) で打ち切る。
+    /// フォルダーの中のファイルとディレクトリ。名前順。区画ごとの上限 (100 件) で打ち切る。
     files: Vec<SearchFileHit>,
     /// `files` を打ち切ったか。
     files_truncated: bool,
-    /// 大きなフォルダを途中までしか辿っていないか (1つのフォルダで 20,000 件まで)。
+    /// 大きなフォルダーを途中までしか辿っていないか (1つのフォルダーで 20,000 件まで)。
     /// その先のファイルとリンクの一覧は探していない。語を足しても広がらないので、打ち切りとは分けて伝える。
     folders_incomplete: bool,
     /// リンクの一覧のファイルの中のリンク。題の順。区画ごとの上限 (100 件) で打ち切る。
@@ -110,7 +110,7 @@ struct SearchResponse {
     links_truncated: bool,
 }
 
-/// 閲覧者がホームからたどって一覧で見られるコンテンツ・アーカイブの公開アイテム・フォルダの中・
+/// 閲覧者がホームからたどって一覧で見られるコンテンツ・アーカイブの公開アイテム・フォルダーの中・
 /// リンクの一覧のファイルの中のリンクを、タイトルの文字列で探す (→ docs/search.md)。語が空なら空の結果を返す。
 /// `within` を渡すと、その場所の中だけを探す (→ docs/search.md「範囲」)。
 #[utoipa::path(
@@ -120,7 +120,7 @@ struct SearchResponse {
     responses(
         (status = OK, body = SearchResponse, description = "区画ごとの検索結果"),
         (status = 401, body = crate::error::ErrorResponse, description = "範囲の場所を開くにはログインが要る"),
-        (status = 404, body = crate::error::ErrorResponse, description = "範囲の場所が無いか、開けないか、グループ・フォルダ・アーカイブでない"),
+        (status = 404, body = crate::error::ErrorResponse, description = "範囲の場所が無いか、開けないか、グループ・フォルダー・アーカイブでない"),
     )
 )]
 async fn search(

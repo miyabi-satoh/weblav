@@ -1,5 +1,5 @@
 /**
- * テキストのビューアで、Markdown のファイルを組んで見せる (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+ * テキストのビューアーで、Markdown のファイルを組んで見せる (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
  * marked と DOMPurify は、プレビューを開いたときに読み込む。
  */
 
@@ -112,7 +112,7 @@ export async function renderMarkdownPreview(
 		if (href === null || !LINK_URL.test(href)) {
 			link.removeAttribute('href');
 		} else {
-			// ビューアの下の一覧を残したまま、別のタブで開く。
+			// ビューアーの下の一覧を残したまま、別のタブで開く。
 			link.setAttribute('target', '_blank');
 			link.setAttribute('rel', 'noopener noreferrer');
 		}

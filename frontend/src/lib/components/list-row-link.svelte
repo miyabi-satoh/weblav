@@ -48,15 +48,15 @@
 		preview?: LinkPreview | null;
 		private?: boolean;
 		/**
-		 * 動画サイトの動画なら、ビューアで開くもの (→ docs/ui.md「動画サイトの埋め込み」)。
-		 * 修飾キーなしのクリックだけをビューアに回し、ほかは元の URL を新しいタブで開く。
+		 * 動画サイトの動画なら、ビューアーで開くもの (→ docs/ui.md「動画サイトの埋め込み」)。
+		 * 修飾キーなしのクリックだけをビューアーに回し、ほかは元の URL を新しいタブで開く。
 		 */
 		viewer?: { file: ViewerFile; items: ViewerItem[] };
 		/** 開いた一覧に並ぶ、詳しい表示を出すリンクと、その中のこの行の位置。詳しい表示で前後へ移るのに使う。 */
 		details?: { items: LinkDetail[]; index: number };
 	} = $props();
 
-	// ビューアで開かないリンクは、詳しい表示を挟んでから新しいタブで開く (→ docs/ui.md「リンクのカード」)。
+	// ビューアーで開かないリンクは、詳しい表示を挟んでから新しいタブで開く (→ docs/ui.md「リンクのカード」)。
 	// LAN の URL はサーバーが取りに行かず見せるものが無いので、今までどおり直接開く。
 	let opensDetail = $derived(opensLinkDetail(href, !!viewer));
 
@@ -176,7 +176,7 @@
 		{#if isPrivate}
 			<span class="shrink-0 text-sm text-muted-foreground">{m.contents_visibility_private()}</span>
 		{/if}
-		<!-- ページの中で開く行 (ビューア・詳しい表示) には、ファイルの行と同じくグリフを付けない (→ docs/ui.md「PDF・動画・テキストのビューア」)。 -->
+		<!-- ページの中で開く行 (ビューアー・詳しい表示) には、ファイルの行と同じくグリフを付けない (→ docs/ui.md「PDF・動画・テキストのビューアー」)。 -->
 		{#if !viewer && !opensDetail}
 			<ListRowGlyph newTab />
 		{/if}

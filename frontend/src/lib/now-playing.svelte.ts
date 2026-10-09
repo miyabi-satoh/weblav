@@ -68,7 +68,7 @@ function connectGraph(target: HTMLAudioElement) {
 			target.muted = false;
 			graph = { element: target, context, analyser, gain };
 		} catch {
-			// Web Audio を使えないブラウザでは、棒を出さず、ミュートは要素で行う。
+			// Web Audio を使えないブラウザーでは、棒を出さず、ミュートは要素で行う。
 			void context?.close();
 			target.muted = muted;
 			return;
@@ -141,7 +141,7 @@ export const nowPlaying = {
 		if (graph) graph.gain.gain.value = value ? 0 : 1;
 		else if (element) element.muted = value;
 	},
-	/** 鳴っている音の周波数を測るもの。Web Audio に通す前 (最初の再生の前) と、使えないブラウザでは null。 */
+	/** 鳴っている音の周波数を測るもの。Web Audio に通す前 (最初の再生の前) と、使えないブラウザーでは null。 */
 	get analyser(): AnalyserNode | null {
 		return graph?.analyser ?? null;
 	},

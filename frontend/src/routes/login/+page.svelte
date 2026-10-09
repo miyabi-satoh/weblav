@@ -52,7 +52,7 @@
 				await goto(resolve('/'));
 			} else if (isApiTarget(target)) {
 				// ファイルを直接開こうとして 401 になった場合の戻り先。SvelteKit の
-				// ルートではないので `goto` では解決できず、ブラウザに開かせる。
+				// ルートではないので `goto` では解決できず、ブラウザーに開かせる。
 				//
 				// インライン表示できない型 (docx・zip 等) はダウンロードが始まるだけで
 				// この文書は遷移しない。ヘッダーが未ログインのまま残ると「ログインに
@@ -60,7 +60,7 @@
 				await invalidateAll();
 				window.location.assign(target);
 			} else {
-				// `target` はブラウザのURLから取った実パスであり、route id ではないため
+				// `target` はブラウザーのURLから取った実パスであり、route id ではないため
 				// `resolve()` は通さない。
 				// eslint-disable-next-line svelte/no-navigation-without-resolve -- route id ではない実パスへの遷移 (上のコメント参照)
 				await goto(target);

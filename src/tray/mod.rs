@@ -47,12 +47,12 @@ enum TrayLocale {
 impl TrayLocale {
     fn open_label(self) -> &'static str {
         match self {
-            TrayLocale::Ja => "ブラウザで開く",
+            TrayLocale::Ja => "ブラウザーで開く",
             TrayLocale::En => "Open in browser",
         }
     }
 
-    /// 別の画面 (ブラウザのマニュアル) へ移る項目なので体言止めにする (→ docs/ui.md「UI 全般」)。
+    /// 別の画面 (ブラウザーのマニュアル) へ移る項目なので体言止めにする (→ docs/ui.md「UI 全般」)。
     fn manual_label(self) -> &'static str {
         match self {
             TrayLocale::Ja => "マニュアル",
@@ -60,7 +60,7 @@ impl TrayLocale {
         }
     }
 
-    /// 別の画面 (ブラウザのセットアップ画面) へ移る項目なので体言止めにする (→ docs/ui.md「UI 全般」)。
+    /// 別の画面 (ブラウザーのセットアップ画面) へ移る項目なので体言止めにする (→ docs/ui.md「UI 全般」)。
     fn setup_label(self) -> &'static str {
         match self {
             TrayLocale::Ja => "セットアップ",
@@ -220,8 +220,8 @@ fn build_tray(menu: Menu, tooltip: &str) -> TrayIcon {
         .expect("failed to build tray icon")
 }
 
-/// ブラウザで開くURL用のアドレスを返す。
-/// `bind = 0.0.0.0` 等の未指定アドレスをそのまま使うとブラウザで開けないため、
+/// ブラウザーで開くURL用のアドレスを返す。
+/// `bind = 0.0.0.0` 等の未指定アドレスをそのまま使うとブラウザーで開けないため、
 /// その場合はループバックアドレスに読み替える。
 fn open_addr(addr: SocketAddr) -> SocketAddr {
     if addr.ip().is_unspecified() {
@@ -238,7 +238,7 @@ fn open_addr(addr: SocketAddr) -> SocketAddr {
     }
 }
 
-/// ブラウザで開くときのオリジン (`http://localhost:3000` など)。
+/// ブラウザーで開くときのオリジン (`http://localhost:3000` など)。
 ///
 /// ループバックは `127.0.0.1` ではなく `localhost` と書く。`session.secure_cookie` を有効にすると、
 /// Edge・Chrome は HTTP の `127.0.0.1` ではログインの Cookie を受け取らず、`localhost` だけを
@@ -254,7 +254,7 @@ fn browser_origin(addr: SocketAddr) -> String {
     }
 }
 
-/// 既に動いているサーバーの画面を、ブラウザで開く。管理者がまだいなければセットアップの画面を開く
+/// 既に動いているサーバーの画面を、ブラウザーで開く。管理者がまだいなければセットアップの画面を開く
 /// (トレイの「セットアップ」と同じ)。
 pub fn open_in_browser(running: &AlreadyRunning) {
     // 動いているほうがまだ起動の途中 (初回のマイグレーションなど) なら、応答できるようになるまで少し待つ。

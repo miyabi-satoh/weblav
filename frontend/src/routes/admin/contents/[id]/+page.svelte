@@ -195,7 +195,7 @@
 	beforeNavigate((navigation) => {
 		// 保存は、成功して変更が無くなった後の取り直しまで含めて待つ。
 		if (!dirty && !saving) return;
-		// タブを閉じる・再読み込みは、ブラウザ標準の確認に任せる。
+		// タブを閉じる・再読み込みは、ブラウザー標準の確認に任せる。
 		if (navigation.type === 'leave') {
 			navigation.cancel();
 			return;

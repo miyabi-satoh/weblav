@@ -1,9 +1,9 @@
-//! macOS のサンドボックスで、公開できるフォルダを起動し直しても読めるようにする
+//! macOS のサンドボックスで、公開できるフォルダーを起動し直しても読めるようにする
 //! (security-scoped bookmark、→ docs/distribution.md「ビルド・配布の方法」)。
 //!
-//! サンドボックスでは、利用者がフォルダ選択の窓で選んだフォルダしか読めず、その許可は
+//! サンドボックスでは、利用者がフォルダー選択の窓で選んだフォルダーしか読めず、その許可は
 //! プロセスが終わると消える。窓で選んだ直後にブックマークを作って DB に残し
-//! (`folder_bookmarks`)、起動のたびに登録中のフォルダの分だけ許可を戻す。
+//! (`folder_bookmarks`)、起動のたびに登録中のフォルダーの分だけ許可を戻す。
 //! macOS 以外では何もしない。
 
 use std::collections::BTreeSet;
@@ -14,12 +14,12 @@ use sqlx::SqlitePool;
 
 use crate::error::run_blocking;
 
-/// 窓で選んだ直後のフォルダのブックマークを作る。macOS 以外は要らないので `None`。
+/// 窓で選んだ直後のフォルダーのブックマークを作る。macOS 以外は要らないので `None`。
 pub fn bookmark(path: &Path) -> Result<Option<Vec<u8>>, String> {
     platform::bookmark(path)
 }
 
-/// 窓で選んだフォルダのブックマークを残す。同じパスがあれば書き直す。
+/// 窓で選んだフォルダーのブックマークを残す。同じパスがあれば書き直す。
 pub async fn save(pool: &SqlitePool, path: &str, bookmark: &[u8]) -> Result<(), sqlx::Error> {
     sqlx::query!(
         "INSERT INTO folder_bookmarks (path, bookmark) VALUES (?, ?)
@@ -32,13 +32,13 @@ pub async fn save(pool: &SqlitePool, path: &str, bookmark: &[u8]) -> Result<(), 
     Ok(())
 }
 
-/// このプロセスで許可を戻したフォルダ。戻すたびに start を重ねないため (対になる stop は呼ばない)。
+/// このプロセスで許可を戻したフォルダー。戻すたびに start を重ねないため (対になる stop は呼ばない)。
 static STARTED: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
 
-/// 登録中の公開フォルダの分だけ、ブックマークから読む許可を戻す。
-/// 許可はプロセスが終わるまで持ち続ける。戻せないもの (フォルダが消えた・別の Mac の DB など) は
-/// ログに残して飛ばす。そのフォルダは、存在しないフォルダと同じく読めないまま。
-/// 失敗しても起動やバックアップからの復元は止めない。読めないフォルダは選び直せば直るため。
+/// 登録中の公開フォルダーの分だけ、ブックマークから読む許可を戻す。
+/// 許可はプロセスが終わるまで持ち続ける。戻せないもの (フォルダーが消えた・別の Mac の DB など) は
+/// ログに残して飛ばす。そのフォルダーは、存在しないフォルダーと同じく読めないまま。
+/// 失敗しても起動やバックアップからの復元は止めない。読めないフォルダーは選び直せば直るため。
 pub async fn restore(pool: &SqlitePool) {
     let rows = match sqlx::query!(
         "SELECT b.path, b.bookmark FROM folder_bookmarks b
@@ -88,7 +88,7 @@ pub async fn restore(pool: &SqlitePool) {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .insert(path.clone());
-        // 古くなったブックマーク (フォルダが動いた等) は、戻せても作り直しを求められる。
+        // 古くなったブックマーク (フォルダーが動いた等) は、戻せても作り直しを求められる。
         if let Some(renewed) = renewed
             && let Err(err) = save(pool, &path, &renewed).await
         {
@@ -107,7 +107,7 @@ mod platform {
         NSData, NSString, NSURL, NSURLBookmarkCreationOptions, NSURLBookmarkResolutionOptions,
     };
 
-    /// 公開できるフォルダは読むだけなので、読む許可のブックマークにする。
+    /// 公開できるフォルダーは読むだけなので、読む許可のブックマークにする。
     fn creation_options() -> NSURLBookmarkCreationOptions {
         NSURLBookmarkCreationOptions::WithSecurityScope
             | NSURLBookmarkCreationOptions::SecurityScopeAllowOnlyReadAccess
@@ -136,7 +136,7 @@ mod platform {
         let url: Retained<NSURL> = unsafe {
             NSURL::URLByResolvingBookmarkData_options_relativeToURL_bookmarkDataIsStale_error(
                 &data,
-                // つながっていない共有フォルダや外付けのディスクで、マウントや確認の窓を出さない。
+                // つながっていない共有フォルダーや外付けのディスクで、マウントや確認の窓を出さない。
                 NSURLBookmarkResolutionOptions::WithSecurityScope
                     | NSURLBookmarkResolutionOptions::WithoutUI
                     | NSURLBookmarkResolutionOptions::WithoutMounting,

@@ -53,7 +53,7 @@ async fn list_titles(app: Router, uri: &str) -> Vec<String> {
         .collect()
 }
 
-/// 既定の並びはタイトル順で、数字は数値として比べる (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+/// 既定の並びはタイトル順で、数字は数値として比べる (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
 /// 追加した順 (id順) とは違う並びになる材料を入れてある。比べ方の場合分けは `title_cmp` の単体テストで見る。
 #[sqlx::test]
 async fn contents_list_sorts_by_title_with_numbers_as_numbers(pool: SqlitePool) {
@@ -146,8 +146,8 @@ async fn contents_create_link_by_regular_user_keeps_requested_visibility(pool: S
     assert!(body.contains(r#""visibility":"authenticated""#), "{body}");
 }
 
-/// 編集者も folder を作れる。選べるのは「公開できるフォルダ」の中だけなので、
-/// 誰が選んでも範囲は同じ (→ docs/access.md「ロールと操作」・docs/folders.md「公開できるフォルダ」)。
+/// 編集者も folder を作れる。選べるのは「公開できるフォルダー」の中だけなので、
+/// 誰が選んでも範囲は同じ (→ docs/access.md「ロールと操作」・docs/folders.md「公開できるフォルダー」)。
 #[sqlx::test]
 async fn contents_create_folder_by_regular_user_succeeds(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;

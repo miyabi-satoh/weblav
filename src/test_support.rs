@@ -21,7 +21,7 @@ impl TempDir {
     }
 
     /// `path` に作る (無ければ作る)。置き場所を呼び出し側が決めたいとき (統合テストの
-    /// 「公開できるフォルダ」の配下など) に使う。
+    /// 「公開できるフォルダー」の配下など) に使う。
     #[allow(dead_code)]
     pub(crate) fn at(path: PathBuf) -> Self {
         std::fs::create_dir_all(&path).expect("一時ディレクトリを作れなかった");

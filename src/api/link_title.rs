@@ -134,7 +134,7 @@ const FILE_RESPONSE_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// ファイルの中継で、本文を受け取り終えるまでの上限。閲覧側が読む速さで受け取るので、
 /// 動画を見ている間はつながったままになる。止まった相手のためにスレッドを持ち続けないための上限で、
-/// 切れても動画はブラウザが Range で続きを頼み直す。
+/// 切れても動画はブラウザーが Range で続きを頼み直す。
 const FILE_BODY_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 
 /// URL のファイルを中継するために開く (→ `remote_file`)。`range` は閲覧側の `Range` をそのまま渡す。
@@ -347,7 +347,7 @@ fn resolve_web_url(base: &url::Url, href: &str) -> Option<String> {
     matches!(url.scheme(), "http" | "https").then(|| url.to_string())
 }
 
-/// アイコンの指定が無いときに、ブラウザと同じく探す場所。
+/// アイコンの指定が無いときに、ブラウザーと同じく探す場所。
 fn default_icon(base: &url::Url) -> Option<String> {
     resolve_web_url(base, "/favicon.ico")
 }

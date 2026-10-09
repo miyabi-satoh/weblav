@@ -43,7 +43,7 @@ export const load: PageLoad = async ({ parent, url }) => {
 	//   余分に遷移するだけ (無限には続かない)
 	// - API のパス。SvelteKit のルートではないので `redirect()` では送れない。
 	//   ログイン済みならファイルは開き直せるので、ここで凝らない
-	//   (ログインの成功後は `+page.svelte` がブラウザに開かせる)
+	//   (ログインの成功後は `+page.svelte` がブラウザーに開かせる)
 	if (
 		target === null ||
 		isApiTarget(target) ||
@@ -51,7 +51,7 @@ export const load: PageLoad = async ({ parent, url }) => {
 	) {
 		redirect(307, resolve('/'));
 	}
-	// `target` はブラウザのURLから取った実パスであり、route id ではないため
+	// `target` はブラウザーのURLから取った実パスであり、route id ではないため
 	// `resolve()` は通さない。
 	redirect(307, target);
 };

@@ -8,13 +8,13 @@
 	<!-- LAN の端末からの接続を受ける。 -->
 	<key>com.apple.security.network.server</key>
 	<true/>
-	<!-- 起動時に自分のサーバーへ問い合わせる (トレイのセットアップ・ブラウザで開く) など。 -->
+	<!-- 起動時に自分のサーバーへ問い合わせる (トレイのセットアップ・ブラウザーで開く) など。 -->
 	<key>com.apple.security.network.client</key>
 	<true/>
-	<!-- 公開できるフォルダ。窓で選んだものを読むだけ。 -->
+	<!-- 公開できるフォルダー。窓で選んだものを読むだけ。 -->
 	<key>com.apple.security.files.user-selected.read-only</key>
 	<true/>
-	<!-- 選んだフォルダを次の起動でも読めるよう、ブックマークを残す (→ src/folder_access.rs)。 -->
+	<!-- 選んだフォルダーを次の起動でも読めるよう、ブックマークを残す (→ src/folder_access.rs)。 -->
 	<key>com.apple.security.files.bookmarks.app-scope</key>
 	<true/>
 </dict>

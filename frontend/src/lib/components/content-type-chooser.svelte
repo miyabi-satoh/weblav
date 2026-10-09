@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
 	 * 作成ダイアログの1段目。種別ごとに一行の説明を添えて並べ、押したら2段目へ進む。
-	 * 種別の名前だけでは、フォルダとアーカイブのように違いが分からないものがあるため。
+	 * 種別の名前だけでは、フォルダーとアーカイブのように違いが分からないものがあるため。
 	 */
 	import { contentTypeDescription, contentTypeLabel } from '$lib/content-labels';
 	import { contentTypeIcon } from '$lib/content-types';

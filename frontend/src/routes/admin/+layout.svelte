@@ -23,7 +23,7 @@
 	);
 	let recoveryCodeOpen = $state(false);
 
-	// 「公開できるフォルダ」はサーバーの PC からしか触れない (→ docs/folders.md「公開できるフォルダ」)。
+	// 「公開できるフォルダー」はサーバーの PC からしか触れない (→ docs/folders.md「公開できるフォルダー」)。
 	// LAN の端末では API が 404 を返すので、入り口も出さない。
 	let tabs = $derived([
 		{ href: resolve('/admin/contents'), label: m.admin_contents_nav_title, icon: LayoutListIcon },

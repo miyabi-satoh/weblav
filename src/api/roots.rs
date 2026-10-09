@@ -1,6 +1,6 @@
-//! 「公開できるフォルダ」(→ docs/folders.md「公開できるフォルダ」) の管理 API。
+//! 「公開できるフォルダー」(→ docs/folders.md「公開できるフォルダー」) の管理 API。
 //!
-//! コンテンツに使えるパスは、ここに登録したフォルダの配下だけになる。
+//! コンテンツに使えるパスは、ここに登録したフォルダーの配下だけになる。
 //! 登録・削除できるのは**サーバーの PC の前にいる管理者**だけ (`LocalRequest` + `AdminUser`)。
 //! LAN の端末からは、この口があること自体を見せずに 404 にする。
 
@@ -22,10 +22,10 @@ use super::error_detail::ValidationDetail;
 use super::fs::{canonical_dir, inside_own_dirs, path_to_string};
 use super::local::LocalRequest;
 
-/// 登録済みの「公開できるフォルダ」1件。
+/// 登録済みの「公開できるフォルダー」1件。
 ///
 /// 判定 (`is_within_roots`) には `path` だけを使う。`name` はコンテンツの登録側の画面で
-/// 起点のフルパスの代わりに出す (→ docs/folders.md「公開できるフォルダ」)。
+/// 起点のフルパスの代わりに出す (→ docs/folders.md「公開できるフォルダー」)。
 #[derive(Debug, Clone)]
 pub(super) struct Root {
     pub(super) name: String,
@@ -40,10 +40,10 @@ pub struct RootResponse {
     pub name: String,
     /// canonicalize 済みの絶対パス。
     pub path: String,
-    /// このフォルダの中にある登録済みコンテンツの数。
+    /// このフォルダーの中にある登録済みコンテンツの数。
     pub content_count: usize,
-    /// このフォルダを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「公開できるフォルダ」)。
-    /// 登録中のほかの公開できるフォルダにも含まれるもの (入れ子) は数えない。
+    /// このフォルダーを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「公開できるフォルダー」)。
+    /// 登録中のほかの公開できるフォルダーにも含まれるもの (入れ子) は数えない。
     pub removed_content_count: usize,
 }
 
@@ -83,9 +83,9 @@ async fn list_roots(
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct CreateRootRequest {
-    /// 絶対パス。フォルダ選択の窓 (`/admin/roots/pick`) が返す値をそのまま渡す。
+    /// 絶対パス。フォルダー選択の窓 (`/admin/roots/pick`) が返す値をそのまま渡す。
     path: String,
-    /// 名前。前後の空白は除く。省くか空ならフォルダ名にする。
+    /// 名前。前後の空白は除く。省くか空ならフォルダー名にする。
     #[serde(default)]
     name: Option<String>,
 }
@@ -95,7 +95,7 @@ struct CreateRootRequest {
     path = "/admin/roots",
     request_body = CreateRootRequest,
     responses(
-        (status = 201, body = RootResponse, description = "登録したフォルダ"),
+        (status = 201, body = RootResponse, description = "登録したフォルダー"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
         (status = 404, body = crate::error::ErrorResponse, description = "サーバーのPC以外からの要求"),
@@ -117,14 +117,14 @@ async fn create_root(
         }
         let path = path_to_string(canonical)?;
         // Windows の canonicalize は `\\?\` を付けて返し、その形ではドライブや共有のルートに
-        // フォルダ名が無いと判定されるので、落とした後の形から求める。
+        // フォルダー名が無いと判定されるので、落とした後の形から求める。
         let folder_name = default_name(FsPath::new(&path));
         Ok((path, folder_name))
     })
     .await??;
     let requested_name = super::validate::trimmed_or_none(payload.name.as_deref());
 
-    // 同じフォルダの二重登録は拒む。入れ子は許す (→ docs/folders.md「公開できるフォルダ」)。削除済みは数えない。
+    // 同じフォルダーの二重登録は拒む。入れ子は許す (→ docs/folders.md「公開できるフォルダー」)。削除済みは数えない。
     //
     // 確認と INSERT は同じ書き込みトランザクションで行う。別々にすると、2つの登録が
     // 同時に来たときに、互いを見ないまま両方が確認を通る。
@@ -141,7 +141,7 @@ async fn create_root(
             detail: ValidationDetail::RootAlreadyRegistered { name },
         });
     }
-    // 名前を指定したときだけ、重なりを拒む。フォルダ名で付ける名前は連番で避ける。
+    // 名前を指定したときだけ、重なりを拒む。フォルダー名で付ける名前は連番で避ける。
     let name = match requested_name {
         Some(name) => {
             ensure_name_available(&mut tx, name, None).await?;
@@ -161,7 +161,7 @@ async fn create_root(
     .fetch_one(&mut *tx)
     .await?;
     tx.commit().await?;
-    // 0件とは限らない。削除したフォルダを登録し直すと、その中のコンテンツが戻る
+    // 0件とは限らない。削除したフォルダーを登録し直すと、その中のコンテンツが戻る
     // (コンテンツの登録は削除時に消していない)。
     let counts = ContentCounts::load(&state.pool).await?;
     Ok((
@@ -229,7 +229,7 @@ async fn ensure_name_available(
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct RenameRootRequest {
-    /// 新しい名前。前後の空白は除く。空ならフォルダ名にする。
+    /// 新しい名前。前後の空白は除く。空ならフォルダー名にする。
     name: String,
 }
 
@@ -239,7 +239,7 @@ struct RenameRootRequest {
     params(("id" = i64, Path)),
     request_body = RenameRootRequest,
     responses(
-        (status = OK, body = RootResponse, description = "名前を変えたフォルダ"),
+        (status = OK, body = RootResponse, description = "名前を変えたフォルダー"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
         (status = 404, body = crate::error::ErrorResponse, description = "サーバーのPC以外からの要求・存在しない"),
@@ -301,7 +301,7 @@ async fn delete_root(
     Path(id): Path<i64>,
 ) -> Result<StatusCode, AppError> {
     // 行は消さずに削除済みの印を付ける。残ったコンテンツの場所を、起点を隠したまま出すため
-    // (→ docs/folders.md「公開できるフォルダ」)。
+    // (→ docs/folders.md「公開できるフォルダー」)。
     let deleted = sqlx::query!(
         "UPDATE roots SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
          WHERE id = ? AND deleted_at IS NULL",
@@ -316,12 +316,12 @@ async fn delete_root(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// 登録済みの「公開できるフォルダ」を、判定に使える形 (canonicalize 済み) で返す。
+/// 登録済みの「公開できるフォルダー」を、判定に使える形 (canonicalize 済み) で返す。
 ///
 /// 判定のたびに読む。件数は多くても数件で、キャッシュを持つと登録・削除の直後に
-/// 古い判定が残る (→ docs/folders.md「公開できるフォルダ」)。
+/// 古い判定が残る (→ docs/folders.md「公開できるフォルダー」)。
 ///
-/// **実体を辿れないものは落とす**。登録を消さずにフォルダだけ消された場合、その中は配らない。
+/// **実体を辿れないものは落とす**。登録を消さずにフォルダーだけ消された場合、その中は配らない。
 /// canonicalize しておくのは、判定の相手 (`fs::canonical_dir` の戻り値) と同じ形で
 /// 比べるため。保存してある文字列は Windows の長いパスで `\\?\` の有無が食い違いうる
 /// (→ `fs::simplify_verbatim`)。
@@ -345,14 +345,14 @@ pub(super) async fn load_roots(pool: &sqlx::SqlitePool) -> Result<Vec<Root>, App
     .await
 }
 
-/// 登録側の画面に出す場所。起点のフルパスの代わりに、公開できるフォルダの名前と
-/// そこから先のパスを返す (→ docs/folders.md「公開できるフォルダ」)。
+/// 登録側の画面に出す場所。起点のフルパスの代わりに、公開できるフォルダーの名前と
+/// そこから先のパスを返す (→ docs/folders.md「公開できるフォルダー」)。
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct RootLocation {
     pub(super) root_name: String,
-    /// 公開できるフォルダから先の相対パス。区切りは `/` にそろえる。フォルダそのものなら空。
+    /// 公開できるフォルダーから先の相対パス。区切りは `/` にそろえる。フォルダーそのものなら空。
     pub(super) path_in_root: String,
-    /// 含む公開できるフォルダが削除済みか。
+    /// 含む公開できるフォルダーが削除済みか。
     pub(super) root_deleted: bool,
 }
 
@@ -364,7 +364,7 @@ pub(super) struct RootRecord {
     pub(super) deleted: bool,
 }
 
-/// 削除済みも含めた登録。ファイルシステムに触らないので、フォルダが消えた登録でも名前を出せる。
+/// 削除済みも含めた登録。ファイルシステムに触らないので、フォルダーが消えた登録でも名前を出せる。
 pub(super) async fn load_root_records(
     pool: &sqlx::SqlitePool,
 ) -> Result<Vec<RootRecord>, AppError> {
@@ -382,7 +382,7 @@ pub(super) async fn load_root_records(
     )
 }
 
-/// `path` (コンテンツに保存された canonicalize 済みの絶対パス) を含む公開できるフォルダを探し、
+/// `path` (コンテンツに保存された canonicalize 済みの絶対パス) を含む公開できるフォルダーを探し、
 /// 画面に出す場所を組み立てる。どれにも含まれなければ `None`。
 ///
 /// 登録中が当たれば、最も外側を採る (入れ子の起点の決まりは `containing_root` と同じ)。
@@ -408,7 +408,7 @@ pub(super) fn locate(records: &[RootRecord], path: &str) -> Option<RootLocation>
     })
 }
 
-/// 名前を省いたときの名前。フォルダ名で、ドライブのルートのように無ければパスそのもの。
+/// 名前を省いたときの名前。フォルダー名で、ドライブのルートのように無ければパスそのもの。
 ///
 /// **`path_to_string` を通した後のパスを渡すこと** (`\\?\` 付きの形では、ルートの判定が変わる)。
 pub(super) fn default_name(path: &FsPath) -> String {
@@ -419,16 +419,16 @@ pub(super) fn default_name(path: &FsPath) -> String {
 
 /// `canonical` が、登録済みのどれかの中にあるか。
 ///
-/// **パスを使う操作はすべてこれを通す** (→ docs/folders.md「公開できるフォルダ」)。登録時の検証だけでは、
-/// 登録後にフォルダを削除された場合にそのまま配信され続ける。
+/// **パスを使う操作はすべてこれを通す** (→ docs/folders.md「公開できるフォルダー」)。登録時の検証だけでは、
+/// 登録後にフォルダーを削除された場合にそのまま配信され続ける。
 ///
-/// weblav 自身の置き場 (設定とデータ) の中も外す。公開できるフォルダがその祖先 (`C:\` など) でも、
+/// weblav 自身の置き場 (設定とデータ) の中も外す。公開できるフォルダーがその祖先 (`C:\` など) でも、
 /// その中は登録先にも配信にも使わせない。
 pub(super) fn is_within_roots(roots: &[Root], canonical: &FsPath, own_dirs: &OwnDirs) -> bool {
     !own_dirs.contains(canonical) && containing_root(roots, canonical).is_some()
 }
 
-/// `canonical` を含む登録済みのフォルダ。選択 UI のパンくずを、辿れるところから始めるのにも使う
+/// `canonical` を含む登録済みのフォルダー。選択 UI のパンくずを、辿れるところから始めるのにも使う
 /// (→ docs/folders.md「一覧 API」)。入れ子でいくつも当たれば、最も外側を採る。
 /// 内側を採ると、外側から辿って内側へ入ったときに起点が切り替わり、「上へ」で外側へ戻れない。
 ///
@@ -444,7 +444,7 @@ pub(super) fn containing_root<'a>(roots: &'a [Root], canonical: &FsPath) -> Opti
 /// (中身が無いので、外すものも無い)。
 ///
 /// どこを公開するかは設置者に任せるが、ここだけはアプリが必ず外す
-/// (→ docs/folders.md「公開できるフォルダ」)。守りたいのは選ぶことではなく中身が出ることなので、祖先は選べる。
+/// (→ docs/folders.md「公開できるフォルダー」)。守りたいのは選ぶことではなく中身が出ることなので、祖先は選べる。
 ///
 /// 一覧や走査ではエントリごとに比べるので、要求ごとに `resolve` で1回だけ求めて持ち回る。
 #[derive(Debug, Default)]
@@ -467,9 +467,9 @@ impl OwnDirs {
     }
 }
 
-/// 公開できるフォルダごとのコンテンツの件数を数えるための材料。
+/// 公開できるフォルダーごとのコンテンツの件数を数えるための材料。
 ///
-/// パスを持つコンテンツ (`folder`・`archive`) の登録先と、登録中の公開できるフォルダ。
+/// パスを持つコンテンツ (`folder`・`archive`) の登録先と、登録中の公開できるフォルダー。
 /// 多くても数百件なので、まとめて読んで数える。SQL で前方一致を書くと、区切り文字の扱いを
 /// `contains` と二重に持つことになる。
 struct ContentCounts {
@@ -531,12 +531,12 @@ fn contains(parent: &str, child: &str) -> bool {
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct PickRootResponse {
-    /// 選ばれたフォルダの絶対パス。キャンセルされたら `null`。登録はしていないので、
+    /// 選ばれたフォルダーの絶対パス。キャンセルされたら `null`。登録はしていないので、
     /// 登録するには `POST /admin/roots` へそのまま渡す。
     path: Option<String>,
 }
 
-/// サーバーの PC に OS 標準のフォルダ選択の窓を出し、選ばれたパスを返す (→ docs/folders.md「選び方」)。
+/// サーバーの PC に OS 標準のフォルダー選択の窓を出し、選ばれたパスを返す (→ docs/folders.md「選び方」)。
 ///
 /// 窓は同時に1つだけ。要求した側が待つのをやめても、窓が閉じるまでは開いている扱いにする
 /// (番は `run_blocking` の中で持つ。ハンドラが drop されても、ブロッキングの処理は最後まで走る)。
@@ -578,7 +578,7 @@ async fn pick_root(
         let Ok(canonical) = canonical_dir(&lookup) else {
             return Ok(None);
         };
-        // 作れないまま登録させると、サンドボックスでは起動し直した後に読めないフォルダが残る。
+        // 作れないまま登録させると、サンドボックスでは起動し直した後に読めないフォルダーが残る。
         let Some(bookmark) = crate::folder_access::bookmark(&canonical).map_err(|err| {
             AppError::Io(std::io::Error::other(format!(
                 "failed to create a folder bookmark: {err}"
@@ -615,7 +615,7 @@ mod tests {
         assert!(contains(&parent, &parent));
     }
 
-    /// 区切り文字まで見ないと、名前の前方一致で別のフォルダを含むと誤判定する。
+    /// 区切り文字まで見ないと、名前の前方一致で別のフォルダーを含むと誤判定する。
     #[test]
     fn a_sibling_with_a_longer_name_is_not_contained() {
         let sep = std::path::MAIN_SEPARATOR;
@@ -623,7 +623,7 @@ mod tests {
         assert!(!contains(&parent, &format!("{sep}srv{sep}media2")));
     }
 
-    /// 名前がマルチバイトで、隣のフォルダ名がその前方一致になる形。
+    /// 名前がマルチバイトで、隣のフォルダー名がその前方一致になる形。
     /// バイト単位で切ると文字の途中に当たって panic する。
     #[test]
     fn a_multibyte_sibling_is_not_contained() {
@@ -633,7 +633,7 @@ mod tests {
         assert!(contains(&parent, &format!("{sep}srv{sep}教材{sep}2026")));
     }
 
-    /// 綴りの違うフォルダを同じ場所とみなさない。Linux では別のディレクトリで、
+    /// 綴りの違うフォルダーを同じ場所とみなさない。Linux では別のディレクトリで、
     /// 大文字小文字を無視すると登録していない場所まで配ってしまう。
     #[test]
     fn a_differently_cased_path_is_not_contained() {
@@ -664,7 +664,7 @@ mod tests {
                 root_deleted: false,
             })
         );
-        // 前方一致だけの隣のフォルダは含まない (`contains` と同じ)。
+        // 前方一致だけの隣のフォルダーは含まない (`contains` と同じ)。
         assert_eq!(locate(&records, &format!("{root}集")), None);
     }
 

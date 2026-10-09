@@ -17,7 +17,7 @@ pub enum Error {
 
 /// `path` のSQLiteファイルに接続する。ファイルが無ければ作成する。
 /// WAL(Write-Ahead Logging)にしているのは、タスクトレイの常駐プロセスと複数の
-/// ブラウザタブなど、複数の接続が同時に読み書きし得るため
+/// ブラウザータブなど、複数の接続が同時に読み書きし得るため
 /// (デフォルトのDELETEモードだと書き込み中に読み取りがブロックされやすい)。
 pub async fn connect(path: &Path) -> Result<SqlitePool, Error> {
     if let Some(parent) = path.parent() {

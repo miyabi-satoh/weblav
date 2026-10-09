@@ -18,7 +18,7 @@
 	import { viewerButtonClass } from '$lib/viewer-button';
 	import * as m from '$lib/paraglide/messages.js';
 
-	// PDF・動画・テキストなどをページの上に重ねて表示するビューア (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+	// PDF・動画・テキストなどをページの上に重ねて表示するビューアー (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
 	// 画面に1つだけ置き (→ routes/+layout.svelte)、一覧の行は `$lib/viewer-items.ts` を通して開く。
 
 	/** PDF の倍率の段階。1 はページを幅に合わせた大きさ。 */
@@ -49,7 +49,7 @@
 		if (event.target instanceof HTMLInputElement || zoomStep > 0) return;
 		// Markdown のプレビューの表は、フォーカスを当てて左右キーで横に送る (→ $lib/manual-markdown.ts)。
 		if (event.target instanceof Element && event.target.closest('.table-scroll')) return;
-		// Excel の表 (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+		// Excel の表 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
 		if (event.target instanceof Element && event.target.closest('[data-office-view]')) return;
 		if (event.key === 'ArrowLeft') fileViewer.previous();
 		else if (event.key === 'ArrowRight') fileViewer.next();
@@ -204,7 +204,7 @@
 					{/key}
 
 					{#if fileViewer.count > 1}
-						<!-- 前後のファイルへ。画像のビューアと同じく、左右の端の中ほどに置く。 -->
+						<!-- 前後のファイルへ。画像のビューアーと同じく、左右の端の中ほどに置く。 -->
 						<button
 							type="button"
 							class={[viewerButtonClass, 'absolute top-1/2 left-1 -translate-y-1/2 bg-black/50']}

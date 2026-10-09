@@ -12,7 +12,7 @@
 	<string>weblav</string>
 	<key>CFBundleIconFile</key>
 	<string>weblav</string>
-	<!-- 対応言語。宣言しないと macOS は英語のアプリとみなし、OS 標準の窓 (フォルダ選択など) も英語で出す。 -->
+	<!-- 対応言語。宣言しないと macOS は英語のアプリとみなし、OS 標準の窓 (フォルダー選択など) も英語で出す。 -->
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleLocalizations</key>

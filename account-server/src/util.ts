@@ -90,7 +90,7 @@ export const PLAN_PATH = `${ACCOUNT}/plan`;
 
 /**
  * サインインの後に戻る先。よそのサイトへ送られないよう、このサイトの中のパスだけを通す。
- * 空白や制御文字も通さない。ブラウザは URL のタブや改行を読み捨てるので、`/\t/evil.test` が `//evil.test` になる。
+ * 空白や制御文字も通さない。ブラウザーは URL のタブや改行を読み捨てるので、`/\t/evil.test` が `//evil.test` になる。
  */
 export function safeNext(next: string | undefined): string {
 	return next && /^\/(?![/\\])[\x21-\x7e]*$/.test(next) ? next : ACCOUNT_HOME;

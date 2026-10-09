@@ -187,7 +187,7 @@ async fn app_in(pool: SqlitePool, config: &Config, dir: &std::path::Path) -> Rou
     app_with_picker(pool, config, dir, FolderPicker::new(|| Ok(None))).await
 }
 
-/// `app_in` の、フォルダ選択の窓 (→ `weblav::folder_picker`) を差し替えられる版。
+/// `app_in` の、フォルダー選択の窓 (→ `weblav::folder_picker`) を差し替えられる版。
 async fn app_with_picker(
     pool: SqlitePool,
     config: &Config,
@@ -441,7 +441,7 @@ async fn setup_archive(
 /// この実行の置き場所 (`test_app_run_dir`) の下に置く。data_dir (`<連番>`) とは
 /// 別のディレクトリの下なので、その祖先にはならない。
 ///
-/// この親そのものが「公開できるフォルダ」として登録される (→ `register_content_root`)。
+/// この親そのものが「公開できるフォルダー」として登録される (→ `register_content_root`)。
 fn temp_test_dir(name: &str) -> test_support::TempDir {
     test_support::TempDir::at(temp_test_path(name))
 }
@@ -451,24 +451,24 @@ fn temp_test_path(name: &str) -> std::path::PathBuf {
     content_root().join(format!("{name}-{:?}", std::thread::current().id()))
 }
 
-/// `temp_test_dir` の親。テストの土台として、ここを「公開できるフォルダ」に登録する。
+/// `temp_test_dir` の親。テストの土台として、ここを「公開できるフォルダー」に登録する。
 fn content_root() -> std::path::PathBuf {
     let parent = test_app_run_dir().join("folders");
     std::fs::create_dir_all(&parent).expect("一時ディレクトリの親を作れなかった");
     parent
 }
 
-/// パスを使う操作が通るように、`temp_test_dir` の親を「公開できるフォルダ」へ入れておく
-/// (→ docs/folders.md「公開できるフォルダ」)。登録が1件も無いと、`folder`/`archive` は何も登録できない。
+/// パスを使う操作が通るように、`temp_test_dir` の親を「公開できるフォルダー」へ入れておく
+/// (→ docs/folders.md「公開できるフォルダー」)。登録が1件も無いと、`folder`/`archive` は何も登録できない。
 ///
-/// 「公開できるフォルダ」そのものの登録・削除を試すテストは、この外 (`temp_root_dir`) を
+/// 「公開できるフォルダー」そのものの登録・削除を試すテストは、この外 (`temp_root_dir`) を
 /// 使う。件数や起点が、ここの登録に左右されないようにするため。
 async fn register_content_root(pool: &SqlitePool) {
     let canonical = std::fs::canonicalize(content_root()).expect("canonicalize できなかった");
     register_root(pool, &canonical).await;
 }
 
-/// 「公開できるフォルダ」へ直接入れる。登録の口はループバック限定なので、土台を
+/// 「公開できるフォルダー」へ直接入れる。登録の口はループバック限定なので、土台を
 /// 用意するだけのテストは API を通さない。**canonicalize 済みのパスを渡すこと**。
 ///
 /// 名前はパスと同じにする。名前は重なりを拒むので、パスごとに違う値にしておく。
@@ -479,10 +479,10 @@ async fn register_root(pool: &SqlitePool, canonical: &std::path::Path) {
         .bind(&path)
         .execute(pool)
         .await
-        .expect("公開できるフォルダを登録できなかった");
+        .expect("公開できるフォルダーを登録できなかった");
 }
 
-/// 「公開できるフォルダ」の登録を試すテスト用の一時ディレクトリ (Drop で消える)。`temp_test_dir` とは別の親に置く。
+/// 「公開できるフォルダー」の登録を試すテスト用の一時ディレクトリ (Drop で消える)。`temp_test_dir` とは別の親に置く。
 fn temp_root_dir(name: &str) -> test_support::TempDir {
     test_support::TempDir::at(temp_root_path(name))
 }
@@ -697,7 +697,7 @@ fn from_peer(mut request: Request<Body>, addr: &str) -> Request<Body> {
     request
 }
 
-/// トレイ・ブラウザが開くのと同じ、ループバック宛の要求にする。
+/// トレイ・ブラウザーが開くのと同じ、ループバック宛の要求にする。
 fn from_loopback(request: Request<Body>) -> Request<Body> {
     with_host(from_peer(request, "127.0.0.1:50000"), "127.0.0.1:3000")
 }
@@ -731,7 +731,7 @@ fn roots_request(method: &str, uri: &str, cookie: &str, body: Option<&str>) -> R
 /// 登録できる場所を1つ作る。`data_dir` の祖先にならない場所に置く。
 fn root_dir(name: &str) -> test_support::TempDir {
     let path = temp_root_path(name);
-    std::fs::create_dir_all(&path).expect("フォルダを作れなかった");
+    std::fs::create_dir_all(&path).expect("フォルダーを作れなかった");
     test_support::TempDir::at(std::fs::canonicalize(&path).expect("canonicalize できなかった"))
 }
 

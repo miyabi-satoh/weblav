@@ -29,7 +29,7 @@
 
 	let currentName = $derived(breadcrumbs.at(-1)?.name ?? browse.folderTitle);
 
-	// 並び順はパスを移動しても保つ (フォルダの中を辿る操作であり、選び直す理由が無いため)。
+	// 並び順はパスを移動しても保つ (フォルダーの中を辿る操作であり、選び直す理由が無いため)。
 	function browseHref(path: string): string {
 		return withQuery(resolve('/folders/[id]', { id: String(contentId) }), {
 			...(path === '' ? {} : { path }),
@@ -46,7 +46,7 @@
 		});
 	}
 
-	/** 表示中のパス直下にある `name` の、フォルダ内の相対パス。 */
+	/** 表示中のパス直下にある `name` の、フォルダー内の相対パス。 */
 	function childPath(name: string): string {
 		return browse.path === '' ? name : `${browse.path}/${name}`;
 	}
@@ -68,9 +68,9 @@
 
 <div class="py-6">
 	<div class={browseGutterClass}>
-		<!-- パンくずは常にURLナビゲーション(aタグ)で遷移する。ブラウザの戻る/進むが
+		<!-- パンくずは常にURLナビゲーション(aタグ)で遷移する。ブラウザーの戻る/進むが
 		     自然に機能するようにするため、ローカルstateだけでpathを書き換えない。
-		     フォルダ直下でも出す (トップと親グループへ戻る導線がここにしかないため)。 -->
+		     フォルダー直下でも出す (トップと親グループへ戻る導線がここにしかないため)。 -->
 		<BrowseBreadcrumb ancestors={browse.ancestors}>
 			<span aria-hidden="true">/</span>
 			{#if breadcrumbs.length === 0}

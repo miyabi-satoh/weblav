@@ -45,7 +45,7 @@ async fn browse_group_anonymous_on_missing_id_is_not_found(pool: SqlitePool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-/// `authenticated` のフォルダに対する匿名のbrowseは401。実体のディレクトリを用意した上で
+/// `authenticated` のフォルダーに対する匿名のbrowseは401。実体のディレクトリを用意した上で
 /// 確認する: レベル判定をファイルシステムアクセスより後に置くと、401と404の差から
 /// パスの存在有無を探れてしまうため。
 #[sqlx::test]
@@ -96,7 +96,7 @@ async fn folder_browse_anonymous_on_authenticated_folder_hides_missing_path(pool
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-/// `public` のフォルダは匿名でも一覧・ダウンロードできる。
+/// `public` のフォルダーは匿名でも一覧・ダウンロードできる。
 #[sqlx::test]
 async fn folder_browse_and_download_anonymous_on_public_folder_succeeds(pool: SqlitePool) {
     let dir = temp_test_dir("browse-anon-public");
@@ -132,7 +132,7 @@ async fn folder_browse_and_download_anonymous_on_public_folder_succeeds(pool: Sq
     assert_eq!(download_status, StatusCode::OK);
 }
 
-/// `authenticated` のフォルダ配下のファイルは、匿名からのダウンロードで401になる。
+/// `authenticated` のフォルダー配下のファイルは、匿名からのダウンロードで401になる。
 #[sqlx::test]
 async fn folder_download_anonymous_on_authenticated_folder_is_unauthorized(pool: SqlitePool) {
     let dir = temp_test_dir("download-anon-authenticated");
@@ -159,7 +159,7 @@ async fn folder_download_anonymous_on_authenticated_folder_is_unauthorized(pool:
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-/// ブラウザが直接開いたとき (`Accept: text/html`) は、JSON ではなくログイン画面へ送る。
+/// ブラウザーが直接開いたとき (`Accept: text/html`) は、JSON ではなくログイン画面へ送る。
 /// 生の envelope をタブに出すと、そこから戻る手がかりが無くなるため (→ `api::browser`)。
 #[sqlx::test]
 async fn folder_download_from_a_browser_redirects_to_login(pool: SqlitePool) {
@@ -208,7 +208,7 @@ async fn folder_download_from_a_browser_redirects_to_login(pool: SqlitePool) {
     );
 }
 
-/// 見つからないものをブラウザが開いたときは、理由を載せてトップへ送る。
+/// 見つからないものをブラウザーが開いたときは、理由を載せてトップへ送る。
 #[sqlx::test]
 async fn download_of_a_missing_content_from_a_browser_redirects_to_top(pool: SqlitePool) {
     let app = test_app(pool).await;
@@ -297,7 +297,7 @@ async fn folder_browse_lists_entries_and_excludes_dotfiles(pool: SqlitePool) {
 }
 
 /// `sort=new` はファイルの更新日時の降順になり、ディレクトリ優先の並びは変わらない
-/// (→ docs/ui.md「ホーム・グループ・フォルダ・アーカイブの並び順」)。
+/// (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
 #[sqlx::test]
 async fn folder_browse_accepts_sort_query(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;

@@ -9,9 +9,9 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as m from '$lib/paraglide/messages.js';
 
-	// 閲覧側の一覧の、ページ内のビューアで開く画像の行・タイル (→ $lib/list-row.ts)。
+	// 閲覧側の一覧の、ページ内のビューアーで開く画像の行・タイル (→ $lib/list-row.ts)。
 	// 元の画像への直リンクのまま置き、修飾キー付きのクリックや長押しのメニューでは
-	// ブラウザに任せて新しいタブで開けるようにする。
+	// ブラウザーに任せて新しいタブで開けるようにする。
 	let {
 		image,
 		items,
@@ -20,22 +20,22 @@
 	}: {
 		/** `items` と同じ組み立て方で作る (押した行を `items` の中から `src` で探すため)。 */
 		image: ViewerImage;
-		/** この行が並ぶ一覧の、ページ内で開くもの (表示順。→ $lib/viewer-items.ts)。ビューアの前・次になる。 */
+		/** この行が並ぶ一覧の、ページ内で開くもの (表示順。→ $lib/viewer-items.ts)。ビューアーの前・次になる。 */
 		items: ViewerItem[];
-		/** フォルダ一覧の詰めた行 (`browseRowClass(true)`) にする。タイルには効かない。 */
+		/** フォルダー一覧の詰めた行 (`browseRowClass(true)`) にする。タイルには効かない。 */
 		compact?: boolean;
 		/** アイコンの右に置く、行の文字。 */
 		children: Snippet;
 	} = $props();
 
-	/** 元の画像を読み込んでいて、ビューアがまだ開いていない間。 */
+	/** 元の画像を読み込んでいて、ビューアーがまだ開いていない間。 */
 	let opening = $state(false);
 
-	/** 待っている間の、ビューアを開くのをやめさせる口。 */
+	/** 待っている間の、ビューアーを開くのをやめさせる口。 */
 	let pending: AbortController | undefined;
 
 	// 待つ間に行が消えたり、別のページへ移って行が使い回されたりしたら、
-	// 移った先の上に前の画像のビューアを開かない。
+	// 移った先の上に前の画像のビューアーを開かない。
 	$effect(() => {
 		void image;
 		void items;

@@ -1,5 +1,5 @@
 /**
- * ページ内で画像を重ねて表示するビューア (→ docs/ui.md「画像のプレビュー」)。
+ * ページ内で画像を重ねて表示するビューアー (→ docs/ui.md「画像のプレビュー」)。
  *
  * 拡大・スワイプ・キーボード操作・開閉のアニメーションは PhotoSwipe に任せる。
  * 画像を開くまで読み込まないよう、本体と CSS は開くときに取りに行く。
@@ -47,7 +47,7 @@ function icon(
 	return `<svg class="pswp__icn" viewBox="${viewBox}" aria-hidden="true" style="fill:none;stroke-linecap:round;stroke-linejoin:round">${shadow}<g style="stroke:var(--pswp-icon-color);stroke-width:${strokeWidth}">${paths}</g></svg>`;
 }
 
-/** 修飾キー付きのクリック (新しいタブ・ウィンドウで開く) は、ブラウザに任せる。 */
+/** 修飾キー付きのクリック (新しいタブ・ウィンドウで開く) は、ブラウザーに任せる。 */
 export function isPlainClick(event: MouseEvent): boolean {
 	return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 }
@@ -57,7 +57,7 @@ const PRELOAD_TIMEOUT_MS = 1000;
 
 /**
  * 元の画像を読み込み、上限までにデコードまで済んだかを返す。
- * 上限を過ぎても読み込みは続ける (開いたビューアが同じ画像を読むので、続きをキャッシュから使える)。
+ * 上限を過ぎても読み込みは続ける (開いたビューアーが同じ画像を読むので、続きをキャッシュから使える)。
  * 中断されたら読み込みもやめる。
  */
 function preloadImage(src: string, signal: AbortSignal): Promise<boolean> {
@@ -77,11 +77,11 @@ function preloadImage(src: string, signal: AbortSignal): Promise<boolean> {
 }
 
 export type OpenImageViewerOptions = {
-	/** 開閉のアニメーション。ファイルのビューアから移ってきたときは付けない (行の縮小画像は後ろに隠れている)。 */
+	/** 開閉のアニメーション。ファイルのビューアーから移ってきたときは付けない (行の縮小画像は後ろに隠れている)。 */
 	animate?: boolean;
 	/** 開く直前 (`PhotoSwipe` を作る前) に呼ぶ。 */
 	beforeOpen?: () => void;
-	/** 画像の並びの端から、隣のファイル (`items[target]`) へ移るときに呼ぶ。呼んだ後、このビューアはすぐに消える。 */
+	/** 画像の並びの端から、隣のファイル (`items[target]`) へ移るときに呼ぶ。呼んだ後、このビューアーはすぐに消える。 */
 	onLeave: (target: number) => void;
 };
 
@@ -98,7 +98,7 @@ export async function openImageViewer(
 	signal: AbortSignal,
 	{ animate = true, beforeOpen, onLeave }: OpenImageViewerOptions
 ): Promise<void> {
-	// PhotoSwipe には、隣り合う画像の連なりだけを渡す (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+	// PhotoSwipe には、隣り合う画像の連なりだけを渡す (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
 	let start = index;
 	while (start > 0 && items[start - 1].type === 'image') start -= 1;
 	let end = index;
@@ -115,8 +115,8 @@ export async function openImageViewer(
 	]);
 	if (signal.aborted) return;
 
-	// FIX: PhotoSwipe は作った時点のフォーカスを覚え、閉じたらそこへ戻す。ファイルのビューアから移ってきたときは、
-	// 消えるビューアのボタンを覚えないよう、先に閉じ切っておく。
+	// FIX: PhotoSwipe は作った時点のフォーカスを覚え、閉じたらそこへ戻す。ファイルのビューアーから移ってきたときは、
+	// 消えるビューアーのボタンを覚えないよう、先に閉じ切っておく。
 	beforeOpen?.();
 	const viewer = new PhotoSwipe({
 		dataSource: images.map((image, i) => ({
@@ -141,7 +141,7 @@ export async function openImageViewer(
 		bgOpacity: 1,
 		// 上部のバーの下から画像を置く。バーに地を敷くので、画像の上端が隠れないように。
 		padding: { top: TOP_BAR_HEIGHT, bottom: 0, left: 0, right: 0 },
-		// ボタンの絵は PDF のビューア (lucide の線の絵) と揃える (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+		// ボタンの絵は PDF のビューアー (lucide の線の絵) と揃える (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
 		closeSVG: icon('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'),
 		zoomSVG: icon(
 			'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/><path class="pswp__zoom-icn-bar-v" d="M11 8v6"/>'
@@ -165,7 +165,7 @@ export async function openImageViewer(
 		return (rowThumbnail ?? thumbnail) as HTMLElement;
 	});
 
-	/** 連なりの端から、隣のファイルへ。ファイルのビューアを先に開いてから消し、間にページを見せない。 */
+	/** 連なりの端から、隣のファイルへ。ファイルのビューアーを先に開いてから消し、間にページを見せない。 */
 	const leaveTo = (target: number) => {
 		// FIX: PhotoSwipe は開くアニメーションの間は閉じられず (`close()` が何もしない)、PhotoSwipe が画面に残ってしまう。
 		if (viewer.opener.isOpening) return;

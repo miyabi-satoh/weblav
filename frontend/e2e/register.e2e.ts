@@ -1,7 +1,7 @@
-// コンテンツを画面から登録する流れのうち、種別ごとに入力が違うもの (ファイル・フォルダ・アーカイブ)。
+// コンテンツを画面から登録する流れのうち、種別ごとに入力が違うもの (ファイル・フォルダー・アーカイブ)。
 // リンクとグループは admin.e2e.ts で通している。
 //
-// フォルダとアーカイブは、パスをテキストで入れさせずに選ばせ、登録の前に対象の件数を見せる
+// フォルダーとアーカイブは、パスをテキストで入れさせずに選ばせ、登録の前に対象の件数を見せる
 // (→ docs/folders.md「一覧 API」・「登録前の確認」)。そこまでを画面で辿る。
 import path from 'node:path';
 import { test, expect, type Page } from '@playwright/test';
@@ -41,21 +41,21 @@ test.use({ actionTimeout: 10_000, navigationTimeout: 10_000 });
 
 /**
  * パスを選ぶダイアログで、上位の一覧から置き場の中の `dirName` まで辿って決める。
- * 上位の一覧 (登録済みのフォルダが並ぶだけの位置) では決められないことも確かめる。
+ * 上位の一覧 (登録済みのフォルダーが並ぶだけの位置) では決められないことも確かめる。
  */
 async function pickDirectory(page: Page, shared: SharedContentRoot, dirName: string) {
 	await page.getByRole('button', { name: CHOOSE_PATH_BUTTON_NAME }).click();
 	const picker = page.getByRole('dialog', { name: DIR_PICKER_NAME });
 	const useThisFolder = picker.getByRole('button', { name: USE_THIS_FOLDER_BUTTON_NAME });
 
-	// 上位の一覧には、フルパスではなく登録した名前が並ぶ (→ docs/folders.md「公開できるフォルダ」)。
+	// 上位の一覧には、フルパスではなく登録した名前が並ぶ (→ docs/folders.md「公開できるフォルダー」)。
 	const rootButton = picker.getByRole('button', { name: shared.rootName, exact: true });
 	await expect(rootButton).toBeVisible();
 	await expect(useThisFolder).toBeDisabled();
 
 	// 一覧は押すたびに読み直すので、「選択中」が移り終わるのを待ってから次を押す。
 	// 待たずに決めると、読み込み中の1つ上の階層 (これも選べる) を決めてしまう。
-	// 「選択中」は「名前 / その先」の形で出る。公開できるフォルダそのものではパンくずの末尾と
+	// 「選択中」は「名前 / その先」の形で出る。公開できるフォルダーそのものではパンくずの末尾と
 	// 同じ文字列になるので、後ろ (選択中) を見る。
 	const labels = [shared.rootName];
 	const selected = () => picker.getByText(labels.join(LOCATION_SEPARATOR), { exact: true }).last();
@@ -84,7 +84,7 @@ async function confirmRegister(page: Page, title: string, scopeText: RegExp) {
 	await expectContentEditPage(page, title);
 }
 
-test('フォルダ: パスを辿って選び、件数と閲覧範囲を確かめてから登録できる', async ({ page }) => {
+test('フォルダー: パスを辿って選び、件数と閲覧範囲を確かめてから登録できる', async ({ page }) => {
 	const shared = await sharedContentRoot(page.request);
 	test.skip(shared === null, FIXTURE_UNREACHABLE);
 
@@ -96,7 +96,7 @@ test('フォルダ: パスを辿って選び、件数と閲覧範囲を確かめ
 		await expect(page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME })).toBeDisabled();
 
 		await pickDirectory(page, shared!, name);
-		// 選んだ場所は、フルパスではなく「公開できるフォルダの名前 / その先」で出る。
+		// 選んだ場所は、フルパスではなく「公開できるフォルダーの名前 / その先」で出る。
 		await expect(
 			page.getByRole('dialog').getByText(sharedLocationLabel(shared!, name), { exact: true })
 		).toBeVisible();
@@ -183,8 +183,8 @@ test('確認で「戻る」を押すと登録せず、フォームに戻る', as
 		await confirm.getByRole('button', { name: /^戻る$|^Back$/ }).click();
 		await expect(confirm).toHaveCount(0);
 		// 作成ダイアログの2段目に、入力と選んだパスが残っている。
-		const form = page.getByRole('dialog', { name: /^フォルダを追加$|^Add Folder$/ });
-		// タイトルは入力させない (選んだフォルダの名前で付く)。
+		const form = page.getByRole('dialog', { name: /^フォルダーを追加$|^Add Folder$/ });
+		// タイトルは入力させない (選んだフォルダーの名前で付く)。
 		await expect(form.getByLabel(TITLE_LABEL)).toHaveCount(0);
 		await expect(form.getByText(sharedLocationLabel(shared!, name), { exact: true })).toBeVisible();
 		await expect(form.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME })).toBeEnabled();
@@ -216,8 +216,10 @@ test('ファイル: 選んだファイルをアップロードして登録でき
 	}
 });
 
-test('公開できるフォルダが0件なら、フォルダとアーカイブは選べず、理由が出る', async ({ page }) => {
-	// 登録済みのフォルダは他のテストと共有しているので消さない。
+test('公開できるフォルダーが0件なら、フォルダーとアーカイブは選べず、理由が出る', async ({
+	page
+}) => {
+	// 登録済みのフォルダーは他のテストと共有しているので消さない。
 	// 0件かどうかを確かめる問い合わせ (上位の一覧) だけを空にして、画面の出し分けを見る。
 	await page.route(
 		(url) => url.pathname === '/api/v1/admin/fs/dirs' && url.searchParams.get('path') === '',
@@ -234,6 +236,6 @@ test('公開できるフォルダが0件なら、フォルダとアーカイブ�
 	await expect(dialog.getByRole('button', { name: CONTENT_TYPE_NAME.archive })).toBeDisabled();
 	await expect(dialog.getByRole('button', { name: CONTENT_TYPE_NAME.link })).toBeEnabled();
 	await expect(
-		dialog.getByText(/「公開できるフォルダ」を登録すると|Register a shared folder/)
+		dialog.getByText(/「公開できるフォルダー」を登録すると|Register a shared folder/)
 	).toBeVisible();
 });

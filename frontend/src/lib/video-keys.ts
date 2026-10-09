@@ -1,5 +1,5 @@
 /**
- * 動画のビューアで、動画サイト (YouTube) と同じキーに割り当てる操作 (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+ * 動画のビューアーで、動画サイト (YouTube) と同じキーに割り当てる操作 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
  * 画面にボタンのある操作だけを割り当て、キーでしかできない操作は作らない。
  */
 export type VideoKeyAction =
@@ -26,10 +26,10 @@ function isTypingTarget(target: TargetLike | null): boolean {
 }
 
 /**
- * 押されたキーの操作。割り当てが無ければ `null`。左右キーは、動画の外ではビューアの前後の移動に使うので、ここでは扱わない。
+ * 押されたキーの操作。割り当てが無ければ `null`。左右キーは、動画の外ではビューアーの前後の移動に使うので、ここでは扱わない。
  */
 export function videoKeyAction(event: KeyInput): VideoKeyAction | null {
-	// ブラウザや OS のショートカット (Ctrl+F など) と、YouTube でも別の操作の Shift 付きは横取りしない。
+	// ブラウザーや OS のショートカット (Ctrl+F など) と、YouTube でも別の操作の Shift 付きは横取りしない。
 	if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || event.isComposing) {
 		return null;
 	}

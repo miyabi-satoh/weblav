@@ -709,7 +709,7 @@ fn store_file(dir: &Path, bytes: &[u8], format: ThumbnailFormat) -> Result<Strin
     Ok(name)
 }
 
-/// 覚えた画像を配る。名前は中身のハッシュなので、ブラウザには取り直させない。
+/// 覚えた画像を配る。名前は中身のハッシュなので、ブラウザーには取り直させない。
 #[utoipa::path(
     get,
     path = "/link-previews/files/{name}",

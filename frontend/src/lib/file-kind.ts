@@ -20,13 +20,13 @@ export function isAudioFileName(fileName: string): boolean {
 }
 
 /**
- * ページ内のビューアで開く、音声と PhotoSwipe で開く画像のほかのファイル
- * (→ docs/ui.md「PDF・動画・テキストのビューア」)。
+ * ページ内のビューアーで開く、音声と PhotoSwipe で開く画像のほかのファイル
+ * (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
  */
 export type ViewerFileKind = 'pdf' | 'video' | 'image' | 'office' | 'text' | 'embed';
 
-// 動画と画像は、表示できるかがブラウザによる形式も入れる (mov・HEIC など)。表示できなければ、
-// ビューアが「読めなかったとき」の案内を出す。wmv・avi のように、どのブラウザでも表示できない形式は入れない。
+// 動画と画像は、表示できるかがブラウザーによる形式も入れる (mov・HEIC など)。表示できなければ、
+// ビューアーが「読めなかったとき」の案内を出す。wmv・avi のように、どのブラウザーでも表示できない形式は入れない。
 // 画像は、サーバーが大きさを読めず PhotoSwipe で開けないものだけ (→ docs/ui.md「画像のプレビュー」)。
 // 音声とこの一覧の拡張子は、サーバーの `src/api/text_files.rs` (`KIND_BY_EXTENSION`) と揃える。
 // サーバーは、ここで種類の決まるファイルを `isText` にしない。
@@ -55,7 +55,7 @@ export function isLinksFileName(fileName: string): boolean {
 
 /**
  * `isText` は、サーバーが中身を見てテキストと判定したか (一覧の API の `isText`)。
- * リンクの一覧のファイルはテキストでも、ビューアでなく一覧の画面で開く。
+ * リンクの一覧のファイルはテキストでも、ビューアーでなく一覧の画面で開く。
  */
 export function viewerFileKind(fileName: string, isText: boolean): ViewerFileKind | undefined {
 	if (isLinksFileName(fileName)) return undefined;
@@ -65,8 +65,8 @@ export function viewerFileKind(fileName: string, isText: boolean): ViewerFileKin
 }
 
 /**
- * URL のファイルで、ビューアの画像として開く拡張子。サーバーの `thumbnails` の `IMAGE_EXTENSIONS` と揃える。
- * URL のファイルは大きさを読まないので、PhotoSwipe でなくビューアで開く (→ docs/ui.md「URL のファイル」)。
+ * URL のファイルで、ビューアーの画像として開く拡張子。サーバーの `thumbnails` の `IMAGE_EXTENSIONS` と揃える。
+ * URL のファイルは大きさを読まないので、PhotoSwipe でなくビューアーで開く (→ docs/ui.md「URL のファイル」)。
  */
 const REMOTE_IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']);
 
@@ -100,7 +100,7 @@ export function remoteFileName(url: string): string | undefined {
 
 /**
  * LAN の相手を指す URL か (IP が公開アドレスでない・`.local`・ドットの無い名前)。サーバーは公開アドレスにだけ
- * つなぐので、中継しない。名前を引いた先が LAN のものはここでは見分けられず、ビューアの読めなかったときの
+ * つなぐので、中継しない。名前を引いた先が LAN のものはここでは見分けられず、ビューアーの読めなかったときの
  * 案内から、元の URL を新しいタブで開く。
  */
 export function isLanUrl(url: string): boolean {
@@ -131,7 +131,7 @@ export function isLanUrl(url: string): boolean {
 }
 
 /**
- * `link` コンテンツの URL を、サーバーの中継を通してプレイヤー・ビューアで開くなら、その種類
+ * `link` コンテンツの URL を、サーバーの中継を通してプレイヤー・ビューアーで開くなら、その種類
  * (→ docs/ui.md「URL のファイル」)。拡張子で開き方の決まるファイルだけで、サーバーの
  * `remote_file::relayed_file_name` と揃える。LAN の URL と、それ以外のページは `undefined` (新しいタブで開く)。
  */

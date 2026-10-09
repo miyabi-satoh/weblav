@@ -3,7 +3,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { isHttps } from './util';
 
 /**
- * https では `__Host-` を付け、`Path=/`・`Domain` 無しをブラウザに守らせる。
+ * https では `__Host-` を付け、`Path=/`・`Domain` 無しをブラウザーに守らせる。
  * amiiby.com の別のサブドメインから同名の Cookie を送り込まれないように。
  */
 export function hostCookieName(c: Context, base: string): string {

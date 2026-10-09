@@ -548,7 +548,7 @@ async fn axis_optional_in_title_round_trip(pool: SqlitePool) {
 }
 
 /// 照合する位置は照合語の行ごとに保存して返す。省略した行はどこでも照合する。
-/// フォルダの階層の軸の行は照合する位置を持てない (→ docs/archive.md「軸の定義」)。
+/// フォルダーの階層の軸の行は照合する位置を持てない (→ docs/archive.md「軸の定義」)。
 #[sqlx::test]
 async fn axis_values_match_position_round_trip(pool: SqlitePool) {
     let dir = temp_test_dir("axis-values-match-position");
@@ -855,7 +855,7 @@ async fn create_link(app: Router, cookie: &str) -> i64 {
     extract_id(&body)
 }
 
-/// フォルダの階層ごとに、異なる値の数・その階層を持つアイテム数・値の例を返す。
+/// フォルダーの階層ごとに、異なる値の数・その階層を持つアイテム数・値の例を返す。
 /// アイテムが無ければ空配列。アーカイブでない・存在しない id は404。
 #[sqlx::test]
 async fn archive_dir_levels_summarizes_values_per_level(pool: SqlitePool) {
@@ -1099,7 +1099,7 @@ async fn axis_values_preview_counts_matches_without_saving(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(parse_json(&body), serde_json::json!([]), "{body}");
 
-    // フォルダの階層の軸では、階層が足りないアイテムが未設定。
+    // フォルダーの階層の軸では、階層が足りないアイテムが未設定。
     let (status, body) = send_json(
         app.clone(),
         "POST",

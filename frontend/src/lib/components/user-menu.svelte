@@ -120,7 +120,7 @@
 				{/snippet}
 			</DropdownMenu.Item>
 			<!-- ログイン後にマニュアルを引き直す導線がここにしかない (ログイン画面・
-			     フォルダ選択・軸の画面のリンクは、いずれも使っている最中にしか出ない)。 -->
+			     フォルダー選択・軸の画面のリンクは、いずれも使っている最中にしか出ない)。 -->
 			<DropdownMenu.Item>
 				{#snippet child({ props })}
 					<a href={resolve('/help')} {...props}>{m.help_eyebrow()}</a>
