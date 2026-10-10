@@ -175,8 +175,9 @@ function liveUntil(row: PlanRow): number {
  * Stripe のサブスクでない行 (手で付けた Pro) と、支払いが遅れている行は、更新日とも終わりとも言えないので `undefined`。
  */
 function renewalOf(row: PlanRow, at: number): 'renews' | 'ends' | undefined {
-	if (row.status === 'canceled' || row.ends_at !== null) return 'ends';
-	return row.stripe_customer_id && row.paid_through > at ? 'renews' : undefined;
+	if (row.status === 'canceled') return 'ends';
+	if (!row.stripe_customer_id || row.paid_through <= at) return undefined;
+	return row.ends_at !== null ? 'ends' : 'renews';
 }
 
 function isLive(row: PlanRow, at: number): boolean {

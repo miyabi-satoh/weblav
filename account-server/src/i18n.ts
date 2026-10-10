@@ -263,7 +263,7 @@ const ja = {
 		paid: (plan: Plan, date: string): string =>
 			`Pro (${ja.planName[plan]}): ${date} まで支払い済み`,
 		renews: (plan: Plan, date: string): string =>
-			`Pro (${ja.planName[plan]}): ${date} まで支払い済み (次の更新日)`,
+			`Pro (${ja.planName[plan]}): 次の更新日は ${date}`,
 		ends: (plan: Plan, date: string): string =>
 			`Pro (${ja.planName[plan]}): 解約済み (${date} まで使えます)`
 	},
@@ -494,8 +494,7 @@ const en: typeof ja = {
 	noPlans: 'No Pro.',
 	planUntil: {
 		paid: (plan: Plan, date: string) => `Pro (${en.planName[plan]}): paid through ${date}`,
-		renews: (plan: Plan, date: string) =>
-			`Pro (${en.planName[plan]}): paid through ${date} (next renewal date)`,
+		renews: (plan: Plan, date: string) => `Pro (${en.planName[plan]}): renews on ${date}`,
 		ends: (plan: Plan, date: string) =>
 			`Pro (${en.planName[plan]}): canceled (you keep Pro until ${date})`
 	},
