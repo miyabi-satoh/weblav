@@ -200,8 +200,8 @@ const ja = {
 	confirmPcs: '3 台まで',
 	confirmCancelLabel: '解約と返金',
 	confirmCancel: {
-		domestic: `解約はアカウントのページからいつでもできます。解約後も、支払い済みの期間の終わりまで Pro を使えます。支払い済みの期間は返金できません (こちらの誤りによる請求などを除きます。詳しくは[特定商取引法に基づく表記](${TOKUSHOHO_URL}))。`,
-		overseas: `解約はアカウントのページからいつでもできます。解約後も、支払い済みの期間の終わりまで Pro を使えます。支払い済みの期間は返金できません (こちらの誤りによる請求などを除きます。詳しくは[特定商取引法に基づく表記](${TOKUSHOHO_URL}))。購入から 60 日以内は、[Link の返金ポリシー](${LINK_REFUND_POLICY})で返金されることがあります。`
+		domestic: `解約は、アカウントのページの「支払いを管理する」からいつでもできます。次の更新日より前に解約すれば、次の期間の請求はありません。解約後も、支払い済みの期間の終わりまで Pro を使えます。支払い済みの期間は返金できません (こちらの誤りによる請求などを除きます。詳しくは[特定商取引法に基づく表記](${TOKUSHOHO_URL}))。`,
+		overseas: `解約は、アカウントのページの「支払いを管理する」からいつでもできます。次の更新日より前に解約すれば、次の期間の請求はありません。解約後も、支払い済みの期間の終わりまで Pro を使えます。支払い済みの期間は返金できません (こちらの誤りによる請求などを除きます。詳しくは[特定商取引法に基づく表記](${TOKUSHOHO_URL}))。購入から 60 日以内は、[Link の返金ポリシー](${LINK_REFUND_POLICY})で返金されることがあります。`
 	} as Record<SaleRegion, string>,
 	buyConsent: '{terms}・{privacy}・{tokushoho}に同意のうえ、進んでください。',
 	confirmButton: '申し込みを確定して支払いへ',
@@ -248,7 +248,7 @@ const ja = {
 	scheduledMonthlyTitle: '月額への切り替えを予約しました',
 	switchReleasedTitle: '予約を取り消しました',
 	switchReleased: '年額のまま更新します。',
-	checkoutNote: `期間ごとに同じ額で自動更新します。支払いの完了後すぐ、WebLAV のアカウントに Pro が付きます。解約はアカウントのページからいつでもでき、支払い済みの期間の終わりまで使えます。支払い済みの期間は返金できません (こちらの誤りによる請求などを除きます)。詳しくは[特定商取引法に基づく表記](${TOKUSHOHO_URL})をご覧ください。`,
+	checkoutNote: `期間ごとに同じ額で自動更新します。支払いの完了後すぐ、WebLAV のアカウントに Pro が付きます。解約は、アカウントのページの「支払いを管理する」からいつでもできます。次の更新日より前に解約すれば、次の期間の請求はなく、支払い済みの期間の終わりまで使えます。支払い済みの期間は返金できません (こちらの誤りによる請求などを除きます)。詳しくは[特定商取引法に基づく表記](${TOKUSHOHO_URL})をご覧ください。`,
 	notForSale: 'いまは Pro を買えません。',
 	buyBusy: '支払いの画面を用意しています。少ししてから、もう一度押してください。',
 	checkingPurchase: '支払いを確認しています。このままお待ちください。',
@@ -427,8 +427,8 @@ const en: typeof ja = {
 	confirmPcs: 'Up to 3',
 	confirmCancelLabel: 'Cancellation and refunds',
 	confirmCancel: {
-		domestic: `You can cancel at any time on your account page. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side (see the [Specified Commercial Transactions Act notice](${TOKUSHOHO_URL})).`,
-		overseas: `You can cancel at any time on your account page. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side (see the [Specified Commercial Transactions Act notice](${TOKUSHOHO_URL})). Within 60 days of purchase, you may get a refund under [Link's refund policy](${LINK_REFUND_POLICY}).`
+		domestic: `You can cancel at any time from "Manage billing" on your account page. If you cancel before the next renewal date, you are not charged for the next period. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side (see the [Specified Commercial Transactions Act notice](${TOKUSHOHO_URL})).`,
+		overseas: `You can cancel at any time from "Manage billing" on your account page. If you cancel before the next renewal date, you are not charged for the next period. After canceling, you keep Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side (see the [Specified Commercial Transactions Act notice](${TOKUSHOHO_URL})). Within 60 days of purchase, you may get a refund under [Link's refund policy](${LINK_REFUND_POLICY}).`
 	},
 	buyConsent: 'By continuing, you agree to the {terms}, the {privacy}, and the {tokushoho}.',
 	confirmButton: 'Confirm and continue to payment',
@@ -475,7 +475,7 @@ const en: typeof ja = {
 	scheduledMonthlyTitle: 'Switch to monthly scheduled',
 	switchReleasedTitle: 'Scheduled switch canceled',
 	switchReleased: 'Your plan renews as yearly.',
-	checkoutNote: `It renews automatically each period at the same price. Pro is added to your WebLAV account as soon as the payment is complete. You can cancel at any time on your account page and keep using Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side. For details, see the [Specified Commercial Transactions Act notice](${TOKUSHOHO_URL}).`,
+	checkoutNote: `It renews automatically each period at the same price. Pro is added to your WebLAV account as soon as the payment is complete. You can cancel at any time from "Manage billing" on your account page. If you cancel before the next renewal date, you are not charged for the next period, and you keep using Pro until the end of the paid period. Paid periods are not refunded, except in cases such as billing errors on our side. For details, see the [Specified Commercial Transactions Act notice](${TOKUSHOHO_URL}).`,
 	notForSale: 'Pro is not available for purchase right now.',
 	buyBusy: 'Preparing the payment page. Please try again in a moment.',
 	checkingPurchase: 'Confirming your payment. Please wait.',
