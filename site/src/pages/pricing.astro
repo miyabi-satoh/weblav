@@ -16,6 +16,7 @@ const { data } = (await getEntry('product', 'index'))!;
   <div class="pricing" style={`--c: ${data.color}`}>
     <h1>料金</h1>
     <p class="lead">無料で使えます。Pro にすると、ユーザーやフォルダーなどの数の上限が外れます。</p>
+    <p class="closed" data-sale-closed hidden>Pro の申し込みは準備中です。いまは Free でお使いいただけます。</p>
 
     <ul class="plans">
       <li class="plan">
@@ -38,7 +39,7 @@ const { data } = (await getEntry('product', 'index'))!;
           <li>1つのアカウントでパソコン 3&nbsp;台まで</li>
         </ul>
         <a class="buy primary" data-plan href="/account/buy?plan=year">年額で申し込む</a>
-        <p class="soon" data-sale-closed hidden>申し込みは準備中です</p>
+        <p class="soon" data-sale-closed hidden>準備中</p>
       </li>
       <li class="plan">
         <h2>Pro 月額</h2>
@@ -48,7 +49,7 @@ const { data } = (await getEntry('product', 'index'))!;
           <li>1つのアカウントでパソコン 3&nbsp;台まで</li>
         </ul>
         <a class="buy" data-plan href="/account/buy?plan=month">月額で申し込む</a>
-        <p class="soon" data-sale-closed hidden>申し込みは準備中です</p>
+        <p class="soon" data-sale-closed hidden>準備中</p>
       </li>
     </ul>
 
@@ -196,6 +197,12 @@ const { data } = (await getEntry('product', 'index'))!;
 
   .buy:hover {
     text-decoration: underline;
+  }
+
+  .closed {
+    padding: 0.75rem 1rem;
+    border-left: 4px solid var(--accent);
+    background: color-mix(in oklab, var(--accent), transparent 92%);
   }
 
   .soon {

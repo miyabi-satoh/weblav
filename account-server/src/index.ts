@@ -1260,16 +1260,16 @@ function saleRegion(c: Context<App>): SaleRegion | undefined {
 /** 料金ページで選んだプランの最終確認の画面。サインインしていなければ、サインインしてからこの画面へ戻す。 */
 accountApp.get('/buy', async (c) => {
 	const lang = resolveLang(c);
-	const t = messages[lang];
 	const plan = c.req.query('plan');
 	if (plan !== 'month' && plan !== 'year') return c.redirect(PRICING_PATH, 303);
+	// 売っていない間は、サインインさせる前に料金のページ (「準備中」と出る) へ戻す。古いリンクやブックマークから来た人のため。
+	const region = saleRegion(c);
+	if (!region) return c.redirect(PRICING_PATH, 303);
 	const next = safeNext(c.req.query('next'));
 	const account = await currentAccount(c);
 	if (!account) {
 		return c.html(signIn(c, lang, `${ACCOUNT}/buy?${new URLSearchParams({ plan, next })}`));
 	}
-	const region = saleRegion(c);
-	if (!region) return c.html(messagePage(lang, t.buyTitle, t.notForSale), 404);
 	// 持っているのに申し込ませない。料金ページから来た人には、黙って戻さず理由を出す。
 	if (await activePlan(c.env, account.id, now())) return c.html(alreadyProPage(lang, next));
 	return c.html(confirmPage(lang, account.email, { interval: plan, region, next }));
