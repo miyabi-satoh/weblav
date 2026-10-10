@@ -3,6 +3,7 @@
 // 申し込むボタンがあるので特定商取引法 11条の広告に当たり、価格・支払い・提供の時期・解約と返金を料金表の近くに出す。
 // 事業者の項目と共通の条件は amiiby.com の共通の表記が持ち、ここは価格・動作環境と WebLAV に限った条件を持つ。
 // 価格は窓口の文言 (account-server/src/i18n.ts) と本番の Stripe の Price に合わせる。
+// 売っていない間は、窓口が申し込むボタン (`a[data-plan]`) を外し、`data-sale-closed` の表示を出して返す (account-server/src/pricing.ts)。
 import { getEntry } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import Breadcrumb from '../components/Breadcrumb.astro';
@@ -15,6 +16,7 @@ const { data } = (await getEntry('product', 'index'))!;
   <div class="pricing" style={`--c: ${data.color}`}>
     <h1>料金</h1>
     <p class="lead">無料で使えます。Pro にすると、ユーザーやフォルダーなどの数の上限が外れます。</p>
+    <p class="closed" data-sale-closed hidden>Pro の申し込みは準備中です。いまは Free でお使いいただけます。</p>
 
     <ul class="plans">
       <li class="plan">
@@ -37,6 +39,7 @@ const { data } = (await getEntry('product', 'index'))!;
           <li>1つのアカウントでパソコン 3&nbsp;台まで</li>
         </ul>
         <a class="buy primary" data-plan href="/account/buy?plan=year">年額で申し込む</a>
+        <p class="soon" data-sale-closed hidden>準備中</p>
       </li>
       <li class="plan">
         <h2>Pro 月額</h2>
@@ -46,6 +49,7 @@ const { data } = (await getEntry('product', 'index'))!;
           <li>1つのアカウントでパソコン 3&nbsp;台まで</li>
         </ul>
         <a class="buy" data-plan href="/account/buy?plan=month">月額で申し込む</a>
+        <p class="soon" data-sale-closed hidden>準備中</p>
       </li>
     </ul>
 
@@ -193,6 +197,21 @@ const { data } = (await getEntry('product', 'index'))!;
 
   .buy:hover {
     text-decoration: underline;
+  }
+
+  .closed {
+    padding: 0.75rem 1rem;
+    border-left: 4px solid var(--accent);
+    background: color-mix(in oklab, var(--accent), transparent 92%);
+  }
+
+  .soon {
+    margin: auto 0 0;
+    padding: 0.75rem 1rem;
+    border: 1px dashed var(--rule);
+    border-radius: 0.5rem;
+    color: var(--muted);
+    text-align: center;
   }
 
   .terms {

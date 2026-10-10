@@ -77,6 +77,7 @@ import {
 	usesManagedPayments,
 	verifyWebhook
 } from './stripe';
+import { closeSale } from './pricing';
 import { currentAccount, endSession, startSession, type Account } from './session';
 import {
 	ACCOUNT,
@@ -1259,16 +1260,16 @@ function saleRegion(c: Context<App>): SaleRegion | undefined {
 /** 料金ページで選んだプランの最終確認の画面。サインインしていなければ、サインインしてからこの画面へ戻す。 */
 accountApp.get('/buy', async (c) => {
 	const lang = resolveLang(c);
-	const t = messages[lang];
 	const plan = c.req.query('plan');
 	if (plan !== 'month' && plan !== 'year') return c.redirect(PRICING_PATH, 303);
+	// 売っていない間は、サインインさせる前に料金のページ (「準備中」と出る) へ戻す。古いリンクやブックマークから来た人のため。
+	const region = saleRegion(c);
+	if (!region) return c.redirect(PRICING_PATH, 303);
 	const next = safeNext(c.req.query('next'));
 	const account = await currentAccount(c);
 	if (!account) {
 		return c.html(signIn(c, lang, `${ACCOUNT}/buy?${new URLSearchParams({ plan, next })}`));
 	}
-	const region = saleRegion(c);
-	if (!region) return c.html(messagePage(lang, t.buyTitle, t.notForSale), 404);
 	// 持っているのに申し込ませない。料金ページから来た人には、黙って戻さず理由を出す。
 	if (await activePlan(c.env, account.id, now())) return c.html(alreadyProPage(lang, next));
 	return c.html(confirmPage(lang, account.email, { interval: plan, region, next }));
@@ -1459,6 +1460,14 @@ async function accountPlans(env: Env, account: Account): Promise<Plan[]> {
 	const rows = await subscriptionsOf(env, account.id);
 	return [...new Set(rows.filter((r) => isLive(r, at)).map((r) => r.plan))];
 }
+
+// 料金のページ。売っていない間は、申し込むボタンを外して返す (→ src/pricing.ts)。
+// 末尾の `/` は、`strict: false` が照らす前に落とすので、経路には付けない。
+app.get('/pricing', async (c) => {
+	if (stripeConfig(c.env)) return c.env.ASSETS.fetch(c.req.raw);
+	// 条件付きの取得にしない。304 が返ると、書き換える本文が無い。
+	return closeSale(await c.env.ASSETS.fetch(new Request(c.req.url)));
+});
 
 app.route(ACCOUNT, accountApp);
 
