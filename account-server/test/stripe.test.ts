@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	createCheckoutSession,
+	endsAt,
 	stripeConfig,
 	usesManagedPayments,
 	verifyWebhook
@@ -47,6 +48,28 @@ describe('verifyWebhook', () => {
 		for (const [label, value] of cases) {
 			expect(await verifyWebhook(config, body, value, at), label).toBe(false);
 		}
+	});
+});
+
+describe('endsAt', () => {
+	const periodEnd = 1_800_000_000;
+	const sub = (over: { cancel_at?: number | null; cancel_at_period_end?: boolean }) => ({
+		id: 'sub_1',
+		status: 'active',
+		customer: 'cus_1',
+		metadata: null,
+		items: { data: [{ id: 'si_1', current_period_end: periodEnd, price: { id: 'price_1' } }] },
+		...over
+	});
+
+	it('is the cancel_at of a pending cancellation, or the period end with cancel_at_period_end', () => {
+		expect(endsAt(sub({ cancel_at: periodEnd - 100 }))).toBe(periodEnd - 100);
+		expect(endsAt(sub({ cancel_at_period_end: true }))).toBe(periodEnd);
+	});
+
+	it('is undefined while no cancellation is pending', () => {
+		expect(endsAt(sub({}))).toBeUndefined();
+		expect(endsAt(sub({ cancel_at: null, cancel_at_period_end: false }))).toBeUndefined();
 	});
 });
 

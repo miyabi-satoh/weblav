@@ -57,6 +57,7 @@ import {
 	confirmInvoice,
 	createCheckoutSession,
 	expireCheckoutSession,
+	endsAt,
 	getSubscription,
 	intervalOf,
 	InvoiceError,
@@ -147,12 +148,13 @@ type PlanRow = {
 	paid_through: number;
 	stripe_customer_id: string | null;
 	status: string;
+	ends_at: number | null;
 };
 
 /** アカウントのサブスクの行のうち、打ち切っていないもの。猶予を過ぎた行も含む (有効かは `isLive` で見る)。新しく払った順。 */
 async function subscriptionsOf(env: Env, accountId: string): Promise<PlanRow[]> {
 	const { results } = await env.DB.prepare(
-		`SELECT id, plan, paid_through, stripe_customer_id, status FROM subscriptions
+		`SELECT id, plan, paid_through, stripe_customer_id, status, ends_at FROM subscriptions
 		 WHERE account_id = ? AND revoked_at IS NULL ORDER BY paid_through DESC`
 	)
 		.bind(accountId)
@@ -166,6 +168,16 @@ async function subscriptionsOf(env: Env, accountId: string): Promise<PlanRow[]> 
  */
 function liveUntil(row: PlanRow): number {
 	return row.status === 'canceled' ? row.paid_through : row.paid_through + GRACE[row.plan];
+}
+
+/**
+ * アカウントのページに出す、払い終えた期間の終わりの意味。
+ * Stripe のサブスクでない行 (手で付けた Pro) と、支払いが遅れている行は、更新日とも終わりとも言えないので `undefined`。
+ */
+function renewalOf(row: PlanRow, at: number): 'renews' | 'ends' | undefined {
+	if (row.status === 'canceled') return 'ends';
+	if (!row.stripe_customer_id || row.paid_through <= at) return undefined;
+	return row.ends_at !== null ? 'ends' : 'renews';
 }
 
 function isLive(row: PlanRow, at: number): boolean {
@@ -503,9 +515,9 @@ async function handleStripeEvent(
 			if (!row || row.status === 'canceled') return;
 			const subscription = await getSubscription(config, row.id);
 			await env.DB.prepare(
-				"UPDATE subscriptions SET status = ? WHERE id = ? AND status != 'canceled'"
+				"UPDATE subscriptions SET status = ?, ends_at = ? WHERE id = ? AND status != 'canceled'"
 			)
-				.bind(subscription.status, row.id)
+				.bind(subscription.status, endsAt(subscription) ?? null, row.id)
 				.run();
 			return;
 		}
@@ -640,7 +652,7 @@ accountApp.get('/', async (c) => {
 	const rows = await subscriptionsOf(c.env, account.id);
 	const plans = rows
 		.filter((r) => isLive(r, at))
-		.map((r) => ({ plan: r.plan, paidThrough: r.paid_through }));
+		.map((r) => ({ plan: r.plan, paidThrough: r.paid_through, renewal: renewalOf(r, at) }));
 	const active = bestPlan(rows, at);
 	const limit = PLAN_LIMITS[active?.plan ?? 'personal'];
 	const list = await installationsOf(c.env, account.id, limit, at);
@@ -1149,10 +1161,8 @@ async function planSwitchView(
 	const interval = intervalOf(config, sub);
 	if (!interval) return undefined;
 	const periodEnd = sub.items.data[0].current_period_end;
-	// 柔軟な請求 (billing_mode flexible) のサブスクは、ポータルで解約すると cancel_at_period_end でなく cancel_at が付く。
-	if (sub.cancel_at_period_end || sub.cancel_at) {
-		return { kind: 'canceled', until: sub.cancel_at ?? periodEnd };
-	}
+	const until = endsAt(sub);
+	if (until !== undefined) return { kind: 'canceled', until };
 	const region = saleRegionOf(sub);
 	if (interval === 'year') {
 		return sub.schedule

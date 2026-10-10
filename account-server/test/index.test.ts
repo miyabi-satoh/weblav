@@ -1600,6 +1600,41 @@ describe('subscribing to Pro', () => {
 		expect((await subscriptionOf(sub))!.status).toBe('canceled');
 	});
 
+	it('shows the next renewal date, and the end date while a cancellation is pending', async () => {
+		const email = 'renewal@example.com';
+		const fake = newFake();
+		const sub = await personalSubscriber(email, fake);
+		stripeApi(fake);
+		await webhook(event('invoice.paid', { id: `in_${sub}` }));
+		const { cookie } = await signIn(email);
+		const home = async () => (await request('/account/', { cookie })).text();
+		expect(await home()).toContain('次の更新日');
+		fake.subscriptions[sub].cancel_at = now() + 30 * DAY;
+		await webhook(event('customer.subscription.updated', { id: sub }));
+		expect(await home()).toContain('解約済み');
+		// 支払いが遅れている間は、更新日とも終わりとも言わない。
+		await env.DB.prepare('UPDATE subscriptions SET paid_through = ? WHERE id = ?')
+			.bind(now() - DAY, sub)
+			.run();
+		expect(await home()).toContain('まで支払い済み');
+		await env.DB.prepare('UPDATE subscriptions SET paid_through = ? WHERE id = ?')
+			.bind(now() + 30 * DAY, sub)
+			.run();
+		// ポータルで解約を取り消すと、更新日の表示に戻る。
+		fake.subscriptions[sub].cancel_at = null;
+		await webhook(event('customer.subscription.updated', { id: sub }));
+		expect(await home()).toContain('次の更新日');
+	});
+
+	it('does not call the end of a comped Pro a renewal date', async () => {
+		const email = 'comped@example.com';
+		const { cookie } = await signIn(email);
+		await grantPro(email, 'personal', now() + 30 * DAY);
+		const home = await (await request('/account/', { cookie })).text();
+		expect(home).toContain('まで支払い済み');
+		expect(home).not.toContain('次の更新日');
+	});
+
 	it('keeps Pro until the end of the paid period plus the grace, then stops', async () => {
 		const email = 'grace@example.com';
 		const { cookie } = await signIn(email);

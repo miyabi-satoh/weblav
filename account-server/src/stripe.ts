@@ -214,6 +214,15 @@ export type Subscription = {
 	};
 };
 
+/**
+ * 解約の手続きが済んでいるサブスクの、終わる日時。解約していなければ `undefined`。
+ * 柔軟な請求 (billing_mode flexible) のサブスクは、ポータルで解約すると cancel_at_period_end でなく cancel_at が付く。
+ */
+export function endsAt(sub: Subscription): number | undefined {
+	if (sub.cancel_at) return sub.cancel_at;
+	return sub.cancel_at_period_end ? sub.items.data[0].current_period_end : undefined;
+}
+
 export function getSubscription(config: StripeConfig, id: string): Promise<Subscription> {
 	return stripeFetch(config, 'GET', `subscriptions/${encodeURIComponent(id)}`);
 }
