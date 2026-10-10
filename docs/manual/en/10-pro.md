@@ -74,7 +74,7 @@ Use "Switch between monthly and yearly" on your account page.
 1. Open the account page. You can also open it with “Open the account page” in the “Pro” section of WebLAV.
 2. Press “Manage billing (cancel, payment method, receipts)”, and cancel on the page that opens.
 
-After you cancel, Pro stays until the end of the period you have paid for. When the period ends, the linked PCs go back to Free within about 7 days. Paid periods are not refunded for personal reasons. We refund the amount if we charged you twice, made an error in processing the payment, or Pro was not added after your payment went through. If you subscribed from outside Japan, you may get a refund under Link's refund policy within 60 days of purchase.
+If you cancel before the next renewal date, you are not charged for the next period. After you cancel, Pro stays until the end of the period you have paid for. When the period ends, the linked PCs go back to Free within about 7 days. Paid periods are not refunded for personal reasons. We refund the amount if we charged you twice, made an error in processing the payment, or Pro was not added after your payment went through. If you subscribed from outside Japan, you may get a refund under Link's refund policy within 60 days of purchase.
 
 ## When someone else takes over
 
