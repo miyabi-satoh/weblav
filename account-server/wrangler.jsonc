@@ -9,12 +9,14 @@
 	"routes": [{ "pattern": "weblav.amiiby.com", "custom_domain": true }],
 	"workers_dev": false,
 	// 紹介と規約類 (site/ をビルドしたもの)。窓口の画面 (`/account`) と WebLAV・Stripe が呼ぶ `/v1/` は Worker が受ける。
+	// 料金のページ (`/pricing/`) も Worker が受け、売っていない間は申し込むボタンを外して返す (→ src/pricing.ts)。
 	// `pnpm run deploy` と `just dev-account-server` が先にビルドする。テストは使わない。
 	"assets": {
 		"directory": "../site/dist",
+		"binding": "ASSETS",
 		"not_found_handling": "404-page",
 		"html_handling": "force-trailing-slash",
-		"run_worker_first": ["/account", "/account/*", "/v1/*"]
+		"run_worker_first": ["/account", "/account/*", "/v1/*", "/pricing/"]
 	},
 	"d1_databases": [
 		{

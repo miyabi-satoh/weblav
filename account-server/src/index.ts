@@ -77,6 +77,7 @@ import {
 	usesManagedPayments,
 	verifyWebhook
 } from './stripe';
+import { closeSale } from './pricing';
 import { currentAccount, endSession, startSession, type Account } from './session';
 import {
 	ACCOUNT,
@@ -1459,6 +1460,14 @@ async function accountPlans(env: Env, account: Account): Promise<Plan[]> {
 	const rows = await subscriptionsOf(env, account.id);
 	return [...new Set(rows.filter((r) => isLive(r, at)).map((r) => r.plan))];
 }
+
+// 料金のページ。売っていない間は、申し込むボタンを外して返す (→ src/pricing.ts)。
+// 末尾の `/` は、`strict: false` が照らす前に落とすので、経路には付けない。
+app.get('/pricing', async (c) => {
+	if (stripeConfig(c.env)) return c.env.ASSETS.fetch(c.req.raw);
+	// 条件付きの取得にしない。304 が返ると、書き換える本文が無い。
+	return closeSale(await c.env.ASSETS.fetch(new Request(c.req.url)));
+});
 
 app.route(ACCOUNT, accountApp);
 
