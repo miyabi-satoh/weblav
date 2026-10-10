@@ -259,8 +259,14 @@ const ja = {
 	planName: { personal: '個人向け', organization: '組織向け' } as Record<Plan, string>,
 	plans: (plans: Plan[]): string => `Pro (${plans.map((p) => ja.planName[p]).join('・')})`,
 	noPlans: 'Pro はありません。',
-	planUntil: (plan: Plan, date: string): string =>
-		`Pro (${ja.planName[plan]}): ${date} まで支払い済み`,
+	planUntil: {
+		paid: (plan: Plan, date: string): string =>
+			`Pro (${ja.planName[plan]}): ${date} まで支払い済み`,
+		renews: (plan: Plan, date: string): string =>
+			`Pro (${ja.planName[plan]}): ${date} まで支払い済み (次の更新日)`,
+		ends: (plan: Plan, date: string): string =>
+			`Pro (${ja.planName[plan]}): 解約済み (${date} まで使えます)`
+	},
 	manageBilling: '支払いを管理する (解約・支払い方法・領収書)',
 	installationsHeading: '登録している PC',
 	noInstallations:
@@ -486,7 +492,13 @@ const en: typeof ja = {
 	planName: { personal: 'personal', organization: 'organization' },
 	plans: (plans: Plan[]) => `Pro (${plans.map((p) => en.planName[p]).join(', ')})`,
 	noPlans: 'No Pro.',
-	planUntil: (plan: Plan, date: string) => `Pro (${en.planName[plan]}): paid through ${date}`,
+	planUntil: {
+		paid: (plan: Plan, date: string) => `Pro (${en.planName[plan]}): paid through ${date}`,
+		renews: (plan: Plan, date: string) =>
+			`Pro (${en.planName[plan]}): paid through ${date} (next renewal date)`,
+		ends: (plan: Plan, date: string) =>
+			`Pro (${en.planName[plan]}): canceled (you keep Pro until ${date})`
+	},
 	manageBilling: 'Manage billing (cancel, payment method, receipts)',
 	installationsHeading: 'Linked PCs',
 	noInstallations: 'No PC is linked yet. You can link one from "Pro" in the WebLAV site settings.',

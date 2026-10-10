@@ -581,7 +581,7 @@ export function homePage(
 		forSale,
 		switchable
 	}: {
-		plans: { plan: Plan; paidThrough: number }[];
+		plans: { plan: Plan; paidThrough: number; renewal: 'renews' | 'ends' | undefined }[];
 		billing: boolean;
 		/** 月額と年額を切り替えられる、個人向けの Stripe のサブスクがある。 */
 		switchable: boolean;
@@ -600,7 +600,10 @@ export function homePage(
 				plans.length > 0
 					? html`<ul>
 							${plans.map(
-								(p) => html`<li>${t.planUntil(p.plan, formatDate(lang, p.paidThrough))}</li>`
+								(p) =>
+									html`<li>
+										${t.planUntil[p.renewal ?? 'paid'](p.plan, formatDate(lang, p.paidThrough))}
+									</li>`
 							)}
 						</ul>`
 					: html`<p>${t.noPlans}</p>`
