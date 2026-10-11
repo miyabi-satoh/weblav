@@ -34,6 +34,7 @@
 	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
 	import ListRowImageLink from '$lib/components/list-row-image-link.svelte';
 	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
+	import ListRowDownloadLink from '$lib/components/list-row-download-link.svelte';
 	import ListRowLink from '$lib/components/list-row-link.svelte';
 	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
 	import * as m from '$lib/paraglide/messages.js';
@@ -266,24 +267,14 @@
 						{#snippet trailing()}{@render rowPrivate(content)}{/snippet}
 					</ListRowFileLink>
 				{:else if content.type === 'file'}
-					<div class={browseRowClass()}>
-						<ListRowIcon icon={contentTypeIcon(content.type)} thumbnail={rowThumbnail(content)} />
-						<span class={browseRowTextClass()}>
-							<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
-							<a
-								href={contentDownloadHref(content.id)}
-								class={browseRowPressClass()}
-								target="_blank"
-								rel="external noopener noreferrer"
-							>
-								{@render rowTitle(content)}
-								<span class="sr-only">{m.contents_opens_in_new_tab()}</span>
-							</a>
-							{@render rowSubtitle(content)}
-						</span>
-						{@render rowPrivate(content)}
-						<ListRowGlyph newTab />
-					</div>
+					<ListRowDownloadLink
+						href={contentDownloadHref(content.id)}
+						thumbnail={rowThumbnail(content)}
+					>
+						{@render rowTitle(content)}
+						{#snippet subtitle()}{@render rowSubtitle(content)}{/snippet}
+						{#snippet trailing()}{@render rowPrivate(content)}{/snippet}
+					</ListRowDownloadLink>
 				{/if}
 			</li>
 		{/each}

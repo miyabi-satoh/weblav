@@ -34,12 +34,11 @@
 	} from '$lib/list-row';
 	import ListRowGlyph from '$lib/components/list-row-glyph.svelte';
 	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
-	import * as m from '$lib/paraglide/messages.js';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
 	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
 	import ListRowImageLink from '$lib/components/list-row-image-link.svelte';
 	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
-	import FileIcon from '@lucide/svelte/icons/file';
+	import ListRowDownloadLink from '$lib/components/list-row-download-link.svelte';
 
 	// アーカイブの一覧 (`/archives/[id]`) と検索の結果で使う、アーカイブのファイルの行。
 	// 押したときの動きを両方で揃えるため、種類ごとの描き分けをここに集める。
@@ -143,23 +142,10 @@
 						{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
 					</ListRowFileLink>
 				{:else}
-					<div class={browseRowClass()}>
-						<ListRowIcon icon={FileIcon} thumbnail={rowThumbnail(row)} />
-						<span class={browseRowTextClass()}>
-							<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
-							<a
-								href={downloadHref(row)}
-								class={browseRowPressClass()}
-								target="_blank"
-								rel="external noopener noreferrer"
-							>
-								{@render itemTitle(row)}
-								<span class="sr-only">{m.contents_opens_in_new_tab()}</span>
-							</a>
-							{@render itemSubtitle(row)}
-						</span>
-						<ListRowGlyph newTab />
-					</div>
+					<ListRowDownloadLink href={downloadHref(row)} thumbnail={rowThumbnail(row)}>
+						{@render itemTitle(row)}
+						{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
+					</ListRowDownloadLink>
 				{/if}
 			</li>
 		{/each}

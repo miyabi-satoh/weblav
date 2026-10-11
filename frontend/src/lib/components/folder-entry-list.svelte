@@ -32,7 +32,6 @@
 		browseListClass,
 		browseRowClass,
 		browseRowPressClass,
-		browseRowSubtitleClass,
 		browseRowTextClass,
 		browseRowTitleClass
 	} from '$lib/list-row';
@@ -41,10 +40,9 @@
 	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
 	import ListRowImageLink from '$lib/components/list-row-image-link.svelte';
 	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
+	import ListRowDownloadLink from '$lib/components/list-row-download-link.svelte';
 	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
-	import * as m from '$lib/paraglide/messages.js';
 	import FolderIcon from '@lucide/svelte/icons/folder';
-	import FileIcon from '@lucide/svelte/icons/file';
 
 	// フォルダーの一覧 (`/folders/[id]`) と検索の結果で使う、フォルダーの中のファイル・ディレクトリの行。
 	// 押したときの動きを両方で揃えるため、種類ごとの描き分けをここに集める。
@@ -118,15 +116,14 @@
 
 {#snippet entrySubtitle(row: FolderEntryRow)}
 	{@const entry = row.entry}
-	{#if row.location}
-		<ListRowSubtitle location={row.location} />
-	{:else if !entry.isDir}
-		<span class={browseRowSubtitleClass()}>
-			{#if entry.size != null}{formatByteSize(entry.size)}{/if}
-			{#if entry.size != null && entry.modifiedAt != null}<span aria-hidden="true">·</span>{/if}
-			{formatDate(entry.modifiedAt)}
-		</span>
-	{/if}
+	<ListRowSubtitle
+		location={row.location}
+		text={row.location || entry.isDir
+			? undefined
+			: [entry.size != null ? formatByteSize(entry.size) : '', formatDate(entry.modifiedAt)].filter(
+					(part) => part !== ''
+				)}
+	/>
 {/snippet}
 
 {#if filter?.active && rows.length === 0}
@@ -173,23 +170,10 @@
 						{#snippet subtitle()}{@render entrySubtitle(row)}{/snippet}
 					</ListRowFileLink>
 				{:else}
-					<div class={browseRowClass(true)}>
-						<ListRowIcon icon={FileIcon} compact thumbnail={rowThumbnail(row)} />
-						<span class={browseRowTextClass()}>
-							<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
-							<a
-								href={downloadHref(row)}
-								class={browseRowPressClass()}
-								target="_blank"
-								rel="external noopener noreferrer"
-							>
-								{@render entryTitle(row)}
-								<span class="sr-only">{m.contents_opens_in_new_tab()}</span>
-							</a>
-							{@render entrySubtitle(row)}
-						</span>
-						<ListRowGlyph newTab />
-					</div>
+					<ListRowDownloadLink href={downloadHref(row)} thumbnail={rowThumbnail(row)} compact>
+						{@render entryTitle(row)}
+						{#snippet subtitle()}{@render entrySubtitle(row)}{/snippet}
+					</ListRowDownloadLink>
 				{/if}
 			</li>
 		{/each}
