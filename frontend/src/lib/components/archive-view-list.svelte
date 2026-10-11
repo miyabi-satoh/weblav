@@ -1,5 +1,6 @@
 <script lang="ts" module>
 	import type { components } from '$lib/api/schema';
+	import type { RowLocation } from '$lib/row-location';
 
 	type ArchiveViewItem = components['schemas']['ArchiveViewItem'];
 
@@ -7,8 +8,8 @@
 	export type ArchiveViewRow = {
 		archiveId: number;
 		item: ArchiveViewItem;
-		/** 2段目。配列なら「·」で区切って並べる。省くと、アイテムの軸の値 (`item.subtitle`) を出す。 */
-		subtitle?: string | string[] | null;
+		/** 検索の結果の、どこにあるか。2段目の、軸の値 (`item.subtitle`) の前に出す。 */
+		location?: RowLocation;
 	};
 </script>
 
@@ -27,12 +28,13 @@
 		browseItemClass,
 		browseListClass,
 		browseRowClass,
-		browseRowSubtitleClass,
+		browseRowPressClass,
 		browseRowTextClass,
 		browseRowTitleClass
 	} from '$lib/list-row';
 	import ListRowGlyph from '$lib/components/list-row-glyph.svelte';
-	import SeparatedText from '$lib/components/separated-text.svelte';
+	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
+	import * as m from '$lib/paraglide/messages.js';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
 	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
 	import ListRowImageLink from '$lib/components/list-row-image-link.svelte';
@@ -98,15 +100,13 @@
 	let viewerList = $derived(viewerItems(rows, toViewerImage, toViewerFile));
 </script>
 
+{#snippet itemTitle(row: ArchiveViewRow)}
+	<span class={browseRowTitleClass()}><FilterHighlight text={row.item.title} /></span>
+{/snippet}
+
 <!-- 2段目は、アーカイブの一覧では同じタイトルが並んだときに見分けるための軸の値 (→ docs/ui.md「アーカイブの一覧画面」)。 -->
-{#snippet itemText(row: ArchiveViewRow)}
-	{@const subtitle = row.subtitle === undefined ? row.item.subtitle : row.subtitle}
-	<span class={browseRowTextClass()}>
-		<span class={browseRowTitleClass()}><FilterHighlight text={row.item.title} /></span>
-		{#if subtitle}
-			<span class={browseRowSubtitleClass()}><SeparatedText text={subtitle} /></span>
-		{/if}
-	</span>
+{#snippet itemSubtitle(row: ArchiveViewRow)}
+	<ListRowSubtitle location={row.location} text={row.item.subtitle} />
 {/snippet}
 
 {#if filter?.active && rows.length === 0}
@@ -118,36 +118,48 @@
 			{@const viewerFile = toViewerFile(row)}
 			<li class={browseItemClass()}>
 				{#if isLinksFileName(row.item.fileName)}
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
-					<a href={linksHref(row)} class={browseRowClass()}>
+					<div class={browseRowClass()}>
 						<ListRowIcon icon={LinksFileIcon} />
-						{@render itemText(row)}
+						<span class={browseRowTextClass()}>
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
+							<a href={linksHref(row)} class={browseRowPressClass()}>{@render itemTitle(row)}</a>
+							{@render itemSubtitle(row)}
+						</span>
 						<ListRowGlyph />
-					</a>
+					</div>
 				{:else if isAudioFileName(row.item.fileName)}
 					<ListRowPlayButton track={toTrack(row)} queue={audioQueue}>
-						{@render itemText(row)}
+						{@render itemTitle(row)}
+						{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
 					</ListRowPlayButton>
 				{:else if image}
 					<ListRowImageLink {image} items={viewerList}>
-						{@render itemText(row)}
+						{@render itemTitle(row)}
+						{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
 					</ListRowImageLink>
 				{:else if viewerFile}
 					<ListRowFileLink file={viewerFile} items={viewerList}>
-						{@render itemText(row)}
+						{@render itemTitle(row)}
+						{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
 					</ListRowFileLink>
 				{:else}
-					<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
-					<a
-						href={downloadHref(row)}
-						class={browseRowClass()}
-						target="_blank"
-						rel="external noopener noreferrer"
-					>
+					<div class={browseRowClass()}>
 						<ListRowIcon icon={FileIcon} thumbnail={rowThumbnail(row)} />
-						{@render itemText(row)}
+						<span class={browseRowTextClass()}>
+							<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
+							<a
+								href={downloadHref(row)}
+								class={browseRowPressClass()}
+								target="_blank"
+								rel="external noopener noreferrer"
+							>
+								{@render itemTitle(row)}
+								<span class="sr-only">{m.contents_opens_in_new_tab()}</span>
+							</a>
+							{@render itemSubtitle(row)}
+						</span>
 						<ListRowGlyph newTab />
-					</a>
+					</div>
 				{/if}
 			</li>
 		{/each}

@@ -17,6 +17,7 @@
 	import { isPlainClick } from '$lib/image-viewer';
 	import {
 		browseRowClass,
+		browseRowPressClass,
 		browseRowSubtitleClass,
 		browseRowTextClass,
 		browseRowTitleClass,
@@ -24,8 +25,10 @@
 	} from '$lib/list-row';
 	import ListRowGlyph from '$lib/components/list-row-glyph.svelte';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
+	import RowLocationButton from '$lib/components/row-location.svelte';
 	import SeparatedText from '$lib/components/separated-text.svelte';
 	import * as m from '$lib/paraglide/messages.js';
+	import type { RowLocation } from '$lib/row-location';
 	import type { components } from '$lib/api/schema';
 
 	type LinkPreview = components['schemas']['LinkPreview'];
@@ -36,6 +39,7 @@
 		href,
 		title,
 		description,
+		location,
 		preview,
 		private: isPrivate = false,
 		viewer,
@@ -46,6 +50,8 @@
 		title?: string;
 		/** 配列なら「·」で区切って並べる。 */
 		description?: string | string[] | null;
+		/** 検索の結果の、どこにあるか。説明の前に置く。 */
+		location?: RowLocation;
 		preview?: LinkPreview | null;
 		private?: boolean;
 		/**
@@ -73,6 +79,10 @@
 		}
 	}
 
+	let hasDescription = $derived(
+		Array.isArray(description) ? description.length > 0 : !!description
+	);
+
 	let host = $derived(urlHost(href));
 	let siteName = $derived(preview?.siteName ?? host);
 	let shownTitle = $derived(linkTitleOf(href, title, preview));
@@ -87,8 +97,8 @@
 	let iconUrl = $derived(failedIcon === preview ? undefined : (preview?.iconUrl ?? undefined));
 </script>
 
-<!-- リストでは説明もこの段の末尾に置く。リンクの行だけ3段になって背が高くならないようにするため。 -->
-{#snippet meta(withDescription: boolean)}
+<!-- リストでは場所と説明もこの段の末尾に置く。リンクの行だけ3段になって背が高くならないようにするため。 -->
+{#snippet meta(withDetails: boolean)}
 	<!-- サイトのアイコンは、隣のサイト名が何かを伝えるので、読み上げでは飛ばす。 -->
 	<span class="flex min-w-0 items-center gap-1.5">
 		{#if iconUrl}
@@ -105,26 +115,49 @@
 			<span class="shrink-0">{m.contents_visibility_private()}</span>
 			<span aria-hidden="true">·</span>
 		{/if}
-		<span class={['truncate', withDescription && 'max-w-1/2']}>{siteName}</span>
+		<span class={['truncate', withDetails && (location || hasDescription) && 'max-w-1/2']}
+			>{siteName}</span
+		>
 		{#if timeAgo}
 			<span aria-hidden="true">·</span>
 			<span class="shrink-0">{timeAgo}</span>
 		{/if}
-		{#if withDescription}
-			<span aria-hidden="true">·</span>
-			<span class="min-w-0 truncate"><SeparatedText text={description ?? ''} /></span>
+		{#if withDetails}
+			{@render rowDetails(true)}
 		{/if}
 	</span>
 {/snippet}
 
-{#if browseLayout.tile}
+<!-- 場所と説明。1行に収め、場所は親を残して切る。`lead` は、前に並ぶもの (サイト名など) があるか。 -->
+{#snippet rowDetails(lead: boolean)}
+	{#if location}
+		{#if lead}<span aria-hidden="true">·</span>{/if}
+		<RowLocationButton {location} clip />
+	{/if}
+	{#if hasDescription}
+		{#if lead || location}<span aria-hidden="true">·</span>{/if}
+		<span class="min-w-0 truncate"><SeparatedText text={description ?? ''} /></span>
+	{/if}
+{/snippet}
+
+<!-- ページの中で開く行 (ビューアー・詳しい表示) には、ファイルの行と同じく新規タブの印を付けない (→ docs/ui.md「PDF・動画・テキストのビューアー」)。 -->
+{#snippet titleLink(titleClass: string)}
 	<a
 		{href}
-		class={linkTileClass}
+		class={browseRowPressClass()}
 		target="_blank"
 		rel="external noopener noreferrer"
 		onclick={handleClick}
 	>
+		<span class={titleClass}><FilterHighlight text={shownTitle} /></span>
+		{#if !viewer && !opensDetail}
+			<span class="sr-only">{m.contents_opens_in_new_tab()}</span>
+		{/if}
+	</a>
+{/snippet}
+
+{#if browseLayout.tile}
+	<div class={linkTileClass}>
 		<span class="flex aspect-video w-full items-center justify-center overflow-hidden bg-muted">
 			{#if imageUrl}
 				<!-- 行のタイトルが何の画像かを伝えるので、読み上げでは飛ばす。 -->
@@ -141,45 +174,35 @@
 			{/if}
 		</span>
 		<span class="flex w-full min-w-0 flex-col gap-1 px-3 pt-2.5 pb-3">
-			<span class="line-clamp-2 text-base leading-6 wrap-anywhere"
-				><FilterHighlight text={shownTitle} /></span
-			>
-			{#if description}
-				<span class="truncate text-xs text-muted-foreground"
-					><SeparatedText text={description} /></span
-				>
+			{@render titleLink('line-clamp-2 text-base leading-6 wrap-anywhere')}
+			{#if location || hasDescription}
+				<span class="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+					{@render rowDetails(false)}
+				</span>
 			{/if}
 			<span class="flex items-center gap-2 text-xs text-muted-foreground">
 				{@render meta(false)}
 				{#if !viewer && !opensDetail}
-					<span class="sr-only">{m.contents_opens_in_new_tab()}</span>
 					<ExternalLinkIcon class="ml-auto size-4 shrink-0" strokeWidth={1.8} />
 				{/if}
 			</span>
 		</span>
-	</a>
+	</div>
 {:else}
-	<a
-		{href}
-		class={browseRowClass()}
-		target="_blank"
-		rel="external noopener noreferrer"
-		onclick={handleClick}
-	>
+	<div class={browseRowClass()}>
 		<ListRowIcon
 			icon={LinkIcon}
 			thumbnail={imageUrl ? { src: imageUrl, original: href } : undefined}
 		/>
 		<span class={browseRowTextClass()}>
-			<span class={browseRowTitleClass()}><FilterHighlight text={shownTitle} /></span>
-			<span class={[browseRowSubtitleClass(), 'flex']}>{@render meta(!!description)}</span>
+			{@render titleLink(browseRowTitleClass())}
+			<span class={[browseRowSubtitleClass(), 'flex']}>{@render meta(true)}</span>
 		</span>
 		{#if isPrivate}
 			<span class="shrink-0 text-sm text-muted-foreground">{m.contents_visibility_private()}</span>
 		{/if}
-		<!-- ページの中で開く行 (ビューアー・詳しい表示) には、ファイルの行と同じくグリフを付けない (→ docs/ui.md「PDF・動画・テキストのビューアー」)。 -->
 		{#if !viewer && !opensDetail}
 			<ListRowGlyph newTab />
 		{/if}
-	</a>
+	</div>
 {/if}

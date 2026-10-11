@@ -2129,10 +2129,11 @@ export interface components {
             removedContentCount: number;
         };
         SearchContentHit: {
+            /** @description 上のグループ。ルートに近い順で、最後が親。ルート直下なら空。行の2段目に、どこにあるかとして出す。 */
+            ancestors: components["schemas"]["GroupAncestor"][];
             content: components["schemas"]["ContentResponse"];
             /** @description タイトルでは当たらず、説明で当たったか。何で当たったか分かるよう、画面が説明を添える。 */
             matchedInDescription: boolean;
-            parent?: components["schemas"]["GroupAncestor"] | null;
         };
         SearchFileHit: {
             /** Format: int64 */

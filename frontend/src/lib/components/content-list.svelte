@@ -25,7 +25,7 @@
 		browseItemClass,
 		browseListClass,
 		browseRowClass,
-		browseRowSubtitleClass,
+		browseRowPressClass,
 		browseRowTextClass,
 		browseRowTitleClass
 	} from '$lib/list-row';
@@ -35,8 +35,9 @@
 	import ListRowImageLink from '$lib/components/list-row-image-link.svelte';
 	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
 	import ListRowLink from '$lib/components/list-row-link.svelte';
-	import SeparatedText from '$lib/components/separated-text.svelte';
+	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
 	import * as m from '$lib/paraglide/messages.js';
+	import type { RowLocation } from '$lib/row-location';
 	import type { components } from '$lib/api/schema';
 
 	type ContentEntry = components['schemas']['ContentResponse'];
@@ -46,11 +47,14 @@
 	// もう片方が古びるのを防ぐため、コンテンツ種別ごとの表示分岐をここに集約する。
 	let {
 		entries: allEntries,
-		subtitle = (content) => content.description
+		subtitle = (content) => content.description,
+		location
 	}: {
 		entries: ContentEntry[];
-		/** 行の2段目。省くと説明を出す。検索では、どこにあるかを出す。 */
-		subtitle?: (content: ContentEntry) => string | string[] | null | undefined;
+		/** 行の2段目。省くと説明を出す。検索では、説明で当たった行だけに説明を出す。 */
+		subtitle?: (content: ContentEntry) => string | null | undefined;
+		/** 検索の結果の、どこにあるか。2段目の、説明の前に出す。 */
+		location?: (content: ContentEntry) => RowLocation | undefined;
 	} = $props();
 
 	// ページ内の絞り込みが置かれていれば、タイトルで行を絞る (→ docs/ui.md「一覧の絞り込み」)。
@@ -168,35 +172,23 @@
 	);
 </script>
 
-{#snippet rowText(content: ContentEntry)}
-	<!-- 作成者にしか届かない行の印 (→ docs/ui.md「UI 全般」)。タイルは幅が狭いので2段目の頭に置く。 -->
-	{@const privateInText = content.private && browseLayout.tile}
-	{@const text = subtitle(content)}
-	<span class={browseRowTextClass()}>
-		<span class={browseRowTitleClass()}><FilterHighlight text={content.title} /></span>
-		{#if privateInText || text}
-			<span class={browseRowSubtitleClass()}>
-				{#if privateInText}
-					{m.contents_visibility_private()}
-					{#if text}<span aria-hidden="true">·</span>{/if}
-				{/if}
-				{#if text}<SeparatedText {text} />{/if}
-			</span>
-		{/if}
-	</span>
+{#snippet rowTitle(content: ContentEntry)}
+	<span class={browseRowTitleClass()}><FilterHighlight text={content.title} /></span>
+{/snippet}
+
+<!-- 作成者にしか届かない行の印 (→ docs/ui.md「UI 全般」)。タイルは幅が狭いので2段目の頭に置く。 -->
+{#snippet rowSubtitle(content: ContentEntry)}
+	<ListRowSubtitle
+		prefix={content.private && browseLayout.tile ? m.contents_visibility_private() : undefined}
+		location={location?.(content)}
+		text={subtitle(content)}
+	/>
+{/snippet}
+
+{#snippet rowPrivate(content: ContentEntry)}
 	{#if content.private && !browseLayout.tile}
 		<span class="shrink-0 text-sm text-muted-foreground">{m.contents_visibility_private()}</span>
 	{/if}
-{/snippet}
-
-{#snippet rowBody(content: ContentEntry, opensNewTab: boolean)}
-	<ListRowIcon
-		icon={contentTypeIcon(content.type)}
-		accent={content.type === 'archive'}
-		thumbnail={rowThumbnail(content)}
-	/>
-	{@render rowText(content)}
-	<ListRowGlyph newTab={opensNewTab} />
 {/snippet}
 
 {#if filter?.active && entries.length === 0}
@@ -212,52 +204,86 @@
 						href={content.url}
 						title={content.title}
 						description={subtitle(content)}
+						location={location?.(content)}
 						preview={refreshed.get(content.url) ?? content.preview}
 						private={content.private}
 						viewer={viewerFile && { file: viewerFile, items: viewerList }}
 						details={{ items: linkDetails, index: linkDetailIndex.get(content.id) ?? -1 }}
 					/>
-				{:else if content.type === 'folder'}
-					<a href={resolve('/folders/[id]', { id: String(content.id) })} class={browseRowClass()}>
-						{@render rowBody(content, false)}
-					</a>
-				{:else if content.type === 'archive'}
-					<a href={resolve('/archives/[id]', { id: String(content.id) })} class={browseRowClass()}>
-						{@render rowBody(content, false)}
-					</a>
-				{:else if content.type === 'group'}
-					<a href={resolve('/groups/[id]', { id: String(content.id) })} class={browseRowClass()}>
-						{@render rowBody(content, false)}
-					</a>
-				{:else if content.type === 'file' && isLinksFileName(content.fileName)}
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
-					<a href={linksFileHref(content.id)} class={browseRowClass()}>
-						<ListRowIcon icon={LinksFileIcon} />
-						{@render rowText(content)}
+				{:else if content.type === 'folder' || content.type === 'archive' || content.type === 'group' || (content.type === 'file' && isLinksFileName(content.fileName))}
+					<div class={browseRowClass()}>
+						{#if content.type === 'file'}
+							<ListRowIcon icon={LinksFileIcon} />
+						{:else}
+							<ListRowIcon
+								icon={contentTypeIcon(content.type)}
+								accent={content.type === 'archive'}
+							/>
+						{/if}
+						<span class={browseRowTextClass()}>
+							{#if content.type === 'folder'}
+								<a
+									href={resolve('/folders/[id]', { id: String(content.id) })}
+									class={browseRowPressClass()}>{@render rowTitle(content)}</a
+								>
+							{:else if content.type === 'archive'}
+								<a
+									href={resolve('/archives/[id]', { id: String(content.id) })}
+									class={browseRowPressClass()}>{@render rowTitle(content)}</a
+								>
+							{:else if content.type === 'group'}
+								<a
+									href={resolve('/groups/[id]', { id: String(content.id) })}
+									class={browseRowPressClass()}>{@render rowTitle(content)}</a
+								>
+							{:else}
+								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
+								<a href={linksFileHref(content.id)} class={browseRowPressClass()}
+									>{@render rowTitle(content)}</a
+								>
+							{/if}
+							{@render rowSubtitle(content)}
+						</span>
+						{@render rowPrivate(content)}
 						<ListRowGlyph />
-					</a>
+					</div>
 				{:else if isAudioContent(content)}
 					<ListRowPlayButton track={toTrack(content)} queue={audioQueue}>
-						{@render rowText(content)}
+						{@render rowTitle(content)}
+						{#snippet subtitle()}{@render rowSubtitle(content)}{/snippet}
+						{#snippet trailing()}{@render rowPrivate(content)}{/snippet}
 					</ListRowPlayButton>
 				{:else if image}
 					<ListRowImageLink {image} items={viewerList}>
-						{@render rowText(content)}
+						{@render rowTitle(content)}
+						{#snippet subtitle()}{@render rowSubtitle(content)}{/snippet}
+						{#snippet trailing()}{@render rowPrivate(content)}{/snippet}
 					</ListRowImageLink>
 				{:else if viewerFile}
 					<ListRowFileLink file={viewerFile} items={viewerList}>
-						{@render rowText(content)}
+						{@render rowTitle(content)}
+						{#snippet subtitle()}{@render rowSubtitle(content)}{/snippet}
+						{#snippet trailing()}{@render rowPrivate(content)}{/snippet}
 					</ListRowFileLink>
 				{:else if content.type === 'file'}
-					<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
-					<a
-						href={contentDownloadHref(content.id)}
-						class={browseRowClass()}
-						target="_blank"
-						rel="external noopener noreferrer"
-					>
-						{@render rowBody(content, true)}
-					</a>
+					<div class={browseRowClass()}>
+						<ListRowIcon icon={contentTypeIcon(content.type)} thumbnail={rowThumbnail(content)} />
+						<span class={browseRowTextClass()}>
+							<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
+							<a
+								href={contentDownloadHref(content.id)}
+								class={browseRowPressClass()}
+								target="_blank"
+								rel="external noopener noreferrer"
+							>
+								{@render rowTitle(content)}
+								<span class="sr-only">{m.contents_opens_in_new_tab()}</span>
+							</a>
+							{@render rowSubtitle(content)}
+						</span>
+						{@render rowPrivate(content)}
+						<ListRowGlyph newTab />
+					</div>
 				{/if}
 			</li>
 		{/each}

@@ -52,7 +52,7 @@ async fn search_finds_contents_and_published_archive_files(pool: SqlitePool) {
     let contents = found["contents"].as_array().expect("contents は配列");
     assert_eq!(contents.len(), 1, "{found}");
     assert_eq!(contents[0]["content"]["id"], link_id, "{found}");
-    assert_eq!(contents[0]["parent"]["title"], "教材", "{found}");
+    assert_eq!(contents[0]["ancestors"][0]["title"], "教材", "{found}");
     assert_eq!(contents[0]["matchedInDescription"], true, "{found}");
     assert_eq!(found["contentsTruncated"], false, "{found}");
     assert_eq!(found["itemsTruncated"], false, "{found}");

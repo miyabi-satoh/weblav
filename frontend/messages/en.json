@@ -593,5 +593,7 @@
 	"search_truncated": "Showing the first {count}. Add more words to narrow it down.",
 	"search_folders_incomplete": "Large folders were searched only partway.",
 	"search_fetch_failed": "Search failed. Please try again later.",
-	"search_section_count_truncated": "{count}+ items"
+	"search_section_count_truncated": "{count}+ items",
+	"row_location_button": "Location: {path}",
+	"row_location_menu_label": "Open location"
 }

@@ -1,6 +1,7 @@
 <script lang="ts" module>
 	import type { components } from '$lib/api/schema';
 	import type { LinksFileTarget } from '$lib/links-file';
+	import type { RowLocation } from '$lib/row-location';
 
 	type LinkPreview = components['schemas']['LinkPreview'];
 
@@ -11,8 +12,10 @@
 		url: string;
 		note?: string | null;
 		preview?: LinkPreview | null;
-		/** 2段目。配列なら「·」で区切って並べる。省くと `note` を出す。 */
-		subtitle?: string | string[];
+		/** 2段目。省くと `note` を出す。検索では、`note` で当たった行だけに `note` を出す。 */
+		subtitle?: string | null;
+		/** 検索の結果の、どこにあるか。2段目の頭に出す。 */
+		location?: RowLocation;
 	};
 </script>
 
@@ -30,14 +33,8 @@
 	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
 	import ListRowLink from '$lib/components/list-row-link.svelte';
 	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
-	import SeparatedText from '$lib/components/separated-text.svelte';
-	import {
-		browseItemClass,
-		browseListClass,
-		browseRowSubtitleClass,
-		browseRowTextClass,
-		browseRowTitleClass
-	} from '$lib/list-row';
+	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
+	import { browseItemClass, browseListClass, browseRowTitleClass } from '$lib/list-row';
 
 	// リンクの一覧のファイルの画面 (`/links/[id]`) と検索の結果で使う、一覧の中のリンクの行。
 	// URL のファイルと動画サイトの動画は、一覧のコンテンツと同じく、ファイルの行・ビューアーで開く
@@ -108,19 +105,17 @@
 	);
 	let linkDetailIndex = $derived(new Map(linkDetailRows.map((row, index) => [row, index])));
 
-	function subtitleOf(row: LinksEntryRow): string | string[] | null | undefined {
+	function subtitleOf(row: LinksEntryRow): string | null | undefined {
 		return row.subtitle === undefined ? row.note : row.subtitle;
 	}
 </script>
 
-{#snippet rowText(row: LinksEntryRow)}
-	{@const subtitle = subtitleOf(row)}
-	<span class={browseRowTextClass()}>
-		<span class={browseRowTitleClass()}><FilterHighlight text={linkTitle(row)} /></span>
-		{#if subtitle}
-			<span class={browseRowSubtitleClass()}><SeparatedText text={subtitle} /></span>
-		{/if}
-	</span>
+{#snippet rowTitle(row: LinksEntryRow)}
+	<span class={browseRowTitleClass()}><FilterHighlight text={linkTitle(row)} /></span>
+{/snippet}
+
+{#snippet rowSubtitle(row: LinksEntryRow)}
+	<ListRowSubtitle location={row.location} text={subtitleOf(row)} />
 {/snippet}
 
 {#if filter?.active && rows.length === 0}
@@ -133,16 +128,19 @@
 			<li class={browseItemClass()}>
 				{#if kind === 'audio'}
 					<ListRowPlayButton track={toTrack(row)} queue={audioQueue}>
-						{@render rowText(row)}
+						{@render rowTitle(row)}
+						{#snippet subtitle()}{@render rowSubtitle(row)}{/snippet}
 					</ListRowPlayButton>
 				{:else if kind && viewerFile}
 					<ListRowFileLink file={viewerFile} items={viewerList}>
-						{@render rowText(row)}
+						{@render rowTitle(row)}
+						{#snippet subtitle()}{@render rowSubtitle(row)}{/snippet}
 					</ListRowFileLink>
 				{:else}
 					<ListRowLink
 						href={row.url}
 						description={subtitleOf(row)}
+						location={row.location}
 						preview={previewOf(row)}
 						viewer={viewerFile && { file: viewerFile, items: viewerList }}
 						details={{ items: linkDetails, index: linkDetailIndex.get(row) ?? -1 }}

@@ -1,5 +1,6 @@
 <script lang="ts" module>
 	import type { components } from '$lib/api/schema';
+	import type { RowLocation } from '$lib/row-location';
 
 	type FolderEntry = components['schemas']['FolderEntry'];
 
@@ -9,8 +10,8 @@
 		/** フォルダーの登録パスからの相対パス。エントリ自身の名前まで含む。 */
 		path: string;
 		entry: FolderEntry;
-		/** 2段目。配列なら「·」で区切って並べる。省くと、ファイルの大きさと更新日時を出す。 */
-		subtitle?: string | string[];
+		/** 検索の結果の、どこにあるか。2段目に出す。省くと、ファイルの大きさと更新日時を出す。 */
+		location?: RowLocation;
 	};
 </script>
 
@@ -30,6 +31,7 @@
 		browseItemClass,
 		browseListClass,
 		browseRowClass,
+		browseRowPressClass,
 		browseRowSubtitleClass,
 		browseRowTextClass,
 		browseRowTitleClass
@@ -39,7 +41,8 @@
 	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
 	import ListRowImageLink from '$lib/components/list-row-image-link.svelte';
 	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
-	import SeparatedText from '$lib/components/separated-text.svelte';
+	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
+	import * as m from '$lib/paraglide/messages.js';
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import FileIcon from '@lucide/svelte/icons/file';
 
@@ -109,20 +112,21 @@
 	let viewerList = $derived(viewerItems(rows, toViewerImage, toViewerFile));
 </script>
 
-{#snippet entryText(row: FolderEntryRow)}
+{#snippet entryTitle(row: FolderEntryRow)}
+	<span class={browseRowTitleClass(true)}><FilterHighlight text={row.entry.name} /></span>
+{/snippet}
+
+{#snippet entrySubtitle(row: FolderEntryRow)}
 	{@const entry = row.entry}
-	<span class={browseRowTextClass()}>
-		<span class={browseRowTitleClass(true)}><FilterHighlight text={entry.name} /></span>
-		{#if row.subtitle !== undefined}
-			<span class={browseRowSubtitleClass()}><SeparatedText text={row.subtitle} /></span>
-		{:else if !entry.isDir}
-			<span class={browseRowSubtitleClass()}>
-				{#if entry.size != null}{formatByteSize(entry.size)}{/if}
-				{#if entry.size != null && entry.modifiedAt != null}<span aria-hidden="true">·</span>{/if}
-				{formatDate(entry.modifiedAt)}
-			</span>
-		{/if}
-	</span>
+	{#if row.location}
+		<ListRowSubtitle location={row.location} />
+	{:else if !entry.isDir}
+		<span class={browseRowSubtitleClass()}>
+			{#if entry.size != null}{formatByteSize(entry.size)}{/if}
+			{#if entry.size != null && entry.modifiedAt != null}<span aria-hidden="true">·</span>{/if}
+			{formatDate(entry.modifiedAt)}
+		</span>
+	{/if}
 {/snippet}
 
 {#if filter?.active && rows.length === 0}
@@ -134,43 +138,58 @@
 			{@const viewerFile = toViewerFile(row)}
 			<li class={browseItemClass()}>
 				{#if row.entry.isDir}
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
-					<a href={dirHref(row)} class={browseRowClass(true)}>
+					<div class={browseRowClass(true)}>
 						<ListRowIcon icon={FolderIcon} compact />
-						{@render entryText(row)}
+						<span class={browseRowTextClass()}>
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
+							<a href={dirHref(row)} class={browseRowPressClass()}>{@render entryTitle(row)}</a>
+							{@render entrySubtitle(row)}
+						</span>
 						<ListRowGlyph />
-					</a>
+					</div>
 				{:else if isLinksFileName(row.entry.name)}
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
-					<a href={linksHref(row)} class={browseRowClass(true)}>
+					<div class={browseRowClass(true)}>
 						<ListRowIcon icon={LinksFileIcon} compact />
-						{@render entryText(row)}
+						<span class={browseRowTextClass()}>
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
+							<a href={linksHref(row)} class={browseRowPressClass()}>{@render entryTitle(row)}</a>
+							{@render entrySubtitle(row)}
+						</span>
 						<ListRowGlyph />
-					</a>
+					</div>
 				{:else if isAudioFileName(row.entry.name)}
 					<ListRowPlayButton track={toTrack(row)} queue={audioQueue} compact>
-						{@render entryText(row)}
+						{@render entryTitle(row)}
+						{#snippet subtitle()}{@render entrySubtitle(row)}{/snippet}
 					</ListRowPlayButton>
 				{:else if image}
 					<ListRowImageLink {image} items={viewerList} compact>
-						{@render entryText(row)}
+						{@render entryTitle(row)}
+						{#snippet subtitle()}{@render entrySubtitle(row)}{/snippet}
 					</ListRowImageLink>
 				{:else if viewerFile}
 					<ListRowFileLink file={viewerFile} items={viewerList} compact>
-						{@render entryText(row)}
+						{@render entryTitle(row)}
+						{#snippet subtitle()}{@render entrySubtitle(row)}{/snippet}
 					</ListRowFileLink>
 				{:else}
-					<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
-					<a
-						href={downloadHref(row)}
-						class={browseRowClass(true)}
-						target="_blank"
-						rel="external noopener noreferrer"
-					>
+					<div class={browseRowClass(true)}>
 						<ListRowIcon icon={FileIcon} compact thumbnail={rowThumbnail(row)} />
-						{@render entryText(row)}
+						<span class={browseRowTextClass()}>
+							<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
+							<a
+								href={downloadHref(row)}
+								class={browseRowPressClass()}
+								target="_blank"
+								rel="external noopener noreferrer"
+							>
+								{@render entryTitle(row)}
+								<span class="sr-only">{m.contents_opens_in_new_tab()}</span>
+							</a>
+							{@render entrySubtitle(row)}
+						</span>
 						<ListRowGlyph newTab />
-					</a>
+					</div>
 				{/if}
 			</li>
 		{/each}

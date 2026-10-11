@@ -2,7 +2,12 @@
 	import type { Snippet } from 'svelte';
 	import FileIcon from '@lucide/svelte/icons/file';
 	import { browseLayout } from '$lib/browse-layout.svelte';
-	import { browseRowClass, tileCornerClass } from '$lib/list-row';
+	import {
+		browseRowClass,
+		browseRowPressClass,
+		browseRowTextClass,
+		tileCornerClass
+	} from '$lib/list-row';
 	import { isPlainClick, type ViewerImage } from '$lib/image-viewer';
 	import { openViewerItem, type ViewerItem } from '$lib/viewer-items';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
@@ -16,7 +21,9 @@
 		image,
 		items,
 		compact = false,
-		children
+		children,
+		subtitle,
+		trailing
 	}: {
 		/** `items` と同じ組み立て方で作る (押した行を `items` の中から `src` で探すため)。 */
 		image: ViewerImage;
@@ -24,8 +31,12 @@
 		items: ViewerItem[];
 		/** フォルダー一覧の詰めた行 (`browseRowClass(true)`) にする。タイルには効かない。 */
 		compact?: boolean;
-		/** アイコンの右に置く、行の文字。 */
+		/** 行のタイトル。これを包むリンクの押せる範囲が、行いっぱいに広がる。 */
 		children: Snippet;
+		/** タイトルの下に置く2段目。 */
+		subtitle?: Snippet;
+		/** 行の文字の後ろに置くもの。 */
+		trailing?: Snippet;
 	} = $props();
 
 	/** 元の画像を読み込んでいて、ビューアーがまだ開いていない間。 */
@@ -55,20 +66,26 @@
 	}
 </script>
 
-<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
-<a
-	href={image.src}
-	class={browseRowClass(compact)}
-	target="_blank"
-	rel="external noopener noreferrer"
-	onclick={handleClick}
->
+<div class={browseRowClass(compact)}>
 	<ListRowIcon
 		icon={FileIcon}
 		thumbnail={{ src: image.thumbnailSrc, original: image.src }}
 		{compact}
 	/>
-	{@render children()}
+	<span class={browseRowTextClass()}>
+		<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
+		<a
+			href={image.src}
+			class={browseRowPressClass()}
+			target="_blank"
+			rel="external noopener noreferrer"
+			onclick={handleClick}
+		>
+			{@render children()}
+		</a>
+		{@render subtitle?.()}
+	</span>
+	{@render trailing?.()}
 	{#if opening}
 		<!-- タイルは新規タブの印と同じ右上の隅に置く (画像のタイルには印が無いので重ならない)。 -->
 		<Spinner
@@ -76,4 +93,4 @@
 			aria-label={m.common_loading()}
 		/>
 	{/if}
-</a>
+</div>
