@@ -7023,10 +7023,18 @@
         "required": [
           "contentId",
           "folderTitle",
+          "ancestors",
           "path",
           "entry"
         ],
         "properties": {
+          "ancestors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupAncestor"
+            },
+            "description": "フォルダーより上のグループ。ルートに近い順で、ルート直下なら空。場所の頭に出す。"
+          },
           "contentId": {
             "type": "integer",
             "format": "int64"
@@ -7049,9 +7057,17 @@
         "required": [
           "archiveId",
           "archiveTitle",
+          "ancestors",
           "item"
         ],
         "properties": {
+          "ancestors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupAncestor"
+            },
+            "description": "アーカイブより上のグループ。ルートに近い順で、ルート直下なら空。場所の頭に出す。"
+          },
           "archiveId": {
             "type": "integer",
             "format": "int64"
@@ -7070,10 +7086,18 @@
         "required": [
           "contentId",
           "fileTitle",
+          "ancestors",
           "url",
           "matchedInNote"
         ],
         "properties": {
+          "ancestors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupAncestor"
+            },
+            "description": "一覧のファイルを持つコンテンツより上のグループ。ルートに近い順で、ルート直下なら空。場所の頭に出す。"
+          },
           "containerTitle": {
             "type": [
               "string",

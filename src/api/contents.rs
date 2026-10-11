@@ -1741,7 +1741,7 @@ async fn browse_folder(
 
 // --- group コンテンツ配下の閲覧 ---
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct GroupAncestor {
     pub(super) id: i64,
@@ -2086,6 +2086,16 @@ pub(super) async fn search_contents(
         .filter(|row| row.content_type == ContentType::Group)
         .map(|row| (row.id, (row.title.clone(), row.parent_id)))
         .collect();
+    // 当たりの場所に出す、上のグループ。中を探すフォルダー・アーカイブ・一覧のファイルにも持たせる。
+    let lineages: std::sync::Arc<HashMap<i64, Vec<GroupAncestor>>> = std::sync::Arc::new(
+        rows.iter()
+            .map(|row| (row.id, group_lineage(&groups, row.parent_id)))
+            .collect(),
+    );
+    let lineage_of = {
+        let lineages = lineages.clone();
+        move |id: i64| lineages.get(&id).cloned().unwrap_or_default()
+    };
 
     let (rows, match_contents) = match scope {
         Some(scope) if scope.content_type != ContentType::Group => (
@@ -2123,8 +2133,14 @@ pub(super) async fn search_contents(
                     row.title.clone(),
                     row.path.clone(),
                     row.title_template.clone(),
+                    lineage_of(row.id),
                 )),
-                ContentType::Folder => folders.push((row.id, row.title.clone(), row.path.clone())),
+                ContentType::Folder => folders.push((
+                    row.id,
+                    row.title.clone(),
+                    row.path.clone(),
+                    lineage_of(row.id),
+                )),
                 ContentType::File
                     if row
                         .file_name
@@ -2134,6 +2150,7 @@ pub(super) async fn search_contents(
                     links_files.push(super::folder_search::LinksFileContent {
                         id: row.id,
                         title: row.title.clone(),
+                        ancestors: lineage_of(row.id),
                     });
                 }
                 _ => {}
@@ -2162,7 +2179,7 @@ pub(super) async fn search_contents(
     let mut contents = Vec::with_capacity(hits.len());
     for (row, matched_in_description) in hits {
         placements.push((
-            group_lineage(&groups, row.parent_id),
+            lineages.get(&row.id).cloned().unwrap_or_default(),
             matched_in_description,
         ));
         contents.push(ContentResponse::try_from(row)?);
@@ -2171,23 +2188,25 @@ pub(super) async fn search_contents(
 
     let archives = archives
         .into_iter()
-        .map(|(id, title, path, title_template)| {
+        .map(|(id, title, path, title_template, ancestors)| {
             Ok(super::archive_items::SearchableArchive {
                 id,
                 title,
                 path: path.ok_or(AppError::DataIntegrity("archive content without a path"))?,
                 title_template,
+                ancestors,
             })
         })
         .collect::<Result<Vec<_>, AppError>>()?;
     let folders = folders
         .into_iter()
-        .map(|(id, title, path)| {
+        .map(|(id, title, path, ancestors)| {
             Ok(super::folder_search::SearchableFolder {
                 id,
                 title,
                 path: folder_path(path)?,
                 sub_path: folder_sub_path.clone(),
+                ancestors,
             })
         })
         .collect::<Result<Vec<_>, AppError>>()?;

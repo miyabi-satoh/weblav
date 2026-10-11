@@ -411,6 +411,8 @@ pub(super) struct SearchableArchive {
     pub(super) title: String,
     pub(super) path: String,
     pub(super) title_template: Option<String>,
+    /// アーカイブより上のグループ。ルートに近い順。
+    pub(super) ancestors: Vec<super::contents::GroupAncestor>,
 }
 
 /// 検索で当たったアーカイブのファイル1件と、並べ替えに使う値。
@@ -497,6 +499,7 @@ pub(super) async fn search_items(
                 super::search::SearchItemHit {
                     archive_id: archive.id,
                     archive_title: archive.title.clone(),
+                    ancestors: archive.ancestors.clone(),
                     item: with_preview(
                         std::path::Path::new(&archive.path),
                         &hit.rel_path,
