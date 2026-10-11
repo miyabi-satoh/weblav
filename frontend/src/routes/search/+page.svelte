@@ -8,7 +8,12 @@
 	import { contentTypeIcon } from '$lib/content-types';
 	import { withQuery } from '$lib/href';
 	import { linksFileHref, LinksFileIcon } from '$lib/links-file';
-	import type { RowLocation, RowLocationLevel } from '$lib/row-location';
+	import {
+		scopeStart,
+		type RowLocation,
+		type RowLocationLevel,
+		type ScopePlace
+	} from '$lib/row-location';
 	import * as m from '$lib/paraglide/messages.js';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
@@ -27,6 +32,7 @@
 	import type { PageProps } from './$types';
 
 	type ContentEntry = components['schemas']['ContentResponse'];
+	type GroupAncestor = components['schemas']['GroupAncestor'];
 
 	// 範囲の名前は、幅が足りなければフォルダーの名前だけを切り詰める。訳の語順を崩さないよう、
 	// 文言を目印で組んでから、名前の前と後ろに分ける。
@@ -108,29 +114,41 @@
 		contentHits.length + itemHits.length + fileHits.length + linkHits.length > 0
 	);
 
-	// 2段目に出す、どこにあるか。押すと階層を並べ、選んだ段の画面を開く (→ docs/search.md「画面」)。
+	// 2段目に出す、どこにあるか。上のグループから順に並べ、押すと選んだ段の画面を開く (→ docs/search.md「画面」)。
 
-	let placements = $derived(new Map(contentHits.map((hit) => [hit.content.id, hit])));
+	/** 範囲にしている場所。その中を探している間は、範囲より上はどの行も同じなので、行には範囲から下だけを出す。 */
+	let scopePlace = $derived<ScopePlace | null>(
+		data.scope && !data.all
+			? { contentId: Number(data.scope.within), depth: data.scope.path?.split('/').length ?? 0 }
+			: null
+	);
 
-	/** 上のグループ。ルート直下なら「ホーム」。 */
-	function contentLocation(content: ContentEntry): RowLocation {
-		const ancestors = placements.get(content.id)?.ancestors ?? [];
-		if (ancestors.length === 0) {
-			return { levels: [{ label: m.breadcrumb_home(), href: resolve('/'), icon: HouseIcon }] };
-		}
-		return {
-			levels: ancestors.map((group) => ({
+	/**
+	 * 当たりの場所。`ancestors` は上のグループ、`own` は当たりを持つコンテンツ (`ownId`) から下の段。
+	 * どちらも無ければ (ルート直下のコンテンツ)「ホーム」。
+	 */
+	function locationOf(
+		ancestors: GroupAncestor[],
+		own: RowLocationLevel[] = [],
+		ownId?: number
+	): RowLocation {
+		const levels: RowLocationLevel[] = [
+			...ancestors.map((group) => ({
 				label: group.title,
 				href: resolve('/groups/[id]', { id: String(group.id) }),
 				icon: contentTypeIcon('group')
-			}))
-		};
-	}
-
-	/** 説明だけで当たったものは、何で当たったか分かるよう説明を添える。 */
-	function contentSubtitle(content: ContentEntry): string | null {
-		const hit = placements.get(content.id);
-		return hit?.matchedInDescription && content.description ? content.description : null;
+			})),
+			...own
+		];
+		if (levels.length === 0) {
+			return { levels: [{ label: m.breadcrumb_home(), href: resolve('/'), icon: HouseIcon }] };
+		}
+		const from = scopeStart(
+			scopePlace,
+			ancestors.map((group) => group.id),
+			ownId
+		);
+		return from === undefined ? { levels } : { levels, from };
 	}
 
 	function archiveLevel(id: number, title: string): RowLocationLevel {
@@ -141,9 +159,10 @@
 		};
 	}
 
-	/** フォルダーと、その中の `dirs` までの階層。 */
-	function folderLevels(id: number, title: string, dirs: string[]): RowLocationLevel[] {
+	/** フォルダーと、その中の `path` にあるものまでの階層。`path` は、そのもの自身の名前まで含む。 */
+	function folderLevels(id: number, title: string, path: string): RowLocationLevel[] {
 		const href = resolve('/folders/[id]', { id: String(id) });
+		const dirs = path.split('/').slice(0, -1);
 		return [
 			{ label: title, href, icon: contentTypeIcon('folder') },
 			...dirs.map((label, index) => ({
@@ -154,11 +173,27 @@
 		];
 	}
 
+	let placements = $derived(new Map(contentHits.map((hit) => [hit.content.id, hit])));
+
+	function contentLocation(content: ContentEntry): RowLocation {
+		return locationOf(placements.get(content.id)?.ancestors ?? []);
+	}
+
+	/** 説明だけで当たったものは、何で当たったか分かるよう説明を添える。 */
+	function contentSubtitle(content: ContentEntry): string | null {
+		const hit = placements.get(content.id);
+		return hit?.matchedInDescription && content.description ? content.description : null;
+	}
+
 	let itemRows = $derived<ArchiveViewRow[]>(
 		itemHits.map((hit) => ({
 			archiveId: hit.archiveId,
 			item: hit.item,
-			location: { levels: [archiveLevel(hit.archiveId, hit.archiveTitle)] }
+			location: locationOf(
+				hit.ancestors,
+				[archiveLevel(hit.archiveId, hit.archiveTitle)],
+				hit.archiveId
+			)
 		}))
 	);
 
@@ -166,30 +201,16 @@
 		return linksFileHref(row.archiveId, { item: row.item.id });
 	}
 
-	/**
-	 * 範囲にしているフォルダーの階層の深さ。その中を探している間は、範囲より上はどの行も同じなので、
-	 * 行には範囲から下だけを出す。
-	 */
-	let scopeDepth = $derived(
-		data.scope && !data.all
-			? { contentId: Number(data.scope.within), depth: data.scope.path?.split('/').length ?? 0 }
-			: null
-	);
-
-	/** フォルダーの中の `path` にあるものの場所。`path` は、そのもの自身の名前まで含む。 */
-	function inFolderLocation(contentId: number, folderTitle: string, path: string): RowLocation {
-		return {
-			levels: folderLevels(contentId, folderTitle, path.split('/').slice(0, -1)),
-			...(scopeDepth?.contentId === contentId ? { from: scopeDepth.depth } : {})
-		};
-	}
-
 	let fileRows = $derived<FolderEntryRow[]>(
 		fileHits.map((hit) => ({
 			contentId: hit.contentId,
 			path: hit.path,
 			entry: hit.entry,
-			location: inFolderLocation(hit.contentId, hit.folderTitle, hit.path)
+			location: locationOf(
+				hit.ancestors,
+				folderLevels(hit.contentId, hit.folderTitle, hit.path),
+				hit.contentId
+			)
 		}))
 	);
 
@@ -209,12 +230,17 @@
 				...(hit.item != null ? { item: hit.item } : {})
 			};
 			// 一覧のファイルを入れているフォルダーの階層かアーカイブ。`file` コンテンツの一覧には無い。
-			const container: RowLocation =
+			const container =
 				hit.containerTitle == null
-					? { levels: [] }
+					? []
 					: hit.path != null
-						? inFolderLocation(hit.contentId, hit.containerTitle, hit.path)
-						: { levels: [archiveLevel(hit.contentId, hit.containerTitle)] };
+						? folderLevels(hit.contentId, hit.containerTitle, hit.path)
+						: [archiveLevel(hit.contentId, hit.containerTitle)];
+			const file = {
+				label: hit.fileTitle,
+				href: linksFileHref(hit.contentId, target),
+				icon: LinksFileIcon
+			};
 			return {
 				contentId: hit.contentId,
 				target,
@@ -222,17 +248,11 @@
 				note: hit.note,
 				preview: hit.preview,
 				subtitle: hit.matchedInNote && hit.note ? hit.note : null,
-				location: {
-					...container,
-					levels: [
-						...container.levels,
-						{
-							label: hit.fileTitle,
-							href: linksFileHref(hit.contentId, target),
-							icon: LinksFileIcon
-						}
-					]
-				}
+				location: locationOf(
+					hit.ancestors,
+					[...container, file],
+					hit.containerTitle == null ? undefined : hit.contentId
+				)
 			};
 		})
 	);

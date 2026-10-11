@@ -1,7 +1,8 @@
 // 検索の画面 (管理者ログイン済み)。一致の決まりと見える範囲はサーバーの単体テストで見るので、
 // ここではヘッダーから開いて打つと結果が出て、押すと元の一覧と同じように開くことだけを確かめる。
 import { test, expect } from '@playwright/test';
-import { AUDIO_PLAYER_REGION_NAME } from './helpers';
+import { withContentByApi } from './api-helpers';
+import { AUDIO_PLAYER_REGION_NAME, uniqueId } from './helpers';
 import { setUpArchiveForBrowsing, withDirectoryContent } from './fixture-helpers';
 
 test.use({ actionTimeout: 10_000, navigationTimeout: 10_000 });
@@ -14,38 +15,41 @@ const LOCATION_BUTTON_NAME = /^(場所|Location): /;
 test('検索: ヘッダーから開いて打つと、アーカイブのファイルが出て、押すとその場で鳴る', async ({
 	page
 }) => {
-	await withDirectoryContent(
-		page.request,
-		{ type: 'archive', namePrefix: 'e2e-search' },
-		async (archive, name) => {
-			await setUpArchiveForBrowsing(page.request, archive);
+	const groupTitle = uniqueId('e2e-search-group');
+	await withContentByApi(page.request, { type: 'group', title: groupTitle }, async (group) => {
+		await withDirectoryContent(
+			page.request,
+			{ type: 'archive', namePrefix: 'e2e-search', parentId: group.id },
+			async (archive, name) => {
+				await setUpArchiveForBrowsing(page.request, archive);
 
-			await page.goto('/');
-			await page.getByRole('link', { name: SEARCH_LINK_NAME }).click();
-			const input = page.getByLabel(SEARCH_INPUT_LABEL);
-			await expect(input).toBeFocused();
-			await input.fill('2023 リスニング');
-			await page.waitForURL((url) => url.searchParams.get('q') === '2023 リスニング');
+				await page.goto('/');
+				await page.getByRole('link', { name: SEARCH_LINK_NAME }).click();
+				const input = page.getByLabel(SEARCH_INPUT_LABEL);
+				await expect(input).toBeFocused();
+				await input.fill('2023 リスニング');
+				await page.waitForURL((url) => url.searchParams.get('q') === '2023 リスニング');
 
-			// ほかのテストのアーカイブも当たりうるので、2段目のアーカイブの名前で行を選ぶ。
-			const row = page.getByRole('listitem').filter({ hasText: name });
+				// ほかのテストのアーカイブも当たりうるので、2段目のアーカイブの名前で行を選ぶ。
+				const row = page.getByRole('listitem').filter({ hasText: name });
 
-			// 2段目の場所を押すと階層が並び、アーカイブを開ける。
-			await row.getByRole('button', { name: LOCATION_BUTTON_NAME }).click();
-			await expect(page.getByRole('menuitem', { name })).toHaveAttribute(
-				'href',
-				`/archives/${archive.id}`
-			);
-			await page.keyboard.press('Escape');
+				// 2段目の場所を押すと、上のグループからの階層が並び、どの段も開ける。
+				await row.getByRole('button', { name: LOCATION_BUTTON_NAME }).click();
+				const levels = page.getByRole('menuitem');
+				await expect(levels).toHaveText([groupTitle, name]);
+				await expect(levels.first()).toHaveAttribute('href', `/groups/${group.id}`);
+				await expect(levels.last()).toHaveAttribute('href', `/archives/${archive.id}`);
+				await page.keyboard.press('Escape');
 
-			await row.getByRole('button', { name: /2023 リスニング/ }).click();
-			await expect(page.getByRole('region', { name: AUDIO_PLAYER_REGION_NAME })).toBeVisible();
-			await expect(page.locator('audio')).toHaveAttribute(
-				'src',
-				new RegExp(`/api/v1/contents/${archive.id}/items/\\d+/download$`)
-			);
-		}
-	);
+				await row.getByRole('button', { name: /2023 リスニング/ }).click();
+				await expect(page.getByRole('region', { name: AUDIO_PLAYER_REGION_NAME })).toBeVisible();
+				await expect(page.locator('audio')).toHaveAttribute(
+					'src',
+					new RegExp(`/api/v1/contents/${archive.id}/items/\\d+/download$`)
+				);
+			}
+		);
+	});
 });
 
 test('検索: 閲覧ページから開くとその中を探し、「すべて」で全体に切り替わる', async ({ page }) => {

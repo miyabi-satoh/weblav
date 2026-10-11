@@ -2136,6 +2136,8 @@ export interface components {
             matchedInDescription: boolean;
         };
         SearchFileHit: {
+            /** @description フォルダーより上のグループ。ルートに近い順で、ルート直下なら空。場所の頭に出す。 */
+            ancestors: components["schemas"]["GroupAncestor"][];
             /** Format: int64 */
             contentId: number;
             entry: components["schemas"]["FolderEntry"];
@@ -2145,6 +2147,8 @@ export interface components {
             path: string;
         };
         SearchItemHit: {
+            /** @description アーカイブより上のグループ。ルートに近い順で、ルート直下なら空。場所の頭に出す。 */
+            ancestors: components["schemas"]["GroupAncestor"][];
             /** Format: int64 */
             archiveId: number;
             /** @description 行の2段目に、どこにあるかとして出す。 */
@@ -2152,6 +2156,8 @@ export interface components {
             item: components["schemas"]["ArchiveViewItem"];
         };
         SearchLinkHit: {
+            /** @description 一覧のファイルを持つコンテンツより上のグループ。ルートに近い順で、ルート直下なら空。場所の頭に出す。 */
+            ancestors: components["schemas"]["GroupAncestor"][];
             /** @description フォルダー・アーカイブの中の一覧なら、そのコンテンツのタイトル。 */
             containerTitle?: string | null;
             /**

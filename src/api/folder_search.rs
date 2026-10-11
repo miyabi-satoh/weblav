@@ -9,7 +9,7 @@ use serde::Serialize;
 use utoipa::ToSchema;
 
 use super::archive_items;
-use super::contents::{self, FolderEntry};
+use super::contents::{self, FolderEntry, GroupAncestor};
 use super::link_preview::{self, LinkPreview};
 use super::links_file;
 use super::roots::OwnDirs;
@@ -31,12 +31,16 @@ pub(super) struct SearchableFolder {
     pub(super) path: String,
     /// 辿り始める階層 (登録パスからの相対パス)。フォルダー全体なら空。`contents::search_scope` で確かめ済み。
     pub(super) sub_path: String,
+    /// フォルダーより上のグループ。ルートに近い順。
+    pub(super) ancestors: Vec<GroupAncestor>,
 }
 
 /// リンクの一覧のファイルの `file` コンテンツ。閲覧者が一覧で見られることは、呼び出し側が確かめる。
 pub(super) struct LinksFileContent {
     pub(super) id: i64,
     pub(super) title: String,
+    /// このコンテンツより上のグループ。ルートに近い順。
+    pub(super) ancestors: Vec<GroupAncestor>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -45,6 +49,8 @@ pub(super) struct SearchFileHit {
     pub(super) content_id: i64,
     /// 行の2段目に、どこにあるかとして出す。
     pub(super) folder_title: String,
+    /// フォルダーより上のグループ。ルートに近い順で、ルート直下なら空。場所の頭に出す。
+    pub(super) ancestors: Vec<GroupAncestor>,
     /// フォルダーの登録パスからの相対パス (`/` 区切り)。エントリ自身の名前まで含む。
     pub(super) path: String,
     pub(super) entry: FolderEntry,
@@ -63,6 +69,8 @@ pub(super) struct SearchLinkHit {
     pub(super) file_title: String,
     /// フォルダー・アーカイブの中の一覧なら、そのコンテンツのタイトル。
     pub(super) container_title: Option<String>,
+    /// 一覧のファイルを持つコンテンツより上のグループ。ルートに近い順で、ルート直下なら空。場所の頭に出す。
+    pub(super) ancestors: Vec<GroupAncestor>,
     pub(super) url: String,
     pub(super) note: Option<String>,
     pub(super) preview: Option<LinkPreview>,
@@ -85,6 +93,7 @@ struct LinksSource {
     path: Option<String>,
     item: Option<i64>,
     container_title: Option<String>,
+    ancestors: Vec<GroupAncestor>,
     /// `file` コンテンツの登録したタイトル。
     content_title: Option<String>,
     file: PathBuf,
@@ -104,7 +113,7 @@ pub(super) async fn search(
     state: &AppState,
     viewer: &Viewer,
     folders: Vec<SearchableFolder>,
-    archives: Vec<(i64, String)>,
+    archives: Vec<(i64, String, Vec<GroupAncestor>)>,
     links_files: Vec<LinksFileContent>,
     terms: &Terms,
 ) -> Result<FolderSearch, AppError> {
@@ -113,6 +122,10 @@ pub(super) async fn search(
     let walk_terms = terms.clone();
     let folder_ids: Vec<i64> = folders.iter().map(|folder| folder.id).collect();
     let folder_titles: Vec<String> = folders.iter().map(|folder| folder.title.clone()).collect();
+    let folder_ancestors: Vec<Vec<GroupAncestor>> = folders
+        .iter()
+        .map(|folder| folder.ancestors.clone())
+        .collect();
 
     // 辿るのはディスクの I/O で、フォルダーの大きさに比例して重くなる。
     let (mut candidates, incomplete, mut sources) = run_blocking(move || {
@@ -149,6 +162,7 @@ pub(super) async fn search(
                         path: Some(entry.rel_path.clone()),
                         item: None,
                         container_title: Some(folder.title.clone()),
+                        ancestors: folder.ancestors.clone(),
                         content_title: None,
                         file: absolute.clone(),
                         file_name: name.clone(),
@@ -183,6 +197,7 @@ pub(super) async fn search(
                 Some(SearchFileHit {
                     content_id: folder_ids[candidate.folder],
                     folder_title: folder_titles[candidate.folder].clone(),
+                    ancestors: folder_ancestors[candidate.folder].clone(),
                     path: candidate.rel_path,
                     entry,
                 })
@@ -208,10 +223,10 @@ pub(super) async fn search(
 async fn archive_sources(
     state: &AppState,
     viewer: &Viewer,
-    archives: Vec<(i64, String)>,
+    archives: Vec<(i64, String, Vec<GroupAncestor>)>,
 ) -> Result<Vec<LinksSource>, AppError> {
     let mut sources = Vec::new();
-    for (archive_id, archive_title) in archives {
+    for (archive_id, archive_title, ancestors) in archives {
         let items = sqlx::query!(
             r#"SELECT id as "id!", rel_path FROM archive_items WHERE archive_id = ? AND published = 1"#,
             archive_id
@@ -232,6 +247,7 @@ async fn archive_sources(
                 path: None,
                 item: Some(item.id),
                 container_title: Some(archive_title.clone()),
+                ancestors: ancestors.clone(),
                 content_title: None,
                 file: file.path,
                 file_name: file.file_name,
@@ -257,6 +273,7 @@ async fn file_sources(
             path: None,
             item: None,
             container_title: None,
+            ancestors: content.ancestors,
             content_title: Some(content.title),
             file: file.path,
             file_name: file.file_name,
@@ -319,6 +336,7 @@ async fn search_links(
                     item: source.item,
                     file_title: file_title.clone(),
                     container_title: source.container_title.clone(),
+                    ancestors: source.ancestors.clone(),
                     url,
                     note,
                     preview,

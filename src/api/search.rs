@@ -81,6 +81,8 @@ pub(super) struct SearchItemHit {
     pub(super) archive_id: i64,
     /// 行の2段目に、どこにあるかとして出す。
     pub(super) archive_title: String,
+    /// アーカイブより上のグループ。ルートに近い順で、ルート直下なら空。場所の頭に出す。
+    pub(super) ancestors: Vec<GroupAncestor>,
     pub(super) item: ArchiveViewItem,
 }
 
@@ -152,7 +154,7 @@ async fn search(
     let archives = found
         .archives
         .iter()
-        .map(|archive| (archive.id, archive.title.clone()))
+        .map(|archive| (archive.id, archive.title.clone(), archive.ancestors.clone()))
         .collect();
     let in_folders = folder_search::search(
         &state,

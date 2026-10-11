@@ -123,6 +123,7 @@ async function createDirectoryContentByApi(
 		path: string;
 		extensions?: string;
 		visibility?: Visibility;
+		parentId?: number;
 	}
 ): Promise<DirectoryContent | null> {
 	// 置き場を登録していないので、どのパスもルートの外として断られる。
@@ -192,11 +193,16 @@ export function sharedLocationLabel(shared: SharedContentRoot, dirName: string):
  * フィクスチャの木を作って folder / archive として登録し、`body` に渡す。
  * サーバーからパスが見えなければテストを飛ばす。登録したコンテンツと木は、途中で失敗しても片付ける。
  * タイトルは `namePrefix` から作る一意な名前 (木のディレクトリ名と同じ)。archive は木の mp3・pdf を拾う。
- * `files` (パス → 中身) を渡すと、既定の木の代わりにその木を作る。
+ * `files` (パス → 中身) を渡すと、既定の木の代わりにその木を作る。`parentId` を渡すと、そのグループの下に登録する。
  */
 export async function withDirectoryContent(
 	request: APIRequestContext,
-	options: { type: 'folder' | 'archive'; namePrefix: string; files?: Record<string, string> },
+	options: {
+		type: 'folder' | 'archive';
+		namePrefix: string;
+		files?: Record<string, string>;
+		parentId?: number;
+	},
 	body: (content: DirectoryContent, name: string) => Promise<void>
 ): Promise<void> {
 	const name = uniqueId(options.namePrefix);
@@ -207,7 +213,8 @@ export async function withDirectoryContent(
 			type: options.type,
 			title: name,
 			path: root,
-			extensions: options.type === 'archive' ? 'mp3,pdf' : undefined
+			extensions: options.type === 'archive' ? 'mp3,pdf' : undefined,
+			parentId: options.parentId
 		});
 		test.skip(content === null, FIXTURE_UNREACHABLE);
 		contentId = content!.id;

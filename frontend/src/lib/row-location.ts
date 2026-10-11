@@ -39,3 +39,22 @@ export function rowLocationText(location: RowLocation): {
 		full: labels.join(SEPARATOR)
 	};
 }
+
+/** 検索の範囲にしている場所。`depth` は、フォルダーの中の階層を範囲にしているときの、その深さ。 */
+export type ScopePlace = { contentId: number; depth: number };
+
+/**
+ * 範囲の中を探しているときの、行に出し始める段 (`RowLocation.from`)。範囲の外の行と、範囲が無いときは `undefined`。
+ * 場所は「上のグループ → 当たりを持つコンテンツ (`ownId`) → その中の階層」の順に並んでいる前提。
+ * 範囲がグループならそのグループから、フォルダーの階層ならその階層から出す。
+ */
+export function scopeStart(
+	scope: ScopePlace | null,
+	ancestorIds: number[],
+	ownId?: number
+): number | undefined {
+	if (!scope) return undefined;
+	const group = ancestorIds.indexOf(scope.contentId);
+	if (group >= 0) return group;
+	return ownId === scope.contentId ? ancestorIds.length + scope.depth : undefined;
+}
