@@ -593,5 +593,7 @@
 	"search_truncated": "先頭の {count} 件を出しています。語を足すと絞れます。",
 	"search_folders_incomplete": "大きなフォルダーは、途中までしか探していません。",
 	"search_fetch_failed": "検索に失敗しました。しばらくしてから再度お試しください。",
-	"search_section_count_truncated": "{count} 件以上"
+	"search_section_count_truncated": "{count} 件以上",
+	"row_location_button": "場所: {path}",
+	"row_location_menu_label": "場所を開く"
 }

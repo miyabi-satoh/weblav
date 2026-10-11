@@ -3,8 +3,12 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import FolderIcon from '@lucide/svelte/icons/folder';
+	import HouseIcon from '@lucide/svelte/icons/house';
+	import { contentTypeIcon } from '$lib/content-types';
 	import { withQuery } from '$lib/href';
-	import { linksFileHref } from '$lib/links-file';
+	import { linksFileHref, LinksFileIcon } from '$lib/links-file';
+	import type { RowLocation, RowLocationLevel } from '$lib/row-location';
 	import * as m from '$lib/paraglide/messages.js';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
@@ -104,22 +108,58 @@
 		contentHits.length + itemHits.length + fileHits.length + linkHits.length > 0
 	);
 
+	// 2段目に出す、どこにあるか。押すと階層を並べ、選んだ段の画面を開く (→ docs/search.md「画面」)。
+
 	let placements = $derived(new Map(contentHits.map((hit) => [hit.content.id, hit])));
 
-	/** どこにあるか。説明だけで当たったものは、何で当たったか分かるよう説明を添える。 */
-	function contentSubtitle(content: ContentEntry): string[] {
+	/** 親のグループ。ルート直下なら「ホーム」。 */
+	function contentLocation(content: ContentEntry): RowLocation {
+		const parent = placements.get(content.id)?.parent;
+		return {
+			levels: [
+				parent
+					? {
+							label: parent.title,
+							href: resolve('/groups/[id]', { id: String(parent.id) }),
+							icon: contentTypeIcon('group')
+						}
+					: { label: m.breadcrumb_home(), href: resolve('/'), icon: HouseIcon }
+			]
+		};
+	}
+
+	/** 説明だけで当たったものは、何で当たったか分かるよう説明を添える。 */
+	function contentSubtitle(content: ContentEntry): string | null {
 		const hit = placements.get(content.id);
-		const location = hit?.parent?.title ?? m.breadcrumb_home();
-		return hit?.matchedInDescription && content.description
-			? [location, content.description]
-			: [location];
+		return hit?.matchedInDescription && content.description ? content.description : null;
+	}
+
+	function archiveLevel(id: number, title: string): RowLocationLevel {
+		return {
+			label: title,
+			href: resolve('/archives/[id]', { id: String(id) }),
+			icon: contentTypeIcon('archive')
+		};
+	}
+
+	/** フォルダーと、その中の `dirs` までの階層。 */
+	function folderLevels(id: number, title: string, dirs: string[]): RowLocationLevel[] {
+		const href = resolve('/folders/[id]', { id: String(id) });
+		return [
+			{ label: title, href, icon: contentTypeIcon('folder') },
+			...dirs.map((label, index) => ({
+				label,
+				href: withQuery(href, { path: dirs.slice(0, index + 1).join('/') }),
+				icon: FolderIcon
+			}))
+		];
 	}
 
 	let itemRows = $derived<ArchiveViewRow[]>(
 		itemHits.map((hit) => ({
 			archiveId: hit.archiveId,
 			item: hit.item,
-			subtitle: [hit.archiveTitle, hit.item.subtitle].filter((part): part is string => !!part)
+			location: { levels: [archiveLevel(hit.archiveId, hit.archiveTitle)] }
 		}))
 	);
 
@@ -127,13 +167,25 @@
 		return linksFileHref(row.archiveId, { item: row.item.id });
 	}
 
-	/** フォルダーの中の行の2段目。フォルダーの名前と、その中のどこにあるか。 */
+	/**
+	 * 範囲にしているフォルダーの階層の深さ。その中を探している間は、範囲より上はどの行も同じなので、
+	 * 行には範囲から下だけを出す。
+	 */
+	let scopeDepth = $derived(
+		data.scope && !data.all
+			? { contentId: Number(data.scope.within), depth: data.scope.path?.split('/').length ?? 0 }
+			: null
+	);
+
 	let fileRows = $derived<FolderEntryRow[]>(
 		fileHits.map((hit) => ({
 			contentId: hit.contentId,
 			path: hit.path,
 			entry: hit.entry,
-			subtitle: [hit.folderTitle, ...hit.path.split('/').slice(0, -1)].join(' / ')
+			location: {
+				levels: folderLevels(hit.contentId, hit.folderTitle, hit.path.split('/').slice(0, -1)),
+				...(scopeDepth?.contentId === hit.contentId ? { from: scopeDepth.depth } : {})
+			}
 		}))
 	);
 
@@ -145,22 +197,37 @@
 		return linksFileHref(row.contentId, { path: row.path });
 	}
 
-	/** 一覧のファイルの中のリンクの2段目。どの一覧にあるかと、`note` で当たったときは `note`。 */
+	/** リンクの一覧の中の行。どの一覧にあるかと、`note` で当たったときは `note` を2段目に出す。 */
 	let linkRows = $derived<LinksEntryRow[]>(
 		linkHits.map((hit) => {
-			const location = [hit.containerTitle, hit.fileTitle]
-				.filter((part): part is string => !!part)
-				.join(' / ');
+			const target = {
+				...(hit.path != null ? { path: hit.path } : {}),
+				...(hit.item != null ? { item: hit.item } : {})
+			};
+			// 一覧のファイルを入れているフォルダーかアーカイブ。`file` コンテンツの一覧には無い。
+			const container =
+				hit.containerTitle == null
+					? []
+					: hit.item != null
+						? [archiveLevel(hit.contentId, hit.containerTitle)]
+						: folderLevels(hit.contentId, hit.containerTitle, []);
 			return {
 				contentId: hit.contentId,
-				target: {
-					...(hit.path != null ? { path: hit.path } : {}),
-					...(hit.item != null ? { item: hit.item } : {})
-				},
+				target,
 				url: hit.url,
 				note: hit.note,
 				preview: hit.preview,
-				subtitle: hit.matchedInNote && hit.note ? [location, hit.note] : [location]
+				subtitle: hit.matchedInNote && hit.note ? hit.note : null,
+				location: {
+					levels: [
+						...container,
+						{
+							label: hit.fileTitle,
+							href: linksFileHref(hit.contentId, target),
+							icon: LinksFileIcon
+						}
+					]
+				}
 			};
 		})
 	);
@@ -274,7 +341,11 @@
 					contentHits.length,
 					result.contentsTruncated
 				)}
-				<ContentList entries={contentHits.map((hit) => hit.content)} subtitle={contentSubtitle} />
+				<ContentList
+					entries={contentHits.map((hit) => hit.content)}
+					subtitle={contentSubtitle}
+					location={contentLocation}
+				/>
 				{#if result.contentsTruncated}
 					{@render truncatedNote(contentHits.length)}
 				{/if}

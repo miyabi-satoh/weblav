@@ -4,7 +4,7 @@
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
 	import { isPlainClick } from '$lib/image-viewer';
 	import { openViewerItem, type ViewerItem } from '$lib/viewer-items';
-	import { browseRowClass } from '$lib/list-row';
+	import { browseRowClass, browseRowPressClass, browseRowTextClass } from '$lib/list-row';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
 
 	// 閲覧側の一覧の、ページ内のビューアーで開く PDF・動画・テキストなどの行・タイル (→ $lib/list-row.ts)。
@@ -14,7 +14,9 @@
 		file,
 		items,
 		compact = false,
-		children
+		children,
+		subtitle,
+		trailing
 	}: {
 		/** `items` と同じ組み立て方で作る (押した行を `items` の中から `src` で探すため)。 */
 		file: ViewerFile;
@@ -22,8 +24,12 @@
 		items: ViewerItem[];
 		/** フォルダー一覧の詰めた行 (`browseRowClass(true)`) にする。タイルには効かない。 */
 		compact?: boolean;
-		/** アイコンの右に置く、行の文字。 */
+		/** 行のタイトル。これを包むリンクの押せる範囲が、行いっぱいに広がる。 */
 		children: Snippet;
+		/** タイトルの下に置く2段目。 */
+		subtitle?: Snippet;
+		/** 行の文字の後ろに置くもの。 */
+		trailing?: Snippet;
 	} = $props();
 
 	function handleClick(event: MouseEvent) {
@@ -33,15 +39,21 @@
 	}
 </script>
 
-<!-- API への直リンクか、URL のファイルの元の URL (→ $lib/api/urls.ts)。
-     中継の URL は Office をダウンロードにし、LAN を指す名前では開けないため、元の URL にする。 -->
-<a
-	href={file.originalUrl ?? file.src}
-	class={browseRowClass(compact)}
-	target="_blank"
-	rel="external noopener noreferrer"
-	onclick={handleClick}
->
+<div class={browseRowClass(compact)}>
 	<ListRowIcon icon={FileIcon} {compact} thumbnail={file.thumbnail} />
-	{@render children()}
-</a>
+	<span class={browseRowTextClass()}>
+		<!-- API への直リンクか、URL のファイルの元の URL (→ $lib/api/urls.ts)。
+		     中継の URL は Office をダウンロードにし、LAN を指す名前では開けないため、元の URL にする。 -->
+		<a
+			href={file.originalUrl ?? file.src}
+			class={browseRowPressClass()}
+			target="_blank"
+			rel="external noopener noreferrer"
+			onclick={handleClick}
+		>
+			{@render children()}
+		</a>
+		{@render subtitle?.()}
+	</span>
+	{@render trailing?.()}
+</div>

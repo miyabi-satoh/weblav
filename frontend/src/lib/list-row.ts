@@ -3,7 +3,10 @@ import { browseLayout } from '$lib/browse-layout.svelte';
 /**
  * 閲覧側の一覧 (トップ・グループ・アーカイブ・フォルダー) で共有する class。
  * 1列リストとタイルの2つの並べ方を持ち、`browse*Class()` が端末で選んだ方を返す (→ $lib/browse-layout.svelte.ts)。
- * 行の中身は `list-row-icon.svelte` / `list-row-glyph.svelte`。行そのもの (`<a>` / `<button>`) は
+ * 行は枠 (`browseRowClass`) の中に、タイトルを包むリンクかボタン (`browseRowPressClass`) を1つ置き、
+ * その押せる範囲を枠いっぱいに広げる。2段目に置く別のボタン (検索の結果の場所) を、リンクの中に入れ子に
+ * せずに重ねるため (→ docs/ui.md「UI 全般」)。
+ * 行の中身は `list-row-icon.svelte` / `list-row-glyph.svelte`。タイトルのリンク (`<a>` / `<button>`) は
  * 各画面に置く。`resolve()` や `rel="external"` を eslint (svelte/no-navigation-without-resolve) が
  * 静的に見られるようにするため。
  * 管理画面「公開できるフォルダー」(`admin/roots`) は `listClass`/`listItemClass` (枠) だけを使い、
@@ -17,7 +20,7 @@ export const listItemClass = 'border-b border-divider last:border-b-0';
 /** 閲覧側の本文の左右の余白。行と、その外に置く見出し・文言で揃える。 */
 export const browseGutterClass = 'px-4 sm:px-6';
 
-const listRowClass = `flex min-h-18 w-full items-center gap-4 py-3 text-left transition-colors hover:bg-muted/50 ${browseGutterClass}`;
+const listRowClass = `relative flex min-h-18 w-full items-center gap-4 py-3 text-left transition-colors hover:bg-muted/50 ${browseGutterClass}`;
 
 /** 行の1段目 (タイトル・名前)。 */
 const listRowTitleClass = 'block text-lg leading-6';
@@ -29,7 +32,7 @@ const compactListRowTitleClass = 'block truncate text-base leading-6 sm:text-lg'
 const listRowSubtitleClass = 'mt-0.5 block text-xs text-muted-foreground sm:text-sm';
 
 /** フォルダー一覧用。名前が生のまま出るため、スマートフォン幅では一段小さくする (→ docs/ui.md「UI 全般」)。 */
-const compactListRowClass = `flex min-h-16 w-full items-center gap-3.5 py-2.5 text-left transition-colors hover:bg-muted/50 sm:min-h-18 sm:gap-4 sm:py-3 ${browseGutterClass}`;
+const compactListRowClass = `relative flex min-h-16 w-full items-center gap-3.5 py-2.5 text-left transition-colors hover:bg-muted/50 sm:min-h-18 sm:gap-4 sm:py-3 ${browseGutterClass}`;
 
 /** 一覧の上の段。左に並び順 (と絞り込み)、右端にリストとタイルの切り替えを置く (→ docs/ui.md「UI 全般」)。 */
 export const browseControlsClass = 'flex items-start justify-between gap-3';
@@ -44,7 +47,7 @@ const tileListClass = `grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:g
 /** タイルの右上の隅。新規タブの印と、画像を開いている間の印を置く。 */
 export const tileCornerClass = 'absolute top-2 right-2';
 
-/** タイル1枚。行と同じく要素の全体を押せる。`relative` は `tileCornerClass` の印のため。 */
+/** タイル1枚。行と同じく要素の全体を押せる。 */
 const tileClass =
 	'relative flex h-full w-full flex-col items-center gap-2 rounded-lg border bg-background px-3 pt-4 pb-3 text-center transition-colors hover:bg-muted/50';
 
@@ -53,7 +56,7 @@ const tileClass =
  * 押せる範囲と枠は `tileClass` に揃える。
  */
 export const linkTileClass =
-	'flex h-full w-full flex-col overflow-hidden rounded-lg border bg-background text-left transition-colors hover:bg-muted/50';
+	'relative flex h-full w-full flex-col overflow-hidden rounded-lg border bg-background text-left transition-colors hover:bg-muted/50';
 
 /** 閲覧側の一覧の `<ul>`。 */
 export function browseListClass(): string {
@@ -70,6 +73,18 @@ export function browseRowClass(compact = false): string {
 	if (browseLayout.tile) return tileClass;
 	return compact ? compactListRowClass : listRowClass;
 }
+
+/**
+ * タイトルを包むリンク・ボタン。押せる範囲を `::after` で行・タイルの枠いっぱいに広げ、フォーカスの枠もそこに出す。
+ */
+export function browseRowPressClass(): string {
+	const pressClass =
+		'block w-full outline-none after:absolute after:inset-0 focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring';
+	return browseLayout.tile ? `${pressClass} after:rounded-lg` : pressClass;
+}
+
+/** 行いっぱいに広げたリンクの上に重ねて、別に押せるようにする要素。 */
+export const browseRowAboveClass = 'relative z-10';
 
 /** 行の文字 (タイトルと2段目) を包む要素。 */
 export function browseRowTextClass(): string {

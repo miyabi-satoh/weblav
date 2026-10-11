@@ -9,6 +9,7 @@ test.use({ actionTimeout: 10_000, navigationTimeout: 10_000 });
 const SEARCH_LINK_NAME = /^検索$|^Search$/;
 // ラベルは文言の前後で改行しているので、前後の空白を許す。
 const SEARCH_INPUT_LABEL = /^\s*(探す語|Search for)\s*$/;
+const LOCATION_BUTTON_NAME = /^(場所|Location): /;
 
 test('検索: ヘッダーから開いて打つと、アーカイブのファイルが出て、押すとその場で鳴る', async ({
 	page
@@ -27,8 +28,17 @@ test('検索: ヘッダーから開いて打つと、アーカイブのファイ
 			await page.waitForURL((url) => url.searchParams.get('q') === '2023 リスニング');
 
 			// ほかのテストのアーカイブも当たりうるので、2段目のアーカイブの名前で行を選ぶ。
-			const row = page.getByRole('button', { name: /2023 リスニング/ }).filter({ hasText: name });
-			await row.click();
+			const row = page.getByRole('listitem').filter({ hasText: name });
+
+			// 2段目の場所を押すと階層が並び、アーカイブを開ける。
+			await row.getByRole('button', { name: LOCATION_BUTTON_NAME }).click();
+			await expect(page.getByRole('menuitem', { name })).toHaveAttribute(
+				'href',
+				`/archives/${archive.id}`
+			);
+			await page.keyboard.press('Escape');
+
+			await row.getByRole('button', { name: /2023 リスニング/ }).click();
 			await expect(page.getByRole('region', { name: AUDIO_PLAYER_REGION_NAME })).toBeVisible();
 			await expect(page.locator('audio')).toHaveAttribute(
 				'src',
@@ -55,7 +65,9 @@ test('検索: 閲覧ページから開くとその中を探し、「すべて」
 			await expect(page).toHaveURL(new RegExp(`within=${archive.id}`));
 
 			// 範囲の中の行は、どれもこのアーカイブのもの。
-			const rows = page.getByRole('button', { name: /2023 リスニング/ });
+			const rows = page
+				.getByRole('listitem')
+				.filter({ has: page.getByRole('button', { name: /2023 リスニング/ }) });
 			await expect(rows.first()).toBeVisible();
 			await expect(rows.filter({ hasNotText: name })).toHaveCount(0);
 
