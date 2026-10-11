@@ -154,7 +154,11 @@ async fn search(
     let archives = found
         .archives
         .iter()
-        .map(|archive| (archive.id, archive.title.clone(), archive.ancestors.clone()))
+        .map(|archive| folder_search::Container {
+            id: archive.id,
+            title: archive.title.clone(),
+            ancestors: archive.ancestors.clone(),
+        })
         .collect();
     let in_folders = folder_search::search(
         &state,

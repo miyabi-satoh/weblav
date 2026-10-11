@@ -35,6 +35,14 @@ pub(super) struct SearchableFolder {
     pub(super) ancestors: Vec<GroupAncestor>,
 }
 
+/// 中を探すフォルダー・アーカイブの、当たりの場所に出す分 (id・題・上のグループ)。
+pub(super) struct Container {
+    pub(super) id: i64,
+    pub(super) title: String,
+    /// このコンテンツより上のグループ。ルートに近い順。
+    pub(super) ancestors: Vec<GroupAncestor>,
+}
+
 /// リンクの一覧のファイルの `file` コンテンツ。閲覧者が一覧で見られることは、呼び出し側が確かめる。
 pub(super) struct LinksFileContent {
     pub(super) id: i64,
@@ -113,18 +121,20 @@ pub(super) async fn search(
     state: &AppState,
     viewer: &Viewer,
     folders: Vec<SearchableFolder>,
-    archives: Vec<(i64, String, Vec<GroupAncestor>)>,
+    archives: Vec<Container>,
     links_files: Vec<LinksFileContent>,
     terms: &Terms,
 ) -> Result<FolderSearch, AppError> {
     let roots = super::roots::load_roots(&state.pool).await?;
     let own_dirs = state.own_dirs.clone();
     let walk_terms = terms.clone();
-    let folder_ids: Vec<i64> = folders.iter().map(|folder| folder.id).collect();
-    let folder_titles: Vec<String> = folders.iter().map(|folder| folder.title.clone()).collect();
-    let folder_ancestors: Vec<Vec<GroupAncestor>> = folders
+    let containers: Vec<Container> = folders
         .iter()
-        .map(|folder| folder.ancestors.clone())
+        .map(|folder| Container {
+            id: folder.id,
+            title: folder.title.clone(),
+            ancestors: folder.ancestors.clone(),
+        })
         .collect();
 
     // 辿るのはディスクの I/O で、フォルダーの大きさに比例して重くなる。
@@ -184,7 +194,7 @@ pub(super) async fn search(
 
     candidates.sort_by(|a, b| {
         title_cmp(&a.name, &b.name)
-            .then_with(|| title_cmp(&folder_titles[a.folder], &folder_titles[b.folder]))
+            .then_with(|| title_cmp(&containers[a.folder].title, &containers[b.folder].title))
             .then_with(|| a.rel_path.cmp(&b.rel_path))
     });
     let files_truncated = candidates.len() > RESULT_LIMIT;
@@ -194,10 +204,11 @@ pub(super) async fn search(
             .into_iter()
             .filter_map(|candidate| {
                 let entry = contents::folder_entry(candidate.name, &candidate.absolute)?;
+                let folder = &containers[candidate.folder];
                 Some(SearchFileHit {
-                    content_id: folder_ids[candidate.folder],
-                    folder_title: folder_titles[candidate.folder].clone(),
-                    ancestors: folder_ancestors[candidate.folder].clone(),
+                    content_id: folder.id,
+                    folder_title: folder.title.clone(),
+                    ancestors: folder.ancestors.clone(),
                     path: candidate.rel_path,
                     entry,
                 })
@@ -223,10 +234,15 @@ pub(super) async fn search(
 async fn archive_sources(
     state: &AppState,
     viewer: &Viewer,
-    archives: Vec<(i64, String, Vec<GroupAncestor>)>,
+    archives: Vec<Container>,
 ) -> Result<Vec<LinksSource>, AppError> {
     let mut sources = Vec::new();
-    for (archive_id, archive_title, ancestors) in archives {
+    for Container {
+        id: archive_id,
+        title: archive_title,
+        ancestors,
+    } in archives
+    {
         let items = sqlx::query!(
             r#"SELECT id as "id!", rel_path FROM archive_items WHERE archive_id = ? AND published = 1"#,
             archive_id
