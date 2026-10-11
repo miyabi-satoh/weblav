@@ -30,7 +30,7 @@
 {#snippet separator()}{SPACE}<span aria-hidden="true">·</span>{SPACE}{/snippet}
 
 {#if prefix || location || hasText}
-	<span class={[browseRowSubtitleClass(), clipParts && 'flex justify-center gap-1']}>
+	<span class={browseRowSubtitleClass(!!location)}>
 		{#if prefix}
 			<span class="shrink-0">{prefix}</span>
 			{#if location || hasText}{@render separator()}{/if}

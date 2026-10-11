@@ -174,7 +174,7 @@
 			{/if}
 		</span>
 		<span class="flex w-full min-w-0 flex-col gap-1 px-3 pt-2.5 pb-3">
-			{@render titleLink('line-clamp-2 block text-base leading-6 wrap-anywhere')}
+			{@render titleLink('line-clamp-2 text-base leading-6 wrap-anywhere')}
 			{#if location || hasDescription}
 				<span class="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
 					{@render rowDetails(false)}

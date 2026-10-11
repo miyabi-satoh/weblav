@@ -44,8 +44,11 @@ export const browseToggleItemClass =
 /** タイルの並べ。1枚の幅が 170〜230px ほどに収まるよう、幅に応じて列を増やす (→ docs/ui.md「UI 全般」)。 */
 const tileListClass = `grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 ${browseGutterClass}`;
 
-/** タイルの右上の隅。新規タブの印と、画像を開いている間の印を置く。 */
-export const tileCornerClass = 'absolute top-2 right-2';
+/**
+ * タイルの右上の隅。新規タブの印と、画像を開いている間の印を置く。
+ * 枠いっぱいに広げたタイトルのリンクの上に重なるので、押したときはリンクに届かせる。
+ */
+export const tileCornerClass = 'pointer-events-none absolute top-2 right-2';
 
 /** タイル1枚。行と同じく要素の全体を押せる。 */
 const tileClass =
@@ -97,7 +100,13 @@ export function browseRowTitleClass(compact = false): string {
 	return compact ? compactListRowTitleClass : listRowTitleClass;
 }
 
-/** 行の2段目。タイルでは1行に収め、超えた分は切る。 */
-export function browseRowSubtitleClass(): string {
-	return browseLayout.tile ? `${listRowSubtitleClass} truncate` : listRowSubtitleClass;
+/**
+ * 行の2段目。タイルでは1行に収め、超えた分は切る。
+ * `parts` は、中の項目がそれぞれ縮む並び (場所のボタンを含む段)。段ごと切ると、ボタンの押せる範囲の広がりまで切れるため。
+ */
+export function browseRowSubtitleClass(parts = false): string {
+	if (!browseLayout.tile) return listRowSubtitleClass;
+	return parts
+		? `${listRowSubtitleClass} flex justify-center gap-1`
+		: `${listRowSubtitleClass} truncate`;
 }

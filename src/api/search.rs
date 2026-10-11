@@ -69,8 +69,8 @@ struct SearchQuery {
 #[serde(rename_all = "camelCase")]
 pub(super) struct SearchContentHit {
     pub(super) content: ContentResponse,
-    /// 親のグループ。ルート直下なら `None`。行の2段目に、どこにあるかとして出す。
-    pub(super) parent: Option<GroupAncestor>,
+    /// 上のグループ。ルートに近い順で、最後が親。ルート直下なら空。行の2段目に、どこにあるかとして出す。
+    pub(super) ancestors: Vec<GroupAncestor>,
     /// タイトルでは当たらず、説明で当たったか。何で当たったか分かるよう、画面が説明を添える。
     pub(super) matched_in_description: bool,
 }

@@ -2025,6 +2025,30 @@ pub(super) async fn search_scope(
     })
 }
 
+/// `parent_id` から上のグループを、ルートに近い順に並べる。`groups` は id からタイトルと親。
+fn group_lineage(
+    groups: &HashMap<i64, (String, Option<i64>)>,
+    parent_id: Option<i64>,
+) -> Vec<GroupAncestor> {
+    let mut lineage = Vec::new();
+    let mut current = parent_id;
+    // 親子が輪になった壊れたデータでも止まるよう、グループの数で打ち切る。
+    while let Some(id) = current
+        && lineage.len() < groups.len()
+    {
+        let Some((title, parent_id)) = groups.get(&id) else {
+            break;
+        };
+        lineage.push(GroupAncestor {
+            id,
+            title: title.clone(),
+        });
+        current = *parent_id;
+    }
+    lineage.reverse();
+    lineage
+}
+
 /// 検索の、コンテンツの区画の結果 (→ docs/search.md)。
 pub(super) struct ContentSearch {
     pub(super) hits: Vec<super::search::SearchContentHit>,
@@ -2057,10 +2081,10 @@ pub(super) async fn search_contents(
     .fetch_all(&state.pool)
     .await?;
 
-    let group_titles: HashMap<i64, String> = rows
+    let groups: HashMap<i64, (String, Option<i64>)> = rows
         .iter()
         .filter(|row| row.content_type == ContentType::Group)
-        .map(|row| (row.id, row.title.clone()))
+        .map(|row| (row.id, (row.title.clone(), row.parent_id)))
         .collect();
 
     let (rows, match_contents) = match scope {
@@ -2137,11 +2161,10 @@ pub(super) async fn search_contents(
     let mut placements = Vec::with_capacity(hits.len());
     let mut contents = Vec::with_capacity(hits.len());
     for (row, matched_in_description) in hits {
-        let parent = row.parent_id.map(|id| GroupAncestor {
-            id,
-            title: group_titles.get(&id).cloned().unwrap_or_default(),
-        });
-        placements.push((parent, matched_in_description));
+        placements.push((
+            group_lineage(&groups, row.parent_id),
+            matched_in_description,
+        ));
         contents.push(ContentResponse::try_from(row)?);
     }
     let contents = with_previews(state, contents).await?;
@@ -2174,9 +2197,9 @@ pub(super) async fn search_contents(
             .into_iter()
             .zip(placements)
             .map(
-                |(content, (parent, matched_in_description))| super::search::SearchContentHit {
+                |(content, (ancestors, matched_in_description))| super::search::SearchContentHit {
                     content,
-                    parent,
+                    ancestors,
                     matched_in_description,
                 },
             )
@@ -3079,6 +3102,35 @@ mod tests {
 
     /// 検索で拾えるのは、自分と祖先のグループすべてが一覧に出るものだけ。
     /// `hidden` のグループの中は、ログイン済みの人にも、作成者の `private` でも拾わない。
+    #[test]
+    fn group_lineage_lists_the_groups_above_from_the_root() {
+        let groups = HashMap::from([
+            (1, ("教材".to_string(), None)),
+            (2, ("2024".to_string(), Some(1))),
+        ]);
+        let titles = |parent_id| {
+            group_lineage(&groups, parent_id)
+                .into_iter()
+                .map(|group| (group.id, group.title))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            titles(Some(2)),
+            [(1, "教材".to_string()), (2, "2024".to_string())]
+        );
+        assert_eq!(titles(Some(1)), [(1, "教材".to_string())]);
+        assert!(titles(None).is_empty(), "ルート直下は空");
+    }
+
+    #[test]
+    fn group_lineage_stops_on_a_parent_cycle() {
+        let groups = HashMap::from([
+            (1, ("a".to_string(), Some(2))),
+            (2, ("b".to_string(), Some(1))),
+        ]);
+        assert_eq!(group_lineage(&groups, Some(1)).len(), 2);
+    }
+
     #[test]
     fn listable_ids_requires_every_ancestor_to_be_listable() {
         use crate::auth::Role;

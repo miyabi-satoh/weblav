@@ -112,19 +112,18 @@
 
 	let placements = $derived(new Map(contentHits.map((hit) => [hit.content.id, hit])));
 
-	/** 親のグループ。ルート直下なら「ホーム」。 */
+	/** 上のグループ。ルート直下なら「ホーム」。 */
 	function contentLocation(content: ContentEntry): RowLocation {
-		const parent = placements.get(content.id)?.parent;
+		const ancestors = placements.get(content.id)?.ancestors ?? [];
+		if (ancestors.length === 0) {
+			return { levels: [{ label: m.breadcrumb_home(), href: resolve('/'), icon: HouseIcon }] };
+		}
 		return {
-			levels: [
-				parent
-					? {
-							label: parent.title,
-							href: resolve('/groups/[id]', { id: String(parent.id) }),
-							icon: contentTypeIcon('group')
-						}
-					: { label: m.breadcrumb_home(), href: resolve('/'), icon: HouseIcon }
-			]
+			levels: ancestors.map((group) => ({
+				label: group.title,
+				href: resolve('/groups/[id]', { id: String(group.id) }),
+				icon: contentTypeIcon('group')
+			}))
 		};
 	}
 
@@ -177,15 +176,20 @@
 			: null
 	);
 
+	/** フォルダーの中の `path` にあるものの場所。`path` は、そのもの自身の名前まで含む。 */
+	function inFolderLocation(contentId: number, folderTitle: string, path: string): RowLocation {
+		return {
+			levels: folderLevels(contentId, folderTitle, path.split('/').slice(0, -1)),
+			...(scopeDepth?.contentId === contentId ? { from: scopeDepth.depth } : {})
+		};
+	}
+
 	let fileRows = $derived<FolderEntryRow[]>(
 		fileHits.map((hit) => ({
 			contentId: hit.contentId,
 			path: hit.path,
 			entry: hit.entry,
-			location: {
-				levels: folderLevels(hit.contentId, hit.folderTitle, hit.path.split('/').slice(0, -1)),
-				...(scopeDepth?.contentId === hit.contentId ? { from: scopeDepth.depth } : {})
-			}
+			location: inFolderLocation(hit.contentId, hit.folderTitle, hit.path)
 		}))
 	);
 
@@ -204,13 +208,13 @@
 				...(hit.path != null ? { path: hit.path } : {}),
 				...(hit.item != null ? { item: hit.item } : {})
 			};
-			// 一覧のファイルを入れているフォルダーかアーカイブ。`file` コンテンツの一覧には無い。
-			const container =
+			// 一覧のファイルを入れているフォルダーの階層かアーカイブ。`file` コンテンツの一覧には無い。
+			const container: RowLocation =
 				hit.containerTitle == null
-					? []
-					: hit.item != null
-						? [archiveLevel(hit.contentId, hit.containerTitle)]
-						: folderLevels(hit.contentId, hit.containerTitle, []);
+					? { levels: [] }
+					: hit.path != null
+						? inFolderLocation(hit.contentId, hit.containerTitle, hit.path)
+						: { levels: [archiveLevel(hit.contentId, hit.containerTitle)] };
 			return {
 				contentId: hit.contentId,
 				target,
@@ -219,8 +223,9 @@
 				preview: hit.preview,
 				subtitle: hit.matchedInNote && hit.note ? hit.note : null,
 				location: {
+					...container,
 					levels: [
-						...container,
+						...container.levels,
 						{
 							label: hit.fileTitle,
 							href: linksFileHref(hit.contentId, target),

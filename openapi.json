@@ -6998,26 +6998,23 @@
         "type": "object",
         "required": [
           "content",
+          "ancestors",
           "matchedInDescription"
         ],
         "properties": {
+          "ancestors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupAncestor"
+            },
+            "description": "上のグループ。ルートに近い順で、最後が親。ルート直下なら空。行の2段目に、どこにあるかとして出す。"
+          },
           "content": {
             "$ref": "#/components/schemas/ContentResponse"
           },
           "matchedInDescription": {
             "type": "boolean",
             "description": "タイトルでは当たらず、説明で当たったか。何で当たったか分かるよう、画面が説明を添える。"
-          },
-          "parent": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/GroupAncestor",
-                "description": "親のグループ。ルート直下なら `None`。行の2段目に、どこにあるかとして出す。"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         }
       },
