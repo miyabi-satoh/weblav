@@ -35,7 +35,7 @@ pub(super) struct SearchableFolder {
     pub(super) ancestors: Vec<GroupAncestor>,
 }
 
-/// 当たりの場所に出す、当たりを持つフォルダー・アーカイブ。
+/// 中を探すフォルダー・アーカイブの、当たりの場所に出す分 (id・題・上のグループ)。
 pub(super) struct Container {
     pub(super) id: i64,
     pub(super) title: String,

@@ -120,9 +120,7 @@
 		location={row.location}
 		text={row.location || entry.isDir
 			? undefined
-			: [entry.size != null ? formatByteSize(entry.size) : '', formatDate(entry.modifiedAt)].filter(
-					(part) => part !== ''
-				)}
+			: [formatByteSize(entry.size), formatDate(entry.modifiedAt)].filter((part) => part !== '')}
 	/>
 {/snippet}
 
