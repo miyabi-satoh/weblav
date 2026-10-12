@@ -179,13 +179,14 @@
 	{/if}
 {/snippet}
 
-<!-- 既定の値と、そこへ戻すボタン。戻すのは入力欄の値だけで、保存は区画の保存ボタンで行う。 -->
+<!-- 既定の値と、そこへ戻すボタン。変えてある項目にだけ出す (既定のままの項目に同じ文を繰り返さない)。
+     戻すのは入力欄の値だけで、保存は区画の保存ボタンで行う。 -->
 {#snippet defaultValue(name: string, value: number, initial: number, reset: () => void)}
-	<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-		<Field.FieldDescription
-			>{m.admin_settings_default_value({ value: initial })}</Field.FieldDescription
-		>
-		{#if value !== initial}
+	{#if value !== initial}
+		<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+			<Field.FieldDescription
+				>{m.admin_settings_default_value({ value: initial })}</Field.FieldDescription
+			>
 			<Button
 				type="button"
 				variant="outline"
@@ -193,8 +194,8 @@
 				aria-label={m.admin_settings_reset_button_label({ name })}
 				onclick={reset}>{m.admin_settings_reset_button()}</Button
 			>
-		{/if}
-	</div>
+		</div>
+	{/if}
 {/snippet}
 
 <div class={adminPageClass}>

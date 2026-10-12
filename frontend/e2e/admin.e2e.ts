@@ -354,7 +354,7 @@ test('管理画面: サーバーの設定は、既定から変えると印が付
 	const form = page.getByRole('form', { name: /^サーバー$|^Server$/ });
 	const input = form.getByRole('spinbutton', { name: /^アップロードの上限|^Upload limit/ });
 	const reset = form.getByRole('button', {
-		name: /^「アップロードの上限 \(MB\)」を既定の値に戻す$|^Reset "Upload limit \(MB\)" to default$/
+		name: /^「アップロードの上限 \(MB\)」を既定の値に戻す$|^Reset to default: Upload limit \(MB\)$/
 	});
 
 	await input.fill(String(changed));

@@ -128,7 +128,7 @@
 	"admin_settings_changed_mark": "Changed from default",
 	"admin_settings_default_value": "The default is {value}.",
 	"admin_settings_reset_button": "Reset to default",
-	"admin_settings_reset_button_label": "Reset \"{name}\" to default",
+	"admin_settings_reset_button_label": "Reset to default: {name}",
 	"admin_settings_server_unsaved": "You have unsaved changes.",
 	"admin_settings_server_saved_toast": "Server settings saved. They take effect the next time WebLAV starts.",
 	"admin_settings_server_fetch_failed": "Failed to load server settings. Please try again later.",

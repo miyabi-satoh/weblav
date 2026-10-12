@@ -51,7 +51,7 @@ const ROLES: Record<
 };
 
 const ONLY = process.argv.slice(2);
-const unknown = ONLY.filter((name) => !(name in stories));
+const unknown = ONLY.filter((name) => !Object.hasOwn(stories, name));
 if (unknown.length > 0) {
 	// 名前を打ち間違えたまま、何も撮らずに成功で終えないため。
 	console.error(
