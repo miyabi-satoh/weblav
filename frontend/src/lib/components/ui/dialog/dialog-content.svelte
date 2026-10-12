@@ -26,12 +26,14 @@
 	<Dialog.Overlay />
 	<!-- shadcn からの改変: 画面より高いダイアログ (入力欄が 44px で項目の多いフォーム) の上下が切れて
 	     届かなくならないよう、高さを画面に収めて中身をスクロールさせる (→ docs/ui.md「UI 全般」)。
-	     段 (見出し・本体・ボタン) の間は gap-4 から gap-6 にする。余白の決めごとの「組と組」に揃えるため (→ 同上)。 -->
+	     段 (見出し・本体・ボタン) の間は gap-4 から gap-6 にする。余白の決めごとの「組と組」に揃えるため (→ 同上)。
+	     列は grid-cols-1 (minmax(0,1fr)) にする。指定が無いと列が中身の幅 (min-content) に合わせて広がり、
+	     長いサイト名・URL の行があるだけで横スクロールが出るため。 -->
 	<DialogPrimitive.Content
 		bind:ref
 		data-slot="dialog-content"
 		class={cn(
-			"grid max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] overflow-y-auto gap-6 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 outline-none",
+			"grid grid-cols-1 max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] overflow-y-auto gap-6 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 outline-none",
 			className
 		)}
 		{...restProps}
