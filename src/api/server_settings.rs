@@ -52,13 +52,25 @@ pub struct ServerSettingsResponse {
     saved: ServerSettings,
     /// 動いている値。ポートは実際に待ち受けている番号 (ずらして起動していれば、保存した値と違う)。
     running: ServerSettings,
+    /// `config.toml` に書いていないときの値。画面が、変えてある項目に印を付け、戻せるようにするため。
+    defaults: ServerSettings,
+}
+
+impl ServerSettingsResponse {
+    fn new(saved: ServerSettings, running: ServerSettings) -> Self {
+        Self {
+            saved,
+            running,
+            defaults: ServerSettings::from_config(&Config::default()),
+        }
+    }
 }
 
 #[utoipa::path(
     get,
     path = "/admin/server-settings",
     responses(
-        (status = OK, body = ServerSettingsResponse, description = "保存した値と動いている値"),
+        (status = OK, body = ServerSettingsResponse, description = "保存した値・動いている値・既定の値"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
         (status = 409, body = crate::error::ErrorResponse, description = "config.toml を読めない"),
@@ -75,10 +87,10 @@ async fn get_server_settings(
         read_saved(&path)
     })
     .await??;
-    Ok(Json(ServerSettingsResponse {
+    Ok(Json(ServerSettingsResponse::new(
         saved,
-        running: state.running_server_settings,
-    }))
+        state.running_server_settings,
+    )))
 }
 
 #[utoipa::path(
@@ -113,10 +125,10 @@ async fn update_server_settings(
         ?payload,
         "server settings saved; effective from the next start"
     );
-    Ok(Json(ServerSettingsResponse {
+    Ok(Json(ServerSettingsResponse::new(
         saved,
-        running: state.running_server_settings,
-    }))
+        state.running_server_settings,
+    )))
 }
 
 fn validate(settings: &ServerSettings) -> Result<(), AppError> {

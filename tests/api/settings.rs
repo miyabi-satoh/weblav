@@ -85,13 +85,16 @@ async fn admin_can_save_server_settings_to_config_file(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
         body,
-        format!(r#"{{"saved":{defaults},"running":{defaults}}}"#)
+        format!(r#"{{"saved":{defaults},"running":{defaults},"defaults":{defaults}}}"#)
     );
 
     let saved = r#"{"port":3100,"uploadMaxSizeMb":500,"sessionExpiryDays":30}"#;
     let (status, body) = send_json(app, "PUT", ADMIN_SERVER_SETTINGS_URI, &cookie, saved).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body, format!(r#"{{"saved":{saved},"running":{defaults}}}"#));
+    assert_eq!(
+        body,
+        format!(r#"{{"saved":{saved},"running":{defaults},"defaults":{defaults}}}"#)
+    );
 
     let text = std::fs::read_to_string(&config_path).expect("config.toml を読めなかった");
     assert!(text.contains("# 手で書いた"), "{text}");

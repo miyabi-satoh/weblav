@@ -179,6 +179,12 @@ manual-shots *names: frontend-build
     cargo build --bin weblav-service
     cd {{ frontend_dir }} && node scripts/manual-shots.ts {{ names }}
 
+# 画面の操作を1つずつ撮り、1秒に1コマで切り替わる動画にする (要: ffmpeg。出力は docs/generated/flip/)。
+# 名前を渡すと、その筋書きだけを撮る (例: just flip-videos browse admin。筋書きは frontend/scripts/flip-stories.ts)
+flip-videos *names: frontend-build
+    cargo build --bin weblav-service
+    cd {{ frontend_dir }} && node scripts/flip-videos.ts {{ names }}
+
 # ビルドより前に、原稿のフォルダーの指定を確かめる (相対パスはリポジトリの直下から)
 _spec-dir:
     @node -e "const d = process.env.WEBLAV_SPEC_DIR; if (!d || !require('fs').statSync(d, { throwIfNoEntry: false })?.isDirectory()) { console.error('WEBLAV_SPEC_DIR に仕様書の原稿のフォルダーを指定してください'); process.exit(1); }"

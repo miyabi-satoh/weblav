@@ -1073,7 +1073,7 @@
         "operationId": "get_server_settings",
         "responses": {
           "200": {
-            "description": "保存した値と動いている値",
+            "description": "保存した値・動いている値・既定の値",
             "content": {
               "application/json": {
                 "schema": {
@@ -7257,9 +7257,14 @@
         "type": "object",
         "required": [
           "saved",
-          "running"
+          "running",
+          "defaults"
         ],
         "properties": {
+          "defaults": {
+            "$ref": "#/components/schemas/ServerSettings",
+            "description": "`config.toml` に書いていないときの値。画面が、変えてある項目に印を付け、戻せるようにするため。"
+          },
           "running": {
             "$ref": "#/components/schemas/ServerSettings",
             "description": "動いている値。ポートは実際に待ち受けている番号 (ずらして起動していれば、保存した値と違う)。"

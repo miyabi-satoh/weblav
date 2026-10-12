@@ -36,6 +36,8 @@ const DIAGRAM_HTML = path.join(import.meta.dirname, 'manual-shots/how-it-works.h
 const ADMIN_SHOTS = [
 	'roots-page',
 	'settings-page',
+	'settings-server',
+	'settings-port',
 	'maintenance-backup',
 	'contents-page',
 	'row-menu',
@@ -253,17 +255,24 @@ async function shotBetween(
 /**
  * 欄 (section) を、左右と下に余白を付けて撮る。上は欄の区切り線を入れないよう、見出しの少し上から。
  * `bottom` を渡すと、その要素を囲む枠の下端までにする (欄の下の区切り線を入れない)。
+ * 枠が無く、すぐ下に次の項目が続くときは `bottomGap` を 0 にする。
  */
-async function shotSection(page: Page, name: string, heading: Locator, bottom?: Locator) {
+async function shotSection(
+	page: Page,
+	name: string,
+	heading: Locator,
+	bottom?: Locator,
+	{ bottomGap = 16 } = {}
+) {
 	const PAD = 24;
 	await box(name, heading); // 見出しが無ければ、画像の名前を出して止める
 	await heading.evaluate((el) => el.scrollIntoView({ block: 'start' }));
 	await page.evaluate(() => window.scrollBy(0, -40));
-	const section = page.locator('section').filter({ has: heading }).last();
+	const section = page.locator('section, form').filter({ has: heading }).last();
 	const s = await box(name, section);
 	const h = await box(name, heading);
 	const b = bottom ? await box(name, bottom) : undefined;
-	const end = b ? b.y + b.height + 16 : s.y + s.height;
+	const end = b ? b.y + b.height + bottomGap : s.y + s.height;
 	const y = h.y - 20;
 	await save(
 		page,
@@ -328,7 +337,22 @@ async function shootAdmin() {
 		await upload(page, '今月の予定', '今月の予定.pdf', 'application/pdf');
 		await upload(page, '集合写真', '集合写真.jpg', 'image/jpeg');
 
-		if (want('settings-page') || want('maintenance-backup')) {
+		const SETTINGS_SHOTS = [
+			'settings-page',
+			'settings-server',
+			'settings-port',
+			'maintenance-backup'
+		];
+		if (SETTINGS_SHOTS.some(want)) {
+			// 使い捨ての backend は空きポートで動く。画像には、入れた直後の値 (既定の値) を写す。
+			await page.route('**/api/v1/admin/server-settings', async (route) => {
+				const res = await route.fetch();
+				const body = await res.json();
+				await route.fulfill({
+					response: res,
+					json: { ...body, saved: body.defaults, running: body.defaults }
+				});
+			});
 			await goto(page, '/admin/settings');
 			if (want('settings-page'))
 				await shotBetween(
@@ -338,6 +362,21 @@ async function shootAdmin() {
 					page.getByRole('heading', { name: 'サイト設定', level: 1 }),
 					{ padBottom: 24 }
 				);
+			const serverHeading = page.getByRole('heading', { name: 'サーバー' });
+			if (want('settings-server')) await shotSection(page, 'settings-server', serverHeading);
+			if (want('settings-port')) {
+				// 保存はしない。変えた項目に付く印と、戻すボタンも写す。
+				const port = page.getByRole('spinbutton', { name: 'ポート' });
+				await port.fill('3100');
+				await port.blur();
+				await shotSection(
+					page,
+					'settings-port',
+					serverHeading,
+					page.getByRole('button', { name: '「ポート」を既定の値に戻す' }),
+					{ bottomGap: 0 }
+				);
+			}
 			if (want('maintenance-backup'))
 				await shotSection(
 					page,

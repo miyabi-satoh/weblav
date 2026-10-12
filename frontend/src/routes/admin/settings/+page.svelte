@@ -7,6 +7,7 @@
 	import { adminBackupHref, adminLogsHref } from '$lib/api/urls';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
+	import { FormDirtyState } from '$lib/form-dirty.svelte';
 	import { pageTitle } from '$lib/page-title';
 	import * as m from '$lib/paraglide/messages.js';
 	import * as Field from '$lib/components/ui/field';
@@ -40,6 +41,16 @@
 	let port = $state(untrack(() => server?.saved.port ?? 0));
 	let uploadMaxSizeMb = $state(untrack(() => server?.saved.uploadMaxSizeMb ?? 0));
 	let sessionExpiryDays = $state(untrack(() => server?.saved.sessionExpiryDays ?? 0));
+
+	// 既定の値に戻しただけでは保存されないので、保存していない変更があることを保存ボタンの横に出す。
+	const serverDirty = new FormDirtyState(() => ({ port, uploadMaxSizeMb, sessionExpiryDays }));
+	serverDirty.markPristine();
+
+	// 戻すボタンは、戻すと消える。フォーカスが行き場を失わないよう、戻した入力欄へ移す。
+	function resetField(inputId: string, apply: () => void) {
+		apply();
+		document.getElementById(inputId)?.focus();
+	}
 
 	let logSettings = $state(untrack(() => data.logSettings));
 	let switchingLog = $state(false);
@@ -95,6 +106,7 @@
 				return;
 			}
 			server = saved;
+			serverDirty.markPristine();
 			toast.success(m.admin_settings_server_saved_toast());
 		} catch {
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
@@ -166,6 +178,32 @@
 	{/if}
 {/snippet}
 
+<!-- 既定の値から変えてある項目のラベルに添える印。差し色は使わない (→ docs/ui.md「UI 全般」)。 -->
+{#snippet changedMark(value: number, initial: number)}
+	{#if value !== initial}
+		<span class="text-sm text-muted-foreground">{m.admin_settings_changed_mark()}</span>
+	{/if}
+{/snippet}
+
+<!-- 既定の値と、そこへ戻すボタン。変えてある項目にだけ出す (既定のままの項目に同じ文を繰り返さない)。
+     戻すのは入力欄の値だけで、保存は区画の保存ボタンで行う。 -->
+{#snippet defaultValue(name: string, value: number, initial: number, reset: () => void)}
+	{#if value !== initial}
+		<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+			<Field.FieldDescription
+				>{m.admin_settings_default_value({ value: initial })}</Field.FieldDescription
+			>
+			<Button
+				type="button"
+				variant="outline"
+				size="xs"
+				aria-label={m.admin_settings_reset_button_label({ name })}
+				onclick={reset}>{m.admin_settings_reset_button()}</Button
+			>
+		</div>
+	{/if}
+{/snippet}
+
 <div class={adminPageClass}>
 	<div class={adminPageHeaderClass}>
 		<h1 class={pageHeadingTextClass}>{m.admin_settings_title()}</h1>
@@ -218,9 +256,12 @@
 			{#if server}
 				<Field.FieldGroup>
 					<Field.Field>
-						<Field.FieldLabel for="server-port" required
-							>{m.admin_settings_port_label()}</Field.FieldLabel
-						>
+						<div class="flex flex-wrap items-baseline gap-x-3">
+							<Field.FieldLabel for="server-port" required
+								>{m.admin_settings_port_label()}</Field.FieldLabel
+							>
+							{@render changedMark(port, server.defaults.port)}
+						</div>
 						<Input
 							id="server-port"
 							type="number"
@@ -230,12 +271,18 @@
 							required
 						/>
 						<Field.FieldDescription>{m.admin_settings_port_description()}</Field.FieldDescription>
+						{@render defaultValue(m.admin_settings_port_label(), port, server.defaults.port, () =>
+							resetField('server-port', () => (port = server?.defaults.port ?? port))
+						)}
 						{@render runningValue(server.saved.port, server.running.port)}
 					</Field.Field>
 					<Field.Field>
-						<Field.FieldLabel for="server-upload" required
-							>{m.admin_settings_upload_label()}</Field.FieldLabel
-						>
+						<div class="flex flex-wrap items-baseline gap-x-3">
+							<Field.FieldLabel for="server-upload" required
+								>{m.admin_settings_upload_label()}</Field.FieldLabel
+							>
+							{@render changedMark(uploadMaxSizeMb, server.defaults.uploadMaxSizeMb)}
+						</div>
 						<Input
 							id="server-upload"
 							type="number"
@@ -245,12 +292,25 @@
 							required
 						/>
 						<Field.FieldDescription>{m.admin_settings_upload_description()}</Field.FieldDescription>
+						{@render defaultValue(
+							m.admin_settings_upload_label(),
+							uploadMaxSizeMb,
+							server.defaults.uploadMaxSizeMb,
+							() =>
+								resetField(
+									'server-upload',
+									() => (uploadMaxSizeMb = server?.defaults.uploadMaxSizeMb ?? uploadMaxSizeMb)
+								)
+						)}
 						{@render runningValue(server.saved.uploadMaxSizeMb, server.running.uploadMaxSizeMb)}
 					</Field.Field>
 					<Field.Field>
-						<Field.FieldLabel for="server-session" required
-							>{m.admin_settings_session_label()}</Field.FieldLabel
-						>
+						<div class="flex flex-wrap items-baseline gap-x-3">
+							<Field.FieldLabel for="server-session" required
+								>{m.admin_settings_session_label()}</Field.FieldLabel
+							>
+							{@render changedMark(sessionExpiryDays, server.defaults.sessionExpiryDays)}
+						</div>
 						<Input
 							id="server-session"
 							type="number"
@@ -261,11 +321,25 @@
 						/>
 						<Field.FieldDescription>{m.admin_settings_session_description()}</Field.FieldDescription
 						>
+						{@render defaultValue(
+							m.admin_settings_session_label(),
+							sessionExpiryDays,
+							server.defaults.sessionExpiryDays,
+							() =>
+								resetField(
+									'server-session',
+									() =>
+										(sessionExpiryDays = server?.defaults.sessionExpiryDays ?? sessionExpiryDays)
+								)
+						)}
 						{@render runningValue(server.saved.sessionExpiryDays, server.running.sessionExpiryDays)}
 					</Field.Field>
 				</Field.FieldGroup>
-				<div>
+				<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
 					<LoadingButton type="submit" loading={savingServer}>{m.action_save()}</LoadingButton>
+					{#if serverDirty.dirty}
+						<p class="text-sm text-muted-foreground">{m.admin_settings_server_unsaved()}</p>
+					{/if}
 				</div>
 			{:else}
 				<p class="text-sm text-destructive">{data.serverSettingsError}</p>

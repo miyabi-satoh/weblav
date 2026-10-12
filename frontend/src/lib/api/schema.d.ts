@@ -2224,6 +2224,8 @@ export interface components {
             uploadMaxSizeMb: number;
         };
         ServerSettingsResponse: {
+            /** @description `config.toml` に書いていないときの値。画面が、変えてある項目に印を付け、戻せるようにするため。 */
+            defaults: components["schemas"]["ServerSettings"];
             /** @description 動いている値。ポートは実際に待ち受けている番号 (ずらして起動していれば、保存した値と違う)。 */
             running: components["schemas"]["ServerSettings"];
             /** @description `config.toml` に書かれている値 (無ければ既定値)。次の起動から効く。 */
@@ -3441,7 +3443,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 保存した値と動いている値 */
+            /** @description 保存した値・動いている値・既定の値 */
             200: {
                 headers: {
                     [name: string]: unknown;

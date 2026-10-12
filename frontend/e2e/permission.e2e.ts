@@ -182,7 +182,7 @@ test('編集者: 管理のタブが出ず、ユーザー管理とサイト設定
 			await expect(editorPage.getByRole('button', { name: CONTENT_ADD_BUTTON_NAME })).toBeVisible();
 			await expect(adminTabs(editorPage)).toHaveCount(0);
 
-			for (const path of ['/admin/users', '/admin/settings']) {
+			for (const path of ['/admin/users', '/admin/roots', '/admin/settings']) {
 				await editorPage.goto(path);
 				await editorPage.waitForURL((url) => url.pathname === '/admin/contents');
 			}
