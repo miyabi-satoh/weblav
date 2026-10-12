@@ -46,6 +46,12 @@
 	const serverDirty = new FormDirtyState(() => ({ port, uploadMaxSizeMb, sessionExpiryDays }));
 	serverDirty.markPristine();
 
+	// 戻すボタンは、戻すと消える。フォーカスが行き場を失わないよう、戻した入力欄へ移す。
+	function resetField(inputId: string, apply: () => void) {
+		apply();
+		document.getElementById(inputId)?.focus();
+	}
+
 	let logSettings = $state(untrack(() => data.logSettings));
 	let switchingLog = $state(false);
 
@@ -265,11 +271,8 @@
 							required
 						/>
 						<Field.FieldDescription>{m.admin_settings_port_description()}</Field.FieldDescription>
-						{@render defaultValue(
-							m.admin_settings_port_label(),
-							port,
-							server.defaults.port,
-							() => (port = server?.defaults.port ?? port)
+						{@render defaultValue(m.admin_settings_port_label(), port, server.defaults.port, () =>
+							resetField('server-port', () => (port = server?.defaults.port ?? port))
 						)}
 						{@render runningValue(server.saved.port, server.running.port)}
 					</Field.Field>
@@ -293,7 +296,11 @@
 							m.admin_settings_upload_label(),
 							uploadMaxSizeMb,
 							server.defaults.uploadMaxSizeMb,
-							() => (uploadMaxSizeMb = server?.defaults.uploadMaxSizeMb ?? uploadMaxSizeMb)
+							() =>
+								resetField(
+									'server-upload',
+									() => (uploadMaxSizeMb = server?.defaults.uploadMaxSizeMb ?? uploadMaxSizeMb)
+								)
 						)}
 						{@render runningValue(server.saved.uploadMaxSizeMb, server.running.uploadMaxSizeMb)}
 					</Field.Field>
@@ -318,7 +325,12 @@
 							m.admin_settings_session_label(),
 							sessionExpiryDays,
 							server.defaults.sessionExpiryDays,
-							() => (sessionExpiryDays = server?.defaults.sessionExpiryDays ?? sessionExpiryDays)
+							() =>
+								resetField(
+									'server-session',
+									() =>
+										(sessionExpiryDays = server?.defaults.sessionExpiryDays ?? sessionExpiryDays)
+								)
 						)}
 						{@render runningValue(server.saved.sessionExpiryDays, server.running.sessionExpiryDays)}
 					</Field.Field>

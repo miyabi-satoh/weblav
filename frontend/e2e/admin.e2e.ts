@@ -366,6 +366,8 @@ test('管理画面: サーバーの設定は、既定から変えると印が付
 	await reset.click();
 	await expect(input).toHaveValue(String(defaults.uploadMaxSizeMb));
 	await expect(reset).toBeHidden();
+	// 押したボタンは消えるので、フォーカスは戻した入力欄へ移る。
+	await expect(input).toBeFocused();
 });
 
 test('管理画面: コンテンツ一覧の行を押すと編集ページへ移る', async ({ page }) => {
