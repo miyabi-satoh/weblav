@@ -37,10 +37,7 @@
 	}
 </script>
 
-<!-- min-w-0: 親(Dialog.Content)は明示の列定義が無いgridで、このdivがそのグリッド
-     アイテムにあたる。無いと、中の長いURL文字列がgridの自動最小サイズ計算に
-     乗って右・下のpaddingまで広がることがある(ブラウザーにより挙動差がある)。 -->
-<div class="flex min-w-0 flex-col items-center gap-4">
+<div class="flex flex-col items-center gap-4">
 	{#if qrDataUrl}
 		<div class={qrCardClass}>
 			<img src={qrDataUrl} alt={qrAlt} class={qrImageClass} />
