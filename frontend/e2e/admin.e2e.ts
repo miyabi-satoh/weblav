@@ -338,6 +338,36 @@ test('管理画面: サイト設定を保存するとホームの見出しに出
 	}
 });
 
+test('管理画面: サーバーの設定は、既定から変えると印が付き、既定の値に戻せる', async ({ page }) => {
+	// 保存はしない。運用の config.toml を書き換えないため。
+	const res = await page.request.get('/api/v1/admin/server-settings');
+	const { saved, defaults } = (await res.json()) as Record<
+		'saved' | 'defaults',
+		{ uploadMaxSizeMb: number }
+	>;
+	// 既定の値とも保存した値とも違う値にする。
+	const changed = [1, 2]
+		.map((n) => defaults.uploadMaxSizeMb + n)
+		.find((n) => n !== saved.uploadMaxSizeMb)!;
+
+	await page.goto('/admin/settings');
+	const form = page.getByRole('form', { name: /^サーバー$|^Server$/ });
+	const input = form.getByRole('spinbutton', { name: /^アップロードの上限|^Upload limit/ });
+	const reset = form.getByRole('button', {
+		name: /^「アップロードの上限 \(MB\)」を既定の値に戻す$|^Reset "Upload limit \(MB\)" to default$/
+	});
+
+	await input.fill(String(changed));
+	await expect(reset).toBeVisible();
+	await expect(
+		form.getByText(/^保存していない変更があります。$|^You have unsaved changes\.$/)
+	).toBeVisible();
+
+	await reset.click();
+	await expect(input).toHaveValue(String(defaults.uploadMaxSizeMb));
+	await expect(reset).toBeHidden();
+});
+
 test('管理画面: コンテンツ一覧の行を押すと編集ページへ移る', async ({ page }) => {
 	const title = uniqueId('E2E行を押す');
 	try {
