@@ -291,6 +291,7 @@
 					bind:value={answer}
 					rows={6}
 					class="max-h-64 font-mono text-xs"
+					disabled={generating}
 				/>
 			</Field.Field>
 			<LoadingButton

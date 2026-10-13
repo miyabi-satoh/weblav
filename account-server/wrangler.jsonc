@@ -26,7 +26,7 @@
 		}
 	],
 	// 送り主ごとの上限 (→ src/index.ts の limited)。period は 10 か 60 (秒) だけ。
-	// namespace_id は Cloudflare のアカウントの中で重ならない数 (weblav は 1001〜1014 を使う)。
+	// namespace_id は Cloudflare のアカウントの中で重ならない数 (この Worker は 1001〜1014 を使う)。
 	"ratelimits": [
 		// 登録を認めたかの問い合わせ: IP ごと。WebLAV が数秒おきに問い合わせても当たらない数。
 		{ "name": "LINK_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 10 } },
