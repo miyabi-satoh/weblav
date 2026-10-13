@@ -53,7 +53,7 @@ const ENTRIES: Entry[] = [
 			request('/v1/links/token', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ code: 'missing', code_verifier: 'x' }),
+				body: JSON.stringify({ code_verifier: 'f'.repeat(64) }),
 				ip: s.ip
 			})
 	},
@@ -72,6 +72,16 @@ const ENTRIES: Entry[] = [
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ user: 'x' })
+			})
+	},
+	{
+		route: 'POST /v1/search',
+		guards: ['token'],
+		send: (s) =>
+			app('/v1/search', s.token, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ queries: ['x'] })
 			})
 	},
 	{

@@ -52,8 +52,8 @@ export function grantFreeStatement(env: Env, accountId: string, t = now()) {
 /**
  * 使った原価を引く。購入の分を古い順に、無料の分を最後に引き、引いた付与ごとに使った分を記録する。
  * 残りを超える分は引かない (最後の1回は、残りを超えても通す)。
- * 同じアカウントの中継は同時に1件だけなので、読んでから書く間にほかの中継が引くことはない。
- * 返金で取り消された付与と重なっても、書く文の側で残りを超えて引かない。
+ * 同じアカウントに登録した PC は残高を共有し、中継が重なることがある。読んでから書く間にほかの中継や返金が
+ * 同じ付与から引いても、書く文の側でその時点の残りを超えて引かない (重なった分のうち、付与をまたぐ端数は引かれない)。
  */
 export async function charge(env: Env, accountId: string, cost: number, t = now()) {
 	if (cost <= 0) return;
@@ -72,8 +72,8 @@ export async function charge(env: Env, accountId: string, cost: number, t = now(
 		// 記録してから引く。どちらも、その時点の残りを超えない量にする。
 		statements.push(
 			env.DB.prepare(
-				`INSERT INTO consumptions (id, purchase_id, milli_yen, created_at)
-				 SELECT ?1, purchase_id, min(?2, remaining), ?3 FROM grants WHERE id = ?4 AND remaining > 0`
+				`INSERT INTO consumptions (id, purchase_id, milli_yen, grant_size, created_at)
+				 SELECT ?1, purchase_id, min(?2, remaining), granted, ?3 FROM grants WHERE id = ?4 AND remaining > 0`
 			).bind(randomHex(16), amount, t, grant.id),
 			env.DB.prepare(
 				'UPDATE grants SET remaining = remaining - min(?, remaining) WHERE id = ?'

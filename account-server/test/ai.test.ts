@@ -20,16 +20,41 @@ describe('parsePrompt', () => {
 		}
 	});
 
-	it('takes up to 20,000 characters of instruction and text together', () => {
-		expect(parsePrompt({ user: 'x'.repeat(20_000) })).toEqual({ user: 'x'.repeat(20_000) });
-		expect(parsePrompt({ user: 'x'.repeat(20_001) })).toBe('too_long');
-		expect(parsePrompt({ system: 'x'.repeat(10_000), user: 'x'.repeat(10_001) })).toBe('too_long');
+	it('takes up to 200,000 characters of instruction and text together', () => {
+		expect(parsePrompt({ user: 'x'.repeat(200_000) })).toEqual({ user: 'x'.repeat(200_000) });
+		expect(parsePrompt({ user: 'x'.repeat(200_001) })).toBe('too_long');
+		expect(parsePrompt({ system: 'x'.repeat(100_000), user: 'x'.repeat(100_001) })).toBe(
+			'too_long'
+		);
+	});
+
+	it('takes one PDF or image as base64, up to the size limit', () => {
+		const pdf = { mime_type: 'application/pdf', data: 'JVBERi0=' };
+		expect(parsePrompt({ user: '要約して', attachments: [pdf] })).toEqual({
+			user: '要約して',
+			attachments: [pdf]
+		});
+		expect(parsePrompt({ user: 'x', attachments: [] })).toEqual({ user: 'x' });
+		for (const bad of [
+			'x',
+			[1],
+			[{ mime_type: 'application/pdf' }],
+			[{ mime_type: 'application/pdf', data: 'not base64!' }],
+			// 中身を読めない種類は、WebLAV が文字を取り出して文として送る。
+			[{ mime_type: 'application/msword', data: 'AAAA' }],
+			[{ mime_type: 'audio/mpeg', data: 'AAAA' }]
+		]) {
+			expect(parsePrompt({ user: 'x', attachments: bad }), JSON.stringify(bad)).toBeUndefined();
+		}
+		expect(parsePrompt({ user: 'x', attachments: [pdf, pdf] })).toBe('too_long');
+		const large = { mime_type: 'image/png', data: 'A'.repeat(14_000_004) };
+		expect(parsePrompt({ user: 'x', attachments: [large] })).toBe('too_long');
 	});
 });
 
 describe('costOf', () => {
 	// 本番とは違う、決まりを確かめるための値。
-	const rates = { usdJpy: 100, inputUsdPerMtok: 1, outputUsdPerMtok: 4 };
+	const rates = { usdJpy: 100, inputUsdPerMtok: 1, outputUsdPerMtok: 4, searchUsdPerRequest: 0.01 };
 
 	it('charges thinking tokens as output, rounding up', () => {
 		// 入力 1,000・出力 800 トークンで、0.0042 ドル。1 ドル 100 円で 0.42 円。

@@ -1,5 +1,5 @@
 // 無くても動く秘密の値。無いときの扱いは各モジュール。
-// 欠かせないもの (Gemini のキー) は wrangler.jsonc の `secrets.required` に書き、生成した型に入る。
+// 欠かせないもの (Gemini と検索のキー・値付けの値) は wrangler.jsonc の `secrets.required` に書き、生成した型に入る。
 interface __BaseEnv_Env {
 	/** Resend の API キー。 */
 	RESEND_API_KEY?: string;
@@ -8,7 +8,7 @@ interface __BaseEnv_Env {
 	/** Stripe (→ src/stripe.ts)。3つと税率がそろったときだけ売る。 */
 	STRIPE_SECRET_KEY?: string;
 	STRIPE_WEBHOOK_SECRET?: string;
-	/** AI アクションのクレジット (300 円) の Price の id。 */
+	/** AI の機能のクレジット (300 円) の Price の id。 */
 	STRIPE_AI_CREDITS_PRICE_ID?: string;
 	/** Google でのサインイン (→ src/google.ts)。2つそろったときだけ出す。 */
 	GOOGLE_CLIENT_ID?: string;

@@ -26,26 +26,31 @@
 		}
 	],
 	// 送り主ごとの上限 (→ src/index.ts の limited)。period は 10 か 60 (秒) だけ。
-	// namespace_id は Cloudflare のアカウントの中で重ならない数 (weblav は 1001〜1013 を使う)。
+	// namespace_id は Cloudflare のアカウントの中で重ならない数 (weblav は 1001〜1014 を使う)。
 	"ratelimits": [
-		// 結んだときのコードをトークンに替える: IP ごと。1台の WebLAV がやり直しても当たらない数。
-		{ "name": "LINK_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
+		// 登録を認めたかの問い合わせ: IP ごと。WebLAV が数秒おきに問い合わせても当たらない数。
+		{ "name": "LINK_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 10 } },
 		// サインインのリンクを送る: IP ごと。宛先を変えての送りつけを止める。
 		{ "name": "EMAIL_LIMITER", "namespace_id": "1002", "simple": { "limit": 5, "period": 60 } },
 		// 結ぶ: アカウントごと。1つのアカウントでコードを作りすぎないように。
-		{ "name": "CODE_LIMITER", "namespace_id": "1003", "simple": { "limit": 10, "period": 60 } }
+		{ "name": "CODE_LIMITER", "namespace_id": "1003", "simple": { "limit": 10, "period": 60 } },
+		// AI と検索の中継: アカウントごと。登録した PC の人たちが押して使う分には当たらない数。重ねて送って、残りを大きく超えて使われないように。
+		{ "name": "AI_LIMITER", "namespace_id": "1004", "simple": { "limit": 20, "period": 10 } }
 	],
 	// 生成する型 (worker-configuration.d.ts) にも効く。手元の .dev.vars の中身で型が変わらないよう、ここで決める。
 	"secrets": {
 		"required": [
 			"GEMINI_API_KEY",
+			// 検索の業者 (Perplexity) のキー (→ src/search.ts)。
+			"PERPLEXITY_API_KEY",
 			// 値付けの値 (→ src/pricing.ts)。原価の割合が分かるので vars に書かない。
 			"PURCHASE_GRANT_MILLI_YEN",
 			"FREE_GRANT_MILLI_YEN",
 			"FREE_MONTHLY_CAP_YEN",
 			"USD_JPY",
 			"INPUT_USD_PER_MTOK",
-			"OUTPUT_USD_PER_MTOK"
+			"OUTPUT_USD_PER_MTOK",
+			"SEARCH_USD_PER_REQUEST"
 		]
 	},
 	"vars": {
@@ -68,19 +73,23 @@
 				}
 			],
 			"ratelimits": [
-				{ "name": "LINK_LIMITER", "namespace_id": "1011", "simple": { "limit": 10, "period": 60 } },
+				{ "name": "LINK_LIMITER", "namespace_id": "1011", "simple": { "limit": 10, "period": 10 } },
 				{ "name": "EMAIL_LIMITER", "namespace_id": "1012", "simple": { "limit": 5, "period": 60 } },
-				{ "name": "CODE_LIMITER", "namespace_id": "1013", "simple": { "limit": 10, "period": 60 } }
+				{ "name": "CODE_LIMITER", "namespace_id": "1013", "simple": { "limit": 10, "period": 60 } },
+				{ "name": "AI_LIMITER", "namespace_id": "1014", "simple": { "limit": 20, "period": 10 } }
 			],
 			"secrets": {
 				"required": [
 					"GEMINI_API_KEY",
+					// 検索の業者 (Perplexity) のキー (→ src/search.ts)。
+					"PERPLEXITY_API_KEY",
 					"PURCHASE_GRANT_MILLI_YEN",
 					"FREE_GRANT_MILLI_YEN",
 					"FREE_MONTHLY_CAP_YEN",
 					"USD_JPY",
 					"INPUT_USD_PER_MTOK",
-					"OUTPUT_USD_PER_MTOK"
+					"OUTPUT_USD_PER_MTOK",
+					"SEARCH_USD_PER_REQUEST"
 				]
 			},
 			// メールは送らず、サインインのリンクをログに出す (`wrangler tail --env staging` で読む)。

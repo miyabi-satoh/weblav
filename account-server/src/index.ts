@@ -2,7 +2,7 @@
  * WebLAV の窓口 (→ docs/account-server.md「窓口（weblav.amiiby.com）」)。
  *
  * - `/v1/links/token`: PC の登録を窓口の画面で認めたかを WebLAV が問い合わせ、認めていればアプリ用のトークンに替える。
- * - `/v1/ai`・`/v1/balance`・`/v1/token`: アプリ用のトークンで呼ぶ、中継・残高・サインアウト。
+ * - `/v1/ai`・`/v1/search`・`/v1/balance`・`/v1/token`: アプリ用のトークンで呼ぶ、AI と検索の中継・残高・登録の解除。
  * - `/v1/stripe/webhook`: Stripe からの支払いの知らせ。
  * - `/account/`: 人が開く画面 (サインイン・WebLAV を結ぶ・買う)。
  * - それ以外: 紹介と規約類の静的なページ (wrangler.jsonc の assets)。
@@ -12,7 +12,8 @@ import { csrf } from 'hono/csrf';
 import { parsePrompt, relay } from './ai';
 import { balance, charge, grantFreeStatement } from './credits';
 import { messages, resolveLang, type Lang } from './i18n';
-import { pricing } from './pricing';
+import { pricing, usedShare } from './pricing';
+import { parseSearch, search } from './search';
 import { sendMail } from './mail';
 import {
 	approvePage,
@@ -73,11 +74,6 @@ const CHECKOUT_TTL = 35 * 60;
  * (3つのアプリで揃える決まり)。使った分の記録も同じ期間残す。
  */
 const PURCHASE_RETENTION = 7 * 366 * 24 * 60 * 60;
-/**
- * 中継の最中とみなす長さ。Gemini を待つ上限 (src/ai.ts) より長くする。
- * Worker が途中で止まって印が残っても、これを過ぎれば次の中継を受ける。
- */
-const IN_FLIGHT_TTL = 120;
 
 type App = { Bindings: Env };
 // `/account` と `/account/` を同じ画面にする (紹介のページは末尾に `/` を付けてリンクする)。
@@ -176,53 +172,85 @@ app.delete('/v1/token', async (c) => {
 	return c.body(null, 204);
 });
 
+/** 使った量を WebLAV へ知らせるヘッダー (→ src/pricing.ts の usedShare)。 */
+const USED_HEADER = 'x-weblav-used';
+
+/**
+ * 残高を使う入口に共通の前段。トークン・呼びすぎ・残りを確かめ、通ればアカウントを返す。
+ * 残りがあるかだけを見て、使った分は呼んだ後に引く (最後の1回は残りを超えても通す)。
+ * 同じアカウントの呼び出しが重なっても止めない。登録した PC と、その利用者が残高を共有するため。
+ */
+async function spender(c: Context<App>): Promise<string | Response> {
+	const accountId = await appAccount(c);
+	if (!accountId) return c.json({ error: 'unauthorized' }, 401);
+	if (await limited(c, c.env.AI_LIMITER, accountId)) return c.json({ error: 'rate_limited' }, 429);
+	// 無料の分を取りこぼしていれば、ここで付け直す (→ src/credits.ts)。
+	await grantFreeStatement(c.env, accountId).run();
+	if ((await balance(c.env, accountId)).remaining <= 0) return c.json({ error: 'no_credit' }, 402);
+	return accountId;
+}
+
+/**
+ * 呼んで、使った原価を引く。WebLAV で取り消して接続が切れても、使った分を引くまで続けさせる
+ * (呼び出しが終わると、waitUntil に渡していない処理は打ち切られうる)。
+ */
+async function spend<T>(
+	c: Context<App>,
+	accountId: string,
+	call: () => Promise<T>,
+	cost: (result: T) => number
+): Promise<T> {
+	const work = (async () => {
+		const result = await call();
+		await charge(c.env, accountId, cost(result));
+		return result;
+	})();
+	c.executionCtx.waitUntil(work.catch(() => {}));
+	return work;
+}
+
 /**
  * AI の中継。残りがあれば Gemini へ送り、返事が届いたら使った原価を引いて、Gemini の返事をそのまま返す。
  * 返事が届かなかった回は引かない。失敗の返事でも、Gemini が使った分を返せば引く。
  */
 app.post('/v1/ai', async (c) => {
-	const accountId = await appAccount(c);
-	if (!accountId) return c.json({ error: 'unauthorized' }, 401);
+	const accountId = await spender(c);
+	if (typeof accountId !== 'string') return accountId;
 	const prompt = parsePrompt(await c.req.json().catch(() => undefined));
 	if (prompt === undefined) return c.json({ error: 'bad_request' }, 400);
 	if (prompt === 'too_long') return c.json({ error: 'too_long' }, 413);
 	const { rates } = pricing(c.env);
-	// 無料の分を取りこぼしていれば、ここで付け直す (→ src/credits.ts)。
-	await grantFreeStatement(c.env, accountId).run();
-	const t = now();
-	// 同じアカウントは同時に1件だけ。印を取ってから残りを確かめるので、並べて送って残りを超えて使わせないように。
-	const owner = randomHex(16);
-	const started = await c.env.DB.prepare(
-		`INSERT INTO ai_in_flight (account_id, owner, started_at) VALUES (?1, ?2, ?3)
-		 ON CONFLICT (account_id) DO UPDATE SET owner = ?2, started_at = ?3 WHERE started_at <= ?4`
-	)
-		.bind(accountId, owner, t, t - IN_FLIGHT_TTL)
-		.run();
-	if (started.meta.changes !== 1) return c.json({ error: 'busy' }, 409);
-	const release = () =>
-		c.env.DB.prepare('DELETE FROM ai_in_flight WHERE account_id = ? AND owner = ?')
-			.bind(accountId, owner)
-			.run();
-	if ((await balance(c.env, accountId)).remaining <= 0) {
-		await release();
-		return c.json({ error: 'no_credit' }, 402);
-	}
-	// 中継・引くこと・印を外すことを1つにまとめ、waitUntil に渡す。WebLAV で取り消して接続が切れても、
-	// Gemini が使った分を引き、印を外すまで続けさせる (呼び出しが終わると、waitUntil に渡していない処理は打ち切られうる)。
-	const work = (async () => {
-		try {
-			const result = await relay(c.env, prompt, rates);
-			await charge(c.env, accountId, result.cost);
-			return result;
-		} finally {
-			await release();
-		}
-	})();
-	c.executionCtx.waitUntil(work.catch(() => {}));
-	const result = await work;
-	if (result.ok) return c.body(result.body, 200, { 'content-type': 'application/json' });
-	// Gemini の失敗は、状態だけを WebLAV へ返す (WebLAV は利用者のキーで送ったときと同じく分ける)。
-	return c.json({ error: 'upstream', upstream_status: result.status }, 502);
+	const result = await spend(
+		c,
+		accountId,
+		() => relay(c.env, prompt, rates),
+		(r) => r.cost
+	);
+	const used = { [USED_HEADER]: String(usedShare(c.env, result.cost)) };
+	if (result.ok) return c.body(result.body, 200, { 'content-type': 'application/json', ...used });
+	// Gemini の失敗は、状態だけを WebLAV へ返す。
+	return c.json({ error: 'upstream', upstream_status: result.status }, 502, used);
+});
+
+/**
+ * Web の検索の中継。AI が集めるリンクの候補を引く。成功した回だけ、1回分の原価を引く。
+ */
+app.post('/v1/search', async (c) => {
+	const accountId = await spender(c);
+	if (typeof accountId !== 'string') return accountId;
+	const request = parseSearch(await c.req.json().catch(() => undefined));
+	if (request === undefined) return c.json({ error: 'bad_request' }, 400);
+	const { rates } = pricing(c.env);
+	const result = await spend(
+		c,
+		accountId,
+		() => search(c.env, request, rates),
+		(r) => (r.ok ? r.cost : 0)
+	);
+	if (!result.ok) return c.json({ error: 'upstream', upstream_status: result.status }, 502);
+	return c.json({ results: result.results }, 200, {
+		[USED_HEADER]: String(usedShare(c.env, result.cost))
+	});
 });
 
 // ---- Stripe からの知らせ ----

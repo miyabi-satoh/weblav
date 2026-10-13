@@ -6,31 +6,70 @@
 
 import type { Rates } from './pricing';
 
-/** Interactions API (ai.google.dev/api/interactions-api)。WebLAV が利用者のキーで送るときと同じ口。 */
+/** Interactions API (ai.google.dev/api/interactions-api)。 */
 const GEMINI_INTERACTIONS_URL = 'https://generativelanguage.googleapis.com/v1/interactions';
 
-/** 中継するモデル。WebLAV が利用者のキーで使うときの既定と同じ。 */
+/** 中継するモデル。軸の案・リンクの選別・1往復の質問に足り、単価が低い。 */
 const MODEL = 'gemini-3.5-flash-lite';
 
-/** 返事の長さの上限。書き直した文は元の文と同じくらいの長さなので、入力の上限に見合うだけ取る。 */
+/** 返事の長さの上限。軸の案や要約に足りる長さ。 */
 const MAX_OUTPUT_TOKENS = 16_000;
-/** 受ける文の長さ (指示文と文の合計、UTF-16 の単位)。下書きの書き直しに足り、長い文書の一括の処理には使わせない。 */
-const MAX_INPUT_CHARS = 20_000;
+/**
+ * 受ける文の長さ (指示文と文の合計、UTF-16 の単位)。軸の定義で送るフォルダとファイルの名前の一覧と、
+ * 簡易チャットで送るテキストや文書から取り出した文字に足りる長さ。1回の原価の上限を決める値でもある。
+ */
+const MAX_INPUT_CHARS = 200_000;
+/** 添付の数。簡易チャットは開いているファイル1つを送る。 */
+const MAX_ATTACHMENTS = 1;
+/**
+ * 添付の大きさ (base64 にした文字数) の合計。元のファイルで約 10 MB。
+ * Gemini が受ける上限 (PDF は 50 MB) より小さくし、1回の原価と Worker のメモリを抑える。
+ */
+const MAX_ATTACHMENT_CHARS = 14_000_000;
+/** 添付できる種類。Gemini が中身を読めるもの。ほかの文書は、WebLAV が文字を取り出して文として送る。 */
+const ATTACHMENT_TYPES: Record<string, 'document' | 'image'> = {
+	'application/pdf': 'document',
+	'image/png': 'image',
+	'image/jpeg': 'image',
+	'image/webp': 'image'
+};
 /** 返事を待つ上限。WebLAV の待つ時間 (60 秒) より短くし、WebLAV が先に諦めて、使った分だけ引かれることを避ける。 */
 const TIMEOUT_MS = 50_000;
 
-/** WebLAV が組み立てて送る中身 (WebLAV の `ai::Prompt` と同じ形)。 */
-export type Prompt = { system?: string; user: string };
+/** 添付するファイル。`data` は base64。 */
+export type Attachment = { mime_type: string; data: string };
 
-/** 受けた本文を `Prompt` として読む。形が違うか、長すぎるときは `undefined`。 */
+/** WebLAV が組み立てて送る中身。 */
+export type Prompt = { system?: string; user: string; attachments?: Attachment[] };
+
+/** 受けた本文を `Prompt` として読む。形が違うときは `undefined`、長すぎるか大きすぎるときは `'too_long'`。 */
 export function parsePrompt(body: unknown): Prompt | 'too_long' | undefined {
 	if (typeof body !== 'object' || body === null) return undefined;
-	const { system, user } = body as Record<string, unknown>;
+	const { system, user, attachments } = body as Record<string, unknown>;
 	if (typeof user !== 'string' || (system !== undefined && typeof system !== 'string')) {
 		return undefined;
 	}
+	const files: Attachment[] = [];
+	if (attachments !== undefined) {
+		if (!Array.isArray(attachments)) return undefined;
+		for (const item of attachments) {
+			if (typeof item !== 'object' || item === null) return undefined;
+			const { mime_type: type, data } = item as Record<string, unknown>;
+			if (typeof type !== 'string' || typeof data !== 'string') return undefined;
+			if (!(type in ATTACHMENT_TYPES) || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) return undefined;
+			files.push({ mime_type: type, data });
+		}
+	}
 	if (user.length + (system?.length ?? 0) > MAX_INPUT_CHARS) return 'too_long';
-	return system === undefined ? { user } : { system, user };
+	if (files.length > MAX_ATTACHMENTS) return 'too_long';
+	if (files.reduce((sum, file) => sum + file.data.length, 0) > MAX_ATTACHMENT_CHARS) {
+		return 'too_long';
+	}
+	return {
+		...(system === undefined ? {} : { system }),
+		user,
+		...(files.length === 0 ? {} : { attachments: files })
+	};
 }
 
 /** Gemini の返事。`body` は WebLAV へそのまま返す。`cost` は使った原価 (milli_yen)。 */
@@ -61,7 +100,23 @@ export function costOf(usage: unknown, rates: Rates): number | undefined {
 export async function relay(env: Env, prompt: Prompt, rates: Rates): Promise<Relayed> {
 	const request: Record<string, unknown> = {
 		model: MODEL,
-		input: prompt.user,
+		// 添付があるときは、利用者の入力の1つのまとまりに、添付と文を並べる (v1 の形。v1beta とは違う)。
+		input:
+			prompt.attachments === undefined
+				? prompt.user
+				: [
+						{
+							type: 'user_input',
+							content: [
+								...prompt.attachments.map((file) => ({
+									type: ATTACHMENT_TYPES[file.mime_type],
+									data: file.data,
+									mime_type: file.mime_type
+								})),
+								{ type: 'text', text: prompt.user }
+							]
+						}
+					],
 		// やり取りを Google 側に保存させない (止めても、不正利用の監視のための保持は規約どおり残る)。
 		store: false,
 		generation_config: { max_output_tokens: MAX_OUTPUT_TOKENS }
@@ -86,7 +141,14 @@ export async function relay(env: Env, prompt: Prompt, rates: Rates): Promise<Rel
 		console.error('Gemini responded without usage');
 		cost = costOf(
 			{
-				total_input_tokens: prompt.user.length + (prompt.system?.length ?? 0),
+				// 添付は、PDF の1ページ (258 トークン) を 50 KB と見て数える。
+				total_input_tokens:
+					prompt.user.length +
+					(prompt.system?.length ?? 0) +
+					(prompt.attachments ?? []).reduce(
+						(sum, file) => sum + 258 * Math.ceil(file.data.length / 68_000),
+						0
+					),
 				total_output_tokens: MAX_OUTPUT_TOKENS
 			},
 			rates

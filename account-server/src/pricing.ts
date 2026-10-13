@@ -10,6 +10,8 @@ export type Rates = {
 	/** Gemini の単価 (100万トークンあたりの USD)。出力は思考のトークンを含む。 */
 	inputUsdPerMtok: number;
 	outputUsdPerMtok: number;
+	/** 検索の単価 (1リクエストあたりの USD)。 */
+	searchUsdPerRequest: number;
 };
 
 export type Pricing = {
@@ -37,7 +39,16 @@ export function pricing(env: Env): Pricing {
 		rates: {
 			usdJpy: read('USD_JPY', env.USD_JPY, false),
 			inputUsdPerMtok: read('INPUT_USD_PER_MTOK', env.INPUT_USD_PER_MTOK, false),
-			outputUsdPerMtok: read('OUTPUT_USD_PER_MTOK', env.OUTPUT_USD_PER_MTOK, false)
+			outputUsdPerMtok: read('OUTPUT_USD_PER_MTOK', env.OUTPUT_USD_PER_MTOK, false),
+			searchUsdPerRequest: read('SEARCH_USD_PER_REQUEST', env.SEARCH_USD_PER_REQUEST, false)
 		}
 	};
+}
+
+/**
+ * 使った原価を、1回の購入で付く量を 100万としたときの量に直す。WebLAV へ返し、誰がどれだけ使ったかの記録に使う。
+ * 原価の円のままでは返さない (原価の割合が分かるため)。
+ */
+export function usedShare(env: Env, cost: number): number {
+	return Math.ceil((cost * 1_000_000) / pricing(env).purchaseGrant);
 }

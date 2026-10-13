@@ -130,15 +130,10 @@ CREATE TABLE consumptions (
 	id TEXT PRIMARY KEY,
 	purchase_id TEXT REFERENCES purchases (id) ON DELETE CASCADE,
 	milli_yen INTEGER NOT NULL CHECK (milli_yen > 0),
+	-- 引いた付与の、付けた量 (grants.granted)。売値に直す式 (purchases.amount × milli_yen ÷ grant_size) を、
+	-- アカウントを消して付与の行が無くなった後も出せるように、引く時点で写す。
+	grant_size INTEGER NOT NULL CHECK (grant_size > 0),
 	created_at INTEGER NOT NULL
 );
 CREATE INDEX consumptions_created ON consumptions (created_at);
 CREATE INDEX consumptions_purchase ON consumptions (purchase_id);
-
--- AI に中継している最中のアカウント。同じアカウントは同時に1件だけ。
-CREATE TABLE ai_in_flight (
-	account_id TEXT PRIMARY KEY REFERENCES accounts (id) ON DELETE CASCADE,
-	-- 印を取った中継の番号。外すときは自分の印だけを外す (古い中継が、取り直した新しい中継の印を外さないように)。
-	owner TEXT NOT NULL,
-	started_at INTEGER NOT NULL
-);

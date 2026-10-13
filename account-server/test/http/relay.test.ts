@@ -2,16 +2,10 @@ import { env } from 'cloudflare:workers';
 import { describe, expect, it, vi } from 'vitest';
 import { costOf } from '../../src/ai';
 import { pricing } from '../../src/pricing';
-import { accountId, app, geminiAnswers, grantsOf, linkApp, sendAi } from '../helpers';
+import { searchCost } from '../../src/search';
+import { accountId, app, geminiAnswers, grantsOf, linkApp, sendAi, sendSearch } from '../helpers';
 
 const { freeGrant: FREE_GRANT, rates } = pricing(env);
-
-/** 同じアカウントの中継の印。 */
-function inFlight(account: string) {
-	return env.DB.prepare('SELECT owner FROM ai_in_flight WHERE account_id = ?')
-		.bind(account)
-		.first<{ owner: string }>();
-}
 
 describe('relaying to Gemini', () => {
 	it('returns what Gemini answers, and charges what it reports', async () => {
@@ -29,28 +23,34 @@ describe('relaying to Gemini', () => {
 		expect((await grantsOf(await accountId(email)))[0].remaining).toBe(
 			FREE_GRANT - costOf({ total_input_tokens: 1000, total_output_tokens: 800 }, rates)!
 		);
-		expect(await inFlight(await accountId(email))).toBeNull();
+		// 使った量を、1回の購入で付く量を 100万とした数で知らせる。
+		expect(res.headers.get('x-weblav-used')).toBe(
+			String(
+				Math.ceil(
+					(costOf({ total_input_tokens: 1000, total_output_tokens: 800 }, rates)! * 1_000_000) /
+						pricing(env).purchaseGrant
+				)
+			)
+		);
 	});
 
-	it('releases only its own one-at-a-time mark', async () => {
-		const email = 'own-mark@example.com';
-		const { token } = await linkApp(email);
-		const account = await accountId(email);
-		// 前の中継の印が古くなり、この中継が取り直す。前の中継が後から外しても、この印は外れない。
-		await env.DB.prepare(
-			"INSERT INTO ai_in_flight (account_id, owner, started_at) VALUES (?, 'old', 0)"
-		)
-			.bind(account)
-			.run();
-		geminiAnswers();
-		expect((await sendAi(token)).status).toBe(200);
-		await env.DB.prepare("DELETE FROM ai_in_flight WHERE account_id = ? AND owner = 'old'")
-			.bind(account)
-			.run();
-		expect(await inFlight(account)).toBeNull();
+	it('passes an attached file to Gemini with the text', async () => {
+		const { token } = await linkApp('attach@example.com');
+		const gemini = geminiAnswers();
+		const pdf = { mime_type: 'application/pdf', data: 'JVBERi0=' };
+		expect((await sendAi(token, { user: '要約して', attachments: [pdf] })).status).toBe(200);
+		expect(JSON.parse(String(gemini.mock.calls[0][1]!.body)).input).toEqual([
+			{
+				type: 'user_input',
+				content: [
+					{ type: 'document', data: 'JVBERi0=', mime_type: 'application/pdf' },
+					{ type: 'text', text: '要約して' }
+				]
+			}
+		]);
 	});
 
-	it('refuses without credit, without sending, and releases the one-at-a-time mark', async () => {
+	it('refuses without credit, without sending', async () => {
 		const email = 'empty@example.com';
 		const { token } = await linkApp(email);
 		const account = await accountId(email);
@@ -62,7 +62,6 @@ describe('relaying to Gemini', () => {
 		expect(refused.status).toBe(402);
 		expect(await refused.json()).toEqual({ error: 'no_credit' });
 		expect(gemini).not.toHaveBeenCalled();
-		expect(await inFlight(account)).toBeNull();
 		expect(await (await app('/v1/balance', token)).json()).toMatchObject({ remaining_percent: 0 });
 	});
 
@@ -87,25 +86,27 @@ describe('relaying to Gemini', () => {
 		expect((await sendAi(token)).status).toBe(200);
 	});
 
-	it('takes one request at a time per account', async () => {
-		const email = 'busy@example.com';
+	it('takes overlapping requests from the same account, and charges each', async () => {
+		const email = 'overlap@example.com';
 		const { token } = await linkApp(email);
-		const account = await accountId(email);
-		await env.DB.prepare(
-			"INSERT INTO ai_in_flight (account_id, owner, started_at) VALUES (?, 'other', ?)"
-		)
-			.bind(account, Math.floor(Date.now() / 1000))
-			.run();
-		const gemini = geminiAnswers();
-		const busy = await sendAi(token);
-		expect(busy.status).toBe(409);
-		expect(await busy.json()).toEqual({ error: 'busy' });
-		expect(gemini).not.toHaveBeenCalled();
-		// Worker が途中で止まって残った印は、時間がたてば外れる。
-		await env.DB.prepare('UPDATE ai_in_flight SET started_at = 0 WHERE account_id = ?')
-			.bind(account)
-			.run();
-		expect((await sendAi(token)).status).toBe(200);
+		geminiAnswers();
+		const answers = await Promise.all([sendAi(token), sendAi(token), sendAi(token)]);
+		expect(answers.map((res) => res.status)).toEqual([200, 200, 200]);
+		expect((await grantsOf(await accountId(email)))[0].remaining).toBe(
+			FREE_GRANT - 3 * costOf({ total_input_tokens: 1000, total_output_tokens: 800 }, rates)!
+		);
+	});
+
+	it('limits how fast one account can call', async () => {
+		const { token } = await linkApp('ai-limit@example.com');
+		geminiAnswers();
+		// 上限 (10秒に20回) は時計の区切りごとに数えるので、またいでも片側で超える数を送る。
+		const statuses: number[] = [];
+		for (let n = 0; n < 41 && !statuses.includes(429); n++) {
+			statuses.push((await sendAi(token)).status);
+		}
+		expect(statuses[0]).toBe(200);
+		expect(statuses).toContain(429);
 	});
 
 	it('refuses malformed and too long requests without sending them', async () => {
@@ -115,9 +116,84 @@ describe('relaying to Gemini', () => {
 		const malformed = await sendAi(token, { text: 'x' });
 		expect(malformed.status).toBe(400);
 		expect(await malformed.json()).toEqual({ error: 'bad_request' });
-		const tooLong = await sendAi(token, { user: 'x'.repeat(20_001) });
+		const tooLong = await sendAi(token, { user: 'x'.repeat(200_001) });
 		expect(tooLong.status).toBe(413);
 		expect(await tooLong.json()).toEqual({ error: 'too_long' });
 		expect(gemini).not.toHaveBeenCalled();
+	});
+});
+
+describe('relaying a web search', () => {
+	const found = {
+		results: [
+			{
+				title: 'トマトの育て方',
+				url: 'https://example.com/tomato',
+				date: '2026-04-16',
+				snippet: '抜粋'
+			},
+			{ title: '日付なし', url: 'https://example.org/a', last_updated: '2026-08-05', snippet: '' },
+			{ title: '形の違う URL', url: 'javascript:alert(1)', snippet: '' }
+		]
+	};
+
+	it('returns the candidates, and charges one request', async () => {
+		const email = 'search@example.com';
+		const { token } = await linkApp(email);
+		const provider = vi
+			.spyOn(globalThis, 'fetch')
+			.mockImplementation(async () => Response.json(found));
+		const res = await sendSearch(token, {
+			queries: ['家庭菜園 トマト'],
+			country: 'JP',
+			language: 'ja',
+			recency: 'year'
+		});
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({
+			results: [
+				{
+					title: 'トマトの育て方',
+					url: 'https://example.com/tomato',
+					date: '2026-04-16',
+					snippet: '抜粋'
+				},
+				{ title: '日付なし', url: 'https://example.org/a', date: '2026-08-05', snippet: '' }
+			]
+		});
+		expect(JSON.parse(String(provider.mock.calls[0][1]!.body))).toMatchObject({
+			query: ['家庭菜園 トマト'],
+			search_type: 'fast',
+			country: 'JP',
+			search_language_filter: ['ja'],
+			search_recency_filter: 'year'
+		});
+		expect((await grantsOf(await accountId(email)))[0].remaining).toBe(
+			FREE_GRANT - searchCost(rates)
+		);
+		expect(Number(res.headers.get('x-weblav-used'))).toBeGreaterThan(0);
+	});
+
+	it('does not charge when the provider fails', async () => {
+		const email = 'search-fail@example.com';
+		const { token } = await linkApp(email);
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		vi.spyOn(globalThis, 'fetch').mockImplementation(
+			async () => new Response('nope', { status: 500 })
+		);
+		const failed = await sendSearch(token, { queries: ['x'] });
+		expect(failed.status).toBe(502);
+		expect(await failed.json()).toEqual({ error: 'upstream', upstream_status: 500 });
+		expect((await grantsOf(await accountId(email)))[0].remaining).toBe(FREE_GRANT);
+	});
+
+	it('refuses malformed requests without sending them', async () => {
+		// どの形を断るかは test/search.test.ts の parseSearch で確かめる。
+		const { token } = await linkApp('search-malformed@example.com');
+		const provider = vi.spyOn(globalThis, 'fetch');
+		const malformed = await sendSearch(token, { queries: [] });
+		expect(malformed.status).toBe(400);
+		expect(await malformed.json()).toEqual({ error: 'bad_request' });
+		expect(provider).not.toHaveBeenCalled();
 	});
 });

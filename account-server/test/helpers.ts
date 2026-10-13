@@ -150,6 +150,14 @@ export function sendAi(
 	});
 }
 
+export function sendSearch(token: string | undefined, body: unknown = { queries: ['x'] }) {
+	return app('/v1/search', token, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+}
+
 /** Gemini の返事を差し替える。`usage` のトークン数で原価が決まる。 */
 export function geminiAnswers(
 	usage: Record<string, number> = { total_input_tokens: 1000, total_output_tokens: 800 },
