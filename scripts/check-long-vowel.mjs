@@ -8,10 +8,9 @@ import path from 'node:path';
 
 const root = path.join(import.meta.dirname, '..');
 
-// 利用者が読む文言の置き場 (Pro の窓口の画面とメールは i18n.ts)。テスト・コメント・開発の文書は対象外。
+// 利用者が読む文言の置き場。テスト・コメント・開発の文書は対象外。
 const targets = [
   'frontend/messages/ja.json',
-  'account-server/src/i18n.ts',
   'docs/manual/ja',
   'site/src',
   'src/tray'

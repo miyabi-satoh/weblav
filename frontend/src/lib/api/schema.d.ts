@@ -147,95 +147,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/pro": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_pro"];
-        put?: never;
-        post?: never;
-        /** この WebLAV をアカウントから外す (→ docs/pro.md「外す」)。Free に戻し、外した証しを窓口へ送る。 */
-        delete: operations["unlink"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/pro/check": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 条件によらず、その場で窓口に確かめる (「今すぐ確認する」)。買った直後・外した直後に合わせるため。 */
-        post: operations["check_now"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/pro/link": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 結びかけを作る (→ docs/pro.md「結ぶ」)。前の結びかけは捨てる。結んであれば、同じ枠の結び直しにする。 */
-        post: operations["start_link"];
-        /** 結びかけを捨てる (「キャンセル」)。 */
-        delete: operations["cancel_link"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/pro/link/code": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 返しのコードを受け取る (ネットにつながらない WebLAV)。 */
-        post: operations["accept_code"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/pro/link/poll": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 結びかけが窓口で結ばれたかを確かめる (ネットにつながる WebLAV)。結ばれていれば証明を受け取って書く。
-         *     窓口には `PENDING_POLL_INTERVAL` より短くは確かめない (間に来た分は今の状態だけを返す)。
-         */
-        post: operations["poll_link"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/roots": {
         parameters: {
             query?: never;
@@ -1558,10 +1469,6 @@ export interface components {
             currentPassword: string;
             username: string;
         };
-        CodeRequest: {
-            /** @description 窓口の画面かメールに出た返しのコード (15文字。区切り・大小文字は問わない)。 */
-            code: string;
-        };
         ConnectionInfoResponse: {
             /**
              * @description mDNS のホスト名(`my-pc.local`等、ポートを除く)。全インターフェースで待ち受けて
@@ -1764,11 +1671,6 @@ export interface components {
             /** @description 現在位置そのものを登録先に選べるか。ルートの一覧では `false`。 */
             selectable: boolean;
         };
-        /**
-         * @description 動いている WebLAV が Free か Pro か。
-         * @enum {string}
-         */
-        Edition: "free" | "pro";
         ErrorBody: {
             code: components["schemas"]["ErrorCode"];
             detail?: components["schemas"]["ValidationDetail"] | null;
@@ -1778,7 +1680,7 @@ export interface components {
          * @description API エラーの機械可読なコード。frontend はこの値で表示文言を選ぶ。
          * @enum {string}
          */
-        ErrorCode: "not_found" | "database_unavailable" | "unauthorized" | "forbidden" | "invalid_credentials" | "incorrect_current_password" | "invalid_recovery_code" | "too_many_requests" | "invalid_request_body" | "file_too_large" | "internal_error" | "conflict" | "config_unreadable" | "free_limit_reached" | "account_server_unavailable" | "pro_code_invalid" | "pro_clock_behind";
+        ErrorCode: "not_found" | "database_unavailable" | "unauthorized" | "forbidden" | "invalid_credentials" | "incorrect_current_password" | "invalid_recovery_code" | "too_many_requests" | "invalid_request_body" | "file_too_large" | "internal_error" | "conflict" | "config_unreadable";
         /**
          * @description レスポンスボディの共通envelope。`code` が機械可読な契約(frontendはこちらでi18nする)、
          *     `message` は英語のデバッグ用の説明文で、画面には出さない。
@@ -1831,19 +1733,6 @@ export interface components {
             size?: number | null;
             /** @description 行に縮小画像を出してみるか (→ docs/ui.md「画像のプレビュー」)。 */
             thumbnail: boolean;
-        };
-        /**
-         * @description 上限のある対象。
-         * @enum {string}
-         */
-        FreeLimitTarget: "admin" | "user" | "archive" | "folder" | "file" | "link";
-        /** @description 上限のある対象の、今の件数と Free の上限。 */
-        FreeLimitUsage: {
-            /** Format: int64 */
-            count: number;
-            /** Format: int64 */
-            limit: number;
-            target: components["schemas"]["FreeLimitTarget"];
         };
         GroupAncestor: {
             /** Format: int64 */
@@ -1991,47 +1880,12 @@ export interface components {
             password: string;
             username: string;
         };
-        /**
-         * @description 許可の受け取り方。ネットで受け取った署名付きの証明か、打ち込んだ返しのコードか。
-         * @enum {string}
-         */
-        PermissionKind: "online" | "offline";
         PickRootResponse: {
             /**
              * @description 選ばれたフォルダーの絶対パス。キャンセルされたら `null`。登録はしていないので、
              *     登録するには `POST /admin/roots` へそのまま渡す。
              */
             path?: string | null;
-        };
-        /**
-         * @description Pro の種類。台数の上限と画面の表示に使う。
-         * @enum {string}
-         */
-        Plan: "personal" | "organization";
-        ProResponse: {
-            /** @description 窓口のアカウントのページ。 */
-            accountUrl: string;
-            /** @description アカウントに結んでいるか。 */
-            bound: boolean;
-            /** @description PC の時計が前に見た時刻より遅れていて、Free として動いている。 */
-            clockBehind: boolean;
-            edition: components["schemas"]["Edition"];
-            /** @description 結んだアカウントのメールアドレス。ネットで確かめるまで分からない (返しのコードで結んだとき)。 */
-            email?: string | null;
-            /**
-             * Format: int64
-             * @description 今の許可の期限 (UNIX 秒)。
-             */
-            expiresAt?: number | null;
-            /** Format: int64 */
-            lastCheckedAt?: number | null;
-            /** @description 結びかけなら、窓口の結ぶ画面の URL (QR コードとボタンに使う)。 */
-            linkUrl?: string | null;
-            permission?: components["schemas"]["PermissionKind"] | null;
-            plan?: components["schemas"]["Plan"] | null;
-            refusal?: components["schemas"]["Refusal"] | null;
-            /** @description 上限のある対象ごとの今の件数と Free の上限。Pro でも返す (上限は効いていない)。 */
-            usage: components["schemas"]["FreeLimitUsage"][];
         };
         RecoverRequest: {
             newPassword: string;
@@ -2057,11 +1911,6 @@ export interface components {
             preview: components["schemas"]["LinkPreview"];
             url: string;
         };
-        /**
-         * @description 窓口が直近に許可を出さなかったわけ。区画に、どうすれば戻るかを出すため。
-         * @enum {string}
-         */
-        Refusal: "noPlan" | "overLimit";
         RenameRootRequest: {
             /** @description 新しい名前。前後の空白は除く。空ならフォルダー名にする。 */
             name: string;
@@ -2269,13 +2118,6 @@ export interface components {
             /** @description 戻すときに指す id。 */
             id: string;
         };
-        UnlinkResponse: {
-            pro: components["schemas"]["ProResponse"];
-            /** @description 同じく、URL を開けないときに打ち込む外した証し。 */
-            releaseCode?: string | null;
-            /** @description 窓口へ外したことを届けられなかったときだけ。スマートフォンで読んでもらう外した証しの URL。 */
-            releaseUrl?: string | null;
-        };
         UpdateContentRequest: {
             description?: string | null;
             /**
@@ -2415,12 +2257,6 @@ export interface components {
             /** @enum {string} */
             kind: "archiveFolderUnreadable";
             path: string;
-        } | {
-            /** @enum {string} */
-            kind: "freeLimit";
-            /** Format: int64 */
-            limit: number;
-            target: components["schemas"]["FreeLimitTarget"];
         };
         VerifyTokenRequest: {
             token: string;
@@ -2829,330 +2665,6 @@ export interface operations {
             };
             /** @description ログをファイルに書いていない */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    get_pro: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Pro の状態と今の件数 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProResponse"];
-                };
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description admin以外 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    unlink: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 外した後の状態 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UnlinkResponse"];
-                };
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description admin以外 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    check_now: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 確かめた後の状態 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProResponse"];
-                };
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description admin以外 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 結んでいない・PC の時計が証明の発行日より遅れている */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 窓口につながらない・証明を確かめられない */
-            502: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    start_link: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 結びかけた後の状態 (`linkUrl` が入る) */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProResponse"];
-                };
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description admin以外 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    cancel_link: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 捨てた後の状態 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProResponse"];
-                };
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description admin以外 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    accept_code: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CodeRequest"];
-            };
-        };
-        responses: {
-            /** @description 結んだ後の状態 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProResponse"];
-                };
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description admin以外 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 結びかけていない・PC の時計が遅れている */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description コードが合わない */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    poll_link: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 今の状態。結ばれていれば `linkUrl` が消える */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProResponse"];
-                };
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description admin以外 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description PC の時計が証明の発行日より遅れている */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 窓口につながらない・証明を確かめられない */
-            502: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3670,15 +3182,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Free の上限に当たった */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
             /** @description ユーザー名重複・パスワード未入力 */
             422: {
                 headers: {
@@ -3850,15 +3353,6 @@ export interface operations {
             };
             /** @description 存在しないユーザー */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Free の上限に当たった */
-            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4359,15 +3853,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Free の上限に当たった */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
             /** @description Unprocessable Entity */
             422: {
                 headers: {
@@ -4445,15 +3930,6 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Free の上限に当たった */
-            409: {
                 headers: {
                     [name: string]: unknown;
                 };

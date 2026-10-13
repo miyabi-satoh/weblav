@@ -27,7 +27,6 @@ const LINK_PREVIEWS_DIR_NAME: &str = "link-previews";
 const BACKUP_WORK_DIR_NAME: &str = "backup-work";
 const LOCK_FILE_NAME: &str = "weblav.lock";
 const ADDR_FILE_NAME: &str = "weblav.addr";
-const PRO_FILE_NAME: &str = "pro.json";
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -121,11 +120,6 @@ impl AppDirs {
     /// 動いているサーバーの実際の待ち受けのアドレスを書くファイル (→ `server::AlreadyRunning`)。
     pub fn addr_path(&self) -> PathBuf {
         self.data_dir.join(ADDR_FILE_NAME)
-    }
-
-    /// Pro の結び付きと許可 (→ `crate::pro`)。バックアップには入れない (→ docs/pro.md「結び付きと許可」)。
-    pub fn pro_path(&self) -> PathBuf {
-        self.data_dir.join(PRO_FILE_NAME)
     }
 }
 

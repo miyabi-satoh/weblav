@@ -31,7 +31,6 @@ mod links_file;
 mod login;
 mod minimal_input;
 mod private;
-mod pro;
 mod remote_files;
 mod roots;
 mod search;
@@ -228,27 +227,6 @@ async fn test_app_with_blobs(pool: SqlitePool) -> (Router, std::path::PathBuf) {
 
 async fn test_app(pool: SqlitePool) -> Router {
     test_app_with_blobs(pool).await.0
-}
-
-/// 開発版だけが信じる鍵で署名した Pro の証明 (→ `weblav::pro`)。
-const DEV_PRO: &str = include_str!("../fixtures/dev-pro.json");
-
-/// Pro で動くアプリ。Free の上限 (→ docs/pro.md「上限を数えて止める」) を超える数を API で作るテスト用。
-async fn test_app_pro(pool: SqlitePool) -> Router {
-    test_app_with_pro_file(pool, DEV_PRO).await
-}
-
-/// `pro.json` に `contents` を置いてから組み立てる。
-async fn test_app_with_pro_file(pool: SqlitePool, contents: &str) -> Router {
-    let data_dir = next_app_dir();
-    std::fs::create_dir_all(&data_dir).expect("データ置き場を作れなかった");
-    let dirs = AppDirs {
-        config_dir: data_dir.clone(),
-        data_dir: data_dir.clone(),
-    };
-    std::fs::write(dirs.pro_path(), contents).expect("pro.json を書けなかった");
-    register_content_root(&pool).await;
-    app_in(pool, &Config::default(), &data_dir).await
 }
 
 /// `blobs_dir`直下(`tmp/`を除く)にあるblobファイルの数を数える。コミット済みの

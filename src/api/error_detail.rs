@@ -59,10 +59,4 @@ pub enum ValidationDetail {
     /// `path` は最初に読めなかった場所の、登録先からの相対パス。登録先そのものなら空文字。
     #[serde(rename_all = "camelCase")]
     ArchiveFolderUnreadable { path: String },
-    /// Free の上限に当たった (→ docs/pro.md「上限を数えて止める」)。409 に付ける。
-    #[serde(rename_all = "camelCase")]
-    FreeLimit {
-        target: super::free_limit::FreeLimitTarget,
-        limit: i64,
-    },
 }

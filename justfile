@@ -21,7 +21,6 @@ default:
 install:
     pnpm install
     cd {{ frontend_dir }} && pnpm install
-    cd account-server && pnpm install
     cd site && pnpm install
     cd {{ frontend_dir }} && pnpm exec playwright install chromium
 
@@ -99,18 +98,6 @@ dev-cli *args: ensure-frontend-build
 dev-cli *args: ensure-frontend-build
     set "WEBLAV_HOME={{ data_dir }}\dev-runtime" && cargo run --quiet --bin weblav-cli -- {{ args }}
 
-# 窓口 (account-server/) と紹介のサイト (site/) を手元で起動する。D1 は手元のもの (account-server/.wrangler) を使い、メールは送らずリンクをログに出す。
-# 開発版の WebLAV は、ここ (127.0.0.1:8787) に申し込む
-dev-account-server:
-    cd account-server && node -e "require('fs').existsSync('.dev.vars') || require('fs').copyFileSync('dev.vars.example', '.dev.vars')"
-    cd site && pnpm run build
-    cd account-server && pnpm exec wrangler d1 migrations apply DB --local
-    cd account-server && pnpm exec wrangler dev --ip 127.0.0.1 --port 8787 --local-upstream 127.0.0.1:8787 --var MAIL_LOG_ONLY:1
-
-# 手元の窓口で、アカウントに Pro を付ける (買う流れの代わり)。先にそのアドレスでサインインしておく
-dev-account-grant email plan="personal":
-    cd account-server && pnpm exec wrangler d1 execute DB --local --command "INSERT INTO subscriptions (id, account_id, plan, paid_through, status, created_at) SELECT 'dev-' || lower(hex(randomblob(8))), id, '{{ plan }}', unixepoch('now', '+1 year'), 'active', unixepoch() FROM accounts WHERE email = lower('{{ email }}')"
-
 # frontend を開発モードで起動 (HMR, /api は backend にプロキシ)
 dev-frontend:
     cd {{ frontend_dir }} && pnpm run dev
@@ -120,9 +107,7 @@ dev:
     cd {{ frontend_dir }} && pnpm exec concurrently -n backend,frontend -c blue,green "just dev-backend" "just dev-frontend"
 
 # E2Eブラウザーテストを実行する。backendの起動方法は複数あり一つに決め打てないため、
-# 事前に起動しておくこと (`just dev-backend`等)。e2e はテストごとにコンテンツを作り Free の上限に当たるので、
-# debug ビルドの backend の WEBLAV_HOME に tests/fixtures/dev-pro.json を pro.json として置いておく
-# (release ビルドはこの証明を信じない。→ docs/pro.md「結び付きと許可」)。管理者アカウントでの
+# 事前に起動しておくこと (`just dev-backend`等)。管理者アカウントでの
 # ログインを検証するため、そのユーザー名・パスワードを渡す (ユーザー名省略時は"admin")。
 # 例: just e2e http://127.0.0.1:3000 P@ssw0rd
 # 引数は `$` 付きで環境変数として渡す。コマンド文字列に埋め込むと、Windows の cmd.exe が
@@ -174,7 +159,7 @@ licenses-check: licenses
     node scripts/check-generated.mjs licenses frontend/static/third-party-licenses/rust.json
 
 # マニュアルの画像のうち、管理画面と仕組みの図を、使い捨ての backend で撮り直す (→ docs/help.md)。
-# 名前を渡すと、その画像だけを撮る (例: just manual-shots roots-page settings-pro)
+# 名前を渡すと、その画像だけを撮る (例: just manual-shots roots-page settings-page)
 manual-shots *names: frontend-build
     cargo build --bin weblav-service
     cd {{ frontend_dir }} && node scripts/manual-shots.ts {{ names }}
@@ -199,7 +184,6 @@ spec: _spec-dir frontend-build
 fmt:
     cargo fmt
     cd {{ frontend_dir }} && pnpm run format
-    cd account-server && pnpm run format
 
 # フォーマット崩れがないか確認する (pre-push hook から呼ばれる。書き換えない)
 fmt-check:
@@ -212,14 +196,7 @@ lint: ensure-frontend-build
     node scripts/check-tailwind-arbitrary.mjs
     node scripts/check-long-vowel.mjs
 
-# 窓口 (account-server/) を検査する (整形・生成した型・型検査・テスト)
-account-server-check:
-    cd account-server && pnpm run lint
-    cd account-server && pnpm exec wrangler types --check
-    cd account-server && pnpm run check
-    cd account-server && pnpm run test
-
-# 紹介のサイト (site/) を検査する (型検査・ビルド)。ビルドしたものは窓口の Worker が出す (→ account-server/wrangler.jsonc)
+# 紹介のサイト (site/) を検査する (型検査・ビルド)
 site-check:
     cd site && pnpm run check
     cd site && pnpm run build
@@ -241,7 +218,7 @@ test: ensure-frontend-build
 # CI (GitHub Actions) が PR ごとに流す。e2e は build の後に置き、その時点のフロントで流す。
 # 先に frontend-build を流すのは、残っている frontend/build で ensure-frontend-build が飛ばされ、
 # Paraglide の生成物が古いまま型検査に進まないようにするため (just は同じレシピを1回しか流さないので、build の分と重ならない)
-ci: frontend-build fmt-check lint check-frontend api-types-check licenses-check test account-server-check site-check build e2e-local
+ci: frontend-build fmt-check lint check-frontend api-types-check licenses-check test site-check build e2e-local
 
 # ビルド成果物を削除する
 [unix]

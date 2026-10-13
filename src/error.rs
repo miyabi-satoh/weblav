@@ -105,24 +105,6 @@ pub enum AppError {
     /// アプリケーションが定める実際の上限)。
     #[error("file too large")]
     FileTooLarge,
-    /// Free の上限に当たった (→ docs/pro.md「上限を数えて止める」)。入力は正しく、Pro にすれば通るため
-    /// `Validation` とは分ける。
-    #[error("free limit reached")]
-    FreeLimitReached {
-        target: crate::api::free_limit::FreeLimitTarget,
-        limit: i64,
-    },
-    /// Pro の窓口 (→ docs/pro.md「アカウントと販売の窓口」) とやり取りできない (つながらない・
-    /// 応答が読めない・証明を確かめられない)。
-    #[error("account server error: {0}")]
-    AccountServer(String),
-    /// 打ち込まれた返しのコードが、結びかけの秘密で確かめられない (打ち間違い・別の申し込みのコード・期限切れ)。
-    #[error("invalid Pro code")]
-    ProCodeInvalid,
-    /// PC の時計が、返しのコードの発行日や前に見た時刻より遅れている (→ docs/pro.md「結び付きと許可」の「時計」)。
-    /// 打ち間違いとは直し方が違う (時計を合わせる) ので分ける。
-    #[error("the clock is behind")]
-    ProClockBehind,
 }
 
 /// API エラーの機械可読なコード。frontend はこの値で表示文言を選ぶ。
@@ -142,52 +124,12 @@ pub enum ErrorCode {
     InternalError,
     Conflict,
     ConfigUnreadable,
-    FreeLimitReached,
-    AccountServerUnavailable,
-    ProCodeInvalid,
-    ProClockBehind,
 }
 
 /// JSON に出る値と同じ文字列 (`not_found` など)。一覧を二重に持たないよう serde から作る。
 impl std::fmt::Display for ErrorCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.serialize(f)
-    }
-}
-
-/// 返しのコードの打ち込みの失敗 (→ docs/pro.md「結ぶ・確かめる・外す (WebLAV の側)」)。
-impl From<crate::pro::CodeError> for AppError {
-    fn from(err: crate::pro::CodeError) -> Self {
-        use crate::pro::CodeError;
-        match err {
-            CodeError::NotStarted => AppError::Conflict("no pending link".to_string()),
-            CodeError::Invalid => AppError::ProCodeInvalid,
-            CodeError::ClockBehind => AppError::ProClockBehind,
-            CodeError::Write(err) => AppError::Io(err),
-        }
-    }
-}
-
-/// 窓口の答えを手元に合わせるときの失敗。証明が確かめられないのは窓口の側の不調として扱う。
-impl From<crate::pro::ApplyError> for AppError {
-    fn from(err: crate::pro::ApplyError) -> Self {
-        use crate::pro::ApplyError;
-        match err {
-            ApplyError::Invalid(_) => AppError::AccountServer(error_chain(&err)),
-            ApplyError::ClockBehind => AppError::ProClockBehind,
-            ApplyError::Write(err) => AppError::Io(err),
-        }
-    }
-}
-
-/// 結びかけを作るときの失敗。
-impl From<crate::pro::LinkError> for AppError {
-    fn from(err: crate::pro::LinkError) -> Self {
-        use crate::pro::LinkError;
-        match err {
-            LinkError::Write(err) => AppError::Io(err),
-            err => AppError::AccountServer(error_chain(&err)),
-        }
     }
 }
 
@@ -263,12 +205,6 @@ impl AppError {
             Self::Conflict(_) => (StatusCode::CONFLICT, ErrorCode::Conflict),
             Self::ConfigUnreadable(_) => (StatusCode::CONFLICT, ErrorCode::ConfigUnreadable),
             Self::FileTooLarge => (StatusCode::PAYLOAD_TOO_LARGE, ErrorCode::FileTooLarge),
-            Self::FreeLimitReached { .. } => (StatusCode::CONFLICT, ErrorCode::FreeLimitReached),
-            Self::AccountServer(_) => {
-                (StatusCode::BAD_GATEWAY, ErrorCode::AccountServerUnavailable)
-            }
-            Self::ProCodeInvalid => (StatusCode::UNPROCESSABLE_ENTITY, ErrorCode::ProCodeInvalid),
-            Self::ProClockBehind => (StatusCode::CONFLICT, ErrorCode::ProClockBehind),
         }
     }
 }
@@ -304,9 +240,6 @@ impl IntoResponse for AppError {
         let message = self.to_string();
         let detail = match self {
             Self::ValidationDetailed { detail, .. } => Some(detail),
-            Self::FreeLimitReached { target, limit } => {
-                Some(crate::api::error_detail::ValidationDetail::FreeLimit { target, limit })
-            }
             _ => None,
         };
         let body = ErrorResponse {

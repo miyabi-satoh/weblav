@@ -16,8 +16,7 @@
 			>{m.admin_settings_about_version({ version: versionText })}</span
 		>
 	</p>
-	<!-- 規約類は紹介サイトにある。窓口 (`ACCOUNT_SERVER_URL`) と同じホストだが、開発版でも
-	     手元の窓口ではなく公開している文面を開く。 -->
+	<!-- 規約類は紹介サイトにある。 -->
 	<ul class="flex flex-wrap gap-x-5">
 		<li>
 			<a

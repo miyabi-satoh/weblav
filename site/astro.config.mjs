@@ -1,6 +1,6 @@
 // @ts-check
-// weblav.amiiby.com の紹介・規約・プライバシーポリシー (→ docs/pro.md「アカウントと販売の窓口」)。
-// 見た目は運営者のサイト (amiiby.com) の紹介ページと揃える。窓口 (account-server/) の Worker が静的なファイルとして出す。
+// weblav.amiiby.com の紹介・規約・プライバシーポリシー。
+// 見た目は運営者のサイト (amiiby.com) の紹介ページと揃える。
 import { defineConfig } from 'astro/config';
 import { satteri } from '@astrojs/markdown-satteri';
 import sitemap from '@astrojs/sitemap';

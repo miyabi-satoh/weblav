@@ -912,7 +912,6 @@ async fn list_admin_contents(
         (status = 201, body = AdminContentResponse),
         (status = 401, body = crate::error::ErrorResponse),
         (status = 403, body = crate::error::ErrorResponse),
-        (status = 409, body = crate::error::ErrorResponse, description = "Free の上限に当たった"),
         (status = 422, body = crate::error::ErrorResponse),
     )
 )]
@@ -924,12 +923,6 @@ async fn create_content(
     let visibility = resolve_visibility_for_create(payload.visibility);
     reject_private_group(payload.content_type, visibility)?;
 
-    // 外へつなぐ前にも数える。上限に当たっているのに、リンク先へ接続してから断らないため。
-    // 鍵の内側でもう一度数える (接続の間に別の要求が足すことがある)。
-    if payload.content_type == ContentType::Link {
-        super::free_limit::check_content(state.pro.edition(), &state.pool, ContentType::Link)
-            .await?;
-    }
     // スキームを決めるための接続とページの取得は数秒かかりうるので、書き込みのロックを取る前に済ませる。
     let (link_url, fetched) = if payload.content_type == ContentType::Link {
         let (url, fetched) = resolve_url(payload.url.as_deref()).await?;
@@ -1000,9 +993,6 @@ async fn create_content(
             .await?,
         ),
     };
-    super::free_limit::check_content(state.pro.edition(), &state.pool, payload.content_type)
-        .await?;
-
     let derived_title = match payload.content_type {
         ContentType::Link => link_title,
         ContentType::Folder | ContentType::Archive => path.as_deref().map(title_from_path),
@@ -2737,7 +2727,6 @@ struct UploadContentRequest {
     responses(
         (status = 201, body = AdminContentResponse),
         (status = 401, body = crate::error::ErrorResponse),
-        (status = 409, body = crate::error::ErrorResponse, description = "Free の上限に当たった"),
         (status = 413, body = crate::error::ErrorResponse),
         (status = 422, body = crate::error::ErrorResponse),
     )
@@ -2747,9 +2736,6 @@ async fn upload_content(
     State(state): State<AppState>,
     mut multipart: Multipart,
 ) -> Result<(StatusCode, Json<AdminContentResponse>), AppError> {
-    // 受け取る前にも確かめる。上限に当たっているのに、大きいファイルを受け取り切ってから断らないため。
-    // 受け取る間に別の要求が足すことがあるので、鍵の内側でもう一度数える。
-    super::free_limit::check_content(state.pro.edition(), &state.pool, ContentType::File).await?;
     let fields =
         collect_upload_fields(&mut multipart, &state.blobs_dir, state.max_upload_bytes).await?;
 
@@ -2761,7 +2747,6 @@ async fn upload_content(
     // ストリーミング受信は済んでいるので、ロック区間には含めない。
     let visibility = resolve_visibility_for_create(fields.visibility);
     let _write_guard = state.contents_write_lock.lock().await;
-    super::free_limit::check_content(state.pro.edition(), &state.pool, ContentType::File).await?;
     let parent_id = validate_parent(&state.pool, fields.parent_id, None).await?;
     let title = resolve_create_title(
         &state.pool,

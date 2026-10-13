@@ -30,14 +30,9 @@ async-trait = "0.1.92"
 axum = { version = "0.8.9", features = ["multipart"] }
 base64 = "0.23.1"
 directories = "6.0.0"
-# Pro の証明の署名を確かめる (→ src/pro.rs)。確かめるだけなので、署名を速くする前計算の表 (`fast`) は入れない。
-ed25519-dalek = { version = "3.0.0", default-features = false }
 # 初回セットアップのトークンとバックアップの作業用の名前の乱数に使う (→ src/api/random_hex)。
 # password-hash が同じ版を既に引いているため、依存が増えるわけではない。
 getrandom = "0.4.3"
-# Pro の結び付きの秘密と符号 (→ src/pro/link.rs)。sha2 0.11 と合う版。
-hkdf = "0.13.0"
-hmac = "0.13.0"
 # リンクのカードの情報を覚える期限を、応答の日付のヘッダーから決める (→ src/api/link_preview.rs)。hyper が既に引いている版。
 httpdate = "1.0.3"
 # 検索で、全角と半角を揃えて照らす (NFKC。→ src/api/search.rs)。url が既に引いている版。
@@ -85,8 +80,6 @@ url = "2.5.8"
 utoipa = { version = "6.0.0", features = ["axum_extras"] }
 utoipa-axum = "0.3.0"
 walkdir = "2.5.0"
-# Pro の結び付きの秘密を、窓口の公開鍵と組み合わせて導く (→ src/pro/link.rs)。
-x25519-dalek = "3.0.0"
 # バックアップを1つの zip にする (→ src/api/backup)。圧縮は deflate だけにし、
 # 既に依存に入っている flate2 (zlib-rs) を使う。
 zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }

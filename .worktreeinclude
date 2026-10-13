@@ -2,4 +2,3 @@
 # data/ は写さず元の clone のものを使う (justfile の data_dir)。.env は写さなくても親のフォルダーから読まれる。
 CLAUDE.local.md
 .claude/settings.local.json
-account-server/.dev.vars

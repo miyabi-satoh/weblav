@@ -37,7 +37,7 @@ async fn get_site_settings(
     Ok(Json(load(&state.pool).await?))
 }
 
-/// 今のサイトの設定。Pro の窓口に出す名前 (→ `api::pro`) にも使う。
+/// 今のサイトの設定。
 pub(crate) async fn load(pool: &sqlx::SqlitePool) -> Result<SiteSettingsResponse, sqlx::Error> {
     sqlx::query_as!(
         SiteSettingsResponse,
