@@ -80,8 +80,6 @@ pub struct AppState {
     /// (→ docs/access.md「ユーザーの削除と作成者」)。両方を取るのはそこだけで、順はこの鍵が先。
     /// 初回セットアップの管理者作成も、「adminが0人」の確認から作成までをこの鍵で
     /// 直列化する(→ `api::setup`)。
-    /// ユーザーの作成とロールの変更は、Free の上限を数えてから書くまでをこの鍵で直列化する
-    /// (→ `api::free_limit`)。
     pub users_write_lock: Arc<Mutex<()>>,
     /// 初回セットアップ用に発行したトークン(→ docs/access.md「初回セットアップ」)。
     pub setup_tokens: Arc<SetupTokens>,
@@ -96,10 +94,6 @@ pub struct AppState {
     /// 他の端末に mDNS の名前 (→ `crate::mdns`) とあわせて案内するポート。
     /// 全インターフェースで待ち受けていないときは`None`。
     pub lan_port: Option<u16>,
-    /// Free か Pro か。Free なら個数の上限で止める (→ `api::free_limit`)。
-    pub pro: Arc<crate::pro::Pro>,
-    /// 窓口とのやり取りの状態 (→ `api::pro`)。裏の確かめが重ならないように持つ。
-    pub pro_renewal: Arc<crate::api::pro::Renewal>,
 }
 
 /// 走査中のアーカイブidの集合。

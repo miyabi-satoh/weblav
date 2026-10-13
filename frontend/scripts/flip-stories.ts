@@ -740,7 +740,7 @@ const admin: Story = {
 			}
 		},
 		{
-			caption: '「バックアップ」「Pro」「このアプリについて」まで下げる',
+			caption: '「バックアップ」「このアプリについて」まで下げる',
 			roles: ADMIN_ONLY,
 			run: (page) => page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
 		}

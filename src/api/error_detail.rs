@@ -1,4 +1,4 @@
-//! 422 (と Free の上限の 409) の内訳を、画面が文言を組み立てられる形で返すための型 (→ docs/architecture.md「エラーの契約と表示言語」)。
+//! 422 の内訳を、画面が文言を組み立てられる形で返すための型 (→ docs/architecture.md「エラーの契約と表示言語」)。
 //!
 //! バックエンドの `message` は英語のデバッグ用で、画面には出さない。表示する文言は
 //! `frontend/messages/*.json` が持ち、ここで渡す値 (タイトル・軸名・公開範囲) を
@@ -59,10 +59,4 @@ pub enum ValidationDetail {
     /// `path` は最初に読めなかった場所の、登録先からの相対パス。登録先そのものなら空文字。
     #[serde(rename_all = "camelCase")]
     ArchiveFolderUnreadable { path: String },
-    /// Free の上限に当たった (→ docs/pro.md「上限を数えて止める」)。409 に付ける。
-    #[serde(rename_all = "camelCase")]
-    FreeLimit {
-        target: super::free_limit::FreeLimitTarget,
-        limit: i64,
-    },
 }

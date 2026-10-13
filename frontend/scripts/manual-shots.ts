@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { chromium, type APIRequestContext, type Locator, type Page, type Route } from 'playwright';
+import { chromium, type APIRequestContext, type Locator, type Page } from 'playwright';
 import {
 	CHANGE_PATH_BUTTON_NAME,
 	CHOOSE_PATH_BUTTON_NAME,
@@ -32,7 +32,7 @@ const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
 const OUT_DIR = path.join(REPO_ROOT, 'docs/manual/ja/images');
 const DIAGRAM_HTML = path.join(import.meta.dirname, 'manual-shots/how-it-works.html');
 
-/** 撮れる画像。Pro の WebLAV・Free の WebLAV・図のどれで撮るかで分ける。 */
+/** 撮れる画像。WebLAV の画面か図かで分ける。 */
 const ADMIN_SHOTS = [
 	'roots-page',
 	'settings-page',
@@ -52,9 +52,8 @@ const ADMIN_SHOTS = [
 	'roots-delete',
 	'axis-row-actions'
 ];
-const FREE_SHOTS = ['settings-pro', 'pro-link'];
 const DIAGRAM_SHOTS = ['how-it-works'];
-const ALL_SHOTS = [...ADMIN_SHOTS, ...FREE_SHOTS, ...DIAGRAM_SHOTS];
+const ALL_SHOTS = [...ADMIN_SHOTS, ...DIAGRAM_SHOTS];
 /** コンテンツを追加の画面を順に進めて撮るもの。 */
 const FOLDER_SHOTS = [
 	'quickstart-add-folder',
@@ -165,11 +164,11 @@ const liveBackends = new Set<Backend>();
 /** backend を起動している最中か。その間の Ctrl-C は backend-process.ts が片付けて終える。 */
 let starting = false;
 
-async function startWithAdmin(pro: boolean): Promise<Backend> {
+async function startWithAdmin(): Promise<Backend> {
 	starting = true;
 	let backend: Backend;
 	try {
-		backend = await startBackend('weblav-manual-shots-', { pro });
+		backend = await startBackend('weblav-manual-shots-');
 	} finally {
 		starting = false;
 	}
@@ -298,9 +297,9 @@ const dialog = (page: Page) => page.getByRole('dialog').last();
 /** 登録の画面の上に重なって開く、フォルダーを選ぶ画面。 */
 const picker = (page: Page) => page.getByRole('dialog', { name: DIR_PICKER_NAME });
 
-/** Pro の WebLAV で撮るもの。コンテンツを足しながら、元の画像と同じ件数の時点で撮る。 */
+/** WebLAV の画面を撮る。コンテンツを足しながら、元の画像と同じ件数の時点で撮る。 */
 async function shootAdmin() {
-	const backend = await startWithAdmin(true);
+	const backend = await startWithAdmin();
 	try {
 		const shared = makeSharedDir();
 		const page = await newPage(backend, DESKTOP_WIDTH, shared);
@@ -503,57 +502,6 @@ async function shootAdmin() {
 	}
 }
 
-/** Free の WebLAV で撮るもの (Pro の欄)。 */
-async function shootFree() {
-	const backend = await startWithAdmin(false);
-	try {
-		const shared = makeSharedDir();
-		const page = await newPage(backend, DESKTOP_WIDTH);
-		await send(page.request, 'POST', '/admin/roots', { path: shared });
-		await send(page.request, 'POST', '/contents', {
-			type: 'archive',
-			title: '録音',
-			path: path.join(shared, '録音'),
-			visibility: 'public',
-			extensions: 'mp3'
-		});
-		for (const [title, url] of [
-			['学校のお知らせ', 'https://example.com/news'],
-			['時間割', 'https://example.com/timetable'],
-			['給食の献立', 'https://example.com/lunch']
-		])
-			await send(page.request, 'POST', '/contents', {
-				type: 'link',
-				title,
-				url,
-				visibility: 'public'
-			});
-
-		const heading = page.getByRole('heading', { name: 'Pro', exact: true });
-		if (want('settings-pro')) {
-			await goto(page, '/admin/settings');
-			await shotSection(page, 'settings-pro', heading);
-		}
-		if (want('pro-link')) {
-			// 窓口へは行かず、登録しかけの状態を返す。QR コードに入る URL は本物と同じ形 (src/api/pro.rs の link_url)。
-			const linking = async (route: Route) => {
-				const body = await (await page.request.get('/api/v1/admin/pro')).json();
-				body.linkUrl = 'https://weblav.amiiby.com/account/link?r=sample&name=WebLAV&pc=PC';
-				await route.fulfill({ json: body });
-			};
-			await page.route('**/api/v1/admin/pro/link', linking);
-			await page.route('**/api/v1/admin/pro/link/poll', linking);
-			await goto(page, '/admin/settings');
-			await page.getByRole('button', { name: 'Pro にする' }).click();
-			const cancel = page.getByRole('button', { name: 'キャンセル' });
-			await cancel.waitFor();
-			await shotSection(page, 'pro-link', heading, cancel);
-		}
-	} finally {
-		await closePagesAndStop(backend);
-	}
-}
-
 /** 仕組みの図。画面ではないので HTML で描いたものを撮る。 */
 async function shootDiagram() {
 	if (!want('how-it-works')) return;
@@ -590,7 +538,6 @@ process.once('SIGINT', () => {
 
 try {
 	if (ADMIN_SHOTS.some(want)) await shootAdmin();
-	if (FREE_SHOTS.some(want)) await shootFree();
 	await shootDiagram();
 } catch (err) {
 	if (!interrupted) throw err;

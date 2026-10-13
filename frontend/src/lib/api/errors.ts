@@ -9,8 +9,6 @@
  */
 import * as m from '$lib/paraglide/messages.js';
 import type { components } from '$lib/api/schema';
-import { contentTypeLabel } from '$lib/content-labels';
-import { roleLabel } from '$lib/role-labels';
 
 export type ErrorCode = components['schemas']['ErrorCode'];
 
@@ -27,11 +25,7 @@ export const MESSAGES: Record<ErrorCode, () => string> = {
 	database_unavailable: m.error_database_unavailable,
 	internal_error: m.error_internal_error,
 	conflict: m.error_conflict,
-	config_unreadable: m.error_config_unreadable,
-	free_limit_reached: m.error_free_limit_reached,
-	account_server_unavailable: m.error_account_server_unavailable,
-	pro_code_invalid: m.error_pro_code_invalid,
-	pro_clock_behind: m.error_pro_clock_behind
+	config_unreadable: m.error_config_unreadable
 };
 
 /** 想定外の形のレスポンスや通信エラーに使う汎用文言。 */
@@ -72,22 +66,9 @@ export function errorCode(body: unknown): ErrorCode | undefined {
 }
 
 type ValidationDetail = components['schemas']['ValidationDetail'];
-type FreeLimitTarget = components['schemas']['FreeLimitTarget'];
-
-/** Free の上限のある対象の呼び名。一覧や作成の画面と同じ語を使う。 */
-export function freeLimitTargetLabel(target: FreeLimitTarget): string {
-	return target === 'admin' || target === 'user' ? roleLabel(target) : contentTypeLabel(target);
-}
-
-function freeLimitMessage(target: FreeLimitTarget, limit: number): string {
-	const label = freeLimitTargetLabel(target);
-	return target === 'admin' || target === 'user'
-		? m.error_detail_free_limit_role({ role: label, limit })
-		: m.error_detail_free_limit_content({ kind: label, limit });
-}
 
 /**
- * 422 (と Free の上限の 409) の内訳から表示文言を組み立てる。未知の `kind` (サーバーだけ先に更新された場合)
+ * 422 の内訳から表示文言を組み立てる。未知の `kind` (サーバーだけ先に更新された場合)
  * では `undefined` を返し、呼び出し側が `code` の汎用文言に落とす。
  */
 function detailMessage(detail: ValidationDetail): string | undefined {
@@ -124,8 +105,6 @@ function detailMessage(detail: ValidationDetail): string | undefined {
 			return m.error_detail_backup_invalid();
 		case 'backupTooNew':
 			return m.error_detail_backup_too_new({ appVersion: detail.appVersion });
-		case 'freeLimit':
-			return freeLimitMessage(detail.target, detail.limit);
 		default:
 			return undefined;
 	}

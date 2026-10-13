@@ -10,7 +10,6 @@ pub mod folder_picker;
 pub mod logging;
 pub mod mdns;
 pub mod os_thumbnail;
-pub mod pro;
 pub mod server;
 pub mod session;
 pub mod single_instance;
@@ -88,11 +87,6 @@ pub async fn build_app(
         tokio::task::spawn_blocking(move || api::backup::remove_work_root(&dir)).await?;
     }
 
-    let pro = {
-        let path = dirs.pro_path();
-        Arc::new(tokio::task::spawn_blocking(move || pro::Pro::load(&path)).await?)
-    };
-
     let revoked_sessions = Arc::new(session::RevokedSessions::default());
     let session_layer = session::layer(
         session::Store::new(session_store, Arc::clone(&revoked_sessions)),
@@ -158,18 +152,8 @@ pub async fn build_app(
         max_upload_bytes,
         lan_port,
         folder_picker,
-        pro,
-        pro_renewal: Arc::new(api::pro::Renewal::new(
-            api::pro::ACCOUNT_SERVER_URL.to_string(),
-        )),
     };
-    // 使われたときに Pro を確かめる (→ docs/pro.md「確かめる」)。静的ファイルや閲覧も「使われた」に数えるので、全体に掛ける。
-    let app = app
-        .layer(axum::middleware::from_fn_with_state(
-            state.clone(),
-            api::pro::renew_when_due,
-        ))
-        .with_state(state);
+    let app = app.with_state(state);
 
     Ok(app)
 }

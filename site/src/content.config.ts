@@ -2,7 +2,7 @@ import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
 
-// 紹介 (index.md) と、規約類 (terms.md・privacy.md)。特定商取引法に基づく表記は amiiby.com の共通のページにある。
+// 紹介 (index.md) と、規約類 (terms.md・privacy.md)。
 // 書き方は運営者のサイト (amiiby.com) のほかの製品のページと揃える。
 
 const product = defineCollection({

@@ -15,7 +15,6 @@ use crate::state::AppState;
 
 use super::contents::Visibility;
 use super::error_detail::ValidationDetail;
-use super::free_limit;
 use super::validate;
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -121,7 +120,6 @@ struct CreateUserRequest {
         (status = 201, body = UserListItem, description = "作成したユーザー"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
-        (status = 409, body = crate::error::ErrorResponse, description = "Free の上限に当たった"),
         (status = 422, body = crate::error::ErrorResponse, description = "ユーザー名重複・パスワード未入力"),
     )
 )]
@@ -136,9 +134,6 @@ async fn create_user(
     validate::non_empty(&payload.password, "password is required")?;
 
     let role = payload.role.unwrap_or(Role::User);
-    // 数えてから作るまでを直列化する (→ `super::free_limit`)。
-    let _write_guard = state.users_write_lock.lock().await;
-    free_limit::check_role(state.pro.edition(), &state.pool, role).await?;
     let created = auth::create_user(&state.pool, &username, &payload.password, role, None).await?;
 
     Ok((
@@ -196,7 +191,6 @@ async fn reject_if_last_admin(
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
         (status = 404, body = crate::error::ErrorResponse, description = "存在しないユーザー"),
-        (status = 409, body = crate::error::ErrorResponse, description = "Free の上限に当たった"),
         (status = 422, body = crate::error::ErrorResponse, description = "最後のadminを降格しようとした"),
     )
 )]
@@ -214,9 +208,6 @@ async fn update_role(
     let current_role = current_role(&mut tx, id).await?;
 
     reject_if_last_admin(&mut tx, current_role, payload.role).await?;
-    if payload.role != current_role {
-        free_limit::check_role(state.pro.edition(), &mut *tx, payload.role).await?;
-    }
 
     sqlx::query!("UPDATE users SET role = ? WHERE id = ?", payload.role, id)
         .execute(&mut *tx)

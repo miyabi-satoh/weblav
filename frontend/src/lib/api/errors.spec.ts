@@ -29,25 +29,6 @@ describe('errorMessage', () => {
 		}
 	});
 
-	it('builds a message for each Free limit target, including the limit', () => {
-		const targets = ['admin', 'user', 'archive', 'folder', 'file', 'link'];
-		const messages = new Set(
-			targets.map((target) =>
-				errorMessage({
-					error: {
-						code: 'free_limit_reached',
-						message: 'x',
-						detail: { kind: 'freeLimit', target, limit: 7 }
-					}
-				})
-			)
-		);
-		expect(messages.size).toBe(targets.length);
-		for (const message of messages) {
-			expect(message).toContain('7');
-		}
-	});
-
 	it('names the unreadable folder, or the archive folder itself when the path is empty', () => {
 		const unreadable = (path: string) =>
 			errorMessage({

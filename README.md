@@ -26,10 +26,6 @@
 - Windows は Microsoft Store で配る。macOS 版は配っていない。
 - 使い方は、アプリの中のマニュアル (通知領域のアイコンの「マニュアル」) にある。原稿は `docs/manual/`。
 
-## Free と Pro
-
-Free では、管理者・編集者・コンテンツの数に上限がある。Pro にすると上限が外れる。上限と買い方は管理画面の「サイト設定」の「Pro」に出る。
-
 ## ライセンス
 
 [PolyForm Strict License 1.0.0](LICENSE)。

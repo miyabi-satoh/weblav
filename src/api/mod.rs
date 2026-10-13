@@ -10,7 +10,6 @@ mod connection_info;
 mod contents;
 pub mod error_detail;
 mod folder_search;
-pub mod free_limit;
 mod fs;
 mod health;
 mod help;
@@ -19,7 +18,6 @@ mod link_title;
 mod links_file;
 mod local;
 mod logs;
-pub mod pro;
 mod remote_file;
 mod roots;
 mod search;
@@ -94,7 +92,6 @@ fn routes(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
         .merge(search::router())
         .merge(setup::router())
         .merge(logs::router())
-        .merge(pro::router())
         .merge(backup::router())
         .merge(server_settings::router())
         .merge(site_settings::router())

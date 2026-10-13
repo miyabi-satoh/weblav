@@ -384,7 +384,7 @@ async fn recovery_failures_are_indistinguishable(pool: SqlitePool) {
 async fn changing_the_role_keeps_the_recovery_code(pool: SqlitePool) {
     insert_admin(&pool, "admin", "password").await;
     insert_admin(&pool, "bob", "password").await;
-    let app = test_app_pro(pool.clone()).await;
+    let app = test_app(pool.clone()).await;
     let admin_cookie = login(app.clone(), "admin", "password").await;
     let bob_cookie = login(app.clone(), "bob", "password").await;
     let code = create_recovery_code(app.clone(), &bob_cookie, "password").await;

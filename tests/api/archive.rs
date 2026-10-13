@@ -257,7 +257,7 @@ async fn concurrent_rescans_of_different_archives_do_not_fail_with_database_lock
     // 登録先をこの実行専用の場所に作るので、そこも「公開できるフォルダー」に入れる。
     register_root(&pool, base).await;
 
-    let app = test_app_pro(pool.clone()).await;
+    let app = test_app(pool.clone()).await;
     let cookie = login(app.clone(), "admin-alice", "correct-password").await;
 
     let mut ids = Vec::with_capacity(ARCHIVES);

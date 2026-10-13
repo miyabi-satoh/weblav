@@ -10,7 +10,8 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "check": "astro check"
+    "check": "astro check",
+    "deploy": "astro build && wrangler deploy"
   },
   "dependencies": {
     "@astrojs/markdown-satteri": "0.4.2",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@astrojs/check": "0.9.10",
     "@types/hast": "3.0.5",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "wrangler": "4.147.0"
   }
 }

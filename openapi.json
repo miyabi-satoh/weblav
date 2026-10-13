@@ -436,337 +436,6 @@
         }
       }
     },
-    "/api/v1/admin/pro": {
-      "get": {
-        "operationId": "get_pro",
-        "responses": {
-          "200": {
-            "description": "Pro の状態と今の件数",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "未ログイン",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "admin以外",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "summary": "この WebLAV をアカウントから外す (→ docs/pro.md「外す」)。Free に戻し、外した証しを窓口へ送る。",
-        "operationId": "unlink",
-        "responses": {
-          "200": {
-            "description": "外した後の状態",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UnlinkResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "未ログイン",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "admin以外",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/pro/check": {
-      "post": {
-        "summary": "条件によらず、その場で窓口に確かめる (「今すぐ確認する」)。買った直後・外した直後に合わせるため。",
-        "operationId": "check_now",
-        "responses": {
-          "200": {
-            "description": "確かめた後の状態",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "未ログイン",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "admin以外",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "結んでいない・PC の時計が証明の発行日より遅れている",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "窓口につながらない・証明を確かめられない",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/pro/link": {
-      "post": {
-        "summary": "結びかけを作る (→ docs/pro.md「結ぶ」)。前の結びかけは捨てる。結んであれば、同じ枠の結び直しにする。",
-        "operationId": "start_link",
-        "responses": {
-          "200": {
-            "description": "結びかけた後の状態 (`linkUrl` が入る)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "未ログイン",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "admin以外",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "summary": "結びかけを捨てる (「キャンセル」)。",
-        "operationId": "cancel_link",
-        "responses": {
-          "200": {
-            "description": "捨てた後の状態",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "未ログイン",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "admin以外",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/pro/link/code": {
-      "post": {
-        "summary": "返しのコードを受け取る (ネットにつながらない WebLAV)。",
-        "operationId": "accept_code",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CodeRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "結んだ後の状態",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "未ログイン",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "admin以外",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "結びかけていない・PC の時計が遅れている",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "コードが合わない",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/pro/link/poll": {
-      "post": {
-        "summary": "結びかけが窓口で結ばれたかを確かめる (ネットにつながる WebLAV)。結ばれていれば証明を受け取って書く。\n窓口には `PENDING_POLL_INTERVAL` より短くは確かめない (間に来た分は今の状態だけを返す)。",
-        "operationId": "poll_link",
-        "responses": {
-          "200": {
-            "description": "今の状態。結ばれていれば `linkUrl` が消える",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "未ログイン",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "admin以外",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "PC の時計が証明の発行日より遅れている",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "窓口につながらない・証明を確かめられない",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/admin/roots": {
       "get": {
         "operationId": "list_roots",
@@ -1319,16 +988,6 @@
               }
             }
           },
-          "409": {
-            "description": "Free の上限に当たった",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
           "422": {
             "description": "ユーザー名重複・パスワード未入力",
             "content": {
@@ -1531,16 +1190,6 @@
           },
           "404": {
             "description": "存在しないユーザー",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Free の上限に当たった",
             "content": {
               "application/json": {
                 "schema": {
@@ -2087,16 +1736,6 @@
               }
             }
           },
-          "409": {
-            "description": "Free の上限に当たった",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
           "422": {
             "description": "Unprocessable Entity",
             "content": {
@@ -2185,16 +1824,6 @@
           },
           "401": {
             "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Free の上限に当たった",
             "content": {
               "application/json": {
                 "schema": {
@@ -5360,18 +4989,6 @@
           }
         }
       },
-      "CodeRequest": {
-        "type": "object",
-        "required": [
-          "code"
-        ],
-        "properties": {
-          "code": {
-            "type": "string",
-            "description": "窓口の画面かメールに出た返しのコード (15文字。区切り・大小文字は問わない)。"
-          }
-        }
-      },
       "ConnectionInfoResponse": {
         "type": "object",
         "required": [
@@ -5908,14 +5525,6 @@
           }
         }
       },
-      "Edition": {
-        "type": "string",
-        "description": "動いている WebLAV が Free か Pro か。",
-        "enum": [
-          "free",
-          "pro"
-        ]
-      },
       "ErrorBody": {
         "type": "object",
         "required": [
@@ -5957,11 +5566,7 @@
           "file_too_large",
           "internal_error",
           "conflict",
-          "config_unreadable",
-          "free_limit_reached",
-          "account_server_unavailable",
-          "pro_code_invalid",
-          "pro_clock_behind"
+          "config_unreadable"
         ]
       },
       "ErrorResponse": {
@@ -6100,40 +5705,6 @@
           "thumbnail": {
             "type": "boolean",
             "description": "行に縮小画像を出してみるか (→ docs/ui.md「画像のプレビュー」)。"
-          }
-        }
-      },
-      "FreeLimitTarget": {
-        "type": "string",
-        "description": "上限のある対象。",
-        "enum": [
-          "admin",
-          "user",
-          "archive",
-          "folder",
-          "file",
-          "link"
-        ]
-      },
-      "FreeLimitUsage": {
-        "type": "object",
-        "description": "上限のある対象の、今の件数と Free の上限。",
-        "required": [
-          "target",
-          "count",
-          "limit"
-        ],
-        "properties": {
-          "count": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "limit": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "target": {
-            "$ref": "#/components/schemas/FreeLimitTarget"
           }
         }
       },
@@ -6597,14 +6168,6 @@
           }
         }
       },
-      "PermissionKind": {
-        "type": "string",
-        "description": "許可の受け取り方。ネットで受け取った署名付きの証明か、打ち込んだ返しのコードか。",
-        "enum": [
-          "online",
-          "offline"
-        ]
-      },
       "PickRootResponse": {
         "type": "object",
         "properties": {
@@ -6614,110 +6177,6 @@
               "null"
             ],
             "description": "選ばれたフォルダーの絶対パス。キャンセルされたら `null`。登録はしていないので、\n登録するには `POST /admin/roots` へそのまま渡す。"
-          }
-        }
-      },
-      "Plan": {
-        "type": "string",
-        "description": "Pro の種類。台数の上限と画面の表示に使う。",
-        "enum": [
-          "personal",
-          "organization"
-        ]
-      },
-      "ProResponse": {
-        "type": "object",
-        "required": [
-          "edition",
-          "usage",
-          "bound",
-          "clockBehind",
-          "accountUrl"
-        ],
-        "properties": {
-          "accountUrl": {
-            "type": "string",
-            "description": "窓口のアカウントのページ。"
-          },
-          "bound": {
-            "type": "boolean",
-            "description": "アカウントに結んでいるか。"
-          },
-          "clockBehind": {
-            "type": "boolean",
-            "description": "PC の時計が前に見た時刻より遅れていて、Free として動いている。"
-          },
-          "edition": {
-            "$ref": "#/components/schemas/Edition"
-          },
-          "email": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "結んだアカウントのメールアドレス。ネットで確かめるまで分からない (返しのコードで結んだとき)。"
-          },
-          "expiresAt": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64",
-            "description": "今の許可の期限 (UNIX 秒)。"
-          },
-          "lastCheckedAt": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64"
-          },
-          "linkUrl": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "結びかけなら、窓口の結ぶ画面の URL (QR コードとボタンに使う)。"
-          },
-          "permission": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/PermissionKind",
-                "description": "許可をネットで受け取ったか、返しのコードで受け取ったか。"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "plan": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/Plan",
-                "description": "Pro のときだけ。"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "refusal": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/Refusal",
-                "description": "窓口が直近に許可を出さなかったわけ。"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "usage": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/FreeLimitUsage"
-            },
-            "description": "上限のある対象ごとの今の件数と Free の上限。Pro でも返す (上限は効いていない)。"
           }
         }
       },
@@ -6814,14 +6273,6 @@
             "type": "string"
           }
         }
-      },
-      "Refusal": {
-        "type": "string",
-        "description": "窓口が直近に許可を出さなかったわけ。区画に、どうすれば戻るかを出すため。",
-        "enum": [
-          "noPlan",
-          "overLimit"
-        ]
       },
       "RenameRootRequest": {
         "type": "object",
@@ -7369,31 +6820,6 @@
           }
         }
       },
-      "UnlinkResponse": {
-        "type": "object",
-        "required": [
-          "pro"
-        ],
-        "properties": {
-          "pro": {
-            "$ref": "#/components/schemas/ProResponse"
-          },
-          "releaseCode": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "同じく、URL を開けないときに打ち込む外した証し。"
-          },
-          "releaseUrl": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "窓口へ外したことを届けられなかったときだけ。スマートフォンで読んでもらう外した証しの URL。"
-          }
-        }
-      },
       "UpdateContentRequest": {
         "type": "object",
         "required": [
@@ -7888,30 +7314,6 @@
               },
               "path": {
                 "type": "string"
-              }
-            }
-          },
-          {
-            "type": "object",
-            "description": "Free の上限に当たった (→ docs/pro.md「上限を数えて止める」)。409 に付ける。",
-            "required": [
-              "target",
-              "limit",
-              "kind"
-            ],
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "freeLimit"
-                ]
-              },
-              "limit": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "target": {
-                "$ref": "#/components/schemas/FreeLimitTarget"
               }
             }
           }

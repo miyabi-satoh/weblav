@@ -129,7 +129,7 @@ async fn users_role_update_promotes_and_demotes(pool: SqlitePool) {
     insert_user(&pool, "bob", "correct-password").await;
     let bob_db_id = db_user_id(&pool, "bob").await;
     insert_link_by(&pool, "ボブのメモ", "private", Some(bob_db_id), None).await;
-    let app = test_app_pro(pool).await;
+    let app = test_app(pool).await;
     let cookie = login(app.clone(), "admin-alice", "correct-password").await;
     let bob_id = user_id(app.clone(), &cookie, "bob").await;
 

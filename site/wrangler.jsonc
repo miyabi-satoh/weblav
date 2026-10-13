@@ -1,0 +1,14 @@
+// 紹介と規約類 (ビルドした dist/) を、静的なファイルだけの Worker として weblav.amiiby.com に出す。
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "weblav-site",
+  "compatibility_date": "2026-08-22",
+  // workers.dev には出さず、URL を1つにする。
+  "routes": [{ "pattern": "weblav.amiiby.com", "custom_domain": true }],
+  "workers_dev": false,
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page",
+    "html_handling": "force-trailing-slash"
+  }
+}
