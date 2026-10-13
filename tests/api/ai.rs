@@ -687,6 +687,8 @@ async fn chat_relays_the_question_and_records_the_usage(pool: SqlitePool) {
         assert_eq!(fake.prompts.len(), 1);
         assert_eq!(fake.prompts[0]["user"], "富士山の高さは？");
         assert!(fake.prompts[0]["system"].is_string());
+        // 窓口が思考の強さを決められるよう、用途を伝える (ほかの機能は伝えない)。
+        assert_eq!(fake.prompts[0]["task"], "chat");
     }
     let kinds: Vec<String> = usage_rows(&pool)
         .await

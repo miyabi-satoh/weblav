@@ -94,6 +94,17 @@ pub enum UsageKind {
     Chat,
 }
 
+impl UsageKind {
+    /// 窓口に伝える用途。窓口はこれで思考の強さを決める (→ docs/account-server.md「中継」)。
+    /// 伝えない機能は、窓口の既定のまま。
+    fn task(self) -> Option<&'static str> {
+        match self {
+            Self::Chat => Some("chat"),
+            Self::Axes | Self::Links => None,
+        }
+    }
+}
+
 /// Web の検索で引く中身 (窓口の `POST /v1/search`)。
 #[derive(Debug, Clone, Serialize)]
 pub struct SearchQuery {
@@ -385,7 +396,7 @@ pub async fn generate(
     }
     let ai = Arc::clone(&state.ai);
     let relayed = run_blocking(move || {
-        ai.relay(|agent, server, token| post_ai(agent, server, token, &prompt))
+        ai.relay(|agent, server, token| post_ai(agent, server, token, &prompt, kind.task()))
     })
     .await?;
     record(state, user, kind, relayed).await
@@ -601,6 +612,8 @@ struct AiBody<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     system: Option<&'a str>,
     user: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    task: Option<&'static str>,
 }
 
 /// 中継の入口に JSON を送り、成功の返事の本文を `parse` で読む。
@@ -638,11 +651,18 @@ fn post_relay<T>(
     }
 }
 
-fn post_ai(agent: &Agent, server: &str, token: &str, prompt: &Prompt) -> Relayed<String> {
+fn post_ai(
+    agent: &Agent,
+    server: &str,
+    token: &str,
+    prompt: &Prompt,
+    task: Option<&'static str>,
+) -> Relayed<String> {
     let url = format!("{server}/v1/ai");
     let body = AiBody {
         system: prompt.system.as_deref(),
         user: &prompt.user,
+        task,
     };
     // 答えの文が無い返事 (安全のための打ち切りなど) は、AI の側の失敗として伝える。
     post_relay(agent, &url, token, &body, |body| {
