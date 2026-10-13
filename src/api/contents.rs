@@ -520,9 +520,7 @@ async fn admin_response(
         None => None,
     };
     let root_records = super::roots::load_root_records(pool).await?;
-    let ai_links = super::ai_links::enabled_groups(pool)
-        .await?
-        .contains(&row.id);
+    let ai_links = super::ai_links::is_enabled(pool, row.id).await?;
     Ok(AdminContentResponse::from_row(
         row,
         username,
