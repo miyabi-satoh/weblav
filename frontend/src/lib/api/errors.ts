@@ -66,6 +66,7 @@ export function errorCode(body: unknown): ErrorCode | undefined {
 }
 
 type ValidationDetail = components['schemas']['ValidationDetail'];
+
 /**
  * 422 の内訳から表示文言を組み立てる。未知の `kind` (サーバーだけ先に更新された場合)
  * では `undefined` を返し、呼び出し側が `code` の汎用文言に落とす。
