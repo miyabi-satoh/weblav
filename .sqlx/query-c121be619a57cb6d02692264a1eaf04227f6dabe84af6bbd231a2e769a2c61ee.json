@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO ai_links (content_id, position, url, title) VALUES (?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "c121be619a57cb6d02692264a1eaf04227f6dabe84af6bbd231a2e769a2c61ee"
+}

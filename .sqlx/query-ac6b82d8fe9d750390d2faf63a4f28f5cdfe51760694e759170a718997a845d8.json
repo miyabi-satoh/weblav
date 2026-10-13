@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE ai_link_groups SET refreshed_at = ? WHERE content_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "ac6b82d8fe9d750390d2faf63a4f28f5cdfe51760694e759170a718997a845d8"
+}

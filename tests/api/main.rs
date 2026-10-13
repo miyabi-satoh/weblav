@@ -18,6 +18,7 @@ use weblav::folder_picker::FolderPicker;
 use weblav::{auth, build_app};
 
 mod ai;
+mod ai_links;
 mod anonymous;
 mod archive;
 mod axes;

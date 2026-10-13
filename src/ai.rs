@@ -88,12 +88,48 @@ pub struct Prompt {
 pub enum UsageKind {
     /// アーカイブの軸の定義。
     Axes,
+    /// AI が集めるリンク。
+    Links,
 }
 
-/// 窓口の AI の返事。失敗でも、AI が使った量を返していれば `used` がある。
-struct Relayed {
-    answer: Result<String, AppError>,
+/// Web の検索で引く中身 (窓口の `POST /v1/search`)。
+#[derive(Debug, Clone, Serialize)]
+pub struct SearchQuery {
+    /// 引く語。窓口が受けるのは 5 つまで。
+    pub queries: Vec<String>,
+    /// 国 (ISO 3166-1 alpha-2)。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
+    /// 言語 (ISO 639-1)。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    /// 新しさ。窓口が受けるのは `year` だけ。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recency: Option<&'static str>,
+}
+
+/// 検索で返った候補の1件。`snippet` は AI が選ぶためだけに使い、保存しない。
+#[derive(Debug, Clone, Deserialize)]
+pub struct SearchResult {
+    pub title: String,
+    pub url: String,
+    pub date: Option<String>,
+    pub snippet: String,
+}
+
+/// 窓口の中継の返事。失敗でも、窓口が使った量を返していれば `used` がある。
+struct Relayed<T> {
+    answer: Result<T, AppError>,
     used: Option<i64>,
+}
+
+impl<T> Relayed<T> {
+    fn failed(err: AppError) -> Self {
+        Self {
+            answer: Err(err),
+            used: None,
+        }
+    }
 }
 
 /// 動いている WebLAV の、PC の登録の状態と窓口の場所。起動したときにファイルを読む。
@@ -309,14 +345,20 @@ impl Ai {
         result
     }
 
-    fn relay(&self, prompt: &Prompt) -> Relayed {
+    fn relay(&self, prompt: &Prompt) -> Relayed<String> {
         let Some(token) = self.token() else {
-            return Relayed {
-                answer: Err(AppError::AiNotLinked),
-                used: None,
-            };
+            return Relayed::failed(AppError::AiNotLinked);
         };
         let relayed = post_ai(&self.ai_agent, &self.server, &token, prompt);
+        self.forget_if_rejected(&token, &relayed.answer);
+        relayed
+    }
+
+    fn relay_search(&self, query: &SearchQuery) -> Relayed<Vec<SearchResult>> {
+        let Some(token) = self.token() else {
+            return Relayed::failed(AppError::AiNotLinked);
+        };
+        let relayed = post_search(&self.ai_agent, &self.server, &token, query);
         self.forget_if_rejected(&token, &relayed.answer);
         relayed
     }
@@ -343,17 +385,46 @@ pub async fn generate(
     kind: UsageKind,
     prompt: Prompt,
 ) -> Result<String, AppError> {
+    ensure_usable(state, user).await?;
+    if input_units(&prompt) > MAX_INPUT_UNITS {
+        return Err(AppError::AiTooLarge);
+    }
+    let ai = Arc::clone(&state.ai);
+    let relayed = run_blocking(move || ai.relay(&prompt)).await?;
+    record(state, user, kind, relayed).await
+}
+
+/// 窓口を通して Web を検索し、候補を返す。使った量は `user` の分として記録する。
+pub async fn search(
+    state: &AppState,
+    user: &AuthUser,
+    kind: UsageKind,
+    query: SearchQuery,
+) -> Result<Vec<SearchResult>, AppError> {
+    ensure_usable(state, user).await?;
+    let ai = Arc::clone(&state.ai);
+    let relayed = run_blocking(move || ai.relay_search(&query)).await?;
+    record(state, user, kind, relayed).await
+}
+
+/// `user` が使えて、PC が登録済みであること。窓口を呼ぶ前に確かめる。
+async fn ensure_usable(state: &AppState, user: &AuthUser) -> Result<(), AppError> {
     if !is_allowed(&state.pool, user).await? {
         return Err(AppError::AiNotAllowed);
     }
     if !state.ai.is_linked() {
         return Err(AppError::AiNotLinked);
     }
-    if input_units(&prompt) > MAX_INPUT_UNITS {
-        return Err(AppError::AiTooLarge);
-    }
-    let ai = Arc::clone(&state.ai);
-    let relayed = run_blocking(move || ai.relay(&prompt)).await?;
+    Ok(())
+}
+
+/// 窓口が返した使った量を `user` の分として残し、答えを返す。
+async fn record<T>(
+    state: &AppState,
+    user: &AuthUser,
+    kind: UsageKind,
+    relayed: Relayed<T>,
+) -> Result<T, AppError> {
     if let Some(used) = relayed.used {
         // 記録できなくても、残りを使って届いた答えは返す。
         if let Err(err) = sqlx::query!(
@@ -532,19 +603,21 @@ struct AiBody<'a> {
     user: &'a str,
 }
 
-fn post_ai(agent: &Agent, server: &str, token: &str, prompt: &Prompt) -> Relayed {
-    let url = format!("{server}/v1/ai");
-    let body = AiBody {
-        system: prompt.system.as_deref(),
-        user: &prompt.user,
-    };
-    let reply = serde_json::to_string(&body)
-        .map_err(|err| malformed(&url, err))
+/// 中継の入口に JSON を送り、成功の返事の本文を `parse` で読む。
+fn post_relay<T>(
+    agent: &Agent,
+    url: &str,
+    token: &str,
+    body: &impl Serialize,
+    parse: impl FnOnce(&str) -> Result<T, AppError>,
+) -> Relayed<T> {
+    let reply = serde_json::to_string(body)
+        .map_err(|err| malformed(url, err))
         .and_then(|body| {
             read(
-                &url,
+                url,
                 agent
-                    .post(&url)
+                    .post(url)
                     .header("content-type", "application/json")
                     .header("authorization", bearer(token))
                     .send(&body),
@@ -552,23 +625,47 @@ fn post_ai(agent: &Agent, server: &str, token: &str, prompt: &Prompt) -> Relayed
         });
     let reply = match reply {
         Ok(reply) => reply,
-        Err(err) => {
-            return Relayed {
-                answer: Err(err),
-                used: None,
-            };
-        }
+        Err(err) => return Relayed::failed(err),
     };
     let answer = if reply.status == 200 {
-        // 答えの文が無い返事 (安全のための打ち切りなど) は、AI の側の失敗として伝える。
-        answer_text(&reply.body).ok_or(AppError::AiUpstream)
+        parse(&reply.body)
     } else {
-        Err(failure(&url, &reply))
+        Err(failure(url, &reply))
     };
     Relayed {
         answer,
         used: reply.used,
     }
+}
+
+fn post_ai(agent: &Agent, server: &str, token: &str, prompt: &Prompt) -> Relayed<String> {
+    let url = format!("{server}/v1/ai");
+    let body = AiBody {
+        system: prompt.system.as_deref(),
+        user: &prompt.user,
+    };
+    // 答えの文が無い返事 (安全のための打ち切りなど) は、AI の側の失敗として伝える。
+    post_relay(agent, &url, token, &body, |body| {
+        answer_text(body).ok_or(AppError::AiUpstream)
+    })
+}
+
+fn post_search(
+    agent: &Agent,
+    server: &str,
+    token: &str,
+    query: &SearchQuery,
+) -> Relayed<Vec<SearchResult>> {
+    #[derive(Deserialize)]
+    struct Found {
+        results: Vec<SearchResult>,
+    }
+    let url = format!("{server}/v1/search");
+    post_relay(agent, &url, token, query, |body| {
+        serde_json::from_str::<Found>(body)
+            .map(|found| found.results)
+            .map_err(|err| malformed(&url, err))
+    })
 }
 
 /// Gemini の Interactions API の返事から、答えの文を取り出す。

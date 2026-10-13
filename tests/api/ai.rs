@@ -17,17 +17,21 @@ const ANSWER_BODY: &str =
     r#"{"steps":[{"type":"model_output","content":[{"type":"text","text":"{\"axes\":[]}"}]}]}"#;
 
 /// 偽の窓口の振る舞いと、受け取ったもの。
-struct Fake {
+pub(super) struct Fake {
     /// 窓口の画面で登録を認めたか。
     approved: bool,
     /// 窓口の側で登録を外したか (トークンを断る)。
     revoked: bool,
     /// `/v1/ai` の応答 (ステータス・本文・使った量)。
-    ai: (StatusCode, String, Option<i64>),
+    pub(super) ai: (StatusCode, String, Option<i64>),
+    /// `/v1/search` の応答 (ステータス・本文・使った量)。
+    pub(super) search: (StatusCode, String, Option<i64>),
     /// `/v1/links/token` に届いた検証用の値。
     verifiers: Vec<String>,
     /// `/v1/ai` に届いた本文。
-    prompts: Vec<serde_json::Value>,
+    pub(super) prompts: Vec<serde_json::Value>,
+    /// `/v1/search` に届いた本文。
+    pub(super) searches: Vec<serde_json::Value>,
     /// `DELETE /v1/token` が届いたか。
     token_deleted: bool,
 }
@@ -57,8 +61,10 @@ async fn fake_account_server() -> (String, SharedFake) {
         approved: false,
         revoked: false,
         ai: (StatusCode::OK, ANSWER_BODY.to_string(), Some(1234)),
+        search: (StatusCode::OK, r#"{"results":[]}"#.to_string(), Some(10)),
         verifiers: Vec::new(),
         prompts: Vec::new(),
+        searches: Vec::new(),
         token_deleted: false,
     }));
     let router = Router::new()
@@ -126,6 +132,28 @@ async fn fake_account_server() -> (String, SharedFake) {
                 },
             ),
         )
+        .route(
+            "/v1/search",
+            post(
+                |State(fake): State<SharedFake>,
+                 headers: HeaderMap,
+                 Json(body): Json<serde_json::Value>| async move {
+                    let mut fake = fake.lock().expect("偽の窓口の鍵が毒された");
+                    if !authorized(&fake, &headers) {
+                        return unauthorized();
+                    }
+                    fake.searches.push(body);
+                    let (status, body, used) = fake.search.clone();
+                    let mut response = (status, body).into_response();
+                    if let Some(used) = used {
+                        response
+                            .headers_mut()
+                            .insert("x-weblav-used", used.into());
+                    }
+                    response
+                },
+            ),
+        )
         .with_state(Arc::clone(&fake));
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -142,11 +170,11 @@ async fn fake_account_server() -> (String, SharedFake) {
     (format!("http://{addr}"), fake)
 }
 
-struct AiApp {
-    app: Router,
+pub(super) struct AiApp {
+    pub(super) app: Router,
     /// 管理者のセッション。
-    cookie: String,
-    fake: SharedFake,
+    pub(super) cookie: String,
+    pub(super) fake: SharedFake,
     server: String,
     /// 登録の状態のファイル。
     account_path: std::path::PathBuf,
@@ -183,7 +211,7 @@ fn linked_data_dir() -> std::path::PathBuf {
 }
 
 /// 偽の窓口につなぐアプリと、管理者のセッション。`linked` なら登録済みから始める。
-async fn ai_app(pool: &SqlitePool, linked: bool) -> AiApp {
+pub(super) async fn ai_app(pool: &SqlitePool, linked: bool) -> AiApp {
     let (server, fake) = fake_account_server().await;
     let dir = if linked {
         linked_data_dir()
@@ -202,7 +230,7 @@ async fn ai_app(pool: &SqlitePool, linked: bool) -> AiApp {
     }
 }
 
-async fn get_json(app: Router, uri: &str, cookie: &str) -> serde_json::Value {
+pub(super) async fn get_json(app: Router, uri: &str, cookie: &str) -> serde_json::Value {
     let (status, body) = send_empty(app, "GET", uri, cookie).await;
     assert_eq!(status, StatusCode::OK, "{uri}: {body}");
     serde_json::from_str(&body).expect("応答を JSON として読めなかった")
@@ -225,7 +253,7 @@ async fn generate(app: Router, uri: &str, cookie: &str) -> (StatusCode, String) 
     send_json(app, "POST", uri, cookie, r#"{"prompt":"フォルダーの一覧"}"#).await
 }
 
-async fn usage_rows(pool: &SqlitePool) -> Vec<(Option<i64>, String, String, i64)> {
+pub(super) async fn usage_rows(pool: &SqlitePool) -> Vec<(Option<i64>, String, String, i64)> {
     sqlx::query_as("SELECT user_id, username, kind, used FROM ai_usage ORDER BY id")
         .fetch_all(pool)
         .await

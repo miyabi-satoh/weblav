@@ -96,6 +96,8 @@ pub struct AppState {
     pub lan_port: Option<u16>,
     /// PC の登録の状態と、つなぐ窓口 (→ `crate::ai`)。
     pub ai: Arc<crate::ai::Ai>,
+    /// AI がリンクを集めている最中のグループ (→ `crate::api::ai_links`)。
+    pub ai_links: Arc<crate::api::ai_links::AiLinks>,
 }
 
 /// 走査中のアーカイブidの集合。

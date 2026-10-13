@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT url, title FROM ai_links\n           WHERE content_id = ?\n             AND url NOT IN (\n                 SELECT url FROM contents WHERE parent_id = ? AND type = ? AND url IS NOT NULL\n             )\n           ORDER BY position",
+  "describe": {
+    "columns": [
+      {
+        "name": "url",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "title",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "2fd80f1371d75a5a39a9bbf3203a43492ad67bd4f289b6bfc42d478247ba5277"
+}

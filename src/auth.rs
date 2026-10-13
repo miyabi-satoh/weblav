@@ -437,6 +437,7 @@ impl LoginRateLimiter {
 
 /// ログイン済みユーザーを表すextractor。ハンドラの引数に `AuthUser` を書くだけで
 /// 未ログインなら401 `unauthorized` になる。
+#[derive(Clone)]
 pub struct AuthUser {
     pub id: i64,
     pub username: String,

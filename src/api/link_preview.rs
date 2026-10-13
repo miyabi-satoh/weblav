@@ -109,7 +109,7 @@ fn file_url(file: &str) -> String {
     format!("/api/v1/link-previews/files/{file}")
 }
 
-fn now_secs() -> i64 {
+pub(super) fn now_secs() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |elapsed| {
@@ -148,6 +148,8 @@ struct RefreshLinkPreviewsRequest {
     content_ids: Vec<i64>,
     /// リンクの一覧のファイル。中のリンクを取り直す。見られないもの・一覧のファイルでないものは黙って飛ばす。
     links_file: Option<RefreshLinksFile>,
+    /// AI がリンクを集めるグループの id。集めたリンクを取り直す。見られないもの・グループでないものは黙って飛ばす。
+    ai_links_group: Option<i64>,
 }
 
 /// 取り直す一覧のファイル。指し方は `GET /contents/{id}/links` と同じ。
@@ -201,6 +203,16 @@ async fn refresh_link_previews(
             Ok(file_urls) => {
                 let room = MAX_REFRESH_TARGETS.saturating_sub(urls.len());
                 urls.extend(file_urls.into_iter().take(room));
+            }
+            Err(AppError::NotFound | AppError::Unauthorized) => {}
+            Err(err) => return Err(err),
+        }
+    }
+    if let Some(group) = payload.ai_links_group {
+        match super::ai_links::viewable_urls(&state, &viewer, group).await {
+            Ok(group_urls) => {
+                let room = MAX_REFRESH_TARGETS.saturating_sub(urls.len());
+                urls.extend(group_urls.into_iter().take(room));
             }
             Err(AppError::NotFound | AppError::Unauthorized) => {}
             Err(err) => return Err(err),

@@ -459,6 +459,8 @@ pub struct AdminContentResponse {
     /// `type = 'archive'` の場合のみ`Some`。表示タイトルの組み立てテンプレート
     /// (→ docs/archive.md「表示タイトル」)。`None`ならファイル名をそのまま表示する。
     pub title_template: Option<String>,
+    /// AI がリンクを集めるグループか (→ docs/ai.md「AI が集めるリンク」)。一覧の行に、集め直す操作を出すのに使う。
+    pub ai_links: bool,
 }
 
 impl AdminContentResponse {
@@ -466,6 +468,7 @@ impl AdminContentResponse {
         row: ContentRow,
         created_by_username: Option<String>,
         root_records: &[super::roots::RootRecord],
+        ai_links: bool,
     ) -> Self {
         let location = row
             .path
@@ -497,6 +500,7 @@ impl AdminContentResponse {
             created_by_username,
             extensions: row.extensions,
             title_template: row.title_template,
+            ai_links,
         }
     }
 }
@@ -516,7 +520,15 @@ async fn admin_response(
         None => None,
     };
     let root_records = super::roots::load_root_records(pool).await?;
-    Ok(AdminContentResponse::from_row(row, username, &root_records))
+    let ai_links = super::ai_links::enabled_groups(pool)
+        .await?
+        .contains(&row.id);
+    Ok(AdminContentResponse::from_row(
+        row,
+        username,
+        &root_records,
+        ai_links,
+    ))
 }
 
 /// `type` は作成時のみ指定する(更新では変更不可、`UpdateContentRequest` に無い)。
@@ -892,13 +904,15 @@ async fn list_admin_contents(
             .map(|row| (row.id, row.username))
             .collect();
     let root_records = super::roots::load_root_records(&state.pool).await?;
+    let ai_link_groups = super::ai_links::enabled_groups(&state.pool).await?;
 
     Ok(Json(
         rows.into_iter()
             .filter(|row| can_see_in_admin_list(&user, row.visibility, row.created_by))
             .map(|row| {
                 let username = row.created_by.and_then(|id| usernames.get(&id).cloned());
-                AdminContentResponse::from_row(row, username, &root_records)
+                let ai_links = ai_link_groups.contains(&row.id);
+                AdminContentResponse::from_row(row, username, &root_records, ai_links)
             })
             .collect(),
     ))

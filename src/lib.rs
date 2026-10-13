@@ -162,6 +162,7 @@ pub async fn build_app(
         lan_port,
         folder_picker,
         ai,
+        ai_links: Arc::default(),
     };
     let app = app.with_state(state);
 

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT interests FROM ai_link_groups WHERE content_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "interests",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "531c1588202bc5c4702a49a0d675413f7b9cb40429e0477002063cfd9739d1c5"
+}
