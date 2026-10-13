@@ -90,7 +90,7 @@
 	"admin_roots_nav_title": "公開できるフォルダー",
 	"admin_roots_title": "公開できるフォルダー",
 	"admin_roots_description": "ここに登録したフォルダーと、その中のフォルダーを、フォルダーやアーカイブとして公開できます。",
-	"admin_roots_add_local_only": "フォルダーの追加は、WebLAV が動いているパソコンで管理画面を開いたときだけできます。",
+	"admin_roots_add_local_only": "フォルダーを追加するには、WebLAV が動いているパソコンで管理画面を開いてください。",
 	"admin_roots_empty": "まだ登録がありません。",
 	"admin_roots_add": "フォルダーを追加...",
 	"admin_roots_content_count": "この中のコンテンツ {count} 件",

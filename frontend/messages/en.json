@@ -90,7 +90,7 @@
 	"admin_roots_nav_title": "Shared folders",
 	"admin_roots_title": "Shared folders",
 	"admin_roots_description": "Only the folders registered here and the folders inside them can be published as folders and archives.",
-	"admin_roots_add_local_only": "Folders can only be added from the admin pages opened on the computer running WebLAV.",
+	"admin_roots_add_local_only": "To add a folder, open the admin pages on the computer running WebLAV.",
 	"admin_roots_empty": "Nothing registered yet.",
 	"admin_roots_add": "Add a folder...",
 	"admin_roots_content_count": "{count} content items inside",

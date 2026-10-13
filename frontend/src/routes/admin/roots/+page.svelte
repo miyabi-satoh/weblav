@@ -226,9 +226,9 @@
 		{m.admin_roots_delete_confirm_contents_note({
 			count: formatNumber(deletingRoot.removedContentCount)
 		})}
-	{/if}
-	{#if !canAdd}
-		{m.admin_roots_delete_confirm_local_note()}
+		{#if !canAdd}
+			{m.admin_roots_delete_confirm_local_note()}
+		{/if}
 	{/if}
 </ConfirmDialog>
 
