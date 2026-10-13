@@ -77,6 +77,9 @@
 		return null;
 	});
 
+	// 空白だけでは `required` を通ってしまうので、保存ボタンの側で止める。
+	let aiInterestsMissing = $derived(aiLinksOn && interestLines(aiInterests).length === 0);
+
 	let dirty = $derived(form.dirty || creatorChanged || aiLinksDirty.dirty);
 
 	function creatorSelectLabel(value: string): string {
@@ -347,7 +350,8 @@
 					disabled={!dirty ||
 						(isDirectoryContentType(form.type) && form.path === '') ||
 						visibilityError !== null ||
-						aiInterestsError !== null}>{m.action_save()}</LoadingButton
+						aiInterestsError !== null ||
+						aiInterestsMissing}>{m.action_save()}</LoadingButton
 				>
 			</div>
 		{/if}

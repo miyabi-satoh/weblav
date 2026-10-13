@@ -23,6 +23,10 @@ use crate::state::AppState;
 const MAX_INTERESTS: usize = 5;
 /// 1行の長さ (UTF-16 の単位)。窓口が1つの語として受ける上限。
 const MAX_INTEREST_UNITS: usize = 200;
+/// 候補の URL の長さの上限。これより長いものは、追跡用の値が並ぶだけのことが多く、候補にしない。
+const MAX_URL_BYTES: usize = 2000;
+/// 持つタイトルの長さ (文字)。一覧の1行に収まらない長さは切る。
+const MAX_TITLE_CHARS: usize = 200;
 /// AI に選ばせる数。1画面で見渡せて、候補 (2回の検索で 40 件まで) から選ぶ意味が残る数。
 const MAX_PICKS: usize = 12;
 
@@ -167,13 +171,31 @@ fn search_locale(language: Option<&str>) -> (Option<String>, Option<String>) {
 }
 
 /// 2回の検索の結果を1つの候補の並びにする。同じ URL と、グループに登録してある URL は外す。
-/// `http`・`https` 以外の URL も外す。画面でリンクの行き先になり、`link` コンテンツとしても登録されるため。
+/// `http`・`https` 以外の URL と長すぎる URL も外す。画面でリンクの行き先になり、`link` コンテンツとしても登録されるため。
+/// タイトルは1行に直して切る。Web から来た文字列で、AI に渡す番号付きの並びと一覧の行を崩さないように。
 fn candidates(found: Vec<SearchResult>, registered: &HashSet<String>) -> Vec<SearchResult> {
     let mut seen = HashSet::new();
     found
         .into_iter()
         .filter(|result| result.url.starts_with("https://") || result.url.starts_with("http://"))
+        .filter(|result| {
+            result.url.len() <= MAX_URL_BYTES && !result.url.contains(char::is_whitespace)
+        })
         .filter(|result| !registered.contains(&result.url) && seen.insert(result.url.clone()))
+        .map(|result| SearchResult {
+            title: one_line(&result.title, MAX_TITLE_CHARS),
+            ..result
+        })
+        .collect()
+}
+
+/// 空白の並び (改行を含む) を1つの空白にし、`max` 文字で切る。
+fn one_line(text: &str, max: usize) -> String {
+    text.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(max)
         .collect()
 }
 
@@ -194,20 +216,30 @@ fn select_prompt(interests: &[String], candidates: &[SearchResult]) -> String {
             candidate.title,
             candidate.url,
             date,
-            candidate.snippet.replace('\n', " ")
+            candidate
+                .snippet
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
         ));
     }
     text
 }
 
 /// AI の答えから、選んだ候補の位置 (0 から) を取り出す。番号の並びが無ければ `None`。
+/// 番号の並びは、数字・カンマ・空白だけが入った最初の `[...]`。前置きの文に別の括弧があっても読めるように。
 /// 範囲の外の番号と重なりは捨て、`MAX_PICKS` 件で切る。
 fn parse_selection(answer: &str, count: usize) -> Option<Vec<usize>> {
-    let start = answer.find('[')?;
-    let end = start + answer[start..].find(']')?;
+    let numbers = answer.split('[').skip(1).find_map(|rest| {
+        let inside = &rest[..rest.find(']')?];
+        inside
+            .chars()
+            .all(|c| c.is_ascii_digit() || c == ',' || c.is_whitespace())
+            .then_some(inside)
+    })?;
     let mut seen = HashSet::new();
     Some(
-        answer[start + 1..end]
+        numbers
             .split(|c: char| !c.is_ascii_digit())
             .filter_map(|number| number.parse::<usize>().ok())
             .filter(|number| (1..=count).contains(number) && seen.insert(*number))
@@ -452,6 +484,7 @@ async fn refresh_ai_links(
             Err(err) => return Err(err),
         }
     }
+    let now = link_preview::now_secs();
     let registered: HashSet<String> = sqlx::query_scalar!(
         r#"SELECT url as "url!" FROM contents WHERE parent_id = ? AND type = ? AND url IS NOT NULL"#,
         id,
@@ -463,9 +496,18 @@ async fn refresh_ai_links(
     .collect();
     let candidates = candidates(found, &registered);
 
-    let picks = if candidates.is_empty() {
-        Vec::new()
-    } else {
+    // 候補が1件も無ければ、前に集めたリンクを残す。検索が何も返さなかっただけで、見せるものを消さないため。
+    if candidates.is_empty() {
+        sqlx::query!(
+            "UPDATE ai_link_groups SET refreshed_at = ? WHERE content_id = ?",
+            now,
+            id
+        )
+        .execute(&state.pool)
+        .await?;
+        return Ok(Json(response(&state, &viewer, id).await?));
+    }
+    let picks = {
         let prompt = Prompt {
             system: Some(SELECT_SYSTEM.to_string()),
             user: select_prompt(&interests, &candidates),
@@ -474,8 +516,18 @@ async fn refresh_ai_links(
         parse_selection(&answer, candidates.len()).ok_or(AppError::AiUpstream)?
     };
 
-    let now = link_preview::now_secs();
     let mut tx = state.pool.begin().await?;
+    // 集めている間に設定を外されていたら、何も書かずに 404 にする。
+    let updated = sqlx::query!(
+        "UPDATE ai_link_groups SET refreshed_at = ? WHERE content_id = ?",
+        now,
+        id
+    )
+    .execute(&mut *tx)
+    .await?;
+    if updated.rows_affected() == 0 {
+        return Err(AppError::NotFound);
+    }
     sqlx::query!("DELETE FROM ai_links WHERE content_id = ?", id)
         .execute(&mut *tx)
         .await?;
@@ -491,17 +543,6 @@ async fn refresh_ai_links(
         )
         .execute(&mut *tx)
         .await?;
-    }
-    // 集めている間に設定を外されていたら、何も書かずに 404 にする (外部キーで、上の INSERT が先に失敗することもある)。
-    let updated = sqlx::query!(
-        "UPDATE ai_link_groups SET refreshed_at = ? WHERE content_id = ?",
-        now,
-        id
-    )
-    .execute(&mut *tx)
-    .await?;
-    if updated.rows_affected() == 0 {
-        return Err(AppError::NotFound);
     }
     tx.commit().await?;
 
@@ -608,6 +649,26 @@ mod tests {
     #[test]
     fn parse_selection_reads_an_array_wrapped_in_other_text() {
         assert_eq!(parse_selection("```json\n[2, 1]\n```", 2), Some(vec![1, 0]));
+    }
+
+    #[test]
+    fn parse_selection_skips_brackets_that_are_not_a_list_of_numbers() {
+        assert_eq!(
+            parse_selection("Based on [Rust] interests: [3, 1]", 3),
+            Some(vec![2, 0])
+        );
+        assert_eq!(parse_selection("see [note]", 3), None);
+    }
+
+    #[test]
+    fn candidates_put_titles_on_one_line_and_drop_overlong_urls() {
+        let long = format!("https://a.example/{}", "x".repeat(MAX_URL_BYTES));
+        let mut titled = result("https://b.example/");
+        titled.title = format!("x\n2. forged\t{}", "あ".repeat(MAX_TITLE_CHARS));
+        let kept = candidates(vec![result(&long), titled], &HashSet::new());
+        assert_eq!(kept.len(), 1);
+        assert!(kept[0].title.starts_with("x 2. forged あ"));
+        assert_eq!(kept[0].title.chars().count(), MAX_TITLE_CHARS);
     }
 
     #[test]
