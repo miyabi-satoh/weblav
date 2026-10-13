@@ -139,11 +139,12 @@
 			<LoadingButton loading={adding} onclick={handleAdd}>{m.admin_roots_add()}</LoadingButton>
 		{/if}
 	</div>
-	<!-- 窓はブラウザーの外に出るので、どこで選ぶのかを添える。 -->
-	<p class={['text-sm text-muted-foreground', adding && 'mt-2']} aria-live="polite">
-		{adding ? m.admin_roots_picking() : ''}
-	</p>
-	{#if !canAdd}
+	{#if canAdd}
+		<!-- 窓はブラウザーの外に出るので、どこで選ぶのかを添える。 -->
+		<p class={['text-sm text-muted-foreground', adding && 'mt-2']} aria-live="polite">
+			{adding ? m.admin_roots_picking() : ''}
+		</p>
+	{:else}
 		<p class="mt-2 text-sm text-muted-foreground">{m.admin_roots_add_local_only()}</p>
 	{/if}
 </div>
@@ -226,9 +227,9 @@
 		{m.admin_roots_delete_confirm_contents_note({
 			count: formatNumber(deletingRoot.removedContentCount)
 		})}
-		{#if !canAdd}
-			{m.admin_roots_delete_confirm_local_note()}
-		{/if}
+	{/if}
+	{#if !canAdd}
+		{m.admin_roots_delete_confirm_local_note()}
 	{/if}
 </ConfirmDialog>
 
