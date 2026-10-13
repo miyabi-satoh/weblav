@@ -100,12 +100,12 @@ dev-cli *args: ensure-frontend-build
     set "WEBLAV_HOME={{ data_dir }}\dev-runtime" && cargo run --quiet --bin weblav-cli -- {{ args }}
 
 # 窓口 (account-server/) と紹介のサイト (site/) を手元で起動する。D1 は手元のもの (account-server/.wrangler) を使い、メールは送らずリンクをログに出す。
-# 開発版の WebLAV は、ここ (127.0.0.1:8787) にサインインする。
+# 開発版の WebLAV は、ここ (127.0.0.1:8797) にサインインする。
 dev-account-server:
     cd account-server && node -e "require('fs').existsSync('.dev.vars') || require('fs').copyFileSync('dev.vars.example', '.dev.vars')"
     cd site && pnpm run build
     cd account-server && pnpm exec wrangler d1 migrations apply DB --local
-    cd account-server && pnpm exec wrangler dev --ip 127.0.0.1 --port 8787 --local-upstream 127.0.0.1:8787 --var MAIL_LOG_ONLY:1
+    cd account-server && pnpm exec wrangler dev --ip 127.0.0.1 --port 8797 --local-upstream 127.0.0.1:8797 --var MAIL_LOG_ONLY:1
 
 # frontend を開発モードで起動 (HMR, /api は backend にプロキシ)
 dev-frontend:

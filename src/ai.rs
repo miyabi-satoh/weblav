@@ -24,7 +24,7 @@ pub const ACCOUNT_SERVER_URL: &str = "https://weblav.amiiby.com";
 
 /// 開発版がつなぐ、手元で動かす窓口 (→ `just dev-account-server`)。本番の残りを開発で減らさないため。
 #[cfg(debug_assertions)]
-pub const ACCOUNT_SERVER_URL: &str = "http://127.0.0.1:8787";
+pub const ACCOUNT_SERVER_URL: &str = "http://127.0.0.1:8797";
 
 /// 登録と残りの問い合わせを待つ上限。窓口が応えないときに、設定の画面を長く待たせないように。
 const ACCOUNT_TIMEOUT: Duration = Duration::from_secs(10);
