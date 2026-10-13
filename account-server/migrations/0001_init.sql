@@ -1,0 +1,147 @@
+-- 窓口の表 (→ docs/account-server.md「窓口（weblav.amiiby.com）」)。時刻は UNIX 秒、原価は 1/1000 円 (milli_yen)。
+
+CREATE TABLE accounts (
+	id TEXT PRIMARY KEY,
+	-- 小文字にそろえて持つ。
+	email TEXT NOT NULL UNIQUE,
+	created_at INTEGER NOT NULL
+);
+
+-- メールのサインインのリンク。トークンはハッシュだけを持つ。
+CREATE TABLE email_logins (
+	token_hash TEXT PRIMARY KEY,
+	email TEXT NOT NULL,
+	next TEXT NOT NULL,
+	expires_at INTEGER NOT NULL,
+	created_at INTEGER NOT NULL,
+	used_at INTEGER
+);
+CREATE INDEX email_logins_email ON email_logins (email, created_at);
+
+-- ブラウザのサインインの状態。
+CREATE TABLE sessions (
+	id_hash TEXT PRIMARY KEY,
+	account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+	expires_at INTEGER NOT NULL,
+	created_at INTEGER NOT NULL
+);
+
+-- 外部のサインイン (Google・Apple) とアカウントの結び付き。
+CREATE TABLE identities (
+	provider TEXT NOT NULL,
+	subject TEXT NOT NULL,
+	account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+	created_at INTEGER NOT NULL,
+	PRIMARY KEY (provider, subject)
+);
+
+-- 窓口の画面で認めた、PC の登録の申し込み (→ docs/account-server.md「PC をアカウントに登録する」)。
+-- WebLAV が検証用の値を持って問い合わせたら、トークンに替えて消す。
+CREATE TABLE link_approvals (
+	-- WebLAV が申し込みに付けた、検証用の値の SHA-256 (16進)。問い合わせのときに検証用の値そのものと照らす。
+	challenge TEXT PRIMARY KEY,
+	account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+	name TEXT NOT NULL,
+	pc_name TEXT NOT NULL,
+	expires_at INTEGER NOT NULL,
+	created_at INTEGER NOT NULL
+);
+
+-- WebLAV に渡したトークン。ハッシュだけを持つ。期限は持たず、WebLAV での登録の解除か窓口の画面で消す。
+-- name (サイト名) と pc_name (PC の名前) は、窓口の画面でどの PC かを見分けるためのもの。
+CREATE TABLE app_tokens (
+	id TEXT PRIMARY KEY,
+	token_hash TEXT NOT NULL UNIQUE,
+	account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+	name TEXT NOT NULL,
+	pc_name TEXT NOT NULL,
+	created_at INTEGER NOT NULL,
+	last_used_at INTEGER
+);
+CREATE INDEX app_tokens_account ON app_tokens (account_id);
+
+-- 支払いの画面の予約。アカウントごとに1つ。
+CREATE TABLE checkouts (
+	id TEXT PRIMARY KEY,
+	account_id TEXT NOT NULL UNIQUE REFERENCES accounts (id) ON DELETE CASCADE,
+	next TEXT NOT NULL,
+	lang TEXT NOT NULL,
+	url TEXT,
+	expires_at INTEGER NOT NULL,
+	managed_payments INTEGER NOT NULL,
+	-- 予約したときのアクセス元の国。頼み直しでも同じ中身で頼み、MP の扱いと台帳の国を食い違わせない。
+	buyer_country TEXT
+);
+
+-- Stripe からの知らせ。処理し終えたものを送り直されても処理し直さない。
+CREATE TABLE stripe_events (
+	id TEXT PRIMARY KEY,
+	type TEXT NOT NULL,
+	status TEXT NOT NULL CHECK (status IN ('received', 'done', 'failed')),
+	received_at INTEGER NOT NULL,
+	updated_at INTEGER NOT NULL
+);
+
+-- 返金・不審請求で取り消した支払い。付ける知らせが後から届いても付けないように。
+CREATE TABLE stripe_revoked_payments (
+	payment_intent_id TEXT PRIMARY KEY,
+	created_at INTEGER NOT NULL
+);
+
+-- 購入の台帳。アカウントを消しても、結び付きを外して 7 年残す (消費税の帳簿の保存期間)。
+CREATE TABLE purchases (
+	id TEXT PRIMARY KEY,
+	account_id TEXT REFERENCES accounts (id) ON DELETE SET NULL,
+	product TEXT NOT NULL,
+	stripe_checkout_session_id TEXT NOT NULL UNIQUE,
+	stripe_payment_intent_id TEXT NOT NULL UNIQUE,
+	-- 払われた額 (税込み) と通貨。
+	amount INTEGER NOT NULL,
+	currency TEXT NOT NULL,
+	-- 消費税の申告で売上を分けるため、アカウントを消しても残す。
+	managed_payments INTEGER NOT NULL,
+	-- カードの発行国と、買ったときのアクセス元の国。アカウントを消したら消す。
+	card_country TEXT,
+	buyer_country TEXT,
+	-- 国内の取引か (src/stripe.ts の domestic)。消費税の申告で使った分の国内の分を数えるため、アカウントを消しても残す。
+	domestic INTEGER NOT NULL,
+	created_at INTEGER NOT NULL,
+	revoked_at INTEGER,
+	detached_at INTEGER
+);
+
+-- 残高。付与ごとに1行。purchase_id が無いものは、新しいアカウントに付ける無料の分。
+CREATE TABLE grants (
+	id TEXT PRIMARY KEY,
+	account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+	purchase_id TEXT UNIQUE REFERENCES purchases (id),
+	granted INTEGER NOT NULL,
+	remaining INTEGER NOT NULL,
+	-- 返金・不審請求で取り消した残り。
+	revoked INTEGER NOT NULL DEFAULT 0,
+	created_at INTEGER NOT NULL,
+	CHECK (remaining >= 0 AND revoked >= 0 AND remaining + revoked <= granted)
+);
+CREATE INDEX grants_account ON grants (account_id);
+
+-- 使った分。残高を引くたびに、引いた付与ごとに1行。消費税の申告で、使った時の売上を数えるため (→ docs/account-server.md「残高」)。
+-- アカウントとは結ばない。購入の分は purchase_id で台帳と結び、台帳と一緒に消える。無料の分は purchase_id が無い。
+CREATE TABLE consumptions (
+	id TEXT PRIMARY KEY,
+	purchase_id TEXT REFERENCES purchases (id) ON DELETE CASCADE,
+	milli_yen INTEGER NOT NULL CHECK (milli_yen > 0),
+	-- 引いた付与の、付けた量 (grants.granted)。売値に直す式 (purchases.amount × milli_yen ÷ grant_size) を、
+	-- アカウントを消して付与の行が無くなった後も出せるように、引く時点で写す。
+	grant_size INTEGER NOT NULL CHECK (grant_size > 0),
+	created_at INTEGER NOT NULL
+);
+CREATE INDEX consumptions_created ON consumptions (created_at);
+CREATE INDEX consumptions_purchase ON consumptions (purchase_id);
+
+-- AI と検索に中継している最中の呼び出し。同じアカウントで重ねて受ける数を数える (→ src/index.ts の spend)。
+CREATE TABLE ai_in_flight (
+	id TEXT PRIMARY KEY,
+	account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+	started_at INTEGER NOT NULL
+);
+CREATE INDEX ai_in_flight_account ON ai_in_flight (account_id);

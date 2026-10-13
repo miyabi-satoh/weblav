@@ -8,6 +8,7 @@ import type { PageLoad } from './$types';
 export const load: PageLoad = async ({ parent, url }) => {
 	await parent();
 
+	// AI の区画は、ここで待たずに区画の中で取る (登録済みのときサーバーがアカウントへ問い合わせ、遅いことがあるため)。
 	const [settings, server, logSettings, health] = await Promise.all([
 		fetchOrError(client.GET('/api/v1/site-settings'), m.site_settings_fetch_failed(), {
 			loginRedirectFrom: url

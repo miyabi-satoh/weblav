@@ -25,7 +25,14 @@ export const MESSAGES: Record<ErrorCode, () => string> = {
 	database_unavailable: m.error_database_unavailable,
 	internal_error: m.error_internal_error,
 	conflict: m.error_conflict,
-	config_unreadable: m.error_config_unreadable
+	config_unreadable: m.error_config_unreadable,
+	ai_not_linked: m.error_ai_not_linked,
+	ai_not_allowed: m.error_ai_not_allowed,
+	ai_no_credit: m.error_ai_no_credit,
+	ai_rate_limited: m.error_ai_rate_limited,
+	ai_too_large: m.error_ai_too_large,
+	ai_upstream: m.error_ai_upstream,
+	account_server_unavailable: m.error_account_server_unavailable
 };
 
 /** 想定外の形のレスポンスや通信エラーに使う汎用文言。 */

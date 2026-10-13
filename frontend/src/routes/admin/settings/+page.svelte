@@ -16,6 +16,7 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import BackupRestore from '$lib/components/backup-restore.svelte';
 	import AboutSection from '$lib/components/about-section.svelte';
+	import AiSection from '$lib/components/ai-section.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import type { components } from '$lib/api/schema';
@@ -408,6 +409,13 @@
 				</BackupRestore>
 				<p class="text-sm text-muted-foreground">{m.backup_restore_description()}</p>
 			</div>
+		</section>
+
+		<section aria-labelledby="ai-section-heading" class="mt-6 flex flex-col gap-6 border-t pt-6">
+			<h2 id="ai-section-heading" class="text-base font-semibold">
+				{m.admin_settings_ai_heading()}
+			</h2>
+			<AiSection />
 		</section>
 
 		<!-- 版は問い合わせのときに読み上げてもらう。取れなければ区画ごと出さない (リンクだけ残しても用が足りないため)。 -->

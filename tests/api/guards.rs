@@ -9,6 +9,13 @@ const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
     ("PUT", "/api/v1/auth/password"),
     ("PUT", "/api/v1/auth/username"),
     ("POST", "/api/v1/auth/recovery-code"),
+    ("GET", "/api/v1/ai/availability"),
+    ("GET", "/api/v1/admin/ai"),
+    ("DELETE", "/api/v1/admin/ai"),
+    ("POST", "/api/v1/admin/ai/link"),
+    ("DELETE", "/api/v1/admin/ai/link"),
+    ("POST", "/api/v1/admin/ai/link/poll"),
+    ("GET", "/api/v1/admin/ai/usage"),
     ("GET", "/api/v1/admin/contents"),
     ("POST", "/api/v1/contents"),
     ("POST", "/api/v1/contents/link-metadata"),
@@ -22,6 +29,7 @@ const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
     ("POST", "/api/v1/contents/9999/axes"),
     ("PUT", "/api/v1/contents/9999/axes"),
     ("POST", "/api/v1/contents/9999/axes/import/preview"),
+    ("POST", "/api/v1/contents/9999/axes/ai/generate"),
     ("PUT", "/api/v1/contents/9999/axes/1"),
     ("DELETE", "/api/v1/contents/9999/axes/1"),
     ("GET", "/api/v1/contents/9999/axes/1/values"),
@@ -52,6 +60,7 @@ const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
     ("DELETE", "/api/v1/admin/users/9999"),
     ("PUT", "/api/v1/admin/users/9999/password"),
     ("PUT", "/api/v1/admin/users/9999/role"),
+    ("PUT", "/api/v1/admin/users/9999/ai-allowed"),
     ("PUT", "/api/v1/admin/users/9999/username"),
 ];
 
@@ -59,6 +68,12 @@ const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
 /// `{id}` は表を回すテストが実在する ID に差し替える。
 const ADMIN_ONLY_APIS: &[(&str, &str)] = &[
     ("PUT", "/api/v1/contents/{content}/creator"),
+    ("GET", "/api/v1/admin/ai"),
+    ("DELETE", "/api/v1/admin/ai"),
+    ("POST", "/api/v1/admin/ai/link"),
+    ("DELETE", "/api/v1/admin/ai/link"),
+    ("POST", "/api/v1/admin/ai/link/poll"),
+    ("GET", "/api/v1/admin/ai/usage"),
     ("GET", "/api/v1/admin/backup"),
     ("POST", "/api/v1/admin/backup/restore/stage"),
     ("POST", "/api/v1/admin/backup/restore"),
@@ -76,6 +91,7 @@ const ADMIN_ONLY_APIS: &[(&str, &str)] = &[
     ("DELETE", "/api/v1/admin/users/{user}"),
     ("PUT", "/api/v1/admin/users/{user}/password"),
     ("PUT", "/api/v1/admin/users/{user}/role"),
+    ("PUT", "/api/v1/admin/users/{user}/ai-allowed"),
     ("PUT", "/api/v1/admin/users/{user}/username"),
 ];
 
