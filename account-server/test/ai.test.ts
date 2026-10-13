@@ -43,7 +43,9 @@ describe('parsePrompt', () => {
 			[{ mime_type: 'application/pdf', data: 'AAAAA' }],
 			// 中身を読めない種類は、WebLAV が文字を取り出して文として送る。
 			[{ mime_type: 'application/msword', data: 'AAAA' }],
-			[{ mime_type: 'audio/mpeg', data: 'AAAA' }]
+			[{ mime_type: 'audio/mpeg', data: 'AAAA' }],
+			// 継承した名前 (toString など) を、種類として通さない。
+			[{ mime_type: 'toString', data: 'AAAA' }]
 		]) {
 			expect(parsePrompt({ user: 'x', attachments: bad }), JSON.stringify(bad)).toBeUndefined();
 		}

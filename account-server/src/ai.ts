@@ -57,7 +57,7 @@ export function parsePrompt(body: unknown): Prompt | 'too_long' | undefined {
 			const { mime_type: type, data } = item as Record<string, unknown>;
 			if (typeof type !== 'string' || typeof data !== 'string') return undefined;
 			if (
-				!(type in ATTACHMENT_TYPES) ||
+				!Object.hasOwn(ATTACHMENT_TYPES, type) ||
 				data.length % 4 !== 0 ||
 				!/^[A-Za-z0-9+/]+={0,2}$/.test(data)
 			) {
