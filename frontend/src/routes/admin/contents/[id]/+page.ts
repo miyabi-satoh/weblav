@@ -1,18 +1,27 @@
 import { client } from '$lib/api/client';
-import { fetchOrError } from '$lib/api/load';
+import { fetchOrError, fetchOrNull } from '$lib/api/load';
 import { isAdmin } from '$lib/auth';
 import * as m from '$lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
 // 作成者の選択肢 (admin だけに出す → docs/ui.md「UI 全般」)。
 export const load: PageLoad = async ({ parent, url }) => {
-	const { user } = await parent();
-	if (!isAdmin(user)) return { users: [] };
+	const { user, content } = await parent();
+	// グループの、AI がリンクを集める設定 (→ docs/ai.md「AI が集めるリンク」)。取れなければ、その欄を出さない。
+	const aiLinks =
+		content.type === 'group'
+			? fetchOrNull(
+					client.GET('/api/v1/contents/{id}/ai-links/settings', {
+						params: { path: { id: content.id } }
+					})
+				)
+			: null;
+	if (!isAdmin(user)) return { users: [], aiLinks: await aiLinks };
 
 	const users = await fetchOrError(
 		client.GET('/api/v1/admin/users'),
 		m.admin_users_fetch_failed(),
 		{ loginRedirectFrom: url }
 	);
-	return { users };
+	return { users, aiLinks: await aiLinks };
 };

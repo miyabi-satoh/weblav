@@ -9,6 +9,8 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { client } from '$lib/api/client';
+	import { toast } from 'svelte-sonner';
+	import { refreshAiLinks } from '$lib/ai-links';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { canEditContent, isAdmin } from '$lib/auth';
 	import { contentTypeLabel, visibilityLabel } from '$lib/content-labels';
@@ -338,6 +340,24 @@
 			deleting = false;
 		}
 	}
+
+	// AI のリンクを集め直す (→ docs/ai.md「AI が集めるリンク」)。数秒かかるので、進み具合と結果はトーストで知らせる。
+	let refreshingLinks = $state<number | null>(null);
+
+	function refreshLinks(content: Content) {
+		if (refreshingLinks !== null) return;
+		refreshingLinks = content.id;
+		const refreshed = refreshAiLinks(content.id)
+			.then(({ data, error }) => {
+				if (!data) throw new Error(errorMessage(error));
+			})
+			.finally(() => (refreshingLinks = null));
+		toast.promise(refreshed, {
+			loading: m.contents_ai_links_refreshing_toast({ title: content.title }),
+			success: m.contents_ai_links_refreshed_toast({ title: content.title }),
+			error: (err) => (err instanceof Error ? err.message : GENERIC_ERROR_MESSAGE())
+		});
+	}
 </script>
 
 {#snippet visibilityBadge(visibility: Visibility)}
@@ -508,6 +528,14 @@
 									{#if content.type === 'group'}
 										<DropdownMenu.Item onSelect={() => openCreateDialog(content)}>
 											{m.contents_menu_add_inside()}
+										</DropdownMenu.Item>
+									{/if}
+									{#if content.aiLinks && data.aiAvailable}
+										<DropdownMenu.Item
+											disabled={refreshingLinks !== null}
+											onSelect={() => refreshLinks(content)}
+										>
+											{m.contents_menu_refresh_ai_links()}
 										</DropdownMenu.Item>
 									{/if}
 									<DropdownMenu.Item>

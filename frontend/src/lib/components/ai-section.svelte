@@ -335,6 +335,7 @@
 			<div>
 				<dt class="font-semibold">{m.admin_settings_ai_link_dialog_sent_label()}</dt>
 				<dd>{m.admin_settings_ai_link_dialog_sent_axes()}</dd>
+				<dd>{m.admin_settings_ai_link_dialog_sent_links()}</dd>
 			</div>
 			<div>
 				<dt class="font-semibold">{m.admin_settings_ai_link_dialog_destination_label()}</dt>
