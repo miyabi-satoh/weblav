@@ -189,12 +189,13 @@ fn candidates(found: Vec<SearchResult>, registered: &HashSet<String>) -> Vec<Sea
         .collect()
 }
 
-/// 空白の並び (改行を含む) を1つの空白にし、`max` 文字で切る。
+/// 空白の並び (改行を含む) を1つの空白にし、制御文字を除いて、`max` 文字で切る。
 fn one_line(text: &str, max: usize) -> String {
     text.split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
         .chars()
+        .filter(|c| !c.is_control())
         .take(max)
         .collect()
 }
@@ -227,16 +228,20 @@ fn select_prompt(interests: &[String], candidates: &[SearchResult]) -> String {
 }
 
 /// AI の答えから、選んだ候補の位置 (0 から) を取り出す。番号の並びが無ければ `None`。
-/// 番号の並びは、数字・カンマ・空白だけが入った最初の `[...]`。前置きの文に別の括弧があっても読めるように。
+/// 番号の並びは、数字・カンマ・空白だけが入った最後の `[...]`。前置きの文に別の括弧 (`[1]` のような印も) があっても読めるように。
 /// 範囲の外の番号と重なりは捨て、`MAX_PICKS` 件で切る。
 fn parse_selection(answer: &str, count: usize) -> Option<Vec<usize>> {
-    let numbers = answer.split('[').skip(1).find_map(|rest| {
-        let inside = &rest[..rest.find(']')?];
-        inside
-            .chars()
-            .all(|c| c.is_ascii_digit() || c == ',' || c.is_whitespace())
-            .then_some(inside)
-    })?;
+    let numbers = answer
+        .split('[')
+        .skip(1)
+        .filter_map(|rest| {
+            let inside = &rest[..rest.find(']')?];
+            inside
+                .chars()
+                .all(|c| c.is_ascii_digit() || c == ',' || c.is_whitespace())
+                .then_some(inside)
+        })
+        .last()?;
     let mut seen = HashSet::new();
     Some(
         numbers
@@ -463,19 +468,45 @@ async fn refresh_ai_links(
     .await?
     .ok_or(AppError::NotFound)?;
     let interests = parse_interests(&interests)?;
-    let _refreshing = Refreshing::begin(&state.ai_links, id).ok_or(AppError::AiRateLimited)?;
+    let refreshing = Refreshing::begin(&state.ai_links, id).ok_or(AppError::AiRateLimited)?;
 
-    // 定番のページと新しい記事の両方を候補にするため、絞らない検索と、1年以内の検索を1回ずつ引く。
+    // 別のタスクで集める。画面を閉じられてハンドラが落とされても、窓口の呼び出しは止まらず残りを使うので、
+    // 最後まで進めて結果を残し、その間は印も外さない。
     let (country, language) = search_locale(payload.language.as_deref());
+    let collecting = {
+        let (state, user) = (state.clone(), user.clone());
+        tokio::spawn(async move {
+            let _refreshing = refreshing;
+            collect(&state, &user, id, &interests, country, language).await
+        })
+    };
+    collecting
+        .await
+        .map_err(|err| AppError::Io(std::io::Error::other(err)))??;
+
+    Ok(Json(response(&state, &viewer, id).await?))
+}
+
+/// 検索して AI に選ばせ、選んだものでグループのリンクを入れ替える。
+/// 候補が無い・AI が1件も選ばなかったときは、前に集めたリンクを残す。見せるものを消さないため。
+async fn collect(
+    state: &AppState,
+    user: &AuthUser,
+    id: i64,
+    interests: &[String],
+    country: Option<String>,
+    language: Option<String>,
+) -> Result<(), AppError> {
+    // 定番のページと新しい記事の両方を候補にするため、絞らない検索と、1年以内の検索を1回ずつ引く。
     let mut found = Vec::new();
     for recency in [None, Some("year")] {
         let query = SearchQuery {
-            queries: interests.clone(),
+            queries: interests.to_vec(),
             country: country.clone(),
             language: language.clone(),
             recency,
         };
-        match ai::search(&state, &user, UsageKind::Links, query).await {
+        match ai::search(state, user, UsageKind::Links, query).await {
             Ok(results) => found.extend(results),
             // 2回目だけが失敗したら、1回目の候補で続ける。1回目に使った残りを無駄にしないため。
             Err(err) if !found.is_empty() => {
@@ -484,7 +515,6 @@ async fn refresh_ai_links(
             Err(err) => return Err(err),
         }
     }
-    let now = link_preview::now_secs();
     let registered: HashSet<String> = sqlx::query_scalar!(
         r#"SELECT url as "url!" FROM contents WHERE parent_id = ? AND type = ? AND url IS NOT NULL"#,
         id,
@@ -496,26 +526,18 @@ async fn refresh_ai_links(
     .collect();
     let candidates = candidates(found, &registered);
 
-    // 候補が1件も無ければ、前に集めたリンクを残す。検索が何も返さなかっただけで、見せるものを消さないため。
-    if candidates.is_empty() {
-        sqlx::query!(
-            "UPDATE ai_link_groups SET refreshed_at = ? WHERE content_id = ?",
-            now,
-            id
-        )
-        .execute(&state.pool)
-        .await?;
-        return Ok(Json(response(&state, &viewer, id).await?));
-    }
-    let picks = {
+    let picks = if candidates.is_empty() {
+        Vec::new()
+    } else {
         let prompt = Prompt {
             system: Some(SELECT_SYSTEM.to_string()),
-            user: select_prompt(&interests, &candidates),
+            user: select_prompt(interests, &candidates),
         };
-        let answer = ai::generate(&state, &user, UsageKind::Links, prompt).await?;
+        let answer = ai::generate(state, user, UsageKind::Links, prompt).await?;
         parse_selection(&answer, candidates.len()).ok_or(AppError::AiUpstream)?
     };
 
+    let now = link_preview::now_secs();
     let mut tx = state.pool.begin().await?;
     // 集めている間に設定を外されていたら、何も書かずに 404 にする。
     let updated = sqlx::query!(
@@ -528,9 +550,11 @@ async fn refresh_ai_links(
     if updated.rows_affected() == 0 {
         return Err(AppError::NotFound);
     }
-    sqlx::query!("DELETE FROM ai_links WHERE content_id = ?", id)
-        .execute(&mut *tx)
-        .await?;
+    if !picks.is_empty() {
+        sqlx::query!("DELETE FROM ai_links WHERE content_id = ?", id)
+            .execute(&mut *tx)
+            .await?;
+    }
     for (position, pick) in picks.into_iter().enumerate() {
         let candidate = &candidates[pick];
         let position = i64::try_from(position).expect("選ぶ数は MAX_PICKS まで");
@@ -545,8 +569,7 @@ async fn refresh_ai_links(
         .await?;
     }
     tx.commit().await?;
-
-    Ok(Json(response(&state, &viewer, id).await?))
+    Ok(())
 }
 
 pub fn router() -> OpenApiRouter<AppState> {
@@ -657,6 +680,7 @@ mod tests {
             parse_selection("Based on [Rust] interests: [3, 1]", 3),
             Some(vec![2, 0])
         );
+        assert_eq!(parse_selection("Per [1], pick [3, 2]", 3), Some(vec![2, 1]));
         assert_eq!(parse_selection("see [note]", 3), None);
     }
 

@@ -347,15 +347,20 @@
 	function refreshLinks(content: Content) {
 		if (refreshingLinks !== null) return;
 		refreshingLinks = content.id;
+		// 失敗の文言で断る。届かなかったとき (fetch が投げる) は、汎用の文言にする。
 		const refreshed = refreshAiLinks(content.id)
-			.then(({ data, error }) => {
-				if (!data) throw new Error(errorMessage(error));
+			.then(
+				({ response, error }) => (response.ok ? null : errorMessage(error)),
+				() => GENERIC_ERROR_MESSAGE()
+			)
+			.then((failure) => {
+				if (failure !== null) return Promise.reject(failure);
 			})
 			.finally(() => (refreshingLinks = null));
 		toast.promise(refreshed, {
 			loading: m.contents_ai_links_refreshing_toast({ title: content.title }),
 			success: m.contents_ai_links_refreshed_toast({ title: content.title }),
-			error: (err) => (err instanceof Error ? err.message : GENERIC_ERROR_MESSAGE())
+			error: (failure) => String(failure)
 		});
 	}
 </script>
