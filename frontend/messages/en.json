@@ -597,6 +597,7 @@
 	"admin_settings_ai_pending_code_label": "Confirmation code",
 	"admin_settings_ai_pending_code_description": "Check that the WebLAV account page shows the same confirmation code, then approve registering this PC. If it differs, do not approve.",
 	"admin_settings_ai_pending_waiting": "Waiting for the registration to be approved... If it is not approved within 30 minutes, the registration is cancelled.",
+	"admin_settings_ai_link_ended": "The registration was cancelled before it was approved.",
 	"admin_settings_ai_linked_toast": "Registered this PC with the WebLAV account",
 	"admin_settings_ai_account_unreachable": "Could not connect to the WebLAV account.",
 	"admin_settings_ai_account_label": "Account",

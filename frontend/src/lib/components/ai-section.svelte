@@ -80,6 +80,8 @@
 	let linkOpen = $state(false);
 	let unlinkOpen = $state(false);
 	let busy = $state<'link' | 'cancel' | 'unlink' | null>(null);
+	// 登録の途中が、この画面の操作でなく終わった (30分の期限・ほかのタブでの取り消し)。最初のボタンに戻った理由を出す。
+	let linkEnded = $state(false);
 	/** 直前の問い合わせの失敗。登録の途中は続けたまま、枠の中に知らせる。 */
 	let pollError = $state<string | null>(null);
 	const errorDialog = new ErrorDialogState();
@@ -87,6 +89,7 @@
 	async function beginLink() {
 		if (busy) return;
 		busy = 'link';
+		linkEnded = false;
 		try {
 			let result;
 			// エラーのダイアログを確かめのダイアログに重ねないよう、結果を見る前に閉じる。
@@ -176,6 +179,7 @@
 					if (status?.state !== 'linked') patch(data);
 					toast.success(m.admin_settings_ai_linked_toast());
 				} else {
+					if (data.state === 'unlinked') linkEnded = true;
 					patch(data);
 				}
 			} catch {
@@ -199,6 +203,9 @@
 	{/if}
 {:else if status.state === 'unlinked'}
 	<div class="flex flex-col gap-2">
+		{#if linkEnded}
+			<p class="text-sm" role="status">{m.admin_settings_ai_link_ended()}</p>
+		{/if}
 		<div>
 			<Button onclick={() => (linkOpen = true)}>{m.admin_settings_ai_link_button()}</Button>
 		</div>
