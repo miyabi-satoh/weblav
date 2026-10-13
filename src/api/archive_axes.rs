@@ -979,6 +979,62 @@ async fn preview_import_axes(
     Ok(Json(response))
 }
 
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct GenerateAxesRequest {
+    /// 画面が組み立てたプロンプト (貼り付け用に見せるものと同じ)。
+    prompt: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct GenerateAxesResponse {
+    /// AI の答え。貼り戻す答えと同じ形なので、画面が同じ読み取りと予告 (`/axes/import/preview`) に渡す。
+    answer: String,
+}
+
+/// 軸の定義を、WebLAV のアカウントを通して AI に考えてもらう (→ docs/archive.md「軸の定義を外部の AI で作る」)。
+/// 書き込みはしない。権限は取り込みの予告と同じにし、加えて AI を使える人に限る (→ docs/ai.md「誰が使えるか」)。
+#[utoipa::path(
+    post,
+    path = "/contents/{id}/axes/ai/generate",
+    params(("id" = i64, Path)),
+    request_body = GenerateAxesRequest,
+    responses(
+        (status = OK, body = GenerateAxesResponse, description = "AI の答え"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 402, body = crate::error::ErrorResponse, description = "アカウントの残りが無い"),
+        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの・AI を使えないユーザー"),
+        (status = 404, body = crate::error::ErrorResponse, description = "存在しない・アーカイブでない"),
+        (status = 409, body = crate::error::ErrorResponse, description = "この PC をアカウントに登録していない"),
+        (status = 413, body = crate::error::ErrorResponse, description = "プロンプトが長すぎる"),
+        (status = 422, body = crate::error::ErrorResponse, description = "プロンプトが空"),
+        (status = 429, body = crate::error::ErrorResponse, description = "呼びすぎ"),
+        (status = 502, body = crate::error::ErrorResponse, description = "AI の側の失敗・アカウントにつながらない"),
+    )
+)]
+async fn generate_axes(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    AppJson(payload): AppJson<GenerateAxesRequest>,
+) -> Result<Json<GenerateAxesResponse>, AppError> {
+    super::archive::ensure_editable_archive(&state.pool, &user, id).await?;
+    super::validate::non_empty(&payload.prompt, "prompt is required")?;
+    let answer = crate::ai::generate(
+        &state,
+        &user,
+        crate::ai::UsageKind::Axes,
+        crate::ai::Prompt {
+            system: None,
+            user: payload.prompt,
+            attachment: None,
+        },
+    )
+    .await?;
+    Ok(Json(GenerateAxesResponse { answer }))
+}
+
 /// 外部の AI が考えた軸の定義で、今の軸・値の辞書・表示タイトルのテンプレートをまとめて置き換える。
 /// 権限は `create_axis` と同じ。1つのトランザクションで行い、途中の状態を見せない。
 #[utoipa::path(
@@ -1044,6 +1100,7 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(list_axes, create_axis, replace_axes))
         .routes(routes!(preview_import_axes))
+        .routes(routes!(generate_axes))
         .routes(routes!(update_axis, delete_axis))
         .routes(routes!(list_axis_values, replace_axis_values))
         .routes(routes!(preview_axis_values))

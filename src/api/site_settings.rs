@@ -38,7 +38,7 @@ async fn get_site_settings(
 }
 
 /// 今のサイトの設定。
-async fn load(pool: &sqlx::SqlitePool) -> Result<SiteSettingsResponse, sqlx::Error> {
+pub(super) async fn load(pool: &sqlx::SqlitePool) -> Result<SiteSettingsResponse, sqlx::Error> {
     sqlx::query_as!(
         SiteSettingsResponse,
         r#"SELECT site_name as "site_name!", home_heading as "home_heading!"

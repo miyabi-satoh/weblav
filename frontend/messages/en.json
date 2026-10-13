@@ -553,5 +553,12 @@
 	"search_fetch_failed": "Search failed. Please try again later.",
 	"search_section_count_truncated": "{count}+ items",
 	"row_location_button": "Location: {path}",
-	"row_location_menu_label": "Open location"
+	"row_location_menu_label": "Open location",
+	"error_ai_not_linked": "To use AI, an admin needs to link this PC to a WebLAV account.",
+	"error_ai_not_allowed": "You are not allowed to use AI. Ask an admin.",
+	"error_ai_no_credit": "The WebLAV account has no credit left. An admin can add more on the account page.",
+	"error_ai_rate_limited": "Too many AI requests in a short time. Please try again later.",
+	"error_ai_too_large": "The content to send to the AI is too large.",
+	"error_ai_upstream": "The AI could not return an answer. Please try again later.",
+	"error_account_server_unavailable": "Could not connect to the WebLAV account. Please try again later."
 }

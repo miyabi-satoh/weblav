@@ -4,6 +4,74 @@
  */
 
 export interface paths {
+    "/api/v1/admin/ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_status"];
+        put?: never;
+        post?: never;
+        /** PC の登録を解除する。アカウントにつながらなくても、この PC の側は未登録に戻す。 */
+        delete: operations["unlink"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/ai/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** PC の登録を始める。途中のものがあれば、同じ URL を返す。 */
+        post: operations["begin_link"];
+        delete: operations["cancel_link"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/ai/link/poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 登録の途中なら、認めたかをアカウントに問い合わせる。画面が数秒おきに呼ぶ。 */
+        post: operations["poll_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/ai/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 誰がどれだけ使ったか。量の多い順。 */
+        get: operations["list_usage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/backup": {
         parameters: {
             query?: never;
@@ -264,6 +332,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/users/{id}/ai-allowed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** AI を使える印を付け外しする (→ docs/ai.md「誰が使えるか」)。 */
+        put: operations["update_ai_allowed"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/users/{id}/password": {
         parameters: {
             query?: never;
@@ -306,6 +391,23 @@ export interface paths {
         get?: never;
         /** ほかのユーザーのユーザー名を変える。パスワードの再設定と同じく、本人のパスワードは求めない。 */
         put: operations["update_username"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** AI を使うボタンを出すかを、画面が決めるための口。アカウントには問い合わせない (残りが無いことは、使ったときに分かる)。 */
+        get: operations["get_availability"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -576,6 +678,26 @@ export interface paths {
         put: operations["replace_axes"];
         /** 軸の追加。`user` は自分が作ったアーカイブだけ (→ docs/access.md「ロールと操作」)。 */
         post: operations["create_axis"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/axes/ai/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 軸の定義を、WebLAV のアカウントを通して AI に考えてもらう (→ docs/archive.md「軸の定義を外部の AI で作る」)。
+         *     書き込みはしない。権限は取り込みの予告と同じにし、加えて AI を使える人に限る (→ docs/ai.md「誰が使えるか」)。
+         */
+        post: operations["generate_axes"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1329,6 +1451,57 @@ export interface components {
             url?: string | null;
             visibility: components["schemas"]["Visibility"];
         };
+        AiAvailabilityResponse: {
+            /** @description この PC が登録済みで、ログインしているユーザーが AI を使えるか。 */
+            available: boolean;
+        };
+        AiLinkResponse: {
+            /** @description 登録の途中のとき、管理者が開いて登録を認める画面の URL。 */
+            linkUrl?: string | null;
+            state: components["schemas"]["AiLinkState"];
+        };
+        /**
+         * @description PC の登録の状態。
+         * @enum {string}
+         */
+        AiLinkState: "unlinked" | "pending" | "linked";
+        AiStatusResponse: {
+            /** @description 登録済みだが、アカウントにつながらず残りを確かめられなかった。 */
+            accountUnreachable: boolean;
+            /** @description 残りを足す・登録した PC を見る、アカウントのページの URL。 */
+            accountUrl: string;
+            /** @description 登録済みのとき、登録先のアカウントのメールアドレス。アカウントにつながらなければ無い。 */
+            email?: string | null;
+            /** @description 登録の途中のとき、管理者が開いて登録を認める画面の URL。 */
+            linkUrl?: string | null;
+            /**
+             * Format: double
+             * @description 登録済みのとき、残りの割合 (0〜100)。アカウントにつながらなければ無い。
+             */
+            remainingPercent?: number | null;
+            state: components["schemas"]["AiLinkState"];
+        };
+        AiUsageItem: {
+            /**
+             * Format: int64
+             * @description 使った回数。
+             */
+            count: number;
+            /** @description 最後に使った日時 (RFC 3339)。 */
+            lastUsedAt: string;
+            /**
+             * Format: int64
+             * @description 使った量の合計。1回の購入で付く量を 1,000,000 とした整数。
+             */
+            used: number;
+            /**
+             * Format: int64
+             * @description 使ったユーザー。消したユーザーの分は無い。
+             */
+            userId?: number | null;
+            /** @description 今のユーザー名。消したユーザーの分は、使った時点の名前。 */
+            username: string;
+        };
         ArchiveAxisOption: {
             /**
              * @description **この選択肢を選んだときに残る件数** (→ docs/archive.md「エンドポイント一覧」)。
@@ -1680,7 +1853,7 @@ export interface components {
          * @description API エラーの機械可読なコード。frontend はこの値で表示文言を選ぶ。
          * @enum {string}
          */
-        ErrorCode: "not_found" | "database_unavailable" | "unauthorized" | "forbidden" | "invalid_credentials" | "incorrect_current_password" | "invalid_recovery_code" | "too_many_requests" | "invalid_request_body" | "file_too_large" | "internal_error" | "conflict" | "config_unreadable";
+        ErrorCode: "not_found" | "database_unavailable" | "unauthorized" | "forbidden" | "invalid_credentials" | "incorrect_current_password" | "invalid_recovery_code" | "too_many_requests" | "invalid_request_body" | "file_too_large" | "internal_error" | "conflict" | "config_unreadable" | "ai_not_linked" | "ai_not_allowed" | "ai_no_credit" | "ai_rate_limited" | "ai_too_large" | "ai_upstream" | "account_server_unavailable";
         /**
          * @description レスポンスボディの共通envelope。`code` が機械可読な契約(frontendはこちらでi18nする)、
          *     `message` は英語のデバッグ用の説明文で、画面には出さない。
@@ -1733,6 +1906,14 @@ export interface components {
             size?: number | null;
             /** @description 行に縮小画像を出してみるか (→ docs/ui.md「画像のプレビュー」)。 */
             thumbnail: boolean;
+        };
+        GenerateAxesRequest: {
+            /** @description 画面が組み立てたプロンプト (貼り付け用に見せるものと同じ)。 */
+            prompt: string;
+        };
+        GenerateAxesResponse: {
+            /** @description AI の答え。貼り戻す答えと同じ形なので、画面が同じ読み取りと予告 (`/axes/import/preview`) に渡す。 */
+            answer: string;
         };
         GroupAncestor: {
             /** Format: int64 */
@@ -2118,6 +2299,9 @@ export interface components {
             /** @description 戻すときに指す id。 */
             id: string;
         };
+        UpdateAiAllowedRequest: {
+            aiAllowed: boolean;
+        };
         UpdateContentRequest: {
             description?: string | null;
             /**
@@ -2170,6 +2354,8 @@ export interface components {
             visibility?: components["schemas"]["Visibility"] | null;
         };
         UserListItem: {
+            /** @description AI を使える印 (→ docs/ai.md「誰が使えるか」)。`admin` は印によらず使える。 */
+            aiAllowed: boolean;
             createdAt: string;
             /** Format: int64 */
             id: number;
@@ -2275,6 +2461,257 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PC の登録の状態と、登録済みなら残り */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiStatusResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    unlink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 登録を解除した (登録済みでなければ何もしない) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    begin_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 登録の途中になった。認める画面の URL を返す */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiLinkResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 登録済み */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cancel_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 登録の途中を取り消した (途中でなければ何もしない) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    poll_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 問い合わせた後の状態。認めていれば `linked`、まだなら `pending` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiLinkResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 問い合わせすぎ */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description アカウントにつながらない */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_usage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ユーザーごとの回数・量の合計・最後に使った日時 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiUsageItem"][];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     download_backup: {
         parameters: {
             query?: never;
@@ -3240,6 +3677,59 @@ export interface operations {
             };
         };
     };
+    update_ai_allowed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAiAllowedRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新後のユーザー */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserListItem"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 存在しないユーザー */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     reset_password: {
         parameters: {
             query?: never;
@@ -3415,6 +3905,35 @@ export interface operations {
             };
             /** @description ユーザー名が空、またはほかのユーザーが使っている */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_availability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description AI を使えるか */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiAvailabilityResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4252,6 +4771,113 @@ export interface operations {
             };
             /** @description 軸名が空・重複・使えない文字を含む、階層番号の指定が不正 */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    generate_axes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateAxesRequest"];
+            };
+        };
+        responses: {
+            /** @description AI の答え */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerateAxesResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description アカウントの残りが無い */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `user` から見て他人が作ったもの・AI を使えないユーザー */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 存在しない・アーカイブでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description この PC をアカウントに登録していない */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description プロンプトが長すぎる */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description プロンプトが空 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 呼びすぎ */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description AI の側の失敗・アカウントにつながらない */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

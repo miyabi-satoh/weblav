@@ -5,6 +5,247 @@
     "version": "1.0.0"
   },
   "paths": {
+    "/api/v1/admin/ai": {
+      "get": {
+        "operationId": "get_status",
+        "responses": {
+          "200": {
+            "description": "PC の登録の状態と、登録済みなら残り",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "PC の登録を解除する。アカウントにつながらなくても、この PC の側は未登録に戻す。",
+        "operationId": "unlink",
+        "responses": {
+          "204": {
+            "description": "登録を解除した (登録済みでなければ何もしない)"
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/ai/link": {
+      "post": {
+        "summary": "PC の登録を始める。途中のものがあれば、同じ URL を返す。",
+        "operationId": "begin_link",
+        "responses": {
+          "200": {
+            "description": "登録の途中になった。認める画面の URL を返す",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiLinkResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "登録済み",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "cancel_link",
+        "responses": {
+          "204": {
+            "description": "登録の途中を取り消した (途中でなければ何もしない)"
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/ai/link/poll": {
+      "post": {
+        "summary": "登録の途中なら、認めたかをアカウントに問い合わせる。画面が数秒おきに呼ぶ。",
+        "operationId": "poll_link",
+        "responses": {
+          "200": {
+            "description": "問い合わせた後の状態。認めていれば `linked`、まだなら `pending`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiLinkResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "問い合わせすぎ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "アカウントにつながらない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/ai/usage": {
+      "get": {
+        "summary": "誰がどれだけ使ったか。量の多い順。",
+        "operationId": "list_usage",
+        "responses": {
+          "200": {
+            "description": "ユーザーごとの回数・量の合計・最後に使った日時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiUsageItem"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/backup": {
       "get": {
         "summary": "今の DB とアップロードしたファイルを1つの zip にして返す。作りながら送る。",
@@ -1052,6 +1293,75 @@
         }
       }
     },
+    "/api/v1/admin/users/{id}/ai-allowed": {
+      "put": {
+        "summary": "AI を使える印を付け外しする (→ docs/ai.md「誰が使えるか」)。",
+        "operationId": "update_ai_allowed",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAiAllowedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "更新後のユーザー",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListItem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "存在しないユーザー",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/users/{id}/password": {
       "put": {
         "operationId": "reset_password",
@@ -1269,6 +1579,34 @@
           },
           "422": {
             "description": "ユーザー名が空、またはほかのユーザーが使っている",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/availability": {
+      "get": {
+        "summary": "AI を使うボタンを出すかを、画面が決めるための口。アカウントには問い合わせない (残りが無いことは、使ったときに分かる)。",
+        "operationId": "get_availability",
+        "responses": {
+          "200": {
+            "description": "AI を使えるか",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiAvailabilityResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
             "content": {
               "application/json": {
                 "schema": {
@@ -2220,6 +2558,135 @@
           },
           "422": {
             "description": "軸名が空・重複・使えない文字を含む、階層番号の指定が不正",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/{id}/axes/ai/generate": {
+      "post": {
+        "summary": "軸の定義を、WebLAV のアカウントを通して AI に考えてもらう (→ docs/archive.md「軸の定義を外部の AI で作る」)。\n書き込みはしない。権限は取り込みの予告と同じにし、加えて AI を使える人に限る (→ docs/ai.md「誰が使えるか」)。",
+        "operationId": "generate_axes",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateAxesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "AI の答え",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateAxesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "アカウントの残りが無い",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`user` から見て他人が作ったもの・AI を使えないユーザー",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "存在しない・アーカイブでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "この PC をアカウントに登録していない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "プロンプトが長すぎる",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "プロンプトが空",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "呼びすぎ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "AI の側の失敗・アカウントにつながらない",
             "content": {
               "application/json": {
                 "schema": {
@@ -4590,6 +5057,125 @@
           }
         }
       },
+      "AiAvailabilityResponse": {
+        "type": "object",
+        "required": [
+          "available"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "description": "この PC が登録済みで、ログインしているユーザーが AI を使えるか。"
+          }
+        }
+      },
+      "AiLinkResponse": {
+        "type": "object",
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "linkUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "登録の途中のとき、管理者が開いて登録を認める画面の URL。"
+          },
+          "state": {
+            "$ref": "#/components/schemas/AiLinkState"
+          }
+        }
+      },
+      "AiLinkState": {
+        "type": "string",
+        "description": "PC の登録の状態。",
+        "enum": [
+          "unlinked",
+          "pending",
+          "linked"
+        ]
+      },
+      "AiStatusResponse": {
+        "type": "object",
+        "required": [
+          "state",
+          "accountUnreachable",
+          "accountUrl"
+        ],
+        "properties": {
+          "accountUnreachable": {
+            "type": "boolean",
+            "description": "登録済みだが、アカウントにつながらず残りを確かめられなかった。"
+          },
+          "accountUrl": {
+            "type": "string",
+            "description": "残りを足す・登録した PC を見る、アカウントのページの URL。"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "登録済みのとき、登録先のアカウントのメールアドレス。アカウントにつながらなければ無い。"
+          },
+          "linkUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "登録の途中のとき、管理者が開いて登録を認める画面の URL。"
+          },
+          "remainingPercent": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "登録済みのとき、残りの割合 (0〜100)。アカウントにつながらなければ無い。"
+          },
+          "state": {
+            "$ref": "#/components/schemas/AiLinkState"
+          }
+        }
+      },
+      "AiUsageItem": {
+        "type": "object",
+        "required": [
+          "username",
+          "count",
+          "used",
+          "lastUsedAt"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "使った回数。"
+          },
+          "lastUsedAt": {
+            "type": "string",
+            "description": "最後に使った日時 (RFC 3339)。"
+          },
+          "used": {
+            "type": "integer",
+            "format": "int64",
+            "description": "使った量の合計。1回の購入で付く量を 1,000,000 とした整数。"
+          },
+          "userId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "使ったユーザー。消したユーザーの分は無い。"
+          },
+          "username": {
+            "type": "string",
+            "description": "今のユーザー名。消したユーザーの分は、使った時点の名前。"
+          }
+        }
+      },
       "ArchiveAxisOption": {
         "type": "object",
         "required": [
@@ -5556,7 +6142,14 @@
           "file_too_large",
           "internal_error",
           "conflict",
-          "config_unreadable"
+          "config_unreadable",
+          "ai_not_linked",
+          "ai_not_allowed",
+          "ai_no_credit",
+          "ai_rate_limited",
+          "ai_too_large",
+          "ai_upstream",
+          "account_server_unavailable"
         ]
       },
       "ErrorResponse": {
@@ -5695,6 +6288,30 @@
           "thumbnail": {
             "type": "boolean",
             "description": "行に縮小画像を出してみるか (→ docs/ui.md「画像のプレビュー」)。"
+          }
+        }
+      },
+      "GenerateAxesRequest": {
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "画面が組み立てたプロンプト (貼り付け用に見せるものと同じ)。"
+          }
+        }
+      },
+      "GenerateAxesResponse": {
+        "type": "object",
+        "required": [
+          "answer"
+        ],
+        "properties": {
+          "answer": {
+            "type": "string",
+            "description": "AI の答え。貼り戻す答えと同じ形なので、画面が同じ読み取りと予告 (`/axes/import/preview`) に渡す。"
           }
         }
       },
@@ -6810,6 +7427,17 @@
           }
         }
       },
+      "UpdateAiAllowedRequest": {
+        "type": "object",
+        "required": [
+          "aiAllowed"
+        ],
+        "properties": {
+          "aiAllowed": {
+            "type": "boolean"
+          }
+        }
+      },
       "UpdateContentRequest": {
         "type": "object",
         "required": [
@@ -6961,9 +7589,14 @@
           "username",
           "role",
           "createdAt",
-          "privateContentCount"
+          "privateContentCount",
+          "aiAllowed"
         ],
         "properties": {
+          "aiAllowed": {
+            "type": "boolean",
+            "description": "AI を使える印 (→ docs/ai.md「誰が使えるか」)。`admin` は印によらず使える。"
+          },
           "createdAt": {
             "type": "string"
           },

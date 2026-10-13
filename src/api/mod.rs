@@ -1,3 +1,4 @@
+mod ai;
 mod archive;
 mod archive_axes;
 mod archive_axis_hints;
@@ -77,6 +78,7 @@ fn routes(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .merge(health::router())
         .merge(auth::router())
+        .merge(ai::router())
         .merge(connection_info::router())
         .merge(contents::router(max_upload_bytes))
         .merge(archive::router())

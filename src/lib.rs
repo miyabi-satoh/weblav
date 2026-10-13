@@ -1,3 +1,4 @@
+pub mod ai;
 pub mod api;
 pub mod auth;
 pub mod cli;
@@ -54,6 +55,8 @@ pub const APP_BUILD: Option<&str> = option_env!("WEBLAV_BUILD");
 /// `config` は動いている値として管理画面に出す (→ `api::server_settings`)。
 ///
 /// `folder_picker` は「公開できるフォルダー」を選ぶ窓を出す手段 (→ `folder_picker`)。
+///
+/// `account_server` は AI の機能でつなぐ窓口の URL (→ `ai::ACCOUNT_SERVER_URL`)。テストが偽の窓口に差し替える。
 pub async fn build_app(
     pool: SqlitePool,
     session_key: Key,
@@ -61,6 +64,7 @@ pub async fn build_app(
     dirs: &AppDirs,
     lan_port: Option<u16>,
     folder_picker: folder_picker::FolderPicker,
+    account_server: &str,
 ) -> Result<Router, Box<dyn std::error::Error + Send + Sync>> {
     let session_store = SqliteStore::new(pool.clone());
     session_store.migrate().await?;
@@ -86,6 +90,11 @@ pub async fn build_app(
         let dir = backup_work_dir.clone();
         tokio::task::spawn_blocking(move || api::backup::remove_work_root(&dir)).await?;
     }
+
+    let ai = {
+        let (path, server) = (dirs.ai_account_path(), account_server.to_string());
+        Arc::new(tokio::task::spawn_blocking(move || ai::Ai::load(path, server)).await?)
+    };
 
     let revoked_sessions = Arc::new(session::RevokedSessions::default());
     let session_layer = session::layer(
@@ -152,6 +161,7 @@ pub async fn build_app(
         max_upload_bytes,
         lan_port,
         folder_picker,
+        ai,
     };
     let app = app.with_state(state);
 

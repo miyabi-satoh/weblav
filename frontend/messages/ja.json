@@ -553,5 +553,12 @@
 	"search_fetch_failed": "検索に失敗しました。しばらくしてから再度お試しください。",
 	"search_section_count_truncated": "{count} 件以上",
 	"row_location_button": "場所: {path}",
-	"row_location_menu_label": "場所を開く"
+	"row_location_menu_label": "場所を開く",
+	"error_ai_not_linked": "AI を使うには、管理者がこの PC を WebLAV のアカウントに登録する必要があります。",
+	"error_ai_not_allowed": "AI を使う許可がありません。管理者に頼んでください。",
+	"error_ai_no_credit": "WebLAV のアカウントの残りがありません。管理者がアカウントのページで足すと、また使えます。",
+	"error_ai_rate_limited": "AI の利用が短い間に集中しました。しばらくしてから再度お試しください。",
+	"error_ai_too_large": "AI に送る内容が大きすぎます。",
+	"error_ai_upstream": "AI が答えを返せませんでした。しばらくしてから再度お試しください。",
+	"error_account_server_unavailable": "WebLAV のアカウントにつながりません。しばらくしてから再度お試しください。"
 }
