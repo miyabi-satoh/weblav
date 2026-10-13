@@ -48,12 +48,12 @@ describe('contentPathLabel', () => {
 		expect(contentPathLabel(registered, true)).toBe('教材 / 英検');
 	});
 
-	it('hides the root path of a deleted root unless the viewer can manage roots', () => {
+	it('hides the root path of a deleted root unless the viewer is an admin', () => {
 		expect(contentPathLabel(deleted, false)).toBe('(存在しない公開フォルダー) / 英検');
 		expect(contentPathLabel(deleted, true)).toBe('/srv/教材/英検');
 	});
 
-	it('shows nothing of the path outside any root record unless the viewer can manage roots', () => {
+	it('shows nothing of the path outside any root record unless the viewer is an admin', () => {
 		expect(contentPathLabel(unknown, false)).toBe('(存在しない公開フォルダー)');
 		expect(contentPathLabel(unknown, true)).toBe('/srv/教材/英検');
 	});
