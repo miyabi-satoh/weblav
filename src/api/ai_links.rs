@@ -468,6 +468,8 @@ async fn refresh_ai_links(
     .await?
     .ok_or(AppError::NotFound)?;
     let interests = parse_interests(&interests)?;
+    // 使えない人の呼び出しで、集めている最中の印を取らせない。
+    ai::ensure_usable(&state, &user).await?;
     let refreshing = Refreshing::begin(&state.ai_links, id).ok_or(AppError::AiRateLimited)?;
 
     // 別のタスクで集める。画面を閉じられてハンドラが落とされても、窓口の呼び出しは止まらず残りを使うので、

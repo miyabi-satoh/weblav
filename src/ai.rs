@@ -345,20 +345,12 @@ impl Ai {
         result
     }
 
-    fn relay(&self, prompt: &Prompt) -> Relayed<String> {
+    /// 手元のトークンで窓口の中継を呼ぶ。窓口がトークンを断ったら、未登録に戻す。
+    fn relay<T>(&self, call: impl FnOnce(&Agent, &str, &str) -> Relayed<T>) -> Relayed<T> {
         let Some(token) = self.token() else {
             return Relayed::failed(AppError::AiNotLinked);
         };
-        let relayed = post_ai(&self.ai_agent, &self.server, &token, prompt);
-        self.forget_if_rejected(&token, &relayed.answer);
-        relayed
-    }
-
-    fn relay_search(&self, query: &SearchQuery) -> Relayed<Vec<SearchResult>> {
-        let Some(token) = self.token() else {
-            return Relayed::failed(AppError::AiNotLinked);
-        };
-        let relayed = post_search(&self.ai_agent, &self.server, &token, query);
+        let relayed = call(&self.ai_agent, &self.server, &token);
         self.forget_if_rejected(&token, &relayed.answer);
         relayed
     }
@@ -390,7 +382,10 @@ pub async fn generate(
         return Err(AppError::AiTooLarge);
     }
     let ai = Arc::clone(&state.ai);
-    let relayed = run_blocking(move || ai.relay(&prompt)).await?;
+    let relayed = run_blocking(move || {
+        ai.relay(|agent, server, token| post_ai(agent, server, token, &prompt))
+    })
+    .await?;
     record(state, user, kind, relayed).await
 }
 
@@ -403,12 +398,15 @@ pub async fn search(
 ) -> Result<Vec<SearchResult>, AppError> {
     ensure_usable(state, user).await?;
     let ai = Arc::clone(&state.ai);
-    let relayed = run_blocking(move || ai.relay_search(&query)).await?;
+    let relayed = run_blocking(move || {
+        ai.relay(|agent, server, token| post_search(agent, server, token, &query))
+    })
+    .await?;
     record(state, user, kind, relayed).await
 }
 
 /// `user` が使えて、PC が登録済みであること。窓口を呼ぶ前に確かめる。
-async fn ensure_usable(state: &AppState, user: &AuthUser) -> Result<(), AppError> {
+pub async fn ensure_usable(state: &AppState, user: &AuthUser) -> Result<(), AppError> {
     if !is_allowed(&state.pool, user).await? {
         return Err(AppError::AiNotAllowed);
     }
