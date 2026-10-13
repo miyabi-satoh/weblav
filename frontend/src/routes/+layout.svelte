@@ -19,6 +19,7 @@
 	import LanguageToggle from '$lib/components/language-toggle.svelte';
 	import ShareButton from '$lib/components/share-button.svelte';
 	import UserMenu from '$lib/components/user-menu.svelte';
+	import AiChat from '$lib/components/ai-chat.svelte';
 	import AudioPlayerBar from '$lib/components/audio-player-bar.svelte';
 	import FileViewer from '$lib/components/file-viewer.svelte';
 	import LinkDetailDialog from '$lib/components/link-detail-dialog.svelte';
@@ -153,6 +154,7 @@
 	<AudioPlayerBar bind:height={playerHeight} />
 </div>
 
+<AiChat bottomOffset={nowPlaying.current !== null ? playerHeight : 0} />
 <FileViewer />
 <LinkDetailDialog />
 

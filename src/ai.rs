@@ -90,6 +90,8 @@ pub enum UsageKind {
     Axes,
     /// AI が集めるリンク。
     Links,
+    /// 簡易チャット。
+    Chat,
 }
 
 /// Web の検索で引く中身 (窓口の `POST /v1/search`)。

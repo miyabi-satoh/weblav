@@ -662,3 +662,51 @@ async fn backup_does_not_contain_the_app_token(pool: SqlitePool) {
         );
     }
 }
+
+/// 簡易チャットは、質問を窓口へ送って答えの文を返し、使った量を `chat` として残す。
+#[sqlx::test]
+async fn chat_relays_the_question_and_records_the_usage(pool: SqlitePool) {
+    let AiApp {
+        app, cookie, fake, ..
+    } = ai_app(&pool, true).await;
+
+    let (status, body) = send_json(
+        app.clone(),
+        "POST",
+        "/api/v1/ai/chat",
+        &cookie,
+        r#"{"prompt":"  富士山の高さは？ "}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let reply: serde_json::Value = serde_json::from_str(&body).expect("JSON でない");
+    assert_eq!(reply["answer"], r#"{"axes":[]}"#, "{body}");
+
+    {
+        let fake = fake.lock().expect("鍵が毒された");
+        assert_eq!(fake.prompts.len(), 1);
+        assert_eq!(fake.prompts[0]["user"], "富士山の高さは？");
+        assert!(fake.prompts[0]["system"].is_string());
+    }
+    let kinds: Vec<String> = usage_rows(&pool)
+        .await
+        .into_iter()
+        .map(|(_, _, kind, _)| kind)
+        .collect();
+    assert_eq!(kinds, ["chat"]);
+
+    let (status, body) = send_json(
+        app.clone(),
+        "POST",
+        "/api/v1/ai/chat",
+        &cookie,
+        r#"{"prompt":"  "}"#,
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+}
