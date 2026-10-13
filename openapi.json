@@ -472,16 +472,6 @@
                 }
               }
             }
-          },
-          "404": {
-            "description": "サーバーのPC以外からの要求",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       },
@@ -666,7 +656,7 @@
             }
           },
           "404": {
-            "description": "サーバーのPC以外からの要求・存在しない",
+            "description": "存在しない",
             "content": {
               "application/json": {
                 "schema": {
@@ -725,7 +715,7 @@
             }
           },
           "404": {
-            "description": "サーバーのPC以外からの要求・存在しない",
+            "description": "存在しない",
             "content": {
               "application/json": {
                 "schema": {

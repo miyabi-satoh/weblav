@@ -5,12 +5,10 @@
  * 画面に出すだけの文字列で、パスとしては使わない。API に渡すのは絶対パスのまま。
  */
 import type { components } from '$lib/api/schema';
-import { isAdmin } from '$lib/auth';
 import { isLoopbackHost } from '$lib/loopback';
 import * as m from '$lib/paraglide/messages.js';
 
 type Content = components['schemas']['AdminContentResponse'];
-type User = components['schemas']['UserResponse'];
 
 /** 階層の名前の区切り。コンテンツの親グループを並べるときも同じ見た目にする。 */
 export const LOCATION_SEPARATOR = ' / ';
@@ -28,20 +26,20 @@ export function joinLocationLabels(labels: string[]): string {
 }
 
 /**
- * 「公開できるフォルダー」を登録・削除できる人か。サーバーの PC から開いた管理者
+ * 「公開できるフォルダー」を追加できる場所か。サーバーの PC から開いたときだけ
  * (→ docs/folders.md「公開できるフォルダー」)。画面の出し分けにだけ使い、実際の可否はサーバーが決める。
  */
-export function canManageRoots(user: User | null | undefined, hostname: string): boolean {
-	return isAdmin(user) && isLoopbackHost(hostname);
+export function canAddRoots(hostname: string): boolean {
+	return isLoopbackHost(hostname);
 }
 
 /**
  * コンテンツの場所 (`path`) の出し方。
  *
  * - 登録中の公開できるフォルダーの中: 「名前 / その先」
- * - 公開できるフォルダーの登録を削除した後: 登録・削除できる人にはフルパス、
+ * - 公開できるフォルダーの登録を削除した後: 管理者にはフルパス、
  *   それ以外には「(存在しない公開フォルダー) / その先」。起点のパスは見せない
- * - どの公開できるフォルダーの記録にも含まれない: 登録・削除できる人にはフルパス、
+ * - どの公開できるフォルダーの記録にも含まれない: 管理者にはフルパス、
  *   それ以外には「(存在しない公開フォルダー)」だけ (どこまでが起点か分からないため)
  */
 export function contentPathLabel(content: Content, canSeeFullPath: boolean): string | null {

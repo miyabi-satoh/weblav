@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { components } from '$lib/api/schema';
-import { canManageRoots, contentPathLabel, rootLocationLabel } from './root-location';
+import { canAddRoots, contentPathLabel, rootLocationLabel } from './root-location';
 
 vi.mock('$lib/paraglide/messages.js', () => ({
 	contents_path_root_deleted: () => '(存在しない公開フォルダー)'
@@ -63,10 +63,9 @@ describe('contentPathLabel', () => {
 	});
 });
 
-describe('canManageRoots', () => {
-	it('is true only for an admin on the server PC', () => {
-		expect(canManageRoots({ role: 'admin' } as never, '127.0.0.1')).toBe(true);
-		expect(canManageRoots({ role: 'admin' } as never, '192.168.1.5')).toBe(false);
-		expect(canManageRoots({ role: 'user' } as never, '127.0.0.1')).toBe(false);
+describe('canAddRoots', () => {
+	it('is true only on the server PC', () => {
+		expect(canAddRoots('127.0.0.1')).toBe(true);
+		expect(canAddRoots('192.168.1.5')).toBe(false);
 	});
 });

@@ -2710,15 +2710,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description サーバーのPC以外からの要求 */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     create_root: {
@@ -2879,7 +2870,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description サーバーのPC以外からの要求・存在しない */
+            /** @description 存在しない */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2935,7 +2926,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description サーバーのPC以外からの要求・存在しない */
+            /** @description 存在しない */
             404: {
                 headers: {
                     [name: string]: unknown;

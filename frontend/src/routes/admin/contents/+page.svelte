@@ -37,7 +37,7 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Table from '$lib/components/ui/table';
-	import { canManageRoots, contentPathLabel } from '$lib/root-location';
+	import { contentPathLabel } from '$lib/root-location';
 	import ConfirmRegister from '$lib/components/confirm-register.svelte';
 	import ContentForm from '$lib/components/content-form.svelte';
 	import ContentTypeChooser from '$lib/components/content-type-chooser.svelte';
@@ -97,7 +97,7 @@
 	let saving = $state(false);
 
 	let currentUserId = $derived(page.data.user?.id);
-	let canSeeFullPath = $derived(canManageRoots(page.data.user, page.url.hostname));
+	let canSeeFullPath = $derived(isAdmin(page.data.user));
 
 	// 種別による制限は持たない。ログイン済みなら全部作れる (→ docs/access.md「ロールと操作」)。
 	const creatableTypes: ContentType[] = ['link', 'file', 'folder', 'archive', 'group'];

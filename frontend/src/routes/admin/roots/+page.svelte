@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import { client } from '$lib/api/client';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
@@ -7,6 +8,7 @@
 	import { formatNumber } from '$lib/format';
 	import { listClass, listItemClass } from '$lib/list-row';
 	import { pageTitle } from '$lib/page-title';
+	import { canAddRoots } from '$lib/root-location';
 	import { adminPageClass, pageHeadingTextClass } from '$lib/page-layout';
 	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
@@ -17,7 +19,6 @@
 	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
-	import WarningBand from '$lib/components/warning-band.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import type { PageProps } from './$types';
 	import type { components } from '$lib/api/schema';
@@ -25,6 +26,9 @@
 	type Root = components['schemas']['RootResponse'];
 
 	let { data }: PageProps = $props();
+
+	// 追加は OS のフォルダー選択の窓で選ぶので、サーバーの PC から開いたときだけ出す (→ docs/folders.md「選び方」)。
+	let canAdd = $derived(canAddRoots(page.url.hostname));
 
 	// 窓を開いてから、選ばれたフォルダーを登録し終えるまで。
 	let adding = $state(false);
@@ -131,17 +135,18 @@
 			<h1 class={pageHeadingTextClass}>{m.admin_roots_title()}</h1>
 			<p class="text-sm text-muted-foreground">{m.admin_roots_description()}</p>
 		</div>
-		<LoadingButton loading={adding} onclick={handleAdd}>{m.admin_roots_add()}</LoadingButton>
+		{#if canAdd}
+			<LoadingButton loading={adding} onclick={handleAdd}>{m.admin_roots_add()}</LoadingButton>
+		{/if}
 	</div>
 	<!-- 窓はブラウザーの外に出るので、どこで選ぶのかを添える。 -->
 	<p class={['text-sm text-muted-foreground', adding && 'mt-2']} aria-live="polite">
 		{adding ? m.admin_roots_picking() : ''}
 	</p>
+	{#if !canAdd}
+		<p class="mt-2 text-sm text-muted-foreground">{m.admin_roots_add_local_only()}</p>
+	{/if}
 </div>
-
-<WarningBand class="mb-4 md:px-6">
-	<p class="text-sm leading-relaxed">{m.admin_roots_local_only_notice()}</p>
-</WarningBand>
 
 {#if data.roots.length === 0}
 	<p class="px-4 text-sm text-muted-foreground md:px-6">{m.admin_roots_empty()}</p>
@@ -221,6 +226,9 @@
 		{m.admin_roots_delete_confirm_contents_note({
 			count: formatNumber(deletingRoot.removedContentCount)
 		})}
+	{/if}
+	{#if !canAdd}
+		{m.admin_roots_delete_confirm_local_note()}
 	{/if}
 </ConfirmDialog>
 

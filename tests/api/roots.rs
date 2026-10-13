@@ -57,6 +57,45 @@ async fn roots_can_be_registered_listed_and_deleted(pool: SqlitePool) {
     assert!(deleted);
 }
 
+/// 追加は PC の前だけだが、一覧・名前の変更・削除は LAN の端末の管理者もできる。
+#[sqlx::test]
+async fn a_lan_admin_can_list_rename_and_delete_roots(pool: SqlitePool) {
+    let (app, cookie) = admin_app(&pool).await;
+    let dir = root_dir("roots-lan");
+    let path = canonical_path_as_api_returns_it(&dir);
+    let (status, body) = send(
+        app.clone(),
+        roots_request("POST", ROOTS_URI, &cookie, Some(&json_path(&path))),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let uri = format!("{ROOTS_URI}/{}", extract_id(&body));
+    let from_lan = |method: &str, uri: &str, body: Option<&str>| {
+        with_host(
+            from_peer(
+                build_request(method, uri, Some(&cookie), body),
+                "192.168.1.10:50000",
+            ),
+            "192.168.1.5:3000",
+        )
+    };
+
+    let (status, body) = send(app.clone(), from_lan("GET", ROOTS_URI, None)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(&json_string(&path)), "{body}");
+
+    let (status, body) = send(
+        app.clone(),
+        from_lan("PUT", &uri, Some(r#"{"name":"教材"}"#)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(r#""name":"教材""#), "{body}");
+
+    let (status, body) = send(app.clone(), from_lan("DELETE", &uri, None)).await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+}
+
 /// 名前を変えられる。空ならフォルダー名に戻り、他と重なる名前は拒む。削除済みの名前は使える。
 #[sqlx::test]
 async fn a_root_can_be_renamed(pool: SqlitePool) {

@@ -8,7 +8,6 @@
 	import { isAdmin } from '$lib/auth';
 	import { adminNavTabListClass, navTabClass } from '$lib/nav-tabs';
 	import * as m from '$lib/paraglide/messages.js';
-	import { canManageRoots } from '$lib/root-location';
 	import { Button } from '$lib/components/ui/button';
 	import RecoveryCodeDialog from '$lib/components/recovery-code-dialog.svelte';
 	import WarningBand from '$lib/components/warning-band.svelte';
@@ -23,14 +22,10 @@
 	);
 	let recoveryCodeOpen = $state(false);
 
-	// 「公開できるフォルダー」はサーバーの PC からしか触れない (→ docs/folders.md「公開できるフォルダー」)。
-	// LAN の端末では API が 404 を返すので、入り口も出さない。
 	let tabs = $derived([
 		{ href: resolve('/admin/contents'), label: m.admin_contents_nav_title, icon: LayoutListIcon },
 		{ href: resolve('/admin/users'), label: m.admin_users_nav_title, icon: UsersIcon },
-		...(canManageRoots(page.data.user, page.url.hostname)
-			? [{ href: resolve('/admin/roots'), label: m.admin_roots_nav_title, icon: FolderLockIcon }]
-			: []),
+		{ href: resolve('/admin/roots'), label: m.admin_roots_nav_title, icon: FolderLockIcon },
 		{ href: resolve('/admin/settings'), label: m.admin_settings_nav_title, icon: SettingsIcon }
 	]);
 </script>
