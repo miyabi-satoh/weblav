@@ -19,6 +19,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import PasswordInput from '$lib/components/password-input.svelte';
 	import * as Select from '$lib/components/ui/select';
+	import { Switch } from '$lib/components/ui/switch';
 	import * as Table from '$lib/components/ui/table';
 	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
@@ -131,6 +132,28 @@
 			);
 		} finally {
 			changingRoleId = null;
+		}
+	}
+
+	// AI を使える印。権限と同じく、行のスイッチから直接送る。
+	let changingAiAllowedId = $state<number | null>(null);
+	async function changeAiAllowed(target: UserListItem, aiAllowed: boolean) {
+		if (changingAiAllowedId !== null) return;
+		changingAiAllowedId = target.id;
+		try {
+			await errorDialog.attempt(
+				() =>
+					client.PUT('/api/v1/admin/users/{id}/ai-allowed', {
+						params: { path: { id: target.id } },
+						body: { aiAllowed }
+					}),
+				({ data: updated }) => {
+					if (!updated) throw new Error('empty response');
+					users = users.map((u) => (u.id === updated.id ? updated : u));
+				}
+			);
+		} finally {
+			changingAiAllowedId = null;
 		}
 	}
 
@@ -250,6 +273,7 @@
 				<Table.Row>
 					<Table.Head>{m.admin_users_table_username()}</Table.Head>
 					<Table.Head class={fitColumnClass}>{m.admin_users_table_role()}</Table.Head>
+					<Table.Head class={fitColumnClass}>{m.admin_users_table_ai_allowed()}</Table.Head>
 					<Table.Head class={[columnFromMdClass, fitColumnClass]}
 						>{m.admin_users_table_created_at()}</Table.Head
 					>
@@ -295,6 +319,16 @@
 								</p>
 							{/if}
 						</Table.Cell>
+						<Table.Cell class={fitColumnClass}>
+							<!-- 管理者は印によらず使えるので、スイッチを出さない (→ docs/ai.md「誰が使えるか」)。 -->
+							{#if target.role === 'user'}
+								<Switch
+									bind:checked={() => target.aiAllowed, (v) => changeAiAllowed(target, v)}
+									disabled={changingAiAllowedId === target.id}
+									aria-label={m.admin_users_ai_allowed_row_label({ username: target.username })}
+								/>
+							{/if}
+						</Table.Cell>
 						<Table.Cell class={[columnFromMdClass, fitColumnClass, 'text-muted-foreground']}>
 							{formatDate(target.createdAt)}
 						</Table.Cell>
@@ -321,6 +355,7 @@
 			</Table.Body>
 		</Table.Root>
 	</div>
+	<p class="mt-4 text-sm text-muted-foreground">{m.admin_users_ai_allowed_description()}</p>
 </div>
 
 <Dialog.Root bind:open={createOpen}>

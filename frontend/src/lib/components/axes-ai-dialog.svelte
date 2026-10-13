@@ -5,6 +5,7 @@
 	import { toast } from 'svelte-sonner';
 	import { client } from '$lib/api/client';
 	import { errorCode, errorDetail, errorMessage, GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
+	import { fetchOrNull } from '$lib/api/load';
 	import type { components } from '$lib/api/schema';
 	import {
 		buildAxesPrompt,
@@ -43,6 +44,12 @@
 	let checking = $state(false);
 	let importing = $state(false);
 	let checkError = $state<string | null>(null);
+	/** WebLAV のアカウントを通して AI に送れるか (→ docs/ai.md「誰が使えるか」)。送れない人には貼り付けの流れだけを出す。 */
+	let aiAvailable = $state(false);
+	let generating = $state(false);
+	let generateError = $state<string | null>(null);
+	/** 開き直すたびに進める。閉じた後に届いた AI の答えを、開き直した画面に入れないため。 */
+	let session = 0;
 	/** 確かめた答えと、その予告。答えを書き換えたら取り込めないようにするため、両方を持つ。 */
 	let checked = $state<{ answer: string; request: ImportAxesRequest; preview: Preview } | null>(
 		null
@@ -70,13 +77,21 @@
 		answerForm.markPristine();
 		checked = null;
 		checkError = null;
+		aiAvailable = false;
+		generating = false;
+		generateError = null;
+		const current = ++session;
 		const path = { params: { path: { id: contentId } } };
 		try {
-			const [levels, words, items] = await Promise.all([
+			const [levels, words, items, availability] = await Promise.all([
 				client.GET('/api/v1/contents/{id}/dir-levels', path),
 				client.GET('/api/v1/contents/{id}/filename-words', path),
-				client.GET('/api/v1/contents/{id}/items', path)
+				client.GET('/api/v1/contents/{id}/items', path),
+				// 確かめられなくても、貼り付けの流れは使える。
+				fetchOrNull(client.GET('/api/v1/ai/availability'))
 			]);
+			if (current !== session) return;
+			aiAvailable = availability?.available ?? false;
 			if (!levels.data || !words.data || !items.data) {
 				promptFailed = true;
 				return;
@@ -100,6 +115,32 @@
 		} catch {
 			toast.error(m.common_copy_failed_toast());
 		}
+	}
+
+	/** プロンプトを AI に送り、返った答えを、貼り付けたときと同じ欄と確かめに流す。 */
+	async function generate() {
+		if (!prompt || generating) return;
+		const current = session;
+		generating = true;
+		generateError = null;
+		try {
+			const { data, error } = await client.POST('/api/v1/contents/{id}/axes/ai/generate', {
+				params: { path: { id: contentId } },
+				body: { prompt }
+			});
+			if (current !== session) return;
+			if (!data) {
+				generateError = errorMessage(error);
+				return;
+			}
+			answer = data.answer;
+		} catch {
+			if (current === session) generateError = GENERIC_ERROR_MESSAGE();
+			return;
+		} finally {
+			if (current === session) generating = false;
+		}
+		await check();
 	}
 
 	const PARSE_FAILURE_MESSAGES: Record<ParseFailure, () => string> = {
@@ -174,13 +215,36 @@
 <Dialog.Root bind:open>
 	<Dialog.Content
 		class="sm:max-w-2xl"
-		interactOutsideBehavior={answerForm.dirty ? 'ignore' : 'close'}
-		escapeKeydownBehavior={answerForm.dirty ? 'ignore' : 'close'}
+		interactOutsideBehavior={answerForm.dirty || generating ? 'ignore' : 'close'}
+		escapeKeydownBehavior={answerForm.dirty || generating ? 'ignore' : 'close'}
 	>
 		<Dialog.Header>
 			<Dialog.Title>{m.archive_axes_ai_dialog_title()}</Dialog.Title>
 			<Dialog.Description>{m.archive_axes_ai_dialog_description()}</Dialog.Description>
 		</Dialog.Header>
+
+		{#if aiAvailable}
+			<!-- 貼り付けの流れとは別の入り口なので、枠で囲んで分ける (→ docs/ui.md「UI 全般」の「余白と区切り」)。 -->
+			<section class="flex min-w-0 flex-col gap-2 rounded-md border p-4">
+				<h3 class="text-sm font-semibold">{m.archive_axes_ai_generate_heading()}</h3>
+				<p class="text-sm text-muted-foreground">{m.archive_axes_ai_generate_note()}</p>
+				<LoadingButton
+					class="w-fit"
+					loading={generating}
+					disabled={prompt === null}
+					onclick={generate}
+				>
+					{m.archive_axes_ai_generate_button()}
+				</LoadingButton>
+				{#if generating}
+					<p class="text-sm text-muted-foreground">{m.archive_axes_ai_generate_waiting()}</p>
+				{/if}
+				{#if generateError}
+					<p role="alert" class="text-sm text-destructive">{generateError}</p>
+				{/if}
+			</section>
+			<p class="text-sm text-muted-foreground">{m.archive_axes_ai_manual_lead()}</p>
+		{/if}
 
 		<section class="flex min-w-0 flex-col gap-2">
 			<h3 class="text-sm font-semibold">{m.archive_axes_ai_step_copy()}</h3>
@@ -228,7 +292,7 @@
 				variant="outline"
 				class="w-fit"
 				loading={checking}
-				disabled={answer.trim() === '' || ready}
+				disabled={answer.trim() === '' || ready || generating}
 				onclick={check}
 			>
 				{m.archive_axes_ai_check_button()}
