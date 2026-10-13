@@ -5075,6 +5075,13 @@
           "state"
         ],
         "properties": {
+          "confirmationCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "登録の途中のとき、登録を認める画面に出るのと同じ確認コード。"
+          },
           "linkUrl": {
             "type": [
               "string",
@@ -5111,6 +5118,13 @@
           "accountUrl": {
             "type": "string",
             "description": "残りを足す・登録した PC を見る、アカウントのページの URL。"
+          },
+          "confirmationCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "登録の途中のとき、登録を認める画面に出るのと同じ確認コード。"
           },
           "email": {
             "type": [

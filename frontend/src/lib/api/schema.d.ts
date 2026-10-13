@@ -1456,6 +1456,8 @@ export interface components {
             available: boolean;
         };
         AiLinkResponse: {
+            /** @description 登録の途中のとき、登録を認める画面に出るのと同じ確認コード。 */
+            confirmationCode?: string | null;
             /** @description 登録の途中のとき、管理者が開いて登録を認める画面の URL。 */
             linkUrl?: string | null;
             state: components["schemas"]["AiLinkState"];
@@ -1470,6 +1472,8 @@ export interface components {
             accountUnreachable: boolean;
             /** @description 残りを足す・登録した PC を見る、アカウントのページの URL。 */
             accountUrl: string;
+            /** @description 登録の途中のとき、登録を認める画面に出るのと同じ確認コード。 */
+            confirmationCode?: string | null;
             /** @description 登録済みのとき、登録先のアカウントのメールアドレス。アカウントにつながらなければ無い。 */
             email?: string | null;
             /** @description 登録の途中のとき、管理者が開いて登録を認める画面の URL。 */

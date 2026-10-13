@@ -1028,7 +1028,6 @@ async fn generate_axes(
         crate::ai::Prompt {
             system: None,
             user: payload.prompt,
-            attachment: None,
         },
     )
     .await?;

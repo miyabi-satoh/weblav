@@ -276,6 +276,11 @@ async fn linking_goes_from_pending_to_linked_and_back(pool: SqlitePool) {
         "{link_url}"
     );
     assert!(!link_url.contains(&verifier), "{link_url}");
+    assert_eq!(
+        link["confirmationCode"],
+        challenge[..6].to_uppercase(),
+        "窓口の画面と同じ確認コードを返す"
+    );
 
     fake.lock().expect("鍵が毒された").approved = true;
     let (code, body) = send_empty(app.clone(), "POST", POLL_URI, &cookie).await;
@@ -299,6 +304,27 @@ async fn linking_goes_from_pending_to_linked_and_back(pool: SqlitePool) {
     assert!(!account_path.exists(), "解除したらトークンを残さない");
     let status = get_json(app, STATUS_URI, &cookie).await;
     assert_eq!(status["state"], "unlinked", "{status}");
+}
+
+/// 期限の決まりは `src/ai.rs` の単体テストで確かめる。ここでは、状態の口につながっていることだけを見る。
+#[sqlx::test]
+async fn an_expired_pending_link_is_reported_as_unlinked(pool: SqlitePool) {
+    let dir = next_app_dir();
+    std::fs::create_dir_all(&dir).expect("データの置き場を作れなかった");
+    let account_path = dir.join("ai-account.json");
+    // 始めた時刻が 0 (1970 年) なら、期限は必ず過ぎている。
+    std::fs::write(
+        &account_path,
+        r#"{"state":"pending","code_verifier":"old","started_at":0}"#,
+    )
+    .expect("登録の状態を書けなかった");
+    let app = app_with_account_server(pool.clone(), &dir, NO_ACCOUNT_SERVER).await;
+    let cookie = admin_cookie(app.clone(), &pool).await;
+
+    let status = get_json(app, STATUS_URI, &cookie).await;
+    assert_eq!(status["state"], "unlinked", "{status}");
+    assert!(status["linkUrl"].is_null(), "{status}");
+    assert!(!account_path.exists(), "期限の切れた検証用の値を残さない");
 }
 
 #[sqlx::test]

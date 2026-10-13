@@ -119,7 +119,7 @@ pub enum AppError {
     /// 短い間に呼びすぎた場合 (窓口の 429)。ログインの `TooManyRequests` とは文言が違うので分ける。
     #[error("too many AI requests")]
     AiRateLimited,
-    /// 送る文か添付が、窓口の受ける上限を超える場合 (送る前に分かったものと、窓口の 413)。
+    /// 送る文が、窓口の受ける上限を超える場合 (送る前に分かったものと、窓口の 413)。
     #[error("the AI request is too large")]
     AiTooLarge,
     /// AI の側が失敗した場合 (窓口の 502)。答えの文が無い返事もここに入れる。

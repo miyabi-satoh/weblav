@@ -34,6 +34,8 @@ pub struct AiLinkResponse {
     state: AiLinkState,
     /// 登録の途中のとき、管理者が開いて登録を認める画面の URL。
     link_url: Option<String>,
+    /// 登録の途中のとき、登録を認める画面に出るのと同じ確認コード。
+    confirmation_code: Option<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -42,6 +44,8 @@ pub struct AiStatusResponse {
     state: AiLinkState,
     /// 登録の途中のとき、管理者が開いて登録を認める画面の URL。
     link_url: Option<String>,
+    /// 登録の途中のとき、登録を認める画面に出るのと同じ確認コード。
+    confirmation_code: Option<String>,
     /// 登録済みのとき、登録先のアカウントのメールアドレス。アカウントにつながらなければ無い。
     email: Option<String>,
     /// 登録済みのとき、残りの割合 (0〜100)。アカウントにつながらなければ無い。
@@ -52,31 +56,38 @@ pub struct AiStatusResponse {
     account_url: String,
 }
 
-/// 今の登録の状態と、登録の途中なら認める画面の URL。
+/// 今の登録の状態と、登録の途中なら認める画面の URL と確認コード。
 async fn link_response(state: &AppState) -> Result<AiLinkResponse, AppError> {
-    Ok(match state.ai.account() {
-        None => AiLinkResponse {
-            state: AiLinkState::Unlinked,
-            link_url: None,
-        },
-        Some(Account::Pending { code_verifier, .. }) => {
-            let site_name = super::site_settings::load(&state.pool).await?.site_name;
-            // 窓口のアカウントの画面で、どの PC かを見分けるための名前。読めなければ空にする (登録はできる)。
-            let pc_name = crate::mdns::os_host_label().unwrap_or_default();
-            AiLinkResponse {
-                state: AiLinkState::Pending,
-                link_url: Some(ai::link_url(
-                    state.ai.server(),
-                    &code_verifier,
-                    &site_name,
-                    &pc_name,
-                )),
+    let ai = Arc::clone(&state.ai);
+    let (link_state, pending) = run_blocking(move || -> std::io::Result<_> {
+        Ok(match ai.account()? {
+            None => (AiLinkState::Unlinked, None),
+            Some(Account::Linked { .. }) => (AiLinkState::Linked, None),
+            Some(Account::Pending { code_verifier, .. }) => {
+                // 窓口のアカウントの画面で、どの PC かを見分けるための名前。読めなければ空にする (登録はできる)。
+                let pc_name = crate::mdns::os_host_label().unwrap_or_default();
+                (AiLinkState::Pending, Some((code_verifier, pc_name)))
             }
-        }
-        Some(Account::Linked { .. }) => AiLinkResponse {
-            state: AiLinkState::Linked,
+        })
+    })
+    .await??;
+    let Some((code_verifier, pc_name)) = pending else {
+        return Ok(AiLinkResponse {
+            state: link_state,
             link_url: None,
-        },
+            confirmation_code: None,
+        });
+    };
+    let site_name = super::site_settings::load(&state.pool).await?.site_name;
+    Ok(AiLinkResponse {
+        state: link_state,
+        link_url: Some(ai::link_url(
+            state.ai.server(),
+            &code_verifier,
+            &site_name,
+            &pc_name,
+        )),
+        confirmation_code: Some(ai::confirmation_code(&code_verifier)),
     })
 }
 
@@ -112,6 +123,7 @@ async fn get_status(
     Ok(Json(AiStatusResponse {
         state: link.state,
         link_url: link.link_url,
+        confirmation_code: link.confirmation_code,
         email,
         remaining_percent,
         account_unreachable,
