@@ -40,7 +40,7 @@ export function postForm(
 	});
 }
 
-/** Mawok が作るのと同じ形の申し込みの値。検証用の値は Mawok だけが持つ。 */
+/** WebLAV が作るのと同じ形の申し込みの値。検証用の値は WebLAV だけが持つ。 */
 export async function newLink(name = 'mac-mini') {
 	const verifier =
 		crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '');
@@ -56,7 +56,7 @@ export function linkPath(fields: Record<string, string>) {
 	return `/account/link?${new URLSearchParams(fields)}`;
 }
 
-/** 「この PC を登録」を押し、Mawok の待ち受けへ戻された先のコードを返す。 */
+/** 「この PC を登録」を押し、WebLAV の待ち受けへ戻された先のコードを返す。 */
 export async function approve(fields: Record<string, string>, cookie: string) {
 	const res = await postForm('/account/link', fields, cookie);
 	expect(res.status).toBe(303);
@@ -93,7 +93,7 @@ export async function signIn(email: string, next = '/account/') {
 	};
 }
 
-/** サインインして Mawok を結び、アプリ用のトークンを返す。 */
+/** サインインして WebLAV を結び、アプリ用のトークンを返す。 */
 export async function linkApp(email: string) {
 	const { cookie } = await signIn(email);
 	const { verifier, fields } = await newLink();
@@ -221,7 +221,7 @@ export function completed(
 				client_reference_id: account,
 				payment_intent: `pi_${sessionId}`,
 				payment_status: 'paid',
-				metadata: { product: 'mawok-ai' },
+				metadata: { product: 'weblav-ai' },
 				...overrides
 			}
 		}
@@ -241,7 +241,7 @@ export function stripeSessions(account: string, overrides: Record<string, unknow
 			payment_status: 'paid',
 			currency: 'jpy',
 			amount_total: 300,
-			metadata: { product: 'mawok-ai', buyer_country: 'JP' },
+			metadata: { product: 'weblav-ai', buyer_country: 'JP' },
 			managed_payments: { enabled: false },
 			line_items: {
 				data: [{ quantity: 1, price: { id: 'price_credits', unit_amount: 300, currency: 'jpy' } }]

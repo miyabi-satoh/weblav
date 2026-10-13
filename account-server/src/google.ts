@@ -71,7 +71,7 @@ export async function finishGoogleSignIn(
 ): Promise<GoogleUser | GoogleFailure> {
 	const flow = takeFlowCookie<Flow>(c, COOKIE);
 	if (!flow) return { failure: 'invalid', next: ACCOUNT_HOME };
-	// 断ったときも、メールのリンクで入り直して元の画面 (Mawok を結ぶ画面など) へ戻れるように。
+	// 断ったときも、メールのリンクで入り直して元の画面 (WebLAV を結ぶ画面など) へ戻れるように。
 	const fail = (failure: GoogleFailure['failure']): GoogleFailure => ({ failure, next: flow.next });
 	const code = c.req.query('code');
 	if (!code || !flow.state || c.req.query('state') !== flow.state) return fail('invalid');

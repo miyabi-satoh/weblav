@@ -11,7 +11,7 @@ function hostCookieName(c: Context, base: string): string {
 }
 
 /**
- * `SameSite` は Strict にしない。Mawok から開くリンクやメールのリンク・Google から戻るとき (よそのサイトからの移動) に、
+ * `SameSite` は Strict にしない。WebLAV から開くリンクやメールのリンク・Google から戻るとき (よそのサイトからの移動) に、
  * Cookie が送られなくなるため。書き込みは Origin の確かめ (hono/csrf) で守る。
  * `crossSitePost`: よそのサイトからの POST でも送る (Apple から戻るとき)。https でだけ効く (`SameSite=None` は `Secure` が要る)。
  */

@@ -7,7 +7,7 @@
 const WEBHOOK_TOLERANCE = 300;
 
 /** 同じ Stripe のアカウントで売るほかの製品の webhook と見分ける印。Checkout Session の metadata に付ける。 */
-export const PRODUCT = 'mawok-ai';
+export const PRODUCT = 'weblav-ai';
 
 /** Stripe が断った頼み。`status` が 409 なら、同じ Idempotency-Key の頼みを Stripe が処理している最中。 */
 export class StripeError extends Error {
@@ -65,7 +65,7 @@ export function usesManagedPayments(country: string | undefined): boolean {
 const APPLE_RELAY_DOMAINS = ['privaterelay.appleid.com', 'private.icloud.com'];
 
 /** 明細に出す、この製品の表記 (アカウントの接頭辞に続く)。英字とカナは10文字、漢字は9文字まで。 */
-const STATEMENT_SUFFIX = { latin: 'MAWOK', kanji: 'Mawok', kana: 'マオック' };
+const STATEMENT_SUFFIX = { latin: 'WEBLAV', kanji: 'WebLAV', kana: 'ウェブラヴ' };
 
 /**
  * 残高を買う Checkout Session を作る。`expiresAt` (UNIX 秒) は Stripe の決まりで30分以上先。

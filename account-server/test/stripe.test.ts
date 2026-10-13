@@ -49,9 +49,9 @@ describe('createCheckoutSession', () => {
 	const DOMESTIC_ONLY = {
 		'payment_method_types[0]': 'card',
 		'line_items[0][tax_rates][0]': env.STRIPE_TAX_RATE_ID,
-		'payment_intent_data[statement_descriptor_suffix]': 'MAWOK',
-		'payment_method_options[card][statement_descriptor_suffix_kanji]': 'Mawok',
-		'payment_method_options[card][statement_descriptor_suffix_kana]': 'マオック',
+		'payment_intent_data[statement_descriptor_suffix]': 'WEBLAV',
+		'payment_method_options[card][statement_descriptor_suffix_kanji]': 'WebLAV',
+		'payment_method_options[card][statement_descriptor_suffix_kana]': 'ウェブラヴ',
 		'custom_text[submit][message]': '特定商取引法に基づく表記'
 	};
 
@@ -68,7 +68,7 @@ describe('createCheckoutSession', () => {
 			'line_items[0][quantity]': '1',
 			client_reference_id: 'acc',
 			customer_email: 'buyer@example.com',
-			'metadata[product]': 'mawok-ai',
+			'metadata[product]': 'weblav-ai',
 			'metadata[buyer_country]': 'JP',
 			locale: 'ja',
 			success_url: 'https://account.test/done',
@@ -132,7 +132,7 @@ describe('confirmPurchase', () => {
 	it('records a Managed Payments sale without a card', async () => {
 		stripeSessions('acc', {
 			managed_payments: { enabled: true },
-			metadata: { product: 'mawok-ai', buyer_country: 'US' },
+			metadata: { product: 'weblav-ai', buyer_country: 'US' },
 			payment_intent: { id: 'pi_mp', latest_charge: { payment_method_details: {} } }
 		});
 		expect(await confirmPurchase(config, 'cs_mp')).toMatchObject({
@@ -151,7 +151,7 @@ describe('confirmPurchase', () => {
 				{
 					customer_details: { address: { country: 'JP' } },
 					payment_intent: charge('US'),
-					metadata: { product: 'mawok-ai', buyer_country: 'US' }
+					metadata: { product: 'weblav-ai', buyer_country: 'US' }
 				},
 				true
 			],

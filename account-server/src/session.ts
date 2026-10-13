@@ -2,7 +2,7 @@ import type { Context } from 'hono';
 import { deleteHostCookie, getHostCookie, setHostCookie } from './cookie';
 import { now, randomHex, sha256Hex } from './util';
 
-/** セッションの期限。Mawok を結ぶたびにメールでサインインし直させないように。 */
+/** セッションの期限。WebLAV を結ぶたびにメールでサインインし直させないように。 */
 const SESSION_TTL = 30 * 24 * 60 * 60;
 
 const COOKIE = 'session';

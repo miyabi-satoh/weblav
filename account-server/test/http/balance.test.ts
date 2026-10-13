@@ -16,7 +16,7 @@ describe('balance', () => {
 		]);
 	});
 
-	it('grants a held-back free credit when Mawok asks for the balance', async () => {
+	it('grants a held-back free credit when WebLAV asks for the balance', async () => {
 		const email = 'late-free@example.com';
 		const { token } = await linkApp(email);
 		const account = await accountId(email);

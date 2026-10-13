@@ -59,7 +59,7 @@ describe('buying credit', () => {
 		);
 		expect(sent.get('cancel_url')).toBe(`${ORIGIN}/account/buy?lang=ja`);
 		expect(sent.get('custom_text[submit][message]')).toContain('https://amiiby.com/tokushoho/');
-		expect(new Headers(init!.headers).get('idempotency-key')).toMatch(/^mawok-checkout-/);
+		expect(new Headers(init!.headers).get('idempotency-key')).toMatch(/^weblav-checkout-/);
 	});
 
 	it('shows the final confirmation before payment, and links to it from the account page', async () => {
@@ -70,7 +70,7 @@ describe('buying credit', () => {
 		const confirmation = await (await request('/account/buy', { cookie })).text();
 		// 最終確認画面に要る事項を、確定ボタンより上に出す。
 		expect(confirmation).toContain('お申し込み内容の最終確認');
-		expect(confirmation).toContain('Mawok の AI アクションのクレジット（期限なし）');
+		expect(confirmation).toContain('WebLAV の AI アクションのクレジット（期限なし）');
 		expect(confirmation).toContain('300 円（税込み）');
 		expect(confirmation).toContain('自動の更新はありません');
 		expect(confirmation).toContain('返金');
@@ -202,7 +202,7 @@ describe('buying credit', () => {
 		vi.restoreAllMocks();
 		stripeSessions(account, {
 			managed_payments: { enabled: true },
-			metadata: { product: 'mawok-ai', buyer_country: 'US' },
+			metadata: { product: 'weblav-ai', buyer_country: 'US' },
 			payment_intent: { id: 'pi_cs_delayed', latest_charge: { payment_method_details: {} } }
 		});
 		await webhook(

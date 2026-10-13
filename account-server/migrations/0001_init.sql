@@ -1,4 +1,4 @@
--- 窓口の表 (→ docs/account-server.md「窓口（mawok.amiiby.com）」)。時刻は UNIX 秒、原価は 1/1000 円 (milli_yen)。
+-- 窓口の表 (→ docs/account-server.md「窓口（weblav.amiiby.com）」)。時刻は UNIX 秒、原価は 1/1000 円 (milli_yen)。
 
 CREATE TABLE accounts (
 	id TEXT PRIMARY KEY,
@@ -35,7 +35,7 @@ CREATE TABLE identities (
 	PRIMARY KEY (provider, subject)
 );
 
--- Mawok からの、アカウントと結ぶ申し込み。結んだら、期限まではアプリ用のトークンを問い合わせのたびに渡す。
+-- WebLAV からの、アカウントと結ぶ申し込み。結んだら、期限まではアプリ用のトークンを問い合わせのたびに渡す。
 CREATE TABLE links (
 	id TEXT PRIMARY KEY,
 	poll_secret_hash TEXT NOT NULL,
@@ -43,12 +43,12 @@ CREATE TABLE links (
 	expires_at INTEGER NOT NULL,
 	created_at INTEGER NOT NULL,
 	account_id TEXT REFERENCES accounts (id) ON DELETE CASCADE,
-	-- 結んだときに作ったトークン。Mawok に一度渡したら消す。渡す前に期限が過ぎても消す。
+	-- 結んだときに作ったトークン。WebLAV に一度渡したら消す。渡す前に期限が過ぎても消す。
 	token TEXT,
 	approved_at INTEGER
 );
 
--- Mawok に渡したトークン。ハッシュだけを持つ。期限は持たず、サインアウトか窓口の画面で消す。
+-- WebLAV に渡したトークン。ハッシュだけを持つ。期限は持たず、サインアウトか窓口の画面で消す。
 CREATE TABLE app_tokens (
 	id TEXT PRIMARY KEY,
 	token_hash TEXT NOT NULL UNIQUE,

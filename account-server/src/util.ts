@@ -61,11 +61,11 @@ export function jwtClaims<T>(jwt: string | undefined): T | undefined {
 	}
 }
 
-/** 人が開く画面 (サインイン・Mawok を結ぶ・買う) を置くパス。 */
+/** 人が開く画面 (サインイン・WebLAV を結ぶ・買う) を置くパス。 */
 export const ACCOUNT = '/account';
 /** 公開の料金ページ (site/src/pages/pricing.astro)。 */
 export const PRICING_PATH = '/pricing/';
-/** 料金ページの「購入の条件」。特商法の表記のうち、価格・動作環境と Mawok に限った定めを書く所。 */
+/** 料金ページの「購入の条件」。特商法の表記のうち、価格・動作環境と WebLAV に限った定めを書く所。 */
 export const PURCHASE_CONDITIONS = `${PRICING_PATH}#conditions`;
 /** アカウントの画面。 */
 export const ACCOUNT_HOME = `${ACCOUNT}/`;

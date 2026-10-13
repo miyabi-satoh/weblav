@@ -56,14 +56,14 @@ describe('email sign-in', () => {
 		const { cookie } = await signIn('bye@example.com');
 		expect(await (await request('/account/', { cookie })).text()).toContain('bye@example.com');
 		await postForm('/account/logout', { next: '/account/' }, cookie);
-		expect(await (await request('/account/', { cookie })).text()).toContain('Mawok にサインイン');
+		expect(await (await request('/account/', { cookie })).text()).toContain('WebLAV にサインイン');
 	});
 });
 
 describe('sign-in page', () => {
 	it('serves the account page with or without the trailing slash', async () => {
 		for (const path of ['/account', '/account/']) {
-			expect(await (await request(path)).text()).toContain('Mawok にサインイン');
+			expect(await (await request(path)).text()).toContain('WebLAV にサインイン');
 		}
 	});
 
@@ -90,14 +90,14 @@ describe('language', () => {
 
 	it('keeps the language given in the link on the following pages', async () => {
 		const res = await request(`${linkPath((await newLink()).fields)}&lang=en`);
-		expect(await heading(res)).toBe('Sign in to Mawok');
+		expect(await heading(res)).toBe('Sign in to WebLAV');
 		const cookie = res.headers.get('set-cookie')!.split(';')[0];
 		expect(cookie).toBe('lang=en');
-		expect(await heading(await request('/account/', { cookie }))).toBe('Sign in to Mawok');
+		expect(await heading(await request('/account/', { cookie }))).toBe('Sign in to WebLAV');
 	});
 
 	it('sends the mail in the same language, with the language in the link', async () => {
-		// Mawok から開いたときに残した cookie で決まる。フォームの送り先には言語が付かない。
+		// WebLAV から開いたときに残した cookie で決まる。フォームの送り先には言語が付かない。
 		const opened = await request(`${linkPath((await newLink()).fields)}&lang=en`);
 		const cookie = opened.headers.get('set-cookie')!.split(';')[0];
 		const log = vi.spyOn(console, 'log').mockImplementation(() => {});

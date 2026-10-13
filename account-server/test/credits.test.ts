@@ -28,7 +28,7 @@ async function addGrant(
 		await env.DB.prepare(
 			`INSERT INTO purchases (id, account_id, product, stripe_checkout_session_id, stripe_payment_intent_id,
 			   amount, currency, managed_payments, domestic, created_at)
-			 VALUES (?1, ?2, 'mawok-ai', ?1, ?1, 300, 'jpy', 0, 1, 0)`
+			 VALUES (?1, ?2, 'weblav-ai', ?1, ?1, 300, 'jpy', 0, 1, 0)`
 		)
 			.bind(purchase, account)
 			.run();

@@ -1,10 +1,10 @@
 /**
- * Mawok の窓口 (→ docs/account-server.md「窓口（mawok.amiiby.com）」)。
+ * WebLAV の窓口 (→ docs/account-server.md「窓口（weblav.amiiby.com）」)。
  *
- * - `/v1/links/token`: Mawok を結ぶときに届けたコードを、アプリ用のトークンに替える。
+ * - `/v1/links/token`: WebLAV を結ぶときに届けたコードを、アプリ用のトークンに替える。
  * - `/v1/ai`・`/v1/balance`・`/v1/token`: アプリ用のトークンで呼ぶ、中継・残高・サインアウト。
  * - `/v1/stripe/webhook`: Stripe からの支払いの知らせ。
- * - `/account/`: 人が開く画面 (サインイン・Mawok を結ぶ・買う)。
+ * - `/account/`: 人が開く画面 (サインイン・WebLAV を結ぶ・買う)。
  * - それ以外: 紹介と規約類の静的なページ (wrangler.jsonc の assets)。
  */
 import { Hono, type Context } from 'hono';
@@ -53,7 +53,7 @@ import {
 	sha256Hex
 } from './util';
 
-/** 「この Mawok と結ぶ」で作るコードの期限。ブラウザが Mawok へ戻ってすぐ替えるので短く。 */
+/** 「この WebLAV と結ぶ」で作るコードの期限。ブラウザが WebLAV へ戻ってすぐ替えるので短く。 */
 const LINK_CODE_TTL = 300;
 /** メールのリンクの期限。メールが少し遅れて届いても間に合い、漏れたリンクを使える時間は短く。 */
 const EMAIL_LOGIN_TTL = 15 * 60;
@@ -102,10 +102,10 @@ async function limited(c: Context<App>, limiter: RateLimit, key?: string): Promi
 	return !success;
 }
 
-// ---- Mawok を結ぶ ----
+// ---- WebLAV を結ぶ ----
 
 /**
- * 「この Mawok と結ぶ」で Mawok の待ち受けへ届けたコードを、アプリ用のトークンに替える。
+ * 「この WebLAV と結ぶ」で WebLAV の待ち受けへ届けたコードを、アプリ用のトークンに替える。
  * コードは一度きりで、申し込みに付けた検証用の値と照らす。届け先の待ち受けを他のプロセスに取られても、
  * 検証用の値を持たないのでトークンに替えられないように (RFC 7636 の PKCE と同じ考え方)。
  */
@@ -158,7 +158,7 @@ async function appAccount(c: Context<App>): Promise<string | undefined> {
 	return row?.account_id;
 }
 
-/** Mawok の設定に出す残り。 */
+/** WebLAV の設定に出す残り。 */
 app.get('/v1/balance', async (c) => {
 	const accountId = await appAccount(c);
 	if (!accountId) return c.json({ error: 'unauthorized' }, 401);
@@ -171,7 +171,7 @@ app.get('/v1/balance', async (c) => {
 	return c.json({ email: account?.email, remaining_percent: remaining > 0 ? percent : 0 });
 });
 
-/** Mawok でのサインアウト。トークンを外す。 */
+/** WebLAV でのサインアウト。トークンを外す。 */
 app.delete('/v1/token', async (c) => {
 	const token = bearerToken(c);
 	if (token) {
@@ -213,7 +213,7 @@ app.post('/v1/ai', async (c) => {
 		await release();
 		return c.json({ error: 'no_credit' }, 402);
 	}
-	// 中継・引くこと・印を外すことを1つにまとめ、waitUntil に渡す。Mawok で取り消して接続が切れても、
+	// 中継・引くこと・印を外すことを1つにまとめ、waitUntil に渡す。WebLAV で取り消して接続が切れても、
 	// Gemini が使った分を引き、印を外すまで続けさせる (呼び出しが終わると、waitUntil に渡していない処理は打ち切られうる)。
 	const work = (async () => {
 		try {
@@ -227,7 +227,7 @@ app.post('/v1/ai', async (c) => {
 	c.executionCtx.waitUntil(work.catch(() => {}));
 	const result = await work;
 	if (result.ok) return c.body(result.body, 200, { 'content-type': 'application/json' });
-	// Gemini の失敗は、状態だけを Mawok へ返す (Mawok は利用者のキーで送ったときと同じく分ける)。
+	// Gemini の失敗は、状態だけを WebLAV へ返す (WebLAV は利用者のキーで送ったときと同じく分ける)。
 	return c.json({ error: 'upstream', upstream_status: result.status }, 502);
 });
 
@@ -393,7 +393,7 @@ accountApp.get('/', async (c) => {
 	const account = await currentAccount(c);
 	if (!account) return c.html(signIn(c, lang, ACCOUNT_HOME));
 	const { results: apps } = await c.env.DB.prepare(
-		`SELECT id, coalesce(name, 'Mawok') AS name, created_at AS createdAt FROM app_tokens
+		`SELECT id, coalesce(name, 'WebLAV') AS name, created_at AS createdAt FROM app_tokens
 		 WHERE account_id = ? ORDER BY created_at`
 	)
 		.bind(account.id)
@@ -405,7 +405,7 @@ accountApp.get('/', async (c) => {
 	);
 });
 
-/** 窓口の画面から、結んだ Mawok を外す。外した Mawok は、次に使うときにサインインし直しになる。 */
+/** 窓口の画面から、結んだ WebLAV を外す。外した WebLAV は、次に使うときにサインインし直しになる。 */
 accountApp.post('/apps/unlink', async (c) => {
 	const lang = resolveLang(c);
 	const account = await currentAccount(c);
@@ -450,7 +450,7 @@ accountApp.post('/login/email', async (c) => {
 	if (inserted.meta.changes === 0) {
 		return c.html(signIn(c, lang, next, messages[lang].tooManyLinks), 429);
 	}
-	// Mawok を結ぶ途中なら、リンクを同じパソコンで開くよう添える (結ぶとブラウザを 127.0.0.1 へ戻すため)。
+	// WebLAV を結ぶ途中なら、リンクを同じパソコンで開くよう添える (結ぶとブラウザを 127.0.0.1 へ戻すため)。
 	const linking = next.startsWith(`${ACCOUNT}/link?`);
 	// 別のブラウザで開いても同じ言語になるよう、リンクに言語を付ける。
 	await sendMail(
@@ -634,9 +634,9 @@ accountApp.post('/logout', async (c) => {
 	return c.redirect(safeNext(formString(form, 'next')), 303);
 });
 
-// ---- Mawok を結ぶ ----
+// ---- WebLAV を結ぶ ----
 
-/** Mawok が申し込みに付けた値を読む。形が違えば `undefined` (Mawok の設定から開き直してもらう)。 */
+/** WebLAV が申し込みに付けた値を読む。形が違えば `undefined` (WebLAV の設定から開き直してもらう)。 */
 function linkRequest(get: (key: string) => string | undefined): LinkRequest | undefined {
 	const port = Number(get('port'));
 	const state = get('state') ?? '';
@@ -647,7 +647,7 @@ function linkRequest(get: (key: string) => string | undefined): LinkRequest | un
 	const name = [...(get('name') ?? '').replace(/[\p{Cc}\p{Cf}]/gu, '').trim()]
 		.slice(0, 64)
 		.join('');
-	return { port, state, challenge, name: name || 'Mawok' };
+	return { port, state, challenge, name: name || 'WebLAV' };
 }
 
 function linkQuery(link: LinkRequest): string {
@@ -669,8 +669,8 @@ accountApp.get('/link', async (c) => {
 });
 
 /**
- * 結ぶ。一度きりのコードを作り、ブラウザを Mawok の待ち受け (同じ PC の 127.0.0.1) へ戻す。
- * 戻る先が押した人の PC なので、他人から届いたリンクで押しても、コードはリンクを作った人の Mawok へ届かない。
+ * 結ぶ。一度きりのコードを作り、ブラウザを WebLAV の待ち受け (同じ PC の 127.0.0.1) へ戻す。
+ * 戻る先が押した人の PC なので、他人から届いたリンクで押しても、コードはリンクを作った人の WebLAV へ届かない。
  */
 accountApp.post('/link', async (c) => {
 	const lang = resolveLang(c);
@@ -791,7 +791,7 @@ accountApp.post('/buy', async (c) => {
 				: messages[checkout.lang].checkoutNote(LEGAL_PAGES.tokushoho),
 			managedPayments,
 			buyerCountry: checkout.buyer_country ?? undefined,
-			idempotencyKey: `mawok-checkout-${checkout.id}`
+			idempotencyKey: `weblav-checkout-${checkout.id}`
 		});
 	} catch (e) {
 		// 同じ予約をほかのタブが頼んでいる最中。予約は残し、押し直してもらう。

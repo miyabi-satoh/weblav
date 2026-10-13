@@ -1,25 +1,25 @@
 /**
  * 作者のキーで Gemini へ中継する (→ docs/account-server.md「中継」)。
- * モデル・出力の上限・入力の上限はここで決め打ちし、Mawok からは変えさせない (生の API の代わりにさせないため。Google APIs Terms 4.a)。
+ * モデル・出力の上限・入力の上限はここで決め打ちし、WebLAV からは変えさせない (生の API の代わりにさせないため。Google APIs Terms 4.a)。
  * 送った文も結果もログに残さない。
  */
 
 import type { Rates } from './pricing';
 
-/** Interactions API (ai.google.dev/api/interactions-api)。Mawok が利用者のキーで送るときと同じ口。 */
+/** Interactions API (ai.google.dev/api/interactions-api)。WebLAV が利用者のキーで送るときと同じ口。 */
 const GEMINI_INTERACTIONS_URL = 'https://generativelanguage.googleapis.com/v1/interactions';
 
-/** 中継するモデル。Mawok が利用者のキーで使うときの既定と同じ。 */
+/** 中継するモデル。WebLAV が利用者のキーで使うときの既定と同じ。 */
 const MODEL = 'gemini-3.5-flash-lite';
 
 /** 返事の長さの上限。書き直した文は元の文と同じくらいの長さなので、入力の上限に見合うだけ取る。 */
 const MAX_OUTPUT_TOKENS = 16_000;
 /** 受ける文の長さ (指示文と文の合計、UTF-16 の単位)。下書きの書き直しに足り、長い文書の一括の処理には使わせない。 */
 const MAX_INPUT_CHARS = 20_000;
-/** 返事を待つ上限。Mawok の待つ時間 (60 秒) より短くし、Mawok が先に諦めて、使った分だけ引かれることを避ける。 */
+/** 返事を待つ上限。WebLAV の待つ時間 (60 秒) より短くし、WebLAV が先に諦めて、使った分だけ引かれることを避ける。 */
 const TIMEOUT_MS = 50_000;
 
-/** Mawok が組み立てて送る中身 (Mawok の `ai::Prompt` と同じ形)。 */
+/** WebLAV が組み立てて送る中身 (WebLAV の `ai::Prompt` と同じ形)。 */
 export type Prompt = { system?: string; user: string };
 
 /** 受けた本文を `Prompt` として読む。形が違うか、長すぎるときは `undefined`。 */
@@ -33,7 +33,7 @@ export function parsePrompt(body: unknown): Prompt | 'too_long' | undefined {
 	return system === undefined ? { user } : { system, user };
 }
 
-/** Gemini の返事。`body` は Mawok へそのまま返す。`cost` は使った原価 (milli_yen)。 */
+/** Gemini の返事。`body` は WebLAV へそのまま返す。`cost` は使った原価 (milli_yen)。 */
 export type Relayed =
 	| { ok: true; body: string; cost: number }
 	| { ok: false; status: number; body: string; cost: number };

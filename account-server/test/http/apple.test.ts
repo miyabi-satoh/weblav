@@ -174,7 +174,7 @@ describe('Apple sign-in', () => {
 		// Apple からの POST には言語の Cookie が付かず、ブラウザの言語 (postForm は日本語) だけが届く。
 		const flow = await startApple('/account/', 'en');
 		const { res } = await back(flow, {}, { error: 'user_cancelled_authorize', state: flow.state });
-		expect(await res.text()).toContain('Sign in to Mawok');
+		expect(await res.text()).toContain('Sign in to WebLAV');
 	});
 
 	it('accepts the way back even when Apple sends no origin', async () => {

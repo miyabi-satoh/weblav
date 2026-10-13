@@ -5,7 +5,7 @@ import { pricing } from '../src/pricing';
 import { geminiAnswers } from './helpers';
 
 describe('parsePrompt', () => {
-	it('reads the prompt Mawok builds, and refuses other shapes', () => {
+	it('reads the prompt WebLAV builds, and refuses other shapes', () => {
 		expect(parsePrompt({ system: 's', user: 'u' })).toEqual({ system: 's', user: 'u' });
 		expect(parsePrompt({ user: 'u' })).toEqual({ user: 'u' });
 		for (const body of [

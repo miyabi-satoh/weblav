@@ -5,7 +5,7 @@ import type { Balance } from './credits';
 import { ACCOUNT, ACCOUNT_HOME, PRICING_PATH, PURCHASE_CONDITIONS } from './util';
 
 /** 規約類の置き場。利用規約とプライバシーポリシーは同じ Worker の静的アセットで出す (→ docs/account-server.md「作り」)。
- * 特商法の表記は amiiby.com の全製品に共通のページで、価格・動作環境と Mawok に限った定めは料金ページの PURCHASE_CONDITIONS に書く。 */
+ * 特商法の表記は amiiby.com の全製品に共通のページで、価格・動作環境と WebLAV に限った定めは料金ページの PURCHASE_CONDITIONS に書く。 */
 export const LEGAL_PAGES = {
 	terms: '/terms/',
 	privacy: '/privacy/',
@@ -14,7 +14,7 @@ export const LEGAL_PAGES = {
 
 type Body = HtmlEscapedString | Promise<HtmlEscapedString>;
 
-// 差し色は amiiby.com の Mawok の色に合わせる。
+// 差し色は WebLAV の見た目の決めごとに合わせる。
 // 足もとの紹介と規約類は日本語だけなので、英語の画面からも同じ所へリンクする。
 function page(lang: Lang, title: string, body: Body) {
 	const t = messages[lang];
@@ -24,7 +24,7 @@ function page(lang: Lang, title: string, body: Body) {
 				<meta charset="utf-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
 				<meta name="referrer" content="no-referrer" />
-				<title>${title} - Mawok</title>
+				<title>${title} - WebLAV</title>
 				<style>
 					:root {
 						color-scheme: light dark;
@@ -199,7 +199,7 @@ function page(lang: Lang, title: string, body: Body) {
 		</html>`;
 }
 
-/** 同意の文言から指せるページ。購入で同意するのは、共通の特商法の表記でなく Mawok の購入の条件。 */
+/** 同意の文言から指せるページ。購入で同意するのは、共通の特商法の表記でなく WebLAV の購入の条件。 */
 const CONSENT_LINKS = {
 	terms: LEGAL_PAGES.terms,
 	privacy: LEGAL_PAGES.privacy,
@@ -306,8 +306,8 @@ export function signInPage(
 }
 
 /**
- * メールを送ったところ。Mawok を結ぶ途中なら、リンクを同じパソコンで開くよう添える。
- * 結ぶとブラウザを 127.0.0.1 へ戻すので、ほかの機器で開くと Mawok へ戻れないため。
+ * メールを送ったところ。WebLAV を結ぶ途中なら、リンクを同じパソコンで開くよう添える。
+ * 結ぶとブラウザを 127.0.0.1 へ戻すので、ほかの機器で開くと WebLAV へ戻れないため。
  */
 export function mailSentPage(lang: Lang, email: string, minutes: number, linking: boolean) {
 	const t = messages[lang];
@@ -354,7 +354,7 @@ function signedInAs(lang: Lang, email: string, next: string) {
 }
 
 /**
- * 結ぶ前の確かめ。押すと、ブラウザを Mawok の待ち受けへ戻す。
+ * 結ぶ前の確かめ。押すと、ブラウザを WebLAV の待ち受けへ戻す。
  * 申し込みの値は押すまでフォームに持ち、押したときに窓口が確かめ直す。
  */
 export function approvePage(lang: Lang, email: string, link: LinkRequest, here: string) {
@@ -409,10 +409,10 @@ export function confirmPage(lang: Lang, email: string, region: SaleRegion) {
 	);
 }
 
-/** Mawok が申し込みに付けた値。 */
+/** WebLAV が申し込みに付けた値。 */
 export type LinkRequest = { port: number; state: string; challenge: string; name: string };
 
-/** Mawok に渡したトークン。窓口の画面から外せる。 */
+/** WebLAV に渡したトークン。窓口の画面から外せる。 */
 export type LinkedApp = { id: string; name: string; createdAt: number };
 
 export function homePage(

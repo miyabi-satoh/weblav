@@ -20,7 +20,7 @@ describe('relaying to Gemini', () => {
 		const gemini = geminiAnswers();
 		const res = await sendAi(token, { system: '丁寧に', user: 'こんにちは' });
 		expect(res.status).toBe(200);
-		// Gemini の返事をそのまま返す (Mawok が利用者のキーで送ったときと同じく読む)。
+		// Gemini の返事をそのまま返す (WebLAV が利用者のキーで送ったときと同じく読む)。
 		expect(await res.json()).toMatchObject({ status: 'completed' });
 		expect(JSON.parse(String(gemini.mock.calls[0][1]!.body))).toMatchObject({
 			input: 'こんにちは',

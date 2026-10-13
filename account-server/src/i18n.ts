@@ -1,6 +1,6 @@
 /**
- * 画面とメールの言語。「クエリの `lang` (`ja`・`en`) > cookie > ブラウザの言語 > 英語」で決める。
- * Mawok から開くリンクには `lang` が付き、Mawok で選んでいる言語に合わせる。
+ * 画面とメールの言語。「クエリの `lang` (`ja`・`en`) > cookie > ブラウザーの言語 > 英語」で決める。
+ * WebLAV から開くリンクには `lang` が付き、WebLAV で選んでいる言語に合わせる。
  */
 import type { Context } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
@@ -52,7 +52,7 @@ export function resolveLang(c: Context): Lang {
 
 const ja = {
 	signInTitle: 'サインイン',
-	signInHeading: 'Mawok にサインイン',
+	signInHeading: 'WebLAV にサインイン',
 	signInLead: 'メールアドレスにサインインのリンクを送ります。',
 	signInWithGoogle: 'Google でサインイン',
 	// Apple の決まり (HIG) の文言のまま。
@@ -75,9 +75,9 @@ const ja = {
 	mailSentTitle: 'メールを送りました',
 	mailSent: (email: string, minutes: number) =>
 		`${email} に届いたリンクを開いてください。リンクは ${minutes} 分で切れます。`,
-	mailSentHint: '届かないときは、迷惑メールのフォルダも確かめてください。',
+	mailSentHint: '届かないときは、迷惑メールのフォルダーも確かめてください。',
 	mailSentSameComputer:
-		'リンクは、Mawok を使っているこの PC で開いてください。ほかの機器で開くと、この PC を登録できません。',
+		'リンクは、WebLAV を使っているこの PC で開いてください。ほかの機器で開くと、この PC を登録できません。',
 	signIn: 'サインインする',
 	linkUnusableTitle: 'リンクが使えません',
 	linkUnusable: 'リンクの期限が切れたか、もう使われています。サインインをやり直してください。',
@@ -85,15 +85,15 @@ const ja = {
 	signOut: 'サインアウト',
 	linkTitle: 'PC を登録',
 	linkConfirm: (name: string) =>
-		`「${name}」をこのアカウントに登録します。登録した PC の Mawok は、アカウントのクレジットで AI アクションを使えます。`,
+		`「${name}」をこのアカウントに登録します。登録した PC の WebLAV は、アカウントのクレジットで AI アクションを使えます。`,
 	approve: 'この PC を登録',
 	linkInvalidTitle: 'このページは開けません',
-	linkInvalid: 'Mawok の設定の「アクション」で「サインイン」を押して、もう一度開いてください。',
+	linkInvalid: 'WebLAV の設定の「アクション」で「サインイン」を押して、もう一度開いてください。',
 	buyTitle: 'クレジットを購入',
 	// 価格は本番の Stripe の Price と、紹介・規約類に合わせる。
 	confirmTitle: 'お申し込み内容の最終確認',
 	confirmItemLabel: '買うもの',
-	confirmItem: 'Mawok の AI アクションのクレジット（期限なし）',
+	confirmItem: 'WebLAV の AI アクションのクレジット（期限なし）',
 	confirmPriceLabel: '価格',
 	confirmPrice: '300 円（税込み）',
 	confirmPaymentLabel: '支払い',
@@ -115,14 +115,14 @@ const ja = {
 	confirmButton: '申し込みを確定して支払いへ',
 	backToPricing: '料金ページへ戻る',
 	checkoutNote: (tokushoho: string) =>
-		`支払いが済むとすぐ、Mawok のアカウントにクレジットが付きます。購入後の返金は、原則としてできません。詳しくは[特定商取引法に基づく表記](${tokushoho})をご覧ください。`,
+		`支払いが済むとすぐ、WebLAV のアカウントにクレジットが付きます。購入後の返金は、原則としてできません。詳しくは[特定商取引法に基づく表記](${tokushoho})をご覧ください。`,
 	notForSale: 'いまはクレジットを買えません。',
 	buyBusy: '支払いの画面を用意しています。少ししてから、もう一度押してください。',
 	checkingPurchase: '支払いを確かめています。このままお待ちください。',
 	purchaseNotYet:
 		'支払いをまだ確かめられていません。少ししてから確かめ直してください。買い直す前に、領収のメールが届いていないかも確かめてください。',
 	checkAgain: 'もう一度確かめる',
-	bought: 'クレジットを購入しました。Mawok の設定に戻ると、残りに反映されます。',
+	bought: 'クレジットを購入しました。WebLAV の設定に戻ると、残りに反映されます。',
 	accountTitle: 'アカウント',
 	balance: (percent: number) => `AI アクションのクレジット: 残り ${percent}%`,
 	noBalance: 'AI アクションのクレジットはありません。',
@@ -132,17 +132,17 @@ const ja = {
 	unlink: '登録を解除',
 	tooManyConnectsTitle: 'しばらくお待ちください',
 	tooManyConnects:
-		'PC を登録しようとした回数が多すぎます。1 分ほどしてから、Mawok の設定でサインインし直してください。',
-	about: 'Mawok について',
+		'PC を登録しようとした回数が多すぎます。1 分ほどしてから、WebLAV の設定でサインインし直してください。',
+	about: 'WebLAV について',
 	terms: '利用規約',
 	privacy: 'プライバシーポリシー',
 	tokushoho: '特定商取引法に基づく表記',
 	conditions: '購入の条件',
-	mailSubject: 'Mawok にサインイン',
+	mailSubject: 'WebLAV にサインイン',
 	mailBody: (link: string, minutes: number, linking: boolean) =>
 		[
-			'Mawok のアカウントにサインインするには、次のリンクを開いてください。',
-			...(linking ? ['PC を登録するには、Mawok を使っている PC で開いてください。'] : []),
+			'WebLAV のアカウントにサインインするには、次のリンクを開いてください。',
+			...(linking ? ['PC を登録するには、WebLAV を使っている PC で開いてください。'] : []),
 			'',
 			link,
 			'',
@@ -152,7 +152,7 @@ const ja = {
 
 const en: typeof ja = {
 	signInTitle: 'Sign in',
-	signInHeading: 'Sign in to Mawok',
+	signInHeading: 'Sign in to WebLAV',
 	signInLead: 'We will email you a sign-in link.',
 	signInWithGoogle: 'Sign in with Google',
 	signInWithApple: 'Sign in with Apple',
@@ -176,7 +176,7 @@ const en: typeof ja = {
 		`Open the link we sent to ${email}. The link expires in ${minutes} minutes.`,
 	mailSentHint: "If it doesn't arrive, check your spam folder.",
 	mailSentSameComputer:
-		'Open the link on this PC, where you use Mawok. If you open it on another device, this PC cannot be linked.',
+		'Open the link on this PC, where you use WebLAV. If you open it on another device, this PC cannot be linked.',
 	signIn: 'Sign in',
 	linkUnusableTitle: 'This link cannot be used',
 	linkUnusable: 'The link has expired or has already been used. Please sign in again.',
@@ -184,14 +184,14 @@ const en: typeof ja = {
 	signOut: 'Sign out',
 	linkTitle: 'Link a PC',
 	linkConfirm: (name: string) =>
-		`Link "${name}" to this account. Mawok on a linked PC can use this account's credit for AI actions.`,
+		`Link "${name}" to this account. WebLAV on a linked PC can use this account's credit for AI actions.`,
 	approve: 'Link this PC',
 	linkInvalidTitle: 'This page cannot be opened',
-	linkInvalid: 'In Mawok settings, open Actions and click Sign in to open it again.',
+	linkInvalid: 'In WebLAV settings, open Actions and click Sign in to open it again.',
 	buyTitle: 'Buy credits',
 	confirmTitle: 'Review your order',
 	confirmItemLabel: 'What you buy',
-	confirmItem: 'Mawok AI action credit (does not expire)',
+	confirmItem: 'WebLAV AI action credit (does not expire)',
 	confirmPriceLabel: 'Price',
 	confirmPrice: '300 yen (tax included)',
 	confirmPaymentLabel: 'Payment',
@@ -214,7 +214,7 @@ const en: typeof ja = {
 	confirmButton: 'Confirm and continue to payment',
 	backToPricing: 'Back to pricing',
 	checkoutNote: (tokushoho: string) =>
-		`The credit is added to your Mawok account as soon as the payment is complete. Purchases are generally non-refundable. For details, see the [Specified Commercial Transactions Act notice](${tokushoho}).`,
+		`The credit is added to your WebLAV account as soon as the payment is complete. Purchases are generally non-refundable. For details, see the [Specified Commercial Transactions Act notice](${tokushoho}).`,
 	notForSale: 'AI action credit is not available for purchase right now.',
 	buyBusy: 'Preparing the payment page. Please try again in a moment.',
 	checkingPurchase: 'Confirming your payment. Please wait.',
@@ -222,7 +222,7 @@ const en: typeof ja = {
 		"We couldn't confirm your payment yet. Please check again in a moment. Before buying again, check whether a receipt email has arrived.",
 	checkAgain: 'Check again',
 	bought:
-		'AI action credit has been added. Go back to Mawok settings to see your remaining credit.',
+		'AI action credit has been added. Go back to WebLAV settings to see your remaining credit.',
 	accountTitle: 'Account',
 	balance: (percent: number) => `AI action credit: ${percent}% left`,
 	noBalance: 'No AI action credit.',
@@ -231,17 +231,18 @@ const en: typeof ja = {
 	appLinkedAt: (name: string, date: string) => `${name} (linked on ${date})`,
 	unlink: 'Unlink',
 	tooManyConnectsTitle: 'Please wait',
-	tooManyConnects: 'Too many link attempts. Wait a minute, then sign in again from Mawok settings.',
-	about: 'About Mawok',
+	tooManyConnects:
+		'Too many link attempts. Wait a minute, then sign in again from WebLAV settings.',
+	about: 'About WebLAV',
 	terms: 'Terms of Use',
 	privacy: 'Privacy Policy',
 	tokushoho: 'Specified Commercial Transactions Act notice',
 	conditions: 'purchase conditions',
-	mailSubject: 'Sign in to Mawok',
+	mailSubject: 'Sign in to WebLAV',
 	mailBody: (link: string, minutes: number, linking: boolean) =>
 		[
-			'Open the following link to sign in to your Mawok account.',
-			...(linking ? ['To link this PC, open the link on the PC where you use Mawok.'] : []),
+			'Open the following link to sign in to your WebLAV account.',
+			...(linking ? ['To link this PC, open the link on the PC where you use WebLAV.'] : []),
 			'',
 			link,
 			'',

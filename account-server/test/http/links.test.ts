@@ -12,14 +12,14 @@ import {
 	signIn
 } from '../helpers';
 
-describe('linking Mawok', () => {
-	it('signs in first, then sends the browser back to Mawok with a one-time code', async () => {
+describe('linking WebLAV', () => {
+	it('signs in first, then sends the browser back to WebLAV with a one-time code', async () => {
 		const email = 'owner@example.com';
 		const { verifier, fields } = await newLink('Taro の MacBook');
 
 		// サインインしていなければ、サインインの画面を出し、終わったら結ぶ画面へ戻す。
 		const before = await request(linkPath(fields));
-		expect(await before.text()).toContain('Mawok にサインイン');
+		expect(await before.text()).toContain('WebLAV にサインイン');
 		const { cookie, location } = await signIn(email, linkPath(fields));
 		expect(location).toBe(linkPath(fields));
 
@@ -40,7 +40,7 @@ describe('linking Mawok', () => {
 			email,
 			remaining_percent: 100
 		});
-		// 窓口の画面で、どの機器の Mawok かが分かる。
+		// 窓口の画面で、どの機器の WebLAV かが分かる。
 		expect(await (await request('/account/', { cookie })).text()).toContain('Taro の MacBook（');
 	});
 
@@ -51,8 +51,8 @@ describe('linking Mawok', () => {
 			email: 'same@example.com',
 			next: linkPath(fields)
 		});
-		expect(await linking.text()).toContain('Mawok を使っているこの PC で開いてください');
-		expect(String(log.mock.calls.at(-1)?.[0])).toContain('Mawok を使っている PC で開いてください');
+		expect(await linking.text()).toContain('WebLAV を使っているこの PC で開いてください');
+		expect(String(log.mock.calls.at(-1)?.[0])).toContain('WebLAV を使っている PC で開いてください');
 		const plain = await postForm('/account/login/email', {
 			email: 'same@example.com',
 			next: '/account/'
@@ -100,22 +100,22 @@ describe('linking Mawok', () => {
 			expect((await request(linkPath(query), { cookie })).status).toBe(400);
 			expect((await postForm('/account/link', query, cookie)).status).toBe(400);
 		}
-		// 名前が無くても結べる。窓口の画面には「Mawok」と出す。
+		// 名前が無くても結べる。窓口の画面には「WebLAV」と出す。
 		const { verifier, fields: unnamed } = await newLink('  ');
 		const code = await approve(unnamed, cookie);
 		expect((await exchange(code, verifier)).status).toBe(200);
-		expect(await (await request('/account/', { cookie })).text()).toContain('Mawok（');
+		expect(await (await request('/account/', { cookie })).text()).toContain('WebLAV（');
 	});
 });
 
 describe('app tokens', () => {
-	it('signs Mawok out, and the token stops working', async () => {
+	it('signs WebLAV out, and the token stops working', async () => {
 		const { token } = await linkApp('signout@example.com');
 		expect((await app('/v1/token', token, { method: 'DELETE' })).status).toBe(204);
 		expect((await app('/v1/balance', token)).status).toBe(401);
 	});
 
-	it('lists linked Mawok on the account page and removes one from there', async () => {
+	it('lists linked WebLAV on the account page and removes one from there', async () => {
 		const { cookie, token } = await linkApp('apps@example.com');
 		const home = await (await request('/account/', { cookie })).text();
 		expect(home).toContain('登録している PC');
