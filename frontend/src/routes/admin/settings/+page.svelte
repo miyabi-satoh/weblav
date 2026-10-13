@@ -415,11 +415,7 @@
 			<h2 id="ai-section-heading" class="text-base font-semibold">
 				{m.admin_settings_ai_heading()}
 			</h2>
-			{#if data.ai}
-				<AiSection initial={data.ai} initialUsage={data.aiUsage ?? []} />
-			{:else}
-				<p class="text-sm text-destructive">{m.admin_settings_ai_fetch_failed()}</p>
-			{/if}
+			<AiSection />
 		</section>
 
 		<!-- 版は問い合わせのときに読み上げてもらう。取れなければ区画ごと出さない (リンクだけ残しても用が足りないため)。 -->

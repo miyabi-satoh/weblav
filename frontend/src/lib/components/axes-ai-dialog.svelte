@@ -48,7 +48,7 @@
 	let aiAvailable = $state(false);
 	let generating = $state(false);
 	let generateError = $state<string | null>(null);
-	/** 開き直すたびに進める。閉じた後に届いた AI の答えを、開き直した画面に入れないため。 */
+	/** 開くたび・閉じるたびに進める。閉じた後に届いた応答を捨て、閉じた画面にも開き直した画面にも入れないため。 */
 	let session = 0;
 	/** 確かめた答えと、その予告。答えを書き換えたら取り込めないようにするため、両方を持つ。 */
 	let checked = $state<{ answer: string; request: ImportAxesRequest; preview: Preview } | null>(
@@ -68,6 +68,8 @@
 	$effect(() => {
 		// 開いたときだけ読み直す。loadPrompt の中で読む答えの欄を依存に入れると、入力のたびに消える。
 		if (open) untrack(() => void loadPrompt());
+		// 送っている間も × とキャンセルでは閉じられる。その後に届いた答えで、予告の問い合わせまで進めない。
+		else session++;
 	});
 
 	async function loadPrompt() {
@@ -76,6 +78,7 @@
 		answer = '';
 		answerForm.markPristine();
 		checked = null;
+		checking = false;
 		checkError = null;
 		aiAvailable = false;
 		generating = false;
@@ -150,6 +153,7 @@
 
 	async function check() {
 		const current = answer;
+		const currentSession = session;
 		checked = null;
 		checkError = null;
 		const parsed = parseAxesAnswer(current);
@@ -163,15 +167,16 @@
 				params: { path: { id: contentId } },
 				body: parsed.value
 			});
+			if (currentSession !== session) return;
 			if (data) {
 				checked = { answer: current, request: parsed.value, preview: data };
 			} else {
 				checkError = answerErrorMessage(error);
 			}
 		} catch {
-			checkError = GENERIC_ERROR_MESSAGE();
+			if (currentSession === session) checkError = GENERIC_ERROR_MESSAGE();
 		} finally {
-			checking = false;
+			if (currentSession === session) checking = false;
 		}
 	}
 

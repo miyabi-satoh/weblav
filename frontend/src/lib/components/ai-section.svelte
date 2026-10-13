@@ -2,15 +2,19 @@
 	/**
 	 * サイト設定の「AI」の区画 (→ docs/ai.md「PC の登録」)。
 	 *
-	 * 未登録なら PC の登録を始める。登録の途中は、登録を認める画面の QR コードとボタンを出し、
+	 * 未登録なら PC の登録を始める。登録の途中は、登録を認める画面の QR コードとボタン・確認コードを出し、
 	 * 認められたかを数秒おきに問い合わせる。登録済みなら、アカウントと残り・誰がどれだけ使ったかを見せる。
+	 *
+	 * 状態はページの読み込みでなく、この区画が出てから取る。登録済みのときはサーバーがアカウントへ
+	 * 問い合わせるので、アカウントが遅いときに、サイト設定のほかの区画まで待たせないため。
 	 */
-	import { untrack } from 'svelte';
+	import { onMount } from 'svelte';
 	import QRCode from 'qrcode';
 	import { toast } from 'svelte-sonner';
 	import { accountPageHref, formatPercent, usagePercent } from '$lib/ai-account';
 	import { client } from '$lib/api/client';
-	import { errorCode, errorMessage } from '$lib/api/errors';
+	import { errorCode, errorMessage, GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
+	import { fetchOrNull } from '$lib/api/load';
 	import type { components } from '$lib/api/schema';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { formatDateTime, formatNumber } from '$lib/format';
@@ -19,6 +23,7 @@
 	import { columnFromSmClass, fitColumnClass, truncatingColumnClass } from '$lib/table-columns';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import * as Table from '$lib/components/ui/table';
 	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
@@ -30,13 +35,34 @@
 	/** 画面からサーバーへ問い合わせる間隔。短い間に呼びすぎると、アカウントの側が断る (429)。 */
 	const POLL_INTERVAL_MS = 3000;
 
-	let { initial, initialUsage }: { initial: Status; initialUsage: UsageItem[] } = $props();
+	/** 取れるまでは `null`。 */
+	let status = $state<Status | null>(null);
+	let usage = $state<UsageItem[]>([]);
+	let loadFailed = $state(false);
 
-	// 操作のたびに応答で入れ直すので、読み込みは初回だけでよい。
-	let status = $state(untrack(() => initial));
-	let usage = $state(untrack(() => initialUsage));
+	onMount(async () => {
+		loadFailed = !(await reload());
+	});
 
-	const linkHref = $derived(status.linkUrl ? accountPageHref(status.linkUrl) : null);
+	/** アカウント・残り・使った量を読み直す。状態を取れたかを返す。 */
+	async function reload(): Promise<boolean> {
+		const [next, nextUsage] = await Promise.all([
+			fetchOrNull(client.GET('/api/v1/admin/ai')),
+			fetchOrNull(client.GET('/api/v1/admin/ai/usage'))
+		]);
+		if (next) status = next;
+		if (nextUsage) usage = nextUsage;
+		return next !== null;
+	}
+
+	/** 操作の応答で分かった分だけ、状態を入れ替える。 */
+	function patch(part: Partial<Status>) {
+		if (status) status = { ...status, ...part };
+	}
+
+	const UNLINKED: Partial<Status> = { state: 'unlinked', linkUrl: null, confirmationCode: null };
+
+	const linkHref = $derived(status?.linkUrl ? accountPageHref(status.linkUrl) : null);
 	let linkQr = $state<string | null>(null);
 	$effect(() => {
 		const url = linkHref;
@@ -58,36 +84,31 @@
 	let pollError = $state<string | null>(null);
 	const errorDialog = new ErrorDialogState();
 
-	/** 登録済みになった後の、アカウント・残り・使った量を読み直す。 */
-	async function reload() {
-		const [next, nextUsage] = await Promise.all([
-			client.GET('/api/v1/admin/ai'),
-			client.GET('/api/v1/admin/ai/usage')
-		]);
-		if (next.data) status = next.data;
-		if (nextUsage.data) usage = nextUsage.data;
-	}
-
 	async function beginLink() {
 		if (busy) return;
 		busy = 'link';
 		try {
-			await errorDialog.attempt(
-				async () => {
-					// エラーのダイアログを確かめのダイアログに重ねないよう、結果を見る前に閉じる。
-					try {
-						return await client.POST('/api/v1/admin/ai/link');
-					} finally {
-						linkOpen = false;
-					}
-				},
-				({ data }) => {
-					// 2xx なのに本文が無いのは想定外。汎用のエラーとして出す。
-					if (!data) throw new Error('empty response');
-					pollError = null;
-					status = { ...status, state: data.state, linkUrl: data.linkUrl };
-				}
-			);
+			let result;
+			// エラーのダイアログを確かめのダイアログに重ねないよう、結果を見る前に閉じる。
+			try {
+				result = await client.POST('/api/v1/admin/ai/link');
+			} finally {
+				linkOpen = false;
+			}
+			const { data, error, response } = result;
+			if (response.status === 409) {
+				// 別のタブや別の管理者が先に登録を終えていた。エラーにせず、今の状態を出す。
+				if (!(await reload())) errorDialog.show(errorMessage(error));
+				return;
+			}
+			if (!data) {
+				errorDialog.show(response.ok ? GENERIC_ERROR_MESSAGE() : errorMessage(error));
+				return;
+			}
+			pollError = null;
+			patch(data);
+		} catch {
+			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			busy = null;
 		}
@@ -99,9 +120,7 @@
 		try {
 			await errorDialog.attempt(
 				() => client.DELETE('/api/v1/admin/ai/link'),
-				() => {
-					status = { ...status, state: 'unlinked', linkUrl: null };
-				}
+				() => patch(UNLINKED)
 			);
 		} finally {
 			busy = null;
@@ -121,7 +140,7 @@
 					}
 				},
 				() => {
-					status = { ...status, state: 'unlinked', email: null, remainingPercent: null };
+					patch({ ...UNLINKED, email: null, remainingPercent: null });
 					toast.success(m.admin_settings_ai_unlinked_toast());
 				}
 			);
@@ -130,9 +149,13 @@
 		}
 	}
 
+	// 問い合わせの応答のたびに `status` を入れ替えるので、登録の途中かどうかだけを見る。
+	// `status` を直に見ると、応答のたびにタイマーを作り直すことになる。
+	const pending = $derived(status?.state === 'pending');
+
 	// 登録の途中の間だけ問い合わせる。画面を離れれば止まる (途中の状態はサーバーに残り、開き直すと続く)。
 	$effect(() => {
-		if (status.state !== 'pending') return;
+		if (!pending) return;
 		let stopped = false;
 		let polling = false;
 		const timer = setInterval(async () => {
@@ -150,10 +173,10 @@
 				if (data.state === 'linked') {
 					await reload();
 					// 読み直せなくても、登録済みになったことは画面に出す。
-					if (status.state !== 'linked') status = { ...status, state: 'linked', linkUrl: null };
+					if (status?.state !== 'linked') patch(data);
 					toast.success(m.admin_settings_ai_linked_toast());
 				} else {
-					status = { ...status, state: data.state, linkUrl: data.linkUrl };
+					patch(data);
 				}
 			} catch {
 				// 一時的に届かなかっただけかもしれないので、次の問い合わせに任せる。
@@ -168,7 +191,13 @@
 	});
 </script>
 
-{#if status.state === 'unlinked'}
+{#if !status}
+	{#if loadFailed}
+		<p class="text-sm text-destructive">{m.admin_settings_ai_fetch_failed()}</p>
+	{:else}
+		<Spinner class="text-muted-foreground" aria-label={m.common_loading()} />
+	{/if}
+{:else if status.state === 'unlinked'}
 	<div class="flex flex-col gap-2">
 		<div>
 			<Button onclick={() => (linkOpen = true)}>{m.admin_settings_ai_link_button()}</Button>
@@ -187,17 +216,25 @@
 				<img src={linkQr} alt={m.admin_settings_ai_pending_qr_alt()} class={qrImageClass} />
 			</div>
 		{/if}
-		<div class="flex flex-col gap-2">
-			<div class="flex flex-wrap gap-2">
-				{#if linkHref}
-					<Button href={linkHref} target="_blank" rel="noopener noreferrer"
-						>{m.admin_settings_ai_pending_open_button()}</Button
-					>
-				{/if}
-				<LoadingButton variant="outline" loading={busy === 'cancel'} onclick={cancelLink}
-					>{m.action_cancel()}</LoadingButton
+		<div class="flex flex-wrap gap-2">
+			{#if linkHref}
+				<Button href={linkHref} target="_blank" rel="noopener noreferrer"
+					>{m.admin_settings_ai_pending_open_button()}</Button
 				>
+			{/if}
+			<LoadingButton variant="outline" loading={busy === 'cancel'} onclick={cancelLink}
+				>{m.action_cancel()}</LoadingButton
+			>
+		</div>
+		{#if status.confirmationCode}
+			<div class="flex flex-col gap-2">
+				<p class="text-sm font-semibold">{m.admin_settings_ai_pending_code_label()}</p>
+				<!-- 等幅の書体はコードにだけ使うので (→ docs/ui.md「見た目の決めごと」)、字間を空けて読み比べやすくする。 -->
+				<p class="text-2xl font-semibold tracking-widest">{status.confirmationCode}</p>
+				<p class="text-sm">{m.admin_settings_ai_pending_code_description()}</p>
 			</div>
+		{/if}
+		<div class="flex flex-col gap-2">
 			<p class="text-sm text-muted-foreground">{m.admin_settings_ai_pending_waiting()}</p>
 			{#if pollError}
 				<p class="text-sm text-destructive">{pollError}</p>

@@ -8,17 +8,16 @@ import type { PageLoad } from './$types';
 export const load: PageLoad = async ({ parent, url }) => {
 	await parent();
 
-	const [settings, server, logSettings, ai, aiUsage, health] = await Promise.all([
+	// AI の区画は、ここで待たずに区画の中で取る (登録済みのときサーバーがアカウントへ問い合わせ、遅いことがあるため)。
+	const [settings, server, logSettings, health] = await Promise.all([
 		fetchOrError(client.GET('/api/v1/site-settings'), m.site_settings_fetch_failed(), {
 			loginRedirectFrom: url
 		}),
 		loadServerSettings(),
 		fetchOrNull(client.GET('/api/v1/admin/log-settings')),
-		fetchOrNull(client.GET('/api/v1/admin/ai')),
-		fetchOrNull(client.GET('/api/v1/admin/ai/usage')),
 		fetchOrNull(client.GET('/api/v1/health'))
 	]);
-	return { settings, ...server, logSettings, ai, aiUsage, health };
+	return { settings, ...server, logSettings, health };
 };
 
 // サーバーの設定は、取れなくても画面ごと出せなくはしない。config.toml を手で壊したとき (409) も、
