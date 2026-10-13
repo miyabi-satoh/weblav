@@ -2310,6 +2310,260 @@
         }
       }
     },
+    "/api/v1/contents/{id}/ai-links": {
+      "get": {
+        "summary": "グループに AI が集めたリンクを返す。カードの情報は取りに行かない (画面がこの後で取り直しを頼む)。",
+        "operationId": "ai_links",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiLinksResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "閲覧にログインが必要",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "見えない・存在しない、またはグループでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/{id}/ai-links/refresh": {
+      "post": {
+        "summary": "グループのリンクを集め直す。関心の言葉で Web を検索し、AI が選んだものに入れ替える。\n残りを使うので、AI を使える人だけが呼べる。",
+        "operationId": "refresh_ai_links",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshAiLinksRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "集め直した後のリンク",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiLinksResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "残りが無い",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "AI を使えない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "見えない・存在しない、または AI がリンクを集めるグループでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PC を登録していない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "このグループを集めている最中・短い間に呼びすぎた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "窓口につながらない・検索か AI の側の失敗",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/{id}/ai-links/settings": {
+      "get": {
+        "summary": "グループの、AI がリンクを集める設定を返す。",
+        "operationId": "ai_links_settings",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiLinksSettings"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "見えない・存在しない、またはグループでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら外し、集めたリンクも消す。\n関心の言葉を変えても、集めたリンクは次に集め直すまで残る。",
+        "operationId": "put_ai_links_settings",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiLinksSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiLinksSettings"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "書き換えられるのは管理者と作成者だけ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "見えない・存在しない、またはグループでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "関心の言葉が空・行が多すぎる・1行が長すぎる",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contents/{id}/archive": {
       "get": {
         "summary": "閲覧用のアーカイブ一覧。軸の定義・選択肢・導出済みタイトル付きのアイテム一覧を\n1回のリクエストで返す (→ docs/archive.md「エンドポイント一覧」)。",
@@ -4952,9 +5206,14 @@
           "type",
           "title",
           "rootDeleted",
-          "visibility"
+          "visibility",
+          "aiLinks"
         ],
         "properties": {
+          "aiLinks": {
+            "type": "boolean",
+            "description": "AI がリンクを集めるグループか (→ docs/ai.md「AI が集めるリンク」)。一覧の行に、集め直す操作を出すのに使う。"
+          },
           "createdBy": {
             "type": [
               "integer",
@@ -5069,6 +5328,33 @@
           }
         }
       },
+      "AiLink": {
+        "type": "object",
+        "required": [
+          "url",
+          "title"
+        ],
+        "properties": {
+          "preview": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LinkPreview",
+                "description": "覚えているカードの情報。まだ覚えていなければ無い。"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "type": "string",
+            "description": "検索で返ったタイトル。無ければ空。"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
       "AiLinkResponse": {
         "type": "object",
         "required": [
@@ -5102,6 +5388,51 @@
           "pending",
           "linked"
         ]
+      },
+      "AiLinksResponse": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "links",
+          "canRefresh"
+        ],
+        "properties": {
+          "canRefresh": {
+            "type": "boolean",
+            "description": "見ている人が集め直せるか (AI を使えて、PC が登録済み)。"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "このグループで AI がリンクを集めるか。偽なら、ほかの項目は空。"
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiLink"
+            },
+            "description": "集めたリンク。このグループに登録してあるリンクと同じ URL は入らない。"
+          },
+          "refreshedAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "最後に集めた時刻 (UNIX 秒)。まだ集めていなければ無い。"
+          }
+        }
+      },
+      "AiLinksSettings": {
+        "type": "object",
+        "properties": {
+          "interests": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "関心の言葉。1行が1つの検索の語。`null` なら、このグループでは集めない。"
+          }
+        }
       },
       "AiStatusResponse": {
         "type": "object",
@@ -6832,6 +7163,18 @@
           }
         }
       },
+      "RefreshAiLinksRequest": {
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "画面の表示言語 (ISO 639-1)。この言語のページを引く。"
+          }
+        }
+      },
       "RefreshLinkPreviewsRequest": {
         "type": "object",
         "description": "取り直しの対象。見る権限は呼び出し側が確かめる。",
@@ -6839,6 +7182,14 @@
           "contentIds"
         ],
         "properties": {
+          "aiLinksGroup": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "AI がリンクを集めるグループの id。集めたリンクを取り直す。見られないもの・グループでないものは黙って飛ばす。"
+          },
           "contentIds": {
             "type": "array",
             "items": {

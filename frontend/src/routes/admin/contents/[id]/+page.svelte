@@ -7,6 +7,7 @@
 	import { isAdmin } from '$lib/auth';
 	import { client } from '$lib/api/client';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
+	import { MAX_INTERESTS, MAX_INTEREST_UNITS, interestLines } from '$lib/ai-links';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import {
 		ContentFormState,
@@ -27,6 +28,8 @@
 	import ContentForm from '$lib/components/content-form.svelte';
 	import * as Field from '$lib/components/ui/field';
 	import * as Select from '$lib/components/ui/select';
+	import { Switch } from '$lib/components/ui/switch';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import DirPicker from '$lib/components/dir-picker.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
@@ -56,7 +59,28 @@
 	const creatorDirty = new FormDirtyState(() => creatorId);
 	creatorDirty.markPristine();
 	let creatorChanged = $derived(canChangeCreator && !creatorLocked && creatorDirty.dirty);
-	let dirty = $derived(form.dirty || creatorChanged);
+
+	// グループの、AI がリンクを集める設定 (→ docs/ai.md「AI が集めるリンク」)。基本情報の保存ボタンで一緒に保存する。
+	let aiLinksOn = $state(untrack(() => data.aiLinks?.interests != null));
+	let aiInterests = $state(untrack(() => data.aiLinks?.interests ?? ''));
+	const aiLinksDirty = new FormDirtyState(() => ({ on: aiLinksOn, interests: aiInterests }));
+	aiLinksDirty.markPristine();
+	let aiInterestsError = $derived.by(() => {
+		if (!aiLinksOn) return null;
+		const lines = interestLines(aiInterests);
+		if (lines.length > MAX_INTERESTS) {
+			return m.contents_form_ai_interests_too_many({ max: MAX_INTERESTS });
+		}
+		if (lines.some((line) => line.length > MAX_INTEREST_UNITS)) {
+			return m.contents_form_ai_interests_too_long({ max: MAX_INTEREST_UNITS });
+		}
+		return null;
+	});
+
+	// 空白だけでは `required` を通ってしまうので、保存ボタンの側で止める。
+	let aiInterestsMissing = $derived(aiLinksOn && interestLines(aiInterests).length === 0);
+
+	let dirty = $derived(form.dirty || creatorChanged || aiLinksDirty.dirty);
 
 	function creatorSelectLabel(value: string): string {
 		if (value === '') return m.contents_form_creator_none();
@@ -107,7 +131,7 @@
 
 	function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
-		if (saving || visibilityError !== null) return;
+		if (saving || visibilityError !== null || aiInterestsError !== null) return;
 		if (loosened !== null) {
 			confirmLoosenedOpen = true;
 			return;
@@ -155,6 +179,19 @@
 					return;
 				}
 				form.loadFrom(result.data, canSeeFullPath);
+			}
+			if (aiLinksDirty.dirty) {
+				const result = await client.PUT('/api/v1/contents/{id}/ai-links/settings', {
+					params: { path: { id: content.id } },
+					body: { interests: aiLinksOn ? aiInterests : null }
+				});
+				if (!result.response.ok) {
+					errorDialog.show(errorMessage(result.error));
+					// 基本情報だけ保存できていることがあるので、見出しと一覧は取り直す。
+					await invalidateAll();
+					return;
+				}
+				aiLinksDirty.markPristine();
 			}
 			if (rescansAfterSave) {
 				const scan = await rescanArchive(content.id);
@@ -226,6 +263,7 @@
 		// 変更を捨てたので、移動をもう一度止めないようにする。
 		form.markPristine();
 		creatorDirty.markPristine();
+		aiLinksDirty.markPristine();
 		// 行き先は SvelteKit のナビゲーションが解決済みの URL。
 		// eslint-disable-next-line svelte/no-navigation-without-resolve
 		await goto(target);
@@ -270,6 +308,39 @@
 				{/if}
 			</Field.Field>
 		{/if}
+		{#if content.type === 'group' && data.aiLinks != null}
+			<fieldset disabled={!editable} class="contents">
+				<Field.Field orientation="horizontal">
+					<Field.FieldContent>
+						<Field.FieldLabel for="content-ai-links"
+							>{m.contents_form_ai_links_label()}</Field.FieldLabel
+						>
+						<Field.FieldDescription>{m.contents_form_ai_links_description()}</Field.FieldDescription
+						>
+					</Field.FieldContent>
+					<Switch id="content-ai-links" bind:checked={aiLinksOn} disabled={!editable} />
+				</Field.Field>
+				{#if aiLinksOn}
+					<Field.Field>
+						<Field.FieldLabel for="content-ai-interests" required
+							>{m.contents_form_ai_interests_label()}</Field.FieldLabel
+						>
+						<Textarea
+							id="content-ai-interests"
+							bind:value={aiInterests}
+							required
+							aria-invalid={aiInterestsError !== null}
+						/>
+						{#if aiInterestsError !== null}
+							<Field.FieldError>{aiInterestsError}</Field.FieldError>
+						{/if}
+						<Field.FieldDescription
+							>{m.contents_form_ai_interests_help({ max: MAX_INTERESTS })}</Field.FieldDescription
+						>
+					</Field.Field>
+				{/if}
+			</fieldset>
+		{/if}
 		{#if editable}
 			<div>
 				<!-- パスはテキスト入力ではないため、required では未選択を防げない。 -->
@@ -278,7 +349,9 @@
 					loading={saving}
 					disabled={!dirty ||
 						(isDirectoryContentType(form.type) && form.path === '') ||
-						visibilityError !== null}>{m.action_save()}</LoadingButton
+						visibilityError !== null ||
+						aiInterestsError !== null ||
+						aiInterestsMissing}>{m.action_save()}</LoadingButton
 				>
 			</div>
 		{/if}

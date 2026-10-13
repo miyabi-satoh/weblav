@@ -639,6 +639,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/{id}/ai-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** グループに AI が集めたリンクを返す。カードの情報は取りに行かない (画面がこの後で取り直しを頼む)。 */
+        get: operations["ai_links"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/ai-links/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * グループのリンクを集め直す。関心の言葉で Web を検索し、AI が選んだものに入れ替える。
+         *     残りを使うので、AI を使える人だけが呼べる。
+         */
+        post: operations["refresh_ai_links"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/ai-links/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** グループの、AI がリンクを集める設定を返す。 */
+        get: operations["ai_links_settings"];
+        /**
+         * グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら外し、集めたリンクも消す。
+         *     関心の言葉を変えても、集めたリンクは次に集め直すまで残る。
+         */
+        put: operations["put_ai_links_settings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/{id}/archive": {
         parameters: {
             query?: never;
@@ -1401,6 +1459,8 @@ export interface components {
          *     なので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「公開できるフォルダー」)。
          */
         AdminContentResponse: {
+            /** @description AI がリンクを集めるグループか (→ docs/ai.md「AI が集めるリンク」)。一覧の行に、集め直す操作を出すのに使う。 */
+            aiLinks: boolean;
             /**
              * Format: int64
              * @description 作成者のユーザーid。`None`なら作成者なし (→ docs/access.md「公開範囲」)。
@@ -1455,6 +1515,12 @@ export interface components {
             /** @description この PC が登録済みで、ログインしているユーザーが AI を使えるか。 */
             available: boolean;
         };
+        AiLink: {
+            preview?: components["schemas"]["LinkPreview"] | null;
+            /** @description 検索で返ったタイトル。無ければ空。 */
+            title: string;
+            url: string;
+        };
         AiLinkResponse: {
             /** @description 登録の途中のとき、登録を認める画面に出るのと同じ確認コード。 */
             confirmationCode?: string | null;
@@ -1467,6 +1533,23 @@ export interface components {
          * @enum {string}
          */
         AiLinkState: "unlinked" | "pending" | "linked";
+        AiLinksResponse: {
+            /** @description 見ている人が集め直せるか (AI を使えて、PC が登録済み)。 */
+            canRefresh: boolean;
+            /** @description このグループで AI がリンクを集めるか。偽なら、ほかの項目は空。 */
+            enabled: boolean;
+            /** @description 集めたリンク。このグループに登録してあるリンクと同じ URL は入らない。 */
+            links: components["schemas"]["AiLink"][];
+            /**
+             * Format: int64
+             * @description 最後に集めた時刻 (UNIX 秒)。まだ集めていなければ無い。
+             */
+            refreshedAt?: number | null;
+        };
+        AiLinksSettings: {
+            /** @description 関心の言葉。1行が1つの検索の語。`null` なら、このグループでは集めない。 */
+            interests?: string | null;
+        };
         AiStatusResponse: {
             /** @description 登録済みだが、アカウントにつながらず残りを確かめられなかった。 */
             accountUnreachable: boolean;
@@ -2081,8 +2164,17 @@ export interface components {
         RecoveryCodeResponse: {
             recoveryCode: string;
         };
+        RefreshAiLinksRequest: {
+            /** @description 画面の表示言語 (ISO 639-1)。この言語のページを引く。 */
+            language?: string | null;
+        };
         /** @description 取り直しの対象。見る権限は呼び出し側が確かめる。 */
         RefreshLinkPreviewsRequest: {
+            /**
+             * Format: int64
+             * @description AI がリンクを集めるグループの id。集めたリンクを取り直す。見られないもの・グループでないものは黙って飛ばす。
+             */
+            aiLinksGroup?: number | null;
             /** @description `link` コンテンツの id。見られないもの・リンクでないものは黙って飛ばす。 */
             contentIds: number[];
             linksFile?: components["schemas"]["RefreshLinksFile"] | null;
@@ -4571,6 +4663,210 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    ai_links: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiLinksResponse"];
+                };
+            };
+            /** @description 閲覧にログインが必要 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見えない・存在しない、またはグループでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    refresh_ai_links: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshAiLinksRequest"];
+            };
+        };
+        responses: {
+            /** @description 集め直した後のリンク */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiLinksResponse"];
+                };
+            };
+            /** @description 残りが無い */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description AI を使えない */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見えない・存在しない、または AI がリンクを集めるグループでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description PC を登録していない */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description このグループを集めている最中・短い間に呼びすぎた */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 窓口につながらない・検索か AI の側の失敗 */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    ai_links_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiLinksSettings"];
+                };
+            };
+            /** @description 見えない・存在しない、またはグループでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    put_ai_links_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiLinksSettings"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiLinksSettings"];
+                };
+            };
+            /** @description 書き換えられるのは管理者と作成者だけ */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見えない・存在しない、またはグループでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 関心の言葉が空・行が多すぎる・1行が長すぎる */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM ai_link_groups WHERE content_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "28e6d535051f3bc88bcccaca14e58e6b48a8b3d9c0568b6a34cbfb8b70cf864c"
+}

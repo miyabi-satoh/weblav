@@ -126,7 +126,7 @@ describe('buying credit', () => {
 		await signIn('unpaid@example.com');
 		const account = await accountId('unpaid@example.com');
 		await webhook(completed('cs_unpaid', account, { payment_status: 'unpaid' }));
-		await webhook(completed('cs_other', account, { metadata: { product: 'weblav-pro' } }));
+		await webhook(completed('cs_other', account, { metadata: { product: 'other-product' } }));
 		expect(await purchasedOf(account)).toEqual([]);
 		stripeSessions('no-such-account');
 		expect((await webhook(completed('cs_ghost', 'no-such-account'))).status).toBe(200);

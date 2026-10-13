@@ -139,12 +139,25 @@
 						<span class="sr-only">{m.link_detail_next_button()}</span>
 					</Button>
 				{/if}
+				{#if detail.action}
+					{@const action = detail.action}
+					<Button
+						variant="outline"
+						class={[linkDetail.count > 1 && 'ml-auto']}
+						onclick={() => {
+							linkDetail.open = false;
+							action.run();
+						}}
+					>
+						{action.label}
+					</Button>
+				{/if}
 				<a
 					bind:this={openButton}
 					href={detail.href}
 					target="_blank"
 					rel="external noopener noreferrer"
-					class={[buttonVariants(), linkDetail.count > 1 && 'ml-auto']}
+					class={[buttonVariants(), linkDetail.count > 1 && !detail.action && 'ml-auto']}
 					onclick={() => (linkDetail.open = false)}
 				>
 					<ExternalLinkIcon data-icon="inline-start" />

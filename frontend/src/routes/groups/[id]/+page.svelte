@@ -7,6 +7,7 @@
 	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
 	import BrowseLayoutToggle from '$lib/components/browse-layout-toggle.svelte';
 	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
+	import AiLinksSection from '$lib/components/ai-links-section.svelte';
 	import ContentList from '$lib/components/content-list.svelte';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
@@ -44,10 +45,13 @@
 
 		<h1 class={pageHeadingClass}>{browse.groupTitle}</h1>
 
-		{#if browse.entries.length > 0}
+		{#if browse.entries.length > 0 || (data.aiLinks?.links.length ?? 0) > 0}
 			<div class={['mb-4', browseControlsClass]}>
 				<div class="flex flex-wrap gap-2.5">
-					<BrowseSortSelect value={data.sort} options={SORT_OPTIONS} href={sortHref} />
+					<!-- 並び順が効くのはグループの中身だけ。AI が集めたリンクは、AI が選んだ順に並ぶ。 -->
+					{#if browse.entries.length > 0}
+						<BrowseSortSelect value={data.sort} options={SORT_OPTIONS} href={sortHref} />
+					{/if}
 					<BrowseFilterInput />
 				</div>
 				<BrowseLayoutToggle />
@@ -55,9 +59,13 @@
 		{/if}
 	</div>
 
-	{#if browse.entries.length === 0}
-		<p class={pageEmptyTextClass}>{m.group_browse_empty()}</p>
-	{:else}
+	{#if browse.entries.length > 0}
 		<ContentList entries={browse.entries} />
+	{:else if data.aiLinks == null}
+		<p class={pageEmptyTextClass}>{m.group_browse_empty()}</p>
+	{/if}
+
+	{#if data.aiLinks != null}
+		<AiLinksSection groupId={data.contentId} aiLinks={data.aiLinks} />
 	{/if}
 </div>

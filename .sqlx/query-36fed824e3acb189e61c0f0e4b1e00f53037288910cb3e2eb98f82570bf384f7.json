@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT refreshed_at FROM ai_link_groups WHERE content_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "refreshed_at",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "36fed824e3acb189e61c0f0e4b1e00f53037288910cb3e2eb98f82570bf384f7"
+}
