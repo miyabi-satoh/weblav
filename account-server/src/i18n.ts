@@ -84,8 +84,9 @@ const ja = {
 	linkTitle: 'PC を登録',
 	linkConfirm: (name: string, pc: string) =>
 		`PC「${pc}」の WebLAV「${name}」を、このアカウントに登録します。登録した PC の WebLAV は、アカウントのクレジットで AI の機能を使えます。`,
+	linkCode: (code: string) => `確認コード: ${code}`,
 	linkCaution:
-		'自分で WebLAV のサイト設定から開いたページでなければ、登録しないでください。登録した PC は、このアカウントのクレジットを使えます。',
+		'WebLAV のサイト設定に出ている確認コードと同じことを確かめてください。違うときや、自分で始めた登録でないときは、登録しないでください。登録した PC は、このアカウントのクレジットを使えます。',
 	linkedTitle: 'PC を登録しました',
 	linked: (pc: string) =>
 		`「${pc}」を登録しました。このページを閉じて、WebLAV のサイト設定に戻ってください。数秒で登録が反映されます。`,
@@ -135,7 +136,7 @@ const ja = {
 	unlink: '登録を解除',
 	tooManyConnectsTitle: 'しばらくお待ちください',
 	tooManyConnects:
-		'PC を登録しようとした回数が多すぎます。1 分ほどしてから、WebLAV の設定でサインインし直してください。',
+		'PC を登録しようとした回数が多すぎます。1 分ほどしてから、このページを開き直して、もう一度登録してください。',
 	about: 'WebLAV について',
 	terms: '利用規約',
 	privacy: 'プライバシーポリシー',
@@ -185,8 +186,9 @@ const en: typeof ja = {
 	linkTitle: 'Link a PC',
 	linkConfirm: (name: string, pc: string) =>
 		`Link WebLAV "${name}" on the PC "${pc}" to this account. WebLAV on a linked PC can use this account's credit for AI features.`,
+	linkCode: (code: string) => `Confirmation code: ${code}`,
 	linkCaution:
-		"Don't link unless you opened this page yourself from WebLAV's site settings. A linked PC can use this account's credit.",
+		"Check that this matches the confirmation code shown in WebLAV's site settings. If it doesn't, or if you didn't start this yourself, don't link. A linked PC can use this account's credit.",
 	linkedTitle: 'PC linked',
 	linked: (pc: string) =>
 		`"${pc}" is now linked. Close this page and return to WebLAV's site settings. The link will show up in a few seconds.`,
@@ -236,8 +238,7 @@ const en: typeof ja = {
 	appLinkedAt: (name: string, pc: string, date: string) => `"${name}" on ${pc} (linked on ${date})`,
 	unlink: 'Unlink',
 	tooManyConnectsTitle: 'Please wait',
-	tooManyConnects:
-		'Too many link attempts. Wait a minute, then sign in again from WebLAV settings.',
+	tooManyConnects: 'Too many link attempts. Wait a minute, then reload this page and link again.',
 	about: 'About WebLAV',
 	terms: 'Terms of Use',
 	privacy: 'Privacy Policy',

@@ -69,8 +69,17 @@ describe('relaying to Gemini', () => {
 		const email = 'unreachable@example.com';
 		const { token } = await linkApp(email);
 		vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('network down'));
-		expect((await sendAi(token)).status).toBe(500);
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		// 届かなかったときも、Gemini の失敗の返事と同じ形で返す。印は外れ、次の中継を受ける。
+		const unreachable = await sendAi(token);
+		expect(unreachable.status).toBe(502);
+		expect(await unreachable.json()).toEqual({ error: 'upstream' });
 		expect((await grantsOf(await accountId(email)))[0].remaining).toBe(FREE_GRANT);
+		expect(
+			await env.DB.prepare('SELECT count(*) AS n FROM ai_in_flight WHERE account_id = ?')
+				.bind(await accountId(email))
+				.first('n')
+		).toBe(0);
 		vi.restoreAllMocks();
 		vi.spyOn(console, 'error').mockImplementation(() => {});
 		geminiAnswers({ total_input_tokens: 1000, total_output_tokens: 0 }, 429);
@@ -97,6 +106,44 @@ describe('relaying to Gemini', () => {
 		);
 	});
 
+	it('takes up to three requests at a time per account', async () => {
+		const email = 'in-flight@example.com';
+		const { token } = await linkApp(email);
+		const account = await accountId(email);
+		const t = Math.floor(Date.now() / 1000);
+		const mark = (id: string, at: number) =>
+			env.DB.prepare('INSERT INTO ai_in_flight (id, account_id, started_at) VALUES (?, ?, ?)')
+				.bind(id, account, at)
+				.run();
+		await mark('a', t);
+		await mark('b', t);
+		await mark('c', t);
+		const gemini = geminiAnswers();
+		const busy = await sendAi(token);
+		expect(busy.status).toBe(429);
+		expect(await busy.json()).toEqual({ error: 'rate_limited' });
+		expect(gemini).not.toHaveBeenCalled();
+		// Worker が途中で止まって残った印は、時間がたてば数えない。
+		await env.DB.prepare("UPDATE ai_in_flight SET started_at = 0 WHERE id = 'a'").run();
+		expect((await sendAi(token)).status).toBe(200);
+	});
+
+	it('refuses, without sending, when the rest does not cover the input', async () => {
+		const email = 'short@example.com';
+		const { token } = await linkApp(email);
+		// 20万文字の入力の原価の見積もりより少ない残り。
+		const needed = costOf({ total_input_tokens: 200_000, total_output_tokens: 0 }, rates)!;
+		await env.DB.prepare('UPDATE grants SET remaining = ? WHERE account_id = ?')
+			.bind(needed - 1, await accountId(email))
+			.run();
+		const gemini = geminiAnswers();
+		const refused = await sendAi(token, { user: 'x'.repeat(200_000) });
+		expect(refused.status).toBe(402);
+		expect(gemini).not.toHaveBeenCalled();
+		// 短い入力なら、同じ残りで通る。
+		expect((await sendAi(token)).status).toBe(200);
+	});
+
 	it('limits how fast one account can call', async () => {
 		const { token } = await linkApp('ai-limit@example.com');
 		geminiAnswers();
@@ -116,6 +163,13 @@ describe('relaying to Gemini', () => {
 		const malformed = await sendAi(token, { text: 'x' });
 		expect(malformed.status).toBe(400);
 		expect(await malformed.json()).toEqual({ error: 'bad_request' });
+		// 大きすぎる本文は、読む前に断る。
+		const huge = await app('/v1/ai', token, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', 'content-length': '20000000' },
+			body: '{}'
+		});
+		expect(huge.status).toBe(413);
 		const tooLong = await sendAi(token, { user: 'x'.repeat(200_001) });
 		expect(tooLong.status).toBe(413);
 		expect(await tooLong.json()).toEqual({ error: 'too_long' });

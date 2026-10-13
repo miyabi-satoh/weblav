@@ -360,6 +360,7 @@ export function approvePage(lang: Lang, email: string, link: LinkRequest, here: 
 		t.linkTitle,
 		html`<h1>${t.linkTitle}</h1>
 			<p>${t.linkConfirm(link.name, link.pcName)}</p>
+			<p><strong>${t.linkCode(link.challenge.slice(0, 6).toUpperCase())}</strong></p>
 			<p class="muted">${t.linkCaution}</p>
 			<form method="post" action="${ACCOUNT}/link">
 				<input type="hidden" name="challenge" value="${link.challenge}" />

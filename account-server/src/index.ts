@@ -9,11 +9,11 @@
  */
 import { Hono, type Context } from 'hono';
 import { csrf } from 'hono/csrf';
-import { parsePrompt, relay } from './ai';
+import { inputCostEstimate, MAX_BODY_BYTES, parsePrompt, relay } from './ai';
 import { balance, charge, grantFreeStatement } from './credits';
 import { messages, resolveLang, type Lang } from './i18n';
 import { pricing, usedShare } from './pricing';
-import { parseSearch, search } from './search';
+import { parseSearch, search, searchCost } from './search';
 import { sendMail } from './mail';
 import {
 	approvePage,
@@ -111,21 +111,20 @@ app.post('/v1/links/token', async (c) => {
 	if (typeof body.code_verifier !== 'string' || !/^[0-9a-f]{64}$/.test(body.code_verifier)) {
 		return c.json({ error: 'invalid_request' }, 400);
 	}
-	const link = await c.env.DB.prepare(
-		`DELETE FROM link_approvals WHERE challenge = ? AND expires_at > ?
-		 RETURNING account_id, name, pc_name`
-	)
-		.bind(await sha256Hex(body.code_verifier), now())
-		.first<{ account_id: string; name: string; pc_name: string }>();
-	// まだ認めていない (か、認めてから期限が過ぎた)。WebLAV は間を置いて問い合わせ直す。
-	if (!link) return c.json({ status: 'pending' }, 202);
+	const challenge = await sha256Hex(body.code_verifier);
 	const token = randomHex(32);
-	await c.env.DB.prepare(
-		`INSERT INTO app_tokens (id, token_hash, account_id, name, pc_name, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`
-	)
-		.bind(randomHex(16), await sha256Hex(token), link.account_id, link.name, link.pc_name, now())
-		.run();
+	const t = now();
+	// トークンを作るのと認めた印を消すのを、1つのまとまりで流す。片方だけが済んで、認めた印だけが消えることがないように。
+	const [created] = await c.env.DB.batch([
+		c.env.DB.prepare(
+			`INSERT INTO app_tokens (id, token_hash, account_id, name, pc_name, created_at)
+			 SELECT ?1, ?2, account_id, name, pc_name, ?3 FROM link_approvals
+			 WHERE challenge = ?4 AND expires_at > ?3`
+		).bind(randomHex(16), await sha256Hex(token), t, challenge),
+		c.env.DB.prepare('DELETE FROM link_approvals WHERE challenge = ?').bind(challenge)
+	]);
+	// まだ認めていない (か、認めてから期限が過ぎた)。WebLAV は間を置いて問い合わせ直す。
+	if (created.meta.changes !== 1) return c.json({ status: 'pending' }, 202);
 	return c.json({ token });
 });
 
@@ -175,10 +174,16 @@ app.delete('/v1/token', async (c) => {
 /** 使った量を WebLAV へ知らせるヘッダー (→ src/pricing.ts の usedShare)。 */
 const USED_HEADER = 'x-weblav-used';
 
+/** 同じアカウントで同時に受ける呼び出しの数。登録した PC の人たちが重ねて使えて、残りを超えて使われる分を小さく抑える数。 */
+const MAX_IN_FLIGHT = 3;
 /**
- * 残高を使う入口に共通の前段。トークン・呼びすぎ・残りを確かめ、通ればアカウントを返す。
- * 残りがあるかだけを見て、使った分は呼んだ後に引く (最後の1回は残りを超えても通す)。
- * 同じアカウントの呼び出しが重なっても止めない。登録した PC と、その利用者が残高を共有するため。
+ * 呼び出しの最中とみなす長さ。Gemini を待つ上限 (src/ai.ts) より長くする。
+ * Worker が途中で止まって印が残っても、これを過ぎれば数えない。
+ */
+const IN_FLIGHT_TTL = 120;
+
+/**
+ * 残高を使う入口に共通の前段。トークンと呼びすぎを確かめ、通ればアカウントを返す。
  */
 async function spender(c: Context<App>): Promise<string | Response> {
 	const accountId = await appAccount(c);
@@ -186,26 +191,58 @@ async function spender(c: Context<App>): Promise<string | Response> {
 	if (await limited(c, c.env.AI_LIMITER, accountId)) return c.json({ error: 'rate_limited' }, 429);
 	// 無料の分を取りこぼしていれば、ここで付け直す (→ src/credits.ts)。
 	await grantFreeStatement(c.env, accountId).run();
-	if ((await balance(c.env, accountId)).remaining <= 0) return c.json({ error: 'no_credit' }, 402);
 	return accountId;
 }
 
 /**
- * 呼んで、使った原価を引く。WebLAV で取り消して接続が切れても、使った分を引くまで続けさせる
- * (呼び出しが終わると、waitUntil に渡していない処理は打ち切られうる)。
+ * 残りを確かめてから呼び、使った原価を引く (→ docs/account-server.md「中継」)。
+ * - 残りが `needed` (入力の原価の見積もり) に届かなければ、呼ばずに 402。
+ * - 同じアカウントの呼び出しは `MAX_IN_FLIGHT` 件まで重ねて受ける。登録した PC とその利用者が残高を共有するため。
+ *   残りを超えて使われる分は、重なった数 × 1回の出力の原価までに収まる。
+ * - WebLAV で取り消して接続が切れても、使った分を引き、印を外すまで続けさせる
+ *   (呼び出しが終わると、waitUntil に渡していない処理は打ち切られうる)。
+ * - 業者に届かなかった (投げた) 回は引かず、`undefined` を返す。
  */
 async function spend<T>(
 	c: Context<App>,
 	accountId: string,
+	needed: number,
 	call: () => Promise<T>,
 	cost: (result: T) => number
-): Promise<T> {
+): Promise<T | undefined | Response> {
+	const t = now();
+	const owner = randomHex(16);
+	const [, started] = await c.env.DB.batch([
+		c.env.DB.prepare('DELETE FROM ai_in_flight WHERE account_id = ? AND started_at <= ?').bind(
+			accountId,
+			t - IN_FLIGHT_TTL
+		),
+		c.env.DB.prepare(
+			`INSERT INTO ai_in_flight (id, account_id, started_at)
+			 SELECT ?1, ?2, ?3 WHERE (SELECT count(*) FROM ai_in_flight WHERE account_id = ?2) < ?4`
+		).bind(owner, accountId, t, MAX_IN_FLIGHT)
+	]);
+	if (started.meta.changes !== 1) return c.json({ error: 'rate_limited' }, 429);
+	const release = () => c.env.DB.prepare('DELETE FROM ai_in_flight WHERE id = ?').bind(owner).run();
+	const { remaining } = await balance(c.env, accountId);
+	if (remaining <= 0 || remaining < needed) {
+		await release();
+		return c.json({ error: 'no_credit' }, 402);
+	}
 	const work = (async () => {
-		const result = await call();
-		await charge(c.env, accountId, cost(result));
-		return result;
+		try {
+			const result = await call();
+			await charge(c.env, accountId, cost(result));
+			return result;
+		} catch (error) {
+			// 中身を含みうるので、種類だけを残す。
+			console.error('Upstream call failed', error instanceof Error ? error.name : 'unknown');
+			return undefined;
+		} finally {
+			await release();
+		}
 	})();
-	c.executionCtx.waitUntil(work.catch(() => {}));
+	c.executionCtx.waitUntil(work);
 	return work;
 }
 
@@ -216,6 +253,10 @@ async function spend<T>(
 app.post('/v1/ai', async (c) => {
 	const accountId = await spender(c);
 	if (typeof accountId !== 'string') return accountId;
+	// 大きすぎる本文は、読む前に断る (Worker のメモリを使わせない)。
+	if (Number(c.req.header('content-length') ?? 0) > MAX_BODY_BYTES) {
+		return c.json({ error: 'too_long' }, 413);
+	}
 	const prompt = parsePrompt(await c.req.json().catch(() => undefined));
 	if (prompt === undefined) return c.json({ error: 'bad_request' }, 400);
 	if (prompt === 'too_long') return c.json({ error: 'too_long' }, 413);
@@ -223,9 +264,13 @@ app.post('/v1/ai', async (c) => {
 	const result = await spend(
 		c,
 		accountId,
+		inputCostEstimate(prompt, rates),
 		() => relay(c.env, prompt, rates),
 		(r) => r.cost
 	);
+	if (result instanceof Response) return result;
+	// Gemini に届かなかった。失敗の返事と同じ形で返す (WebLAV は AI の側の失敗として出す)。
+	if (result === undefined) return c.json({ error: 'upstream' }, 502);
 	const used = { [USED_HEADER]: String(usedShare(c.env, result.cost)) };
 	if (result.ok) return c.body(result.body, 200, { 'content-type': 'application/json', ...used });
 	// Gemini の失敗は、状態だけを WebLAV へ返す。
@@ -244,9 +289,12 @@ app.post('/v1/search', async (c) => {
 	const result = await spend(
 		c,
 		accountId,
+		searchCost(rates),
 		() => search(c.env, request, rates),
 		(r) => (r.ok ? r.cost : 0)
 	);
+	if (result instanceof Response) return result;
+	if (result === undefined) return c.json({ error: 'upstream' }, 502);
 	if (!result.ok) return c.json({ error: 'upstream', upstream_status: result.status }, 502);
 	return c.json({ results: result.results }, 200, {
 		[USED_HEADER]: String(usedShare(c.env, result.cost))

@@ -137,3 +137,11 @@ CREATE TABLE consumptions (
 );
 CREATE INDEX consumptions_created ON consumptions (created_at);
 CREATE INDEX consumptions_purchase ON consumptions (purchase_id);
+
+-- AI と検索に中継している最中の呼び出し。同じアカウントで重ねて受ける数を数える (→ src/index.ts の spend)。
+CREATE TABLE ai_in_flight (
+	id TEXT PRIMARY KEY,
+	account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+	started_at INTEGER NOT NULL
+);
+CREATE INDEX ai_in_flight_account ON ai_in_flight (account_id);

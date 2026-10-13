@@ -31,6 +31,8 @@ describe('linking a PC', () => {
 			'PC「Taro の MacBook」の WebLAV「教室の WebLAV」を、このアカウントに登録します'
 		);
 		expect(page).toContain('この PC を登録');
+		// WebLAV の画面と見比べる確認コードは、申し込みの値の頭の6桁。
+		expect(page).toContain(`確認コード: ${fields.challenge.slice(0, 6).toUpperCase()}`);
 
 		expect(await (await approve(fields, cookie)).text()).toContain(
 			'「Taro の MacBook」を登録しました'

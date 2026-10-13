@@ -56,7 +56,13 @@ export function parsePrompt(body: unknown): Prompt | 'too_long' | undefined {
 			if (typeof item !== 'object' || item === null) return undefined;
 			const { mime_type: type, data } = item as Record<string, unknown>;
 			if (typeof type !== 'string' || typeof data !== 'string') return undefined;
-			if (!(type in ATTACHMENT_TYPES) || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) return undefined;
+			if (
+				!(type in ATTACHMENT_TYPES) ||
+				data.length % 4 !== 0 ||
+				!/^[A-Za-z0-9+/]+={0,2}$/.test(data)
+			) {
+				return undefined;
+			}
 			files.push({ mime_type: type, data });
 		}
 	}
@@ -95,6 +101,29 @@ export function costOf(usage: unknown, rates: Rates): number | undefined {
 		1_000_000;
 	return Math.ceil(usd * rates.usdJpy * 1000);
 }
+
+/**
+ * 入力のトークン数の見積もり。文は1文字を1トークン、添付は PDF の1ページ (258 トークン) を 50 KB と見て数える。
+ * 送る前に残りが足りるかを見るのと、Gemini が使った量を返さなかったときに引く額に使う。
+ */
+export function inputEstimate(prompt: Prompt): number {
+	return (
+		prompt.user.length +
+		(prompt.system?.length ?? 0) +
+		(prompt.attachments ?? []).reduce(
+			(sum, file) => sum + 258 * Math.ceil(file.data.length / 68_000),
+			0
+		)
+	);
+}
+
+/** 入力だけの原価の見積もり (milli_yen)。残りがこれに届かなければ、送らずに断る。 */
+export function inputCostEstimate(prompt: Prompt, rates: Rates): number {
+	return costOf({ total_input_tokens: inputEstimate(prompt), total_output_tokens: 0 }, rates) ?? 0;
+}
+
+/** 受ける本文の大きさ (バイト)。添付の上限に、文と JSON の分を足した大きさ。これを超える本文は読まずに断る。 */
+export const MAX_BODY_BYTES = MAX_ATTACHMENT_CHARS + 4 * MAX_INPUT_CHARS + 10_000;
 
 /** Gemini へ送る。届かなかったときは投げる (引かない)。 */
 export async function relay(env: Env, prompt: Prompt, rates: Rates): Promise<Relayed> {
@@ -140,17 +169,7 @@ export async function relay(env: Env, prompt: Prompt, rates: Rates): Promise<Rel
 	if (cost === undefined && res.ok) {
 		console.error('Gemini responded without usage');
 		cost = costOf(
-			{
-				// 添付は、PDF の1ページ (258 トークン) を 50 KB と見て数える。
-				total_input_tokens:
-					prompt.user.length +
-					(prompt.system?.length ?? 0) +
-					(prompt.attachments ?? []).reduce(
-						(sum, file) => sum + 258 * Math.ceil(file.data.length / 68_000),
-						0
-					),
-				total_output_tokens: MAX_OUTPUT_TOKENS
-			},
+			{ total_input_tokens: inputEstimate(prompt), total_output_tokens: MAX_OUTPUT_TOKENS },
 			rates
 		);
 	}
