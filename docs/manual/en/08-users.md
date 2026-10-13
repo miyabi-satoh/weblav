@@ -17,6 +17,8 @@ To make the user an administrator, choose “Admin” under “Role” in the li
 - **Editor**: Can register contents. They can change or delete only contents they registered. They can only view contents registered by other people in the admin pages.
 - **Admin**: Can change or delete all contents. They can also manage users, shared folders, and site settings.
 
+To let an editor use the AI features, turn on “Can use AI” in the list (→ [Use the AI features](10-ai.md)).
+
 ## Reset a password
 
 When someone forgets their password, an administrator chooses a new password and tells them.

@@ -74,7 +74,7 @@ Use “Match position” to choose where in the file name a word must occur.
 
 ## Ask an AI
 
-If you are not sure how to set up the axes, you can have the AI service you use (ChatGPT, Claude, and so on) design them. WebLAV never sends anything to the AI; you paste the prompt and the answer yourself.
+If you are not sure how to set up the axes, you can have the AI service you use (ChatGPT, Claude, and so on) design them. You paste the prompt and the answer yourself, so WebLAV sends nothing to the AI in these steps.
 
 1. On the "Axes" tab, press "Ask an AI..."
 2. Copy the prompt, then paste it into the AI service and send it. The prompt contains file paths, so check that it contains no names of people
@@ -82,6 +82,14 @@ If you are not sure how to set up the axes, you can have the AI service you use 
 4. Look at how many files get a value for each axis and at the examples of display titles. If they look right, press "Import"
 
 Importing replaces the current axes and the display title. After importing, you can edit them like any other axes.
+
+### Send to the AI from WebLAV
+
+If an admin has registered this PC with a WebLAV account and you are allowed to use AI, “Send to the AI and get a suggestion” appears at the top of the same screen (→ [Use the AI features](10-ai.md)). Selecting it makes WebLAV send the prompt to the AI, put the answer in the field, and run the check. No pasting is needed.
+
+- The names of the folders and files in the archive are sent to Google (Gemini) through the WebLAV account server.
+- It uses credit from the account.
+- The answer can take about a minute.
 
 ## Edit or delete axes
 
