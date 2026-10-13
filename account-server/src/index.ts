@@ -4,7 +4,7 @@
  * - `/v1/links/token`: PC の登録を窓口の画面で認めたかを WebLAV が問い合わせ、認めていればアプリ用のトークンに替える。
  * - `/v1/ai`・`/v1/search`・`/v1/balance`・`/v1/token`: アプリ用のトークンで呼ぶ、AI と検索の中継・残高・登録の解除。
  * - `/v1/stripe/webhook`: Stripe からの支払いの知らせ。
- * - `/account/`: 人が開く画面 (サインイン・WebLAV を結ぶ・買う)。
+ * - `/account/`: 人が開く画面 (サインイン・PC の登録・買う)。
  * - それ以外: 紹介と規約類の静的なページ (wrangler.jsonc の assets)。
  */
 import { Hono, type Context } from 'hono';
@@ -98,7 +98,7 @@ async function limited(c: Context<App>, limiter: RateLimit, key?: string): Promi
 	return !success;
 }
 
-// ---- WebLAV を結ぶ ----
+// ---- PC を登録する ----
 
 /**
  * PC の登録を窓口の画面で認めたかを、WebLAV が問い合わせる。認めていれば、アプリ用のトークンに替える。
@@ -161,7 +161,7 @@ app.get('/v1/balance', async (c) => {
 	return c.json({ email: account?.email, remaining_percent: remaining > 0 ? percent : 0 });
 });
 
-/** WebLAV でのサインアウト。トークンを外す。 */
+/** WebLAV での登録の解除。トークンを外す。 */
 app.delete('/v1/token', async (c) => {
 	const token = bearerToken(c);
 	if (token) {
@@ -427,7 +427,7 @@ accountApp.get('/', async (c) => {
 	);
 });
 
-/** 窓口の画面から、結んだ WebLAV を外す。外した WebLAV は、次に使うときにサインインし直しになる。 */
+/** 窓口の画面から、PC の登録を外す。外した PC の WebLAV は、登録し直すまで AI の機能を使えない。 */
 accountApp.post('/apps/unlink', async (c) => {
 	const lang = resolveLang(c);
 	const account = await currentAccount(c);
@@ -653,7 +653,7 @@ accountApp.post('/logout', async (c) => {
 	return c.redirect(safeNext(formString(form, 'next')), 303);
 });
 
-// ---- WebLAV を結ぶ ----
+// ---- PC を登録する ----
 
 /** 名前は窓口の画面に出すだけ。制御文字を除き、長すぎれば切る。 */
 function displayName(value: string | undefined, fallback: string): string {

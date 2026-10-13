@@ -30,7 +30,7 @@ describe('balance', () => {
 	it('shows what is left as a percentage on the account page', async () => {
 		const { cookie } = await signIn('percent@example.com');
 		expect(await (await request('/account/', { cookie })).text()).toContain(
-			'AI アクションのクレジット: 残り 100%'
+			'AI の機能のクレジット: 残り 100%'
 		);
 	});
 });

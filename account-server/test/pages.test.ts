@@ -6,7 +6,7 @@ describe('homePage', () => {
 		String(await homePage('ja', 'a@example.com', { remaining, percent }, [], undefined));
 
 	it('shows what is left as a percentage, or that nothing is left', async () => {
-		expect(await home(1, 1)).toContain('AI アクションのクレジット: 残り 1%');
-		expect(await home(0, 0)).toContain('AI アクションのクレジットはありません');
+		expect(await home(1, 1)).toContain('AI の機能のクレジット: 残り 1%');
+		expect(await home(0, 0)).toContain('AI の機能のクレジットはありません');
 	});
 });
