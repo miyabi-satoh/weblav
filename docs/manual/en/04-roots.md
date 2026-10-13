@@ -6,10 +6,11 @@ Folders inside it appear only after you register them as “Folder” or “Arch
 
 ![How folders on the computer relate to the viewer's screen: add "Shared" as a shared folder, then register "Teaching materials" as a folder and "EIKEN" as an archive. Only those two appear for viewers. Unregistered "Drafts" and "Household accounts" outside the shared folder do not appear.](images/how-it-works.webp)
 
-> **You can do this only on the computer running WebLAV, when it is open at a `localhost` address.**
+> **You can add folders only on the computer running WebLAV, when it is open at a `localhost` address.**
 >
-> - “Shared folders” does not appear in the admin pages when you open them from a phone or another computer.
+> - The “Add a folder...” button does not appear when you open the admin pages from a phone or another computer.
 > - It also does not appear on the same computer when you use the QR code address, such as `http://my-pc.local:3000`.
+> - You can rename and remove folders from the admin pages on any device.
 
 ## Open it
 
@@ -63,6 +64,6 @@ The name appears instead of the path when choosing a folder for content and when
 
    ![The removal confirmation](images/roots-delete.webp)
 
-Contents registered inside it stop being viewable, but their entries remain. Add the same folder again to make them viewable again.
+Contents registered inside it stop being viewable, but their entries remain. Add the same folder again to make them viewable again. You can add it again only on the computer running WebLAV.
 
 Next, go to [Register contents](05-register-content.md).

@@ -4,7 +4,6 @@
 	import { toast } from 'svelte-sonner';
 	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { canManageRoots } from '$lib/root-location';
 	import { isAdmin } from '$lib/auth';
 	import { client } from '$lib/api/client';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
@@ -38,7 +37,7 @@
 	let content = $derived(data.content);
 	let contentById = $derived(byIdMap(data.contents));
 	let currentUserId = $derived(page.data.user?.id);
-	let canSeeFullPath = $derived(canManageRoots(page.data.user, page.url.hostname));
+	let canSeeFullPath = $derived(isAdmin(page.data.user));
 	let editable = $derived(data.editable);
 
 	// 別のコンテンツへ移るとレイアウトの `{#key}` でページごと作り直すので、読み込みは初回だけでよい。

@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { pageHeadingTextClass } from '$lib/page-layout';
 	import { page } from '$app/state';
+	import { isAdmin } from '$lib/auth';
 	import { resolve } from '$app/paths';
 	import { navTabClass, navTabListClass } from '$lib/nav-tabs';
 	import { pageTitle } from '$lib/page-title';
 	import { contentTypeLabel } from '$lib/content-labels';
 	import { contentTypeIcon } from '$lib/content-types';
-	import { canManageRoots, contentPathLabel } from '$lib/root-location';
+	import { contentPathLabel } from '$lib/root-location';
 	import * as m from '$lib/paraglide/messages.js';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import EyeIcon from '@lucide/svelte/icons/eye';
@@ -32,9 +33,7 @@
 	});
 
 	let location = $derived(
-		content.url ??
-			contentPathLabel(content, canManageRoots(page.data.user, page.url.hostname)) ??
-			content.fileName
+		content.url ?? contentPathLabel(content, isAdmin(page.data.user)) ?? content.fileName
 	);
 	let TypeIcon = $derived(contentTypeIcon(content.type));
 	// 見るだけの理由を、どのタブでも見出しの下で示す (→ docs/ui.md「UI 全般」)。

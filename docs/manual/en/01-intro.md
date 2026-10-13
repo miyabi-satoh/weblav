@@ -32,7 +32,7 @@ Only contents registered in the admin pages appear for viewers.
 
    ![The setup screen](images/quickstart-setup.webp)
 
-3. In “Shared folders” in the admin pages, add a folder that you are willing to share. This appears only when you open it from “Open in browser” in the task tray menu on the computer running WebLAV (→ [Add shared folders](04-roots.md)).
+3. In “Shared folders” in the admin pages, add a folder that you are willing to share. The button for adding appears only when you open it from “Open in browser” in the task tray menu on the computer running WebLAV (→ [Add shared folders](04-roots.md)).
 
    ![The Shared folders page](images/quickstart-roots.webp)
 

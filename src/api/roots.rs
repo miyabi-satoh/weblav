@@ -1,8 +1,9 @@
 //! 「公開できるフォルダー」(→ docs/folders.md「公開できるフォルダー」) の管理 API。
 //!
 //! コンテンツに使えるパスは、ここに登録したフォルダーの配下だけになる。
-//! 登録・削除できるのは**サーバーの PC の前にいる管理者**だけ (`LocalRequest` + `AdminUser`)。
-//! LAN の端末からは、この口があること自体を見せずに 404 にする。
+//! 追加できるのは**サーバーの PC の前にいる管理者**だけ (`LocalRequest` + `AdminUser`)。
+//! LAN の端末からは、追加の口があること自体を見せずに 404 にする。
+//! 一覧・名前の変更・削除は、LAN の端末の管理者もできる (`AdminUser`)。
 
 use std::path::{Path as FsPath, PathBuf};
 
@@ -54,11 +55,9 @@ pub struct RootResponse {
         (status = OK, body = Vec<RootResponse>, description = "登録済みの一覧"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
-        (status = 404, body = crate::error::ErrorResponse, description = "サーバーのPC以外からの要求"),
     )
 )]
 async fn list_roots(
-    _: LocalRequest,
     _admin: AdminUser,
     State(state): State<AppState>,
 ) -> Result<Json<Vec<RootResponse>>, AppError> {
@@ -242,12 +241,11 @@ struct RenameRootRequest {
         (status = OK, body = RootResponse, description = "名前を変えたフォルダー"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
-        (status = 404, body = crate::error::ErrorResponse, description = "サーバーのPC以外からの要求・存在しない"),
+        (status = 404, body = crate::error::ErrorResponse, description = "存在しない"),
         (status = 422, body = crate::error::ErrorResponse, description = "同じ名前がある"),
     )
 )]
 async fn rename_root(
-    _: LocalRequest,
     _admin: AdminUser,
     State(state): State<AppState>,
     Path(id): Path<i64>,
@@ -291,11 +289,10 @@ async fn rename_root(
         (status = 204, description = "削除した"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
-        (status = 404, body = crate::error::ErrorResponse, description = "サーバーのPC以外からの要求・存在しない"),
+        (status = 404, body = crate::error::ErrorResponse, description = "存在しない"),
     )
 )]
 async fn delete_root(
-    _: LocalRequest,
     _admin: AdminUser,
     State(state): State<AppState>,
     Path(id): Path<i64>,
