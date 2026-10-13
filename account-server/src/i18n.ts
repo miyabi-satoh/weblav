@@ -76,19 +76,22 @@ const ja = {
 	mailSent: (email: string, minutes: number) =>
 		`${email} に届いたリンクを開いてください。リンクは ${minutes} 分で切れます。`,
 	mailSentHint: '届かないときは、迷惑メールのフォルダーも確かめてください。',
-	mailSentSameComputer:
-		'リンクは、WebLAV を使っているこの PC で開いてください。ほかの機器で開くと、この PC を登録できません。',
 	signIn: 'サインインする',
 	linkUnusableTitle: 'リンクが使えません',
 	linkUnusable: 'リンクの期限が切れたか、もう使われています。サインインをやり直してください。',
 	signedInAs: (email: string) => `${email} でサインインしています。`,
 	signOut: 'サインアウト',
 	linkTitle: 'PC を登録',
-	linkConfirm: (name: string) =>
-		`「${name}」をこのアカウントに登録します。登録した PC の WebLAV は、アカウントのクレジットで AI アクションを使えます。`,
+	linkConfirm: (name: string, pc: string) =>
+		`PC「${pc}」の WebLAV「${name}」を、このアカウントに登録します。登録した PC の WebLAV は、アカウントのクレジットで AI の機能を使えます。`,
+	linkCaution:
+		'自分で WebLAV のサイト設定から開いたページでなければ、登録しないでください。登録した PC は、このアカウントのクレジットを使えます。',
+	linkedTitle: 'PC を登録しました',
+	linked: (pc: string) =>
+		`「${pc}」を登録しました。このページを閉じて、WebLAV のサイト設定に戻ってください。数秒で登録が反映されます。`,
 	approve: 'この PC を登録',
 	linkInvalidTitle: 'このページは開けません',
-	linkInvalid: 'WebLAV の設定の「アクション」で「サインイン」を押して、もう一度開いてください。',
+	linkInvalid: 'WebLAV のサイト設定の「AI」で、PC の登録をもう一度始めてください。',
 	buyTitle: 'クレジットを購入',
 	// 価格は本番の Stripe の Price と、紹介・規約類に合わせる。
 	confirmTitle: 'お申し込み内容の最終確認',
@@ -128,7 +131,7 @@ const ja = {
 	noBalance: 'AI アクションのクレジットはありません。',
 	appsTitle: '登録している PC',
 	appsNone: '登録している PC はありません。',
-	appLinkedAt: (name: string, date: string) => `${name}（${date} に登録）`,
+	appLinkedAt: (name: string, pc: string, date: string) => `${pc} の「${name}」（${date} に登録）`,
 	unlink: '登録を解除',
 	tooManyConnectsTitle: 'しばらくお待ちください',
 	tooManyConnects:
@@ -139,10 +142,9 @@ const ja = {
 	tokushoho: '特定商取引法に基づく表記',
 	conditions: '購入の条件',
 	mailSubject: 'WebLAV にサインイン',
-	mailBody: (link: string, minutes: number, linking: boolean) =>
+	mailBody: (link: string, minutes: number) =>
 		[
 			'WebLAV のアカウントにサインインするには、次のリンクを開いてください。',
-			...(linking ? ['PC を登録するには、WebLAV を使っている PC で開いてください。'] : []),
 			'',
 			link,
 			'',
@@ -175,19 +177,22 @@ const en: typeof ja = {
 	mailSent: (email: string, minutes: number) =>
 		`Open the link we sent to ${email}. The link expires in ${minutes} minutes.`,
 	mailSentHint: "If it doesn't arrive, check your spam folder.",
-	mailSentSameComputer:
-		'Open the link on this PC, where you use WebLAV. If you open it on another device, this PC cannot be linked.',
 	signIn: 'Sign in',
 	linkUnusableTitle: 'This link cannot be used',
 	linkUnusable: 'The link has expired or has already been used. Please sign in again.',
 	signedInAs: (email: string) => `Signed in as ${email}.`,
 	signOut: 'Sign out',
 	linkTitle: 'Link a PC',
-	linkConfirm: (name: string) =>
-		`Link "${name}" to this account. WebLAV on a linked PC can use this account's credit for AI actions.`,
+	linkConfirm: (name: string, pc: string) =>
+		`Link WebLAV "${name}" on the PC "${pc}" to this account. WebLAV on a linked PC can use this account's credit for AI features.`,
+	linkCaution:
+		"Don't link unless you opened this page yourself from WebLAV's site settings. A linked PC can use this account's credit.",
+	linkedTitle: 'PC linked',
+	linked: (pc: string) =>
+		`"${pc}" is now linked. Close this page and return to WebLAV's site settings. The link will show up in a few seconds.`,
 	approve: 'Link this PC',
 	linkInvalidTitle: 'This page cannot be opened',
-	linkInvalid: 'In WebLAV settings, open Actions and click Sign in to open it again.',
+	linkInvalid: "In WebLAV's site settings, start linking the PC again from the AI section.",
 	buyTitle: 'Buy credits',
 	confirmTitle: 'Review your order',
 	confirmItemLabel: 'What you buy',
@@ -228,7 +233,7 @@ const en: typeof ja = {
 	noBalance: 'No AI action credit.',
 	appsTitle: 'Linked PCs',
 	appsNone: 'No PCs are linked.',
-	appLinkedAt: (name: string, date: string) => `${name} (linked on ${date})`,
+	appLinkedAt: (name: string, pc: string, date: string) => `"${name}" on ${pc} (linked on ${date})`,
 	unlink: 'Unlink',
 	tooManyConnectsTitle: 'Please wait',
 	tooManyConnects:
@@ -239,10 +244,9 @@ const en: typeof ja = {
 	tokushoho: 'Specified Commercial Transactions Act notice',
 	conditions: 'purchase conditions',
 	mailSubject: 'Sign in to WebLAV',
-	mailBody: (link: string, minutes: number, linking: boolean) =>
+	mailBody: (link: string, minutes: number) =>
 		[
 			'Open the following link to sign in to your WebLAV account.',
-			...(linking ? ['To link this PC, open the link on the PC where you use WebLAV.'] : []),
 			'',
 			link,
 			'',

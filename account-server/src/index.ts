@@ -1,7 +1,7 @@
 /**
  * WebLAV の窓口 (→ docs/account-server.md「窓口（weblav.amiiby.com）」)。
  *
- * - `/v1/links/token`: WebLAV を結ぶときに届けたコードを、アプリ用のトークンに替える。
+ * - `/v1/links/token`: PC の登録を窓口の画面で認めたかを WebLAV が問い合わせ、認めていればアプリ用のトークンに替える。
  * - `/v1/ai`・`/v1/balance`・`/v1/token`: アプリ用のトークンで呼ぶ、中継・残高・サインアウト。
  * - `/v1/stripe/webhook`: Stripe からの支払いの知らせ。
  * - `/account/`: 人が開く画面 (サインイン・WebLAV を結ぶ・買う)。
@@ -53,8 +53,8 @@ import {
 	sha256Hex
 } from './util';
 
-/** 「この WebLAV と結ぶ」で作るコードの期限。ブラウザが WebLAV へ戻ってすぐ替えるので短く。 */
-const LINK_CODE_TTL = 300;
+/** 窓口の画面で認めてから、WebLAV がトークンに替えるまでの期限。WebLAV は数秒おきに問い合わせるので、通信が少し途切れても間に合う長さ。 */
+const LINK_APPROVAL_TTL = 600;
 /** メールのリンクの期限。メールが少し遅れて届いても間に合い、漏れたリンクを使える時間は短く。 */
 const EMAIL_LOGIN_TTL = 15 * 60;
 /** 同じアドレスへ1時間に送るリンクの上限。他人のアドレスへ送りつけるのに使われないように。 */
@@ -105,36 +105,30 @@ async function limited(c: Context<App>, limiter: RateLimit, key?: string): Promi
 // ---- WebLAV を結ぶ ----
 
 /**
- * 「この WebLAV と結ぶ」で WebLAV の待ち受けへ届けたコードを、アプリ用のトークンに替える。
- * コードは一度きりで、申し込みに付けた検証用の値と照らす。届け先の待ち受けを他のプロセスに取られても、
- * 検証用の値を持たないのでトークンに替えられないように (RFC 7636 の PKCE と同じ考え方)。
+ * PC の登録を窓口の画面で認めたかを、WebLAV が問い合わせる。認めていれば、アプリ用のトークンに替える。
+ * 申し込みは WebLAV が作った検証用の値のハッシュで見分け、検証用の値そのものを持つ WebLAV だけが替えられる
+ * (RFC 7636 の PKCE と同じ考え方)。申し込みの URL を見た人には、トークンを取れない。
  */
 app.post('/v1/links/token', async (c) => {
 	if (await limited(c, c.env.LINK_LIMITER)) return c.json({ error: 'rate_limited' }, 429);
-	const body = await c.req
-		.json<{ code?: unknown; code_verifier?: unknown }>()
-		.catch(() => ({}) as never);
-	if (typeof body.code !== 'string' || typeof body.code_verifier !== 'string') {
-		return c.json({ error: 'invalid_grant' }, 400);
+	const body = await c.req.json<{ code_verifier?: unknown }>().catch(() => ({}) as never);
+	if (typeof body.code_verifier !== 'string' || !/^[0-9a-f]{64}$/.test(body.code_verifier)) {
+		return c.json({ error: 'invalid_request' }, 400);
 	}
-	// 照らす前に消す。違う検証用の値で試されたコードも、それきり使えないように。
 	const link = await c.env.DB.prepare(
-		'DELETE FROM link_codes WHERE code_hash = ? RETURNING account_id, challenge, name, expires_at'
+		`DELETE FROM link_approvals WHERE challenge = ? AND expires_at > ?
+		 RETURNING account_id, name, pc_name`
 	)
-		.bind(await sha256Hex(body.code))
-		.first<{ account_id: string; challenge: string; name: string; expires_at: number }>();
-	if (
-		!link ||
-		link.expires_at <= now() ||
-		(await sha256Hex(body.code_verifier)) !== link.challenge
-	) {
-		return c.json({ error: 'invalid_grant' }, 400);
-	}
+		.bind(await sha256Hex(body.code_verifier), now())
+		.first<{ account_id: string; name: string; pc_name: string }>();
+	// まだ認めていない (か、認めてから期限が過ぎた)。WebLAV は間を置いて問い合わせ直す。
+	if (!link) return c.json({ status: 'pending' }, 202);
 	const token = randomHex(32);
 	await c.env.DB.prepare(
-		'INSERT INTO app_tokens (id, token_hash, account_id, name, created_at) VALUES (?, ?, ?, ?, ?)'
+		`INSERT INTO app_tokens (id, token_hash, account_id, name, pc_name, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?)`
 	)
-		.bind(randomHex(16), await sha256Hex(token), link.account_id, link.name, now())
+		.bind(randomHex(16), await sha256Hex(token), link.account_id, link.name, link.pc_name, now())
 		.run();
 	return c.json({ token });
 });
@@ -393,7 +387,7 @@ accountApp.get('/', async (c) => {
 	const account = await currentAccount(c);
 	if (!account) return c.html(signIn(c, lang, ACCOUNT_HOME));
 	const { results: apps } = await c.env.DB.prepare(
-		`SELECT id, coalesce(name, 'WebLAV') AS name, created_at AS createdAt FROM app_tokens
+		`SELECT id, name, pc_name AS pcName, created_at AS createdAt FROM app_tokens
 		 WHERE account_id = ? ORDER BY created_at`
 	)
 		.bind(account.id)
@@ -450,8 +444,6 @@ accountApp.post('/login/email', async (c) => {
 	if (inserted.meta.changes === 0) {
 		return c.html(signIn(c, lang, next, messages[lang].tooManyLinks), 429);
 	}
-	// WebLAV を結ぶ途中なら、リンクを同じパソコンで開くよう添える (結ぶとブラウザを 127.0.0.1 へ戻すため)。
-	const linking = next.startsWith(`${ACCOUNT}/link?`);
 	// 別のブラウザで開いても同じ言語になるよう、リンクに言語を付ける。
 	await sendMail(
 		c.env,
@@ -459,11 +451,10 @@ accountApp.post('/login/email', async (c) => {
 		messages[lang].mailSubject,
 		messages[lang].mailBody(
 			`${new URL(c.req.url).origin}${ACCOUNT}/login/email?token=${token}&lang=${lang}`,
-			EMAIL_LOGIN_TTL / 60,
-			linking
+			EMAIL_LOGIN_TTL / 60
 		)
 	);
-	return c.html(mailSentPage(lang, email, EMAIL_LOGIN_TTL / 60, linking));
+	return c.html(mailSentPage(lang, email, EMAIL_LOGIN_TTL / 60));
 });
 
 // メールのリンクを開いただけではサインインしない。メールのサービスがリンクを先に開いて確かめることがあり、
@@ -636,26 +627,28 @@ accountApp.post('/logout', async (c) => {
 
 // ---- WebLAV を結ぶ ----
 
-/** WebLAV が申し込みに付けた値を読む。形が違えば `undefined` (WebLAV の設定から開き直してもらう)。 */
+/** 名前は窓口の画面に出すだけ。制御文字を除き、長すぎれば切る。 */
+function displayName(value: string | undefined, fallback: string): string {
+	const name = [...(value ?? '').replace(/[\p{Cc}\p{Cf}]/gu, '').trim()].slice(0, 64).join('');
+	return name || fallback;
+}
+
+/** WebLAV が申し込みに付けた値を読む。形が違えば `undefined` (WebLAV のサイト設定から開き直してもらう)。 */
 function linkRequest(get: (key: string) => string | undefined): LinkRequest | undefined {
-	const port = Number(get('port'));
-	const state = get('state') ?? '';
 	const challenge = get('challenge') ?? '';
-	if (!Number.isInteger(port) || port < 1024 || port > 65535) return undefined;
-	if (!/^[0-9a-f]{32}$/.test(state) || !/^[0-9a-f]{64}$/.test(challenge)) return undefined;
-	// 名前は窓口の画面に出すだけ。制御文字を除き、長すぎれば切る。
-	const name = [...(get('name') ?? '').replace(/[\p{Cc}\p{Cf}]/gu, '').trim()]
-		.slice(0, 64)
-		.join('');
-	return { port, state, challenge, name: name || 'WebLAV' };
+	if (!/^[0-9a-f]{64}$/.test(challenge)) return undefined;
+	return {
+		challenge,
+		name: displayName(get('name'), 'WebLAV'),
+		pcName: displayName(get('pc'), 'PC')
+	};
 }
 
 function linkQuery(link: LinkRequest): string {
 	return new URLSearchParams({
-		port: String(link.port),
-		state: link.state,
 		challenge: link.challenge,
-		name: link.name
+		name: link.name,
+		pc: link.pcName
 	}).toString();
 }
 
@@ -669,8 +662,8 @@ accountApp.get('/link', async (c) => {
 });
 
 /**
- * 結ぶ。一度きりのコードを作り、ブラウザを WebLAV の待ち受け (同じ PC の 127.0.0.1) へ戻す。
- * 戻る先が押した人の PC なので、他人から届いたリンクで押しても、コードはリンクを作った人の WebLAV へ届かない。
+ * 登録を認める。認めた印を残し、WebLAV が検証用の値を持って問い合わせたときにトークンに替える。
+ * 管理者は WebLAV を別の端末 (スマートフォンなど) から操作することがあるので、ブラウザを PC へ戻す形にはしない。
  */
 accountApp.post('/link', async (c) => {
 	const lang = resolveLang(c);
@@ -685,17 +678,16 @@ accountApp.post('/link', async (c) => {
 			429
 		);
 	}
-	const code = randomHex(32);
 	const t = now();
 	await c.env.DB.batch([
-		c.env.DB.prepare('DELETE FROM link_codes WHERE expires_at <= ?').bind(t),
+		c.env.DB.prepare('DELETE FROM link_approvals WHERE expires_at <= ?').bind(t),
+		// 同じ申し込みを押し直しても、先に認めたアカウントのままにする。
 		c.env.DB.prepare(
-			`INSERT INTO link_codes (code_hash, account_id, challenge, name, expires_at, created_at)
-			 VALUES (?, ?, ?, ?, ?, ?)`
-		).bind(await sha256Hex(code), account.id, link.challenge, link.name, t + LINK_CODE_TTL, t)
+			`INSERT INTO link_approvals (challenge, account_id, name, pc_name, expires_at, created_at)
+			 VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (challenge) DO NOTHING`
+		).bind(link.challenge, account.id, link.name, link.pcName, t + LINK_APPROVAL_TTL, t)
 	]);
-	const back = new URLSearchParams({ code, state: link.state });
-	return c.redirect(`http://127.0.0.1:${link.port}/callback?${back}`, 303);
+	return c.html(messagePage(lang, messages[lang].linkedTitle, messages[lang].linked(link.pcName)));
 });
 
 function linkInvalidPage(lang: Lang) {

@@ -35,24 +35,26 @@ CREATE TABLE identities (
 	PRIMARY KEY (provider, subject)
 );
 
--- WebLAV からの、アカウントと結ぶ申し込み。結んだら、期限まではアプリ用のトークンを問い合わせのたびに渡す。
-CREATE TABLE links (
-	id TEXT PRIMARY KEY,
-	poll_secret_hash TEXT NOT NULL,
-	user_code TEXT NOT NULL UNIQUE,
+-- 窓口の画面で認めた、PC の登録の申し込み (→ docs/account-server.md「PC をアカウントに登録する」)。
+-- WebLAV が検証用の値を持って問い合わせたら、トークンに替えて消す。
+CREATE TABLE link_approvals (
+	-- WebLAV が申し込みに付けた、検証用の値の SHA-256 (16進)。問い合わせのときに検証用の値そのものと照らす。
+	challenge TEXT PRIMARY KEY,
+	account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+	name TEXT NOT NULL,
+	pc_name TEXT NOT NULL,
 	expires_at INTEGER NOT NULL,
-	created_at INTEGER NOT NULL,
-	account_id TEXT REFERENCES accounts (id) ON DELETE CASCADE,
-	-- 結んだときに作ったトークン。WebLAV に一度渡したら消す。渡す前に期限が過ぎても消す。
-	token TEXT,
-	approved_at INTEGER
+	created_at INTEGER NOT NULL
 );
 
--- WebLAV に渡したトークン。ハッシュだけを持つ。期限は持たず、サインアウトか窓口の画面で消す。
+-- WebLAV に渡したトークン。ハッシュだけを持つ。期限は持たず、WebLAV での登録の解除か窓口の画面で消す。
+-- name (サイト名) と pc_name (PC の名前) は、窓口の画面でどの PC かを見分けるためのもの。
 CREATE TABLE app_tokens (
 	id TEXT PRIMARY KEY,
 	token_hash TEXT NOT NULL UNIQUE,
 	account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+	name TEXT NOT NULL,
+	pc_name TEXT NOT NULL,
 	created_at INTEGER NOT NULL,
 	last_used_at INTEGER
 );

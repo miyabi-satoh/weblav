@@ -305,18 +305,14 @@ export function signInPage(
 	);
 }
 
-/**
- * メールを送ったところ。WebLAV を結ぶ途中なら、リンクを同じパソコンで開くよう添える。
- * 結ぶとブラウザを 127.0.0.1 へ戻すので、ほかの機器で開くと WebLAV へ戻れないため。
- */
-export function mailSentPage(lang: Lang, email: string, minutes: number, linking: boolean) {
+/** メールを送ったところ。 */
+export function mailSentPage(lang: Lang, email: string, minutes: number) {
 	const t = messages[lang];
 	return page(
 		lang,
 		t.mailSentTitle,
 		html`<h1>${t.mailSentTitle}</h1>
 			<p>${t.mailSent(email, minutes)}</p>
-			${linking ? html`<p>${t.mailSentSameComputer}</p>` : ''}
 			<p class="muted">${t.mailSentHint}</p>`
 	);
 }
@@ -354,7 +350,7 @@ function signedInAs(lang: Lang, email: string, next: string) {
 }
 
 /**
- * 結ぶ前の確かめ。押すと、ブラウザを WebLAV の待ち受けへ戻す。
+ * 登録の前の確かめ。どの PC の申し込みかを名前で示し、身に覚えのない申し込みを認めないようにする。
  * 申し込みの値は押すまでフォームに持ち、押したときに窓口が確かめ直す。
  */
 export function approvePage(lang: Lang, email: string, link: LinkRequest, here: string) {
@@ -363,12 +359,12 @@ export function approvePage(lang: Lang, email: string, link: LinkRequest, here: 
 		lang,
 		t.linkTitle,
 		html`<h1>${t.linkTitle}</h1>
-			<p>${t.linkConfirm(link.name)}</p>
+			<p>${t.linkConfirm(link.name, link.pcName)}</p>
+			<p class="muted">${t.linkCaution}</p>
 			<form method="post" action="${ACCOUNT}/link">
-				<input type="hidden" name="port" value="${String(link.port)}" />
-				<input type="hidden" name="state" value="${link.state}" />
 				<input type="hidden" name="challenge" value="${link.challenge}" />
 				<input type="hidden" name="name" value="${link.name}" />
+				<input type="hidden" name="pc" value="${link.pcName}" />
 				<button>${t.approve}</button>
 			</form>
 			${signedInAs(lang, email, here)}`
@@ -410,10 +406,10 @@ export function confirmPage(lang: Lang, email: string, region: SaleRegion) {
 }
 
 /** WebLAV が申し込みに付けた値。 */
-export type LinkRequest = { port: number; state: string; challenge: string; name: string };
+export type LinkRequest = { challenge: string; name: string; pcName: string };
 
 /** WebLAV に渡したトークン。窓口の画面から外せる。 */
-export type LinkedApp = { id: string; name: string; createdAt: number };
+export type LinkedApp = { id: string; name: string; pcName: string; createdAt: number };
 
 export function homePage(
 	lang: Lang,
@@ -444,7 +440,7 @@ export function homePage(
 								(app) =>
 									html`<li>
 										<form method="post" action="${ACCOUNT}/apps/unlink" class="inline">
-											${t.appLinkedAt(app.name, date(app.createdAt))}
+											${t.appLinkedAt(app.name, app.pcName, date(app.createdAt))}
 											<input type="hidden" name="id" value="${app.id}" />
 											<button class="secondary">${t.unlink}</button>
 										</form>

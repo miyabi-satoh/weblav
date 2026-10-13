@@ -41,37 +41,33 @@ export function postForm(
 }
 
 /** WebLAV が作るのと同じ形の申し込みの値。検証用の値は WebLAV だけが持つ。 */
-export async function newLink(name = 'mac-mini') {
+export async function newLink(name = 'うちの WebLAV', pc = 'mac-mini') {
 	const verifier =
 		crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '');
 	const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
 	const challenge = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join(
 		''
 	);
-	const state = crypto.randomUUID().replaceAll('-', '');
-	return { verifier, fields: { port: '53682', state, challenge, name } };
+	return { verifier, fields: { challenge, name, pc } };
 }
 
 export function linkPath(fields: Record<string, string>) {
 	return `/account/link?${new URLSearchParams(fields)}`;
 }
 
-/** 「この PC を登録」を押し、WebLAV の待ち受けへ戻された先のコードを返す。 */
+/** 「この PC を登録」を押す。 */
 export async function approve(fields: Record<string, string>, cookie: string) {
 	const res = await postForm('/account/link', fields, cookie);
-	expect(res.status).toBe(303);
-	const back = new URL(res.headers.get('location')!);
-	expect(back.origin).toBe(`http://127.0.0.1:${fields.port}`);
-	expect(back.pathname).toBe('/callback');
-	expect(back.searchParams.get('state')).toBe(fields.state);
-	return back.searchParams.get('code')!;
+	expect(res.status).toBe(200);
+	return res;
 }
 
-export function exchange(code: string, verifier: string, ip?: string) {
+/** WebLAV からの問い合わせ。認めていればトークン、まだなら 202。 */
+export function exchange(verifier: string, ip?: string) {
 	return request('/v1/links/token', {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ code, code_verifier: verifier }),
+		body: JSON.stringify({ code_verifier: verifier }),
 		ip
 	});
 }
@@ -93,12 +89,12 @@ export async function signIn(email: string, next = '/account/') {
 	};
 }
 
-/** サインインして WebLAV を結び、アプリ用のトークンを返す。 */
+/** サインインして PC を登録し、アプリ用のトークンを返す。 */
 export async function linkApp(email: string) {
 	const { cookie } = await signIn(email);
 	const { verifier, fields } = await newLink();
-	const code = await approve(fields, cookie);
-	const answer = await (await exchange(code, verifier)).json<{ token: string }>();
+	await approve(fields, cookie);
+	const answer = await (await exchange(verifier)).json<{ token: string }>();
 	return { cookie, token: answer.token };
 }
 
