@@ -22,8 +22,11 @@
 	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
 	import { adminPageClass, adminPageHeaderClass, pageHeadingTextClass } from '$lib/page-layout';
+	import { masonry } from '$lib/masonry';
 
 	let { data }: PageProps = $props();
+
+	const sectionClass = 'flex flex-col gap-6 rounded-lg border bg-card p-4 sm:p-6';
 
 	// サーバーの上限 (`src/api/site_settings.rs` の `MAX_CHARS`) と揃える。
 	const MAX_LENGTH = 100;
@@ -199,14 +202,10 @@
 		<h1 class={pageHeadingTextClass}>{m.admin_settings_title()}</h1>
 	</div>
 
-	<!-- 区画の間は 48px 空け、その中ほどに罫線を引く (→ docs/ui.md「UI 全般」の「余白と区切り」)。
+	<!-- 区画はカードにし、広い幅では石垣に並べる (→ docs/ui.md「UI 全般」の「サイト設定の区画」)。
 	     保存は区画ごと。サーバーの区画だけが次の起動から効くため。 -->
-	<div class="flex max-w-xl flex-col">
-		<form
-			onsubmit={handleSiteSubmit}
-			aria-labelledby="home-section-heading"
-			class="flex flex-col gap-6 border-b pb-6"
-		>
+	<div class="grid max-w-xl gap-6 lg:max-w-none lg:grid-cols-2 2xl:grid-cols-3" {@attach masonry}>
+		<form onsubmit={handleSiteSubmit} aria-labelledby="home-section-heading" class={sectionClass}>
 			<h2 id="home-section-heading" class="text-base font-semibold">
 				{m.admin_settings_home_section_heading()}
 			</h2>
@@ -230,7 +229,7 @@
 		<form
 			onsubmit={handleServerSubmit}
 			aria-labelledby="server-section-heading"
-			class="flex flex-col gap-6 pt-6"
+			class={sectionClass}
 		>
 			<div class="flex flex-col gap-2">
 				<h2 id="server-section-heading" class="text-base font-semibold">
@@ -319,7 +318,7 @@
 			{/if}
 		</form>
 
-		<section aria-labelledby="log-section-heading" class="mt-6 flex flex-col gap-6 border-t pt-6">
+		<section aria-labelledby="log-section-heading" class={sectionClass}>
 			<h2 id="log-section-heading" class="text-base font-semibold">
 				{m.admin_settings_log_heading()}
 			</h2>
@@ -358,10 +357,7 @@
 			{/if}
 		</section>
 
-		<section
-			aria-labelledby="backup-section-heading"
-			class="mt-6 flex flex-col gap-6 border-t pt-6"
-		>
+		<section aria-labelledby="backup-section-heading" class={sectionClass}>
 			<h2 id="backup-section-heading" class="text-base font-semibold">
 				{m.backup_heading()}
 			</h2>
@@ -380,7 +376,7 @@
 			</div>
 		</section>
 
-		<section aria-labelledby="ai-section-heading" class="mt-6 flex flex-col gap-6 border-t pt-6">
+		<section aria-labelledby="ai-section-heading" class={sectionClass}>
 			<h2 id="ai-section-heading" class="text-base font-semibold">
 				{m.admin_settings_ai_heading()}
 			</h2>
@@ -389,10 +385,7 @@
 
 		<!-- 版は問い合わせのときに読み上げてもらう。取れなければ区画ごと出さない (リンクだけ残しても用が足りないため)。 -->
 		{#if data.health}
-			<section
-				aria-labelledby="about-section-heading"
-				class="mt-6 flex flex-col gap-6 border-t pt-6"
-			>
+			<section aria-labelledby="about-section-heading" class={sectionClass}>
 				<h2 id="about-section-heading" class="text-base font-semibold">
 					{m.admin_settings_about_heading()}
 				</h2>
