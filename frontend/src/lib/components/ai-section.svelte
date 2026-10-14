@@ -338,17 +338,33 @@
 			<Dialog.Title>{m.admin_settings_ai_link_dialog_title()}</Dialog.Title>
 			<Dialog.Description>{m.admin_settings_ai_link_dialog_description()}</Dialog.Description>
 		</Dialog.Header>
-		<dl class="flex flex-col gap-2 text-sm">
-			<div>
-				<dt class="font-semibold">{m.admin_settings_ai_link_dialog_sent_label()}</dt>
-				<dd>{m.admin_settings_ai_link_dialog_sent_axes()}</dd>
-				<dd>{m.admin_settings_ai_link_dialog_sent_links()}</dd>
-			</div>
-			<div>
-				<dt class="font-semibold">{m.admin_settings_ai_link_dialog_destination_label()}</dt>
-				<dd>{m.admin_settings_ai_link_dialog_destination()}</dd>
-			</div>
-		</dl>
+		<!-- 項目ごとに行を分ける。1文につなぐと、文節での折り返しと項目の切れ目の区別が付かなくなる。 -->
+		<div class="flex flex-col gap-3 text-sm">
+			<section>
+				<h3 class="font-semibold">{m.admin_settings_ai_link_dialog_sent_label()}</h3>
+				<ul class="mt-1 flex list-disc flex-col gap-1 pl-5">
+					<li>
+						{m.admin_settings_ai_link_dialog_sent_axes_when()}
+						<div class="text-muted-foreground">
+							{m.admin_settings_ai_link_dialog_sent_axes_what()}
+						</div>
+					</li>
+					<li>
+						{m.admin_settings_ai_link_dialog_sent_links_when()}
+						<div class="text-muted-foreground">
+							{m.admin_settings_ai_link_dialog_sent_links_what()}
+						</div>
+					</li>
+				</ul>
+			</section>
+			<section>
+				<h3 class="font-semibold">{m.admin_settings_ai_link_dialog_destination_label()}</h3>
+				<ul class="mt-1 flex list-disc flex-col gap-1 pl-5">
+					<li>{m.admin_settings_ai_link_dialog_destination_server()}</li>
+					<li>{m.admin_settings_ai_link_dialog_destination_providers()}</li>
+				</ul>
+			</section>
+		</div>
 		<Dialog.Footer>
 			<Button variant="outline" onclick={() => (linkOpen = false)}>{m.action_cancel()}</Button>
 			<LoadingButton loading={busy === 'link'} onclick={beginLink}
