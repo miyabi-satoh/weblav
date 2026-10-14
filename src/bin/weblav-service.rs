@@ -53,6 +53,8 @@ fn run_in_foreground() -> ExitCode {
             Wake::PickFolder(request) => {
                 if cfg!(target_os = "macos") {
                     request.serve();
+                    #[cfg(target_os = "macos")]
+                    weblav::folder_picker::settle_without_event_loop();
                 } else {
                     std::thread::spawn(move || request.serve());
                 }
