@@ -162,11 +162,11 @@ test('管理画面のタブから開ける', async ({ page }) => {
 	await page.goto('/admin/contents');
 	await page
 		.getByRole('navigation')
-		.getByRole('link', { name: /^公開できるフォルダー$|^Shared folders$/ })
+		.getByRole('link', { name: /^公開できるフォルダー$|^Allowed folders$/ })
 		.click();
 
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-		/^公開できるフォルダー$|^Shared folders$/
+		/^公開できるフォルダー$|^Allowed folders$/
 	);
 });
 
