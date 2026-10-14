@@ -120,12 +120,6 @@ describe('charge', () => {
 });
 
 describe('grantFreeStatement', () => {
-	// 月の初めより後に付けた無料の分を数えるので、ほかのテストが今付けた分と重ならない先の月で試す。
-	const MID_JANUARY = Date.UTC(2100, 0, 15) / 1000;
-	const MID_FEBRUARY = Date.UTC(2100, 1, 15) / 1000;
-	// 上限は、2つ分は付けられて、3つ目は付けられない額。
-	const capped = { ...env, FREE_MONTHLY_CAP_YEN: String((FREE_GRANT * 2.5) / 1000) } as Env;
-
 	it('grants once per account', async () => {
 		const account = await newAccount();
 		await grantFreeStatement(env, account).run();
@@ -133,21 +127,5 @@ describe('grantFreeStatement', () => {
 		expect(await grantsOf(account)).toEqual([
 			{ free: 1, granted: FREE_GRANT, remaining: FREE_GRANT, revoked: 0 }
 		]);
-	});
-
-	it('holds back once the month has given out up to the cap, counting what was granted, and grants in a later month', async () => {
-		const [first, second, third] = [await newAccount(), await newAccount(), await newAccount()];
-		await grantFreeStatement(capped, first, MID_JANUARY).run();
-		await grantFreeStatement(capped, second, MID_JANUARY).run();
-		await grantFreeStatement(capped, third, MID_JANUARY).run();
-		expect(await grantsOf(third)).toEqual([]);
-		// 使われずに残っているかではなく、その月に付けた量で数える。
-		await env.DB.prepare('UPDATE grants SET remaining = 0 WHERE account_id IN (?, ?)')
-			.bind(first, second)
-			.run();
-		await grantFreeStatement(capped, third, MID_JANUARY).run();
-		expect(await grantsOf(third)).toEqual([]);
-		await grantFreeStatement(capped, third, MID_FEBRUARY).run();
-		expect(await grantsOf(third)).toHaveLength(1);
 	});
 });

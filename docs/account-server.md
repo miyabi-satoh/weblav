@@ -69,12 +69,11 @@
 - 使った分は、引いた付与ごとに `consumptions` に1行ずつ残す。購入の付与から引いた分の売値は `purchases.amount × consumptions.milli_yen ÷ consumptions.grant_size` で出す。
 - `consumptions.grant_size` には引いた時点の `grants.granted` を写すので、アカウントを消して付与の行が無くなった後も売値に直せる。
 - `GET /v1/balance` はメールアドレスと残りの割合を `email`・`remaining_percent` で返す。WebLAV には金額や回数ではなく割合だけを見せる。
-- その月に付けた無料の付与の合計が上限に達すると、新しいアカウントへの無料の付与を止める。付けられなかったアカウントには、翌月以降に残高の問い合わせか中継をしたときに付け直す。
 
 ## 値付けの値
 
-- 購入と無料の付与の量・無料の付与の月の上限・Gemini と検索の単価・円の換算は、売値と並べると原価の割合が分かるので、リポジトリに書かず秘密の値に置く。
-- 値の名前は `PURCHASE_GRANT_MILLI_YEN`・`FREE_GRANT_MILLI_YEN`・`FREE_MONTHLY_CAP_YEN`・`USD_JPY`・`INPUT_USD_PER_MTOK`・`OUTPUT_USD_PER_MTOK`・`SEARCH_USD_PER_REQUEST` である。
+- 購入と無料の付与の量・Gemini と検索の単価・円の換算は、売値と並べると原価の割合が分かるので、リポジトリに書かず秘密の値に置く。
+- 値の名前は `PURCHASE_GRANT_MILLI_YEN`・`FREE_GRANT_MILLI_YEN`・`USD_JPY`・`INPUT_USD_PER_MTOK`・`OUTPUT_USD_PER_MTOK`・`SEARCH_USD_PER_REQUEST` である。
 - 1つでも無いか読めなければ、窓口のどの入口も D1 に書く前に 500 で止める。誤った値で付けたり引いたりせず、サインインのリンクを使った後の途中で止まらないようにする。
 
 ## 購入
