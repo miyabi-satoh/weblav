@@ -63,14 +63,10 @@
 <DialogPrimitive.Root bind:open={fileViewer.open}>
 	<DialogPrimitive.Portal>
 		<!-- 「AI に聞く」のパネルを開いている間は、その手前で止めて並べる (→ $lib/components/ai-chat.svelte)。
-		     パネルへフォーカスを移し、パネルを押せるよう、その間はフォーカスを閉じ込めず、パネルの操作では閉じない。 -->
+		     パネルを押しても閉じない。パネルへ移したフォーカスは引き戻させない (→ ai-chat.svelte)。 -->
 		<DialogPrimitive.Content
 			class="fixed top-0 ai-panel-offset left-0 z-50 flex flex-col bg-black text-white outline-none"
-			trapFocus={!aiChat.open}
 			onInteractOutside={(event) => {
-				if (aiChat.contains(event.target)) event.preventDefault();
-			}}
-			onFocusOutside={(event) => {
 				if (aiChat.contains(event.target)) event.preventDefault();
 			}}
 			onkeydown={handleKeydown}

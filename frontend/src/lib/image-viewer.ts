@@ -173,14 +173,6 @@ export async function openImageViewer(
 	});
 	viewer.on('destroy', () => resize.disconnect());
 
-	// パネルへフォーカスを移せるようにする。PhotoSwipe はビューアーの外へ出たフォーカスを document の focusin で引き戻すので、
-	// パネルの中の focusin はそこまで届かせない。
-	const keepPanelFocus = (event: FocusEvent) => {
-		if (aiChat.contains(event.target)) event.stopPropagation();
-	};
-	window.addEventListener('focusin', keepPanelFocus, true);
-	viewer.on('destroy', () => window.removeEventListener('focusin', keepPanelFocus, true));
-
 	viewer.addFilter('thumbEl', (thumbnail, data) => {
 		const rowThumbnail = document.querySelector<HTMLElement>(
 			`img[${THUMBNAIL_FOR_ATTRIBUTE}="${CSS.escape(data.src ?? '')}"]`

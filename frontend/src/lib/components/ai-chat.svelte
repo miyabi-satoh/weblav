@@ -54,13 +54,22 @@
 
 	// 開いている間、パネルの分だけ画面を空ける (→ routes/layout.css の `ai-panel-clearance`)。
 	// 開いたら質問の欄へ移り、閉じたら開いたボタンへ戻す。
+	//
+	// ビューアー (bits-ui の Dialog・PhotoSwipe) は、外へ出たフォーカスを document の focusin で引き戻す。
+	// パネルの中の focusin は window の捕捉の段で止め、そこまで届かせない。質問の欄へ移す前に付ける。
+	// FIX: bits-ui の Dialog の trapFocus は開いた時点でしか効かず、後から外しても引き戻し続けるため、ビューアー側では止められない。
 	$effect(() => {
 		if (!aiChat.open) return;
+		const keepFocus = (event: FocusEvent) => {
+			if (aiChat.contains(event.target)) event.stopPropagation();
+		};
+		window.addEventListener('focusin', keepFocus, true);
 		const root = document.documentElement;
 		root.toggleAttribute('data-ai-panel-open', true);
 		const opener = document.activeElement;
 		untrack(() => promptInput)?.focus();
 		return () => {
+			window.removeEventListener('focusin', keepFocus, true);
 			root.removeAttribute('data-ai-panel-open');
 			// 開いたボタンが無ければ (右下のボタンはパネルを開くと消え、閉じると出し直す)、開いているビューアーか、
 			// 出し直した右下のボタンへ戻す。ビューアーの外にフォーカスがあると、Esc や左右キーがビューアーに届かないため。
