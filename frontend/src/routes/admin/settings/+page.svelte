@@ -178,21 +178,11 @@
 	{/if}
 {/snippet}
 
-<!-- 既定の値から変えてある項目のラベルに添える印。差し色は使わない (→ docs/ui.md「UI 全般」)。 -->
-{#snippet changedMark(value: number, initial: number)}
-	{#if value !== initial}
-		<span class="text-sm text-muted-foreground">{m.admin_settings_changed_mark()}</span>
-	{/if}
-{/snippet}
-
-<!-- 既定の値と、そこへ戻すボタン。変えてある項目にだけ出す (既定のままの項目に同じ文を繰り返さない)。
+<!-- 既定の値へ戻すボタン。変えてある項目にだけ出す。印や既定の値の文を足さず、ボタンが出ていることで変えてあると分かる形にする。
      戻すのは入力欄の値だけで、保存は区画の保存ボタンで行う。 -->
 {#snippet defaultValue(name: string, value: number, initial: number, reset: () => void)}
 	{#if value !== initial}
-		<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-			<Field.FieldDescription
-				>{m.admin_settings_default_value({ value: initial })}</Field.FieldDescription
-			>
+		<div>
 			<Button
 				type="button"
 				variant="outline"
@@ -251,12 +241,9 @@
 			{#if server}
 				<Field.FieldGroup>
 					<Field.Field>
-						<div class="flex flex-wrap items-baseline gap-x-3">
-							<Field.FieldLabel for="server-port" required
-								>{m.admin_settings_port_label()}</Field.FieldLabel
-							>
-							{@render changedMark(port, server.defaults.port)}
-						</div>
+						<Field.FieldLabel for="server-port" required
+							>{m.admin_settings_port_label()}</Field.FieldLabel
+						>
 						<Input
 							id="server-port"
 							type="number"
@@ -272,12 +259,9 @@
 						{@render runningValue(server.saved.port, server.running.port)}
 					</Field.Field>
 					<Field.Field>
-						<div class="flex flex-wrap items-baseline gap-x-3">
-							<Field.FieldLabel for="server-upload" required
-								>{m.admin_settings_upload_label()}</Field.FieldLabel
-							>
-							{@render changedMark(uploadMaxSizeMb, server.defaults.uploadMaxSizeMb)}
-						</div>
+						<Field.FieldLabel for="server-upload" required
+							>{m.admin_settings_upload_label()}</Field.FieldLabel
+						>
 						<Input
 							id="server-upload"
 							type="number"
@@ -299,12 +283,9 @@
 						{@render runningValue(server.saved.uploadMaxSizeMb, server.running.uploadMaxSizeMb)}
 					</Field.Field>
 					<Field.Field>
-						<div class="flex flex-wrap items-baseline gap-x-3">
-							<Field.FieldLabel for="server-session" required
-								>{m.admin_settings_session_label()}</Field.FieldLabel
-							>
-							{@render changedMark(sessionExpiryDays, server.defaults.sessionExpiryDays)}
-						</div>
+						<Field.FieldLabel for="server-session" required
+							>{m.admin_settings_session_label()}</Field.FieldLabel
+						>
 						<Input
 							id="server-session"
 							type="number"

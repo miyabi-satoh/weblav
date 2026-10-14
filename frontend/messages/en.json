@@ -116,8 +116,6 @@
 	"admin_settings_upload_label": "Upload limit (MB)",
 	"admin_settings_session_label": "Days to stay signed in",
 	"admin_settings_running_value": "Currently running with {value}.",
-	"admin_settings_changed_mark": "Changed from default",
-	"admin_settings_default_value": "The default is {value}.",
 	"admin_settings_reset_button": "Reset to default",
 	"admin_settings_reset_button_label": "Reset to default: {name}",
 	"admin_settings_server_unsaved": "You have unsaved changes.",
