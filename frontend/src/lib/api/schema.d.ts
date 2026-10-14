@@ -683,7 +683,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * グループのリンクを集め直す。集めたいものから AI が作ったクエリで Web を検索し、AI が選んだものに入れ替える。
+         * グループのリンクを集め直す。検索キーワードから AI が作ったクエリで Web を検索し、AI が選んだものに入れ替える。
          *     残りを使うので、AI を使える人だけが呼べる。
          */
         post: operations["refresh_ai_links"];
@@ -704,7 +704,7 @@ export interface paths {
         get: operations["ai_links_settings"];
         /**
          * グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら外し、集めたリンクも消す。
-         *     集めたいものを変えても、集めたリンクは次に集め直すまで残る。
+         *     検索キーワードを変えても、集めたリンクは次に集め直すまで残る。
          */
         put: operations["put_ai_links_settings"];
         post?: never;
@@ -1571,7 +1571,7 @@ export interface components {
             refreshedAt?: number | null;
         };
         AiLinksSettings: {
-            /** @description 集めたいもの。利用者がふつうの言葉で書き、AI が検索のクエリにする。`null` なら、このグループでは集めない。 */
+            /** @description 検索キーワード。語の並びでもふつうの文でもよく、AI が検索のクエリに組み立て直す。`null` なら、このグループでは集めない。 */
             interests?: string | null;
         };
         AiStatusResponse: {
@@ -4976,7 +4976,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 集めたいものが空・長すぎる */
+            /** @description 検索キーワードが空・長すぎる */
             422: {
                 headers: {
                     [name: string]: unknown;

@@ -11,7 +11,7 @@ const MAX_QUERIES = 5;
 const MAX_QUERY_CHARS = 200;
 /** 返る候補の数。業者の上限。 */
 const MAX_RESULTS = 20;
-/** 抜粋の長さ。AI が集めたいものに合うかを選ぶのに足りる短さにし、ページの中身の写しにしない。 */
+/** 抜粋の長さ。AI が検索キーワードに合うかを選ぶのに足りる短さにし、ページの中身の写しにしない。 */
 const SNIPPET_TOKENS = 128;
 const TIMEOUT_MS = 20_000;
 

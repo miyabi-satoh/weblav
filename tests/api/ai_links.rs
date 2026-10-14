@@ -1,5 +1,5 @@
 //! AI が集めるリンク: グループの設定・集め直し・見せ方 (→ docs/ai.md「AI が集めるリンク」)。
-//! 窓口は `ai.rs` の偽のサーバーに差し替える。集めたいものや答えの読み方の場合分けは `src/api/ai_links.rs` の単体テスト。
+//! 窓口は `ai.rs` の偽のサーバーに差し替える。検索キーワードや答えの読み方の場合分けは `src/api/ai_links.rs` の単体テスト。
 
 use super::ai::{AiApp, ai_app, get_json, usage_rows};
 use super::*;
@@ -42,7 +42,7 @@ fn queue_refresh(fake: &mut super::ai::Fake, pick: &str) {
         .push_back((StatusCode::OK, answer(pick), Some(20)));
 }
 
-/// 公開のグループを作り、集めたいものを付ける。
+/// 公開のグループを作り、検索キーワードを付ける。
 async fn group_with_interests(app: &Router, pool: &SqlitePool, cookie: &str) -> i64 {
     let id = insert_group_under(pool, "集める", "public", None).await;
     let (status, body) = send_json(

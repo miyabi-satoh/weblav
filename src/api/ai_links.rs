@@ -1,5 +1,5 @@
 //! AI が集めるリンク (→ docs/ai.md「AI が集めるリンク」)。グループに付ける機能で、
-//! 集めたいものから AI が検索のクエリを作って Web を検索し、AI が選んだページをグループの中に並べる。
+//! 検索キーワードから AI が検索のクエリを作って Web を検索し、AI が選んだページをグループの中に並べる。
 
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
@@ -19,7 +19,7 @@ use crate::auth::{AuthUser, Viewer};
 use crate::error::{AppError, AppJson};
 use crate::state::AppState;
 
-/// 集めたいものの長さ (UTF-16 の単位)。クエリを作らせるのに足り、文章を丸ごと送るのには使わせない長さ。
+/// 検索キーワードの長さ (UTF-16 の単位)。クエリを作らせるのに足り、文章を丸ごと送るのには使わせない長さ。
 const MAX_INTEREST_UNITS: usize = 200;
 /// 作らせるクエリの数。窓口が1回の検索で受ける上限。
 const MAX_QUERIES: usize = 5;
@@ -116,7 +116,7 @@ struct AiLink {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct AiLinksSettings {
-    /// 集めたいもの。利用者がふつうの言葉で書き、AI が検索のクエリにする。`null` なら、このグループでは集めない。
+    /// 検索キーワード。語の並びでもふつうの文でもよく、AI が検索のクエリに組み立て直す。`null` なら、このグループでは集めない。
     interests: Option<String>,
 }
 
@@ -146,7 +146,7 @@ async fn group(pool: &SqlitePool, id: i64) -> Result<Group, AppError> {
     .ok_or(AppError::NotFound)
 }
 
-/// 集めたいものを、前後の空白を除いて確かめる。
+/// 検索キーワードを、前後の空白を除いて確かめる。
 fn parse_interests(text: &str) -> Result<String, AppError> {
     let text = text.trim();
     if text.is_empty() {
@@ -417,7 +417,7 @@ async fn ai_links_settings(
 }
 
 /// グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら外し、集めたリンクも消す。
-/// 集めたいものを変えても、集めたリンクは次に集め直すまで残る。
+/// 検索キーワードを変えても、集めたリンクは次に集め直すまで残る。
 #[utoipa::path(
     put,
     path = "/contents/{id}/ai-links/settings",
@@ -427,7 +427,7 @@ async fn ai_links_settings(
         (status = OK, body = AiLinksSettings),
         (status = 403, body = crate::error::ErrorResponse, description = "書き換えられるのは管理者と作成者だけ"),
         (status = 404, body = crate::error::ErrorResponse, description = "見えない・存在しない、またはグループでない"),
-        (status = 422, body = crate::error::ErrorResponse, description = "集めたいものが空・長すぎる"),
+        (status = 422, body = crate::error::ErrorResponse, description = "検索キーワードが空・長すぎる"),
     )
 )]
 async fn put_ai_links_settings(
@@ -458,7 +458,7 @@ async fn put_ai_links_settings(
     }))
 }
 
-/// グループのリンクを集め直す。集めたいものから AI が作ったクエリで Web を検索し、AI が選んだものに入れ替える。
+/// グループのリンクを集め直す。検索キーワードから AI が作ったクエリで Web を検索し、AI が選んだものに入れ替える。
 /// 残りを使うので、AI を使える人だけが呼べる。
 #[utoipa::path(
     post,
