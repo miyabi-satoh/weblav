@@ -369,10 +369,36 @@
 	body {
 		@apply bg-ground text-foreground;
 	}
-	/* 日本語を語の途中で折り返さない (→ docs/ui.md「UI 全般」)。
+	/* 題・ボタン・ラベルなどの短い文だけ、文節の切れ目で折る。説明文などのまとまった文は、
+	 * 右端まで詰める通常の折り返しのままにする (→ docs/ui.md「UI 全般」)。
 	 * auto-phrase は Chrome だけが効き、Safari は通常の折り返しのまま。 */
-	:lang(ja) {
+	:lang(ja)
+		:is(
+			h1,
+			h2,
+			h3,
+			h4,
+			h5,
+			h6,
+			button,
+			label,
+			legend,
+			th,
+			[role='menuitem'],
+			[role='option'],
+			[data-slot='button'],
+			[data-slot$='-title'],
+			[data-slot$='-label']
+		) {
 		word-break: auto-phrase;
+	}
+	/* まとまった文でも、行頭に「ー」や小書きの仮名 (「っ」「ゃ」など) が来ないようにする (→ docs/ui.md「UI 全般」)。 */
+	:lang(ja) {
+		line-break: strict;
+	}
+	/* 打っている欄は、打つたびに行の切れ目が動かないよう、label の中にあっても通常の折り返しにする。 */
+	:lang(ja) :is(textarea, input, [contenteditable]) {
+		word-break: normal;
 	}
 	html {
 		@apply font-sans;
