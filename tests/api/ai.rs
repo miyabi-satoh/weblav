@@ -24,6 +24,8 @@ pub(super) struct Fake {
     revoked: bool,
     /// `/v1/ai` の応答 (ステータス・本文・使った量)。
     pub(super) ai: (StatusCode, String, Option<i64>),
+    /// 呼ばれた順に返す `/v1/ai` の応答。空なら `ai` を返す。1回の操作で AI を何度も呼ぶ機能のため。
+    pub(super) ai_queue: std::collections::VecDeque<(StatusCode, String, Option<i64>)>,
     /// `/v1/search` の応答 (ステータス・本文・使った量)。
     pub(super) search: (StatusCode, String, Option<i64>),
     /// `/v1/links/token` に届いた検証用の値。
@@ -61,6 +63,7 @@ async fn fake_account_server() -> (String, SharedFake) {
         approved: false,
         revoked: false,
         ai: (StatusCode::OK, ANSWER_BODY.to_string(), Some(1234)),
+        ai_queue: std::collections::VecDeque::new(),
         search: (StatusCode::OK, r#"{"results":[]}"#.to_string(), Some(10)),
         verifiers: Vec::new(),
         prompts: Vec::new(),
@@ -121,7 +124,8 @@ async fn fake_account_server() -> (String, SharedFake) {
                         return unauthorized();
                     }
                     fake.prompts.push(body);
-                    let (status, body, used) = fake.ai.clone();
+                    let (status, body, used) =
+                        fake.ai_queue.pop_front().unwrap_or_else(|| fake.ai.clone());
                     let mut response = (status, body).into_response();
                     if let Some(used) = used {
                         response

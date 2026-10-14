@@ -7,11 +7,11 @@ import type { Rates } from './pricing';
 const SEARCH_URL = 'https://api.perplexity.ai/search';
 /** 1回に渡せる語の数。業者が1リクエストとして数える上限。 */
 const MAX_QUERIES = 5;
-/** 語の長さの上限。関心の言葉に足り、文章を丸ごと送るのには使わせない。 */
+/** クエリの長さの上限。AI が作る短いクエリに足り、文章を丸ごと送るのには使わせない。 */
 const MAX_QUERY_CHARS = 200;
 /** 返る候補の数。業者の上限。 */
 const MAX_RESULTS = 20;
-/** 抜粋の長さ。AI が関心の言葉に合うかを選ぶのに足りる短さにし、ページの中身の写しにしない。 */
+/** 抜粋の長さ。AI が集めたいものに合うかを選ぶのに足りる短さにし、ページの中身の写しにしない。 */
 const SNIPPET_TOKENS = 128;
 const TIMEOUT_MS = 20_000;
 

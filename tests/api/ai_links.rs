@@ -1,5 +1,5 @@
 //! AI が集めるリンク: グループの設定・集め直し・見せ方 (→ docs/ai.md「AI が集めるリンク」)。
-//! 窓口は `ai.rs` の偽のサーバーに差し替える。関心の言葉や答えの読み方の場合分けは `src/api/ai_links.rs` の単体テスト。
+//! 窓口は `ai.rs` の偽のサーバーに差し替える。集めたいものや答えの読み方の場合分けは `src/api/ai_links.rs` の単体テスト。
 
 use super::ai::{AiApp, ai_app, get_json, usage_rows};
 use super::*;
@@ -31,7 +31,18 @@ fn links_uri(id: i64) -> String {
     format!("/api/v1/contents/{id}/ai-links")
 }
 
-/// 公開のグループを作り、関心の言葉を付ける。
+/// AI が作るクエリの答え。集め直すたびに、選ぶ答えより先に1回呼ばれる。
+const QUERIES_ANSWER: &str = r#"["Rust 非同期", "家庭菜園"]"#;
+
+/// 集め直し1回分の AI の答えを、呼ばれる順 (クエリ → 選ぶ) に積む。
+fn queue_refresh(fake: &mut super::ai::Fake, pick: &str) {
+    fake.ai_queue
+        .push_back((StatusCode::OK, answer(QUERIES_ANSWER), Some(5)));
+    fake.ai_queue
+        .push_back((StatusCode::OK, answer(pick), Some(20)));
+}
+
+/// 公開のグループを作り、集めたいものを付ける。
 async fn group_with_interests(app: &Router, pool: &SqlitePool, cookie: &str) -> i64 {
     let id = insert_group_under(pool, "集める", "public", None).await;
     let (status, body) = send_json(
@@ -39,7 +50,7 @@ async fn group_with_interests(app: &Router, pool: &SqlitePool, cookie: &str) -> 
         "PUT",
         &settings_uri(id),
         cookie,
-        r#"{"interests":"Rust 非同期\n家庭菜園"}"#,
+        r#"{"interests":"Rust の非同期と家庭菜園"}"#,
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -57,7 +68,7 @@ async fn refresh(app: &Router, id: i64, cookie: &str) -> (StatusCode, String) {
     .await
 }
 
-/// 設定 → 集め直す → 匿名で見る、の一巡。検索は2回、AI は1回呼ばれ、選んだ順に並ぶ。
+/// 設定 → 集め直す → 匿名で見る、の一巡。AI がクエリを作り、検索は2回、AI がもう1回選んで、選んだ順に並ぶ。
 #[sqlx::test]
 async fn refreshing_collects_the_links_the_ai_picked(pool: SqlitePool) {
     let AiApp {
@@ -69,7 +80,7 @@ async fn refreshing_collects_the_links_the_ai_picked(pool: SqlitePool) {
         let mut fake = fake.lock().expect("鍵が毒された");
         fake.search = (StatusCode::OK, SEARCH_BODY.to_string(), Some(10));
         // 候補は、登録済みの URL と2回目の検索の重なりを外した A・C の順。
-        fake.ai = (StatusCode::OK, answer("[2, 1]"), Some(20));
+        queue_refresh(&mut fake, "[2, 1]");
     }
 
     let before = get_json(app.clone(), &links_uri(id), &cookie).await;
@@ -100,8 +111,12 @@ async fn refreshing_collects_the_links_the_ai_picked(pool: SqlitePool) {
             })
         );
         assert_eq!(fake.searches[1]["recency"], "year");
-        assert_eq!(fake.prompts.len(), 1, "{:?}", fake.prompts);
-        let prompt = fake.prompts[0]["user"].as_str().expect("文が無い");
+        assert_eq!(fake.prompts.len(), 2, "{:?}", fake.prompts);
+        let asked = fake.prompts[0]["user"].as_str().expect("文が無い");
+        assert!(asked.contains("Rust の非同期と家庭菜園"), "{asked}");
+        assert!(asked.contains("Language of the queries: ja"), "{asked}");
+        let prompt = fake.prompts[1]["user"].as_str().expect("文が無い");
+        assert!(prompt.contains("Rust の非同期と家庭菜園"), "{prompt}");
         assert!(prompt.contains("1. A\n"), "{prompt}");
         assert!(prompt.contains("2. C\n"), "{prompt}");
         assert!(!prompt.contains("Registered"), "{prompt}");
@@ -114,6 +129,7 @@ async fn refreshing_collects_the_links_the_ai_picked(pool: SqlitePool) {
     assert_eq!(
         kinds,
         [
+            ("links".to_string(), 5),
             ("links".to_string(), 10),
             ("links".to_string(), 10),
             ("links".to_string(), 20)
@@ -148,7 +164,7 @@ async fn a_collected_link_registered_in_the_group_is_not_shown_twice(pool: Sqlit
     {
         let mut fake = fake.lock().expect("鍵が毒された");
         fake.search = (StatusCode::OK, SEARCH_BODY.to_string(), Some(10));
-        fake.ai = (StatusCode::OK, answer("[2]"), Some(20));
+        queue_refresh(&mut fake, "[2]");
     }
     let (status, body) = refresh(&app, id, &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -169,7 +185,7 @@ async fn turning_the_setting_off_removes_the_collected_links(pool: SqlitePool) {
     {
         let mut fake = fake.lock().expect("鍵が毒された");
         fake.search = (StatusCode::OK, SEARCH_BODY.to_string(), Some(10));
-        fake.ai = (StatusCode::OK, answer("[1]"), Some(20));
+        queue_refresh(&mut fake, "[1]");
     }
     let (status, body) = refresh(&app, id, &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -267,12 +283,12 @@ async fn an_answer_without_numbers_keeps_the_previous_links(pool: SqlitePool) {
     {
         let mut fake = fake.lock().expect("鍵が毒された");
         fake.search = (StatusCode::OK, SEARCH_BODY.to_string(), Some(10));
-        fake.ai = (StatusCode::OK, answer("[1]"), Some(20));
+        queue_refresh(&mut fake, "[1]");
     }
     let (status, body) = refresh(&app, id, &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
 
-    fake.lock().expect("鍵が毒された").ai = (StatusCode::OK, answer("選べませんでした"), Some(20));
+    queue_refresh(&mut fake.lock().expect("鍵が毒された"), "選べませんでした");
     let (status, body) = refresh(&app, id, &cookie).await;
     assert_error(status, &body, StatusCode::BAD_GATEWAY, "ai_upstream");
     let seen = get_json(app.clone(), &links_uri(id), &cookie).await;
@@ -289,7 +305,7 @@ async fn link_previews_are_refreshed_for_a_viewable_group_only(pool: SqlitePool)
     {
         let mut fake = fake.lock().expect("鍵が毒された");
         fake.search = (StatusCode::OK, SEARCH_BODY.to_string(), Some(10));
-        fake.ai = (StatusCode::OK, answer("[1]"), Some(20));
+        queue_refresh(&mut fake, "[1]");
     }
     let (status, body) = refresh(&app, id, &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");

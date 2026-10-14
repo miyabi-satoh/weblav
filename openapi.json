@@ -2459,7 +2459,7 @@
     },
     "/api/v1/contents/{id}/ai-links/refresh": {
       "post": {
-        "summary": "グループのリンクを集め直す。関心の言葉で Web を検索し、AI が選んだものに入れ替える。\n残りを使うので、AI を使える人だけが呼べる。",
+        "summary": "グループのリンクを集め直す。集めたいものから AI が作ったクエリで Web を検索し、AI が選んだものに入れ替える。\n残りを使うので、AI を使える人だけが呼べる。",
         "operationId": "refresh_ai_links",
         "parameters": [
           {
@@ -2595,7 +2595,7 @@
         }
       },
       "put": {
-        "summary": "グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら外し、集めたリンクも消す。\n関心の言葉を変えても、集めたリンクは次に集め直すまで残る。",
+        "summary": "グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら外し、集めたリンクも消す。\n集めたいものを変えても、集めたリンクは次に集め直すまで残る。",
         "operationId": "put_ai_links_settings",
         "parameters": [
           {
@@ -2650,7 +2650,7 @@
             }
           },
           "422": {
-            "description": "関心の言葉が空・行が多すぎる・1行が長すぎる",
+            "description": "集めたいものが空・長すぎる",
             "content": {
               "application/json": {
                 "schema": {
@@ -5551,7 +5551,7 @@
               "string",
               "null"
             ],
-            "description": "関心の言葉。1行が1つの検索の語。`null` なら、このグループでは集めない。"
+            "description": "集めたいもの。利用者がふつうの言葉で書き、AI が検索のクエリにする。`null` なら、このグループでは集めない。"
           }
         }
       },
