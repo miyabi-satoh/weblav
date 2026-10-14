@@ -98,7 +98,6 @@
 	"admin_roots_delete_confirm_description": "「{name}」を公開できるフォルダーから外します。",
 	"admin_roots_delete_confirm_contents_note": "この中のコンテンツ {count} 件が見られなくなります。フォルダーを登録し直すと、また見られます。",
 	"admin_roots_delete_confirm_local_note": "登録し直せるのは、WebLAV が動いているパソコンで開いた管理画面だけです。",
-	"admin_roots_picking": "開いた窓で、公開してよいフォルダーを選んでください。",
 	"admin_roots_picker_already_open": "フォルダーを選ぶ窓が、すでに開いています。ほかの窓の後ろに隠れていないか確かめてください。",
 	"admin_roots_name_dialog_path_label": "場所",
 	"admin_roots_name_label": "名前",

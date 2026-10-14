@@ -136,12 +136,7 @@
 			<LoadingButton loading={adding} onclick={handleAdd}>{m.admin_roots_add()}</LoadingButton>
 		{/if}
 	</div>
-	{#if canAdd}
-		<!-- 窓はブラウザーの外に出るので、どこで選ぶのかを添える。 -->
-		<p class={['text-sm text-muted-foreground', adding && 'mt-2']} aria-live="polite">
-			{adding ? m.admin_roots_picking() : ''}
-		</p>
-	{:else}
+	{#if !canAdd}
 		<p class="mt-2 text-sm text-muted-foreground">{m.admin_roots_add_local_only()}</p>
 	{/if}
 </div>

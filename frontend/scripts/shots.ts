@@ -20,7 +20,6 @@ import {
 	DIR_PICKER_NAME,
 	RENAME_MENU_ITEM_NAME,
 	ROOT_ADD_BUTTON_NAME,
-	ROOT_PICKING_TEXT,
 	SAVE_BUTTON_NAME,
 	VISIBILITY_LABEL,
 	USER_ADD_BUTTON_NAME,
@@ -337,7 +336,9 @@ export const shots: Record<string, ShotEntry> = {
 			await page.route('**/api/v1/admin/roots/pick', () => {});
 			await openAsAdmin(page, ctx.baseURL, '/admin/roots');
 			await page.getByRole('button', { name: ROOT_ADD_BUTTON_NAME }).click();
-			await page.getByText(ROOT_PICKING_TEXT).waitFor({ timeout: 5000 });
+			await page
+				.getByRole('button', { name: ROOT_ADD_BUTTON_NAME, disabled: true })
+				.waitFor({ timeout: 5000 });
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
 		}
 	},

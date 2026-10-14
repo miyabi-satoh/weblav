@@ -98,7 +98,6 @@
 	"admin_roots_delete_confirm_description": "\"{name}\" will no longer be available for content.",
 	"admin_roots_delete_confirm_contents_note": "{count} content items inside it will stop being viewable. Registering the folder again brings them back.",
 	"admin_roots_delete_confirm_local_note": "You can register it again only from the admin pages opened on the computer running WebLAV.",
-	"admin_roots_picking": "Choose a folder you are willing to share in the window that opened.",
 	"admin_roots_picker_already_open": "A window for choosing a folder is already open. Check whether it is hidden behind other windows.",
 	"admin_roots_name_dialog_path_label": "Location",
 	"admin_roots_name_label": "Name",

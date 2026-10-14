@@ -18,7 +18,6 @@ import {
 	DELETE_MENU_ITEM_NAME,
 	RENAME_MENU_ITEM_NAME,
 	ROOT_ADD_BUTTON_NAME,
-	ROOT_PICKING_TEXT,
 	SAVE_BUTTON_NAME,
 	uniqueId
 } from './helpers';
@@ -97,7 +96,7 @@ test('フォルダーを選ぶとフォルダー名で追加されて名前と�
 	}
 });
 
-test('窓を閉じるまで案内を出し、キャンセルなら何も追加しない', async ({ page }) => {
+test('窓を閉じるまでボタンを押せなくし、キャンセルなら何も追加しない', async ({ page }) => {
 	let close: () => void = () => {};
 	const closed = new Promise<void>((resolve) => (close = resolve));
 	await stubFolderPicker(page, async (route) => {
@@ -111,10 +110,9 @@ test('窓を閉じるまで案内を出し、キャンセルなら何も追加�
 	const before = await rows.count();
 
 	await page.getByRole('button', { name: ROOT_ADD_BUTTON_NAME }).click();
-	await expect(page.getByText(ROOT_PICKING_TEXT)).toBeVisible();
+	await expect(page.getByRole('button', { name: ROOT_ADD_BUTTON_NAME })).toBeDisabled();
 
 	close();
-	await expect(page.getByText(ROOT_PICKING_TEXT)).toHaveCount(0);
 	await expect(page.getByRole('button', { name: ROOT_ADD_BUTTON_NAME })).toBeEnabled();
 	await expect(rows).toHaveCount(before);
 	await expect(page.getByRole('alertdialog')).toHaveCount(0);

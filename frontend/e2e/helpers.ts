@@ -153,9 +153,6 @@ export const USER_ADD_BUTTON_NAME = /^ユーザーを追加\.\.\.$|^Add user\.\.
 /** 公開できるフォルダーの行の⋮メニューにある「名前を変更」。 */
 export const RENAME_MENU_ITEM_NAME = /^名前を変更\.\.\.$|^Rename\.\.\.$/;
 export const ROOT_ADD_BUTTON_NAME = /^フォルダーを追加\.\.\.$|^Add a folder\.\.\.$/;
-/** 公開できるフォルダーの追加で、OS のフォルダー選択の窓が閉じるのを待っている間の案内。 */
-export const ROOT_PICKING_TEXT =
-	/^開いた窓で、公開してよいフォルダーを選んでください。$|^Choose a folder you are willing to share in the window that opened\.$/;
 
 /** コンテンツの作成ダイアログで選ぶ種別のボタン。名前には説明が続くので前方一致で探す。 */
 export const CONTENT_TYPE_NAME = {
