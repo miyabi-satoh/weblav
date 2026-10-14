@@ -289,13 +289,9 @@
 					type="search"
 					autocomplete="off"
 					enterkeyhint="search"
-					aria-describedby="search-query-help"
 					bind:ref={input}
 					bind:value={query}
 				/>
-				<Field.FieldDescription id="search-query-help">
-					{m.search_query_description()}
-				</Field.FieldDescription>
 			</Field.Field>
 		</form>
 

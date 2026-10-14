@@ -131,10 +131,7 @@
 <div class={adminPageClass}>
 	<!-- 追加ボタンは、ほかの管理画面 (コンテンツ・ユーザー) と同じく見出しの段の右に置く。 -->
 	<div class="flex flex-wrap items-start justify-between gap-4">
-		<div class="flex min-w-0 flex-col gap-2">
-			<h1 class={pageHeadingTextClass}>{m.admin_roots_title()}</h1>
-			<p class="text-sm text-muted-foreground">{m.admin_roots_description()}</p>
-		</div>
+		<h1 class={pageHeadingTextClass}>{m.admin_roots_title()}</h1>
 		{#if canAdd}
 			<LoadingButton loading={adding} onclick={handleAdd}>{m.admin_roots_add()}</LoadingButton>
 		{/if}

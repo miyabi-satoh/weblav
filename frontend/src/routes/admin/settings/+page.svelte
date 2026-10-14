@@ -224,17 +224,12 @@
 				<Field.Field>
 					<Field.FieldLabel for="site-name">{m.admin_settings_site_name_label()}</Field.FieldLabel>
 					<Input id="site-name" bind:value={siteName} maxlength={MAX_LENGTH} />
-					<Field.FieldDescription>{m.admin_settings_site_name_description()}</Field.FieldDescription
-					>
 				</Field.Field>
 				<Field.Field>
 					<Field.FieldLabel for="home-heading"
 						>{m.admin_settings_home_heading_label()}</Field.FieldLabel
 					>
 					<Input id="home-heading" bind:value={homeHeading} maxlength={MAX_LENGTH} />
-					<Field.FieldDescription
-						>{m.admin_settings_home_heading_description()}</Field.FieldDescription
-					>
 				</Field.Field>
 			</Field.FieldGroup>
 			<div>
@@ -291,7 +286,6 @@
 							bind:value={uploadMaxSizeMb}
 							required
 						/>
-						<Field.FieldDescription>{m.admin_settings_upload_description()}</Field.FieldDescription>
 						{@render defaultValue(
 							m.admin_settings_upload_label(),
 							uploadMaxSizeMb,
@@ -319,8 +313,6 @@
 							bind:value={sessionExpiryDays}
 							required
 						/>
-						<Field.FieldDescription>{m.admin_settings_session_description()}</Field.FieldDescription
-						>
 						{@render defaultValue(
 							m.admin_settings_session_label(),
 							sessionExpiryDays,
@@ -375,9 +367,6 @@
 									>{m.admin_settings_log_download()}</Button
 								>
 							</div>
-							<Field.FieldDescription
-								>{m.admin_settings_log_download_description()}</Field.FieldDescription
-							>
 						{:else}
 							<p class="text-sm text-muted-foreground">{m.admin_settings_log_stdout()}</p>
 						{/if}
@@ -407,7 +396,6 @@
 						{m.backup_restore_confirm_relogin()}
 					{/snippet}
 				</BackupRestore>
-				<p class="text-sm text-muted-foreground">{m.backup_restore_description()}</p>
 			</div>
 		</section>
 

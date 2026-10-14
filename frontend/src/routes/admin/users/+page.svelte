@@ -355,7 +355,10 @@
 			</Table.Body>
 		</Table.Root>
 	</div>
-	<p class="mt-4 text-sm text-muted-foreground">{m.admin_users_ai_allowed_description()}</p>
+	<!-- 未登録のあいだだけ、スイッチが効かない理由を出す (→ docs/ui.md「UI 全般」の説明文)。 -->
+	{#if data.aiStatus !== null && data.aiStatus.state !== 'linked'}
+		<p class="mt-4 text-sm text-muted-foreground">{m.admin_users_ai_not_linked_note()}</p>
+	{/if}
 </div>
 
 <Dialog.Root bind:open={createOpen}>
@@ -490,9 +493,6 @@
 	>
 		<Dialog.Header>
 			<Dialog.Title>{m.admin_users_rename_dialog_title()}</Dialog.Title>
-			<Dialog.Description>
-				{m.admin_users_rename_dialog_description({ username: renamingUser?.username ?? '' })}
-			</Dialog.Description>
 		</Dialog.Header>
 		<form onsubmit={handleRenameSubmit} class="flex flex-col gap-6">
 			<Field.FieldGroup>

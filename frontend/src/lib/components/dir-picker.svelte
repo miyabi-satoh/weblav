@@ -147,7 +147,6 @@
 	>
 		<Dialog.Header class="border-b p-4 text-left">
 			<Dialog.Title>{m.dir_picker_title()}</Dialog.Title>
-			<Dialog.Description>{m.dir_picker_description()}</Dialog.Description>
 		</Dialog.Header>
 
 		{#if listing !== null && trail.length > 0}

@@ -1145,11 +1145,7 @@
 										type="search"
 										bind:value={wordQuery}
 										oninput={handleWordQueryInput}
-										aria-describedby="axis-words-query-help"
 									/>
-									<Field.FieldDescription id="axis-words-query-help">
-										{m.archive_axes_words_query_help()}
-									</Field.FieldDescription>
 								</Field.Field>
 								{#if filenameWords.status === 'failed' || axisValuesLoadError !== ''}
 									<p class="text-sm text-muted-foreground">{m.archive_axes_words_fetch_failed()}</p>
