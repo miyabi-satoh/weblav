@@ -182,7 +182,7 @@
 		role="region"
 		aria-label={m.audio_player_region_label()}
 		bind:offsetHeight={height}
-		class="fixed inset-x-0 bottom-0 z-30 flex flex-wrap items-center gap-x-4 border-t bg-background px-4 pt-2 pb-3 shadow-lg md:grid md:audio-player-grid md:items-center md:gap-x-6 md:gap-y-2 md:px-6 md:py-3"
+		class="fixed ai-panel-offset left-0 z-30 flex flex-wrap items-center gap-x-4 border-t bg-background px-4 pt-2 pb-3 shadow-lg md:grid md:audio-player-grid md:items-center md:gap-x-6 md:gap-y-2 md:px-6 md:py-3"
 	>
 		<!-- スマートフォン幅では、曲名+閉じる / シークバー+時間 / 操作の3段に分ける。
 		     タブレット以上では、曲名(左)・操作(中央)・閉じる(右)の1段目と、

@@ -567,6 +567,7 @@
 	"ai_chat_prompt_label": "質問",
 	"ai_chat_send_button": "送信する",
 	"ai_chat_answer_label": "答え",
+	"ai_chat_resize_label": "パネルの高さ",
 	"error_account_server_unavailable": "WebLAV のアカウントにつながりません。しばらくしてから再度お試しください。",
 	"admin_settings_ai_heading": "AI",
 	"admin_settings_ai_fetch_failed": "AI の設定を取得できませんでした。しばらくしてから再度お試しください。",

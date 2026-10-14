@@ -4,9 +4,11 @@
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
+	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import XIcon from '@lucide/svelte/icons/x';
 	import ZoomInIcon from '@lucide/svelte/icons/zoom-in';
 	import ZoomOutIcon from '@lucide/svelte/icons/zoom-out';
+	import { aiChat } from '$lib/ai-chat.svelte';
 	import { fileViewer } from '$lib/file-viewer.svelte';
 	import { isMarkdownFileName } from '$lib/markdown-preview';
 	import { nowPlaying } from '$lib/now-playing.svelte';
@@ -60,8 +62,17 @@
 
 <DialogPrimitive.Root bind:open={fileViewer.open}>
 	<DialogPrimitive.Portal>
+		<!-- 「AI に聞く」のパネルを開いている間は、その手前で止めて並べる (→ $lib/components/ai-chat.svelte)。
+		     パネルへフォーカスを移し、パネルを押せるよう、その間はフォーカスを閉じ込めず、パネルの操作では閉じない。 -->
 		<DialogPrimitive.Content
-			class="fixed inset-0 z-50 flex flex-col bg-black text-white outline-none"
+			class="fixed top-0 ai-panel-offset left-0 z-50 flex flex-col bg-black text-white outline-none"
+			trapFocus={!aiChat.open}
+			onInteractOutside={(event) => {
+				if (aiChat.contains(event.target)) event.preventDefault();
+			}}
+			onFocusOutside={(event) => {
+				if (aiChat.contains(event.target)) event.preventDefault();
+			}}
 			onkeydown={handleKeydown}
 		>
 			{#if current}
@@ -126,6 +137,18 @@
 								{/each}
 							</div>
 						</div>
+					{/if}
+					{#if aiChat.available}
+						<!-- 右下の「AI に聞く」はビューアーの後ろに隠れるので、ここからも開く。 -->
+						<button
+							type="button"
+							class={[viewerButtonClass, aiChat.open && 'bg-white/20 text-white']}
+							aria-pressed={aiChat.open}
+							onclick={() => (aiChat.open = !aiChat.open)}
+						>
+							<SparklesIcon class="size-5" />
+							<span class="sr-only">{m.ai_chat_open_button()}</span>
+						</button>
 					{/if}
 					<!-- API への直リンクか、URL のファイルの元の URL (→ $lib/api/urls.ts)。 -->
 					<a

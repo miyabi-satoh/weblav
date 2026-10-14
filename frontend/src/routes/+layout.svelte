@@ -110,7 +110,8 @@
 
 <NavigationProgress />
 
-<div class="flex min-h-svh flex-col">
+<!-- 「AI に聞く」のパネルを開いている間は、その分だけ寄せる (→ $lib/components/ai-chat.svelte)。 -->
+<div class="flex min-h-svh flex-col ai-panel-clearance">
 	<header
 		class="relative z-10 flex h-13 items-center justify-between gap-4 border-b bg-background px-4 md:h-14 md:px-6"
 	>

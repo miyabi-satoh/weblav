@@ -567,6 +567,7 @@
 	"ai_chat_prompt_label": "Question",
 	"ai_chat_send_button": "Send",
 	"ai_chat_answer_label": "Answer",
+	"ai_chat_resize_label": "Panel height",
 	"error_account_server_unavailable": "Could not connect to the WebLAV account. Please try again later.",
 	"admin_settings_ai_heading": "AI",
 	"admin_settings_ai_fetch_failed": "Could not load the AI settings. Please try again later.",
