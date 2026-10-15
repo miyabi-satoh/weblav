@@ -429,7 +429,7 @@ const contents: Story = {
 			async run(page) {
 				await page.getByRole('option', { name: /^ログインした人|^Logged-in users/ }).click();
 				await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
-				await page.getByText(/を保存しました\s*$/).waitFor();
+				await page.getByText(/を保存しました。\s*$/).waitFor();
 			}
 		},
 		{

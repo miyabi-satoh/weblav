@@ -86,7 +86,7 @@ export const VISIBILITY_PRIVATE_OPTION_NAME = /^作成者のみ$|^Creator only$/
  * 保存できたときに出るトーストの文言 (`admin_settings_saved_toast` など、何を保存したかが前に付く)。
  * トーストの要素のテキストは前後に空白を含むので、末尾の空白を許す。
  */
-const SAVED_TEXT = /を保存しました\s*$| saved\.\s*$/;
+const SAVED_TEXT = /を保存しました。\s*$| saved\.\s*$/;
 
 /** 行の⋮メニューの削除。表示言語 (ja/en) のどちらでも見つかるようにする。 */
 export const DELETE_MENU_ITEM_NAME = /削除|Delete/;
