@@ -3,7 +3,7 @@
 WebLAV は AI のキーを持たず、運営者のサーバー (窓口。→ account-server.md) を通して AI を呼ぶ。使った分は、管理者が窓口のアカウントに前払いした残りから引かれる。
 この文書は WebLAV の側 (`src/ai.rs`・`src/api/ai.rs`・`src/api/ai_links.rs`) を書く。窓口の側の約束は account-server.md にある。
 
-画面では、窓口を「WebLAV のアカウント」、結ぶ・外すを「PC を登録・登録を解除」と呼ぶ (→ account-server.md「作り」)。
+画面では、窓口を「WebLAV のアカウント」、結ぶ・外すを「コンピューターを登録・登録を解除」と呼ぶ (→ account-server.md「作り」)。
 
 ## PC の登録
 
