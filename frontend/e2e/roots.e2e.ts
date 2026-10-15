@@ -110,7 +110,12 @@ test('窓を閉じるまでボタンを押せなくし、キャンセルなら�
 	const before = await rows.count();
 
 	await page.getByRole('button', { name: ROOT_ADD_BUTTON_NAME }).click();
-	await expect(page.getByRole('button', { name: ROOT_ADD_BUTTON_NAME })).toBeDisabled();
+	// 待つ間は、ボタンの名前の頭にスピナーの「読み込み中」が付く。
+	await expect(
+		page.getByRole('button', {
+			name: /^読み込み中 フォルダーを追加\.\.\.$|^Loading Add a folder\.\.\.$/
+		})
+	).toBeDisabled();
 
 	close();
 	await expect(page.getByRole('button', { name: ROOT_ADD_BUTTON_NAME })).toBeEnabled();

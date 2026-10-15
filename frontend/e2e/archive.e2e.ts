@@ -162,7 +162,7 @@ test('アーカイブの閲覧: 軸で絞り込み、音声を押すとページ
 			await page.getByRole('button', { name: '年度', exact: true }).click();
 			await page.getByRole('option', { name: /^2023/ }).click();
 			await page.waitForURL((url) => url.searchParams.get('年度') === '2023');
-			await expect(page.getByText(/^1\s件$|^1 items$/)).toBeVisible();
+			await expect(page.getByText(/^1\s件のアイテム$|^1 item$/)).toBeVisible();
 			await expect(page.getByRole('button', { name: /2024 リスニング/ })).toHaveCount(0);
 
 			await page.getByRole('button', { name: /2023 リスニング/ }).click();
@@ -619,7 +619,7 @@ test('絞り込みの解除: 解除のリンクで絞り込みが外れ、全件
 			await trigger.click();
 			await page.getByRole('option', { name: /^2023/ }).click();
 			await page.waitForURL((url) => url.searchParams.get('年度') === '2023');
-			await expect(page.getByText(/^1\s件$|^1 items$/)).toBeVisible();
+			await expect(page.getByText(/^1\s件のアイテム$|^1 item$/)).toBeVisible();
 
 			await resetLink.click();
 			await page.waitForURL((url) => !url.searchParams.has('年度'));
