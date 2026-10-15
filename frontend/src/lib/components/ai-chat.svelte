@@ -29,10 +29,13 @@
 	/** 矢印キーで高さを変える1回の幅。 */
 	const SHEET_STEP = 0.05;
 
-	// AI を使える人にだけボタンを出す。ログインし直したら確かめ直す。
+	// AI を使える人にだけボタンを出す。ログインし直したら確かめ直し、前の人の質問と答えは次の人に見せない。
 	let userId = $derived(page.data.user?.id ?? null);
 	$effect(() => {
 		aiChat.available = false;
+		prompt = '';
+		answer = null;
+		failure = null;
 		if (userId === null) return;
 		let cancelled = false;
 		fetchOrNull(client.GET('/api/v1/ai/availability')).then((ai) => {
@@ -91,6 +94,8 @@
 		event?.preventDefault();
 		if (sending || prompt.trim() === '') return;
 		sending = true;
+		// 前の答えを残すと、新しい質問の答えに見えるため。
+		answer = null;
 		failure = null;
 		try {
 			const { data, error } = await client.POST('/api/v1/ai/chat', { body: { prompt } });

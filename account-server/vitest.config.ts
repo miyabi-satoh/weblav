@@ -31,8 +31,6 @@ export default defineConfig({
 					STRIPE_SECRET_KEY: 'sk_test_dummy',
 					STRIPE_WEBHOOK_SECRET: 'whsec_test',
 					STRIPE_AI_CREDITS_PRICE_ID: 'price_credits',
-					// 無料の分の上限。テストでは多くのアカウントを作るので、上限を試すテストのほかで当たらない額にする。
-					FREE_MONTHLY_CAP_YEN: '1000000',
 					GOOGLE_CLIENT_ID: 'google-client',
 					GOOGLE_CLIENT_SECRET: 'google-secret',
 					APPLE_TEAM_ID: 'TEAM123456',
