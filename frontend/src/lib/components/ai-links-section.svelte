@@ -3,9 +3,9 @@
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { client } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import type { components } from '$lib/api/schema';
 	import { refreshAiLinks } from '$lib/ai-links';
+	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { formatTimeAgo } from '$lib/format';
 	import { linkDetailOf, linkTitleOf, type LinkDetail } from '$lib/link-detail.svelte';
 	import { RefreshedLinkPreviews } from '$lib/link-previews.svelte';
@@ -13,6 +13,7 @@
 	import { browseGutterClass, browseItemClass, browseListClass } from '$lib/list-row';
 	import { pageEmptyTextClass } from '$lib/page-layout';
 	import * as m from '$lib/paraglide/messages.js';
+	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import ListRowLink from '$lib/components/list-row-link.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 
@@ -44,23 +45,23 @@
 	// 登録できるのはログインしている人だけ (コンテンツの作成と同じ)。
 	let canPin = $derived(page.data.user != null);
 	let pinning = false;
+	const errorDialog = new ErrorDialogState();
 
 	async function pin(link: AiLink) {
 		if (pinning) return;
 		pinning = true;
 		try {
-			const { response, error } = await client.POST('/api/v1/contents', {
-				body: { type: 'link', parentId: groupId, url: link.url, title: titleOf(link) }
-			});
-			if (!response.ok) {
-				toast.error(errorMessage(error));
-				return;
-			}
-			toast.success(m.group_ai_links_pinned_toast());
-			// グループの中身に足され、AI の分からは消える。
-			await invalidateAll();
-		} catch {
-			toast.error(GENERIC_ERROR_MESSAGE());
+			await errorDialog.attempt(
+				() =>
+					client.POST('/api/v1/contents', {
+						body: { type: 'link', parentId: groupId, url: link.url, title: titleOf(link) }
+					}),
+				async () => {
+					toast.success(m.group_ai_links_pinned_toast());
+					// グループの中身に足され、AI の分からは消える。
+					await invalidateAll();
+				}
+			);
 		} finally {
 			pinning = false;
 		}
@@ -81,16 +82,14 @@
 		if (refreshing) return;
 		refreshing = true;
 		try {
-			const { response, error } = await refreshAiLinks(groupId);
-			if (!response.ok) {
-				toast.error(errorMessage(error));
-				return;
-			}
-			toast.success(m.group_ai_links_refreshed_toast());
-			// 一覧の上の絞り込みと切り替えを出すかも変わるので、画面ごと取り直す。
-			await invalidateAll();
-		} catch {
-			toast.error(GENERIC_ERROR_MESSAGE());
+			await errorDialog.attempt(
+				() => refreshAiLinks(groupId),
+				async () => {
+					toast.success(m.group_ai_links_refreshed_toast());
+					// 一覧の上の絞り込みと切り替えを出すかも変わるので、画面ごと取り直す。
+					await invalidateAll();
+				}
+			);
 		} finally {
 			refreshing = false;
 		}
@@ -139,3 +138,5 @@
 		</ul>
 	{/if}
 </section>
+
+<ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

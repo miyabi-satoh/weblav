@@ -344,24 +344,23 @@
 	// AI のリンクを集め直す (→ docs/ai.md「AI が集めるリンク」)。数秒かかるので、進み具合と結果はトーストで知らせる。
 	let refreshingLinks = $state<number | null>(null);
 
-	function refreshLinks(content: Content) {
+	async function refreshLinks(content: Content) {
 		if (refreshingLinks !== null) return;
 		refreshingLinks = content.id;
-		// 失敗の文言で断る。届かなかったとき (fetch が投げる) は、汎用の文言にする。
-		const refreshed = refreshAiLinks(content.id)
-			.then(
-				({ response, error }) => (response.ok ? null : errorMessage(error)),
-				() => GENERIC_ERROR_MESSAGE()
-			)
-			.then((failure) => {
-				if (failure !== null) return Promise.reject(failure);
-			})
-			.finally(() => (refreshingLinks = null));
-		toast.promise(refreshed, {
-			loading: m.contents_ai_links_refreshing_toast({ title: content.title }),
-			success: m.contents_ai_links_refreshed_toast({ title: content.title }),
-			error: (failure) => String(failure)
-		});
+		// 結果がこの画面に出ないので、集めている間も知らせる。失敗は消えないダイアログで出す (→ docs/ui.md「UI 全般」)。
+		const progress = toast.loading(m.contents_ai_links_refreshing_toast({ title: content.title }));
+		try {
+			const result = await errorDialog.attempt(() => refreshAiLinks(content.id));
+			if (result) {
+				toast.success(m.contents_ai_links_refreshed_toast({ title: content.title }), {
+					id: progress
+				});
+			} else {
+				toast.dismiss(progress);
+			}
+		} finally {
+			refreshingLinks = null;
+		}
 	}
 </script>
 
