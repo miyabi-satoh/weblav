@@ -1,3 +1,5 @@
+import { untrack } from 'svelte';
+
 /**
  * 「AI に聞く」のパネルの状態 (→ docs/ai.md「簡易チャット」)。
  * パネルは `ai-chat.svelte` の1つだけで、ファイルと画像のビューアーの上部のバーからも開く。
@@ -31,7 +33,8 @@ export const aiChat = {
 	},
 	/** 使えるかを確かめ直す。コンピューターの登録が変わったときに呼ぶ。 */
 	recheck() {
-		checks += 1;
+		// $effect の中から呼ばれるので、読んだ値を依存にしない。依存にすると、書いた値で自分が回り直して止まらない。
+		checks = untrack(() => checks) + 1;
 	},
 	/** `target` がパネルの中か。 */
 	contains(target: EventTarget | null): boolean {
