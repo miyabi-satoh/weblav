@@ -523,7 +523,7 @@
 	"archive_axes_ai_step_paste": "2. AI の答えを貼り付ける",
 	"archive_axes_ai_check_button": "確認する",
 	"archive_axes_ai_error_not_json": "答えから JSON を読み取れませんでした。AI に「JSON だけを答えて」と頼み直してください。",
-	"archive_axes_ai_error_not_axes": "答えに軸の一覧 (axes) がありません。プロンプトをもう一度貼り付けて、頼み直してください。",
+	"archive_axes_ai_error_not_axes": "答えに軸の一覧がありません。プロンプトをもう一度貼り付けて、頼み直してください。",
 	"archive_axes_ai_error_shape": "答えの形がプロンプトの例と違います。プロンプトをもう一度貼り付けて、頼み直してください。",
 	"archive_axes_ai_step_preview": "3. 取り込んだ後の様子",
 	"archive_axes_ai_preview_axis": "{name}: {total} 件のうち {matched} 件で値が決まります",

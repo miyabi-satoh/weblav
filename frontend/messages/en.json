@@ -604,7 +604,7 @@
 	"archive_axes_ai_step_paste": "2. Paste the AI's answer",
 	"archive_axes_ai_check_button": "Check",
 	"archive_axes_ai_error_not_json": "Could not find JSON in the answer. Ask the AI again to answer with JSON only.",
-	"archive_axes_ai_error_not_axes": "The answer has no list of axes (axes). Paste the prompt again and ask once more.",
+	"archive_axes_ai_error_not_axes": "The answer has no list of axes. Paste the prompt again and ask once more.",
 	"archive_axes_ai_error_shape": "The answer does not follow the example in the prompt. Paste the prompt again and ask once more.",
 	"archive_axes_ai_step_preview": "3. What it will look like",
 	"archive_axes_ai_preview_axis": [
