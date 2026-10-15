@@ -388,7 +388,6 @@
 	"archive_axes_dialog_dir_level_option": "Level {level}",
 	"archive_axes_dialog_dir_level_option_samples": "{samples} (distinct values: {count})",
 	"archive_axes_dialog_dir_level_option_samples_more": "{samples}... (distinct values: {count})",
-	"archive_axes_dialog_dir_level_samples_separator": ", ",
 	"archive_axes_dialog_dir_level_option_no_items": "(No items at this level)",
 	"archive_axes_dialog_dir_level_no_items": "No items are inside subfolders. Put files in subfolders and rescan on the Items tab to choose from the values at each level.",
 	"archive_axes_items_link": "Items tab",

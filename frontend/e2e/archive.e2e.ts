@@ -101,7 +101,7 @@ test('軸の追加: フォルダーの階層は、階層ごとの値の例を見
 			const level2 = dialog.getByLabel(dirLevelRadioLabel(2));
 			await expect(level1).toBeChecked();
 			await expect(level1).toHaveAccessibleDescription(
-				/^2024・2023 \(2種類\)$|^2024, 2023 \(distinct values: 2\)$/
+				/^2024、2023 \(2種類\)$|^2024, 2023 \(distinct values: 2\)$/
 			);
 			await expect(level2).toHaveAccessibleDescription(
 				/^1st・2nd \(2種類\)$|^1st, 2nd \(distinct values: 2\)$/

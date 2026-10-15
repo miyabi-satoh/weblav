@@ -343,7 +343,6 @@
 	"archive_axes_dialog_dir_level_option": "第{level}階層",
 	"archive_axes_dialog_dir_level_option_samples": "{samples} ({count}種類)",
 	"archive_axes_dialog_dir_level_option_samples_more": "{samples}... ({count}種類)",
-	"archive_axes_dialog_dir_level_samples_separator": "・",
 	"archive_axes_dialog_dir_level_option_no_items": "(該当するアイテムはありません)",
 	"archive_axes_dialog_dir_level_no_items": "フォルダーの中に入っているアイテムがありません。サブフォルダーにファイルを入れて「アイテム」タブで再スキャンすると、階層ごとの値から選べます。",
 	"archive_axes_items_link": "「アイテム」タブ",
