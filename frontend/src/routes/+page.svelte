@@ -20,7 +20,7 @@
 	provideListFilter(listFilter);
 
 	// コンテンツ管理はログイン済みなら `role` を問わず開ける (→ docs/access.md「管理画面の一覧が `user` に見えること」)。
-	// 自分で追加できる人に「管理者に追加を依頼してください」と出さない。
+	// 追加の入り口は、追加できる人にだけ出す。
 	let canAddContents = $derived(page.data.user != null);
 
 	let siteName = $derived(data.siteSettings.siteName);
@@ -55,7 +55,7 @@
 	{#if data.contents.length === 0}
 		{#if canAddContents}
 			<div class={browseGutterClass}>
-				<p class="text-sm text-muted-foreground">{m.home_empty_can_add()}</p>
+				<p class="text-sm text-muted-foreground">{m.home_empty()}</p>
 				<a
 					href={resolve('/admin/contents')}
 					class="relative mt-1 inline-flex h-11 items-center text-sm text-primary underline underline-offset-4"
