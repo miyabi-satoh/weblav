@@ -15,7 +15,7 @@ use utoipa::ToSchema;
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ValidationDetail {
-    /// グループは「本人のみ」にできない (→ docs/access.md「公開範囲」)。
+    /// グループは「作成者のみ」にできない (→ docs/access.md「公開範囲」)。
     GroupCannotBePrivate,
     /// 軸名にプレースホルダーの記号 (`{` `}`) を含んでいる。
     AxisNameHasBraces,

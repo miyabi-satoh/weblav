@@ -42,7 +42,7 @@ function adminTabs(page: Page) {
 	return page.getByRole('navigation', { name: /^管理$|^Admin$/ });
 }
 
-test('未ログイン: 要ログインのグループを開くとログインへ送られ、ログインすると戻る', async ({
+test('未ログイン: 「ログインした人」のグループを開くとログインへ送られ、ログインすると戻る', async ({
 	page,
 	browser
 }) => {
@@ -102,7 +102,7 @@ test('非表示: 一覧には出ないが、ログインした人は URL で開�
 	);
 });
 
-test('親グループ: 要ログインのグループの中の「誰でも」は、一覧に設定を出し、編集ページで実際の見え方を示す', async ({
+test('親グループ: 「ログインした人」のグループの中の「誰でも」は、一覧に設定を出し、編集ページで実際の見え方を示す', async ({
 	page
 }) => {
 	const groupTitle = uniqueId('e2e-parent-group');
@@ -127,14 +127,14 @@ test('親グループ: 要ログインのグループの中の「誰でも」は
 					// 一覧は各行の設定 (誰でも) だけを出す。
 					await page.goto('/admin/contents');
 					const row = contentRow(page, linkTitle);
-					await expect(row).toContainText(/誰でも|Anyone/);
-					await expect(row).not.toContainText(/要ログイン|Sign-in required/);
+					await expect(row).toContainText(/誰でも|Everyone/);
+					await expect(row).not.toContainText(/ログインした人|Logged-in users/);
 
-					// 編集ページでは、親グループによる実際の見え方 (要ログイン) を公開範囲の下に書く。
+					// 編集ページでは、親グループによる実際の見え方 (「ログインした人」) を公開範囲の下に書く。
 					await page.goto(`/admin/contents/${link.id}`);
 					await expect(
 						page.getByText(
-							/親グループの公開範囲により、実際は「要ログイン」になります。|Because of the parent group's visibility, this is actually "Sign-in required"\./
+							/親グループの公開範囲により、実際は「ログインした人」になります。|Because of the parent group's visibility, this is actually "Logged-in users"\./
 						)
 					).toBeVisible();
 				}
@@ -143,7 +143,7 @@ test('親グループ: 要ログインのグループの中の「誰でも」は
 	);
 });
 
-test('公開範囲の選択肢: グループには「本人のみ」が出ず、リンクには出る', async ({ page }) => {
+test('公開範囲の選択肢: グループには「作成者のみ」が出ず、リンクには出る', async ({ page }) => {
 	const groupTitle = uniqueId('e2e-group-options');
 	const linkTitle = uniqueId('e2e-link-options');
 	await withContentByApi(page.request, { type: 'group', title: groupTitle }, async (group) => {

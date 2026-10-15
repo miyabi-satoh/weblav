@@ -80,9 +80,9 @@ note = "A description shown under the link (optional)"
 
 | Visibility | Who can see it |
 |---|---|
-| Anyone | Everyone (default) |
-| Sign-in required | Signed-in users |
-| Private | The person who registered it |
+| Everyone | Everyone, including people who aren't logged in (default) |
+| Logged-in users | Only logged-in users |
+| Creator only | Only the person who registered it |
 | Hidden | No one (you can open it from the admin pages) |
 
 1. In the “Contents” list, select “⋮” on the row, then choose “Edit”.

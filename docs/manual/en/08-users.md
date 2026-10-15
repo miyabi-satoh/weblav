@@ -56,7 +56,7 @@ Let them know to log in with the new username from now on, including when they u
    ![The Delete user confirmation](images/user-delete.webp)
 
 Contents registered by the deleted user remain, and only administrators can change them.
-Contents with “Private” visibility become “Hidden”.
+Contents with “Creator only” visibility become “Hidden”.
 If someone will take over, choose that person under “Creator” on the content edit page, then select “Save”.
 
 You cannot delete the only administrator.

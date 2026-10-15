@@ -112,7 +112,7 @@ const browse: Story = {
 	steps: [
 		{ caption: 'ホームを開く', run: (page) => open(page, '/') },
 		{
-			caption: '要ログインのグループの URL を開く (ログインの画面へ送られる)',
+			caption: '「ログインした人」のグループの URL を開く (ログインの画面へ送られる)',
 			roles: ['anonymous'],
 			async run(page, ctx) {
 				await page.goto(`/groups/${ctx.fixtures.groupId}`);
@@ -425,9 +425,9 @@ const contents: Story = {
 			}
 		},
 		{
-			caption: '「要ログイン」を選んで保存する',
+			caption: '「ログインした人」を選んで保存する',
 			async run(page) {
-				await page.getByRole('option', { name: /^要ログイン/ }).click();
+				await page.getByRole('option', { name: /^ログインした人|^Logged-in users/ }).click();
 				await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
 				await page.getByText(/を保存しました\s*$/).waitFor();
 			}

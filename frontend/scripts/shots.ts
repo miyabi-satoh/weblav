@@ -163,7 +163,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// ログイン済みでトップページ(コンテンツ一覧)を表示した状態。自分の本人のみの行に印が付く。
+	// ログイン済みでトップページ(コンテンツ一覧)を表示した状態。自分の「作成者のみ」の行に印が付く。
 	home_with_contents: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, '/');
@@ -292,7 +292,7 @@ export const shots: Record<string, ShotEntry> = {
 			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.folderId}`);
 			// パスを変えずに公開範囲だけ変えても確認が出ることを示す。
 			await page.getByLabel(VISIBILITY_LABEL).click();
-			await page.getByRole('option', { name: /要ログイン|Sign-in required/ }).click();
+			await page.getByRole('option', { name: /ログインした人|Logged-in users/ }).click();
 			await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
 			await page.getByRole('dialog', { name: CONFIRM_REGISTER_NAME }).waitFor({ timeout: 5000 });
 			await page.waitForFunction(
@@ -374,7 +374,7 @@ export const shots: Record<string, ShotEntry> = {
 	},
 
 	// 管理画面: ユーザー削除の確認ダイアログ。対象ユーザー名と、そのユーザーが作成者の
-	// 本人のみの件数が文中に入る。
+	// 「作成者のみ」の件数が文中に入る。
 	admin_users_delete_confirm: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, '/admin/users');

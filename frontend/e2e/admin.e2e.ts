@@ -233,13 +233,13 @@ test('ホーム: 音声のファイルは、新規タブではなくページ内
 	);
 });
 
-test('本人のみ: 作成者の一覧にだけ印付きで並び、作成者を削除すると非表示で残る', async ({
+test('作成者のみ: 作成者の一覧にだけ印付きで並び、作成者を削除すると非表示で残る', async ({
 	page,
 	browser
 }) => {
 	const username = uniqueId('e2e-private');
 	const password = 'E2eSmoke!2026Test';
-	const title = uniqueId('E2E本人のみ');
+	const title = uniqueId('E2E作成者のみ');
 	const ownerContext = await anonymousContext(browser);
 
 	try {
@@ -250,9 +250,11 @@ test('本人のみ: 作成者の一覧にだけ印付きで並び、作成者を
 		await createLinkContent(ownerPage, title, { visibility: VISIBILITY_PRIVATE_OPTION_NAME });
 
 		await ownerPage.goto('/');
-		await expect(ownerPage.getByRole('link', { name: title })).toContainText(/本人のみ|Private/);
+		await expect(ownerPage.getByRole('link', { name: title })).toContainText(
+			/作成者のみ|Creator only/
+		);
 
-		// 管理者でも、他人の本人のみは閲覧の一覧に並ばない。見出しの描画を待ってから数える
+		// 管理者でも、他人の「作成者のみ」は閲覧の一覧に並ばない。見出しの描画を待ってから数える
 		// (一覧は load の完了後に見出しと一緒に描画される。DB が空だと一覧そのものが出ないので、一覧は待たない)。
 		await page.goto('/');
 		await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
@@ -262,7 +264,7 @@ test('本人のみ: 作成者の一覧にだけ印付きで並び、作成者を
 		await clickRowMenuItem(page, userRow(page, username), DELETE_MENU_ITEM_NAME);
 		const dialog = page.getByRole('alertdialog');
 		await expect(dialog).toContainText(
-			/「本人のみ」のコンテンツ 1\s件は、「非表示」に変えて残します|Private contents created by this user \(1\) will be kept as "Hidden"/
+			/「作成者のみ」のコンテンツ 1\s件は、「非表示」に変えて残します|Contents set to "Creator only" by this user \(1\) will be kept as "Hidden"/
 		);
 		await confirmDelete(page);
 		await expect(userRow(page, username)).toHaveCount(0);
@@ -379,7 +381,7 @@ test('管理画面: コンテンツ一覧の行を押すと編集ページへ移
 		// セルの上にはタイトルのリンクの押せる範囲が重なるので、要素ではなく座標で押す。
 		// タイトルのセルもスマートフォン幅用の公開範囲 (この幅では隠れている) を文字として持つので、
 		// 隠れた文字を含まないアクセシブルな名前で探す。
-		const cell = contentRow(page, title).getByRole('cell', { name: /^(誰でも|Anyone)$/ });
+		const cell = contentRow(page, title).getByRole('cell', { name: /^(誰でも|Everyone)$/ });
 		const box = await cell.boundingBox();
 		if (box === null) throw new Error('公開範囲のセルが見つからない');
 		await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
@@ -456,7 +458,7 @@ test('コンテンツ一覧: ドラッグで見える範囲が広がるときは
 		await clickRowMenuItem(page, contentRow(page, restrictedGroupTitle), /^編集$|^Edit$/);
 		await page.waitForURL(/\/admin\/contents\/\d+$/);
 		await page.getByLabel(VISIBILITY_LABEL).click();
-		await page.getByRole('option', { name: /要ログイン|Sign-in required/ }).click();
+		await page.getByRole('option', { name: /ログインした人|Logged-in users/ }).click();
 		await saveForm(page);
 
 		// 誰でも公開のリンクを、いったんログイン必須のグループへ入れて絞る (確認は出ない)。
@@ -512,7 +514,7 @@ test('コンテンツ一覧: 見出しの行へドラッグするとルートへ
 		await clickRowMenuItem(page, contentRow(page, restrictedGroupTitle), /^編集$|^Edit$/);
 		await page.waitForURL(/\/admin\/contents\/\d+$/);
 		await page.getByLabel(VISIBILITY_LABEL).click();
-		await page.getByRole('option', { name: /要ログイン|Sign-in required/ }).click();
+		await page.getByRole('option', { name: /ログインした人|Logged-in users/ }).click();
 		await saveForm(page);
 		await createLinkContent(page, linkTitle, { parentTitle: restrictedGroupTitle });
 		await page.goto('/admin/contents');

@@ -41,8 +41,8 @@ INSERT INTO contents (type, title, url, description, visibility) VALUES
 UPDATE contents SET parent_id = (SELECT id FROM contents WHERE title = '教材(グループ)')
 	WHERE title IN ('季節講習', '英検公式サイト');
 
--- 本人のみ・非表示のショット用。本人のみは作成者を入れる (作成者のいない本人のみは生まれない)。
--- home_with_contents (admin) では自分の本人のみに印が付き、admin_contents_list では
+-- 「作成者のみ」・「非表示」のショット用。「作成者のみ」には作成者を入れる (作成者のいない「作成者のみ」は生まれない)。
+-- home_with_contents (admin) では自分の「作成者のみ」に印が付き、admin_contents_list では
 -- 作成者の列に testuser が出て、admin_users_delete_confirm (testuser) では件数が出る。
 INSERT INTO contents (type, title, url, description, visibility, created_by) VALUES
 	('link', '自分用のメモ', 'https://example.com/memo', '作成者にだけ見えるコンテンツです。', 'private',

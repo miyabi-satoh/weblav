@@ -29,4 +29,4 @@ However, you can add shared folders and create the first administrator only on t
 
 ## Does every viewer need an account?
 
-No. Anyone can view items with “Anyone” visibility without signing in.
+No. Anyone can view items with “Everyone” visibility without signing in.

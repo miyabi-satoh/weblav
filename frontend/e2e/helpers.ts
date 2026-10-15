@@ -78,9 +78,9 @@ export const INVALID_INPUT_TEXT = /入力内容を確認してください|Pleas
 /** パスワードの確認欄が一致しないときの文言。 */
 export const PASSWORD_MISMATCH_TEXT = /パスワードが一致しません|Passwords do not match/;
 
-/** コンテンツのフォームの公開範囲の欄と、その「本人のみ」の選択肢。 */
+/** コンテンツのフォームの公開範囲の欄と、その「作成者のみ」の選択肢。 */
 export const VISIBILITY_LABEL = /^公開範囲|^Visibility/;
-export const VISIBILITY_PRIVATE_OPTION_NAME = /^本人のみ$|^Private$/;
+export const VISIBILITY_PRIVATE_OPTION_NAME = /^作成者のみ$|^Creator only$/;
 
 /**
  * 保存できたときに出るトーストの文言 (`admin_settings_saved_toast` など、何を保存したかが前に付く)。

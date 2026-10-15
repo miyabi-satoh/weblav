@@ -299,7 +299,7 @@ struct ContentRow {
 /// 一切含めない(一般の閲覧者にファイルシステムのレイアウトを漏らさないため)。type分岐が
 /// フロントからも自然に扱えるよう、tagged enumにしてある。
 ///
-/// 各バリアントの `private` は、公開範囲が `private` なら真。一覧に「本人のみ」の印を出すため
+/// 各バリアントの `private` は、公開範囲が `private` なら真。一覧に「作成者のみ」の印を出すため
 /// (→ docs/access.md「フロントエンドのガード反転」)。一覧に並ぶ `private` は必ず閲覧者自身のもの (`can_list`)。
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(tag = "type", rename_all = "camelCase")]
