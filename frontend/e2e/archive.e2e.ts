@@ -94,17 +94,17 @@ test('軸の追加: フォルダーの階層は、階層ごとの値の例を見
 			await page.getByRole('button', { name: ADD_AXIS_BUTTON_NAME }).click();
 			await waitForDialog(page);
 			const dialog = page.getByRole('dialog');
-			await dialog.getByLabel(requiredLabel('軸名', 'Axis name')).fill('回');
+			await dialog.getByLabel(requiredLabel('軸の名前', 'Axis name')).fill('回');
 
 			// 新規の抽出元はフォルダーの階層で、第1階層が選ばれている。値の例は件数の多い順。
 			const level1 = dialog.getByLabel(dirLevelRadioLabel(1));
 			const level2 = dialog.getByLabel(dirLevelRadioLabel(2));
 			await expect(level1).toBeChecked();
 			await expect(level1).toHaveAccessibleDescription(
-				/^2024、2023 \(2種類\)$|^2024, 2023 \(distinct values: 2\)$/
+				/^2024、2023 \(2\s種類\)$|^2024, 2023 \(distinct values: 2\)$/
 			);
 			await expect(level2).toHaveAccessibleDescription(
-				/^1st・2nd \(2種類\)$|^1st, 2nd \(distinct values: 2\)$/
+				/^1st、2nd \(2\s種類\)$|^1st, 2nd \(distinct values: 2\)$/
 			);
 
 			await level2.check();
@@ -112,7 +112,7 @@ test('軸の追加: フォルダーの階層は、階層ごとの値の例を見
 			await dialog.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
 			await expect(page.getByRole('dialog')).toHaveCount(0);
 
-			await expect(axisRow(page, '回')).toContainText(/フォルダーの第2階層|Folder level 2/);
+			await expect(axisRow(page, '回')).toContainText(/フォルダーの階層 2|Folder level 2/);
 		}
 	);
 });
@@ -126,13 +126,17 @@ test('アイテム: 再スキャンで索引し、公開を切り替えられる
 			await page.getByRole('button', { name: /^再スキャンする$|^Rescan$/ }).click();
 			await expect(page.getByText(/新規\s3\s件・削除\s0\s件|3 added, 0 removed/)).toBeVisible();
 			// 新しく索引したアイテムは非公開から始まる。
-			await expect(page.getByText(/3\s件\s\(公開 0\)|3 items \(0 published\)/)).toBeVisible();
+			await expect(
+				page.getByText(/3\s件のアイテム \(0\s件公開\)|3 items \(0 published\)/)
+			).toBeVisible();
 
 			const toggle = itemPublishedSwitch(page, '2024/listening.mp3');
 			await expect(toggle).toHaveAttribute('aria-checked', 'false');
 			await toggle.click();
 			await expect(toggle).toHaveAttribute('aria-checked', 'true');
-			await expect(page.getByText(/3\s件\s\(公開 1\)|3 items \(1 published\)/)).toBeVisible();
+			await expect(
+				page.getByText(/3\s件のアイテム \(1\s件公開\)|3 items \(1 published\)/)
+			).toBeVisible();
 		}
 	);
 });
@@ -146,7 +150,7 @@ test('アーカイブの閲覧: 軸で絞り込み、音声を押すとページ
 
 			await page.goto(`/archives/${archive.id}`);
 			await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
-			await expect(page.getByText(/^3\s件$|^3 items$/)).toBeVisible();
+			await expect(page.getByText(/^3\s件のアイテム$|^3 items$/)).toBeVisible();
 			// 音声はページ内で再生するボタン、PDF は新規タブで開くリンク。
 			await expect(page.getByRole('button', { name: /2024 リスニング/ })).toBeVisible();
 			await expect(page.getByRole('link', { name: /2024 解答/ })).toHaveAttribute(
@@ -306,7 +310,7 @@ test('ファイルのビューアー: テキストと PDF をページ内で開�
  */
 function axisRow(page: Page, name: string) {
 	return page
-		.getByRole('button', { name: new RegExp(`^${name} を上へ$|^Move ${name} up$`) })
+		.getByRole('button', { name: new RegExp(`^${name} を上へ移動$|^Move ${name} up$`) })
 		.locator('xpath=..');
 }
 
@@ -332,11 +336,11 @@ test('軸の並べ替え: 上下ボタンで動かした順が保存され、閲
 
 			await page.goto(`/admin/contents/${archive.id}/axes`);
 			await axisRow(page, '種類')
-				.getByRole('button', { name: /^種類 を上へ$|^Move 種類 up$/ })
+				.getByRole('button', { name: /^種類 を上へ移動$|^Move 種類 up$/ })
 				.click();
 			// 保存中は上下ボタンがすべて止まる。2番目になった年度の「上へ」が押せるようになれば保存を終えている。
 			await expect(
-				page.getByRole('button', { name: /^年度 を上へ$|^Move 年度 up$/ })
+				page.getByRole('button', { name: /^年度 を上へ移動$|^Move 年度 up$/ })
 			).toBeEnabled();
 
 			await page.goto(`/archives/${archive.id}`);
@@ -366,7 +370,7 @@ test('値の辞書: 行を上へ動かして保存するとアイテムの並び
 			const rows = axisValuesForm(page).locator('tbody tr');
 			await expect(rows).toHaveCount(2);
 
-			await page.getByRole('button', { name: /^answer を上へ$|^Move answer up$/ }).click();
+			await page.getByRole('button', { name: /^answer を上へ移動$|^Move answer up$/ }).click();
 			await expect(rows.nth(0).getByRole('textbox').nth(0)).toHaveValue('answer');
 			await saveAxisValues(page, '種類');
 
@@ -380,7 +384,7 @@ test('値の辞書: 行を上へ動かして保存するとアイテムの並び
 			const listeningRow = rows.nth(1);
 			await expect(listeningRow.getByRole('textbox').nth(0)).toHaveValue('listening');
 			await listeningRow
-				.getByRole('button', { name: /^listening を削除する$|^Remove listening$/ })
+				.getByRole('button', { name: /^listening を削除$|^Remove listening$/ })
 				.click();
 			await expect(rows).toHaveCount(1);
 			await saveAxisValues(page, '種類');
@@ -430,7 +434,7 @@ test('値の辞書: ファイル名の語の候補を押すと表に行が足さ
 
 			// 一覧に出ない語も、検索すると出る。
 			const query = wordCandidatesRegion(page).getByRole('searchbox', {
-				name: /^語を探す$|^Find a word$/
+				name: /^単語を検索$|^Find a word$/
 			});
 			await query.fill('ANS');
 			await expect(answer).toBeVisible();
@@ -440,7 +444,7 @@ test('値の辞書: ファイル名の語の候補を押すと表に行が足さ
 				wordCandidatesRegion(page).getByRole('button', { name: /^listening/ })
 			).toHaveCount(0);
 			await expect(
-				wordCandidatesRegion(page).getByText(/^当てはまる語はありません。$|^No matching words\.$/)
+				wordCandidatesRegion(page).getByText(/^一致する単語はありません。$|^No matching words\.$/)
 			).toBeVisible();
 		}
 	);
@@ -462,13 +466,13 @@ test('値の辞書: 照合する位置を行ごとに選ぶと一致する件数
 			await expect(axisValuesPreviewSummary(page, 2, 1)).toBeVisible();
 
 			const position = axisValuesForm(page).getByRole('button', {
-				name: /^ing の照合する位置: |^Match position for ing: /
+				name: /^ing の一致位置: |^Match position for ing: /
 			});
 			const choose = async (option: RegExp) => {
 				await position.click();
 				await page.getByRole('option', { name: option }).click();
 			};
-			await choose(/^先頭か区切りの直後$|^Start or after a separator$/);
+			await choose(/^先頭または区切りの後$|^Start or after a separator$/);
 			await expect(axisValuesPreviewSummary(page, 0, 3)).toBeVisible();
 			await choose(/^末尾$|^End$/);
 			await expect(axisValuesPreviewSummary(page, 2, 1)).toBeVisible();
@@ -504,7 +508,7 @@ test('軸の削除: 確認して消せる。表示タイトルで使っている
 			await confirmDelete(page);
 			const errorDialog = page.getByRole('alertdialog').filter({
 				hasText:
-					/軸「種類」は表示タイトルのテンプレートで使われているため削除できません。|The axis “種類” is used by the title template and cannot be deleted\./
+					/軸「種類」は表示タイトルのテンプレートで使用されているため、削除できません。|The axis “種類” is used by the title template and cannot be deleted\./
 			});
 			await expect(errorDialog).toBeVisible();
 			await errorDialog.getByRole('button', { name: CLOSE_BUTTON_NAME }).click();
@@ -543,22 +547,30 @@ test('一括公開: 絞り込んで全選択すると見えている行だけを
 			await rescanArchive(page.request, archive.id);
 
 			await page.goto(`/admin/contents/${archive.id}/items`);
-			await expect(page.getByText(/3\s件\s\(公開 0\)|3 items \(0 published\)/)).toBeVisible();
+			await expect(
+				page.getByText(/3\s件のアイテム \(0\s件公開\)|3 items \(0 published\)/)
+			).toBeVisible();
 
-			const filter = page.getByLabel(/^\s*(タイトルかパスで絞り込む|Filter by title or path)\s*$/);
+			const filter = page.getByLabel(
+				/^\s*(タイトルまたはパスで絞り込む|Filter by title or path)\s*$/
+			);
 			const selectAll = page.getByRole('checkbox', { name: /^すべて選択$|^Select all$/ });
 			await filter.fill('2024/');
-			await expect(page.getByText(/^2\s件を表示中$|^2 shown$/)).toBeVisible();
+			await expect(page.getByText(/^2\s件を表示$|^2 shown$/)).toBeVisible();
 			await selectAll.click();
 			await expect(page.getByText(/^2\s件選択中$|^2 selected$/)).toBeVisible();
 			await page
-				.getByRole('button', { name: /^選択した項目を公開する$|^Publish selected$/ })
+				.getByRole('button', { name: /^選択したものを公開する$|^Publish selected$/ })
 				.click();
-			await expect(page.getByText(/3\s件\s\(公開 2\)|3 items \(2 published\)/)).toBeVisible();
+			await expect(
+				page.getByText(/3\s件のアイテム \(2\s件公開\)|3 items \(2 published\)/)
+			).toBeVisible();
 
 			// 読み直しても保たれ、絞り込みで隠れていた行は公開していない。
 			await page.reload();
-			await expect(page.getByText(/3\s件\s\(公開 2\)|3 items \(2 published\)/)).toBeVisible();
+			await expect(
+				page.getByText(/3\s件のアイテム \(2\s件公開\)|3 items \(2 published\)/)
+			).toBeVisible();
 			await expect(itemPublishedSwitch(page, '2024/listening.mp3')).toHaveAttribute(
 				'aria-checked',
 				'true'
@@ -571,13 +583,17 @@ test('一括公開: 絞り込んで全選択すると見えている行だけを
 			await selectAll.click();
 			await expect(page.getByText(/^3\s件選択中$|^3 selected$/)).toBeVisible();
 			await page
-				.getByRole('button', { name: /^選択した項目を非公開にする$|^Unpublish selected$/ })
+				.getByRole('button', { name: /^選択したものを非公開にする$|^Unpublish selected$/ })
 				.click();
-			await expect(page.getByText(/3\s件\s\(公開 0\)|3 items \(0 published\)/)).toBeVisible();
+			await expect(
+				page.getByText(/3\s件のアイテム \(0\s件公開\)|3 items \(0 published\)/)
+			).toBeVisible();
 
 			// 非公開に戻したことも、読み直して確かめる。
 			await page.reload();
-			await expect(page.getByText(/3\s件\s\(公開 0\)|3 items \(0 published\)/)).toBeVisible();
+			await expect(
+				page.getByText(/3\s件のアイテム \(0\s件公開\)|3 items \(0 published\)/)
+			).toBeVisible();
 			await expect(itemPublishedSwitch(page, '2024/listening.mp3')).toHaveAttribute(
 				'aria-checked',
 				'false'
@@ -594,8 +610,8 @@ test('絞り込みの解除: 解除のリンクで絞り込みが外れ、全件
 			await setUpArchiveForBrowsing(page.request, archive);
 
 			await page.goto(`/archives/${archive.id}`);
-			await expect(page.getByText(/^3\s件$|^3 items$/)).toBeVisible();
-			const resetLink = page.getByRole('link', { name: /^絞り込みを解除する$|^Clear filters$/ });
+			await expect(page.getByText(/^3\s件のアイテム$|^3 items$/)).toBeVisible();
+			const resetLink = page.getByRole('link', { name: /^絞り込みを解除$|^Clear filters$/ });
 			// 絞り込んでいないときは出ない。
 			await expect(resetLink).toHaveCount(0);
 
@@ -607,7 +623,7 @@ test('絞り込みの解除: 解除のリンクで絞り込みが外れ、全件
 
 			await resetLink.click();
 			await page.waitForURL((url) => !url.searchParams.has('年度'));
-			await expect(page.getByText(/^3\s件$|^3 items$/)).toBeVisible();
+			await expect(page.getByText(/^3\s件のアイテム$|^3 items$/)).toBeVisible();
 			await expect(trigger).toContainText(/すべて|All/);
 			await expect(resetLink).toHaveCount(0);
 		}

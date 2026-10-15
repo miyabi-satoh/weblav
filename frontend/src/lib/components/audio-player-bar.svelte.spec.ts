@@ -72,7 +72,7 @@ describe('AudioPlayerBar', () => {
 
 		await pauseAt(5);
 
-		await page.getByRole('button', { name: /^(次の曲|Next track)$/ }).click();
+		await page.getByRole('button', { name: /^(次のトラック|Next track)$/ }).click();
 		await expect.poll(() => document.querySelector('audio')?.src).toBe(second.src);
 		expect((await loadedAudio()).currentTime).toBeLessThan(1);
 	});
@@ -85,7 +85,7 @@ describe('AudioPlayerBar', () => {
 
 		const audio = await pauseAt(5);
 
-		await page.getByRole('button', { name: /^(前の曲|Previous track)$/ }).click();
+		await page.getByRole('button', { name: /^(前のトラック|Previous track)$/ }).click();
 		expect(nowPlaying.current).toEqual(second);
 		expect(audio.currentTime).toBeLessThan(1);
 	});
@@ -108,7 +108,7 @@ describe('AudioPlayerBar', () => {
 		nowPlaying.play(first, [first, second]);
 		await pauseAt(1);
 
-		await page.getByRole('button', { name: /^(次の曲|Next track)$/ }).click();
+		await page.getByRole('button', { name: /^(次のトラック|Next track)$/ }).click();
 		await expect.poll(() => document.querySelector('audio')?.src).toBe(second.src);
 		const audio = await loadedAudio();
 		await new Promise((resolve) => setTimeout(resolve, 300));
@@ -166,7 +166,7 @@ describe('AudioPlayerBar', () => {
 		nowPlaying.play(first, [first, second]);
 		audio.play = realPlay;
 
-		await page.getByRole('button', { name: /^(次の曲|Next track)$/ }).click();
+		await page.getByRole('button', { name: /^(次のトラック|Next track)$/ }).click();
 		await expect.poll(() => audio.paused).toBe(false);
 		rejectFirst(new DOMException('failed', 'NotSupportedError'));
 		await new Promise((resolve) => setTimeout(resolve, 100));

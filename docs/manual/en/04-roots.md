@@ -1,10 +1,10 @@
-# Add shared folders
+# Add allowed folders
 
-A “shared folder” is the area from which you can choose contents.
+An “allowed folder” is the area from which you can choose contents.
 **Adding one alone does not show anything to viewers.**
 Folders inside it appear only after you register them as “Folder” or “Archive” in [Register contents](05-register-content.md).
 
-![How folders on the computer relate to the viewer's screen: add "Shared" as a shared folder, then register "Teaching materials" as a folder and "EIKEN" as an archive. Only those two appear for viewers. Unregistered "Drafts" and "Household accounts" outside the shared folder do not appear.](images/how-it-works.webp)
+![How folders on the computer relate to the viewer's screen: add "Shared" as an allowed folder, then register "Teaching materials" as a folder and "EIKEN" as an archive. Only those two appear for viewers. Unregistered "Drafts" and "Household accounts" outside the allowed folder do not appear.](images/how-it-works.webp)
 
 > **You can add folders only on the computer running WebLAV, when it is open at a `localhost` address.**
 >
@@ -22,9 +22,9 @@ Folders inside it appear only after you register them as “Folder” or “Arch
 
    ![The username menu at the top right](images/setup-admin-menu.webp)
 
-3. Select the “Shared folders” tab.
+3. Select the “Allowed folders” tab.
 
-   ![The Shared folders tab](images/roots-page.webp)
+   ![The Allowed folders tab](images/roots-page.webp)
 
 ## Add one
 
@@ -44,7 +44,7 @@ The name appears instead of the path when choosing a folder for content and when
 
 1. Select “⋮” on the row, then choose “Rename...”.
 
-   ![The shared folder row menu](images/roots-menu.webp)
+   ![The allowed folder row menu](images/roots-menu.webp)
 
 2. Enter a name, then select “Save”.
 
@@ -54,11 +54,11 @@ The name appears instead of the path when choosing a folder for content and when
 
 > **Deleting it here does not delete folders or files on your computer.**
 >
-> It removes only the entry from WebLAV’s “Shared folders” list. The folder stays where it is.
+> It removes only the entry from WebLAV’s “Allowed folders” list. The folder stays where it is.
 
 1. Select “⋮” on the folder row, then choose “Delete...”.
 
-   ![The shared folder row menu](images/roots-menu.webp)
+   ![The allowed folder row menu](images/roots-menu.webp)
 
 2. Select “Delete”.
 

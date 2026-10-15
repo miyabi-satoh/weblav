@@ -3,7 +3,7 @@ import type { components } from '$lib/api/schema';
 import { canAddRoots, contentPathLabel, rootLocationLabel } from './root-location';
 
 vi.mock('$lib/paraglide/messages.js', () => ({
-	contents_path_root_deleted: () => '(存在しない公開フォルダー)'
+	contents_path_root_deleted: () => '(見つからない公開できるフォルダー)'
 }));
 
 type Content = components['schemas']['AdminContentResponse'];
@@ -49,12 +49,12 @@ describe('contentPathLabel', () => {
 	});
 
 	it('hides the root path of a deleted root unless the viewer is an admin', () => {
-		expect(contentPathLabel(deleted, false)).toBe('(存在しない公開フォルダー) / 英検');
+		expect(contentPathLabel(deleted, false)).toBe('(見つからない公開できるフォルダー) / 英検');
 		expect(contentPathLabel(deleted, true)).toBe('/srv/教材/英検');
 	});
 
 	it('shows nothing of the path outside any root record unless the viewer is an admin', () => {
-		expect(contentPathLabel(unknown, false)).toBe('(存在しない公開フォルダー)');
+		expect(contentPathLabel(unknown, false)).toBe('(見つからない公開できるフォルダー)');
 		expect(contentPathLabel(unknown, true)).toBe('/srv/教材/英検');
 	});
 

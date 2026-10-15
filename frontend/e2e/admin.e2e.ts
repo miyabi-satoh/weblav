@@ -264,7 +264,7 @@ test('作成者のみ: 作成者の一覧にだけ印付きで並び、作成者
 		await clickRowMenuItem(page, userRow(page, username), DELETE_MENU_ITEM_NAME);
 		const dialog = page.getByRole('alertdialog');
 		await expect(dialog).toContainText(
-			/「作成者のみ」のコンテンツ 1\s件は、「非表示」に変えて残します|Contents set to “Creator only” by this user \(1\) will be kept as “Hidden”/
+			/「作成者のみ」のコンテンツ \(1\s件\) は「非表示」として残ります|Contents set to “Creator only” by this user \(1\) will be kept as “Hidden”/
 		);
 		await confirmDelete(page);
 		await expect(userRow(page, username)).toHaveCount(0);
@@ -354,15 +354,15 @@ test('管理画面: サーバーの設定は、既定から変えると印が付
 
 	await page.goto('/admin/settings');
 	const form = page.getByRole('form', { name: /^サーバー$|^Server$/ });
-	const input = form.getByRole('spinbutton', { name: /^アップロードの上限|^Upload limit/ });
+	const input = form.getByRole('spinbutton', { name: /^アップロード上限|^Upload limit/ });
 	const reset = form.getByRole('button', {
-		name: /^「アップロードの上限 \(MB\)」を既定の値に戻す$|^Reset to default: Upload limit \(MB\)$/
+		name: /^既定値に戻す: アップロード上限 \(MB\)$|^Reset to default: Upload limit \(MB\)$/
 	});
 
 	await input.fill(String(changed));
 	await expect(reset).toBeVisible();
 	await expect(
-		form.getByText(/^保存していない変更があります。$|^You have unsaved changes\.$/)
+		form.getByText(/^保存されていない変更があります。$|^You have unsaved changes\.$/)
 	).toBeVisible();
 
 	await reset.click();

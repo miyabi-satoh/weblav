@@ -39,7 +39,7 @@ const EDITOR_PASSWORD = 'E2eEditor!2026Test';
 
 /** 管理画面のタブ (admin にだけ出る)。 */
 function adminTabs(page: Page) {
-	return page.getByRole('navigation', { name: /^管理$|^Admin$/ });
+	return page.getByRole('navigation', { name: /^管理ページ$|^Admin$/ });
 }
 
 test('未ログイン: 「ログインした人」のグループを開くとログインへ送られ、ログインすると戻る', async ({
@@ -134,7 +134,7 @@ test('親グループ: 「ログインした人」のグループの中の「誰
 					await page.goto(`/admin/contents/${link.id}`);
 					await expect(
 						page.getByText(
-							/親グループの公開範囲により、実際は「ログインした人」になります。|Because of the parent group's visibility, this is actually “Logged-in users”\./
+							/親のグループの公開範囲により、実際には「ログインした人」になります。|Because of the parent group's visibility, this is actually “Logged-in users”\./
 						)
 					).toBeVisible();
 				}
@@ -247,7 +247,7 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 					await expect(editorPage.getByLabel(TITLE_LABEL)).toBeDisabled();
 					// 選択 (bits-ui) は fieldset では止まらないので、開かないことも見る。
 					await editorPage
-						.getByRole('button', { name: /^親グループ$|^Parent group$/ })
+						.getByRole('button', { name: /^親のグループ$|^Parent group$/ })
 						.click({ force: true });
 					await expect(editorPage.getByRole('listbox')).toHaveCount(0);
 					await expect(editorPage.getByRole('button', { name: SAVE_BUTTON_NAME })).toHaveCount(0);

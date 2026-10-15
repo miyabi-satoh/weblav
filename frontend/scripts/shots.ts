@@ -270,7 +270,7 @@ export const shots: Record<string, ShotEntry> = {
 			// 行内のテキストで特定する (クリックは親のbuttonへバブルする)。
 			await page.getByText(ctx.fixtures.sharedFolderName, { exact: true }).click();
 			// 降りた後にだけ出る「上の階層へ」の行で、一覧の切り替わりを待つ。
-			await page.getByText(/上の階層へ|Go up one level/).waitFor({ timeout: 5000 });
+			await page.getByText(/1\sつ上へ|Go up one level/).waitFor({ timeout: 5000 });
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
 		}
 	},
@@ -296,7 +296,7 @@ export const shots: Record<string, ShotEntry> = {
 			await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
 			await page.getByRole('dialog', { name: CONFIRM_REGISTER_NAME }).waitFor({ timeout: 5000 });
 			await page.waitForFunction(
-				() => !/対象のファイルを数えています|Counting files/.test(document.body.innerText),
+				() => !/ファイルを数えています|Counting files/.test(document.body.innerText),
 				null,
 				{ timeout: 10000 }
 			);
@@ -493,11 +493,11 @@ export const shots: Record<string, ShotEntry> = {
 			await page.getByRole('button', { name: /^級/ }).first().click();
 			// 候補と件数は軸を選んでから取るので、どちらも出るまで待つ。
 			const words = page.getByRole('region', {
-				name: /^ファイル名によく出る語$|^Common words in file names$/
+				name: /^ファイル名によく出る単語$|^Common words in file names$/
 			});
 			await words.getByRole('listitem').first().waitFor({ timeout: 5000 });
 			await page
-				.getByText(/^一致 \d+件 \/ 未設定 \d+件$|^Matched: \d+ \/ Unset: \d+$/)
+				.getByText(/^一致: \d+ \/ 未設定: \d+$|^Matched: \d+ \/ Unset: \d+$/)
 				.waitFor({ timeout: 5000 });
 			await page.getByText(/^未設定のファイルの例$|^Examples of unset files$/).click();
 			// 狭い幅では値の辞書が軸の一覧の下に来るので、候補の区画を画面に入れる。

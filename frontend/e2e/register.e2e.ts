@@ -104,7 +104,7 @@ test('フォルダー: パスを辿って選び、件数と閲覧範囲を確か
 		await confirmRegister(
 			page,
 			name,
-			/LAN 内の誰でも、この 3\s個すべてを閲覧できます|Anyone on the LAN can view all 3 of these files/
+			/LAN 内の誰でも、この 3\s個のファイルすべてを閲覧できます|Anyone on the LAN can view all 3 of these files/
 		);
 	} finally {
 		await removeContentIfPresent(page, name);
@@ -121,7 +121,7 @@ test('アーカイブ: パスを辿って選び、索引される件数を確か
 	try {
 		await openCreateForm(page, 'archive');
 		await pickDirectory(page, shared!, name);
-		await confirmRegister(page, name, /3\s個のファイルが索引されます|3 files will be indexed/);
+		await confirmRegister(page, name, /3\s個のファイルを一覧にします|3 files will be indexed/);
 		// 作成に続けてスキャンまで済んでいて、再スキャンを押さなくてもアイテムが並ぶ。
 		const id = page.url().split('/').pop();
 		const items = (await send(page.request, 'get', `/contents/${id}/items`)) as unknown[];
@@ -156,7 +156,7 @@ test('アーカイブ: 作成後のスキャンだけが失敗したら、作成
 			name: /^ファイルをスキャンできませんでした$|^Couldn't scan the files$/
 		});
 		await expect(
-			failed.getByText(/コンテンツは作成しました|The content was created/)
+			failed.getByText(/コンテンツを作成しました|The content was created/)
 		).toBeVisible();
 		// 作成は残っていて、一覧に行が出ている。
 		await expect(page).toHaveURL(/\/admin\/contents$/);
@@ -236,6 +236,6 @@ test('公開できるフォルダーが0件なら、フォルダーとアーカ�
 	await expect(dialog.getByRole('button', { name: CONTENT_TYPE_NAME.archive })).toBeDisabled();
 	await expect(dialog.getByRole('button', { name: CONTENT_TYPE_NAME.link })).toBeEnabled();
 	await expect(
-		dialog.getByText(/「公開できるフォルダー」を登録すると|Register a shared folder/)
+		dialog.getByText(/「公開できるフォルダー」を登録してください|Register an allowed folder/)
 	).toBeVisible();
 });

@@ -229,7 +229,7 @@ const browse: Story = {
 		{
 			caption: '並び順を「新しい順」にする',
 			async run(page) {
-				await page.getByRole('button', { name: '並び順', exact: true }).click();
+				await page.getByRole('button', { name: '並べ替え', exact: true }).click();
 				await page.getByRole('option', { name: /^新しい順$/ }).click();
 				await page.waitForURL((url) => url.searchParams.get('sort') === 'new');
 			}
@@ -249,7 +249,7 @@ const browse: Story = {
 			caption: '検索の画面で「リスニング」を探す',
 			async run(page) {
 				await open(page, '/search');
-				await page.getByLabel(/^探す語/).fill('リスニング');
+				await page.getByLabel(/^検索する語句/).fill('リスニング');
 				await page.keyboard.press('Enter');
 				await page.getByRole('heading', { level: 2 }).first().waitFor();
 			}
@@ -291,18 +291,18 @@ const account: Story = {
 		},
 		{ caption: 'ユーザーメニューを開く', run: openUserMenu },
 		{
-			caption: '「パスワード変更...」を開く',
+			caption: '「パスワードを変更...」を開く',
 			async run(page) {
-				await page.getByRole('menuitem', { name: /^パスワード変更\.\.\.$/ }).click();
+				await page.getByRole('menuitem', { name: /^パスワードを変更\.\.\.$/ }).click();
 				await waitForDialog(page);
 			}
 		},
 		{
-			caption: '「ユーザー名変更...」を開く',
+			caption: '「ユーザー名を変更...」を開く',
 			async run(page, ctx) {
 				await cancelDialog(page);
 				await openUserMenu(page, ctx);
-				await page.getByRole('menuitem', { name: /^ユーザー名変更\.\.\.$/ }).click();
+				await page.getByRole('menuitem', { name: /^ユーザー名を変更\.\.\.$/ }).click();
 				await waitForDialog(page);
 			}
 		},
@@ -319,7 +319,7 @@ const account: Story = {
 			caption: 'テーマの切り替えを開く',
 			async run(page) {
 				await cancelDialog(page);
-				await page.getByRole('button', { name: /^テーマを切り替える$/ }).click();
+				await page.getByRole('button', { name: /^テーマを切り替え$/ }).click();
 				await page.getByRole('menu').waitFor();
 			}
 		},
@@ -333,10 +333,10 @@ const account: Story = {
 		{
 			caption: 'テーマを「ライト」に戻し、言語の切り替えを開く',
 			async run(page) {
-				await page.getByRole('button', { name: /^テーマを切り替える$/ }).click();
+				await page.getByRole('button', { name: /^テーマを切り替え$/ }).click();
 				await page.getByRole('menuitemradio', { name: /^ライト$/ }).click();
 				await page.getByRole('menu').waitFor({ state: 'hidden' });
-				await page.getByRole('button', { name: /^言語を切り替える$/ }).click();
+				await page.getByRole('button', { name: /^言語を切り替え$/ }).click();
 				await page.getByRole('menu').waitFor();
 			}
 		},
@@ -352,15 +352,15 @@ const account: Story = {
 			async run(page) {
 				await page.getByRole('button', { name: /^Toggle language$/ }).click();
 				await page.getByRole('menuitemradio', { name: /^Japanese$/ }).click();
-				await page.getByRole('button', { name: /^言語を切り替える$/ }).waitFor();
+				await page.getByRole('button', { name: /^言語を切り替え$/ }).waitFor();
 				await page.getByRole('button', { name: /^このページを共有$/ }).click();
 				await page.getByRole('menu').waitFor();
 			}
 		},
 		{
-			caption: '「QRコードを表示...」を開く',
+			caption: '「QR コードを表示...」を開く',
 			async run(page) {
-				await page.getByRole('menuitem', { name: /^QRコードを表示\.\.\.$/ }).click();
+				await page.getByRole('menuitem', { name: /^QR コードを表示\.\.\.$/ }).click();
 				await page.getByRole('dialog').waitFor();
 			}
 		},
@@ -392,7 +392,7 @@ const contents: Story = {
 	steps: [
 		{ caption: 'コンテンツ管理を開く', run: (page) => open(page, '/admin/contents') },
 		{
-			caption: '「新規追加...」を押す',
+			caption: '「追加...」を押す',
 			run: (page) => openAddDialog(page, CONTENT_ADD_BUTTON_NAME)
 		},
 		{
@@ -457,7 +457,7 @@ const contents: Story = {
 			}
 		},
 		{
-			caption: '「新規追加...」から「フォルダー」を選ぶ',
+			caption: '「追加...」から「フォルダー」を選ぶ',
 			async run(page) {
 				await openAddDialog(page, CONTENT_ADD_BUTTON_NAME);
 				await chooseContentType(page, 'folder');
@@ -475,7 +475,7 @@ const contents: Story = {
 			caption: '公開できるフォルダーの中へ進む',
 			async run(page, ctx) {
 				await page.getByText(ctx.fixtures.sharedFolderName, { exact: true }).click();
-				await page.getByText(/^上の階層へ$/).waitFor();
+				await page.getByText(/^1\sつ上へ$/).waitFor();
 			}
 		},
 		{
@@ -493,9 +493,7 @@ const contents: Story = {
 			async run(page) {
 				await page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
 				await page.getByRole('dialog', { name: CONFIRM_REGISTER_NAME }).waitFor();
-				await page.waitForFunction(
-					() => !/対象のファイルを数えています/.test(document.body.innerText)
-				);
+				await page.waitForFunction(() => !/ファイルを数えています/.test(document.body.innerText));
 			}
 		},
 		{
@@ -546,9 +544,9 @@ const archive: Story = {
 			caption: 'ファイル名によく出る語と、未設定のファイルの例を見る',
 			roles: ADMIN_ONLY,
 			async run(page) {
-				const words = page.getByRole('region', { name: /^ファイル名によく出る語$/ });
+				const words = page.getByRole('region', { name: /^ファイル名によく出る単語$/ });
 				await words.getByRole('listitem').first().waitFor();
-				await page.getByText(/^一致 \d+件 \/ 未設定 \d+件$/).waitFor();
+				await page.getByText(/^一致: \d+ \/ 未設定: \d+$/).waitFor();
 				await page.getByText(/^未設定のファイルの例$/).click();
 				await words.scrollIntoViewIfNeeded();
 			}
@@ -713,29 +711,27 @@ const admin: Story = {
 			}
 		},
 		{
-			caption: '「サーバー」のアップロードの上限を変える (既定から変えた印が付く)',
+			caption: '「サーバー」のアップロード上限を変える (既定から変えた印が付く)',
 			roles: ADMIN_ONLY,
 			async run(page) {
-				const input = page.getByRole('spinbutton', { name: /^アップロードの上限/ });
+				const input = page.getByRole('spinbutton', { name: /^アップロード上限/ });
 				await input.fill('500');
 				await page.getByRole('heading', { name: /^サーバー$/ }).scrollIntoViewIfNeeded();
 			}
 		},
 		{
-			caption: '「既定の値に戻す」を押す',
+			caption: '「既定値に戻す」を押す',
 			roles: ADMIN_ONLY,
 			run: (page) =>
-				page
-					.getByRole('button', { name: /^「アップロードの上限 \(MB\)」を既定の値に戻す$/ })
-					.click()
+				page.getByRole('button', { name: /^既定値に戻す: アップロード上限 \(MB\)$/ }).click()
 		},
 		{
-			caption: '「ログ」の「詳しいログを出す」をオンにする',
+			caption: '「ログ」の「詳細ログ」をオンにする',
 			roles: ADMIN_ONLY,
 			async run(page) {
-				const verbose = page.getByRole('switch', { name: /^詳しいログを出す$/ });
+				const verbose = page.getByRole('switch', { name: /^詳細ログ$/ });
 				await verbose.click();
-				await page.getByRole('switch', { name: /^詳しいログを出す$/, checked: true }).waitFor();
+				await page.getByRole('switch', { name: /^詳細ログ$/, checked: true }).waitFor();
 				await page.getByRole('heading', { name: /^ログ$/ }).scrollIntoViewIfNeeded();
 			}
 		},

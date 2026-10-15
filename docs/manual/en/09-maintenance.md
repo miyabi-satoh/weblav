@@ -28,7 +28,7 @@ Change these on the “Site settings” tab in the admin pages.
 
   ![The Logs section in Site settings](images/settings-log.webp)
 
-- AI: Registering the PC with a WebLAV account to use the AI features (→ [Use the AI features](10-ai.md)).
+- AI: Registering the computer with a WebLAV account to use the AI features (→ [Use the AI features](10-ai.md)).
 
 ## Back up and restore
 
@@ -40,7 +40,7 @@ Change these on the “Site settings” tab in the admin pages.
 
    ![The Backup section in Site settings](images/maintenance-backup.webp)
 
-Files inside shared folders are not included.
+Files inside allowed folders are not included.
 
 ## Update
 
@@ -58,7 +58,7 @@ The version appears under “About WebLAV” at the bottom of the “Site settin
 - **Windows**: Uninstall WebLAV from Settings > Apps.
 - **macOS**: Turn off “Start at login”, quit WebLAV, then move `WebLAV.app` to the Trash.
 
-Files inside shared folders are not deleted.
+Files inside allowed folders are not deleted.
 
 **On Windows, settings and data are also deleted, including users, registered contents, and uploaded files.** If you will reinstall and continue using WebLAV, first make a backup as described in “Back up and restore” above.
 

@@ -1510,7 +1510,7 @@ export interface components {
             pathInRoot?: string | null;
             /**
              * @description `root_name` の公開できるフォルダーが削除済みか。画面では名前の代わりに
-             *     「存在しない公開フォルダー」と出す。`root_name` が `None` なら `false`。
+             *     「(見つからない公開できるフォルダー)」と出す。`root_name` が `None` なら `false`。
              */
             rootDeleted: boolean;
             /**

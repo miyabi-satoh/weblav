@@ -153,7 +153,7 @@ test('窓がすでに開いているときは、そう伝える', async ({ page 
 
 	await expect(
 		page.getByText(
-			/^フォルダーを選ぶ窓が、すでに開いています。|^A window for choosing a folder is already open\./
+			/^フォルダーを選ぶウィンドウがすでに開いています。|^A window for choosing a folder is already open\./
 		)
 	).toBeVisible();
 });

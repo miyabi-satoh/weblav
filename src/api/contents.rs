@@ -442,7 +442,7 @@ pub struct AdminContentResponse {
     /// `root_name` が `None` なら `None`。
     pub path_in_root: Option<String>,
     /// `root_name` の公開できるフォルダーが削除済みか。画面では名前の代わりに
-    /// 「存在しない公開フォルダー」と出す。`root_name` が `None` なら `false`。
+    /// 「(見つからない公開できるフォルダー)」と出す。`root_name` が `None` なら `false`。
     pub root_deleted: bool,
     pub description: Option<String>,
     /// `type = 'file'` の場合のみ`Some`。`blob_hash`(内部実装detail)は含めない。

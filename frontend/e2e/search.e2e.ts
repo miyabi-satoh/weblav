@@ -9,7 +9,7 @@ test.use({ actionTimeout: 10_000, navigationTimeout: 10_000 });
 
 const SEARCH_LINK_NAME = /^検索$|^Search$/;
 // ラベルは文言の前後で改行しているので、前後の空白を許す。
-const SEARCH_INPUT_LABEL = /^\s*(探す語|Search for)\s*$/;
+const SEARCH_INPUT_LABEL = /^\s*(検索する語句|Search for)\s*$/;
 const LOCATION_BUTTON_NAME = /^(場所|Location): /;
 
 test('検索: ヘッダーから開いて打つと、アーカイブのファイルが出て、押すとその場で鳴る', async ({
@@ -61,7 +61,7 @@ test('検索: 閲覧ページから開くとその中を探し、「すべて」
 
 			await page.goto(`/archives/${archive.id}`);
 			await page.getByRole('link', { name: SEARCH_LINK_NAME }).click();
-			const scope = page.getByRole('group', { name: /^(探す範囲|Where to search)$/ });
+			const scope = page.getByRole('group', { name: /^(検索する場所|Where to search)$/ });
 			const within = scope.getByRole('radio', { name: new RegExp(name) });
 			await expect(within).toBeChecked();
 			await page.getByLabel(SEARCH_INPUT_LABEL).fill('2023 リスニング');

@@ -372,7 +372,7 @@ async function shootAdmin() {
 					page,
 					'settings-port',
 					serverHeading,
-					page.getByRole('button', { name: '「ポート」を既定の値に戻す' }),
+					page.getByRole('button', { name: '既定値に戻す: ポート' }),
 					{ bottomGap: 0 }
 				);
 			}
@@ -416,7 +416,7 @@ async function shootAdmin() {
 			await picker(page).waitFor();
 			await dialog(page).getByRole('button', { name: '共有' }).click();
 			await dialog(page).getByRole('button', { name: '教材' }).click();
-			await dialog(page).getByText('この中にフォルダーはありません。').waitFor();
+			await dialog(page).getByText('このフォルダーにはサブフォルダーがありません。').waitFor();
 			if (want('add-folder-picker')) await shotElement(page, 'add-folder-picker', dialog(page));
 			await dialog(page).getByRole('button', { name: USE_THIS_FOLDER_BUTTON_NAME }).click();
 			await picker(page).waitFor({ state: 'hidden' });
@@ -460,11 +460,11 @@ async function shootAdmin() {
 			await page.getByRole('button', { name: '軸を追加...' }).click();
 			await waitForDialog(page);
 			const d = dialog(page);
-			await d.getByLabel(/^軸名/).fill('年度');
+			await d.getByLabel(/^軸の名前/).fill('年度');
 			await page.locator('#axis-source').click();
 			await page.getByRole('option', { name: 'フォルダーの階層' }).click();
-			await d.getByText('第1階層').click();
-			await d.getByLabel(/^軸名/).focus();
+			await d.getByText('階層 1').click();
+			await d.getByLabel(/^軸の名前/).focus();
 			await shotElement(page, 'axis-add-dir', d);
 		}
 
@@ -490,7 +490,7 @@ async function shootAdmin() {
 				page,
 				'axis-row-actions',
 				page.getByRole('heading', { name: '軸', exact: true }),
-				page.getByText('ファイル名に含まれる語'),
+				page.getByText('ファイル名の単語'),
 				{
 					padTop: 20,
 					padBottom: 18

@@ -38,9 +38,9 @@ export function canAddRoots(hostname: string): boolean {
  *
  * - 登録中の公開できるフォルダーの中: 「名前 / その先」
  * - 公開できるフォルダーの登録を削除した後: 管理者にはフルパス、
- *   それ以外には「(存在しない公開フォルダー) / その先」。起点のパスは見せない
+ *   それ以外には「(見つからない公開できるフォルダー) / その先」。起点のパスは見せない
  * - どの公開できるフォルダーの記録にも含まれない: 管理者にはフルパス、
- *   それ以外には「(存在しない公開フォルダー)」だけ (どこまでが起点か分からないため)
+ *   それ以外には「(見つからない公開できるフォルダー)」だけ (どこまでが起点か分からないため)
  */
 export function contentPathLabel(content: Content, canSeeFullPath: boolean): string | null {
 	if (content.path == null) return null;

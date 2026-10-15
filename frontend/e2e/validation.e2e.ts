@@ -153,7 +153,7 @@ test.describe('ユーザー', () => {
 
 		await page.goto('/admin/users');
 		const row = page.getByRole('row').filter({
-			hasText: /最後の管理者は降格・削除できません|The last admin cannot be demoted or deleted/
+			hasText: /最後の管理者は降格も削除もできません|The last admin cannot be demoted or deleted/
 		});
 		await expect(row).toHaveCount(1);
 		await expect(

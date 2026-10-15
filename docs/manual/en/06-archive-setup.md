@@ -85,7 +85,7 @@ Importing replaces the current axes and the display title. After importing, you 
 
 ### Send to the AI from WebLAV
 
-If an admin has registered this PC with a WebLAV account and you are allowed to use AI, “Send to the AI and get a suggestion” appears at the top of the same screen (→ [Use the AI features](10-ai.md)). Selecting it makes WebLAV send the prompt to the AI, put the answer in the field, and run the check. No pasting is needed.
+If an admin has registered this computer with a WebLAV account and you are allowed to use AI, “Send to the AI and get a suggestion” appears at the top of the same screen (→ [Use the AI features](10-ai.md)). Selecting it makes WebLAV send the prompt to the AI, put the answer in the field, and run the check. No pasting is needed.
 
 - The names of the folders and files in the archive are sent to Google (Gemini) through the WebLAV account server.
 - It uses credit from the account.

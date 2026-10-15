@@ -27,7 +27,7 @@ export async function openCreateForm(
 ) {
 	await page.goto('/admin/contents');
 	if (parentTitle) {
-		await clickRowMenuItem(page, contentRow(page, parentTitle), /この中に追加|Add inside/);
+		await clickRowMenuItem(page, contentRow(page, parentTitle), /中に追加|Add inside/);
 		await waitForDialog(page);
 	} else {
 		await openAddDialog(page, CONTENT_ADD_BUTTON_NAME);
