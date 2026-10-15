@@ -79,7 +79,7 @@ export async function saveAxisValues(page: Page, axisName: string) {
 	await saveForm(page, {
 		button: axisValuesForm(page).getByRole('button', { name: SAVE_BUTTON_NAME }),
 		toastText: new RegExp(
-			`${escapeRegExp(axisName)} の値を保存しました|Values for ${escapeRegExp(axisName)} saved\\.`
+			`「${escapeRegExp(axisName)}」の値を保存しました|Values for “${escapeRegExp(axisName)}” saved\\.`
 		)
 	});
 }

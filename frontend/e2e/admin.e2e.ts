@@ -264,7 +264,7 @@ test('作成者のみ: 作成者の一覧にだけ印付きで並び、作成者
 		await clickRowMenuItem(page, userRow(page, username), DELETE_MENU_ITEM_NAME);
 		const dialog = page.getByRole('alertdialog');
 		await expect(dialog).toContainText(
-			/「作成者のみ」のコンテンツ 1\s件は、「非表示」に変えて残します|Contents set to "Creator only" by this user \(1\) will be kept as "Hidden"/
+			/「作成者のみ」のコンテンツ 1\s件は、「非表示」に変えて残します|Contents set to “Creator only” by this user \(1\) will be kept as “Hidden”/
 		);
 		await confirmDelete(page);
 		await expect(userRow(page, username)).toHaveCount(0);

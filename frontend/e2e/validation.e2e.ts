@@ -119,7 +119,7 @@ test.describe('ユーザー', () => {
 			await expectErrorDialog(
 				page,
 				new RegExp(
-					`ユーザー名「${username}」は既に使われています|The username "${username}" is already taken`
+					`ユーザー名「${username}」は既に使われています|The username “${username}” is already taken`
 				),
 				PASSWORD_HASH_TIMEOUT
 			);

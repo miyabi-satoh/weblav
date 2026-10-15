@@ -504,7 +504,7 @@ test('軸の削除: 確認して消せる。表示タイトルで使っている
 			await confirmDelete(page);
 			const errorDialog = page.getByRole('alertdialog').filter({
 				hasText:
-					/軸「種類」は表示タイトルのテンプレートで使われているため削除できません。|The axis "種類" is used by the title template and cannot be deleted\./
+					/軸「種類」は表示タイトルのテンプレートで使われているため削除できません。|The axis “種類” is used by the title template and cannot be deleted\./
 			});
 			await expect(errorDialog).toBeVisible();
 			await errorDialog.getByRole('button', { name: CLOSE_BUTTON_NAME }).click();

@@ -134,7 +134,7 @@ test('親グループ: 「ログインした人」のグループの中の「誰
 					await page.goto(`/admin/contents/${link.id}`);
 					await expect(
 						page.getByText(
-							/親グループの公開範囲により、実際は「ログインした人」になります。|Because of the parent group's visibility, this is actually "Logged-in users"\./
+							/親グループの公開範囲により、実際は「ログインした人」になります。|Because of the parent group's visibility, this is actually “Logged-in users”\./
 						)
 					).toBeVisible();
 				}

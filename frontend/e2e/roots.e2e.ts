@@ -132,7 +132,7 @@ test('登録済みのフォルダーを選ぶと、登録済みだと伝える',
 
 		await expect(page.getByRole('alertdialog')).toContainText(
 			new RegExp(
-				`「${path.basename(target)}」として登録済み|already registered as "${path.basename(target)}"`
+				`「${path.basename(target)}」として登録済み|already registered as “${path.basename(target)}”`
 			)
 		);
 	} finally {
