@@ -93,11 +93,29 @@
 	"admin_roots_add_local_only": "To add a folder, open the admin pages from “Open in browser” in the WebLAV icon menu on the computer running WebLAV.",
 	"admin_roots_empty": "Nothing registered yet.",
 	"admin_roots_add": "Add a folder...",
-	"admin_roots_content_count": "{count} content items inside",
+	"admin_roots_content_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} content item inside",
+				"countPlural=other": "{count} content items inside"
+			}
+		}
+	],
 	"admin_roots_fetch_failed": "Failed to load the allowed folders. Please try again later.",
 	"admin_roots_delete_confirm_title": "Remove this folder?",
 	"admin_roots_delete_confirm_description": "“{name}” will no longer be available for content.",
-	"admin_roots_delete_confirm_contents_note": "{count} content items inside it will stop being viewable. Registering the folder again brings them back.",
+	"admin_roots_delete_confirm_contents_note": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} content item inside it will stop being viewable. Registering the folder again brings it back.",
+				"countPlural=other": "{count} content items inside it will stop being viewable. Registering the folder again brings them back."
+			}
+		}
+	],
 	"admin_roots_delete_confirm_local_note": "You can register it again only from the admin pages opened on the computer running WebLAV.",
 	"admin_roots_picker_already_open": "A window for choosing a folder is already open. Check whether it is hidden behind other windows.",
 	"admin_roots_name_dialog_path_label": "Location",
@@ -211,7 +229,16 @@
 	"contents_edit_discard_description": "You have unsaved changes. They will be lost if you leave this page.",
 	"contents_edit_discard_confirm": "Discard and leave",
 	"contents_edit_saved_toast": "Basic information saved.",
-	"contents_edit_saved_scanned_toast": "Basic information saved. Found {total} files.",
+	"contents_edit_saved_scanned_toast": [
+		{
+			"declarations": ["input total", "local totalPlural = total: plural"],
+			"selectors": ["totalPlural"],
+			"match": {
+				"totalPlural=one": "Basic information saved. Found {total} file.",
+				"totalPlural=other": "Basic information saved. Found {total} files."
+			}
+		}
+	],
 	"contents_edit_scan_failed": "Basic information was saved. {reason} Rescan from the Items tab.",
 	"contents_edit_scan_blocked": "Basic information was saved. {reason}",
 	"contents_create_scan_failed": "The content was created. {reason} Rescan from the Items tab.",
@@ -306,12 +333,30 @@
 	"confirm_register_counting": "Counting files...",
 	"confirm_register_count": "files will be included",
 	"confirm_register_count_truncated": "or more files will be included",
-	"confirm_register_scope_folder_public": "Anyone on the LAN can view all {count} of these files.",
+	"confirm_register_scope_folder_public": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Anyone on the LAN can view this file.",
+				"countPlural=other": "Anyone on the LAN can view all {count} of these files."
+			}
+		}
+	],
 	"confirm_register_scope_folder_public_truncated": "Anyone on the LAN can view all of these {count} or more files.",
 	"confirm_register_scope_folder_authenticated": "Only signed-in people can view them.",
 	"confirm_register_scope_folder_private": "Only you can view them.",
 	"confirm_register_scope_folder_hidden": "It will not appear where people browse. No one can view it until you change its visibility.",
-	"confirm_register_scope_archive": "{count} files will be indexed. You choose which ones to publish after registering.",
+	"confirm_register_scope_archive": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} file will be indexed. You choose whether to publish it after registering.",
+				"countPlural=other": "{count} files will be indexed. You choose which ones to publish after registering."
+			}
+		}
+	],
 	"confirm_register_scope_archive_truncated": "{count} or more files will be indexed. You choose which ones to publish after registering.",
 	"confirm_register_note_folder": "Check that nothing you want kept private is mixed in. Folders cannot hide individual files.",
 	"confirm_register_note_archive_path_changed": "Changing the location unpublishes every item, and you'll need to choose which ones to publish again.",
@@ -371,7 +416,16 @@
 	"archive_axes_values_row_files_label": "Files whose value comes from {value} ({count})",
 	"archive_axes_values_row_files_heading": "Files whose value comes from this word",
 	"archive_axes_values_row_files_more": "{count} more",
-	"archive_axes_values_row_files_count": "{count} files",
+	"archive_axes_values_row_files_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} file",
+				"countPlural=other": "{count} files"
+			}
+		}
+	],
 	"archive_axes_values_remove_row": "Remove {value}",
 	"archive_axes_values_raw_label": "Raw value, row {number}",
 	"archive_axes_values_display_label": "Display name for {value}",
@@ -401,7 +455,16 @@
 	"archive_items_rescan_button": "Rescan",
 	"archive_items_rescan_result": "{added} added, {removed} removed",
 	"archive_items_summary_with_rescan_result": "{summary} · {result}",
-	"archive_items_summary": "{count} items ({published} published)",
+	"archive_items_summary": [
+		{
+			"declarations": ["input count", "input published", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} item ({published} published)",
+				"countPlural=other": "{count} items ({published} published)"
+			}
+		}
+	],
 	"archive_items_column_title": "Title",
 	"archive_items_column_path": "Path",
 	"archive_items_column_size": "Size",
@@ -422,8 +485,26 @@
 	"archive_view_fetch_failed": "Failed to load the archive. Please try again later.",
 	"archive_view_filter_all": "All",
 	"archive_view_reset_filters": "Clear filters",
-	"archive_view_count": "{count} items",
-	"archive_view_count_filtered": "{shown} / {count} items",
+	"archive_view_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} item",
+				"countPlural=other": "{count} items"
+			}
+		}
+	],
+	"archive_view_count_filtered": [
+		{
+			"declarations": ["input shown", "input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{shown} / {count} item",
+				"countPlural=other": "{shown} / {count} items"
+			}
+		}
+	],
 	"archive_view_empty": "No items match the current filters.",
 	"archive_sort_axis": "Default order",
 	"browse_sort_label": "Sort",
@@ -528,7 +609,21 @@
 	"archive_axes_ai_error_not_axes": "The answer has no list of axes (axes). Paste the prompt again and ask once more.",
 	"archive_axes_ai_error_shape": "The answer does not follow the example in the prompt. Paste the prompt again and ask once more.",
 	"archive_axes_ai_step_preview": "3. What it will look like",
-	"archive_axes_ai_preview_axis": "{name}: values for {matched} of {total} files",
+	"archive_axes_ai_preview_axis": [
+		{
+			"declarations": [
+				"input name",
+				"input matched",
+				"input total",
+				"local totalPlural = total: plural"
+			],
+			"selectors": ["totalPlural"],
+			"match": {
+				"totalPlural=one": "{name}: values for {matched} of {total} file",
+				"totalPlural=other": "{name}: values for {matched} of {total} files"
+			}
+		}
+	],
 	"archive_axes_ai_preview_examples": "Examples of display titles",
 	"archive_axes_ai_replace_warning": "Importing replaces the current axes and display title template.",
 	"archive_axes_ai_import_button": "Import",
@@ -541,7 +636,16 @@
 	"search_scope_label": "Where to search",
 	"search_scope_within": "In “{title}”",
 	"search_scope_all": "Everywhere",
-	"search_section_count": "{count} items",
+	"search_section_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} item",
+				"countPlural=other": "{count} items"
+			}
+		}
+	],
 	"search_contents_heading": "Contents",
 	"search_items_heading": "Archive files",
 	"search_files_heading": "In folders",

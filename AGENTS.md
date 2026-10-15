@@ -122,6 +122,9 @@
   キーは `error_detail_<kind の snake_case>`。
   ただし**同じ文言がフォームの入力チェックにも要る場合は、そちらのキーを使い回す**
   (公開範囲の制約は `contents_form_visibility_*`)。同じ文言を2つ持つ方が害が大きいため。
+- **英語で件数を差し込む文言は、1件のときに崩れるなら単数と複数を出し分ける** (「1 items」にしない)。
+  paraglide の `plural` (`local countPlural = count: plural` を宣言し、`countPlural=one` と `countPlural=other` で分ける) を使う。`frontend/messages/en.json` の `archive_view_count` が例。
+  日本語は区分が1つなので文字列のままにする。上限で打ち切ったときの文言 (`_truncated`) のように件数が1にならないものは分けない。
 - 日本語と英語の両方を同時に足す。
   片方だけ足してもう片方を後回しにしない。
 
