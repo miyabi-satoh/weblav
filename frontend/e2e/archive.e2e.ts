@@ -288,7 +288,7 @@ test('ファイルのビューアー: テキストと PDF をページ内で開�
 			const pdfViewer = page.getByRole('dialog', { name: 'b-answer.pdf' });
 			await expect(pdfViewer.getByText('2 / 2')).toBeVisible();
 			await expect(
-				pdfViewer.getByRole('link', { name: /新しいタブで開く|Opens in a new tab/ }).last()
+				pdfViewer.getByRole('link', { name: /新しいタブで開く|Open in new tab/ }).last()
 			).toHaveAttribute('href', /\/download/);
 			await expect(pdfViewer.getByRole('button', { name: NEXT_FILE_BUTTON_NAME })).toBeDisabled();
 

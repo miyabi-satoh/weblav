@@ -229,7 +229,7 @@
 					target="_blank"
 					rel="external noopener noreferrer"
 				>
-					{m.contents_opens_in_new_tab()}
+					{m.action_open_in_new_tab()}
 				</a>
 			</p>
 		{:else}
