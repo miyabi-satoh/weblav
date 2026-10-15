@@ -70,8 +70,8 @@ describe('buying credit', () => {
 		const confirmation = await (await request('/account/buy', { cookie })).text();
 		// 最終確認画面に要る事項を、確定ボタンより上に出す。
 		expect(confirmation).toContain('お申し込み内容の最終確認');
-		expect(confirmation).toContain('WebLAV の AI の機能のクレジット（期限なし）');
-		expect(confirmation).toContain('300 円（税込み）');
+		expect(confirmation).toContain('WebLAV の AI の機能のクレジット (期限なし)');
+		expect(confirmation).toContain('300 円 (税込み)');
 		expect(confirmation).toContain('自動の更新はありません');
 		expect(confirmation).toContain('返金');
 		expect(confirmation).toContain('href="https://amiiby.com/tokushoho/"');
