@@ -124,7 +124,7 @@ test('アイテム: 再スキャンで索引し、公開を切り替えられる
 		async (archive) => {
 			await page.goto(`/admin/contents/${archive.id}/items`);
 			await page.getByRole('button', { name: /^再スキャンする$|^Rescan$/ }).click();
-			await expect(page.getByText(/新規3件・削除0件|3 added, 0 removed/)).toBeVisible();
+			await expect(page.getByText(/新規\s3\s件・削除\s0\s件|3 added, 0 removed/)).toBeVisible();
 			// 新しく索引したアイテムは非公開から始まる。
 			await expect(page.getByText(/3\s件\s\(公開 0\)|3 items \(0 published\)/)).toBeVisible();
 

@@ -241,13 +241,13 @@
 			{/if}
 			<!-- 読み込み中と失敗中は件数を出さない。0 件や前のアーカイブの件数を、今の中身と取り違えさせない。 -->
 			{#if !loading && loadError === ''}
-				<p class="text-sm text-muted-foreground">
+				<!-- 再スキャンの結果は今の件数と別の情報なので、行を分ける。 -->
+				<div class="text-sm text-muted-foreground">
+					<p>{summary}</p>
 					{#if rescanMessage}
-						{m.archive_items_summary_with_rescan_result({ summary, result: rescanMessage })}
-					{:else}
-						{summary}
+						<p>{rescanMessage}</p>
 					{/if}
-				</p>
+				</div>
 			{/if}
 		</div>
 		{#if showsFilter}

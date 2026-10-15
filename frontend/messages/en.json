@@ -452,8 +452,7 @@
 	"archive_tabs_axes": "Axes",
 	"archive_tabs_items": "Items",
 	"archive_items_rescan_button": "Rescan",
-	"archive_items_rescan_result": "{added} added, {removed} removed",
-	"archive_items_summary_with_rescan_result": "{summary} · {result}",
+	"archive_items_rescan_result": "Rescan result: {added} added, {removed} removed",
 	"archive_items_summary": [
 		{
 			"declarations": ["input count", "input published", "local countPlural = count: plural"],
