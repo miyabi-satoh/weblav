@@ -29,14 +29,22 @@
 	/** 矢印キーで高さを変える1回の幅。 */
 	const SHEET_STEP = 0.05;
 
-	// AI を使える人にだけボタンを出す。ログインし直したら確かめ直し、前の人の質問と答えは次の人に見せない。
+	// AI を使える人にだけボタンを出す。ログインし直したときと、コンピューターの登録が変わったときに確かめ直す。
 	let userId = $derived(page.data.user?.id ?? null);
+	// 前の人の質問と答えは、次の人に見せない。
 	$effect(() => {
+		void userId;
 		aiChat.available = false;
 		prompt = '';
 		answer = null;
 		failure = null;
-		if (userId === null) return;
+	});
+	$effect(() => {
+		void aiChat.checks;
+		if (userId === null) {
+			aiChat.available = false;
+			return;
+		}
 		let cancelled = false;
 		fetchOrNull(client.GET('/api/v1/ai/availability')).then((ai) => {
 			if (!cancelled) aiChat.available = ai?.available ?? false;
@@ -94,11 +102,14 @@
 		event?.preventDefault();
 		if (sending || prompt.trim() === '') return;
 		sending = true;
+		const asker = userId;
 		// 前の答えを残すと、新しい質問の答えに見えるため。
 		answer = null;
 		failure = null;
 		try {
 			const { data, error } = await client.POST('/api/v1/ai/chat', { body: { prompt } });
+			// 待つ間に人が替わったら、前の人の答えを出さない。
+			if (userId !== asker) return;
 			if (data) answer = data.answer;
 			else failure = errorMessage(error);
 		} catch {

@@ -11,6 +11,7 @@
 	import { onMount } from 'svelte';
 	import QRCode from 'qrcode';
 	import { accountPageHref, formatPercent, usagePercent } from '$lib/ai-account';
+	import { aiChat } from '$lib/ai-chat.svelte';
 	import { client } from '$lib/api/client';
 	import { errorCode, errorMessage, GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
 	import { fetchOrNull } from '$lib/api/load';
@@ -58,6 +59,12 @@
 	function patch(part: Partial<Status>) {
 		if (status) status = { ...status, ...part };
 	}
+
+	// 登録が変わったら、簡易チャットを使えるかを確かめ直す。
+	let linkState = $derived(status?.state ?? null);
+	$effect(() => {
+		if (linkState !== null) aiChat.recheck();
+	});
 
 	const UNLINKED: Partial<Status> = { state: 'unlinked', linkUrl: null, confirmationCode: null };
 
