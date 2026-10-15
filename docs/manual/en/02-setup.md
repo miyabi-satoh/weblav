@@ -46,4 +46,4 @@ Select your username at the top right, then choose “Admin”.
 
 ![The username menu at the top right](images/setup-admin-menu.webp)
 
-Next, go to [Add shared folders](04-roots.md).
+Next, go to [Add allowed folders](04-roots.md).

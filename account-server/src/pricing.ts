@@ -19,8 +19,6 @@ export type Pricing = {
 	purchaseGrant: number;
 	/** 新しいアカウントに一度だけ付ける無料の分 (milli_yen)。 */
 	freeGrant: number;
-	/** 無料の分に使う、月の原価の上限 (milli_yen)。 */
-	freeMonthlyCap: number;
 	rates: Rates;
 };
 
@@ -35,7 +33,6 @@ export function pricing(env: Env): Pricing {
 	return {
 		purchaseGrant: read('PURCHASE_GRANT_MILLI_YEN', env.PURCHASE_GRANT_MILLI_YEN, true),
 		freeGrant: read('FREE_GRANT_MILLI_YEN', env.FREE_GRANT_MILLI_YEN, true),
-		freeMonthlyCap: read('FREE_MONTHLY_CAP_YEN', env.FREE_MONTHLY_CAP_YEN, false) * 1000,
 		rates: {
 			usdJpy: read('USD_JPY', env.USD_JPY, false),
 			inputUsdPerMtok: read('INPUT_USD_PER_MTOK', env.INPUT_USD_PER_MTOK, false),

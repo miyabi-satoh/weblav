@@ -46,7 +46,6 @@
 			// 値付けの値 (→ src/pricing.ts)。原価の割合が分かるので vars に書かない。
 			"PURCHASE_GRANT_MILLI_YEN",
 			"FREE_GRANT_MILLI_YEN",
-			"FREE_MONTHLY_CAP_YEN",
 			"USD_JPY",
 			"INPUT_USD_PER_MTOK",
 			"OUTPUT_USD_PER_MTOK",
@@ -85,7 +84,6 @@
 					"PERPLEXITY_API_KEY",
 					"PURCHASE_GRANT_MILLI_YEN",
 					"FREE_GRANT_MILLI_YEN",
-					"FREE_MONTHLY_CAP_YEN",
 					"USD_JPY",
 					"INPUT_USD_PER_MTOK",
 					"OUTPUT_USD_PER_MTOK",

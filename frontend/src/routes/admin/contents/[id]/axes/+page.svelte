@@ -13,7 +13,7 @@
 		FILENAME_WORD_VALUES_LIMIT,
 		wordCandidates
 	} from '$lib/axis-value-assist';
-	import { formatNumber } from '$lib/format';
+	import { formatList, formatNumber } from '$lib/format';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { LatestRequest } from '$lib/latest-request';
 	import { moveItem } from '$lib/reorder';
@@ -188,9 +188,7 @@
 	});
 
 	function dirLevelSamplesText(summary: DirLevelSummary): string {
-		const samples = summary.samples
-			.map((sample) => sample.value)
-			.join(m.archive_axes_dialog_dir_level_samples_separator());
+		const samples = formatList(summary.samples.map((sample) => sample.value));
 		const params = { samples, count: String(summary.valueCount) };
 		return summary.valueCount > summary.samples.length
 			? m.archive_axes_dialog_dir_level_option_samples_more(params)
@@ -1145,11 +1143,7 @@
 										type="search"
 										bind:value={wordQuery}
 										oninput={handleWordQueryInput}
-										aria-describedby="axis-words-query-help"
 									/>
-									<Field.FieldDescription id="axis-words-query-help">
-										{m.archive_axes_words_query_help()}
-									</Field.FieldDescription>
 								</Field.Field>
 								{#if filenameWords.status === 'failed' || axisValuesLoadError !== ''}
 									<p class="text-sm text-muted-foreground">{m.archive_axes_words_fetch_failed()}</p>

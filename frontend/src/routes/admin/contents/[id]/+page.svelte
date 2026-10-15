@@ -7,7 +7,7 @@
 	import { isAdmin } from '$lib/auth';
 	import { client } from '$lib/api/client';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
-	import { MAX_INTERESTS, MAX_INTEREST_UNITS, interestLines } from '$lib/ai-links';
+	import { MAX_INTEREST_UNITS } from '$lib/ai-links';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import {
 		ContentFormState,
@@ -65,20 +65,8 @@
 	let aiInterests = $state(untrack(() => data.aiLinks?.interests ?? ''));
 	const aiLinksDirty = new FormDirtyState(() => ({ on: aiLinksOn, interests: aiInterests }));
 	aiLinksDirty.markPristine();
-	let aiInterestsError = $derived.by(() => {
-		if (!aiLinksOn) return null;
-		const lines = interestLines(aiInterests);
-		if (lines.length > MAX_INTERESTS) {
-			return m.contents_form_ai_interests_too_many({ max: MAX_INTERESTS });
-		}
-		if (lines.some((line) => line.length > MAX_INTEREST_UNITS)) {
-			return m.contents_form_ai_interests_too_long({ max: MAX_INTEREST_UNITS });
-		}
-		return null;
-	});
-
-	// 空白だけでは `required` を通ってしまうので、保存ボタンの側で止める。
-	let aiInterestsMissing = $derived(aiLinksOn && interestLines(aiInterests).length === 0);
+	// 空白だけでは `required` を通ってしまうので、保存ボタンの側で止める。長さは欄の maxlength で止める。
+	let aiInterestsMissing = $derived(aiLinksOn && aiInterests.trim() === '');
 
 	let dirty = $derived(form.dirty || creatorChanged || aiLinksDirty.dirty);
 
@@ -131,7 +119,7 @@
 
 	function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
-		if (saving || visibilityError !== null || aiInterestsError !== null) return;
+		if (saving || visibilityError !== null) return;
 		if (loosened !== null) {
 			confirmLoosenedOpen = true;
 			return;
@@ -328,15 +316,9 @@
 						<Textarea
 							id="content-ai-interests"
 							bind:value={aiInterests}
+							maxlength={MAX_INTEREST_UNITS}
 							required
-							aria-invalid={aiInterestsError !== null}
 						/>
-						{#if aiInterestsError !== null}
-							<Field.FieldError>{aiInterestsError}</Field.FieldError>
-						{/if}
-						<Field.FieldDescription
-							>{m.contents_form_ai_interests_help({ max: MAX_INTERESTS })}</Field.FieldDescription
-						>
 					</Field.Field>
 				{/if}
 			</fieldset>
@@ -350,7 +332,6 @@
 					disabled={!dirty ||
 						(isDirectoryContentType(form.type) && form.path === '') ||
 						visibilityError !== null ||
-						aiInterestsError !== null ||
 						aiInterestsMissing}>{m.action_save()}</LoadingButton
 				>
 			</div>

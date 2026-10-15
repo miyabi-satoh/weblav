@@ -273,7 +273,9 @@
 				<Table.Row>
 					<Table.Head>{m.admin_users_table_username()}</Table.Head>
 					<Table.Head class={fitColumnClass}>{m.admin_users_table_role()}</Table.Head>
-					<Table.Head class={fitColumnClass}>{m.admin_users_table_ai_allowed()}</Table.Head>
+					<Table.Head class={[fitColumnClass, 'text-center']}
+						>{m.admin_users_table_ai_allowed()}</Table.Head
+					>
 					<Table.Head class={[columnFromMdClass, fitColumnClass]}
 						>{m.admin_users_table_created_at()}</Table.Head
 					>
@@ -319,12 +321,20 @@
 								</p>
 							{/if}
 						</Table.Cell>
-						<Table.Cell class={fitColumnClass}>
-							<!-- 管理者は印によらず使えるので、スイッチを出さない (→ docs/ai.md「誰が使えるか」)。 -->
+						<!-- 見出しの短い列なので、スイッチを見出しの真下に揃える。 -->
+						<Table.Cell class={[fitColumnClass, 'text-center']}>
+							<!-- 管理者は印によらず使える (→ docs/ai.md「誰が使えるか」)。空欄だと使えないように見えるので、
+							     オンのまま押せないスイッチを出す。 -->
 							{#if target.role === 'user'}
 								<Switch
 									bind:checked={() => target.aiAllowed, (v) => changeAiAllowed(target, v)}
 									disabled={changingAiAllowedId === target.id}
+									aria-label={m.admin_users_ai_allowed_row_label({ username: target.username })}
+								/>
+							{:else}
+								<Switch
+									checked
+									disabled
 									aria-label={m.admin_users_ai_allowed_row_label({ username: target.username })}
 								/>
 							{/if}
@@ -355,7 +365,10 @@
 			</Table.Body>
 		</Table.Root>
 	</div>
-	<p class="mt-4 text-sm text-muted-foreground">{m.admin_users_ai_allowed_description()}</p>
+	<!-- 未登録のあいだだけ、スイッチが効かない理由を出す (→ docs/ui.md「UI 全般」の説明文)。 -->
+	{#if data.aiStatus !== null && data.aiStatus.state !== 'linked'}
+		<p class="mt-4 text-sm text-muted-foreground">{m.admin_users_ai_not_linked_note()}</p>
+	{/if}
 </div>
 
 <Dialog.Root bind:open={createOpen}>
@@ -490,9 +503,6 @@
 	>
 		<Dialog.Header>
 			<Dialog.Title>{m.admin_users_rename_dialog_title()}</Dialog.Title>
-			<Dialog.Description>
-				{m.admin_users_rename_dialog_description({ username: renamingUser?.username ?? '' })}
-			</Dialog.Description>
 		</Dialog.Header>
 		<form onsubmit={handleRenameSubmit} class="flex flex-col gap-6">
 			<Field.FieldGroup>

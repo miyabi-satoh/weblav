@@ -63,7 +63,7 @@ test('トレイから開いたリンクで最初の管理者を作ると、リ�
 	await keepRecoveryCode(page);
 	await page.waitForURL(`${SETUP_BASE_URL}/admin/contents`);
 	await expect(
-		page.getByRole('heading', { level: 1, name: /^コンテンツ管理$|^Manage contents$/ })
+		page.getByRole('heading', { level: 1, name: /^コンテンツの管理$|^Manage contents$/ })
 	).toBeVisible();
 
 	// トークンは使い切り。同じリンクを開き直してもフォームは出ない。

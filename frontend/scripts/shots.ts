@@ -19,8 +19,8 @@ import {
 	DELETE_MENU_ITEM_NAME,
 	DIR_PICKER_NAME,
 	RENAME_MENU_ITEM_NAME,
+	ROOT_ADD_BUTTON_LOADING_NAME,
 	ROOT_ADD_BUTTON_NAME,
-	ROOT_PICKING_TEXT,
 	SAVE_BUTTON_NAME,
 	VISIBILITY_LABEL,
 	USER_ADD_BUTTON_NAME,
@@ -164,7 +164,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// ログイン済みでトップページ(コンテンツ一覧)を表示した状態。自分の本人のみの行に印が付く。
+	// ログイン済みでトップページ(コンテンツ一覧)を表示した状態。自分の「作成者のみ」の行に印が付く。
 	home_with_contents: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, '/');
@@ -271,7 +271,7 @@ export const shots: Record<string, ShotEntry> = {
 			// 行内のテキストで特定する (クリックは親のbuttonへバブルする)。
 			await page.getByText(ctx.fixtures.sharedFolderName, { exact: true }).click();
 			// 降りた後にだけ出る「上の階層へ」の行で、一覧の切り替わりを待つ。
-			await page.getByText(/上の階層へ|Go up one level/).waitFor({ timeout: 5000 });
+			await page.getByText(/1\sつ上へ|Go up one level/).waitFor({ timeout: 5000 });
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
 		}
 	},
@@ -293,11 +293,11 @@ export const shots: Record<string, ShotEntry> = {
 			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.folderId}`);
 			// パスを変えずに公開範囲だけ変えても確認が出ることを示す。
 			await page.getByLabel(VISIBILITY_LABEL).click();
-			await page.getByRole('option', { name: /要ログイン|Sign-in required/ }).click();
+			await page.getByRole('option', { name: /ログインした人|Logged-in users/ }).click();
 			await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
 			await page.getByRole('dialog', { name: CONFIRM_REGISTER_NAME }).waitFor({ timeout: 5000 });
 			await page.waitForFunction(
-				() => !/対象のファイルを数えています|Counting files/.test(document.body.innerText),
+				() => !/ファイルを数えています|Counting files/.test(document.body.innerText),
 				null,
 				{ timeout: 10000 }
 			);
@@ -337,7 +337,9 @@ export const shots: Record<string, ShotEntry> = {
 			await page.route('**/api/v1/admin/roots/pick', () => {});
 			await openAsAdmin(page, ctx.baseURL, '/admin/roots');
 			await page.getByRole('button', { name: ROOT_ADD_BUTTON_NAME }).click();
-			await page.getByText(ROOT_PICKING_TEXT).waitFor({ timeout: 5000 });
+			await page
+				.getByRole('button', { name: ROOT_ADD_BUTTON_LOADING_NAME, disabled: true })
+				.waitFor({ timeout: 5000 });
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
 		}
 	},
@@ -373,7 +375,7 @@ export const shots: Record<string, ShotEntry> = {
 	},
 
 	// 管理画面: ユーザー削除の確認ダイアログ。対象ユーザー名と、そのユーザーが作成者の
-	// 本人のみの件数が文中に入る。
+	// 「作成者のみ」の件数が文中に入る。
 	admin_users_delete_confirm: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, '/admin/users');
@@ -492,11 +494,11 @@ export const shots: Record<string, ShotEntry> = {
 			await page.getByRole('button', { name: /^級/ }).first().click();
 			// 候補と件数は軸を選んでから取るので、どちらも出るまで待つ。
 			const words = page.getByRole('region', {
-				name: /^ファイル名によく出る語$|^Common words in file names$/
+				name: /^ファイル名によく出る単語$|^Common words in file names$/
 			});
 			await words.getByRole('listitem').first().waitFor({ timeout: 5000 });
 			await page
-				.getByText(/^一致 \d+件 \/ 未設定 \d+件$|^Matched: \d+ \/ Unset: \d+$/)
+				.getByText(/^一致: \d+ \/ 未設定: \d+$|^Matched: \d+ \/ Unset: \d+$/)
 				.waitFor({ timeout: 5000 });
 			await page.getByText(/^未設定のファイルの例$|^Examples of unset files$/).click();
 			// 狭い幅では値の辞書が軸の一覧の下に来るので、候補の区画を画面に入れる。

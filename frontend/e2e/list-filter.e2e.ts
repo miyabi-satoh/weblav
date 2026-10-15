@@ -19,7 +19,7 @@ test('一覧の絞り込み: 打つと当たる行だけが残り、語が URL �
 			// 間を空けた当たり (「2023 リスニング」の 2・3・リ)。打ったらすぐ別の画面へ移って戻る。
 			// URL に写す前 (打ち止めて 0.3 秒) に移っても、移る前に書きかけを書き、shallow routing の語は
 			// page.state から戻るので、語と絞った行が残り、URL にも載る。
-			const input = page.getByRole('textbox', { name: /^(名前で絞り込み|Filter by name)$/ });
+			const input = page.getByRole('textbox', { name: /^(名前で絞り込む|Filter by name)$/ });
 			await input.fill('23リ');
 			await page.getByRole('link', { name: 'WebLAV', exact: true }).click();
 			await page.waitForURL((url) => url.pathname === '/');

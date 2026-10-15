@@ -211,6 +211,37 @@ fn bring_to_front() {
     app.activateIgnoringOtherApps(true);
 }
 
+/// 窓を閉じてからこの長さだけ、OS からのイベントを流す。閉じる動きと後片付けが済むのに足りる長さ。
+#[cfg(target_os = "macos")]
+const SETTLE_SECS: f64 = 1.0;
+
+/// イベントループを回さない実行ファイル (`weblav-service`) で、窓を閉じた後の後片付けを流す。**メインスレッドで呼ぶこと**。
+///
+/// macOS の窓は、閉じた後も、イベントを流すまで画面から消えない。流さないと、応答しない窓の残骸が残り、
+/// その上ではカーソルが待ちの印になる。トレイ版はイベントループが流すので呼ばない。
+#[cfg(target_os = "macos")]
+pub fn settle_without_event_loop() {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSApplication, NSEventMask};
+    use objc2_foundation::{NSDate, NSDefaultRunLoopMode};
+
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
+    let app = NSApplication::sharedApplication(mtm);
+    let until = NSDate::dateWithTimeIntervalSinceNow(SETTLE_SECS);
+    // SAFETY: Foundation が持つ定数の参照で、プロセスが終わるまで有効。
+    let mode = unsafe { NSDefaultRunLoopMode };
+    while let Some(event) = app.nextEventMatchingMask_untilDate_inMode_dequeue(
+        NSEventMask::Any,
+        Some(&until),
+        mode,
+        true,
+    ) {
+        app.sendEvent(&event);
+    }
+}
+
 /// Linux では手当てしていない (後ろに出るかを実機で確かめていない)。
 #[cfg(not(any(target_os = "macos", windows)))]
 fn bring_to_front() {}

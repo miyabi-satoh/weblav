@@ -10,10 +10,10 @@
 | An external website | Link |
 | A collection of items | Group |
 
-You can choose folders and archives only from “Shared folders” (→ [Add shared folders](04-roots.md)).
+You can choose folders and archives only from “Allowed folders” (→ [Add allowed folders](04-roots.md)).
 Only items registered here appear for viewers.
 
-![How folders on the computer relate to the viewer's screen: add "Shared" as a shared folder, then register "Teaching materials" as a folder and "EIKEN" as an archive. Only those two appear for viewers. Unregistered "Drafts" and "Household accounts" outside the shared folder do not appear.](images/how-it-works.webp)
+![How folders on the computer relate to the viewer's screen: add "Shared" as an allowed folder, then register "Teaching materials" as a folder and "EIKEN" as an archive. Only those two appear for viewers. Unregistered "Drafts" and "Household accounts" outside the allowed folder do not appear.](images/how-it-works.webp)
 
 Titles are assigned automatically. To change one, use the edit page that opens after registration.
 
@@ -35,7 +35,7 @@ The remaining steps differ by type.
 
    ![The Add folder screen](images/add-folder-form.webp)
 
-2. Browse from a shared folder to the folder you want to show, then select “Use this folder”.
+2. Browse from an allowed folder to the folder you want to show, then select “Use this folder”.
 
    ![The folder selection screen](images/add-folder-picker.webp)
 
@@ -80,9 +80,9 @@ note = "A description shown under the link (optional)"
 
 | Visibility | Who can see it |
 |---|---|
-| Anyone | Everyone (default) |
-| Sign-in required | Signed-in users |
-| Private | The person who registered it |
+| Everyone | Everyone, including people who aren't logged in (default) |
+| Logged-in users | Only logged-in users |
+| Creator only | Only the person who registered it |
 | Hidden | No one (you can open it from the admin pages) |
 
 1. In the “Contents” list, select “⋮” on the row, then choose “Edit”.

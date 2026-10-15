@@ -33,6 +33,11 @@ export function formatNumber(value: number | null | undefined): string {
 	return value.toLocaleString(getLocale());
 }
 
+/** 語を画面の表示言語の区切りで並べる (日本語は「、」、英語は「, 」)。「と」「and」は付けない。 */
+export function formatList(values: string[]): string {
+	return new Intl.ListFormat(getLocale(), { type: 'conjunction', style: 'narrow' }).format(values);
+}
+
 /** 再生位置・長さを `m:ss` (1時間以上は `h:mm:ss`) で書く。長さが分からない値は `0:00` にする。 */
 export function formatDuration(seconds: number): string {
 	const total = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;

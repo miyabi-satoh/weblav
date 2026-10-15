@@ -15,12 +15,14 @@
 	} from '$lib/axes-ai-prompt';
 	import { copyText } from '$lib/clipboard';
 	import { CopiedState } from '$lib/copied-state.svelte';
+	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Field from '$lib/components/ui/field';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import WarningBand from '$lib/components/warning-band.svelte';
 	import * as m from '$lib/paraglide/messages.js';
@@ -43,6 +45,8 @@
 	let answer = $state('');
 	let checking = $state(false);
 	let importing = $state(false);
+	// 窓を閉じた後の読み直しの失敗を出す。
+	const errorDialog = new ErrorDialogState();
 	let checkError = $state<string | null>(null);
 	/** WebLAV のアカウントを通して AI に送れるか (→ docs/ai.md「誰が使えるか」)。送れない人には貼り付けの流れだけを出す。 */
 	let aiAvailable = $state(false);
@@ -213,7 +217,7 @@
 		// 保存はできているので、読み直しに失敗しても取り込みは失敗と見せない。
 		open = false;
 		toast.success(m.archive_axes_ai_imported_toast());
-		await onimported().catch(() => toast.error(GENERIC_ERROR_MESSAGE()));
+		await onimported().catch(() => errorDialog.show(GENERIC_ERROR_MESSAGE()));
 	}
 </script>
 
@@ -358,3 +362,5 @@
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
+
+<ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

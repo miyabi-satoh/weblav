@@ -49,6 +49,13 @@ function page(lang: Lang, title: string, body: Body) {
 						color: var(--fg);
 						font-family: system-ui, sans-serif;
 						line-height: 1.7;
+					}
+					/* 題・ボタン・ラベルなどの短い文だけ、文節の切れ目で折る (→ docs/ui.md「UI 全般」)。 */
+					h1,
+					label,
+					button,
+					a.google,
+					a.apple {
 						word-break: auto-phrase;
 					}
 					main {

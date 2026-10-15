@@ -10,6 +10,7 @@ const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
     ("PUT", "/api/v1/auth/username"),
     ("POST", "/api/v1/auth/recovery-code"),
     ("GET", "/api/v1/ai/availability"),
+    ("POST", "/api/v1/ai/chat"),
     ("GET", "/api/v1/admin/ai"),
     ("DELETE", "/api/v1/admin/ai"),
     ("POST", "/api/v1/admin/ai/link"),

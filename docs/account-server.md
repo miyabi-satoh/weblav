@@ -43,6 +43,7 @@
 
 - `POST /v1/ai` で WebLAV が組み立てた `system`・`user`・任意の `attachments` を受け、Gemini の `gemini-3.5-flash-lite` へ送って返事をそのまま返す。
 - モデル・出力の上限（16,000 トークン）・入力の上限（`system` と `user` の合計 200,000 文字）は窓口で固定し、WebLAV から変えさせない。
+- 思考の強さも窓口で決める。WebLAV は任意の `task` で用途だけを伝え、`chat`（簡易チャット）は `medium`、伝えない呼び出しはモデルの既定（`minimal`）で送る。窓口が知らない `task` は 400 を返す。
 - 添付は base64 の PDF・PNG・JPEG・WebP を1つだけ受け、合計 14,000,000 文字までにする。元のファイルでは約 10 MB であり、ほかの文書は WebLAV が文字を取り出して送る。
 - 送った文と返事は窓口のログや D1 に残さない。
 - 呼ぶ前に、残りが入力の原価の見積もり（文は1文字を1トークン、添付は 50 KB を PDF の1ページと数える）に届くかを確かめ、届かなければ 402 を返す。返事が届いてから使った原価を引く。出力の分は残りを超えても通し、返事が届かなかった回は引かない。
@@ -68,12 +69,11 @@
 - 使った分は、引いた付与ごとに `consumptions` に1行ずつ残す。購入の付与から引いた分の売値は `purchases.amount × consumptions.milli_yen ÷ consumptions.grant_size` で出す。
 - `consumptions.grant_size` には引いた時点の `grants.granted` を写すので、アカウントを消して付与の行が無くなった後も売値に直せる。
 - `GET /v1/balance` はメールアドレスと残りの割合を `email`・`remaining_percent` で返す。WebLAV には金額や回数ではなく割合だけを見せる。
-- その月に付けた無料の付与の合計が上限に達すると、新しいアカウントへの無料の付与を止める。付けられなかったアカウントには、翌月以降に残高の問い合わせか中継をしたときに付け直す。
 
 ## 値付けの値
 
-- 購入と無料の付与の量・無料の付与の月の上限・Gemini と検索の単価・円の換算は、売値と並べると原価の割合が分かるので、リポジトリに書かず秘密の値に置く。
-- 値の名前は `PURCHASE_GRANT_MILLI_YEN`・`FREE_GRANT_MILLI_YEN`・`FREE_MONTHLY_CAP_YEN`・`USD_JPY`・`INPUT_USD_PER_MTOK`・`OUTPUT_USD_PER_MTOK`・`SEARCH_USD_PER_REQUEST` である。
+- 購入と無料の付与の量・Gemini と検索の単価・円の換算は、売値と並べると原価の割合が分かるので、リポジトリに書かず秘密の値に置く。
+- 値の名前は `PURCHASE_GRANT_MILLI_YEN`・`FREE_GRANT_MILLI_YEN`・`USD_JPY`・`INPUT_USD_PER_MTOK`・`OUTPUT_USD_PER_MTOK`・`SEARCH_USD_PER_REQUEST` である。
 - 1つでも無いか読めなければ、窓口のどの入口も D1 に書く前に 500 で止める。誤った値で付けたり引いたりせず、サインインのリンクを使った後の途中で止まらないようにする。
 
 ## 購入

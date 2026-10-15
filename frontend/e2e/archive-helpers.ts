@@ -36,15 +36,13 @@ export async function addAxis(
 	await page.getByRole('button', { name: ADD_AXIS_BUTTON_NAME }).click();
 	await waitForDialog(page);
 	const dialog = page.getByRole('dialog');
-	await dialog.getByLabel(requiredLabel('軸名', 'Axis name')).fill(name);
+	await dialog.getByLabel(requiredLabel('軸の名前', 'Axis name')).fill(name);
 	await dialog.getByLabel(SOURCE_LABEL).click();
 	if ('dirLevel' in source) {
 		await page.getByRole('option', { name: /^フォルダーの階層$|^Folder level$/ }).click();
 		await dialog.getByLabel(dirLevelRadioLabel(source.dirLevel)).check();
 	} else {
-		await page
-			.getByRole('option', { name: /^ファイル名に含まれる語$|^Word in file name$/ })
-			.click();
+		await page.getByRole('option', { name: /^ファイル名の単語$|^Word in file name$/ }).click();
 	}
 	await dialog.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
 	await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -68,7 +66,7 @@ export function axisValuesForm(page: Page): Locator {
 
 /** 値の辞書に行を足し、元の値と表示名を入れる (保存はしない)。 */
 export async function addAxisValue(page: Page, raw: string, display: string) {
-	await page.getByRole('button', { name: /^値を追加する$|^Add value$/ }).click();
+	await page.getByRole('button', { name: /^値を追加$|^Add value$/ }).click();
 	const row = axisValuesForm(page).locator('tbody tr').last();
 	await row.getByRole('textbox').nth(0).fill(raw);
 	await row.getByRole('textbox').nth(1).fill(display);
@@ -79,7 +77,7 @@ export async function saveAxisValues(page: Page, axisName: string) {
 	await saveForm(page, {
 		button: axisValuesForm(page).getByRole('button', { name: SAVE_BUTTON_NAME }),
 		toastText: new RegExp(
-			`${escapeRegExp(axisName)} の値を保存しました|Values for ${escapeRegExp(axisName)} saved\\.`
+			`「${escapeRegExp(axisName)}」の値を保存しました|Values for “${escapeRegExp(axisName)}” saved\\.`
 		)
 	});
 }
@@ -95,7 +93,7 @@ export function itemPublishedSwitch(page: Page, relPath: string): Locator {
 /** 値の辞書の「ファイル名によく出る語」の区画。 */
 export function wordCandidatesRegion(page: Page): Locator {
 	return page.getByRole('region', {
-		name: /^ファイル名によく出る語$|^Common words in file names$/
+		name: /^ファイル名によく出る単語$|^Common words in file names$/
 	});
 }
 
@@ -109,6 +107,6 @@ export function wordCandidate(page: Page, word: string, count: number): Locator 
 /** 値の辞書の表の下に出る、保存前の表での一致・未設定の件数。表が空だと表の見出しが無いので、画面全体から探す。 */
 export function axisValuesPreviewSummary(page: Page, matched: number, unset: number): Locator {
 	return page.getByText(
-		new RegExp(`^一致 ${matched}件 / 未設定 ${unset}件$|^Matched: ${matched} / Unset: ${unset}$`)
+		new RegExp(`^一致: ${matched} / 未設定: ${unset}$|^Matched: ${matched} / Unset: ${unset}$`)
 	);
 }

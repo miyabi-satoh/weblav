@@ -12,8 +12,8 @@ import {
 
 const RECOVERY_CODE_COPY_BUTTON_NAME = /^コピー$|^Copy$/;
 const SHARE_TRIGGER_NAME = /^このページを共有$|^Share this page$/;
-const SHARE_QR_MENU_ITEM_NAME = /^QRコードを表示\.\.\.$|^Show QR code\.\.\.$/;
-const SHARE_COPY_BUTTON_NAME = /^コピーする$|^Copy$/;
+const SHARE_QR_MENU_ITEM_NAME = /^QR コードを表示\.\.\.$|^Show QR code\.\.\.$/;
+const SHARE_COPY_BUTTON_NAME = /^コピー$|^Copy$/;
 
 type WindowWithClipboard = Window & { __realClipboard?: Clipboard };
 

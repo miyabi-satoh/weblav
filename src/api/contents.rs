@@ -299,7 +299,7 @@ struct ContentRow {
 /// 一切含めない(一般の閲覧者にファイルシステムのレイアウトを漏らさないため)。type分岐が
 /// フロントからも自然に扱えるよう、tagged enumにしてある。
 ///
-/// 各バリアントの `private` は、公開範囲が `private` なら真。一覧に「本人のみ」の印を出すため
+/// 各バリアントの `private` は、公開範囲が `private` なら真。一覧に「作成者のみ」の印を出すため
 /// (→ docs/access.md「フロントエンドのガード反転」)。一覧に並ぶ `private` は必ず閲覧者自身のもの (`can_list`)。
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -442,7 +442,7 @@ pub struct AdminContentResponse {
     /// `root_name` が `None` なら `None`。
     pub path_in_root: Option<String>,
     /// `root_name` の公開できるフォルダーが削除済みか。画面では名前の代わりに
-    /// 「存在しない公開フォルダー」と出す。`root_name` が `None` なら `false`。
+    /// 「(見つからない公開できるフォルダー)」と出す。`root_name` が `None` なら `false`。
     pub root_deleted: bool,
     pub description: Option<String>,
     /// `type = 'file'` の場合のみ`Some`。`blob_hash`(内部実装detail)は含めない。

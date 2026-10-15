@@ -22,8 +22,11 @@
 	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
 	import { adminPageClass, adminPageHeaderClass, pageHeadingTextClass } from '$lib/page-layout';
+	import { masonry } from '$lib/masonry';
 
 	let { data }: PageProps = $props();
+
+	const sectionClass = 'flex flex-col gap-6 rounded-lg border bg-card p-4 sm:p-6';
 
 	// サーバーの上限 (`src/api/site_settings.rs` の `MAX_CHARS`) と揃える。
 	const MAX_LENGTH = 100;
@@ -178,21 +181,11 @@
 	{/if}
 {/snippet}
 
-<!-- 既定の値から変えてある項目のラベルに添える印。差し色は使わない (→ docs/ui.md「UI 全般」)。 -->
-{#snippet changedMark(value: number, initial: number)}
-	{#if value !== initial}
-		<span class="text-sm text-muted-foreground">{m.admin_settings_changed_mark()}</span>
-	{/if}
-{/snippet}
-
-<!-- 既定の値と、そこへ戻すボタン。変えてある項目にだけ出す (既定のままの項目に同じ文を繰り返さない)。
+<!-- 既定の値へ戻すボタン。変えてある項目にだけ出す。印や既定の値の文を足さず、ボタンが出ていることで変えてあると分かる形にする。
      戻すのは入力欄の値だけで、保存は区画の保存ボタンで行う。 -->
 {#snippet defaultValue(name: string, value: number, initial: number, reset: () => void)}
 	{#if value !== initial}
-		<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-			<Field.FieldDescription
-				>{m.admin_settings_default_value({ value: initial })}</Field.FieldDescription
-			>
+		<div>
 			<Button
 				type="button"
 				variant="outline"
@@ -209,14 +202,10 @@
 		<h1 class={pageHeadingTextClass}>{m.admin_settings_title()}</h1>
 	</div>
 
-	<!-- 区画の間は 48px 空け、その中ほどに罫線を引く (→ docs/ui.md「UI 全般」の「余白と区切り」)。
+	<!-- 区画はカードにし、広い幅では石垣に並べる (→ docs/ui.md「UI 全般」の「サイト設定の区画」)。
 	     保存は区画ごと。サーバーの区画だけが次の起動から効くため。 -->
-	<div class="flex max-w-xl flex-col">
-		<form
-			onsubmit={handleSiteSubmit}
-			aria-labelledby="home-section-heading"
-			class="flex flex-col gap-6 border-b pb-6"
-		>
+	<div class="grid max-w-xl gap-6 lg:max-w-none lg:grid-cols-2 2xl:grid-cols-3" {@attach masonry}>
+		<form onsubmit={handleSiteSubmit} aria-labelledby="home-section-heading" class={sectionClass}>
 			<h2 id="home-section-heading" class="text-base font-semibold">
 				{m.admin_settings_home_section_heading()}
 			</h2>
@@ -224,17 +213,12 @@
 				<Field.Field>
 					<Field.FieldLabel for="site-name">{m.admin_settings_site_name_label()}</Field.FieldLabel>
 					<Input id="site-name" bind:value={siteName} maxlength={MAX_LENGTH} />
-					<Field.FieldDescription>{m.admin_settings_site_name_description()}</Field.FieldDescription
-					>
 				</Field.Field>
 				<Field.Field>
 					<Field.FieldLabel for="home-heading"
 						>{m.admin_settings_home_heading_label()}</Field.FieldLabel
 					>
 					<Input id="home-heading" bind:value={homeHeading} maxlength={MAX_LENGTH} />
-					<Field.FieldDescription
-						>{m.admin_settings_home_heading_description()}</Field.FieldDescription
-					>
 				</Field.Field>
 			</Field.FieldGroup>
 			<div>
@@ -245,7 +229,7 @@
 		<form
 			onsubmit={handleServerSubmit}
 			aria-labelledby="server-section-heading"
-			class="flex flex-col gap-6 pt-6"
+			class={sectionClass}
 		>
 			<div class="flex flex-col gap-2">
 				<h2 id="server-section-heading" class="text-base font-semibold">
@@ -256,12 +240,9 @@
 			{#if server}
 				<Field.FieldGroup>
 					<Field.Field>
-						<div class="flex flex-wrap items-baseline gap-x-3">
-							<Field.FieldLabel for="server-port" required
-								>{m.admin_settings_port_label()}</Field.FieldLabel
-							>
-							{@render changedMark(port, server.defaults.port)}
-						</div>
+						<Field.FieldLabel for="server-port" required
+							>{m.admin_settings_port_label()}</Field.FieldLabel
+						>
 						<Input
 							id="server-port"
 							type="number"
@@ -277,12 +258,9 @@
 						{@render runningValue(server.saved.port, server.running.port)}
 					</Field.Field>
 					<Field.Field>
-						<div class="flex flex-wrap items-baseline gap-x-3">
-							<Field.FieldLabel for="server-upload" required
-								>{m.admin_settings_upload_label()}</Field.FieldLabel
-							>
-							{@render changedMark(uploadMaxSizeMb, server.defaults.uploadMaxSizeMb)}
-						</div>
+						<Field.FieldLabel for="server-upload" required
+							>{m.admin_settings_upload_label()}</Field.FieldLabel
+						>
 						<Input
 							id="server-upload"
 							type="number"
@@ -291,7 +269,6 @@
 							bind:value={uploadMaxSizeMb}
 							required
 						/>
-						<Field.FieldDescription>{m.admin_settings_upload_description()}</Field.FieldDescription>
 						{@render defaultValue(
 							m.admin_settings_upload_label(),
 							uploadMaxSizeMb,
@@ -305,12 +282,9 @@
 						{@render runningValue(server.saved.uploadMaxSizeMb, server.running.uploadMaxSizeMb)}
 					</Field.Field>
 					<Field.Field>
-						<div class="flex flex-wrap items-baseline gap-x-3">
-							<Field.FieldLabel for="server-session" required
-								>{m.admin_settings_session_label()}</Field.FieldLabel
-							>
-							{@render changedMark(sessionExpiryDays, server.defaults.sessionExpiryDays)}
-						</div>
+						<Field.FieldLabel for="server-session" required
+							>{m.admin_settings_session_label()}</Field.FieldLabel
+						>
 						<Input
 							id="server-session"
 							type="number"
@@ -319,8 +293,6 @@
 							bind:value={sessionExpiryDays}
 							required
 						/>
-						<Field.FieldDescription>{m.admin_settings_session_description()}</Field.FieldDescription
-						>
 						{@render defaultValue(
 							m.admin_settings_session_label(),
 							sessionExpiryDays,
@@ -346,7 +318,7 @@
 			{/if}
 		</form>
 
-		<section aria-labelledby="log-section-heading" class="mt-6 flex flex-col gap-6 border-t pt-6">
+		<section aria-labelledby="log-section-heading" class={sectionClass}>
 			<h2 id="log-section-heading" class="text-base font-semibold">
 				{m.admin_settings_log_heading()}
 			</h2>
@@ -375,9 +347,6 @@
 									>{m.admin_settings_log_download()}</Button
 								>
 							</div>
-							<Field.FieldDescription
-								>{m.admin_settings_log_download_description()}</Field.FieldDescription
-							>
 						{:else}
 							<p class="text-sm text-muted-foreground">{m.admin_settings_log_stdout()}</p>
 						{/if}
@@ -388,10 +357,7 @@
 			{/if}
 		</section>
 
-		<section
-			aria-labelledby="backup-section-heading"
-			class="mt-6 flex flex-col gap-6 border-t pt-6"
-		>
+		<section aria-labelledby="backup-section-heading" class={sectionClass}>
 			<h2 id="backup-section-heading" class="text-base font-semibold">
 				{m.backup_heading()}
 			</h2>
@@ -407,11 +373,10 @@
 						{m.backup_restore_confirm_relogin()}
 					{/snippet}
 				</BackupRestore>
-				<p class="text-sm text-muted-foreground">{m.backup_restore_description()}</p>
 			</div>
 		</section>
 
-		<section aria-labelledby="ai-section-heading" class="mt-6 flex flex-col gap-6 border-t pt-6">
+		<section aria-labelledby="ai-section-heading" class={sectionClass}>
 			<h2 id="ai-section-heading" class="text-base font-semibold">
 				{m.admin_settings_ai_heading()}
 			</h2>
@@ -420,10 +385,7 @@
 
 		<!-- 版は問い合わせのときに読み上げてもらう。取れなければ区画ごと出さない (リンクだけ残しても用が足りないため)。 -->
 		{#if data.health}
-			<section
-				aria-labelledby="about-section-heading"
-				class="mt-6 flex flex-col gap-6 border-t pt-6"
-			>
+			<section aria-labelledby="about-section-heading" class={sectionClass}>
 				<h2 id="about-section-heading" class="text-base font-semibold">
 					{m.admin_settings_about_heading()}
 				</h2>

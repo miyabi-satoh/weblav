@@ -6,14 +6,14 @@ use std::sync::Arc;
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use crate::ai::{self, Account};
 use crate::auth::{AdminUser, AuthUser};
-use crate::error::{AppError, run_blocking};
+use crate::error::{AppError, AppJson, run_blocking};
 use crate::state::AppState;
 
 /// PC の登録の状態。
@@ -281,6 +281,54 @@ async fn get_availability(
     Ok(Json(AiAvailabilityResponse { available }))
 }
 
+/// 簡易チャットの指示文。答えは画面にそのまま出すので、Markdown を使わせない。
+const CHAT_SYSTEM: &str = "You are an assistant built into WebLAV, an app for browsing shared files and links. \
+Answer the user's question briefly and accurately, in the language the question is written in. \
+Write plain text. Do not use Markdown.";
+
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct AiChatRequest {
+    /// 質問。
+    prompt: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct AiChatResponse {
+    answer: String,
+}
+
+/// 簡易チャット。質問を1つ送り、答えを1つ返す。前のやり取りは持たない。
+#[utoipa::path(
+    post,
+    path = "/ai/chat",
+    request_body = AiChatRequest,
+    responses(
+        (status = OK, body = AiChatResponse),
+        (status = 402, body = crate::error::ErrorResponse, description = "残りが無い"),
+        (status = 403, body = crate::error::ErrorResponse, description = "AI を使えない"),
+        (status = 409, body = crate::error::ErrorResponse, description = "PC を登録していない"),
+        (status = 413, body = crate::error::ErrorResponse, description = "質問が長すぎる"),
+        (status = 422, body = crate::error::ErrorResponse, description = "質問が空"),
+        (status = 429, body = crate::error::ErrorResponse, description = "短い間に呼びすぎた"),
+        (status = 502, body = crate::error::ErrorResponse, description = "アカウントのサーバーにつながらない・AI の側の失敗"),
+    )
+)]
+async fn chat(
+    user: AuthUser,
+    State(state): State<AppState>,
+    AppJson(payload): AppJson<AiChatRequest>,
+) -> Result<Json<AiChatResponse>, AppError> {
+    let question = super::validate::trimmed_non_empty(&payload.prompt, "prompt is required")?;
+    let prompt = ai::Prompt {
+        system: Some(CHAT_SYSTEM.to_string()),
+        user: question,
+    };
+    let answer = ai::generate(&state, &user, ai::UsageKind::Chat, prompt).await?;
+    Ok(Json(AiChatResponse { answer }))
+}
+
 pub(crate) fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(get_status, unlink))
@@ -288,4 +336,5 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(poll_link))
         .routes(routes!(list_usage))
         .routes(routes!(get_availability))
+        .routes(routes!(chat))
 }

@@ -144,7 +144,7 @@ async fn users_role_update_promotes_and_demotes(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     let json: serde_json::Value = serde_json::from_str(&body).unwrap();
     assert_eq!(json["role"], "admin");
-    // 権限変更の応答も一覧と同じ形で、本人のみの件数を含む (→ docs/access.md「ユーザーの削除と作成者」)。
+    // 権限変更の応答も一覧と同じ形で、「作成者のみ」の件数を含む (→ docs/access.md「ユーザーの削除と作成者」)。
     assert_eq!(json["privateContentCount"], 1, "{json}");
 
     // adminが複数(alice/carol/bob)いる状態での降格は許可される。

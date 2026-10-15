@@ -64,4 +64,4 @@ Run a reverse proxy such as nginx or Caddy on the same computer as WebLAV. Let i
 
 **If you forget step 2, anyone on the network can create the first administrator.**
 
-Create the first administrator and add “Shared folders” from Edge or Chrome on the computer running WebLAV, opened from the menu.
+Create the first administrator and add “Allowed folders” from Edge or Chrome on the computer running WebLAV, opened from the menu.

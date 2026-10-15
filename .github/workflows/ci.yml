@@ -100,3 +100,12 @@ jobs:
       - if: steps.changes.outputs.code != 'false'
         name: Run CI checks
         run: just ci
+
+      # e2e が落ちたときの画面の様子と trace を、後から見られるように残す。
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-test-results
+          path: frontend/test-results/
+          retention-days: 7
+          if-no-files-found: ignore

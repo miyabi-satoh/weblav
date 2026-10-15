@@ -15,7 +15,8 @@ if (!baseURL) {
 export default defineConfig({
 	// cookie が無ければ表示言語がブラウザーの言語で決まり (→ docs/ui.md「UI 全般」)、日時の書式も
 	// それに従うため、実行する PC の言語で結果が変わらないよう固定する。
-	use: { baseURL, locale: 'en-US' },
+	// 落ちたときだけ trace を残す。CI で落ちた様子を、手元で再現できなくても後から見られるように。
+	use: { baseURL, locale: 'en-US', trace: 'retain-on-failure' },
 	// 管理者ログインをテストごとにUI操作からやり直さない
 	// (公式ベストプラクティス、認証状態の使い回し: https://playwright.dev/docs/auth)。
 	// setupプロジェクトが一度だけログインしてstorageStateを保存し、e2eプロジェクトはそれを使い回す

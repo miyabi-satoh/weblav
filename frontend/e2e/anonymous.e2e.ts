@@ -45,7 +45,7 @@ test('どのページにも当たらない URL は、見出しとホームへの
 	await expect(
 		page.getByRole('heading', { level: 1, name: /^ページが見つかりません$|^Page not found$/ })
 	).toBeVisible();
-	await page.getByRole('link', { name: /^ホームへ戻る$|^Back to home$/ }).click();
+	await page.getByRole('link', { name: /^ホームに戻る$|^Back to home$/ }).click();
 	await page.waitForURL((url) => url.pathname === '/');
 });
 
@@ -94,7 +94,7 @@ test('マニュアル: スマートフォン幅の個別ページでは目次を
 	await expect(toc).toBeHidden();
 	await page.getByRole('button', { name: 'Contents' }).click();
 	await expect(toc).toBeVisible();
-	await toc.getByRole('link', { name: 'Add shared folders' }).click();
+	await toc.getByRole('link', { name: 'Add allowed folders' }).click();
 	await expect(page).toHaveURL(/\/help\/roots$/);
 	await expect(toc).toBeHidden();
 });
@@ -105,7 +105,7 @@ test('マニュアル: 画面の表示言語で本文が返る', async ({ page, 
 	await page.goto('/help/setup');
 	await expect(page.locator('.help-body')).toHaveAttribute('lang', 'en');
 	await expect(
-		page.locator('.help-body').getByRole('link', { name: 'Add shared folders' })
+		page.locator('.help-body').getByRole('link', { name: 'Add allowed folders' })
 	).toBeVisible();
 
 	// 表示言語を日本語にすると、同じ URL のまま本文も目次も日本語になる。

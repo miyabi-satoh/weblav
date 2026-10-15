@@ -8,13 +8,18 @@ describe('parsePrompt', () => {
 	it('reads the prompt WebLAV builds, and refuses other shapes', () => {
 		expect(parsePrompt({ system: 's', user: 'u' })).toEqual({ system: 's', user: 'u' });
 		expect(parsePrompt({ user: 'u' })).toEqual({ user: 'u' });
+		expect(parsePrompt({ user: 'u', task: 'chat' })).toEqual({ user: 'u', task: 'chat' });
 		for (const body of [
 			undefined,
 			null,
 			'u',
 			{ text: 'x' },
 			{ user: 1 },
-			{ user: 'x', system: 1 }
+			{ user: 'x', system: 1 },
+			{ user: 'x', task: 1 },
+			// 窓口が知らない用途と、継承した名前は通さない。
+			{ user: 'x', task: 'essay' },
+			{ user: 'x', task: 'toString' }
 		]) {
 			expect(parsePrompt(body), JSON.stringify(body)).toBeUndefined();
 		}
@@ -104,6 +109,15 @@ describe('relay', () => {
 		expect(JSON.parse(String(gemini.mock.calls[1][1]!.body))).not.toHaveProperty(
 			'system_instruction'
 		);
+	});
+
+	it('thinks harder for the chat, at the level fixed here', async () => {
+		const gemini = geminiAnswers();
+		await relay(env, { user: '定価はいくら', task: 'chat' }, rates);
+		expect(JSON.parse(String(gemini.mock.calls[0][1]!.body)).generation_config).toEqual({
+			max_output_tokens: 16000,
+			thinking_level: 'medium'
+		});
 	});
 
 	it('charges as if the most was used when Gemini does not say how much', async () => {

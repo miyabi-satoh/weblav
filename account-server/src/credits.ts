@@ -26,27 +26,14 @@ export async function balance(env: Env, accountId: string): Promise<Balance> {
 	return { remaining, percent: Math.min(100, Math.ceil((remaining * 100) / size)) };
 }
 
-/** その月の初め (UTC)。無料の分の月の上限を数える区切り。 */
-function monthStart(t: number): number {
-	const d = new Date(t * 1000);
-	return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) / 1000;
-}
-
-/**
- * 無料の分をまだ付けていないアカウントに付ける文。サインイン・残りの問い合わせ・中継のたびに流し、付けるのは一度だけ。
- * その月に付けた無料の分の合計に、この付与を足しても上限 (`FREE_MONTHLY_CAP_YEN`) を超えないときだけ付ける。
- * その月に付けた無料の分が全部使われても、原価は上限までに収まる。
- * 超えるときは付けず、翌月以降の次の問い合わせで付け直す。
- */
+/** 無料の分をまだ付けていないアカウントに付ける文。サインイン・残りの問い合わせ・中継のたびに流し、付けるのは一度だけ。 */
 export function grantFreeStatement(env: Env, accountId: string, t = now()) {
-	const { freeGrant, freeMonthlyCap } = pricing(env);
+	const { freeGrant } = pricing(env);
 	return env.DB.prepare(
 		`INSERT INTO grants (id, account_id, purchase_id, granted, remaining, created_at)
 		 SELECT ?1, ?2, NULL, ?3, ?3, ?4
-		 WHERE NOT EXISTS (SELECT 1 FROM grants WHERE account_id = ?2 AND purchase_id IS NULL)
-		   AND (SELECT coalesce(sum(granted), 0) FROM grants
-		        WHERE purchase_id IS NULL AND created_at >= ?5) + ?3 <= ?6`
-	).bind(randomHex(16), accountId, freeGrant, t, monthStart(t), freeMonthlyCap);
+		 WHERE NOT EXISTS (SELECT 1 FROM grants WHERE account_id = ?2 AND purchase_id IS NULL)`
+	).bind(randomHex(16), accountId, freeGrant, t);
 }
 
 /**

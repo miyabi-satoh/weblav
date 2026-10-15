@@ -39,10 +39,10 @@ const EDITOR_PASSWORD = 'E2eEditor!2026Test';
 
 /** 管理画面のタブ (admin にだけ出る)。 */
 function adminTabs(page: Page) {
-	return page.getByRole('navigation', { name: /^管理$|^Admin$/ });
+	return page.getByRole('navigation', { name: /^管理ページ$|^Admin$/ });
 }
 
-test('未ログイン: 要ログインのグループを開くとログインへ送られ、ログインすると戻る', async ({
+test('未ログイン: 「ログインした人」のグループを開くとログインへ送られ、ログインすると戻る', async ({
 	page,
 	browser
 }) => {
@@ -102,7 +102,7 @@ test('非表示: 一覧には出ないが、ログインした人は URL で開�
 	);
 });
 
-test('親グループ: 要ログインのグループの中の「誰でも」は、一覧に設定を出し、編集ページで実際の見え方を示す', async ({
+test('親グループ: 「ログインした人」のグループの中の「誰でも」は、一覧に設定を出し、編集ページで実際の見え方を示す', async ({
 	page
 }) => {
 	const groupTitle = uniqueId('e2e-parent-group');
@@ -127,14 +127,14 @@ test('親グループ: 要ログインのグループの中の「誰でも」は
 					// 一覧は各行の設定 (誰でも) だけを出す。
 					await page.goto('/admin/contents');
 					const row = contentRow(page, linkTitle);
-					await expect(row).toContainText(/誰でも|Anyone/);
-					await expect(row).not.toContainText(/要ログイン|Sign-in required/);
+					await expect(row).toContainText(/誰でも|Everyone/);
+					await expect(row).not.toContainText(/ログインした人|Logged-in users/);
 
-					// 編集ページでは、親グループによる実際の見え方 (要ログイン) を公開範囲の下に書く。
+					// 編集ページでは、親グループによる実際の見え方 (「ログインした人」) を公開範囲の下に書く。
 					await page.goto(`/admin/contents/${link.id}`);
 					await expect(
 						page.getByText(
-							/親グループの公開範囲により、実際は「要ログイン」になります。|Because of the parent group's visibility, this is actually "Sign-in required"\./
+							/親のグループの公開範囲により、実際には「ログインした人」になります。|Because of the parent group's visibility, this is actually “Logged-in users”\./
 						)
 					).toBeVisible();
 				}
@@ -143,7 +143,7 @@ test('親グループ: 要ログインのグループの中の「誰でも」は
 	);
 });
 
-test('公開範囲の選択肢: グループには「本人のみ」が出ず、リンクには出る', async ({ page }) => {
+test('公開範囲の選択肢: グループには「作成者のみ」が出ず、リンクには出る', async ({ page }) => {
 	const groupTitle = uniqueId('e2e-group-options');
 	const linkTitle = uniqueId('e2e-link-options');
 	await withContentByApi(page.request, { type: 'group', title: groupTitle }, async (group) => {
@@ -247,7 +247,7 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 					await expect(editorPage.getByLabel(TITLE_LABEL)).toBeDisabled();
 					// 選択 (bits-ui) は fieldset では止まらないので、開かないことも見る。
 					await editorPage
-						.getByRole('button', { name: /^親グループ$|^Parent group$/ })
+						.getByRole('button', { name: /^親のグループ$|^Parent group$/ })
 						.click({ force: true });
 					await expect(editorPage.getByRole('listbox')).toHaveCount(0);
 					await expect(editorPage.getByRole('button', { name: SAVE_BUTTON_NAME })).toHaveCount(0);
@@ -306,7 +306,7 @@ test('アーカイブの閲覧: 非公開のアイテムは並ばない', async 
 			await publishItems(page.request, archive.id, items, ['2024/answer.pdf']);
 
 			await page.goto(`/archives/${archive.id}`);
-			await expect(page.getByText(/^1\s件$|^1 items$/)).toBeVisible();
+			await expect(page.getByText(/^1\s件のアイテム$|^1 item$/)).toBeVisible();
 			await expect(page.getByRole('link', { name: /answer\.pdf/ })).toBeVisible();
 			await expect(page.getByRole('button', { name: /listening\.mp3/ })).toHaveCount(0);
 		}

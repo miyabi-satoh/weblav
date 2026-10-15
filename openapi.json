@@ -1618,6 +1618,104 @@
         }
       }
     },
+    "/api/v1/ai/chat": {
+      "post": {
+        "summary": "簡易チャット。質問を1つ送り、答えを1つ返す。前のやり取りは持たない。",
+        "operationId": "chat",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiChatResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "残りが無い",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "AI を使えない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PC を登録していない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "質問が長すぎる",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "質問が空",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "短い間に呼びすぎた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "アカウントのサーバーにつながらない・AI の側の失敗",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "operationId": "login",
@@ -2361,7 +2459,7 @@
     },
     "/api/v1/contents/{id}/ai-links/refresh": {
       "post": {
-        "summary": "グループのリンクを集め直す。関心の言葉で Web を検索し、AI が選んだものに入れ替える。\n残りを使うので、AI を使える人だけが呼べる。",
+        "summary": "グループのリンクを集め直す。検索キーワードから AI が作ったクエリで Web を検索し、AI が選んだものに入れ替える。\n残りを使うので、AI を使える人だけが呼べる。",
         "operationId": "refresh_ai_links",
         "parameters": [
           {
@@ -2497,7 +2595,7 @@
         }
       },
       "put": {
-        "summary": "グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら外し、集めたリンクも消す。\n関心の言葉を変えても、集めたリンクは次に集め直すまで残る。",
+        "summary": "グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら外し、集めたリンクも消す。\n検索キーワードを変えても、集めたリンクは次に集め直すまで残る。",
         "operationId": "put_ai_links_settings",
         "parameters": [
           {
@@ -2552,7 +2650,7 @@
             }
           },
           "422": {
-            "description": "関心の言葉が空・行が多すぎる・1行が長すぎる",
+            "description": "検索キーワードが空・長すぎる",
             "content": {
               "application/json": {
                 "schema": {
@@ -5283,7 +5381,7 @@
           },
           "rootDeleted": {
             "type": "boolean",
-            "description": "`root_name` の公開できるフォルダーが削除済みか。画面では名前の代わりに\n「存在しない公開フォルダー」と出す。`root_name` が `None` なら `false`。"
+            "description": "`root_name` の公開できるフォルダーが削除済みか。画面では名前の代わりに\n「(見つからない公開できるフォルダー)」と出す。`root_name` が `None` なら `false`。"
           },
           "rootName": {
             "type": [
@@ -5325,6 +5423,29 @@
           "available": {
             "type": "boolean",
             "description": "この PC が登録済みで、ログインしているユーザーが AI を使えるか。"
+          }
+        }
+      },
+      "AiChatRequest": {
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "質問。"
+          }
+        }
+      },
+      "AiChatResponse": {
+        "type": "object",
+        "required": [
+          "answer"
+        ],
+        "properties": {
+          "answer": {
+            "type": "string"
           }
         }
       },
@@ -5430,7 +5551,7 @@
               "string",
               "null"
             ],
-            "description": "関心の言葉。1行が1つの検索の語。`null` なら、このグループでは集めない。"
+            "description": "検索キーワード。語の並びでもふつうの文でもよく、AI が検索のクエリに組み立て直す。`null` なら、このグループでは集めない。"
           }
         }
       },
@@ -6148,7 +6269,7 @@
             }
           }
         ],
-        "description": "一般の閲覧者(匿名を含む)向けのレスポンス。`path`(サーバー上の絶対パス)は\n一切含めない(一般の閲覧者にファイルシステムのレイアウトを漏らさないため)。type分岐が\nフロントからも自然に扱えるよう、tagged enumにしてある。\n\n各バリアントの `private` は、公開範囲が `private` なら真。一覧に「本人のみ」の印を出すため\n(→ docs/access.md「フロントエンドのガード反転」)。一覧に並ぶ `private` は必ず閲覧者自身のもの (`can_list`)。"
+        "description": "一般の閲覧者(匿名を含む)向けのレスポンス。`path`(サーバー上の絶対パス)は\n一切含めない(一般の閲覧者にファイルシステムのレイアウトを漏らさないため)。type分岐が\nフロントからも自然に扱えるよう、tagged enumにしてある。\n\n各バリアントの `private` は、公開範囲が `private` なら真。一覧に「作成者のみ」の印を出すため\n(→ docs/access.md「フロントエンドのガード反転」)。一覧に並ぶ `private` は必ず閲覧者自身のもの (`can_list`)。"
       },
       "ContentType": {
         "type": "string",
@@ -8027,7 +8148,7 @@
         "oneOf": [
           {
             "type": "object",
-            "description": "グループは「本人のみ」にできない (→ docs/access.md「公開範囲」)。",
+            "description": "グループは「作成者のみ」にできない (→ docs/access.md「公開範囲」)。",
             "required": [
               "kind"
             ],

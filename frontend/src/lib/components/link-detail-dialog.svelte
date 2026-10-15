@@ -161,7 +161,7 @@
 					onclick={() => (linkDetail.open = false)}
 				>
 					<ExternalLinkIcon data-icon="inline-start" />
-					{m.link_detail_open_button()}
+					{m.action_open_in_new_tab()}
 				</a>
 			</Dialog.Footer>
 		{/if}

@@ -314,7 +314,7 @@ export class ContentFormState {
  * 理由はフォーム側で示す。親子の組み合わせでは拒まない (→ docs/access.md「祖先のグループを辿る」)。
  */
 export function contentFormVisibilityError(form: ContentFormState): string | null {
-	// 本人のみを選んだ後に、種別をグループへ変えたとき。
+	// 「作成者のみ」を選んだ後に、種別をグループへ変えたとき。
 	return form.type === 'group' && form.visibility === 'private'
 		? m.contents_form_visibility_group_private_error()
 		: null;

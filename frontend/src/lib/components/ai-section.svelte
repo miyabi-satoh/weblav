@@ -10,8 +10,8 @@
 	 */
 	import { onMount } from 'svelte';
 	import QRCode from 'qrcode';
-	import { toast } from 'svelte-sonner';
 	import { accountPageHref, formatPercent, usagePercent } from '$lib/ai-account';
+	import { aiChat } from '$lib/ai-chat.svelte';
 	import { client } from '$lib/api/client';
 	import { errorCode, errorMessage, GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
 	import { fetchOrNull } from '$lib/api/load';
@@ -59,6 +59,12 @@
 	function patch(part: Partial<Status>) {
 		if (status) status = { ...status, ...part };
 	}
+
+	// 登録が変わったら、簡易チャットを使えるかを確かめ直す。
+	let linkState = $derived(status?.state ?? null);
+	$effect(() => {
+		if (linkState !== null) aiChat.recheck();
+	});
 
 	const UNLINKED: Partial<Status> = { state: 'unlinked', linkUrl: null, confirmationCode: null };
 
@@ -142,10 +148,7 @@
 						unlinkOpen = false;
 					}
 				},
-				() => {
-					patch({ ...UNLINKED, email: null, remainingPercent: null });
-					toast.success(m.admin_settings_ai_unlinked_toast());
-				}
+				() => patch({ ...UNLINKED, email: null, remainingPercent: null })
 			);
 		} finally {
 			busy = null;
@@ -177,7 +180,6 @@
 					await reload();
 					// 読み直せなくても、登録済みになったことは画面に出す。
 					if (status?.state !== 'linked') patch(data);
-					toast.success(m.admin_settings_ai_linked_toast());
 				} else {
 					if (data.state === 'unlinked') linkEnded = true;
 					patch(data);
@@ -338,17 +340,48 @@
 			<Dialog.Title>{m.admin_settings_ai_link_dialog_title()}</Dialog.Title>
 			<Dialog.Description>{m.admin_settings_ai_link_dialog_description()}</Dialog.Description>
 		</Dialog.Header>
-		<dl class="flex flex-col gap-2 text-sm">
-			<div>
-				<dt class="font-semibold">{m.admin_settings_ai_link_dialog_sent_label()}</dt>
-				<dd>{m.admin_settings_ai_link_dialog_sent_axes()}</dd>
-				<dd>{m.admin_settings_ai_link_dialog_sent_links()}</dd>
-			</div>
-			<div>
-				<dt class="font-semibold">{m.admin_settings_ai_link_dialog_destination_label()}</dt>
-				<dd>{m.admin_settings_ai_link_dialog_destination()}</dd>
-			</div>
-		</dl>
+		<!-- 項目ごとに行を分ける。1文につなぐと、文節での折り返しと項目の切れ目の区別が付かなくなる。 -->
+		<div class="flex flex-col gap-3 text-sm">
+			<section>
+				<h3 class="font-semibold">{m.admin_settings_ai_link_dialog_sent_label()}</h3>
+				<ul class="mt-1 flex list-disc flex-col gap-1 pl-5">
+					<li>
+						{m.admin_settings_ai_link_dialog_sent_axes()}
+						<div class="text-muted-foreground">
+							{m.admin_settings_ai_link_dialog_sent_axes_purpose()}
+						</div>
+					</li>
+					<li>
+						{m.admin_settings_ai_link_dialog_sent_links()}
+						<div class="text-muted-foreground">
+							{m.admin_settings_ai_link_dialog_sent_links_purpose()}
+						</div>
+					</li>
+					<li>
+						{m.admin_settings_ai_link_dialog_sent_chat()}
+						<div class="text-muted-foreground">
+							{m.admin_settings_ai_link_dialog_sent_chat_purpose()}
+						</div>
+					</li>
+				</ul>
+			</section>
+			<section>
+				<h3 class="font-semibold">{m.admin_settings_ai_link_dialog_destination_label()}</h3>
+				<ul class="mt-1 flex list-disc flex-col gap-1 pl-5">
+					<li>{m.admin_settings_ai_link_dialog_destination_server()}</li>
+					<li>{m.admin_settings_ai_link_dialog_destination_providers()}</li>
+				</ul>
+			</section>
+			<p>
+				{m.admin_settings_ai_link_dialog_unlink_note()}
+				<a
+					href="https://weblav.amiiby.com/privacy/"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="underline underline-offset-4">{m.admin_settings_about_privacy()}</a
+				>
+			</p>
+		</div>
 		<Dialog.Footer>
 			<Button variant="outline" onclick={() => (linkOpen = false)}>{m.action_cancel()}</Button>
 			<LoadingButton loading={busy === 'link'} onclick={beginLink}

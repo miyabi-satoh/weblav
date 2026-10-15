@@ -415,6 +415,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ai/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 簡易チャット。質問を1つ送り、答えを1つ返す。前のやり取りは持たない。 */
+        post: operations["chat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -666,7 +683,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * グループのリンクを集め直す。関心の言葉で Web を検索し、AI が選んだものに入れ替える。
+         * グループのリンクを集め直す。検索キーワードから AI が作ったクエリで Web を検索し、AI が選んだものに入れ替える。
          *     残りを使うので、AI を使える人だけが呼べる。
          */
         post: operations["refresh_ai_links"];
@@ -687,7 +704,7 @@ export interface paths {
         get: operations["ai_links_settings"];
         /**
          * グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら外し、集めたリンクも消す。
-         *     関心の言葉を変えても、集めたリンクは次に集め直すまで残る。
+         *     検索キーワードを変えても、集めたリンクは次に集め直すまで残る。
          */
         put: operations["put_ai_links_settings"];
         post?: never;
@@ -1493,7 +1510,7 @@ export interface components {
             pathInRoot?: string | null;
             /**
              * @description `root_name` の公開できるフォルダーが削除済みか。画面では名前の代わりに
-             *     「存在しない公開フォルダー」と出す。`root_name` が `None` なら `false`。
+             *     「(見つからない公開できるフォルダー)」と出す。`root_name` が `None` なら `false`。
              */
             rootDeleted: boolean;
             /**
@@ -1514,6 +1531,13 @@ export interface components {
         AiAvailabilityResponse: {
             /** @description この PC が登録済みで、ログインしているユーザーが AI を使えるか。 */
             available: boolean;
+        };
+        AiChatRequest: {
+            /** @description 質問。 */
+            prompt: string;
+        };
+        AiChatResponse: {
+            answer: string;
         };
         AiLink: {
             preview?: components["schemas"]["LinkPreview"] | null;
@@ -1547,7 +1571,7 @@ export interface components {
             refreshedAt?: number | null;
         };
         AiLinksSettings: {
-            /** @description 関心の言葉。1行が1つの検索の語。`null` なら、このグループでは集めない。 */
+            /** @description 検索キーワード。語の並びでもふつうの文でもよく、AI が検索のクエリに組み立て直す。`null` なら、このグループでは集めない。 */
             interests?: string | null;
         };
         AiStatusResponse: {
@@ -1749,7 +1773,7 @@ export interface components {
          *     一切含めない(一般の閲覧者にファイルシステムのレイアウトを漏らさないため)。type分岐が
          *     フロントからも自然に扱えるよう、tagged enumにしてある。
          *
-         *     各バリアントの `private` は、公開範囲が `private` なら真。一覧に「本人のみ」の印を出すため
+         *     各バリアントの `private` は、公開範囲が `private` なら真。一覧に「作成者のみ」の印を出すため
          *     (→ docs/access.md「フロントエンドのガード反転」)。一覧に並ぶ `private` は必ず閲覧者自身のもの (`can_list`)。
          */
         ContentResponse: {
@@ -4039,6 +4063,93 @@ export interface operations {
             };
         };
     };
+    chat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiChatRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiChatResponse"];
+                };
+            };
+            /** @description 残りが無い */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description AI を使えない */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description PC を登録していない */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 質問が長すぎる */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 質問が空 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 短い間に呼びすぎた */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description アカウントのサーバーにつながらない・AI の側の失敗 */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -4865,7 +4976,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 関心の言葉が空・行が多すぎる・1行が長すぎる */
+            /** @description 検索キーワードが空・長すぎる */
             422: {
                 headers: {
                     [name: string]: unknown;

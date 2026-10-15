@@ -1,6 +1,6 @@
 /**
  * 作者のキーで Gemini へ中継する (→ docs/account-server.md「中継」)。
- * モデル・出力の上限・入力の上限はここで決め打ちし、WebLAV からは変えさせない (生の API の代わりにさせないため。Google APIs Terms 4.a)。
+ * モデル・思考の強さ・出力の上限・入力の上限はここで決め打ちし、WebLAV からは変えさせない (生の API の代わりにさせないため。Google APIs Terms 4.a)。
  * 送った文も結果もログに残さない。
  */
 
@@ -11,6 +11,15 @@ const GEMINI_INTERACTIONS_URL = 'https://generativelanguage.googleapis.com/v1/in
 
 /** 中継するモデル。軸の案・リンクの選別・1往復の質問に足り、単価が低い。 */
 const MODEL = 'gemini-3.5-flash-lite';
+
+/**
+ * 用途ごとの思考の強さ。無い用途は、モデルの既定 (minimal) のまま送る。
+ * 簡易チャットは、計算や推理の問いに minimal では間違った答えを言い切るので上げる。
+ * low は考えるかどうかがモデル任せで間違いが残り、high は答えが変わらないまま待ち時間が延びる。
+ */
+const THINKING_LEVELS = { chat: 'medium' } as const;
+/** WebLAV が伝える用途。 */
+export type Task = keyof typeof THINKING_LEVELS;
 
 /** 返事の長さの上限。軸の案や要約に足りる長さ。 */
 const MAX_OUTPUT_TOKENS = 16_000;
@@ -40,13 +49,16 @@ const TIMEOUT_MS = 50_000;
 export type Attachment = { mime_type: string; data: string };
 
 /** WebLAV が組み立てて送る中身。 */
-export type Prompt = { system?: string; user: string; attachments?: Attachment[] };
+export type Prompt = { system?: string; user: string; attachments?: Attachment[]; task?: Task };
 
 /** 受けた本文を `Prompt` として読む。形が違うときは `undefined`、長すぎるか大きすぎるときは `'too_long'`。 */
 export function parsePrompt(body: unknown): Prompt | 'too_long' | undefined {
 	if (typeof body !== 'object' || body === null) return undefined;
-	const { system, user, attachments } = body as Record<string, unknown>;
+	const { system, user, attachments, task } = body as Record<string, unknown>;
 	if (typeof user !== 'string' || (system !== undefined && typeof system !== 'string')) {
+		return undefined;
+	}
+	if (task !== undefined && (typeof task !== 'string' || !Object.hasOwn(THINKING_LEVELS, task))) {
 		return undefined;
 	}
 	const files: Attachment[] = [];
@@ -74,7 +86,8 @@ export function parsePrompt(body: unknown): Prompt | 'too_long' | undefined {
 	return {
 		...(system === undefined ? {} : { system }),
 		user,
-		...(files.length === 0 ? {} : { attachments: files })
+		...(files.length === 0 ? {} : { attachments: files }),
+		...(task === undefined ? {} : { task: task as Task })
 	};
 }
 
@@ -148,7 +161,10 @@ export async function relay(env: Env, prompt: Prompt, rates: Rates): Promise<Rel
 					],
 		// やり取りを Google 側に保存させない (止めても、不正利用の監視のための保持は規約どおり残る)。
 		store: false,
-		generation_config: { max_output_tokens: MAX_OUTPUT_TOKENS }
+		generation_config: {
+			max_output_tokens: MAX_OUTPUT_TOKENS,
+			...(prompt.task === undefined ? {} : { thinking_level: THINKING_LEVELS[prompt.task] })
+		}
 	};
 	if (prompt.system !== undefined) request.system_instruction = prompt.system;
 	const res = await fetch(GEMINI_INTERACTIONS_URL, {

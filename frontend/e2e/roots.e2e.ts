@@ -17,8 +17,8 @@ import {
 	confirmDelete,
 	DELETE_MENU_ITEM_NAME,
 	RENAME_MENU_ITEM_NAME,
+	ROOT_ADD_BUTTON_LOADING_NAME,
 	ROOT_ADD_BUTTON_NAME,
-	ROOT_PICKING_TEXT,
 	SAVE_BUTTON_NAME,
 	uniqueId
 } from './helpers';
@@ -97,7 +97,7 @@ test('フォルダーを選ぶとフォルダー名で追加されて名前と�
 	}
 });
 
-test('窓を閉じるまで案内を出し、キャンセルなら何も追加しない', async ({ page }) => {
+test('窓を閉じるまでボタンを押せなくし、キャンセルなら何も追加しない', async ({ page }) => {
 	let close: () => void = () => {};
 	const closed = new Promise<void>((resolve) => (close = resolve));
 	await stubFolderPicker(page, async (route) => {
@@ -111,10 +111,9 @@ test('窓を閉じるまで案内を出し、キャンセルなら何も追加�
 	const before = await rows.count();
 
 	await page.getByRole('button', { name: ROOT_ADD_BUTTON_NAME }).click();
-	await expect(page.getByText(ROOT_PICKING_TEXT)).toBeVisible();
+	await expect(page.getByRole('button', { name: ROOT_ADD_BUTTON_LOADING_NAME })).toBeDisabled();
 
 	close();
-	await expect(page.getByText(ROOT_PICKING_TEXT)).toHaveCount(0);
 	await expect(page.getByRole('button', { name: ROOT_ADD_BUTTON_NAME })).toBeEnabled();
 	await expect(rows).toHaveCount(before);
 	await expect(page.getByRole('alertdialog')).toHaveCount(0);
@@ -134,7 +133,7 @@ test('登録済みのフォルダーを選ぶと、登録済みだと伝える',
 
 		await expect(page.getByRole('alertdialog')).toContainText(
 			new RegExp(
-				`「${path.basename(target)}」として登録済み|already registered as "${path.basename(target)}"`
+				`「${path.basename(target)}」として登録済み|already registered as “${path.basename(target)}”`
 			)
 		);
 	} finally {
@@ -155,7 +154,7 @@ test('窓がすでに開いているときは、そう伝える', async ({ page 
 
 	await expect(
 		page.getByText(
-			/^フォルダーを選ぶ窓が、すでに開いています。|^A window for choosing a folder is already open\./
+			/^フォルダーを選ぶウィンドウがすでに開いています。|^A window for choosing a folder is already open\./
 		)
 	).toBeVisible();
 });
@@ -164,11 +163,11 @@ test('管理画面のタブから開ける', async ({ page }) => {
 	await page.goto('/admin/contents');
 	await page
 		.getByRole('navigation')
-		.getByRole('link', { name: /^公開できるフォルダー$|^Shared folders$/ })
+		.getByRole('link', { name: /^公開できるフォルダー$|^Allowed folders$/ })
 		.click();
 
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-		/^公開できるフォルダー$|^Shared folders$/
+		/^公開できるフォルダー$|^Allowed folders$/
 	);
 });
 

@@ -369,10 +369,36 @@
 	body {
 		@apply bg-ground text-foreground;
 	}
-	/* 日本語を語の途中で折り返さない (→ docs/ui.md「UI 全般」)。
+	/* 題・ボタン・ラベルなどの短い文だけ、文節の切れ目で折る。説明文などのまとまった文は、
+	 * 右端まで詰める通常の折り返しのままにする (→ docs/ui.md「UI 全般」)。
 	 * auto-phrase は Chrome だけが効き、Safari は通常の折り返しのまま。 */
-	:lang(ja) {
+	:lang(ja)
+		:is(
+			h1,
+			h2,
+			h3,
+			h4,
+			h5,
+			h6,
+			button,
+			label,
+			legend,
+			th,
+			[role='menuitem'],
+			[role='option'],
+			[data-slot='button'],
+			[data-slot$='-title'],
+			[data-slot$='-label']
+		) {
 		word-break: auto-phrase;
+	}
+	/* まとまった文でも、行頭に「ー」や小書きの仮名 (「っ」「ゃ」など) が来ないようにする (→ docs/ui.md「UI 全般」)。 */
+	:lang(ja) {
+		line-break: strict;
+	}
+	/* 打っている欄は、打つたびに行の切れ目が動かないよう、label の中にあっても通常の折り返しにする。 */
+	:lang(ja) :is(textarea, input, [contenteditable]) {
+		word-break: normal;
 	}
 	html {
 		@apply font-sans;
@@ -383,6 +409,49 @@
  * 語の途中で折り返すため (→ docs/ui.md「UI 全般」)。部品のクラスは utilities の層にあるので、層の外に書いて上書きする。 */
 :lang(ja) :is([data-slot='alert-dialog-description'], [data-slot='field-description']) {
 	text-wrap: wrap;
+}
+
+/* 「AI に聞く」のパネル (→ ai-chat.svelte) が開いている間、パネルの分だけ画面を空ける。
+ * 広い幅では右に、狭い幅では下に出す (→ docs/ui.md「AI に聞く」)。重ねずに並べ、見ながら写しながら聞けるようにする。
+ * 下の段の高さは、利用者が引っ張って変える (`--ai-sheet-height`)。 */
+:root {
+	--ai-panel-right: 0px;
+	--ai-panel-bottom: 0px;
+}
+:root[data-ai-panel-open] {
+	--ai-panel-bottom: var(--ai-sheet-height, 50svh);
+
+	@media (width >= 64rem) {
+		--ai-panel-right: 24rem;
+		--ai-panel-bottom: 0px;
+	}
+}
+/* 画面の外枠に付け、パネルの分だけ中身を寄せる。 */
+@utility ai-panel-clearance {
+	padding-right: var(--ai-panel-right);
+	padding-bottom: var(--ai-panel-bottom);
+}
+/* パネルの高さ。狭い幅では下の段の高さ、広い幅では上下いっぱい (付ける側の `inset-y-0`) にする。 */
+@utility ai-sheet-height {
+	height: var(--ai-sheet-height, 50svh);
+
+	@media (width >= 64rem) {
+		height: auto;
+	}
+}
+/* 画面に固定した要素 (ビューアー・プレイヤー) に付け、パネルの手前で止める。左と上は付ける側が決める。 */
+@utility ai-panel-offset {
+	right: var(--ai-panel-right);
+	bottom: var(--ai-panel-bottom);
+}
+/* 画像のビューアーも同じ。PhotoSwipe は幅と高さを 100% にするので、外して右と下で止める。
+ * 画像の大きさの計算は、この要素の大きさに合わせる (→ $lib/image-viewer.ts の getViewportSizeFn)。
+ * PhotoSwipe の CSS は後から読まれるので、詳細度を上げて勝たせる。 */
+html .pswp {
+	right: var(--ai-panel-right);
+	bottom: var(--ai-panel-bottom);
+	width: auto;
+	height: auto;
 }
 
 /* 画像のビューアー (PhotoSwipe) の上部のバーに地を敷く。拡大した画像がバーの下に回っても、

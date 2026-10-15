@@ -11,7 +11,7 @@ describe('VideoPlayer', () => {
 
 	it('loop button loops the video and is kept for the next video', async () => {
 		const first = await render(VideoPlayer, { src: '', onerror: () => {} });
-		const button = page.getByRole('button', { name: /^(繰り返し再生|Loop)$/ });
+		const button = page.getByRole('button', { name: /^(ループ|Loop)$/ });
 		await userEvent.click(button);
 
 		expect(document.querySelector('video')?.loop).toBe(true);

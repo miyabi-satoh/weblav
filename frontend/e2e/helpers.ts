@@ -31,7 +31,7 @@ export const CURRENT_PASSWORD_LABEL = requiredLabel('現在のパスワード', 
 export const LOGIN_USERNAME_LABEL = /^ユーザー名\s*$|^Username\s*$/;
 export const LOGIN_PASSWORD_LABEL = /^パスワード\s*$|^Password\s*$/;
 const LOGIN_BUTTON_NAME = /ログイン|Log in/;
-export const FORGOT_PASSWORD_LINK_NAME = /^パスワードを忘れた$|^Forgot your password\?$/;
+export const FORGOT_PASSWORD_LINK_NAME = /^パスワードをお忘れですか？$|^Forgot your password\?$/;
 
 /**
  * パスワードのハッシュ化・照合 (Argon2) を含む要求の結果を待つ時間。
@@ -50,27 +50,27 @@ export const CLOSE_BUTTON_NAME = /^閉じる$|^Close$/;
 export const CANCEL_BUTTON_NAME = /^キャンセル$|^Cancel$/;
 
 /** ユーザー一覧の⋮メニューのパスワード再設定。 */
-export const RESET_PASSWORD_MENU_ITEM_NAME = /パスワード再設定|Reset password/;
+export const RESET_PASSWORD_MENU_ITEM_NAME = /パスワードを再設定|Reset password/;
 
 /** ユーザーメニューのリカバリコード。 */
 export const RECOVERY_CODE_MENU_ITEM_NAME = /^リカバリコード\.\.\.$|^Recovery code\.\.\.$/;
 
 /** 初回セットアップで、使えないリンクを開いたときの案内。 */
-export const INVALID_SETUP_LINK_TEXT = /このリンクは使えません|This link cannot be used/;
+export const INVALID_SETUP_LINK_TEXT = /このリンクは使用できません|This link cannot be used/;
 /** ログイン画面の、最初の管理者を作る手順への案内。 */
 export const SETUP_HELP_LINK_TEXT =
-	/最初の管理者をまだ作っていない方はこちら|Haven't created the first administrator yet\?/;
+	/最初の管理者をまだ作成していない場合|Haven't created the first administrator yet\?/;
 
 /** リカバリコードを見せる部品 (→ docs/access.md「リカバリコード」) の操作。 */
 export const RECOVERY_CODE_SAVE_BUTTON_NAME = /^ファイルに保存$|^Save to file$/;
 export const RECOVERY_CODE_KEPT_BUTTON_NAME = /^保管しました$|^I've kept it$/;
-export const RECOVERY_CODE_CREATE_BUTTON_NAME = /^作る$|^Create$/;
+export const RECOVERY_CODE_CREATE_BUTTON_NAME = /^作成する$|^Create$/;
 
 /** アーカイブの編集ページのタブ「アイテム」。 */
 export const ITEMS_TAB_NAME = /^アイテム$|^Items$/;
 
 /** 処理に失敗したことを知らせるダイアログの見出し (`error-dialog.svelte` の既定)。 */
-export const ERROR_DIALOG_NAME = /^処理に失敗しました$|^Operation failed$/;
+export const ERROR_DIALOG_NAME = /^操作に失敗しました$|^Operation failed$/;
 
 /** サーバーが入力を受け付けなかったとき (422) の文言。 */
 export const INVALID_INPUT_TEXT = /入力内容を確認してください|Please check your input/;
@@ -78,15 +78,15 @@ export const INVALID_INPUT_TEXT = /入力内容を確認してください|Pleas
 /** パスワードの確認欄が一致しないときの文言。 */
 export const PASSWORD_MISMATCH_TEXT = /パスワードが一致しません|Passwords do not match/;
 
-/** コンテンツのフォームの公開範囲の欄と、その「本人のみ」の選択肢。 */
+/** コンテンツのフォームの公開範囲の欄と、その「作成者のみ」の選択肢。 */
 export const VISIBILITY_LABEL = /^公開範囲|^Visibility/;
-export const VISIBILITY_PRIVATE_OPTION_NAME = /^本人のみ$|^Private$/;
+export const VISIBILITY_PRIVATE_OPTION_NAME = /^作成者のみ$|^Creator only$/;
 
 /**
  * 保存できたときに出るトーストの文言 (`admin_settings_saved_toast` など、何を保存したかが前に付く)。
  * トーストの要素のテキストは前後に空白を含むので、末尾の空白を許す。
  */
-const SAVED_TEXT = /を保存しました\s*$| saved\.\s*$/;
+const SAVED_TEXT = /を保存しました。\s*$| saved\.\s*$/;
 
 /** 行の⋮メニューの削除。表示言語 (ja/en) のどちらでも見つかるようにする。 */
 export const DELETE_MENU_ITEM_NAME = /削除|Delete/;
@@ -95,18 +95,18 @@ export const DELETE_MENU_ITEM_NAME = /削除|Delete/;
 export const CONTENTS_NAV_LINK_NAME = /^コンテンツ$|^Contents$/;
 
 /** 閲覧画面の下部に出るページ内プレイヤー。 */
-export const AUDIO_PLAYER_REGION_NAME = /^オーディオプレイヤー$|^Audio player$/;
+export const AUDIO_PLAYER_REGION_NAME = /^オーディオプレーヤー$|^Audio player$/;
 
 /** 閲覧画面の一覧の並べ方の切り替え (リスト・タイル)。 */
 export const BROWSE_LAYOUT_LIST_NAME = /^リスト$|^List$/;
 export const BROWSE_LAYOUT_TILE_NAME = /^タイル$|^Tiles$/;
 
 /** ページ内プレイヤーの「前の曲」「次の曲」。 */
-export const PREVIOUS_TRACK_BUTTON_NAME = /^前の曲$|^Previous track$/;
-export const NEXT_TRACK_BUTTON_NAME = /^次の曲$|^Next track$/;
+export const PREVIOUS_TRACK_BUTTON_NAME = /^前のトラック$|^Previous track$/;
+export const NEXT_TRACK_BUTTON_NAME = /^次のトラック$|^Next track$/;
 export const NEXT_FILE_BUTTON_NAME = /^次のファイル$|^Next file$/;
 /** ページ内プレイヤーの「続けて再生」。 */
-export const AUTO_ADVANCE_BUTTON_NAME = /^続けて再生$|^Play next automatically$/;
+export const AUTO_ADVANCE_BUTTON_NAME = /^次を自動的に再生$|^Play next automatically$/;
 
 /**
  * 保存し、保存したことを知らせるトーストが出るまで待つ。
@@ -137,25 +137,25 @@ export async function saveForm(
 export const CONTENT_SUBMIT_BUTTON_NAME = /^追加する$|^Add$/;
 
 /** フォルダー・アーカイブのパスを選ぶ。ボタン・ダイアログ・確定の順。 */
-export const CHOOSE_PATH_BUTTON_NAME = /^選ぶ\.\.\.$|^Choose\.\.\.$/;
-export const DIR_PICKER_NAME = /^フォルダーを選ぶ$|^Choose a folder$/;
-export const USE_THIS_FOLDER_BUTTON_NAME = /^このフォルダーにする$|^Use this folder$/;
+export const CHOOSE_PATH_BUTTON_NAME = /^選択\.\.\.$|^Choose\.\.\.$/;
+export const DIR_PICKER_NAME = /^フォルダーを選択$|^Choose a folder$/;
+export const USE_THIS_FOLDER_BUTTON_NAME = /^このフォルダーを使用$|^Use this folder$/;
 /** 登録の画面で、選んだパスを選び直すボタン。 */
-export const CHANGE_PATH_BUTTON_NAME = /^選び直す\.\.\.$|^Change\.\.\.$/;
+export const CHANGE_PATH_BUTTON_NAME = /^変更\.\.\.$|^Change\.\.\.$/;
 
 /** 登録前の確認ダイアログと、その確定ボタン。 */
-export const CONFIRM_REGISTER_NAME = /^この内容で登録しますか$|^Register with these settings\?$/;
+export const CONFIRM_REGISTER_NAME = /^この設定で登録しますか？$|^Register with these settings\?$/;
 export const REGISTER_BUTTON_NAME = /^登録する$|^Register$/;
 
 /** 管理画面の一覧の上にある追加ボタン。表示言語 (ja/en) のどちらでも見つかるようにする。 */
-export const CONTENT_ADD_BUTTON_NAME = /^新規追加\.\.\.$|^Add\.\.\.$/;
+export const CONTENT_ADD_BUTTON_NAME = /^追加\.\.\.$|^Add\.\.\.$/;
 export const USER_ADD_BUTTON_NAME = /^ユーザーを追加\.\.\.$|^Add user\.\.\.$/;
 /** 公開できるフォルダーの行の⋮メニューにある「名前を変更」。 */
 export const RENAME_MENU_ITEM_NAME = /^名前を変更\.\.\.$|^Rename\.\.\.$/;
 export const ROOT_ADD_BUTTON_NAME = /^フォルダーを追加\.\.\.$|^Add a folder\.\.\.$/;
-/** 公開できるフォルダーの追加で、OS のフォルダー選択の窓が閉じるのを待っている間の案内。 */
-export const ROOT_PICKING_TEXT =
-	/^開いた窓で、公開してよいフォルダーを選んでください。$|^Choose a folder you are willing to share in the window that opened\.$/;
+/** 窓が閉じるのを待つ間の追加ボタン。名前の頭にスピナーの「読み込み中」が付く。 */
+export const ROOT_ADD_BUTTON_LOADING_NAME =
+	/^読み込み中 フォルダーを追加\.\.\.$|^Loading Add a folder\.\.\.$/;
 
 /** コンテンツの作成ダイアログで選ぶ種別のボタン。名前には説明が続くので前方一致で探す。 */
 export const CONTENT_TYPE_NAME = {

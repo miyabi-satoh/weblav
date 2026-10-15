@@ -97,9 +97,9 @@ const ja = {
 	// 価格は本番の Stripe の Price と、紹介・規約類に合わせる。
 	confirmTitle: 'お申し込み内容の最終確認',
 	confirmItemLabel: '買うもの',
-	confirmItem: 'WebLAV の AI の機能のクレジット（期限なし）',
+	confirmItem: 'WebLAV の AI の機能のクレジット (期限なし)',
 	confirmPriceLabel: '価格',
-	confirmPrice: '300 円（税込み）',
+	confirmPrice: '300 円 (税込み)',
 	confirmPaymentLabel: '支払い',
 	confirmPayment: {
 		domestic: '1 回だけの支払いで、自動の更新はありません。次の画面 (Stripe) でカードで払います。',
@@ -132,7 +132,7 @@ const ja = {
 	noBalance: 'AI の機能のクレジットはありません。',
 	appsTitle: '登録している PC',
 	appsNone: '登録している PC はありません。',
-	appLinkedAt: (name: string, pc: string, date: string) => `${pc} の「${name}」（${date} に登録）`,
+	appLinkedAt: (name: string, pc: string, date: string) => `${pc} の「${name}」(${date} に登録)`,
 	unlink: '登録を解除',
 	tooManyConnectsTitle: 'しばらくお待ちください',
 	tooManyConnects:
