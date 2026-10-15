@@ -126,13 +126,13 @@ test('アイテム: 再スキャンで索引し、公開を切り替えられる
 			await page.getByRole('button', { name: /^再スキャンする$|^Rescan$/ }).click();
 			await expect(page.getByText(/新規3件・削除0件|3 added, 0 removed/)).toBeVisible();
 			// 新しく索引したアイテムは非公開から始まる。
-			await expect(page.getByText(/3\s件\(公開 0\)|3 items \(0 published\)/)).toBeVisible();
+			await expect(page.getByText(/3\s件\s\(公開 0\)|3 items \(0 published\)/)).toBeVisible();
 
 			const toggle = itemPublishedSwitch(page, '2024/listening.mp3');
 			await expect(toggle).toHaveAttribute('aria-checked', 'false');
 			await toggle.click();
 			await expect(toggle).toHaveAttribute('aria-checked', 'true');
-			await expect(page.getByText(/3\s件\(公開 1\)|3 items \(1 published\)/)).toBeVisible();
+			await expect(page.getByText(/3\s件\s\(公開 1\)|3 items \(1 published\)/)).toBeVisible();
 		}
 	);
 });
@@ -543,7 +543,7 @@ test('一括公開: 絞り込んで全選択すると見えている行だけを
 			await rescanArchive(page.request, archive.id);
 
 			await page.goto(`/admin/contents/${archive.id}/items`);
-			await expect(page.getByText(/3\s件\(公開 0\)|3 items \(0 published\)/)).toBeVisible();
+			await expect(page.getByText(/3\s件\s\(公開 0\)|3 items \(0 published\)/)).toBeVisible();
 
 			const filter = page.getByLabel(/^\s*(タイトルかパスで絞り込む|Filter by title or path)\s*$/);
 			const selectAll = page.getByRole('checkbox', { name: /^すべて選択$|^Select all$/ });
@@ -554,11 +554,11 @@ test('一括公開: 絞り込んで全選択すると見えている行だけを
 			await page
 				.getByRole('button', { name: /^選択した項目を公開する$|^Publish selected$/ })
 				.click();
-			await expect(page.getByText(/3\s件\(公開 2\)|3 items \(2 published\)/)).toBeVisible();
+			await expect(page.getByText(/3\s件\s\(公開 2\)|3 items \(2 published\)/)).toBeVisible();
 
 			// 読み直しても保たれ、絞り込みで隠れていた行は公開していない。
 			await page.reload();
-			await expect(page.getByText(/3\s件\(公開 2\)|3 items \(2 published\)/)).toBeVisible();
+			await expect(page.getByText(/3\s件\s\(公開 2\)|3 items \(2 published\)/)).toBeVisible();
 			await expect(itemPublishedSwitch(page, '2024/listening.mp3')).toHaveAttribute(
 				'aria-checked',
 				'true'
@@ -573,11 +573,11 @@ test('一括公開: 絞り込んで全選択すると見えている行だけを
 			await page
 				.getByRole('button', { name: /^選択した項目を非公開にする$|^Unpublish selected$/ })
 				.click();
-			await expect(page.getByText(/3\s件\(公開 0\)|3 items \(0 published\)/)).toBeVisible();
+			await expect(page.getByText(/3\s件\s\(公開 0\)|3 items \(0 published\)/)).toBeVisible();
 
 			// 非公開に戻したことも、読み直して確かめる。
 			await page.reload();
-			await expect(page.getByText(/3\s件\(公開 0\)|3 items \(0 published\)/)).toBeVisible();
+			await expect(page.getByText(/3\s件\s\(公開 0\)|3 items \(0 published\)/)).toBeVisible();
 			await expect(itemPublishedSwitch(page, '2024/listening.mp3')).toHaveAttribute(
 				'aria-checked',
 				'false'

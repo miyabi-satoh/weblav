@@ -25,7 +25,7 @@ const CREATE_ACTION_NAME = /^リカバリコードを作る$|^Create recovery co
 const RECOVERY_CODE_LABEL = requiredLabel('リカバリコード', 'Recovery code');
 const NEW_PASSWORD_LABEL = requiredLabel('新しいパスワード', 'New password');
 const NEW_PASSWORD_CONFIRM_LABEL = requiredLabel(
-	'新しいパスワード(確認)',
+	'新しいパスワード (確認)',
 	'New password (confirm)'
 );
 const RESET_BUTTON_NAME = /^再設定する$|^Reset password$/;
