@@ -113,7 +113,7 @@
 			if (data) answer = data.answer;
 			else failure = errorMessage(error);
 		} catch {
-			failure = GENERIC_ERROR_MESSAGE();
+			if (userId === asker) failure = GENERIC_ERROR_MESSAGE();
 		} finally {
 			sending = false;
 		}
