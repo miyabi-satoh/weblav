@@ -10,7 +10,6 @@
 	 */
 	import { onMount } from 'svelte';
 	import QRCode from 'qrcode';
-	import { toast } from 'svelte-sonner';
 	import { accountPageHref, formatPercent, usagePercent } from '$lib/ai-account';
 	import { client } from '$lib/api/client';
 	import { errorCode, errorMessage, GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
@@ -142,10 +141,7 @@
 						unlinkOpen = false;
 					}
 				},
-				() => {
-					patch({ ...UNLINKED, email: null, remainingPercent: null });
-					toast.success(m.admin_settings_ai_unlinked_toast());
-				}
+				() => patch({ ...UNLINKED, email: null, remainingPercent: null })
 			);
 		} finally {
 			busy = null;
@@ -177,7 +173,6 @@
 					await reload();
 					// 読み直せなくても、登録済みになったことは画面に出す。
 					if (status?.state !== 'linked') patch(data);
-					toast.success(m.admin_settings_ai_linked_toast());
 				} else {
 					if (data.state === 'unlinked') linkEnded = true;
 					patch(data);
