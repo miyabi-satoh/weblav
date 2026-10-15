@@ -153,6 +153,9 @@ export const USER_ADD_BUTTON_NAME = /^ユーザーを追加\.\.\.$|^Add user\.\.
 /** 公開できるフォルダーの行の⋮メニューにある「名前を変更」。 */
 export const RENAME_MENU_ITEM_NAME = /^名前を変更\.\.\.$|^Rename\.\.\.$/;
 export const ROOT_ADD_BUTTON_NAME = /^フォルダーを追加\.\.\.$|^Add a folder\.\.\.$/;
+/** 窓が閉じるのを待つ間の追加ボタン。名前の頭にスピナーの「読み込み中」が付く。 */
+export const ROOT_ADD_BUTTON_LOADING_NAME =
+	/^読み込み中 フォルダーを追加\.\.\.$|^Loading Add a folder\.\.\.$/;
 
 /** コンテンツの作成ダイアログで選ぶ種別のボタン。名前には説明が続くので前方一致で探す。 */
 export const CONTENT_TYPE_NAME = {

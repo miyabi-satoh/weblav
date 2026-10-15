@@ -19,6 +19,7 @@ import {
 	DELETE_MENU_ITEM_NAME,
 	DIR_PICKER_NAME,
 	RENAME_MENU_ITEM_NAME,
+	ROOT_ADD_BUTTON_LOADING_NAME,
 	ROOT_ADD_BUTTON_NAME,
 	SAVE_BUTTON_NAME,
 	VISIBILITY_LABEL,
@@ -337,7 +338,7 @@ export const shots: Record<string, ShotEntry> = {
 			await openAsAdmin(page, ctx.baseURL, '/admin/roots');
 			await page.getByRole('button', { name: ROOT_ADD_BUTTON_NAME }).click();
 			await page
-				.getByRole('button', { name: ROOT_ADD_BUTTON_NAME, disabled: true })
+				.getByRole('button', { name: ROOT_ADD_BUTTON_LOADING_NAME, disabled: true })
 				.waitFor({ timeout: 5000 });
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
 		}
