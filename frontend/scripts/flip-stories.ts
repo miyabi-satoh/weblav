@@ -722,8 +722,7 @@ const admin: Story = {
 		{
 			caption: '「既定値に戻す」を押す',
 			roles: ADMIN_ONLY,
-			run: (page) =>
-				page.getByRole('button', { name: /^既定値に戻す: アップロード上限 \(MB\)$/ }).click()
+			run: (page) => page.getByRole('button', { name: /^既定値に戻す: アップロード上限$/ }).click()
 		},
 		{
 			caption: '「ログ」の「詳細ログ」をオンにする',

@@ -13,6 +13,7 @@
 	import * as Field from '$lib/components/ui/field';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import * as InputGroup from '$lib/components/ui/input-group';
 	import { Switch } from '$lib/components/ui/switch';
 	import BackupRestore from '$lib/components/backup-restore.svelte';
 	import AboutSection from '$lib/components/about-section.svelte';
@@ -34,6 +35,8 @@
 	const MAX_PORT = 65535;
 	const MAX_UPLOAD_MAX_SIZE_MB = 100 * 1024;
 	const MAX_SESSION_EXPIRY_DAYS = 3650;
+	// 3つの欄を、いちばん長い上限 (6 桁) と単位が収まる幅に揃える (→ docs/ui.md「見た目の決めごと」)。
+	const serverNumberWidthClass = 'w-36';
 
 	// 保存後は応答の値で入れ直すので、読み込みは初回だけでよい。
 	let siteName = $state(untrack(() => data.settings.siteName));
@@ -243,14 +246,18 @@
 						<Field.FieldLabel for="server-port" required
 							>{m.admin_settings_port_label()}</Field.FieldLabel
 						>
-						<Input
-							id="server-port"
-							type="number"
-							min={1}
-							max={MAX_PORT}
-							bind:value={port}
-							required
-						/>
+						<!-- Field が子を全幅に広げるので、包んで欄の幅を効かせる。 -->
+						<div>
+							<Input
+								id="server-port"
+								class={serverNumberWidthClass}
+								type="number"
+								min={1}
+								max={MAX_PORT}
+								bind:value={port}
+								required
+							/>
+						</div>
 						<Field.FieldDescription>{m.admin_settings_port_description()}</Field.FieldDescription>
 						{@render defaultValue(m.admin_settings_port_label(), port, server.defaults.port, () =>
 							resetField('server-port', () => (port = server?.defaults.port ?? port))
@@ -261,14 +268,24 @@
 						<Field.FieldLabel for="server-upload" required
 							>{m.admin_settings_upload_label()}</Field.FieldLabel
 						>
-						<Input
-							id="server-upload"
-							type="number"
-							min={1}
-							max={MAX_UPLOAD_MAX_SIZE_MB}
-							bind:value={uploadMaxSizeMb}
-							required
-						/>
+						<div>
+							<InputGroup.Root class={serverNumberWidthClass}>
+								<InputGroup.Input
+									id="server-upload"
+									type="number"
+									min={1}
+									max={MAX_UPLOAD_MAX_SIZE_MB}
+									bind:value={uploadMaxSizeMb}
+									required
+									aria-describedby="server-upload-unit"
+								/>
+								<InputGroup.Addon align="inline-end">
+									<InputGroup.Text id="server-upload-unit"
+										>{m.admin_settings_upload_unit()}</InputGroup.Text
+									>
+								</InputGroup.Addon>
+							</InputGroup.Root>
+						</div>
 						{@render defaultValue(
 							m.admin_settings_upload_label(),
 							uploadMaxSizeMb,
@@ -285,14 +302,24 @@
 						<Field.FieldLabel for="server-session" required
 							>{m.admin_settings_session_label()}</Field.FieldLabel
 						>
-						<Input
-							id="server-session"
-							type="number"
-							min={1}
-							max={MAX_SESSION_EXPIRY_DAYS}
-							bind:value={sessionExpiryDays}
-							required
-						/>
+						<div>
+							<InputGroup.Root class={serverNumberWidthClass}>
+								<InputGroup.Input
+									id="server-session"
+									type="number"
+									min={1}
+									max={MAX_SESSION_EXPIRY_DAYS}
+									bind:value={sessionExpiryDays}
+									required
+									aria-describedby="server-session-unit"
+								/>
+								<InputGroup.Addon align="inline-end">
+									<InputGroup.Text id="server-session-unit"
+										>{m.admin_settings_session_unit()}</InputGroup.Text
+									>
+								</InputGroup.Addon>
+							</InputGroup.Root>
+						</div>
 						{@render defaultValue(
 							m.admin_settings_session_label(),
 							sessionExpiryDays,
