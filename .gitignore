@@ -31,5 +31,4 @@
 # 紹介サイト (site/) の依存と生成物
 /site/node_modules
 /site/dist
-/site/.wrangler
 /site/.astro

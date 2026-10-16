@@ -53,7 +53,8 @@
 		]
 	},
 	"vars": {
-		"MAIL_FROM": "WebLAV <noreply@weblav.amiiby.com>",
+		// Resend に登録したドメインは amiiby.com で、差出人はサブドメインまで一致しないと送れない (403)。
+		"MAIL_FROM": "WebLAV <noreply@amiiby.com>",
 		// 国内の支払いに付ける手動の税率「消費税 10%・税込み」(→ src/stripe.ts)。秘密ではないので vars に置く。
 		"STRIPE_TAX_RATE_ID": "txr_1UM7mJPXESUJaYKotwoV79Pu"
 	},
@@ -92,7 +93,7 @@
 			},
 			// メールは送らず、サインインのリンクをログに出す (`wrangler tail --env staging` で読む)。
 			"vars": {
-				"MAIL_FROM": "WebLAV <noreply@weblav.amiiby.com>",
+				"MAIL_FROM": "WebLAV <noreply@amiiby.com>",
 				"MAIL_LOG_ONLY": "1",
 				// サンドボックスの税率。
 				"STRIPE_TAX_RATE_ID": "txr_1UM7jvBdeu1RIibiRtWDeFKZ"
