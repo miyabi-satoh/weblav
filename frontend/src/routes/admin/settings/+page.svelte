@@ -246,17 +246,14 @@
 						<Field.FieldLabel for="server-port" required
 							>{m.admin_settings_port_label()}</Field.FieldLabel
 						>
-						<!-- Field が子を全幅に広げるので、包んで欄の幅を効かせる。 -->
-						<div>
-							<IntegerInput
-								id="server-port"
-								class={serverNumberWidthClass}
-								min={1}
-								max={MAX_PORT}
-								bind:value={port}
-								required
-							/>
-						</div>
+						<IntegerInput
+							id="server-port"
+							class={serverNumberWidthClass}
+							min={1}
+							max={MAX_PORT}
+							bind:value={port}
+							required
+						/>
 						<Field.FieldDescription>{m.admin_settings_port_description()}</Field.FieldDescription>
 						{@render defaultValue(m.admin_settings_port_label(), port, server.defaults.port, () =>
 							resetField('server-port', () => (port = server?.defaults.port ?? port))
@@ -267,17 +264,15 @@
 						<Field.FieldLabel for="server-upload" required
 							>{m.admin_settings_upload_label()}</Field.FieldLabel
 						>
-						<div>
-							<IntegerInput
-								id="server-upload"
-								class={serverNumberWidthClass}
-								min={1}
-								max={MAX_UPLOAD_MAX_SIZE_MB}
-								unit={m.admin_settings_upload_unit()}
-								bind:value={uploadMaxSizeMb}
-								required
-							/>
-						</div>
+						<IntegerInput
+							id="server-upload"
+							class={serverNumberWidthClass}
+							min={1}
+							max={MAX_UPLOAD_MAX_SIZE_MB}
+							unit={m.admin_settings_upload_unit()}
+							bind:value={uploadMaxSizeMb}
+							required
+						/>
 						{@render defaultValue(
 							m.admin_settings_upload_label(),
 							uploadMaxSizeMb,
@@ -294,17 +289,15 @@
 						<Field.FieldLabel for="server-session" required
 							>{m.admin_settings_session_label()}</Field.FieldLabel
 						>
-						<div>
-							<IntegerInput
-								id="server-session"
-								class={serverNumberWidthClass}
-								min={1}
-								max={MAX_SESSION_EXPIRY_DAYS}
-								unit={m.admin_settings_session_unit()}
-								bind:value={sessionExpiryDays}
-								required
-							/>
-						</div>
+						<IntegerInput
+							id="server-session"
+							class={serverNumberWidthClass}
+							min={1}
+							max={MAX_SESSION_EXPIRY_DAYS}
+							unit={m.admin_settings_session_unit()}
+							bind:value={sessionExpiryDays}
+							required
+						/>
 						{@render defaultValue(
 							m.admin_settings_session_label(),
 							sessionExpiryDays,

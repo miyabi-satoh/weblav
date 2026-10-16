@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Input } from '$lib/components/ui/input';
 	import * as InputGroup from '$lib/components/ui/input-group';
 	import { parseIntegerInput } from '$lib/integer-input';
 	import * as m from '$lib/paraglide/messages.js';
@@ -51,32 +50,31 @@
 		draft = { text: next, base: value };
 	}
 
+	// 読めた値は、欄を離れたら値の書き方 (全角を半角に、先頭の 0 を落とす) に揃える。
+	function settle() {
+		if (parsed.kind === 'ok') draft = null;
+	}
+
 	const unitId = $derived(`${id}-unit`);
 </script>
 
-{#if unit}
+<!-- Field が子を全幅に広げるので、包んで欄の幅 (class) を効かせる。 -->
+<div>
 	<InputGroup.Root class={className}>
 		<InputGroup.Input
 			bind:ref
 			{id}
 			bind:value={getText, setText}
+			onblur={settle}
 			inputmode="numeric"
 			autocomplete="off"
 			{required}
-			aria-describedby={unitId}
+			aria-describedby={unit ? unitId : undefined}
 		/>
-		<InputGroup.Addon align="inline-end">
-			<InputGroup.Text id={unitId}>{unit}</InputGroup.Text>
-		</InputGroup.Addon>
+		{#if unit}
+			<InputGroup.Addon align="inline-end">
+				<InputGroup.Text id={unitId}>{unit}</InputGroup.Text>
+			</InputGroup.Addon>
+		{/if}
 	</InputGroup.Root>
-{:else}
-	<Input
-		bind:ref
-		{id}
-		class={className}
-		bind:value={getText, setText}
-		inputmode="numeric"
-		autocomplete="off"
-		{required}
-	/>
-{/if}
+</div>

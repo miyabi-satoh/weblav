@@ -37,6 +37,16 @@ describe('IntegerInput', () => {
 		expect(input().validity.valid).toBe(true);
 	});
 
+	it('rewrites a readable number in the usual form when leaving the field', async () => {
+		const props = $state({ id: 'n', value: 5, min: 1, max: 10 });
+		await render(IntegerInput, props);
+		await userEvent.fill(page.getByRole('textbox'), '０７');
+		await userEvent.tab();
+
+		expect(props.value).toBe(7);
+		expect(input().value).toBe('7');
+	});
+
 	it('ties the unit to the field for screen readers', async () => {
 		await render(IntegerInput, { id: 'n', value: 5, min: 1, max: 10, unit: 'MB' });
 
