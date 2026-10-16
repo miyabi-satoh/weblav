@@ -34,10 +34,11 @@
 	const text = $derived(draft && draft.base === value ? draft.text : String(value));
 	const parsed = $derived(parseIntegerInput(text, min, max));
 
+	// 空白だけの欄は `required` が空と見なさないので、読めない値と同じく止める。
+	const invalid = $derived(parsed.kind === 'invalid' || (parsed.kind === 'empty' && text !== ''));
+
 	$effect(() => {
-		ref?.setCustomValidity(
-			parsed.kind === 'invalid' ? m.integer_input_range_error({ min, max }) : ''
-		);
+		ref?.setCustomValidity(invalid ? m.integer_input_range_error({ min, max }) : '');
 	});
 
 	function getText() {

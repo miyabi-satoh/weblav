@@ -27,6 +27,14 @@ describe('IntegerInput', () => {
 		expect(input().validity.customError).toBe(true);
 	});
 
+	it('blocks submission for a field holding only spaces', async () => {
+		const props = $state({ id: 'n', value: 5, min: 1, max: 10, required: true });
+		await render(IntegerInput, props);
+		await userEvent.fill(page.getByRole('textbox'), '　');
+
+		expect(input().validity.customError).toBe(true);
+	});
+
 	it('shows the new value when it changes from outside after invalid text', async () => {
 		const props = $state({ id: 'n', value: 5, min: 1, max: 10 });
 		await render(IntegerInput, props);
