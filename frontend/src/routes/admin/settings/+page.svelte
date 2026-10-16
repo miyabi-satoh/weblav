@@ -18,6 +18,7 @@
 	import AboutSection from '$lib/components/about-section.svelte';
 	import AiSection from '$lib/components/ai-section.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
+	import IntegerInput from '$lib/components/integer-input.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
@@ -34,6 +35,8 @@
 	const MAX_PORT = 65535;
 	const MAX_UPLOAD_MAX_SIZE_MB = 100 * 1024;
 	const MAX_SESSION_EXPIRY_DAYS = 3650;
+	// 3つの欄を、いちばん長い上限 (6 桁) と単位が収まる幅に揃える (→ docs/ui.md「見た目の決めごと」)。
+	const serverNumberWidthClass = 'w-36';
 
 	// 保存後は応答の値で入れ直すので、読み込みは初回だけでよい。
 	let siteName = $state(untrack(() => data.settings.siteName));
@@ -243,9 +246,9 @@
 						<Field.FieldLabel for="server-port" required
 							>{m.admin_settings_port_label()}</Field.FieldLabel
 						>
-						<Input
+						<IntegerInput
 							id="server-port"
-							type="number"
+							class={serverNumberWidthClass}
 							min={1}
 							max={MAX_PORT}
 							bind:value={port}
@@ -261,11 +264,12 @@
 						<Field.FieldLabel for="server-upload" required
 							>{m.admin_settings_upload_label()}</Field.FieldLabel
 						>
-						<Input
+						<IntegerInput
 							id="server-upload"
-							type="number"
+							class={serverNumberWidthClass}
 							min={1}
 							max={MAX_UPLOAD_MAX_SIZE_MB}
+							unit={m.admin_settings_upload_unit()}
 							bind:value={uploadMaxSizeMb}
 							required
 						/>
@@ -285,11 +289,12 @@
 						<Field.FieldLabel for="server-session" required
 							>{m.admin_settings_session_label()}</Field.FieldLabel
 						>
-						<Input
+						<IntegerInput
 							id="server-session"
-							type="number"
+							class={serverNumberWidthClass}
 							min={1}
 							max={MAX_SESSION_EXPIRY_DAYS}
+							unit={m.admin_settings_session_unit()}
 							bind:value={sessionExpiryDays}
 							required
 						/>

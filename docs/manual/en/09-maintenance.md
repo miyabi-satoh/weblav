@@ -19,7 +19,7 @@ Change these on the “Site settings” tab in the admin pages.
 
   ![The Home page section in Site settings](images/settings-home.webp)
 
-- Server: The port, upload limit (MB), and days to stay signed in. Changes take effect the next time WebLAV starts.
+- Server: The port, upload limit (MB), and how long to stay signed in (days). Changes take effect the next time WebLAV starts.
   A setting you changed shows “Reset to default”. Select it, then save, to go back to the original value.
 
   ![The Server section in Site settings](images/settings-server.webp)

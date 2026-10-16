@@ -714,7 +714,7 @@ const admin: Story = {
 			caption: '「サーバー」のアップロード上限を変える (既定から変えた印が付く)',
 			roles: ADMIN_ONLY,
 			async run(page) {
-				const input = page.getByRole('spinbutton', { name: /^アップロード上限/ });
+				const input = page.getByRole('textbox', { name: /^アップロード上限/ });
 				await input.fill('500');
 				await page.getByRole('heading', { name: /^サーバー$/ }).scrollIntoViewIfNeeded();
 			}
@@ -722,8 +722,7 @@ const admin: Story = {
 		{
 			caption: '「既定値に戻す」を押す',
 			roles: ADMIN_ONLY,
-			run: (page) =>
-				page.getByRole('button', { name: /^既定値に戻す: アップロード上限 \(MB\)$/ }).click()
+			run: (page) => page.getByRole('button', { name: /^既定値に戻す: アップロード上限$/ }).click()
 		},
 		{
 			caption: '「ログ」の「詳細ログ」をオンにする',
