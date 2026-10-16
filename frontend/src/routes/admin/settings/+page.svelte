@@ -13,12 +13,12 @@
 	import * as Field from '$lib/components/ui/field';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import * as InputGroup from '$lib/components/ui/input-group';
 	import { Switch } from '$lib/components/ui/switch';
 	import BackupRestore from '$lib/components/backup-restore.svelte';
 	import AboutSection from '$lib/components/about-section.svelte';
 	import AiSection from '$lib/components/ai-section.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
+	import IntegerInput from '$lib/components/integer-input.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
@@ -248,10 +248,9 @@
 						>
 						<!-- Field が子を全幅に広げるので、包んで欄の幅を効かせる。 -->
 						<div>
-							<Input
+							<IntegerInput
 								id="server-port"
 								class={serverNumberWidthClass}
-								type="number"
 								min={1}
 								max={MAX_PORT}
 								bind:value={port}
@@ -269,22 +268,15 @@
 							>{m.admin_settings_upload_label()}</Field.FieldLabel
 						>
 						<div>
-							<InputGroup.Root class={serverNumberWidthClass}>
-								<InputGroup.Input
-									id="server-upload"
-									type="number"
-									min={1}
-									max={MAX_UPLOAD_MAX_SIZE_MB}
-									bind:value={uploadMaxSizeMb}
-									required
-									aria-describedby="server-upload-unit"
-								/>
-								<InputGroup.Addon align="inline-end">
-									<InputGroup.Text id="server-upload-unit"
-										>{m.admin_settings_upload_unit()}</InputGroup.Text
-									>
-								</InputGroup.Addon>
-							</InputGroup.Root>
+							<IntegerInput
+								id="server-upload"
+								class={serverNumberWidthClass}
+								min={1}
+								max={MAX_UPLOAD_MAX_SIZE_MB}
+								unit={m.admin_settings_upload_unit()}
+								bind:value={uploadMaxSizeMb}
+								required
+							/>
 						</div>
 						{@render defaultValue(
 							m.admin_settings_upload_label(),
@@ -303,22 +295,15 @@
 							>{m.admin_settings_session_label()}</Field.FieldLabel
 						>
 						<div>
-							<InputGroup.Root class={serverNumberWidthClass}>
-								<InputGroup.Input
-									id="server-session"
-									type="number"
-									min={1}
-									max={MAX_SESSION_EXPIRY_DAYS}
-									bind:value={sessionExpiryDays}
-									required
-									aria-describedby="server-session-unit"
-								/>
-								<InputGroup.Addon align="inline-end">
-									<InputGroup.Text id="server-session-unit"
-										>{m.admin_settings_session_unit()}</InputGroup.Text
-									>
-								</InputGroup.Addon>
-							</InputGroup.Root>
+							<IntegerInput
+								id="server-session"
+								class={serverNumberWidthClass}
+								min={1}
+								max={MAX_SESSION_EXPIRY_DAYS}
+								unit={m.admin_settings_session_unit()}
+								bind:value={sessionExpiryDays}
+								required
+							/>
 						</div>
 						{@render defaultValue(
 							m.admin_settings_session_label(),

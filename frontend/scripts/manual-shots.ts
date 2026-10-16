@@ -365,7 +365,7 @@ async function shootAdmin() {
 			if (want('settings-server')) await shotSection(page, 'settings-server', serverHeading);
 			if (want('settings-port')) {
 				// 保存はしない。変えた項目に付く印と、戻すボタンも写す。
-				const port = page.getByRole('spinbutton', { name: 'ポート' });
+				const port = page.getByRole('textbox', { name: 'ポート' });
 				await port.fill('3100');
 				await port.blur();
 				await shotSection(
