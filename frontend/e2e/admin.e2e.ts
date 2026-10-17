@@ -10,6 +10,7 @@ import { test, expect } from '@playwright/test';
 import { withContentByApi } from './api-helpers';
 import { ADMIN_USERNAME } from './auth';
 import {
+	groupBasicSaveButton,
 	anonymousContext,
 	AUDIO_PLAYER_REGION_NAME,
 	BROWSE_LAYOUT_LIST_NAME,
@@ -459,7 +460,7 @@ test('コンテンツ一覧: ドラッグで見える範囲が広がるときは
 		await page.waitForURL(/\/admin\/contents\/\d+$/);
 		await page.getByLabel(VISIBILITY_LABEL).click();
 		await page.getByRole('option', { name: /ログインした人|Logged-in users/ }).click();
-		await saveForm(page);
+		await saveForm(page, { button: groupBasicSaveButton(page) });
 
 		// 誰でも公開のリンクを、いったんログイン必須のグループへ入れて絞る (確認は出ない)。
 		await createLinkContent(page, linkTitle, { parentTitle: restrictedGroupTitle });
@@ -515,7 +516,7 @@ test('コンテンツ一覧: 見出しの行へドラッグするとルートへ
 		await page.waitForURL(/\/admin\/contents\/\d+$/);
 		await page.getByLabel(VISIBILITY_LABEL).click();
 		await page.getByRole('option', { name: /ログインした人|Logged-in users/ }).click();
-		await saveForm(page);
+		await saveForm(page, { button: groupBasicSaveButton(page) });
 		await createLinkContent(page, linkTitle, { parentTitle: restrictedGroupTitle });
 		await page.goto('/admin/contents');
 
