@@ -424,7 +424,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** 簡易チャット。質問を1つ送り、答えを1つ返す。前のやり取りは持たない。 */
+        /**
+         * 簡易チャット。質問を1つ送り、答えを1つ返す。前のやり取りは持たない。
+         *     見ているファイルを付けると、PDF と画像は添付、テキストと Office の文書は文字にして一緒に送る。
+         */
         post: operations["chat"];
         delete?: never;
         options?: never;
@@ -1591,7 +1594,17 @@ export interface components {
             /** @description この PC が登録済みで、ログインしているユーザーが AI を使えるか。 */
             available: boolean;
         };
+        /** @description 簡易チャットに付ける、見ているファイル。画面が自分の権限で取った中身をそのまま送る。 */
+        AiChatFile: {
+            /** @description 中身の base64。音声・動画のように中身を送らないものは省き、名前だけを伝える。 */
+            data?: string | null;
+            /** @description 種類 (MIME)。画面が受け取ったファイルの種類。無ければ名前の拡張子で決める。 */
+            mimeType?: string | null;
+            /** @description ファイルの名前。拡張子で種類を決める。 */
+            name: string;
+        };
         AiChatRequest: {
+            file?: components["schemas"]["AiChatFile"] | null;
             /** @description 質問。 */
             prompt: string;
         };
@@ -4247,7 +4260,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 質問が長すぎる */
+            /** @description 質問か、付けたファイルが大きすぎる */
             413: {
                 headers: {
                     [name: string]: unknown;
@@ -4256,7 +4269,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 質問が空 */
+            /** @description 質問が空・付けたファイルが読めない */
             422: {
                 headers: {
                     [name: string]: unknown;

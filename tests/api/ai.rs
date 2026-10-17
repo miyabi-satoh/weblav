@@ -693,6 +693,7 @@ async fn chat_relays_the_question_and_records_the_usage(pool: SqlitePool) {
         assert!(fake.prompts[0]["system"].is_string());
         // 窓口が思考の強さを決められるよう、用途を伝える (ほかの機能は伝えない)。
         assert_eq!(fake.prompts[0]["task"], "chat");
+        assert!(fake.prompts[0].get("attachments").is_none());
     }
     let kinds: Vec<String> = usage_rows(&pool)
         .await
@@ -715,4 +716,56 @@ async fn chat_relays_the_question_and_records_the_usage(pool: SqlitePool) {
         StatusCode::UNPROCESSABLE_ENTITY,
         "invalid_request_body",
     );
+}
+
+/// 見ているファイルを付けると、PDF は添付に、テキストは質問の後ろの文に、動画は名前だけにして送る。
+/// 種類ごとの直し方の場合分けは `src/api/chat_file.rs` の単体テスト。
+#[sqlx::test]
+async fn chat_sends_the_open_file_in_the_form_for_its_kind(pool: SqlitePool) {
+    let AiApp {
+        app, cookie, fake, ..
+    } = ai_app(&pool, true).await;
+    let ask = |file: serde_json::Value| {
+        let app = app.clone();
+        let cookie = cookie.clone();
+        async move {
+            let body = serde_json::json!({ "prompt": "要約して", "file": file }).to_string();
+            send_json(app, "POST", "/api/v1/ai/chat", &cookie, &body).await
+        }
+    };
+
+    let (status, body) = ask(serde_json::json!({
+        "name": "たより.pdf", "mimeType": "application/pdf", "data": "JVBERg=="
+    }))
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, body) =
+        ask(serde_json::json!({ "name": "メモ.txt", "data": "5oyB44Gh54mp" })).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, body) = ask(serde_json::json!({ "name": "運動会.mp4" })).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    {
+        let fake = fake.lock().expect("鍵が毒された");
+        assert_eq!(
+            fake.prompts[0]["attachments"],
+            serde_json::json!([{ "mime_type": "application/pdf", "data": "JVBERg==" }])
+        );
+        let text = fake.prompts[1]["user"].as_str().expect("文が無い");
+        assert!(text.starts_with("要約して"), "{text}");
+        assert!(
+            text.contains("<file name=\"メモ.txt\">\n持ち物\n</file>"),
+            "{text}"
+        );
+        let video = fake.prompts[2]["user"].as_str().expect("文が無い");
+        assert!(video.contains("運動会.mp4"), "{video}");
+        assert!(fake.prompts[2].get("attachments").is_none());
+    }
+
+    // 窓口の上限を超える添付は、送らずに断る。
+    let (status, body) = ask(serde_json::json!({
+        "name": "図面.pdf", "data": "A".repeat(14_000_004)
+    }))
+    .await;
+    assert_error(status, &body, StatusCode::PAYLOAD_TOO_LARGE, "ai_too_large");
+    assert_eq!(fake.lock().expect("鍵が毒された").prompts.len(), 3);
 }

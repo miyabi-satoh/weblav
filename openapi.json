@@ -1620,7 +1620,7 @@
     },
     "/api/v1/ai/chat": {
       "post": {
-        "summary": "簡易チャット。質問を1つ送り、答えを1つ返す。前のやり取りは持たない。",
+        "summary": "簡易チャット。質問を1つ送り、答えを1つ返す。前のやり取りは持たない。\n見ているファイルを付けると、PDF と画像は添付、テキストと Office の文書は文字にして一緒に送る。",
         "operationId": "chat",
         "requestBody": {
           "content": {
@@ -1674,7 +1674,7 @@
             }
           },
           "413": {
-            "description": "質問が長すぎる",
+            "description": "質問か、付けたファイルが大きすぎる",
             "content": {
               "application/json": {
                 "schema": {
@@ -1684,7 +1684,7 @@
             }
           },
           "422": {
-            "description": "質問が空",
+            "description": "質問が空・付けたファイルが読めない",
             "content": {
               "application/json": {
                 "schema": {
@@ -5595,12 +5595,50 @@
           }
         }
       },
+      "AiChatFile": {
+        "type": "object",
+        "description": "簡易チャットに付ける、見ているファイル。画面が自分の権限で取った中身をそのまま送る。",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "data": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "中身の base64。音声・動画のように中身を送らないものは省き、名前だけを伝える。"
+          },
+          "mimeType": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "種類 (MIME)。画面が受け取ったファイルの種類。無ければ名前の拡張子で決める。"
+          },
+          "name": {
+            "type": "string",
+            "description": "ファイルの名前。拡張子で種類を決める。"
+          }
+        }
+      },
       "AiChatRequest": {
         "type": "object",
         "required": [
           "prompt"
         ],
         "properties": {
+          "file": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AiChatFile",
+                "description": "見ているファイル。付けなければ質問だけを送る。"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "prompt": {
             "type": "string",
             "description": "質問。"
