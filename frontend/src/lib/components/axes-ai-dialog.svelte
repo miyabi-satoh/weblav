@@ -398,13 +398,14 @@
 						</ul>
 					{/if}
 				</section>
-				{#if preview.replacesExisting}
-					<WarningBand>
-						<p class="text-sm leading-relaxed">{m.archive_axes_ai_replace_warning()}</p>
-					</WarningBand>
-				{/if}
 			{/if}
 		</Dialog.Body>
+		<!-- 確定で起きることの警告は、本体の外に置いてスクロールしなくても見せる (→ docs/ui.md「UI 全般」)。 -->
+		{#if step === 'preview' && checked?.preview.replacesExisting}
+			<WarningBand>
+				<p class="text-sm leading-relaxed">{m.archive_axes_ai_replace_warning()}</p>
+			</WarningBand>
+		{/if}
 
 		<Dialog.Footer>
 			{#if step === 'manual'}
