@@ -27,7 +27,7 @@ const { data } = (await getEntry('product', 'index'))!;
         <li>新しいアカウントには、試せる分が一度だけ付く（買い足し 1&nbsp;回分の半分）</li>
       </ul>
       <a class="buy" data-buy href="/account/buy?lang=ja">クレジットを購入</a>
-      <p class="closed" data-sale-closed hidden>クレジットの購入は準備中です。新しいアカウントに付く試せる分で、AI の機能をお使いいただけます。</p>
+      <p class="closed" data-sale-closed hidden>クレジットの購入は準備中です。WebLAV のサイト設定の「AI」から、パソコンをアカウントに登録すると、新しいアカウントに付く試せる分で AI の機能をお使いいただけます。</p>
     </section>
 
     <h2 id="conditions">購入の条件</h2>
@@ -39,6 +39,10 @@ const { data } = (await getEntry('product', 'index'))!;
       <dd>
         <p>AI の機能のクレジット 300&nbsp;円（税込み、1&nbsp;回払い）。自動の更新はありません。</p>
         <p>日本の外から購入するとき（接続元が日本と分からないときを含みます。以下同じ）は、決済ページで、お住まいの国の通貨に換えた額で表示されることがあります。その場合は、表示された額で決済されます。</p>
+      </dd>
+      <dt>支払いと提供の時期</dt>
+      <dd>
+        <p>購入の手続きのときにお支払いいただきます（日本の外から購入するときに後払いの払い方を選んだときは、その払い方の定めによります）。支払いが済むとすぐ、アカウントにクレジットが付きます。</p>
       </dd>
       <dt>クレジット</dt>
       <dd>
@@ -105,9 +109,6 @@ const { data } = (await getEntry('product', 'index'))!;
     color: var(--muted);
   }
 
-
-
-
   .features {
     margin: 1rem 0 1.5rem;
     font-size: 0.9375rem;
@@ -125,13 +126,13 @@ const { data } = (await getEntry('product', 'index'))!;
     text-decoration: none;
   }
 
+  .buy:hover {
+    text-decoration: underline;
+  }
+
   .closed {
     margin: 0;
     color: var(--muted);
-  }
-
-  .buy:hover {
-    text-decoration: underline;
   }
 
   .terms {

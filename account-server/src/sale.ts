@@ -11,6 +11,8 @@ export function closeSale(page: Response): Response {
 	// 置いてあるページと中身が違うので、同じ ETag を付けない。売り始めた後に、書き換えた写しを出し続けさせないため。
 	const headers = new Headers(closed.headers);
 	headers.delete('etag');
+	// 書き換えで本文の長さが変わるので、元の長さを残さない。
+	headers.delete('content-length');
 	headers.set('cache-control', 'no-store');
 	return new Response(closed.body, { status: closed.status, headers });
 }
