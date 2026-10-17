@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "INSERT INTO ai_link_exclusions (content_id, kind, value, title, created_at) VALUES (?, ?, ?, ?, ?)\n           ON CONFLICT (content_id, kind, value) DO UPDATE SET title = excluded.title\n           RETURNING id as \"id!\", kind as \"kind: ExclusionKind\", value, title",
+  "query": "INSERT INTO ai_link_exclusions (content_id, kind, value, title, created_at) VALUES (?, ?, ?, ?, unixepoch())\n           ON CONFLICT (content_id, kind, value) DO UPDATE SET title = excluded.title\n           RETURNING id as \"id!\", kind as \"kind: ExclusionKind\", value, title",
   "describe": {
     "columns": [
       {
@@ -25,7 +25,7 @@
       }
     ],
     "parameters": {
-      "Right": 5
+      "Right": 4
     },
     "nullable": [
       false,
@@ -34,5 +34,5 @@
       false
     ]
   },
-  "hash": "4f7febf72bc2961e87d3e1bb7cdc8858466762940a7386b8966b2639dc9405ad"
+  "hash": "737766fbd69aa2a319b1aa76fef6324b60d3f418d3c6ab632d12762d7860208c"
 }

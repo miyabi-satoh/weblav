@@ -135,7 +135,16 @@
 	"admin_settings_upload_label": "Upload limit",
 	"admin_settings_upload_unit": "MB",
 	"admin_settings_session_label": "Stay signed in for",
-	"admin_settings_session_unit": "days",
+	"admin_settings_session_unit": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "day",
+				"countPlural=other": "days"
+			}
+		}
+	],
 	"admin_settings_running_value": "Currently running with {value}.",
 	"admin_settings_reset_button": "Reset to default",
 	"admin_settings_reset_button_label": "Reset to default: {name}",
@@ -745,13 +754,31 @@
 	"link_detail_more_button": "More actions",
 	"contents_ai_links_no_new_toast": "No new links were found for “{title}”.",
 	"contents_form_ai_daily_limit_label": "Daily update limit",
-	"contents_form_ai_daily_limit_unit": "times",
+	"contents_form_ai_daily_limit_unit": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "time",
+				"countPlural=other": "times"
+			}
+		}
+	],
 	"contents_form_ai_daily_limit_description": "Set to 0 for no limit.",
 	"contents_form_ai_auto_label": "Automatic updates",
 	"contents_form_ai_auto_off": "Off",
 	"contents_form_ai_auto_interval_before": "When",
 	"contents_form_ai_auto_interval_after": "have passed since the last update",
-	"contents_form_ai_auto_hours_unit": "hours",
+	"contents_form_ai_auto_hours_unit": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "hour",
+				"countPlural=other": "hours"
+			}
+		}
+	],
 	"contents_form_ai_auto_daily_before": "Every day after",
 	"contents_form_ai_auto_daily_after": "",
 	"contents_form_ai_auto_time_label": "Time",

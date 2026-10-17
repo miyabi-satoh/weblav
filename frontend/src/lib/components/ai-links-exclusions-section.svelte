@@ -4,6 +4,7 @@
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/schema';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
+	import { listItemClass } from '$lib/list-row';
 	import { sectionCardClass } from '$lib/page-layout';
 	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
@@ -81,9 +82,7 @@
 		{:else}
 			<ul class="flex flex-col">
 				{#each shown as exclusion (exclusion.id)}
-					<li
-						class="flex min-h-11 items-center justify-between gap-3 border-b border-divider last:border-b-0"
-					>
+					<li class={['flex min-h-11 items-center justify-between gap-3', listItemClass]}>
 						<span class="min-w-0 text-sm wrap-anywhere">{nameOf(exclusion)}</span>
 						{#if editable}
 							<Button

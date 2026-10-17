@@ -60,9 +60,12 @@ const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
  * 日時から `now` までの経過を、画面の表示言語で「3時間前」のように書く。読めない日時は空文字にする。
  * 1分に満たないもの・先の日時は「たった今」にまとめる (リンクの公開日時は相手の時計しだいで、少し先のこともあるため)。
  */
-export function formatTimeAgo(value: string | null | undefined, now: number = Date.now()): string {
+export function formatTimeAgo(
+	value: number | string | null | undefined,
+	now: number = Date.now()
+): string {
 	if (value == null) return '';
-	const time = Date.parse(value);
+	const time = typeof value === 'number' ? value : Date.parse(value);
 	if (Number.isNaN(time)) return '';
 	const elapsed = Math.max(0, Math.floor((now - time) / 1000));
 	const format = new Intl.RelativeTimeFormat(getLocale(), { numeric: 'auto' });

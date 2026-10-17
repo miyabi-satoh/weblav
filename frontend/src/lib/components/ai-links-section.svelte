@@ -21,6 +21,7 @@
 	import ListRowLink from '$lib/components/list-row-link.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
+	import SeparatedText from '$lib/components/separated-text.svelte';
 
 	type AiLinks = components['schemas']['AiLinksResponse'];
 	type AiLink = AiLinks['links'][number];
@@ -210,11 +211,19 @@
 
 	let refreshedText = $derived.by(() => {
 		if (aiLinks.refreshedAt == null) return '';
-		const time = formatTimeAgo(new Date(aiLinks.refreshedAt * 1000).toISOString());
+		const time = formatTimeAgo(aiLinks.refreshedAt * 1000);
 		return aiLinks.refreshedByAuto
 			? m.group_ai_links_refreshed_auto({ time })
 			: m.group_ai_links_refreshed({ time });
 	});
+	let statusParts = $derived(
+		[
+			refreshedText,
+			aiLinks.refreshesLeft == null
+				? ''
+				: m.group_ai_links_refreshes_left({ count: aiLinks.refreshesLeft })
+		].filter((part) => part !== '')
+	);
 	let limitReached = $derived(aiLinks.refreshesLeft === 0);
 </script>
 
@@ -239,14 +248,8 @@
 		<div class="flex flex-wrap items-center justify-between gap-3">
 			<div>
 				<h2 id="ai-links-heading" class="text-base font-semibold">{m.group_ai_links_heading()}</h2>
-				{#if refreshedText !== '' || aiLinks.refreshesLeft != null}
-					<p class="text-sm text-muted-foreground">
-						{refreshedText}{#if refreshedText !== '' && aiLinks.refreshesLeft != null}
-							<span aria-hidden="true">・</span
-							>{/if}{#if aiLinks.refreshesLeft != null}{m.group_ai_links_refreshes_left({
-								count: aiLinks.refreshesLeft
-							})}{/if}
-					</p>
+				{#if statusParts.length > 0}
+					<p class="text-sm text-muted-foreground"><SeparatedText text={statusParts} /></p>
 				{/if}
 			</div>
 			{#if aiLinks.canRefresh}
@@ -288,7 +291,10 @@
 				{:else if hiddenEntry.url === link.url}
 					<li class={browseItemClass()}>
 						<div
-							class="flex min-h-14 items-center justify-between gap-3 px-4 py-2 text-sm text-muted-foreground sm:px-6"
+							class={[
+								'flex min-h-14 items-center justify-between gap-3 py-2 text-sm text-muted-foreground',
+								browseGutterClass
+							]}
 							role="status"
 						>
 							<span class="min-w-0"

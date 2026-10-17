@@ -99,6 +99,8 @@ describe('formatTimeAgo', () => {
 		locale.current = 'ja';
 		expect(formatTimeAgo('2026-10-05T09:00:00Z', now)).toBe('3 時間前');
 		expect(formatTimeAgo('2026-10-03T12:00:00Z', now)).toBe('一昨日');
+		// UNIX 時刻 (ミリ秒) も受ける。
+		expect(formatTimeAgo(Date.parse('2026-10-05T09:00:00Z'), now)).toBe('3 時間前');
 
 		locale.current = 'en';
 		expect(formatTimeAgo('2026-10-05T11:55:00+00:00', now)).toBe('5 minutes ago');

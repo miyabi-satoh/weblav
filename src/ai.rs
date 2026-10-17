@@ -121,13 +121,12 @@ pub struct SearchQuery {
     pub recency: Option<&'static str>,
 }
 
-/// 検索で返った候補の1件。`snippet` は AI が選ぶためだけに使い、保存しない。
+/// 検索で返った候補の1件。窓口は抜粋 (`snippet`) も返すが、選ぶのは人なので読まない。
 #[derive(Debug, Clone, Deserialize)]
 pub struct SearchResult {
     pub title: String,
     pub url: String,
     pub date: Option<String>,
-    pub snippet: String,
 }
 
 /// 窓口の中継の返事。失敗でも、窓口が使った量を返していれば `used` がある。
@@ -445,6 +444,11 @@ async fn ensure_callable(state: &AppState, caller: Caller<'_>) -> Result<(), App
         Caller::Auto if state.ai.is_linked() => Ok(()),
         Caller::Auto => Err(AppError::AiNotLinked),
     }
+}
+
+/// `user` が使えて、PC が登録済みか。AI を使うボタンを出すかを決めるのに使う。
+pub async fn is_usable(state: &AppState, user: &AuthUser) -> Result<bool, AppError> {
+    Ok(state.ai.is_linked() && is_allowed(&state.pool, user).await?)
 }
 
 /// `user` が使えて、PC が登録済みであること。窓口を呼ぶ前に確かめる。
