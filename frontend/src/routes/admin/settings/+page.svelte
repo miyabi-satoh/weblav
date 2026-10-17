@@ -302,7 +302,7 @@
 							class={serverNumberWidthClass}
 							min={1}
 							max={MAX_SESSION_EXPIRY_DAYS}
-							unit={m.admin_settings_session_unit()}
+							unit={m.admin_settings_session_unit({ count: sessionExpiryDays })}
 							bind:value={sessionExpiryDays}
 							required
 						/>

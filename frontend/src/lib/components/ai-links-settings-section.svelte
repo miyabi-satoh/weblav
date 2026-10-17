@@ -133,7 +133,7 @@
 						class="w-44"
 						min={0}
 						max={MAX_COUNT}
-						unit={m.contents_form_ai_daily_limit_unit()}
+						unit={m.contents_form_ai_daily_limit_unit({ count: dailyLimit })}
 						bind:value={dailyLimit}
 						required
 					/>
@@ -163,8 +163,8 @@
 								class="w-44"
 								min={1}
 								max={MAX_COUNT}
-								unit={m.contents_form_ai_auto_hours_unit()}
-								label={m.contents_form_ai_auto_hours_unit()}
+								unit={m.contents_form_ai_auto_hours_unit({ count: hours })}
+								label={m.contents_form_ai_auto_hours_unit({ count: hours })}
 								bind:value={hours}
 								required={mode === 'interval'}
 							/>
