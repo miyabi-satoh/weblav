@@ -442,11 +442,17 @@ fn parse_queries(answer: &str) -> Option<Vec<String>> {
     (!queries.is_empty()).then_some(queries)
 }
 
+/// 画面から届いた表示言語のうち、言語のコード (ISO 639-1) として読めるもの。
+/// クエリを作る文に入り、作ったクエリは使い回すので、匿名の閲覧者が送った任意の文字列を入れないため。
+fn language_code(language: Option<&str>) -> Option<&str> {
+    language.filter(|language| {
+        language.len() == 2 && language.bytes().all(|byte| byte.is_ascii_lowercase())
+    })
+}
+
 /// 表示言語から、検索を絞る国と言語を決める。言語だけでは国が決まらないので、国で絞るのは日本語だけ。
 fn search_locale(language: Option<&str>) -> (Option<String>, Option<String>) {
-    let language = language.filter(|language| {
-        language.len() == 2 && language.bytes().all(|byte| byte.is_ascii_lowercase())
-    });
+    let language = language_code(language);
     let country = (language == Some("ja")).then(|| "JP".to_string());
     (country, language.map(str::to_string))
 }
@@ -903,7 +909,12 @@ async fn auto_refresh_ai_links(
         Err(err) => {
             tracing::warn!(%err, id, "the auto refresh of AI links failed");
             let now = clock(&state.pool).await?.now;
-            state.ai_links.auto_failed().insert(id, now);
+            {
+                let mut failed = state.ai_links.auto_failed();
+                // 間が過ぎたものは、もう効かないので捨てる。消したグループの分を残し続けないため。
+                failed.retain(|_, failed_at| now - *failed_at < AUTO_RETRY_SECS);
+                failed.insert(id, now);
+            }
             Ok(Json(response(&state, &viewer, id, None).await?))
         }
     }
@@ -978,7 +989,7 @@ async fn collect(
     let feed = enabled_feed(&state.pool, id)
         .await?
         .ok_or(AppError::NotFound)?;
-    let (queries, language) = queries(state, caller, id, &feed, language).await?;
+    let (queries, language) = queries(state, caller, id, &feed, language_code(language)).await?;
 
     // 定番のページと新しい記事の両方を候補にするため、絞らない検索と、1年以内の検索を1回ずつ引く。
     let (country, language) = search_locale(language.as_deref());

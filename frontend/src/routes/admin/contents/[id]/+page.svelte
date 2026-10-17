@@ -65,7 +65,10 @@
 	let aiLinksDirty = $state(false);
 	let aiLinksSection = $state<{ discard: () => void } | null>(null);
 
-	let dirty = $derived(form.dirty || creatorChanged || aiLinksDirty);
+	// 基本情報の区画の保存ボタンは、この区画の変更だけで決める。AI の設定の区画は自分の保存ボタンを持つ。
+	let basicDirty = $derived(form.dirty || creatorChanged);
+	// 離れるときの確認は、どの区画の変更でも出す。
+	let dirty = $derived(basicDirty || aiLinksDirty);
 
 	function creatorSelectLabel(value: string): string {
 		if (value === '') return m.contents_form_creator_none();
@@ -295,7 +298,7 @@
 				<LoadingButton
 					type="submit"
 					loading={saving}
-					disabled={!dirty ||
+					disabled={!basicDirty ||
 						(isDirectoryContentType(form.type) && form.path === '') ||
 						visibilityError !== null}>{m.action_save()}</LoadingButton
 				>
