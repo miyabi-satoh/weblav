@@ -98,16 +98,18 @@
 				<Dialog.Description>{m.share_dialog_description()}</Dialog.Description>
 			{/if}
 		</Dialog.Header>
-		{#if connection === undefined}
-			<p class="text-sm text-muted-foreground">{m.common_loading()}</p>
-		{:else if url}
-			<QrAddress {url} qrAlt={m.share_qr_alt()} />
-		{:else if connection?.port === 0}
-			<p class="text-sm text-muted-foreground">{m.share_bind_local()}</p>
-		{:else if connection}
-			<p class="text-sm text-muted-foreground">{m.share_unavailable()}</p>
-		{:else}
-			<p class="text-sm text-muted-foreground">{m.share_load_failed()}</p>
-		{/if}
+		<Dialog.Body>
+			{#if connection === undefined}
+				<p class="text-sm text-muted-foreground">{m.common_loading()}</p>
+			{:else if url}
+				<QrAddress {url} qrAlt={m.share_qr_alt()} />
+			{:else if connection?.port === 0}
+				<p class="text-sm text-muted-foreground">{m.share_bind_local()}</p>
+			{:else if connection}
+				<p class="text-sm text-muted-foreground">{m.share_unavailable()}</p>
+			{:else}
+				<p class="text-sm text-muted-foreground">{m.share_load_failed()}</p>
+			{/if}
+		</Dialog.Body>
 	</Dialog.Content>
 </Dialog.Root>

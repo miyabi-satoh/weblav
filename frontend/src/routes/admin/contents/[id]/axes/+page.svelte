@@ -1476,132 +1476,136 @@
 					: m.archive_axes_dialog_edit_title()}
 			</Dialog.Title>
 		</Dialog.Header>
-		<form onsubmit={handleAxisSubmit} class="flex flex-col gap-6">
-			<Field.FieldGroup>
-				<Field.Field>
-					<Field.FieldLabel for="axis-name" required>
-						{m.archive_axes_dialog_name_label()}
-					</Field.FieldLabel>
-					<Input id="axis-name" bind:value={axisFormName} required />
-					<Field.FieldDescription>{m.archive_axes_dialog_name_help()}</Field.FieldDescription>
-				</Field.Field>
-				<Field.Field>
-					<Field.FieldLabel for="axis-source">
-						{m.archive_axes_dialog_source_label()}
-					</Field.FieldLabel>
-					<Select.Root type="single" bind:value={axisFormSource} required>
-						<Select.Trigger id="axis-source" class="w-full">
-							{sourceOptionLabel(axisFormSource)}
-						</Select.Trigger>
-						<Select.Content>
-							{#each AXIS_SOURCES as source (source)}
-								<Select.Item value={source}>{sourceOptionLabel(source)}</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
-				</Field.Field>
-				{#if axisFormSource === 'dirLevel'}
-					{#if dirLevels.status === 'loading'}
-						<Spinner aria-label={m.archive_axes_dialog_dir_level_loading()} />
-					{:else if dirLevelOptions.length > 0}
-						<Field.FieldSet>
-							<Field.FieldLegend id="axis-dir-level-legend" variant="label">
-								{m.archive_axes_dialog_dir_level_choice_label()}
-							</Field.FieldLegend>
-							<RadioGroup.Root
-								aria-labelledby="axis-dir-level-legend"
-								bind:value={
-									() => String(axisFormDirLevel ?? ''),
-									(value) => (axisFormDirLevel = Number(value))
-								}
-							>
-								{#each dirLevelOptions as option (option.level)}
-									{@const id = `axis-dir-level-${option.level}`}
-									<!-- 行全体を押せるラベルにする。読み上げ名は「第N階層」だけにし、値の例は説明として読ませる。 -->
-									<Field.FieldLabel for={id} class="min-h-11">
-										<Field.Field orientation="horizontal">
-											<RadioGroup.Item
-												value={String(option.level)}
-												{id}
-												aria-labelledby={`${id}-title`}
-												aria-describedby={`${id}-description`}
-											/>
-											<Field.FieldContent>
-												<Field.FieldTitle id={`${id}-title`}>
-													{m.archive_axes_dialog_dir_level_option({ level: String(option.level) })}
-												</Field.FieldTitle>
-												<Field.FieldDescription id={`${id}-description`} class="wrap-anywhere">
-													{option.summary === null
-														? m.archive_axes_dialog_dir_level_option_no_items()
-														: dirLevelSamplesText(option.summary)}
-												</Field.FieldDescription>
-											</Field.FieldContent>
-										</Field.Field>
-									</Field.FieldLabel>
+		<form onsubmit={handleAxisSubmit} class="flex min-h-0 flex-col gap-6">
+			<Dialog.Body>
+				<Field.FieldGroup>
+					<Field.Field>
+						<Field.FieldLabel for="axis-name" required>
+							{m.archive_axes_dialog_name_label()}
+						</Field.FieldLabel>
+						<Input id="axis-name" bind:value={axisFormName} required />
+						<Field.FieldDescription>{m.archive_axes_dialog_name_help()}</Field.FieldDescription>
+					</Field.Field>
+					<Field.Field>
+						<Field.FieldLabel for="axis-source">
+							{m.archive_axes_dialog_source_label()}
+						</Field.FieldLabel>
+						<Select.Root type="single" bind:value={axisFormSource} required>
+							<Select.Trigger id="axis-source" class="w-full">
+								{sourceOptionLabel(axisFormSource)}
+							</Select.Trigger>
+							<Select.Content>
+								{#each AXIS_SOURCES as source (source)}
+									<Select.Item value={source}>{sourceOptionLabel(source)}</Select.Item>
 								{/each}
-							</RadioGroup.Root>
-						</Field.FieldSet>
-					{:else}
-						{#if dirLevels.status === 'failed'}
-							<p class="text-sm text-muted-foreground">
-								{m.archive_axes_dialog_dir_level_fetch_failed()}
-							</p>
+							</Select.Content>
+						</Select.Root>
+					</Field.Field>
+					{#if axisFormSource === 'dirLevel'}
+						{#if dirLevels.status === 'loading'}
+							<Spinner aria-label={m.archive_axes_dialog_dir_level_loading()} />
+						{:else if dirLevelOptions.length > 0}
+							<Field.FieldSet>
+								<Field.FieldLegend id="axis-dir-level-legend" variant="label">
+									{m.archive_axes_dialog_dir_level_choice_label()}
+								</Field.FieldLegend>
+								<RadioGroup.Root
+									aria-labelledby="axis-dir-level-legend"
+									bind:value={
+										() => String(axisFormDirLevel ?? ''),
+										(value) => (axisFormDirLevel = Number(value))
+									}
+								>
+									{#each dirLevelOptions as option (option.level)}
+										{@const id = `axis-dir-level-${option.level}`}
+										<!-- 行全体を押せるラベルにする。読み上げ名は「第N階層」だけにし、値の例は説明として読ませる。 -->
+										<Field.FieldLabel for={id} class="min-h-11">
+											<Field.Field orientation="horizontal">
+												<RadioGroup.Item
+													value={String(option.level)}
+													{id}
+													aria-labelledby={`${id}-title`}
+													aria-describedby={`${id}-description`}
+												/>
+												<Field.FieldContent>
+													<Field.FieldTitle id={`${id}-title`}>
+														{m.archive_axes_dialog_dir_level_option({
+															level: String(option.level)
+														})}
+													</Field.FieldTitle>
+													<Field.FieldDescription id={`${id}-description`} class="wrap-anywhere">
+														{option.summary === null
+															? m.archive_axes_dialog_dir_level_option_no_items()
+															: dirLevelSamplesText(option.summary)}
+													</Field.FieldDescription>
+												</Field.FieldContent>
+											</Field.Field>
+										</Field.FieldLabel>
+									{/each}
+								</RadioGroup.Root>
+							</Field.FieldSet>
 						{:else}
-							{@render noItemsNotice(m.archive_axes_dialog_dir_level_no_items())}
+							{#if dirLevels.status === 'failed'}
+								<p class="text-sm text-muted-foreground">
+									{m.archive_axes_dialog_dir_level_fetch_failed()}
+								</p>
+							{:else}
+								{@render noItemsNotice(m.archive_axes_dialog_dir_level_no_items())}
+							{/if}
+							<Field.Field>
+								<Field.FieldLabel for="axis-dir-level" required>
+									{m.archive_axes_dialog_dir_level_label()}
+								</Field.FieldLabel>
+								<Input
+									id="axis-dir-level"
+									type="number"
+									min={1}
+									bind:value={axisFormDirLevel}
+									required
+								/>
+								<Field.FieldDescription>
+									{m.archive_axes_dialog_dir_level_help()}
+								</Field.FieldDescription>
+							</Field.Field>
 						{/if}
-						<Field.Field>
-							<Field.FieldLabel for="axis-dir-level" required>
-								{m.archive_axes_dialog_dir_level_label()}
-							</Field.FieldLabel>
-							<Input
-								id="axis-dir-level"
-								type="number"
-								min={1}
-								bind:value={axisFormDirLevel}
-								required
+					{/if}
+					<!-- 作成では既定 (絞り込みに出す・タイトルで省略しない) のまま作る。変えるのは編集で。 -->
+					{#if editingAxisId !== null}
+						<Field.Field orientation="horizontal">
+							<Checkbox id="axis-filterable" bind:checked={axisFormFilterable} />
+							<Field.FieldContent>
+								<Field.FieldLabel for="axis-filterable">
+									{m.archive_axes_dialog_filterable_label()}
+								</Field.FieldLabel>
+							</Field.FieldContent>
+						</Field.Field>
+						<Field.Field orientation="horizontal">
+							<!-- 画面では反転して見せる。API・DB の optionalInTitle はそのまま (→ docs/archive.md「表示タイトル」)。 -->
+							<Checkbox
+								id="axis-optional-in-title"
+								bind:checked={
+									() => !axisFormOptionalInTitle, (checked) => (axisFormOptionalInTitle = !checked)
+								}
 							/>
-							<Field.FieldDescription>
-								{m.archive_axes_dialog_dir_level_help()}
-							</Field.FieldDescription>
+							<Field.FieldContent>
+								<Field.FieldLabel for="axis-optional-in-title">
+									{m.archive_axes_dialog_optional_in_title_label()}
+								</Field.FieldLabel>
+								<Field.FieldDescription>
+									{m.archive_axes_dialog_optional_in_title_help()}
+								</Field.FieldDescription>
+							</Field.FieldContent>
 						</Field.Field>
 					{/if}
+				</Field.FieldGroup>
+				{#if axisValuesWillBeCleared}
+					<WarningBand>
+						<p class="text-sm leading-relaxed">
+							{m.archive_axes_dialog_values_cleared_warning()}
+						</p>
+					</WarningBand>
 				{/if}
-				<!-- 作成では既定 (絞り込みに出す・タイトルで省略しない) のまま作る。変えるのは編集で。 -->
-				{#if editingAxisId !== null}
-					<Field.Field orientation="horizontal">
-						<Checkbox id="axis-filterable" bind:checked={axisFormFilterable} />
-						<Field.FieldContent>
-							<Field.FieldLabel for="axis-filterable">
-								{m.archive_axes_dialog_filterable_label()}
-							</Field.FieldLabel>
-						</Field.FieldContent>
-					</Field.Field>
-					<Field.Field orientation="horizontal">
-						<!-- 画面では反転して見せる。API・DB の optionalInTitle はそのまま (→ docs/archive.md「表示タイトル」)。 -->
-						<Checkbox
-							id="axis-optional-in-title"
-							bind:checked={
-								() => !axisFormOptionalInTitle, (checked) => (axisFormOptionalInTitle = !checked)
-							}
-						/>
-						<Field.FieldContent>
-							<Field.FieldLabel for="axis-optional-in-title">
-								{m.archive_axes_dialog_optional_in_title_label()}
-							</Field.FieldLabel>
-							<Field.FieldDescription>
-								{m.archive_axes_dialog_optional_in_title_help()}
-							</Field.FieldDescription>
-						</Field.FieldContent>
-					</Field.Field>
-				{/if}
-			</Field.FieldGroup>
-			{#if axisValuesWillBeCleared}
-				<WarningBand>
-					<p class="text-sm leading-relaxed">
-						{m.archive_axes_dialog_values_cleared_warning()}
-					</p>
-				</WarningBand>
-			{/if}
+			</Dialog.Body>
 			<Dialog.Footer>
 				<Button type="button" variant="outline" onclick={() => (axisDialogOpen = false)}>
 					{m.action_cancel()}

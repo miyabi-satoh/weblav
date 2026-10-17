@@ -345,48 +345,50 @@
 			<Dialog.Title>{m.admin_settings_ai_link_dialog_title()}</Dialog.Title>
 			<Dialog.Description>{m.admin_settings_ai_link_dialog_description()}</Dialog.Description>
 		</Dialog.Header>
-		<!-- 項目ごとに行を分ける。1文につなぐと、文節での折り返しと項目の切れ目の区別が付かなくなる。 -->
-		<div class="flex flex-col gap-3 text-sm">
-			<section>
-				<h3 class="font-semibold">{m.admin_settings_ai_link_dialog_sent_label()}</h3>
-				<ul class="mt-1 flex list-disc flex-col gap-1 pl-5">
-					<li>
-						{m.admin_settings_ai_link_dialog_sent_axes()}
-						<div class="text-muted-foreground">
-							{m.admin_settings_ai_link_dialog_sent_axes_purpose()}
-						</div>
-					</li>
-					<li>
-						{m.admin_settings_ai_link_dialog_sent_links()}
-						<div class="text-muted-foreground">
-							{m.admin_settings_ai_link_dialog_sent_links_purpose()}
-						</div>
-					</li>
-					<li>
-						{m.admin_settings_ai_link_dialog_sent_chat()}
-						<div class="text-muted-foreground">
-							{m.admin_settings_ai_link_dialog_sent_chat_purpose()}
-						</div>
-					</li>
-				</ul>
-			</section>
-			<section>
-				<h3 class="font-semibold">{m.admin_settings_ai_link_dialog_destination_label()}</h3>
-				<ul class="mt-1 flex list-disc flex-col gap-1 pl-5">
-					<li>{m.admin_settings_ai_link_dialog_destination_server()}</li>
-					<li>{m.admin_settings_ai_link_dialog_destination_providers()}</li>
-				</ul>
-			</section>
-			<p>
-				{m.admin_settings_ai_link_dialog_unlink_note()}
-				<a
-					href="https://weblav.amiiby.com/privacy/"
-					target="_blank"
-					rel="noopener noreferrer"
-					class="underline underline-offset-4">{m.admin_settings_about_privacy()}</a
-				>
-			</p>
-		</div>
+		<Dialog.Body>
+			<!-- 項目ごとに行を分ける。1文につなぐと、文節での折り返しと項目の切れ目の区別が付かなくなる。 -->
+			<div class="flex flex-col gap-3 text-sm">
+				<section>
+					<h3 class="font-semibold">{m.admin_settings_ai_link_dialog_sent_label()}</h3>
+					<ul class="mt-1 flex list-disc flex-col gap-1 pl-5">
+						<li>
+							{m.admin_settings_ai_link_dialog_sent_axes()}
+							<div class="text-muted-foreground">
+								{m.admin_settings_ai_link_dialog_sent_axes_purpose()}
+							</div>
+						</li>
+						<li>
+							{m.admin_settings_ai_link_dialog_sent_links()}
+							<div class="text-muted-foreground">
+								{m.admin_settings_ai_link_dialog_sent_links_purpose()}
+							</div>
+						</li>
+						<li>
+							{m.admin_settings_ai_link_dialog_sent_chat()}
+							<div class="text-muted-foreground">
+								{m.admin_settings_ai_link_dialog_sent_chat_purpose()}
+							</div>
+						</li>
+					</ul>
+				</section>
+				<section>
+					<h3 class="font-semibold">{m.admin_settings_ai_link_dialog_destination_label()}</h3>
+					<ul class="mt-1 flex list-disc flex-col gap-1 pl-5">
+						<li>{m.admin_settings_ai_link_dialog_destination_server()}</li>
+						<li>{m.admin_settings_ai_link_dialog_destination_providers()}</li>
+					</ul>
+				</section>
+				<p>
+					{m.admin_settings_ai_link_dialog_unlink_note()}
+					<a
+						href="https://weblav.amiiby.com/privacy/"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="underline underline-offset-4">{m.admin_settings_about_privacy()}</a
+					>
+				</p>
+			</div>
+		</Dialog.Body>
 		<Dialog.Footer>
 			<Button variant="outline" onclick={() => (linkOpen = false)}>{m.action_cancel()}</Button>
 			<LoadingButton loading={busy === 'link'} onclick={beginLink}

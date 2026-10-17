@@ -98,27 +98,29 @@
 					{/if}
 				</p>
 			</Dialog.Header>
-			{#if imageUrl}
-				<!-- 題が何の画像かを伝えるので、読み上げでは飛ばす。題の下に置くのは、右上の閉じるボタンが画像に重なって見えなくならないため。 -->
-				<img
-					src={imageUrl}
-					alt=""
-					decoding="async"
-					class="max-h-96 w-full rounded-md bg-muted object-contain"
-					onerror={() => (failedImage = imageUrl ?? null)}
-				/>
-			{/if}
-			{#if detail.description || pageDescription}
-				<div class="flex flex-col gap-2 wrap-anywhere">
-					{#if detail.description}
-						<p><SeparatedText text={detail.description} /></p>
-					{/if}
-					{#if pageDescription}
-						<p class="text-muted-foreground">{pageDescription}</p>
-					{/if}
-				</div>
-			{/if}
-			<p class="text-xs break-all text-muted-foreground">{detail.href}</p>
+			<Dialog.Body>
+				{#if imageUrl}
+					<!-- 題が何の画像かを伝えるので、読み上げでは飛ばす。題の下に置くのは、右上の閉じるボタンが画像に重なって見えなくならないため。 -->
+					<img
+						src={imageUrl}
+						alt=""
+						decoding="async"
+						class="max-h-96 w-full rounded-md bg-muted object-contain"
+						onerror={() => (failedImage = imageUrl ?? null)}
+					/>
+				{/if}
+				{#if detail.description || pageDescription}
+					<div class="flex flex-col gap-2 wrap-anywhere">
+						{#if detail.description}
+							<p><SeparatedText text={detail.description} /></p>
+						{/if}
+						{#if pageDescription}
+							<p class="text-muted-foreground">{pageDescription}</p>
+						{/if}
+					</div>
+				{/if}
+				<p class="text-xs break-all text-muted-foreground">{detail.href}</p>
+			</Dialog.Body>
 			<!-- 前後へ移れるときは、前後のボタンを左に、開くボタンを右に置く。1件だけなら、ほかのダイアログと同じ並べ方にする。 -->
 			<Dialog.Footer class={[linkDetail.count > 1 && 'flex-row flex-wrap items-center']}>
 				{#if linkDetail.count > 1}

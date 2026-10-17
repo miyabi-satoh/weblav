@@ -150,56 +150,57 @@
 		<Dialog.Header class="text-left">
 			<Dialog.Title>{m.confirm_register_title()}</Dialog.Title>
 		</Dialog.Header>
-
-		<dl class="min-w-0 text-sm">
-			<div class="flex min-w-0 gap-4 border-b border-divider pb-4">
-				<dt class="w-16 shrink-0 text-xs text-muted-foreground">
-					{m.confirm_register_type_label()}
-				</dt>
-				<dd class="flex-1">{contentTypeLabel(contentType)}</dd>
-			</div>
-			<div class="flex min-w-0 gap-4 border-b border-divider py-4">
-				<dt class="w-16 shrink-0 text-xs text-muted-foreground">
-					{m.confirm_register_path_label()}
-				</dt>
-				<!-- パスは省略せず折り返す。この画面の用は「指定を間違えていないか
+		<Dialog.Body>
+			<dl class="min-w-0 text-sm">
+				<div class="flex min-w-0 gap-4 border-b border-divider pb-4">
+					<dt class="w-16 shrink-0 text-xs text-muted-foreground">
+						{m.confirm_register_type_label()}
+					</dt>
+					<dd class="flex-1">{contentTypeLabel(contentType)}</dd>
+				</div>
+				<div class="flex min-w-0 gap-4 border-b border-divider py-4">
+					<dt class="w-16 shrink-0 text-xs text-muted-foreground">
+						{m.confirm_register_path_label()}
+					</dt>
+					<!-- パスは省略せず折り返す。この画面の用は「指定を間違えていないか
 				     確かめること」なので、末尾を切ると役に立たない。 -->
-				<dd class="min-w-0 flex-1 text-sm wrap-anywhere">{pathLabel}</dd>
-			</div>
-		</dl>
+					<dd class="min-w-0 flex-1 text-sm wrap-anywhere">{pathLabel}</dd>
+				</div>
+			</dl>
 
-		{#if loadError !== ''}
-			<p class="text-sm text-destructive">{loadError}</p>
-		{:else if loading}
-			<Spinner aria-label={m.confirm_register_counting()} />
-		{:else if count !== null}
-			<p class="flex items-baseline gap-2.5">
-				<span class="text-4xl leading-none tracking-tight">{formattedCount}</span>
-				<span class="text-sm text-muted-foreground">{countHeadline}</span>
-			</p>
-			{#if unreadable !== null}
-				<p class="text-sm text-destructive">{unreadableFolderMessage(unreadable)}</p>
-			{/if}
+			{#if loadError !== ''}
+				<p class="text-sm text-destructive">{loadError}</p>
+			{:else if loading}
+				<Spinner aria-label={m.confirm_register_counting()} />
+			{:else if count !== null}
+				<p class="flex items-baseline gap-2.5">
+					<span class="text-4xl leading-none tracking-tight">{formattedCount}</span>
+					<span class="text-sm text-muted-foreground">{countHeadline}</span>
+				</p>
+				{#if unreadable !== null}
+					<p class="text-sm text-destructive">{unreadableFolderMessage(unreadable)}</p>
+				{/if}
 
-			<!-- 読めない場所があるアーカイブは、直すまで1件も索引されないので「N 個が索引されます」は出さない。 -->
-			{#if !archiveUnscannable || noteMessage !== null}
-				<WarningBand>
-					{#if !archiveUnscannable}
-						<p class="text-sm leading-relaxed">{scopeMessage}</p>
-					{/if}
-					{#if noteMessage !== null}
-						<p
-							class={[
-								'text-xs leading-relaxed text-warning-muted',
-								!archiveUnscannable && 'mt-1.5'
-							]}
-						>
-							{noteMessage}
-						</p>
-					{/if}
-				</WarningBand>
+				<!-- 読めない場所があるアーカイブは、直すまで1件も索引されないので「N 個が索引されます」は出さない。 -->
+				{#if !archiveUnscannable || noteMessage !== null}
+					<WarningBand>
+						{#if !archiveUnscannable}
+							<p class="text-sm leading-relaxed">{scopeMessage}</p>
+						{/if}
+						{#if noteMessage !== null}
+							<p
+								class={[
+									'text-xs leading-relaxed text-warning-muted',
+									!archiveUnscannable && 'mt-1.5'
+								]}
+							>
+								{noteMessage}
+							</p>
+						{/if}
+					</WarningBand>
+				{/if}
 			{/if}
-		{/if}
+		</Dialog.Body>
 
 		<Dialog.Footer>
 			<Button type="button" variant="outline" disabled={saving} onclick={() => (open = false)}
