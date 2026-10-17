@@ -14,3 +14,24 @@ export function refreshAiLinks(id: number) {
 		body: { language: getLocale() }
 	});
 }
+
+/**
+ * 時間が来ていれば、グループのリンクを自動で集め直してもらう (→ docs/ai.md「自動の更新」)。
+ * 見ている人が頼んだ更新ではないので、サーバーは失敗しても今のリンクを返す。
+ */
+export function autoRefreshAiLinks(id: number) {
+	return client.POST('/api/v1/contents/{id}/ai-links/auto-refresh', {
+		params: { path: { id } },
+		body: { language: getLocale() }
+	});
+}
+
+/** 集めたリンクのサイト。サーバー (`site_of`) と同じく、`www.` を外したホスト名。 */
+export function aiLinkSite(url: string): string | null {
+	try {
+		const host = new URL(url).hostname.toLowerCase();
+		return host.startsWith('www.') ? host.slice(4) : host;
+	} catch {
+		return null;
+	}
+}

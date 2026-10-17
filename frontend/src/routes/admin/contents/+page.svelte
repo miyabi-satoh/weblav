@@ -352,9 +352,12 @@
 		try {
 			const result = await errorDialog.attempt(() => refreshAiLinks(content.id));
 			if (result) {
-				toast.success(m.contents_ai_links_refreshed_toast({ title: content.title }), {
-					id: progress
-				});
+				// 新しいリンクが無ければ、何も入れ替わっていないことを伝える (→ docs/ai.md「AI が集めるリンク」)。
+				const message =
+					result.data?.added === 0
+						? m.contents_ai_links_no_new_toast({ title: content.title })
+						: m.contents_ai_links_refreshed_toast({ title: content.title });
+				toast.success(message, { id: progress });
 			} else {
 				toast.dismiss(progress);
 			}

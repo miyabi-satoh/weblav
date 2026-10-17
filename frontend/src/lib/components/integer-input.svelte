@@ -13,6 +13,8 @@
 		/** 枠の中の末尾に出す単位。 */
 		unit?: string;
 		required?: boolean;
+		/** 見えるラベルが無い欄 (文の途中に置く欄) の、読み上げの名前。 */
+		label?: string;
 		class?: string;
 	};
 
@@ -23,6 +25,7 @@
 		max,
 		unit,
 		required = false,
+		label,
 		class: className
 	}: Props = $props();
 
@@ -70,6 +73,7 @@
 			inputmode="numeric"
 			autocomplete="off"
 			{required}
+			aria-label={label}
 			aria-describedby={unit ? unitId : undefined}
 		/>
 		{#if unit}

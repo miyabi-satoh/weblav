@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import FilterHighlight from '$lib/components/filter-highlight.svelte';
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
@@ -16,6 +17,7 @@
 	} from '$lib/link-detail.svelte';
 	import { isPlainClick } from '$lib/image-viewer';
 	import {
+		browseRowAboveClass,
 		browseRowClass,
 		browseRowPressClass,
 		browseRowSubtitleClass,
@@ -43,7 +45,9 @@
 		preview,
 		private: isPrivate = false,
 		viewer,
-		details
+		details,
+		badge,
+		actions
 	}: {
 		href: string;
 		/** 省くと、ページのタイトル (無ければホスト名) を出す。 */
@@ -61,6 +65,10 @@
 		viewer?: { file: ViewerFile; items: ViewerItem[] };
 		/** 開いた一覧に並ぶ、詳しい表示を出すリンクと、その中のこの行の位置。詳しい表示で前後へ移るのに使う。 */
 		details?: { items: LinkDetail[]; index: number };
+		/** サイト名と経過の後ろに置く短い印 (AI が新しく足したリンクの「新着」)。 */
+		badge?: string;
+		/** 行末 (タイルでは右上の隅) に置く操作 (AI が集めたリンクの「…」メニュー)。押せる範囲の上に重ねる。 */
+		actions?: Snippet;
 	} = $props();
 
 	// ビューアーで開かないリンクは、詳しい表示を挟んでから新しいタブで開く (→ docs/ui.md「リンクのカード」)。
@@ -122,6 +130,11 @@
 			<span aria-hidden="true">·</span>
 			<span class="shrink-0">{timeAgo}</span>
 		{/if}
+		{#if badge}
+			<span class="shrink-0 rounded-sm bg-primary px-1.5 text-xs font-bold text-primary-foreground"
+				>{badge}</span
+			>
+		{/if}
 		{#if withDetails}
 			{@render rowDetails(true)}
 		{/if}
@@ -158,6 +171,11 @@
 
 {#if browseLayout.tile}
 	<div class={linkTileClass}>
+		{#if actions}
+			<span class={[browseRowAboveClass, 'absolute top-2 right-2 rounded-md bg-background']}
+				>{@render actions()}</span
+			>
+		{/if}
 		<span class="flex aspect-video w-full items-center justify-center overflow-hidden bg-muted">
 			{#if imageUrl}
 				<!-- 行のタイトルが何の画像かを伝えるので、読み上げでは飛ばす。 -->
@@ -203,6 +221,9 @@
 		{/if}
 		{#if !viewer && !opensDetail}
 			<ListRowGlyph newTab />
+		{/if}
+		{#if actions}
+			<span class={[browseRowAboveClass, 'shrink-0']}>{@render actions()}</span>
 		{/if}
 	</div>
 {/if}
