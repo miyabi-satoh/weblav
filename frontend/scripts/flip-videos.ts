@@ -5,6 +5,8 @@
 // 2. 筋書き (→ flip-stories.ts) を、役割 (ログインしない閲覧者・編集者・管理者) ごとに通し、操作のたびに撮る。
 //    コマの上の帯に、筋書き・役割・操作の説明を入れる。
 // 3. 筋書きと画面の幅ごとに、ffmpeg で mp4 にする。役割は1本の中で順に流す。
+//    同じ名前の .sheet.png に全コマを並べる。撮り直したら、報告の前に全本の一覧を見て、
+//    意図しない画面 (エラーやトースト) が写っていないかを確かめるため。
 //
 // 名前を渡すと、その筋書きだけを撮る (`just flip-videos browse admin`)。
 // 出力先は docs/generated/flip/ (.gitignore 対象)。環境変数 WEBLAV_FLIP_DIR で変えられる。
@@ -26,6 +28,8 @@ const FRAMES_ROOT = path.join(REPO_ROOT, 'target/flip-frames');
 
 /** 帯の高さ (CSS px)。説明が2行まで入る。 */
 const BAND_HEIGHT = 72;
+/** 一覧の画像の1コマの幅の上限 (px)。帯の文字が読める大きさに留める。 */
+const SHEET_FRAME_WIDTH = 640;
 /** 1コマを見せる秒数。 */
 const SECONDS_PER_FRAME = 1;
 /** 操作の中の待ちの上限。画面を変えて要素が見つからなくなったとき、長く待たずに止める。 */
@@ -201,6 +205,33 @@ function encode(framesDir: string, outFile: string) {
 	if (result.status !== 0) throw new Error(`ffmpeg が失敗しました: ${outFile}`);
 }
 
+/**
+ * 全コマを縮めて格子に並べた1枚の画像にする。
+ * 列の数は、一覧がほぼ正方形になるようにコマの縦横比から決める。縦に長いと、画像を見る側で縮められて帯が読めなくなるため。
+ */
+function writeSheet(framesDir: string, frames: number, viewport: ViewportName, outFile: string) {
+	const { width, height } = VIEWPORTS[viewport];
+	const columns = Math.min(frames, Math.ceil(Math.sqrt((frames * (height + BAND_HEIGHT)) / width)));
+	const rows = Math.ceil(frames / columns);
+	const result = spawnSync(
+		'ffmpeg',
+		[
+			'-y',
+			'-loglevel',
+			'error',
+			'-i',
+			path.join(framesDir, '%04d.png'),
+			'-vf',
+			`scale='min(${SHEET_FRAME_WIDTH},iw)':-2,tile=${columns}x${rows}:padding=8:color=white`,
+			'-frames:v',
+			'1',
+			outFile
+		],
+		{ stdio: 'inherit' }
+	);
+	if (result.status !== 0) throw new Error(`ffmpeg が失敗しました: ${outFile}`);
+}
+
 async function main() {
 	writeFixtureFiles();
 	rmSync(FRAMES_ROOT, { recursive: true, force: true });
@@ -231,7 +262,11 @@ async function main() {
 				backend = undefined;
 				const outFile = path.join(OUT_DIR, `${name}_${viewport}.mp4`);
 				encode(framesDir, outFile);
-				console.log(`[flip] ${path.relative(REPO_ROOT, outFile)} (${frames} コマ)`);
+				const sheetFile = path.join(OUT_DIR, `${name}_${viewport}.sheet.png`);
+				writeSheet(framesDir, frames, viewport, sheetFile);
+				console.log(
+					`[flip] ${path.relative(REPO_ROOT, outFile)} (${frames} コマ。一覧: ${path.basename(sheetFile)})`
+				);
 			}
 		}
 	} finally {
