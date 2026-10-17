@@ -13,6 +13,7 @@ import { inputCostEstimate, MAX_BODY_BYTES, parsePrompt, relay } from './ai';
 import { balance, charge, grantFreeStatement } from './credits';
 import { messages, resolveLang, type Lang } from './i18n';
 import { pricing, usedShare } from './pricing';
+import { closeSale } from './sale';
 import { parseSearch, search, searchCost } from './search';
 import { sendMail } from './mail';
 import {
@@ -907,6 +908,14 @@ accountApp.get('/buy/done', async (c) => {
 	return c.html(
 		checkingPurchasePage(lang, `${retry.pathname}${retry.search}`, tries < PURCHASE_CHECKS)
 	);
+});
+
+// 料金のページ。売っていない間は、買うボタンを外して返す (→ src/sale.ts)。
+// 末尾の `/` は、`strict: false` が照らす前に落とすので、経路には付けない。
+app.get('/pricing', async (c) => {
+	if (stripeConfig(c.env)) return c.env.ASSETS.fetch(c.req.raw);
+	// 条件付きの取得にしない。304 が返ると、書き換える本文が無い。
+	return closeSale(await c.env.ASSETS.fetch(new Request(c.req.url)));
 });
 
 app.route(ACCOUNT, accountApp);
