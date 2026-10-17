@@ -1478,6 +1478,14 @@
 		</Dialog.Header>
 		<form onsubmit={handleAxisSubmit} class="flex min-h-0 flex-col gap-6">
 			<Dialog.Body>
+				<!-- 確定で起きることの警告は本体の先頭に置き、スクロールしなくても見せる (→ docs/ui.md「UI 全般」)。 -->
+				{#if axisValuesWillBeCleared}
+					<WarningBand>
+						<p class="text-sm leading-relaxed">
+							{m.archive_axes_dialog_values_cleared_warning()}
+						</p>
+					</WarningBand>
+				{/if}
 				<Field.FieldGroup>
 					<Field.Field>
 						<Field.FieldLabel for="axis-name" required>
@@ -1599,14 +1607,6 @@
 					{/if}
 				</Field.FieldGroup>
 			</Dialog.Body>
-			<!-- 確定で起きることの警告は、本体の外に置いてスクロールしなくても見せる (→ docs/ui.md「UI 全般」)。 -->
-			{#if axisValuesWillBeCleared}
-				<WarningBand>
-					<p class="text-sm leading-relaxed">
-						{m.archive_axes_dialog_values_cleared_warning()}
-					</p>
-				</WarningBand>
-			{/if}
 			<Dialog.Footer>
 				<Button type="button" variant="outline" onclick={() => (axisDialogOpen = false)}>
 					{m.action_cancel()}

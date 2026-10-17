@@ -365,6 +365,12 @@
 				</section>
 			{:else if checked}
 				{@const preview = checked.preview}
+				<!-- 確定で起きることの警告は本体の先頭に置き、スクロールしなくても見せる (→ docs/ui.md「UI 全般」)。 -->
+				{#if preview.replacesExisting}
+					<WarningBand>
+						<p class="text-sm leading-relaxed">{m.archive_axes_ai_replace_warning()}</p>
+					</WarningBand>
+				{/if}
 				<section class="flex min-w-0 flex-col gap-2">
 					<h3 class="text-sm font-semibold">{m.archive_axes_ai_step_preview()}</h3>
 					<ul class="text-sm">
@@ -400,12 +406,6 @@
 				</section>
 			{/if}
 		</Dialog.Body>
-		<!-- 確定で起きることの警告は、本体の外に置いてスクロールしなくても見せる (→ docs/ui.md「UI 全般」)。 -->
-		{#if step === 'preview' && checked?.preview.replacesExisting}
-			<WarningBand>
-				<p class="text-sm leading-relaxed">{m.archive_axes_ai_replace_warning()}</p>
-			</WarningBand>
-		{/if}
 
 		<Dialog.Footer>
 			{#if step === 'manual'}

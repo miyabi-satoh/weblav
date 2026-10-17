@@ -180,24 +180,27 @@
 				{#if unreadable !== null}
 					<p class="text-sm text-destructive">{unreadableFolderMessage(unreadable)}</p>
 				{/if}
+
+				<!-- 読めない場所があるアーカイブは、直すまで1件も索引されないので「N 個が索引されます」は出さない。 -->
+				{#if !archiveUnscannable || noteMessage !== null}
+					<WarningBand>
+						{#if !archiveUnscannable}
+							<p class="text-sm leading-relaxed">{scopeMessage}</p>
+						{/if}
+						{#if noteMessage !== null}
+							<p
+								class={[
+									'text-xs leading-relaxed text-warning-muted',
+									!archiveUnscannable && 'mt-1.5'
+								]}
+							>
+								{noteMessage}
+							</p>
+						{/if}
+					</WarningBand>
+				{/if}
 			{/if}
 		</Dialog.Body>
-		<!-- 確定で起きることは、本体の外に置いてスクロールしなくても見せる (→ docs/ui.md「UI 全般」)。
-		     読めない場所があるアーカイブは、直すまで1件も索引されないので「N 個が索引されます」は出さない。 -->
-		{#if count !== null && loadError === '' && !loading && (!archiveUnscannable || noteMessage !== null)}
-			<WarningBand>
-				{#if !archiveUnscannable}
-					<p class="text-sm leading-relaxed">{scopeMessage}</p>
-				{/if}
-				{#if noteMessage !== null}
-					<p
-						class={['text-xs leading-relaxed text-warning-muted', !archiveUnscannable && 'mt-1.5']}
-					>
-						{noteMessage}
-					</p>
-				{/if}
-			</WarningBand>
-		{/if}
 
 		<Dialog.Footer>
 			<Button type="button" variant="outline" disabled={saving} onclick={() => (open = false)}
