@@ -569,7 +569,7 @@
 	"ai_chat_file_remove_label": "「{name}」を送らない",
 	"ai_chat_file_attach_button": "開いているファイルを付ける",
 	"ai_chat_file_name_only": "このファイルは中身を送らず、名前だけを送ります。",
-	"ai_chat_file_too_large": "開いているファイルが大きすぎて送れません (約 10 MB まで)。× で外すと、質問だけを送れます。",
+	"ai_chat_file_too_large": "開いているファイルが大きすぎて送れません (約 10 MB まで)。× で外すと、質問だけを送れます。",
 	"ai_chat_answer_about": "「{name}」について",
 	"ai_chat_resize_label": "パネルの高さ",
 	"error_account_server_unavailable": "WebLAV アカウントに接続できませんでした。しばらくしてからもう一度お試しください。",

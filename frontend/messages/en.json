@@ -682,7 +682,7 @@
 	"ai_chat_file_remove_label": "Don't send {name}",
 	"ai_chat_file_attach_button": "Attach the open file",
 	"ai_chat_file_name_only": "Only the name of this file is sent, not its content.",
-	"ai_chat_file_too_large": "The open file is too large to send (up to about 10 MB). Remove it with × to send only your question.",
+	"ai_chat_file_too_large": "The open file is too large to send (up to about 10 MB). Remove it with × to send only your question.",
 	"ai_chat_answer_about": "About {name}",
 	"ai_chat_resize_label": "Panel height",
 	"error_account_server_unavailable": "Could not connect to the WebLAV account. Please try again later.",
