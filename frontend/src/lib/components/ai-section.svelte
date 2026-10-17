@@ -313,7 +313,12 @@
 					{#each usage as row (`${row.userId ?? ''}:${row.username}`)}
 						{@const amount = usagePercent(row.used)}
 						<Table.Row>
-							<Table.Cell class={truncatingColumnClass}>{row.username}</Table.Cell>
+							<!-- 自動の更新の分は、ユーザーの id も名前も無い (→ docs/ai.md「自動の更新」)。 -->
+							<Table.Cell class={truncatingColumnClass}
+								>{row.userId == null && row.username === ''
+									? m.admin_ai_usage_auto()
+									: row.username}</Table.Cell
+							>
 							<Table.Cell class={[fitColumnClass, 'text-right']}
 								>{formatNumber(row.count)}</Table.Cell
 							>

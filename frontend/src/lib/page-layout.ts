@@ -87,3 +87,12 @@ export const centeredPageCardClass = 'w-full max-w-sm';
 /** 上のカードの下端に置く、ほかの画面へのリンク。押せる範囲は上下に広げる。 */
 export const centeredPageFooterLinkClass =
 	'relative text-sm text-muted-foreground underline underline-offset-4 after:absolute after:inset-x-0 after:-inset-y-3';
+
+/**
+ * 管理画面の、区画をカードにして石垣に並べる外枠 (サイト設定・グループの編集)。`masonry` を付けて使う。
+ * 狭い幅では1列で 576px まで、広い幅では2列・3列 (→ docs/ui.md「UI 全般」の「サイト設定の区画」)。
+ */
+export const sectionGridClass = 'grid max-w-xl gap-6 lg:max-w-none lg:grid-cols-2 2xl:grid-cols-3';
+
+/** `sectionGridClass` に並べる区画のカード。 */
+export const sectionCardClass = 'flex flex-col gap-6 rounded-lg border bg-card p-4 sm:p-6';

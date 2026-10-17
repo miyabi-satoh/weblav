@@ -30,6 +30,7 @@ export const MESSAGES: Record<ErrorCode, () => string> = {
 	ai_not_allowed: m.error_ai_not_allowed,
 	ai_no_credit: m.error_ai_no_credit,
 	ai_rate_limited: m.error_ai_rate_limited,
+	ai_links_daily_limit: m.error_ai_links_daily_limit,
 	ai_too_large: m.error_ai_too_large,
 	ai_upstream: m.error_ai_upstream,
 	account_server_unavailable: m.error_account_server_unavailable

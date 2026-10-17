@@ -1,10 +1,10 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT refreshed_at FROM ai_link_groups WHERE content_id = ?",
+  "query": "SELECT content_id FROM ai_link_groups WHERE content_id = ? AND enabled",
   "describe": {
     "columns": [
       {
-        "name": "refreshed_at",
+        "name": "content_id",
         "ordinal": 0,
         "type_info": "Integer"
       }
@@ -13,8 +13,8 @@
       "Right": 1
     },
     "nullable": [
-      true
+      false
     ]
   },
-  "hash": "36fed824e3acb189e61c0f0e4b1e00f53037288910cb3e2eb98f82570bf384f7"
+  "hash": "5c5c58b57883aeddea75853109cd1e83753a414291122428ca622d6f3e6e06d5"
 }

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { adminPageClass } from '$lib/page-layout';
+	import { adminPageClass, sectionCardClass, sectionGridClass } from '$lib/page-layout';
+	import { masonry } from '$lib/masonry';
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
@@ -7,7 +8,6 @@
 	import { isAdmin } from '$lib/auth';
 	import { client } from '$lib/api/client';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
-	import { MAX_INTEREST_UNITS } from '$lib/ai-links';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import {
 		ContentFormState,
@@ -28,8 +28,8 @@
 	import ContentForm from '$lib/components/content-form.svelte';
 	import * as Field from '$lib/components/ui/field';
 	import * as Select from '$lib/components/ui/select';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Textarea } from '$lib/components/ui/textarea';
+	import AiLinksExclusionsSection from '$lib/components/ai-links-exclusions-section.svelte';
+	import AiLinksSettingsSection from '$lib/components/ai-links-settings-section.svelte';
 	import DirPicker from '$lib/components/dir-picker.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
@@ -60,15 +60,15 @@
 	creatorDirty.markPristine();
 	let creatorChanged = $derived(canChangeCreator && !creatorLocked && creatorDirty.dirty);
 
-	// グループの、AI がリンクを集める設定 (→ docs/ai.md「AI が集めるリンク」)。基本情報の保存ボタンで一緒に保存する。
-	let aiLinksOn = $state(untrack(() => data.aiLinks?.interests != null));
-	let aiInterests = $state(untrack(() => data.aiLinks?.interests ?? ''));
-	const aiLinksDirty = new FormDirtyState(() => ({ on: aiLinksOn, interests: aiInterests }));
-	aiLinksDirty.markPristine();
-	// 空白だけでは `required` を通ってしまうので、保存ボタンの側で止める。長さは欄の maxlength で止める。
-	let aiInterestsMissing = $derived(aiLinksOn && aiInterests.trim() === '');
+	// グループの、AI がリンクを集める設定 (→ docs/ai.md「AI が集めるリンク」)。区画を分け、区画ごとに保存する。
+	let aiLinksSettings = $derived(content.type === 'group' ? data.aiLinks : null);
+	let aiLinksDirty = $state(false);
+	let aiLinksSection = $state<{ discard: () => void } | null>(null);
 
-	let dirty = $derived(form.dirty || creatorChanged || aiLinksDirty.dirty);
+	// 基本情報の区画の保存ボタンは、この区画の変更だけで決める。AI の設定の区画は自分の保存ボタンを持つ。
+	let basicDirty = $derived(form.dirty || creatorChanged);
+	// 離れるときの確認は、どの区画の変更でも出す。
+	let dirty = $derived(basicDirty || aiLinksDirty);
 
 	function creatorSelectLabel(value: string): string {
 		if (value === '') return m.contents_form_creator_none();
@@ -168,19 +168,6 @@
 				}
 				form.loadFrom(result.data, canSeeFullPath);
 			}
-			if (aiLinksDirty.dirty) {
-				const result = await client.PUT('/api/v1/contents/{id}/ai-links/settings', {
-					params: { path: { id: content.id } },
-					body: { interests: aiLinksOn ? aiInterests : null }
-				});
-				if (!result.response.ok) {
-					errorDialog.show(errorMessage(result.error));
-					// 基本情報だけ保存できていることがあるので、見出しと一覧は取り直す。
-					await invalidateAll();
-					return;
-				}
-				aiLinksDirty.markPristine();
-			}
 			if (rescansAfterSave) {
 				const scan = await rescanArchive(content.id);
 				if (scan.ok) {
@@ -251,15 +238,24 @@
 		// 変更を捨てたので、移動をもう一度止めないようにする。
 		form.markPristine();
 		creatorDirty.markPristine();
-		aiLinksDirty.markPristine();
+		aiLinksSection?.discard();
 		// 行き先は SvelteKit のナビゲーションが解決済みの URL。
 		// eslint-disable-next-line svelte/no-navigation-without-resolve
 		await goto(target);
 	}
 </script>
 
-<div class={adminPageClass}>
-	<form onsubmit={handleSubmit} class="flex max-w-xl flex-col gap-6">
+{#snippet basicForm(card: boolean)}
+	<form
+		onsubmit={handleSubmit}
+		aria-labelledby={card ? 'basic-section-heading' : undefined}
+		class={card ? sectionCardClass : 'flex max-w-xl flex-col gap-6'}
+	>
+		{#if card}
+			<h2 id="basic-section-heading" class="text-base font-semibold">
+				{m.contents_edit_basic_title()}
+			</h2>
+		{/if}
 		<!-- 見るだけのときは、入力欄を押せない状態で値を見せる (→ docs/ui.md「UI 全般」)。 -->
 		<fieldset disabled={!editable} class="contents">
 			<ContentForm
@@ -296,47 +292,44 @@
 				{/if}
 			</Field.Field>
 		{/if}
-		{#if content.type === 'group' && data.aiLinks != null}
-			<fieldset disabled={!editable} class="contents">
-				<Field.Field orientation="horizontal">
-					<Field.FieldContent>
-						<Field.FieldLabel for="content-ai-links"
-							>{m.contents_form_ai_links_label()}</Field.FieldLabel
-						>
-						<Field.FieldDescription>{m.contents_form_ai_links_description()}</Field.FieldDescription
-						>
-					</Field.FieldContent>
-					<Switch id="content-ai-links" bind:checked={aiLinksOn} disabled={!editable} />
-				</Field.Field>
-				{#if aiLinksOn}
-					<Field.Field>
-						<Field.FieldLabel for="content-ai-interests" required
-							>{m.contents_form_ai_interests_label()}</Field.FieldLabel
-						>
-						<Textarea
-							id="content-ai-interests"
-							bind:value={aiInterests}
-							maxlength={MAX_INTEREST_UNITS}
-							required
-						/>
-					</Field.Field>
-				{/if}
-			</fieldset>
-		{/if}
 		{#if editable}
 			<div>
 				<!-- パスはテキスト入力ではないため、required では未選択を防げない。 -->
 				<LoadingButton
 					type="submit"
 					loading={saving}
-					disabled={!dirty ||
+					disabled={!basicDirty ||
 						(isDirectoryContentType(form.type) && form.path === '') ||
-						visibilityError !== null ||
-						aiInterestsMissing}>{m.action_save()}</LoadingButton
+						visibilityError !== null}>{m.action_save()}</LoadingButton
 				>
 			</div>
 		{/if}
 	</form>
+{/snippet}
+
+<div class={adminPageClass}>
+	{#if aiLinksSettings != null}
+		<!-- グループは、AI の設定を別の区画にし、サイト設定と同じく石垣に並べる (→ docs/ui.md「UI 全般」)。 -->
+		<div class={sectionGridClass} {@attach masonry}>
+			{@render basicForm(true)}
+			<AiLinksSettingsSection
+				bind:this={aiLinksSection}
+				ondirtychange={(value) => (aiLinksDirty = value)}
+				contentId={content.id}
+				settings={aiLinksSettings}
+				{editable}
+			/>
+			{#if aiLinksSettings.enabled}
+				<AiLinksExclusionsSection
+					contentId={content.id}
+					exclusions={aiLinksSettings.exclusions}
+					{editable}
+				/>
+			{/if}
+		</div>
+	{:else}
+		{@render basicForm(false)}
+	{/if}
 </div>
 
 <DirPicker

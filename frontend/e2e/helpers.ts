@@ -41,6 +41,16 @@ export const PASSWORD_HASH_TIMEOUT = 15_000;
 
 /** フォームの確定と、削除の確認ダイアログの確定。表示言語 (ja/en) のどちらでも見つかるようにする。 */
 export const SAVE_BUTTON_NAME = /^保存する$|^Save$/;
+
+/**
+ * グループの編集ページの「基本情報」の区画の保存ボタン。
+ * グループは AI の設定の区画にも保存ボタンがあり、区画ごとに保存するため (→ docs/ui.md「UI 全般」)。
+ */
+export function groupBasicSaveButton(page: Page): Locator {
+	return page
+		.getByRole('form', { name: /^基本情報$|^Details$/ })
+		.getByRole('button', { name: SAVE_BUTTON_NAME });
+}
 const DELETE_CONFIRM_BUTTON_NAME = /削除する|^Delete$/;
 
 /** ダイアログやプレイヤーの「閉じる」。 */

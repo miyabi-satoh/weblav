@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT kind as \"kind: ExclusionKind\", value FROM ai_link_exclusions WHERE content_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "kind: ExclusionKind",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "value",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "d544bf3face3934fbfab8874fce87837e1ff0b9ffc4887cfc6ba3bbd7b2b32b2"
+}

@@ -38,7 +38,7 @@ pub(super) struct Fake {
     token_deleted: bool,
 }
 
-type SharedFake = Arc<Mutex<Fake>>;
+pub(super) type SharedFake = Arc<Mutex<Fake>>;
 
 fn authorized(fake: &Fake, headers: &HeaderMap) -> bool {
     !fake.revoked

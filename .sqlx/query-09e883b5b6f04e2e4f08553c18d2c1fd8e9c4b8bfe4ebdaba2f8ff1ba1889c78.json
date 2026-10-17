@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM ai_links WHERE content_id = ? AND url = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "09e883b5b6f04e2e4f08553c18d2c1fd8e9c4b8bfe4ebdaba2f8ff1ba1889c78"
+}

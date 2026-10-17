@@ -119,6 +119,10 @@ pub enum AppError {
     /// 短い間に呼びすぎた場合 (窓口の 429)。ログインの `TooManyRequests` とは文言が違うので分ける。
     #[error("too many AI requests")]
     AiRateLimited,
+    /// AI が集めるリンクを、グループに決めた1日の回数まで集め直した場合 (→ docs/ai.md「AI が集めるリンク」)。
+    /// `AiRateLimited` と分けるのは、画面が「今日はここまで」と伝えられるようにするため。
+    #[error("the daily refresh limit of AI links is reached")]
+    AiLinksDailyLimit,
     /// 送る文が、窓口の受ける上限を超える場合 (送る前に分かったものと、窓口の 413)。
     #[error("the AI request is too large")]
     AiTooLarge,
@@ -151,6 +155,7 @@ pub enum ErrorCode {
     AiNotAllowed,
     AiNoCredit,
     AiRateLimited,
+    AiLinksDailyLimit,
     AiTooLarge,
     AiUpstream,
     AccountServerUnavailable,
@@ -239,6 +244,9 @@ impl AppError {
             Self::AiNotAllowed => (StatusCode::FORBIDDEN, ErrorCode::AiNotAllowed),
             Self::AiNoCredit => (StatusCode::PAYMENT_REQUIRED, ErrorCode::AiNoCredit),
             Self::AiRateLimited => (StatusCode::TOO_MANY_REQUESTS, ErrorCode::AiRateLimited),
+            Self::AiLinksDailyLimit => {
+                (StatusCode::TOO_MANY_REQUESTS, ErrorCode::AiLinksDailyLimit)
+            }
             Self::AiTooLarge => (StatusCode::PAYLOAD_TOO_LARGE, ErrorCode::AiTooLarge),
             Self::AiUpstream => (StatusCode::BAD_GATEWAY, ErrorCode::AiUpstream),
             Self::AccountServer(_) => {

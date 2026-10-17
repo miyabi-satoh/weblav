@@ -383,14 +383,34 @@ pub async fn is_allowed(pool: &SqlitePool, user: &AuthUser) -> Result<bool, sqlx
     Ok(allowed.unwrap_or(false))
 }
 
-/// 窓口を通して AI に送り、答えの文字列を返す。使った量は `user` の分として記録する。
-pub async fn generate(
+/// 窓口を呼ぶのが誰か。使った量の記録と、使えるかの確かめ方が変わる。
+#[derive(Clone, Copy)]
+pub enum Caller<'a> {
+    /// ログインしている人が操作した。
+    User(&'a AuthUser),
+    /// AI が集めるリンクの自動の更新 (→ docs/ai.md「自動の更新」)。グループが開かれたのをきっかけに、誰が開いても走る。
+    /// 使ってよいかは、設定をオンにした人 (グループを書き換えられる人) が決めているので、PC の登録だけを確かめる。
+    Auto,
+}
+
+impl<'a> From<&'a AuthUser> for Caller<'a> {
+    fn from(user: &'a AuthUser) -> Self {
+        Self::User(user)
+    }
+}
+
+/// 自動の更新で使った量の記録に入れるユーザー名。ユーザー名は空にできないので、ユーザーの行と重ならない。
+pub const AUTO_USERNAME: &str = "";
+
+/// 窓口を通して AI に送り、答えの文字列を返す。使った量は `caller` の分として記録する。
+pub async fn generate<'a>(
     state: &AppState,
-    user: &AuthUser,
+    caller: impl Into<Caller<'a>>,
     kind: UsageKind,
     prompt: Prompt,
 ) -> Result<String, AppError> {
-    ensure_usable(state, user).await?;
+    let caller = caller.into();
+    ensure_callable(state, caller).await?;
     if input_units(&prompt) > MAX_INPUT_UNITS {
         return Err(AppError::AiTooLarge);
     }
@@ -399,23 +419,32 @@ pub async fn generate(
         ai.relay(|agent, server, token| post_ai(agent, server, token, &prompt, kind.task()))
     })
     .await?;
-    record(state, user, kind, relayed).await
+    record(state, caller, kind, relayed).await
 }
 
-/// 窓口を通して Web を検索し、候補を返す。使った量は `user` の分として記録する。
-pub async fn search(
+/// 窓口を通して Web を検索し、候補を返す。使った量は `caller` の分として記録する。
+pub async fn search<'a>(
     state: &AppState,
-    user: &AuthUser,
+    caller: impl Into<Caller<'a>>,
     kind: UsageKind,
     query: SearchQuery,
 ) -> Result<Vec<SearchResult>, AppError> {
-    ensure_usable(state, user).await?;
+    let caller = caller.into();
+    ensure_callable(state, caller).await?;
     let ai = Arc::clone(&state.ai);
     let relayed = run_blocking(move || {
         ai.relay(|agent, server, token| post_search(agent, server, token, &query))
     })
     .await?;
-    record(state, user, kind, relayed).await
+    record(state, caller, kind, relayed).await
+}
+
+async fn ensure_callable(state: &AppState, caller: Caller<'_>) -> Result<(), AppError> {
+    match caller {
+        Caller::User(user) => ensure_usable(state, user).await,
+        Caller::Auto if state.ai.is_linked() => Ok(()),
+        Caller::Auto => Err(AppError::AiNotLinked),
+    }
 }
 
 /// `user` が使えて、PC が登録済みであること。窓口を呼ぶ前に確かめる。
@@ -429,19 +458,23 @@ pub async fn ensure_usable(state: &AppState, user: &AuthUser) -> Result<(), AppE
     Ok(())
 }
 
-/// 窓口が返した使った量を `user` の分として残し、答えを返す。
+/// 窓口が返した使った量を `caller` の分として残し、答えを返す。
 async fn record<T>(
     state: &AppState,
-    user: &AuthUser,
+    caller: Caller<'_>,
     kind: UsageKind,
     relayed: Relayed<T>,
 ) -> Result<T, AppError> {
+    let (user_id, username) = match caller {
+        Caller::User(user) => (Some(user.id), user.username.as_str()),
+        Caller::Auto => (None, AUTO_USERNAME),
+    };
     if let Some(used) = relayed.used {
         // 記録できなくても、残りを使って届いた答えは返す。
         if let Err(err) = sqlx::query!(
             "INSERT INTO ai_usage (user_id, username, kind, used) VALUES (?, ?, ?, ?)",
-            user.id,
-            user.username,
+            user_id,
+            username,
             kind,
             used
         )

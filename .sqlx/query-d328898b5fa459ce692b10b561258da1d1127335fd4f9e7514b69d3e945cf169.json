@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT url, title, found_at FROM ai_links\n           WHERE content_id = ?\n             AND url NOT IN (\n                 SELECT url FROM contents WHERE parent_id = ? AND type = ? AND url IS NOT NULL\n             )\n           ORDER BY found_at DESC, date IS NULL, date DESC, rank",
+  "describe": {
+    "columns": [
+      {
+        "name": "url",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "title",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "found_at",
+        "ordinal": 2,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d328898b5fa459ce692b10b561258da1d1127335fd4f9e7514b69d3e945cf169"
+}

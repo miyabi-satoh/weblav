@@ -2457,9 +2457,178 @@
         }
       }
     },
+    "/api/v1/contents/{id}/ai-links/auto-refresh": {
+      "post": {
+        "summary": "自動の更新。グループが開かれたときに画面が呼び、時間が来ていれば集め直す。誰が開いても走る (→ docs/ai.md「自動の更新」)。\n時間が来ていない・1日の回数を使い切った・集めている最中・集められなかったときは、何もせずに今のリンクを返す。\n見ている人が頼んだ更新ではないので、失敗を見せない。",
+        "operationId": "auto_refresh_ai_links",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshAiLinksRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "集め直した後 (集め直さなかったときは今) のリンク",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiLinksResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "閲覧にログインが必要",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "見えない・存在しない、または AI がリンクを集めるグループでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/{id}/ai-links/exclusions": {
+      "post": {
+        "summary": "集めたリンクを表示しないにする。ページならその URL、サイトならそのホスト名のページすべて。\n集め直しても出さない。取り消すと、次に見たときにまた並ぶ (集めたリンクは消さずに持っている)。",
+        "operationId": "exclude_ai_link",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExcludeAiLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiLinkExclusion"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "書き換えられるのは管理者と作成者だけ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "見えない・存在しない、AI がリンクを集めるグループでない、または集めたリンクに無い URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/{id}/ai-links/exclusions/{exclusion_id}": {
+      "delete": {
+        "summary": "表示しないにしたものを取り消す。",
+        "operationId": "delete_ai_link_exclusion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "exclusion_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "書き換えられるのは管理者と作成者だけ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "見えない・存在しない、またはこのグループの表示しないものでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contents/{id}/ai-links/refresh": {
       "post": {
-        "summary": "グループのリンクを集め直す。検索キーワードから AI が作ったクエリで Web を検索し、AI が選んだものに入れ替える。\n残りを使うので、AI を使える人だけが呼べる。",
+        "summary": "グループのリンクを集め直す。今の検索の結果のうち、並んでいないものを上に足す。\n残りを使うので、AI を使える人だけが呼べる。",
         "operationId": "refresh_ai_links",
         "parameters": [
           {
@@ -2484,7 +2653,7 @@
         },
         "responses": {
           "200": {
-            "description": "集め直した後のリンク",
+            "description": "集め直した後のリンク。`added` が 0 なら、新しいリンクは無かった",
             "content": {
               "application/json": {
                 "schema": {
@@ -2534,7 +2703,7 @@
             }
           },
           "429": {
-            "description": "このグループを集めている最中・短い間に呼びすぎた",
+            "description": "このグループを集めている最中・短い間に呼びすぎた・1日の回数を使い切った",
             "content": {
               "application/json": {
                 "schema": {
@@ -2595,7 +2764,7 @@
         }
       },
       "put": {
-        "summary": "グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら外し、集めたリンクも消す。\n検索キーワードを変えても、集めたリンクは次に集め直すまで残る。",
+        "summary": "グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら集めるのをやめる。\nやめても、設定・表示しないもの・集めたリンクは残し、オンに戻すと前のとおりに並ぶ。\n検索キーワードを変えると、作ったクエリを捨てて次に集めるときに作り直す。集めたリンクは、次に集め直すまで残る。",
         "operationId": "put_ai_links_settings",
         "parameters": [
           {
@@ -2612,7 +2781,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AiLinksSettings"
+                "$ref": "#/components/schemas/AiLinksSettingsRequest"
               }
             }
           },
@@ -2650,7 +2819,7 @@
             }
           },
           "422": {
-            "description": "検索キーワードが空・長すぎる",
+            "description": "検索キーワードが空・長すぎる、自動の更新の時間・時刻が正しくない",
             "content": {
               "application/json": {
                 "schema": {
@@ -5453,9 +5622,14 @@
         "type": "object",
         "required": [
           "url",
-          "title"
+          "title",
+          "isNew"
         ],
         "properties": {
+          "isNew": {
+            "type": "boolean",
+            "description": "最後に足した分か。初めて集めたときは、どれも新しくない。"
+          },
           "preview": {
             "oneOf": [
               {
@@ -5473,6 +5647,32 @@
           },
           "url": {
             "type": "string"
+          }
+        }
+      },
+      "AiLinkExclusion": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "value",
+          "title"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ExclusionKind"
+          },
+          "title": {
+            "type": "string",
+            "description": "表示しないにしたときのページのタイトル。サイトでも、きっかけになったページのタイトルを持つ。"
+          },
+          "value": {
+            "type": "string",
+            "description": "ページなら URL、サイトならホスト名。"
           }
         }
       },
@@ -5514,10 +5714,30 @@
         "type": "object",
         "required": [
           "enabled",
+          "refreshedByAuto",
           "links",
-          "canRefresh"
+          "canRefresh",
+          "canEdit",
+          "autoRefreshDue"
         ],
         "properties": {
+          "added": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "集め直した結果で、新しく足したリンクの数。集め直しの答えにだけ入る。",
+            "minimum": 0
+          },
+          "autoRefreshDue": {
+            "type": "boolean",
+            "description": "自動の更新を今するか。画面はこれが真なら、前のリンクを見せたまま `auto-refresh` を呼ぶ。"
+          },
+          "canEdit": {
+            "type": "boolean",
+            "description": "見ている人が、表示しないものを決められるか (グループを書き換えられる)。"
+          },
           "canRefresh": {
             "type": "boolean",
             "description": "見ている人が集め直せるか (AI を使えて、PC が登録済み)。"
@@ -5531,7 +5751,7 @@
             "items": {
               "$ref": "#/components/schemas/AiLink"
             },
-            "description": "集めたリンク。このグループに登録してあるリンクと同じ URL は入らない。"
+            "description": "集めたリンク。新しく見つかった順。このグループに登録してあるリンクと、表示しないにしたものは入らない。"
           },
           "refreshedAt": {
             "type": [
@@ -5540,18 +5760,78 @@
             ],
             "format": "int64",
             "description": "最後に集めた時刻 (UNIX 秒)。まだ集めていなければ無い。"
+          },
+          "refreshedByAuto": {
+            "type": "boolean",
+            "description": "最後に集めたのが自動の更新か。"
+          },
+          "refreshesLeft": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "今日あと何回集め直せるか。上限が無ければ無い。",
+            "minimum": 0
           }
         }
       },
       "AiLinksSettings": {
         "type": "object",
+        "required": [
+          "enabled",
+          "dailyLimit",
+          "autoRefresh",
+          "exclusions"
+        ],
         "properties": {
+          "autoRefresh": {
+            "$ref": "#/components/schemas/AutoRefresh"
+          },
+          "dailyLimit": {
+            "type": "integer",
+            "format": "int32",
+            "description": "1日に集め直せる回数。0 は無制限。",
+            "minimum": 0
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "このグループで集めるか。オフでも、前の設定と表示しないものは残っている。"
+          },
+          "exclusions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiLinkExclusion"
+            },
+            "description": "表示しないにしたもの。新しい順。"
+          },
           "interests": {
             "type": [
               "string",
               "null"
             ],
-            "description": "検索キーワード。語の並びでもふつうの文でもよく、AI が検索のクエリに組み立て直す。`null` なら、このグループでは集めない。"
+            "description": "検索キーワード。一度もオンにしていなければ `null`。"
+          }
+        }
+      },
+      "AiLinksSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "autoRefresh": {
+            "$ref": "#/components/schemas/AutoRefresh"
+          },
+          "dailyLimit": {
+            "type": "integer",
+            "format": "int32",
+            "description": "1日に集め直せる回数。0 は無制限。",
+            "minimum": 0
+          },
+          "interests": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "検索キーワード。語の並びでもふつうの文でもよく、AI が検索のクエリに組み立て直す。\n`null` なら集めるのをやめる (前の設定と表示しないものは残し、ほかの項目は見ない)。"
           }
         }
       },
@@ -5634,11 +5914,11 @@
               "null"
             ],
             "format": "int64",
-            "description": "使ったユーザー。消したユーザーの分は無い。"
+            "description": "使ったユーザー。消したユーザーの分と、AI が集めるリンクの自動の更新の分は無い。"
           },
           "username": {
             "type": "string",
-            "description": "今のユーザー名。消したユーザーの分は、使った時点の名前。"
+            "description": "今のユーザー名。消したユーザーの分は、使った時点の名前。自動の更新の分は空。"
           }
         }
       },
@@ -5764,6 +6044,43 @@
             "items": {
               "$ref": "#/components/schemas/ArchiveViewItem"
             }
+          }
+        }
+      },
+      "AutoMode": {
+        "type": "string",
+        "description": "自動の更新の決め方。",
+        "enum": [
+          "off",
+          "interval",
+          "daily"
+        ]
+      },
+      "AutoRefresh": {
+        "type": "object",
+        "description": "自動の更新の設定 (→ docs/ai.md「自動の更新」)。グループが開かれたときに、決めた時間を過ぎていれば集め直す。",
+        "required": [
+          "mode"
+        ],
+        "properties": {
+          "hours": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "`interval` のときの時間 (1 以上)。",
+            "minimum": 0
+          },
+          "mode": {
+            "$ref": "#/components/schemas/AutoMode"
+          },
+          "time": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`daily` のときの時刻。WebLAV を動かす PC の現地時刻の `HH:MM`。"
           }
         }
       },
@@ -6613,6 +6930,7 @@
           "ai_not_allowed",
           "ai_no_credit",
           "ai_rate_limited",
+          "ai_links_daily_limit",
           "ai_too_large",
           "ai_upstream",
           "account_server_unavailable"
@@ -6629,6 +6947,30 @@
             "$ref": "#/components/schemas/ErrorBody"
           }
         }
+      },
+      "ExcludeAiLinkRequest": {
+        "type": "object",
+        "required": [
+          "url",
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ExclusionKind"
+          },
+          "url": {
+            "type": "string",
+            "description": "表示しないにする、集めたリンクの URL。サイトなら、この URL のホスト名のページすべてを表示しない。"
+          }
+        }
+      },
+      "ExclusionKind": {
+        "type": "string",
+        "description": "表示しないものの種類。",
+        "enum": [
+          "page",
+          "site"
+        ]
       },
       "FilenameWord": {
         "type": "object",
