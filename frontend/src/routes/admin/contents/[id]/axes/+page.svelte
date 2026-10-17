@@ -1478,14 +1478,6 @@
 		</Dialog.Header>
 		<form onsubmit={handleAxisSubmit} class="flex min-h-0 flex-col gap-6">
 			<Dialog.Body>
-				<!-- 確定で起きることの警告は本体の先頭に置き、スクロールしなくても見せる (→ docs/ui.md「UI 全般」)。 -->
-				{#if axisValuesWillBeCleared}
-					<WarningBand>
-						<p class="text-sm leading-relaxed">
-							{m.archive_axes_dialog_values_cleared_warning()}
-						</p>
-					</WarningBand>
-				{/if}
 				<Field.FieldGroup>
 					<Field.Field>
 						<Field.FieldLabel for="axis-name" required>
@@ -1576,6 +1568,17 @@
 								</Field.FieldDescription>
 							</Field.Field>
 						{/if}
+					{/if}
+					<!-- 抽出元か階層を変えた時点で出るので、先頭でなく変えた欄のすぐ下に置き、出たら見える所まで送る。
+					     先頭に差し込むと、押した欄が押し下げられて画面の外へ出るため (→ docs/ui.md「UI 全般」)。 -->
+					{#if axisValuesWillBeCleared}
+						<div {@attach (el) => el.scrollIntoView({ block: 'nearest' })}>
+							<WarningBand>
+								<p class="text-sm leading-relaxed">
+									{m.archive_axes_dialog_values_cleared_warning()}
+								</p>
+							</WarningBand>
+						</div>
 					{/if}
 					<!-- 作成では既定 (絞り込みに出す・タイトルで省略しない) のまま作る。変えるのは編集で。 -->
 					{#if editingAxisId !== null}
