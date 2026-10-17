@@ -62,9 +62,13 @@ fn set_search(fake: &super::ai::SharedFake, search: &str) {
 /// 公開のグループを作り、`settings` (JSON) で集める設定を付ける。
 async fn group_with(app: &Router, pool: &SqlitePool, cookie: &str, settings: &str) -> i64 {
     let id = insert_group_under(pool, "集める", "public", None).await;
+    put_settings(app, id, cookie, settings).await;
+    id
+}
+
+async fn put_settings(app: &Router, id: i64, cookie: &str, settings: &str) {
     let (status, body) = send_json(app.clone(), "PUT", &settings_uri(id), cookie, settings).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    id
 }
 
 async fn group_with_interests(app: &Router, pool: &SqlitePool, cookie: &str) -> i64 {
@@ -173,6 +177,12 @@ async fn refreshing_adds_new_search_results_on_top_and_reuses_the_queries(pool: 
     assert_eq!(second["added"], 1, "{second}");
     assert_eq!(fake.lock().expect("鍵が毒された").prompts.len(), 1);
 
+    // 新しいものが無かった集め直しでは、前に足した分の印を消さない。
+    tokio::time::sleep(std::time::Duration::from_millis(1_100)).await;
+    let third = refreshed(&app, id, &cookie).await;
+    assert_eq!(third["added"], 0, "{third}");
+    assert_eq!(shown(&third), shown(&second), "{third}");
+
     let kinds: Vec<(String, i64)> = usage_rows(&pool)
         .await
         .into_iter()
@@ -180,7 +190,7 @@ async fn refreshing_adds_new_search_results_on_top_and_reuses_the_queries(pool: 
         .collect();
     assert_eq!(
         kinds,
-        [5, 10, 10, 10, 10].map(|used| ("links".to_string(), used))
+        [5, 10, 10, 10, 10, 10, 10].map(|used| ("links".to_string(), used))
     );
 
     // 匿名でも、公開のグループの集めたリンクは見られる。集め直しも、表示しないもできない。
@@ -319,7 +329,34 @@ async fn the_auto_refresh_runs_for_anyone_only_when_it_is_due(pool: SqlitePool) 
     assert_eq!(fake.lock().expect("鍵が毒された").searches.len(), 2);
 }
 
-/// 表示しないにしたページとサイトは並ばず、集め直しても出ない。取り消すと、また並ぶ。
+/// 自動の更新が失敗したら、しばらくは開かれても試さない (障害の間に残りを使い続けないため)。
+#[sqlx::test]
+async fn a_failed_auto_refresh_is_not_retried_on_every_open(pool: SqlitePool) {
+    let AiApp {
+        app, cookie, fake, ..
+    } = ai_app(&pool, true).await;
+    let id = group_with(
+        &app,
+        &pool,
+        &cookie,
+        r#"{"interests":"Rust","autoRefresh":{"mode":"interval","hours":6}}"#,
+    )
+    .await;
+    prepare(&fake, SEARCH_BODY);
+    fake.lock().expect("鍵が毒された").search = (StatusCode::BAD_GATEWAY, "{}".to_string(), None);
+
+    let (status, body) = send_anon_json(app.clone(), "POST", &auto_refresh_uri(id), "{}").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(r#""autoRefreshDue":false"#), "{body}");
+    let searched = fake.lock().expect("鍵が毒された").searches.len();
+    assert!(searched > 0, "1回目は試すはず");
+
+    let (status, body) = send_anon_json(app.clone(), "POST", &auto_refresh_uri(id), "{}").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(fake.lock().expect("鍵が毒された").searches.len(), searched);
+}
+
+/// 表示しないにしたページとサイトは並ばず、集め直しても出ない。取り消すと、集め直さなくてもまた並ぶ。
 #[sqlx::test]
 async fn excluded_pages_and_sites_are_hidden_until_the_exclusion_is_removed(pool: SqlitePool) {
     let AiApp {
@@ -365,7 +402,8 @@ async fn excluded_pages_and_sites_are_hidden_until_the_exclusion_is_removed(pool
         &fake,
         r#"{"results":[
             {"title":"C2","url":"https://www.c.example/2","snippet":""},
-            {"title":"E","url":"https://e.example/","snippet":""}
+            {"title":"E","url":"https://e.example/","snippet":""},
+            {"title":"A","url":"https://a.example/","snippet":""}
         ]}"#,
     );
     let again = refreshed(&app, id, &cookie).await;
@@ -383,6 +421,12 @@ async fn excluded_pages_and_sites_are_hidden_until_the_exclusion_is_removed(pool
     )
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+    let seen = get_json(app.clone(), &links_uri(id), &cookie).await;
+    assert_eq!(
+        urls(&seen),
+        ["https://e.example/", "https://a.example/"],
+        "{seen}"
+    );
     let (status, body) = send(
         app.clone(),
         build_request(
@@ -396,15 +440,30 @@ async fn excluded_pages_and_sites_are_hidden_until_the_exclusion_is_removed(pool
     assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
 }
 
-/// 設定を外すと、集めたリンクも消え、集め直しは 404 になる。
+/// オフにすると並ばず、集め直しは 404 になる。設定と表示しないものは残り、オンに戻すと前のとおりに並ぶ。
 #[sqlx::test]
-async fn turning_the_setting_off_removes_the_collected_links(pool: SqlitePool) {
+async fn turning_the_setting_off_keeps_the_settings_for_turning_it_on_again(pool: SqlitePool) {
     let AiApp {
         app, cookie, fake, ..
     } = ai_app(&pool, true).await;
-    let id = group_with_interests(&app, &pool, &cookie).await;
+    let id = group_with(
+        &app,
+        &pool,
+        &cookie,
+        r#"{"interests":"Rust","dailyLimit":3}"#,
+    )
+    .await;
     prepare(&fake, SEARCH_BODY);
     refreshed(&app, id, &cookie).await;
+    let (status, body) = send_json(
+        app.clone(),
+        "POST",
+        &exclusions_uri(id),
+        &cookie,
+        r#"{"url":"https://c.example/","kind":"page"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
 
     let (status, body) = send_json(
         app.clone(),
@@ -415,18 +474,28 @@ async fn turning_the_setting_off_removes_the_collected_links(pool: SqlitePool) {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let settings = get_json(app.clone(), &settings_uri(id), &cookie).await;
-    assert_eq!(settings["interests"], serde_json::Value::Null, "{settings}");
+    let settings: serde_json::Value = serde_json::from_str(&body).expect("JSON でない");
+    assert_eq!(settings["enabled"], false, "{settings}");
+    assert_eq!(settings["interests"], "Rust", "{settings}");
+    assert_eq!(settings["dailyLimit"], 3, "{settings}");
+    assert_eq!(
+        settings["exclusions"].as_array().map(Vec::len),
+        Some(1),
+        "{settings}"
+    );
     let seen = get_json(app.clone(), &links_uri(id), &cookie).await;
     assert_eq!(seen["enabled"], false, "{seen}");
-    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM ai_links")
-        .fetch_one(&pool)
-        .await
-        .expect("数えられなかった");
-    assert_eq!(count, 0);
-
+    assert_eq!(seen["links"].as_array().map(Vec::len), Some(0), "{seen}");
     let (status, body) = refresh(&app, id, &cookie).await;
     assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
+
+    put_settings(&app, id, &cookie, r#"{"interests":"Rust","dailyLimit":3}"#).await;
+    let seen = get_json(app.clone(), &links_uri(id), &cookie).await;
+    assert_eq!(
+        urls(&seen),
+        ["https://a.example/", "https://example.com"],
+        "{seen}"
+    );
 }
 
 /// 検索キーワードを変えると、作ったクエリを捨て、次に集めるときに作り直す。

@@ -66,6 +66,9 @@
 	{/if}
 
 	{#if data.aiLinks != null}
-		<AiLinksSection groupId={data.contentId} aiLinks={data.aiLinks} />
+		<!-- 別のグループへ移ったときに作り直す。自動の更新を開くたびに頼み、この画面で表示しないにした行を持ち越さないため。 -->
+		{#key data.contentId}
+			<AiLinksSection groupId={data.contentId} aiLinks={data.aiLinks} />
+		{/key}
 	{/if}
 </div>

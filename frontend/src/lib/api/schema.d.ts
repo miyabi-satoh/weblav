@@ -761,7 +761,8 @@ export interface paths {
         /** グループの、AI がリンクを集める設定を返す。 */
         get: operations["ai_links_settings"];
         /**
-         * グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら外し、集めたリンクと表示しないものも消す。
+         * グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら集めるのをやめる。
+         *     やめても、設定・表示しないもの・集めたリンクは残し、オンに戻すと前のとおりに並ぶ。
          *     検索キーワードを変えると、作ったクエリを捨てて次に集めるときに作り直す。集めたリンクは、次に集め直すまで残る。
          */
         put: operations["put_ai_links_settings"];
@@ -1598,7 +1599,7 @@ export interface components {
             answer: string;
         };
         AiLink: {
-            /** @description 最後の集め直しで新しく足したか。初めて集めたときは、どれも新しくない。 */
+            /** @description 最後に足した分か。初めて集めたときは、どれも新しくない。 */
             isNew: boolean;
             preview?: components["schemas"]["LinkPreview"] | null;
             /** @description 検索で返ったタイトル。無ければ空。 */
@@ -1662,9 +1663,11 @@ export interface components {
              * @description 1日に集め直せる回数。0 は無制限。
              */
             dailyLimit: number;
+            /** @description このグループで集めるか。オフでも、前の設定と表示しないものは残っている。 */
+            enabled: boolean;
             /** @description 表示しないにしたもの。新しい順。 */
             exclusions: components["schemas"]["AiLinkExclusion"][];
-            /** @description 検索キーワード。`null` なら、このグループでは集めない。 */
+            /** @description 検索キーワード。一度もオンにしていなければ `null`。 */
             interests?: string | null;
         };
         AiLinksSettingsRequest: {
@@ -1674,7 +1677,10 @@ export interface components {
              * @description 1日に集め直せる回数。0 は無制限。
              */
             dailyLimit?: number;
-            /** @description 検索キーワード。語の並びでもふつうの文でもよく、AI が検索のクエリに組み立て直す。`null` なら、このグループでは集めない。 */
+            /**
+             * @description 検索キーワード。語の並びでもふつうの文でもよく、AI が検索のクエリに組み立て直す。
+             *     `null` なら集めるのをやめる (前の設定と表示しないものは残し、ほかの項目は見ない)。
+             */
             interests?: string | null;
         };
         AiStatusResponse: {

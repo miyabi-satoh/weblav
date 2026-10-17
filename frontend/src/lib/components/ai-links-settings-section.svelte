@@ -42,7 +42,7 @@
 	const DEFAULT_HOURS = 6;
 	const DEFAULT_TIME = '07:00';
 
-	let on = $state(untrack(() => settings.interests != null));
+	let on = $state(untrack(() => settings.enabled));
 	let interests = $state(untrack(() => settings.interests ?? ''));
 	let dailyLimit = $state(untrack(() => settings.dailyLimit));
 	let mode = $state<AutoMode>(untrack(() => settings.autoRefresh.mode));

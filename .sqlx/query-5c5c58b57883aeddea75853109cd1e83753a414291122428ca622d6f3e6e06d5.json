@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT content_id FROM ai_link_groups",
+  "query": "SELECT content_id FROM ai_link_groups WHERE content_id = ? AND enabled",
   "describe": {
     "columns": [
       {
@@ -10,11 +10,11 @@
       }
     ],
     "parameters": {
-      "Right": 0
+      "Right": 1
     },
     "nullable": [
       false
     ]
   },
-  "hash": "38084b1fef18775074383461c5b640aa81e06bc69aabeca24f6c6361325c872f"
+  "hash": "5c5c58b57883aeddea75853109cd1e83753a414291122428ca622d6f3e6e06d5"
 }

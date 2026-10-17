@@ -1,61 +1,66 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT interests, queries, queries_language, refreshed_at,\n                  refreshed_by_auto as \"refreshed_by_auto: bool\", daily_limit,\n                  auto_mode as \"auto_mode: AutoMode\", auto_hours, auto_time, refresh_day, refresh_count\n           FROM ai_link_groups WHERE content_id = ?",
+  "query": "SELECT enabled as \"enabled: bool\", interests, queries, queries_language, refreshed_at,\n                  refreshed_by_auto as \"refreshed_by_auto: bool\", daily_limit,\n                  auto_mode as \"auto_mode: AutoMode\", auto_hours, auto_time, refresh_day, refresh_count\n           FROM ai_link_groups WHERE content_id = ?",
   "describe": {
     "columns": [
       {
-        "name": "interests",
+        "name": "enabled: bool",
         "ordinal": 0,
-        "type_info": "Text"
+        "type_info": "Integer"
       },
       {
-        "name": "queries",
+        "name": "interests",
         "ordinal": 1,
         "type_info": "Text"
       },
       {
-        "name": "queries_language",
+        "name": "queries",
         "ordinal": 2,
         "type_info": "Text"
       },
       {
-        "name": "refreshed_at",
+        "name": "queries_language",
         "ordinal": 3,
-        "type_info": "Integer"
+        "type_info": "Text"
       },
       {
-        "name": "refreshed_by_auto: bool",
+        "name": "refreshed_at",
         "ordinal": 4,
         "type_info": "Integer"
       },
       {
-        "name": "daily_limit",
+        "name": "refreshed_by_auto: bool",
         "ordinal": 5,
         "type_info": "Integer"
       },
       {
-        "name": "auto_mode: AutoMode",
+        "name": "daily_limit",
         "ordinal": 6,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_mode: AutoMode",
+        "ordinal": 7,
         "type_info": "Text"
       },
       {
         "name": "auto_hours",
-        "ordinal": 7,
+        "ordinal": 8,
         "type_info": "Integer"
       },
       {
         "name": "auto_time",
-        "ordinal": 8,
-        "type_info": "Text"
-      },
-      {
-        "name": "refresh_day",
         "ordinal": 9,
         "type_info": "Text"
       },
       {
-        "name": "refresh_count",
+        "name": "refresh_day",
         "ordinal": 10,
+        "type_info": "Text"
+      },
+      {
+        "name": "refresh_count",
+        "ordinal": 11,
         "type_info": "Integer"
       }
     ],
@@ -63,6 +68,7 @@
       "Right": 1
     },
     "nullable": [
+      false,
       false,
       true,
       true,
@@ -76,5 +82,5 @@
       false
     ]
   },
-  "hash": "ef370b9cb9bb311d22d8e5da0451dce975449ac56825b60cf33e8e412101fc00"
+  "hash": "cf8e7dcfbdfacf9684948890f5ff6559b61e7ff52d24c1d15f8b73125a05052d"
 }

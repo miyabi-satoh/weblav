@@ -2764,7 +2764,7 @@
         }
       },
       "put": {
-        "summary": "グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら外し、集めたリンクと表示しないものも消す。\n検索キーワードを変えると、作ったクエリを捨てて次に集めるときに作り直す。集めたリンクは、次に集め直すまで残る。",
+        "summary": "グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら集めるのをやめる。\nやめても、設定・表示しないもの・集めたリンクは残し、オンに戻すと前のとおりに並ぶ。\n検索キーワードを変えると、作ったクエリを捨てて次に集めるときに作り直す。集めたリンクは、次に集め直すまで残る。",
         "operationId": "put_ai_links_settings",
         "parameters": [
           {
@@ -5628,7 +5628,7 @@
         "properties": {
           "isNew": {
             "type": "boolean",
-            "description": "最後の集め直しで新しく足したか。初めて集めたときは、どれも新しくない。"
+            "description": "最後に足した分か。初めて集めたときは、どれも新しくない。"
           },
           "preview": {
             "oneOf": [
@@ -5779,6 +5779,7 @@
       "AiLinksSettings": {
         "type": "object",
         "required": [
+          "enabled",
           "dailyLimit",
           "autoRefresh",
           "exclusions"
@@ -5793,6 +5794,10 @@
             "description": "1日に集め直せる回数。0 は無制限。",
             "minimum": 0
           },
+          "enabled": {
+            "type": "boolean",
+            "description": "このグループで集めるか。オフでも、前の設定と表示しないものは残っている。"
+          },
           "exclusions": {
             "type": "array",
             "items": {
@@ -5805,7 +5810,7 @@
               "string",
               "null"
             ],
-            "description": "検索キーワード。`null` なら、このグループでは集めない。"
+            "description": "検索キーワード。一度もオンにしていなければ `null`。"
           }
         }
       },
@@ -5826,7 +5831,7 @@
               "string",
               "null"
             ],
-            "description": "検索キーワード。語の並びでもふつうの文でもよく、AI が検索のクエリに組み立て直す。`null` なら、このグループでは集めない。"
+            "description": "検索キーワード。語の並びでもふつうの文でもよく、AI が検索のクエリに組み立て直す。\n`null` なら集めるのをやめる (前の設定と表示しないものは残し、ほかの項目は見ない)。"
           }
         }
       },

@@ -10,6 +10,9 @@
 --   auto_time は PC の現地時刻の 'HH:MM'。値の組み合わせは src/api/ai_links.rs で検証する。
 -- - refreshed_by_auto: 最後の集め直しが自動の更新か。
 -- - refresh_day・refresh_count: 現地時刻の日付 ('YYYY-MM-DD') と、その日に集め直した回数。日付が変わったら 0 から数える。
+-- - enabled: 集めるか。オフにしても行を消さず、設定・表示しないもの・集めたリンクを残す。
+--   整えた「表示しない」の一覧を、一時的に止めただけで失わないため。オンに戻すと前のとおりに並ぶ。
+ALTER TABLE ai_link_groups ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE ai_link_groups ADD COLUMN queries TEXT;
 ALTER TABLE ai_link_groups ADD COLUMN queries_language TEXT;
 ALTER TABLE ai_link_groups ADD COLUMN daily_limit INTEGER NOT NULL DEFAULT 0;

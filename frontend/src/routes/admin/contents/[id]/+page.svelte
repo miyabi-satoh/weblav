@@ -316,7 +316,7 @@
 				settings={aiLinksSettings}
 				{editable}
 			/>
-			{#if aiLinksSettings.interests != null}
+			{#if aiLinksSettings.enabled}
 				<AiLinksExclusionsSection
 					contentId={content.id}
 					exclusions={aiLinksSettings.exclusions}
