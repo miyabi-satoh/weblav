@@ -78,6 +78,7 @@
 
 ## 購入
 
+- 入口は紹介の料金のページ（`/pricing/`）。Stripe の設定が無い間（売り始める前）は、Worker がこのページの買うボタンを外し、準備中の表示を出して返す。
 - Stripe の Checkout で残高を売り、`POST /v1/stripe/webhook` で受けた支払いの知らせから付与する。支払いの画面から戻った先では付与しない。
 - この製品の目印は `weblav-ai`、Price の ID は `STRIPE_AI_CREDITS_PRICE_ID` で読む。
 - 日本からの買い手には直接、それ以外の買い手には Managed Payments で売る。

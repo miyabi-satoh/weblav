@@ -108,6 +108,8 @@ const ENTRIES: Entry[] = [
 			next: '/account/'
 		}))
 	},
+	// 紹介の料金のページ。静的なページを返すだけ (テストには静的なページが無い)。
+	{ route: 'GET /pricing', guards: [], send: get('/pricing/') },
 	// メールのリンクを開いた画面。サインインは次の POST でする。
 	{ route: 'GET /account/login/email', guards: [], send: get('/account/login/email?token=x') },
 	{
