@@ -194,7 +194,8 @@ const en: typeof ja = {
 		`“${pc}” is now registered. Close this page and return to WebLAV's site settings. The registration will show up in a few seconds.`,
 	approve: 'Register this computer',
 	linkInvalidTitle: 'This page cannot be opened',
-	linkInvalid: "In WebLAV's site settings, start registering the computer again from the “AI” section.",
+	linkInvalid:
+		"In WebLAV's site settings, start registering the computer again from the “AI” section.",
 	buyTitle: 'Buy credits',
 	confirmTitle: 'Review your order',
 	confirmItemLabel: 'What you buy',
@@ -235,10 +236,12 @@ const en: typeof ja = {
 	noBalance: 'No AI credit.',
 	appsTitle: 'Registered computers',
 	appsNone: 'No computers are registered.',
-	appLinkedAt: (name: string, pc: string, date: string) => `“${name}” on “${pc}” (registered on ${date})`,
+	appLinkedAt: (name: string, pc: string, date: string) =>
+		`“${name}” on “${pc}” (registered on ${date})`,
 	unlink: 'Unregister',
 	tooManyConnectsTitle: 'Please wait',
-	tooManyConnects: 'Too many registration attempts. Wait a minute, then reload this page and register again.',
+	tooManyConnects:
+		'Too many registration attempts. Wait a minute, then reload this page and register again.',
 	about: 'About WebLAV',
 	terms: 'Terms of Use',
 	privacy: 'Privacy Policy',
