@@ -86,7 +86,7 @@ utoipa-axum = "0.3.0"
 walkdir = "2.5.0"
 # バックアップを1つの zip にする (→ src/api/backup)。圧縮は deflate だけにし、
 # 既に依存に入っている flate2 (zlib-rs) を使う。
-zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+zip = { version = "9.0.3", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [target."cfg(windows)".dependencies]
 windows = { version = "0.62.2", features = [
