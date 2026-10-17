@@ -588,11 +588,15 @@ fn normalize_text(raw: &str, max_chars: usize) -> Option<String> {
 
 /// 空白の並び (改行を含む) を1つの空白にし、制御文字を除いて、`max` 文字で切る。
 pub(super) fn one_line(text: &str, max: usize) -> String {
+    // 制御文字は空白をつめる前に除く。後で除くと、両側の空白が2つ並んで残る。改行やタブは空白として扱う。
+    let text: String = text
+        .chars()
+        .filter(|c| c.is_whitespace() || !c.is_control())
+        .collect();
     text.split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
         .chars()
-        .filter(|c| !c.is_control())
         .take(max)
         .collect()
 }
@@ -680,6 +684,12 @@ pub(super) fn host_of(url: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn one_line_drops_control_characters_without_leaving_double_spaces() {
+        assert_eq!(one_line("a \u{1} b\n\tc \u{7}", usize::MAX), "a b c");
+        assert_eq!(one_line("abcdef", 3), "abc");
+    }
 
     // 抽出関数は本文の小文字化を呼び出し側から受け取る。テストでは毎回書かずに済ませる。
     fn page_title(html: &str) -> Option<String> {

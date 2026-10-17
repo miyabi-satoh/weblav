@@ -522,9 +522,8 @@ fn candidates(found: Vec<SearchResult>) -> Vec<SearchResult> {
     let mut seen = HashSet::new();
     found
         .into_iter()
-        .filter(|result| {
-            url::Url::parse(&result.url).is_ok_and(|url| matches!(url.scheme(), "http" | "https"))
-        })
+        // 保存して href にするのは届いた文字列のままなので、パースで読める形 (`https:example.com` など) は通さない。
+        .filter(|result| result.url.starts_with("https://") || result.url.starts_with("http://"))
         .filter(|result| {
             result.url.len() <= MAX_URL_BYTES
                 && !result.url.contains(char::is_whitespace)
@@ -1111,17 +1110,15 @@ async fn exclude_ai_link(
         ExclusionKind::Page => payload.url,
         ExclusionKind::Site => site_of(&payload.url).ok_or(AppError::NotFound)?,
     };
-    let now = clock(&state.pool).await?.now;
     let exclusion = sqlx::query_as!(
         AiLinkExclusion,
-        r#"INSERT INTO ai_link_exclusions (content_id, kind, value, title, created_at) VALUES (?, ?, ?, ?, ?)
+        r#"INSERT INTO ai_link_exclusions (content_id, kind, value, title, created_at) VALUES (?, ?, ?, ?, unixepoch())
            ON CONFLICT (content_id, kind, value) DO UPDATE SET title = excluded.title
            RETURNING id as "id!", kind as "kind: ExclusionKind", value, title"#,
         id,
         payload.kind,
         value,
-        title,
-        now
+        title
     )
     .fetch_one(&state.pool)
     .await?;
