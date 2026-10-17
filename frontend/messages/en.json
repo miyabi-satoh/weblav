@@ -618,7 +618,7 @@
 	"archive_axes_ai_error_not_json": "Could not find JSON in the answer. Ask the AI again to answer with JSON only.",
 	"archive_axes_ai_error_not_axes": "The answer has no list of axes. Paste the prompt again and ask once more.",
 	"archive_axes_ai_error_shape": "The answer does not follow the example in the prompt. Paste the prompt again and ask once more.",
-	"archive_axes_ai_step_preview": "3. What it will look like",
+	"archive_axes_ai_step_preview": "What it will look like",
 	"archive_axes_ai_preview_axis": [
 		{
 			"declarations": [
@@ -736,7 +736,10 @@
 	"archive_axes_ai_generate_note": "The names of the folders and files in this archive are sent to Google (Gemini). This uses credit.",
 	"archive_axes_ai_generate_button": "Send to the AI and get a suggestion",
 	"archive_axes_ai_generate_waiting": "Waiting for the AI's answer. This can take about a minute...",
-	"archive_axes_ai_manual_lead": "To ask another AI service instead, follow the steps below.",
+	"archive_axes_ai_manual_heading": "Use another AI service",
+	"archive_axes_ai_manual_button": "Show steps",
+	"archive_axes_ai_prompt_show": "Show the prompt",
+	"archive_axes_ai_back_button": "Back",
 	"group_ai_links_refreshed_auto": "Updated automatically: {time}",
 	"group_ai_links_refreshes_left": [
 		{

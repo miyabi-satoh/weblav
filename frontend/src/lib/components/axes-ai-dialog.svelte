@@ -62,11 +62,24 @@
 	const copyFeedback = new CopiedState();
 	// 貼った答えを、外側を押したり Esc で閉じたりして失わないようにする。
 	const answerForm = new FormDirtyState(() => ({ answer }));
-	let previewSection = $state<HTMLElement | null>(null);
+	/**
+	 * 今出している画面。アカウントで送るか (choose)・手で頼むか (manual) を選び、確かめた答えは
+	 * 別の画面 (preview) で見せる。1枚に並べると、送った人にも要らないプロンプトと答えの欄を通らせるため。
+	 */
+	let step = $state<'choose' | 'manual' | 'preview'>('manual');
+	/** 予告の画面の「戻る」と、取り込みに失敗したときに戻る画面。 */
+	let previewFrom = $state<'choose' | 'manual'>('manual');
+	let contentEl = $state<HTMLElement | null>(null);
 
-	// 予告は長い答えの欄の下に出るので、確かめたら見える位置まで送る。
+	// 画面を替えたら先頭から見せる。ブラウザーは押したボタン (足もとに残る) の位置を保つように
+	// スクロールを合わせるので (scroll anchoring)、そのままだと替えた後の画面が途中から出るため。
+	// 合わせるのは描いたときなので、描き終えてから戻す。
 	$effect(() => {
-		previewSection?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+		void step;
+		const el = contentEl;
+		if (!el) return;
+		const frame = requestAnimationFrame(() => (el.scrollTop = 0));
+		return () => cancelAnimationFrame(frame);
 	});
 
 	$effect(() => {
@@ -85,6 +98,8 @@
 		checking = false;
 		checkError = null;
 		aiAvailable = false;
+		step = 'manual';
+		previewFrom = 'manual';
 		generating = false;
 		generateError = null;
 		const current = ++session;
@@ -99,6 +114,7 @@
 			]);
 			if (current !== session) return;
 			aiAvailable = availability?.available ?? false;
+			step = aiAvailable ? 'choose' : 'manual';
 			if (!levels.data || !words.data || !items.data) {
 				promptFailed = true;
 				return;
@@ -124,7 +140,10 @@
 		}
 	}
 
-	/** プロンプトを AI に送り、返った答えを、貼り付けたときと同じ欄と確かめに流す。 */
+	/**
+	 * プロンプトを AI に送り、返った答えを貼り付けたときと同じ確かめに流す。通れば予告の画面に移り、
+	 * 読めない答えはこの画面で知らせる。
+	 */
 	async function generate() {
 		if (!prompt || generating) return;
 		const current = session;
@@ -148,6 +167,27 @@
 			if (current === session) generating = false;
 		}
 		await check();
+		if (current !== session) return;
+		if (checked) {
+			showPreview('choose');
+		} else {
+			// AI の答えが読めないときは、送った画面で知らせる。答えの欄はこの画面に無いため。
+			// 読めない答えは残す値が無いので、外側や Esc で閉じられる状態に戻す。
+			generateError = checkError;
+			checkError = null;
+			answer = '';
+			answerForm.markPristine();
+		}
+	}
+
+	async function checkPasted() {
+		await check();
+		if (ready) showPreview('manual');
+	}
+
+	function showPreview(from: 'choose' | 'manual') {
+		previewFrom = from;
+		step = 'preview';
 	}
 
 	const PARSE_FAILURE_MESSAGES: Record<ParseFailure, () => string> = {
@@ -195,8 +235,18 @@
 		return errorMessage(error);
 	}
 
+	/** 取り込めなかったら、答えを作った画面に戻ってそこで知らせる。 */
+	function failImport(message: string, current: number) {
+		if (current !== session) return;
+		checked = null;
+		step = previewFrom;
+		if (previewFrom === 'choose') generateError = message;
+		else checkError = message;
+	}
+
 	async function importAxes() {
 		if (!checked || !ready) return;
+		const current = session;
 		importing = true;
 		try {
 			const { error } = await client.PUT('/api/v1/contents/{id}/axes', {
@@ -204,18 +254,18 @@
 				body: checked.request
 			});
 			if (error) {
-				checkError = answerErrorMessage(error);
-				checked = null;
+				failImport(answerErrorMessage(error), current);
 				return;
 			}
 		} catch {
-			checkError = GENERIC_ERROR_MESSAGE();
+			failImport(GENERIC_ERROR_MESSAGE(), current);
 			return;
 		} finally {
-			importing = false;
+			if (current === session) importing = false;
 		}
 		// 保存はできているので、読み直しに失敗しても取り込みは失敗と見せない。
-		open = false;
+		// 待つ間に閉じて開き直していたら、開き直した方は閉じない。
+		if (current === session) open = false;
 		toast.success(m.archive_axes_ai_imported_toast());
 		await onimported().catch(() => errorDialog.show(GENERIC_ERROR_MESSAGE()));
 	}
@@ -223,23 +273,28 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Content
+		bind:ref={contentEl}
 		class="sm:max-w-2xl"
 		interactOutsideBehavior={answerForm.dirty || generating ? 'ignore' : 'close'}
 		escapeKeydownBehavior={answerForm.dirty || generating ? 'ignore' : 'close'}
 	>
 		<Dialog.Header>
 			<Dialog.Title>{m.archive_axes_ai_dialog_title()}</Dialog.Title>
-			<Dialog.Description>{m.archive_axes_ai_dialog_description()}</Dialog.Description>
+			{#if step === 'manual'}
+				<Dialog.Description>{m.archive_axes_ai_dialog_description()}</Dialog.Description>
+			{/if}
 		</Dialog.Header>
 
-		{#if aiAvailable}
-			<!-- 貼り付けの流れとは別の入り口なので、枠で囲んで分ける (→ docs/ui.md「UI 全般」の「余白と区切り」)。 -->
+		{#if prompt === null && !promptFailed}
+			<Spinner aria-label={m.common_loading()} />
+		{:else if step === 'choose'}
+			<!-- 2つの作り方を、同じ形の枠に並べて選ばせる (→ docs/ui.md「UI 全般」の「余白と区切り」)。 -->
 			<section class="flex min-w-0 flex-col gap-2 rounded-md border p-4">
 				<h3 class="text-sm font-semibold">{m.archive_axes_ai_generate_heading()}</h3>
 				<p class="text-sm text-muted-foreground">{m.archive_axes_ai_generate_note()}</p>
 				<LoadingButton
 					class="w-fit"
-					loading={generating}
+					loading={generating || checking}
 					disabled={prompt === null}
 					onclick={generate}
 				>
@@ -248,73 +303,68 @@
 				{#if generating}
 					<p class="text-sm text-muted-foreground">{m.archive_axes_ai_generate_waiting()}</p>
 				{/if}
-				{#if generateError}
+				{#if promptFailed}
+					<p role="alert" class="text-sm text-destructive">{m.archive_axes_ai_prompt_failed()}</p>
+				{:else if generateError}
 					<p role="alert" class="text-sm text-destructive">{generateError}</p>
 				{/if}
 			</section>
-			<p class="text-sm text-muted-foreground">{m.archive_axes_ai_manual_lead()}</p>
-		{/if}
-
-		<section class="flex min-w-0 flex-col gap-2">
-			<h3 class="text-sm font-semibold">{m.archive_axes_ai_step_copy()}</h3>
-			<p class="text-sm text-muted-foreground">{m.archive_axes_ai_privacy_note()}</p>
-			{#if prompt !== null}
-				<div class="flex items-start gap-2">
-					<Textarea
-						readonly
-						value={prompt}
-						rows={6}
-						class="max-h-48 min-w-0 flex-1 font-mono text-xs"
-						aria-label={m.archive_axes_ai_prompt_label()}
-					/>
-					<Button
-						variant="outline"
-						size="icon-sm"
-						onclick={copyPrompt}
-						aria-label={m.archive_axes_ai_copy_button()}
-					>
+			<section class="flex min-w-0 flex-col gap-2 rounded-md border p-4">
+				<h3 class="text-sm font-semibold">{m.archive_axes_ai_manual_heading()}</h3>
+				<p class="text-sm text-muted-foreground">{m.archive_axes_ai_dialog_description()}</p>
+				<Button
+					variant="outline"
+					class="w-fit"
+					disabled={generating || checking}
+					onclick={() => (step = 'manual')}
+				>
+					{m.archive_axes_ai_manual_button()}
+				</Button>
+			</section>
+		{:else if step === 'manual'}
+			<section class="flex min-w-0 flex-col gap-2">
+				<h3 class="text-sm font-semibold">{m.archive_axes_ai_step_copy()}</h3>
+				<p class="text-sm text-muted-foreground">{m.archive_axes_ai_privacy_note()}</p>
+				{#if prompt !== null}
+					<Button variant="outline" class="w-fit" onclick={copyPrompt}>
 						{#if copyFeedback.copied}
 							<CheckIcon />
 						{:else}
 							<CopyIcon />
 						{/if}
+						{m.archive_axes_ai_copy_button()}
 					</Button>
-				</div>
-			{:else if promptFailed}
-				<p role="alert" class="text-sm text-destructive">{m.archive_axes_ai_prompt_failed()}</p>
-			{:else}
-				<Spinner aria-label={m.common_loading()} />
-			{/if}
-		</section>
+					<!-- 中身は畳んでおく。開いたままだと、ダイアログの途中でそれ自体がスクロールし、ホイールを取られるため。 -->
+					<details class="text-sm">
+						<summary class="w-fit cursor-pointer text-muted-foreground">
+							{m.archive_axes_ai_prompt_show()}
+						</summary>
+						<pre
+							class="mt-2 max-h-48 overflow-auto rounded-md border p-2 font-mono text-xs whitespace-pre-wrap">{prompt}</pre>
+					</details>
+				{:else}
+					<p role="alert" class="text-sm text-destructive">{m.archive_axes_ai_prompt_failed()}</p>
+				{/if}
+			</section>
 
-		<section class="flex min-w-0 flex-col gap-2">
-			<Field.Field>
-				<Field.FieldLabel for="axes-ai-answer">{m.archive_axes_ai_step_paste()}</Field.FieldLabel>
-				<Textarea
-					id="axes-ai-answer"
-					bind:value={answer}
-					rows={6}
-					class="max-h-64 font-mono text-xs"
-					disabled={generating}
-				/>
-			</Field.Field>
-			<LoadingButton
-				variant="outline"
-				class="w-fit"
-				loading={checking}
-				disabled={answer.trim() === '' || ready || generating}
-				onclick={check}
-			>
-				{m.archive_axes_ai_check_button()}
-			</LoadingButton>
-			{#if checkError}
-				<p role="alert" class="text-sm text-destructive">{checkError}</p>
-			{/if}
-		</section>
-
-		{#if checked && ready}
+			<section class="flex min-w-0 flex-col gap-2">
+				<Field.Field>
+					<Field.FieldLabel for="axes-ai-answer">{m.archive_axes_ai_step_paste()}</Field.FieldLabel>
+					<Textarea
+						id="axes-ai-answer"
+						bind:value={answer}
+						rows={6}
+						class="max-h-64 font-mono text-xs"
+						disabled={checking}
+					/>
+				</Field.Field>
+				{#if checkError}
+					<p role="alert" class="text-sm text-destructive">{checkError}</p>
+				{/if}
+			</section>
+		{:else if checked}
 			{@const preview = checked.preview}
-			<section bind:this={previewSection} class="flex min-w-0 flex-col gap-2">
+			<section class="flex min-w-0 flex-col gap-2">
 				<h3 class="text-sm font-semibold">{m.archive_axes_ai_step_preview()}</h3>
 				<ul class="text-sm">
 					{#each preview.axes as axis (axis.name)}
@@ -355,10 +405,31 @@
 		{/if}
 
 		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (open = false)}>{m.action_cancel()}</Button>
-			<LoadingButton loading={importing} disabled={!ready} onclick={importAxes}>
-				{m.archive_axes_ai_import_button()}
-			</LoadingButton>
+			{#if step === 'manual'}
+				{#if aiAvailable}
+					<Button variant="outline" onclick={() => (step = 'choose')}>
+						{m.archive_axes_ai_back_button()}
+					</Button>
+				{:else}
+					<Button variant="outline" onclick={() => (open = false)}>{m.action_cancel()}</Button>
+				{/if}
+				<LoadingButton
+					loading={checking}
+					disabled={answer.trim() === '' || prompt === null}
+					onclick={checkPasted}
+				>
+					{m.archive_axes_ai_check_button()}
+				</LoadingButton>
+			{:else if step === 'preview'}
+				<Button variant="outline" disabled={importing} onclick={() => (step = previewFrom)}>
+					{m.archive_axes_ai_back_button()}
+				</Button>
+				<LoadingButton loading={importing} disabled={!ready} onclick={importAxes}>
+					{m.archive_axes_ai_import_button()}
+				</LoadingButton>
+			{:else}
+				<Button variant="outline" onclick={() => (open = false)}>{m.action_cancel()}</Button>
+			{/if}
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
