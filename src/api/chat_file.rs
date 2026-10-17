@@ -123,7 +123,12 @@ fn office_text(ext: &str, data: &[u8]) -> Result<String, AppError> {
         }
     } else {
         let shared = shared_strings(&mut book)?;
-        for (name, part) in sheets(&mut book)? {
+        let sheets = sheets(&mut book)?;
+        // シートが1つも無いのは壊れたブック。空の文字を送って、読めたように見せない。
+        if sheets.is_empty() {
+            return Err(unreadable());
+        }
+        for (name, part) in sheets {
             text.heading(&name)?;
             cells(&book.read(&part)?, &shared, &mut text)?;
         }
@@ -637,6 +642,15 @@ mod tests {
         assert!(matches!(
             convert("長い.docx", None, Some(&docx)),
             Err(AppError::AiTooLarge)
+        ));
+    }
+
+    #[test]
+    fn a_workbook_without_sheets_is_a_validation_error() {
+        let xlsx = office(&[("xl/sharedStrings.xml", "<sst><si><t>a</t></si></sst>")]);
+        assert!(matches!(
+            convert("空.xlsx", None, Some(&xlsx)),
+            Err(AppError::Validation(_))
         ));
     }
 
