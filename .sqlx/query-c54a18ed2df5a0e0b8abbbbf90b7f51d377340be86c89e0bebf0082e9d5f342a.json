@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE ai_link_groups SET\n               refreshed_at = ?1,\n               refreshed_by_auto = ?2,\n               refresh_count = CASE WHEN refresh_day = ?3 THEN refresh_count + 1 ELSE 1 END,\n               refresh_day = ?3\n           WHERE content_id = ?4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "c54a18ed2df5a0e0b8abbbbf90b7f51d377340be86c89e0bebf0082e9d5f342a"
+}

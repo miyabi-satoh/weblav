@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT CASE\n               WHEN unixepoch(date('now', 'localtime') || ' ' || ?1, 'utc') <= unixepoch()\n               THEN unixepoch(date('now', 'localtime') || ' ' || ?1, 'utc')\n               ELSE unixepoch(date('now', 'localtime', '-1 day') || ' ' || ?1, 'utc')\n           END as \"mark!: i64\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "mark!: i64",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "cf937344ac9c32afc56edf57022f2e8c2a6585c5fdb3637daa6a29c2e282d14a"
+}

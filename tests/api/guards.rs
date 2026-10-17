@@ -34,6 +34,8 @@ const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
     ("GET", "/api/v1/contents/9999/ai-links/settings"),
     ("PUT", "/api/v1/contents/9999/ai-links/settings"),
     ("POST", "/api/v1/contents/9999/ai-links/refresh"),
+    ("POST", "/api/v1/contents/9999/ai-links/exclusions"),
+    ("DELETE", "/api/v1/contents/9999/ai-links/exclusions/1"),
     ("PUT", "/api/v1/contents/9999/axes/1"),
     ("DELETE", "/api/v1/contents/9999/axes/1"),
     ("GET", "/api/v1/contents/9999/axes/1/values"),

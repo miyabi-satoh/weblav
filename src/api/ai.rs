@@ -213,9 +213,9 @@ async fn unlink(_admin: AdminUser, State(state): State<AppState>) -> Result<Stat
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AiUsageItem {
-    /// 使ったユーザー。消したユーザーの分は無い。
+    /// 使ったユーザー。消したユーザーの分と、AI が集めるリンクの自動の更新の分は無い。
     user_id: Option<i64>,
-    /// 今のユーザー名。消したユーザーの分は、使った時点の名前。
+    /// 今のユーザー名。消したユーザーの分は、使った時点の名前。自動の更新の分は空。
     username: String,
     /// 使った回数。
     count: i64,

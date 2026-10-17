@@ -673,6 +673,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/{id}/ai-links/auto-refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 自動の更新。グループが開かれたときに画面が呼び、時間が来ていれば集め直す。誰が開いても走る (→ docs/ai.md「自動の更新」)。
+         *     時間が来ていない・1日の回数を使い切った・集めている最中・集められなかったときは、何もせずに今のリンクを返す。
+         *     見ている人が頼んだ更新ではないので、失敗を見せない。
+         */
+        post: operations["auto_refresh_ai_links"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/ai-links/exclusions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 集めたリンクを表示しないにする。ページならその URL、サイトならそのホスト名のページすべて。
+         *     集め直しても出さない。取り消すと、次に見たときにまた並ぶ (集めたリンクは消さずに持っている)。
+         */
+        post: operations["exclude_ai_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/ai-links/exclusions/{exclusion_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** 表示しないにしたものを取り消す。 */
+        delete: operations["delete_ai_link_exclusion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/{id}/ai-links/refresh": {
         parameters: {
             query?: never;
@@ -683,7 +741,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * グループのリンクを集め直す。検索キーワードから AI が作ったクエリで Web を検索し、AI が選んだものに入れ替える。
+         * グループのリンクを集め直す。今の検索の結果のうち、並んでいないものを上に足す。
          *     残りを使うので、AI を使える人だけが呼べる。
          */
         post: operations["refresh_ai_links"];
@@ -703,8 +761,8 @@ export interface paths {
         /** グループの、AI がリンクを集める設定を返す。 */
         get: operations["ai_links_settings"];
         /**
-         * グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら外し、集めたリンクも消す。
-         *     検索キーワードを変えても、集めたリンクは次に集め直すまで残る。
+         * グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら外し、集めたリンクと表示しないものも消す。
+         *     検索キーワードを変えると、作ったクエリを捨てて次に集めるときに作り直す。集めたリンクは、次に集め直すまで残る。
          */
         put: operations["put_ai_links_settings"];
         post?: never;
@@ -1540,10 +1598,21 @@ export interface components {
             answer: string;
         };
         AiLink: {
+            /** @description 最後の集め直しで新しく足したか。初めて集めたときは、どれも新しくない。 */
+            isNew: boolean;
             preview?: components["schemas"]["LinkPreview"] | null;
             /** @description 検索で返ったタイトル。無ければ空。 */
             title: string;
             url: string;
+        };
+        AiLinkExclusion: {
+            /** Format: int64 */
+            id: number;
+            kind: components["schemas"]["ExclusionKind"];
+            /** @description 表示しないにしたときのページのタイトル。サイトでも、きっかけになったページのタイトルを持つ。 */
+            title: string;
+            /** @description ページなら URL、サイトならホスト名。 */
+            value: string;
         };
         AiLinkResponse: {
             /** @description 登録の途中のとき、登録を認める画面に出るのと同じ確認コード。 */
@@ -1558,19 +1627,53 @@ export interface components {
          */
         AiLinkState: "unlinked" | "pending" | "linked";
         AiLinksResponse: {
+            /**
+             * Format: int32
+             * @description 集め直した結果で、新しく足したリンクの数。集め直しの答えにだけ入る。
+             */
+            added?: number | null;
+            /** @description 自動の更新を今するか。画面はこれが真なら、前のリンクを見せたまま `auto-refresh` を呼ぶ。 */
+            autoRefreshDue: boolean;
+            /** @description 見ている人が、表示しないものを決められるか (グループを書き換えられる)。 */
+            canEdit: boolean;
             /** @description 見ている人が集め直せるか (AI を使えて、PC が登録済み)。 */
             canRefresh: boolean;
             /** @description このグループで AI がリンクを集めるか。偽なら、ほかの項目は空。 */
             enabled: boolean;
-            /** @description 集めたリンク。このグループに登録してあるリンクと同じ URL は入らない。 */
+            /** @description 集めたリンク。新しく見つかった順。このグループに登録してあるリンクと、表示しないにしたものは入らない。 */
             links: components["schemas"]["AiLink"][];
             /**
              * Format: int64
              * @description 最後に集めた時刻 (UNIX 秒)。まだ集めていなければ無い。
              */
             refreshedAt?: number | null;
+            /** @description 最後に集めたのが自動の更新か。 */
+            refreshedByAuto: boolean;
+            /**
+             * Format: int32
+             * @description 今日あと何回集め直せるか。上限が無ければ無い。
+             */
+            refreshesLeft?: number | null;
         };
         AiLinksSettings: {
+            autoRefresh: components["schemas"]["AutoRefresh"];
+            /**
+             * Format: int32
+             * @description 1日に集め直せる回数。0 は無制限。
+             */
+            dailyLimit: number;
+            /** @description 表示しないにしたもの。新しい順。 */
+            exclusions: components["schemas"]["AiLinkExclusion"][];
+            /** @description 検索キーワード。`null` なら、このグループでは集めない。 */
+            interests?: string | null;
+        };
+        AiLinksSettingsRequest: {
+            autoRefresh?: components["schemas"]["AutoRefresh"];
+            /**
+             * Format: int32
+             * @description 1日に集め直せる回数。0 は無制限。
+             */
+            dailyLimit?: number;
             /** @description 検索キーワード。語の並びでもふつうの文でもよく、AI が検索のクエリに組み立て直す。`null` なら、このグループでは集めない。 */
             interests?: string | null;
         };
@@ -1607,10 +1710,10 @@ export interface components {
             used: number;
             /**
              * Format: int64
-             * @description 使ったユーザー。消したユーザーの分は無い。
+             * @description 使ったユーザー。消したユーザーの分と、AI が集めるリンクの自動の更新の分は無い。
              */
             userId?: number | null;
-            /** @description 今のユーザー名。消したユーザーの分は、使った時点の名前。 */
+            /** @description 今のユーザー名。消したユーザーの分は、使った時点の名前。自動の更新の分は空。 */
             username: string;
         };
         ArchiveAxisOption: {
@@ -1661,6 +1764,22 @@ export interface components {
             /** @description アーカイブの登録先のフォルダーが見つからない。画面は空の一覧の代わりにそう出す。 */
             folderMissing: boolean;
             items: components["schemas"]["ArchiveViewItem"][];
+        };
+        /**
+         * @description 自動の更新の決め方。
+         * @enum {string}
+         */
+        AutoMode: "off" | "interval" | "daily";
+        /** @description 自動の更新の設定 (→ docs/ai.md「自動の更新」)。グループが開かれたときに、決めた時間を過ぎていれば集め直す。 */
+        AutoRefresh: {
+            /**
+             * Format: int32
+             * @description `interval` のときの時間 (1 以上)。
+             */
+            hours?: number | null;
+            mode: components["schemas"]["AutoMode"];
+            /** @description `daily` のときの時刻。WebLAV を動かす PC の現地時刻の `HH:MM`。 */
+            time?: string | null;
         };
         /**
          * @description `archive_axis_values.match_position`。照合語をファイル名のどこで照合するか (→ docs/archive.md「軸の定義」)。
@@ -1964,7 +2083,7 @@ export interface components {
          * @description API エラーの機械可読なコード。frontend はこの値で表示文言を選ぶ。
          * @enum {string}
          */
-        ErrorCode: "not_found" | "database_unavailable" | "unauthorized" | "forbidden" | "invalid_credentials" | "incorrect_current_password" | "invalid_recovery_code" | "too_many_requests" | "invalid_request_body" | "file_too_large" | "internal_error" | "conflict" | "config_unreadable" | "ai_not_linked" | "ai_not_allowed" | "ai_no_credit" | "ai_rate_limited" | "ai_too_large" | "ai_upstream" | "account_server_unavailable";
+        ErrorCode: "not_found" | "database_unavailable" | "unauthorized" | "forbidden" | "invalid_credentials" | "incorrect_current_password" | "invalid_recovery_code" | "too_many_requests" | "invalid_request_body" | "file_too_large" | "internal_error" | "conflict" | "config_unreadable" | "ai_not_linked" | "ai_not_allowed" | "ai_no_credit" | "ai_rate_limited" | "ai_links_daily_limit" | "ai_too_large" | "ai_upstream" | "account_server_unavailable";
         /**
          * @description レスポンスボディの共通envelope。`code` が機械可読な契約(frontendはこちらでi18nする)、
          *     `message` は英語のデバッグ用の説明文で、画面には出さない。
@@ -1975,6 +2094,16 @@ export interface components {
         ErrorResponse: {
             error: components["schemas"]["ErrorBody"];
         };
+        ExcludeAiLinkRequest: {
+            kind: components["schemas"]["ExclusionKind"];
+            /** @description 表示しないにする、集めたリンクの URL。サイトなら、この URL のホスト名のページすべてを表示しない。 */
+            url: string;
+        };
+        /**
+         * @description 表示しないものの種類。
+         * @enum {string}
+         */
+        ExclusionKind: "page" | "site";
         FilenameWord: {
             /** @description この語を含むアイテム数。 */
             count: number;
@@ -4823,6 +4952,133 @@ export interface operations {
             };
         };
     };
+    auto_refresh_ai_links: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshAiLinksRequest"];
+            };
+        };
+        responses: {
+            /** @description 集め直した後 (集め直さなかったときは今) のリンク */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiLinksResponse"];
+                };
+            };
+            /** @description 閲覧にログインが必要 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見えない・存在しない、または AI がリンクを集めるグループでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    exclude_ai_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExcludeAiLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiLinkExclusion"];
+                };
+            };
+            /** @description 書き換えられるのは管理者と作成者だけ */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見えない・存在しない、AI がリンクを集めるグループでない、または集めたリンクに無い URL */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_ai_link_exclusion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                exclusion_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 書き換えられるのは管理者と作成者だけ */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見えない・存在しない、またはこのグループの表示しないものでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     refresh_ai_links: {
         parameters: {
             query?: never;
@@ -4838,7 +5094,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description 集め直した後のリンク */
+            /** @description 集め直した後のリンク。`added` が 0 なら、新しいリンクは無かった */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -4883,7 +5139,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description このグループを集めている最中・短い間に呼びすぎた */
+            /** @description このグループを集めている最中・短い間に呼びすぎた・1日の回数を使い切った */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -4945,7 +5201,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AiLinksSettings"];
+                "application/json": components["schemas"]["AiLinksSettingsRequest"];
             };
         };
         responses: {
@@ -4976,7 +5232,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 検索キーワードが空・長すぎる */
+            /** @description 検索キーワードが空・長すぎる、自動の更新の時間・時刻が正しくない */
             422: {
                 headers: {
                     [name: string]: unknown;
