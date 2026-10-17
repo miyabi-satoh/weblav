@@ -51,7 +51,7 @@ export function groupBasicSaveButton(page: Page): Locator {
 		.getByRole('form', { name: /^基本情報$|^Details$/ })
 		.getByRole('button', { name: SAVE_BUTTON_NAME });
 }
-const DELETE_CONFIRM_BUTTON_NAME = /削除する|^Delete$/;
+export const DELETE_CONFIRM_BUTTON_NAME = /削除する|^Delete$/;
 
 /** ダイアログやプレイヤーの「閉じる」。 */
 export const CLOSE_BUTTON_NAME = /^閉じる$|^Close$/;

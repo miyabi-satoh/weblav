@@ -45,6 +45,7 @@
 	import type { Attachment } from 'svelte/attachments';
 	import type { PageProps } from './$types';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
+	import { axisPlaceholder, removeAxisFromTemplate } from '$lib/title-template';
 
 	type Axis = components['schemas']['AxisResponse'];
 	type AxisSource = components['schemas']['AxisSource'];
@@ -385,6 +386,24 @@
 	// 削除確認ダイアログ。
 	let deletingAxis = $state<Axis | null>(null);
 	let axisDeleting = $state(false);
+	// 表示タイトルのテンプレートで使っている軸は、サーバーが削除を断る (→ docs/archive.md「表示タイトル」)。
+	// 押してから断るのでなく、確認の中でその軸を外したテンプレートの案を出し、直させてから
+	// テンプレートを保存して削除する。
+	let deletingAxisInTemplate = $derived(
+		deletingAxis !== null &&
+			(currentContent.titleTemplate ?? '').includes(axisPlaceholder(deletingAxis.name))
+	);
+	let templateAfterDelete = $state('');
+	let templateStillUsesAxis = $derived(
+		deletingAxisInTemplate &&
+			deletingAxis !== null &&
+			templateAfterDelete.includes(axisPlaceholder(deletingAxis.name))
+	);
+
+	function startDeleteAxis(axis: Axis) {
+		templateAfterDelete = removeAxisFromTemplate(currentContent.titleTemplate ?? '', axis.name);
+		deletingAxis = axis;
+	}
 
 	// 軸そのものの操作(追加・編集・削除・並び替え)のいずれかが進行中か。
 	// 値の辞書の保存と同時に走ると、互いの古い応答が新しい状態を上書きしうるため、
@@ -397,10 +416,16 @@
 		const target = deletingAxis;
 
 		try {
+			if (deletingAxisInTemplate && !(await putTemplate(templateAfterDelete))) {
+				deletingAxis = null;
+				return;
+			}
 			const { error, response } = await client.DELETE('/api/v1/contents/{id}/axes/{axis_id}', {
 				params: { path: { id: data.contentId, axis_id: target.id } }
 			});
 			if (!response.ok) {
+				// 確認を開いたままにすると、エラーを閉じた後にもう一度キャンセルさせることになる。
+				deletingAxis = null;
 				errorDialog.show(errorMessage(error));
 				return;
 			}
@@ -408,6 +433,7 @@
 			if (selectedAxisId === target.id) selectedAxisId = null;
 			deletingAxis = null;
 		} catch {
+			deletingAxis = null;
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			axisDeleting = false;
@@ -815,35 +841,42 @@
 		templateSaving = true;
 
 		try {
-			const titleTemplate = titleTemplateInput.trim() === '' ? null : titleTemplateInput;
-			const {
-				data: updated,
-				error,
-				response
-			} = await client.PUT('/api/v1/contents/{id}', {
-				params: { path: { id: data.contentId } },
-				body: {
-					description: currentContent.description ?? null,
-					extensions: currentContent.extensions ?? null,
-					parentId: currentContent.parentId ?? null,
-					path: currentContent.path ?? null,
-					title: currentContent.title,
-					titleTemplate,
-					url: currentContent.url ?? null,
-					visibility: currentContent.visibility
-				}
-			});
-			if (!response.ok || !updated) {
-				errorDialog.show(errorMessage(error));
-				return;
+			if (await putTemplate(titleTemplateInput)) {
+				toast.success(m.archive_axes_template_saved_toast());
 			}
-			currentContent = updated;
-			toast.success(m.archive_axes_template_saved_toast());
 		} catch {
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			templateSaving = false;
 		}
+	}
+
+	/** テンプレートを保存する。失敗したらエラーを出して false を返す。 */
+	async function putTemplate(value: string): Promise<boolean> {
+		const titleTemplate = value.trim() === '' ? null : value;
+		const {
+			data: updated,
+			error,
+			response
+		} = await client.PUT('/api/v1/contents/{id}', {
+			params: { path: { id: data.contentId } },
+			body: {
+				description: currentContent.description ?? null,
+				extensions: currentContent.extensions ?? null,
+				parentId: currentContent.parentId ?? null,
+				path: currentContent.path ?? null,
+				title: currentContent.title,
+				titleTemplate,
+				url: currentContent.url ?? null,
+				visibility: currentContent.visibility
+			}
+		});
+		if (!response.ok || !updated) {
+			errorDialog.show(errorMessage(error));
+			return false;
+		}
+		currentContent = updated;
+		return true;
 	}
 </script>
 
@@ -1091,7 +1124,7 @@
 									size="sm"
 									disabled={axisBusy}
 									aria-label={m.archive_axes_delete_label({ name: axis.name })}
-									onclick={() => (deletingAxis = axis)}
+									onclick={() => startDeleteAxis(axis)}
 								>
 									{m.action_delete()}
 								</Button>
@@ -1636,8 +1669,36 @@
 	title={m.archive_axes_delete_confirm_title()}
 	busy={axisDeleting}
 	onconfirm={handleDeleteAxis}
+	confirmDisabled={templateStillUsesAxis}
 >
-	{m.common_delete_confirm_description()}
+	{#if deletingAxisInTemplate && deletingAxis !== null}
+		{m.archive_axes_delete_template_description({ name: deletingAxis.name })}
+	{:else}
+		{m.common_delete_confirm_description()}
+	{/if}
+	{#snippet body()}
+		{#if deletingAxisInTemplate && deletingAxis !== null}
+			<Field.Field data-invalid={templateStillUsesAxis || undefined}>
+				<Field.FieldLabel for="template-after-delete">
+					{m.archive_axes_delete_template_label()}
+				</Field.FieldLabel>
+				<Input
+					id="template-after-delete"
+					bind:value={templateAfterDelete}
+					disabled={axisDeleting}
+					aria-invalid={templateStillUsesAxis || undefined}
+					aria-describedby="template-after-delete-help"
+				/>
+				<Field.FieldDescription id="template-after-delete-help">
+					{templateStillUsesAxis
+						? m.archive_axes_delete_template_still_used({
+								token: axisPlaceholder(deletingAxis.name)
+							})
+						: m.archive_axes_template_help()}
+				</Field.FieldDescription>
+			</Field.Field>
+		{/if}
+	{/snippet}
 </ConfirmDialog>
 
 <AxesAiDialog bind:open={aiDialogOpen} contentId={data.contentId} onimported={invalidateAll} />

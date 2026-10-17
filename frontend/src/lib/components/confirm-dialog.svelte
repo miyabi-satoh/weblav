@@ -19,6 +19,10 @@
 		confirmLabel?: string;
 		/** 説明文。 */
 		children: Snippet;
+		/** 説明の下に置く入力欄など。確定する前にその場で直させたいときに使う。 */
+		body?: Snippet;
+		/** 確定ボタンを押せなくする (body の入力がまだ確定できない形のとき)。 */
+		confirmDisabled?: boolean;
 	};
 
 	let {
@@ -27,7 +31,9 @@
 		busy,
 		onconfirm,
 		confirmLabel = m.action_delete_confirm(),
-		children
+		children,
+		body,
+		confirmDisabled = false
 	}: Props = $props();
 </script>
 
@@ -39,12 +45,13 @@
 				{@render children()}
 			</AlertDialog.Description>
 		</AlertDialog.Header>
+		{@render body?.()}
 		<AlertDialog.Footer>
 			<AlertDialog.Cancel disabled={busy}>{m.action_cancel()}</AlertDialog.Cancel>
 			<AlertDialog.Action
 				variant="destructive"
 				class="relative"
-				disabled={busy}
+				disabled={busy || confirmDisabled}
 				onclick={onconfirm}
 			>
 				<LoadingLabel loading={busy}>{confirmLabel}</LoadingLabel>
