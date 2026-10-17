@@ -51,7 +51,7 @@ describe('registering a computer', () => {
 		});
 		// 窓口の画面で、どの PC の WebLAV かが分かる。
 		expect(await (await request('/account/', { cookie })).text()).toContain(
-			'Taro の MacBook の「教室の WebLAV」('
+			'「Taro の MacBook」の「教室の WebLAV」('
 		);
 	});
 
@@ -102,7 +102,7 @@ describe('registering a computer', () => {
 		const { verifier, fields: unnamed } = await newLink('  ', '');
 		await approve(unnamed, cookie);
 		expect((await exchange(verifier)).status).toBe(200);
-		expect(await (await request('/account/', { cookie })).text()).toContain('PC の「WebLAV」(');
+		expect(await (await request('/account/', { cookie })).text()).toContain('「PC」の「WebLAV」(');
 	});
 });
 

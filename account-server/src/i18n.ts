@@ -132,7 +132,7 @@ const ja = {
 	noBalance: 'AI の機能のクレジットはありません。',
 	appsTitle: '登録しているコンピューター',
 	appsNone: '登録しているコンピューターはありません。',
-	appLinkedAt: (name: string, pc: string, date: string) => `${pc} の「${name}」(${date} に登録)`,
+	appLinkedAt: (name: string, pc: string, date: string) => `「${pc}」の「${name}」(${date} に登録)`,
 	unlink: '登録を解除',
 	tooManyConnectsTitle: 'しばらくお待ちください',
 	tooManyConnects:
@@ -235,7 +235,7 @@ const en: typeof ja = {
 	noBalance: 'No AI credit.',
 	appsTitle: 'Registered computers',
 	appsNone: 'No computers are registered.',
-	appLinkedAt: (name: string, pc: string, date: string) => `“${name}” on ${pc} (registered on ${date})`,
+	appLinkedAt: (name: string, pc: string, date: string) => `“${name}” on “${pc}” (registered on ${date})`,
 	unlink: 'Unregister',
 	tooManyConnectsTitle: 'Please wait',
 	tooManyConnects: 'Too many registration attempts. Wait a minute, then reload this page and register again.',
