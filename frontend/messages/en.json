@@ -159,7 +159,7 @@
 	"admin_settings_log_fetch_failed": "Failed to load the log settings. Please try again later.",
 	"admin_settings_about_heading": "About WebLAV",
 	"admin_settings_about_version": "Version {version}",
-	"admin_settings_about_terms": "Terms of Service",
+	"admin_settings_about_terms": "Terms of Use",
 	"admin_settings_about_privacy": "Privacy Policy",
 	"admin_settings_about_contact": "Contact",
 	"backup_heading": "Backup",

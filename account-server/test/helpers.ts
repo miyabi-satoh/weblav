@@ -55,7 +55,7 @@ export function linkPath(fields: Record<string, string>) {
 	return `/account/link?${new URLSearchParams(fields)}`;
 }
 
-/** 「この PC を登録」を押す。 */
+/** 「このコンピューターを登録」を押す。 */
 export async function approve(fields: Record<string, string>, cookie: string) {
 	const res = await postForm('/account/link', fields, cookie);
 	expect(res.status).toBe(200);
