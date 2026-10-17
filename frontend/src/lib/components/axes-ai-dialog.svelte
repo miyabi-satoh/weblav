@@ -339,7 +339,12 @@
 			<section class="flex min-w-0 flex-col gap-2">
 				<Field.Field>
 					<Field.FieldLabel for="axes-ai-answer">{m.archive_axes_ai_step_paste()}</Field.FieldLabel>
-					<Textarea id="axes-ai-answer" bind:value={answer} rows={6} class="max-h-64 font-mono text-xs" />
+					<Textarea
+						id="axes-ai-answer"
+						bind:value={answer}
+						rows={6}
+						class="max-h-64 font-mono text-xs"
+					/>
 				</Field.Field>
 				{#if checkError}
 					<p role="alert" class="text-sm text-destructive">{checkError}</p>
