@@ -12,7 +12,7 @@ import {
 	signIn
 } from '../helpers';
 
-describe('linking a PC', () => {
+describe('registering a computer', () => {
 	it('signs in first, approves on the account page, and hands the token to the polling WebLAV', async () => {
 		const email = 'owner@example.com';
 		const { verifier, fields } = await newLink('教室の WebLAV', 'Taro の MacBook');
@@ -28,9 +28,9 @@ describe('linking a PC', () => {
 
 		const page = await (await request(location!, { cookie })).text();
 		expect(page).toContain(
-			'PC「Taro の MacBook」の WebLAV「教室の WebLAV」を、このアカウントに登録します'
+			'コンピューター「Taro の MacBook」の WebLAV「教室の WebLAV」を、このアカウントに登録します'
 		);
-		expect(page).toContain('この PC を登録');
+		expect(page).toContain('このコンピューターを登録');
 		// WebLAV の画面と見比べる確認コードは、申し込みの値の頭の6桁。
 		expect(page).toContain(`確認コード: ${fields.challenge.slice(0, 6).toUpperCase()}`);
 
@@ -51,7 +51,7 @@ describe('linking a PC', () => {
 		});
 		// 窓口の画面で、どの PC の WebLAV かが分かる。
 		expect(await (await request('/account/', { cookie })).text()).toContain(
-			'Taro の MacBook の「教室の WebLAV」('
+			'「Taro の MacBook」の「教室の WebLAV」('
 		);
 	});
 
@@ -102,7 +102,7 @@ describe('linking a PC', () => {
 		const { verifier, fields: unnamed } = await newLink('  ', '');
 		await approve(unnamed, cookie);
 		expect((await exchange(verifier)).status).toBe(200);
-		expect(await (await request('/account/', { cookie })).text()).toContain('PC の「WebLAV」(');
+		expect(await (await request('/account/', { cookie })).text()).toContain('「PC」の「WebLAV」(');
 	});
 });
 
@@ -116,7 +116,7 @@ describe('app tokens', () => {
 	it('lists linked WebLAV on the account page and removes one from there', async () => {
 		const { cookie, token } = await linkApp('apps@example.com');
 		const home = await (await request('/account/', { cookie })).text();
-		expect(home).toContain('登録している PC');
+		expect(home).toContain('登録しているコンピューター');
 		const id = home.match(/name="id" value="([0-9a-f]+)"/)![1];
 		// ほかのアカウントからは外せない。
 		const other = await signIn('not-mine@example.com');
@@ -125,7 +125,7 @@ describe('app tokens', () => {
 		expect((await postForm('/account/apps/unlink', { id }, cookie)).status).toBe(303);
 		expect((await app('/v1/balance', token)).status).toBe(401);
 		expect(await (await request('/account/', { cookie })).text()).toContain(
-			'登録している PC はありません'
+			'登録しているコンピューターはありません'
 		);
 	});
 });
