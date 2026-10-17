@@ -109,7 +109,7 @@ fn file_url(file: &str) -> String {
     format!("/api/v1/link-previews/files/{file}")
 }
 
-pub(super) fn now_secs() -> i64 {
+fn now_secs() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |elapsed| {

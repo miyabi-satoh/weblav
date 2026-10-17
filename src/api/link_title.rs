@@ -580,14 +580,21 @@ fn parse_attributes(tag: &str) -> Vec<(String, String)> {
     attrs
 }
 
-/// 実体参照を戻し、空白をつめて `max_chars` 文字で切る。空なら `None`。
+/// 実体参照を戻し、1行にして `max_chars` 文字で切る。空なら `None`。
 fn normalize_text(raw: &str, max_chars: usize) -> Option<String> {
-    let text = decode_entities(raw);
-    let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    if text.is_empty() {
-        return None;
-    }
-    Some(text.chars().take(max_chars).collect())
+    let text = one_line(&decode_entities(raw), max_chars);
+    (!text.is_empty()).then_some(text)
+}
+
+/// 空白の並び (改行を含む) を1つの空白にし、制御文字を除いて、`max` 文字で切る。
+pub(super) fn one_line(text: &str, max: usize) -> String {
+    text.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .filter(|c| !c.is_control())
+        .take(max)
+        .collect()
 }
 
 /// 最初の `<title>` の中身。実体参照を戻し、空白をつめる。

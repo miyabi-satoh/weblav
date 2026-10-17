@@ -277,7 +277,7 @@ async fn get_availability(
     user: AuthUser,
     State(state): State<AppState>,
 ) -> Result<Json<AiAvailabilityResponse>, AppError> {
-    let available = state.ai.is_linked() && ai::is_allowed(&state.pool, &user).await?;
+    let available = ai::is_usable(&state, &user).await?;
     Ok(Json(AiAvailabilityResponse { available }))
 }
 

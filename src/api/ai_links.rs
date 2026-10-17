@@ -16,6 +16,7 @@ use utoipa_axum::routes;
 
 use super::contents::{self, ContentType, Visibility};
 use super::link_preview::{self, LinkPreview};
+use super::link_title::one_line;
 use crate::ai::{self, Caller, Prompt, SearchQuery, SearchResult, UsageKind};
 use crate::auth::{AuthUser, Viewer};
 use crate::error::{AppError, AppJson};
@@ -255,6 +256,12 @@ async fn group(pool: &SqlitePool, id: i64) -> Result<Group, AppError> {
     .ok_or(AppError::NotFound)
 }
 
+/// `user` が書き換えられるグループ。グループでなければ 404、書き換えられなければ 403 か 404。
+async fn editable_group(pool: &SqlitePool, user: &AuthUser, id: i64) -> Result<(), AppError> {
+    let group = group(pool, id).await?;
+    contents::ensure_editable(user, group.visibility, group.created_by)
+}
+
 /// 集めるグループの設定と、集め直しの記録。
 struct Feed {
     enabled: bool,
@@ -360,14 +367,11 @@ fn is_due(
 
 /// 検索キーワードを、前後の空白を除いて確かめる。
 fn parse_interests(text: &str) -> Result<String, AppError> {
-    let text = text.trim();
-    if text.is_empty() {
-        return Err(AppError::Validation("interests are required".to_string()));
-    }
+    let text = super::validate::trimmed_non_empty(text, "interests are required")?;
     if text.encode_utf16().count() > MAX_INTEREST_UNITS {
         return Err(AppError::Validation("interests are too long".to_string()));
     }
-    Ok(text.to_string())
+    Ok(text)
 }
 
 /// 自動の更新の設定を確かめ、使わない項目を落とす。
@@ -518,7 +522,9 @@ fn candidates(found: Vec<SearchResult>) -> Vec<SearchResult> {
     let mut seen = HashSet::new();
     found
         .into_iter()
-        .filter(|result| result.url.starts_with("https://") || result.url.starts_with("http://"))
+        .filter(|result| {
+            url::Url::parse(&result.url).is_ok_and(|url| matches!(url.scheme(), "http" | "https"))
+        })
         .filter(|result| {
             result.url.len() <= MAX_URL_BYTES
                 && !result.url.contains(char::is_whitespace)
@@ -532,17 +538,6 @@ fn candidates(found: Vec<SearchResult>) -> Vec<SearchResult> {
                 .filter(|date| !date.is_empty()),
             ..result
         })
-        .collect()
-}
-
-/// 空白の並び (改行を含む) を1つの空白にし、制御文字を除いて、`max` 文字で切る。
-fn one_line(text: &str, max: usize) -> String {
-    text.split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .chars()
-        .filter(|c| !c.is_control())
-        .take(max)
         .collect()
 }
 
@@ -612,7 +607,7 @@ async fn response(
     let urls: Vec<String> = rows.iter().map(|row| row.url.clone()).collect();
     let mut previews = link_preview::cached(&state.pool, &urls).await?;
     let can_refresh = match viewer {
-        Viewer::User(user) => state.ai.is_linked() && ai::is_allowed(&state.pool, user).await?,
+        Viewer::User(user) => ai::is_usable(state, user).await?,
         Viewer::Anonymous => false,
     };
     let clock = clock(&state.pool).await?;
@@ -783,8 +778,7 @@ async fn put_ai_links_settings(
     Path(id): Path<i64>,
     AppJson(payload): AppJson<AiLinksSettingsRequest>,
 ) -> Result<Json<AiLinksSettings>, AppError> {
-    let group = group(&state.pool, id).await?;
-    contents::ensure_editable(&user, group.visibility, group.created_by)?;
+    editable_group(&state.pool, &user, id).await?;
     let Some(text) = payload.interests else {
         sqlx::query!(
             "UPDATE ai_link_groups SET enabled = FALSE WHERE content_id = ?",
@@ -1104,8 +1098,7 @@ async fn exclude_ai_link(
     Path(id): Path<i64>,
     AppJson(payload): AppJson<ExcludeAiLinkRequest>,
 ) -> Result<Json<AiLinkExclusion>, AppError> {
-    let group = group(&state.pool, id).await?;
-    contents::ensure_editable(&user, group.visibility, group.created_by)?;
+    editable_group(&state.pool, &user, id).await?;
     let title = sqlx::query_scalar!(
         "SELECT title FROM ai_links WHERE content_id = ? AND url = ?",
         id,
@@ -1118,7 +1111,7 @@ async fn exclude_ai_link(
         ExclusionKind::Page => payload.url,
         ExclusionKind::Site => site_of(&payload.url).ok_or(AppError::NotFound)?,
     };
-    let now = link_preview::now_secs();
+    let now = clock(&state.pool).await?.now;
     let exclusion = sqlx::query_as!(
         AiLinkExclusion,
         r#"INSERT INTO ai_link_exclusions (content_id, kind, value, title, created_at) VALUES (?, ?, ?, ?, ?)
@@ -1151,8 +1144,7 @@ async fn delete_ai_link_exclusion(
     State(state): State<AppState>,
     Path((id, exclusion_id)): Path<(i64, i64)>,
 ) -> Result<StatusCode, AppError> {
-    let group = group(&state.pool, id).await?;
-    contents::ensure_editable(&user, group.visibility, group.created_by)?;
+    editable_group(&state.pool, &user, id).await?;
     let deleted = sqlx::query!(
         "DELETE FROM ai_link_exclusions WHERE id = ? AND content_id = ?",
         exclusion_id,
@@ -1185,7 +1177,6 @@ mod tests {
             title: String::new(),
             url: url.to_string(),
             date: None,
-            snippet: String::new(),
         }
     }
 
