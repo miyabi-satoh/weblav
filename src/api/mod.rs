@@ -7,6 +7,7 @@ mod archive_items;
 mod auth;
 pub mod backup;
 mod browser;
+mod chat_file;
 mod completed_reader;
 mod connection_info;
 mod contents;

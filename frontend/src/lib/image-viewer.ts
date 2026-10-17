@@ -173,6 +173,13 @@ export async function openImageViewer(
 	});
 	viewer.on('destroy', () => resize.disconnect());
 
+	// 見ている画像を簡易チャットへ渡す (→ docs/ui.md「AI に聞く」)。
+	viewer.on('change', () => {
+		const image = images[viewer.currIndex];
+		if (image) aiChat.setFile('image', { name: image.title, src: image.src, sendsContent: true });
+	});
+	viewer.on('destroy', () => aiChat.setFile('image', null));
+
 	viewer.addFilter('thumbEl', (thumbnail, data) => {
 		const rowThumbnail = document.querySelector<HTMLElement>(
 			`img[${THUMBNAIL_FOR_ATTRIBUTE}="${CSS.escape(data.src ?? '')}"]`

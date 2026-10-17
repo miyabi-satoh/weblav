@@ -34,7 +34,11 @@ const AI_TIMEOUT: Duration = Duration::from_secs(60);
 const PENDING_TTL_SECS: i64 = 30 * 60;
 
 /// 窓口が受ける、指示文と文の合計の上限 (UTF-16 の単位)。送る前に確かめて、送る時間を使わずに断る。
-const MAX_INPUT_UNITS: usize = 200_000;
+pub const MAX_INPUT_UNITS: usize = 200_000;
+
+/// 窓口が受ける、添付の大きさ (base64 にした文字数) の上限。元のファイルで約 10 MB。
+/// 窓口の `MAX_ATTACHMENT_CHARS` と揃える。送る前に確かめて、送る時間を使わずに断る。
+pub const MAX_ATTACHMENT_CHARS: usize = 14_000_000;
 
 /// 窓口が使った量を返すヘッダー。1回の購入で付く量を 1,000,000 とした整数。
 const USED_HEADER: &str = "x-weblav-used";
@@ -80,6 +84,16 @@ pub struct Prompt {
     pub system: Option<String>,
     /// 文。
     pub user: String,
+    /// 添付するファイル。窓口が受ける種類 (PDF・PNG・JPEG・WebP) だけ。
+    pub attachment: Option<Attachment>,
+}
+
+/// 添付するファイル。
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct Attachment {
+    pub mime_type: &'static str,
+    /// 中身の base64。
+    pub data: String,
 }
 
 /// 使った機能。`ai_usage.kind` に入る。
@@ -410,7 +424,12 @@ pub async fn generate<'a>(
 ) -> Result<String, AppError> {
     let caller = caller.into();
     ensure_callable(state, caller).await?;
-    if input_units(&prompt) > MAX_INPUT_UNITS {
+    if input_units(&prompt) > MAX_INPUT_UNITS
+        || prompt
+            .attachment
+            .as_ref()
+            .is_some_and(|file| file.data.len() > MAX_ATTACHMENT_CHARS)
+    {
         return Err(AppError::AiTooLarge);
     }
     let ai = Arc::clone(&state.ai);
@@ -649,6 +668,8 @@ struct AiBody<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     system: Option<&'a str>,
     user: &'a str,
+    #[serde(skip_serializing_if = "<[_]>::is_empty")]
+    attachments: &'a [Attachment],
     #[serde(skip_serializing_if = "Option::is_none")]
     task: Option<&'static str>,
 }
@@ -699,6 +720,7 @@ fn post_ai(
     let body = AiBody {
         system: prompt.system.as_deref(),
         user: &prompt.user,
+        attachments: prompt.attachment.as_slice(),
         task,
     };
     // 答えの文が無い返事 (安全のための打ち切りなど) は、AI の側の失敗として伝える。
@@ -925,6 +947,7 @@ mod tests {
             system: Some("ab".to_string()),
             // 絵文字は UTF-16 で2単位。窓口 (JavaScript の `length`) と同じ数え方にする。
             user: "あ😀".to_string(),
+            attachment: None,
         };
         assert_eq!(input_units(&prompt), 5);
     }

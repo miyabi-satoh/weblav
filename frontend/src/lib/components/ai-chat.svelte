@@ -1,9 +1,11 @@
 <script lang="ts">
+	import PaperclipIcon from '@lucide/svelte/icons/paperclip';
+	import PlusIcon from '@lucide/svelte/icons/plus';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { tick, untrack } from 'svelte';
 	import { page } from '$app/state';
-	import { AI_CHAT_PANEL_ID, aiChat } from '$lib/ai-chat.svelte';
+	import { AI_CHAT_PANEL_ID, aiChat, type AiChatFile } from '$lib/ai-chat.svelte';
 	import { client } from '$lib/api/client';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { fetchOrNull } from '$lib/api/load';
@@ -28,6 +30,8 @@
 	const SHEET_MAX = 0.85;
 	/** 矢印キーで高さを変える1回の幅。 */
 	const SHEET_STEP = 0.05;
+	/** 付けられるファイルの大きさ。窓口が受ける添付の上限 (base64 で 1,400 万文字) を元の大きさに直したもの。 */
+	const MAX_FILE_BYTES = (14_000_000 / 4) * 3;
 
 	// AI を使える人にだけボタンを出す。ログインし直したときと、コンピューターの登録が変わったときに確かめ直す。
 	let userId = $derived(page.data.user?.id ?? null);
@@ -57,6 +61,18 @@
 	let prompt = $state('');
 	let sending = $state(false);
 	let answer = $state<string | null>(null);
+	/** 答えが、どのファイルについてのものか。ファイルを付けずに聞いたなら `null`。 */
+	let answerAbout = $state<string | null>(null);
+	/**
+	 * 見ているファイルを付けるか (→ docs/ui.md「AI に聞く」)。最初から付け、× で外す。
+	 * 外したのは、そのファイルの間だけ。別のファイルに移ったら付け直す。
+	 */
+	let detached = $state(false);
+	$effect.pre(() => {
+		void aiChat.file?.src;
+		detached = false;
+	});
+	let attached = $derived(detached ? null : aiChat.file);
 	let failure = $state<string | null>(null);
 	let promptInput = $state<HTMLTextAreaElement | null>(null);
 	let openButton = $state<HTMLButtonElement | null>(null);
@@ -106,17 +122,55 @@
 		// 前の答えを残すと、新しい質問の答えに見えるため。
 		answer = null;
 		failure = null;
+		const about = attached;
 		try {
-			const { data, error } = await client.POST('/api/v1/ai/chat', { body: { prompt } });
+			const file = about === null ? undefined : await fileOf(about);
+			if (file === null) {
+				failure = m.ai_chat_file_too_large();
+				return;
+			}
+			const { data, error } = await client.POST('/api/v1/ai/chat', { body: { prompt, file } });
 			// 待つ間に人が替わったら、前の人の答えを出さない。
 			if (userId !== asker) return;
-			if (data) answer = data.answer;
-			else failure = errorMessage(error);
+			if (data) {
+				answer = data.answer;
+				answerAbout = about?.name ?? null;
+			} else failure = errorMessage(error);
 		} catch {
 			if (userId === asker) failure = GENERIC_ERROR_MESSAGE();
 		} finally {
 			sending = false;
 		}
+	}
+
+	/**
+	 * 付けるファイルを、送る形にする。中身はビューアーが開いている URL から、見ている人の権限で取る。
+	 * 大きすぎて送れなければ `null`。
+	 */
+	async function fileOf(
+		file: AiChatFile
+	): Promise<{ name: string; mimeType?: string; data?: string } | null> {
+		if (!file.sendsContent) return { name: file.name };
+		const response = await fetch(file.src);
+		if (!response.ok) throw new Error(`failed to read ${file.src}`);
+		// 大きさが分かれば、取り終える前に断る。大きなファイルを丸ごとメモリに読まないように。
+		if (Number(response.headers.get('content-length') ?? 0) > MAX_FILE_BYTES) {
+			await response.body?.cancel();
+			return null;
+		}
+		const blob = await response.blob();
+		if (blob.size > MAX_FILE_BYTES) return null;
+		return { name: file.name, mimeType: blob.type || undefined, data: await base64Of(blob) };
+	}
+
+	function base64Of(blob: Blob): Promise<string> {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			// data URL (`data:<種類>;base64,<中身>`) の中身だけを使う。
+			reader.onload = () => resolve(String(reader.result).replace(/^[^,]*,/, ''));
+			reader.onerror = () => reject(reader.error);
+			reader.readAsDataURL(blob);
+		});
 	}
 
 	// 改行は Enter のまま、送るのは Ctrl+Enter (macOS は ⌘+Enter)。長めの質問を書けるように。
@@ -220,6 +274,38 @@
 		</div>
 		<div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4">
 			<form onsubmit={send} class="flex flex-col gap-4">
+				{#if aiChat.file}
+					<div class="flex flex-col gap-1">
+						{#if attached}
+							<div
+								class="flex min-h-10 items-center gap-2 rounded-md border bg-muted/50 pr-1 pl-3 text-sm"
+							>
+								<PaperclipIcon class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+								<span class="min-w-0 flex-1 truncate">{attached.name}</span>
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									aria-label={m.ai_chat_file_remove_label({ name: attached.name })}
+									onclick={() => (detached = true)}
+								>
+									<XIcon />
+								</Button>
+							</div>
+							{#if !attached.sendsContent}
+								<p class="text-sm text-muted-foreground">{m.ai_chat_file_name_only()}</p>
+							{/if}
+						{:else}
+							<Button
+								variant="outline"
+								class="justify-start border-dashed"
+								onclick={() => (detached = false)}
+							>
+								<PlusIcon />
+								{m.ai_chat_file_attach_button()}
+							</Button>
+						{/if}
+					</div>
+				{/if}
 				<Field.Field>
 					<Field.FieldLabel for="ai-chat-prompt">{m.ai_chat_prompt_label()}</Field.FieldLabel>
 					<Textarea
@@ -241,6 +327,11 @@
 					<p class="text-sm text-destructive">{failure}</p>
 				{:else if answer !== null}
 					<p class="text-sm font-semibold">{m.ai_chat_answer_label()}</p>
+					{#if answerAbout !== null}
+						<p class="text-sm text-muted-foreground">
+							{m.ai_chat_answer_about({ name: answerAbout })}
+						</p>
+					{/if}
 					<p class="text-sm wrap-anywhere whitespace-pre-wrap">{answer}</p>
 				{/if}
 			</div>

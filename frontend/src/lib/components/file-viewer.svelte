@@ -38,6 +38,20 @@
 		fileViewer.open = false;
 	});
 
+	// 見ているファイルを簡易チャットへ渡す (→ docs/ui.md「AI に聞く」)。動画と埋め込みのプレイヤーは名前だけを送る。
+	$effect(() => {
+		aiChat.setFile(
+			'file',
+			fileViewer.open && current
+				? {
+						name: current.fileName || current.title,
+						src: current.src,
+						sendsContent: current.kind !== 'video' && current.kind !== 'embed'
+					}
+				: null
+		);
+	});
+
 	// 別のファイルに移ったら、倍率と読めなかった印を戻す。
 	$effect.pre(() => {
 		void current?.src;

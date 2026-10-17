@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, it, vi } from 'vitest';
-import { costOf, parsePrompt, relay } from '../src/ai';
+import { costOf, inputEstimate, parsePrompt, relay } from '../src/ai';
 import { pricing } from '../src/pricing';
 import { geminiAnswers } from './helpers';
 
@@ -57,6 +57,24 @@ describe('parsePrompt', () => {
 		expect(parsePrompt({ user: 'x', attachments: [pdf, pdf] })).toBe('too_long');
 		const large = { mime_type: 'image/png', data: 'A'.repeat(14_000_004) };
 		expect(parsePrompt({ user: 'x', attachments: [large] })).toBe('too_long');
+	});
+});
+
+describe('inputEstimate', () => {
+	const pdf = (body: string) => ({ mime_type: 'application/pdf', data: btoa(body) });
+
+	it('counts the pages of a PDF and a fixed amount for an image', () => {
+		const twoPages = pdf(
+			'<< /Type /Pages /Count 2 >> << /Type /Page >> << /Type/Page /Parent 1 >>'
+		);
+		expect(inputEstimate({ user: 'abc', attachments: [twoPages] })).toBe(3 + 2 * 1_120);
+		const image = { mime_type: 'image/png', data: btoa('x'.repeat(300_000)) };
+		expect(inputEstimate({ user: '', attachments: [image] })).toBe(1_120);
+	});
+
+	it('falls back to the size when the pages are compressed', () => {
+		const compressed = pdf('x'.repeat(120_000));
+		expect(inputEstimate({ user: '', attachments: [compressed] })).toBe(3 * 1_120);
 	});
 });
 

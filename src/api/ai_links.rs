@@ -953,6 +953,7 @@ async fn queries(
     let prompt = Prompt {
         system: Some(QUERY_SYSTEM.to_string()),
         user: query_prompt(&feed.interests, language),
+        attachment: None,
     };
     let answer = ai::generate(state, caller, UsageKind::Links, prompt).await?;
     let queries = parse_queries(&answer).ok_or(AppError::AiUpstream)?;
