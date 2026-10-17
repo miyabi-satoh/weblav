@@ -171,11 +171,6 @@
 
 {#if browseLayout.tile}
 	<div class={linkTileClass}>
-		{#if actions}
-			<span class={[browseRowAboveClass, 'absolute top-2 right-2 rounded-md bg-background']}
-				>{@render actions()}</span
-			>
-		{/if}
 		<span class="flex aspect-video w-full items-center justify-center overflow-hidden bg-muted">
 			{#if imageUrl}
 				<!-- 行のタイトルが何の画像かを伝えるので、読み上げでは飛ばす。 -->
@@ -202,6 +197,12 @@
 				{@render meta(false)}
 				{#if !viewer && !opensDetail}
 					<ExternalLinkIcon class="ml-auto size-4 shrink-0" strokeWidth={1.8} />
+				{/if}
+				<!-- Google Discover のカードに倣い、下の段の右端に置く。負の余白は、ボタン (32px) で段を高くしないため。 -->
+				{#if actions}
+					<span class={[browseRowAboveClass, '-my-2 -mr-2 ml-auto shrink-0']}
+						>{@render actions()}</span
+					>
 				{/if}
 			</span>
 		</span>
