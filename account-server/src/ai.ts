@@ -130,7 +130,13 @@ const PDF_BYTES_PER_PAGE_FALLBACK = 50_000;
  * 圧縮した中にしか無ければ数えられないので `undefined`。見積もりにだけ使うので、厳密でなくてよい。
  */
 export function pdfPageCount(base64: string): number | undefined {
-	const bytes = atob(base64);
+	let bytes: string;
+	try {
+		bytes = atob(base64);
+	} catch {
+		// base64 でない中身は Gemini が断るので、見積もりは大きさで済ませる。
+		return undefined;
+	}
 	const pages = bytes.match(/\/Type\s*\/Page(?![a-zA-Z])/g)?.length ?? 0;
 	return pages > 0 ? pages : undefined;
 }

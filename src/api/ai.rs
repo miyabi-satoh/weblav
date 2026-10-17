@@ -355,6 +355,13 @@ async fn chat(
     Ok(Json(AiChatResponse { answer }))
 }
 
+/// 指示文に入れるファイルの名前。引用符と山括弧と制御文字を除き、名前で文や要素を閉じられないようにする。
+fn prompt_safe_name(name: &str) -> String {
+    name.chars()
+        .filter(|c| !matches!(c, '"' | '<' | '>') && !c.is_control())
+        .collect()
+}
+
 /// 付けたファイルを送る形に直し、質問と合わせる。
 async fn chat_prompt_with_file(question: String, file: AiChatFile) -> Result<ai::Prompt, AppError> {
     // 直す前に大きさを見て、大きなファイルを読み解く手間を掛けずに断る。
@@ -365,7 +372,7 @@ async fn chat_prompt_with_file(question: String, file: AiChatFile) -> Result<ai:
     {
         return Err(AppError::AiTooLarge);
     }
-    let name = file.name.clone();
+    let name = prompt_safe_name(&file.name);
     let converted = run_blocking(move || {
         use base64::Engine as _;
         let data = file
@@ -381,10 +388,14 @@ async fn chat_prompt_with_file(question: String, file: AiChatFile) -> Result<ai:
             format!("{question}\n\n(The attached file is \"{name}\".)"),
             Some(attachment),
         ),
-        super::chat_file::Converted::Text(text) => (
-            format!("{question}\n\n<file name=\"{name}\">\n{text}\n</file>"),
-            None,
-        ),
+        super::chat_file::Converted::Text(text) => {
+            // 中身が `</file>` を書いて要素を閉じ、その外に指示を書いたように見せられないように。
+            let text = text.replace("</file", "<\\/file");
+            (
+                format!("{question}\n\n<file name=\"{name}\">\n{text}\n</file>"),
+                None,
+            )
+        }
         super::chat_file::Converted::NameOnly => (
             format!("{question}\n\n(The user is viewing \"{name}\". Its content is not attached.)"),
             None,

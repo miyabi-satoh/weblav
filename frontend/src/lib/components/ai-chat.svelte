@@ -153,6 +153,11 @@
 		if (!file.sendsContent) return { name: file.name };
 		const response = await fetch(file.src);
 		if (!response.ok) throw new Error(`failed to read ${file.src}`);
+		// 大きさが分かれば、取り終える前に断る。大きなファイルを丸ごとメモリに読まないように。
+		if (Number(response.headers.get('content-length') ?? 0) > MAX_FILE_BYTES) {
+			await response.body?.cancel();
+			return null;
+		}
 		const blob = await response.blob();
 		if (blob.size > MAX_FILE_BYTES) return null;
 		return { name: file.name, mimeType: blob.type || undefined, data: await base64Of(blob) };
