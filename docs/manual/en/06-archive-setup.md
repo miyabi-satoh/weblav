@@ -76,16 +76,16 @@ Use “Match position” to choose where in the file name a word must occur.
 
 If you are not sure how to set up the axes, you can have the AI service you use (ChatGPT, Claude, and so on) design them. You paste the prompt and the answer yourself, so WebLAV sends nothing to the AI in these steps.
 
-1. On the "Axes" tab, press "Ask an AI..."
+1. On the "Axes" tab, press "Ask an AI...". If you can use "Send to the AI from WebLAV" below, a screen to choose appears first. Under "Use another AI service", press "Show steps"
 2. Copy the prompt, then paste it into the AI service and send it. The prompt contains file paths, so check that it contains no names of people
 3. Paste the AI's answer into "Paste the AI's answer" and press "Check"
-4. Look at how many files get a value for each axis and at the examples of display titles. If they look right, press "Import"
+4. Look at how many files get a value for each axis and at the examples of display titles. If they look right, press "Import". To change the answer, press "Back" to return to the answer field
 
 Importing replaces the current axes and the display title. After importing, you can edit them like any other axes.
 
 ### Send to the AI from WebLAV
 
-If an admin has registered this computer with a WebLAV account and you are allowed to use AI, “Send to the AI and get a suggestion” appears at the top of the same screen (→ [Use the AI features](10-ai.md)). Selecting it makes WebLAV send the prompt to the AI, put the answer in the field, and run the check. No pasting is needed.
+If an admin has registered this computer with a WebLAV account and you are allowed to use AI, “Send to the AI and get a suggestion” appears on the first screen after you press “Ask an AI...” (→ [Use the AI features](10-ai.md)). Selecting it makes WebLAV send the prompt to the AI, and when the answer comes back, it shows what the import will look like. No pasting is needed.
 
 - The names of the folders and files in the archive are sent to Google (Gemini) through the WebLAV account server.
 - It uses credit from the account.
