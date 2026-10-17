@@ -123,7 +123,7 @@ impl AppDirs {
         self.data_dir.join(ADDR_FILE_NAME)
     }
 
-    /// PC の登録の状態 (アプリ用のトークンなど) を置くファイル (→ `crate::ai`、docs/ai.md「PC の登録」)。
+    /// コンピューターの登録の状態 (アプリ用のトークンなど) を置くファイル (→ `crate::ai`、docs/ai.md「コンピューターの登録」)。
     /// この PC と窓口のアカウントを結ぶものなので、バックアップには入れない。
     pub fn ai_account_path(&self) -> PathBuf {
         self.data_dir.join(AI_ACCOUNT_FILE_NAME)

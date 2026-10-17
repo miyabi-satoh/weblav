@@ -12,7 +12,7 @@ import {
 	signIn
 } from '../helpers';
 
-describe('linking a PC', () => {
+describe('registering a computer', () => {
 	it('signs in first, approves on the account page, and hands the token to the polling WebLAV', async () => {
 		const email = 'owner@example.com';
 		const { verifier, fields } = await newLink('教室の WebLAV', 'Taro の MacBook');

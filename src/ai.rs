@@ -1,4 +1,4 @@
-//! AI の機能の土台 (→ docs/ai.md)。PC の登録の状態を持ち、窓口 (→ docs/account-server.md) を呼び、
+//! AI の機能の土台 (→ docs/ai.md)。コンピューターの登録の状態を持ち、窓口 (→ docs/account-server.md) を呼び、
 //! 誰がどれだけ使ったかを記録する。画面から呼ぶ口は `api::ai`。
 
 use std::path::PathBuf;
@@ -43,7 +43,7 @@ pub const MAX_ATTACHMENT_CHARS: usize = 14_000_000;
 /// 窓口が使った量を返すヘッダー。1回の購入で付く量を 1,000,000 とした整数。
 const USED_HEADER: &str = "x-weblav-used";
 
-/// PC の登録の状態。ファイルが無ければ未登録。
+/// コンピューターの登録の状態。ファイルが無ければ未登録。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum Account {
@@ -158,7 +158,7 @@ impl<T> Relayed<T> {
     }
 }
 
-/// 動いている WebLAV の、PC の登録の状態と窓口の場所。起動したときにファイルを読む。
+/// 動いている WebLAV の、コンピューターの登録の状態と窓口の場所。起動したときにファイルを読む。
 ///
 /// ファイルの読み書きと窓口の呼び出しは同期なので、`is_linked` 以外のメソッドは `run_blocking` に載せて呼ぶ。
 pub struct Ai {
@@ -402,7 +402,7 @@ pub enum Caller<'a> {
     /// ログインしている人が操作した。
     User(&'a AuthUser),
     /// AI が集めるリンクの自動の更新 (→ docs/ai.md「自動の更新」)。グループが開かれたのをきっかけに、誰が開いても走る。
-    /// 使ってよいかは、設定をオンにした人 (グループを書き換えられる人) が決めているので、PC の登録だけを確かめる。
+    /// 使ってよいかは、設定をオンにした人 (グループを書き換えられる人) が決めているので、コンピューターの登録だけを確かめる。
     Auto,
 }
 
@@ -516,7 +516,7 @@ fn input_units(prompt: &Prompt) -> usize {
     units(&prompt.user) + prompt.system.as_deref().map_or(0, units)
 }
 
-/// 管理者が開いて PC の登録を認める、窓口の画面の URL。
+/// 管理者が開いて コンピューターの登録を認める、窓口の画面の URL。
 /// 窓口には検証用の値のハッシュだけを見せる。URL を見た人がトークンに替えられないように。
 pub fn link_url(server: &str, code_verifier: &str, site_name: &str, pc_name: &str) -> String {
     let challenge = challenge(code_verifier);
@@ -534,7 +534,7 @@ fn challenge(code_verifier: &str) -> String {
 }
 
 /// 窓口の画面と WebLAV の画面の両方に出す確認コード。`challenge` の頭の6桁を大文字にしたもの
-/// (→ docs/account-server.md「PC をアカウントに登録する」)。
+/// (→ docs/account-server.md「コンピューターをアカウントに登録する」)。
 pub fn confirmation_code(code_verifier: &str) -> String {
     challenge(code_verifier)[..6].to_ascii_uppercase()
 }
