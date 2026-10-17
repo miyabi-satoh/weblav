@@ -140,7 +140,10 @@
 		}
 	}
 
-	/** プロンプトを AI に送り、返った答えを、貼り付けたときと同じ欄と確かめに流す。 */
+	/**
+	 * プロンプトを AI に送り、返った答えを貼り付けたときと同じ確かめに流す。通れば予告の画面に移り、
+	 * 読めない答えはこの画面で知らせる。
+	 */
 	async function generate() {
 		if (!prompt || generating) return;
 		const current = session;
@@ -169,14 +172,17 @@
 			showPreview('choose');
 		} else {
 			// AI の答えが読めないときは、送った画面で知らせる。答えの欄はこの画面に無いため。
+			// 読めない答えは残す値が無いので、外側や Esc で閉じられる状態に戻す。
 			generateError = checkError;
 			checkError = null;
+			answer = '';
+			answerForm.markPristine();
 		}
 	}
 
 	async function checkPasted() {
 		await check();
-		if (checked) showPreview('manual');
+		if (ready) showPreview('manual');
 	}
 
 	function showPreview(from: 'choose' | 'manual') {
@@ -230,7 +236,8 @@
 	}
 
 	/** 取り込めなかったら、答えを作った画面に戻ってそこで知らせる。 */
-	function failImport(message: string) {
+	function failImport(message: string, current: number) {
+		if (current !== session) return;
 		checked = null;
 		step = previewFrom;
 		if (previewFrom === 'choose') generateError = message;
@@ -239,6 +246,7 @@
 
 	async function importAxes() {
 		if (!checked || !ready) return;
+		const current = session;
 		importing = true;
 		try {
 			const { error } = await client.PUT('/api/v1/contents/{id}/axes', {
@@ -246,17 +254,18 @@
 				body: checked.request
 			});
 			if (error) {
-				failImport(answerErrorMessage(error));
+				failImport(answerErrorMessage(error), current);
 				return;
 			}
 		} catch {
-			failImport(GENERIC_ERROR_MESSAGE());
+			failImport(GENERIC_ERROR_MESSAGE(), current);
 			return;
 		} finally {
-			importing = false;
+			if (current === session) importing = false;
 		}
 		// 保存はできているので、読み直しに失敗しても取り込みは失敗と見せない。
-		open = false;
+		// 待つ間に閉じて開き直していたら、開き直した方は閉じない。
+		if (current === session) open = false;
 		toast.success(m.archive_axes_ai_imported_toast());
 		await onimported().catch(() => errorDialog.show(GENERIC_ERROR_MESSAGE()));
 	}
@@ -294,7 +303,9 @@
 				{#if generating}
 					<p class="text-sm text-muted-foreground">{m.archive_axes_ai_generate_waiting()}</p>
 				{/if}
-				{#if generateError}
+				{#if promptFailed}
+					<p role="alert" class="text-sm text-destructive">{m.archive_axes_ai_prompt_failed()}</p>
+				{:else if generateError}
 					<p role="alert" class="text-sm text-destructive">{generateError}</p>
 				{/if}
 			</section>
@@ -344,6 +355,7 @@
 						bind:value={answer}
 						rows={6}
 						class="max-h-64 font-mono text-xs"
+						disabled={checking}
 					/>
 				</Field.Field>
 				{#if checkError}
