@@ -414,11 +414,21 @@
 		if (axisBusy || deletingAxis === null) return;
 		axisDeleting = true;
 		const target = deletingAxis;
+		const originalTemplate = currentContent.titleTemplate ?? '';
+		let templateChanged = false;
+		// テンプレートを直した後に軸の削除だけが失敗したら、テンプレートを元に戻す。
+		// 軸が残ったまま、テンプレートからだけ消えた状態にしないため。
+		async function restoreTemplate() {
+			if (templateChanged) await putTemplate(originalTemplate);
+		}
 
 		try {
-			if (deletingAxisInTemplate && !(await putTemplate(templateAfterDelete))) {
-				deletingAxis = null;
-				return;
+			if (deletingAxisInTemplate) {
+				if (!(await putTemplate(templateAfterDelete))) {
+					deletingAxis = null;
+					return;
+				}
+				templateChanged = true;
 			}
 			const { error, response } = await client.DELETE('/api/v1/contents/{id}/axes/{axis_id}', {
 				params: { path: { id: data.contentId, axis_id: target.id } }
@@ -426,6 +436,7 @@
 			if (!response.ok) {
 				// 確認を開いたままにすると、エラーを閉じた後にもう一度キャンセルさせることになる。
 				deletingAxis = null;
+				await restoreTemplate();
 				errorDialog.show(errorMessage(error));
 				return;
 			}
@@ -434,6 +445,7 @@
 			deletingAxis = null;
 		} catch {
 			deletingAxis = null;
+			await restoreTemplate().catch(() => {});
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			axisDeleting = false;
