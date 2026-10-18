@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { invalidateAll } from '$app/navigation';
 	import { client } from '$lib/api/client';
@@ -13,10 +13,11 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Switch } from '$lib/components/ui/switch';
-	import { Textarea } from '$lib/components/ui/textarea';
+	import { Button } from '$lib/components/ui/button';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import IntegerInput from '$lib/components/integer-input.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
+	import XIcon from '@lucide/svelte/icons/x';
 
 	type Settings = components['schemas']['AiLinksSettings'];
 	type AutoMode = components['schemas']['AutoMode'];
@@ -45,7 +46,14 @@
 	const DEFAULT_TIME = '07:00';
 
 	let on = $state(untrack(() => settings.enabled));
-	let interests = $state(untrack(() => settings.interests ?? ''));
+	// 検索キーワードは1つの欄に1つの検索。サーバーには改行でつないで送る (→ docs/ai.md「AI が集めるリンク」)。
+	// 欄は今ある数だけ出し、足し引きできるようにする。多くの人は1〜3つしか使わず、空の欄を5つ並べると全部埋めるものに見えるため。
+	type QueryRow = { id: number; text: string };
+	let nextRowId = 0;
+	function rows(texts: string[]): QueryRow[] {
+		return (texts.length > 0 ? texts : ['']).map((text) => ({ id: nextRowId++, text }));
+	}
+	let queries = $state<QueryRow[]>(untrack(() => rows(queryLines(settings.interests ?? ''))));
 	let dailyLimit = $state(untrack(() => settings.dailyLimit));
 	let mode = $state<AutoMode>(untrack(() => settings.autoRefresh.mode));
 	let hours = $state(untrack(() => settings.autoRefresh.hours ?? DEFAULT_HOURS));
@@ -67,7 +75,7 @@
 
 	const form = new FormDirtyState(() => ({
 		on,
-		interests,
+		queries: queries.map((row) => row.text),
 		dailyLimit,
 		mode,
 		hours,
@@ -81,15 +89,23 @@
 	});
 
 	// 空白だけでは `required` を通ってしまうので、保存ボタンの側で止める。
-	let lines = $derived(queryLines(interests));
-	let interestsError = $derived(
-		lines.length > MAX_QUERIES
-			? m.contents_form_ai_interests_too_many({ max: MAX_QUERIES })
-			: lines.some((line) => line.length > MAX_QUERY_UNITS)
-				? m.contents_form_ai_interests_too_long({ max: MAX_QUERY_UNITS })
-				: null
-	);
-	let interestsMissing = $derived(on && (lines.length === 0 || interestsError !== null));
+	let interests = $derived(queryLines(queries.map((row) => row.text).join('\n')).join('\n'));
+	let interestsMissing = $derived(on && interests === '');
+
+	async function addQuery() {
+		const row = { id: nextRowId++, text: '' };
+		queries.push(row);
+		await tick();
+		document.getElementById(`content-ai-query-${row.id}`)?.focus();
+	}
+
+	async function removeQuery(index: number) {
+		queries.splice(index, 1);
+		await tick();
+		// 消した欄にあったフォーカスを、すぐ上の欄 (先頭を消したなら新しい先頭) へ移す。
+		const next = queries[Math.max(0, index - 1)];
+		document.getElementById(`content-ai-query-${next.id}`)?.focus();
+	}
 
 	let saving = $state(false);
 	const errorDialog = new ErrorDialogState();
@@ -148,25 +164,47 @@
 		</Field.Field>
 		{#if on}
 			<Field.FieldGroup>
-				<Field.Field>
-					<Field.FieldLabel for="content-ai-interests" required
-						>{m.contents_form_ai_interests_label()}</Field.FieldLabel
+				<Field.FieldSet>
+					<Field.FieldLegend variant="label"
+						>{m.contents_form_ai_interests_label()}
+						<span class="text-destructive" aria-hidden="true">*</span></Field.FieldLegend
 					>
-					<Textarea
-						id="content-ai-interests"
-						bind:value={interests}
-						aria-invalid={interestsError !== null}
-						required
-					/>
-					{#if interestsError !== null}
-						<Field.FieldError>{interestsError}</Field.FieldError>
-					{/if}
+					<div class="flex flex-col gap-2">
+						{#each queries as row, index (row.id)}
+							<div class="flex items-center gap-2">
+								<Input
+									id="content-ai-query-{row.id}"
+									bind:value={row.text}
+									maxlength={MAX_QUERY_UNITS}
+									aria-label={m.contents_form_ai_interests_row({ n: index + 1 })}
+								/>
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon-sm"
+									disabled={queries.length === 1}
+									aria-label={m.contents_form_ai_interests_remove({ n: index + 1 })}
+									onclick={() => removeQuery(index)}
+								>
+									<XIcon class="size-4" />
+								</Button>
+							</div>
+						{/each}
+					</div>
+					<div>
+						<Button
+							type="button"
+							variant="outline"
+							disabled={queries.length >= MAX_QUERIES}
+							onclick={addQuery}>{m.contents_form_ai_interests_add()}</Button
+						>
+					</div>
 					<Field.FieldDescription
 						>{m.contents_form_ai_interests_description({
 							max: MAX_QUERIES
 						})}</Field.FieldDescription
 					>
-				</Field.Field>
+				</Field.FieldSet>
 				<Field.FieldSet>
 					<Field.FieldLegend variant="label" id="content-ai-period-legend"
 						>{m.contents_form_ai_period_label()}</Field.FieldLegend
