@@ -258,6 +258,7 @@
 	"archive_scan_failed_title": "Couldn't scan the files",
 	"contents_menu_edit": "Edit",
 	"contents_menu_open": "Open",
+	"contents_menu_view": "View on site",
 	"contents_edit_view_only": "This content belongs to {creator}, so you can only view it. Ask an administrator to change it.",
 	"contents_edit_view_only_no_creator": "This content has no creator, so you can only view it. Ask an administrator to change it.",
 	"contents_form_creator_label": "Creator",

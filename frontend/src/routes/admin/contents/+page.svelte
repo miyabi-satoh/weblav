@@ -14,7 +14,7 @@
 	import { refreshAiLinks } from '$lib/ai-links';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { canEditContent, isAdmin } from '$lib/auth';
-	import { contentTypeLabel, visibilityLabel } from '$lib/content-labels';
+	import { archiveItemsSummary, contentTypeLabel, visibilityLabel } from '$lib/content-labels';
 	import {
 		ContentFormState,
 		contentFormEffectiveVisibility,
@@ -24,13 +24,8 @@
 	import { contentTypeIcon, isDirectoryContentType } from '$lib/content-types';
 	import { rescanArchive } from '$lib/archive-scan';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import {
-		childrenLoosenedByDeletingGroup,
-		loosenedByReparent,
-		selectableVisibilities
-	} from '$lib/visibility';
+	import { loosenedByReparent, selectableVisibilities } from '$lib/visibility';
 	import { ReparentDrag } from '$lib/reparent-drag.svelte';
-	import { formatNumber } from '$lib/format';
 	import * as m from '$lib/paraglide/messages.js';
 	import type { components } from '$lib/api/schema';
 	import ArrowUpToLineIcon from '@lucide/svelte/icons/arrow-up-to-line';
@@ -45,13 +40,14 @@
 	import ContentForm from '$lib/components/content-form.svelte';
 	import ContentTypeChooser from '$lib/components/content-type-chooser.svelte';
 	import DirPicker from '$lib/components/dir-picker.svelte';
-	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
+	import ContentDeleteDialog from '$lib/components/content-delete-dialog.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import LoadingLabel from '$lib/components/loading-label.svelte';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
+	import { contentViewHref } from '$lib/content-view-href';
 	import {
 		actionColumnClass,
 		cappedColumnClass,
@@ -112,15 +108,6 @@
 
 	// 削除確認ダイアログの対象。
 	let deletingContent = $state<Content | null>(null);
-	let deleting = $state(false);
-	// グループの削除でルート直下へ移り、見える範囲が広がる子。公開範囲は書き換えないので知らせる。
-	let loosenedChildren = $derived(
-		deletingContent?.type === 'group'
-			? childrenLoosenedByDeletingGroup(deletingContent.id, contents, contentById)
-			: []
-	);
-	// 子が多いと確定ボタンが画面の外へ押し出されるので、並べるのは先頭の数件にとどめる。
-	const LOOSENED_CHILDREN_SHOWN = 5;
 
 	let dirPickerOpen = $state(false);
 	let confirmRegisterOpen = $state(false);
@@ -317,31 +304,6 @@
 		}
 	}
 
-	async function handleDelete() {
-		if (deleting || deletingContent === null) return;
-		deleting = true;
-		const target = deletingContent;
-
-		try {
-			const { error, response } = await client.DELETE('/api/v1/contents/{id}', {
-				params: { path: { id: target.id } }
-			});
-			if (!response.ok) {
-				errorDialog.show(errorMessage(error));
-				return;
-			}
-			deletingContent = null;
-			// groupを削除すると配下のparentIdがサーバー側で書き換わる(ルート直下に昇格)。
-			// ローカルの`contents`を手動で書き換える(reparent結果をここで再現する)よりも、
-			// data.contentsを取り直す方が確実なので invalidateAll() で再取得する。
-			await invalidateAll();
-		} catch {
-			errorDialog.show(GENERIC_ERROR_MESSAGE());
-		} finally {
-			deleting = false;
-		}
-	}
-
 	// AI のリンクを集め直す (→ docs/ai.md「AI が集めるリンク」)。数秒かかるので、進み具合と結果はトーストで知らせる。
 	let refreshingLinks = $state<number | null>(null);
 
@@ -478,6 +440,12 @@
 											draggable="false"
 											data-testid="content-title">{content.title}</a
 										>
+										<!-- アーカイブは、公開し忘れ・公開しすぎに気づけるよう、アイテムの数をタイトルの下に出す (→ docs/ui.md「UI 全般」)。 -->
+										{#if content.archiveItems}
+											<span class="truncate text-xs text-muted-foreground"
+												>{archiveItemsSummary(content.archiveItems)}</span
+											>
+										{/if}
 										<!-- スマートフォン幅では公開範囲と作成者の列を隠し、タイトルの下の2段目に出す (→ docs/ui.md「UI 全般」)。 -->
 										<span
 											class="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground sm:hidden"
@@ -552,6 +520,19 @@
 												href={resolve('/admin/contents/[id]', { id: String(content.id) })}
 												{...props}>{editable ? m.contents_menu_edit() : m.contents_menu_open()}</a
 											>
+										{/snippet}
+									</DropdownMenu.Item>
+									<DropdownMenu.Item>
+										{#snippet child({ props })}
+											{@const view = contentViewHref(content)}
+											<!-- eslint-disable svelte/no-navigation-without-resolve -- contentViewHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
+											<a
+												href={view.href}
+												target={view.external ? '_blank' : undefined}
+												rel={view.external ? 'external noopener noreferrer' : undefined}
+												{...props}>{m.contents_menu_view()}</a
+											>
+											<!-- eslint-enable svelte/no-navigation-without-resolve -->
 										{/snippet}
 									</DropdownMenu.Item>
 									{#if editable}
@@ -668,45 +649,13 @@
 	onconfirm={saveContent}
 />
 
-<ConfirmDialog
-	bind:open={
-		() => deletingContent !== null,
-		(open) => {
-			if (!open) deletingContent = null;
-		}
-	}
-	title={m.contents_delete_confirm_title()}
-	busy={deleting}
-	onconfirm={handleDelete}
->
-	{m.common_delete_confirm_description()}
-	{#if deletingContent?.type === 'group'}
-		<br />
-		{m.contents_delete_confirm_group_note()}
-	{/if}
-	{#if loosenedChildren.length > 0}
-		<br />
-		{m.contents_delete_confirm_loosened_note({ count: formatNumber(loosenedChildren.length) })}
-		<ul class="mt-1 list-disc pl-5 text-left">
-			{#each loosenedChildren.slice(0, LOOSENED_CHILDREN_SHOWN) as { content, before } (content.id)}
-				<li>
-					{m.contents_delete_confirm_loosened_item({
-						title: content.title,
-						before: visibilityLabel(before),
-						after: visibilityLabel(content.visibility)
-					})}
-				</li>
-			{/each}
-			{#if loosenedChildren.length > LOOSENED_CHILDREN_SHOWN}
-				<li>
-					{m.contents_delete_confirm_loosened_more({
-						count: formatNumber(loosenedChildren.length - LOOSENED_CHILDREN_SHOWN)
-					})}
-				</li>
-			{/if}
-		</ul>
-	{/if}
-</ConfirmDialog>
+<!-- グループを消すと子がルート直下へ移るので、一覧を取り直して並びを作り直す。 -->
+<ContentDeleteDialog
+	bind:content={deletingContent}
+	{contents}
+	{contentById}
+	ondeleted={invalidateAll}
+/>
 
 <AlertDialog.Root
 	bind:open={

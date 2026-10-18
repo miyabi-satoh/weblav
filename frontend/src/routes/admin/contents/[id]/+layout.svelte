@@ -5,7 +5,14 @@
 	import { resolve } from '$app/paths';
 	import { navTabClass, navTabListClass } from '$lib/nav-tabs';
 	import { pageTitle } from '$lib/page-title';
-	import { contentTypeLabel } from '$lib/content-labels';
+	import { archiveItemsSummary, contentTypeLabel } from '$lib/content-labels';
+	import { byIdMap } from '$lib/content-tree';
+	import { contentViewHref } from '$lib/content-view-href';
+	import { gotoWithoutLeaveConfirm } from '$lib/leave-confirm';
+	import { Button } from '$lib/components/ui/button';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import ContentDeleteDialog from '$lib/components/content-delete-dialog.svelte';
+	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 	import { contentTypeIcon } from '$lib/content-types';
 	import { contentPathLabel } from '$lib/root-location';
 	import * as m from '$lib/paraglide/messages.js';
@@ -16,6 +23,9 @@
 	let { data, children }: LayoutProps = $props();
 
 	let content = $derived(data.content);
+	let contentById = $derived(byIdMap(data.contents));
+	let view = $derived(contentViewHref(content));
+	let deletingContent = $state<typeof content | null>(null);
 
 	// アーカイブは「基本情報 / 軸定義 / アイテム」を同列に並べる (→ docs/access.md「ロールと操作」)。
 	let tabs = $derived.by(() => {
@@ -56,7 +66,30 @@
 		<ChevronLeftIcon class="size-4" />
 		<span class="underline underline-offset-4">{m.admin_contents_nav_title()}</span>
 	</a>
-	<h1 class={['mt-2', pageHeadingTextClass]}>{content.title}</h1>
+	<!-- 閲覧画面へのリンクと⋮は、どのタブでも同じ所に出すので見出しの段に置く (→ docs/ui.md「UI 全般」)。 -->
+	<div class="mt-2 flex items-start gap-2">
+		<h1 class={['min-w-0 flex-1 wrap-anywhere', pageHeadingTextClass]}>{content.title}</h1>
+		<div class="flex shrink-0 items-center gap-1">
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- contentViewHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
+			<Button
+				variant="outline"
+				size="sm"
+				href={view.href}
+				target={view.external ? '_blank' : undefined}
+				rel={view.external ? 'external noopener noreferrer' : undefined}
+				>{m.contents_menu_view()}</Button
+			>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			<!-- 見るだけの人には消す操作が無いので、⋮ごと出さない。 -->
+			{#if data.editable}
+				<RowActionsMenu name={content.title}>
+					<DropdownMenu.Item variant="destructive" onSelect={() => (deletingContent = content)}>
+						{m.action_delete()}
+					</DropdownMenu.Item>
+				</RowActionsMenu>
+			{/if}
+		</div>
+	</div>
 	<!-- 種別は後から変えられないので、フォームではなくここに出す。
 	     区切りの「・」は見た目だけのものなので読み上げない。 -->
 	<p class="flex flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
@@ -67,6 +100,10 @@
 			<!-- パスは区切り以外に折り返せる場所が無く、そのままだと画面からはみ出す
 			     (スマートフォン幅)。どこでも折り返してよい扱いにする。 -->
 			<span class="min-w-0 wrap-anywhere">{location}</span>
+		{/if}
+		{#if content.archiveItems}
+			<span aria-hidden="true">・</span>
+			<span>{archiveItemsSummary(content.archiveItems)}</span>
 		{/if}
 		{#if content.extensions}
 			<span aria-hidden="true">・</span>
@@ -100,3 +137,11 @@
 {#key data.contentId}
 	{@render children()}
 {/key}
+
+<!-- 消したものの編集ページには戻れないので、一覧へ移る。 -->
+<ContentDeleteDialog
+	bind:content={deletingContent}
+	contents={data.contents}
+	{contentById}
+	ondeleted={() => gotoWithoutLeaveConfirm(resolve('/admin/contents'))}
+/>

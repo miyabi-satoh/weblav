@@ -116,6 +116,8 @@ To move an existing item:
 
 Open the edit page with “⋮” → “Edit”, make your changes, then select “Save”.
 
+To see how it looks to viewers, select “View on site” next to the heading of the edit page (it is also in the row’s “⋮” in the list). For an image, PDF, audio, or video file, this opens the group that contains it.
+
 ![The Link edit page. Below the title and description are buttons to refetch each one.](images/edit-link.webp)
 
 - Title and description
@@ -132,6 +134,8 @@ Open the edit page with “⋮” → “Edit”, make your changes, then select
 2. Select “Delete”.
 
    ![The Delete content confirmation](images/content-delete.webp)
+
+You can also delete from the edit page: select “⋮” next to the heading, then choose “Delete...”. After deleting, you return to the list.
 
 - Deleting a folder or archive does not delete files on your computer.
 - Deleting a group moves its contents out of the group, to the top level.

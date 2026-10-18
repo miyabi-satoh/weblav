@@ -101,6 +101,9 @@ const SAVED_TEXT = /を保存しました。\s*$| saved\.\s*$/;
 /** 行の⋮メニューの削除。表示言語 (ja/en) のどちらでも見つかるようにする。 */
 export const DELETE_MENU_ITEM_NAME = /削除|Delete/;
 
+/** 管理画面のコンテンツの編集ページと一覧の⋮にある「閲覧画面で開く」。 */
+export const VIEW_ON_SITE_LINK_NAME = /^閲覧画面で開く$|^View on site$/;
+
 /** 管理画面のタブの「コンテンツ」。 */
 export const CONTENTS_NAV_LINK_NAME = /^コンテンツ$|^Contents$/;
 
