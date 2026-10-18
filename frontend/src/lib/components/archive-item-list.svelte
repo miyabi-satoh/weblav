@@ -33,9 +33,11 @@
 		contentId: number;
 		// false なら見るだけにする。再スキャン・選択・公開の切り替えを出さない (→ docs/ui.md「UI 全般」)。
 		editable: boolean;
+		/** アイテムの数か公開の印が変わった後。編集ページの見出しの件数を取り直すのに使う。 */
+		onchanged?: () => void;
 	};
 
-	let { contentId, editable }: Props = $props();
+	let { contentId, editable, onchanged }: Props = $props();
 
 	let items = $state<ArchiveItem[]>([]);
 	let loading = $state(true);
@@ -78,14 +80,7 @@
 		}
 	}
 
-	let publishedCount = $derived(items.filter((item) => item.published).length);
 	let showsFilter = $derived(!loading && loadError === '' && items.length > 0);
-	let summary = $derived(
-		m.archive_items_summary({
-			count: formatNumber(items.length),
-			published: formatNumber(publishedCount)
-		})
-	);
 
 	// 再スキャン。成功メッセージはボタンの近くに残し続け(次の再スキャンまで消さない)、
 	// 続けて一覧を読み直す(増減があるため)。
@@ -108,6 +103,7 @@
 				removed: formatNumber(scan.result.removed)
 			});
 			await loadItems(contentId);
+			onchanged?.();
 		} finally {
 			rescanning = false;
 		}
@@ -177,6 +173,7 @@
 				return;
 			}
 			items = items.map((i) => (i.id === updated.id ? updated : i));
+			onchanged?.();
 		} catch {
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
@@ -202,6 +199,7 @@
 			const publishedIds = new Set(itemIds);
 			items = items.map((item) => (publishedIds.has(item.id) ? { ...item, published } : item));
 			selectedIds = [];
+			onchanged?.();
 		} catch {
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
@@ -239,15 +237,11 @@
 					{m.archive_items_rescan_button()}
 				</LoadingButton>
 			{/if}
-			<!-- 読み込み中と失敗中は件数を出さない。0 件や前のアーカイブの件数を、今の中身と取り違えさせない。 -->
+			<!-- 今の件数は、どのタブでも見える編集ページの見出しに出す ([id]/+layout.svelte)。ここには再スキャンの結果だけを出す。 -->
 			{#if !loading && loadError === ''}
-				<!-- 再スキャンの結果は今の件数と別の情報なので、行を分ける。 -->
-				<div class="text-sm text-muted-foreground">
-					<p>{summary}</p>
-					{#if rescanMessage}
-						<p>{rescanMessage}</p>
-					{/if}
-				</div>
+				{#if rescanMessage}
+					<p class="text-sm text-muted-foreground">{rescanMessage}</p>
+				{/if}
 			{/if}
 		</div>
 		{#if showsFilter}

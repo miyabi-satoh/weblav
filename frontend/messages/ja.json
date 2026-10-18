@@ -222,6 +222,7 @@
 	"archive_scan_failed_title": "ファイルをスキャンできませんでした",
 	"contents_menu_edit": "編集",
 	"contents_menu_open": "開く",
+	"contents_menu_view": "閲覧画面で開く",
 	"contents_edit_view_only": "{creator} さんのコンテンツのため、見ることだけができます。変更するには管理者に依頼してください。",
 	"contents_edit_view_only_no_creator": "作成者がいないコンテンツのため、見ることだけができます。変更するには管理者に依頼してください。",
 	"contents_form_creator_label": "作成者",

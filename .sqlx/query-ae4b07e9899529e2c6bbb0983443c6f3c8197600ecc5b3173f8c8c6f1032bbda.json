@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE archive_items SET published = 1 WHERE archive_id = ? AND rel_path = 'a.mp3'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "ae4b07e9899529e2c6bbb0983443c6f3c8197600ecc5b3173f8c8c6f1032bbda"
+}

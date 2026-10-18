@@ -1540,6 +1540,7 @@ export interface components {
         AdminContentResponse: {
             /** @description AI がリンクを集めるグループか (→ docs/ai.md「AI が集めるリンク」)。一覧の行に、集め直す操作を出すのに使う。 */
             aiLinks: boolean;
+            archiveItems?: components["schemas"]["ArchiveItemCounts"] | null;
             /**
              * Format: int64
              * @description 作成者のユーザーid。`None`なら作成者なし (→ docs/access.md「公開範囲」)。
@@ -1767,6 +1768,16 @@ export interface components {
              *     選択肢を絞り込み条件では狭めない (緩める側の選択肢を消さないため)。
              */
             options: components["schemas"]["ArchiveAxisOption"][];
+        };
+        /**
+         * @description アーカイブのアイテムの数と、そのうち公開しているものの数。
+         *     公開し忘れ・公開しすぎに気づけるよう、管理画面の一覧と編集ページの見出しに出す (→ docs/ui.md「UI 全般」)。
+         */
+        ArchiveItemCounts: {
+            /** Format: int64 */
+            published: number;
+            /** Format: int64 */
+            total: number;
         };
         ArchiveViewItem: {
             /** @description `rel_path` の最後の要素。ページ内プレイヤーへの振り分け (→ docs/ui.md「音声のページ内プレイヤー」) に使う。 */

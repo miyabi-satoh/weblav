@@ -5481,6 +5481,17 @@
             "type": "boolean",
             "description": "AI がリンクを集めるグループか (→ docs/ai.md「AI が集めるリンク」)。一覧の行に、集め直す操作を出すのに使う。"
           },
+          "archiveItems": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ArchiveItemCounts",
+                "description": "`type = 'archive'` の場合のみ`Some`。アイテムの数と公開している数。"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "createdBy": {
             "type": [
               "integer",
@@ -6008,6 +6019,24 @@
               "$ref": "#/components/schemas/ArchiveAxisOption"
             },
             "description": "**絞り込み前の**、閲覧者に見えるアイテム全体から作る (→ docs/archive.md「軸の値の辞書と導出」)。\n選択肢を絞り込み条件では狭めない (緩める側の選択肢を消さないため)。"
+          }
+        }
+      },
+      "ArchiveItemCounts": {
+        "type": "object",
+        "description": "アーカイブのアイテムの数と、そのうち公開しているものの数。\n公開し忘れ・公開しすぎに気づけるよう、管理画面の一覧と編集ページの見出しに出す (→ docs/ui.md「UI 全般」)。",
+        "required": [
+          "total",
+          "published"
+        ],
+        "properties": {
+          "published": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },

@@ -4,6 +4,7 @@
  * 網羅しなかった値は既定値に落とさず、値そのものをそのまま返す。既定値に落とすと、
  * 未対応の値が別の値として誤表示され、実装漏れに気付けない。
  */
+import { formatNumber } from '$lib/format';
 import * as m from '$lib/paraglide/messages.js';
 import type { components } from '$lib/api/schema';
 
@@ -35,4 +36,12 @@ export function visibilityLabel(visibility: Visibility): string {
 	if (visibility === 'private') return m.contents_visibility_private();
 	if (visibility === 'hidden') return m.contents_visibility_hidden();
 	return visibility;
+}
+
+/** アーカイブのアイテムの数と、そのうち公開している数。一覧・編集ページの見出し・アイテムのタブで同じ言い方にする。 */
+export function archiveItemsSummary(counts: { total: number; published: number }): string {
+	return m.archive_items_summary({
+		count: formatNumber(counts.total),
+		published: formatNumber(counts.published)
+	});
 }

@@ -19,6 +19,8 @@ import {
 	PASSWORD_CONFIRM_LABEL,
 	PASSWORD_LABEL,
 	RESET_PASSWORD_MENU_ITEM_NAME,
+	ROW_ACTIONS_BUTTON_NAME,
+	VIEW_ON_SITE_LINK_NAME,
 	TITLE_LABEL,
 	clickRowMenuItem,
 	confirmDelete,
@@ -137,6 +139,30 @@ test('管理画面: コンテンツを編集できる', async ({ page }) => {
 		await expect(contentRow(page, title)).toHaveCount(0);
 	} finally {
 		await removeContentIfPresent(page, editedTitle);
+		await removeContentIfPresent(page, title);
+	}
+});
+
+test('編集ページ: 閲覧画面で開けて、保存していない変更があっても確認なしに消して一覧へ戻れる', async ({
+	page
+}) => {
+	const title = uniqueId('E2E編集ページの操作');
+	try {
+		await createGroupContent(page, title);
+		const editUrl = page.url();
+
+		await page.getByRole('link', { name: VIEW_ON_SITE_LINK_NAME }).click();
+		await page.waitForURL(/\/groups\/\d+$/);
+		await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+
+		await page.goto(editUrl);
+		await page.getByLabel(TITLE_LABEL).fill(`${title}-変更`);
+		await page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).click();
+		await page.getByRole('menu').getByRole('menuitem', { name: DELETE_MENU_ITEM_NAME }).click();
+		await confirmDelete(page);
+		await page.waitForURL(/\/admin\/contents$/);
+		await expect(contentRow(page, title)).toHaveCount(0);
+	} finally {
 		await removeContentIfPresent(page, title);
 	}
 });
