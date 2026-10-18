@@ -76,7 +76,7 @@ async fn group_with_interests(app: &Router, pool: &SqlitePool, cookie: &str) -> 
         app,
         pool,
         cookie,
-        r#"{"interests":"Rust の非同期と家庭菜園"}"#,
+        r#"{"listMode":"off","interests":"Rust の非同期と家庭菜園"}"#,
     )
     .await
 }
@@ -273,7 +273,7 @@ async fn refreshing_stops_at_the_daily_limit(pool: SqlitePool) {
         &app,
         &pool,
         &cookie,
-        r#"{"interests":"Rust","dailyLimit":1}"#,
+        r#"{"listMode":"off","interests":"Rust","dailyLimit":1}"#,
     )
     .await;
     prepare(&fake, SEARCH_BODY);
@@ -301,7 +301,7 @@ async fn the_auto_refresh_runs_for_anyone_only_when_it_is_due(pool: SqlitePool) 
         &app,
         &pool,
         &cookie,
-        r#"{"interests":"Rust","autoRefresh":{"mode":"interval","hours":6}}"#,
+        r#"{"listMode":"off","interests":"Rust","autoRefresh":{"mode":"interval","hours":6}}"#,
     )
     .await;
     prepare(&fake, SEARCH_BODY);
@@ -339,7 +339,7 @@ async fn a_failed_auto_refresh_is_not_retried_on_every_open(pool: SqlitePool) {
         &app,
         &pool,
         &cookie,
-        r#"{"interests":"Rust","autoRefresh":{"mode":"interval","hours":6}}"#,
+        r#"{"listMode":"off","interests":"Rust","autoRefresh":{"mode":"interval","hours":6}}"#,
     )
     .await;
     prepare(&fake, SEARCH_BODY);
@@ -450,7 +450,7 @@ async fn turning_the_setting_off_keeps_the_settings_for_turning_it_on_again(pool
         &app,
         &pool,
         &cookie,
-        r#"{"interests":"Rust","dailyLimit":3}"#,
+        r#"{"listMode":"off","interests":"Rust","dailyLimit":3}"#,
     )
     .await;
     prepare(&fake, SEARCH_BODY);
@@ -489,7 +489,13 @@ async fn turning_the_setting_off_keeps_the_settings_for_turning_it_on_again(pool
     let (status, body) = refresh(&app, id, &cookie).await;
     assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
 
-    put_settings(&app, id, &cookie, r#"{"interests":"Rust","dailyLimit":3}"#).await;
+    put_settings(
+        &app,
+        id,
+        &cookie,
+        r#"{"listMode":"off","interests":"Rust","dailyLimit":3}"#,
+    )
+    .await;
     let seen = get_json(app.clone(), &links_uri(id), &cookie).await;
     assert_eq!(
         urls(&seen),
@@ -512,7 +518,7 @@ async fn changing_the_interests_makes_the_queries_again(pool: SqlitePool) {
         "PUT",
         &settings_uri(id),
         &cookie,
-        r#"{"interests":"トマトの育て方","dailyLimit":3}"#,
+        r#"{"listMode":"off","interests":"トマトの育て方","dailyLimit":3}"#,
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -528,8 +534,8 @@ async fn settings_reject_bad_values_and_non_groups(pool: SqlitePool) {
     let AiApp { app, cookie, .. } = ai_app(&pool, true).await;
     let id = insert_group_under(&pool, "集める", "public", None).await;
     for settings in [
-        r#"{"interests":" \n "}"#,
-        r#"{"interests":"Rust","autoRefresh":{"mode":"daily","time":"25:00"}}"#,
+        r#"{"listMode":"off","interests":" \n "}"#,
+        r#"{"listMode":"off","interests":"Rust","autoRefresh":{"mode":"daily","time":"25:00"}}"#,
     ] {
         let (status, body) =
             send_json(app.clone(), "PUT", &settings_uri(id), &cookie, settings).await;
@@ -547,7 +553,7 @@ async fn settings_reject_bad_values_and_non_groups(pool: SqlitePool) {
         "PUT",
         &settings_uri(link),
         &cookie,
-        r#"{"interests":"Rust"}"#,
+        r#"{"listMode":"off","interests":"Rust"}"#,
     )
     .await;
     assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
@@ -579,7 +585,7 @@ async fn an_editor_without_ai_cannot_refresh_or_change_the_setting(pool: SqliteP
         "PUT",
         &settings_uri(id),
         &taro,
-        r#"{"interests":"Rust"}"#,
+        r#"{"listMode":"off","interests":"Rust"}"#,
     )
     .await;
     assert_error(status, &body, StatusCode::FORBIDDEN, "forbidden");
@@ -610,7 +616,7 @@ async fn an_answer_without_queries_keeps_the_previous_links(pool: SqlitePool) {
         "PUT",
         &settings_uri(id),
         &cookie,
-        r#"{"interests":"トマト"}"#,
+        r#"{"listMode":"off","interests":"トマト"}"#,
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -686,4 +692,41 @@ async fn link_previews_are_refreshed_for_a_viewable_group_only(pool: SqlitePool)
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body, "[]");
+}
+
+/// 一覧のページ (分類のトップなど) は、同じときに見つけた個別の記事の後ろに並ぶ。
+/// 載っている記事を使う設定でも、一覧のページを開けなければ AI を呼ばずに、見つかった分で続ける。
+#[sqlx::test]
+async fn list_pages_follow_the_articles_and_an_unopened_list_costs_nothing_more(pool: SqlitePool) {
+    let AiApp {
+        app, cookie, fake, ..
+    } = ai_app(&pool, true).await;
+    let id = group_with(
+        &app,
+        &pool,
+        &cookie,
+        r#"{"listMode":"pick","interests":"千葉県のニュース"}"#,
+    )
+    .await;
+    // `.invalid` は名前解決できないと決まっている (RFC 6761) ので、一覧のページを開こうとしても外へ出ない。
+    prepare(
+        &fake,
+        r#"{"results":[
+            {"title":"ニュース一覧","url":"https://news.invalid/news/","date":"2026-10-18","snippet":""},
+            {"title":"記事","url":"https://news.invalid/articles/1","snippet":""}
+        ]}"#,
+    );
+    let links = refreshed(&app, id, &cookie).await;
+    assert_eq!(
+        urls(&links),
+        [
+            "https://news.invalid/articles/1",
+            "https://news.invalid/news/"
+        ],
+        "{links}"
+    );
+    assert_eq!(fake.lock().expect("鍵が毒された").prompts.len(), 1);
+
+    let settings = get_json(app.clone(), &settings_uri(id), &cookie).await;
+    assert_eq!(settings["listMode"], "pick", "{settings}");
 }

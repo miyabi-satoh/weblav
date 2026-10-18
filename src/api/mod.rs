@@ -1,4 +1,5 @@
 mod ai;
+mod ai_link_pages;
 pub mod ai_links;
 mod archive;
 mod archive_axes;

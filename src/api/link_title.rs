@@ -9,6 +9,7 @@
 //! 使われないよう、公開アドレスにだけ接続する (`PublicOnlyResolver`)。リダイレクト先にも
 //! 同じ判定が掛かる。外向きの通信はこのモジュールだけに閉じる (URL のファイルの中継も、開くのはここ)。
 
+use std::collections::HashSet;
 use std::io::Read;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, ToSocketAddrs};
 use std::time::Duration;
@@ -405,6 +406,95 @@ fn extract_metadata(html: &str) -> LinkMetadata {
     }
 }
 
+/// ページの中のリンクの1つ。`url` は相手のページを基準に解決した、断片 (`#...`) の無い `http`・`https` の絶対 URL。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct PageLink {
+    pub url: String,
+    /// リンクの文字。中のタグを除き、1行にしたもの。文字が無ければ `title` 属性。
+    pub text: String,
+}
+
+/// ページを取り、中のリンクを出てくる順に返す (→ `ai_link_pages`)。同じ URL は最初のものだけ。
+/// 取れない・HTML でないときは `None`。
+pub(super) fn fetch_links_blocking(url: &str) -> Option<Vec<PageLink>> {
+    let mut response = agent().get(url).call().ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    let base = url::Url::parse(&response.get_uri().to_string()).ok()?;
+    let html = read_html(&mut response)?;
+    Some(extract_links(&html, &base))
+}
+
+/// HTML から `<a href>` を出てくる順に取り出す。
+fn extract_links(html: &str, base: &url::Url) -> Vec<PageLink> {
+    let lower = html.to_ascii_lowercase();
+    let mut seen = HashSet::new();
+    let mut links = Vec::new();
+    let mut from = 0;
+    while let Some(found) = lower[from..].find("<a") {
+        let start = from + found + "<a".len();
+        from = start;
+        // `<abbr` のような別タグを弾く。名前の直後は空白か `>`。
+        if !lower[start..]
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_whitespace() || c == '>')
+        {
+            continue;
+        }
+        let Some(tag_end) = lower[start..].find('>').map(|at| start + at) else {
+            break;
+        };
+        let attrs = parse_attributes(&html[start..tag_end]);
+        let inner_start = tag_end + 1;
+        let inner_end = lower[inner_start..]
+            .find("</a")
+            .map_or(lower.len(), |at| inner_start + at);
+        from = inner_end;
+        let attr = |name: &str| {
+            attrs
+                .iter()
+                .find(|(attr, _)| attr == name)
+                .map(|(_, value)| value.as_str())
+        };
+        let Some(href) = attr("href") else { continue };
+        let Some(mut url) = base.join(decode_entities(href).trim()).ok() else {
+            continue;
+        };
+        if !matches!(url.scheme(), "http" | "https") {
+            continue;
+        }
+        url.set_fragment(None);
+        let text = normalize_text(&strip_tags(&html[inner_start..inner_end]), MAX_TITLE_CHARS)
+            .or_else(|| attr("title").and_then(|title| normalize_text(title, MAX_TITLE_CHARS)))
+            .unwrap_or_default();
+        let url = url.to_string();
+        if url.len() <= MAX_URL_CHARS && seen.insert(url.clone()) {
+            links.push(PageLink { url, text });
+        }
+    }
+    links
+}
+
+/// タグを除いた文字。タグの間は空白にする (`<br>` で分けた語がくっつかないように)。
+fn strip_tags(html: &str) -> String {
+    let mut text = String::with_capacity(html.len());
+    let mut in_tag = false;
+    for c in html.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' if in_tag => {
+                in_tag = false;
+                text.push(' ');
+            }
+            _ if !in_tag => text.push(c),
+            _ => {}
+        }
+    }
+    text
+}
+
 /// 名前解決の結果から、公開アドレス以外を除く。
 #[derive(Debug)]
 struct PublicOnlyResolver;
@@ -752,6 +842,39 @@ mod tests {
     }
 
     /// 縮められない SVG と、`http`・`https` 以外の URL は使わない。アイコンの指定が無ければ `/favicon.ico` を探す。
+    #[test]
+    fn extract_links_resolves_hrefs_and_takes_the_text_without_tags() {
+        let html = r#"<nav><a href="/news/">ニュース</a></nav>
+            <abbr title="x">略</abbr>
+            <A class="item" HREF="articles/1#top"><span>市議会で</span><br>条例が成立 &amp; 公布</A>
+            <a href='https://other.example/2' title="画像の記事"><img src="x.png"></a>
+            <a href="/news/">重なり</a>
+            <a href="mailto:a@example.jp">メール</a>
+            <a name="anchor-without-href">x</a>"#;
+        let base = url::Url::parse("https://news.example/list/").expect("URL");
+        let links: Vec<(String, String)> = extract_links(html, &base)
+            .into_iter()
+            .map(|link| (link.url, link.text))
+            .collect();
+        assert_eq!(
+            links,
+            [
+                (
+                    "https://news.example/news/".to_string(),
+                    "ニュース".to_string()
+                ),
+                (
+                    "https://news.example/list/articles/1".to_string(),
+                    "市議会で 条例が成立 & 公布".to_string()
+                ),
+                (
+                    "https://other.example/2".to_string(),
+                    "画像の記事".to_string()
+                ),
+            ]
+        );
+    }
+
     #[test]
     fn extract_card_skips_unusable_images_and_icons() {
         let skipped = card(

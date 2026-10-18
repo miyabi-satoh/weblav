@@ -66,6 +66,12 @@ impl LinkPreviews {
             permits: Semaphore::new(MAX_CONCURRENT_FETCHES),
         }
     }
+
+    /// 外へ取りに行く枠を1つ取る。カードのほかに、AI が集めるリンクで一覧のページを開くときも同じ枠を使う
+    /// (→ `ai_link_pages`)。相手のサイトと回線を突きすぎない数は、何のために取るかによらないため。
+    pub(super) async fn permit(&self) -> tokio::sync::SemaphorePermit<'_> {
+        self.permits.acquire().await.expect("閉じないセマフォ")
+    }
 }
 
 /// リンクのカードに出す情報。URL はこのサーバーから配る画像の URL。
@@ -298,12 +304,7 @@ async fn refresh_one(state: &AppState, url: &str, now: i64) -> Result<(), AppErr
         return Ok(());
     };
 
-    let _permit = state
-        .link_previews
-        .permits
-        .acquire()
-        .await
-        .expect("閉じないセマフォ");
+    let _permit = state.link_previews.permit().await;
     let fetch = {
         let url = url.to_string();
         let (etag, last_modified) = (claimed.etag.clone(), claimed.last_modified.clone());

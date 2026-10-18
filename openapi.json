@@ -5820,6 +5820,7 @@
           "enabled",
           "dailyLimit",
           "autoRefresh",
+          "listMode",
           "exclusions"
         ],
         "properties": {
@@ -5849,6 +5850,9 @@
               "null"
             ],
             "description": "検索キーワード。一度もオンにしていなければ `null`。"
+          },
+          "listMode": {
+            "$ref": "#/components/schemas/ListMode"
           }
         }
       },
@@ -5870,6 +5874,9 @@
               "null"
             ],
             "description": "検索キーワード。語の並びでもふつうの文でもよく、AI が検索のクエリに組み立て直す。\n`null` なら集めるのをやめる (前の設定と表示しないものは残し、ほかの項目は見ない)。"
+          },
+          "listMode": {
+            "$ref": "#/components/schemas/ListMode"
           }
         }
       },
@@ -7595,6 +7602,15 @@
             "description": "ファイルに書かれた `title`。省かれているか読めなければファイル名。"
           }
         }
+      },
+      "ListMode": {
+        "type": "string",
+        "description": "検索で見つかった一覧のページ (分類のトップなど) の扱い (→ docs/ai.md「一覧のページ」)。\nどれでも、一覧のページは個別の記事の後ろに並べる。",
+        "enum": [
+          "off",
+          "pick",
+          "search"
+        ]
       },
       "LogSettingsResponse": {
         "type": "object",

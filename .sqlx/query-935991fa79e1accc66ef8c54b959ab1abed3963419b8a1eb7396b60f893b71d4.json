@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO ai_links (content_id, url, title, date, rank, found_at, is_list) VALUES (?, ?, ?, ?, ?, ?, ?)\n                   ON CONFLICT (content_id, url) DO UPDATE SET\n                       title = excluded.title, date = excluded.date, rank = excluded.rank, is_list = excluded.is_list",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "935991fa79e1accc66ef8c54b959ab1abed3963419b8a1eb7396b60f893b71d4"
+}

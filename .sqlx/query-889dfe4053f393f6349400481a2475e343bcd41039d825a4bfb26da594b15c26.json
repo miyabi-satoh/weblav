@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT url, title, found_at FROM ai_links\n           WHERE content_id = ?\n             AND url NOT IN (\n                 SELECT url FROM contents WHERE parent_id = ? AND type = ? AND url IS NOT NULL\n             )\n             AND url NOT IN (SELECT url FROM link_previews WHERE gone)\n           ORDER BY found_at DESC, date IS NULL, date DESC, rank",
+  "query": "SELECT url, title, found_at FROM ai_links\n           WHERE content_id = ?\n             AND url NOT IN (\n                 SELECT url FROM contents WHERE parent_id = ? AND type = ? AND url IS NOT NULL\n             )\n             AND url NOT IN (SELECT url FROM link_previews WHERE gone)\n           ORDER BY found_at DESC, is_list, date IS NULL, date DESC, rank",
   "describe": {
     "columns": [
       {
@@ -28,5 +28,5 @@
       false
     ]
   },
-  "hash": "c78d073210f2684e36d0a435a42b98547b429e8a7f7dbde8972b3b123ae32d48"
+  "hash": "889dfe4053f393f6349400481a2475e343bcd41039d825a4bfb26da594b15c26"
 }
