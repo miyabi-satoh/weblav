@@ -5,7 +5,7 @@ let bypassed = false;
 /**
  * 編集中の離脱の確認を出さずに移る。編集していたコンテンツを消した後に一覧へ移すときに使う。
  * 消したものの変更は保存しようがないので、確かめても選べることが無いため。
- * `beforeNavigate` は `goto` の中で同期して呼ばれるので、その間だけ印を立てる。
+ * `beforeNavigate` は `goto` の途中で呼ばれるので、`goto` を待つ間だけ印を立てる。
  */
 export async function gotoWithoutLeaveConfirm(url: string): Promise<void> {
 	bypassed = true;

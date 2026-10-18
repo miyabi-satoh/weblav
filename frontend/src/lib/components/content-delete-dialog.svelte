@@ -52,8 +52,9 @@
 				errorDialog.show(errorMessage(error));
 				return;
 			}
-			content = null;
+			// 画面を更新し終えてから閉じる。先に閉じると、移り終えるまで消したものを操作できてしまうため。
 			await ondeleted();
+			content = null;
 		} catch {
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
