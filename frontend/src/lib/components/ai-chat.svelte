@@ -9,6 +9,7 @@
 	import { client } from '$lib/api/client';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { fetchOrNull } from '$lib/api/load';
+	import { formatByteSize } from '$lib/format';
 	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
 	import * as Field from '$lib/components/ui/field';
@@ -126,7 +127,7 @@
 		try {
 			const file = about === null ? undefined : await fileOf(about);
 			if (file === null) {
-				failure = m.ai_chat_file_too_large();
+				failure = m.ai_chat_file_too_large({ max: formatByteSize(MAX_FILE_BYTES) });
 				return;
 			}
 			const { data, error } = await client.POST('/api/v1/ai/chat', { body: { prompt, file } });

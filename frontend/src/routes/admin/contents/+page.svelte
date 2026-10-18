@@ -8,6 +8,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { dialogFormClass } from '$lib/dialog-form';
 	import { client } from '$lib/api/client';
 	import { toast } from 'svelte-sonner';
 	import { refreshAiLinks } from '$lib/ai-links';
@@ -623,7 +624,7 @@
 				/>
 			</Dialog.Body>
 		{:else}
-			<form onsubmit={handleSubmit} class="flex min-h-0 flex-col gap-6">
+			<form onsubmit={handleSubmit} class={dialogFormClass}>
 				<Dialog.Body>
 					<ContentForm
 						{form}

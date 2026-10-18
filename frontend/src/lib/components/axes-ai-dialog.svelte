@@ -69,18 +69,6 @@
 	let step = $state<'choose' | 'manual' | 'preview'>('manual');
 	/** 予告の画面の「戻る」と、取り込みに失敗したときに戻る画面。 */
 	let previewFrom = $state<'choose' | 'manual'>('manual');
-	let bodyEl = $state<HTMLElement | null>(null);
-
-	// 画面を替えたら先頭から見せる。ブラウザーは見えていた要素の位置を保つように
-	// スクロールを合わせるので (scroll anchoring)、そのままだと替えた後の画面が途中から出るため。
-	// 合わせるのは描いたときなので、描き終えてから戻す。
-	$effect(() => {
-		void step;
-		const el = bodyEl;
-		if (!el) return;
-		const frame = requestAnimationFrame(() => (el.scrollTop = 0));
-		return () => cancelAnimationFrame(frame);
-	});
 
 	$effect(() => {
 		// 開いたときだけ読み直す。loadPrompt の中で読む答えの欄を依存に入れると、入力のたびに消える。
@@ -283,10 +271,14 @@
 				<Dialog.Description>{m.archive_axes_ai_dialog_description()}</Dialog.Description>
 			{/if}
 		</Dialog.Header>
-		<Dialog.Body bind:ref={bodyEl}>
-			{#if prompt === null && !promptFailed}
+		<!-- 画面ごとに Dialog.Body を置き、替えたら新しい Body で先頭から見せる。1つを使い回すと、ブラウザーが
+		     見えていた要素の位置を保つようにスクロールを合わせ (scroll anchoring)、替えた後の画面が途中から出るため。 -->
+		{#if prompt === null && !promptFailed}
+			<Dialog.Body>
 				<Spinner aria-label={m.common_loading()} />
-			{:else if step === 'choose'}
+			</Dialog.Body>
+		{:else if step === 'choose'}
+			<Dialog.Body>
 				<!-- 2つの作り方を、同じ形の枠に並べて選ばせる (→ docs/ui.md「UI 全般」の「余白と区切り」)。 -->
 				<section class="flex min-w-0 flex-col gap-2 rounded-md border p-4">
 					<h3 class="text-sm font-semibold">{m.archive_axes_ai_generate_heading()}</h3>
@@ -320,7 +312,9 @@
 						{m.archive_axes_ai_manual_button()}
 					</Button>
 				</section>
-			{:else if step === 'manual'}
+			</Dialog.Body>
+		{:else if step === 'manual'}
+			<Dialog.Body>
 				<section class="flex min-w-0 flex-col gap-2">
 					<h3 class="text-sm font-semibold">{m.archive_axes_ai_step_copy()}</h3>
 					<p class="text-sm text-muted-foreground">{m.archive_axes_ai_privacy_note()}</p>
@@ -363,7 +357,9 @@
 						<p role="alert" class="text-sm text-destructive">{checkError}</p>
 					{/if}
 				</section>
-			{:else if checked}
+			</Dialog.Body>
+		{:else if checked}
+			<Dialog.Body>
 				{@const preview = checked.preview}
 				<!-- 確定で起きることの警告は本体の先頭に置き、スクロールしなくても見せる (→ docs/ui.md「UI 全般」)。 -->
 				{#if preview.replacesExisting}
@@ -404,8 +400,8 @@
 						</ul>
 					{/if}
 				</section>
-			{/if}
-		</Dialog.Body>
+			</Dialog.Body>
+		{/if}
 
 		<Dialog.Footer>
 			{#if step === 'manual'}

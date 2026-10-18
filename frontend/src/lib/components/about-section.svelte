@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
+	import { CONTACT_URL, PRIVACY_URL, TERMS_URL } from '$lib/site-links';
 
 	let { version, build }: { version: string; build: string | null } = $props();
 
@@ -16,30 +17,20 @@
 			>{m.admin_settings_about_version({ version: versionText })}</span
 		>
 	</p>
-	<!-- 規約類は紹介サイトにある。 -->
 	<ul class="flex flex-wrap gap-x-5">
 		<li>
-			<a
-				href="https://weblav.amiiby.com/terms/"
-				target="_blank"
-				rel="noopener noreferrer"
-				class={linkClass}>{m.admin_settings_about_terms()}</a
+			<a href={TERMS_URL} target="_blank" rel="external noopener noreferrer" class={linkClass}
+				>{m.admin_settings_about_terms()}</a
 			>
 		</li>
 		<li>
-			<a
-				href="https://weblav.amiiby.com/privacy/"
-				target="_blank"
-				rel="noopener noreferrer"
-				class={linkClass}>{m.admin_settings_about_privacy()}</a
+			<a href={PRIVACY_URL} target="_blank" rel="external noopener noreferrer" class={linkClass}
+				>{m.admin_settings_about_privacy()}</a
 			>
 		</li>
 		<li>
-			<a
-				href="https://amiiby.com/about/#contact"
-				target="_blank"
-				rel="noopener noreferrer"
-				class={linkClass}>{m.admin_settings_about_contact()}</a
+			<a href={CONTACT_URL} target="_blank" rel="external noopener noreferrer" class={linkClass}
+				>{m.admin_settings_about_contact()}</a
 			>
 		</li>
 	</ul>

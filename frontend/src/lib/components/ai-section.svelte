@@ -20,6 +20,7 @@
 	import { formatDateTime, formatNumber } from '$lib/format';
 	import * as m from '$lib/paraglide/messages.js';
 	import { qrCardClass, qrImageClass } from '$lib/qr-card';
+	import { PRIVACY_URL } from '$lib/site-links';
 	import { columnFromSmClass, fitColumnClass, truncatingColumnClass } from '$lib/table-columns';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
@@ -381,9 +382,9 @@
 				<p>
 					{m.admin_settings_ai_link_dialog_unlink_note()}
 					<a
-						href="https://weblav.amiiby.com/privacy/"
+						href={PRIVACY_URL}
 						target="_blank"
-						rel="noopener noreferrer"
+						rel="external noopener noreferrer"
 						class="underline underline-offset-4">{m.admin_settings_about_privacy()}</a
 					>
 				</p>

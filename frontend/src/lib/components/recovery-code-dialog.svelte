@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
+	import { dialogFormClass } from '$lib/dialog-form';
 	import * as m from '$lib/paraglide/messages.js';
 	import { client } from '$lib/api/client';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
@@ -67,7 +68,7 @@
 			{/if}
 		</Dialog.Header>
 		{#if code === null}
-			<form onsubmit={handleSubmit} class="flex min-h-0 flex-col gap-6">
+			<form onsubmit={handleSubmit} class={dialogFormClass}>
 				<Dialog.Body>
 					<Field.Field>
 						<Field.FieldLabel for="recovery-code-current-password" required

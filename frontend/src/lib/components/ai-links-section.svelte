@@ -7,9 +7,13 @@
 	import type { components } from '$lib/api/schema';
 	import { aiLinkSite, autoRefreshAiLinks, refreshAiLinks } from '$lib/ai-links';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { urlHost } from '$lib/file-kind';
 	import { formatTimeAgo } from '$lib/format';
-	import { linkDetailOf, linkTitleOf, type LinkDetail } from '$lib/link-detail.svelte';
+	import {
+		linkDetailOf,
+		linkSiteNameOf,
+		linkTitleOf,
+		type LinkDetail
+	} from '$lib/link-detail.svelte';
 	import { RefreshedLinkPreviews } from '$lib/link-previews.svelte';
 	import { listFilter } from '$lib/list-filter.svelte';
 	import { browseGutterClass, browseItemClass, browseListClass } from '$lib/list-row';
@@ -47,7 +51,7 @@
 
 	/** メニューと知らせに出すサイトの名前。行の2段目と同じく、サイト名 (無ければホスト名)。 */
 	function siteNameOf(link: AiLink): string {
-		return previewOf(link)?.siteName ?? urlHost(link.url);
+		return linkSiteNameOf(link.url, previewOf(link));
 	}
 
 	/** この画面で表示しないにしたもの。押した行は「元に戻す」に替え、同じサイトのほかの行は外す。 */

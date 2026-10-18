@@ -7,6 +7,7 @@
 	} from '$lib/page-layout';
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
+	import { dialogFormClass } from '$lib/dialog-form';
 	import { client } from '$lib/api/client';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { formatDate, formatNumber } from '$lib/format';
@@ -379,7 +380,7 @@
 		<Dialog.Header>
 			<Dialog.Title>{m.admin_users_dialog_create_title()}</Dialog.Title>
 		</Dialog.Header>
-		<form onsubmit={handleCreateSubmit} class="flex min-h-0 flex-col gap-6">
+		<form onsubmit={handleCreateSubmit} class={dialogFormClass}>
 			<Dialog.Body>
 				<Field.FieldGroup>
 					<Field.Field>
@@ -449,7 +450,7 @@
 				})}
 			</Dialog.Description>
 		</Dialog.Header>
-		<form onsubmit={handleResetSubmit} class="flex min-h-0 flex-col gap-6">
+		<form onsubmit={handleResetSubmit} class={dialogFormClass}>
 			<Dialog.Body>
 				<Field.FieldGroup>
 					<Field.Field>
@@ -508,7 +509,7 @@
 		<Dialog.Header>
 			<Dialog.Title>{m.admin_users_rename_dialog_title()}</Dialog.Title>
 		</Dialog.Header>
-		<form onsubmit={handleRenameSubmit} class="flex min-h-0 flex-col gap-6">
+		<form onsubmit={handleRenameSubmit} class={dialogFormClass}>
 			<Dialog.Body>
 				<Field.FieldGroup>
 					<Field.Field>

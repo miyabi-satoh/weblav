@@ -14,7 +14,7 @@ export type AiChatFile = {
 	name: string;
 	/** 中身を取る URL (ビューアーが開いている URL)。 */
 	src: string;
-	/** 中身を送るか。音声・動画・埋め込みのプレイヤーは名前だけを送る。 */
+	/** 中身を送るか。ビューアーで開いた動画と埋め込み (動画サイトなど) は名前だけを送る (file-viewer.svelte)。 */
 	sendsContent: boolean;
 };
 

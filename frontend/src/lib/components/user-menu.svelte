@@ -2,6 +2,7 @@
 	import CircleUserRoundIcon from '@lucide/svelte/icons/circle-user-round';
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { dialogFormClass } from '$lib/dialog-form';
 	import * as m from '$lib/paraglide/messages.js';
 	import { client } from '$lib/api/client';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
@@ -148,7 +149,7 @@
 		<Dialog.Header>
 			<Dialog.Title>{m.change_password_dialog_title()}</Dialog.Title>
 		</Dialog.Header>
-		<form onsubmit={handleChangePasswordSubmit} class="flex min-h-0 flex-col gap-6">
+		<form onsubmit={handleChangePasswordSubmit} class={dialogFormClass}>
 			<Dialog.Body>
 				<Field.FieldGroup>
 					<Field.Field>
@@ -208,7 +209,7 @@
 		<Dialog.Header>
 			<Dialog.Title>{m.change_username_dialog_title()}</Dialog.Title>
 		</Dialog.Header>
-		<form onsubmit={handleChangeUsernameSubmit} class="flex min-h-0 flex-col gap-6">
+		<form onsubmit={handleChangeUsernameSubmit} class={dialogFormClass}>
 			<Dialog.Body>
 				<Field.FieldGroup>
 					<Field.Field>

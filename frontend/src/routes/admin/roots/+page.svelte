@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
+	import { dialogFormClass } from '$lib/dialog-form';
 	import { client } from '$lib/api/client';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
@@ -176,7 +177,7 @@
 		<Dialog.Header>
 			<Dialog.Title>{m.admin_roots_rename_dialog_title()}</Dialog.Title>
 		</Dialog.Header>
-		<form onsubmit={handleNameSubmit} class="flex min-h-0 flex-col gap-6">
+		<form onsubmit={handleNameSubmit} class={dialogFormClass}>
 			<Dialog.Body>
 				<Field.FieldGroup>
 					<Field.Field>
