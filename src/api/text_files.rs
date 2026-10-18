@@ -13,7 +13,7 @@ use crate::file_ext::has_extension_in;
 const TEXT_VIEWER_MAX_BYTES: u64 = 2 * 1024 * 1024;
 
 /// NUL を探す先頭のバイト数。git と同じ 8000 バイト。
-const SNIFF_BYTES: u64 = 8000;
+const SNIFF_BYTES: usize = 8000;
 
 /// 画面が拡張子で振り分ける (音声・PDF・動画・ビューアーの画像・Office) ので、中身を見ない拡張子。
 /// 画面の `file-kind.ts` と揃える。一覧のたびに開くファイルを減らし、短い音声が NUL を含まずに
@@ -35,10 +35,20 @@ pub(super) fn is_text_file(name: &str, path: &Path, size: u64) -> bool {
     let Ok(file) = File::open(path) else {
         return false;
     };
-    if file.take(SNIFF_BYTES).read_to_end(&mut prefix).is_err() {
+    if file
+        .take(SNIFF_BYTES as u64)
+        .read_to_end(&mut prefix)
+        .is_err()
+    {
         return false;
     }
-    !prefix.contains(&0)
+    looks_like_text(&prefix)
+}
+
+/// 中身がテキストか。先頭の `SNIFF_BYTES` に NUL が無ければテキストとする。
+/// テキストのビューアーと、簡易チャットに付けるファイル (`chat_file`) で、同じ判定にする。
+pub(super) fn looks_like_text(data: &[u8]) -> bool {
+    !data[..data.len().min(SNIFF_BYTES)].contains(&0)
 }
 
 /// 画像・音声・PDF・動画など、拡張子で開き方の決まるファイルか。URL のファイルの中継も、

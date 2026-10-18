@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT url, title, found_at FROM ai_links\n           WHERE content_id = ?\n           ORDER BY found_at DESC, is_list, rank",
+  "describe": {
+    "columns": [
+      {
+        "name": "url",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "title",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "found_at",
+        "ordinal": 2,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d63042fa13c5c339bbb5ed618e5f59872bb16dcdb1cc0a062c4ed3b534ceb139"
+}

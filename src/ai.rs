@@ -36,6 +36,11 @@ const PENDING_TTL_SECS: i64 = 30 * 60;
 /// 窓口が受ける、指示文と文の合計の上限 (UTF-16 の単位)。送る前に確かめて、送る時間を使わずに断る。
 pub const MAX_INPUT_UNITS: usize = 200_000;
 
+/// 窓口が長さを数えるのと同じ、UTF-16 の単位の数。窓口は JavaScript の `length` で数えるため。
+pub fn utf16_units(text: &str) -> usize {
+    text.encode_utf16().count()
+}
+
 /// 窓口が受ける、添付の大きさ (base64 にした文字数) の上限。元のファイルで約 10 MB。
 /// 窓口の `MAX_ATTACHMENT_CHARS` と揃える。送る前に確かめて、送る時間を使わずに断る。
 pub const MAX_ATTACHMENT_CHARS: usize = 14_000_000;
@@ -465,12 +470,12 @@ async fn ensure_callable(state: &AppState, caller: Caller<'_>) -> Result<(), App
     }
 }
 
-/// `user` が使えて、PC が登録済みか。AI を使うボタンを出すかを決めるのに使う。
+/// `user` が使えて、コンピューターが登録済みか。AI を使うボタンを出すかを決めるのに使う。
 pub async fn is_usable(state: &AppState, user: &AuthUser) -> Result<bool, AppError> {
     Ok(state.ai.is_linked() && is_allowed(&state.pool, user).await?)
 }
 
-/// `user` が使えて、PC が登録済みであること。窓口を呼ぶ前に確かめる。
+/// `user` が使えて、コンピューターが登録済みであること。窓口を呼ぶ前に確かめる。
 pub async fn ensure_usable(state: &AppState, user: &AuthUser) -> Result<(), AppError> {
     if !is_allowed(&state.pool, user).await? {
         return Err(AppError::AiNotAllowed);
@@ -512,11 +517,10 @@ async fn record<T>(
 
 /// 窓口が数えるのと同じ、指示文と文の合計の長さ (UTF-16 の単位)。
 fn input_units(prompt: &Prompt) -> usize {
-    let units = |text: &str| text.encode_utf16().count();
-    units(&prompt.user) + prompt.system.as_deref().map_or(0, units)
+    utf16_units(&prompt.user) + prompt.system.as_deref().map_or(0, utf16_units)
 }
 
-/// 管理者が開いて コンピューターの登録を認める、窓口の画面の URL。
+/// 管理者が開いてコンピューターの登録を認める、窓口の画面の URL。
 /// 窓口には検証用の値のハッシュだけを見せる。URL を見た人がトークンに替えられないように。
 pub fn link_url(server: &str, code_verifier: &str, site_name: &str, pc_name: &str) -> String {
     let challenge = challenge(code_verifier);

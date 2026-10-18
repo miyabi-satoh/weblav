@@ -14,7 +14,7 @@ export interface paths {
         get: operations["get_status"];
         put?: never;
         post?: never;
-        /** PC の登録を解除する。アカウントにつながらなくても、この PC の側は未登録に戻す。 */
+        /** コンピューターの登録を解除する。アカウントにつながらなくても、この PC の側は未登録に戻す。 */
         delete: operations["unlink"];
         options?: never;
         head?: never;
@@ -30,7 +30,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** PC の登録を始める。途中のものがあれば、同じ URL を返す。 */
+        /** コンピューターの登録を始める。途中のものがあれば、同じ URL を返す。 */
         post: operations["begin_link"];
         delete: operations["cancel_link"];
         options?: never;
@@ -766,7 +766,7 @@ export interface paths {
         /**
          * グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら集めるのをやめる。
          *     やめても、設定・表示しないもの・集めたリンクは残し、オンに戻すと前のとおりに並ぶ。
-         *     検索キーワードを変えると、作ったクエリを捨てて次に集めるときに作り直す。集めたリンクは、次に集め直すまで残る。
+         *     検索キーワードを変えても、集めたリンクは次に集め直すまで残る。
          */
         put: operations["put_ai_links_settings"];
         post?: never;
@@ -1591,7 +1591,7 @@ export interface components {
             visibility: components["schemas"]["Visibility"];
         };
         AiAvailabilityResponse: {
-            /** @description この PC が登録済みで、ログインしているユーザーが AI を使えるか。 */
+            /** @description このコンピューターが登録済みで、ログインしているユーザーが AI を使えるか。 */
             available: boolean;
         };
         /** @description 簡易チャットに付ける、見ているファイル。画面が自分の権限で取った中身をそのまま送る。 */
@@ -1636,7 +1636,7 @@ export interface components {
             state: components["schemas"]["AiLinkState"];
         };
         /**
-         * @description PC の登録の状態。
+         * @description コンピューターの登録の状態。
          * @enum {string}
          */
         AiLinkState: "unlinked" | "pending" | "linked";
@@ -1650,7 +1650,7 @@ export interface components {
             autoRefreshDue: boolean;
             /** @description 見ている人が、表示しないものを決められるか (グループを書き換えられる)。 */
             canEdit: boolean;
-            /** @description 見ている人が集め直せるか (AI を使えて、PC が登録済み)。 */
+            /** @description 見ている人が集め直せるか (AI を使えて、コンピューターが登録済み)。 */
             canRefresh: boolean;
             /** @description このグループで AI がリンクを集めるか。偽なら、ほかの項目は空。 */
             enabled: boolean;
@@ -1709,7 +1709,7 @@ export interface components {
         AiStatusResponse: {
             /** @description 登録済みだが、アカウントにつながらず残りを確かめられなかった。 */
             accountUnreachable: boolean;
-            /** @description 残りを足す・登録した PC を見る、アカウントのページの URL。 */
+            /** @description 残りを足す・登録したコンピューターを見る、アカウントのページの URL。 */
             accountUrl: string;
             /** @description 登録の途中のとき、登録を認める画面に出るのと同じ確認コード。 */
             confirmationCode?: string | null;
@@ -2750,7 +2750,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description PC の登録の状態と、登録済みなら残り */
+            /** @description コンピューターの登録の状態と、登録済みなら残り */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -4263,7 +4263,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description PC を登録していない */
+            /** @description コンピューターを登録していない */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5161,7 +5161,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description PC を登録していない */
+            /** @description コンピューターを登録していない */
             409: {
                 headers: {
                     [name: string]: unknown;
