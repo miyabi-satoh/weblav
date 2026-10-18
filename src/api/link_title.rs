@@ -239,6 +239,8 @@ pub(super) enum CardFetch {
         card: PageCard,
         headers: CacheHeaders,
     },
+    /// ページが無くなっていた (404・410)。
+    Gone(CacheHeaders),
     /// 応答が無い・エラーの状態だった。前回の情報を使い続ける。
     Failed,
 }
@@ -262,6 +264,12 @@ pub(super) fn fetch_card_blocking(
     let headers = cache_headers(response.headers());
     if response.status() == ureq::http::StatusCode::NOT_MODIFIED {
         return CardFetch::NotModified(headers);
+    }
+    if matches!(
+        response.status(),
+        ureq::http::StatusCode::NOT_FOUND | ureq::http::StatusCode::GONE
+    ) {
+        return CardFetch::Gone(headers);
     }
     if !response.status().is_success() {
         return CardFetch::Failed;

@@ -80,6 +80,8 @@ pub struct LinkPreview {
     pub published_at: Option<String>,
     pub image_url: Option<String>,
     pub icon_url: Option<String>,
+    /// 最後に確かめたとき、ページが無くなっていた (404・410)。
+    pub gone: bool,
 }
 
 struct PreviewRow {
@@ -90,6 +92,7 @@ struct PreviewRow {
     published_at: Option<String>,
     image_file: Option<String>,
     icon_file: Option<String>,
+    gone: bool,
 }
 
 impl From<PreviewRow> for LinkPreview {
@@ -101,6 +104,7 @@ impl From<PreviewRow> for LinkPreview {
             published_at: row.published_at,
             image_url: row.image_file.map(|file| file_url(&file)),
             icon_url: row.icon_file.map(|file| file_url(&file)),
+            gone: row.gone,
         }
     }
 }
@@ -128,7 +132,8 @@ pub(super) async fn cached(
     let urls_json = serde_json::to_string(urls).expect("文字列の並びは JSON にできる");
     let rows = sqlx::query_as!(
         PreviewRow,
-        r#"SELECT url, title, description, site_name, published_at, image_file, icon_file
+        r#"SELECT url, title, description, site_name, published_at, image_file, icon_file,
+                  gone AS "gone: bool"
            FROM link_previews WHERE url IN (SELECT value FROM json_each(?))"#,
         urls_json
     )
@@ -319,6 +324,18 @@ async fn refresh_one(state: &AppState, url: &str, now: i64) -> Result<(), AppErr
     };
     let (card, headers, sources) = match fetch {
         CardFetch::Failed => return Ok(()),
+        // 前のカードの情報は残す。また取れるようになったら、取り直したときに印を外す。
+        CardFetch::Gone(headers) => {
+            let fresh_until = fresh_until(now, &headers);
+            sqlx::query!(
+                "UPDATE link_previews SET gone = 1, fresh_until = ? WHERE url = ?",
+                fresh_until,
+                url
+            )
+            .execute(&state.pool)
+            .await?;
+            return Ok(());
+        }
         CardFetch::NotModified(mut headers) => {
             // 304 の応答は検証子を付けないことがある。覚えている応答のヘッダーで補う (RFC 9111 4.3.4)。
             headers.etag = headers.etag.or(claimed.etag);
@@ -487,7 +504,7 @@ async fn save(
     sqlx::query!(
         r#"UPDATE link_previews SET
                image_source = ?, image_file = ?, icon_source = ?, icon_file = ?,
-               etag = ?, last_modified = ?, fresh_until = ?, bytes = ?
+               etag = ?, last_modified = ?, fresh_until = ?, bytes = ?, gone = 0
            WHERE url = ?"#,
         settled.image.source,
         settled.image.file,

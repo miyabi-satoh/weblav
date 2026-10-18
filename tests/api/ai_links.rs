@@ -621,6 +621,35 @@ async fn an_answer_without_queries_keeps_the_previous_links(pool: SqlitePool) {
     assert_eq!(seen["links"].as_array().map(Vec::len), Some(3), "{seen}");
 }
 
+/// カードを取り直して無くなっていたと分かったページは並べず、集め直しで出ても足した数に入れない。
+#[sqlx::test]
+async fn pages_found_gone_are_hidden_and_not_counted_as_added(pool: SqlitePool) {
+    let AiApp {
+        app, cookie, fake, ..
+    } = ai_app(&pool, true).await;
+    let id = group_with_interests(&app, &pool, &cookie).await;
+    prepare(&fake, SEARCH_BODY);
+    refreshed(&app, id, &cookie).await;
+    for url in ["https://a.example/", "https://d.example/"] {
+        insert_fresh_preview(&pool, url, None).await;
+    }
+    sqlx::query("UPDATE link_previews SET gone = 1")
+        .execute(&pool)
+        .await
+        .expect("無くなっていた印を付けられなかった");
+
+    let seen = get_json(app.clone(), &links_uri(id), &cookie).await;
+    assert_eq!(
+        urls(&seen),
+        ["https://c.example/", "https://example.com"],
+        "{seen}"
+    );
+
+    set_search(&fake, SEARCH_BODY_WITH_D);
+    let again = refreshed(&app, id, &cookie).await;
+    assert_eq!(again["added"], 0, "{again}");
+}
+
 /// カードの取り直しは、見られるグループの集めたリンクだけを対象にする。
 #[sqlx::test]
 async fn link_previews_are_refreshed_for_a_viewable_group_only(pool: SqlitePool) {

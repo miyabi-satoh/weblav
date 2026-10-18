@@ -2276,6 +2276,8 @@ export interface components {
         LinkPreview: {
             /** @description ページの説明 (`og:description`、無ければ `<meta name="description">`)。 */
             description?: string | null;
+            /** @description 最後に確かめたとき、ページが無くなっていた (404・410)。 */
+            gone: boolean;
             iconUrl?: string | null;
             imageUrl?: string | null;
             /** @description ページの `article:published_time` のまま。読めなければ経過を出さない。 */

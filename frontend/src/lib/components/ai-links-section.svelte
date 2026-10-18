@@ -69,7 +69,9 @@
 
 	// ページ内の絞り込みが置かれていれば、グループの中身と同じ言葉で絞る (→ docs/ui.md「一覧の絞り込み」)。
 	const filter = listFilter();
-	let rows = $derived(filter ? filter.apply(aiLinks.links, titleOf) : aiLinks.links);
+	// カードを取り直して無くなっていたと分かったページは、読み直すのを待たずに外す (サーバーも次から並べない)。
+	let liveLinks = $derived(aiLinks.links.filter((link) => !previewOf(link)?.gone));
+	let rows = $derived(filter ? filter.apply(liveLinks, titleOf) : liveLinks);
 	// 表示しないにしたものは、詳しい表示の前後にも並べない。
 	let shownRows = $derived(rows.filter((link) => hiddenBy(link) === undefined));
 
@@ -272,7 +274,7 @@
 	</div>
 	{#if aiLinks.refreshedAt == null}
 		<p class={pageEmptyTextClass}>{m.group_ai_links_never()}</p>
-	{:else if aiLinks.links.length === 0}
+	{:else if liveLinks.length === 0}
 		<p class={pageEmptyTextClass}>{m.group_ai_links_empty()}</p>
 	{:else}
 		<ul class={browseListClass()}>

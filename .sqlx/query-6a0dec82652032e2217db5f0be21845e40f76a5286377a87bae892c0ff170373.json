@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE link_previews SET gone = 1, fresh_until = ? WHERE url = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "6a0dec82652032e2217db5f0be21845e40f76a5286377a87bae892c0ff170373"
+}

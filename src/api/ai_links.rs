@@ -548,7 +548,7 @@ struct Shown {
 }
 
 /// 並べるリンク。新しく見つかった順、同じときに見つかったものは日付の新しい順 (日付が無ければ検索の順で後ろ)。
-/// グループに登録してあるリンクと、表示しないにしたものは並べない。
+/// グループに登録してあるリンクと、表示しないにしたもの、無くなっていたページは並べない。
 async fn shown_links(pool: &SqlitePool, id: i64) -> Result<Vec<Shown>, AppError> {
     let rows = sqlx::query_as!(
         Shown,
@@ -557,6 +557,7 @@ async fn shown_links(pool: &SqlitePool, id: i64) -> Result<Vec<Shown>, AppError>
              AND url NOT IN (
                  SELECT url FROM contents WHERE parent_id = ? AND type = ? AND url IS NOT NULL
              )
+             AND url NOT IN (SELECT url FROM link_previews WHERE gone)
            ORDER BY found_at DESC, date IS NULL, date DESC, rank"#,
         id,
         id,
@@ -1007,6 +1008,12 @@ async fn collect(
     let registered = registered_urls(&state.pool, id).await?;
     let excluded = excluded(&state.pool, id).await?;
     let candidates = candidates(found);
+    let candidate_urls: Vec<String> = candidates.iter().map(|c| c.url.clone()).collect();
+    let gone: HashSet<String> = link_preview::cached(&state.pool, &candidate_urls)
+        .await?
+        .into_iter()
+        .filter_map(|(url, preview)| preview.gone.then_some(url))
+        .collect();
 
     let clock = clock(&state.pool).await?;
     let auto = matches!(caller, Caller::Auto);
@@ -1035,13 +1042,14 @@ async fn collect(
             .await?
             .into_iter()
             .collect();
-    // 足した数は、並ぶものだけを数える。登録済み・表示しないのものが新しく出ても、画面には何も増えないため。
+    // 足した数は、並ぶものだけを数える。登録済み・表示しない・無くなっていたものが新しく出ても、画面には何も増えないため。
     let added = candidates
         .iter()
         .filter(|candidate| {
             !existing.contains(&candidate.url)
                 && !registered.contains(&candidate.url)
                 && !excluded.contains(&candidate.url)
+                && !gone.contains(&candidate.url)
         })
         .count();
     if added > 0 {

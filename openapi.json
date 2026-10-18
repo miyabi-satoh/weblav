@@ -7460,6 +7460,9 @@
       "LinkPreview": {
         "type": "object",
         "description": "リンクのカードに出す情報。URL はこのサーバーから配る画像の URL。",
+        "required": [
+          "gone"
+        ],
         "properties": {
           "description": {
             "type": [
@@ -7467,6 +7470,10 @@
               "null"
             ],
             "description": "ページの説明 (`og:description`、無ければ `<meta name=\"description\">`)。"
+          },
+          "gone": {
+            "type": "boolean",
+            "description": "最後に確かめたとき、ページが無くなっていた (404・410)。"
           },
           "iconUrl": {
             "type": [

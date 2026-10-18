@@ -400,6 +400,7 @@ mod tests {
             published_at: None,
             image_url: None,
             icon_url: None,
+            gone: false,
         }
     }
 
