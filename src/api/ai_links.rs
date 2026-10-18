@@ -1213,8 +1213,8 @@ async fn rank_stories(
             date: None,
         }))
         .collect();
-    // まとめるものが無ければ、AI を呼ばない。
-    if articles.len() < 2 {
+    // まとめるものが無ければ、AI を呼ばない。一覧から取った記事は、AI が話題に入れたときだけ並べるので呼ぶ。
+    if articles.len() < 2 && articles.len() == searched.len() {
         return Ok(found.to_vec());
     }
     let headlines: Vec<String> = articles
