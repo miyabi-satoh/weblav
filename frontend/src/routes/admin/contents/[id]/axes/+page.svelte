@@ -416,10 +416,11 @@
 		const target = deletingAxis;
 		const originalTemplate = currentContent.titleTemplate ?? '';
 		let templateChanged = false;
-		// テンプレートを直した後に軸の削除だけが失敗したら、テンプレートを元に戻す。
-		// 軸が残ったまま、テンプレートからだけ消えた状態にしないため。
-		async function restoreTemplate() {
-			if (templateChanged) await putTemplate(originalTemplate);
+		// テンプレートを直した後に、軸の削除が断られたら、テンプレートを元に戻す。
+		// 軸が残ったまま、テンプレートからだけ消えた状態にしないため。戻せなかったら、その失敗を見せる。
+		// 届かなかった (例外) ときは、削除が済んだか分からないので戻さない。
+		async function restoreTemplate(): Promise<boolean> {
+			return !templateChanged || (await putTemplate(originalTemplate));
 		}
 
 		try {
@@ -436,8 +437,7 @@
 			if (!response.ok) {
 				// 確認を開いたままにすると、エラーを閉じた後にもう一度キャンセルさせることになる。
 				deletingAxis = null;
-				await restoreTemplate();
-				errorDialog.show(errorMessage(error));
+				if (await restoreTemplate()) errorDialog.show(errorMessage(error));
 				return;
 			}
 			axes = axes.filter((axis) => axis.id !== target.id);
@@ -445,7 +445,6 @@
 			deletingAxis = null;
 		} catch {
 			deletingAxis = null;
-			await restoreTemplate().catch(() => {});
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			axisDeleting = false;
