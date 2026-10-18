@@ -21,7 +21,6 @@
 
 	type Settings = components['schemas']['AiLinksSettings'];
 	type AutoMode = components['schemas']['AutoMode'];
-	type ListMode = components['schemas']['ListMode'];
 	type Period = components['schemas']['Period'];
 
 	// グループの編集ページの「AI でリンクを収集」の区画 (→ docs/ai.md「AI が集めるリンク」)。
@@ -58,12 +57,6 @@
 	let mode = $state<AutoMode>(untrack(() => settings.autoRefresh.mode));
 	let hours = $state(untrack(() => settings.autoRefresh.hours ?? DEFAULT_HOURS));
 	let time = $state(untrack(() => settings.autoRefresh.time ?? DEFAULT_TIME));
-	let listMode = $state<ListMode>(untrack(() => settings.listMode));
-	const listOptions: { value: ListMode; label: () => string }[] = [
-		{ value: 'off', label: m.contents_form_ai_list_off },
-		{ value: 'pick', label: m.contents_form_ai_list_pick },
-		{ value: 'search', label: m.contents_form_ai_list_search }
-	];
 	let period = $state<Period>(untrack(() => settings.period));
 	const periodOptions: { value: Period; label: () => string }[] = [
 		{ value: 'any', label: m.contents_form_ai_period_any },
@@ -80,7 +73,6 @@
 		mode,
 		hours,
 		time,
-		listMode,
 		period
 	}));
 	form.markPristine();
@@ -128,7 +120,6 @@
 										hours: mode === 'interval' ? hours : null,
 										time: mode === 'daily' ? time : null
 									},
-									listMode,
 									period
 								}
 							: { interests: null }
@@ -290,20 +281,6 @@
 						</div>
 					</RadioGroup.Root>
 					<Field.FieldDescription>{m.contents_form_ai_auto_description()}</Field.FieldDescription>
-				</Field.FieldSet>
-				<Field.FieldSet>
-					<Field.FieldLegend variant="label" id="content-ai-list-legend"
-						>{m.contents_form_ai_list_label()}</Field.FieldLegend
-					>
-					<RadioGroup.Root bind:value={listMode} aria-labelledby="content-ai-list-legend">
-						{#each listOptions as option (option.value)}
-							<div class="flex min-h-9 items-center gap-2">
-								<RadioGroup.Item value={option.value} id="content-ai-list-{option.value}" />
-								<label for="content-ai-list-{option.value}" class="text-sm">{option.label()}</label>
-							</div>
-						{/each}
-					</RadioGroup.Root>
-					<Field.FieldDescription>{m.contents_form_ai_list_description()}</Field.FieldDescription>
 				</Field.FieldSet>
 			</Field.FieldGroup>
 		{/if}

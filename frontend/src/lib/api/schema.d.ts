@@ -1682,7 +1682,6 @@ export interface components {
             exclusions: components["schemas"]["AiLinkExclusion"][];
             /** @description 検索キーワード。一度もオンにしていなければ `null`。 */
             interests?: string | null;
-            listMode: components["schemas"]["ListMode"];
             period: components["schemas"]["Period"];
         };
         AiLinksSettingsRequest: {
@@ -1697,7 +1696,6 @@ export interface components {
              *     `null` なら集めるのをやめる (前の設定と表示しないものは残し、ほかの項目は見ない)。
              */
             interests?: string | null;
-            listMode?: components["schemas"]["ListMode"];
             period?: components["schemas"]["Period"];
         };
         AiStatusResponse: {
@@ -2316,12 +2314,6 @@ export interface components {
             /** @description ファイルに書かれた `title`。省かれているか読めなければファイル名。 */
             title: string;
         };
-        /**
-         * @description 検索で見つかった一覧のページ (分類のトップなど) の扱い (→ docs/ai.md「一覧のページ」)。
-         *     どれでも、一覧のページは個別の記事の後ろに並べる。
-         * @enum {string}
-         */
-        ListMode: "off" | "pick" | "search";
         LogSettingsResponse: {
             /** @description ログをファイルに書いているか (`config.toml` の `log.output = "file"`)。書いていなければダウンロードできない。 */
             fileOutput: boolean;
