@@ -461,6 +461,8 @@ pub struct AdminContentResponse {
     pub title_template: Option<String>,
     /// AI がリンクを集めるグループか (→ docs/ai.md「AI が集めるリンク」)。一覧の行に、集め直す操作を出すのに使う。
     pub ai_links: bool,
+    /// `type = 'archive'` の場合のみ`Some`。アイテムの数と公開している数。
+    pub archive_items: Option<super::archive_items::ArchiveItemCounts>,
 }
 
 impl AdminContentResponse {
@@ -469,6 +471,7 @@ impl AdminContentResponse {
         created_by_username: Option<String>,
         root_records: &[super::roots::RootRecord],
         ai_links: bool,
+        archive_items: Option<super::archive_items::ArchiveItemCounts>,
     ) -> Self {
         let location = row
             .path
@@ -501,6 +504,7 @@ impl AdminContentResponse {
             extensions: row.extensions,
             title_template: row.title_template,
             ai_links,
+            archive_items,
         }
     }
 }
@@ -522,11 +526,16 @@ async fn admin_response(
     let root_records = super::roots::load_root_records(pool).await?;
     let ai_links =
         row.content_type == ContentType::Group && super::ai_links::is_enabled(pool, row.id).await?;
+    let archive_items = match row.content_type {
+        ContentType::Archive => Some(super::archive_items::item_counts_of(pool, row.id).await?),
+        _ => None,
+    };
     Ok(AdminContentResponse::from_row(
         row,
         username,
         &root_records,
         ai_links,
+        archive_items,
     ))
 }
 
@@ -904,6 +913,7 @@ async fn list_admin_contents(
             .collect();
     let root_records = super::roots::load_root_records(&state.pool).await?;
     let ai_link_groups = super::ai_links::enabled_groups(&state.pool).await?;
+    let archive_item_counts = super::archive_items::item_counts(&state.pool).await?;
 
     Ok(Json(
         rows.into_iter()
@@ -911,7 +921,19 @@ async fn list_admin_contents(
             .map(|row| {
                 let username = row.created_by.and_then(|id| usernames.get(&id).cloned());
                 let ai_links = ai_link_groups.contains(&row.id);
-                AdminContentResponse::from_row(row, username, &root_records, ai_links)
+                let archive_items = (row.content_type == ContentType::Archive).then(|| {
+                    archive_item_counts
+                        .get(&row.id)
+                        .copied()
+                        .unwrap_or_default()
+                });
+                AdminContentResponse::from_row(
+                    row,
+                    username,
+                    &root_records,
+                    ai_links,
+                    archive_items,
+                )
             })
             .collect(),
     ))

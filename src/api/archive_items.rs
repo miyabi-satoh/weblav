@@ -63,6 +63,55 @@ async fn published_items(
     .await?)
 }
 
+/// アーカイブのアイテムの数と、そのうち公開しているものの数。
+/// 公開し忘れ・公開しすぎに気づけるよう、管理画面の一覧と編集ページの見出しに出す (→ docs/ui.md「UI 全般」)。
+#[derive(Debug, Clone, Copy, Default, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchiveItemCounts {
+    pub total: i64,
+    pub published: i64,
+}
+
+/// アーカイブごとのアイテムの数。アイテムが1件も無いアーカイブは入らない。
+pub(super) async fn item_counts(
+    pool: &sqlx::SqlitePool,
+) -> Result<HashMap<i64, ArchiveItemCounts>, AppError> {
+    Ok(sqlx::query!(
+        r#"SELECT archive_id as "archive_id!", COUNT(*) as "total!: i64",
+                  SUM(published) as "published!: i64"
+           FROM archive_items GROUP BY archive_id"#
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|row| {
+        let counts = ArchiveItemCounts {
+            total: row.total,
+            published: row.published,
+        };
+        (row.archive_id, counts)
+    })
+    .collect())
+}
+
+/// 1つのアーカイブのアイテムの数。
+pub(super) async fn item_counts_of(
+    pool: &sqlx::SqlitePool,
+    archive_id: i64,
+) -> Result<ArchiveItemCounts, AppError> {
+    let row = sqlx::query!(
+        r#"SELECT COUNT(*) as "total!: i64", COALESCE(SUM(published), 0) as "published!: i64"
+           FROM archive_items WHERE archive_id = ?"#,
+        archive_id
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(ArchiveItemCounts {
+        total: row.total,
+        published: row.published,
+    })
+}
+
 // --- GET /contents/{id}/archive (閲覧用) ---
 
 #[derive(Debug, Serialize, ToSchema)]

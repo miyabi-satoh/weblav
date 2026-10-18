@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) as \"total!: i64\", COALESCE(SUM(published), 0) as \"published!: i64\"\n           FROM archive_items WHERE archive_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "total!: i64",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "published!: i64",
+        "ordinal": 1,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "2ff3a459341926e341da0bde644f1fc876249120f5dbb9e5bf899a81ca0ebd33"
+}

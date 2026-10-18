@@ -330,6 +330,38 @@ async fn archive_rescan_keeps_published_flags_and_removes_vanished_items(pool: S
     assert_eq!(published, vec![("keep.mp3", 1), ("new.mp3", 0)]);
 }
 
+/// 管理画面の一覧は、アーカイブにアイテムの数と公開している数を添える (→ docs/ui.md「UI 全般」)。
+#[sqlx::test]
+async fn admin_contents_list_counts_the_items_and_published_items_of_an_archive(pool: SqlitePool) {
+    let dir = temp_test_dir("archive-counts");
+    std::fs::write(dir.join("a.mp3"), b"").expect("ファイルを作れなかった");
+    std::fs::write(dir.join("b.mp3"), b"").expect("ファイルを作れなかった");
+
+    let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
+    let (status, body) = rescan(app.clone(), &cookie, id).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    sqlx::query!(
+        "UPDATE archive_items SET published = 1 WHERE archive_id = ? AND rel_path = 'a.mp3'",
+        id
+    )
+    .execute(&pool)
+    .await
+    .expect("公開フラグを立てられなかった");
+
+    let (status, body) = send_empty(app, "GET", "/api/v1/admin/contents", &cookie).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let listed: Vec<serde_json::Value> =
+        serde_json::from_str(&body).expect("一覧をJSONとして読めなかった");
+    let archive = listed
+        .iter()
+        .find(|content| content["id"] == id)
+        .expect("一覧にアーカイブが無い");
+    assert_eq!(
+        archive["archiveItems"],
+        serde_json::json!({ "total": 2, "published": 1 })
+    );
+}
+
 /// 登録先のフォルダーが無くなっていたら、再スキャンは索引を変えずに、そうと分かる内訳で断る
 /// (→ docs/archive.md「スキャン」)。
 #[sqlx::test]
