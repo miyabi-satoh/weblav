@@ -327,7 +327,7 @@ export function contentFormVisibilityError(
 		editing !== null &&
 		editing.visibility !== 'private' &&
 		!childrenFitPrivateGroup(editing, contents)
-		? m.error_detail_group_children_not_own_private()
+		? m.contents_form_visibility_group_children_error()
 		: null;
 }
 
@@ -340,6 +340,9 @@ export function contentFormVisibilityNote(
 	form: ContentFormState,
 	byId: ReadonlyMap<number, Content>
 ): string | null {
+	// 選択肢が「作成者のみ」だけになる理由を、欄の下で示す (→ docs/access.md「作成者のみのグループ」)。
+	const parent = form.parentIdValue == null ? undefined : byId.get(form.parentIdValue);
+	if (parent?.visibility === 'private') return m.contents_form_visibility_private_group_help();
 	const effective = contentFormEffectiveVisibility(form, byId);
 	return effective === form.visibility
 		? null

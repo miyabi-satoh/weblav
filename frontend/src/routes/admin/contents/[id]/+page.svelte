@@ -34,7 +34,10 @@
 	import DirPicker from '$lib/components/dir-picker.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
+	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
+
+	type Visibility = components['schemas']['Visibility'];
 
 	let { data }: PageProps = $props();
 
@@ -97,8 +100,19 @@
 	);
 	// 「作成者のみ」のグループを親に選ぶと、中に置けるのは「作成者のみ」だけになるので、それにする
 	// (→ docs/access.md「作成者のみのグループ」)。選んだ欄のすぐ下に出るので、黙って変わることにはならない。
+	// 親を選び直してそのグループの外へ出したら、切り替える前の公開範囲に戻す。
+	let visibilityBeforePrivateParent: Visibility | null = null;
 	$effect(() => {
-		if (!visibilityOptions.includes(form.visibility)) form.visibility = visibilityOptions[0];
+		if (!visibilityOptions.includes(form.visibility)) {
+			visibilityBeforePrivateParent = form.visibility;
+			form.visibility = visibilityOptions[0];
+		} else if (
+			visibilityBeforePrivateParent !== null &&
+			visibilityOptions.includes(visibilityBeforePrivateParent)
+		) {
+			form.visibility = visibilityBeforePrivateParent;
+			visibilityBeforePrivateParent = null;
+		}
 	});
 	let visibilityError = $derived(contentFormVisibilityError(form, content, data.contents));
 	let visibilityNote = $derived(contentFormVisibilityNote(form, contentById));

@@ -144,10 +144,9 @@
 		const wasDirty = form.dirty;
 		form.type = type;
 		// 公開範囲はフォルダーの2段目にしか出ない。戻って別の種別を選んだときに、見えない値を残さない。
-		// 「作成者のみ」のグループの中には「作成者のみ」しか置けないので、それにする。
-		if (type !== 'folder' || !visibilityOptions.includes(form.visibility)) {
-			form.visibility = visibilityOptions.includes('public') ? 'public' : visibilityOptions[0];
-		}
+		if (type !== 'folder') form.visibility = 'public';
+		// 「作成者のみ」のグループの中には「作成者のみ」しか置けない (選択肢もそれだけ)。
+		if (createParent?.visibility === 'private') form.visibility = 'private';
 		if (!wasDirty) form.markPristine();
 		createStep = 'form';
 	}

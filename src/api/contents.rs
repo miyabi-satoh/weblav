@@ -1249,7 +1249,11 @@ async fn update_content(
 
     let parent = validate_parent(&state.pool, payload.parent_id, Some(id)).await?;
     ensure_fits_parent(parent.as_ref(), visibility, existing.created_by)?;
-    if existing_type == ContentType::Group && visibility == Visibility::Private {
+    // すでに「作成者のみ」のグループの子は、置くときに確かめてあるので、変えるときだけ確かめる。
+    if existing_type == ContentType::Group
+        && visibility == Visibility::Private
+        && existing.visibility != Visibility::Private
+    {
         ensure_children_fit_private_group(&state.pool, id, existing.created_by).await?;
     }
     let parent_id = parent.map(|parent| parent.id);
