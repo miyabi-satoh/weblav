@@ -320,7 +320,7 @@
 			}
 		}
 	],
-	"contents_form_ai_within_days_description": "How recently the pages must have been published. Set to 0 for any time.",
+	"contents_form_ai_within_days_description": "Set to 0 for any time.",
 	"contents_delete_confirm_title": "Delete this content?",
 	"contents_delete_confirm_group_note": "Its contents will move to the root level.",
 	"contents_delete_confirm_loosened_note": "{count} of them will become visible to more people:",
