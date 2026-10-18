@@ -603,7 +603,8 @@ fn candidates(found: Vec<SearchResult>) -> Vec<SearchResult> {
         .filter(|result| {
             result.url.len() <= MAX_URL_BYTES
                 && !result.url.contains(char::is_whitespace)
-                && seen.insert(result.url.clone())
+                // http と https で同じページを指すものは、先に出たほうだけにする。一覧のページは古い http のリンクを混ぜて載せることがあるため。
+                && seen.insert(without_scheme(&result.url).to_string())
         })
         .map(|result| SearchResult {
             title: one_line(&result.title, MAX_TITLE_CHARS),
@@ -614,6 +615,12 @@ fn candidates(found: Vec<SearchResult>) -> Vec<SearchResult> {
             ..result
         })
         .collect()
+}
+
+fn without_scheme(url: &str) -> &str {
+    url.strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .unwrap_or(url)
 }
 
 /// 並べるリンクの1行。
@@ -1546,6 +1553,7 @@ mod tests {
         let urls: Vec<String> = candidates(vec![
             result("https://a.example/"),
             result("https://a.example/"),
+            result("http://a.example/"),
             result("javascript:alert(1)"),
             result("https://c.example/"),
         ])
