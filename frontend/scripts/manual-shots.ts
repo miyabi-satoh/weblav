@@ -390,7 +390,11 @@ async function shootAdmin() {
 		if (want('row-menu')) {
 			await row(page, '写真').getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).click();
 			await page.getByRole('menu').waitFor();
-			await shotBetween(page, 'row-menu', row(page, '写真'), row(page, '書類'), { padTop: 8 });
+			// 下端はメニューに合わせる。行に合わせると、項目の数しだいで下の項目が切れるため。
+			await shotBetween(page, 'row-menu', row(page, '写真'), page.getByRole('menu'), {
+				padTop: 8,
+				padBottom: 16
+			});
 			await page.keyboard.press('Escape');
 			// 閉じるのを待つ。次のメニューを待つときに、閉じかけのこのメニューを拾わないため。
 			await page.getByRole('menu').waitFor({ state: 'hidden' });
@@ -400,7 +404,10 @@ async function shootAdmin() {
 				.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME })
 				.click();
 			await page.getByRole('menu').waitFor();
-			await shotBetween(page, 'register-group-menu', row(page, '書類'), row(page, '集合写真'));
+			// 下端はメニューに合わせる (row-menu と同じ理由)。
+			await shotBetween(page, 'register-group-menu', row(page, '書類'), page.getByRole('menu'), {
+				padBottom: 16
+			});
 			await page.keyboard.press('Escape');
 			// 閉じるのを待つ。次のメニューを待つときに、閉じかけのこのメニューを拾わないため。
 			await page.getByRole('menu').waitFor({ state: 'hidden' });
