@@ -20,7 +20,7 @@
 	import { isDirectoryContentType } from '$lib/content-types';
 	import { rescanArchive } from '$lib/archive-scan';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { loosenedByReparent, selectableVisibilities } from '$lib/visibility';
+	import { canHoldContentOf, loosenedByReparent, selectableVisibilities } from '$lib/visibility';
 	import { visibilityLabel } from '$lib/content-labels';
 	import { formatNumber } from '$lib/format';
 	import * as m from '$lib/paraglide/messages.js';
@@ -34,7 +34,10 @@
 	import DirPicker from '$lib/components/dir-picker.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
+	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
+
+	type Visibility = components['schemas']['Visibility'];
 
 	let { data }: PageProps = $props();
 
@@ -88,8 +91,39 @@
 
 	const errorDialog = new ErrorDialogState();
 
-	let visibilityOptions = $derived(selectableVisibilities(form.type, content, currentUserId));
-	let visibilityError = $derived(contentFormVisibilityError(form));
+	let visibilityOptions = $derived(
+		selectableVisibilities(
+			content,
+			currentUserId,
+			form.parentIdValue == null ? null : contentById.get(form.parentIdValue)
+		)
+	);
+	// 「作成者のみ」のグループを親に選ぶと、中に置けるのは「作成者のみ」だけになるので、それにする
+	// (→ docs/access.md「作成者のみのグループ」)。選んだ欄のすぐ下に出るので、黙って変わることにはならない。
+	// 親を選び直してそのグループの外へ出したら、切り替える前の公開範囲に戻す。
+	// 戻すのは、切り替えたときと同じコンテンツの同じ保存済みの状態のまま編集を続けているときだけ。
+	// 保存した後や別のコンテンツへ移った後に、前の値を持ち込まないため。
+	let beforePrivateParent: { id: number; saved: Visibility; visibility: Visibility } | null = null;
+	$effect(() => {
+		if (!visibilityOptions.includes(form.visibility)) {
+			beforePrivateParent = {
+				id: content.id,
+				saved: content.visibility,
+				visibility: form.visibility
+			};
+			form.visibility = visibilityOptions[0];
+		} else if (beforePrivateParent !== null && visibilityOptions.length > 1) {
+			const { id, saved, visibility } = beforePrivateParent;
+			beforePrivateParent = null;
+			if (
+				id === content.id &&
+				saved === content.visibility &&
+				visibilityOptions.includes(visibility)
+			)
+				form.visibility = visibility;
+		}
+	});
+	let visibilityError = $derived(contentFormVisibilityError(form, content, data.contents));
 	let visibilityNote = $derived(contentFormVisibilityNote(form, contentById));
 	let effectiveFormVisibility = $derived(contentFormEffectiveVisibility(form, contentById));
 
@@ -110,10 +144,10 @@
 	);
 
 	// 親に指定できるのは group だけ。自分自身と子孫は循環になるので候補に出さない
-	// (サーバーの `validate_parent` も拒む)。
+	// (サーバーの `validate_parent` も拒む)。「作成者のみ」のグループは、その作成者のものの親にだけなれる。
 	let parentCandidates = $derived(
 		data.contents
-			.filter((c) => c.type === 'group')
+			.filter((c) => c.type === 'group' && canHoldContentOf(c, content.createdBy))
 			.filter((c) => !selfAndAncestors(c.id, contentById).some((a) => a.id === content.id))
 			.map((c) => ({ id: c.id, label: ancestorPath(c.id, contentById) }))
 	);

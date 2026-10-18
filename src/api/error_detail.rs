@@ -15,8 +15,12 @@ use utoipa::ToSchema;
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ValidationDetail {
-    /// グループは「作成者のみ」にできない (→ docs/access.md「公開範囲」)。
-    GroupCannotBePrivate,
+    /// 「作成者のみ」のグループに置けるのは、グループの作成者の「作成者のみ」のコンテンツだけ
+    /// (→ docs/access.md「作成者のみのグループ」)。
+    PrivateGroupNeedsOwnPrivate,
+    /// 直下に、グループの作成者の「作成者のみ」でない子があるグループは「作成者のみ」にできない
+    /// (→ docs/access.md「作成者のみのグループ」)。
+    GroupChildrenNotOwnPrivate,
     /// 軸名にプレースホルダーの記号 (`{` `}`) を含んでいる。
     AxisNameHasBraces,
     /// 同じ名前の軸が既にある。

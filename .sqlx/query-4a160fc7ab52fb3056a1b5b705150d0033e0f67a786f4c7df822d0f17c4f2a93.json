@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT EXISTS (\n               SELECT 1 FROM contents\n               WHERE parent_id = ?1 AND (visibility != ?2 OR created_by IS NOT ?3)\n           ) as \"mismatched!: bool\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "mismatched!: bool",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4a160fc7ab52fb3056a1b5b705150d0033e0f67a786f4c7df822d0f17c4f2a93"
+}

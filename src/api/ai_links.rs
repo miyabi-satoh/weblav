@@ -186,6 +186,9 @@ struct AiLinksResponse {
     can_refresh: bool,
     /// 見ている人が、表示しないものを決められるか (グループを書き換えられる)。
     can_edit: bool,
+    /// 見ている人が、集めたリンクをグループに残せるか。ログインしていて、「作成者のみ」のグループなら
+    /// その作成者のときだけ (中に置けるのは作成者のものだけのため → docs/access.md「作成者のみのグループ」)。
+    can_pin: bool,
     /// 今日あと何回集め直せるか。上限が無ければ無い。
     refreshes_left: Option<u32>,
     /// 自動の更新を今するか。画面はこれが真なら、前のリンクを見せたまま `auto-refresh` を呼ぶ。
@@ -694,6 +697,16 @@ fn can_edit(viewer: &Viewer, group: &Group) -> bool {
     }
 }
 
+/// 見ている人が、集めたリンクをグループに残せるか。
+fn can_pin(viewer: &Viewer, group: &Group) -> bool {
+    match viewer {
+        Viewer::User(user) => {
+            group.visibility != Visibility::Private || group.created_by == Some(user.id)
+        }
+        Viewer::Anonymous => false,
+    }
+}
+
 /// 見ている人に返す中身。`id` がグループで、見られることは呼び出し側が確かめる。
 async fn response(
     state: &AppState,
@@ -710,6 +723,7 @@ async fn response(
             links: Vec::new(),
             can_refresh: false,
             can_edit: false,
+            can_pin: false,
             refreshes_left: None,
             auto_refresh_due: false,
             added,
@@ -754,6 +768,7 @@ async fn response(
             .collect(),
         can_refresh,
         can_edit: can_edit(viewer, &group),
+        can_pin: can_pin(viewer, &group),
         refreshes_left,
         auto_refresh_due,
         added,

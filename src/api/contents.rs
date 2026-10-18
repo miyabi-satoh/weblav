@@ -181,11 +181,11 @@ impl Lineage {
             .collect()
     }
 
-    /// 自分か祖先のどれかが `hidden` か。
-    fn any_hidden(&self) -> bool {
+    /// 自分か祖先のどれかが、`viewer` の閲覧の場の一覧に出ないものか (`hidden` か、他人の `private`)。
+    fn any_unlisted(&self, viewer: &Viewer) -> bool {
         self.0
             .iter()
-            .any(|row| row.visibility == Visibility::Hidden)
+            .any(|row| !can_list(viewer, row.visibility, row.created_by))
     }
 }
 
@@ -727,7 +727,16 @@ async fn validate_folder_path(state: &AppState, path: Option<&str>) -> Result<St
     super::fs::path_to_string(canonical)
 }
 
+/// 親に指定されたグループ。中に置けるものの判定に、公開範囲と作成者を使う (→ `ensure_fits_parent`)。
+#[derive(Debug)]
+struct ParentGroup {
+    id: i64,
+    visibility: Visibility,
+    created_by: Option<i64>,
+}
+
 /// 書き込み前に親子関係を検証する。公開範囲の組み合わせは検査しない (→ docs/access.md「親が外れるときの公開範囲」)。
+/// 「作成者のみ」のグループに置けるかは、公開範囲が決まってから `ensure_fits_parent` で確かめる。
 ///
 /// `parent_id`が`None`ならルート直下として扱い、検査は行わない。`Some`の場合:
 /// (1) 親が実在し`type = 'group'`であること、(2) `self_id`(更新対象自身のid。新規作成時は
@@ -743,13 +752,15 @@ async fn validate_parent(
     pool: &sqlx::SqlitePool,
     parent_id: Option<i64>,
     self_id: Option<i64>,
-) -> Result<Option<i64>, AppError> {
+) -> Result<Option<ParentGroup>, AppError> {
     let Some(parent_id) = parent_id else {
         return Ok(None);
     };
 
     let parent = sqlx::query!(
-        r#"SELECT type as "content_type: ContentType" FROM contents WHERE id = ?"#,
+        r#"SELECT type as "content_type: ContentType", visibility as "visibility: Visibility",
+                  created_by
+           FROM contents WHERE id = ?"#,
         parent_id
     )
     .fetch_optional(pool)
@@ -771,15 +782,59 @@ async fn validate_parent(
         ));
     }
 
-    Ok(Some(parent_id))
+    Ok(Some(ParentGroup {
+        id: parent_id,
+        visibility: parent.visibility,
+        created_by: parent.created_by,
+    }))
 }
 
-/// `group` は `private` にできない (→ docs/access.md「公開範囲」)。
-fn reject_private_group(content_type: ContentType, visibility: Visibility) -> Result<(), AppError> {
-    if content_type == ContentType::Group && visibility == Visibility::Private {
+/// 「作成者のみ」のグループに置けるのは、グループの作成者の「作成者のみ」のコンテンツだけ
+/// (→ docs/access.md「作成者のみのグループ」)。管理者でも例外にしない。
+fn ensure_fits_parent(
+    parent: Option<&ParentGroup>,
+    visibility: Visibility,
+    created_by: Option<i64>,
+) -> Result<(), AppError> {
+    match parent {
+        Some(parent)
+            if parent.visibility == Visibility::Private
+                && (visibility != Visibility::Private || created_by != parent.created_by) =>
+        {
+            Err(AppError::ValidationDetailed {
+                message:
+                    "only the group creator's private contents can be placed in a private group"
+                        .to_string(),
+                detail: ValidationDetail::PrivateGroupNeedsOwnPrivate,
+            })
+        }
+        _ => Ok(()),
+    }
+}
+
+/// グループを「作成者のみ」にできるのは、直下の子がどれもグループの作成者の「作成者のみ」のときだけ
+/// (→ docs/access.md「作成者のみのグループ」)。孫より下は、子が「作成者のみ」なら同じ決まりで揃っている。
+async fn ensure_children_fit_private_group(
+    pool: &sqlx::SqlitePool,
+    id: i64,
+    created_by: Option<i64>,
+) -> Result<(), AppError> {
+    let mismatched = sqlx::query_scalar!(
+        r#"SELECT EXISTS (
+               SELECT 1 FROM contents
+               WHERE parent_id = ?1 AND (visibility != ?2 OR created_by IS NOT ?3)
+           ) as "mismatched!: bool""#,
+        id,
+        Visibility::Private,
+        created_by,
+    )
+    .fetch_one(pool)
+    .await?;
+    if mismatched {
         return Err(AppError::ValidationDetailed {
-            message: "a group cannot be private".to_string(),
-            detail: ValidationDetail::GroupCannotBePrivate,
+            message: "a group can be private only when all its children are the creator's private contents"
+                .to_string(),
+            detail: ValidationDetail::GroupChildrenNotOwnPrivate,
         });
     }
     Ok(())
@@ -791,8 +846,16 @@ const DEFAULT_VISIBILITY: Visibility = Visibility::Public;
 
 /// 新規作成時に書き込む公開範囲を決める。`user` も選べる (→ docs/access.md「ロールと操作」)。
 /// 作成なら作成者は操作した本人なので、`private` を選んでも制限は無い。
-fn resolve_visibility_for_create(requested: Option<Visibility>) -> Visibility {
-    requested.unwrap_or(DEFAULT_VISIBILITY)
+/// 指定が無く、親が「作成者のみ」のグループなら「作成者のみ」にする。中にはそれしか置けないため
+/// (AI が集めたリンクを残すときのように、画面が公開範囲を送らない作成がある)。
+fn resolve_visibility_for_create(
+    requested: Option<Visibility>,
+    parent: Option<&ParentGroup>,
+) -> Visibility {
+    requested.unwrap_or_else(|| match parent {
+        Some(parent) if parent.visibility == Visibility::Private => Visibility::Private,
+        _ => DEFAULT_VISIBILITY,
+    })
 }
 
 /// 更新時に書き込む公開範囲を決める (→ docs/access.md「ロールと操作」)。
@@ -955,9 +1018,6 @@ async fn create_content(
     State(state): State<AppState>,
     AppJson(payload): AppJson<CreateContentRequest>,
 ) -> Result<(StatusCode, Json<AdminContentResponse>), AppError> {
-    let visibility = resolve_visibility_for_create(payload.visibility);
-    reject_private_group(payload.content_type, visibility)?;
-
     // スキームを決めるための接続とページの取得は数秒かかりうるので、書き込みのロックを取る前に済ませる。
     let (link_url, fetched) = if payload.content_type == ContentType::Link {
         let (url, fetched) = resolve_url(payload.url.as_deref()).await?;
@@ -997,7 +1057,10 @@ async fn create_content(
 
     // 親の検証からINSERTまでを直列化する (→ `AppState::contents_write_lock`)。
     let _write_guard = state.contents_write_lock.lock().await;
-    let parent_id = validate_parent(&state.pool, payload.parent_id, None).await?;
+    let parent = validate_parent(&state.pool, payload.parent_id, None).await?;
+    let visibility = resolve_visibility_for_create(payload.visibility, parent.as_ref());
+    ensure_fits_parent(parent.as_ref(), visibility, Some(user.id))?;
+    let parent_id = parent.map(|parent| parent.id);
     let (url, path, extensions, title_template) = match payload.content_type {
         ContentType::Link => (link_url, None, None, None),
         ContentType::Folder => (
@@ -1172,11 +1235,6 @@ async fn update_content(
     let existing_type = existing.content_type;
     // 入力の検証は、存在を隠す判定 (404) と権限の判定の後に行う。
     let title = validate_title(&payload.title)?;
-    // `group` を `private` にする要求は誰の操作でも422。権限の判定 (403) より先に行う。
-    reject_private_group(
-        existing_type,
-        payload.visibility.unwrap_or(existing.visibility),
-    )?;
     let visibility = resolve_visibility_for_update(
         &user,
         payload.visibility,
@@ -1189,7 +1247,16 @@ async fn update_content(
         .then(|| state.archive_scans.acquire(id))
         .transpose()?;
 
-    let parent_id = validate_parent(&state.pool, payload.parent_id, Some(id)).await?;
+    let parent = validate_parent(&state.pool, payload.parent_id, Some(id)).await?;
+    ensure_fits_parent(parent.as_ref(), visibility, existing.created_by)?;
+    // すでに「作成者のみ」のグループの子は、置くときに確かめてあるので、変えるときだけ確かめる。
+    if existing_type == ContentType::Group
+        && visibility == Visibility::Private
+        && existing.visibility != Visibility::Private
+    {
+        ensure_children_fit_private_group(&state.pool, id, existing.created_by).await?;
+    }
+    let parent_id = parent.map(|parent| parent.id);
     let (url, path, extensions, title_template) = match existing_type {
         ContentType::Link => (link_url.transpose()?.map(|(url, _)| url), None, None, None),
         ContentType::Folder => (
@@ -1832,14 +1899,14 @@ async fn browse_group(
 
     sort_rows(&mut rows, SortOrder::from_query(query.sort.as_deref()));
 
-    // 自分か祖先が `hidden` のグループを開けるのはログイン済みの人だけで、閲覧の場には
-    // 並ばない。中身を確かめられるよう、子は `can_list` ではなく `can_open` で絞る
+    // 自分か祖先が閲覧の場に並ばないグループ (`hidden` か、管理者が開いた他人の `private`) は、
+    // 管理画面から中身を確かめに開いたもの。子は `can_list` ではなく `can_open` で絞る
     // (→ docs/access.md「匿名閲覧の受け口」)。
-    let inspecting_hidden = lineage.any_hidden();
+    let inspecting = lineage.any_unlisted(&viewer);
     let entries = rows
         .into_iter()
         .filter(|row| {
-            if inspecting_hidden {
+            if inspecting {
                 can_open(&viewer, row.visibility, row.created_by)
             } else {
                 can_list(&viewer, row.visibility, row.created_by)
@@ -2780,9 +2847,11 @@ async fn upload_content(
 
     // 親の検証〜commit_blob〜INSERTを直列化する (→ `AppState::contents_write_lock`)。
     // ストリーミング受信は済んでいるので、ロック区間には含めない。
-    let visibility = resolve_visibility_for_create(fields.visibility);
     let _write_guard = state.contents_write_lock.lock().await;
-    let parent_id = validate_parent(&state.pool, fields.parent_id, None).await?;
+    let parent = validate_parent(&state.pool, fields.parent_id, None).await?;
+    let visibility = resolve_visibility_for_create(fields.visibility, parent.as_ref());
+    ensure_fits_parent(parent.as_ref(), visibility, Some(user.id))?;
+    let parent_id = parent.map(|parent| parent.id);
     let title = resolve_create_title(
         &state.pool,
         parent_id,
@@ -2923,7 +2992,9 @@ async fn replace_content_upload(
         existing.visibility,
         existing.created_by,
     )?;
-    let parent_id = validate_parent(&state.pool, fields.parent_id, Some(id)).await?;
+    let parent = validate_parent(&state.pool, fields.parent_id, Some(id)).await?;
+    ensure_fits_parent(parent.as_ref(), visibility, existing.created_by)?;
+    let parent_id = parent.map(|parent| parent.id);
 
     let old_hash = existing.blob_hash;
 
@@ -3275,6 +3346,134 @@ mod tests {
         .expect("リンクを入れられなかった")
     }
 
+    fn parent_group(visibility: Visibility, created_by: Option<i64>) -> ParentGroup {
+        ParentGroup {
+            id: 1,
+            visibility,
+            created_by,
+        }
+    }
+
+    /// 「作成者のみ」のグループに置けるのは、グループの作成者の「作成者のみ」だけ。
+    /// ほかのグループとルート直下には、公開範囲と作成者によらず置ける。
+    #[test]
+    fn ensure_fits_parent_admits_only_creators_private_into_private_group() {
+        let private = parent_group(Visibility::Private, Some(1));
+        let public = parent_group(Visibility::Public, Some(1));
+        let cases = [
+            (
+                "作成者の作成者のみ",
+                Some(&private),
+                Visibility::Private,
+                Some(1),
+                true,
+            ),
+            (
+                "作成者の非表示",
+                Some(&private),
+                Visibility::Hidden,
+                Some(1),
+                false,
+            ),
+            (
+                "作成者の誰でも",
+                Some(&private),
+                Visibility::Public,
+                Some(1),
+                false,
+            ),
+            (
+                "ほかの人の作成者のみ",
+                Some(&private),
+                Visibility::Private,
+                Some(2),
+                false,
+            ),
+            (
+                "作成者のいない行",
+                Some(&private),
+                Visibility::Private,
+                None,
+                false,
+            ),
+            (
+                "誰でものグループ",
+                Some(&public),
+                Visibility::Public,
+                Some(2),
+                true,
+            ),
+            ("ルート直下", None, Visibility::Public, Some(2), true),
+        ];
+        for (label, parent, visibility, created_by, fits) in cases {
+            let result = ensure_fits_parent(parent, visibility, created_by);
+            assert_eq!(result.is_ok(), fits, "{label}: {result:?}");
+        }
+    }
+
+    /// 公開範囲の指定が無いときだけ、「作成者のみ」のグループの中なら「作成者のみ」にする。
+    #[test]
+    fn resolve_visibility_for_create_defaults_to_private_inside_private_group() {
+        let private = parent_group(Visibility::Private, Some(1));
+        let public = parent_group(Visibility::Public, Some(1));
+        assert_eq!(
+            resolve_visibility_for_create(None, Some(&private)),
+            Visibility::Private
+        );
+        assert_eq!(
+            resolve_visibility_for_create(Some(Visibility::Public), Some(&private)),
+            Visibility::Public
+        );
+        assert_eq!(
+            resolve_visibility_for_create(None, Some(&public)),
+            DEFAULT_VISIBILITY
+        );
+        assert_eq!(
+            resolve_visibility_for_create(None, None),
+            DEFAULT_VISIBILITY
+        );
+    }
+
+    /// 直下の子がどれも作成者の「作成者のみ」なら、グループを「作成者のみ」にできる。
+    /// 子が無いときも通す。
+    #[sqlx::test]
+    async fn children_fit_private_group_only_when_all_are_creators_private(pool: sqlx::SqlitePool) {
+        let owner: i64 = sqlx::query_scalar(
+            "INSERT INTO users (username, password_hash) VALUES ('alice', 'x') RETURNING id",
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("ユーザーを入れられなかった");
+        let group = insert_group(&pool, "私の関心", None).await;
+        ensure_children_fit_private_group(&pool, group, Some(owner))
+            .await
+            .expect("子が無ければ通るはず");
+
+        let child = insert_link(&pool, "記事", Some(group)).await;
+        let set = |visibility: &'static str, created_by: Option<i64>| {
+            let pool = pool.clone();
+            async move {
+                sqlx::query("UPDATE contents SET visibility = ?, created_by = ? WHERE id = ?")
+                    .bind(visibility)
+                    .bind(created_by)
+                    .bind(child)
+                    .execute(&pool)
+                    .await
+                    .expect("子を書き換えられなかった");
+            }
+        };
+        let cases = [
+            ("作成者の作成者のみ", "private", Some(owner), true),
+            ("作成者の誰でも", "public", Some(owner), false),
+            ("作成者のいない作成者のみ", "private", None, false),
+        ];
+        for (label, visibility, created_by, fits) in cases {
+            set(visibility, created_by).await;
+            let result = ensure_children_fit_private_group(&pool, group, Some(owner)).await;
+            assert_eq!(result.is_ok(), fits, "{label}: {result:?}");
+        }
+    }
+
     /// 見られるリンクの URL だけを返し、見られない・リンクでない・無い id は `None` にする
     /// (リンクのカードの取り直しで、頼まれた id を黙って飛ばすため)。
     #[sqlx::test]
@@ -3367,20 +3566,23 @@ mod tests {
         assert_eq!(
             validate_parent(&pool, None, Some(root))
                 .await
-                .expect("通るはず"),
+                .expect("通るはず")
+                .map(|parent| parent.id),
             None
         );
         assert_eq!(
             validate_parent(&pool, Some(unrelated), Some(root))
                 .await
-                .expect("通るはず"),
+                .expect("通るはず")
+                .map(|parent| parent.id),
             Some(unrelated)
         );
         // 作るときは自分がまだ無いので、循環は調べない。
         assert_eq!(
             validate_parent(&pool, Some(root), None)
                 .await
-                .expect("通るはず"),
+                .expect("通るはず")
+                .map(|parent| parent.id),
             Some(root)
         );
 

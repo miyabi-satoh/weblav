@@ -13,7 +13,7 @@ import { visibilityLabel } from '$lib/content-labels';
 import { isDirectoryContentType } from '$lib/content-types';
 import { FormDirtyState } from '$lib/form-dirty.svelte';
 import { contentPathLabel } from '$lib/root-location';
-import { effectiveVisibilityUnder } from '$lib/visibility';
+import { childrenFitPrivateGroup, effectiveVisibilityUnder } from '$lib/visibility';
 import * as m from '$lib/paraglide/messages.js';
 
 type Content = components['schemas']['AdminContentResponse'];
@@ -310,13 +310,24 @@ export class ContentFormState {
 }
 
 /**
- * 公開範囲が保存できないときの文言。サーバーの 422 は汎用の文言にしかならないため、
- * 理由はフォーム側で示す。親子の組み合わせでは拒まない (→ docs/access.md「祖先のグループを辿る」)。
+ * 公開範囲が保存できないときの文言。保存してから断られるより先に、理由をフォームで示す。
+ * 断るのは「作成者のみ」のグループの決まりだけで、ほかの親子の組み合わせでは拒まない
+ * (→ docs/access.md「作成者のみのグループ」・「親が外れるときの公開範囲」)。
+ *
+ * @param editing 編集中のグループ。子を持てるのは保存済みのグループだけなので、作成では渡さない。
+ * @param contents 管理画面の一覧の全件 (グループの子を数えるため)。
  */
-export function contentFormVisibilityError(form: ContentFormState): string | null {
-	// 「作成者のみ」を選んだ後に、種別をグループへ変えたとき。
-	return form.type === 'group' && form.visibility === 'private'
-		? m.contents_form_visibility_group_private_error()
+export function contentFormVisibilityError(
+	form: ContentFormState,
+	editing: Content | null,
+	contents: readonly Content[]
+): string | null {
+	return form.type === 'group' &&
+		form.visibility === 'private' &&
+		editing !== null &&
+		editing.visibility !== 'private' &&
+		!childrenFitPrivateGroup(editing, contents)
+		? m.contents_form_visibility_group_children_error()
 		: null;
 }
 
@@ -329,6 +340,9 @@ export function contentFormVisibilityNote(
 	form: ContentFormState,
 	byId: ReadonlyMap<number, Content>
 ): string | null {
+	// 選択肢が「作成者のみ」だけになる理由を、欄の下で示す (→ docs/access.md「作成者のみのグループ」)。
+	const parent = form.parentIdValue == null ? undefined : byId.get(form.parentIdValue);
+	if (parent?.visibility === 'private') return m.contents_form_visibility_private_group_help();
 	const effective = contentFormEffectiveVisibility(form, byId);
 	return effective === form.visibility
 		? null

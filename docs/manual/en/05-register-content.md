@@ -95,6 +95,8 @@ note = "A description shown under the link (optional)"
 
 Items in a group are visible only to people who also meet the group’s visibility setting.
 
+Set a group to “Creator only” to make it a space just for you. It can hold only your own “Creator only” content, and anything you add inside it becomes “Creator only”. A group that holds someone else’s content, or content that isn’t “Creator only”, can’t be set to “Creator only”.
+
 ## Put items in a group
 
 To add a new item:

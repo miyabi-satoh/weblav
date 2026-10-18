@@ -7,7 +7,6 @@
 import type { components } from '$lib/api/schema';
 import { selfAndAncestors } from '$lib/content-tree';
 
-type ContentType = components['schemas']['ContentType'];
 type Visibility = components['schemas']['Visibility'];
 
 /** 厳しさの順 (→ docs/access.md「親が外れるときの公開範囲」)。 */
@@ -82,19 +81,58 @@ export function loosenedByReparent<T extends VisibilityNode>(
 	return isStricter(before, after) ? { before, after } : null;
 }
 
+/** 公開範囲と作成者。「作成者のみ」のグループに置けるかの判定に使う。 */
+type Owned = { visibility: Visibility; createdBy?: number | null };
+
+/**
+ * `parent` の中に置けるか (→ docs/access.md「作成者のみのグループ」)。サーバーの `ensure_fits_parent` と同じ判定。
+ * 「作成者のみ」のグループに置けるのは、グループの作成者の「作成者のみ」だけ。
+ */
+export function fitsParent(parent: Owned | null | undefined, child: Owned): boolean {
+	if (parent?.visibility !== 'private') return true;
+	return (
+		child.visibility === 'private' &&
+		child.createdBy != null &&
+		child.createdBy === parent.createdBy
+	);
+}
+
+/**
+ * `creatorId` のコンテンツの親に選べるグループか。「作成者のみ」のグループは、その作成者のものの親にだけなれる。
+ * 公開範囲は、親に合わせてフォームで「作成者のみ」に絞る (→ `selectableVisibilities`)。
+ */
+export function canHoldContentOf(group: Owned, creatorId: number | null | undefined): boolean {
+	return group.visibility !== 'private' || (creatorId != null && group.createdBy === creatorId);
+}
+
+/**
+ * グループの直下の子がどれも、グループの作成者の「作成者のみ」か。そうでなければ、グループを「作成者のみ」にできない
+ * (→ docs/access.md「作成者のみのグループ」)。
+ */
+export function childrenFitPrivateGroup<T extends Owned & { parentId?: number | null }>(
+	group: { id: number; createdBy?: number | null },
+	contents: readonly T[]
+): boolean {
+	return contents
+		.filter((content) => content.parentId === group.id)
+		.every((child) => fitsParent({ visibility: 'private', createdBy: group.createdBy }, child));
+}
+
 /**
  * フォームで選べる公開範囲。並びは画面に出す順。
  *
  * @param editing 編集中のコンテンツ。新規作成なら `null` (作成者は操作した本人になる)。
  * @param userId 操作しているユーザー。
+ * @param parent 置く先のグループ。「作成者のみ」なら、中に置けるのは「作成者のみ」だけ。
  */
 export function selectableVisibilities(
-	type: ContentType,
-	editing: { visibility: Visibility; createdBy?: number | null } | null,
-	userId: number | undefined
+	editing: Owned | null,
+	userId: number | undefined,
+	parent: Owned | null | undefined
 ): Visibility[] {
+	if (parent?.visibility === 'private') return ['private'];
 	const isCreator = editing === null || (editing.createdBy != null && editing.createdBy === userId);
 	if (editing?.visibility === 'private' && !isCreator) return ['private', 'hidden'];
-	if (type === 'group' || !isCreator) return ['public', 'authenticated', 'hidden'];
+	if (!isCreator) return ['public', 'authenticated', 'hidden'];
 	return ['public', 'authenticated', 'private', 'hidden'];
 }

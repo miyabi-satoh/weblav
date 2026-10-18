@@ -81,8 +81,10 @@ type ValidationDetail = components['schemas']['ValidationDetail'];
  */
 function detailMessage(detail: ValidationDetail): string | undefined {
 	switch (detail.kind) {
-		case 'groupCannotBePrivate':
-			return m.contents_form_visibility_group_private_error();
+		case 'privateGroupNeedsOwnPrivate':
+			return m.contents_form_visibility_private_group_error();
+		case 'groupChildrenNotOwnPrivate':
+			return m.contents_form_visibility_group_children_error();
 		case 'axisNameHasBraces':
 			return m.error_detail_axis_name_braces();
 		case 'axisNameTaken':

@@ -2,7 +2,6 @@
 	import { onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { invalidateAll } from '$app/navigation';
-	import { page } from '$app/state';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/schema';
 	import { aiLinkSite, autoRefreshAiLinks, refreshAiLinks } from '$lib/ai-links';
@@ -79,8 +78,8 @@
 	// 表示しないにしたものは、詳しい表示の前後にも並べない。
 	let shownRows = $derived(rows.filter((link) => hiddenBy(link) === undefined));
 
-	// 残せるのはログインしている人だけ (コンテンツの作成と同じ)。表示しないはグループを書き換えられる人だけ。
-	let canPin = $derived(page.data.user != null);
+	// 残せるかはサーバーが決める (「作成者のみ」のグループは作成者だけ)。表示しないはグループを書き換えられる人だけ。
+	let canPin = $derived(aiLinks.canPin);
 	let canHide = $derived(aiLinks.canEdit);
 
 	let busy = false;

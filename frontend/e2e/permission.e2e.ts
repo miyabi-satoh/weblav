@@ -143,25 +143,30 @@ test('親グループ: 「ログインした人」のグループの中の「誰
 	);
 });
 
-test('公開範囲の選択肢: グループには「作成者のみ」が出ず、リンクには出る', async ({ page }) => {
-	const groupTitle = uniqueId('e2e-group-options');
-	const linkTitle = uniqueId('e2e-link-options');
-	await withContentByApi(page.request, { type: 'group', title: groupTitle }, async (group) => {
-		await withContentByApi(page.request, { type: 'link', title: linkTitle }, async (link) => {
-			for (const [id, privateCount] of [
-				[group.id, 0],
-				[link.id, 1]
-			] as const) {
-				await page.goto(`/admin/contents/${id}`);
-				await page.getByLabel(VISIBILITY_LABEL).click();
-				await expect(page.getByRole('option', { name: /^非表示$|^Hidden$/ })).toBeVisible();
-				await expect(
-					page.getByRole('option', { name: VISIBILITY_PRIVATE_OPTION_NAME })
-				).toHaveCount(privateCount);
-				await page.keyboard.press('Escape');
-			}
-		});
-	});
+test('公開範囲の選択肢: 「作成者のみ」のグループの中のものには「作成者のみ」だけが出る', async ({
+	page
+}) => {
+	const groupTitle = uniqueId('e2e-private-group');
+	const linkTitle = uniqueId('e2e-link-in-private');
+	await withContentByApi(
+		page.request,
+		{ type: 'group', title: groupTitle, visibility: 'private' },
+		async (group) => {
+			await withContentByApi(
+				page.request,
+				{ type: 'link', title: linkTitle, url: 'https://example.com', parentId: group.id },
+				async (link) => {
+					await page.goto(`/admin/contents/${link.id}`);
+					await page.getByLabel(VISIBILITY_LABEL).click();
+					await expect(page.getByRole('option')).toHaveCount(1);
+					await expect(
+						page.getByRole('option', { name: VISIBILITY_PRIVATE_OPTION_NAME })
+					).toBeVisible();
+					await page.keyboard.press('Escape');
+				}
+			);
+		}
+	);
 });
 
 test('編集者: 管理のタブが出ず、ユーザー管理とサイト設定はコンテンツ管理へ戻されるが、追加の種類は全部出る', async ({
