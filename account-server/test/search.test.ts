@@ -7,6 +7,10 @@ describe('parseSearch', () => {
 		expect(parseSearch({ queries: ['a'], country: 'JP', language: 'ja', recency: 'week' })).toEqual(
 			{ queries: ['a'], country: 'JP', language: 'ja', recency: 'week' }
 		);
+		expect(parseSearch({ queries: ['a'], after: '2026-10-11' })).toEqual({
+			queries: ['a'],
+			after: '2026-10-11'
+		});
 	});
 
 	it('refuses other shapes', () => {
@@ -22,7 +26,9 @@ describe('parseSearch', () => {
 			{ queries: ['x'.repeat(201)] },
 			{ queries: ['a'], country: 'jp' },
 			{ queries: ['a'], language: 'JA' },
-			{ queries: ['a'], recency: 'hour' }
+			{ queries: ['a'], recency: 'hour' },
+			{ queries: ['a'], after: '10/11/2026' },
+			{ queries: ['a'], after: '2026-02-30' }
 		]) {
 			expect(parseSearch(body), JSON.stringify(body)).toBeUndefined();
 		}

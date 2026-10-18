@@ -130,9 +130,9 @@ pub struct SearchQuery {
     /// 言語 (ISO 639-1)。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
-    /// 新しさ。窓口が受けるのは `day`・`week`・`month`・`year`。
+    /// この日 (`YYYY-MM-DD`) より後に公開されたものに絞る。
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub recency: Option<&'static str>,
+    pub after: Option<String>,
 }
 
 /// 検索で返った候補の1件。窓口は抜粋 (`snippet`) も返すが、選ぶのは人なので読まない。

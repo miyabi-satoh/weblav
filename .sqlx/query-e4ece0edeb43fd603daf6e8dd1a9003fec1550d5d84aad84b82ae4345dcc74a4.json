@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO ai_link_groups (content_id, interests, daily_limit, auto_mode, auto_hours, auto_time, within_days)\n           VALUES (?, ?, ?, ?, ?, ?, ?)\n           ON CONFLICT (content_id) DO UPDATE SET\n               enabled = TRUE,\n               interests = excluded.interests,\n               daily_limit = excluded.daily_limit,\n               auto_mode = excluded.auto_mode,\n               auto_hours = excluded.auto_hours,\n               auto_time = excluded.auto_time,\n               within_days = excluded.within_days",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "e4ece0edeb43fd603daf6e8dd1a9003fec1550d5d84aad84b82ae4345dcc74a4"
+}

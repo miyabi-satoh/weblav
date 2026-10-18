@@ -134,34 +134,19 @@ impl AutoRefresh {
     };
 }
 
-/// 検索で引くページの新しさ (→ docs/ai.md「AI が集めるリンク」)。業者の絞り込みは、公開から今までの長さで数える。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema, sqlx::Type)]
-#[serde(rename_all = "camelCase")]
-#[sqlx(rename_all = "snake_case")]
-enum Period {
-    /// 絞らない検索と1年以内の検索を1回ずつ引き、定番のページと新しい記事の両方を候補にする。
-    Any,
-    Year,
-    Month,
-    Week,
-    Day,
-}
-
-impl Period {
-    /// 1回の検索の絞り込み。`Any` は、絞らないものと1年以内の2回。
-    fn recencies(self) -> &'static [Option<&'static str>] {
-        match self {
-            Self::Any => &[None, Some("year")],
-            Self::Year => &[Some("year")],
-            Self::Month => &[Some("month")],
-            Self::Week => &[Some("week")],
-            Self::Day => &[Some("day")],
-        }
+/// 検索で引くページの公開日の下限 (この日より後)。PC の現地時刻の今日から `days` 日前。0 なら絞らない。
+/// 日付の計算は、OS の時間帯を知っている SQLite に任せる (自動の更新の日付と同じ)。遠すぎて日付にならなければ絞らない。
+async fn published_after(pool: &SqlitePool, days: i64) -> Result<Option<String>, AppError> {
+    if days <= 0 {
+        return Ok(None);
     }
-}
-
-fn period_any() -> Period {
-    Period::Any
+    let modifier = format!("-{days} days");
+    Ok(sqlx::query_scalar!(
+        r#"SELECT date('now', 'localtime', ?) as "after?: String""#,
+        modifier
+    )
+    .fetch_one(pool)
+    .await?)
 }
 
 /// 表示しないものの種類。
@@ -231,7 +216,8 @@ struct AiLinksSettings {
     /// 1日に集め直せる回数。0 は無制限。
     daily_limit: u32,
     auto_refresh: AutoRefresh,
-    period: Period,
+    /// 検索で引くページを、公開から何日以内に絞るか。0 は絞らない。
+    within_days: u32,
     /// 表示しないにしたもの。新しい順。
     exclusions: Vec<AiLinkExclusion>,
 }
@@ -247,8 +233,9 @@ struct AiLinksSettingsRequest {
     daily_limit: u32,
     #[serde(default = "auto_refresh_off")]
     auto_refresh: AutoRefresh,
-    #[serde(default = "period_any")]
-    period: Period,
+    /// 検索で引くページを、公開から何日以内に絞るか。0 は絞らない。
+    #[serde(default)]
+    within_days: u32,
 }
 
 fn auto_refresh_off() -> AutoRefresh {
@@ -307,7 +294,7 @@ struct Feed {
     auto_time: Option<String>,
     refresh_day: Option<String>,
     refresh_count: i64,
-    period: Period,
+    within_days: i64,
 }
 
 async fn feed(pool: &SqlitePool, id: i64) -> Result<Option<Feed>, AppError> {
@@ -316,7 +303,7 @@ async fn feed(pool: &SqlitePool, id: i64) -> Result<Option<Feed>, AppError> {
         r#"SELECT enabled as "enabled: bool", interests, refreshed_at,
                   refreshed_by_auto as "refreshed_by_auto: bool", daily_limit,
                   auto_mode as "auto_mode: AutoMode", auto_hours, auto_time, refresh_day, refresh_count,
-                  period as "period: Period"
+                  within_days
            FROM ai_link_groups WHERE content_id = ?"#,
         id
     )
@@ -836,7 +823,7 @@ async fn settings(pool: &SqlitePool, id: i64) -> Result<AiLinksSettings, AppErro
             interests: None,
             daily_limit: 0,
             auto_refresh: AutoRefresh::OFF,
-            period: Period::Any,
+            within_days: 0,
             exclusions: Vec::new(),
         });
     };
@@ -844,7 +831,7 @@ async fn settings(pool: &SqlitePool, id: i64) -> Result<AiLinksSettings, AppErro
         enabled: feed.enabled,
         daily_limit: u32::try_from(feed.daily_limit).unwrap_or(u32::MAX),
         auto_refresh: feed.auto_refresh(),
-        period: feed.period,
+        within_days: u32::try_from(feed.within_days).unwrap_or(u32::MAX),
         interests: Some(feed.interests),
         exclusions: exclusions(pool, id).await?,
     })
@@ -904,8 +891,9 @@ async fn put_ai_links_settings(
     let interests = parse_interests(&text)?;
     let auto = parse_auto_refresh(payload.auto_refresh)?;
     let daily_limit = i64::from(payload.daily_limit);
+    let within_days = i64::from(payload.within_days);
     sqlx::query!(
-        r#"INSERT INTO ai_link_groups (content_id, interests, daily_limit, auto_mode, auto_hours, auto_time, period)
+        r#"INSERT INTO ai_link_groups (content_id, interests, daily_limit, auto_mode, auto_hours, auto_time, within_days)
            VALUES (?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT (content_id) DO UPDATE SET
                enabled = TRUE,
@@ -914,14 +902,14 @@ async fn put_ai_links_settings(
                auto_mode = excluded.auto_mode,
                auto_hours = excluded.auto_hours,
                auto_time = excluded.auto_time,
-               period = excluded.period"#,
+               within_days = excluded.within_days"#,
         id,
         interests,
         daily_limit,
         auto.mode,
         auto.hours,
         auto.time,
-        payload.period
+        within_days
     )
     .execute(&state.pool)
     .await?;
@@ -1061,23 +1049,13 @@ async fn collect(
     let queries = query_lines(&feed.interests);
 
     let (country, language) = search_locale(language);
-    let mut found = Vec::new();
-    for &recency in feed.period.recencies() {
-        let query = SearchQuery {
-            queries: queries.clone(),
-            country: country.clone(),
-            language: language.clone(),
-            recency,
-        };
-        match ai::search(state, caller, UsageKind::Links, query).await {
-            Ok(results) => found.extend(results),
-            // 2回目だけが失敗したら、1回目の候補で続ける。1回目に使った残りを無駄にしないため。
-            Err(err) if !found.is_empty() => {
-                tracing::warn!(%err, "the second search for AI links failed");
-            }
-            Err(err) => return Err(err),
-        }
-    }
+    let query = SearchQuery {
+        queries,
+        country,
+        language,
+        after: published_after(&state.pool, feed.within_days).await?,
+    };
+    let found = ai::search(state, caller, UsageKind::Links, query).await?;
     let found = arrange(state, caller, &feed, found).await;
     let registered = registered_urls(&state.pool, id).await?;
     let excluded = excluded(&state.pool, id).await?;
@@ -1459,7 +1437,7 @@ mod tests {
             auto_time: None,
             refresh_day: Some("2026-10-17".to_string()),
             refresh_count: 2,
-            period: Period::Any,
+            within_days: 0,
         };
         assert_eq!(feed.refreshes_left("2026-10-17"), Some(1));
         assert_eq!(feed.refreshes_left("2026-10-18"), Some(3));
@@ -1546,12 +1524,6 @@ mod tests {
             url: url.to_string(),
             date: date.map(str::to_string),
         }
-    }
-
-    #[test]
-    fn period_any_searches_twice_and_the_others_once() {
-        assert_eq!(Period::Any.recencies(), [None, Some("year")]);
-        assert_eq!(Period::Week.recencies(), [Some("week")]);
     }
 
     #[test]

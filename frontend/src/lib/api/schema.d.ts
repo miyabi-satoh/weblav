@@ -1682,7 +1682,11 @@ export interface components {
             exclusions: components["schemas"]["AiLinkExclusion"][];
             /** @description 検索キーワード。一度もオンにしていなければ `null`。 */
             interests?: string | null;
-            period: components["schemas"]["Period"];
+            /**
+             * Format: int32
+             * @description 検索で引くページを、公開から何日以内に絞るか。0 は絞らない。
+             */
+            withinDays: number;
         };
         AiLinksSettingsRequest: {
             autoRefresh?: components["schemas"]["AutoRefresh"];
@@ -1696,7 +1700,11 @@ export interface components {
              *     `null` なら集めるのをやめる (前の設定と表示しないものは残し、ほかの項目は見ない)。
              */
             interests?: string | null;
-            period?: components["schemas"]["Period"];
+            /**
+             * Format: int32
+             * @description 検索で引くページを、公開から何日以内に絞るか。0 は絞らない。
+             */
+            withinDays?: number;
         };
         AiStatusResponse: {
             /** @description 登録済みだが、アカウントにつながらず残りを確かめられなかった。 */
@@ -2324,11 +2332,6 @@ export interface components {
             password: string;
             username: string;
         };
-        /**
-         * @description 検索で引くページの新しさ (→ docs/ai.md「AI が集めるリンク」)。業者の絞り込みは、公開から今までの長さで数える。
-         * @enum {string}
-         */
-        Period: "any" | "year" | "month" | "week" | "day";
         PickRootResponse: {
             /**
              * @description 選ばれたフォルダーの絶対パス。キャンセルされたら `null`。登録はしていないので、

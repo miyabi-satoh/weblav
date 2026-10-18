@@ -159,14 +159,13 @@ async fn refreshing_searches_the_lines_as_written_and_adds_new_results_on_top(po
     assert_eq!(first["links"][1]["title"], "C", "{first}");
     {
         let fake = fake.lock().expect("鍵が毒された");
-        assert_eq!(fake.searches.len(), 2, "{:?}", fake.searches);
+        assert_eq!(fake.searches.len(), 1, "{:?}", fake.searches);
         assert_eq!(
             fake.searches[0],
             serde_json::json!({
                 "queries": ["Rust 非同期", "家庭菜園"], "country": "JP", "language": "ja"
             })
         );
-        assert_eq!(fake.searches[1]["recency"], "year");
         assert!(fake.prompts.is_empty(), "{:?}", fake.prompts);
     }
 
@@ -195,7 +194,7 @@ async fn refreshing_searches_the_lines_as_written_and_adds_new_results_on_top(po
         .into_iter()
         .map(|(_, _, kind, used)| (kind, used))
         .collect();
-    assert_eq!(kinds, [10; 6].map(|used| ("links".to_string(), used)));
+    assert_eq!(kinds, [10; 3].map(|used| ("links".to_string(), used)));
 
     // 匿名でも、公開のグループの集めたリンクは見られる。集め直しも、表示しないもできない。
     let (status, body) = send_anon(app.clone(), "GET", &links_uri(id)).await;
@@ -291,7 +290,7 @@ async fn refreshing_stops_at_the_daily_limit(pool: SqlitePool) {
         StatusCode::TOO_MANY_REQUESTS,
         "ai_links_daily_limit",
     );
-    assert_eq!(fake.lock().expect("鍵が毒された").searches.len(), 2);
+    assert_eq!(fake.lock().expect("鍵が毒された").searches.len(), 1);
 }
 
 /// 自動の更新は、時間が来ていれば匿名で開いても集め直し、使った量は自動の更新の分として残す。
@@ -330,7 +329,7 @@ async fn the_auto_refresh_runs_for_anyone_only_when_it_is_due(pool: SqlitePool) 
     let (status, body) = send_anon_json(app.clone(), "POST", &auto_refresh_uri(id), "{}").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(body.contains(r#""added":null"#), "{body}");
-    assert_eq!(fake.lock().expect("鍵が毒された").searches.len(), 2);
+    assert_eq!(fake.lock().expect("鍵が毒された").searches.len(), 1);
 }
 
 /// 自動の更新が失敗したら、しばらくは開かれても試さない (障害の間に残りを使い続けないため)。
@@ -520,16 +519,16 @@ async fn changing_the_interests_changes_the_queries(pool: SqlitePool) {
     .await;
     refreshed(&app, id, &cookie).await;
     let searches = fake.lock().expect("鍵が毒された").searches.clone();
-    assert_eq!(searches.len(), 4, "{searches:?}");
+    assert_eq!(searches.len(), 2, "{searches:?}");
     assert_eq!(
-        searches[3]["queries"],
+        searches[1]["queries"],
         serde_json::json!(["トマトの育て方"])
     );
 }
 
-/// 期間を選ぶと、その新しさに絞った検索を1回だけ引く。
+/// 日数を決めると、PC の今日からその日数前より後に公開されたページに絞って検索する。
 #[sqlx::test]
-async fn a_period_narrows_the_search_to_one_request(pool: SqlitePool) {
+async fn within_days_narrows_the_search_to_pages_published_after_the_day(pool: SqlitePool) {
     let AiApp {
         app, cookie, fake, ..
     } = ai_app(&pool, true).await;
@@ -537,16 +536,19 @@ async fn a_period_narrows_the_search_to_one_request(pool: SqlitePool) {
         &app,
         &pool,
         &cookie,
-        r#"{"interests":"Rust","period":"week"}"#,
+        r#"{"interests":"Rust","withinDays":7}"#,
     )
     .await;
     prepare(&fake, SEARCH_BODY);
     refreshed(&app, id, &cookie).await;
     let searches = fake.lock().expect("鍵が毒された").searches.clone();
-    assert_eq!(searches.len(), 1, "{searches:?}");
-    assert_eq!(searches[0]["recency"], "week");
+    let week_ago: String = sqlx::query_scalar("SELECT date('now', 'localtime', '-7 days')")
+        .fetch_one(&pool)
+        .await
+        .expect("日付を出せなかった");
+    assert_eq!(searches[0]["after"], week_ago.as_str(), "{searches:?}");
     let settings = get_json(app.clone(), &settings_uri(id), &cookie).await;
-    assert_eq!(settings["period"], "week", "{settings}");
+    assert_eq!(settings["withinDays"], 7, "{settings}");
 }
 
 #[sqlx::test]
@@ -556,7 +558,7 @@ async fn settings_reject_bad_values_and_non_groups(pool: SqlitePool) {
     for settings in [
         r#"{"interests":" \n "}"#,
         r#"{"interests":"1\n2\n3\n4\n5\n6"}"#,
-        r#"{"interests":"Rust","period":"hour"}"#,
+        r#"{"interests":"Rust","withinDays":-1}"#,
         r#"{"interests":"Rust","autoRefresh":{"mode":"daily","time":"25:00"}}"#,
     ] {
         let (status, body) =
@@ -600,7 +602,7 @@ async fn an_editor_without_ai_cannot_refresh_or_change_the_setting(pool: SqliteP
     assert_eq!(seen["canEdit"], false, "{seen}");
     let (status, body) = refresh(&app, id, &taro).await;
     assert_error(status, &body, StatusCode::FORBIDDEN, "ai_not_allowed");
-    assert_eq!(fake.lock().expect("鍵が毒された").searches.len(), 2);
+    assert_eq!(fake.lock().expect("鍵が毒された").searches.len(), 1);
 
     let (status, body) = send_json(
         app.clone(),

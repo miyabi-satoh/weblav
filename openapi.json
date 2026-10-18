@@ -5820,7 +5820,7 @@
           "enabled",
           "dailyLimit",
           "autoRefresh",
-          "period",
+          "withinDays",
           "exclusions"
         ],
         "properties": {
@@ -5851,8 +5851,11 @@
             ],
             "description": "検索キーワード。一度もオンにしていなければ `null`。"
           },
-          "period": {
-            "$ref": "#/components/schemas/Period"
+          "withinDays": {
+            "type": "integer",
+            "format": "int32",
+            "description": "検索で引くページを、公開から何日以内に絞るか。0 は絞らない。",
+            "minimum": 0
           }
         }
       },
@@ -5875,8 +5878,11 @@
             ],
             "description": "検索キーワード。1行に1つの検索のクエリで、5行まで。書いたとおりに検索する。\n`null` なら集めるのをやめる (前の設定と表示しないものは残し、ほかの項目は見ない)。"
           },
-          "period": {
-            "$ref": "#/components/schemas/Period"
+          "withinDays": {
+            "type": "integer",
+            "format": "int32",
+            "description": "検索で引くページを、公開から何日以内に絞るか。0 は絞らない。",
+            "minimum": 0
           }
         }
       },
@@ -7634,17 +7640,6 @@
             "type": "string"
           }
         }
-      },
-      "Period": {
-        "type": "string",
-        "description": "検索で引くページの新しさ (→ docs/ai.md「AI が集めるリンク」)。業者の絞り込みは、公開から今までの長さで数える。",
-        "enum": [
-          "any",
-          "year",
-          "month",
-          "week",
-          "day"
-        ]
       },
       "PickRootResponse": {
         "type": "object",

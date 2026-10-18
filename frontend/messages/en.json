@@ -309,13 +309,18 @@
 	"contents_form_ai_interests_row": "Search keywords {n}",
 	"contents_form_ai_interests_remove": "Remove search keywords {n}",
 	"contents_form_ai_interests_add": "Add search keywords",
-	"contents_form_ai_period_label": "Period",
-	"contents_form_ai_period_any": "Any time (also finds well-known pages)",
-	"contents_form_ai_period_year": "Past year",
-	"contents_form_ai_period_month": "Past month",
-	"contents_form_ai_period_week": "Past week",
-	"contents_form_ai_period_day": "Past day",
-	"contents_form_ai_period_description": "“Any time” runs both a search without a period and a search of the past year, so it uses more credits on each update than the others.",
+	"contents_form_ai_within_days_label": "Published within",
+	"contents_form_ai_within_days_unit": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "day",
+				"countPlural=other": "days"
+			}
+		}
+	],
+	"contents_form_ai_within_days_description": "How recently the pages must have been published. Set to 0 for any time.",
 	"contents_delete_confirm_title": "Delete this content?",
 	"contents_delete_confirm_group_note": "Its contents will move to the root level.",
 	"contents_delete_confirm_loosened_note": "{count} of them will become visible to more people:",
