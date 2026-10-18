@@ -4,8 +4,8 @@ import { parseSearch, searchCost } from '../src/search';
 describe('parseSearch', () => {
 	it('reads the queries with the optional country, language and recency', () => {
 		expect(parseSearch({ queries: ['a', 'b'] })).toEqual({ queries: ['a', 'b'] });
-		expect(parseSearch({ queries: ['a'], country: 'JP', language: 'ja', recency: 'year' })).toEqual(
-			{ queries: ['a'], country: 'JP', language: 'ja', recency: 'year' }
+		expect(parseSearch({ queries: ['a'], country: 'JP', language: 'ja', recency: 'week' })).toEqual(
+			{ queries: ['a'], country: 'JP', language: 'ja', recency: 'week' }
 		);
 	});
 
@@ -22,8 +22,7 @@ describe('parseSearch', () => {
 			{ queries: ['x'.repeat(201)] },
 			{ queries: ['a'], country: 'jp' },
 			{ queries: ['a'], language: 'JA' },
-			// 1か月以下の絞り込みは、量産の記事が多く混じるので受けない。
-			{ queries: ['a'], recency: 'month' }
+			{ queries: ['a'], recency: 'hour' }
 		]) {
 			expect(parseSearch(body), JSON.stringify(body)).toBeUndefined();
 		}

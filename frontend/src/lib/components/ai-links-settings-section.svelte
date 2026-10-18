@@ -21,6 +21,7 @@
 	type Settings = components['schemas']['AiLinksSettings'];
 	type AutoMode = components['schemas']['AutoMode'];
 	type ListMode = components['schemas']['ListMode'];
+	type Period = components['schemas']['Period'];
 
 	// グループの編集ページの「AI でリンクを収集」の区画 (→ docs/ai.md「AI が集めるリンク」)。
 	// 区画ごとに保存する (→ docs/ui.md「UI 全般」の「サイト設定の区画」)。
@@ -55,6 +56,14 @@
 		{ value: 'pick', label: m.contents_form_ai_list_pick },
 		{ value: 'search', label: m.contents_form_ai_list_search }
 	];
+	let period = $state<Period>(untrack(() => settings.period));
+	const periodOptions: { value: Period; label: () => string }[] = [
+		{ value: 'any', label: m.contents_form_ai_period_any },
+		{ value: 'year', label: m.contents_form_ai_period_year },
+		{ value: 'month', label: m.contents_form_ai_period_month },
+		{ value: 'week', label: m.contents_form_ai_period_week },
+		{ value: 'day', label: m.contents_form_ai_period_day }
+	];
 
 	const form = new FormDirtyState(() => ({
 		on,
@@ -63,7 +72,8 @@
 		mode,
 		hours,
 		time,
-		listMode
+		listMode,
+		period
 	}));
 	form.markPristine();
 	$effect(() => {
@@ -102,7 +112,8 @@
 										hours: mode === 'interval' ? hours : null,
 										time: mode === 'daily' ? time : null
 									},
-									listMode
+									listMode,
+									period
 								}
 							: { interests: null }
 					}),
@@ -156,6 +167,22 @@
 						})}</Field.FieldDescription
 					>
 				</Field.Field>
+				<Field.FieldSet>
+					<Field.FieldLegend variant="label" id="content-ai-period-legend"
+						>{m.contents_form_ai_period_label()}</Field.FieldLegend
+					>
+					<RadioGroup.Root bind:value={period} aria-labelledby="content-ai-period-legend">
+						{#each periodOptions as option (option.value)}
+							<div class="flex min-h-9 items-center gap-2">
+								<RadioGroup.Item value={option.value} id="content-ai-period-{option.value}" />
+								<label for="content-ai-period-{option.value}" class="text-sm"
+									>{option.label()}</label
+								>
+							</div>
+						{/each}
+					</RadioGroup.Root>
+					<Field.FieldDescription>{m.contents_form_ai_period_description()}</Field.FieldDescription>
+				</Field.FieldSet>
 				<Field.Field>
 					<Field.FieldLabel for="content-ai-daily-limit" required
 						>{m.contents_form_ai_daily_limit_label()}</Field.FieldLabel

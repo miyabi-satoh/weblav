@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT enabled as \"enabled: bool\", interests, refreshed_at,\n                  refreshed_by_auto as \"refreshed_by_auto: bool\", daily_limit,\n                  auto_mode as \"auto_mode: AutoMode\", auto_hours, auto_time, refresh_day, refresh_count,\n                  list_mode as \"list_mode: ListMode\"\n           FROM ai_link_groups WHERE content_id = ?",
+  "query": "SELECT enabled as \"enabled: bool\", interests, refreshed_at,\n                  refreshed_by_auto as \"refreshed_by_auto: bool\", daily_limit,\n                  auto_mode as \"auto_mode: AutoMode\", auto_hours, auto_time, refresh_day, refresh_count,\n                  list_mode as \"list_mode: ListMode\", period as \"period: Period\"\n           FROM ai_link_groups WHERE content_id = ?",
   "describe": {
     "columns": [
       {
@@ -57,6 +57,11 @@
         "name": "list_mode: ListMode",
         "ordinal": 10,
         "type_info": "Text"
+      },
+      {
+        "name": "period: Period",
+        "ordinal": 11,
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -73,8 +78,9 @@
       true,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "526ab707100036f3cafa94c67d49df440a4f6193a37f0bceb35fcdd8237def3c"
+  "hash": "9003c216ca2797d18ab13c7183b6d380824ab742a93d8b7ad5c5d02607d31f7a"
 }

@@ -519,6 +519,28 @@ async fn changing_the_interests_changes_the_queries(pool: SqlitePool) {
     );
 }
 
+/// 期間を選ぶと、その新しさに絞った検索を1回だけ引く。
+#[sqlx::test]
+async fn a_period_narrows_the_search_to_one_request(pool: SqlitePool) {
+    let AiApp {
+        app, cookie, fake, ..
+    } = ai_app(&pool, true).await;
+    let id = group_with(
+        &app,
+        &pool,
+        &cookie,
+        r#"{"listMode":"off","interests":"Rust","period":"week"}"#,
+    )
+    .await;
+    prepare(&fake, SEARCH_BODY);
+    refreshed(&app, id, &cookie).await;
+    let searches = fake.lock().expect("鍵が毒された").searches.clone();
+    assert_eq!(searches.len(), 1, "{searches:?}");
+    assert_eq!(searches[0]["recency"], "week");
+    let settings = get_json(app.clone(), &settings_uri(id), &cookie).await;
+    assert_eq!(settings["period"], "week", "{settings}");
+}
+
 #[sqlx::test]
 async fn settings_reject_bad_values_and_non_groups(pool: SqlitePool) {
     let AiApp { app, cookie, .. } = ai_app(&pool, true).await;
@@ -526,6 +548,7 @@ async fn settings_reject_bad_values_and_non_groups(pool: SqlitePool) {
     for settings in [
         r#"{"listMode":"off","interests":" \n "}"#,
         r#"{"listMode":"off","interests":"1\n2\n3\n4\n5\n6"}"#,
+        r#"{"listMode":"off","interests":"Rust","period":"hour"}"#,
         r#"{"listMode":"off","interests":"Rust","autoRefresh":{"mode":"daily","time":"25:00"}}"#,
     ] {
         let (status, body) =

@@ -7,7 +7,7 @@ import type { Rates } from './pricing';
 const SEARCH_URL = 'https://api.perplexity.ai/search';
 /** 1回に渡せる語の数。業者が1リクエストとして数える上限。 */
 const MAX_QUERIES = 5;
-/** クエリの長さの上限。AI が作る短いクエリに足り、文章を丸ごと送るのには使わせない。 */
+/** クエリの長さの上限。検索の短いクエリに足り、文章を丸ごと送るのには使わせない。 */
 const MAX_QUERY_CHARS = 200;
 /** 返る候補の数。業者の上限。 */
 const MAX_RESULTS = 20;
@@ -21,9 +21,17 @@ export type SearchRequest = {
 	/** 国 (ISO 3166-1 alpha-2) と言語 (ISO 639-1)。WebLAV の表示言語から決める。 */
 	country?: string;
 	language?: string;
-	/** 新しさ。1か月以下は、量産の記事が多く混じるので受けない。 */
-	recency?: 'year';
+	/** 新しさ。どこまで絞るかは WebLAV の利用者がグループごとに選ぶ。 */
+	recency?: Recency;
 };
+
+/** 受ける新しさの絞り込み。業者の `search_recency_filter` のうち、1時間を除いたもの (1時間では候補がほとんど残らない)。 */
+const RECENCIES = ['day', 'week', 'month', 'year'] as const;
+type Recency = (typeof RECENCIES)[number];
+
+function isRecency(value: unknown): value is Recency {
+	return RECENCIES.some((recency) => recency === value);
+}
 
 /** 受けた本文を `SearchRequest` として読む。形が違えば `undefined`。 */
 export function parseSearch(body: unknown): SearchRequest | undefined {
@@ -43,7 +51,7 @@ export function parseSearch(body: unknown): SearchRequest | undefined {
 	if (language !== undefined && (typeof language !== 'string' || !/^[a-z]{2}$/.test(language))) {
 		return undefined;
 	}
-	if (recency !== undefined && recency !== 'year') return undefined;
+	if (recency !== undefined && !isRecency(recency)) return undefined;
 	return {
 		queries: queries as string[],
 		...(country === undefined ? {} : { country }),

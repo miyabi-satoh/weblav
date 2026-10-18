@@ -1683,6 +1683,7 @@ export interface components {
             /** @description 検索キーワード。一度もオンにしていなければ `null`。 */
             interests?: string | null;
             listMode: components["schemas"]["ListMode"];
+            period: components["schemas"]["Period"];
         };
         AiLinksSettingsRequest: {
             autoRefresh?: components["schemas"]["AutoRefresh"];
@@ -1697,6 +1698,7 @@ export interface components {
              */
             interests?: string | null;
             listMode?: components["schemas"]["ListMode"];
+            period?: components["schemas"]["Period"];
         };
         AiStatusResponse: {
             /** @description 登録済みだが、アカウントにつながらず残りを確かめられなかった。 */
@@ -2330,6 +2332,11 @@ export interface components {
             password: string;
             username: string;
         };
+        /**
+         * @description 検索で引くページの新しさ (→ docs/ai.md「AI が集めるリンク」)。業者の絞り込みは、公開から今までの長さで数える。
+         * @enum {string}
+         */
+        Period: "any" | "year" | "month" | "week" | "day";
         PickRootResponse: {
             /**
              * @description 選ばれたフォルダーの絶対パス。キャンセルされたら `null`。登録はしていないので、

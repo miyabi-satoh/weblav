@@ -130,7 +130,7 @@ pub struct SearchQuery {
     /// 言語 (ISO 639-1)。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
-    /// 新しさ。窓口が受けるのは `year` だけ。
+    /// 新しさ。窓口が受けるのは `day`・`week`・`month`・`year`。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recency: Option<&'static str>,
 }
