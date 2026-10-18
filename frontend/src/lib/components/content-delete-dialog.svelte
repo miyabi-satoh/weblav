@@ -53,8 +53,12 @@
 				return;
 			}
 			// 画面を更新し終えてから閉じる。先に閉じると、移り終えるまで消したものを操作できてしまうため。
-			await ondeleted();
-			content = null;
+			// 更新に失敗しても閉じる。消えたものをもう一度消させないため。
+			try {
+				await ondeleted();
+			} finally {
+				content = null;
+			}
 		} catch {
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
