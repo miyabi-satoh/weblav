@@ -44,6 +44,10 @@ async function renderPng(svg, size) {
 		.toBuffer();
 }
 
+async function renderIco(svg, sizes) {
+	return toIco(await Promise.all(sizes.map((size) => renderPng(svg, size))));
+}
+
 async function renderRgba(svg, size) {
 	return sharp(svg, { density: densityFor(size) })
 		.resize(size, size)
@@ -55,9 +59,7 @@ async function renderRgba(svg, size) {
 async function main() {
 	const svg = await readFile(SVG_PATH);
 
-	const pngBuffers = await Promise.all(ICO_SIZES.map((size) => renderPng(svg, size)));
-	const ico = await toIco(pngBuffers);
-	await writeFile(ICO_PATH, ico);
+	await writeFile(ICO_PATH, await renderIco(svg, ICO_SIZES));
 	console.log(`wrote ${ICO_PATH} (${ICO_SIZES.join('/')}px)`);
 
 	const trayPath = `assets/tray-icon-${TRAY_SIZE}.rgba`;
@@ -71,10 +73,7 @@ async function main() {
 	await copyFile(SVG_PATH, FAVICON_PATH);
 	console.log(`wrote ${FAVICON_PATH}`);
 	await copyFile(SVG_PATH, SITE_FAVICON_SVG_PATH);
-	await writeFile(
-		SITE_FAVICON_ICO_PATH,
-		await toIco(await Promise.all(SITE_ICO_SIZES.map((size) => renderPng(svg, size)))),
-	);
+	await writeFile(SITE_FAVICON_ICO_PATH, await renderIco(svg, SITE_ICO_SIZES));
 	console.log(`wrote ${SITE_FAVICON_SVG_PATH}, ${SITE_FAVICON_ICO_PATH}`);
 
 	for (const [name, size] of MSIX_LOGOS) {
