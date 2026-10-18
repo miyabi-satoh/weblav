@@ -1,5 +1,5 @@
 //! リンクの作成・編集時に、URL のページからタイトルと説明を取る。
-//! リンクのカードに出す情報 (画像・サイト名・公開日時・アイコン) と画像も、ここで取る (→ `link_preview`)。
+//! リンクのカードに出す情報 (画像・サイト名・更新日時・アイコン) と画像も、ここで取る (→ `link_preview`)。
 //!
 //! 取れなかったときは呼び出し側が判断する (タイトルなら URL のホスト名にする等)。
 //! 取得の失敗で呼び出し元の処理を止めないため、ここでは理由を返さずフィールドごとに
@@ -18,6 +18,7 @@ use ureq::unversioned::resolver::{DefaultResolver, ResolvedSocketAddrs, Resolver
 use ureq::unversioned::transport::{DefaultConnector, NextTimeout};
 use ureq::{Agent, ResponseExt};
 
+use super::page_dates;
 use crate::error::{AppError, run_blocking};
 
 /// 取得全体の時間切れ。作成のボタンを押してから待たされる時間の上限になる。
@@ -214,8 +215,8 @@ pub(super) struct PageCard {
     /// ページの説明。リンクの詳しい表示に出す (→ docs/ui.md「リンクのカード」)。
     pub description: Option<String>,
     pub site_name: Option<String>,
-    /// `article:published_time` のまま。形は相手しだいなので、読めるかは画面が決める。
-    pub published_at: Option<String>,
+    /// ページを最後に更新した日時 (無ければ公開した日時)。形は `page_dates::updated_at`。
+    pub updated_at: Option<String>,
     pub image_url: Option<String>,
     pub icon_url: Option<String>,
 }
@@ -277,7 +278,7 @@ pub(super) fn fetch_card_blocking(
     }
     // 相対の URL は、リダイレクトを辿った後のページを基準に解決する。
     let base = url::Url::parse(&response.get_uri().to_string()).ok();
-    let card = match (read_html(&mut response), base) {
+    let mut card = match (read_html(&mut response), base) {
         (Some(html), Some(base)) => extract_card(&html, &base),
         // HTML でないページ (PDF など) は、ホスト名とアイコンだけのカードになる。
         (_, base) => PageCard {
@@ -285,6 +286,12 @@ pub(super) fn fetch_card_blocking(
             ..PageCard::default()
         },
     };
+    // ページに日時の書き込みが無ければ、HTTP の最終更新を使う。PDF などの HTML でないものも、これで日時が付く。
+    if card.updated_at.is_none() {
+        card.updated_at = headers.last_modified.as_deref().and_then(|last_modified| {
+            page_dates::from_last_modified(last_modified, headers.date.as_deref())
+        });
+    }
     CardFetch::Fetched { card, headers }
 }
 
@@ -339,7 +346,7 @@ fn extract_card(html: &str, base: &url::Url) -> PageCard {
         title: extract_page_title(html, &lower),
         description: extract_page_description(html, &lower),
         site_name: extract_meta_content(html, &lower, "og:site_name", MAX_TITLE_CHARS),
-        published_at: extract_meta_content(html, &lower, "article:published_time", MAX_TITLE_CHARS),
+        updated_at: page_dates::updated_at(html, &lower),
         image_url: image.and_then(|image| resolve_web_url(base, &image)),
         icon_url: extract_icon_href(html, &lower)
             .and_then(|href| resolve_web_url(base, &href))
@@ -609,7 +616,7 @@ fn extract_meta_content(html: &str, lower: &str, name: &str, max_chars: usize) -
 }
 
 /// `<name ...>` のタグを順に探し、属性を返す。`lower` は `html` を小文字にしたもの。
-fn tags<'a>(
+pub(super) fn tags<'a>(
     html: &'a str,
     lower: &'a str,
     name: &'a str,
@@ -827,10 +834,7 @@ mod tests {
         assert_eq!(card.title.as_deref(), Some("Hello"));
         assert_eq!(card.description.as_deref(), Some("About \"Hello\""));
         assert_eq!(card.site_name.as_deref(), Some("Example News"));
-        assert_eq!(
-            card.published_at.as_deref(),
-            Some("2026-10-05T09:00:00+09:00")
-        );
+        assert_eq!(card.updated_at.as_deref(), Some("2026-10-05T00:00:00Z"));
         assert_eq!(
             card.image_url.as_deref(),
             Some("https://news.example/img/a.jpg?x=1&y=2")

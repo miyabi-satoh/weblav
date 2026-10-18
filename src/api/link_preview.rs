@@ -82,8 +82,8 @@ pub struct LinkPreview {
     /// ページの説明 (`og:description`、無ければ `<meta name="description">`)。
     pub description: Option<String>,
     pub site_name: Option<String>,
-    /// ページの `article:published_time` のまま。読めなければ経過を出さない。
-    pub published_at: Option<String>,
+    /// ページを最後に更新した日時 (無ければ公開した日時)。RFC 3339・`YYYY-MM-DD`・時差の無い ISO 8601 のどれか (→ `page_dates`)。
+    pub updated_at: Option<String>,
     pub image_url: Option<String>,
     pub icon_url: Option<String>,
     /// 最後に確かめたとき、ページが無くなっていた (404・410)。
@@ -95,7 +95,7 @@ struct PreviewRow {
     title: Option<String>,
     description: Option<String>,
     site_name: Option<String>,
-    published_at: Option<String>,
+    updated_at: Option<String>,
     image_file: Option<String>,
     icon_file: Option<String>,
     gone: bool,
@@ -107,7 +107,7 @@ impl From<PreviewRow> for LinkPreview {
             title: row.title,
             description: row.description,
             site_name: row.site_name,
-            published_at: row.published_at,
+            updated_at: row.updated_at,
             image_url: row.image_file.map(|file| file_url(&file)),
             icon_url: row.icon_file.map(|file| file_url(&file)),
             gone: row.gone,
@@ -138,7 +138,7 @@ pub(super) async fn cached(
     let urls_json = serde_json::to_string(urls).expect("文字列の並びは JSON にできる");
     let rows = sqlx::query_as!(
         PreviewRow,
-        r#"SELECT url, title, description, site_name, published_at, image_file, icon_file,
+        r#"SELECT url, title, description, site_name, updated_at, image_file, icon_file,
                   gone AS "gone: bool"
            FROM link_previews WHERE url IN (SELECT value FROM json_each(?))"#,
         urls_json
@@ -492,11 +492,11 @@ async fn save(
     let bytes = settled.image_bytes + settled.icon_bytes;
     if let Some(card) = card {
         sqlx::query!(
-            "UPDATE link_previews SET title = ?, description = ?, site_name = ?, published_at = ? WHERE url = ?",
+            "UPDATE link_previews SET title = ?, description = ?, site_name = ?, updated_at = ? WHERE url = ?",
             card.title,
             card.description,
             card.site_name,
-            card.published_at,
+            card.updated_at,
             url
         )
         .execute(&mut *tx)

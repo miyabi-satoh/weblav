@@ -22,6 +22,7 @@ mod link_title;
 mod links_file;
 mod local;
 mod logs;
+mod page_dates;
 mod remote_file;
 mod roots;
 mod search;

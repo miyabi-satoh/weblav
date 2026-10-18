@@ -18,7 +18,7 @@
 	let detail = $derived(linkDetail.current);
 	let preview = $derived(detail?.preview);
 	let siteName = $derived(preview?.siteName ?? (detail ? urlHost(detail.href) : ''));
-	let timeAgo = $derived(formatTimeAgo(preview?.publishedAt));
+	let timeAgo = $derived(formatTimeAgo(preview?.updatedAt));
 
 	// 読めなかった画像は隠す。開き直したり前後へ移ったりしたら、改めて読みに行く。
 	let failedImage = $state.raw<string | null>(null);

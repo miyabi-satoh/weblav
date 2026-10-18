@@ -2282,10 +2282,10 @@ export interface components {
             gone: boolean;
             iconUrl?: string | null;
             imageUrl?: string | null;
-            /** @description ページの `article:published_time` のまま。読めなければ経過を出さない。 */
-            publishedAt?: string | null;
             siteName?: string | null;
             title?: string | null;
+            /** @description ページを最後に更新した日時 (無ければ公開した日時)。RFC 3339・`YYYY-MM-DD`・時差の無い ISO 8601 のどれか (→ `page_dates`)。 */
+            updatedAt?: string | null;
         };
         LinksFileEntry: {
             note?: string | null;

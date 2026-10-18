@@ -94,7 +94,7 @@
 	let host = $derived(urlHost(href));
 	let siteName = $derived(preview?.siteName ?? host);
 	let shownTitle = $derived(linkTitleOf(href, title, preview));
-	let timeAgo = $derived(formatTimeAgo(preview?.publishedAt));
+	let timeAgo = $derived(formatTimeAgo(preview?.updatedAt));
 
 	// 読めなかったときの preview を覚える。取り直しの答えで差し替わったら、同じ URL でも改めて読みに行く。
 	// サーバーが消えた画像を取り直し、同じ名前で置き直していることがあるため。
