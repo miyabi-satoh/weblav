@@ -1,4 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- 絵を選んだ理由は docs/distribution.md「バージョン・アイコンの埋め込み」。 -->
   <rect x="1" y="1" width="30" height="30" rx="7" fill="#146E6B"/>
-  <path d="M7 9.5 11.4 22.5 16 12.5l4.6 10L25 9.5" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M5 9.5a2 2 0 0 1 2-2h5l2.2 2.4H25a2 2 0 0 1 2 2V23a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z" fill="#FFFFFF"/>
+  <circle cx="16" cy="21.5" r="1.9" fill="#146E6B"/>
+  <path d="M12.89 18.39a4.4 4.4 0 0 1 6.22 0M9.35 14.85a9.4 9.4 0 0 1 13.29 0" stroke="#146E6B" stroke-width="2.4" stroke-linecap="round" fill="none"/>
 </svg>

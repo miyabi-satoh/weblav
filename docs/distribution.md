@@ -45,18 +45,22 @@ Windows 版の配布物を作る手段。
   そのまま使う。
   リソースはパッケージ内の全 exe にリンクされるため、`weblav-cli.exe`・`weblav-service.exe` も同じアイコン・バージョン情報を持つ
   (`OriginalFilename` も `weblav.exe` のまま。exe ごとに分ける手段が無く、実害も無いため許容する)。
-- アイコンの絵 (`assets/icon.svg`、差し色 #146E6B と白の「W」) から
+- アイコンの絵 (`assets/icon.svg`) は、差し色 #146E6B の地に白のフォルダーと電波。
+  パソコンのフォルダーを LAN の端末へ見せる、というアプリの働きを描く。
+  頭文字の「W」は使わない。角丸の正方形に頭文字を置くアイコンはほかのアプリにも多く、タスクバーの大きさでは見分けられないため。
+  電波の弧は、16px でも潰れない太さと間隔にしてある。
+- この絵から
   `assets/icon.ico` (16/20/24/32/48/256px、exe 埋め込み用) と
   `assets/tray-icon-64.rgba` (タスクトレイ用、生の RGBA) を
   `just generate-icon` (`scripts/generate-icon.mjs`、sharp + to-ico、Node製) で作る。
-  ブラウザーのタブのアイコン (`frontend/src/lib/assets/favicon.svg`) も、同じ手順で `icon.svg` を写して作る。
+  ブラウザーのタブのアイコン (`frontend/src/lib/assets/favicon.svg`、紹介のサイトの `site/public/favicon.{svg,ico}`) も、同じ手順で作る (SVG は `icon.svg` を写し、サイトの `.ico` は 16/32/48px だけにする)。
   どちらも生成物として **コミットする** (`build.rs` はビルドのたびに `.ico` を要求するため)。
   Node製にしたのは Mac でも同じ手順で作り直せるようにするため
   (Inkscape 等の Windows 専用ツールを要らないようにする)。
 - タスクトレイのアイコンは実行時に `include_bytes!` で埋め込む
   (画像デコード用の crate を増やさないため、生の RGBA のまま持つ)。
   実機で 100%・150% 表示スケーリングの両方で確認済み。
-- macOS のメニューバーでは、`assets/tray-icon-mac.svg` (角丸の枠線と「W」の単色の線画) から作る
+- macOS のメニューバーでは、`assets/tray-icon-mac.svg` (フォルダーの枠線と電波の単色の線画) から作る
   `assets/tray-icon-mac-64.rgba` を、テンプレート画像として出す。
   メニューバーのアイコンは単色で、明暗は OS が付けるのが macOS の作法のため。
 

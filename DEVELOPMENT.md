@@ -150,7 +150,7 @@ just install-mac  # macOS: .app を作って /Applications に入れ直し、起
   (`[package.metadata.winresource]`、`Cargo.toml`)。
 - アイコンの絵 (`assets/icon.svg`、macOS のメニューバー用は `assets/tray-icon-mac.svg`) を直したら `just generate-icon` で
   `assets/icon.ico`・`assets/tray-icon-64.rgba`・`assets/tray-icon-mac-64.rgba`・`assets/msix/*.png`・
-  `frontend/src/lib/assets/favicon.svg` を作り直してコミットする
+  `frontend/src/lib/assets/favicon.svg`・`site/public/favicon.{svg,ico}` を作り直してコミットする
   (Node製のスクリプトなので Mac でも実行できる)。
 - ダブルクリック起動 (タスクトレイ常駐) はコンソールを出さない (`windows_subsystem = "windows"`、リリースビルドのみ)。
   そのためコマンドプロンプトからは CLI として使えず、CLI はコンソール用の別 exe `weblav-cli` に分けてある (全 OS 共通)。
