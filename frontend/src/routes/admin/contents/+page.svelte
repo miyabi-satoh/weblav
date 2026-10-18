@@ -612,23 +612,27 @@
 			{/if}
 		</Dialog.Header>
 		{#if createStep === 'type'}
-			<ContentTypeChooser
-				types={creatableTypes}
-				label={m.contents_create_type_label()}
-				disabledTypes={unavailableTypes}
-				disabledReason={m.contents_create_type_needs_shared_folder()}
-				disabledNote={unavailableNote}
-				onselect={chooseType}
-			/>
-		{:else}
-			<form onsubmit={handleSubmit} class="flex flex-col gap-6">
-				<ContentForm
-					{form}
-					variant="create"
-					{visibilityOptions}
-					{visibilityNote}
-					onchoosepath={() => (dirPickerOpen = true)}
+			<Dialog.Body>
+				<ContentTypeChooser
+					types={creatableTypes}
+					label={m.contents_create_type_label()}
+					disabledTypes={unavailableTypes}
+					disabledReason={m.contents_create_type_needs_shared_folder()}
+					disabledNote={unavailableNote}
+					onselect={chooseType}
 				/>
+			</Dialog.Body>
+		{:else}
+			<form onsubmit={handleSubmit} class="flex min-h-0 flex-col gap-6">
+				<Dialog.Body>
+					<ContentForm
+						{form}
+						variant="create"
+						{visibilityOptions}
+						{visibilityNote}
+						onchoosepath={() => (dirPickerOpen = true)}
+					/>
+				</Dialog.Body>
 				<Dialog.Footer>
 					<Button type="button" variant="outline" onclick={backToTypes}
 						>{m.contents_create_back_button()}</Button

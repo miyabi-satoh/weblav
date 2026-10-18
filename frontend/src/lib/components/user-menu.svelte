@@ -148,46 +148,48 @@
 		<Dialog.Header>
 			<Dialog.Title>{m.change_password_dialog_title()}</Dialog.Title>
 		</Dialog.Header>
-		<form onsubmit={handleChangePasswordSubmit} class="flex flex-col gap-6">
-			<Field.FieldGroup>
-				<Field.Field>
-					<Field.FieldLabel for="change-password-current" required
-						>{m.account_current_password_label()}</Field.FieldLabel
-					>
-					<PasswordInput
-						id="change-password-current"
-						autocomplete="current-password"
-						bind:value={currentPassword}
-						required
-					/>
-				</Field.Field>
-				<Field.Field>
-					<Field.FieldLabel for="change-password-new" required
-						>{m.change_password_new_label()}</Field.FieldLabel
-					>
-					<PasswordInput
-						id="change-password-new"
-						autocomplete="new-password"
-						bind:value={newPassword}
-						required
-					/>
-				</Field.Field>
-				<Field.Field>
-					<Field.FieldLabel for="change-password-new-confirm" required
-						>{m.change_password_new_confirm_label()}</Field.FieldLabel
-					>
-					<PasswordInput
-						id="change-password-new-confirm"
-						autocomplete="new-password"
-						aria-invalid={mismatch}
-						bind:value={newPasswordConfirm}
-						required
-					/>
-					{#if mismatch}
-						<Field.FieldError>{m.common_password_mismatch()}</Field.FieldError>
-					{/if}
-				</Field.Field>
-			</Field.FieldGroup>
+		<form onsubmit={handleChangePasswordSubmit} class="flex min-h-0 flex-col gap-6">
+			<Dialog.Body>
+				<Field.FieldGroup>
+					<Field.Field>
+						<Field.FieldLabel for="change-password-current" required
+							>{m.account_current_password_label()}</Field.FieldLabel
+						>
+						<PasswordInput
+							id="change-password-current"
+							autocomplete="current-password"
+							bind:value={currentPassword}
+							required
+						/>
+					</Field.Field>
+					<Field.Field>
+						<Field.FieldLabel for="change-password-new" required
+							>{m.change_password_new_label()}</Field.FieldLabel
+						>
+						<PasswordInput
+							id="change-password-new"
+							autocomplete="new-password"
+							bind:value={newPassword}
+							required
+						/>
+					</Field.Field>
+					<Field.Field>
+						<Field.FieldLabel for="change-password-new-confirm" required
+							>{m.change_password_new_confirm_label()}</Field.FieldLabel
+						>
+						<PasswordInput
+							id="change-password-new-confirm"
+							autocomplete="new-password"
+							aria-invalid={mismatch}
+							bind:value={newPasswordConfirm}
+							required
+						/>
+						{#if mismatch}
+							<Field.FieldError>{m.common_password_mismatch()}</Field.FieldError>
+						{/if}
+					</Field.Field>
+				</Field.FieldGroup>
+			</Dialog.Body>
 			<Dialog.Footer>
 				<Button type="button" variant="outline" onclick={() => (changePasswordOpen = false)}
 					>{m.action_cancel()}</Button
@@ -206,31 +208,33 @@
 		<Dialog.Header>
 			<Dialog.Title>{m.change_username_dialog_title()}</Dialog.Title>
 		</Dialog.Header>
-		<form onsubmit={handleChangeUsernameSubmit} class="flex flex-col gap-6">
-			<Field.FieldGroup>
-				<Field.Field>
-					<Field.FieldLabel for="change-username-new" required
-						>{m.change_username_label()}</Field.FieldLabel
-					>
-					<Input
-						id="change-username-new"
-						autocomplete="username"
-						bind:value={newUsername}
-						required
-					/>
-				</Field.Field>
-				<Field.Field>
-					<Field.FieldLabel for="change-username-current-password" required
-						>{m.account_current_password_label()}</Field.FieldLabel
-					>
-					<PasswordInput
-						id="change-username-current-password"
-						autocomplete="current-password"
-						bind:value={usernamePassword}
-						required
-					/>
-				</Field.Field>
-			</Field.FieldGroup>
+		<form onsubmit={handleChangeUsernameSubmit} class="flex min-h-0 flex-col gap-6">
+			<Dialog.Body>
+				<Field.FieldGroup>
+					<Field.Field>
+						<Field.FieldLabel for="change-username-new" required
+							>{m.change_username_label()}</Field.FieldLabel
+						>
+						<Input
+							id="change-username-new"
+							autocomplete="username"
+							bind:value={newUsername}
+							required
+						/>
+					</Field.Field>
+					<Field.Field>
+						<Field.FieldLabel for="change-username-current-password" required
+							>{m.account_current_password_label()}</Field.FieldLabel
+						>
+						<PasswordInput
+							id="change-username-current-password"
+							autocomplete="current-password"
+							bind:value={usernamePassword}
+							required
+						/>
+					</Field.Field>
+				</Field.FieldGroup>
+			</Dialog.Body>
 			<Dialog.Footer>
 				<Button type="button" variant="outline" onclick={() => (changeUsernameOpen = false)}
 					>{m.action_cancel()}</Button

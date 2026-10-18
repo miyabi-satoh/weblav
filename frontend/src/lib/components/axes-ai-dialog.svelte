@@ -69,14 +69,14 @@
 	let step = $state<'choose' | 'manual' | 'preview'>('manual');
 	/** 予告の画面の「戻る」と、取り込みに失敗したときに戻る画面。 */
 	let previewFrom = $state<'choose' | 'manual'>('manual');
-	let contentEl = $state<HTMLElement | null>(null);
+	let bodyEl = $state<HTMLElement | null>(null);
 
-	// 画面を替えたら先頭から見せる。ブラウザーは押したボタン (足もとに残る) の位置を保つように
+	// 画面を替えたら先頭から見せる。ブラウザーは見えていた要素の位置を保つように
 	// スクロールを合わせるので (scroll anchoring)、そのままだと替えた後の画面が途中から出るため。
 	// 合わせるのは描いたときなので、描き終えてから戻す。
 	$effect(() => {
 		void step;
-		const el = contentEl;
+		const el = bodyEl;
 		if (!el) return;
 		const frame = requestAnimationFrame(() => (el.scrollTop = 0));
 		return () => cancelAnimationFrame(frame);
@@ -273,7 +273,6 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Content
-		bind:ref={contentEl}
 		class="sm:max-w-2xl"
 		interactOutsideBehavior={answerForm.dirty || generating ? 'ignore' : 'close'}
 		escapeKeydownBehavior={answerForm.dirty || generating ? 'ignore' : 'close'}
@@ -284,125 +283,129 @@
 				<Dialog.Description>{m.archive_axes_ai_dialog_description()}</Dialog.Description>
 			{/if}
 		</Dialog.Header>
-
-		{#if prompt === null && !promptFailed}
-			<Spinner aria-label={m.common_loading()} />
-		{:else if step === 'choose'}
-			<!-- 2つの作り方を、同じ形の枠に並べて選ばせる (→ docs/ui.md「UI 全般」の「余白と区切り」)。 -->
-			<section class="flex min-w-0 flex-col gap-2 rounded-md border p-4">
-				<h3 class="text-sm font-semibold">{m.archive_axes_ai_generate_heading()}</h3>
-				<p class="text-sm text-muted-foreground">{m.archive_axes_ai_generate_note()}</p>
-				<LoadingButton
-					class="w-fit"
-					loading={generating || checking}
-					disabled={prompt === null}
-					onclick={generate}
-				>
-					{m.archive_axes_ai_generate_button()}
-				</LoadingButton>
-				{#if generating}
-					<p class="text-sm text-muted-foreground">{m.archive_axes_ai_generate_waiting()}</p>
-				{/if}
-				{#if promptFailed}
-					<p role="alert" class="text-sm text-destructive">{m.archive_axes_ai_prompt_failed()}</p>
-				{:else if generateError}
-					<p role="alert" class="text-sm text-destructive">{generateError}</p>
-				{/if}
-			</section>
-			<section class="flex min-w-0 flex-col gap-2 rounded-md border p-4">
-				<h3 class="text-sm font-semibold">{m.archive_axes_ai_manual_heading()}</h3>
-				<p class="text-sm text-muted-foreground">{m.archive_axes_ai_dialog_description()}</p>
-				<Button
-					variant="outline"
-					class="w-fit"
-					disabled={generating || checking}
-					onclick={() => (step = 'manual')}
-				>
-					{m.archive_axes_ai_manual_button()}
-				</Button>
-			</section>
-		{:else if step === 'manual'}
-			<section class="flex min-w-0 flex-col gap-2">
-				<h3 class="text-sm font-semibold">{m.archive_axes_ai_step_copy()}</h3>
-				<p class="text-sm text-muted-foreground">{m.archive_axes_ai_privacy_note()}</p>
-				{#if prompt !== null}
-					<Button variant="outline" class="w-fit" onclick={copyPrompt}>
-						{#if copyFeedback.copied}
-							<CheckIcon />
-						{:else}
-							<CopyIcon />
-						{/if}
-						{m.archive_axes_ai_copy_button()}
+		<Dialog.Body bind:ref={bodyEl}>
+			{#if prompt === null && !promptFailed}
+				<Spinner aria-label={m.common_loading()} />
+			{:else if step === 'choose'}
+				<!-- 2つの作り方を、同じ形の枠に並べて選ばせる (→ docs/ui.md「UI 全般」の「余白と区切り」)。 -->
+				<section class="flex min-w-0 flex-col gap-2 rounded-md border p-4">
+					<h3 class="text-sm font-semibold">{m.archive_axes_ai_generate_heading()}</h3>
+					<p class="text-sm text-muted-foreground">{m.archive_axes_ai_generate_note()}</p>
+					<LoadingButton
+						class="w-fit"
+						loading={generating || checking}
+						disabled={prompt === null}
+						onclick={generate}
+					>
+						{m.archive_axes_ai_generate_button()}
+					</LoadingButton>
+					{#if generating}
+						<p class="text-sm text-muted-foreground">{m.archive_axes_ai_generate_waiting()}</p>
+					{/if}
+					{#if promptFailed}
+						<p role="alert" class="text-sm text-destructive">{m.archive_axes_ai_prompt_failed()}</p>
+					{:else if generateError}
+						<p role="alert" class="text-sm text-destructive">{generateError}</p>
+					{/if}
+				</section>
+				<section class="flex min-w-0 flex-col gap-2 rounded-md border p-4">
+					<h3 class="text-sm font-semibold">{m.archive_axes_ai_manual_heading()}</h3>
+					<p class="text-sm text-muted-foreground">{m.archive_axes_ai_dialog_description()}</p>
+					<Button
+						variant="outline"
+						class="w-fit"
+						disabled={generating || checking}
+						onclick={() => (step = 'manual')}
+					>
+						{m.archive_axes_ai_manual_button()}
 					</Button>
-					<!-- 中身は畳んでおく。開いたままだと、ダイアログの途中でそれ自体がスクロールし、ホイールを取られるため。 -->
-					<details class="text-sm">
-						<summary class="w-fit cursor-pointer text-muted-foreground">
-							{m.archive_axes_ai_prompt_show()}
-						</summary>
-						<pre
-							class="mt-2 max-h-48 overflow-auto rounded-md border p-2 font-mono text-xs whitespace-pre-wrap">{prompt}</pre>
-					</details>
-				{:else}
-					<p role="alert" class="text-sm text-destructive">{m.archive_axes_ai_prompt_failed()}</p>
-				{/if}
-			</section>
+				</section>
+			{:else if step === 'manual'}
+				<section class="flex min-w-0 flex-col gap-2">
+					<h3 class="text-sm font-semibold">{m.archive_axes_ai_step_copy()}</h3>
+					<p class="text-sm text-muted-foreground">{m.archive_axes_ai_privacy_note()}</p>
+					{#if prompt !== null}
+						<Button variant="outline" class="w-fit" onclick={copyPrompt}>
+							{#if copyFeedback.copied}
+								<CheckIcon />
+							{:else}
+								<CopyIcon />
+							{/if}
+							{m.archive_axes_ai_copy_button()}
+						</Button>
+						<!-- 中身は畳んでおく。開いたままだと、ダイアログの途中でそれ自体がスクロールし、ホイールを取られるため。 -->
+						<details class="text-sm">
+							<summary class="w-fit cursor-pointer text-muted-foreground">
+								{m.archive_axes_ai_prompt_show()}
+							</summary>
+							<pre
+								class="mt-2 max-h-48 overflow-auto rounded-md border p-2 font-mono text-xs whitespace-pre-wrap">{prompt}</pre>
+						</details>
+					{:else}
+						<p role="alert" class="text-sm text-destructive">{m.archive_axes_ai_prompt_failed()}</p>
+					{/if}
+				</section>
 
-			<section class="flex min-w-0 flex-col gap-2">
-				<Field.Field>
-					<Field.FieldLabel for="axes-ai-answer">{m.archive_axes_ai_step_paste()}</Field.FieldLabel>
-					<Textarea
-						id="axes-ai-answer"
-						bind:value={answer}
-						rows={6}
-						class="max-h-64 font-mono text-xs"
-						disabled={checking}
-					/>
-				</Field.Field>
-				{#if checkError}
-					<p role="alert" class="text-sm text-destructive">{checkError}</p>
+				<section class="flex min-w-0 flex-col gap-2">
+					<Field.Field>
+						<Field.FieldLabel for="axes-ai-answer"
+							>{m.archive_axes_ai_step_paste()}</Field.FieldLabel
+						>
+						<Textarea
+							id="axes-ai-answer"
+							bind:value={answer}
+							rows={6}
+							class="max-h-64 font-mono text-xs"
+							disabled={checking}
+						/>
+					</Field.Field>
+					{#if checkError}
+						<p role="alert" class="text-sm text-destructive">{checkError}</p>
+					{/if}
+				</section>
+			{:else if checked}
+				{@const preview = checked.preview}
+				<!-- 確定で起きることの警告は本体の先頭に置き、スクロールしなくても見せる (→ docs/ui.md「UI 全般」)。 -->
+				{#if preview.replacesExisting}
+					<WarningBand>
+						<p class="text-sm leading-relaxed">{m.archive_axes_ai_replace_warning()}</p>
+					</WarningBand>
 				{/if}
-			</section>
-		{:else if checked}
-			{@const preview = checked.preview}
-			<section class="flex min-w-0 flex-col gap-2">
-				<h3 class="text-sm font-semibold">{m.archive_axes_ai_step_preview()}</h3>
-				<ul class="text-sm">
-					{#each preview.axes as axis (axis.name)}
-						<li>
-							{m.archive_axes_ai_preview_axis({
-								name: axis.name,
-								matched: axis.matched,
-								total: preview.itemCount
-							})}
-						</li>
-					{/each}
-				</ul>
-				{#if preview.examples.length > 0}
-					<p class="text-sm text-muted-foreground">{m.archive_axes_ai_preview_examples()}</p>
-					<ul class="flex flex-col gap-2 text-sm">
-						{#each preview.examples as example (example.relPath)}
-							<li class="min-w-0">
-								<p class="break-all">{example.title}</p>
-								<p class="text-xs break-all text-muted-foreground">
-									{preview.axes
-										.map(
-											(axis, i) =>
-												`${axis.name}: ${example.values[i] ?? m.archive_axes_ai_preview_unset()}`
-										)
-										.join(' / ')}
-								</p>
-								<p class="text-xs break-all text-muted-foreground">{example.relPath}</p>
+				<section class="flex min-w-0 flex-col gap-2">
+					<h3 class="text-sm font-semibold">{m.archive_axes_ai_step_preview()}</h3>
+					<ul class="text-sm">
+						{#each preview.axes as axis (axis.name)}
+							<li>
+								{m.archive_axes_ai_preview_axis({
+									name: axis.name,
+									matched: axis.matched,
+									total: preview.itemCount
+								})}
 							</li>
 						{/each}
 					</ul>
-				{/if}
-			</section>
-			{#if preview.replacesExisting}
-				<WarningBand>
-					<p class="text-sm leading-relaxed">{m.archive_axes_ai_replace_warning()}</p>
-				</WarningBand>
+					{#if preview.examples.length > 0}
+						<p class="text-sm text-muted-foreground">{m.archive_axes_ai_preview_examples()}</p>
+						<ul class="flex flex-col gap-2 text-sm">
+							{#each preview.examples as example (example.relPath)}
+								<li class="min-w-0">
+									<p class="break-all">{example.title}</p>
+									<p class="text-xs break-all text-muted-foreground">
+										{preview.axes
+											.map(
+												(axis, i) =>
+													`${axis.name}: ${example.values[i] ?? m.archive_axes_ai_preview_unset()}`
+											)
+											.join(' / ')}
+									</p>
+									<p class="text-xs break-all text-muted-foreground">{example.relPath}</p>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</section>
 			{/if}
-		{/if}
+		</Dialog.Body>
 
 		<Dialog.Footer>
 			{#if step === 'manual'}

@@ -4,17 +4,18 @@
 use super::ai::{AiApp, ai_app, get_json, usage_rows};
 use super::*;
 
-/// 検索の候補 3 件。2件目は、グループに登録してあるリンク (`insert_link_by` の URL) と同じ。
+/// 検索の候補 3 件。2件目は、グループに登録してあるリンク (`insert_registered` の URL) と同じ。
+/// どれも一覧のページの形の URL なので開こうとするが、`.invalid` は名前解決できないと決まっている (RFC 6761) ので外へ出ない。
 const SEARCH_BODY: &str = r#"{"results":[
-    {"title":"C","url":"https://c.example/","snippet":"about c"},
-    {"title":"Registered","url":"https://example.com","snippet":""},
-    {"title":"A","url":"https://a.example/","date":"2026-01-02","snippet":"about a"}
+    {"title":"C","url":"https://c.invalid/","snippet":"about c"},
+    {"title":"Registered","url":"https://registered.invalid/","snippet":""},
+    {"title":"A","url":"https://a.invalid/","date":"2026-01-02","snippet":"about a"}
 ]}"#;
 
 /// `SEARCH_BODY` の A に加えて、新しいページ D が出た検索の結果。C は出なくなった。
 const SEARCH_BODY_WITH_D: &str = r#"{"results":[
-    {"title":"A","url":"https://a.example/","date":"2026-01-02","snippet":"about a"},
-    {"title":"D","url":"https://d.example/","snippet":"about d"}
+    {"title":"A","url":"https://a.invalid/","date":"2026-01-02","snippet":"about a"},
+    {"title":"D","url":"https://d.invalid/","snippet":"about d"}
 ]}"#;
 
 /// AI の答え。`text` を文として返す、Gemini の Interactions API の形。
@@ -23,6 +24,19 @@ fn answer(text: &str) -> String {
         "steps": [{ "type": "model_output", "content": [{ "type": "text", "text": text }] }]
     })
     .to_string()
+}
+
+/// グループに、検索の候補と同じ URL のリンクを登録する。
+async fn insert_registered(pool: &SqlitePool, title: &str, group: i64) {
+    sqlx::query(
+        "INSERT INTO contents (type, parent_id, title, url, visibility) \
+         VALUES ('link', ?, ?, 'https://registered.invalid/', 'public')",
+    )
+    .bind(group)
+    .bind(title)
+    .execute(pool)
+    .await
+    .expect("リンクを登録できなかった");
 }
 
 fn settings_uri(id: i64) -> String {
@@ -45,14 +59,11 @@ fn exclusions_uri(id: i64) -> String {
     format!("/api/v1/contents/{id}/ai-links/exclusions")
 }
 
-/// AI が作るクエリの答え。検索キーワードを保存した後、最初に集めるときに1回だけ呼ばれる。
-const QUERIES_ANSWER: &str = r#"["Rust 非同期", "家庭菜園"]"#;
-
-/// 検索の答えと、クエリを作る AI の答えを用意する。
+/// 検索の答えを用意する。AI は、一覧のページを使う設定のときだけ呼ばれる。
 fn prepare(fake: &super::ai::SharedFake, search: &str) {
     let mut fake = fake.lock().expect("鍵が毒された");
     fake.search = (StatusCode::OK, search.to_string(), Some(10));
-    fake.ai = (StatusCode::OK, answer(QUERIES_ANSWER), Some(5));
+    fake.ai = (StatusCode::OK, answer("[]"), Some(5));
 }
 
 fn set_search(fake: &super::ai::SharedFake, search: &str) {
@@ -76,7 +87,7 @@ async fn group_with_interests(app: &Router, pool: &SqlitePool, cookie: &str) -> 
         app,
         pool,
         cookie,
-        r#"{"interests":"Rust の非同期と家庭菜園"}"#,
+        r#"{"interests":"Rust 非同期\n家庭菜園"}"#,
     )
     .await
 }
@@ -117,15 +128,15 @@ fn urls(links: &serde_json::Value) -> Vec<String> {
     shown(links).into_iter().map(|(url, _)| url).collect()
 }
 
-/// 設定 → 集め直す → 匿名で見る、の一巡。AI がクエリを作り、検索は2回。登録済みの URL は並べない。
-/// 2回目は作ったクエリを使い回し、新しく出たページを上に足して、出なくなったページを外す。
+/// 設定 → 集め直す → 匿名で見る、の一巡。検索キーワードの行をそのままクエリにして、検索は2回。AI は呼ばない。
+/// 登録済みの URL は並べない。2回目は、新しく出たページを上に足して、出なくなったページを外す。
 #[sqlx::test]
-async fn refreshing_adds_new_search_results_on_top_and_reuses_the_queries(pool: SqlitePool) {
+async fn refreshing_searches_the_lines_as_written_and_adds_new_results_on_top(pool: SqlitePool) {
     let AiApp {
         app, cookie, fake, ..
     } = ai_app(&pool, true).await;
     let id = group_with_interests(&app, &pool, &cookie).await;
-    insert_link_by(&pool, "登録済み", "public", None, Some(id)).await;
+    insert_registered(&pool, "登録済み", id).await;
     prepare(&fake, SEARCH_BODY);
 
     let before = get_json(app.clone(), &links_uri(id), &cookie).await;
@@ -139,8 +150,8 @@ async fn refreshing_adds_new_search_results_on_top_and_reuses_the_queries(pool: 
     assert_eq!(
         shown(&first),
         [
-            ("https://a.example/".to_string(), false),
-            ("https://c.example/".to_string(), false)
+            ("https://a.invalid/".to_string(), false),
+            ("https://c.invalid/".to_string(), false)
         ],
         "{first}"
     );
@@ -148,18 +159,14 @@ async fn refreshing_adds_new_search_results_on_top_and_reuses_the_queries(pool: 
     assert_eq!(first["links"][1]["title"], "C", "{first}");
     {
         let fake = fake.lock().expect("鍵が毒された");
-        assert_eq!(fake.searches.len(), 2, "{:?}", fake.searches);
+        assert_eq!(fake.searches.len(), 1, "{:?}", fake.searches);
         assert_eq!(
             fake.searches[0],
             serde_json::json!({
                 "queries": ["Rust 非同期", "家庭菜園"], "country": "JP", "language": "ja"
             })
         );
-        assert_eq!(fake.searches[1]["recency"], "year");
-        assert_eq!(fake.prompts.len(), 1, "{:?}", fake.prompts);
-        let asked = fake.prompts[0]["user"].as_str().expect("文が無い");
-        assert!(asked.contains("Rust の非同期と家庭菜園"), "{asked}");
-        assert!(asked.contains("Language of the queries: ja"), "{asked}");
+        assert!(fake.prompts.is_empty(), "{:?}", fake.prompts);
     }
 
     // 見つけた時刻は秒の単位なので、1回目と分かれるように待つ。
@@ -169,13 +176,12 @@ async fn refreshing_adds_new_search_results_on_top_and_reuses_the_queries(pool: 
     assert_eq!(
         shown(&second),
         [
-            ("https://d.example/".to_string(), true),
-            ("https://a.example/".to_string(), false)
+            ("https://d.invalid/".to_string(), true),
+            ("https://a.invalid/".to_string(), false)
         ],
         "{second}"
     );
     assert_eq!(second["added"], 1, "{second}");
-    assert_eq!(fake.lock().expect("鍵が毒された").prompts.len(), 1);
 
     // 新しいものが無かった集め直しでは、前に足した分の印を消さない。
     tokio::time::sleep(std::time::Duration::from_millis(1_100)).await;
@@ -188,10 +194,7 @@ async fn refreshing_adds_new_search_results_on_top_and_reuses_the_queries(pool: 
         .into_iter()
         .map(|(_, _, kind, used)| (kind, used))
         .collect();
-    assert_eq!(
-        kinds,
-        [5, 10, 10, 10, 10, 10, 10].map(|used| ("links".to_string(), used))
-    );
+    assert_eq!(kinds, [10; 3].map(|used| ("links".to_string(), used)));
 
     // 匿名でも、公開のグループの集めたリンクは見られる。集め直しも、表示しないもできない。
     let (status, body) = send_anon(app.clone(), "GET", &links_uri(id)).await;
@@ -225,16 +228,16 @@ async fn a_refresh_without_new_pages_keeps_the_links(pool: SqlitePool) {
     // A だけが出た検索でも、C は外さない。
     set_search(
         &fake,
-        r#"{"results":[{"title":"A","url":"https://a.example/","snippet":""}]}"#,
+        r#"{"results":[{"title":"A","url":"https://a.invalid/","snippet":""}]}"#,
     );
     let again = refreshed(&app, id, &cookie).await;
     assert_eq!(again["added"], 0, "{again}");
     assert_eq!(
         urls(&again),
         [
-            "https://a.example/",
-            "https://c.example/",
-            "https://example.com"
+            "https://a.invalid/",
+            "https://c.invalid/",
+            "https://registered.invalid/"
         ],
         "{again}"
     );
@@ -250,15 +253,15 @@ async fn a_collected_link_registered_in_the_group_is_not_shown_twice(pool: Sqlit
     prepare(&fake, SEARCH_BODY);
     let collected = refreshed(&app, id, &cookie).await;
     assert!(
-        urls(&collected).contains(&"https://example.com".to_string()),
+        urls(&collected).contains(&"https://registered.invalid/".to_string()),
         "{collected}"
     );
 
-    insert_link_by(&pool, "登録した", "public", None, Some(id)).await;
+    insert_registered(&pool, "登録した", id).await;
     let seen = get_json(app.clone(), &links_uri(id), &cookie).await;
     assert_eq!(
         urls(&seen),
-        ["https://a.example/", "https://c.example/"],
+        ["https://a.invalid/", "https://c.invalid/"],
         "{seen}"
     );
 }
@@ -287,7 +290,7 @@ async fn refreshing_stops_at_the_daily_limit(pool: SqlitePool) {
         StatusCode::TOO_MANY_REQUESTS,
         "ai_links_daily_limit",
     );
-    assert_eq!(fake.lock().expect("鍵が毒された").searches.len(), 2);
+    assert_eq!(fake.lock().expect("鍵が毒された").searches.len(), 1);
 }
 
 /// 自動の更新は、時間が来ていれば匿名で開いても集め直し、使った量は自動の更新の分として残す。
@@ -326,7 +329,7 @@ async fn the_auto_refresh_runs_for_anyone_only_when_it_is_due(pool: SqlitePool) 
     let (status, body) = send_anon_json(app.clone(), "POST", &auto_refresh_uri(id), "{}").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(body.contains(r#""added":null"#), "{body}");
-    assert_eq!(fake.lock().expect("鍵が毒された").searches.len(), 2);
+    assert_eq!(fake.lock().expect("鍵が毒された").searches.len(), 1);
 }
 
 /// 自動の更新が失敗したら、しばらくは開かれても試さない (障害の間に残りを使い続けないため)。
@@ -371,7 +374,7 @@ async fn excluded_pages_and_sites_are_hidden_until_the_exclusion_is_removed(pool
         "POST",
         &exclusions_uri(id),
         &cookie,
-        r#"{"url":"https://a.example/","kind":"page"}"#,
+        r#"{"url":"https://a.invalid/","kind":"page"}"#,
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -382,14 +385,14 @@ async fn excluded_pages_and_sites_are_hidden_until_the_exclusion_is_removed(pool
         "POST",
         &exclusions_uri(id),
         &cookie,
-        r#"{"url":"https://c.example/","kind":"site"}"#,
+        r#"{"url":"https://c.invalid/","kind":"site"}"#,
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert!(body.contains(r#""value":"c.example""#), "{body}");
+    assert!(body.contains(r#""value":"c.invalid""#), "{body}");
 
     let seen = get_json(app.clone(), &links_uri(id), &cookie).await;
-    assert_eq!(urls(&seen), ["https://example.com"], "{seen}");
+    assert_eq!(urls(&seen), ["https://registered.invalid/"], "{seen}");
     let settings = get_json(app.clone(), &settings_uri(id), &cookie).await;
     assert_eq!(
         settings["exclusions"].as_array().map(Vec::len),
@@ -401,14 +404,14 @@ async fn excluded_pages_and_sites_are_hidden_until_the_exclusion_is_removed(pool
     set_search(
         &fake,
         r#"{"results":[
-            {"title":"C2","url":"https://www.c.example/2","snippet":""},
-            {"title":"E","url":"https://e.example/","snippet":""},
-            {"title":"A","url":"https://a.example/","snippet":""}
+            {"title":"C2","url":"https://www.c.invalid/2","snippet":""},
+            {"title":"E","url":"https://e.invalid/","snippet":""},
+            {"title":"A","url":"https://a.invalid/","snippet":""}
         ]}"#,
     );
     let again = refreshed(&app, id, &cookie).await;
     assert_eq!(again["added"], 1, "{again}");
-    assert_eq!(urls(&again), ["https://e.example/"], "{again}");
+    assert_eq!(urls(&again), ["https://e.invalid/"], "{again}");
 
     let (status, body) = send(
         app.clone(),
@@ -424,7 +427,7 @@ async fn excluded_pages_and_sites_are_hidden_until_the_exclusion_is_removed(pool
     let seen = get_json(app.clone(), &links_uri(id), &cookie).await;
     assert_eq!(
         urls(&seen),
-        ["https://e.example/", "https://a.example/"],
+        ["https://e.invalid/", "https://a.invalid/"],
         "{seen}"
     );
     let (status, body) = send(
@@ -460,7 +463,7 @@ async fn turning_the_setting_off_keeps_the_settings_for_turning_it_on_again(pool
         "POST",
         &exclusions_uri(id),
         &cookie,
-        r#"{"url":"https://c.example/","kind":"page"}"#,
+        r#"{"url":"https://c.invalid/","kind":"page"}"#,
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -493,34 +496,59 @@ async fn turning_the_setting_off_keeps_the_settings_for_turning_it_on_again(pool
     let seen = get_json(app.clone(), &links_uri(id), &cookie).await;
     assert_eq!(
         urls(&seen),
-        ["https://a.example/", "https://example.com"],
+        ["https://a.invalid/", "https://registered.invalid/"],
         "{seen}"
     );
 }
 
-/// 検索キーワードを変えると、作ったクエリを捨て、次に集めるときに作り直す。
+/// 検索キーワードを変えると、次に集めるときから、変えた行で検索する。
 #[sqlx::test]
-async fn changing_the_interests_makes_the_queries_again(pool: SqlitePool) {
+async fn changing_the_interests_changes_the_queries(pool: SqlitePool) {
     let AiApp {
         app, cookie, fake, ..
     } = ai_app(&pool, true).await;
     let id = group_with_interests(&app, &pool, &cookie).await;
     prepare(&fake, SEARCH_BODY);
     refreshed(&app, id, &cookie).await;
-    let (status, body) = send_json(
-        app.clone(),
-        "PUT",
-        &settings_uri(id),
+    put_settings(
+        &app,
+        id,
         &cookie,
         r#"{"interests":"トマトの育て方","dailyLimit":3}"#,
     )
     .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
     refreshed(&app, id, &cookie).await;
-    let prompts = fake.lock().expect("鍵が毒された").prompts.clone();
-    assert_eq!(prompts.len(), 2, "{prompts:?}");
-    let asked = prompts[1]["user"].as_str().expect("文が無い");
-    assert!(asked.contains("トマトの育て方"), "{asked}");
+    let searches = fake.lock().expect("鍵が毒された").searches.clone();
+    assert_eq!(searches.len(), 2, "{searches:?}");
+    assert_eq!(
+        searches[1]["queries"],
+        serde_json::json!(["トマトの育て方"])
+    );
+}
+
+/// 日数を決めると、PC の今日からその日数前より後に公開されたページに絞って検索する。
+#[sqlx::test]
+async fn within_days_narrows_the_search_to_pages_published_after_the_day(pool: SqlitePool) {
+    let AiApp {
+        app, cookie, fake, ..
+    } = ai_app(&pool, true).await;
+    let id = group_with(
+        &app,
+        &pool,
+        &cookie,
+        r#"{"interests":"Rust","withinDays":7}"#,
+    )
+    .await;
+    prepare(&fake, SEARCH_BODY);
+    refreshed(&app, id, &cookie).await;
+    let searches = fake.lock().expect("鍵が毒された").searches.clone();
+    let week_ago: String = sqlx::query_scalar("SELECT date('now', 'localtime', '-7 days')")
+        .fetch_one(&pool)
+        .await
+        .expect("日付を出せなかった");
+    assert_eq!(searches[0]["after"], week_ago.as_str(), "{searches:?}");
+    let settings = get_json(app.clone(), &settings_uri(id), &cookie).await;
+    assert_eq!(settings["withinDays"], 7, "{settings}");
 }
 
 #[sqlx::test]
@@ -529,6 +557,8 @@ async fn settings_reject_bad_values_and_non_groups(pool: SqlitePool) {
     let id = insert_group_under(&pool, "集める", "public", None).await;
     for settings in [
         r#"{"interests":" \n "}"#,
+        r#"{"interests":"1\n2\n3\n4\n5\n6"}"#,
+        r#"{"interests":"Rust","withinDays":-1}"#,
         r#"{"interests":"Rust","autoRefresh":{"mode":"daily","time":"25:00"}}"#,
     ] {
         let (status, body) =
@@ -572,7 +602,7 @@ async fn an_editor_without_ai_cannot_refresh_or_change_the_setting(pool: SqliteP
     assert_eq!(seen["canEdit"], false, "{seen}");
     let (status, body) = refresh(&app, id, &taro).await;
     assert_error(status, &body, StatusCode::FORBIDDEN, "ai_not_allowed");
-    assert_eq!(fake.lock().expect("鍵が毒された").searches.len(), 2);
+    assert_eq!(fake.lock().expect("鍵が毒された").searches.len(), 1);
 
     let (status, body) = send_json(
         app.clone(),
@@ -588,37 +618,39 @@ async fn an_editor_without_ai_cannot_refresh_or_change_the_setting(pool: SqliteP
         "POST",
         &exclusions_uri(id),
         &taro,
-        r#"{"url":"https://a.example/","kind":"page"}"#,
+        r#"{"url":"https://a.invalid/","kind":"page"}"#,
     )
     .await;
     assert_error(status, &body, StatusCode::FORBIDDEN, "forbidden");
 }
 
-/// AI の答えにクエリが無ければ、前に集めたリンクを残して 502 にする。
+/// カードを取り直して無くなっていたと分かったページは並べず、集め直しで出ても足した数に入れない。
 #[sqlx::test]
-async fn an_answer_without_queries_keeps_the_previous_links(pool: SqlitePool) {
+async fn pages_found_gone_are_hidden_and_not_counted_as_added(pool: SqlitePool) {
     let AiApp {
         app, cookie, fake, ..
     } = ai_app(&pool, true).await;
     let id = group_with_interests(&app, &pool, &cookie).await;
     prepare(&fake, SEARCH_BODY);
     refreshed(&app, id, &cookie).await;
+    for url in ["https://a.invalid/", "https://d.invalid/"] {
+        insert_fresh_preview(&pool, url, None).await;
+    }
+    sqlx::query("UPDATE link_previews SET gone = 1")
+        .execute(&pool)
+        .await
+        .expect("無くなっていた印を付けられなかった");
 
-    // 検索キーワードを変えて、クエリを作り直させる。
-    let (status, body) = send_json(
-        app.clone(),
-        "PUT",
-        &settings_uri(id),
-        &cookie,
-        r#"{"interests":"トマト"}"#,
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    fake.lock().expect("鍵が毒された").ai = (StatusCode::OK, answer("作れませんでした"), Some(5));
-    let (status, body) = refresh(&app, id, &cookie).await;
-    assert_error(status, &body, StatusCode::BAD_GATEWAY, "ai_upstream");
     let seen = get_json(app.clone(), &links_uri(id), &cookie).await;
-    assert_eq!(seen["links"].as_array().map(Vec::len), Some(3), "{seen}");
+    assert_eq!(
+        urls(&seen),
+        ["https://c.invalid/", "https://registered.invalid/"],
+        "{seen}"
+    );
+
+    set_search(&fake, SEARCH_BODY_WITH_D);
+    let again = refreshed(&app, id, &cookie).await;
+    assert_eq!(again["added"], 0, "{again}");
 }
 
 /// カードの取り直しは、見られるグループの集めたリンクだけを対象にする。
@@ -630,7 +662,7 @@ async fn link_previews_are_refreshed_for_a_viewable_group_only(pool: SqlitePool)
     let id = group_with_interests(&app, &pool, &cookie).await;
     prepare(&fake, SEARCH_BODY);
     refreshed(&app, id, &cookie).await;
-    insert_fresh_preview(&pool, "https://a.example/", None).await;
+    insert_fresh_preview(&pool, "https://a.invalid/", None).await;
 
     let request = format!(r#"{{"contentIds":[],"aiLinksGroup":{id}}}"#);
     let (status, body) = send_anon_json(
@@ -641,7 +673,7 @@ async fn link_previews_are_refreshed_for_a_viewable_group_only(pool: SqlitePool)
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert!(body.contains("https://a.example/"), "{body}");
+    assert!(body.contains("https://a.invalid/"), "{body}");
 
     sqlx::query("UPDATE contents SET visibility = 'authenticated' WHERE id = ?")
         .bind(id)
@@ -657,4 +689,38 @@ async fn link_previews_are_refreshed_for_a_viewable_group_only(pool: SqlitePool)
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body, "[]");
+}
+
+/// 個別の記事を AI に話題ごとにまとめさせ、扱うサイトの多い話題から、話題ごとに1件を並べる。
+/// 一覧のページ (分類のトップなど) は、開けなくても外さず、個別の記事の後ろに並ぶ。
+#[sqlx::test]
+async fn pick_shows_one_article_per_story_with_stories_on_more_sites_first(pool: SqlitePool) {
+    let AiApp {
+        app, cookie, fake, ..
+    } = ai_app(&pool, true).await;
+    let id = group_with(&app, &pool, &cookie, r#"{"interests":"千葉県のニュース"}"#).await;
+    prepare(
+        &fake,
+        r#"{"results":[
+            {"title":"ニュース一覧","url":"https://news.invalid/news/","date":"2026-10-18","snippet":""},
+            {"title":"別の話題","url":"https://c.invalid/articles/3","snippet":""},
+            {"title":"知事が会見","url":"https://a.invalid/articles/1","snippet":""},
+            {"title":"知事が記者会見","url":"https://b.invalid/articles/2","snippet":""}
+        ]}"#,
+    );
+    fake.lock().expect("鍵が毒された").ai = (StatusCode::OK, answer("[[1], [2, 3]]"), Some(5));
+    let links = refreshed(&app, id, &cookie).await;
+    assert_eq!(
+        urls(&links),
+        [
+            "https://a.invalid/articles/1",
+            "https://c.invalid/articles/3",
+            "https://news.invalid/news/"
+        ],
+        "{links}"
+    );
+    let prompts = fake.lock().expect("鍵が毒された").prompts.clone();
+    assert_eq!(prompts.len(), 1, "{prompts:?}");
+    let asked = prompts[0]["user"].as_str().expect("文が無い");
+    assert!(asked.contains("2. [a.invalid] 知事が会見"), "{asked}");
 }

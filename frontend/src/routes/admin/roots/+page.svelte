@@ -176,18 +176,20 @@
 		<Dialog.Header>
 			<Dialog.Title>{m.admin_roots_rename_dialog_title()}</Dialog.Title>
 		</Dialog.Header>
-		<form onsubmit={handleNameSubmit} class="flex flex-col gap-6">
-			<Field.FieldGroup>
-				<Field.Field>
-					<!-- 入力欄ではないので label にしない。 -->
-					<Field.FieldTitle>{m.admin_roots_name_dialog_path_label()}</Field.FieldTitle>
-					<p class="text-sm wrap-anywhere">{renaming?.path}</p>
-				</Field.Field>
-				<Field.Field>
-					<Field.FieldLabel for="root-name">{m.admin_roots_name_label()}</Field.FieldLabel>
-					<Input id="root-name" autocomplete="off" bind:value={nameInput} />
-				</Field.Field>
-			</Field.FieldGroup>
+		<form onsubmit={handleNameSubmit} class="flex min-h-0 flex-col gap-6">
+			<Dialog.Body>
+				<Field.FieldGroup>
+					<Field.Field>
+						<!-- 入力欄ではないので label にしない。 -->
+						<Field.FieldTitle>{m.admin_roots_name_dialog_path_label()}</Field.FieldTitle>
+						<p class="text-sm wrap-anywhere">{renaming?.path}</p>
+					</Field.Field>
+					<Field.Field>
+						<Field.FieldLabel for="root-name">{m.admin_roots_name_label()}</Field.FieldLabel>
+						<Input id="root-name" autocomplete="off" bind:value={nameInput} />
+					</Field.Field>
+				</Field.FieldGroup>
+			</Dialog.Body>
 			<Dialog.Footer>
 				<Button type="button" variant="outline" onclick={() => (renamingOpen = false)}
 					>{m.action_cancel()}</Button

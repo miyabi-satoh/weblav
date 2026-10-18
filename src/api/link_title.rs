@@ -1,5 +1,5 @@
 //! リンクの作成・編集時に、URL のページからタイトルと説明を取る。
-//! リンクのカードに出す情報 (画像・サイト名・公開日時・アイコン) と画像も、ここで取る (→ `link_preview`)。
+//! リンクのカードに出す情報 (画像・サイト名・更新日時・アイコン) と画像も、ここで取る (→ `link_preview`)。
 //!
 //! 取れなかったときは呼び出し側が判断する (タイトルなら URL のホスト名にする等)。
 //! 取得の失敗で呼び出し元の処理を止めないため、ここでは理由を返さずフィールドごとに
@@ -9,6 +9,7 @@
 //! 使われないよう、公開アドレスにだけ接続する (`PublicOnlyResolver`)。リダイレクト先にも
 //! 同じ判定が掛かる。外向きの通信はこのモジュールだけに閉じる (URL のファイルの中継も、開くのはここ)。
 
+use std::collections::HashSet;
 use std::io::Read;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, ToSocketAddrs};
 use std::time::Duration;
@@ -17,6 +18,7 @@ use ureq::unversioned::resolver::{DefaultResolver, ResolvedSocketAddrs, Resolver
 use ureq::unversioned::transport::{DefaultConnector, NextTimeout};
 use ureq::{Agent, ResponseExt};
 
+use super::page_dates;
 use crate::error::{AppError, run_blocking};
 
 /// 取得全体の時間切れ。作成のボタンを押してから待たされる時間の上限になる。
@@ -213,8 +215,8 @@ pub(super) struct PageCard {
     /// ページの説明。リンクの詳しい表示に出す (→ docs/ui.md「リンクのカード」)。
     pub description: Option<String>,
     pub site_name: Option<String>,
-    /// `article:published_time` のまま。形は相手しだいなので、読めるかは画面が決める。
-    pub published_at: Option<String>,
+    /// ページを最後に更新した日時 (無ければ公開した日時)。形は `page_dates::updated_at`。
+    pub updated_at: Option<String>,
     pub image_url: Option<String>,
     pub icon_url: Option<String>,
 }
@@ -239,6 +241,8 @@ pub(super) enum CardFetch {
         card: PageCard,
         headers: CacheHeaders,
     },
+    /// ページが無くなっていた (404・410)。
+    Gone(CacheHeaders),
     /// 応答が無い・エラーの状態だった。前回の情報を使い続ける。
     Failed,
 }
@@ -263,12 +267,18 @@ pub(super) fn fetch_card_blocking(
     if response.status() == ureq::http::StatusCode::NOT_MODIFIED {
         return CardFetch::NotModified(headers);
     }
+    if matches!(
+        response.status(),
+        ureq::http::StatusCode::NOT_FOUND | ureq::http::StatusCode::GONE
+    ) {
+        return CardFetch::Gone(headers);
+    }
     if !response.status().is_success() {
         return CardFetch::Failed;
     }
     // 相対の URL は、リダイレクトを辿った後のページを基準に解決する。
     let base = url::Url::parse(&response.get_uri().to_string()).ok();
-    let card = match (read_html(&mut response), base) {
+    let mut card = match (read_html(&mut response), base) {
         (Some(html), Some(base)) => extract_card(&html, &base),
         // HTML でないページ (PDF など) は、ホスト名とアイコンだけのカードになる。
         (_, base) => PageCard {
@@ -276,6 +286,12 @@ pub(super) fn fetch_card_blocking(
             ..PageCard::default()
         },
     };
+    // ページに日時の書き込みが無ければ、HTTP の最終更新を使う。PDF などの HTML でないものも、これで日時が付く。
+    if card.updated_at.is_none() {
+        card.updated_at = headers.last_modified.as_deref().and_then(|last_modified| {
+            page_dates::from_last_modified(last_modified, headers.date.as_deref())
+        });
+    }
     CardFetch::Fetched { card, headers }
 }
 
@@ -330,7 +346,7 @@ fn extract_card(html: &str, base: &url::Url) -> PageCard {
         title: extract_page_title(html, &lower),
         description: extract_page_description(html, &lower),
         site_name: extract_meta_content(html, &lower, "og:site_name", MAX_TITLE_CHARS),
-        published_at: extract_meta_content(html, &lower, "article:published_time", MAX_TITLE_CHARS),
+        updated_at: page_dates::updated_at(html, &lower),
         image_url: image.and_then(|image| resolve_web_url(base, &image)),
         icon_url: extract_icon_href(html, &lower)
             .and_then(|href| resolve_web_url(base, &href))
@@ -395,6 +411,95 @@ fn extract_metadata(html: &str) -> LinkMetadata {
         title: extract_page_title(html, &lower),
         description: extract_page_description(html, &lower),
     }
+}
+
+/// ページの中のリンクの1つ。`url` は相手のページを基準に解決した、断片 (`#...`) の無い `http`・`https` の絶対 URL。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct PageLink {
+    pub url: String,
+    /// リンクの文字。中のタグを除き、1行にしたもの。文字が無ければ `title` 属性。
+    pub text: String,
+}
+
+/// ページを取り、中のリンクを出てくる順に返す (→ `ai_link_pages`)。同じ URL は最初のものだけ。
+/// 取れない・HTML でないときは `None`。
+pub(super) fn fetch_links_blocking(url: &str) -> Option<Vec<PageLink>> {
+    let mut response = agent().get(url).call().ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    let base = url::Url::parse(&response.get_uri().to_string()).ok()?;
+    let html = read_html(&mut response)?;
+    Some(extract_links(&html, &base))
+}
+
+/// HTML から `<a href>` を出てくる順に取り出す。
+fn extract_links(html: &str, base: &url::Url) -> Vec<PageLink> {
+    let lower = html.to_ascii_lowercase();
+    let mut seen = HashSet::new();
+    let mut links = Vec::new();
+    let mut from = 0;
+    while let Some(found) = lower[from..].find("<a") {
+        let start = from + found + "<a".len();
+        from = start;
+        // `<abbr` のような別タグを弾く。名前の直後は空白か `>`。
+        if !lower[start..]
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_whitespace() || c == '>')
+        {
+            continue;
+        }
+        let Some(tag_end) = lower[start..].find('>').map(|at| start + at) else {
+            break;
+        };
+        let attrs = parse_attributes(&html[start..tag_end]);
+        let inner_start = tag_end + 1;
+        let inner_end = lower[inner_start..]
+            .find("</a")
+            .map_or(lower.len(), |at| inner_start + at);
+        from = inner_end;
+        let attr = |name: &str| {
+            attrs
+                .iter()
+                .find(|(attr, _)| attr == name)
+                .map(|(_, value)| value.as_str())
+        };
+        let Some(href) = attr("href") else { continue };
+        let Some(mut url) = base.join(decode_entities(href).trim()).ok() else {
+            continue;
+        };
+        if !matches!(url.scheme(), "http" | "https") {
+            continue;
+        }
+        url.set_fragment(None);
+        let text = normalize_text(&strip_tags(&html[inner_start..inner_end]), MAX_TITLE_CHARS)
+            .or_else(|| attr("title").and_then(|title| normalize_text(title, MAX_TITLE_CHARS)))
+            .unwrap_or_default();
+        let url = url.to_string();
+        if url.len() <= MAX_URL_CHARS && seen.insert(url.clone()) {
+            links.push(PageLink { url, text });
+        }
+    }
+    links
+}
+
+/// タグを除いた文字。タグの間は空白にする (`<br>` で分けた語がくっつかないように)。
+fn strip_tags(html: &str) -> String {
+    let mut text = String::with_capacity(html.len());
+    let mut in_tag = false;
+    for c in html.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' if in_tag => {
+                in_tag = false;
+                text.push(' ');
+            }
+            _ if !in_tag => text.push(c),
+            _ => {}
+        }
+    }
+    text
 }
 
 /// 名前解決の結果から、公開アドレス以外を除く。
@@ -511,7 +616,7 @@ fn extract_meta_content(html: &str, lower: &str, name: &str, max_chars: usize) -
 }
 
 /// `<name ...>` のタグを順に探し、属性を返す。`lower` は `html` を小文字にしたもの。
-fn tags<'a>(
+pub(super) fn tags<'a>(
     html: &'a str,
     lower: &'a str,
     name: &'a str,
@@ -729,10 +834,7 @@ mod tests {
         assert_eq!(card.title.as_deref(), Some("Hello"));
         assert_eq!(card.description.as_deref(), Some("About \"Hello\""));
         assert_eq!(card.site_name.as_deref(), Some("Example News"));
-        assert_eq!(
-            card.published_at.as_deref(),
-            Some("2026-10-05T09:00:00+09:00")
-        );
+        assert_eq!(card.updated_at.as_deref(), Some("2026-10-05T00:00:00Z"));
         assert_eq!(
             card.image_url.as_deref(),
             Some("https://news.example/img/a.jpg?x=1&y=2")
@@ -740,6 +842,39 @@ mod tests {
         assert_eq!(
             card.icon_url.as_deref(),
             Some("https://news.example/articles/favicon.png")
+        );
+    }
+
+    #[test]
+    fn extract_links_resolves_hrefs_and_takes_the_text_without_tags() {
+        let html = r#"<nav><a href="/news/">ニュース</a></nav>
+            <abbr title="x">略</abbr>
+            <A class="item" HREF="articles/1#top"><span>市議会で</span><br>条例が成立 &amp; 公布</A>
+            <a href='https://other.example/2' title="画像の記事"><img src="x.png"></a>
+            <a href="/news/">重なり</a>
+            <a href="mailto:a@example.jp">メール</a>
+            <a name="anchor-without-href">x</a>"#;
+        let base = url::Url::parse("https://news.example/list/").expect("URL");
+        let links: Vec<(String, String)> = extract_links(html, &base)
+            .into_iter()
+            .map(|link| (link.url, link.text))
+            .collect();
+        assert_eq!(
+            links,
+            [
+                (
+                    "https://news.example/news/".to_string(),
+                    "ニュース".to_string()
+                ),
+                (
+                    "https://news.example/list/articles/1".to_string(),
+                    "市議会で 条例が成立 & 公布".to_string()
+                ),
+                (
+                    "https://other.example/2".to_string(),
+                    "画像の記事".to_string()
+                ),
+            ]
         );
     }
 

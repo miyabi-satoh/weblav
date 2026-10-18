@@ -337,7 +337,7 @@ CREATE TABLE folder_bookmarks (
 -- 画像の実体はデータの置き場の link-previews/ に置く。バックアップから戻すときは戻さない。
 CREATE TABLE link_previews (
     url TEXT PRIMARY KEY NOT NULL,
-    title TEXT, site_name TEXT, published_at TEXT,
+    title TEXT, site_name TEXT, updated_at TEXT,
     image_source TEXT, image_file TEXT, icon_source TEXT, icon_file TEXT,
     etag TEXT, last_modified TEXT,
     fresh_until INTEGER NOT NULL DEFAULT 0,  -- unix 秒。ここまでは確かめずに使う

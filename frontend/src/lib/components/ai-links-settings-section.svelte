@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { invalidateAll } from '$app/navigation';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/schema';
-	import { MAX_INTEREST_UNITS } from '$lib/ai-links';
+	import { MAX_QUERIES, MAX_QUERY_UNITS, queryLines } from '$lib/ai-links';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
 	import { sectionCardClass } from '$lib/page-layout';
@@ -13,10 +13,11 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Switch } from '$lib/components/ui/switch';
-	import { Textarea } from '$lib/components/ui/textarea';
+	import { Button } from '$lib/components/ui/button';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import IntegerInput from '$lib/components/integer-input.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
+	import XIcon from '@lucide/svelte/icons/x';
 
 	type Settings = components['schemas']['AiLinksSettings'];
 	type AutoMode = components['schemas']['AutoMode'];
@@ -43,20 +44,53 @@
 	const DEFAULT_TIME = '07:00';
 
 	let on = $state(untrack(() => settings.enabled));
-	let interests = $state(untrack(() => settings.interests ?? ''));
+	// 検索キーワードは1つの欄に1つの検索。サーバーには改行でつないで送る (→ docs/ai.md「AI が集めるリンク」)。
+	// 欄は今ある数だけ出し、足し引きできるようにする。多くの人は1〜3つしか使わず、空の欄を5つ並べると全部埋めるものに見えるため。
+	type QueryRow = { id: number; text: string };
+	let nextRowId = 0;
+	function rows(texts: string[]): QueryRow[] {
+		return (texts.length > 0 ? texts : ['']).map((text) => ({ id: nextRowId++, text }));
+	}
+	let queries = $state<QueryRow[]>(untrack(() => rows(queryLines(settings.interests ?? ''))));
 	let dailyLimit = $state(untrack(() => settings.dailyLimit));
 	let mode = $state<AutoMode>(untrack(() => settings.autoRefresh.mode));
 	let hours = $state(untrack(() => settings.autoRefresh.hours ?? DEFAULT_HOURS));
 	let time = $state(untrack(() => settings.autoRefresh.time ?? DEFAULT_TIME));
+	let withinDays = $state(untrack(() => settings.withinDays));
 
-	const form = new FormDirtyState(() => ({ on, interests, dailyLimit, mode, hours, time }));
+	const form = new FormDirtyState(() => ({
+		on,
+		// 送る値で比べる。空の欄を足しただけでは、保存しても何も変わらないため。
+		interests: queryLines(queries.map((row) => row.text).join('\n')),
+		dailyLimit,
+		mode,
+		hours,
+		time,
+		withinDays
+	}));
 	form.markPristine();
 	$effect(() => {
 		ondirtychange(form.dirty);
 	});
 
-	// 空白だけでは `required` を通ってしまうので、保存ボタンの側で止める。長さは欄の maxlength で止める。
-	let interestsMissing = $derived(on && interests.trim() === '');
+	// 空白だけでは `required` を通ってしまうので、保存ボタンの側で止める。
+	let interests = $derived(queryLines(queries.map((row) => row.text).join('\n')).join('\n'));
+	let interestsMissing = $derived(on && interests === '');
+
+	async function addQuery() {
+		const row = { id: nextRowId++, text: '' };
+		queries.push(row);
+		await tick();
+		document.getElementById(`content-ai-query-${row.id}`)?.focus();
+	}
+
+	async function removeQuery(index: number) {
+		queries.splice(index, 1);
+		await tick();
+		// 消した欄にあったフォーカスを、すぐ上の欄 (先頭を消したなら新しい先頭) へ移す。
+		const next = queries[Math.max(0, index - 1)];
+		document.getElementById(`content-ai-query-${next.id}`)?.focus();
+	}
 
 	let saving = $state(false);
 	const errorDialog = new ErrorDialogState();
@@ -78,7 +112,8 @@
 										mode,
 										hours: mode === 'interval' ? hours : null,
 										time: mode === 'daily' ? time : null
-									}
+									},
+									withinDays
 								}
 							: { interests: null }
 					}),
@@ -113,16 +148,63 @@
 		</Field.Field>
 		{#if on}
 			<Field.FieldGroup>
-				<Field.Field>
-					<Field.FieldLabel for="content-ai-interests" required
-						>{m.contents_form_ai_interests_label()}</Field.FieldLabel
+				<Field.FieldSet>
+					<Field.FieldLegend variant="label"
+						>{m.contents_form_ai_interests_label()}
+						<span class="text-destructive" aria-hidden="true">*</span></Field.FieldLegend
 					>
-					<Textarea
-						id="content-ai-interests"
-						bind:value={interests}
-						maxlength={MAX_INTEREST_UNITS}
+					<div class="flex flex-col gap-2">
+						{#each queries as row, index (row.id)}
+							<div class="flex items-center gap-2">
+								<Input
+									id="content-ai-query-{row.id}"
+									bind:value={row.text}
+									maxlength={MAX_QUERY_UNITS}
+									aria-label={m.contents_form_ai_interests_row({ n: index + 1 })}
+								/>
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon-sm"
+									disabled={queries.length === 1}
+									aria-label={m.contents_form_ai_interests_remove({ n: index + 1 })}
+									onclick={() => removeQuery(index)}
+								>
+									<XIcon class="size-4" />
+								</Button>
+							</div>
+						{/each}
+					</div>
+					<div>
+						<Button
+							type="button"
+							variant="outline"
+							disabled={queries.length >= MAX_QUERIES}
+							onclick={addQuery}>{m.contents_form_ai_interests_add()}</Button
+						>
+					</div>
+					<Field.FieldDescription
+						>{m.contents_form_ai_interests_description({
+							max: MAX_QUERIES
+						})}</Field.FieldDescription
+					>
+				</Field.FieldSet>
+				<Field.Field>
+					<Field.FieldLabel for="content-ai-within-days" required
+						>{m.contents_form_ai_within_days_label()}</Field.FieldLabel
+					>
+					<IntegerInput
+						id="content-ai-within-days"
+						class="w-44"
+						min={0}
+						max={MAX_COUNT}
+						unit={m.contents_form_ai_within_days_unit({ count: withinDays })}
+						bind:value={withinDays}
 						required
 					/>
+					<Field.FieldDescription
+						>{m.contents_form_ai_within_days_description()}</Field.FieldDescription
+					>
 				</Field.Field>
 				<Field.Field>
 					<Field.FieldLabel for="content-ai-daily-limit" required

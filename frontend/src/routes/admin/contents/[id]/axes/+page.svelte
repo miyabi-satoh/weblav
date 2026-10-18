@@ -45,6 +45,7 @@
 	import type { Attachment } from 'svelte/attachments';
 	import type { PageProps } from './$types';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
+	import { axisPlaceholder, removeAxisFromTemplate } from '$lib/title-template';
 
 	type Axis = components['schemas']['AxisResponse'];
 	type AxisSource = components['schemas']['AxisSource'];
@@ -385,6 +386,24 @@
 	// 削除確認ダイアログ。
 	let deletingAxis = $state<Axis | null>(null);
 	let axisDeleting = $state(false);
+	// 表示タイトルのテンプレートで使っている軸は、サーバーが削除を断る (→ docs/archive.md「表示タイトル」)。
+	// 押してから断るのでなく、確認の中でその軸を外したテンプレートの案を出し、直させてから
+	// テンプレートを保存して削除する。
+	let deletingAxisInTemplate = $derived(
+		deletingAxis !== null &&
+			(currentContent.titleTemplate ?? '').includes(axisPlaceholder(deletingAxis.name))
+	);
+	let templateAfterDelete = $state('');
+	let templateStillUsesAxis = $derived(
+		deletingAxisInTemplate &&
+			deletingAxis !== null &&
+			templateAfterDelete.includes(axisPlaceholder(deletingAxis.name))
+	);
+
+	function startDeleteAxis(axis: Axis) {
+		templateAfterDelete = removeAxisFromTemplate(currentContent.titleTemplate ?? '', axis.name);
+		deletingAxis = axis;
+	}
 
 	// 軸そのものの操作(追加・編集・削除・並び替え)のいずれかが進行中か。
 	// 値の辞書の保存と同時に走ると、互いの古い応答が新しい状態を上書きしうるため、
@@ -395,19 +414,37 @@
 		if (axisBusy || deletingAxis === null) return;
 		axisDeleting = true;
 		const target = deletingAxis;
+		const originalTemplate = currentContent.titleTemplate ?? '';
+		let templateChanged = false;
+		// テンプレートを直した後に、軸の削除が断られたら、テンプレートを元に戻す。
+		// 軸が残ったまま、テンプレートからだけ消えた状態にしないため。戻せなかったら、その失敗を見せる。
+		// 届かなかった (例外) ときは、削除が済んだか分からないので戻さない。
+		async function restoreTemplate(): Promise<boolean> {
+			return !templateChanged || (await putTemplate(originalTemplate));
+		}
 
 		try {
+			if (deletingAxisInTemplate) {
+				if (!(await putTemplate(templateAfterDelete))) {
+					deletingAxis = null;
+					return;
+				}
+				templateChanged = true;
+			}
 			const { error, response } = await client.DELETE('/api/v1/contents/{id}/axes/{axis_id}', {
 				params: { path: { id: data.contentId, axis_id: target.id } }
 			});
 			if (!response.ok) {
-				errorDialog.show(errorMessage(error));
+				// 確認を開いたままにすると、エラーを閉じた後にもう一度キャンセルさせることになる。
+				deletingAxis = null;
+				if (await restoreTemplate()) errorDialog.show(errorMessage(error));
 				return;
 			}
 			axes = axes.filter((axis) => axis.id !== target.id);
 			if (selectedAxisId === target.id) selectedAxisId = null;
 			deletingAxis = null;
 		} catch {
+			deletingAxis = null;
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			axisDeleting = false;
@@ -815,35 +852,42 @@
 		templateSaving = true;
 
 		try {
-			const titleTemplate = titleTemplateInput.trim() === '' ? null : titleTemplateInput;
-			const {
-				data: updated,
-				error,
-				response
-			} = await client.PUT('/api/v1/contents/{id}', {
-				params: { path: { id: data.contentId } },
-				body: {
-					description: currentContent.description ?? null,
-					extensions: currentContent.extensions ?? null,
-					parentId: currentContent.parentId ?? null,
-					path: currentContent.path ?? null,
-					title: currentContent.title,
-					titleTemplate,
-					url: currentContent.url ?? null,
-					visibility: currentContent.visibility
-				}
-			});
-			if (!response.ok || !updated) {
-				errorDialog.show(errorMessage(error));
-				return;
+			if (await putTemplate(titleTemplateInput)) {
+				toast.success(m.archive_axes_template_saved_toast());
 			}
-			currentContent = updated;
-			toast.success(m.archive_axes_template_saved_toast());
 		} catch {
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			templateSaving = false;
 		}
+	}
+
+	/** テンプレートを保存する。失敗したらエラーを出して false を返す。 */
+	async function putTemplate(value: string): Promise<boolean> {
+		const titleTemplate = value.trim() === '' ? null : value;
+		const {
+			data: updated,
+			error,
+			response
+		} = await client.PUT('/api/v1/contents/{id}', {
+			params: { path: { id: data.contentId } },
+			body: {
+				description: currentContent.description ?? null,
+				extensions: currentContent.extensions ?? null,
+				parentId: currentContent.parentId ?? null,
+				path: currentContent.path ?? null,
+				title: currentContent.title,
+				titleTemplate,
+				url: currentContent.url ?? null,
+				visibility: currentContent.visibility
+			}
+		});
+		if (!response.ok || !updated) {
+			errorDialog.show(errorMessage(error));
+			return false;
+		}
+		currentContent = updated;
+		return true;
 	}
 </script>
 
@@ -1091,7 +1135,7 @@
 									size="sm"
 									disabled={axisBusy}
 									aria-label={m.archive_axes_delete_label({ name: axis.name })}
-									onclick={() => (deletingAxis = axis)}
+									onclick={() => startDeleteAxis(axis)}
 								>
 									{m.action_delete()}
 								</Button>
@@ -1476,132 +1520,140 @@
 					: m.archive_axes_dialog_edit_title()}
 			</Dialog.Title>
 		</Dialog.Header>
-		<form onsubmit={handleAxisSubmit} class="flex flex-col gap-6">
-			<Field.FieldGroup>
-				<Field.Field>
-					<Field.FieldLabel for="axis-name" required>
-						{m.archive_axes_dialog_name_label()}
-					</Field.FieldLabel>
-					<Input id="axis-name" bind:value={axisFormName} required />
-					<Field.FieldDescription>{m.archive_axes_dialog_name_help()}</Field.FieldDescription>
-				</Field.Field>
-				<Field.Field>
-					<Field.FieldLabel for="axis-source">
-						{m.archive_axes_dialog_source_label()}
-					</Field.FieldLabel>
-					<Select.Root type="single" bind:value={axisFormSource} required>
-						<Select.Trigger id="axis-source" class="w-full">
-							{sourceOptionLabel(axisFormSource)}
-						</Select.Trigger>
-						<Select.Content>
-							{#each AXIS_SOURCES as source (source)}
-								<Select.Item value={source}>{sourceOptionLabel(source)}</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
-				</Field.Field>
-				{#if axisFormSource === 'dirLevel'}
-					{#if dirLevels.status === 'loading'}
-						<Spinner aria-label={m.archive_axes_dialog_dir_level_loading()} />
-					{:else if dirLevelOptions.length > 0}
-						<Field.FieldSet>
-							<Field.FieldLegend id="axis-dir-level-legend" variant="label">
-								{m.archive_axes_dialog_dir_level_choice_label()}
-							</Field.FieldLegend>
-							<RadioGroup.Root
-								aria-labelledby="axis-dir-level-legend"
-								bind:value={
-									() => String(axisFormDirLevel ?? ''),
-									(value) => (axisFormDirLevel = Number(value))
-								}
-							>
-								{#each dirLevelOptions as option (option.level)}
-									{@const id = `axis-dir-level-${option.level}`}
-									<!-- 行全体を押せるラベルにする。読み上げ名は「第N階層」だけにし、値の例は説明として読ませる。 -->
-									<Field.FieldLabel for={id} class="min-h-11">
-										<Field.Field orientation="horizontal">
-											<RadioGroup.Item
-												value={String(option.level)}
-												{id}
-												aria-labelledby={`${id}-title`}
-												aria-describedby={`${id}-description`}
-											/>
-											<Field.FieldContent>
-												<Field.FieldTitle id={`${id}-title`}>
-													{m.archive_axes_dialog_dir_level_option({ level: String(option.level) })}
-												</Field.FieldTitle>
-												<Field.FieldDescription id={`${id}-description`} class="wrap-anywhere">
-													{option.summary === null
-														? m.archive_axes_dialog_dir_level_option_no_items()
-														: dirLevelSamplesText(option.summary)}
-												</Field.FieldDescription>
-											</Field.FieldContent>
-										</Field.Field>
-									</Field.FieldLabel>
+		<form onsubmit={handleAxisSubmit} class="flex min-h-0 flex-col gap-6">
+			<Dialog.Body>
+				<Field.FieldGroup>
+					<Field.Field>
+						<Field.FieldLabel for="axis-name" required>
+							{m.archive_axes_dialog_name_label()}
+						</Field.FieldLabel>
+						<Input id="axis-name" bind:value={axisFormName} required />
+						<Field.FieldDescription>{m.archive_axes_dialog_name_help()}</Field.FieldDescription>
+					</Field.Field>
+					<Field.Field>
+						<Field.FieldLabel for="axis-source">
+							{m.archive_axes_dialog_source_label()}
+						</Field.FieldLabel>
+						<Select.Root type="single" bind:value={axisFormSource} required>
+							<Select.Trigger id="axis-source" class="w-full">
+								{sourceOptionLabel(axisFormSource)}
+							</Select.Trigger>
+							<Select.Content>
+								{#each AXIS_SOURCES as source (source)}
+									<Select.Item value={source}>{sourceOptionLabel(source)}</Select.Item>
 								{/each}
-							</RadioGroup.Root>
-						</Field.FieldSet>
-					{:else}
-						{#if dirLevels.status === 'failed'}
-							<p class="text-sm text-muted-foreground">
-								{m.archive_axes_dialog_dir_level_fetch_failed()}
-							</p>
+							</Select.Content>
+						</Select.Root>
+					</Field.Field>
+					{#if axisFormSource === 'dirLevel'}
+						{#if dirLevels.status === 'loading'}
+							<Spinner aria-label={m.archive_axes_dialog_dir_level_loading()} />
+						{:else if dirLevelOptions.length > 0}
+							<Field.FieldSet>
+								<Field.FieldLegend id="axis-dir-level-legend" variant="label">
+									{m.archive_axes_dialog_dir_level_choice_label()}
+								</Field.FieldLegend>
+								<RadioGroup.Root
+									aria-labelledby="axis-dir-level-legend"
+									bind:value={
+										() => String(axisFormDirLevel ?? ''),
+										(value) => (axisFormDirLevel = Number(value))
+									}
+								>
+									{#each dirLevelOptions as option (option.level)}
+										{@const id = `axis-dir-level-${option.level}`}
+										<!-- 行全体を押せるラベルにする。読み上げ名は「第N階層」だけにし、値の例は説明として読ませる。 -->
+										<Field.FieldLabel for={id} class="min-h-11">
+											<Field.Field orientation="horizontal">
+												<RadioGroup.Item
+													value={String(option.level)}
+													{id}
+													aria-labelledby={`${id}-title`}
+													aria-describedby={`${id}-description`}
+												/>
+												<Field.FieldContent>
+													<Field.FieldTitle id={`${id}-title`}>
+														{m.archive_axes_dialog_dir_level_option({
+															level: String(option.level)
+														})}
+													</Field.FieldTitle>
+													<Field.FieldDescription id={`${id}-description`} class="wrap-anywhere">
+														{option.summary === null
+															? m.archive_axes_dialog_dir_level_option_no_items()
+															: dirLevelSamplesText(option.summary)}
+													</Field.FieldDescription>
+												</Field.FieldContent>
+											</Field.Field>
+										</Field.FieldLabel>
+									{/each}
+								</RadioGroup.Root>
+							</Field.FieldSet>
 						{:else}
-							{@render noItemsNotice(m.archive_axes_dialog_dir_level_no_items())}
+							{#if dirLevels.status === 'failed'}
+								<p class="text-sm text-muted-foreground">
+									{m.archive_axes_dialog_dir_level_fetch_failed()}
+								</p>
+							{:else}
+								{@render noItemsNotice(m.archive_axes_dialog_dir_level_no_items())}
+							{/if}
+							<Field.Field>
+								<Field.FieldLabel for="axis-dir-level" required>
+									{m.archive_axes_dialog_dir_level_label()}
+								</Field.FieldLabel>
+								<Input
+									id="axis-dir-level"
+									type="number"
+									min={1}
+									bind:value={axisFormDirLevel}
+									required
+								/>
+								<Field.FieldDescription>
+									{m.archive_axes_dialog_dir_level_help()}
+								</Field.FieldDescription>
+							</Field.Field>
 						{/if}
-						<Field.Field>
-							<Field.FieldLabel for="axis-dir-level" required>
-								{m.archive_axes_dialog_dir_level_label()}
-							</Field.FieldLabel>
-							<Input
-								id="axis-dir-level"
-								type="number"
-								min={1}
-								bind:value={axisFormDirLevel}
-								required
+					{/if}
+					<!-- 抽出元か階層を変えた時点で出るので、先頭でなく変えた欄のすぐ下に置き、出たら見える所まで送る。
+					     先頭に差し込むと、押した欄が押し下げられて画面の外へ出るため (→ docs/ui.md「UI 全般」)。 -->
+					{#if axisValuesWillBeCleared}
+						<div {@attach (el) => el.scrollIntoView({ block: 'nearest' })}>
+							<WarningBand>
+								<p class="text-sm leading-relaxed">
+									{m.archive_axes_dialog_values_cleared_warning()}
+								</p>
+							</WarningBand>
+						</div>
+					{/if}
+					<!-- 作成では既定 (絞り込みに出す・タイトルで省略しない) のまま作る。変えるのは編集で。 -->
+					{#if editingAxisId !== null}
+						<Field.Field orientation="horizontal">
+							<Checkbox id="axis-filterable" bind:checked={axisFormFilterable} />
+							<Field.FieldContent>
+								<Field.FieldLabel for="axis-filterable">
+									{m.archive_axes_dialog_filterable_label()}
+								</Field.FieldLabel>
+							</Field.FieldContent>
+						</Field.Field>
+						<Field.Field orientation="horizontal">
+							<!-- 画面では反転して見せる。API・DB の optionalInTitle はそのまま (→ docs/archive.md「表示タイトル」)。 -->
+							<Checkbox
+								id="axis-optional-in-title"
+								bind:checked={
+									() => !axisFormOptionalInTitle, (checked) => (axisFormOptionalInTitle = !checked)
+								}
 							/>
-							<Field.FieldDescription>
-								{m.archive_axes_dialog_dir_level_help()}
-							</Field.FieldDescription>
+							<Field.FieldContent>
+								<Field.FieldLabel for="axis-optional-in-title">
+									{m.archive_axes_dialog_optional_in_title_label()}
+								</Field.FieldLabel>
+								<Field.FieldDescription>
+									{m.archive_axes_dialog_optional_in_title_help()}
+								</Field.FieldDescription>
+							</Field.FieldContent>
 						</Field.Field>
 					{/if}
-				{/if}
-				<!-- 作成では既定 (絞り込みに出す・タイトルで省略しない) のまま作る。変えるのは編集で。 -->
-				{#if editingAxisId !== null}
-					<Field.Field orientation="horizontal">
-						<Checkbox id="axis-filterable" bind:checked={axisFormFilterable} />
-						<Field.FieldContent>
-							<Field.FieldLabel for="axis-filterable">
-								{m.archive_axes_dialog_filterable_label()}
-							</Field.FieldLabel>
-						</Field.FieldContent>
-					</Field.Field>
-					<Field.Field orientation="horizontal">
-						<!-- 画面では反転して見せる。API・DB の optionalInTitle はそのまま (→ docs/archive.md「表示タイトル」)。 -->
-						<Checkbox
-							id="axis-optional-in-title"
-							bind:checked={
-								() => !axisFormOptionalInTitle, (checked) => (axisFormOptionalInTitle = !checked)
-							}
-						/>
-						<Field.FieldContent>
-							<Field.FieldLabel for="axis-optional-in-title">
-								{m.archive_axes_dialog_optional_in_title_label()}
-							</Field.FieldLabel>
-							<Field.FieldDescription>
-								{m.archive_axes_dialog_optional_in_title_help()}
-							</Field.FieldDescription>
-						</Field.FieldContent>
-					</Field.Field>
-				{/if}
-			</Field.FieldGroup>
-			{#if axisValuesWillBeCleared}
-				<WarningBand>
-					<p class="text-sm leading-relaxed">
-						{m.archive_axes_dialog_values_cleared_warning()}
-					</p>
-				</WarningBand>
-			{/if}
+				</Field.FieldGroup>
+			</Dialog.Body>
 			<Dialog.Footer>
 				<Button type="button" variant="outline" onclick={() => (axisDialogOpen = false)}>
 					{m.action_cancel()}
@@ -1628,8 +1680,36 @@
 	title={m.archive_axes_delete_confirm_title()}
 	busy={axisDeleting}
 	onconfirm={handleDeleteAxis}
+	confirmDisabled={templateStillUsesAxis}
 >
-	{m.common_delete_confirm_description()}
+	{#if deletingAxisInTemplate && deletingAxis !== null}
+		{m.archive_axes_delete_template_description({ name: deletingAxis.name })}
+	{:else}
+		{m.common_delete_confirm_description()}
+	{/if}
+	{#snippet body()}
+		{#if deletingAxisInTemplate && deletingAxis !== null}
+			<Field.Field data-invalid={templateStillUsesAxis || undefined}>
+				<Field.FieldLabel for="template-after-delete">
+					{m.archive_axes_delete_template_label()}
+				</Field.FieldLabel>
+				<Input
+					id="template-after-delete"
+					bind:value={templateAfterDelete}
+					disabled={axisDeleting}
+					aria-invalid={templateStillUsesAxis || undefined}
+					aria-describedby="template-after-delete-help"
+				/>
+				<Field.FieldDescription id="template-after-delete-help">
+					{templateStillUsesAxis
+						? m.archive_axes_delete_template_still_used({
+								token: axisPlaceholder(deletingAxis.name)
+							})
+						: m.archive_axes_template_help()}
+				</Field.FieldDescription>
+			</Field.Field>
+		{/if}
+	{/snippet}
 </ConfirmDialog>
 
 <AxesAiDialog bind:open={aiDialogOpen} contentId={data.contentId} onimported={invalidateAll} />

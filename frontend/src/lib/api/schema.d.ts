@@ -1682,6 +1682,11 @@ export interface components {
             exclusions: components["schemas"]["AiLinkExclusion"][];
             /** @description 検索キーワード。一度もオンにしていなければ `null`。 */
             interests?: string | null;
+            /**
+             * Format: int32
+             * @description 検索で引くページを、公開から何日以内に絞るか。0 は絞らない。
+             */
+            withinDays: number;
         };
         AiLinksSettingsRequest: {
             autoRefresh?: components["schemas"]["AutoRefresh"];
@@ -1691,10 +1696,15 @@ export interface components {
              */
             dailyLimit?: number;
             /**
-             * @description 検索キーワード。語の並びでもふつうの文でもよく、AI が検索のクエリに組み立て直す。
+             * @description 検索キーワード。1行に1つの検索のクエリで、5行まで。書いたとおりに検索する。
              *     `null` なら集めるのをやめる (前の設定と表示しないものは残し、ほかの項目は見ない)。
              */
             interests?: string | null;
+            /**
+             * Format: int32
+             * @description 検索で引くページを、公開から何日以内に絞るか。0 は絞らない。
+             */
+            withinDays?: number;
         };
         AiStatusResponse: {
             /** @description 登録済みだが、アカウントにつながらず残りを確かめられなかった。 */
@@ -2276,12 +2286,14 @@ export interface components {
         LinkPreview: {
             /** @description ページの説明 (`og:description`、無ければ `<meta name="description">`)。 */
             description?: string | null;
+            /** @description 最後に確かめたとき、ページが無くなっていた (404・410)。 */
+            gone: boolean;
             iconUrl?: string | null;
             imageUrl?: string | null;
-            /** @description ページの `article:published_time` のまま。読めなければ経過を出さない。 */
-            publishedAt?: string | null;
             siteName?: string | null;
             title?: string | null;
+            /** @description ページを最後に更新した日時 (無ければ公開した日時)。RFC 3339・`YYYY-MM-DD`・時差の無い ISO 8601 のどれか (→ `page_dates`)。 */
+            updatedAt?: string | null;
         };
         LinksFileEntry: {
             note?: string | null;
@@ -5251,7 +5263,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 検索キーワードが空・長すぎる、自動の更新の時間・時刻が正しくない */
+            /** @description 検索キーワードが空・行が多すぎる・長すぎる、自動の更新の時間・時刻が正しくない */
             422: {
                 headers: {
                     [name: string]: unknown;

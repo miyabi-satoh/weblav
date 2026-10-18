@@ -5,9 +5,9 @@ import { test, expect, type Page } from '@playwright/test';
 import {
 	AUDIO_PLAYER_REGION_NAME,
 	AUTO_ADVANCE_BUTTON_NAME,
-	CANCEL_BUTTON_NAME,
 	CLOSE_BUTTON_NAME,
 	confirmDelete,
+	DELETE_CONFIRM_BUTTON_NAME,
 	ITEMS_TAB_NAME,
 	NEXT_FILE_BUTTON_NAME,
 	NEXT_TRACK_BUTTON_NAME,
@@ -485,14 +485,14 @@ test('値の辞書: 照合する位置を行ごとに選ぶと一致する件数
 	);
 });
 
-test('軸の削除: 確認して消せる。表示タイトルで使っている軸は消せずに理由が出る', async ({
+test('軸の削除: 確認して消せる。表示タイトルで使っている軸は、外したテンプレートを確かめてから消す', async ({
 	page
 }) => {
 	await withDirectoryContent(
 		page.request,
 		{ type: 'archive', namePrefix: 'e2e-axis-delete' },
 		async (archive) => {
-			// 年度・種類はテンプレートで使う。3本目はどこでも使わない。
+			// 年度・種類はテンプレート ({年度} {種類}) で使う。3本目はどこでも使わない。
 			await setUpArchiveForBrowsing(page.request, archive);
 			await send(page.request, 'post', `/contents/${archive.id}/axes`, {
 				name: '未使用',
@@ -505,34 +505,37 @@ test('軸の削除: 確認して消せる。表示タイトルで使っている
 			await axisRow(page, '種類')
 				.getByRole('button', { name: /^種類 を削除\.\.\.$|^Delete 種類\.\.\.$/ })
 				.click();
-			await confirmDelete(page);
-			const errorDialog = page.getByRole('alertdialog').filter({
-				hasText:
-					/軸「種類」は表示タイトルのテンプレートで使用されているため、削除できません。|The axis “種類” is used by the title template and cannot be deleted\./
+			// 種類を外した案が入っている。種類を残したままでは消せない。
+			const confirm = page.getByRole('alertdialog');
+			const templateAfter = confirm.getByRole('textbox', {
+				name: /削除した後のテンプレート|Template after deletion/
 			});
-			await expect(errorDialog).toBeVisible();
-			await errorDialog.getByRole('button', { name: CLOSE_BUTTON_NAME }).click();
-			// エラーを閉じると削除の確認に戻る。やめて閉じる。
-			await page
-				.getByRole('alertdialog')
-				.filter({ hasText: /この軸を削除しますか？|Delete this axis\?/ })
-				.getByRole('button', { name: CANCEL_BUTTON_NAME })
-				.click();
+			await expect(templateAfter).toHaveValue('{年度}');
+			await templateAfter.fill('{年度} {種類}');
+			await expect(
+				confirm.getByRole('button', { name: DELETE_CONFIRM_BUTTON_NAME })
+			).toBeDisabled();
+			await templateAfter.fill('{年度}年');
+			await confirmDelete(page);
 			await expect(page.getByRole('alertdialog')).toHaveCount(0);
-			await expect(axisRow(page, '種類')).toBeVisible();
+			await expect(axisRow(page, '種類')).toHaveCount(0);
 
 			await axisRow(page, '未使用')
 				.getByRole('button', { name: /^未使用 を削除\.\.\.$|^Delete 未使用\.\.\.$/ })
 				.click();
+			await expect(page.getByRole('alertdialog').getByRole('textbox')).toHaveCount(0);
 			await confirmDelete(page);
 			await expect(page.getByRole('alertdialog')).toHaveCount(0);
 			await expect(axisRow(page, '未使用')).toHaveCount(0);
 
-			// 読み直しても消えたまま。残した軸は並ぶ (対照)。
+			// 読み直しても消えたまま。テンプレートは直した形で保存されている。残した軸は並ぶ (対照)。
 			await page.reload();
 			await expect(axisRow(page, '年度')).toBeVisible();
-			await expect(axisRow(page, '種類')).toBeVisible();
+			await expect(axisRow(page, '種類')).toHaveCount(0);
 			await expect(axisRow(page, '未使用')).toHaveCount(0);
+			await expect(
+				page.getByRole('textbox', { name: /^表示タイトルのテンプレート$|^Title template$/ })
+			).toHaveValue('{年度}年');
 		}
 	);
 });

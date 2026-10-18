@@ -379,44 +379,46 @@
 		<Dialog.Header>
 			<Dialog.Title>{m.admin_users_dialog_create_title()}</Dialog.Title>
 		</Dialog.Header>
-		<form onsubmit={handleCreateSubmit} class="flex flex-col gap-6">
-			<Field.FieldGroup>
-				<Field.Field>
-					<Field.FieldLabel for="user-username" required
-						>{m.admin_users_dialog_username_label()}</Field.FieldLabel
-					>
-					<!-- ブラウザーのパスワードマネージャーが管理者自身の資格情報を入れてしまう
+		<form onsubmit={handleCreateSubmit} class="flex min-h-0 flex-col gap-6">
+			<Dialog.Body>
+				<Field.FieldGroup>
+					<Field.Field>
+						<Field.FieldLabel for="user-username" required
+							>{m.admin_users_dialog_username_label()}</Field.FieldLabel
+						>
+						<!-- ブラウザーのパスワードマネージャーが管理者自身の資格情報を入れてしまう
 					     (入れたまま保存すると、新しいユーザーに管理者と同じパスワードが付く)。
 					     ログインフォームと判定させないため、自動入力を切る。 -->
-					<Input id="user-username" autocomplete="off" bind:value={createUsername} required />
-				</Field.Field>
-				<Field.Field>
-					<Field.FieldLabel for="user-password" required
-						>{m.admin_users_dialog_password_label()}</Field.FieldLabel
-					>
-					<PasswordInput
-						id="user-password"
-						autocomplete="new-password"
-						bind:value={createPassword}
-						required
-					/>
-				</Field.Field>
-				<Field.Field>
-					<Field.FieldLabel for="user-password-confirm" required
-						>{m.admin_users_dialog_password_confirm_label()}</Field.FieldLabel
-					>
-					<PasswordInput
-						id="user-password-confirm"
-						autocomplete="new-password"
-						aria-invalid={createPasswordMismatch}
-						bind:value={createPasswordConfirm}
-						required
-					/>
-					{#if createPasswordMismatch}
-						<Field.FieldError>{m.common_password_mismatch()}</Field.FieldError>
-					{/if}
-				</Field.Field>
-			</Field.FieldGroup>
+						<Input id="user-username" autocomplete="off" bind:value={createUsername} required />
+					</Field.Field>
+					<Field.Field>
+						<Field.FieldLabel for="user-password" required
+							>{m.admin_users_dialog_password_label()}</Field.FieldLabel
+						>
+						<PasswordInput
+							id="user-password"
+							autocomplete="new-password"
+							bind:value={createPassword}
+							required
+						/>
+					</Field.Field>
+					<Field.Field>
+						<Field.FieldLabel for="user-password-confirm" required
+							>{m.admin_users_dialog_password_confirm_label()}</Field.FieldLabel
+						>
+						<PasswordInput
+							id="user-password-confirm"
+							autocomplete="new-password"
+							aria-invalid={createPasswordMismatch}
+							bind:value={createPasswordConfirm}
+							required
+						/>
+						{#if createPasswordMismatch}
+							<Field.FieldError>{m.common_password_mismatch()}</Field.FieldError>
+						{/if}
+					</Field.Field>
+				</Field.FieldGroup>
+			</Dialog.Body>
 			<Dialog.Footer>
 				<Button type="button" variant="outline" onclick={() => (createOpen = false)}
 					>{m.action_cancel()}</Button
@@ -447,38 +449,40 @@
 				})}
 			</Dialog.Description>
 		</Dialog.Header>
-		<form onsubmit={handleResetSubmit} class="flex flex-col gap-6">
-			<Field.FieldGroup>
-				<Field.Field>
-					<Field.FieldLabel for="reset-password" required
-						>{m.admin_users_dialog_password_label()}</Field.FieldLabel
-					>
-					<!-- 再設定はユーザー名の欄が無く、ブラウザーにログインフォームと判定されない。
+		<form onsubmit={handleResetSubmit} class="flex min-h-0 flex-col gap-6">
+			<Dialog.Body>
+				<Field.FieldGroup>
+					<Field.Field>
+						<Field.FieldLabel for="reset-password" required
+							>{m.admin_users_dialog_password_label()}</Field.FieldLabel
+						>
+						<!-- 再設定はユーザー名の欄が無く、ブラウザーにログインフォームと判定されない。
 					     `new-password` にすると Chrome のパスワード生成が2つの欄に干渉し、
 					     確認欄が空のまま残ることがあるため、こちらは `off` にする。 -->
-					<PasswordInput
-						id="reset-password"
-						autocomplete="off"
-						bind:value={resetPassword}
-						required
-					/>
-				</Field.Field>
-				<Field.Field>
-					<Field.FieldLabel for="reset-password-confirm" required
-						>{m.admin_users_dialog_password_confirm_label()}</Field.FieldLabel
-					>
-					<PasswordInput
-						id="reset-password-confirm"
-						autocomplete="off"
-						aria-invalid={resetPasswordMismatch}
-						bind:value={resetPasswordConfirm}
-						required
-					/>
-					{#if resetPasswordMismatch}
-						<Field.FieldError>{m.common_password_mismatch()}</Field.FieldError>
-					{/if}
-				</Field.Field>
-			</Field.FieldGroup>
+						<PasswordInput
+							id="reset-password"
+							autocomplete="off"
+							bind:value={resetPassword}
+							required
+						/>
+					</Field.Field>
+					<Field.Field>
+						<Field.FieldLabel for="reset-password-confirm" required
+							>{m.admin_users_dialog_password_confirm_label()}</Field.FieldLabel
+						>
+						<PasswordInput
+							id="reset-password-confirm"
+							autocomplete="off"
+							aria-invalid={resetPasswordMismatch}
+							bind:value={resetPasswordConfirm}
+							required
+						/>
+						{#if resetPasswordMismatch}
+							<Field.FieldError>{m.common_password_mismatch()}</Field.FieldError>
+						{/if}
+					</Field.Field>
+				</Field.FieldGroup>
+			</Dialog.Body>
 			<Dialog.Footer>
 				<Button type="button" variant="outline" onclick={() => (resettingUser = null)}
 					>{m.action_cancel()}</Button
@@ -504,16 +508,18 @@
 		<Dialog.Header>
 			<Dialog.Title>{m.admin_users_rename_dialog_title()}</Dialog.Title>
 		</Dialog.Header>
-		<form onsubmit={handleRenameSubmit} class="flex flex-col gap-6">
-			<Field.FieldGroup>
-				<Field.Field>
-					<Field.FieldLabel for="rename-username" required
-						>{m.admin_users_dialog_username_label()}</Field.FieldLabel
-					>
-					<!-- 作成と同じく、管理者自身の資格情報を自動入力させない。 -->
-					<Input id="rename-username" autocomplete="off" bind:value={renameUsername} required />
-				</Field.Field>
-			</Field.FieldGroup>
+		<form onsubmit={handleRenameSubmit} class="flex min-h-0 flex-col gap-6">
+			<Dialog.Body>
+				<Field.FieldGroup>
+					<Field.Field>
+						<Field.FieldLabel for="rename-username" required
+							>{m.admin_users_dialog_username_label()}</Field.FieldLabel
+						>
+						<!-- 作成と同じく、管理者自身の資格情報を自動入力させない。 -->
+						<Input id="rename-username" autocomplete="off" bind:value={renameUsername} required />
+					</Field.Field>
+				</Field.FieldGroup>
+			</Dialog.Body>
 			<Dialog.Footer>
 				<Button type="button" variant="outline" onclick={() => (renamingUser = null)}
 					>{m.action_cancel()}</Button

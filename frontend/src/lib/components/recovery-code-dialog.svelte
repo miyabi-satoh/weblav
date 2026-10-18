@@ -67,18 +67,20 @@
 			{/if}
 		</Dialog.Header>
 		{#if code === null}
-			<form onsubmit={handleSubmit} class="flex flex-col gap-6">
-				<Field.Field>
-					<Field.FieldLabel for="recovery-code-current-password" required
-						>{m.recovery_code_dialog_current_password_label()}</Field.FieldLabel
-					>
-					<PasswordInput
-						id="recovery-code-current-password"
-						autocomplete="current-password"
-						bind:value={currentPassword}
-						required
-					/>
-				</Field.Field>
+			<form onsubmit={handleSubmit} class="flex min-h-0 flex-col gap-6">
+				<Dialog.Body>
+					<Field.Field>
+						<Field.FieldLabel for="recovery-code-current-password" required
+							>{m.recovery_code_dialog_current_password_label()}</Field.FieldLabel
+						>
+						<PasswordInput
+							id="recovery-code-current-password"
+							autocomplete="current-password"
+							bind:value={currentPassword}
+							required
+						/>
+					</Field.Field>
+				</Dialog.Body>
 				<Dialog.Footer>
 					<Button type="button" variant="outline" onclick={() => (open = false)}
 						>{m.action_cancel()}</Button
@@ -87,7 +89,9 @@
 				</Dialog.Footer>
 			</form>
 		{:else}
-			<RecoveryCodePanel {code} {username} onconfirm={handleConfirm} />
+			<Dialog.Body>
+				<RecoveryCodePanel {code} {username} onconfirm={handleConfirm} />
+			</Dialog.Body>
 		{/if}
 	</Dialog.Content>
 </Dialog.Root>

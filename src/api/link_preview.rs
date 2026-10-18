@@ -66,6 +66,12 @@ impl LinkPreviews {
             permits: Semaphore::new(MAX_CONCURRENT_FETCHES),
         }
     }
+
+    /// 外へ取りに行く枠を1つ取る。カードのほかに、AI が集めるリンクで一覧のページを開くときも同じ枠を使う
+    /// (→ `ai_link_pages`)。相手のサイトと回線を突きすぎない数は、何のために取るかによらないため。
+    pub(super) async fn permit(&self) -> tokio::sync::SemaphorePermit<'_> {
+        self.permits.acquire().await.expect("閉じないセマフォ")
+    }
 }
 
 /// リンクのカードに出す情報。URL はこのサーバーから配る画像の URL。
@@ -76,10 +82,12 @@ pub struct LinkPreview {
     /// ページの説明 (`og:description`、無ければ `<meta name="description">`)。
     pub description: Option<String>,
     pub site_name: Option<String>,
-    /// ページの `article:published_time` のまま。読めなければ経過を出さない。
-    pub published_at: Option<String>,
+    /// ページを最後に更新した日時 (無ければ公開した日時)。RFC 3339・`YYYY-MM-DD`・時差の無い ISO 8601 のどれか (→ `page_dates`)。
+    pub updated_at: Option<String>,
     pub image_url: Option<String>,
     pub icon_url: Option<String>,
+    /// 最後に確かめたとき、ページが無くなっていた (404・410)。
+    pub gone: bool,
 }
 
 struct PreviewRow {
@@ -87,9 +95,10 @@ struct PreviewRow {
     title: Option<String>,
     description: Option<String>,
     site_name: Option<String>,
-    published_at: Option<String>,
+    updated_at: Option<String>,
     image_file: Option<String>,
     icon_file: Option<String>,
+    gone: bool,
 }
 
 impl From<PreviewRow> for LinkPreview {
@@ -98,9 +107,10 @@ impl From<PreviewRow> for LinkPreview {
             title: row.title,
             description: row.description,
             site_name: row.site_name,
-            published_at: row.published_at,
+            updated_at: row.updated_at,
             image_url: row.image_file.map(|file| file_url(&file)),
             icon_url: row.icon_file.map(|file| file_url(&file)),
+            gone: row.gone,
         }
     }
 }
@@ -128,7 +138,8 @@ pub(super) async fn cached(
     let urls_json = serde_json::to_string(urls).expect("文字列の並びは JSON にできる");
     let rows = sqlx::query_as!(
         PreviewRow,
-        r#"SELECT url, title, description, site_name, published_at, image_file, icon_file
+        r#"SELECT url, title, description, site_name, updated_at, image_file, icon_file,
+                  gone AS "gone: bool"
            FROM link_previews WHERE url IN (SELECT value FROM json_each(?))"#,
         urls_json
     )
@@ -293,12 +304,7 @@ async fn refresh_one(state: &AppState, url: &str, now: i64) -> Result<(), AppErr
         return Ok(());
     };
 
-    let _permit = state
-        .link_previews
-        .permits
-        .acquire()
-        .await
-        .expect("閉じないセマフォ");
+    let _permit = state.link_previews.permit().await;
     let fetch = {
         let url = url.to_string();
         let (etag, last_modified) = (claimed.etag.clone(), claimed.last_modified.clone());
@@ -319,6 +325,18 @@ async fn refresh_one(state: &AppState, url: &str, now: i64) -> Result<(), AppErr
     };
     let (card, headers, sources) = match fetch {
         CardFetch::Failed => return Ok(()),
+        // 前のカードの情報は残す。また取れるようになったら、取り直したときに印を外す。
+        CardFetch::Gone(headers) => {
+            let fresh_until = fresh_until(now, &headers);
+            sqlx::query!(
+                "UPDATE link_previews SET gone = 1, fresh_until = ? WHERE url = ?",
+                fresh_until,
+                url
+            )
+            .execute(&state.pool)
+            .await?;
+            return Ok(());
+        }
         CardFetch::NotModified(mut headers) => {
             // 304 の応答は検証子を付けないことがある。覚えている応答のヘッダーで補う (RFC 9111 4.3.4)。
             headers.etag = headers.etag.or(claimed.etag);
@@ -474,11 +492,11 @@ async fn save(
     let bytes = settled.image_bytes + settled.icon_bytes;
     if let Some(card) = card {
         sqlx::query!(
-            "UPDATE link_previews SET title = ?, description = ?, site_name = ?, published_at = ? WHERE url = ?",
+            "UPDATE link_previews SET title = ?, description = ?, site_name = ?, updated_at = ? WHERE url = ?",
             card.title,
             card.description,
             card.site_name,
-            card.published_at,
+            card.updated_at,
             url
         )
         .execute(&mut *tx)
@@ -487,7 +505,7 @@ async fn save(
     sqlx::query!(
         r#"UPDATE link_previews SET
                image_source = ?, image_file = ?, icon_source = ?, icon_file = ?,
-               etag = ?, last_modified = ?, fresh_until = ?, bytes = ?
+               etag = ?, last_modified = ?, fresh_until = ?, bytes = ?, gone = 0
            WHERE url = ?"#,
         settled.image.source,
         settled.image.file,

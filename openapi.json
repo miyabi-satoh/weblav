@@ -2819,7 +2819,7 @@
             }
           },
           "422": {
-            "description": "検索キーワードが空・長すぎる、自動の更新の時間・時刻が正しくない",
+            "description": "検索キーワードが空・行が多すぎる・長すぎる、自動の更新の時間・時刻が正しくない",
             "content": {
               "application/json": {
                 "schema": {
@@ -5820,6 +5820,7 @@
           "enabled",
           "dailyLimit",
           "autoRefresh",
+          "withinDays",
           "exclusions"
         ],
         "properties": {
@@ -5849,6 +5850,12 @@
               "null"
             ],
             "description": "検索キーワード。一度もオンにしていなければ `null`。"
+          },
+          "withinDays": {
+            "type": "integer",
+            "format": "int32",
+            "description": "検索で引くページを、公開から何日以内に絞るか。0 は絞らない。",
+            "minimum": 0
           }
         }
       },
@@ -5869,7 +5876,13 @@
               "string",
               "null"
             ],
-            "description": "検索キーワード。語の並びでもふつうの文でもよく、AI が検索のクエリに組み立て直す。\n`null` なら集めるのをやめる (前の設定と表示しないものは残し、ほかの項目は見ない)。"
+            "description": "検索キーワード。1行に1つの検索のクエリで、5行まで。書いたとおりに検索する。\n`null` なら集めるのをやめる (前の設定と表示しないものは残し、ほかの項目は見ない)。"
+          },
+          "withinDays": {
+            "type": "integer",
+            "format": "int32",
+            "description": "検索で引くページを、公開から何日以内に絞るか。0 は絞らない。",
+            "minimum": 0
           }
         }
       },
@@ -7460,6 +7473,9 @@
       "LinkPreview": {
         "type": "object",
         "description": "リンクのカードに出す情報。URL はこのサーバーから配る画像の URL。",
+        "required": [
+          "gone"
+        ],
         "properties": {
           "description": {
             "type": [
@@ -7467,6 +7483,10 @@
               "null"
             ],
             "description": "ページの説明 (`og:description`、無ければ `<meta name=\"description\">`)。"
+          },
+          "gone": {
+            "type": "boolean",
+            "description": "最後に確かめたとき、ページが無くなっていた (404・410)。"
           },
           "iconUrl": {
             "type": [
@@ -7480,13 +7500,6 @@
               "null"
             ]
           },
-          "publishedAt": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "ページの `article:published_time` のまま。読めなければ経過を出さない。"
-          },
           "siteName": {
             "type": [
               "string",
@@ -7498,6 +7511,13 @@
               "string",
               "null"
             ]
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ページを最後に更新した日時 (無ければ公開した日時)。RFC 3339・`YYYY-MM-DD`・時差の無い ISO 8601 のどれか (→ `page_dates`)。"
           }
         }
       },

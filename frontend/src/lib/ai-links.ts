@@ -1,8 +1,15 @@
 import { client } from '$lib/api/client';
 import { getLocale } from '$lib/paraglide/runtime';
 
-/** 検索キーワードの長さ (UTF-16 の単位) の上限。サーバーの検証 (`src/api/ai_links.rs`) と同じ値。 */
-export const MAX_INTEREST_UNITS = 200;
+/** 検索キーワードに書けるクエリ (1行に1つ) の数と、1行の長さ (UTF-16 の単位) の上限。サーバーの検証 (`src/api/ai_links.rs`) と同じ値。 */
+export const MAX_QUERIES = 5;
+export const MAX_QUERY_UNITS = 200;
+
+/** 検索キーワードの行のうち、クエリになるもの。サーバー (`query_lines`) と同じく、空の行と重なった行を除く。 */
+export function queryLines(text: string): string[] {
+	const lines = text.split('\n').map((line) => line.split(/\s+/).filter(Boolean).join(' '));
+	return [...new Set(lines.filter((line) => line !== ''))];
+}
 
 /**
  * グループのリンクを AI に集め直してもらう (→ docs/ai.md「AI が集めるリンク」)。

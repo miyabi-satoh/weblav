@@ -201,7 +201,7 @@ describe('relaying a web search', () => {
 			queries: ['家庭菜園 トマト'],
 			country: 'JP',
 			language: 'ja',
-			recency: 'year'
+			after: '2026-10-11'
 		});
 		expect(res.status).toBe(200);
 		expect(await res.json()).toEqual({
@@ -220,7 +220,7 @@ describe('relaying a web search', () => {
 			search_type: 'fast',
 			country: 'JP',
 			search_language_filter: ['ja'],
-			search_recency_filter: 'year'
+			search_after_date_filter: '10/11/2026'
 		});
 		expect((await grantsOf(await accountId(email)))[0].remaining).toBe(
 			FREE_GRANT - searchCost(rates)

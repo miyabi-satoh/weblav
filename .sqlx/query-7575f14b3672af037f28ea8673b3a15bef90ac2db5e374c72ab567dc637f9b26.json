@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT enabled as \"enabled: bool\", interests, queries, queries_language, refreshed_at,\n                  refreshed_by_auto as \"refreshed_by_auto: bool\", daily_limit,\n                  auto_mode as \"auto_mode: AutoMode\", auto_hours, auto_time, refresh_day, refresh_count\n           FROM ai_link_groups WHERE content_id = ?",
+  "query": "SELECT enabled as \"enabled: bool\", interests, refreshed_at,\n                  refreshed_by_auto as \"refreshed_by_auto: bool\", daily_limit,\n                  auto_mode as \"auto_mode: AutoMode\", auto_hours, auto_time, refresh_day, refresh_count,\n                  within_days\n           FROM ai_link_groups WHERE content_id = ?",
   "describe": {
     "columns": [
       {
@@ -14,53 +14,48 @@
         "type_info": "Text"
       },
       {
-        "name": "queries",
-        "ordinal": 2,
-        "type_info": "Text"
-      },
-      {
-        "name": "queries_language",
-        "ordinal": 3,
-        "type_info": "Text"
-      },
-      {
         "name": "refreshed_at",
-        "ordinal": 4,
+        "ordinal": 2,
         "type_info": "Integer"
       },
       {
         "name": "refreshed_by_auto: bool",
-        "ordinal": 5,
+        "ordinal": 3,
         "type_info": "Integer"
       },
       {
         "name": "daily_limit",
-        "ordinal": 6,
+        "ordinal": 4,
         "type_info": "Integer"
       },
       {
         "name": "auto_mode: AutoMode",
-        "ordinal": 7,
+        "ordinal": 5,
         "type_info": "Text"
       },
       {
         "name": "auto_hours",
-        "ordinal": 8,
+        "ordinal": 6,
         "type_info": "Integer"
       },
       {
         "name": "auto_time",
-        "ordinal": 9,
+        "ordinal": 7,
         "type_info": "Text"
       },
       {
         "name": "refresh_day",
-        "ordinal": 10,
+        "ordinal": 8,
         "type_info": "Text"
       },
       {
         "name": "refresh_count",
-        "ordinal": 11,
+        "ordinal": 9,
+        "type_info": "Integer"
+      },
+      {
+        "name": "within_days",
+        "ordinal": 10,
         "type_info": "Integer"
       }
     ],
@@ -71,16 +66,15 @@
       false,
       false,
       true,
-      true,
-      true,
       false,
       false,
       false,
       true,
       true,
       true,
+      false,
       false
     ]
   },
-  "hash": "cf8e7dcfbdfacf9684948890f5ff6559b61e7ff52d24c1d15f8b73125a05052d"
+  "hash": "7575f14b3672af037f28ea8673b3a15bef90ac2db5e374c72ab567dc637f9b26"
 }

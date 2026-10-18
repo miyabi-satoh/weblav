@@ -1,4 +1,5 @@
 mod ai;
+mod ai_link_pages;
 pub mod ai_links;
 mod archive;
 mod archive_axes;
@@ -21,6 +22,7 @@ mod link_title;
 mod links_file;
 mod local;
 mod logs;
+mod page_dates;
 mod remote_file;
 mod roots;
 mod search;

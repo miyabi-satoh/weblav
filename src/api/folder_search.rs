@@ -397,9 +397,10 @@ mod tests {
             title: title.map(str::to_string),
             description: None,
             site_name: None,
-            published_at: None,
+            updated_at: None,
             image_url: None,
             icon_url: None,
+            gone: false,
         }
     }
 

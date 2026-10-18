@@ -94,7 +94,7 @@
 	let host = $derived(urlHost(href));
 	let siteName = $derived(preview?.siteName ?? host);
 	let shownTitle = $derived(linkTitleOf(href, title, preview));
-	let timeAgo = $derived(formatTimeAgo(preview?.publishedAt));
+	let timeAgo = $derived(formatTimeAgo(preview?.updatedAt));
 
 	// 読めなかったときの preview を覚える。取り直しの答えで差し替わったら、同じ URL でも改めて読みに行く。
 	// サーバーが消えた画像を取り直し、同じ名前で置き直していることがあるため。
@@ -171,11 +171,6 @@
 
 {#if browseLayout.tile}
 	<div class={linkTileClass}>
-		{#if actions}
-			<span class={[browseRowAboveClass, 'absolute top-2 right-2 rounded-md bg-background']}
-				>{@render actions()}</span
-			>
-		{/if}
 		<span class="flex aspect-video w-full items-center justify-center overflow-hidden bg-muted">
 			{#if imageUrl}
 				<!-- 行のタイトルが何の画像かを伝えるので、読み上げでは飛ばす。 -->
@@ -202,6 +197,12 @@
 				{@render meta(false)}
 				{#if !viewer && !opensDetail}
 					<ExternalLinkIcon class="ml-auto size-4 shrink-0" strokeWidth={1.8} />
+				{/if}
+				<!-- Google Discover のカードに倣い、下の段の右端に置く。負の余白は、ボタン (32px) で段を高くしないため。 -->
+				{#if actions}
+					<span class={[browseRowAboveClass, '-my-2 -mr-2 ml-auto shrink-0']}
+						>{@render actions()}</span
+					>
 				{/if}
 			</span>
 		</span>

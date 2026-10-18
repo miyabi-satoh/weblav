@@ -305,6 +305,22 @@
 	"contents_form_ai_links_label": "Collect links with AI",
 	"contents_form_ai_links_description": "Searches the web with the search keywords and lists the links found in this group. Each update uses credits.",
 	"contents_form_ai_interests_label": "Search keywords",
+	"contents_form_ai_interests_description": "Write one search in each box. Each is searched as written, and you can add up to {max}.",
+	"contents_form_ai_interests_row": "Search keywords {n}",
+	"contents_form_ai_interests_remove": "Remove search keywords {n}",
+	"contents_form_ai_interests_add": "Add search keywords",
+	"contents_form_ai_within_days_label": "Published within",
+	"contents_form_ai_within_days_unit": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "day",
+				"countPlural=other": "days"
+			}
+		}
+	],
+	"contents_form_ai_within_days_description": "Set to 0 for any time.",
 	"contents_delete_confirm_title": "Delete this content?",
 	"contents_delete_confirm_group_note": "Its contents will move to the root level.",
 	"contents_delete_confirm_loosened_note": "{count} of them will become visible to more people:",
@@ -386,6 +402,9 @@
 	"archive_axes_move_up": "Move {name} up",
 	"archive_axes_move_down": "Move {name} down",
 	"archive_axes_delete_confirm_title": "Delete this axis?",
+	"archive_axes_delete_template_description": "The axis “{name}” is used in the title template. Deleting it saves the template as shown below.",
+	"archive_axes_delete_template_label": "Template after deletion",
+	"archive_axes_delete_template_still_used": "The template still contains “{token}”.",
 	"archive_axes_dialog_create_title": "Add axis",
 	"archive_axes_dialog_edit_title": "Edit axis",
 	"archive_axes_dialog_name_label": "Axis name",
