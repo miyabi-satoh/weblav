@@ -101,17 +101,26 @@
 	// 「作成者のみ」のグループを親に選ぶと、中に置けるのは「作成者のみ」だけになるので、それにする
 	// (→ docs/access.md「作成者のみのグループ」)。選んだ欄のすぐ下に出るので、黙って変わることにはならない。
 	// 親を選び直してそのグループの外へ出したら、切り替える前の公開範囲に戻す。
-	let visibilityBeforePrivateParent: Visibility | null = null;
+	// 戻すのは、切り替えたときと同じコンテンツの同じ保存済みの状態のまま編集を続けているときだけ。
+	// 保存した後や別のコンテンツへ移った後に、前の値を持ち込まないため。
+	let beforePrivateParent: { id: number; saved: Visibility; visibility: Visibility } | null = null;
 	$effect(() => {
 		if (!visibilityOptions.includes(form.visibility)) {
-			visibilityBeforePrivateParent = form.visibility;
+			beforePrivateParent = {
+				id: content.id,
+				saved: content.visibility,
+				visibility: form.visibility
+			};
 			form.visibility = visibilityOptions[0];
-		} else if (
-			visibilityBeforePrivateParent !== null &&
-			visibilityOptions.includes(visibilityBeforePrivateParent)
-		) {
-			form.visibility = visibilityBeforePrivateParent;
-			visibilityBeforePrivateParent = null;
+		} else if (beforePrivateParent !== null && visibilityOptions.length > 1) {
+			const { id, saved, visibility } = beforePrivateParent;
+			beforePrivateParent = null;
+			if (
+				id === content.id &&
+				saved === content.visibility &&
+				visibilityOptions.includes(visibility)
+			)
+				form.visibility = visibility;
 		}
 	});
 	let visibilityError = $derived(contentFormVisibilityError(form, content, data.contents));
