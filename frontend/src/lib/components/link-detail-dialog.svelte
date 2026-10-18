@@ -8,16 +8,15 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import SeparatedText from '$lib/components/separated-text.svelte';
-	import { urlHost } from '$lib/file-kind';
 	import { formatTimeAgo } from '$lib/format';
-	import { linkDetail } from '$lib/link-detail.svelte';
+	import { linkDetail, linkSiteNameOf } from '$lib/link-detail.svelte';
 	import * as m from '$lib/paraglide/messages.js';
 
 	// リンクの詳しい表示。一覧のカードでは縮んでいる画像・題・説明を全部見せてから、新しいタブで開かせる
 	// (→ docs/ui.md「リンクのカード」)。
 	let detail = $derived(linkDetail.current);
 	let preview = $derived(detail?.preview);
-	let siteName = $derived(preview?.siteName ?? (detail ? urlHost(detail.href) : ''));
+	let siteName = $derived(detail ? linkSiteNameOf(detail.href, preview) : '');
 	let timeAgo = $derived(formatTimeAgo(preview?.updatedAt));
 
 	// 読めなかった画像は隠す。開き直したり前後へ移ったりしたら、改めて読みに行く。

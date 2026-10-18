@@ -56,7 +56,7 @@
 ## 検索の中継
 
 - `POST /v1/search` で、AI が集めるリンクの候補を Perplexity の Search API から受けて WebLAV へ返す。
-- `queries` は空でない語を 1〜5 個、各 200 文字までにし、任意で国（ISO 3166-1 alpha-2）・言語（ISO 639-1）・公開日の絞り込み `after` (`YYYY-MM-DD`、この日より後。業者には `search_after_date_filter` で渡す) を受ける。前の版の WebLAV が送る新しさの絞り込み (`day`・`week`・`month`・`year`) も受ける。
+- `queries` は空でない語を 1〜5 個、各 200 文字までにし、任意で国（ISO 3166-1 alpha-2）・言語（ISO 639-1）・公開日の絞り込み `after` (`YYYY-MM-DD`、この日より後。業者には `search_after_date_filter` で渡す) を受ける。
 - 返す候補は最大 20 件で、各件の題・URL・任意の日付・抜粋を含む。
 - 成功した回だけ1リクエスト分の原価を引き、`x-weblav-used` ヘッダーで使った量を返す。検索の失敗では引かない。残りの確かめと重ねて受ける数は、中継と同じ。
 - 検索も中継と同じアプリ用トークンと `AI_LIMITER` を使い、窓口には WebLAV のユーザー名を送らない。
@@ -74,6 +74,7 @@
 
 - 購入と無料の付与の量・Gemini と検索の単価・円の換算は、売値と並べると原価の割合が分かるので、リポジトリに書かず秘密の値に置く。
 - 値の名前は `PURCHASE_GRANT_MILLI_YEN`・`FREE_GRANT_MILLI_YEN`・`USD_JPY`・`INPUT_USD_PER_MTOK`・`OUTPUT_USD_PER_MTOK`・`SEARCH_USD_PER_REQUEST` である。
+- 無料の付与は購入の半分にする。料金のページ（`site/src/pages/pricing.astro`）がこの比を書いているので、変えるときはページも直す。
 - 1つでも無いか読めなければ、窓口のどの入口も D1 に書く前に 500 で止める。誤った値で付けたり引いたりせず、サインインのリンクを使った後の途中で止まらないようにする。
 
 ## 購入

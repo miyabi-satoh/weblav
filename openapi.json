@@ -10,7 +10,7 @@
         "operationId": "get_status",
         "responses": {
           "200": {
-            "description": "PC の登録の状態と、登録済みなら残り",
+            "description": "コンピューターの登録の状態と、登録済みなら残り",
             "content": {
               "application/json": {
                 "schema": {
@@ -42,7 +42,7 @@
         }
       },
       "delete": {
-        "summary": "PC の登録を解除する。アカウントにつながらなくても、この PC の側は未登録に戻す。",
+        "summary": "コンピューターの登録を解除する。アカウントにつながらなくても、この PC の側は未登録に戻す。",
         "operationId": "unlink",
         "responses": {
           "204": {
@@ -73,7 +73,7 @@
     },
     "/api/v1/admin/ai/link": {
       "post": {
-        "summary": "PC の登録を始める。途中のものがあれば、同じ URL を返す。",
+        "summary": "コンピューターの登録を始める。途中のものがあれば、同じ URL を返す。",
         "operationId": "begin_link",
         "responses": {
           "200": {
@@ -1664,7 +1664,7 @@
             }
           },
           "409": {
-            "description": "PC を登録していない",
+            "description": "コンピューターを登録していない",
             "content": {
               "application/json": {
                 "schema": {
@@ -2693,7 +2693,7 @@
             }
           },
           "409": {
-            "description": "PC を登録していない",
+            "description": "コンピューターを登録していない",
             "content": {
               "application/json": {
                 "schema": {
@@ -2764,7 +2764,7 @@
         }
       },
       "put": {
-        "summary": "グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら集めるのをやめる。\nやめても、設定・表示しないもの・集めたリンクは残し、オンに戻すと前のとおりに並ぶ。\n検索キーワードを変えると、作ったクエリを捨てて次に集めるときに作り直す。集めたリンクは、次に集め直すまで残る。",
+        "summary": "グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら集めるのをやめる。\nやめても、設定・表示しないもの・集めたリンクは残し、オンに戻すと前のとおりに並ぶ。\n検索キーワードを変えても、集めたリンクは次に集め直すまで残る。",
         "operationId": "put_ai_links_settings",
         "parameters": [
           {
@@ -5591,7 +5591,7 @@
         "properties": {
           "available": {
             "type": "boolean",
-            "description": "この PC が登録済みで、ログインしているユーザーが AI を使えるか。"
+            "description": "このコンピューターが登録済みで、ログインしているユーザーが AI を使えるか。"
           }
         }
       },
@@ -5741,7 +5741,7 @@
       },
       "AiLinkState": {
         "type": "string",
-        "description": "PC の登録の状態。",
+        "description": "コンピューターの登録の状態。",
         "enum": [
           "unlinked",
           "pending",
@@ -5778,7 +5778,7 @@
           },
           "canRefresh": {
             "type": "boolean",
-            "description": "見ている人が集め直せるか (AI を使えて、PC が登録済み)。"
+            "description": "見ている人が集め直せるか (AI を使えて、コンピューターが登録済み)。"
           },
           "enabled": {
             "type": "boolean",
@@ -5900,7 +5900,7 @@
           },
           "accountUrl": {
             "type": "string",
-            "description": "残りを足す・登録した PC を見る、アカウントのページの URL。"
+            "description": "残りを足す・登録したコンピューターを見る、アカウントのページの URL。"
           },
           "confirmationCode": {
             "type": [

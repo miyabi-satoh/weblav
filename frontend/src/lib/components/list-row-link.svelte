@@ -7,10 +7,10 @@
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
 	import { openViewerItem, type ViewerItem } from '$lib/viewer-items';
 	import { formatTimeAgo } from '$lib/format';
-	import { urlHost } from '$lib/file-kind';
 	import {
 		linkDetail,
 		linkDetailOf,
+		linkSiteNameOf,
 		linkTitleOf,
 		opensLinkDetail,
 		type LinkDetail
@@ -91,8 +91,7 @@
 		Array.isArray(description) ? description.length > 0 : !!description
 	);
 
-	let host = $derived(urlHost(href));
-	let siteName = $derived(preview?.siteName ?? host);
+	let siteName = $derived(linkSiteNameOf(href, preview));
 	let shownTitle = $derived(linkTitleOf(href, title, preview));
 	let timeAgo = $derived(formatTimeAgo(preview?.updatedAt));
 

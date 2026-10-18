@@ -59,7 +59,7 @@ fn exclusions_uri(id: i64) -> String {
     format!("/api/v1/contents/{id}/ai-links/exclusions")
 }
 
-/// 検索の答えを用意する。AI は、一覧のページを使う設定のときだけ呼ばれる。
+/// 検索の答えを用意する。AI は、まとめる記事が2件以上あるか、一覧のページから記事を取り出せたときだけ呼ばれる。
 fn prepare(fake: &super::ai::SharedFake, search: &str) {
     let mut fake = fake.lock().expect("鍵が毒された");
     fake.search = (StatusCode::OK, search.to_string(), Some(10));
@@ -694,7 +694,7 @@ async fn link_previews_are_refreshed_for_a_viewable_group_only(pool: SqlitePool)
 /// 個別の記事を AI に話題ごとにまとめさせ、扱うサイトの多い話題から、話題ごとに1件を並べる。
 /// 一覧のページ (分類のトップなど) は、開けなくても外さず、個別の記事の後ろに並ぶ。
 #[sqlx::test]
-async fn pick_shows_one_article_per_story_with_stories_on_more_sites_first(pool: SqlitePool) {
+async fn refreshing_shows_one_article_per_story_with_stories_on_more_sites_first(pool: SqlitePool) {
     let AiApp {
         app, cookie, fake, ..
     } = ai_app(&pool, true).await;

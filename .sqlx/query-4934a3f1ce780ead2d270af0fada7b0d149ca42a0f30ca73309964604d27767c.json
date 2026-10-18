@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT url FROM link_previews WHERE gone AND url IN (SELECT value FROM json_each(?))",
+  "describe": {
+    "columns": [
+      {
+        "name": "url",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4934a3f1ce780ead2d270af0fada7b0d149ca42a0f30ca73309964604d27767c"
+}

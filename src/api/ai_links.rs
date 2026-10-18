@@ -1,5 +1,5 @@
 //! AI が集めるリンク (→ docs/ai.md「AI が集めるリンク」)。グループに付ける機能で、
-//! 検索キーワードから AI が作った検索のクエリで Web を検索し、見つかったページをグループの中に並べる。
+//! 検索キーワードの行をそのまま検索のクエリにして Web を検索し、見つかったページを AI が話題ごとにまとめて、グループの中に並べる。
 //! 更新のたびに、今並んでいないページを上に足していく。合わないものは人が「表示しない」で外す。
 
 use std::collections::{HashMap, HashSet};
@@ -14,7 +14,7 @@ use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
-use super::ai_link_pages::{self, looks_like_article};
+use super::ai_link_pages::{self, looks_like_article, site_of, without_scheme};
 use super::contents::{self, ContentType, Visibility};
 use super::link_preview::{self, LinkPreview};
 use super::link_title::{PageLink, one_line};
@@ -182,7 +182,7 @@ struct AiLinksResponse {
     refreshed_by_auto: bool,
     /// 集めたリンク。新しく見つかった順。このグループに登録してあるリンクと、表示しないにしたものは入らない。
     links: Vec<AiLink>,
-    /// 見ている人が集め直せるか (AI を使えて、PC が登録済み)。
+    /// 見ている人が集め直せるか (AI を使えて、コンピューターが登録済み)。
     can_refresh: bool,
     /// 見ている人が、表示しないものを決められるか (グループを書き換えられる)。
     can_edit: bool,
@@ -399,7 +399,7 @@ fn parse_interests(text: &str) -> Result<String, AppError> {
     }
     if queries
         .iter()
-        .any(|query| query.encode_utf16().count() > MAX_QUERY_UNITS)
+        .any(|query| ai::utf16_units(query) > MAX_QUERY_UNITS)
     {
         return Err(AppError::Validation(
             "a line of the interests is too long".to_string(),
@@ -473,12 +473,12 @@ fn last_json_array<T: serde::de::DeserializeOwned>(answer: &str) -> Option<Vec<T
 /// 生成に渡せる長さ (`ai::MAX_INPUT_UNITS`) に収まるところまで、並びの順に入れる。
 fn headlines_prompt(system: &str, interests: &str, headlines: &[String]) -> (String, usize) {
     let mut text = format!("What to collect:\n{interests}\n\nHeadlines:\n");
-    let budget = ai::MAX_INPUT_UNITS.saturating_sub(system.encode_utf16().count());
-    let mut units = text.encode_utf16().count();
+    let budget = ai::MAX_INPUT_UNITS.saturating_sub(ai::utf16_units(system));
+    let mut units = ai::utf16_units(&text);
     let mut count = 0;
     for (index, headline) in headlines.iter().enumerate() {
         let line = format!("{}. {headline}\n", index + 1);
-        units += line.encode_utf16().count();
+        units += ai::utf16_units(&line);
         if units > budget {
             break;
         }
@@ -549,7 +549,7 @@ fn newest_first(mut found: Vec<SearchResult>) -> Vec<SearchResult> {
 }
 
 /// 画面から届いた表示言語のうち、言語のコード (ISO 639-1) として読めるもの。
-/// クエリを作る文に入り、作ったクエリは使い回すので、匿名の閲覧者が送った任意の文字列を入れないため。
+/// 検索の絞り込みとして窓口へそのまま渡すので、匿名の閲覧者 (自動の更新) が送った任意の文字列を渡さないため。
 fn language_code(language: Option<&str>) -> Option<&str> {
     language.filter(|language| {
         language.len() == 2 && language.bytes().all(|byte| byte.is_ascii_lowercase())
@@ -561,15 +561,6 @@ fn search_locale(language: Option<&str>) -> (Option<String>, Option<String>) {
     let language = language_code(language);
     let country = (language == Some("ja")).then(|| "JP".to_string());
     (country, language.map(str::to_string))
-}
-
-/// URL のサイト (ホスト名)。`www.` は外して、同じサイトの表記の揺れをまとめる。
-pub(super) fn site_of(url: &str) -> Option<String> {
-    let host = url::Url::parse(url).ok()?.host_str()?.to_ascii_lowercase();
-    Some(
-        host.strip_prefix("www.")
-            .map_or(host.clone(), str::to_string),
-    )
 }
 
 /// 表示しないにしたもの。
@@ -602,7 +593,31 @@ async fn excluded(pool: &SqlitePool, id: i64) -> Result<Excluded, AppError> {
     Ok(excluded)
 }
 
-/// グループに登録してあるリンクの URL。AI の分に二重に並べない。
+/// 並べないもの。集めたリンクは外さずに持ち、並べるとき (`shown_links`) と足した数を数えるとき (`collect`) に、これで外す。
+/// 表示しないを取り消した・グループから外した・ページが戻ったときに、集め直さなくてもまた並ぶように。
+struct Hidden {
+    /// グループに登録してあるリンク。AI の分に二重に並べない。
+    registered: HashSet<String>,
+    excluded: Excluded,
+    /// 最後に確かめたとき、無くなっていたページ。
+    gone: HashSet<String>,
+}
+
+impl Hidden {
+    fn hides(&self, url: &str) -> bool {
+        self.registered.contains(url) || self.excluded.contains(url) || self.gone.contains(url)
+    }
+}
+
+/// `urls` を並べるかを決める材料。無くなっていたかは `urls` の分だけを引く。
+async fn hidden(pool: &SqlitePool, id: i64, urls: &[String]) -> Result<Hidden, AppError> {
+    Ok(Hidden {
+        registered: registered_urls(pool, id).await?,
+        excluded: excluded(pool, id).await?,
+        gone: link_preview::gone_urls(pool, urls).await?,
+    })
+}
+
 async fn registered_urls(pool: &SqlitePool, id: i64) -> Result<HashSet<String>, AppError> {
     Ok(sqlx::query_scalar!(
         r#"SELECT url as "url!" FROM contents WHERE parent_id = ? AND type = ? AND url IS NOT NULL"#,
@@ -615,10 +630,9 @@ async fn registered_urls(pool: &SqlitePool, id: i64) -> Result<HashSet<String>, 
     .collect())
 }
 
-/// 2回の検索の結果を1つの候補の並びにする。同じ URL は外す。
+/// 並べる順にした検索の結果 (一覧のページから取り出した記事を含む) を、持っておく候補の並びにする。同じ URL は外す。
 /// `http`・`https` 以外の URL と長すぎる URL も外す。画面でリンクの行き先になり、`link` コンテンツとしても登録されるため。
-/// グループに登録してある URL と表示しないにしたものは外さずに持ち、並べるときに外す (`shown_links`)。
-/// 表示しないを取り消した・グループから外したときに、集め直さなくてもまた並ぶように。
+/// 並べないもの (`Hidden`) は外さずに持ち、並べるときに外す。
 /// タイトルは1行に直して切る。Web から来た文字列で、一覧の行を崩さないように。
 fn candidates(found: Vec<SearchResult>) -> Vec<SearchResult> {
     let mut seen = HashSet::new();
@@ -643,12 +657,6 @@ fn candidates(found: Vec<SearchResult>) -> Vec<SearchResult> {
         .collect()
 }
 
-fn without_scheme(url: &str) -> &str {
-    url.strip_prefix("https://")
-        .or_else(|| url.strip_prefix("http://"))
-        .unwrap_or(url)
-}
-
 /// 並べるリンクの1行。
 struct Shown {
     url: String,
@@ -657,27 +665,22 @@ struct Shown {
 }
 
 /// 並べるリンク。新しく見つかった順、同じときに見つかったものは個別の記事を一覧のページより先に、その中は集めたときに決めた順 (`arrange`)。
-/// グループに登録してあるリンクと、表示しないにしたもの、無くなっていたページは並べない。
+/// 並べないもの (`Hidden`) は外す。
 async fn shown_links(pool: &SqlitePool, id: i64) -> Result<Vec<Shown>, AppError> {
     let rows = sqlx::query_as!(
         Shown,
         r#"SELECT url, title, found_at FROM ai_links
            WHERE content_id = ?
-             AND url NOT IN (
-                 SELECT url FROM contents WHERE parent_id = ? AND type = ? AND url IS NOT NULL
-             )
-             AND url NOT IN (SELECT url FROM link_previews WHERE gone)
            ORDER BY found_at DESC, is_list, rank"#,
-        id,
-        id,
-        ContentType::Link
+        id
     )
     .fetch_all(pool)
     .await?;
-    let excluded = excluded(pool, id).await?;
+    let urls: Vec<String> = rows.iter().map(|row| row.url.clone()).collect();
+    let hidden = hidden(pool, id, &urls).await?;
     Ok(rows
         .into_iter()
-        .filter(|row| !excluded.contains(&row.url))
+        .filter(|row| !hidden.hides(&row.url))
         .collect())
 }
 
@@ -870,7 +873,7 @@ async fn ai_links_settings(
 
 /// グループの、AI がリンクを集める設定を書き換える。`interests` が `null` なら集めるのをやめる。
 /// やめても、設定・表示しないもの・集めたリンクは残し、オンに戻すと前のとおりに並ぶ。
-/// 検索キーワードを変えると、作ったクエリを捨てて次に集めるときに作り直す。集めたリンクは、次に集め直すまで残る。
+/// 検索キーワードを変えても、集めたリンクは次に集め直すまで残る。
 #[utoipa::path(
     put,
     path = "/contents/{id}/ai-links/settings",
@@ -939,7 +942,7 @@ async fn put_ai_links_settings(
         (status = 402, body = crate::error::ErrorResponse, description = "残りが無い"),
         (status = 403, body = crate::error::ErrorResponse, description = "AI を使えない"),
         (status = 404, body = crate::error::ErrorResponse, description = "見えない・存在しない、または AI がリンクを集めるグループでない"),
-        (status = 409, body = crate::error::ErrorResponse, description = "PC を登録していない"),
+        (status = 409, body = crate::error::ErrorResponse, description = "コンピューターを登録していない"),
         (status = 429, body = crate::error::ErrorResponse, description = "このグループを集めている最中・短い間に呼びすぎた・1日の回数を使い切った"),
         (status = 502, body = crate::error::ErrorResponse, description = "窓口につながらない・検索か AI の側の失敗"),
     )
@@ -1041,8 +1044,7 @@ async fn spawn_collect(
         let caller = user.as_ref().map_or(Caller::Auto, Caller::User);
         collect(&state, caller, id, language.as_deref()).await
     })
-    .await
-    .map_err(|err| AppError::Io(std::io::Error::other(err)))?
+    .await?
 }
 
 /// 検索し、今並んでいないページを足す。足した数を返す。
@@ -1060,7 +1062,7 @@ async fn collect(
     // 保存のときに確かめているが、確かめる前の版で保存した検索キーワードは、行の数も長さも窓口の上限を超えうる。
     let queries: Vec<String> = query_lines(&feed.interests)
         .into_iter()
-        .filter(|query| query.encode_utf16().count() <= MAX_QUERY_UNITS)
+        .filter(|query| ai::utf16_units(query) <= MAX_QUERY_UNITS)
         .take(MAX_QUERIES)
         .collect();
 
@@ -1073,15 +1075,9 @@ async fn collect(
     };
     let found = ai::search(state, caller, UsageKind::Links, query).await?;
     let found = arrange(state, caller, &feed, found).await;
-    let registered = registered_urls(&state.pool, id).await?;
-    let excluded = excluded(&state.pool, id).await?;
     let candidates = candidates(found);
     let candidate_urls: Vec<String> = candidates.iter().map(|c| c.url.clone()).collect();
-    let gone: HashSet<String> = link_preview::cached(&state.pool, &candidate_urls)
-        .await?
-        .into_iter()
-        .filter_map(|(url, preview)| preview.gone.then_some(url))
-        .collect();
+    let hidden = hidden(&state.pool, id, &candidate_urls).await?;
 
     let clock = clock(&state.pool).await?;
     let auto = matches!(caller, Caller::Auto);
@@ -1113,12 +1109,7 @@ async fn collect(
     // 足した数は、並ぶものだけを数える。登録済み・表示しない・無くなっていたものが新しく出ても、画面には何も増えないため。
     let added = candidates
         .iter()
-        .filter(|candidate| {
-            !existing.contains(&candidate.url)
-                && !registered.contains(&candidate.url)
-                && !excluded.contains(&candidate.url)
-                && !gone.contains(&candidate.url)
-        })
+        .filter(|candidate| !existing.contains(&candidate.url) && !hidden.hides(&candidate.url))
         .count();
     if added > 0 {
         let kept: HashSet<&str> = candidates
@@ -1171,18 +1162,22 @@ async fn arrange(
         .into_iter()
         .filter(|result| known.insert(without_scheme(&result.url).to_string()))
         .collect();
-    let lists: Vec<String> = found
+    let (searched, lists): (Vec<SearchResult>, Vec<SearchResult>) = found
         .iter()
-        .filter(|result| !looks_like_article(&result.url))
-        .map(|result| result.url.clone())
-        .collect();
+        .cloned()
+        .partition(|result| looks_like_article(&result.url));
     let mut from_lists = if lists.is_empty() {
         Vec::new()
     } else {
-        ai_link_pages::open_lists(state, &lists).await
+        let urls: Vec<String> = lists.iter().map(|list| list.url.clone()).collect();
+        ai_link_pages::open_lists(state, &urls).await
     };
     from_lists.retain(|article| known.insert(without_scheme(&article.url).to_string()));
-    rank_stories(state, caller, &feed.interests, &found, from_lists)
+    // まとめるものが無ければ、AI を呼ばない。一覧から取った記事は、AI が話題に入れたときだけ並べるので呼ぶ。
+    if searched.len() < 2 && from_lists.is_empty() {
+        return found;
+    }
+    rank_stories(state, caller, &feed.interests, searched, lists, from_lists)
         .await
         .unwrap_or_else(|err| {
             tracing::warn!(%err, "arranging the AI links by story failed");
@@ -1193,30 +1188,25 @@ async fn arrange(
 /// 個別の記事 (検索で見つかったものと、一覧のページに載っているもの) を AI に話題ごとにまとめさせ、
 /// 扱うサイトの多い話題から、話題ごとに1件を並べる。同じ記事が別のサイトに続けて並ばず、
 /// 多くのサイトが扱う (話題になっている) ものが上に来る。
-/// まとめに入らなかった検索の結果は、利用者のクエリで見つかったものなので外さず、その後ろに置く。一覧のページは最後。
+/// まとめに入らなかった検索の結果は、利用者のクエリで見つかったものなので外さず、その後ろに置く。一覧のページ (`lists`) は最後。
+/// `searched` は検索で見つかった個別の記事、`from_lists` は一覧のページに載っていた記事。
 async fn rank_stories(
     state: &AppState,
     caller: Caller<'_>,
     interests: &str,
-    found: &[SearchResult],
+    searched: Vec<SearchResult>,
+    lists: Vec<SearchResult>,
     from_lists: Vec<PageLink>,
 ) -> Result<Vec<SearchResult>, AppError> {
-    let (searched, lists): (Vec<&SearchResult>, Vec<&SearchResult>) = found
-        .iter()
-        .partition(|result| looks_like_article(&result.url));
+    let searched_count = searched.len();
     let articles: Vec<SearchResult> = searched
-        .iter()
-        .map(|result| (*result).clone())
+        .into_iter()
         .chain(from_lists.into_iter().map(|article| SearchResult {
             title: article.text,
             url: article.url,
             date: None,
         }))
         .collect();
-    // まとめるものが無ければ、AI を呼ばない。一覧から取った記事は、AI が話題に入れたときだけ並べるので呼ぶ。
-    if articles.len() < 2 && articles.len() == searched.len() {
-        return Ok(found.to_vec());
-    }
     let headlines: Vec<String> = articles
         .iter()
         .map(|article| {
@@ -1233,13 +1223,13 @@ async fn rank_stories(
     let answer = ai::generate(state, caller, UsageKind::Links, prompt).await?;
     let stories = parse_stories(&answer, count).ok_or(AppError::AiUpstream)?;
     let grouped: HashSet<usize> = stories.iter().flatten().copied().collect();
-    let mut arranged = by_coverage(&articles, stories, searched.len());
+    let mut arranged = by_coverage(&articles, stories, searched_count);
     arranged.extend(
-        (0..searched.len())
+        (0..searched_count)
             .filter(|at| !grouped.contains(at))
             .map(|at| articles[at].clone()),
     );
-    arranged.extend(lists.into_iter().cloned());
+    arranged.extend(lists);
     Ok(arranged)
 }
 
@@ -1481,19 +1471,6 @@ mod tests {
     }
 
     #[test]
-    fn site_of_drops_www_and_lowercases_the_host() {
-        assert_eq!(
-            site_of("https://WWW.Example.com/a").as_deref(),
-            Some("example.com")
-        );
-        assert_eq!(
-            site_of("https://blog.example.com/").as_deref(),
-            Some("blog.example.com")
-        );
-        assert_eq!(site_of("not a url"), None);
-    }
-
-    #[test]
     fn candidates_drop_duplicates_and_other_schemes() {
         let urls: Vec<String> = candidates(vec![
             result("https://a.example/"),
@@ -1619,6 +1596,6 @@ mod tests {
             &[long.clone(), long, "見出し3".to_string()],
         );
         assert_eq!(count, 1);
-        assert!(text.encode_utf16().count() <= ai::MAX_INPUT_UNITS);
+        assert!(ai::utf16_units(&text) <= ai::MAX_INPUT_UNITS);
     }
 }

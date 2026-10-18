@@ -21,24 +21,14 @@ export type SearchRequest = {
 	/** 国 (ISO 3166-1 alpha-2) と言語 (ISO 639-1)。WebLAV の表示言語から決める。 */
 	country?: string;
 	language?: string;
-	/** 新しさ。前の版の WebLAV が送る。 */
-	recency?: Recency;
 	/** この日 (YYYY-MM-DD) より後に公開されたものに絞る。WebLAV の利用者がグループごとに日数で決める。 */
 	after?: string;
 };
 
-/** 受ける新しさの絞り込み。業者の `search_recency_filter` のうち、1時間を除いたもの (1時間では候補がほとんど残らない)。 */
-const RECENCIES = ['day', 'week', 'month', 'year'] as const;
-type Recency = (typeof RECENCIES)[number];
-
-function isRecency(value: unknown): value is Recency {
-	return RECENCIES.some((recency) => recency === value);
-}
-
 /** 受けた本文を `SearchRequest` として読む。形が違えば `undefined`。 */
 export function parseSearch(body: unknown): SearchRequest | undefined {
 	if (typeof body !== 'object' || body === null) return undefined;
-	const { queries, country, language, recency, after } = body as Record<string, unknown>;
+	const { queries, country, language, after } = body as Record<string, unknown>;
 	if (
 		!Array.isArray(queries) ||
 		queries.length < 1 ||
@@ -53,13 +43,11 @@ export function parseSearch(body: unknown): SearchRequest | undefined {
 	if (language !== undefined && (typeof language !== 'string' || !/^[a-z]{2}$/.test(language))) {
 		return undefined;
 	}
-	if (recency !== undefined && !isRecency(recency)) return undefined;
 	if (after !== undefined && !isDate(after)) return undefined;
 	return {
 		queries: queries as string[],
 		...(country === undefined ? {} : { country }),
 		...(language === undefined ? {} : { language }),
-		...(recency === undefined ? {} : { recency }),
 		...(after === undefined ? {} : { after })
 	};
 }
@@ -104,7 +92,6 @@ export async function search(env: Env, request: SearchRequest, rates: Rates): Pr
 			max_tokens_per_page: SNIPPET_TOKENS,
 			...(request.country === undefined ? {} : { country: request.country }),
 			...(request.language === undefined ? {} : { search_language_filter: [request.language] }),
-			...(request.recency === undefined ? {} : { search_recency_filter: request.recency }),
 			...(request.after === undefined
 				? {}
 				: { search_after_date_filter: toVendorDate(request.after) })

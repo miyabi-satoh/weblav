@@ -7,12 +7,10 @@ use quick_xml::Reader;
 use quick_xml::events::Event;
 use zip::ZipArchive;
 
-use crate::ai::{Attachment, MAX_INPUT_UNITS};
+use super::text_files::looks_like_text;
+use crate::ai::{Attachment, MAX_INPUT_UNITS, utf16_units};
 use crate::error::AppError;
 use crate::file_ext::extension;
-
-/// テキストかを見る先頭のバイト数。`text_files` (テキストのビューアー) と同じく、NUL があればテキストでない。
-const SNIFF_BYTES: usize = 8000;
 
 /// Office の文書の XML を、全部を合わせて展開して読む上限。小さな zip が展開で膨らむもの (zip bomb) や、
 /// 中身の無い XML をたくさん持つもので、メモリと時間を使い切らないため。
@@ -55,7 +53,7 @@ pub(super) fn convert(
     }
     let text = if matches!(ext, "docx" | "xlsx" | "pptx") {
         office_text(ext, data)?
-    } else if is_text(data) {
+    } else if looks_like_text(data) {
         decode_text(data)
     } else {
         return Ok(Converted::NameOnly);
@@ -88,10 +86,6 @@ fn attachment_type(ext: &str) -> Option<&'static str> {
         "webp" => "image/webp",
         _ => return None,
     })
-}
-
-fn is_text(data: &[u8]) -> bool {
-    !data[..data.len().min(SNIFF_BYTES)].contains(&0)
 }
 
 /// UTF-8 で読めなければ Shift_JIS で読む。テキストのビューアー (`text-view.svelte`) と同じ判定。
@@ -149,7 +143,7 @@ struct Text {
 
 impl Text {
     fn push(&mut self, part: &str) -> Result<(), AppError> {
-        self.units += part.encode_utf16().count();
+        self.units += utf16_units(part);
         if self.units > MAX_INPUT_UNITS {
             return Err(AppError::AiTooLarge);
         }

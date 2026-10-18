@@ -9,7 +9,7 @@ const legalOrder = ['terms', 'privacy'];
 const legal = (await getCollection('legal')).sort((a, b) => legalOrder.indexOf(a.id) - legalOrder.indexOf(b.id));
 ---
 
-<div class="product-page" style={`--c: ${product.data.color}`}>
+<div class="product-page accent-scope" style={`--c: ${product.data.color}`}>
   <section class="hero" aria-labelledby="product-name">
     <div class="hero-inner">
       <div class="hero-text">
@@ -49,14 +49,7 @@ const legal = (await getCollection('legal')).sort((a, b) => legalOrder.indexOf(a
   /* 冒頭は、プロダクトの色の帯に、名前を大きく、画面の画像を重ねて出す。
      スクロールすると、奥の画像ほど速く動いて、奥行きが出る（動きを減らす設定では止める） */
   .product-page {
-    --accent: var(--c);
     overflow-x: clip;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .product-page {
-      --accent: color-mix(in oklab, var(--c), white 45%);
-    }
   }
 
   .product-page .hero {

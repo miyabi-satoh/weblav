@@ -25,6 +25,11 @@ export function linkTitleOf(
 	return title ?? preview?.title ?? urlHost(href);
 }
 
+/** リンクの行と詳しい表示に出すサイトの名前。ページのサイト名 (無ければホスト名)。 */
+export function linkSiteNameOf(href: string, preview: LinkPreview | null | undefined): string {
+	return preview?.siteName ?? urlHost(href);
+}
+
 /** 行に出すのと同じ題 (`linkTitleOf`) で、詳しい表示に出すリンクを組む。 */
 export function linkDetailOf(link: {
 	href: string;

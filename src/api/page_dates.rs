@@ -6,19 +6,20 @@ use serde_json::Value;
 use time::format_description::well_known::Rfc3339;
 use time::{Date, Month, OffsetDateTime, PrimitiveDateTime, Time, UtcOffset};
 
-use super::link_title::tags;
+use super::link_preview::http_date;
+use super::link_title::{attr, elements, meta_contents, tags};
 
-/// 更新した日時を伝える `<meta>` の名前。前ほど優先する。
-const MODIFIED_META: &[&str] = &[
-    "article:modified_time",
-    "og:updated_time",
-    "dcterms.modified",
-    "dc.date.modified",
-];
+/// OGP の、更新した日時を伝える `<meta>` の名前。前ほど優先する。
+const OGP_MODIFIED_META: &[&str] = &["article:modified_time", "og:updated_time"];
 
-/// 公開した日時を伝える `<meta>` の名前。更新した日時が無いときに使う。前ほど優先する。
-const PUBLISHED_META: &[&str] = &[
-    "article:published_time",
+/// Dublin Core の、更新した日時を伝える `<meta>` の名前。前ほど優先する。
+const DC_MODIFIED_META: &[&str] = &["dcterms.modified", "dc.date.modified"];
+
+/// OGP の、公開した日時を伝える `<meta>` の名前。
+const OGP_PUBLISHED_META: &[&str] = &["article:published_time"];
+
+/// Dublin Core と、名前が `date` だけの、公開した日時を伝える `<meta>` の名前。前ほど優先する。
+const DC_PUBLISHED_META: &[&str] = &[
     "dcterms.issued",
     "dcterms.created",
     "dc.date.issued",
@@ -47,16 +48,20 @@ pub(super) fn updated_at(html: &str, lower: &str) -> Option<String> {
             .filter(|(name, _)| name.eq_ignore_ascii_case(prop))
             .find_map(|(_, value)| normalize(value))
     };
-    let from_meta = |names: &[&str]| names.iter().find_map(|name| meta(html, lower, name));
+    let from_meta = |names: &[&str]| {
+        names.iter().find_map(|name| {
+            meta_contents(html, lower, name).find_map(|content| normalize(&content))
+        })
+    };
     from_json_ld("dateModified")
-        .or_else(|| from_meta(&MODIFIED_META[..2]))
+        .or_else(|| from_meta(OGP_MODIFIED_META))
         .or_else(|| from_microdata("dateModified"))
-        .or_else(|| from_meta(&MODIFIED_META[2..]))
+        .or_else(|| from_meta(DC_MODIFIED_META))
         .or_else(|| from_json_ld("datePublished"))
         .or_else(|| from_json_ld("dateCreated"))
-        .or_else(|| from_meta(&PUBLISHED_META[..1]))
+        .or_else(|| from_meta(OGP_PUBLISHED_META))
         .or_else(|| from_microdata("datePublished"))
-        .or_else(|| from_meta(&PUBLISHED_META[1..]))
+        .or_else(|| from_meta(DC_PUBLISHED_META))
 }
 
 /// HTTP の `Last-Modified`。ページに日時の書き込みが無いときに使う。
@@ -65,43 +70,19 @@ pub(super) fn from_last_modified(last_modified: &str, date: Option<&str>) -> Opt
     let modified = http_date(last_modified)?;
     if date
         .and_then(http_date)
-        .is_some_and(|date| (date - modified).whole_seconds().abs() < GENERATED_SECONDS)
+        .is_some_and(|date| (date - modified).abs() < GENERATED_SECONDS)
     {
         return None;
     }
-    modified.format(&Rfc3339).ok()
+    OffsetDateTime::from_unix_timestamp(modified)
+        .ok()?
+        .format(&Rfc3339)
+        .ok()
 }
 
 /// `Last-Modified` が `Date` からこの秒数より近ければ、ページを作った時刻とみなす。
 /// 組み立てと送り出しの間の遅れを吸収できる長さにし、本当にさっき直したページの日時を捨てすぎないようにする。
 const GENERATED_SECONDS: i64 = 60;
-
-/// RFC 9110 の HTTP-date (IMF-fixdate)。
-fn http_date(raw: &str) -> Option<OffsetDateTime> {
-    let format = time::macros::format_description!(
-        "[weekday repr:short], [day] [month repr:short] [year] [hour]:[minute]:[second] GMT"
-    );
-    Some(
-        PrimitiveDateTime::parse(raw.trim(), &format)
-            .ok()?
-            .assume_utc(),
-    )
-}
-
-fn meta(html: &str, lower: &str, name: &str) -> Option<String> {
-    tags(html, lower, "meta").find_map(|attrs| {
-        let matches_name = attrs.iter().any(|(attr, value)| {
-            (attr == "property" || attr == "name") && value.trim().eq_ignore_ascii_case(name)
-        });
-        if !matches_name {
-            return None;
-        }
-        attrs
-            .into_iter()
-            .find(|(attr, _)| attr == "content")
-            .and_then(|(_, content)| normalize(&content))
-    })
-}
 
 /// microdata の `itemprop` と値。値を持つのは `<meta content>` と `<time datetime>`。
 fn microdata(html: &str, lower: &str) -> Vec<(String, String)> {
@@ -109,9 +90,10 @@ fn microdata(html: &str, lower: &str) -> Vec<(String, String)> {
         .into_iter()
         .flat_map(|(tag, value_attr)| {
             tags(html, lower, tag).filter_map(move |attrs| {
-                let prop = attrs.iter().find(|(attr, _)| attr == "itemprop")?.1.clone();
-                let value = attrs.into_iter().find(|(attr, _)| attr == value_attr)?.1;
-                Some((prop, value))
+                Some((
+                    attr(&attrs, "itemprop")?.to_string(),
+                    attr(&attrs, value_attr)?.to_string(),
+                ))
             })
         })
         .collect()
@@ -120,21 +102,14 @@ fn microdata(html: &str, lower: &str) -> Vec<(String, String)> {
 /// `<script type="application/ld+json">` の節。配列と `@graph` の中の節も、1つずつに広げる。
 fn json_ld_nodes(html: &str, lower: &str) -> Vec<Value> {
     let mut nodes = Vec::new();
-    let mut rest = 0;
-    while let Some(found) = lower[rest..].find("<script") {
-        let start = rest + found;
-        let Some(open_end) = lower[start..].find('>').map(|end| start + end + 1) else {
-            break;
-        };
-        let Some(close) = lower[open_end..].find("</script").map(|end| open_end + end) else {
-            break;
-        };
-        rest = close;
-        if !lower[start..open_end].contains("application/ld+json") {
+    for script in elements(html, lower, "script") {
+        let is_json_ld = attr(&script.attrs, "type")
+            .is_some_and(|ty| ty.to_ascii_lowercase().contains("application/ld+json"));
+        if !is_json_ld {
             continue;
         }
         // CMS が `<!-- -->` や CDATA で囲むことがある。
-        let body = html[open_end..close]
+        let body = html[script.inner]
             .trim()
             .trim_start_matches("<!--")
             .trim_end_matches("-->")

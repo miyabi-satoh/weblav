@@ -373,16 +373,11 @@ fn default_icon(base: &url::Url) -> Option<String> {
 fn extract_icon_href(html: &str, lower: &str) -> Option<String> {
     let mut touch_icon = None;
     for attrs in tags(html, lower, "link") {
-        let attr = |name: &str| {
-            attrs
-                .iter()
-                .find(|(attr, _)| attr == name)
-                .map(|(_, value)| value.trim())
-        };
-        let Some(href) = attr("href").filter(|href| !href.is_empty()) else {
+        let value = |name: &str| attr(&attrs, name).map(str::trim);
+        let Some(href) = value("href").filter(|href| !href.is_empty()) else {
             continue;
         };
-        let is_svg = attr("type").is_some_and(|ty| ty.eq_ignore_ascii_case("image/svg+xml"))
+        let is_svg = value("type").is_some_and(|ty| ty.eq_ignore_ascii_case("image/svg+xml"))
             || href
                 .to_ascii_lowercase()
                 .split(['?', '#'])
@@ -391,7 +386,7 @@ fn extract_icon_href(html: &str, lower: &str) -> Option<String> {
         if is_svg {
             continue;
         }
-        let rel = attr("rel").unwrap_or_default().to_ascii_lowercase();
+        let rel = value("rel").unwrap_or_default().to_ascii_lowercase();
         let mut tokens = rel.split_ascii_whitespace();
         if tokens.clone().any(|token| token == "icon") {
             return Some(decode_entities(href));
@@ -438,34 +433,10 @@ fn extract_links(html: &str, base: &url::Url) -> Vec<PageLink> {
     let lower = html.to_ascii_lowercase();
     let mut seen = HashSet::new();
     let mut links = Vec::new();
-    let mut from = 0;
-    while let Some(found) = lower[from..].find("<a") {
-        let start = from + found + "<a".len();
-        from = start;
-        // `<abbr` のような別タグを弾く。名前の直後は空白か `>`。
-        if !lower[start..]
-            .chars()
-            .next()
-            .is_some_and(|c| c.is_ascii_whitespace() || c == '>')
-        {
+    for anchor in elements(html, &lower, "a") {
+        let Some(href) = attr(&anchor.attrs, "href") else {
             continue;
-        }
-        let Some(tag_end) = lower[start..].find('>').map(|at| start + at) else {
-            break;
         };
-        let attrs = parse_attributes(&html[start..tag_end]);
-        let inner_start = tag_end + 1;
-        let inner_end = lower[inner_start..]
-            .find("</a")
-            .map_or(lower.len(), |at| inner_start + at);
-        from = inner_end;
-        let attr = |name: &str| {
-            attrs
-                .iter()
-                .find(|(attr, _)| attr == name)
-                .map(|(_, value)| value.as_str())
-        };
-        let Some(href) = attr("href") else { continue };
         let Some(mut url) = base.join(decode_entities(href).trim()).ok() else {
             continue;
         };
@@ -473,8 +444,11 @@ fn extract_links(html: &str, base: &url::Url) -> Vec<PageLink> {
             continue;
         }
         url.set_fragment(None);
-        let text = normalize_text(&strip_tags(&html[inner_start..inner_end]), MAX_TITLE_CHARS)
-            .or_else(|| attr("title").and_then(|title| normalize_text(title, MAX_TITLE_CHARS)))
+        let text = normalize_text(&strip_tags(&html[anchor.inner]), MAX_TITLE_CHARS)
+            .or_else(|| {
+                attr(&anchor.attrs, "title")
+                    .and_then(|title| normalize_text(title, MAX_TITLE_CHARS))
+            })
             .unwrap_or_default();
         let url = url.to_string();
         if url.len() <= MAX_URL_CHARS && seen.insert(url.clone()) {
@@ -601,18 +575,46 @@ fn extract_page_description(html: &str, lower: &str) -> Option<String> {
 
 /// `<meta property="{name}" content="...">` (または `name="{name}"`) の `content` を
 /// 整形して返す。`name` に一致し中身が空でない最初の `<meta>` を採る (空の `og:*` があっても
-/// フォールバック先を塞がないよう、整形して空になるものは読み飛ばす)。属性の並びと引用符は問わない。
+/// フォールバック先を塞がないよう、整形して空になるものは読み飛ばす)。
 fn extract_meta_content(html: &str, lower: &str, name: &str, max_chars: usize) -> Option<String> {
-    tags(html, lower, "meta").find_map(|attrs| {
+    meta_contents(html, lower, name).find_map(|content| normalize_text(&content, max_chars))
+}
+
+/// `property` か `name` が `name` の `<meta>` の `content` を、出てくる順に生のまま返す。
+/// 整形と、読めない値を読み飛ばすのは呼び出し側がする。属性の並びと引用符は問わない。
+pub(super) fn meta_contents<'a>(
+    html: &'a str,
+    lower: &'a str,
+    name: &'a str,
+) -> impl Iterator<Item = String> + 'a {
+    tags(html, lower, "meta").filter_map(move |attrs| {
         let matches_name = attrs.iter().any(|(attr, value)| {
             (attr == "property" || attr == "name") && value.trim().eq_ignore_ascii_case(name)
         });
         if !matches_name {
             return None;
         }
-        let content = attrs.into_iter().find(|(attr, _)| attr == "content")?.1;
-        normalize_text(&content, max_chars)
+        attrs
+            .into_iter()
+            .find(|(attr, _)| attr == "content")
+            .map(|(_, content)| content)
     })
+}
+
+/// タグの属性のうち、名前が `name` (小文字) の最初の値。
+pub(super) fn attr<'a>(attrs: &'a [(String, String)], name: &str) -> Option<&'a str> {
+    attrs
+        .iter()
+        .find(|(attr, _)| attr == name)
+        .map(|(_, value)| value.as_str())
+}
+
+/// 名前の直後の文字が、名前の終わりか (空白・`>`・`/`)。`<metadata` を `<meta`、`</abbr` を `</a` と取り違えないため。
+/// 文書の終わりも終わりとみなす (そこから先にタグは無いので、取り違えは起きない)。
+fn ends_name(rest: &str) -> bool {
+    rest.chars()
+        .next()
+        .is_none_or(|c| c.is_ascii_whitespace() || matches!(c, '>' | '/'))
 }
 
 /// `<name ...>` のタグを順に探し、属性を返す。`lower` は `html` を小文字にしたもの。
@@ -631,12 +633,7 @@ pub(super) fn tags<'a>(
         .map_while(move |start| {
             // `to_ascii_lowercase` は長さを変えないので、位置は元の文字列でもそのまま使える。
             let tag = &html[start..];
-            // `<metadata` のような別タグを弾く。名前の直後は空白・`>`・`/` のいずれか。
-            if tag
-                .chars()
-                .next()
-                .is_some_and(|c| !(c.is_ascii_whitespace() || matches!(c, '>' | '/')))
-            {
+            if !ends_name(tag) {
                 return Some(None);
             }
             // 閉じの無いタグより後ろには、閉じたタグも無い。
@@ -644,6 +641,45 @@ pub(super) fn tags<'a>(
             Some(Some(parse_attributes(&tag[..end])))
         })
         .flatten()
+}
+
+/// 中身を持つ要素 (`<a>`・`<title>`・`<script>`)。`inner` は開きタグと閉じタグの間の位置。
+pub(super) struct Element {
+    pub attrs: Vec<(String, String)>,
+    pub inner: std::ops::Range<usize>,
+}
+
+/// `<name ...>...</name>` の要素を順に探す。`lower` は `html` を小文字にしたもの。
+/// 次の要素は閉じタグの後ろから探す。`<script>` の中の文字列にある `<script` を、要素と取り違えないため。
+/// 閉じタグの無い要素より後ろには、閉じた要素も無いので、そこで終える。
+pub(super) fn elements<'a>(
+    html: &'a str,
+    lower: &'a str,
+    name: &'a str,
+) -> impl Iterator<Item = Element> + 'a {
+    let open = format!("<{name}");
+    let close = format!("</{name}");
+    let mut from = 0;
+    std::iter::from_fn(move || {
+        loop {
+            let start = from + lower[from..].find(open.as_str())? + open.len();
+            from = start;
+            if !ends_name(&lower[start..]) {
+                continue;
+            }
+            let tag_end = start + lower[start..].find('>')?;
+            let inner_start = tag_end + 1;
+            let inner_end = lower[inner_start..]
+                .match_indices(close.as_str())
+                .map(|(at, _)| inner_start + at)
+                .find(|&at| ends_name(&lower[at + close.len()..]))?;
+            from = inner_end + close.len();
+            return Some(Element {
+                attrs: parse_attributes(&html[start..tag_end]),
+                inner: inner_start..inner_end,
+            });
+        }
+    })
 }
 
 /// タグの中の `名前=値` を順に取る。名前は小文字にする。値は `"..."`・`'...'`・引用符なしのどれか。
@@ -708,26 +744,8 @@ pub(super) fn one_line(text: &str, max: usize) -> String {
 
 /// 最初の `<title>` の中身。実体参照を戻し、空白をつめる。
 fn extract_title(html: &str, lower: &str) -> Option<String> {
-    // `<titlefoo>` のような別のタグは読み飛ばし、`<title>` か `<title 属性>` だけを探す。
-    let open = lower.match_indices("<title").map(|(at, _)| at).find(|at| {
-        lower[at + "<title".len()..]
-            .chars()
-            .next()
-            .is_some_and(|next| next == '>' || next.is_ascii_whitespace())
-    })?;
-    let start = open + lower[open..].find('>')? + 1;
-    // `</titlefoo>` のような別の閉じタグは読み飛ばし、`</title>` か `</title ...>` で閉じる。
-    let end = start
-        + lower[start..]
-            .match_indices("</title")
-            .map(|(at, _)| at)
-            .find(|at| {
-                lower[start + at + "</title".len()..]
-                    .chars()
-                    .next()
-                    .is_some_and(|next| next == '>' || next.is_ascii_whitespace())
-            })?;
-    normalize_text(&html[start..end], MAX_TITLE_CHARS)
+    let title = elements(html, lower, "title").next()?;
+    normalize_text(&html[title.inner], MAX_TITLE_CHARS)
 }
 
 /// 主な実体参照と、数値参照 (`&#8211;`・`&#x2013;`) を戻す。
@@ -874,6 +892,27 @@ mod tests {
                     "https://other.example/2".to_string(),
                     "画像の記事".to_string()
                 ),
+            ]
+        );
+    }
+
+    /// `<a>` の中の `<abbr>` の閉じタグ (`</abbr`) で、リンクの文字を切らない。
+    #[test]
+    fn extract_links_does_not_end_a_link_at_a_closing_tag_that_starts_with_a() {
+        let html = r#"<a href="/x"><abbr title="y">略</abbr>語の説明</a><a href="/z">次</a>"#;
+        let base = url::Url::parse("https://news.example/").expect("URL");
+        let links: Vec<(String, String)> = extract_links(html, &base)
+            .into_iter()
+            .map(|link| (link.url, link.text))
+            .collect();
+        assert_eq!(
+            links,
+            [
+                (
+                    "https://news.example/x".to_string(),
+                    "略 語の説明".to_string()
+                ),
+                ("https://news.example/z".to_string(), "次".to_string()),
             ]
         );
     }

@@ -57,11 +57,13 @@
 	let hours = $state(untrack(() => settings.autoRefresh.hours ?? DEFAULT_HOURS));
 	let time = $state(untrack(() => settings.autoRefresh.time ?? DEFAULT_TIME));
 	let withinDays = $state(untrack(() => settings.withinDays));
+	// 送る形の検索キーワード。form の比較にも使うので、markPristine より前に置く。
+	let interestLines = $derived(queryLines(queries.map((row) => row.text).join('\n')));
 
 	const form = new FormDirtyState(() => ({
 		on,
 		// 送る値で比べる。空の欄を足しただけでは、保存しても何も変わらないため。
-		interests: queryLines(queries.map((row) => row.text).join('\n')),
+		interests: interestLines,
 		dailyLimit,
 		mode,
 		hours,
@@ -74,7 +76,7 @@
 	});
 
 	// 空白だけでは `required` を通ってしまうので、保存ボタンの側で止める。
-	let interests = $derived(queryLines(queries.map((row) => row.text).join('\n')).join('\n'));
+	let interests = $derived(interestLines.join('\n'));
 	let interestsMissing = $derived(on && interests === '');
 
 	async function addQuery() {
@@ -149,9 +151,8 @@
 		{#if on}
 			<Field.FieldGroup>
 				<Field.FieldSet>
-					<Field.FieldLegend variant="label"
-						>{m.contents_form_ai_interests_label()}
-						<span class="text-destructive" aria-hidden="true">*</span></Field.FieldLegend
+					<Field.FieldLegend variant="label" required
+						>{m.contents_form_ai_interests_label()}</Field.FieldLegend
 					>
 					<div class="flex flex-col gap-2">
 						{#each queries as row, index (row.id)}
@@ -160,14 +161,14 @@
 									id="content-ai-query-{row.id}"
 									bind:value={row.text}
 									maxlength={MAX_QUERY_UNITS}
-									aria-label={m.contents_form_ai_interests_row({ n: index + 1 })}
+									aria-label={m.contents_form_ai_interests_row_label({ n: index + 1 })}
 								/>
 								<Button
 									type="button"
 									variant="ghost"
 									size="icon-sm"
 									disabled={queries.length === 1}
-									aria-label={m.contents_form_ai_interests_remove({ n: index + 1 })}
+									aria-label={m.contents_form_ai_interests_remove_label({ n: index + 1 })}
 									onclick={() => removeQuery(index)}
 								>
 									<XIcon class="size-4" />
@@ -180,7 +181,7 @@
 							type="button"
 							variant="outline"
 							disabled={queries.length >= MAX_QUERIES}
-							onclick={addQuery}>{m.contents_form_ai_interests_add()}</Button
+							onclick={addQuery}>{m.contents_form_ai_interests_add_button()}</Button
 						>
 					</div>
 					<Field.FieldDescription

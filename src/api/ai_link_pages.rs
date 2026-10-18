@@ -1,10 +1,10 @@
 //! AI が集めるリンクのうち、一覧のページの扱い (→ docs/ai.md「並べ方」)。
 //! 検索で見つかった分類のトップや一覧のページを見分け、そこに載っている個別の記事を取り出す。
 //! 取り出した記事は、検索で見つかった記事と合わせて AI が話題ごとにまとめる (`ai_links::rank_stories`)。
+//! 同じサイトか・同じページかの見分け (`site_of`・`without_scheme`) も、ここに置く。
 
 use tokio::task::JoinSet;
 
-use super::ai_links::site_of;
 use super::link_title::{self, PageLink};
 use crate::error::run_blocking;
 use crate::state::AppState;
@@ -80,6 +80,22 @@ pub(super) fn looks_like_article(url: &str) -> bool {
     stem.chars().any(|c| c.is_ascii_digit()) || words >= 3 || numbered_query
 }
 
+/// URL のサイト (ホスト名)。`www.` は外して、同じサイトの表記の揺れをまとめる。
+pub(super) fn site_of(url: &str) -> Option<String> {
+    let host = url::Url::parse(url).ok()?.host_str()?.to_ascii_lowercase();
+    Some(
+        host.strip_prefix("www.")
+            .map_or(host.clone(), str::to_string),
+    )
+}
+
+/// スキームを除いた URL。http と https で同じページを指すものを、1つにまとめるのに使う。
+pub(super) fn without_scheme(url: &str) -> &str {
+    url.strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .unwrap_or(url)
+}
+
 /// 同じサイトか。ニュースのサイトは記事を別のサブドメインに置くことがある (`www.example.jp` の一覧から
 /// `news.example.jp` の記事へ) ので、片方がもう片方のサブドメインでもよい。
 fn same_site(a: &str, b: &str) -> bool {
@@ -138,6 +154,19 @@ mod tests {
             url: url.to_string(),
             text: text.to_string(),
         }
+    }
+
+    #[test]
+    fn site_of_drops_www_and_lowercases_the_host() {
+        assert_eq!(
+            site_of("https://WWW.Example.com/a").as_deref(),
+            Some("example.com")
+        );
+        assert_eq!(
+            site_of("https://blog.example.com/").as_deref(),
+            Some("blog.example.com")
+        );
+        assert_eq!(site_of("not a url"), None);
     }
 
     #[test]

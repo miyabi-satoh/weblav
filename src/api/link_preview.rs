@@ -151,6 +151,25 @@ pub(super) async fn cached(
         .collect())
 }
 
+/// `urls` のうち、最後に確かめたときにページが無くなっていたもの (404・410)。カードの情報は読まない。
+pub(super) async fn gone_urls(
+    pool: &SqlitePool,
+    urls: &[String],
+) -> Result<HashSet<String>, AppError> {
+    if urls.is_empty() {
+        return Ok(HashSet::new());
+    }
+    let urls_json = serde_json::to_string(urls).expect("文字列の並びは JSON にできる");
+    Ok(sqlx::query_scalar!(
+        "SELECT url FROM link_previews WHERE gone AND url IN (SELECT value FROM json_each(?))",
+        urls_json
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .collect())
+}
+
 /// 取り直しの対象。見る権限は呼び出し側が確かめる。
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -665,7 +684,8 @@ fn fresh_until(now: i64, headers: &CacheHeaders) -> i64 {
     now + (lifetime - current_age).max(0)
 }
 
-fn http_date(value: &str) -> Option<i64> {
+/// RFC 9110 の HTTP-date を UNIX 秒にする。廃れた2つの形 (RFC 850・asctime) も、受け手は読むことになっているので読む。
+pub(super) fn http_date(value: &str) -> Option<i64> {
     let time = httpdate::parse_http_date(value.trim()).ok()?;
     let secs = time.duration_since(UNIX_EPOCH).ok()?.as_secs();
     i64::try_from(secs).ok()

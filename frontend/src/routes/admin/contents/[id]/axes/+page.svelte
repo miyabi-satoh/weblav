@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { dialogFormClass } from '$lib/dialog-form';
 	import { adminPageClass } from '$lib/page-layout';
 	import { tick, untrack } from 'svelte';
 	import { flip } from 'svelte/animate';
@@ -825,7 +826,7 @@
 	// テンプレート入力欄のカーソル位置 (選択範囲があればその範囲) に {軸名}・{fileName} を挿入する。
 	// 押しても保存はしない。
 	function insertTemplateToken(name: string) {
-		const token = `{${name}}`;
+		const token = axisPlaceholder(name);
 		const el = titleTemplateInputEl;
 		const current = titleTemplateInput;
 		const start = el?.selectionStart ?? current.length;
@@ -1448,7 +1449,7 @@
 							aria-describedby="title-template-tokens-label"
 							onclick={() => insertTemplateToken(name)}
 						>
-							{`{${name}}`}
+							{axisPlaceholder(name)}
 						</Button>
 					</li>
 				{/snippet}
@@ -1520,7 +1521,7 @@
 					: m.archive_axes_dialog_edit_title()}
 			</Dialog.Title>
 		</Dialog.Header>
-		<form onsubmit={handleAxisSubmit} class="flex min-h-0 flex-col gap-6">
+		<form onsubmit={handleAxisSubmit} class={dialogFormClass}>
 			<Dialog.Body>
 				<Field.FieldGroup>
 					<Field.Field>
@@ -1689,7 +1690,7 @@
 	{/if}
 	{#snippet body()}
 		{#if deletingAxisInTemplate && deletingAxis !== null}
-			<Field.Field data-invalid={templateStillUsesAxis || undefined}>
+			<Field.Field>
 				<Field.FieldLabel for="template-after-delete">
 					{m.archive_axes_delete_template_label()}
 				</Field.FieldLabel>
@@ -1697,16 +1698,19 @@
 					id="template-after-delete"
 					bind:value={templateAfterDelete}
 					disabled={axisDeleting}
-					aria-invalid={templateStillUsesAxis || undefined}
+					aria-invalid={templateStillUsesAxis}
 					aria-describedby="template-after-delete-help"
 				/>
 				<Field.FieldDescription id="template-after-delete-help">
-					{templateStillUsesAxis
-						? m.archive_axes_delete_template_still_used({
-								token: axisPlaceholder(deletingAxis.name)
-							})
-						: m.archive_axes_template_help()}
+					{m.archive_axes_template_help()}
 				</Field.FieldDescription>
+				{#if templateStillUsesAxis}
+					<Field.FieldError>
+						{m.archive_axes_delete_template_still_used({
+							token: axisPlaceholder(deletingAxis.name)
+						})}
+					</Field.FieldError>
+				{/if}
 			</Field.Field>
 		{/if}
 	{/snippet}

@@ -105,7 +105,7 @@ pub enum AppError {
     /// アプリケーションが定める実際の上限)。
     #[error("file too large")]
     FileTooLarge,
-    /// AI を使おうとしたが、この PC を WebLAV のアカウントに登録していない場合。
+    /// AI を使おうとしたが、このコンピューターを WebLAV のアカウントに登録していない場合。
     /// 窓口がトークンを断った (窓口の側で登録を外された) ときも、手元のトークンを消してこれを返す (→ docs/ai.md)。
     #[error("this PC is not linked to a WebLAV account")]
     AiNotLinked,
@@ -165,6 +165,13 @@ pub enum ErrorCode {
 impl std::fmt::Display for ErrorCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.serialize(f)
+    }
+}
+
+/// 別のタスクの失敗 (panic 等)。クライアント起因ではないので `Io` にまとめる。
+impl From<tokio::task::JoinError> for AppError {
+    fn from(err: tokio::task::JoinError) -> Self {
+        AppError::Io(std::io::Error::other(err))
     }
 }
 
@@ -328,15 +335,12 @@ fn json_rejection_to_app_error(rejection: JsonRejection) -> AppError {
 }
 
 /// ブロッキング処理を `spawn_blocking` に載せて完了を待つ。
-/// タスク自体の失敗 (panic 等) はクライアント起因ではないので `Io` にまとめる。
 pub(crate) async fn run_blocking<F, T>(f: F) -> Result<T, AppError>
 where
     F: FnOnce() -> T + Send + 'static,
     T: Send + 'static,
 {
-    tokio::task::spawn_blocking(f)
-        .await
-        .map_err(|err| AppError::Io(std::io::Error::other(err)))
+    Ok(tokio::task::spawn_blocking(f).await?)
 }
 
 /// `axum::extract::multipart::MultipartError` を共通envelopeに変換する。
