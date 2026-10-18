@@ -845,7 +845,6 @@ mod tests {
         );
     }
 
-    /// 縮められない SVG と、`http`・`https` 以外の URL は使わない。アイコンの指定が無ければ `/favicon.ico` を探す。
     #[test]
     fn extract_links_resolves_hrefs_and_takes_the_text_without_tags() {
         let html = r#"<nav><a href="/news/">ニュース</a></nav>
@@ -879,6 +878,7 @@ mod tests {
         );
     }
 
+    /// 縮められない SVG と、`http`・`https` 以外の URL は使わない。アイコンの指定が無ければ `/favicon.ico` を探す。
     #[test]
     fn extract_card_skips_unusable_images_and_icons() {
         let skipped = card(

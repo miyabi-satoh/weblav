@@ -508,15 +508,26 @@ fn parse_stories(answer: &str, count: usize) -> Option<Vec<Vec<usize>>> {
     )
 }
 
-/// 話題を、扱うサイトの数の多い順に並べ、話題ごとに代表の記事 (組の先頭) を1件にする。
+/// 話題を、扱うサイトの数の多い順に並べ、話題ごとに代表の記事を1件にする。
+/// 代表は、組の中で検索で見つかったもの (`articles` の先頭の `searched` 件) の最初、無ければ組の先頭。
+/// 検索で見つかったものは公開日の絞り込みを通っていて日付も持つが、一覧のページから取り出したものは古いこともあるため。
 /// 数が同じなら AI が答えた順のまま。どの話題にも入らなかった記事は返さない。
-fn by_coverage(articles: &[SearchResult], stories: Vec<Vec<usize>>) -> Vec<SearchResult> {
+fn by_coverage(
+    articles: &[SearchResult],
+    stories: Vec<Vec<usize>>,
+    searched: usize,
+) -> Vec<SearchResult> {
     let mut stories: Vec<(usize, usize)> = stories
         .into_iter()
         .map(|group| {
             let sites: HashSet<Option<String>> =
                 group.iter().map(|&at| site_of(&articles[at].url)).collect();
-            (group[0], sites.len())
+            let representative = group
+                .iter()
+                .copied()
+                .find(|&at| at < searched)
+                .unwrap_or(group[0]);
+            (representative, sites.len())
         })
         .collect();
     stories.sort_by_key(|&(_, sites)| std::cmp::Reverse(sites));
@@ -553,7 +564,7 @@ fn search_locale(language: Option<&str>) -> (Option<String>, Option<String>) {
 }
 
 /// URL のサイト (ホスト名)。`www.` は外して、同じサイトの表記の揺れをまとめる。
-fn site_of(url: &str) -> Option<String> {
+pub(super) fn site_of(url: &str) -> Option<String> {
     let host = url::Url::parse(url).ok()?.host_str()?.to_ascii_lowercase();
     Some(
         host.strip_prefix("www.")
@@ -1046,7 +1057,12 @@ async fn collect(
     let feed = enabled_feed(&state.pool, id)
         .await?
         .ok_or(AppError::NotFound)?;
-    let queries = query_lines(&feed.interests);
+    // 保存のときに確かめているが、確かめる前の版で保存した検索キーワードは、行の数も長さも窓口の上限を超えうる。
+    let queries: Vec<String> = query_lines(&feed.interests)
+        .into_iter()
+        .filter(|query| query.encode_utf16().count() <= MAX_QUERY_UNITS)
+        .take(MAX_QUERIES)
+        .collect();
 
     let (country, language) = search_locale(language);
     let query = SearchQuery {
@@ -1153,7 +1169,7 @@ async fn arrange(
     let mut known: HashSet<String> = HashSet::new();
     let found: Vec<SearchResult> = newest_first(found)
         .into_iter()
-        .filter(|result| known.insert(result.url.clone()))
+        .filter(|result| known.insert(without_scheme(&result.url).to_string()))
         .collect();
     let lists: Vec<String> = found
         .iter()
@@ -1165,7 +1181,7 @@ async fn arrange(
     } else {
         ai_link_pages::open_lists(state, &lists).await
     };
-    from_lists.retain(|article| known.insert(article.url.clone()));
+    from_lists.retain(|article| known.insert(without_scheme(&article.url).to_string()));
     rank_stories(state, caller, &feed.interests, &found, from_lists)
         .await
         .unwrap_or_else(|err| {
@@ -1197,7 +1213,8 @@ async fn rank_stories(
             date: None,
         }))
         .collect();
-    if articles.is_empty() {
+    // まとめるものが無ければ、AI を呼ばない。
+    if articles.len() < 2 {
         return Ok(found.to_vec());
     }
     let headlines: Vec<String> = articles
@@ -1216,7 +1233,7 @@ async fn rank_stories(
     let answer = ai::generate(state, caller, UsageKind::Links, prompt).await?;
     let stories = parse_stories(&answer, count).ok_or(AppError::AiUpstream)?;
     let grouped: HashSet<usize> = stories.iter().flatten().copied().collect();
-    let mut arranged = by_coverage(&articles, stories);
+    let mut arranged = by_coverage(&articles, stories, searched.len());
     arranged.extend(
         (0..searched.len())
             .filter(|at| !grouped.contains(at))
@@ -1545,11 +1562,13 @@ mod tests {
             article("https://c.example/4", None),
             article("https://d.example/5", None),
         ];
-        // 2件目の組は2つのサイト、1件目の組は同じサイト (www の有無) の2件、3件目は1件。
-        let arranged: Vec<String> = by_coverage(&articles, vec![vec![1, 2], vec![3, 0], vec![4]])
-            .into_iter()
-            .map(|article| article.url)
-            .collect();
+        // 2件目の組は3つのサイト、1件目の組は同じサイト (www の有無) の2件、3件目は1件。
+        // 先頭の4件が検索で見つかったもの。2件目の組の代表は、一覧から取った 4 でなく 3。
+        let arranged: Vec<String> =
+            by_coverage(&articles, vec![vec![1, 2], vec![4, 3, 0], vec![4]], 4)
+                .into_iter()
+                .map(|article| article.url)
+                .collect();
         assert_eq!(
             arranged,
             [

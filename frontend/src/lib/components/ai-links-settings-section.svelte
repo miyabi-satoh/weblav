@@ -60,7 +60,8 @@
 
 	const form = new FormDirtyState(() => ({
 		on,
-		queries: queries.map((row) => row.text),
+		// 送る値で比べる。空の欄を足しただけでは、保存しても何も変わらないため。
+		interests: queryLines(queries.map((row) => row.text).join('\n')),
 		dailyLimit,
 		mode,
 		hours,

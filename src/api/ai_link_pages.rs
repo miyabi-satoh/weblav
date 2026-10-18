@@ -4,6 +4,7 @@
 
 use tokio::task::JoinSet;
 
+use super::ai_links::site_of;
 use super::link_title::{self, PageLink};
 use crate::error::run_blocking;
 use crate::state::AppState;
@@ -79,15 +80,6 @@ pub(super) fn looks_like_article(url: &str) -> bool {
     stem.chars().any(|c| c.is_ascii_digit()) || words >= 3 || numbered_query
 }
 
-/// `www.` を外したホスト名。
-fn host(url: &str) -> Option<String> {
-    let host = url::Url::parse(url).ok()?.host_str()?.to_ascii_lowercase();
-    Some(
-        host.strip_prefix("www.")
-            .map_or(host.clone(), str::to_string),
-    )
-}
-
 /// 同じサイトか。ニュースのサイトは記事を別のサブドメインに置くことがある (`www.example.jp` の一覧から
 /// `news.example.jp` の記事へ) ので、片方がもう片方のサブドメインでもよい。
 fn same_site(a: &str, b: &str) -> bool {
@@ -96,7 +88,7 @@ fn same_site(a: &str, b: &str) -> bool {
 
 /// 一覧のページのリンクのうち、同じサイトの個別の記事らしいもの。出てくる順のまま。
 pub(super) fn article_links(list_url: &str, links: Vec<PageLink>) -> Vec<PageLink> {
-    let Some(list_host) = host(list_url) else {
+    let Some(list_host) = site_of(list_url) else {
         return Vec::new();
     };
     links
@@ -104,7 +96,7 @@ pub(super) fn article_links(list_url: &str, links: Vec<PageLink>) -> Vec<PageLin
         .filter(|link| {
             link.url != list_url
                 && link.text.chars().count() >= MIN_ARTICLE_TEXT_CHARS
-                && host(&link.url).is_some_and(|host| same_site(&host, &list_host))
+                && site_of(&link.url).is_some_and(|host| same_site(&host, &list_host))
                 && looks_like_article(&link.url)
         })
         .collect()
