@@ -1,4 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- パソコンのフォルダーを LAN の端末へ見せる、というアプリの働きを絵にする。
+       頭文字の「W」は、角丸の正方形に W を置く他のアプリ (Wox など) と小さな表示で見分けられないため使わない。 -->
   <rect x="1" y="1" width="30" height="30" rx="7" fill="#146E6B"/>
-  <path d="M7 9.5 11.4 22.5 16 12.5l4.6 10L25 9.5" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M6 10.5a2 2 0 0 1 2-2h4.6l2 2.2H24a2 2 0 0 1 2 2V22a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z" fill="#FFFFFF"/>
+  <circle cx="16" cy="20.6" r="1.5" fill="#146E6B"/>
+  <path d="M13.4 18a3.6 3.6 0 0 1 5.2 0M11.1 15.7a6.8 6.8 0 0 1 9.8 0" stroke="#146E6B" stroke-width="1.9" stroke-linecap="round" fill="none"/>
 </svg>

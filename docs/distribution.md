@@ -45,11 +45,11 @@ Windows 版の配布物を作る手段。
   そのまま使う。
   リソースはパッケージ内の全 exe にリンクされるため、`weblav-cli.exe`・`weblav-service.exe` も同じアイコン・バージョン情報を持つ
   (`OriginalFilename` も `weblav.exe` のまま。exe ごとに分ける手段が無く、実害も無いため許容する)。
-- アイコンの絵 (`assets/icon.svg`、差し色 #146E6B と白の「W」) から
+- アイコンの絵 (`assets/icon.svg`、差し色 #146E6B の地に白のフォルダーと電波) から
   `assets/icon.ico` (16/20/24/32/48/256px、exe 埋め込み用) と
   `assets/tray-icon-64.rgba` (タスクトレイ用、生の RGBA) を
   `just generate-icon` (`scripts/generate-icon.mjs`、sharp + to-ico、Node製) で作る。
-  ブラウザーのタブのアイコン (`frontend/src/lib/assets/favicon.svg`) も、同じ手順で `icon.svg` を写して作る。
+  ブラウザーのタブのアイコン (`frontend/src/lib/assets/favicon.svg`、紹介のサイトの `site/public/favicon.{svg,ico}`) も、同じ手順で `icon.svg`・`icon.ico` を写して作る。
   どちらも生成物として **コミットする** (`build.rs` はビルドのたびに `.ico` を要求するため)。
   Node製にしたのは Mac でも同じ手順で作り直せるようにするため
   (Inkscape 等の Windows 専用ツールを要らないようにする)。

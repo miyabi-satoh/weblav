@@ -42,7 +42,7 @@ run: build
 run: build
     .\target\release\{{ bin_name }}.exe
 
-# assets/icon.svg・tray-icon-mac.svg から exe・タスクトレイ・メニューバー・MSIX・ブラウザーのタブ用の画像 (assets/icon.ico・tray-icon-64.rgba・tray-icon-mac-64.rgba・msix/*.png・frontend の favicon.svg) を再生成する
+# assets/icon.svg・tray-icon-mac.svg から exe・タスクトレイ・メニューバー・MSIX・ブラウザーのタブ用の画像 (assets/icon.ico・tray-icon-64.rgba・tray-icon-mac-64.rgba・msix/*.png・frontend と site の favicon) を再生成する
 generate-icon:
     pnpm run generate:icon
 
