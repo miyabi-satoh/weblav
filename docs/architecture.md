@@ -227,7 +227,7 @@ CREATE TABLE contents (
     path TEXT,         -- folder / archive のみ必須。canonicalize済みの絶対パス
     description TEXT,
     -- 'public' | 'authenticated' | 'private' | 'hidden'。
-    -- 親グループから継承する (→ access.md「祖先のグループを辿る」・「親が外れるときの公開範囲」)。group は private にできない
+    -- 親グループから継承する (→ access.md「祖先のグループを辿る」・「親が外れるときの公開範囲」)。private のグループの中は、その作成者の private だけ (→ access.md「作成者のみのグループ」)
     visibility TEXT NOT NULL DEFAULT 'authenticated',
     -- 作成したユーザー。NULL は作成者なし。private と書き換えの判定に使う (→ access.md「公開範囲」・「ロールと操作」)。
     -- ON DELETE は指定しない。ユーザーの削除は access.md「ユーザーの削除と作成者」の手順を必ず通す

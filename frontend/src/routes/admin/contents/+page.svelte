@@ -24,7 +24,12 @@
 	import { contentTypeIcon, isDirectoryContentType } from '$lib/content-types';
 	import { rescanArchive } from '$lib/archive-scan';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { loosenedByReparent, selectableVisibilities } from '$lib/visibility';
+	import {
+		canHoldContentOf,
+		fitsParent,
+		loosenedByReparent,
+		selectableVisibilities
+	} from '$lib/visibility';
 	import { ReparentDrag } from '$lib/reparent-drag.svelte';
 	import * as m from '$lib/paraglide/messages.js';
 	import type { components } from '$lib/api/schema';
@@ -112,7 +117,7 @@
 	let dirPickerOpen = $state(false);
 	let confirmRegisterOpen = $state(false);
 
-	let visibilityOptions = $derived(selectableVisibilities(form.type, null, currentUserId));
+	let visibilityOptions = $derived(selectableVisibilities(null, currentUserId, createParent));
 	let visibilityNote = $derived(contentFormVisibilityNote(form, contentById));
 	let effectiveFormVisibility = $derived(contentFormEffectiveVisibility(form, contentById));
 
@@ -139,7 +144,10 @@
 		const wasDirty = form.dirty;
 		form.type = type;
 		// 公開範囲はフォルダーの2段目にしか出ない。戻って別の種別を選んだときに、見えない値を残さない。
-		if (type !== 'folder') form.visibility = 'public';
+		// 「作成者のみ」のグループの中には「作成者のみ」しか置けないので、それにする。
+		if (type !== 'folder' || !visibilityOptions.includes(form.visibility)) {
+			form.visibility = visibilityOptions.includes('public') ? 'public' : visibilityOptions[0];
+		}
 		if (!wasDirty) form.markPristine();
 		createStep = 'form';
 	}
@@ -236,8 +244,10 @@
 		// group 以外には移せない (サーバーの validate_parent と同じ制約)。
 		// 自分自身・自分の子孫への移動は循環になるので、祖先を辿って弾く
 		// (selfAndAncestors は target 自身を含むので、target === dragged も一緒に弾ける)。
+		// 「作成者のみ」のグループへは、その作成者の「作成者のみ」だけを移せる (サーバーの ensure_fits_parent と同じ)。
 		return (
 			target.type === 'group' &&
+			fitsParent(target, dragged) &&
 			!selfAndAncestors(target.id, contentById).some((ancestor) => ancestor.id === dragged.id)
 		);
 	}
@@ -501,7 +511,7 @@
 							</Table.Cell>
 							<Table.Cell class={actionColumnClass}>
 								<RowActionsMenu name={content.title}>
-									{#if content.type === 'group'}
+									{#if content.type === 'group' && canHoldContentOf(content, currentUserId)}
 										<DropdownMenu.Item onSelect={() => openCreateDialog(content)}>
 											{m.contents_menu_add_inside()}
 										</DropdownMenu.Item>

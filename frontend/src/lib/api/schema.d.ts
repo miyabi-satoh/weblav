@@ -1651,6 +1651,11 @@ export interface components {
             autoRefreshDue: boolean;
             /** @description 見ている人が、表示しないものを決められるか (グループを書き換えられる)。 */
             canEdit: boolean;
+            /**
+             * @description 見ている人が、集めたリンクをグループに残せるか。ログインしていて、「作成者のみ」のグループなら
+             *     その作成者のときだけ (中に置けるのは作成者のものだけのため → docs/access.md「作成者のみのグループ」)。
+             */
+            canPin: boolean;
             /** @description 見ている人が集め直せるか (AI を使えて、コンピューターが登録済み)。 */
             canRefresh: boolean;
             /** @description このグループで AI がリンクを集めるか。偽なら、ほかの項目は空。 */
@@ -2678,7 +2683,10 @@ export interface components {
         /** @description 422 の内訳。`kind` で場合分けし、文言に差し込む値を併せて渡す。 */
         ValidationDetail: {
             /** @enum {string} */
-            kind: "groupCannotBePrivate";
+            kind: "privateGroupNeedsOwnPrivate";
+        } | {
+            /** @enum {string} */
+            kind: "groupChildrenNotOwnPrivate";
         } | {
             /** @enum {string} */
             kind: "axisNameHasBraces";

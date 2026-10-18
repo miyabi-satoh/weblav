@@ -5767,6 +5767,7 @@
           "links",
           "canRefresh",
           "canEdit",
+          "canPin",
           "autoRefreshDue"
         ],
         "properties": {
@@ -5786,6 +5787,10 @@
           "canEdit": {
             "type": "boolean",
             "description": "見ている人が、表示しないものを決められるか (グループを書き換えられる)。"
+          },
+          "canPin": {
+            "type": "boolean",
+            "description": "見ている人が、集めたリンクをグループに残せるか。ログインしていて、「作成者のみ」のグループなら\nその作成者のときだけ (中に置けるのは作成者のものだけのため → docs/access.md「作成者のみのグループ」)。"
           },
           "canRefresh": {
             "type": "boolean",
@@ -8577,7 +8582,7 @@
         "oneOf": [
           {
             "type": "object",
-            "description": "グループは「作成者のみ」にできない (→ docs/access.md「公開範囲」)。",
+            "description": "「作成者のみ」のグループに置けるのは、グループの作成者の「作成者のみ」のコンテンツだけ\n(→ docs/access.md「作成者のみのグループ」)。",
             "required": [
               "kind"
             ],
@@ -8585,7 +8590,22 @@
               "kind": {
                 "type": "string",
                 "enum": [
-                  "groupCannotBePrivate"
+                  "privateGroupNeedsOwnPrivate"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "直下に、グループの作成者の「作成者のみ」でない子があるグループは「作成者のみ」にできない\n(→ docs/access.md「作成者のみのグループ」)。",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "groupChildrenNotOwnPrivate"
                 ]
               }
             }

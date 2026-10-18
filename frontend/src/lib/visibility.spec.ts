@@ -4,7 +4,9 @@ import {
 	effectiveVisibilityUnder,
 	childrenLoosenedByDeletingGroup,
 	loosenedByReparent,
-	selectableVisibilities
+	selectableVisibilities,
+	fitsParent,
+	childrenFitPrivateGroup
 } from './visibility';
 
 describe('effectiveVisibility', () => {
@@ -134,63 +136,72 @@ describe('loosenedByReparent', () => {
 describe('selectableVisibilities', () => {
 	const me = 1;
 	const other = 2;
+	const all = ['public', 'authenticated', 'private', 'hidden'];
+	const withoutPrivate = ['public', 'authenticated', 'hidden'];
 
-	it('offers private when creating a non-group content', () => {
-		expect(selectableVisibilities('link', null, me)).toEqual([
-			'public',
-			'authenticated',
-			'private',
-			'hidden'
-		]);
-	});
-
-	it('never offers private for a group', () => {
-		expect(selectableVisibilities('group', null, me)).toEqual([
-			'public',
-			'authenticated',
-			'hidden'
-		]);
-		expect(selectableVisibilities('group', { visibility: 'public', createdBy: me }, me)).toEqual([
-			'public',
-			'authenticated',
-			'hidden'
-		]);
+	it('offers private when creating content, groups included', () => {
+		expect(selectableVisibilities(null, me, null)).toEqual(all);
 	});
 
 	it('offers private when editing content the user created', () => {
-		expect(selectableVisibilities('file', { visibility: 'public', createdBy: me }, me)).toEqual([
-			'public',
-			'authenticated',
-			'private',
-			'hidden'
-		]);
-		expect(selectableVisibilities('file', { visibility: 'private', createdBy: me }, me)).toEqual([
-			'public',
-			'authenticated',
-			'private',
-			'hidden'
-		]);
+		expect(selectableVisibilities({ visibility: 'public', createdBy: me }, me, null)).toEqual(all);
+		expect(selectableVisibilities({ visibility: 'private', createdBy: me }, me, null)).toEqual(all);
 	});
 
-	it('does not offer private when editing content someone else created', () => {
-		expect(selectableVisibilities('link', { visibility: 'public', createdBy: other }, me)).toEqual([
-			'public',
-			'authenticated',
-			'hidden'
-		]);
-	});
-
-	it('does not offer private when editing content without a creator', () => {
-		expect(selectableVisibilities('link', { visibility: 'public', createdBy: null }, me)).toEqual([
-			'public',
-			'authenticated',
-			'hidden'
-		]);
+	it('does not offer private when editing content someone else or nobody created', () => {
+		expect(selectableVisibilities({ visibility: 'public', createdBy: other }, me, null)).toEqual(
+			withoutPrivate
+		);
+		expect(selectableVisibilities({ visibility: 'public', createdBy: null }, me, null)).toEqual(
+			withoutPrivate
+		);
 	});
 
 	it('offers only private and hidden when editing private content someone else created', () => {
-		expect(selectableVisibilities('link', { visibility: 'private', createdBy: other }, me)).toEqual(
-			['private', 'hidden']
+		expect(selectableVisibilities({ visibility: 'private', createdBy: other }, me, null)).toEqual([
+			'private',
+			'hidden'
+		]);
+	});
+
+	it('offers only private inside a private group', () => {
+		const parent = { visibility: 'private', createdBy: me } as const;
+		expect(selectableVisibilities(null, me, parent)).toEqual(['private']);
+		expect(selectableVisibilities({ visibility: 'public', createdBy: me }, me, parent)).toEqual([
+			'private'
+		]);
+	});
+});
+
+describe('fitsParent', () => {
+	const me = 1;
+	const other = 2;
+	const privateGroup = { visibility: 'private', createdBy: me } as const;
+
+	it('admits only the group creator’s private content into a private group', () => {
+		expect(fitsParent(privateGroup, { visibility: 'private', createdBy: me })).toBe(true);
+		expect(fitsParent(privateGroup, { visibility: 'public', createdBy: me })).toBe(false);
+		expect(fitsParent(privateGroup, { visibility: 'private', createdBy: other })).toBe(false);
+		expect(fitsParent(privateGroup, { visibility: 'private', createdBy: null })).toBe(false);
+	});
+
+	it('admits anything into other groups and the root', () => {
+		expect(fitsParent({ visibility: 'public', createdBy: me }, { visibility: 'public' })).toBe(
+			true
 		);
+		expect(fitsParent(null, { visibility: 'public' })).toBe(true);
+	});
+});
+
+describe('childrenFitPrivateGroup', () => {
+	const group = { id: 10, createdBy: 1 };
+
+	it('requires every direct child to be the creator’s private content', () => {
+		const own = { id: 11, parentId: 10, visibility: 'private', createdBy: 1 } as const;
+		const shared = { id: 12, parentId: 10, visibility: 'public', createdBy: 1 } as const;
+		const elsewhere = { id: 13, parentId: null, visibility: 'public', createdBy: 2 } as const;
+		expect(childrenFitPrivateGroup(group, [own, elsewhere])).toBe(true);
+		expect(childrenFitPrivateGroup(group, [own, shared])).toBe(false);
+		expect(childrenFitPrivateGroup(group, [])).toBe(true);
 	});
 });

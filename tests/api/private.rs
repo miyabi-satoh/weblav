@@ -109,32 +109,105 @@ async fn hidden_group_opens_for_logged_in_users_with_its_children(pool: SqlitePo
     assert!(!body.contains("準備中のグループ"), "{body}");
 }
 
-/// グループは `private` にできない。作成でも更新でも、誰の操作でも422 (→ docs/access.md「ロールと操作」)。
-/// 更新では、作成者でない人の要求でも権限エラー (403) より先に422を返す。
+/// 「作成者のみ」のグループには、作成者の「作成者のみ」だけが入る (→ docs/access.md「作成者のみのグループ」)。
+/// 公開範囲を送らずに中に作ると「作成者のみ」になり、ほかの人には中身ごと見えない。
+/// 中に置けないものと、「作成者のみ」にできないグループは 422 で、それぞれの内訳を返す。
 #[sqlx::test]
-async fn group_cannot_be_private(pool: SqlitePool) {
-    let group_id = insert_group_under(&pool, "共有の資料", "public", None).await;
-    let (app, cookie) = admin_app(&pool).await;
+async fn private_group_holds_only_its_creators_private_contents(pool: SqlitePool) {
+    insert_user(&pool, "alice", "correct-password").await;
+    insert_user(&pool, "bob", "correct-password").await;
+    let (app, admin) = admin_app(&pool).await;
+    let alice = login(app.clone(), "alice", "correct-password").await;
+    let bob = login(app.clone(), "bob", "correct-password").await;
 
     let (status, body) = send_json(
         app.clone(),
         "POST",
         "/api/v1/contents",
-        &cookie,
-        r#"{"type":"group","title":"私の置き場","visibility":"private"}"#,
+        &alice,
+        r#"{"type":"group","title":"私の関心","visibility":"private"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let group_id = extract_id(&body);
+
+    let (status, body) = send_json(
+        app.clone(),
+        "POST",
+        "/api/v1/contents",
+        &alice,
+        &format!(
+            r#"{{"type":"link","parentId":{group_id},"title":"記事","url":"https://example.com"}}"#
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert!(body.contains(r#""visibility":"private""#), "{body}");
+
+    let (status, body) = send_json(
+        app.clone(),
+        "POST",
+        "/api/v1/contents",
+        &admin,
+        &format!(r#"{{"type":"link","parentId":{group_id},"title":"管理者の","url":"https://example.org","visibility":"private"}}"#),
     )
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(
+        body.contains(r#""kind":"privateGroupNeedsOwnPrivate""#),
+        "{body}"
+    );
 
+    let (status, body) = send_empty(
+        app.clone(),
+        "GET",
+        &format!("/api/v1/contents/{group_id}/group"),
+        &bob,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+    let (status, body) = send_empty(app.clone(), "GET", "/api/v1/admin/contents", &bob).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(
+        !body.contains("私の関心") && !body.contains("記事"),
+        "{body}"
+    );
+
+    // 管理者は他人の「作成者のみ」のグループを開けて、中身も確かめられる。
+    let (status, body) = send_empty(
+        app.clone(),
+        "GET",
+        &format!("/api/v1/contents/{group_id}/group"),
+        &admin,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("記事"), "{body}");
+
+    let (status, body) = send_json(
+        app.clone(),
+        "POST",
+        "/api/v1/contents",
+        &alice,
+        r#"{"type":"group","title":"共有の資料"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let shared_id = extract_id(&body);
+    insert_link_by(&pool, "ほかの人のリンク", "public", None, Some(shared_id)).await;
     let (status, body) = send_json(
         app,
         "PUT",
-        &format!("/api/v1/contents/{group_id}"),
-        &cookie,
+        &format!("/api/v1/contents/{shared_id}"),
+        &alice,
         r#"{"title":"共有の資料","visibility":"private"}"#,
     )
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(
+        body.contains(r#""kind":"groupChildrenNotOwnPrivate""#),
+        "{body}"
+    );
 }
 
 /// 管理画面の一覧で、他人の `private` は `user` には出ず、`admin` には作成者名付きで出る。
