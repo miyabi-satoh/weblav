@@ -1692,7 +1692,7 @@ export interface components {
              */
             dailyLimit?: number;
             /**
-             * @description 検索キーワード。語の並びでもふつうの文でもよく、AI が検索のクエリに組み立て直す。
+             * @description 検索キーワード。1行に1つの検索のクエリで、5行まで。書いたとおりに検索する。
              *     `null` なら集めるのをやめる (前の設定と表示しないものは残し、ほかの項目は見ない)。
              */
             interests?: string | null;
@@ -5261,7 +5261,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 検索キーワードが空・長すぎる、自動の更新の時間・時刻が正しくない */
+            /** @description 検索キーワードが空・行が多すぎる・長すぎる、自動の更新の時間・時刻が正しくない */
             422: {
                 headers: {
                     [name: string]: unknown;

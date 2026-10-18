@@ -45,14 +45,11 @@ fn exclusions_uri(id: i64) -> String {
     format!("/api/v1/contents/{id}/ai-links/exclusions")
 }
 
-/// AI が作るクエリの答え。検索キーワードを保存した後、最初に集めるときに1回だけ呼ばれる。
-const QUERIES_ANSWER: &str = r#"["Rust 非同期", "家庭菜園"]"#;
-
-/// 検索の答えと、クエリを作る AI の答えを用意する。
+/// 検索の答えを用意する。AI は、一覧のページを使う設定のときだけ呼ばれる。
 fn prepare(fake: &super::ai::SharedFake, search: &str) {
     let mut fake = fake.lock().expect("鍵が毒された");
     fake.search = (StatusCode::OK, search.to_string(), Some(10));
-    fake.ai = (StatusCode::OK, answer(QUERIES_ANSWER), Some(5));
+    fake.ai = (StatusCode::OK, answer("[]"), Some(5));
 }
 
 fn set_search(fake: &super::ai::SharedFake, search: &str) {
@@ -76,7 +73,7 @@ async fn group_with_interests(app: &Router, pool: &SqlitePool, cookie: &str) -> 
         app,
         pool,
         cookie,
-        r#"{"listMode":"off","interests":"Rust の非同期と家庭菜園"}"#,
+        r#"{"listMode":"off","interests":"Rust 非同期\n家庭菜園"}"#,
     )
     .await
 }
@@ -117,10 +114,10 @@ fn urls(links: &serde_json::Value) -> Vec<String> {
     shown(links).into_iter().map(|(url, _)| url).collect()
 }
 
-/// 設定 → 集め直す → 匿名で見る、の一巡。AI がクエリを作り、検索は2回。登録済みの URL は並べない。
-/// 2回目は作ったクエリを使い回し、新しく出たページを上に足して、出なくなったページを外す。
+/// 設定 → 集め直す → 匿名で見る、の一巡。検索キーワードの行をそのままクエリにして、検索は2回。AI は呼ばない。
+/// 登録済みの URL は並べない。2回目は、新しく出たページを上に足して、出なくなったページを外す。
 #[sqlx::test]
-async fn refreshing_adds_new_search_results_on_top_and_reuses_the_queries(pool: SqlitePool) {
+async fn refreshing_searches_the_lines_as_written_and_adds_new_results_on_top(pool: SqlitePool) {
     let AiApp {
         app, cookie, fake, ..
     } = ai_app(&pool, true).await;
@@ -156,10 +153,7 @@ async fn refreshing_adds_new_search_results_on_top_and_reuses_the_queries(pool: 
             })
         );
         assert_eq!(fake.searches[1]["recency"], "year");
-        assert_eq!(fake.prompts.len(), 1, "{:?}", fake.prompts);
-        let asked = fake.prompts[0]["user"].as_str().expect("文が無い");
-        assert!(asked.contains("Rust の非同期と家庭菜園"), "{asked}");
-        assert!(asked.contains("Language of the queries: ja"), "{asked}");
+        assert!(fake.prompts.is_empty(), "{:?}", fake.prompts);
     }
 
     // 見つけた時刻は秒の単位なので、1回目と分かれるように待つ。
@@ -175,7 +169,6 @@ async fn refreshing_adds_new_search_results_on_top_and_reuses_the_queries(pool: 
         "{second}"
     );
     assert_eq!(second["added"], 1, "{second}");
-    assert_eq!(fake.lock().expect("鍵が毒された").prompts.len(), 1);
 
     // 新しいものが無かった集め直しでは、前に足した分の印を消さない。
     tokio::time::sleep(std::time::Duration::from_millis(1_100)).await;
@@ -188,10 +181,7 @@ async fn refreshing_adds_new_search_results_on_top_and_reuses_the_queries(pool: 
         .into_iter()
         .map(|(_, _, kind, used)| (kind, used))
         .collect();
-    assert_eq!(
-        kinds,
-        [5, 10, 10, 10, 10, 10, 10].map(|used| ("links".to_string(), used))
-    );
+    assert_eq!(kinds, [10; 6].map(|used| ("links".to_string(), used)));
 
     // 匿名でも、公開のグループの集めたリンクは見られる。集め直しも、表示しないもできない。
     let (status, body) = send_anon(app.clone(), "GET", &links_uri(id)).await;
@@ -504,29 +494,29 @@ async fn turning_the_setting_off_keeps_the_settings_for_turning_it_on_again(pool
     );
 }
 
-/// 検索キーワードを変えると、作ったクエリを捨て、次に集めるときに作り直す。
+/// 検索キーワードを変えると、次に集めるときから、変えた行で検索する。
 #[sqlx::test]
-async fn changing_the_interests_makes_the_queries_again(pool: SqlitePool) {
+async fn changing_the_interests_changes_the_queries(pool: SqlitePool) {
     let AiApp {
         app, cookie, fake, ..
     } = ai_app(&pool, true).await;
     let id = group_with_interests(&app, &pool, &cookie).await;
     prepare(&fake, SEARCH_BODY);
     refreshed(&app, id, &cookie).await;
-    let (status, body) = send_json(
-        app.clone(),
-        "PUT",
-        &settings_uri(id),
+    put_settings(
+        &app,
+        id,
         &cookie,
         r#"{"listMode":"off","interests":"トマトの育て方","dailyLimit":3}"#,
     )
     .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
     refreshed(&app, id, &cookie).await;
-    let prompts = fake.lock().expect("鍵が毒された").prompts.clone();
-    assert_eq!(prompts.len(), 2, "{prompts:?}");
-    let asked = prompts[1]["user"].as_str().expect("文が無い");
-    assert!(asked.contains("トマトの育て方"), "{asked}");
+    let searches = fake.lock().expect("鍵が毒された").searches.clone();
+    assert_eq!(searches.len(), 4, "{searches:?}");
+    assert_eq!(
+        searches[3]["queries"],
+        serde_json::json!(["トマトの育て方"])
+    );
 }
 
 #[sqlx::test]
@@ -535,6 +525,7 @@ async fn settings_reject_bad_values_and_non_groups(pool: SqlitePool) {
     let id = insert_group_under(&pool, "集める", "public", None).await;
     for settings in [
         r#"{"listMode":"off","interests":" \n "}"#,
+        r#"{"listMode":"off","interests":"1\n2\n3\n4\n5\n6"}"#,
         r#"{"listMode":"off","interests":"Rust","autoRefresh":{"mode":"daily","time":"25:00"}}"#,
     ] {
         let (status, body) =
@@ -598,33 +589,6 @@ async fn an_editor_without_ai_cannot_refresh_or_change_the_setting(pool: SqliteP
     )
     .await;
     assert_error(status, &body, StatusCode::FORBIDDEN, "forbidden");
-}
-
-/// AI の答えにクエリが無ければ、前に集めたリンクを残して 502 にする。
-#[sqlx::test]
-async fn an_answer_without_queries_keeps_the_previous_links(pool: SqlitePool) {
-    let AiApp {
-        app, cookie, fake, ..
-    } = ai_app(&pool, true).await;
-    let id = group_with_interests(&app, &pool, &cookie).await;
-    prepare(&fake, SEARCH_BODY);
-    refreshed(&app, id, &cookie).await;
-
-    // 検索キーワードを変えて、クエリを作り直させる。
-    let (status, body) = send_json(
-        app.clone(),
-        "PUT",
-        &settings_uri(id),
-        &cookie,
-        r#"{"listMode":"off","interests":"トマト"}"#,
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    fake.lock().expect("鍵が毒された").ai = (StatusCode::OK, answer("作れませんでした"), Some(5));
-    let (status, body) = refresh(&app, id, &cookie).await;
-    assert_error(status, &body, StatusCode::BAD_GATEWAY, "ai_upstream");
-    let seen = get_json(app.clone(), &links_uri(id), &cookie).await;
-    assert_eq!(seen["links"].as_array().map(Vec::len), Some(3), "{seen}");
 }
 
 /// カードを取り直して無くなっていたと分かったページは並べず、集め直しで出ても足した数に入れない。
@@ -694,10 +658,10 @@ async fn link_previews_are_refreshed_for_a_viewable_group_only(pool: SqlitePool)
     assert_eq!(body, "[]");
 }
 
-/// 一覧のページ (分類のトップなど) は、同じときに見つけた個別の記事の後ろに並ぶ。
-/// 載っている記事を使う設定でも、一覧のページを開けなければ AI を呼ばずに、見つかった分で続ける。
+/// 「AI が選ぶ」では、個別の記事を AI に話題ごとにまとめさせ、扱うサイトの多い話題から、話題ごとに1件を並べる。
+/// 一覧のページ (分類のトップなど) は、開けなくても外さず、個別の記事の後ろに並ぶ。
 #[sqlx::test]
-async fn list_pages_follow_the_articles_and_an_unopened_list_costs_nothing_more(pool: SqlitePool) {
+async fn pick_shows_one_article_per_story_with_stories_on_more_sites_first(pool: SqlitePool) {
     let AiApp {
         app, cookie, fake, ..
     } = ai_app(&pool, true).await;
@@ -713,19 +677,26 @@ async fn list_pages_follow_the_articles_and_an_unopened_list_costs_nothing_more(
         &fake,
         r#"{"results":[
             {"title":"ニュース一覧","url":"https://news.invalid/news/","date":"2026-10-18","snippet":""},
-            {"title":"記事","url":"https://news.invalid/articles/1","snippet":""}
+            {"title":"別の話題","url":"https://c.invalid/articles/3","snippet":""},
+            {"title":"知事が会見","url":"https://a.invalid/articles/1","snippet":""},
+            {"title":"知事が記者会見","url":"https://b.invalid/articles/2","snippet":""}
         ]}"#,
     );
+    fake.lock().expect("鍵が毒された").ai = (StatusCode::OK, answer("[[1], [2, 3]]"), Some(5));
     let links = refreshed(&app, id, &cookie).await;
     assert_eq!(
         urls(&links),
         [
-            "https://news.invalid/articles/1",
+            "https://a.invalid/articles/1",
+            "https://c.invalid/articles/3",
             "https://news.invalid/news/"
         ],
         "{links}"
     );
-    assert_eq!(fake.lock().expect("鍵が毒された").prompts.len(), 1);
+    let prompts = fake.lock().expect("鍵が毒された").prompts.clone();
+    assert_eq!(prompts.len(), 1, "{prompts:?}");
+    let asked = prompts[0]["user"].as_str().expect("文が無い");
+    assert!(asked.contains("2. [a.invalid] 知事が会見"), "{asked}");
 
     let settings = get_json(app.clone(), &settings_uri(id), &cookie).await;
     assert_eq!(settings["listMode"], "pick", "{settings}");

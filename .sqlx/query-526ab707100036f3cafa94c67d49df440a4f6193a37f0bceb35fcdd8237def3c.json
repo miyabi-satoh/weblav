@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT enabled as \"enabled: bool\", interests, queries, queries_language, refreshed_at,\n                  refreshed_by_auto as \"refreshed_by_auto: bool\", daily_limit,\n                  auto_mode as \"auto_mode: AutoMode\", auto_hours, auto_time, refresh_day, refresh_count,\n                  list_mode as \"list_mode: ListMode\"\n           FROM ai_link_groups WHERE content_id = ?",
+  "query": "SELECT enabled as \"enabled: bool\", interests, refreshed_at,\n                  refreshed_by_auto as \"refreshed_by_auto: bool\", daily_limit,\n                  auto_mode as \"auto_mode: AutoMode\", auto_hours, auto_time, refresh_day, refresh_count,\n                  list_mode as \"list_mode: ListMode\"\n           FROM ai_link_groups WHERE content_id = ?",
   "describe": {
     "columns": [
       {
@@ -14,58 +14,48 @@
         "type_info": "Text"
       },
       {
-        "name": "queries",
-        "ordinal": 2,
-        "type_info": "Text"
-      },
-      {
-        "name": "queries_language",
-        "ordinal": 3,
-        "type_info": "Text"
-      },
-      {
         "name": "refreshed_at",
-        "ordinal": 4,
+        "ordinal": 2,
         "type_info": "Integer"
       },
       {
         "name": "refreshed_by_auto: bool",
-        "ordinal": 5,
+        "ordinal": 3,
         "type_info": "Integer"
       },
       {
         "name": "daily_limit",
-        "ordinal": 6,
+        "ordinal": 4,
         "type_info": "Integer"
       },
       {
         "name": "auto_mode: AutoMode",
-        "ordinal": 7,
+        "ordinal": 5,
         "type_info": "Text"
       },
       {
         "name": "auto_hours",
-        "ordinal": 8,
+        "ordinal": 6,
         "type_info": "Integer"
       },
       {
         "name": "auto_time",
-        "ordinal": 9,
+        "ordinal": 7,
         "type_info": "Text"
       },
       {
         "name": "refresh_day",
-        "ordinal": 10,
+        "ordinal": 8,
         "type_info": "Text"
       },
       {
         "name": "refresh_count",
-        "ordinal": 11,
+        "ordinal": 9,
         "type_info": "Integer"
       },
       {
         "name": "list_mode: ListMode",
-        "ordinal": 12,
+        "ordinal": 10,
         "type_info": "Text"
       }
     ],
@@ -75,8 +65,6 @@
     "nullable": [
       false,
       false,
-      true,
-      true,
       true,
       false,
       false,
@@ -88,5 +76,5 @@
       false
     ]
   },
-  "hash": "56eb47d63ab37bfeaaa98ff97cad3b273d7bfc24bec362e2dc4bc6d0276b54f6"
+  "hash": "526ab707100036f3cafa94c67d49df440a4f6193a37f0bceb35fcdd8237def3c"
 }

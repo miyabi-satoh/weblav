@@ -4,7 +4,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/schema';
-	import { MAX_INTEREST_UNITS } from '$lib/ai-links';
+	import { MAX_QUERIES, MAX_QUERY_UNITS, queryLines } from '$lib/ai-links';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
 	import { sectionCardClass } from '$lib/page-layout';
@@ -70,8 +70,16 @@
 		ondirtychange(form.dirty);
 	});
 
-	// 空白だけでは `required` を通ってしまうので、保存ボタンの側で止める。長さは欄の maxlength で止める。
-	let interestsMissing = $derived(on && interests.trim() === '');
+	// 空白だけでは `required` を通ってしまうので、保存ボタンの側で止める。
+	let lines = $derived(queryLines(interests));
+	let interestsError = $derived(
+		lines.length > MAX_QUERIES
+			? m.contents_form_ai_interests_too_many({ max: MAX_QUERIES })
+			: lines.some((line) => line.length > MAX_QUERY_UNITS)
+				? m.contents_form_ai_interests_too_long({ max: MAX_QUERY_UNITS })
+				: null
+	);
+	let interestsMissing = $derived(on && (lines.length === 0 || interestsError !== null));
 
 	let saving = $state(false);
 	const errorDialog = new ErrorDialogState();
@@ -136,9 +144,17 @@
 					<Textarea
 						id="content-ai-interests"
 						bind:value={interests}
-						maxlength={MAX_INTEREST_UNITS}
+						aria-invalid={interestsError !== null}
 						required
 					/>
+					{#if interestsError !== null}
+						<Field.FieldError>{interestsError}</Field.FieldError>
+					{/if}
+					<Field.FieldDescription
+						>{m.contents_form_ai_interests_description({
+							max: MAX_QUERIES
+						})}</Field.FieldDescription
+					>
 				</Field.Field>
 				<Field.Field>
 					<Field.FieldLabel for="content-ai-daily-limit" required
