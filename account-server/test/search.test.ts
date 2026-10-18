@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { parseSearch, searchCost } from '../src/search';
 
 describe('parseSearch', () => {
-	it('reads the queries with the optional country, language and recency', () => {
+	it('reads the queries with the optional country, language and date filter', () => {
 		expect(parseSearch({ queries: ['a', 'b'] })).toEqual({ queries: ['a', 'b'] });
-		expect(parseSearch({ queries: ['a'], country: 'JP', language: 'ja', recency: 'week' })).toEqual(
-			{ queries: ['a'], country: 'JP', language: 'ja', recency: 'week' }
-		);
+		expect(parseSearch({ queries: ['a'], country: 'JP', language: 'ja' })).toEqual({
+			queries: ['a'],
+			country: 'JP',
+			language: 'ja'
+		});
 		expect(parseSearch({ queries: ['a'], after: '2026-10-11' })).toEqual({
 			queries: ['a'],
 			after: '2026-10-11'
@@ -26,7 +28,6 @@ describe('parseSearch', () => {
 			{ queries: ['x'.repeat(201)] },
 			{ queries: ['a'], country: 'jp' },
 			{ queries: ['a'], language: 'JA' },
-			{ queries: ['a'], recency: 'hour' },
 			{ queries: ['a'], after: '10/11/2026' },
 			{ queries: ['a'], after: '2026-02-30' }
 		]) {

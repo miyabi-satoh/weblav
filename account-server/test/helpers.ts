@@ -1,7 +1,7 @@
 /** 2つ以上のテストのファイルで使う補助。 */
 import { env, exports } from 'cloudflare:workers';
 import { expect, vi } from 'vitest';
-import { randomHex } from '../src/util';
+import { randomHex, sha256Hex } from '../src/util';
 
 export const ORIGIN = 'http://account.test';
 
@@ -42,12 +42,8 @@ export function postForm(
 
 /** WebLAV が作るのと同じ形の申し込みの値。検証用の値は WebLAV だけが持つ。 */
 export async function newLink(name = 'うちの WebLAV', pc = 'mac-mini') {
-	const verifier =
-		crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '');
-	const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
-	const challenge = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join(
-		''
-	);
+	const verifier = randomHex(32);
+	const challenge = await sha256Hex(verifier);
 	return { verifier, fields: { challenge, name, pc } };
 }
 

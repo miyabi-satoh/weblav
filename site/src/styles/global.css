@@ -73,6 +73,17 @@ body {
   max-width: 44rem;
 }
 
+/* 製品の色 (`--c`) から差し色を決める。暗い背景では明るく寄せ、文字と枠が沈まないようにする */
+.accent-scope {
+  --accent: var(--c);
+}
+
+@media (prefers-color-scheme: dark) {
+  .accent-scope {
+    --accent: color-mix(in oklab, var(--c), white 45%);
+  }
+}
+
 /* サイトの頭と足 */
 
 .site-header {

@@ -2,7 +2,7 @@
 // 料金のページ。AI の機能のクレジットを買う入口で、窓口の最終確認の画面 (/account/buy) へ進む。
 // 買うボタンがあるので特定商取引法 11条の広告に当たり、価格と、WebLAV に限った購入の条件をここに書く。
 // 事業者の項目と共通の条件は amiiby.com の共通の表記が持つ。
-// 価格は窓口の文言 (account-server/src/i18n.ts) と本番の Stripe の Price に合わせる。
+// 価格は窓口の文言 (account-server/src/i18n.ts) と本番の Stripe の Price に、試せる分の比 (買い足しの半分) は秘密の値の FREE_GRANT_MILLI_YEN と PURCHASE_GRANT_MILLI_YEN に合わせる。
 // 売っていない間は、窓口が買うボタン (`a[data-buy]`) を外し、`data-sale-closed` の表示を出して返す (account-server/src/sale.ts)。
 import { getEntry } from 'astro:content';
 import Base from '../layouts/Base.astro';
@@ -14,9 +14,9 @@ const { data } = (await getEntry('product', 'index'))!;
 
 <Base title="料金 | WebLAV" description="WebLAV は無料で使えます。AI の機能を使うときだけ、クレジットを 300 円（税込み）で買い足します。">
   <Breadcrumb items={[{ label: 'WebLAV', href: '/' }, { label: '料金' }]} />
-  <div class="pricing" style={`--c: ${data.color}`}>
+  <div class="pricing accent-scope" style={`--c: ${data.color}`}>
     <h1>料金</h1>
-    <p class="lead">WebLAV は無料で使えます。AI の機能（アーカイブの軸の相談・グループへのリンクの収集・AI への質問）を使うときだけ、WebLAV のアカウントのクレジットを使います。</p>
+    <p>WebLAV は無料で使えます。AI の機能（アーカイブの軸の相談・グループへのリンクの収集・AI への質問）を使うときだけ、WebLAV のアカウントのクレジットを使います。</p>
 
     <section class="plan" aria-labelledby="credit-title">
       <h2 id="credit-title">AI の機能のクレジット</h2>
@@ -27,7 +27,7 @@ const { data } = (await getEntry('product', 'index'))!;
         <li>新しいアカウントには、試せる分が一度だけ付く（買い足し 1&nbsp;回分の半分）</li>
       </ul>
       <a class="buy" data-buy href="/account/buy?lang=ja">クレジットを購入</a>
-      <p class="closed" data-sale-closed hidden>クレジットの購入は準備中です。WebLAV のサイト設定の「AI」から、パソコンをアカウントに登録すると、新しいアカウントに付く試せる分で AI の機能をお使いいただけます。</p>
+      <p class="closed" data-sale-closed hidden>クレジットの購入は準備中です。WebLAV のサイト設定の「AI」で「コンピューターを登録」を押し、パソコンをアカウントに登録すると、新しいアカウントに付く試せる分で AI の機能をお使いいただけます。</p>
     </section>
 
     <h2 id="conditions">購入の条件</h2>
@@ -63,33 +63,19 @@ const { data } = (await getEntry('product', 'index'))!;
 </Base>
 
 <style>
-  .pricing {
-    --accent: var(--c);
-    max-width: 44rem;
-  }
-
-  /* 題とラベルの短い文だけ、文節の切れ目で折る。説明の段落は文節で折ると右端がでこぼこになるので、通常の折り返しのままにする */
-  .pricing :is(h1, h2, h3, dt, button, .buy) {
+  /* ラベルの短い文だけ、文節の切れ目で折る (見出しは styles/global.css が折る)。説明の段落は文節で折ると右端がでこぼこになるので、通常の折り返しのままにする */
+  .pricing :is(dt, .buy) {
     word-break: auto-phrase;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .pricing {
-      --accent: color-mix(in oklab, var(--c), white 45%);
-    }
-  }
-
   .plan {
-    display: flex;
-    flex-direction: column;
     margin: 2rem 0 2.5rem;
     padding: 1.5rem;
     border: 2px solid var(--accent);
     border-radius: 0.75rem;
   }
 
-  .plan h2,
-  .price {
+  .plan h2 {
     margin-top: 0;
   }
 
@@ -116,7 +102,6 @@ const { data } = (await getEntry('product', 'index'))!;
 
   .buy {
     display: block;
-    margin-top: auto;
     padding: 0.75rem 1rem;
     border-radius: 0.5rem;
     background: var(--accent);
@@ -153,10 +138,6 @@ const { data } = (await getEntry('product', 'index'))!;
 
   .terms dd {
     margin: 0 0 0.75rem;
-  }
-
-  .terms dd > :first-child {
-    margin-top: 0;
   }
 
   .terms dd > :last-child {

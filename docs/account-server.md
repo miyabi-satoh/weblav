@@ -74,6 +74,7 @@
 
 - 購入と無料の付与の量・Gemini と検索の単価・円の換算は、売値と並べると原価の割合が分かるので、リポジトリに書かず秘密の値に置く。
 - 値の名前は `PURCHASE_GRANT_MILLI_YEN`・`FREE_GRANT_MILLI_YEN`・`USD_JPY`・`INPUT_USD_PER_MTOK`・`OUTPUT_USD_PER_MTOK`・`SEARCH_USD_PER_REQUEST` である。
+- 無料の付与は購入の半分にする。料金のページ（`site/src/pages/pricing.astro`）がこの比を書いているので、変えるときはページも直す。
 - 1つでも無いか読めなければ、窓口のどの入口も D1 に書く前に 500 で止める。誤った値で付けたり引いたりせず、サインインのリンクを使った後の途中で止まらないようにする。
 
 ## 購入

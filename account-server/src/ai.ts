@@ -115,12 +115,9 @@ export function costOf(usage: unknown, rates: Rates): number | undefined {
 	return Math.ceil(usd * rates.usdJpy * 1000);
 }
 
-/**
- * 添付1つのトークン数の見積もり。Gemini 3 の既定の解像度で、画像は1枚 1,120、PDF は1ページ 560 に
- * ページの文字の分が足される (https://ai.google.dev/gemini-api/docs/media-resolution 、2026-10-17 に確かめた)。
- * PDF の文字の分は読まないと分からないので、1ページを高い解像度と同じ 1,120 と見る。
- */
+/** Gemini 3 の既定の解像度での、画像1枚のトークン数 (https://ai.google.dev/gemini-api/docs/media-resolution 、2026-10-17 に確かめた)。 */
 const IMAGE_TOKENS = 1_120;
+/** PDF の1ページ。既定の 560 にページの文字の分が足されるが、文字の分は読まないと分からないので、高い解像度と同じ値と見る。 */
 const PDF_PAGE_TOKENS = 1_120;
 /** ページの数を読めない PDF (ページの情報を圧縮して持つもの) は、50 KB を1ページと見る。 */
 const PDF_BYTES_PER_PAGE_FALLBACK = 50_000;
@@ -128,19 +125,14 @@ const PDF_BYTES_PER_PAGE_FALLBACK = 50_000;
 /**
  * PDF のページの数。ページのオブジェクト (`/Type /Page`。ページの束の `/Pages` は除く) を数える。
  * 圧縮した中にしか無ければ数えられないので `undefined`。見積もりにだけ使うので、厳密でなくてよい。
+ * base64 の形は `parsePrompt` が確かめてあるので、`atob` は投げない。
  */
-export function pdfPageCount(base64: string): number | undefined {
-	let bytes: string;
-	try {
-		bytes = atob(base64);
-	} catch {
-		// base64 でない中身は Gemini が断るので、見積もりは大きさで済ませる。
-		return undefined;
-	}
-	const pages = bytes.match(/\/Type\s*\/Page(?![a-zA-Z])/g)?.length ?? 0;
+function pdfPageCount(base64: string): number | undefined {
+	const pages = atob(base64).match(/\/Type\s*\/Page(?![a-zA-Z])/g)?.length ?? 0;
 	return pages > 0 ? pages : undefined;
 }
 
+/** 添付1つのトークン数の見積もり。 */
 function attachmentEstimate(file: Attachment): number {
 	if (ATTACHMENT_TYPES[file.mime_type] === 'image') return IMAGE_TOKENS;
 	const pages =
