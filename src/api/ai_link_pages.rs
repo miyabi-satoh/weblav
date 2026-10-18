@@ -2,6 +2,8 @@
 //! 検索で見つかった分類のトップや一覧のページを見分け、そこに載っている個別の記事を取り出す。
 //! 取り出した記事をどう使うか (AI に選ばせる・その話題で検索し直す) は、グループの設定で選ぶ (`ListMode`)。
 
+use std::collections::HashSet;
+
 use tokio::task::JoinSet;
 
 use super::link_title::{self, PageLink};
@@ -29,6 +31,11 @@ const LIST_SEGMENTS: &[&str] = &[
 
 /// ページ送りの値の名前。この名前の値に付いた番号は、記事の番号でない。
 const PAGING_KEYS: &[&str] = &["p", "page", "offset", "start"];
+
+/// 見出しが同じとみなす、頭から比べる文字 (文字と数字だけ) の数。系列の局や配信先のサイトは、同じ記事を
+/// 同じ見出しで載せ、後ろに付く日付やジャンルの書き方だけが違う。見出しの要の部分が収まり、
+/// 書き出しが同じだけの別の記事 (「茂原市立美術館の…」) までは同じとみなさない長さにする。
+const SAME_HEADLINE_CHARS: usize = 20;
 
 /// 記事のリンクとみなす、リンクの文字の最短の長さ (文字)。見出しは文になり、「政治」「次へ」のような
 /// 案内の操作の名前より長い。この長さで、メニューや送りの操作を記事と取り違えないようにする。
@@ -134,7 +141,24 @@ pub(super) async fn open_lists(state: &AppState, lists: &[String]) -> Vec<PageLi
         }
     }
     opened.sort_by_key(|(order, _)| *order);
-    opened.into_iter().flat_map(|(_, links)| links).collect()
+    drop_same_headlines(opened.into_iter().flat_map(|(_, links)| links).collect())
+}
+
+/// 別のサイトに載っている同じ見出しの記事を、先に出たものだけにする。
+fn drop_same_headlines(articles: Vec<PageLink>) -> Vec<PageLink> {
+    let mut seen = HashSet::new();
+    articles
+        .into_iter()
+        .filter(|article| {
+            let key: String = article
+                .text
+                .chars()
+                .filter(|c| c.is_alphanumeric())
+                .take(SAME_HEADLINE_CHARS)
+                .collect();
+            seen.insert(key)
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -179,6 +203,27 @@ mod tests {
         ] {
             assert!(!looks_like_article(url), "{url}");
         }
+    }
+
+    #[test]
+    fn the_same_headline_on_another_site_is_dropped() {
+        let kept: Vec<String> = drop_same_headlines(vec![
+            link("https://a.example/1", "【竹内涼真】“ガチ友”との出演に「大丈夫かな？」＜芸能動画＞ 2026/10/17(土)19:59"),
+            link("https://b.example/2", "【竹内涼真】“ガチ友”との出演に「大丈夫かな？」＜芸能動画＞ エンタメ 2026.10.17(土)"),
+            link("https://a.example/3", "茂原市立美術館・郷土資料館 臨時休館のお知らせ"),
+            link("https://a.example/4", "茂原市立美術館・郷土資料館の臨時休館・展覧会中止・来館経路のお知らせ"),
+        ])
+        .into_iter()
+        .map(|link| link.url)
+        .collect();
+        assert_eq!(
+            kept,
+            [
+                "https://a.example/1",
+                "https://a.example/3",
+                "https://a.example/4"
+            ]
+        );
     }
 
     #[test]
