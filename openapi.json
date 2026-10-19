@@ -2881,6 +2881,57 @@
         }
       }
     },
+    "/api/v1/contents/{id}/archive/download": {
+      "get": {
+        "summary": "相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。Markdown のプレビューが、\n相対パスの画像とリンクを開くのに使う。見える条件は `download_item` と同じ。",
+        "operationId": "download_item_by_path",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "アーカイブの登録先からの相対パス。`/` 区切りで、アイテムの `relPath` と同じ形。",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ファイルの内容"
+          },
+          "401": {
+            "description": "閲覧にログインが必要",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "索引に無い・非公開のアイテム、または実体が無い",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contents/{id}/axes": {
       "get": {
         "summary": "軸の一覧。並び替えUIでの左からの順番 (`position`) 順に返す。",
@@ -6051,6 +6102,7 @@
           "id",
           "title",
           "fileName",
+          "relPath",
           "isText",
           "thumbnail"
         ],
@@ -6077,6 +6129,10 @@
           "isText": {
             "type": "boolean",
             "description": "テキストのビューアーで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューアー」)。"
+          },
+          "relPath": {
+            "type": "string",
+            "description": "アーカイブの登録先からの相対パス。Markdown のプレビューが、相対パスの画像とリンクを\nこのファイルの場所から解決するのに使う (→ docs/ui.md「PDF・動画・テキストのビューアー」)。"
           },
           "subtitle": {
             "type": [

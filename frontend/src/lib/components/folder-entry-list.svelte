@@ -20,6 +20,7 @@
 	import { listFilter } from '$lib/list-filter.svelte';
 	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
 	import { contentDownloadHref, contentThumbnailHref } from '$lib/api/urls';
+	import type { ContentLocation } from '$lib/content-location';
 	import { formatByteSize, formatDate } from '$lib/format';
 	import { isAudioFileName, isLinksFileName, viewerFileKind } from '$lib/file-kind';
 	import { LinksFileIcon } from '$lib/links-file';
@@ -64,6 +65,11 @@
 		return contentDownloadHref(row.contentId, row.path);
 	}
 
+	/** Markdown のプレビューが相対パスを解決する場所。 */
+	function location(row: FolderEntryRow): ContentLocation {
+		return { path: row.path, src: (path) => contentDownloadHref(row.contentId, path) };
+	}
+
 	/** 画像でない行に縮小画像を出すなら、その URL (→ docs/ui.md「画像のプレビュー」)。 */
 	function rowThumbnail(row: FolderEntryRow): { src: string; original: string } | undefined {
 		if (!row.entry.thumbnail) return undefined;
@@ -90,7 +96,8 @@
 			thumbnailSrc: contentThumbnailHref(row.contentId, row.path),
 			width: row.entry.image.width,
 			height: row.entry.image.height,
-			title: row.entry.name
+			title: row.entry.name,
+			location: location(row)
 		};
 	}
 
@@ -103,7 +110,8 @@
 			title: row.entry.name,
 			fileName: row.entry.name,
 			kind,
-			thumbnail: rowThumbnail(row)
+			thumbnail: rowThumbnail(row),
+			location: location(row)
 		};
 	}
 

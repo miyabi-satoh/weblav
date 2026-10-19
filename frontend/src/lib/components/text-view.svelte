@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { highlightCode, highlightCodeBlock, isCodeFileName } from '$lib/code-highlight';
-	import { isMarkdownFileName, renderMarkdownPreview } from '$lib/markdown-preview';
+	import type { ContentLocation } from '$lib/content-location';
+	import {
+		isMarkdownFileName,
+		LINKED_PATH_ATTRIBUTE,
+		renderMarkdownPreview
+	} from '$lib/markdown-preview';
 	import * as m from '$lib/paraglide/messages.js';
 
 	// ビューアーのテキストの本文 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
@@ -9,12 +14,18 @@
 		src,
 		fileName,
 		source = false,
+		location,
+		onopenpath,
 		onerror
 	}: {
 		src: string;
 		fileName: string;
 		/** Markdown のファイルを、組まずにソースのまま見せる。ほかのファイルには効かない。 */
 		source?: boolean;
+		/** このファイルの場所。Markdown のプレビューが、相対パスの画像とリンクを解決するのに使う。 */
+		location?: ContentLocation;
+		/** プレビューの相対パスのリンクが押された。`path` はコンテンツの登録先からの相対パス。 */
+		onopenpath?: (path: string) => void;
 		onerror: () => void;
 	} = $props();
 
@@ -69,7 +80,7 @@
 	$effect(() => {
 		if (text === undefined || !isMarkdown) return;
 		let cancelled = false;
-		renderMarkdownPreview(text, m.common_scroll_table_label())
+		renderMarkdownPreview(text, m.common_scroll_table_label(), location)
 			.catch(() => undefined)
 			.then((html) => {
 				if (!cancelled) preview = html ?? null;
@@ -88,6 +99,19 @@
 			});
 		return () => (cancelled = true);
 	});
+
+	/** 相対パスのリンクは、ページを移らずにビューアーで開く。修飾キー付きは、ブラウザーの別のタブで開く動きに任せる。 */
+	function handlePreviewClick(event: MouseEvent) {
+		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+			return;
+		if (!(event.target instanceof Element)) return;
+		const path = event.target
+			.closest(`a[${LINKED_PATH_ATTRIBUTE}]`)
+			?.getAttribute(LINKED_PATH_ATTRIBUTE);
+		if (!path) return;
+		event.preventDefault();
+		onopenpath?.(path);
+	}
 
 	/** プレビューの中のコードの塊に、言語の指定 (```` ```yaml ````) に合わせて色を付ける。 */
 	function highlightCodeBlocks(article: HTMLElement) {
@@ -113,9 +137,12 @@
 		<!-- 無害化した HTML (→ $lib/markdown-preview.ts)。 -->
 		<!-- eslint-disable svelte/no-at-html-tags -->
 		{#key preview}
+			<!-- 押されるのは中の相対パスのリンクで、この要素はそのクリックを受けるだけ。リンクは Enter でもクリックを起こすので、キーの操作は別に要らない。 -->
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 			<article
 				class="markdown-body markdown-preview code-view mx-auto max-w-4xl rounded-md bg-background p-4 text-base leading-relaxed break-words text-foreground sm:p-6"
 				{@attach highlightCodeBlocks}
+				onclick={handlePreviewClick}
 			>
 				{@html preview}
 			</article>

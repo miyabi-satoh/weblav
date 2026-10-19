@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderMarkdownPreview } from './markdown-preview';
+import { LINKED_PATH_ATTRIBUTE, renderMarkdownPreview } from './markdown-preview';
 
 // 無害化は DOM が要るので、ブラウザーで走らせる (ファイル名の `.svelte.spec` → vite.config.ts)。
 
@@ -67,10 +67,26 @@ describe('renderMarkdownPreview', () => {
 		expect(links[3].textContent).toBe('相対');
 	});
 
-	it('相対パスの画像は読み込まず、代わりの文字にする', async () => {
+	it('ファイルの場所が分からなければ、相対パスの画像は読み込まず、代わりの文字にする', async () => {
 		const html = await render('![図1](images/a.png)');
 		expect(html.querySelector('img')).toBeNull();
 		expect(html.textContent).toContain('図1');
+	});
+
+	it('相対パスの画像とリンクを、ファイルの場所から解決する', async () => {
+		const container = document.createElement('div');
+		container.innerHTML =
+			(await renderMarkdownPreview('![図1](assets/a.png) [次](../b.md) [外](../../../c.md)', '表', {
+				path: 'docs/spec/a.md',
+				src: (path) => `/files?path=${path}`
+			})) ?? '';
+		expect(container.querySelector('img')?.getAttribute('src')).toBe(
+			'/files?path=docs/spec/assets/a.png'
+		);
+		const [next, outside] = container.querySelectorAll('a');
+		expect(next.getAttribute('href')).toBe('/files?path=docs/b.md');
+		expect(next.getAttribute(LINKED_PATH_ATTRIBUTE)).toBe('docs/b.md');
+		expect(outside.hasAttribute('href')).toBe(false);
 	});
 
 	it('表を、キーボードで送れる領域で包む', async () => {

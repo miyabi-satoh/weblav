@@ -11,7 +11,7 @@ use axum::extract::{Path, Query, Request, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
@@ -144,6 +144,9 @@ pub(super) struct ArchiveViewItem {
     title: String,
     /// `rel_path` の最後の要素。ページ内プレイヤーへの振り分け (→ docs/ui.md「音声のページ内プレイヤー」) に使う。
     file_name: String,
+    /// アーカイブの登録先からの相対パス。Markdown のプレビューが、相対パスの画像とリンクを
+    /// このファイルの場所から解決するのに使う (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
+    rel_path: String,
     /// 行の2段目に出す軸の値 (→ docs/ui.md「アーカイブの一覧画面」)。出す値が無ければ `None`。
     subtitle: Option<String>,
     /// ページ内でプレビューする画像なら、その大きさ (→ docs/ui.md「画像のプレビュー」)。
@@ -156,11 +159,17 @@ pub(super) struct ArchiveViewItem {
 
 impl ArchiveViewItem {
     /// プレビューの情報はファイルを読むので空のまま作り、見せる行にだけ `with_preview` で足す。
-    fn new(id: i64, derived: archive::DerivedItem, subtitle: Option<String>) -> Self {
+    fn new(
+        id: i64,
+        rel_path: String,
+        derived: archive::DerivedItem,
+        subtitle: Option<String>,
+    ) -> Self {
         Self {
             id,
             title: derived.title,
             file_name: derived.file_name,
+            rel_path,
             subtitle,
             image: None,
             is_text: false,
@@ -445,7 +454,8 @@ fn build_archive_view(
         .into_iter()
         .map(|(id, rel_path, derived, _)| {
             let subtitle = item_subtitle(axes, &derived, &template_axes, &active_filters);
-            (rel_path, ArchiveViewItem::new(id, derived, subtitle))
+            let item = ArchiveViewItem::new(id, rel_path.clone(), derived, subtitle);
+            (rel_path, item)
         })
         .collect();
 
@@ -531,7 +541,7 @@ pub(super) async fn search_items(
                     archive_id: archive.id,
                     rel_path: row.rel_path.clone(),
                     sort_key: derived.sort_key(),
-                    item: ArchiveViewItem::new(row.id, derived, subtitle),
+                    item: ArchiveViewItem::new(row.id, row.rel_path.clone(), derived, subtitle),
                 });
             }
         }
@@ -781,6 +791,47 @@ async fn download_item(
     Ok(file.download(request).await)
 }
 
+#[derive(Debug, Deserialize, IntoParams)]
+struct ItemPathQuery {
+    /// アーカイブの登録先からの相対パス。`/` 区切りで、アイテムの `relPath` と同じ形。
+    path: String,
+}
+
+/// 相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。Markdown のプレビューが、
+/// 相対パスの画像とリンクを開くのに使う。見える条件は `download_item` と同じ。
+#[utoipa::path(
+    get,
+    path = "/contents/{id}/archive/download",
+    params(("id" = i64, Path), ItemPathQuery),
+    responses(
+        (status = OK, description = "ファイルの内容"),
+        (status = 401, body = crate::error::ErrorResponse, description = "閲覧にログインが必要"),
+        (status = 404, body = crate::error::ErrorResponse, description = "索引に無い・非公開のアイテム、または実体が無い"),
+    )
+)]
+async fn download_item_by_path(
+    viewer: Viewer,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Query(query): Query<ItemPathQuery>,
+    request: Request,
+) -> Result<Response, AppError> {
+    let item_id = sqlx::query_scalar!(
+        r#"SELECT id as "id!" FROM archive_items WHERE archive_id = ? AND rel_path = ?"#,
+        id,
+        query.path
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+    // 公開範囲の判定は、アイテムが無いときも先に通す。見えないアーカイブで、パスがあるかを答えないため。
+    let Some(item_id) = item_id else {
+        load_viewable_archive(&state.pool, &viewer, id).await?;
+        return Err(AppError::NotFound);
+    };
+    let file = item_file(&state, &viewer, id, item_id).await?;
+    Ok(file.download(request).await)
+}
+
 /// 管理画面からのアイテムの配信 (→ docs/archive.md「アイテムの配信」)。未公開も渡す。
 /// 辞書を決めるときに、公開せずに中身を確かめるためのもの。
 /// 閲覧用の `download_item` の判定 (未公開は隠す) とは混ぜず、管理の権限で別に判定する。
@@ -868,6 +919,7 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
     // (→ `api::browser`)。他のルートを巻き込まないよう別に組み立てて merge する。
     let download_routes = OpenApiRouter::new()
         .routes(routes!(download_item))
+        .routes(routes!(download_item_by_path))
         .routes(routes!(manage_download_item))
         .layer(axum::middleware::from_fn(
             super::browser::redirect_errors_for_browsers,
@@ -896,6 +948,7 @@ mod tests {
                 id: 0,
                 title: title.to_string(),
                 file_name: String::new(),
+                rel_path: rel_path.to_string(),
                 subtitle: None,
                 image: None,
                 is_text: false,

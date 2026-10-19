@@ -6,6 +6,7 @@
  */
 
 import { aiChat } from '$lib/ai-chat.svelte';
+import type { ContentLocation } from '$lib/content-location';
 import * as m from '$lib/paraglide/messages.js';
 import type { ViewerItem } from '$lib/viewer-items';
 
@@ -18,6 +19,8 @@ export type ViewerImage = {
 	width: number;
 	height: number;
 	title: string;
+	/** コンテンツの中の場所。Markdown のプレビューの相対パスのリンクから、この画像へ移るのに使う。 */
+	location?: ContentLocation;
 };
 
 /** 行の縮小画像に付ける属性。開閉のアニメーションの起点を、元の画像の URL で探す。 */

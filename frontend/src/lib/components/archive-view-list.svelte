@@ -17,7 +17,12 @@
 	import FilterHighlight from '$lib/components/filter-highlight.svelte';
 	import { listFilter } from '$lib/list-filter.svelte';
 	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
-	import { archiveItemDownloadHref, archiveItemThumbnailHref } from '$lib/api/urls';
+	import {
+		archiveFileHref,
+		archiveItemDownloadHref,
+		archiveItemThumbnailHref
+	} from '$lib/api/urls';
+	import type { ContentLocation } from '$lib/content-location';
 	import { isAudioFileName, isLinksFileName, viewerFileKind } from '$lib/file-kind';
 	import { LinksFileIcon } from '$lib/links-file';
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
@@ -55,6 +60,11 @@
 		return archiveItemDownloadHref(row.archiveId, row.item.id);
 	}
 
+	/** Markdown のプレビューが相対パスを解決する場所。相対パスの先は、アイテムの番号でなくパスで引く。 */
+	function location(row: ArchiveViewRow): ContentLocation {
+		return { path: row.item.relPath, src: (path) => archiveFileHref(row.archiveId, path) };
+	}
+
 	function toTrack(row: ArchiveViewRow): Track {
 		return { src: downloadHref(row), title: row.item.title };
 	}
@@ -70,7 +80,8 @@
 			thumbnailSrc: archiveItemThumbnailHref(row.archiveId, row.item.id),
 			width: row.item.image.width,
 			height: row.item.image.height,
-			title: row.item.title
+			title: row.item.title,
+			location: location(row)
 		};
 	}
 
@@ -92,7 +103,8 @@
 			title: row.item.title,
 			fileName: row.item.fileName,
 			kind,
-			thumbnail: rowThumbnail(row)
+			thumbnail: rowThumbnail(row),
+			location: location(row)
 		};
 	}
 

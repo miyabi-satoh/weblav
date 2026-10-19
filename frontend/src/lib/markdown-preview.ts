@@ -4,6 +4,7 @@
  */
 
 import { MARKDOWN_EXTENSIONS, MAX_FORMATTED_LENGTH } from '$lib/code-highlight';
+import { resolveRelativePath, type ContentLocation } from '$lib/content-location';
 import { fileExtension } from '$lib/file-kind';
 
 /** Markdown として組んで見せるファイルか。 */
@@ -73,21 +74,25 @@ const ALLOWED_ATTR = [
 	'type'
 ];
 
-/** リンク先として残す URL。ほかの形 (相対パス・`javascript:` など) はリンクを外して文字だけ残す。 */
+/** リンク先として残す URL。相対パスはファイルの場所から解決し、ほかの形 (`javascript:` など) はリンクを外して文字だけ残す。 */
 const LINK_URL = /^(https?:|mailto:)/i;
 /** 画像として読み込む URL。 */
 const IMAGE_URL = /^https?:/i;
 /** 残す `class`。アプリの画面の class (Tailwind) を書かれると、画面を覆う形にもできるため絞る。 */
 const ALLOWED_CLASS = /^(language-\S+|table-scroll)$/;
+/** 相対パスのリンクに付ける、解決した登録先からの相対パス。押したときに、ビューアーでそのファイルを開く。 */
+export const LINKED_PATH_ATTRIBUTE = 'data-linked-path';
 
 /**
  * `text` を、無害化した HTML にする。組まないもの (長すぎる) は `undefined`。
  *
  * @param tableLabel 表を包む領域の名前 (→ $lib/manual-markdown.ts の `ScrollTableRenderer`)。
+ * @param location このファイルの場所。無ければ、相対パスの画像とリンクを解決しない (ファイル1つのコンテンツなど)。
  */
 export async function renderMarkdownPreview(
 	text: string,
-	tableLabel: string
+	tableLabel: string,
+	location?: ContentLocation
 ): Promise<string | undefined> {
 	if (text.length > MAX_FORMATTED_LENGTH) return undefined;
 	const [{ marked }, { ScrollTableRenderer, collapseCjkLineBreaks }, { default: DOMPurify }] =
@@ -107,9 +112,20 @@ export async function renderMarkdownPreview(
 		if (input.getAttribute('type') === 'checkbox') input.setAttribute('disabled', '');
 		else input.remove();
 	}
+	// 相対パスは、そのままではこのページの URL から解決されて別のものを指すので、ファイルの場所から解決し直す。
+	const resolve = (href: string | null) => {
+		if (href === null || location === undefined) return undefined;
+		const path = resolveRelativePath(location.path, href);
+		return path === undefined ? undefined : { path, src: location.src(path) };
+	};
 	for (const link of fragment.querySelectorAll('a')) {
 		const href = link.getAttribute('href');
-		if (href === null || !LINK_URL.test(href)) {
+		const linked = resolve(href);
+		if (linked) {
+			// href は、別のタブで開く操作 (中クリックなど) のために残す。
+			link.setAttribute('href', linked.src);
+			link.setAttribute(LINKED_PATH_ATTRIBUTE, linked.path);
+		} else if (href === null || !LINK_URL.test(href)) {
 			link.removeAttribute('href');
 		} else {
 			// ビューアーの下の一覧を残したまま、別のタブで開く。
@@ -119,7 +135,10 @@ export async function renderMarkdownPreview(
 	}
 	for (const image of fragment.querySelectorAll('img')) {
 		const src = image.getAttribute('src');
-		if (src === null || !IMAGE_URL.test(src)) {
+		const resolved = resolve(src);
+		if (resolved) {
+			image.setAttribute('src', resolved.src);
+		} else if (src === null || !IMAGE_URL.test(src)) {
 			image.replaceWith(document.createTextNode(image.getAttribute('alt') ?? ''));
 		}
 	}

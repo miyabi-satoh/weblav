@@ -18,6 +18,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import VideoPlayer from '$lib/components/video-player.svelte';
 	import { viewerButtonClass } from '$lib/viewer-button';
+	import { openLinkedPath } from '$lib/viewer-items';
 	import * as m from '$lib/paraglide/messages.js';
 
 	// PDF・動画・テキストなどをページの上に重ねて表示するビューアー (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
@@ -204,6 +205,10 @@
 								src={current.src}
 								fileName={current.fileName}
 								source={markdownSource}
+								location={current.location}
+								onopenpath={(path) => {
+									if (current?.location) openLinkedPath(current.location, path);
+								}}
 								onerror={() => (failed = true)}
 							/>
 						{:else if current.kind === 'office'}

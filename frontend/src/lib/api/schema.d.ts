@@ -799,6 +799,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/{id}/archive/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。Markdown のプレビューが、
+         *     相対パスの画像とリンクを開くのに使う。見える条件は `download_item` と同じ。
+         */
+        get: operations["download_item_by_path"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/{id}/axes": {
         parameters: {
             query?: never;
@@ -1792,6 +1812,11 @@ export interface components {
             image?: components["schemas"]["ImageSize"] | null;
             /** @description テキストのビューアーで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューアー」)。 */
             isText: boolean;
+            /**
+             * @description アーカイブの登録先からの相対パス。Markdown のプレビューが、相対パスの画像とリンクを
+             *     このファイルの場所から解決するのに使う (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
+             */
+            relPath: string;
             /** @description 行の2段目に出す軸の値 (→ docs/ui.md「アーカイブの一覧画面」)。出す値が無ければ `None`。 */
             subtitle?: string | null;
             /** @description 行に縮小画像を出してみるか (→ docs/ui.md「画像のプレビュー」)。 */
@@ -5323,6 +5348,47 @@ export interface operations {
                 };
             };
             /** @description 存在しない・アーカイブでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    download_item_by_path: {
+        parameters: {
+            query: {
+                /** @description アーカイブの登録先からの相対パス。`/` 区切りで、アイテムの `relPath` と同じ形。 */
+                path: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ファイルの内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 閲覧にログインが必要 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 索引に無い・非公開のアイテム、または実体が無い */
             404: {
                 headers: {
                     [name: string]: unknown;

@@ -65,6 +65,11 @@ export function archiveItemDownloadHref(contentId: number, itemId: number): stri
 	return `/api/v1/contents/${contentId}/items/${itemId}/download`;
 }
 
+/** `GET /api/v1/contents/{id}/archive/download` へのリンク。`path` (登録先からの相対パス) でアイテムを指す。 */
+export function archiveFileHref(contentId: number, path: string): string {
+	return withQuery(`/api/v1/contents/${contentId}/archive/download`, { path });
+}
+
 /** `GET /api/v1/contents/{id}/items/{item_id}/manage-download` へのリンク。管理画面用で、未公開も開ける。 */
 export function archiveItemManageDownloadHref(contentId: number, itemId: number): string {
 	return `/api/v1/contents/${contentId}/items/${itemId}/manage-download`;

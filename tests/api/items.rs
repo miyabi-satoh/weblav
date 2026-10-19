@@ -315,6 +315,26 @@ async fn archive_download_item_serves_published_file(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK);
 }
 
+/// 相対パスで指したアイテムも、`item_id` で指したときと同じ条件で配信する。索引に無いパスは404
+/// (→ docs/archive.md「アイテムの配信」)。
+#[sqlx::test]
+async fn archive_download_item_by_path_serves_only_published_indexed_file(pool: SqlitePool) {
+    let (app, cookie, id, _dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
+    let download = |path: &'static str| {
+        let app = app.clone();
+        let cookie = cookie.clone();
+        async move {
+            let uri = format!("/api/v1/contents/{id}/archive/download?path={path}");
+            send_empty(app, "GET", &uri, &cookie).await.0
+        }
+    };
+
+    assert_eq!(download("2024_kokugo.pdf").await, StatusCode::NOT_FOUND);
+    publish_all_items(&pool, id).await;
+    assert_eq!(download("2024_kokugo.pdf").await, StatusCode::OK);
+    assert_eq!(download("missing.pdf").await, StatusCode::NOT_FOUND);
+}
+
 /// 管理用の配信は、未公開のアイテムも渡す。匿名には401 (→ docs/archive.md「アイテムの配信」)。
 #[sqlx::test]
 async fn archive_manage_download_item_serves_unpublished_file(pool: SqlitePool) {

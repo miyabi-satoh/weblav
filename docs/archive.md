@@ -230,11 +230,13 @@ UPSERT する処理は必須ではなくなる。値の管理画面は、その�
   選択肢と件数も、外した後の行から作る。登録先のフォルダーごと無ければ、閲覧用の一覧の応答に `folderMissing` を立て、画面は空の一覧の代わりにそう出す。
   管理用の一覧は外さず、`missing` を付けて返す。画面は行に印を付け、一覧の上に一度だけ知らせる。どちらも、再スキャンで行が外れる。
 - `GET /api/v1/contents/{id}/items/{item_id}/download`。
-- 相対パスをクエリで受けず、`item_id` から `rel_path` を引く。索引済みの
+- 受けた値をそのままファイルのパスにせず、`item_id` から索引の `rel_path` を引く。索引済みの
   アイテムだけが配信対象になるため、`folder` の `?path=` 方式より判定が単純になる。
 - 実際のファイル読み出しは `folder` と同じ `resolve_path` +
   `serve_file_response` を共有する (canonicalize + `starts_with` 検証、
   Range 対応、`Content-Disposition`、`X-Content-Type-Options` を再利用)。
+- **Markdown のプレビューの相対パス (→ ui.md「PDF・動画・テキストのビューアー」) は、`GET /api/v1/contents/{id}/archive/download?path=` で開く**。
+  `path` も索引の `rel_path` と突き合わせるだけで、そのままファイルのパスにはしない。あとは `item_id` で指したときと同じ判定で渡す。索引に無いパスは404。閲覧用の一覧のアイテムに `relPath` を載せ、プレビューはそこから解決する。
 - **管理画面からは `GET /api/v1/contents/{id}/items/{item_id}/manage-download` で開き、未公開も渡す**。
   権限はアーカイブを管理できること (`AuthUser` のうち、他人の `private` は `admin` だけ。管理用の一覧と同じ)。
   閲覧用の口に「管理者なら未公開も渡す」分岐を足さず、口を分ける。閲覧側の一覧と配信が同じ条件を見る形 (→ 「アイテムの公開」) を崩さないため。
@@ -250,6 +252,7 @@ UPSERT する処理は必須ではなくなる。値の管理画面は、その�
 | `PUT /contents/{id}/items` | `AuthUser` | 公開フラグの一括切り替え |
 | `PUT /contents/{id}/items/{item_id}` | `AuthUser` | 公開フラグの単体切り替え |
 | `GET /contents/{id}/items/{item_id}/download` | `Viewer` | アイテムの配信 (→ 「アイテムの配信」) |
+| `GET /contents/{id}/archive/download` | `Viewer` | 相対パスで指したアイテムの配信 (→ 「アイテムの配信」) |
 | `GET /contents/{id}/items/{item_id}/manage-download` | `AuthUser` | 管理画面からのアイテムの配信。未公開も渡す (→ 「アイテムの配信」) |
 | `GET /contents/{id}/axes` | `AuthUser` | 軸の一覧 |
 | `PUT /contents/{id}/axes` | `AdminUser` | 軸・値の辞書・表示タイトルのテンプレートをまとめて置き換える (→ 「軸の定義を外部の AI で作る」) |
