@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { highlightSegments, matchFilter, parseFilterTerms } from './list-filter';
+import { containsTerms, highlightSegments, matchFilter, parseFilterTerms } from './list-filter';
 
 function match(text: string, query: string) {
 	return matchFilter(text, parseFilterTerms(query));
@@ -44,5 +44,16 @@ describe('highlightSegments', () => {
 			{ text: 'リス', hit: true },
 			{ text: 'ニング', hit: false }
 		]);
+	});
+});
+
+describe('containsTerms', () => {
+	it('どの語も続いたまま含まれるときだけ当たる。大文字小文字と全角半角は揃える', () => {
+		expect(containsTerms('docs/generated/spec/01-login.md', parseFilterTerms('SPEC ０１'))).toBe(
+			true
+		);
+		expect(containsTerms('docs/manual/en/06-archive-setup.md', parseFilterTerms('spec'))).toBe(
+			false
+		);
 	});
 });

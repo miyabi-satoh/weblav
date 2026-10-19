@@ -15,6 +15,7 @@
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { formatNumber } from '$lib/format';
 	import { linksFileHref } from '$lib/links-file';
+	import { containsTerms } from '$lib/list-filter';
 	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { browseRowAboveClass } from '$lib/list-row';
 	import { adminPageClass, pageEmptyTextClass } from '$lib/page-layout';
@@ -78,12 +79,17 @@
 	let rows = $derived(items.map((item) => ({ archiveId: contentId, item })));
 	let byId = $derived(new Map(view.items.map((item) => [item.id, item])));
 
-	/** 名前の絞り込みは、表示タイトルとパスで照らす (パスで探したいことがあるため)。 */
-	function filterText(row: ArchiveViewRow): string {
-		return `${row.item.title}\n${row.item.relPath}`;
+	/**
+	 * 名前の絞り込みは、表示タイトルに加えてパスでも照らす (→ docs/archive.md「アイテムの公開」)。
+	 * パスは続いた文字列だけで照らす (→ $lib/list-filter.ts の `containsTerms`)。
+	 */
+	function matches(row: ArchiveViewRow): boolean {
+		return (
+			listFilter.match(row.item.title) !== null || containsTerms(row.item.relPath, listFilter.terms)
+		);
 	}
 
-	let visibleRows = $derived(listFilter.apply(rows, filterText));
+	let visibleRows = $derived(listFilter.active ? rows.filter(matches) : rows);
 
 	function linksHref(row: ArchiveViewRow): string {
 		return linksFileHref(contentId, { item: row.item.id }, data.filters);
@@ -336,7 +342,7 @@
 				{rows}
 				{linksHref}
 				urls={MANAGE_URLS}
-				{filterText}
+				{matches}
 				leading={selectBox}
 				trailing={publishSwitch}
 				subtitle={itemSubtitle}

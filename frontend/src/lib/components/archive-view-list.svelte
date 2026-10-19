@@ -66,7 +66,7 @@
 		rows: allRows,
 		linksHref,
 		urls = BROWSE_URLS,
-		filterText = (row) => row.item.title,
+		matches,
 		leading,
 		trailing,
 		subtitle: subtitleOverride
@@ -74,8 +74,8 @@
 		rows: ArchiveViewRow[];
 		linksHref: (row: ArchiveViewRow) => string;
 		urls?: ArchiveItemUrls;
-		/** ページ内の絞り込みで照らす文字。 */
-		filterText?: (row: ArchiveViewRow) => string;
+		/** ページ内の絞り込みで残す行か。無ければ表示タイトルで照らす。 */
+		matches?: (row: ArchiveViewRow) => boolean;
 		/** 行の前に置くもの (管理画面の選択のチェック)。 */
 		leading?: Snippet<[ArchiveViewRow]>;
 		/** 行の後ろに置くもの (管理画面の公開の切り替え)。 */
@@ -86,7 +86,13 @@
 
 	// ページ内の絞り込みが置かれていれば、行を絞る (→ docs/ui.md「一覧の絞り込み」)。
 	const filter = listFilter();
-	let rows = $derived(filter ? filter.apply(allRows, filterText) : allRows);
+	let rows = $derived(
+		matches && filter?.active
+			? allRows.filter(matches)
+			: filter
+				? filter.apply(allRows, (row) => row.item.title)
+				: allRows
+	);
 
 	function downloadHref(row: ArchiveViewRow): string {
 		return urls.download(row.archiveId, row.item.id);

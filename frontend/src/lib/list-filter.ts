@@ -77,6 +77,15 @@ function subsequenceMatch(chars: string[], term: string[]): number[] | null {
 }
 
 /** 当たった位置で区切った断片。強調の表示に使う。 */
+/**
+ * `terms` のどの語も、続いたまま `text` に含まれるか。パスのように長い文字列では、間を空けた当たりを許すと
+ * ほとんどの行に当たってしまうので、続いた当たりだけを見る。
+ */
+export function containsTerms(text: string, terms: string[][]): boolean {
+	const normalized = normalize(text);
+	return terms.every((term) => normalized.includes(term.join('')));
+}
+
 export function highlightSegments(
 	text: string,
 	hits: readonly number[]
