@@ -1,18 +1,17 @@
 <script lang="ts">
+	import BrowseControls from '$lib/components/browse-controls.svelte';
 	import BrowseHeading from '$lib/components/browse-heading.svelte';
-	import BrowseFilterInput from '$lib/components/browse-filter-input.svelte';
 	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
 	import { SORT_OPTIONS, browseSortHref, type BrowseSort } from '$lib/browse-sort';
 	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
-	import BrowseLayoutToggle from '$lib/components/browse-layout-toggle.svelte';
 	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
 	import AiLinksSection from '$lib/components/ai-links-section.svelte';
 	import ContentList from '$lib/components/content-list.svelte';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
-	import { browseControlsClass, browseGutterClass } from '$lib/list-row';
+	import { browseGutterClass } from '$lib/list-row';
 	import { pageEmptyTextClass } from '$lib/page-layout';
 
 	let { data }: PageProps = $props();
@@ -35,6 +34,10 @@
 
 <svelte:head><title>{pageTitle(browse.groupTitle)}</title></svelte:head>
 
+{#snippet sortSelect()}
+	<BrowseSortSelect value={data.sort} options={SORT_OPTIONS} href={sortHref} />
+{/snippet}
+
 <div class="py-6">
 	<div class={browseGutterClass}>
 		<!-- パンくずは常にURLナビゲーションで遷移する(folders/[id]/+page.svelteと同じ方針)。
@@ -52,16 +55,8 @@
 		/>
 
 		{#if browse.entries.length > 0 || (data.aiLinks?.links.length ?? 0) > 0}
-			<div class={['mb-4', browseControlsClass]}>
-				<div class="flex flex-wrap gap-2.5">
-					<!-- 並び順が効くのはグループの中身だけ。AI が集めたリンクは、AI が選んだ順に並ぶ。 -->
-					{#if browse.entries.length > 0}
-						<BrowseSortSelect value={data.sort} options={SORT_OPTIONS} href={sortHref} />
-					{/if}
-					<BrowseFilterInput />
-				</div>
-				<BrowseLayoutToggle />
-			</div>
+			<!-- 並び順が効くのはグループの中身だけ。AI が集めたリンクは、AI が選んだ順に並ぶ。 -->
+			<BrowseControls class="mb-4" sort={browse.entries.length > 0 ? sortSelect : undefined} />
 		{/if}
 	</div>
 

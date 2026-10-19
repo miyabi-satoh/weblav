@@ -1,15 +1,13 @@
 <script lang="ts">
+	import BrowseControls from '$lib/components/browse-controls.svelte';
 	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { withQuery } from '$lib/href';
 	import * as m from '$lib/paraglide/messages.js';
 	import { ARCHIVE_SORT_OPTIONS, archiveSortHref, type ArchiveSort } from '$lib/archive-sort';
-	import { browseControlsClass } from '$lib/list-row';
 	import { listFilter } from '$lib/list-filter.svelte';
 	import * as Select from '$lib/components/ui/select';
-	import BrowseFilterInput from '$lib/components/browse-filter-input.svelte';
 	import BrowseSelectTrigger from '$lib/components/browse-select-trigger.svelte';
-	import BrowseLayoutToggle from '$lib/components/browse-layout-toggle.svelte';
 	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
 	import type { components } from '$lib/api/schema';
 	import { formatNumber } from '$lib/format';
@@ -107,38 +105,35 @@
 	let resetHref = $derived(withQuery(path, list?.query ?? {}));
 </script>
 
+{#snippet sortSelect()}
+	<BrowseSortSelect value={sort} options={ARCHIVE_SORT_OPTIONS} href={sortHref} />
+{/snippet}
+
 {#if hasItems || axes.length > 0}
-	<div class={browseControlsClass}>
-		<div class="flex flex-wrap gap-2.5">
-			<BrowseSortSelect value={sort} options={ARCHIVE_SORT_OPTIONS} href={sortHref} />
-			<BrowseFilterInput />
-			{#each axes as axis (axis.name)}
-				{@const filtered = selectedOption(axis) !== undefined}
-				<Select.Root
-					type="single"
-					bind:value={() => axisValue(axis), (v) => handleAxisChange(axis, v)}
-				>
-					<BrowseSelectTrigger label={axis.name} value={axisLabel(axis)} highlighted={filtered} />
-					<Select.Content>
-						<Select.Item value={allValueFor(axis)}>{m.archive_view_filter_all()}</Select.Item>
-						<!-- 選んだときに残る件数を添える。0件の組み合わせを選ぶ前に見分けられる
-						     ようにするためで、選択肢自体は 0 でも消さない (→ docs/archive.md「エンドポイント一覧」)。 -->
-						{#each axis.options as option (option.value)}
-							<Select.Item value={option.value}>
-								<span>{option.value}</span>
-								<span class="text-xs text-muted-foreground">{option.count}</span>
-							</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
-			{/each}
-			{@render extra?.()}
-		</div>
-		<!-- 絞り込みで0件になっても並び順と絞り込みは残すが、並べる物が無いので切り替えは出さない。 -->
-		{#if hasItems}
-			<BrowseLayoutToggle />
-		{/if}
-	</div>
+	<!-- 絞り込みで0件になっても並び順と絞り込みは残すが、並べる物が無いので切り替えは出さない。 -->
+	<BrowseControls layoutToggle={hasItems} sort={sortSelect}>
+		{#each axes as axis (axis.name)}
+			{@const filtered = selectedOption(axis) !== undefined}
+			<Select.Root
+				type="single"
+				bind:value={() => axisValue(axis), (v) => handleAxisChange(axis, v)}
+			>
+				<BrowseSelectTrigger label={axis.name} value={axisLabel(axis)} highlighted={filtered} />
+				<Select.Content>
+					<Select.Item value={allValueFor(axis)}>{m.archive_view_filter_all()}</Select.Item>
+					<!-- 選んだときに残る件数を添える。0件の組み合わせを選ぶ前に見分けられる
+					     ようにするためで、選択肢自体は 0 でも消さない (→ docs/archive.md「エンドポイント一覧」)。 -->
+					{#each axis.options as option (option.value)}
+						<Select.Item value={option.value}>
+							<span>{option.value}</span>
+							<span class="text-xs text-muted-foreground">{option.count}</span>
+						</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+		{/each}
+		{@render extra?.()}
+	</BrowseControls>
 {/if}
 
 <!-- フォルダーが無いときは、件数を数える物が無い (下に「フォルダーが見つかりません。」だけを出す)。 -->

@@ -1,6 +1,6 @@
 <script lang="ts">
+	import BrowseControls from '$lib/components/browse-controls.svelte';
 	import BrowseHeading from '$lib/components/browse-heading.svelte';
-	import BrowseFilterInput from '$lib/components/browse-filter-input.svelte';
 	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { resolve } from '$app/paths';
 	import { withQuery } from '$lib/href';
@@ -9,9 +9,8 @@
 	import { breadcrumbLinkClass, pathCrumbs } from '$lib/breadcrumb';
 	import { RefreshedLinkPreviews } from '$lib/link-previews.svelte';
 	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
-	import BrowseLayoutToggle from '$lib/components/browse-layout-toggle.svelte';
 	import LinksEntryList, { type LinksEntryRow } from '$lib/components/links-entry-list.svelte';
-	import { browseControlsClass, browseGutterClass } from '$lib/list-row';
+	import { browseGutterClass } from '$lib/list-row';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
 	import { pageEmptyTextClass } from '$lib/page-layout';
@@ -91,10 +90,7 @@
 		/>
 
 		{#if linksFile.links?.length}
-			<div class={['mb-4 flex-wrap', browseControlsClass]}>
-				<BrowseFilterInput />
-				<BrowseLayoutToggle />
-			</div>
+			<BrowseControls class="mb-4" />
 		{/if}
 	</div>
 

@@ -34,9 +34,6 @@ const listRowSubtitleClass = 'mt-0.5 block text-xs text-muted-foreground sm:text
 /** フォルダー一覧用。名前が生のまま出るため、スマートフォン幅では一段小さくする (→ docs/ui.md「UI 全般」)。 */
 const compactListRowClass = `relative flex min-h-16 w-full items-center gap-3.5 py-2.5 text-left transition-colors hover:bg-muted/50 sm:min-h-18 sm:gap-4 sm:py-3 ${browseGutterClass}`;
 
-/** 一覧の上の段。左に並び順 (と絞り込み)、右端にリストとタイルの切り替えを置く (→ docs/ui.md「UI 全般」)。 */
-export const browseControlsClass = 'flex items-start justify-between gap-3';
-
 /** 一覧の上の段に置く切り替え (リストとタイル・検索の範囲) の1つずつ。高さは並び順のドロップダウンと揃える。 */
 export const browseToggleItemClass =
 	'h-14 bg-background text-muted-foreground data-[state=on]:bg-primary/10 data-[state=on]:text-primary';

@@ -660,6 +660,7 @@
 	"search_nav_label": "Search",
 	"search_title": "Search",
 	"search_query_label": "Search for",
+	"search_query_clear_button": "Clear search",
 	"search_scope_label": "Where to search",
 	"search_scope_within": "In “{title}”",
 	"search_scope_all": "Everywhere",

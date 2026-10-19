@@ -1,4 +1,5 @@
 <script lang="ts">
+	import LabeledInputBox from '$lib/components/labeled-input-box.svelte';
 	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -15,8 +16,6 @@
 		type ScopePlace
 	} from '$lib/row-location';
 	import * as m from '$lib/paraglide/messages.js';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import ArchiveViewList, { type ArchiveViewRow } from '$lib/components/archive-view-list.svelte';
 	import BrowseLayoutToggle from '$lib/components/browse-layout-toggle.svelte';
@@ -24,7 +23,7 @@
 	import FolderEntryList, { type FolderEntryRow } from '$lib/components/folder-entry-list.svelte';
 	import LinksEntryList, { type LinksEntryRow } from '$lib/components/links-entry-list.svelte';
 	import type { components } from '$lib/api/schema';
-	import { browseControlsClass, browseGutterClass, browseToggleItemClass } from '$lib/list-row';
+	import { browseGutterClass, browseToggleItemClass } from '$lib/list-row';
 	import { pageEmptyTextClass, pageHeadingClass } from '$lib/page-layout';
 	import { pageTitle } from '$lib/page-title';
 	import { searchHref, searchScopeLevels } from '$lib/search-scope';
@@ -278,71 +277,67 @@
 {/snippet}
 
 <div class="py-6">
-	<div class={browseGutterClass}>
+	<!-- 結果との間は、一覧の上の段と一覧の間と同じにする。 -->
+	<div class={[browseGutterClass, hasHits && 'mb-4']}>
 		<h1 class={pageHeadingClass}>{m.search_title()}</h1>
 
-		<form role="search" onsubmit={handleSubmit}>
-			<Field.Field>
-				<Field.FieldLabel for="search-query">{m.search_query_label()}</Field.FieldLabel>
-				<Input
+		<!-- 一覧の上の段と同じく、語の欄を伸ばし、リストとタイルの切り替えを1段目の右端に置く (→ docs/ui.md「UI 全般」)。 -->
+		<div class="flex items-start gap-2.5">
+			<form role="search" class="min-w-0 flex-1" onsubmit={handleSubmit}>
+				<LabeledInputBox
 					id="search-query"
-					type="search"
-					autocomplete="off"
-					enterkeyhint="search"
-					bind:ref={input}
+					label={m.search_query_label()}
+					clearLabel={m.search_query_clear_button()}
+					bind:input
 					bind:value={query}
 				/>
-			</Field.Field>
-		</form>
+			</form>
+			{#if hasHits}
+				<BrowseLayoutToggle />
+			{/if}
+		</div>
 
-		{#if data.scopeTitle !== null || hasHits}
-			<!-- 並び順と同じく範囲は左に、リストとタイルの切り替えは右端に置く (→ docs/ui.md「UI 全般」)。 -->
-			<!-- 範囲の名前が収まらなければ、切り替えを折り返して1段を使わせる。 -->
-			<div class={['mt-6 mb-4 flex-wrap', browseControlsClass]}>
-				{#if data.scopeTitle !== null}
-					<!-- 閲覧ページから開いたときだけ出す。最初はそのページの中を選んでおく (→ docs/search.md「範囲」)。 -->
-					<ToggleGroup.Root
-						type="single"
-						variant="outline"
-						class="min-w-0"
-						aria-label={m.search_scope_label()}
-						bind:value={
-							() => (data.all ? 'all' : 'within'),
-							// 選んでいる側をもう一度押すと選択が外れる (空の値が来る) が、どちらかは常に選んでおく。
-							(next) => {
-								if (next === 'within' || next === 'all') switchScope(next === 'all');
-							}
+		{#if data.scopeTitle !== null}
+			<div class="mt-2.5 flex">
+				<!-- 閲覧ページから開いたときだけ出す。最初はそのページの中を選んでおく (→ docs/search.md「範囲」)。 -->
+				<ToggleGroup.Root
+					type="single"
+					variant="outline"
+					class="min-w-0"
+					aria-label={m.search_scope_label()}
+					bind:value={
+						() => (data.all ? 'all' : 'within'),
+						// 選んでいる側をもう一度押すと選択が外れる (空の値が来る) が、どちらかは常に選んでおく。
+						(next) => {
+							if (next === 'within' || next === 'all') switchScope(next === 'all');
 						}
-					>
-						<!-- 部品の既定の shrink-0 を外し、幅が足りなければこちらを縮める。 -->
-						<ToggleGroup.Item value="within" class={['min-w-0 shrink px-4', browseToggleItemClass]}>
-							{@const [before, after] = scopeLabelParts}
-							{@const levels = searchScopeLevels(data.scope?.path)}
-							<!-- 幅が足りなければフォルダーの名前 (頭の1字は残す) だけを縮める。階層は見分けるのに要るので縮めず、 -->
-							<!-- スマートフォンの幅では、切り替えが1段に収まるよう上限を決めて、超えた分だけを切り詰める。 -->
-							<span class="flex min-w-0">
-								<span class="shrink-0">{before}</span>
-								<span class="min-w-7 truncate">{data.scopeTitle}</span>
-								<!-- 先頭の空白 (` / 2025`) が flex の項目の端で詰められないよう、空白をそのまま残す。 -->
-								<span
-									class="max-w-16 shrink-0 overflow-hidden text-ellipsis whitespace-pre sm:max-w-none"
-									>{levels.upper}</span
-								>
-								<span
-									class="max-w-24 shrink-0 overflow-hidden text-ellipsis whitespace-pre sm:max-w-none"
-									>{levels.last}</span
-								>
-								<span class="shrink-0">{after}</span>
-							</span>
-						</ToggleGroup.Item>
-						<ToggleGroup.Item value="all" class={['shrink-0 px-4', browseToggleItemClass]}>
-							{m.search_scope_all()}
-						</ToggleGroup.Item>
-					</ToggleGroup.Root>
-				{/if}
-				{#if hasHits}
-					<div class="ml-auto"><BrowseLayoutToggle /></div>
-				{/if}
+					}
+				>
+					<!-- 部品の既定の shrink-0 を外し、幅が足りなければこちらを縮める。 -->
+					<ToggleGroup.Item value="within" class={['min-w-0 shrink px-4', browseToggleItemClass]}>
+						{@const [before, after] = scopeLabelParts}
+						{@const levels = searchScopeLevels(data.scope?.path)}
+						<!-- 幅が足りなければフォルダーの名前 (頭の1字は残す) だけを縮める。階層は見分けるのに要るので縮めず、 -->
+						<!-- スマートフォンの幅では、切り替えが1段に収まるよう上限を決めて、超えた分だけを切り詰める。 -->
+						<span class="flex min-w-0">
+							<span class="shrink-0">{before}</span>
+							<span class="min-w-7 truncate">{data.scopeTitle}</span>
+							<!-- 先頭の空白 (` / 2025`) が flex の項目の端で詰められないよう、空白をそのまま残す。 -->
+							<span
+								class="max-w-16 shrink-0 overflow-hidden text-ellipsis whitespace-pre sm:max-w-none"
+								>{levels.upper}</span
+							>
+							<span
+								class="max-w-24 shrink-0 overflow-hidden text-ellipsis whitespace-pre sm:max-w-none"
+								>{levels.last}</span
+							>
+							<span class="shrink-0">{after}</span>
+						</span>
+					</ToggleGroup.Item>
+					<ToggleGroup.Item value="all" class={['shrink-0 px-4', browseToggleItemClass]}>
+						{m.search_scope_all()}
+					</ToggleGroup.Item>
+				</ToggleGroup.Root>
 			</div>
 		{/if}
 	</div>

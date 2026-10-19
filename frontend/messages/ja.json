@@ -547,6 +547,7 @@
 	"search_nav_label": "検索",
 	"search_title": "検索",
 	"search_query_label": "検索する語句",
+	"search_query_clear_button": "語句を消す",
 	"search_scope_label": "検索する場所",
 	"search_scope_within": "「{title}」内",
 	"search_scope_all": "すべての場所",
