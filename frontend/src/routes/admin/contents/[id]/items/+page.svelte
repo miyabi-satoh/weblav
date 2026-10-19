@@ -353,6 +353,7 @@
 				{linksHref}
 				urls={MANAGE_URLS}
 				{matches}
+				openable={(row) => !byId.get(row.item.id)?.missing}
 				leading={selectBox}
 				trailing={publishSwitch}
 				subtitle={itemSubtitle}

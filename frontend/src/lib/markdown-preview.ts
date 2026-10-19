@@ -103,6 +103,8 @@ export async function renderMarkdownPreview(
 	const fragment = DOMPurify.sanitize(html, {
 		ALLOWED_TAGS,
 		ALLOWED_ATTR,
+		// 既定では `data-*` を残す。書かれた `data-linked-path` で、見えている URL と別のファイルを開かせないため外す。
+		ALLOW_DATA_ATTR: false,
 		RETURN_DOM_FRAGMENT: true
 	});
 	for (const element of fragment.querySelectorAll('[class]')) {

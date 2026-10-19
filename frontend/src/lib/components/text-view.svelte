@@ -117,7 +117,8 @@
 	function replaceBrokenImages(article: HTMLElement) {
 		for (const image of article.querySelectorAll('img')) {
 			const replace = () => image.replaceWith(document.createTextNode(image.alt));
-			if (image.complete && image.naturalWidth === 0) replace();
+			// 読み終えて幅が 0 でも、寸法を持たない SVG は読めている。読めなかったかは decode で確かめる。
+			if (image.complete && image.naturalWidth === 0) image.decode().catch(replace);
 			else image.addEventListener('error', replace, { once: true });
 		}
 	}

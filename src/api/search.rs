@@ -132,13 +132,19 @@ impl Term {
             return None;
         }
         let found = self.fuzzy.as_mut()?.match_one_indices(text, 0)?;
-        // 当たった文字の位置 (バイト) から、間に挟まった文字数を数える。
+        // 当たった文字の位置から、間に挟まった文字数を数える。
+        // `indices` は当たった文字の全部のバイトを指すので、当たった文字の数は文字の頭のバイトで数える。
         let first = *found.indices.iter().min()? as usize;
         let last = *found.indices.iter().max()? as usize;
         let span = text
             .get(first..=last)
             .map_or(0, |part| part.chars().count());
-        let gaps = span.saturating_sub(found.indices.len());
+        let matched = found
+            .indices
+            .iter()
+            .filter(|&&index| text.is_char_boundary(index as usize))
+            .count();
+        let gaps = span.saturating_sub(matched);
         (gaps <= self.chars.len() * FUZZY_MAX_GAPS_PER_CHAR)
             .then_some((Tier::Fuzzy, u32::from(found.score)))
     }
@@ -431,6 +437,9 @@ mod tests {
         assert!(own("tinu", "review-units.mp4").is_none());
         // 長い名前に散らばった文字には当てない。
         assert!(own("mugenp", "admin_archive_axes_word_suggestions_desktop").is_none());
+        // 日本語でも、間に挟まる文字は語の長さの2倍まで。
+        assert!(own("英単語", "英語の単元の語彙").is_some());
+        assert!(own("英単語", "英語のリスニングの単元の語彙").is_none());
     }
 
     #[test]

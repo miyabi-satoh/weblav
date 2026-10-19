@@ -89,6 +89,13 @@ describe('renderMarkdownPreview', () => {
 		expect(outside.hasAttribute('href')).toBe(false);
 	});
 
+	it('書かれた data 属性は残さず、外へのリンクを中のファイルとして開かせない', async () => {
+		const html = await render(
+			'<a href="https://example.com" data-linked-path="secret/x.md">外</a>'
+		);
+		expect(html.querySelector('a')?.hasAttribute(LINKED_PATH_ATTRIBUTE)).toBe(false);
+	});
+
 	it('表を、キーボードで送れる領域で包む', async () => {
 		const html = await render('| a | b |\n| - | - |\n| 1 | 2 |');
 		const region = html.querySelector('.table-scroll');
