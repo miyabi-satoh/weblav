@@ -52,10 +52,16 @@ enum Tier {
     Substring,
     /// 語の頭からそのまま含む。
     WordStart,
+    /// 文字列の全体と同じ。
+    Whole,
 }
 
 /// ADR: あいまいに当てる語の長さの下限 (文字数)。1〜2文字で飛ばし打ちを効かせると、ほとんど何にでも当たるため。
 const FUZZY_MIN_CHARS: usize = 3;
+
+/// ADR: 飛ばし打ちで、間に挟まってよい文字数の、語の長さに対する倍率。
+/// 長い名前のあちこちに散った文字にまで当たらないようにする (`mugenp` が `admin_archive_..._desktop` に当たるなど)。
+const SUBSEQUENCE_MAX_GAPS_PER_CHAR: usize = 2;
 
 /// ADR: 打ち間違いを1文字・2文字まで許す語の長さ (文字数)。Meilisearch の既定 (`minWordSizeForTypos`) に倣う。
 /// 短い語は1文字違うだけで別の語になる (日本語の2〜3文字の語は特に) ので、許さない。
@@ -135,6 +141,9 @@ impl Terms {
 
 /// 1語を1つの文字列に照らす。当たれば当たり方と、飛ばし打ちで飛ばした文字数。
 fn term_match(term: &[char], text: &[char], fuzzy: bool) -> Option<(Tier, u32)> {
+    if term == text {
+        return Some((Tier::Whole, 0));
+    }
     if let Some(word_start) = substring_at(term, text) {
         return Some((
             if word_start {
@@ -162,10 +171,17 @@ fn term_match(term: &[char], text: &[char], fuzzy: bool) -> Option<(Tier, u32)> 
             None => {}
         }
     }
-    subsequence_gaps(term, text).map(|gaps| (Tier::Subsequence, gaps))
+    subsequence_gaps(term, text)
+        .filter(|gaps| *gaps as usize <= term.len() * SUBSEQUENCE_MAX_GAPS_PER_CHAR)
+        .map(|gaps| (Tier::Subsequence, gaps))
 }
 
-/// そのまま含むか。含むなら、どこかで語の頭 (先頭か、英数字でない文字の直後) から始まるか。
+/// `index` が語の頭 (先頭か、英数字でない文字の直後) か。
+fn is_word_start(text: &[char], index: usize) -> bool {
+    index == 0 || !text[index - 1].is_alphanumeric()
+}
+
+/// そのまま含むか。含むなら、どこかで語の頭から始まるか。
 fn substring_at(term: &[char], text: &[char]) -> Option<bool> {
     if term.is_empty() || term.len() > text.len() {
         return None;
@@ -173,8 +189,7 @@ fn substring_at(term: &[char], text: &[char]) -> Option<bool> {
     let mut found = None;
     for start in 0..=text.len() - term.len() {
         if text[start..start + term.len()] == *term {
-            let word_start = start == 0 || !text[start - 1].is_alphanumeric();
-            if word_start {
+            if is_word_start(text, start) {
                 return Some(true);
             }
             found = Some(false);
@@ -183,13 +198,23 @@ fn substring_at(term: &[char], text: &[char]) -> Option<bool> {
     found
 }
 
-/// `text` のどこかの部分と `term` の、打ち間違いの数 (挿入・削除・置換・隣どうしの入れ替え)。`max` を超えれば `None`。
+/// `text` の語の頭から始まる部分と `term` の、打ち間違いの数 (挿入・削除・置換・隣どうしの入れ替え)。`max` を超えれば `None`。
 /// 部分に対する編集距離 (Sellers の方法) に、入れ替えを1回と数える分 (OSA) を足したもの。
+/// 語の頭から始めるのは、語の途中の短い一致 (`untis` が `accounts` の `unts` に当たるなど) を拾わないため。
 fn typo_distance(term: &[char], text: &[char], max: usize) -> Option<usize> {
     let m = term.len();
-    // 行は term の位置、列は text の位置。どこから始めてもよいので、0行目は全部0。
-    let mut before = vec![0usize; text.len() + 1];
-    let mut previous: Vec<usize> = vec![0; text.len() + 1];
+    // 行は term の位置、列は text の位置。語の頭からだけ始めてよいので、0行目はそこだけ0にし、ほかは上限を超える値にする。
+    let start_row: Vec<usize> = (0..=text.len())
+        .map(|j| {
+            if j < text.len() && is_word_start(text, j) {
+                0
+            } else {
+                m + max + 1
+            }
+        })
+        .collect();
+    let mut before = start_row.clone();
+    let mut previous = start_row;
     for i in 1..=m {
         let mut current = vec![i; text.len() + 1];
         for j in 1..=text.len() {
@@ -458,6 +483,8 @@ mod tests {
         assert!(own("ru", "review-units.mp4").is_none());
         // 順が違えば当てない。
         assert!(own("tinu", "review-units.mp4").is_none());
+        // 長い名前に散らばった文字には当てない。
+        assert!(own("mugenp", "admin_archive_axes_word_suggestions_desktop").is_none());
     }
 
     #[test]
@@ -465,13 +492,18 @@ mod tests {
         assert!(own("reveiw", "review-units.mp4").is_some());
         assert!(own("revuew", "review-units.mp4").is_some());
         assert!(own("lisetning", "listening 01").is_some());
+        // 打ち間違いは語の頭から照らす。語の途中の短い一致には当てない。
+        assert!(own("untis", "review-units").is_some());
+        assert!(own("untis", "accounts").is_none());
         // 4文字の語は打ち間違いを許さない (飛ばし打ちにもならない)。
         assert!(own("rvei", "review").is_none());
     }
 
     #[test]
     fn score_ranks_closer_matches_first() {
+        let whole = own("mugenp", "mugenp").expect("当たる");
         let word_start = own("unit", "review-units").expect("当たる");
+        assert!(whole < own("mugenp", "mugenp のトップ").expect("当たる"));
         let inside = own("nit", "review-units").expect("当たる");
         let typo = own("reveiw", "review-units").expect("当たる");
         let skipped = own("rvwunit", "review-units").expect("当たる");
