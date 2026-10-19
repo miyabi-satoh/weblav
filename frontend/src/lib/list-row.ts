@@ -103,10 +103,14 @@ export function browseRowTitleClass(compact = false): string {
 }
 
 /**
- * 行の2段目。タイルでは1行に収め、超えた分は切る。
- * `parts` は、中の項目がそれぞれ縮む並び (場所のボタンを含む段)。段ごと切ると、ボタンの押せる範囲の広がりまで切れるため。
+ * 行の2段目。タイルでは2行まで出し、超えた分は切る。段との間はタイルの文字の段の `gap` が受け持つ。
+ * `parts` は、中の項目がそれぞれ縮む並び (場所のボタンを含む段) で、1行に収める。段ごと切ると、ボタンの押せる範囲の広がりまで切れるため。
  */
 export function browseRowSubtitleClass(parts = false): string {
 	if (!browseLayout.tile) return listRowSubtitleClass;
-	return parts ? `${listRowSubtitleClass} flex gap-1` : `${listRowSubtitleClass} truncate`;
+	// display は `flex`・`line-clamp-2` (-webkit-box) がそれぞれ決めるので、`block` を並べない (後に来た方が勝ってしまう)。
+	const tileSubtitleClass = 'text-xs text-muted-foreground sm:text-sm';
+	return parts
+		? `${tileSubtitleClass} flex gap-1`
+		: `${tileSubtitleClass} line-clamp-2 wrap-anywhere`;
 }
