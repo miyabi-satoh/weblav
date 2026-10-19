@@ -8270,7 +8270,7 @@
           },
           "matchedInDescription": {
             "type": "boolean",
-            "description": "タイトルでは当たらず、説明で当たったか。何で当たったか分かるよう、画面が説明を添える。"
+            "description": "説明で当たった語があるか。何で当たったか分かるよう、画面が説明を添える。"
           }
         }
       },
@@ -8380,7 +8380,7 @@
           },
           "matchedInNote": {
             "type": "boolean",
-            "description": "題では当たらず、`note` で当たったか。何で当たったか分かるよう、画面が `note` を添える。"
+            "description": "`note` で当たった語があるか。何で当たったか分かるよう、画面が `note` を添える。"
           },
           "note": {
             "type": [
@@ -8429,7 +8429,7 @@
             "items": {
               "$ref": "#/components/schemas/SearchContentHit"
             },
-            "description": "タイトル順。区画ごとの上限 (100 件) で打ち切る。"
+            "description": "当たりのよい順 (同じ程度ならタイトル順)。区画ごとの上限 (100 件) で打ち切る。"
           },
           "contentsTruncated": {
             "type": "boolean",
@@ -8440,7 +8440,7 @@
             "items": {
               "$ref": "#/components/schemas/SearchFileHit"
             },
-            "description": "フォルダーの中のファイルとディレクトリ。名前順。区画ごとの上限 (100 件) で打ち切る。"
+            "description": "フォルダーの中のファイルとディレクトリ。当たりのよい順 (同じ程度なら名前順)。区画ごとの上限 (100 件) で打ち切る。"
           },
           "filesTruncated": {
             "type": "boolean",
@@ -8455,7 +8455,7 @@
             "items": {
               "$ref": "#/components/schemas/SearchItemHit"
             },
-            "description": "アーカイブのファイル。表示タイトル順。区画ごとの上限 (100 件) で打ち切る。"
+            "description": "アーカイブのファイル。当たりのよい順 (同じ程度なら表示タイトル順)。区画ごとの上限 (100 件) で打ち切る。"
           },
           "itemsTruncated": {
             "type": "boolean",
@@ -8466,7 +8466,7 @@
             "items": {
               "$ref": "#/components/schemas/SearchLinkHit"
             },
-            "description": "リンクの一覧のファイルの中のリンク。題の順。区画ごとの上限 (100 件) で打ち切る。"
+            "description": "リンクの一覧のファイルの中のリンク。当たりのよい順 (同じ程度なら題の順)。区画ごとの上限 (100 件) で打ち切る。"
           },
           "linksTruncated": {
             "type": "boolean",

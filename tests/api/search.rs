@@ -235,3 +235,48 @@ async fn search_within_rejects_places_that_cannot_be_opened(pool: SqlitePool) {
     let (status, body) = send_anon(app, "GET", &search_uri("a", &format!("within={link}"))).await;
     assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
 }
+
+/// フォルダーの中のファイルは、途中のフォルダー名と打ち間違いでも当たり、よく当たるものから並ぶ。
+/// 照らし方と並べ方の場合分けは `src/api/search.rs` の単体テストで見る。
+#[sqlx::test]
+async fn search_matches_places_and_typos_and_ranks_better_matches_first(pool: SqlitePool) {
+    let dir = temp_test_dir("search-fuzzy");
+    std::fs::create_dir_all(dir.join("mugenp")).expect("ディレクトリを作れなかった");
+    std::fs::write(dir.join("mugenp/review-units.mp4"), b"").expect("ファイルを作れなかった");
+    std::fs::write(dir.join("preview.mp4"), b"").expect("ファイルを作れなかった");
+    insert_folder_by(
+        &pool,
+        "knowledge",
+        dir.display().to_string(),
+        "public",
+        None,
+        None,
+    )
+    .await;
+    let app = test_app(pool).await;
+    let paths = |found: &serde_json::Value| -> Vec<String> {
+        found["files"]
+            .as_array()
+            .expect("files は配列")
+            .iter()
+            .map(|hit| hit["path"].as_str().expect("path は文字列").to_string())
+            .collect()
+    };
+
+    let found = search(app.clone(), "mugenp review mp4").await;
+    assert_eq!(paths(&found), vec!["mugenp/review-units.mp4"], "{found}");
+
+    // 場所の語だけなら、場所そのものだけが当たる。
+    let found = search(app.clone(), "mugenp").await;
+    assert_eq!(paths(&found), vec!["mugenp"], "{found}");
+
+    // 打ち間違いでも当たり、語の頭から当たるものが中に含むものより先に並ぶ。
+    let found = search(app.clone(), "untis").await;
+    assert_eq!(paths(&found), vec!["mugenp/review-units.mp4"], "{found}");
+    let found = search(app, "review").await;
+    assert_eq!(
+        paths(&found),
+        vec!["mugenp/review-units.mp4", "preview.mp4"],
+        "{found}"
+    );
+}

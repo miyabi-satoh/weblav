@@ -2559,7 +2559,7 @@ export interface components {
             /** @description 上のグループ。ルートに近い順で、最後が親。ルート直下なら空。行の2段目に、どこにあるかとして出す。 */
             ancestors: components["schemas"]["GroupAncestor"][];
             content: components["schemas"]["ContentResponse"];
-            /** @description タイトルでは当たらず、説明で当たったか。何で当たったか分かるよう、画面が説明を添える。 */
+            /** @description 説明で当たった語があるか。何で当たったか分かるよう、画面が説明を添える。 */
             matchedInDescription: boolean;
         };
         SearchFileHit: {
@@ -2599,7 +2599,7 @@ export interface components {
              * @description アーカイブの中の一覧なら、そのアイテムの id。
              */
             item?: number | null;
-            /** @description 題では当たらず、`note` で当たったか。何で当たったか分かるよう、画面が `note` を添える。 */
+            /** @description `note` で当たった語があるか。何で当たったか分かるよう、画面が `note` を添える。 */
             matchedInNote: boolean;
             note?: string | null;
             /** @description フォルダーの中の一覧なら、その相対パス。 */
@@ -2608,11 +2608,11 @@ export interface components {
             url: string;
         };
         SearchResponse: {
-            /** @description タイトル順。区画ごとの上限 (100 件) で打ち切る。 */
+            /** @description 当たりのよい順 (同じ程度ならタイトル順)。区画ごとの上限 (100 件) で打ち切る。 */
             contents: components["schemas"]["SearchContentHit"][];
             /** @description `contents` を打ち切ったか。 */
             contentsTruncated: boolean;
-            /** @description フォルダーの中のファイルとディレクトリ。名前順。区画ごとの上限 (100 件) で打ち切る。 */
+            /** @description フォルダーの中のファイルとディレクトリ。当たりのよい順 (同じ程度なら名前順)。区画ごとの上限 (100 件) で打ち切る。 */
             files: components["schemas"]["SearchFileHit"][];
             /** @description `files` を打ち切ったか。 */
             filesTruncated: boolean;
@@ -2621,11 +2621,11 @@ export interface components {
              *     その先のファイルとリンクの一覧は探していない。語を足しても広がらないので、打ち切りとは分けて伝える。
              */
             foldersIncomplete: boolean;
-            /** @description アーカイブのファイル。表示タイトル順。区画ごとの上限 (100 件) で打ち切る。 */
+            /** @description アーカイブのファイル。当たりのよい順 (同じ程度なら表示タイトル順)。区画ごとの上限 (100 件) で打ち切る。 */
             items: components["schemas"]["SearchItemHit"][];
             /** @description `items` を打ち切ったか。 */
             itemsTruncated: boolean;
-            /** @description リンクの一覧のファイルの中のリンク。題の順。区画ごとの上限 (100 件) で打ち切る。 */
+            /** @description リンクの一覧のファイルの中のリンク。当たりのよい順 (同じ程度なら題の順)。区画ごとの上限 (100 件) で打ち切る。 */
             links: components["schemas"]["SearchLinkHit"][];
             /** @description `links` を打ち切ったか。 */
             linksTruncated: boolean;

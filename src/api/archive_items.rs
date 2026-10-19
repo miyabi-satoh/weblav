@@ -21,6 +21,7 @@ use crate::state::AppState;
 
 use super::archive::{self, ArchiveMeta, ValueKey};
 use super::contents;
+use super::search::FieldKind;
 use super::sort::title_cmp;
 use super::thumbnails;
 
@@ -562,6 +563,7 @@ pub(super) struct SearchableArchive {
 
 /// 検索で当たったアーカイブのファイル1件と、並べ替えに使う値。
 struct ItemHit {
+    score: super::search::Score,
     /// `search_items` の `sources` の添字。
     source: usize,
     archive_id: i64,
@@ -571,9 +573,11 @@ struct ItemHit {
 }
 
 /// 検索の結果のアーカイブのファイルの並び (→ docs/search.md「結果の並びと上限」)。
-/// タイトル順で、同じタイトルはアーカイブごとに、その一覧の既定の並び (軸の順) にする。
+/// 当たりのよい順で、同じ程度ならタイトル順、同じタイトルはアーカイブごとに、その一覧の既定の並び (軸の順) にする。
 fn item_hit_cmp(a: &ItemHit, b: &ItemHit) -> std::cmp::Ordering {
-    title_cmp(&a.item.title, &b.item.title)
+    a.score
+        .cmp(&b.score)
+        .then_with(|| title_cmp(&a.item.title, &b.item.title))
         .then(a.archive_id.cmp(&b.archive_id))
         .then_with(|| a.sort_key.cmp(&b.sort_key))
         .then_with(|| a.rel_path.cmp(&b.rel_path))
@@ -604,25 +608,35 @@ pub(super) async fn search_items(
             .collect();
         let mut hits: Vec<ItemHit> = Vec::new();
         for (index, (archive, axes, rows, _)) in sources.iter().enumerate() {
+            let places: Vec<String> = archive
+                .ancestors
+                .iter()
+                .map(|group| group.title.as_str())
+                .chain(std::iter::once(archive.title.as_str()))
+                .map(super::search::normalize)
+                .collect();
             let template = archive.title_template.as_deref();
             let template_axes = archive::template_placeholder_names(template);
             let no_filters = vec![None; axes.len()];
             for row in rows {
                 let derived = archive::derive_item(&row.rel_path, axes, template);
-                let mut fields = vec![super::search::normalize(&derived.title)];
-                fields.extend(
-                    derived
-                        .axis_values
-                        .iter()
-                        .flatten()
-                        .map(|value| super::search::normalize(&value.display)),
-                );
-                let fields: Vec<&str> = fields.iter().map(String::as_str).collect();
-                if !terms.matches(&fields) {
+                let title = super::search::normalize(&derived.title);
+                let values: Vec<String> = derived
+                    .axis_values
+                    .iter()
+                    .flatten()
+                    .map(|value| super::search::normalize(&value.display))
+                    .collect();
+                // 途中のフォルダー名は照らさない。閲覧の画面で階層を見せないため (→ docs/archive.md)。軸の値が代わりになる。
+                let mut fields = vec![(FieldKind::Own, title.as_str())];
+                fields.extend(values.iter().map(|text| (FieldKind::Detail, text.as_str())));
+                fields.extend(places.iter().map(|text| (FieldKind::Place, text.as_str())));
+                let Some(found) = terms.score(&fields) else {
                     continue;
-                }
+                };
                 let subtitle = item_subtitle(axes, &derived, &template_axes, &no_filters);
                 hits.push(ItemHit {
+                    score: found.score,
                     source: index,
                     archive_id: archive.id,
                     rel_path: row.rel_path.clone(),
@@ -1094,7 +1108,14 @@ mod tests {
     use crate::api::archive::{AxisDict, AxisDictRow, AxisIndex};
 
     fn item_hit(title: &str, archive_id: i64, year: &str, rel_path: &str) -> ItemHit {
+        // 当たりの良さは揃え、タイトルから先の並びを確かめる。
+        let score = super::super::search::Terms::parse("a")
+            .expect("検索語がある")
+            .score(&[(FieldKind::Own, "a")])
+            .expect("当たる")
+            .score;
         ItemHit {
+            score,
             source: 0,
             archive_id,
             rel_path: rel_path.to_string(),

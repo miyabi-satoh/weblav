@@ -13,7 +13,7 @@ use super::contents::{self, FolderEntry, GroupAncestor};
 use super::link_preview::{self, LinkPreview};
 use super::links_file;
 use super::roots::OwnDirs;
-use super::search::{RESULT_LIMIT, Terms, normalize};
+use super::search::{FieldKind, RESULT_LIMIT, Score, Terms, normalize};
 use super::sort::title_cmp;
 use crate::auth::Viewer;
 use crate::error::{AppError, run_blocking};
@@ -82,7 +82,7 @@ pub(super) struct SearchLinkHit {
     pub(super) url: String,
     pub(super) note: Option<String>,
     pub(super) preview: Option<LinkPreview>,
-    /// 題では当たらず、`note` で当たったか。何で当たったか分かるよう、画面が `note` を添える。
+    /// `note` で当たった語があるか。何で当たったか分かるよう、画面が `note` を添える。
     pub(super) matched_in_note: bool,
 }
 
@@ -108,8 +108,9 @@ struct LinksSource {
     file_name: String,
 }
 
-/// 名前で当たったフォルダーの中のエントリ。行の形にするのは打ち切った後の分だけ。
+/// 当たったフォルダーの中のエントリ。行の形にするのは打ち切った後の分だけ。
 struct FileCandidate {
+    score: Score,
     folder: usize,
     rel_path: String,
     name: String,
@@ -151,6 +152,7 @@ pub(super) async fn search(
             if !super::roots::is_within_roots(&roots, &root, &own_dirs) {
                 continue;
             }
+            let folder_places = container_places(&folder.title, &folder.ancestors);
             let (entries, cut) =
                 super::fs::walk_entries(&root.join(&folder.sub_path), FOLDER_WALK_LIMIT, &own_dirs);
             truncated |= cut;
@@ -178,8 +180,23 @@ pub(super) async fn search(
                         file_name: name.clone(),
                     });
                 }
-                if walk_terms.matches(&[&normalize(&name)]) {
+                let own = normalize(&name);
+                // 途中のフォルダー名。名前の手前までの段 (登録パスからの相対)。
+                let dirs: Vec<String> = entry
+                    .rel_path
+                    .rsplit_once('/')
+                    .map(|(dirs, _)| dirs.split('/').map(normalize).collect())
+                    .unwrap_or_default();
+                let mut fields = vec![(FieldKind::Own, own.as_str())];
+                fields.extend(
+                    folder_places
+                        .iter()
+                        .chain(&dirs)
+                        .map(|text| (FieldKind::Place, text.as_str())),
+                );
+                if let Some(found) = walk_terms.score(&fields) {
                     candidates.push(FileCandidate {
+                        score: found.score,
                         folder: index,
                         rel_path: entry.rel_path,
                         name,
@@ -193,7 +210,9 @@ pub(super) async fn search(
     .await?;
 
     candidates.sort_by(|a, b| {
-        title_cmp(&a.name, &b.name)
+        a.score
+            .cmp(&b.score)
+            .then_with(|| title_cmp(&a.name, &b.name))
             .then_with(|| title_cmp(&containers[a.folder].title, &containers[b.folder].title))
             .then_with(|| a.rel_path.cmp(&b.rel_path))
     });
@@ -321,7 +340,7 @@ async fn search_links(
         .collect();
     let previews = link_preview::cached(&state.pool, &urls).await?;
 
-    let mut hits: Vec<(String, SearchLinkHit)> = Vec::new();
+    let mut hits: Vec<(Score, String, SearchLinkHit)> = Vec::new();
     for (source, file) in sources.into_iter().zip(parsed) {
         let Some(file) = file else {
             continue;
@@ -331,20 +350,30 @@ async fn search_links(
             .clone()
             .or_else(|| source.content_title.clone())
             .unwrap_or_else(|| source.file_name.clone());
+        // 一覧のファイルの題と、それを入れているコンテンツ・上のグループ。
+        let mut places = container_places(
+            source.container_title.as_deref().unwrap_or_default(),
+            &source.ancestors,
+        );
+        places.push(normalize(&file_title));
         for (url, note) in file.links {
             let preview = previews.get(&url).cloned();
             let title = link_title(&url, preview.as_ref());
             let normalized_title = normalize(&title);
-            let matched_in_note = if terms.matches(&[&normalized_title]) {
-                false
-            } else if let Some(note) = &note
-                && terms.matches(&[&normalized_title, &normalize(note)])
-            {
-                true
-            } else {
+            let normalized_note = note.as_deref().map(normalize);
+            let mut fields = vec![(FieldKind::Own, normalized_title.as_str())];
+            fields.extend(
+                normalized_note
+                    .as_deref()
+                    .map(|text| (FieldKind::Detail, text)),
+            );
+            fields.extend(places.iter().map(|text| (FieldKind::Place, text.as_str())));
+            let Some(found) = terms.score(&fields) else {
                 continue;
             };
+            let matched_in_note = found.in_detail;
             hits.push((
+                found.score,
                 title,
                 SearchLinkHit {
                     content_id: source.content_id,
@@ -362,14 +391,27 @@ async fn search_links(
         }
     }
 
-    hits.sort_by(|(a_title, a), (b_title, b)| {
-        title_cmp(a_title, b_title)
+    hits.sort_by(|(a_score, a_title, a), (b_score, b_title, b)| {
+        a_score
+            .cmp(b_score)
+            .then_with(|| title_cmp(a_title, b_title))
             .then_with(|| title_cmp(&a.file_title, &b.file_title))
             .then_with(|| a.url.cmp(&b.url))
     });
     let truncated = hits.len() > RESULT_LIMIT;
     hits.truncate(RESULT_LIMIT);
-    Ok((hits.into_iter().map(|(_, hit)| hit).collect(), truncated))
+    Ok((hits.into_iter().map(|(_, _, hit)| hit).collect(), truncated))
+}
+
+/// 入れているコンテンツと上のグループの名前を、場所として照らす形 (`normalize` 済み) にする。空の名前は除く。
+fn container_places(title: &str, ancestors: &[GroupAncestor]) -> Vec<String> {
+    ancestors
+        .iter()
+        .map(|group| group.title.as_str())
+        .chain(std::iter::once(title))
+        .filter(|name| !name.is_empty())
+        .map(normalize)
+        .collect()
 }
 
 /// 画面のカードと同じ題。覚えているページのタイトル、無ければ、開き方の決まるファイルならファイル名、ほかはホスト名。
