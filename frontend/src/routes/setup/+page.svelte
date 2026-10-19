@@ -143,7 +143,7 @@
 									required
 								/>
 							</Field.Field>
-							<Field.Field>
+							<Field.Field data-invalid={passwordMismatch}>
 								<Field.FieldLabel for="password-confirm" required
 									>{m.setup_password_confirm_label()}</Field.FieldLabel
 								>

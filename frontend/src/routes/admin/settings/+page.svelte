@@ -337,7 +337,7 @@
 			</h2>
 			{#if logSettings}
 				<Field.FieldGroup>
-					<Field.Field orientation="horizontal">
+					<Field.Field orientation="horizontal" data-disabled={switchingLog}>
 						<Field.FieldContent>
 							<Field.FieldLabel for="log-verbose"
 								>{m.admin_settings_log_verbose_label()}</Field.FieldLabel

@@ -294,7 +294,8 @@
 				selectedIds.length > 0 && 'sticky top-0 z-20 border-b bg-ground'
 			]}
 		>
-			<!-- チェックを label で包まず、for で指す。包むと、中のボタンと label の両方がクリックを受け、2回切り替わって戻るため。 -->
+			<!-- 見せる文言は選んだ件数に変わるが、チェックの名前は aria-label で「すべて選択」に保つ。
+			     文言が名前と同じときは、読み上げが2回にならないよう隠す。 -->
 			<div class="flex items-center gap-2 text-sm">
 				<Checkbox
 					id="select-all-items"

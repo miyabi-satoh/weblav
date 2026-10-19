@@ -306,7 +306,7 @@
 			/>
 		</fieldset>
 		{#if canChangeCreator}
-			<Field.Field>
+			<Field.Field data-disabled={creatorLocked}>
 				<Field.FieldLabel for="content-creator">{m.contents_form_creator_label()}</Field.FieldLabel>
 				<!-- 付け替えられない間は、選んでいた値でなく保存済みの作成者を見せる。送らない値を出さないため。 -->
 				<Select.Root

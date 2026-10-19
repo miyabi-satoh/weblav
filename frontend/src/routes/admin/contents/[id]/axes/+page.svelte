@@ -1456,7 +1456,7 @@
 				<!-- 見出しを別に見せるとラベルと同じ文言が2回並ぶので、ラベルを見出しの太さにして区切りを兼ねる。
 				     見出しで移動する読み上げのために、見出し自体は見えない形で残す。 -->
 				<h2 id="title-template-heading" class="sr-only">{m.archive_axes_template_title()}</h2>
-				<Field.Field>
+				<Field.Field data-disabled={!editable}>
 					<!-- 区画の見出しを兼ねるので、ほかの区画の見出しと同じ大きさにする。 -->
 					<Field.FieldLabel for="title-template" class="text-base font-semibold">
 						{m.archive_axes_template_title()}
@@ -1690,7 +1690,7 @@
 	{/if}
 	{#snippet body()}
 		{#if deletingAxisInTemplate && deletingAxis !== null}
-			<Field.Field>
+			<Field.Field data-invalid={templateStillUsesAxis} data-disabled={axisDeleting}>
 				<Field.FieldLabel for="template-after-delete">
 					{m.archive_axes_delete_template_label()}
 				</Field.FieldLabel>
