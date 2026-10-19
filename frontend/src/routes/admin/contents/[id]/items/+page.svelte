@@ -294,19 +294,20 @@
 				selectedIds.length > 0 && 'sticky top-0 z-20 border-b bg-ground'
 			]}
 		>
-			<!-- チェックを label で包まない。中のボタンと label の両方がクリックを受け、2回切り替わって戻るため。 -->
+			<!-- チェックを label で包まず、for で指す。包むと、中のボタンと label の両方がクリックを受け、2回切り替わって戻るため。 -->
 			<div class="flex items-center gap-2 text-sm">
 				<Checkbox
+					id="select-all-items"
 					checked={allSelected}
 					onCheckedChange={toggleSelectAll}
 					disabled={anyBusy}
 					aria-label={m.archive_items_select_all_label()}
 				/>
-				<span aria-hidden={selectedIds.length === 0}>
+				<label for="select-all-items" aria-hidden={selectedIds.length === 0}>
 					{selectedIds.length > 0
 						? m.archive_items_selected_count({ count: formatNumber(selectedIds.length) })
 						: m.archive_items_select_all_label()}
-				</span>
+				</label>
 			</div>
 			{#if selectedIds.length > 0}
 				<!-- 公開と非公開は向きが逆なだけで重みは同じなので、どちらかを主のボタンにしない。 -->
