@@ -70,7 +70,9 @@ Use “Match position” to choose where in the file name a word must occur.
 
 - Anywhere (default): It matches if the word occurs anywhere in the file name.
 - Start or after a separator: It matches only at the start of the file name or after a non-alphanumeric character, such as punctuation, a space, or Japanese text.
-- End: It matches only at the end of the file name, excluding the extension.
+- End: It matches only at the end of the file name or just before the extension.
+
+The extension is matched too, so to sort files by extension, register words with a dot, such as `.md` or `.pdf`.
 
 ## Ask an AI
 
