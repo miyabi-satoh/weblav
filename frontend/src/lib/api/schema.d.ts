@@ -819,6 +819,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/{id}/archive/manage-download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 管理画面からの、相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。未公開も渡す。
+         *     管理画面の Markdown のプレビューが、未公開の画像も出すのに使う。
+         */
+        get: operations["manage_download_item_by_path"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/{id}/axes": {
         parameters: {
             query?: never;
@@ -1158,6 +1178,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/{id}/items/{item_id}/manage-thumbnail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 管理画面のアイテムの縮小画像 (→ docs/ui.md「画像のプレビュー」)。見える条件は `manage_download_item` と同じ。 */
+        get: operations["manage_thumbnail_item"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/{id}/items/{item_id}/thumbnail": {
         parameters: {
             query?: never;
@@ -1207,6 +1244,27 @@ export interface paths {
          *     中継するのは、閲覧できる一覧に書かれた URL だけ。誰でも任意の URL を取らせられる口にしないため。
          */
         get: operations["links_remote_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/manage-archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 管理画面のアイテムのタブの一覧。閲覧用の一覧 (`view_archive`) と同じ絞り込み・並べ替え・導出で、
+         *     未公開と実体の無いアイテムも含める (→ docs/archive.md「エンドポイント一覧」)。
+         *     閲覧者に見える姿を、管理画面を離れずに確かめるため。
+         */
+        get: operations["manage_view_archive"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2372,6 +2430,16 @@ export interface components {
         LoginRequest: {
             password: string;
             username: string;
+        };
+        ManageArchiveViewItem: components["schemas"]["ArchiveViewItem"] & {
+            /** @description 索引にあるが実体が無い。閲覧の一覧からは外れている (→ docs/archive.md「アイテムの配信」)。 */
+            missing: boolean;
+            published: boolean;
+        };
+        ManageArchiveViewResponse: {
+            axes: components["schemas"]["ArchiveAxisResponse"][];
+            folderMissing: boolean;
+            items: components["schemas"]["ManageArchiveViewItem"][];
         };
         PickRootResponse: {
             /**
@@ -5399,6 +5467,47 @@ export interface operations {
             };
         };
     };
+    manage_download_item_by_path: {
+        parameters: {
+            query: {
+                /** @description アーカイブの登録先からの相対パス。`/` 区切りで、アイテムの `relPath` と同じ形。 */
+                path: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ファイルの内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 管理できない・索引に無いアイテム、または実体が無い */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_axes: {
         parameters: {
             query?: never;
@@ -6517,6 +6626,52 @@ export interface operations {
             };
         };
     };
+    manage_thumbnail_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 縮小画像 (JPEG か PNG) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description ETag が一致した */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 管理できない・所属しない・存在しないアイテム、実体が無い、またはプレビューしない画像 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     thumbnail_item: {
         parameters: {
             query?: never;
@@ -6666,6 +6821,46 @@ export interface operations {
             };
             /** @description 同時に中継している数が上限に達した */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    manage_view_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 未公開を含む、軸の選択肢と絞り込み後のアイテム一覧 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManageArchiveViewResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 管理できない・存在しない・アーカイブでない */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

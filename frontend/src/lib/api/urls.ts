@@ -75,6 +75,16 @@ export function archiveItemManageDownloadHref(contentId: number, itemId: number)
 	return `/api/v1/contents/${contentId}/items/${itemId}/manage-download`;
 }
 
+/** `GET /api/v1/contents/{id}/items/{item_id}/manage-thumbnail` へのリンク。管理画面用で、未公開も出す。 */
+export function archiveItemManageThumbnailHref(contentId: number, itemId: number): string {
+	return `/api/v1/contents/${contentId}/items/${itemId}/manage-thumbnail`;
+}
+
+/** `GET /api/v1/contents/{id}/archive/manage-download` へのリンク。管理画面用で、未公開も開ける。 */
+export function archiveManageFileHref(contentId: number, path: string): string {
+	return withQuery(`/api/v1/contents/${contentId}/archive/manage-download`, { path });
+}
+
 /** `GET /api/v1/contents/{id}/items/{item_id}/thumbnail` へのリンク。 */
 export function archiveItemThumbnailHref(contentId: number, itemId: number): string {
 	return `/api/v1/contents/${contentId}/items/${itemId}/thumbnail`;

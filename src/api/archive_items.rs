@@ -253,6 +253,89 @@ async fn view_archive(
     }))
 }
 
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct ManageArchiveViewItem {
+    #[serde(flatten)]
+    item: ArchiveViewItem,
+    published: bool,
+    /// 索引にあるが実体が無い。閲覧の一覧からは外れている (→ docs/archive.md「アイテムの配信」)。
+    missing: bool,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct ManageArchiveViewResponse {
+    axes: Vec<ArchiveAxisResponse>,
+    items: Vec<ManageArchiveViewItem>,
+    folder_missing: bool,
+}
+
+/// 管理画面のアイテムのタブの一覧。閲覧用の一覧 (`view_archive`) と同じ絞り込み・並べ替え・導出で、
+/// 未公開と実体の無いアイテムも含める (→ docs/archive.md「エンドポイント一覧」)。
+/// 閲覧者に見える姿を、管理画面を離れずに確かめるため。
+#[utoipa::path(
+    get,
+    path = "/contents/{id}/manage-archive",
+    params(("id" = i64, Path)),
+    responses(
+        (status = OK, body = ManageArchiveViewResponse, description = "未公開を含む、軸の選択肢と絞り込み後のアイテム一覧"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 404, body = crate::error::ErrorResponse, description = "管理できない・存在しない・アーカイブでない"),
+    )
+)]
+async fn manage_view_archive(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Query(mut filters): Query<HashMap<String, String>>,
+) -> Result<Json<ManageArchiveViewResponse>, AppError> {
+    let meta = archive::load_manageable_archive(&state.pool, &user, id).await?;
+    let axes = archive::load_axis_index(&state.pool, id).await?;
+    let order = super::sort::ArchiveSortOrder::from_query(filters.remove("sort").as_deref());
+
+    let rows = sqlx::query_as!(
+        ItemRow,
+        r#"SELECT id as "id!", rel_path, published as "published: bool",
+                  created_at as "created_at!" FROM archive_items WHERE archive_id = ?"#,
+        id
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    let published: HashMap<i64, bool> = rows.iter().map(|row| (row.id, row.published)).collect();
+
+    let template = meta.title_template;
+    let root = PathBuf::from(&meta.path);
+    let (axes, items, folder_missing) = run_blocking(move || {
+        let folder_missing = folder_missing(&root);
+        let (axes, items) = build_archive_view(&axes, rows, template.as_deref(), &filters, order);
+        let items = items
+            .into_iter()
+            .map(|(rel_path, item)| {
+                let metadata = item_metadata(&root, &rel_path);
+                let missing = metadata.is_none();
+                let item = match metadata {
+                    Some(metadata) => with_preview(&root, &rel_path, metadata.len(), item),
+                    None => item,
+                };
+                ManageArchiveViewItem {
+                    published: published[&item.id],
+                    missing,
+                    item,
+                }
+            })
+            .collect::<Vec<_>>();
+        (axes, items, folder_missing)
+    })
+    .await?;
+
+    Ok(Json(ManageArchiveViewResponse {
+        axes,
+        items,
+        folder_missing,
+    }))
+}
+
 /// アイテムの実体の情報。消えている・読めないものは `None`。ファイルを読むので、非同期のワーカーの外で呼ぶ。
 ///
 /// 中身は渡さないので、アイテムごとに配信と同じ `resolve_path` は通さない。
@@ -851,7 +934,75 @@ async fn manage_download_item(
     Path((id, item_id)): Path<(i64, i64)>,
     request: Request,
 ) -> Result<Response, AppError> {
+    let file = manage_item_file(&state, &user, id, item_id).await?;
+    Ok(file.download(request).await)
+}
+
+/// 管理画面からの、相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。未公開も渡す。
+/// 管理画面の Markdown のプレビューが、未公開の画像も出すのに使う。
+#[utoipa::path(
+    get,
+    path = "/contents/{id}/archive/manage-download",
+    params(("id" = i64, Path), ItemPathQuery),
+    responses(
+        (status = OK, description = "ファイルの内容"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 404, body = crate::error::ErrorResponse, description = "管理できない・索引に無いアイテム、または実体が無い"),
+    )
+)]
+async fn manage_download_item_by_path(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Query(query): Query<ItemPathQuery>,
+    request: Request,
+) -> Result<Response, AppError> {
     let meta = archive::load_manageable_archive(&state.pool, &user, id).await?;
+    let exists = sqlx::query_scalar!(
+        r#"SELECT 1 as "one!: i64" FROM archive_items WHERE archive_id = ? AND rel_path = ?"#,
+        id,
+        query.path
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+    if exists.is_none() {
+        return Err(AppError::NotFound);
+    }
+    let file = contents::resolve_file_under(&state, &meta.path, &query.path).await?;
+    Ok(file.download(request).await)
+}
+
+/// 管理画面のアイテムの縮小画像 (→ docs/ui.md「画像のプレビュー」)。見える条件は `manage_download_item` と同じ。
+#[utoipa::path(
+    get,
+    path = "/contents/{id}/items/{item_id}/manage-thumbnail",
+    params(("id" = i64, Path), ("item_id" = i64, Path)),
+    responses(
+        (status = OK, description = "縮小画像 (JPEG か PNG)"),
+        (status = 304, description = "ETag が一致した"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 404, body = crate::error::ErrorResponse, description = "管理できない・所属しない・存在しないアイテム、実体が無い、またはプレビューしない画像"),
+    )
+)]
+async fn manage_thumbnail_item(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path((id, item_id)): Path<(i64, i64)>,
+    headers: HeaderMap,
+) -> Result<Response, AppError> {
+    let file = manage_item_file(&state, &user, id, item_id).await?;
+    file.thumbnail(&state, &headers).await
+}
+
+/// 管理の権限で、未公開も含めてアイテムの実体を引く。閲覧用の `item_file` とは判定を混ぜない
+/// (→ docs/archive.md「アイテムの配信」)。
+async fn manage_item_file(
+    state: &AppState,
+    user: &AuthUser,
+    id: i64,
+    item_id: i64,
+) -> Result<contents::ServedFile, AppError> {
+    let meta = archive::load_manageable_archive(&state.pool, user, id).await?;
     let rel_path = sqlx::query_scalar!(
         "SELECT rel_path FROM archive_items WHERE id = ? AND archive_id = ?",
         item_id,
@@ -860,9 +1011,7 @@ async fn manage_download_item(
     .fetch_optional(&state.pool)
     .await?
     .ok_or(AppError::NotFound)?;
-
-    let file = contents::resolve_file_under(&state, &meta.path, &rel_path).await?;
-    Ok(file.download(request).await)
+    contents::resolve_file_under(state, &meta.path, &rel_path).await
 }
 
 /// アイテムの縮小画像 (→ docs/ui.md「画像のプレビュー」)。見える条件は `download_item` と同じ。
@@ -920,6 +1069,7 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
     let download_routes = OpenApiRouter::new()
         .routes(routes!(download_item))
         .routes(routes!(download_item_by_path))
+        .routes(routes!(manage_download_item_by_path))
         .routes(routes!(manage_download_item))
         .layer(axum::middleware::from_fn(
             super::browser::redirect_errors_for_browsers,
@@ -927,9 +1077,11 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
 
     OpenApiRouter::new()
         .routes(routes!(view_archive))
+        .routes(routes!(manage_view_archive))
         .routes(routes!(list_items, bulk_set_published))
         .routes(routes!(set_published))
         .routes(routes!(thumbnail_item))
+        .routes(routes!(manage_thumbnail_item))
         .merge(download_routes)
 }
 

@@ -1,5 +1,10 @@
 <script lang="ts" module>
 	import type { components } from '$lib/api/schema';
+	import {
+		archiveFileHref,
+		archiveItemDownloadHref,
+		archiveItemThumbnailHref
+	} from '$lib/api/urls';
 	import type { RowLocation } from '$lib/row-location';
 
 	type ArchiveViewItem = components['schemas']['ArchiveViewItem'];
@@ -11,17 +16,27 @@
 		/** 検索の結果の、どこにあるか。2段目の、軸の値 (`item.subtitle`) の前に出す。 */
 		location?: RowLocation;
 	};
+
+	/** 行が開く・縮小画像を出す URL。管理画面は、未公開も渡す管理用の口を使う。 */
+	export type ArchiveItemUrls = {
+		download: (archiveId: number, itemId: number) => string;
+		thumbnail: (archiveId: number, itemId: number) => string;
+		/** 登録先からの相対パスで指したアイテム。Markdown のプレビューの相対パスに使う。 */
+		file: (archiveId: number, path: string) => string;
+	};
+
+	const BROWSE_URLS: ArchiveItemUrls = {
+		download: archiveItemDownloadHref,
+		thumbnail: archiveItemThumbnailHref,
+		file: archiveFileHref
+	};
 </script>
 
 <script lang="ts">
 	import FilterHighlight from '$lib/components/filter-highlight.svelte';
 	import { listFilter } from '$lib/list-filter.svelte';
 	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
-	import {
-		archiveFileHref,
-		archiveItemDownloadHref,
-		archiveItemThumbnailHref
-	} from '$lib/api/urls';
+	import type { Snippet } from 'svelte';
 	import type { ContentLocation } from '$lib/content-location';
 	import { isAudioFileName, isLinksFileName, viewerFileKind } from '$lib/file-kind';
 	import { LinksFileIcon } from '$lib/links-file';
@@ -45,24 +60,41 @@
 	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
 	import ListRowDownloadLink from '$lib/components/list-row-download-link.svelte';
 
-	// アーカイブの一覧 (`/archives/[id]`) と検索の結果で使う、アーカイブのファイルの行。
-	// 押したときの動きを両方で揃えるため、種類ごとの描き分けをここに集める。
+	// アーカイブの一覧 (`/archives/[id]`)・検索の結果・管理画面のアイテムのタブで使う、アーカイブのファイルの行。
+	// 押したときの動きと見え方を揃えるため、種類ごとの描き分けをここに集める。
 	let {
 		rows: allRows,
-		linksHref
-	}: { rows: ArchiveViewRow[]; linksHref: (row: ArchiveViewRow) => string } = $props();
+		linksHref,
+		urls = BROWSE_URLS,
+		filterText = (row) => row.item.title,
+		leading,
+		trailing,
+		subtitle: subtitleOverride
+	}: {
+		rows: ArchiveViewRow[];
+		linksHref: (row: ArchiveViewRow) => string;
+		urls?: ArchiveItemUrls;
+		/** ページ内の絞り込みで照らす文字。 */
+		filterText?: (row: ArchiveViewRow) => string;
+		/** 行の前に置くもの (管理画面の選択のチェック)。 */
+		leading?: Snippet<[ArchiveViewRow]>;
+		/** 行の後ろに置くもの (管理画面の公開の切り替え)。 */
+		trailing?: Snippet<[ArchiveViewRow]>;
+		/** 2段目を差し替える (管理画面はパスと状態も出す)。 */
+		subtitle?: Snippet<[ArchiveViewRow]>;
+	} = $props();
 
-	// ページ内の絞り込みが置かれていれば、タイトルで行を絞る (→ docs/ui.md「一覧の絞り込み」)。
+	// ページ内の絞り込みが置かれていれば、行を絞る (→ docs/ui.md「一覧の絞り込み」)。
 	const filter = listFilter();
-	let rows = $derived(filter ? filter.apply(allRows, (item) => item.item.title) : allRows);
+	let rows = $derived(filter ? filter.apply(allRows, filterText) : allRows);
 
 	function downloadHref(row: ArchiveViewRow): string {
-		return archiveItemDownloadHref(row.archiveId, row.item.id);
+		return urls.download(row.archiveId, row.item.id);
 	}
 
 	/** Markdown のプレビューが相対パスを解決する場所。相対パスの先は、アイテムの番号でなくパスで引く。 */
 	function location(row: ArchiveViewRow): ContentLocation {
-		return { path: row.item.relPath, src: (path) => archiveFileHref(row.archiveId, path) };
+		return { path: row.item.relPath, src: (path) => urls.file(row.archiveId, path) };
 	}
 
 	function toTrack(row: ArchiveViewRow): Track {
@@ -77,7 +109,7 @@
 		if (!row.item.image) return undefined;
 		return {
 			src: downloadHref(row),
-			thumbnailSrc: archiveItemThumbnailHref(row.archiveId, row.item.id),
+			thumbnailSrc: urls.thumbnail(row.archiveId, row.item.id),
 			width: row.item.image.width,
 			height: row.item.image.height,
 			title: row.item.title,
@@ -89,7 +121,7 @@
 	function rowThumbnail(row: ArchiveViewRow): { src: string; original: string } | undefined {
 		if (!row.item.thumbnail) return undefined;
 		return {
-			src: archiveItemThumbnailHref(row.archiveId, row.item.id),
+			src: urls.thumbnail(row.archiveId, row.item.id),
 			original: downloadHref(row)
 		};
 	}
@@ -117,8 +149,16 @@
 
 <!-- 2段目は、アーカイブの一覧では同じタイトルが並んだときに見分けるための軸の値 (→ docs/ui.md「アーカイブの一覧画面」)。 -->
 {#snippet itemSubtitle(row: ArchiveViewRow)}
-	<ListRowSubtitle location={row.location} text={row.item.subtitle} />
+	{#if subtitleOverride}
+		{@render subtitleOverride(row)}
+	{:else}
+		<ListRowSubtitle location={row.location} text={row.item.subtitle} />
+	{/if}
 {/snippet}
+
+<!-- 行の部品の同名の口へ渡すため、別名で包む。 -->
+{#snippet leadingSlot(row: ArchiveViewRow)}{@render leading?.(row)}{/snippet}
+{#snippet trailingSlot(row: ArchiveViewRow)}{@render trailing?.(row)}{/snippet}
 
 {#if filter?.active && rows.length === 0}
 	<ListFilterEmpty />
@@ -130,33 +170,43 @@
 			<li class={browseItemClass()}>
 				{#if isLinksFileName(row.item.fileName)}
 					<div class={browseRowClass()}>
+						{@render leading?.(row)}
 						<ListRowIcon icon={LinksFileIcon} />
 						<span class={browseRowTextClass()}>
 							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
 							<a href={linksHref(row)} class={browseRowPressClass()}>{@render itemTitle(row)}</a>
 							{@render itemSubtitle(row)}
 						</span>
+						{@render trailing?.(row)}
 						<ListRowGlyph />
 					</div>
 				{:else if isAudioFileName(row.item.fileName)}
 					<ListRowPlayButton track={toTrack(row)} queue={audioQueue}>
 						{@render itemTitle(row)}
 						{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
+						{#snippet leading()}{@render leadingSlot(row)}{/snippet}
+						{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
 					</ListRowPlayButton>
 				{:else if image}
 					<ListRowImageLink {image} items={viewerList}>
 						{@render itemTitle(row)}
 						{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
+						{#snippet leading()}{@render leadingSlot(row)}{/snippet}
+						{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
 					</ListRowImageLink>
 				{:else if viewerFile}
 					<ListRowFileLink file={viewerFile} items={viewerList}>
 						{@render itemTitle(row)}
 						{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
+						{#snippet leading()}{@render leadingSlot(row)}{/snippet}
+						{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
 					</ListRowFileLink>
 				{:else}
 					<ListRowDownloadLink href={downloadHref(row)} thumbnail={rowThumbnail(row)}>
 						{@render itemTitle(row)}
 						{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
+						{#snippet leading()}{@render leadingSlot(row)}{/snippet}
+						{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
 					</ListRowDownloadLink>
 				{/if}
 			</li>

@@ -210,7 +210,6 @@ UPSERT する処理は必須ではなくなる。値の管理画面は、その�
   権限は `AuthUser`。
 - 一覧画面からのまとめて切り替えに対応するため、複数 id を受ける
   `PUT /api/v1/contents/{id}/items` (`{itemIds: [...], published: bool}`) も置く。
-- 管理用の一覧は、表示タイトルかパスに含む文字列で絞り込める (英字の大文字小文字は区別しない)。
   表紙のように同じ種類のファイルをまとめて選び、公開を切り替えるため。
   全選択と一括切り替えは、絞り込みで出ている行だけに効く。絞り込みを変えて見えなくなった行は選択から外す。見えない行が選択に残ると、気づかないまま切り替えてしまうため。
   一覧は全件を返しているので、絞り込みは画面だけで行い、API は変えない。
@@ -248,6 +247,9 @@ UPSERT する処理は必須ではなくなる。値の管理画面は、その�
 |---|---|---|
 | `GET /contents/{id}/archive` | `Viewer` | 閲覧用。軸の定義・選択肢・アイテム一覧 (導出済みタイトル付き) を返す。軸名をクエリキー、選択肢の表示名を値にして絞り込む。`sort` クエリで並び順を選べる (→ ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」) |
 | `POST /contents/{id}/rescan` | `AuthUser` | 再スキャン (→ 「スキャン」) |
+| `GET /contents/{id}/manage-archive` | `AuthUser` | 管理画面のアイテムのタブ。閲覧用の一覧と同じ絞り込み・並べ替え・導出で、未公開と実体の無いアイテムも含め、`published`・`missing` を付ける |
+| `GET /contents/{id}/items/{item_id}/manage-thumbnail` | `AuthUser` | 管理画面の縮小画像。未公開も出す |
+| `GET /contents/{id}/archive/manage-download` | `AuthUser` | 管理画面からの、相対パスで指したアイテムの配信。未公開も渡す |
 | `GET /contents/{id}/items` | `AuthUser` | 管理用。非公開も含めた全アイテム。大きさ・更新日時は DB に持たず、その時点のファイルから読む (消えている・読めなければ空にし、`missing` を立てる) |
 | `PUT /contents/{id}/items` | `AuthUser` | 公開フラグの一括切り替え |
 | `PUT /contents/{id}/items/{item_id}` | `AuthUser` | 公開フラグの単体切り替え |

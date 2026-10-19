@@ -47,6 +47,12 @@ const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
     ("PUT", "/api/v1/contents/9999/items"),
     ("PUT", "/api/v1/contents/9999/items/1"),
     ("GET", "/api/v1/contents/9999/items/1/manage-download"),
+    ("GET", "/api/v1/contents/9999/items/1/manage-thumbnail"),
+    ("GET", "/api/v1/contents/9999/manage-archive"),
+    (
+        "GET",
+        "/api/v1/contents/9999/archive/manage-download?path=a.pdf",
+    ),
     ("GET", "/api/v1/admin/fs/dirs"),
     ("GET", "/api/v1/admin/fs/count"),
     ("GET", "/api/v1/admin/backup"),

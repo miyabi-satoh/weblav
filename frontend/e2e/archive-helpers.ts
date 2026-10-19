@@ -84,10 +84,8 @@ export async function saveAxisValues(page: Page, axisName: string) {
 
 /** アイテムの一覧で、パスが `relPath` の行の公開スイッチ。 */
 export function itemPublishedSwitch(page: Page, relPath: string): Locator {
-	return page
-		.getByRole('row')
-		.filter({ hasText: relPath })
-		.getByRole('switch', { name: /を公開$|^Publish / });
+	const path = relPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	return page.getByRole('switch', { name: new RegExp(`^(${path} を公開|Publish ${path})$`) });
 }
 
 /** 値の辞書の「ファイル名によく出る語」の区画。 */

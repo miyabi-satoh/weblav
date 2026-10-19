@@ -68,9 +68,9 @@ test('軸: 軸を足して値の辞書と表示タイトルを保存すると、
 			});
 
 			await page.getByRole('link', { name: ITEMS_TAB_NAME }).click();
-			await expect(page.getByRole('cell', { name: '2024 リスニング' })).toBeVisible();
-			await expect(page.getByRole('cell', { name: '2024 解答' })).toBeVisible();
-			await expect(page.getByRole('cell', { name: '2023 リスニング' })).toBeVisible();
+			await expect(page.getByText('2024 リスニング', { exact: true })).toBeVisible();
+			await expect(page.getByText('2024 解答', { exact: true })).toBeVisible();
+			await expect(page.getByText('2023 リスニング', { exact: true })).toBeVisible();
 		}
 	);
 });
@@ -554,12 +554,10 @@ test('一括公開: 絞り込んで全選択すると見えている行だけを
 				page.getByText(/3\s件のアイテム \(0\s件公開\)|3 items \(0 published\)/)
 			).toBeVisible();
 
-			const filter = page.getByLabel(
-				/^\s*(タイトルまたはパスで絞り込む|Filter by title or path)\s*$/
-			);
+			const filter = page.getByRole('textbox', { name: /^(名前で絞り込む|Filter by name)$/ });
 			const selectAll = page.getByRole('checkbox', { name: /^すべて選択$|^Select all$/ });
 			await filter.fill('2024/');
-			await expect(page.getByText(/^2\s件を表示$|^2 shown$/)).toBeVisible();
+			await expect(page.getByText(/^2\s\/\s3\s件のアイテム$|^2 \/ 3 items$/)).toBeVisible();
 			await selectAll.click();
 			await expect(page.getByText(/^2\s件選択中$|^2 selected$/)).toBeVisible();
 			await page
@@ -574,6 +572,8 @@ test('一括公開: 絞り込んで全選択すると見えている行だけを
 			await expect(
 				page.getByText(/3\s件のアイテム \(2\s件公開\)|3 items \(2 published\)/)
 			).toBeVisible();
+			// 名前の絞り込みは URL に残るので、消してから隠れていた行を見る。
+			await filter.fill('');
 			await expect(itemPublishedSwitch(page, '2024/listening.mp3')).toHaveAttribute(
 				'aria-checked',
 				'true'
