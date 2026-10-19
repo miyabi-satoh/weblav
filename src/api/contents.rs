@@ -2221,7 +2221,7 @@ pub(super) async fn search_contents(
         .unwrap_or_default();
 
     // 照らすのは全行の文字列を揃える計算で、件数に比例して重くなる。
-    let terms_owned = terms.clone();
+    let mut terms_owned = terms.clone();
     let (mut hits, archives, folders, links_files, groups) = run_blocking(move || {
         let mut hits = Vec::new();
         let mut archives = Vec::new();

@@ -128,7 +128,7 @@ pub(super) async fn search(
 ) -> Result<FolderSearch, AppError> {
     let roots = super::roots::load_roots(&state.pool).await?;
     let own_dirs = state.own_dirs.clone();
-    let walk_terms = terms.clone();
+    let mut walk_terms = terms.clone();
     let containers: Vec<Container> = folders
         .iter()
         .map(|folder| Container {
@@ -340,6 +340,8 @@ async fn search_links(
         .collect();
     let previews = link_preview::cached(&state.pool, &urls).await?;
 
+    // 照合は語ごとに作業の場所を持つので、呼び出し側と分けて持つ。
+    let mut terms = terms.clone();
     let mut hits: Vec<(Score, String, SearchLinkHit)> = Vec::new();
     for (source, file) in sources.into_iter().zip(parsed) {
         let Some(file) = file else {

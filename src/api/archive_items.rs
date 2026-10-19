@@ -588,7 +588,7 @@ fn item_hit_cmp(a: &ItemHit, b: &ItemHit) -> std::cmp::Ordering {
 pub(super) async fn search_items(
     pool: &sqlx::SqlitePool,
     archives: Vec<SearchableArchive>,
-    terms: super::search::Terms,
+    mut terms: super::search::Terms,
 ) -> Result<(Vec<super::search::SearchItemHit>, bool), AppError> {
     let mut sources = Vec::with_capacity(archives.len());
     for archive in archives {

@@ -42,12 +42,8 @@ pub(super) enum FieldKind {
 /// 1語の当たり方。並びの順によい。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Tier {
-    /// 文字が順に含まれる (飛ばし打ち)。
-    Subsequence,
-    /// 2文字までの打ち間違い。
-    Typo2,
-    /// 1文字の打ち間違い。
-    Typo1,
+    /// 飛ばし打ちか打ち間違いで当たる (`frizbee`)。
+    Fuzzy,
     /// どこかにそのまま含む。
     Substring,
     /// 語の頭からそのまま含む。
@@ -59,9 +55,9 @@ enum Tier {
 /// ADR: あいまいに当てる語の長さの下限 (文字数)。1〜2文字で飛ばし打ちを効かせると、ほとんど何にでも当たるため。
 const FUZZY_MIN_CHARS: usize = 3;
 
-/// ADR: 飛ばし打ちで、間に挟まってよい文字数の、語の長さに対する倍率。
-/// 長い名前のあちこちに散った文字にまで当たらないようにする (`mugenp` が `admin_archive_..._desktop` に当たるなど)。
-const SUBSEQUENCE_MAX_GAPS_PER_CHAR: usize = 2;
+/// ADR: 飛ばし打ちで、当たった文字の間に挟まってよい文字数の、語の長さに対する倍率。
+/// `frizbee` は間の広さを点数で下げるだけで外さないので、長い名前に散った文字 (`mugenp` が `admin_archive_..._desktop` に当たる) を外す。
+const FUZZY_MAX_GAPS_PER_CHAR: usize = 2;
 
 /// ADR: 打ち間違いを1文字・2文字まで許す語の長さ (文字数)。Meilisearch の既定 (`minWordSizeForTypos`) に倣う。
 /// 短い語は1文字違うだけで別の語になる (日本語の2〜3文字の語は特に) ので、許さない。
@@ -73,13 +69,16 @@ const TWO_TYPOS_MIN_CHARS: usize = 9;
 pub(super) struct Score {
     /// 語ごとの当たり方 (照らした文字列の種類と当たり方) の合計。大きいほどよい。
     rank: u32,
-    /// 飛ばし打ちで飛ばした文字数の合計。小さいほどよい。
-    gaps: u32,
+    /// あいまいに当たった語の、`frizbee` の点数の合計。大きいほどよい (詰まって並ぶ・語の頭から当たるほど高い)。
+    fuzzy: u32,
 }
 
 impl Ord for Score {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.rank.cmp(&self.rank).then(self.gaps.cmp(&other.gaps))
+        other
+            .rank
+            .cmp(&self.rank)
+            .then(other.fuzzy.cmp(&self.fuzzy))
     }
 }
 
@@ -97,41 +96,113 @@ pub(super) struct Match {
     pub(super) in_detail: bool,
 }
 
-/// 空白で区切った検索語。どの語もどこかに当たり、少なくとも1語は場所でない文字列に当たれば当たりにする。
+/// 1つの検索語。
 #[derive(Clone)]
-pub(super) struct Terms(Vec<Vec<char>>);
+struct Term {
+    chars: Vec<char>,
+    /// あいまいに当てる照合。語が短ければ持たない。
+    fuzzy: Option<frizbee::Matcher>,
+}
+
+impl Term {
+    fn new(text: &str) -> Self {
+        let chars: Vec<char> = text.chars().collect();
+        let fuzzy = (chars.len() >= FUZZY_MIN_CHARS).then(|| {
+            let max_typos = if chars.len() >= TWO_TYPOS_MIN_CHARS {
+                2
+            } else if chars.len() >= ONE_TYPO_MIN_CHARS {
+                1
+            } else {
+                0
+            };
+            // 大文字と小文字は `normalize` で揃え済み。`Smart` だと語の英字しだいで変わるので、決めて渡す。
+            let config = frizbee::Config::default()
+                .max_typos(Some(max_typos))
+                .casing(frizbee::CaseMatching::Ignore);
+            frizbee::Matcher::new(text, &config)
+        });
+        Self { chars, fuzzy }
+    }
+
+    /// 1つの文字列に照らす。当たれば当たり方と、あいまいに当たったときの `frizbee` の点数。
+    fn match_text(&mut self, text: &str, chars: &[char], fuzzy: bool) -> Option<(Tier, u32)> {
+        if self.chars == chars {
+            return Some((Tier::Whole, 0));
+        }
+        if let Some(word_start) = substring_at(&self.chars, chars) {
+            return Some((
+                if word_start {
+                    Tier::WordStart
+                } else {
+                    Tier::Substring
+                },
+                0,
+            ));
+        }
+        if !fuzzy {
+            return None;
+        }
+        let found = self.fuzzy.as_mut()?.match_one_indices(text, 0)?;
+        // 当たった文字の位置 (バイト) から、間に挟まった文字数を数える。
+        let first = *found.indices.iter().min()? as usize;
+        let last = *found.indices.iter().max()? as usize;
+        let span = text
+            .get(first..=last)
+            .map_or(0, |part| part.chars().count());
+        let gaps = span.saturating_sub(found.indices.len());
+        if gaps > self.chars.len() * FUZZY_MAX_GAPS_PER_CHAR {
+            return None;
+        }
+        // 当たらなかった文字がある (打ち間違いを含む) なら、語の頭から始まるものだけにする。
+        // 語の途中の短い一致 (`untis` が `accounts` の `unts` に当たる) を拾わないため (Meilisearch も語単位で照らす)。
+        let typo = found.indices.len() < self.chars.len();
+        let word_start = text[..first]
+            .chars()
+            .next_back()
+            .is_none_or(|before| !before.is_alphanumeric());
+        (!typo || word_start).then_some((Tier::Fuzzy, u32::from(found.score)))
+    }
+}
+
+/// 空白で区切った検索語。どの語もどこかに当たり、少なくとも1語は場所でない文字列に当たれば当たりにする。
+/// あいまいな照合は `frizbee` に任せ、照らす文字列の種類と並べ方はここで決める (→ docs/search.md「一致のしかた」)。
+#[derive(Clone)]
+pub(super) struct Terms(Vec<Term>);
 
 impl Terms {
     /// 語が1つも無ければ `None`。全角の空白も区切りになるよう、揃えてから分ける。
     pub(super) fn parse(query: &str) -> Option<Self> {
-        let terms: Vec<Vec<char>> = normalize(query)
-            .split_whitespace()
-            .map(|term| term.chars().collect())
-            .collect();
+        let terms: Vec<Term> = normalize(query).split_whitespace().map(Term::new).collect();
         (!terms.is_empty()).then_some(Self(terms))
     }
 
     /// `fields` の文字列は `normalize` 済み。当たらなければ `None`。
     /// 場所の名前だけで当たるものを外すのは、場所の語1つで、その下の物が全部当たって場所そのものが埋もれないようにするため。
-    pub(super) fn score(&self, fields: &[(FieldKind, &str)]) -> Option<Match> {
-        let fields: Vec<(FieldKind, Vec<char>)> = fields
+    pub(super) fn score(&mut self, fields: &[(FieldKind, &str)]) -> Option<Match> {
+        let chars: Vec<Vec<char>> = fields
             .iter()
-            .map(|(kind, text)| (*kind, text.chars().collect()))
+            .map(|(_, text)| text.chars().collect())
             .collect();
-        let mut score = Score { rank: 0, gaps: 0 };
+        let mut score = Score { rank: 0, fuzzy: 0 };
         let mut in_detail = false;
         let mut beyond_place = false;
-        for term in &self.0 {
-            let (kind, tier, gaps) = fields
-                .iter()
-                .filter_map(|(kind, text)| {
-                    term_match(term, text, *kind == FieldKind::Own)
-                        .map(|(tier, gaps)| (*kind, tier, gaps))
-                })
-                .max_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)).then(b.2.cmp(&a.2)))?;
+        for term in &mut self.0 {
+            let mut best: Option<(FieldKind, Tier, u32)> = None;
+            for ((kind, text), chars) in fields.iter().zip(&chars) {
+                let Some((tier, fuzzy)) = term.match_text(text, chars, *kind == FieldKind::Own)
+                else {
+                    continue;
+                };
+                if best.is_none_or(|(best_kind, best_tier, best_fuzzy)| {
+                    (*kind, tier, fuzzy) > (best_kind, best_tier, best_fuzzy)
+                }) {
+                    best = Some((*kind, tier, fuzzy));
+                }
+            }
+            let (kind, tier, fuzzy) = best?;
             // 種類を当たり方より重くする。自身の名前で当たったものを、場所の名前でそのまま当たったものより先に出すため。
             score.rank += kind as u32 * 10 + tier as u32;
-            score.gaps += gaps;
+            score.fuzzy += fuzzy;
             in_detail |= kind == FieldKind::Detail;
             beyond_place |= kind != FieldKind::Place;
         }
@@ -139,49 +210,7 @@ impl Terms {
     }
 }
 
-/// 1語を1つの文字列に照らす。当たれば当たり方と、飛ばし打ちで飛ばした文字数。
-fn term_match(term: &[char], text: &[char], fuzzy: bool) -> Option<(Tier, u32)> {
-    if term == text {
-        return Some((Tier::Whole, 0));
-    }
-    if let Some(word_start) = substring_at(term, text) {
-        return Some((
-            if word_start {
-                Tier::WordStart
-            } else {
-                Tier::Substring
-            },
-            0,
-        ));
-    }
-    if !fuzzy || term.len() < FUZZY_MIN_CHARS {
-        return None;
-    }
-    let allowed = if term.len() >= TWO_TYPOS_MIN_CHARS {
-        2
-    } else if term.len() >= ONE_TYPO_MIN_CHARS {
-        1
-    } else {
-        0
-    };
-    if allowed > 0 {
-        match typo_distance(term, text, allowed) {
-            Some(1) => return Some((Tier::Typo1, 0)),
-            Some(_) => return Some((Tier::Typo2, 0)),
-            None => {}
-        }
-    }
-    subsequence_gaps(term, text)
-        .filter(|gaps| *gaps as usize <= term.len() * SUBSEQUENCE_MAX_GAPS_PER_CHAR)
-        .map(|gaps| (Tier::Subsequence, gaps))
-}
-
-/// `index` が語の頭 (先頭か、英数字でない文字の直後) か。
-fn is_word_start(text: &[char], index: usize) -> bool {
-    index == 0 || !text[index - 1].is_alphanumeric()
-}
-
-/// そのまま含むか。含むなら、どこかで語の頭から始まるか。
+/// そのまま含むか。含むなら、どこかで語の頭 (先頭か、英数字でない文字の直後) から始まるか。
 fn substring_at(term: &[char], text: &[char]) -> Option<bool> {
     if term.is_empty() || term.len() > text.len() {
         return None;
@@ -189,76 +218,13 @@ fn substring_at(term: &[char], text: &[char]) -> Option<bool> {
     let mut found = None;
     for start in 0..=text.len() - term.len() {
         if text[start..start + term.len()] == *term {
-            if is_word_start(text, start) {
+            if start == 0 || !text[start - 1].is_alphanumeric() {
                 return Some(true);
             }
             found = Some(false);
         }
     }
     found
-}
-
-/// `text` の語の頭から始まる部分と `term` の、打ち間違いの数 (挿入・削除・置換・隣どうしの入れ替え)。`max` を超えれば `None`。
-/// 部分に対する編集距離 (Sellers の方法) に、入れ替えを1回と数える分 (OSA) を足したもの。
-/// 語の頭から始めるのは、語の途中の短い一致 (`untis` が `accounts` の `unts` に当たるなど) を拾わないため。
-fn typo_distance(term: &[char], text: &[char], max: usize) -> Option<usize> {
-    let m = term.len();
-    // 行は term の位置、列は text の位置。語の頭からだけ始めてよいので、0行目はそこだけ0にし、ほかは上限を超える値にする。
-    let start_row: Vec<usize> = (0..=text.len())
-        .map(|j| {
-            if j < text.len() && is_word_start(text, j) {
-                0
-            } else {
-                m + max + 1
-            }
-        })
-        .collect();
-    let mut before = start_row.clone();
-    let mut previous = start_row;
-    for i in 1..=m {
-        let mut current = vec![i; text.len() + 1];
-        for j in 1..=text.len() {
-            let cost = usize::from(term[i - 1] != text[j - 1]);
-            let mut value = (previous[j - 1] + cost)
-                .min(previous[j] + 1)
-                .min(current[j - 1] + 1);
-            if i > 1 && j > 1 && term[i - 1] == text[j - 2] && term[i - 2] == text[j - 1] {
-                value = value.min(before[j - 2] + 1);
-            }
-            current[j] = value;
-        }
-        before = std::mem::replace(&mut previous, current);
-    }
-    previous
-        .into_iter()
-        .min()
-        .filter(|distance| *distance <= max)
-}
-
-/// `term` の文字が `text` に順に含まれるなら、いちばん詰まった並びで間に挟まる文字数。
-fn subsequence_gaps(term: &[char], text: &[char]) -> Option<u32> {
-    let first = *term.first()?;
-    let mut best: Option<usize> = None;
-    for start in (0..text.len()).filter(|&start| text[start] == first) {
-        let mut next = 1;
-        let mut end = start;
-        for (index, ch) in text.iter().enumerate().skip(start + 1) {
-            if next == term.len() {
-                break;
-            }
-            if *ch == term[next] {
-                next += 1;
-                end = index;
-            }
-        }
-        if next < term.len() {
-            // ここから先の始まりでは、なおさら揃わない。
-            break;
-        }
-        let gaps = end + 1 - start - term.len();
-        best = Some(best.map_or(gaps, |best| best.min(gaps)));
-    }
-    best.map(|gaps| u32::try_from(gaps).unwrap_or(u32::MAX))
 }
 
 #[derive(Debug, Deserialize, IntoParams)]
@@ -506,12 +472,9 @@ mod tests {
         assert!(whole < own("mugenp", "mugenp のトップ").expect("当たる"));
         let inside = own("nit", "review-units").expect("当たる");
         let typo = own("reveiw", "review-units").expect("当たる");
-        let skipped = own("rvwunit", "review-units").expect("当たる");
         assert!(word_start < inside);
         assert!(inside < typo);
-        assert!(typo < skipped);
-        // 飛ばし打ちは、詰まって並ぶものを先に。
-        assert!(own("rvw", "review").expect("当たる") < own("rvw", "r-a-v-x-w").expect("当たる"));
+        // あいまいに当たったものどうしの順は `frizbee` の点数に任せる。
     }
 
     #[test]
