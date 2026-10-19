@@ -132,13 +132,14 @@ impl Term {
             return None;
         }
         let found = self.fuzzy.as_mut()?.match_one_indices(text, 0)?;
-        // 当たった文字の位置から、間に挟まった文字数を数える。
-        // `indices` は当たった文字の全部のバイトを指すので、当たった文字の数は文字の頭のバイトで数える。
+        // 当たった文字の位置 (バイト) から、間に挟まった文字数を数える。
+        // `indices` は当たった文字のバイトを指す (日本語では1文字に3つ) ので、どちらも文字の頭のバイトで数える。
         let first = *found.indices.iter().min()? as usize;
         let last = *found.indices.iter().max()? as usize;
         let span = text
-            .get(first..=last)
-            .map_or(0, |part| part.chars().count());
+            .char_indices()
+            .filter(|(index, _)| (first..=last).contains(index))
+            .count();
         let matched = found
             .indices
             .iter()

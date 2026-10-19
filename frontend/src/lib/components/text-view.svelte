@@ -116,7 +116,10 @@
 	/** 読めなかった画像は、代わりの文字にする。相対パスの先がアイテムでない・無いときに、壊れた画像の印を出さないため。 */
 	function replaceBrokenImages(article: HTMLElement) {
 		for (const image of article.querySelectorAll('img')) {
-			const replace = () => image.replaceWith(document.createTextNode(image.alt));
+			// 組み直しで外れた画像は置き換えない (decode は後から返る)。
+			const replace = () => {
+				if (image.isConnected) image.replaceWith(document.createTextNode(image.alt));
+			};
 			// 読み終えて幅が 0 でも、寸法を持たない SVG は読めている。読めなかったかは decode で確かめる。
 			if (image.complete && image.naturalWidth === 0) image.decode().catch(replace);
 			else image.addEventListener('error', replace, { once: true });
