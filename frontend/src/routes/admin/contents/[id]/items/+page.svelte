@@ -300,6 +300,7 @@
 				<Checkbox
 					id="select-all-items"
 					checked={allSelected}
+					indeterminate={selectedIds.length > 0 && !allSelected}
 					onCheckedChange={toggleSelectAll}
 					disabled={anyBusy}
 					aria-label={m.archive_items_select_all_label()}
