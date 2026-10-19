@@ -2,12 +2,15 @@
 	import { cn, type WithElementRef } from "$lib/utils.js";
 	import type { HTMLAttributes } from "svelte/elements";
 
+	// shadcn からの改変: field-label.svelte と同じく、必須項目を示す赤いアスタリスクを表示する。
+	// 入力欄でない項目 (選んで決める欄など) にも必須の印が要るため。
 	let {
 		ref = $bindable(null),
 		class: className,
 		children,
+		required = false,
 		...restProps
-	}: WithElementRef<HTMLAttributes<HTMLDivElement>> = $props();
+	}: WithElementRef<HTMLAttributes<HTMLDivElement>> & { required?: boolean } = $props();
 </script>
 
 <div
@@ -17,4 +20,7 @@
 	{...restProps}
 >
 	{@render children?.()}
+	{#if required}
+		<span class="text-destructive" aria-hidden="true">*</span>
+	{/if}
 </div>

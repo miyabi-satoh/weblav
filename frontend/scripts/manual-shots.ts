@@ -50,7 +50,9 @@ const ADMIN_SHOTS = [
 	'add-archive-picker',
 	'axis-add-dir',
 	'roots-delete',
-	'axis-row-actions'
+	'axis-row-actions',
+	'archive-items-tab',
+	'archive-items-publish'
 ];
 const DIAGRAM_SHOTS = ['how-it-works'];
 const ALL_SHOTS = [...ADMIN_SHOTS, ...DIAGRAM_SHOTS];
@@ -484,14 +486,21 @@ async function shootAdmin() {
 			await shotElement(page, 'roots-delete', page.getByRole('alertdialog'));
 		}
 
+		const axes = [
+			{ name: '年度', source: 'dirLevel', dirLevel: 1 },
+			{ name: '回', source: 'dirLevel', dirLevel: 2 },
+			{ name: '種類', source: 'filenameWord' }
+		];
+		for (const [position, axis] of axes.entries())
+			await send(page.request, 'POST', `/contents/${archive!.id}/axes`, { ...axis, position });
+		// マニュアルの手順 (06-archive-setup.md) と同じ表示タイトルにする。
+		// 完全上書き型の PUT なので、作成時の応答をそのまま送り直す。
+		await send(page.request, 'PUT', `/contents/${archive!.id}`, {
+			...archive,
+			titleTemplate: '{年度} {回} {fileName}'
+		});
+
 		if (want('axis-row-actions')) {
-			const axes = [
-				{ name: '年度', source: 'dirLevel', dirLevel: 1 },
-				{ name: '回', source: 'dirLevel', dirLevel: 2 },
-				{ name: '種類', source: 'filenameWord' }
-			];
-			for (const [position, axis] of axes.entries())
-				await send(page.request, 'POST', `/contents/${archive!.id}/axes`, { ...axis, position });
 			await goto(page, `/admin/contents/${archive!.id}/axes`);
 			await shotBetween(
 				page,
@@ -503,6 +512,25 @@ async function shootAdmin() {
 					padBottom: 18
 				}
 			);
+		}
+
+		const tabs = page.getByRole('navigation', { name: 'コンテンツの設定' });
+		const rowCheck = (index: number) => page.getByRole('checkbox', { name: /を選択$/ }).nth(index);
+		const rowOf = (index: number) => rowCheck(index).locator('xpath=ancestor::li[1]');
+		if (want('archive-items-tab')) {
+			await goto(page, `/admin/contents/${archive!.id}/items`);
+			await shotBetween(page, 'archive-items-tab', tabs, rowOf(2), { padTop: 8, padBottom: 8 });
+		}
+
+		if (want('archive-items-publish')) {
+			await goto(page, `/admin/contents/${archive!.id}/items`);
+			await rowCheck(0).click();
+			await rowCheck(1).click();
+			await page.mouse.move(1, 1);
+			await shotBetween(page, 'archive-items-publish', page.getByText('2 件選択中'), rowOf(2), {
+				padTop: 16,
+				padBottom: 8
+			});
 		}
 	} finally {
 		await closePagesAndStop(backend);

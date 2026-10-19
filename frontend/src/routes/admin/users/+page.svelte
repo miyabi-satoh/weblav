@@ -403,7 +403,7 @@
 							required
 						/>
 					</Field.Field>
-					<Field.Field>
+					<Field.Field data-invalid={createPasswordMismatch}>
 						<Field.FieldLabel for="user-password-confirm" required
 							>{m.admin_users_dialog_password_confirm_label()}</Field.FieldLabel
 						>
@@ -467,7 +467,7 @@
 							required
 						/>
 					</Field.Field>
-					<Field.Field>
+					<Field.Field data-invalid={resetPasswordMismatch}>
 						<Field.FieldLabel for="reset-password-confirm" required
 							>{m.admin_users_dialog_password_confirm_label()}</Field.FieldLabel
 						>

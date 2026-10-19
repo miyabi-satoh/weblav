@@ -31,7 +31,7 @@ use crate::state::AppState;
 pub enum AxisSource {
     /// アーカイブの登録先フォルダーを起点にした第N階層のディレクトリ名。
     DirLevel,
-    /// 拡張子を除いたファイル名に対する部分一致。
+    /// 拡張子を含むファイル名に対する部分一致。
     FilenameWord,
 }
 
@@ -48,7 +48,7 @@ pub enum AxisMatchPosition {
     Anywhere,
     /// 語の頭。ファイル名の先頭か、直前が英数字でない位置。
     WordStart,
-    /// 拡張子を除いたファイル名の末尾。
+    /// 拡張子の前の末尾か、ファイル名全体の末尾。
     End,
 }
 

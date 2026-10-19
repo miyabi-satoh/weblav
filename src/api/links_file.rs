@@ -45,6 +45,8 @@ struct LinksFileResponse {
     container_title: Option<String>,
     /// 書いた順のリンク。読めなければ無し (画面は読めなかった旨と、ファイルを新規タブで開く手段を出す)。
     links: Option<Vec<LinksFileEntry>>,
+    /// 見ている人が、ファイルの入ったコンテンツを書き換えられるか。画面は真のとき、その編集ページへの導線を出す。
+    can_edit: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -245,6 +247,7 @@ async fn links_file(
         ancestors: opened.lineage.breadcrumbs(),
         container_title: opened.container_title,
         links,
+        can_edit: opened.lineage.editable_by(&viewer),
     }))
 }
 

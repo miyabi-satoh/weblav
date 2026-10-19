@@ -2881,6 +2881,108 @@
         }
       }
     },
+    "/api/v1/contents/{id}/archive/download": {
+      "get": {
+        "summary": "相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。Markdown のプレビューが、\n相対パスの画像とリンクを開くのに使う。見える条件は `download_item` と同じ。",
+        "operationId": "download_item_by_path",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "アーカイブの登録先からの相対パス。`/` 区切りで、アイテムの `relPath` と同じ形。",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ファイルの内容"
+          },
+          "401": {
+            "description": "閲覧にログインが必要",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "索引に無い・非公開のアイテム、または実体が無い",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/{id}/archive/manage-download": {
+      "get": {
+        "summary": "管理画面からの、相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。未公開も渡す。\n管理画面の Markdown のプレビューが、未公開の画像も出すのに使う。",
+        "operationId": "manage_download_item_by_path",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "アーカイブの登録先からの相対パス。`/` 区切りで、アイテムの `relPath` と同じ形。",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ファイルの内容"
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "管理できない・索引に無いアイテム、または実体が無い",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contents/{id}/axes": {
       "get": {
         "summary": "軸の一覧。並び替えUIでの左からの順番 (`position`) 順に返す。",
@@ -4354,6 +4456,60 @@
         }
       }
     },
+    "/api/v1/contents/{id}/items/{item_id}/manage-thumbnail": {
+      "get": {
+        "summary": "管理画面のアイテムの縮小画像 (→ docs/ui.md「画像のプレビュー」)。見える条件は `manage_download_item` と同じ。",
+        "operationId": "manage_thumbnail_item",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "縮小画像 (JPEG か PNG)"
+          },
+          "304": {
+            "description": "ETag が一致した"
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "管理できない・所属しない・存在しないアイテム、実体が無い、またはプレビューしない画像",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contents/{id}/items/{item_id}/thumbnail": {
       "get": {
         "summary": "アイテムの縮小画像 (→ docs/ui.md「画像のプレビュー」)。見える条件は `download_item` と同じ。",
@@ -4550,6 +4706,55 @@
           },
           "429": {
             "description": "同時に中継している数が上限に達した",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/{id}/manage-archive": {
+      "get": {
+        "summary": "管理画面のアイテムのタブの一覧。閲覧用の一覧 (`view_archive`) と同じ絞り込み・並べ替え・導出で、\n未公開と実体の無いアイテムも含める (→ docs/archive.md「エンドポイント一覧」)。\n閲覧者に見える姿を、管理画面を離れずに確かめるため。",
+        "operationId": "manage_view_archive",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "未公開を含む、軸の選択肢と絞り込み後のアイテム一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManageArchiveViewResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "管理できない・存在しない・アーカイブでない",
             "content": {
               "application/json": {
                 "schema": {
@@ -6051,6 +6256,7 @@
           "id",
           "title",
           "fileName",
+          "relPath",
           "isText",
           "thumbnail"
         ],
@@ -6078,6 +6284,10 @@
             "type": "boolean",
             "description": "テキストのビューアーで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューアー」)。"
           },
+          "relPath": {
+            "type": "string",
+            "description": "アーカイブの登録先からの相対パス。Markdown のプレビューが、相対パスの画像とリンクを\nこのファイルの場所から解決するのに使う (→ docs/ui.md「PDF・動画・テキストのビューアー」)。"
+          },
           "subtitle": {
             "type": [
               "string",
@@ -6101,7 +6311,8 @@
           "ancestors",
           "axes",
           "items",
-          "folderMissing"
+          "folderMissing",
+          "canEdit"
         ],
         "properties": {
           "ancestors": {
@@ -6119,6 +6330,10 @@
             "items": {
               "$ref": "#/components/schemas/ArchiveAxisResponse"
             }
+          },
+          "canEdit": {
+            "type": "boolean",
+            "description": "見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。"
           },
           "folderMissing": {
             "type": "boolean",
@@ -7107,7 +7322,8 @@
           "folderTitle",
           "ancestors",
           "path",
-          "entries"
+          "entries",
+          "canEdit"
         ],
         "properties": {
           "ancestors": {
@@ -7116,6 +7332,10 @@
               "$ref": "#/components/schemas/GroupAncestor"
             },
             "description": "ルートに近い順の祖先グループ。自分自身は含まない。\nフォルダーもグループの下に置けるため、閲覧側のパンくずで上へ戻れるようにする。"
+          },
+          "canEdit": {
+            "type": "boolean",
+            "description": "見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。"
           },
           "entries": {
             "type": "array",
@@ -7229,7 +7449,8 @@
         "required": [
           "groupTitle",
           "ancestors",
-          "entries"
+          "entries",
+          "canEdit"
         ],
         "properties": {
           "ancestors": {
@@ -7238,6 +7459,10 @@
               "$ref": "#/components/schemas/GroupAncestor"
             },
             "description": "ルートに近い順(祖先→自分の直前の親まで)。自分自身は含まない。\nパンくず表示にそのまま使える。"
+          },
+          "canEdit": {
+            "type": "boolean",
+            "description": "見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。"
           },
           "entries": {
             "type": "array",
@@ -7606,7 +7831,8 @@
         "required": [
           "title",
           "name",
-          "ancestors"
+          "ancestors",
+          "canEdit"
         ],
         "properties": {
           "ancestors": {
@@ -7615,6 +7841,10 @@
               "$ref": "#/components/schemas/GroupAncestor"
             },
             "description": "ルートに近い順の祖先グループ。コンテンツ自身は含まない。"
+          },
+          "canEdit": {
+            "type": "boolean",
+            "description": "見ている人が、ファイルの入ったコンテンツを書き換えられるか。画面は真のとき、その編集ページへの導線を出す。"
           },
           "containerTitle": {
             "type": [
@@ -7672,6 +7902,54 @@
           },
           "username": {
             "type": "string"
+          }
+        }
+      },
+      "ManageArchiveViewItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ArchiveViewItem"
+          },
+          {
+            "type": "object",
+            "required": [
+              "published",
+              "missing"
+            ],
+            "properties": {
+              "missing": {
+                "type": "boolean",
+                "description": "索引にあるが実体が無い。閲覧の一覧からは外れている (→ docs/archive.md「アイテムの配信」)。"
+              },
+              "published": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
+      "ManageArchiveViewResponse": {
+        "type": "object",
+        "required": [
+          "axes",
+          "items",
+          "folderMissing"
+        ],
+        "properties": {
+          "axes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArchiveAxisResponse"
+            }
+          },
+          "folderMissing": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManageArchiveViewItem"
+            }
           }
         }
       },
@@ -7992,7 +8270,7 @@
           },
           "matchedInDescription": {
             "type": "boolean",
-            "description": "タイトルでは当たらず、説明で当たったか。何で当たったか分かるよう、画面が説明を添える。"
+            "description": "説明で当たった語があるか。何で当たったか分かるよう、画面が説明を添える。"
           }
         }
       },
@@ -8102,7 +8380,7 @@
           },
           "matchedInNote": {
             "type": "boolean",
-            "description": "題では当たらず、`note` で当たったか。何で当たったか分かるよう、画面が `note` を添える。"
+            "description": "`note` で当たった語があるか。何で当たったか分かるよう、画面が `note` を添える。"
           },
           "note": {
             "type": [
@@ -8151,7 +8429,7 @@
             "items": {
               "$ref": "#/components/schemas/SearchContentHit"
             },
-            "description": "タイトル順。区画ごとの上限 (100 件) で打ち切る。"
+            "description": "当たりのよい順 (同じ程度ならタイトル順)。区画ごとの上限 (100 件) で打ち切る。"
           },
           "contentsTruncated": {
             "type": "boolean",
@@ -8162,7 +8440,7 @@
             "items": {
               "$ref": "#/components/schemas/SearchFileHit"
             },
-            "description": "フォルダーの中のファイルとディレクトリ。名前順。区画ごとの上限 (100 件) で打ち切る。"
+            "description": "フォルダーの中のファイルとディレクトリ。当たりのよい順 (同じ程度なら名前順)。区画ごとの上限 (100 件) で打ち切る。"
           },
           "filesTruncated": {
             "type": "boolean",
@@ -8177,7 +8455,7 @@
             "items": {
               "$ref": "#/components/schemas/SearchItemHit"
             },
-            "description": "アーカイブのファイル。表示タイトル順。区画ごとの上限 (100 件) で打ち切る。"
+            "description": "アーカイブのファイル。当たりのよい順 (同じ程度なら表示タイトル順)。区画ごとの上限 (100 件) で打ち切る。"
           },
           "itemsTruncated": {
             "type": "boolean",
@@ -8188,7 +8466,7 @@
             "items": {
               "$ref": "#/components/schemas/SearchLinkHit"
             },
-            "description": "リンクの一覧のファイルの中のリンク。題の順。区画ごとの上限 (100 件) で打ち切る。"
+            "description": "リンクの一覧のファイルの中のリンク。当たりのよい順 (同じ程度なら題の順)。区画ごとの上限 (100 件) で打ち切る。"
           },
           "linksTruncated": {
             "type": "boolean",

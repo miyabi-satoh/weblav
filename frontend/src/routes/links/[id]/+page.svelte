@@ -1,5 +1,6 @@
 <script lang="ts">
-	import BrowseFilterInput from '$lib/components/browse-filter-input.svelte';
+	import BrowseControls from '$lib/components/browse-controls.svelte';
+	import BrowseHeading from '$lib/components/browse-heading.svelte';
 	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { resolve } from '$app/paths';
 	import { withQuery } from '$lib/href';
@@ -8,12 +9,11 @@
 	import { breadcrumbLinkClass, pathCrumbs } from '$lib/breadcrumb';
 	import { RefreshedLinkPreviews } from '$lib/link-previews.svelte';
 	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
-	import BrowseLayoutToggle from '$lib/components/browse-layout-toggle.svelte';
 	import LinksEntryList, { type LinksEntryRow } from '$lib/components/links-entry-list.svelte';
-	import { browseControlsClass, browseGutterClass } from '$lib/list-row';
+	import { browseGutterClass } from '$lib/list-row';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
-	import { pageHeadingClass, pageEmptyTextClass } from '$lib/page-layout';
+	import { pageEmptyTextClass } from '$lib/page-layout';
 
 	// リンクの一覧のファイルを開いた画面 (→ docs/ui.md「リンクの一覧のファイル」)。
 	// フォルダーの中・アーカイブのアイテム・file コンテンツのどれも、この1つの画面で開く。
@@ -81,13 +81,16 @@
 			<span>{linksFile.name}</span>
 		</BrowseBreadcrumb>
 
-		<h1 class={pageHeadingClass}>{linksFile.title}</h1>
+		<!-- 編集するのは、ファイルの入ったコンテンツ (file コンテンツならそのもの)。 -->
+		<BrowseHeading
+			heading={linksFile.title}
+			{contentId}
+			contentTitle={linksFile.containerTitle ?? linksFile.name}
+			canEdit={linksFile.canEdit}
+		/>
 
 		{#if linksFile.links?.length}
-			<div class={['mb-4 flex-wrap', browseControlsClass]}>
-				<BrowseFilterInput />
-				<BrowseLayoutToggle />
-			</div>
+			<BrowseControls class="mb-4" />
 		{/if}
 	</div>
 

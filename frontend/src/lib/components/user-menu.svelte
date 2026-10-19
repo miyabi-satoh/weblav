@@ -174,7 +174,7 @@
 							required
 						/>
 					</Field.Field>
-					<Field.Field>
+					<Field.Field data-invalid={mismatch}>
 						<Field.FieldLabel for="change-password-new-confirm" required
 							>{m.change_password_new_confirm_label()}</Field.FieldLabel
 						>

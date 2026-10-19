@@ -72,7 +72,7 @@
 
 <Field.FieldGroup>
 	{#if form.type === 'link'}
-		<Field.Field>
+		<Field.Field data-disabled={disabled}>
 			<Field.FieldLabel for="content-url" required>{m.contents_form_url_label()}</Field.FieldLabel>
 			<!-- type="url" だとブラウザーが `example.com` のようにプロトコルを省いた値を弾くので、text にする。
 			     スキームはサーバーが補う (→ docs/ui.md「UI 全般」)。inputmode でスマートフォンの URL 用キーボードは残す。 -->
@@ -86,9 +86,10 @@
 			/>
 		</Field.Field>
 	{:else if isDirectoryContentType(form.type)}
-		<Field.Field>
+		<Field.Field data-disabled={disabled}>
 			<!-- 編集では選び直せても空にはできないので、ファイルの欄と同じく作成のときだけ印を付ける。 -->
-			<Field.FieldLabel required={!editing}>{m.contents_form_path_label()}</Field.FieldLabel>
+			<!-- 入力欄ではないので label にしない。 -->
+			<Field.FieldTitle required={!editing}>{m.contents_form_path_label()}</Field.FieldTitle>
 			<!-- 絶対パスはテキスト入力させず、サーバー上のディレクトリを辿って選ばせる
 			     (→ docs/folders.md「登録前の確認」)。 -->
 			<div class="flex items-center gap-3">
@@ -106,7 +107,7 @@
 			</div>
 		</Field.Field>
 		{#if editing && form.type === 'archive'}
-			<Field.Field>
+			<Field.Field data-disabled={disabled}>
 				<Field.FieldLabel for="content-extensions"
 					>{m.contents_form_extensions_label()}</Field.FieldLabel
 				>
@@ -115,7 +116,7 @@
 			</Field.Field>
 		{/if}
 	{:else if form.type === 'file'}
-		<Field.Field>
+		<Field.Field data-disabled={disabled}>
 			<Field.FieldLabel for="content-file" required={!editing}
 				>{m.contents_form_file_label()}</Field.FieldLabel
 			>
@@ -150,7 +151,7 @@
 		</Field.Field>
 	{/if}
 	{#if showsTitle}
-		<Field.Field>
+		<Field.Field data-disabled={disabled}>
 			<Field.FieldLabel for="content-title" required
 				>{m.contents_form_title_label()}</Field.FieldLabel
 			>
@@ -176,7 +177,7 @@
 		</Field.Field>
 	{/if}
 	{#if editing}
-		<Field.Field>
+		<Field.Field data-disabled={disabled}>
 			<Field.FieldLabel for="content-parent">{m.contents_form_parent_label()}</Field.FieldLabel>
 			<!-- 親に指定できるのはgroupのみ(folderはFS実体でありDB階層とは別物)。 -->
 			<Select.Root type="single" bind:value={form.parentId} {disabled}>
@@ -193,7 +194,7 @@
 		</Field.Field>
 	{/if}
 	{#if showsVisibility}
-		<Field.Field>
+		<Field.Field data-invalid={visibilityError !== null} data-disabled={disabled}>
 			<Field.FieldLabel for="content-visibility"
 				>{m.contents_form_visibility_label()}</Field.FieldLabel
 			>
@@ -220,7 +221,7 @@
 		</Field.Field>
 	{/if}
 	{#if editing}
-		<Field.Field>
+		<Field.Field data-disabled={disabled}>
 			<Field.FieldLabel for="content-description"
 				>{m.contents_form_description_label()}</Field.FieldLabel
 			>

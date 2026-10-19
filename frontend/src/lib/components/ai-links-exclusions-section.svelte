@@ -65,6 +65,7 @@
 			variant="outline"
 			bind:value={() => kind, (value) => (kind = value === 'site' ? 'site' : 'page')}
 			class="self-start"
+			aria-labelledby="ai-exclusions-heading"
 		>
 			<ToggleGroup.Item value="page"
 				>{m.contents_ai_exclusions_pages_tab({ count: pageCount })}</ToggleGroup.Item

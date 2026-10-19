@@ -30,6 +30,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use super::error_detail::ValidationDetail;
+use super::search::FieldKind;
 use super::sort::{SortOrder, SortQuery, title_cmp};
 use crate::auth::{AdminUser, AuthUser, Viewer};
 use crate::config::create_owner_only_dir;
@@ -166,6 +167,16 @@ impl Lineage {
             .first()
             .map(|row| row.title.clone())
             .unwrap_or_default()
+    }
+
+    /// `viewer` が自分を書き換えられるか (判定は `ensure_editable` と同じ)。
+    pub(super) fn editable_by(&self, viewer: &Viewer) -> bool {
+        match (viewer, self.0.first()) {
+            (Viewer::User(user), Some(own)) => {
+                ensure_editable(user, own.visibility, own.created_by).is_ok()
+            }
+            _ => false,
+        }
     }
 
     /// 自分を除く祖先を、ルートに近い順で返す。パンくずにそのまま使える形。
@@ -1587,6 +1598,8 @@ struct FolderBrowseResponse {
     ancestors: Vec<GroupAncestor>,
     path: String,
     entries: Vec<FolderEntry>,
+    /// 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。
+    can_edit: bool,
 }
 
 /// `id` が指す `type = 'folder'` の行から、フォルダーのタイトルと登録済みルートパス
@@ -1826,6 +1839,7 @@ async fn browse_folder(
     Ok(Json(FolderBrowseResponse {
         folder_title,
         ancestors: lineage.breadcrumbs(),
+        can_edit: lineage.editable_by(&viewer),
         path: query.path,
         entries,
     }))
@@ -1848,6 +1862,8 @@ struct GroupBrowseResponse {
     /// パンくず表示にそのまま使える。
     ancestors: Vec<GroupAncestor>,
     entries: Vec<ContentResponse>,
+    /// 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。
+    can_edit: bool,
 }
 
 /// `id`が指す`type = 'group'`のコンテンツについて、タイトル・祖先パス・直下の子一覧を
@@ -1883,6 +1899,7 @@ async fn browse_group(
     let lineage = ensure_viewable(&state.pool, &viewer, id).await?;
     let group_title = group.title;
     let ancestors = lineage.breadcrumbs();
+    let can_edit = lineage.editable_by(&viewer);
 
     // 絞り込みと並べ替えを取得後に行う理由は `list_contents` と同じ。
     let mut rows = sqlx::query_as!(
@@ -1918,6 +1935,7 @@ async fn browse_group(
     Ok(Json(GroupBrowseResponse {
         group_title,
         ancestors,
+        can_edit,
         entries: with_previews(&state, entries).await?,
     }))
 }
@@ -2203,7 +2221,7 @@ pub(super) async fn search_contents(
         .unwrap_or_default();
 
     // 照らすのは全行の文字列を揃える計算で、件数に比例して重くなる。
-    let terms_owned = terms.clone();
+    let mut terms_owned = terms.clone();
     let (mut hits, archives, folders, links_files, groups) = run_blocking(move || {
         let mut hits = Vec::new();
         let mut archives = Vec::new();
@@ -2242,29 +2260,36 @@ pub(super) async fn search_contents(
                 continue;
             }
             let title = super::search::normalize(&row.title);
-            if terms_owned.matches(&[&title]) {
-                hits.push((row, false));
-            } else if let Some(description) = &row.description
-                && terms_owned.matches(&[&title, &super::search::normalize(description)])
-            {
-                hits.push((row, true));
+            let description = row.description.as_deref().map(super::search::normalize);
+            let places: Vec<String> = group_lineage(&groups, row.parent_id)
+                .iter()
+                .map(|group| super::search::normalize(&group.title))
+                .collect();
+            let mut fields = vec![(FieldKind::Own, title.as_str())];
+            fields.extend(description.as_deref().map(|text| (FieldKind::Detail, text)));
+            fields.extend(places.iter().map(|text| (FieldKind::Place, text.as_str())));
+            if let Some(found) = terms_owned.score(&fields) {
+                hits.push((row, found));
             }
         }
         (hits, archives, folders, links_files, groups)
     })
     .await?;
 
-    hits.sort_by(|(a, _), (b, _)| title_cmp(&a.title, &b.title).then(a.id.cmp(&b.id)));
+    hits.sort_by(|(a, a_found), (b, b_found)| {
+        a_found
+            .score
+            .cmp(&b_found.score)
+            .then_with(|| title_cmp(&a.title, &b.title))
+            .then(a.id.cmp(&b.id))
+    });
     let truncated = hits.len() > super::search::RESULT_LIMIT;
     hits.truncate(super::search::RESULT_LIMIT);
 
     let mut placements = Vec::with_capacity(hits.len());
     let mut contents = Vec::with_capacity(hits.len());
-    for (row, matched_in_description) in hits {
-        placements.push((
-            group_lineage(&groups, row.parent_id),
-            matched_in_description,
-        ));
+    for (row, found) in hits {
+        placements.push((group_lineage(&groups, row.parent_id), found.in_detail));
         contents.push(ContentResponse::try_from(row)?);
     }
     let contents = with_previews(state, contents).await?;

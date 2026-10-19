@@ -47,9 +47,9 @@ Recordings
 
    ![The Items tab](images/archive-items-tab.webp)
 
-9. Select the files to show, then select “Publish selected”.
+9. Select the files to show, then select “Publish”.
 
-   ![Two selected items and the Publish selected button](images/archive-items-publish.webp)
+   ![Two selected items and the Publish button](images/archive-items-publish.webp)
 
 **Nothing appears if you forget step 9.**
 
@@ -70,7 +70,9 @@ Use “Match position” to choose where in the file name a word must occur.
 
 - Anywhere (default): It matches if the word occurs anywhere in the file name.
 - Start or after a separator: It matches only at the start of the file name or after a non-alphanumeric character, such as punctuation, a space, or Japanese text.
-- End: It matches only at the end of the file name, excluding the extension.
+- End: It matches only at the end of the file name or just before the extension.
+
+The extension is matched too, so to sort files by extension, register words with a dot, such as `.md` or `.pdf`.
 
 ## Ask an AI
 
@@ -115,11 +117,11 @@ Changing the source or level and saving clears that axis’s values table.
 
    ![The Rescan button on the Items tab](images/archive-items-tab.webp)
 
-2. Added files start unpublished. Select them, then select “Publish selected”.
+2. Added files start unpublished. Select them, then select “Publish”.
 
-   ![Two selected items and the Publish selected button](images/archive-items-publish.webp)
+   ![Two selected items and the Publish button](images/archive-items-publish.webp)
 
-To stop publishing files, select them, then choose “Unpublish selected”.
+To stop publishing files, select them, then choose “Unpublish”.
 
 ## When files or folders are not found
 

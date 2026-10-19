@@ -32,6 +32,7 @@ base64 = "0.23.1"
 directories = "6.0.0"
 # 簡易チャットに付ける Shift_JIS のテキストを読む (→ src/api/chat_file.rs)。既に依存に入っている。
 encoding_rs = "0.8.41"
+frizbee = "0.13.0"
 # 初回セットアップのトークンとバックアップの作業用の名前の乱数に使う (→ src/api/random_hex)。
 # password-hash が同じ版を既に引いているため、依存が増えるわけではない。
 getrandom = "0.4.3"

@@ -14,6 +14,7 @@
 		compact = false,
 		children,
 		subtitle,
+		leading,
 		trailing
 	}: {
 		/** キューと同じ組み立て方で作る (押した行をキューの中から `src` で探すため)。 */
@@ -26,6 +27,8 @@
 		children: Snippet;
 		/** タイトルの下に置く2段目。 */
 		subtitle?: Snippet;
+		/** 行の文字より前に置くもの (管理画面の選択のチェックなど)。行いっぱいのリンクの上に重ねて置く。 */
+		leading?: Snippet;
 		/** 行の文字と「再生中」の印の間に置くもの。 */
 		trailing?: Snippet;
 	} = $props();
@@ -46,12 +49,13 @@
 				: 'before:absolute before:inset-y-0 before:left-0 before:w-0.75 before:bg-primary')
 	)}
 >
+	{@render leading?.()}
 	<ListRowIcon play {current} {compact} />
 	<span class={browseRowTextClass()}>
-		<!-- ボタンは文字が中央に寄るので、行の寄せに合わせる。 -->
+		<!-- ボタンは文字が中央に寄るので、行の寄せ (左) に合わせる。 -->
 		<button
 			type="button"
-			class={[browseRowPressClass(), browseLayout.tile ? 'text-center' : 'text-left']}
+			class={[browseRowPressClass(), 'text-left']}
 			// 鳴っている行は一時停止のアイコンを出すので、押すと止める (下のバーのボタンと同じ動き)。
 			onclick={() => (current === 'playing' ? nowPlaying.pause() : nowPlaying.play(track, queue))}
 		>

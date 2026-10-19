@@ -42,6 +42,8 @@
 	/** 自動の更新を選び直したときに入れておく値。 */
 	const DEFAULT_HOURS = 6;
 	const DEFAULT_TIME = '07:00';
+	// Field.Field の横並びはラベルを伸ばすので、文の途中に欄を置く行では言葉の幅に戻す。
+	const sentenceRowClass = 'min-h-9 flex-wrap [&>[data-slot=field-label]]:flex-none';
 
 	let on = $state(untrack(() => settings.enabled));
 	// 検索キーワードは1つの欄に1つの検索。サーバーには改行でつないで送る (→ docs/ai.md「AI が集めるリンク」)。
@@ -139,10 +141,13 @@
 
 <form onsubmit={save} aria-labelledby="ai-links-section-heading" class={sectionCardClass}>
 	<fieldset disabled={!editable} class="contents">
-		<Field.Field orientation="horizontal">
+		<Field.Field orientation="horizontal" data-disabled={!editable}>
 			<Field.FieldContent>
-				<h2 id="ai-links-section-heading" class="text-base font-semibold">
-					<label for="content-ai-links">{m.contents_form_ai_links_label()}</label>
+				<h2 id="ai-links-section-heading">
+					<!-- 区画の見出しを兼ねるので、ほかの区画の見出しと同じ大きさにする。 -->
+					<Field.FieldLabel for="content-ai-links" class="text-base font-semibold"
+						>{m.contents_form_ai_links_label()}</Field.FieldLabel
+					>
 				</h2>
 				<Field.FieldDescription>{m.contents_form_ai_links_description()}</Field.FieldDescription>
 			</Field.FieldContent>
@@ -150,7 +155,7 @@
 		</Field.Field>
 		{#if on}
 			<Field.FieldGroup>
-				<Field.FieldSet>
+				<Field.FieldSet data-disabled={!editable}>
 					<Field.FieldLegend variant="label" required
 						>{m.contents_form_ai_interests_label()}</Field.FieldLegend
 					>
@@ -190,7 +195,7 @@
 						})}</Field.FieldDescription
 					>
 				</Field.FieldSet>
-				<Field.Field>
+				<Field.Field data-disabled={!editable}>
 					<Field.FieldLabel for="content-ai-within-days" required
 						>{m.contents_form_ai_within_days_label()}</Field.FieldLabel
 					>
@@ -207,7 +212,7 @@
 						>{m.contents_form_ai_within_days_description()}</Field.FieldDescription
 					>
 				</Field.Field>
-				<Field.Field>
+				<Field.Field data-disabled={!editable}>
 					<Field.FieldLabel for="content-ai-daily-limit" required
 						>{m.contents_form_ai_daily_limit_label()}</Field.FieldLabel
 					>
@@ -224,22 +229,26 @@
 						>{m.contents_form_ai_daily_limit_description()}</Field.FieldDescription
 					>
 				</Field.Field>
-				<Field.FieldSet>
+				<Field.FieldSet data-disabled={!editable}>
 					<Field.FieldLegend variant="label" id="content-ai-auto-legend"
 						>{m.contents_form_ai_auto_label()}</Field.FieldLegend
 					>
 					<RadioGroup.Root bind:value={mode} aria-labelledby="content-ai-auto-legend">
-						<div class="flex min-h-9 items-center gap-2">
+						<Field.Field orientation="horizontal" data-disabled={!editable} class="min-h-9">
 							<RadioGroup.Item value="off" id="content-ai-auto-off" />
-							<label for="content-ai-auto-off" class="text-sm"
-								>{m.contents_form_ai_auto_off()}</label
+							<Field.FieldLabel for="content-ai-auto-off" class="font-normal"
+								>{m.contents_form_ai_auto_off()}</Field.FieldLabel
 							>
-						</div>
+						</Field.Field>
 						<!-- 数の欄を文の途中に置く。押せる範囲を丸だけでなく文の言葉にも広げる。 -->
-						<div class="flex min-h-9 flex-wrap items-center gap-2">
+						<Field.Field
+							orientation="horizontal"
+							data-disabled={!editable}
+							class={sentenceRowClass}
+						>
 							<RadioGroup.Item value="interval" id="content-ai-auto-interval" />
-							<label for="content-ai-auto-interval" class="text-sm"
-								>{m.contents_form_ai_auto_interval_before()}</label
+							<Field.FieldLabel for="content-ai-auto-interval" class="font-normal"
+								>{m.contents_form_ai_auto_interval_before()}</Field.FieldLabel
 							>
 							<IntegerInput
 								id="content-ai-auto-hours"
@@ -251,14 +260,18 @@
 								bind:value={hours}
 								required={mode === 'interval'}
 							/>
-							<label for="content-ai-auto-interval" class="text-sm"
-								>{m.contents_form_ai_auto_interval_after()}</label
+							<Field.FieldLabel for="content-ai-auto-interval" class="font-normal"
+								>{m.contents_form_ai_auto_interval_after()}</Field.FieldLabel
 							>
-						</div>
-						<div class="flex min-h-9 flex-wrap items-center gap-2">
+						</Field.Field>
+						<Field.Field
+							orientation="horizontal"
+							data-disabled={!editable}
+							class={sentenceRowClass}
+						>
 							<RadioGroup.Item value="daily" id="content-ai-auto-daily" />
-							<label for="content-ai-auto-daily" class="text-sm"
-								>{m.contents_form_ai_auto_daily_before()}</label
+							<Field.FieldLabel for="content-ai-auto-daily" class="font-normal"
+								>{m.contents_form_ai_auto_daily_before()}</Field.FieldLabel
 							>
 							<Input
 								id="content-ai-auto-time"
@@ -269,11 +282,11 @@
 								required={mode === 'daily'}
 							/>
 							{#if m.contents_form_ai_auto_daily_after() !== ''}
-								<label for="content-ai-auto-daily" class="text-sm"
-									>{m.contents_form_ai_auto_daily_after()}</label
+								<Field.FieldLabel for="content-ai-auto-daily" class="font-normal"
+									>{m.contents_form_ai_auto_daily_after()}</Field.FieldLabel
 								>
 							{/if}
-						</div>
+						</Field.Field>
 					</RadioGroup.Root>
 					<Field.FieldDescription>{m.contents_form_ai_auto_description()}</Field.FieldDescription>
 				</Field.FieldSet>

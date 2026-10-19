@@ -11,7 +11,7 @@ use axum::extract::{Path, Query, Request, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
@@ -21,6 +21,7 @@ use crate::state::AppState;
 
 use super::archive::{self, ArchiveMeta, ValueKey};
 use super::contents;
+use super::search::FieldKind;
 use super::sort::title_cmp;
 use super::thumbnails;
 
@@ -144,6 +145,9 @@ pub(super) struct ArchiveViewItem {
     title: String,
     /// `rel_path` の最後の要素。ページ内プレイヤーへの振り分け (→ docs/ui.md「音声のページ内プレイヤー」) に使う。
     file_name: String,
+    /// アーカイブの登録先からの相対パス。Markdown のプレビューが、相対パスの画像とリンクを
+    /// このファイルの場所から解決するのに使う (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
+    rel_path: String,
     /// 行の2段目に出す軸の値 (→ docs/ui.md「アーカイブの一覧画面」)。出す値が無ければ `None`。
     subtitle: Option<String>,
     /// ページ内でプレビューする画像なら、その大きさ (→ docs/ui.md「画像のプレビュー」)。
@@ -156,11 +160,17 @@ pub(super) struct ArchiveViewItem {
 
 impl ArchiveViewItem {
     /// プレビューの情報はファイルを読むので空のまま作り、見せる行にだけ `with_preview` で足す。
-    fn new(id: i64, derived: archive::DerivedItem, subtitle: Option<String>) -> Self {
+    fn new(
+        id: i64,
+        rel_path: String,
+        derived: archive::DerivedItem,
+        subtitle: Option<String>,
+    ) -> Self {
         Self {
             id,
             title: derived.title,
             file_name: derived.file_name,
+            rel_path,
             subtitle,
             image: None,
             is_text: false,
@@ -180,6 +190,8 @@ struct ArchiveViewResponse {
     items: Vec<ArchiveViewItem>,
     /// アーカイブの登録先のフォルダーが見つからない。画面は空の一覧の代わりにそう出す。
     folder_missing: bool,
+    /// 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。
+    can_edit: bool,
 }
 
 /// 閲覧用のアーカイブ一覧。軸の定義・選択肢・導出済みタイトル付きのアイテム一覧を
@@ -238,6 +250,90 @@ async fn view_archive(
     Ok(Json(ArchiveViewResponse {
         archive_title: meta.title,
         ancestors,
+        axes,
+        items,
+        folder_missing,
+        can_edit: lineage.editable_by(&viewer),
+    }))
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct ManageArchiveViewItem {
+    #[serde(flatten)]
+    item: ArchiveViewItem,
+    published: bool,
+    /// 索引にあるが実体が無い。閲覧の一覧からは外れている (→ docs/archive.md「アイテムの配信」)。
+    missing: bool,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct ManageArchiveViewResponse {
+    axes: Vec<ArchiveAxisResponse>,
+    items: Vec<ManageArchiveViewItem>,
+    folder_missing: bool,
+}
+
+/// 管理画面のアイテムのタブの一覧。閲覧用の一覧 (`view_archive`) と同じ絞り込み・並べ替え・導出で、
+/// 未公開と実体の無いアイテムも含める (→ docs/archive.md「エンドポイント一覧」)。
+/// 閲覧者に見える姿を、管理画面を離れずに確かめるため。
+#[utoipa::path(
+    get,
+    path = "/contents/{id}/manage-archive",
+    params(("id" = i64, Path)),
+    responses(
+        (status = OK, body = ManageArchiveViewResponse, description = "未公開を含む、軸の選択肢と絞り込み後のアイテム一覧"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 404, body = crate::error::ErrorResponse, description = "管理できない・存在しない・アーカイブでない"),
+    )
+)]
+async fn manage_view_archive(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Query(mut filters): Query<HashMap<String, String>>,
+) -> Result<Json<ManageArchiveViewResponse>, AppError> {
+    let meta = archive::load_manageable_archive(&state.pool, &user, id).await?;
+    let axes = archive::load_axis_index(&state.pool, id).await?;
+    let order = super::sort::ArchiveSortOrder::from_query(filters.remove("sort").as_deref());
+
+    let rows = sqlx::query_as!(
+        ItemRow,
+        r#"SELECT id as "id!", rel_path, published as "published: bool",
+                  created_at as "created_at!" FROM archive_items WHERE archive_id = ?"#,
+        id
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    let published: HashMap<i64, bool> = rows.iter().map(|row| (row.id, row.published)).collect();
+
+    let template = meta.title_template;
+    let root = PathBuf::from(&meta.path);
+    let (axes, items, folder_missing) = run_blocking(move || {
+        let folder_missing = folder_missing(&root);
+        let (axes, items) = build_archive_view(&axes, rows, template.as_deref(), &filters, order);
+        let items = items
+            .into_iter()
+            .map(|(rel_path, item)| {
+                let metadata = item_metadata(&root, &rel_path);
+                let missing = metadata.is_none();
+                let item = match metadata {
+                    Some(metadata) => with_preview(&root, &rel_path, metadata.len(), item),
+                    None => item,
+                };
+                ManageArchiveViewItem {
+                    published: published[&item.id],
+                    missing,
+                    item,
+                }
+            })
+            .collect::<Vec<_>>();
+        (axes, items, folder_missing)
+    })
+    .await?;
+
+    Ok(Json(ManageArchiveViewResponse {
         axes,
         items,
         folder_missing,
@@ -445,7 +541,8 @@ fn build_archive_view(
         .into_iter()
         .map(|(id, rel_path, derived, _)| {
             let subtitle = item_subtitle(axes, &derived, &template_axes, &active_filters);
-            (rel_path, ArchiveViewItem::new(id, derived, subtitle))
+            let item = ArchiveViewItem::new(id, rel_path.clone(), derived, subtitle);
+            (rel_path, item)
         })
         .collect();
 
@@ -466,6 +563,7 @@ pub(super) struct SearchableArchive {
 
 /// 検索で当たったアーカイブのファイル1件と、並べ替えに使う値。
 struct ItemHit {
+    score: super::search::Score,
     /// `search_items` の `sources` の添字。
     source: usize,
     archive_id: i64,
@@ -475,9 +573,11 @@ struct ItemHit {
 }
 
 /// 検索の結果のアーカイブのファイルの並び (→ docs/search.md「結果の並びと上限」)。
-/// タイトル順で、同じタイトルはアーカイブごとに、その一覧の既定の並び (軸の順) にする。
+/// 当たりのよい順で、同じ程度ならタイトル順、同じタイトルはアーカイブごとに、その一覧の既定の並び (軸の順) にする。
 fn item_hit_cmp(a: &ItemHit, b: &ItemHit) -> std::cmp::Ordering {
-    title_cmp(&a.item.title, &b.item.title)
+    a.score
+        .cmp(&b.score)
+        .then_with(|| title_cmp(&a.item.title, &b.item.title))
         .then(a.archive_id.cmp(&b.archive_id))
         .then_with(|| a.sort_key.cmp(&b.sort_key))
         .then_with(|| a.rel_path.cmp(&b.rel_path))
@@ -488,7 +588,7 @@ fn item_hit_cmp(a: &ItemHit, b: &ItemHit) -> std::cmp::Ordering {
 pub(super) async fn search_items(
     pool: &sqlx::SqlitePool,
     archives: Vec<SearchableArchive>,
-    terms: super::search::Terms,
+    mut terms: super::search::Terms,
 ) -> Result<(Vec<super::search::SearchItemHit>, bool), AppError> {
     let mut sources = Vec::with_capacity(archives.len());
     for archive in archives {
@@ -508,30 +608,40 @@ pub(super) async fn search_items(
             .collect();
         let mut hits: Vec<ItemHit> = Vec::new();
         for (index, (archive, axes, rows, _)) in sources.iter().enumerate() {
+            let places: Vec<String> = archive
+                .ancestors
+                .iter()
+                .map(|group| group.title.as_str())
+                .chain(std::iter::once(archive.title.as_str()))
+                .map(super::search::normalize)
+                .collect();
             let template = archive.title_template.as_deref();
             let template_axes = archive::template_placeholder_names(template);
             let no_filters = vec![None; axes.len()];
             for row in rows {
                 let derived = archive::derive_item(&row.rel_path, axes, template);
-                let mut fields = vec![super::search::normalize(&derived.title)];
-                fields.extend(
-                    derived
-                        .axis_values
-                        .iter()
-                        .flatten()
-                        .map(|value| super::search::normalize(&value.display)),
-                );
-                let fields: Vec<&str> = fields.iter().map(String::as_str).collect();
-                if !terms.matches(&fields) {
+                let title = super::search::normalize(&derived.title);
+                let values: Vec<String> = derived
+                    .axis_values
+                    .iter()
+                    .flatten()
+                    .map(|value| super::search::normalize(&value.display))
+                    .collect();
+                // 途中のフォルダー名は照らさない。閲覧の画面で階層を見せないため (→ docs/archive.md)。軸の値が代わりになる。
+                let mut fields = vec![(FieldKind::Own, title.as_str())];
+                fields.extend(values.iter().map(|text| (FieldKind::Detail, text.as_str())));
+                fields.extend(places.iter().map(|text| (FieldKind::Place, text.as_str())));
+                let Some(found) = terms.score(&fields) else {
                     continue;
-                }
+                };
                 let subtitle = item_subtitle(axes, &derived, &template_axes, &no_filters);
                 hits.push(ItemHit {
+                    score: found.score,
                     source: index,
                     archive_id: archive.id,
                     rel_path: row.rel_path.clone(),
                     sort_key: derived.sort_key(),
-                    item: ArchiveViewItem::new(row.id, derived, subtitle),
+                    item: ArchiveViewItem::new(row.id, row.rel_path.clone(), derived, subtitle),
                 });
             }
         }
@@ -781,6 +891,47 @@ async fn download_item(
     Ok(file.download(request).await)
 }
 
+#[derive(Debug, Deserialize, IntoParams)]
+struct ItemPathQuery {
+    /// アーカイブの登録先からの相対パス。`/` 区切りで、アイテムの `relPath` と同じ形。
+    path: String,
+}
+
+/// 相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。Markdown のプレビューが、
+/// 相対パスの画像とリンクを開くのに使う。見える条件は `download_item` と同じ。
+#[utoipa::path(
+    get,
+    path = "/contents/{id}/archive/download",
+    params(("id" = i64, Path), ItemPathQuery),
+    responses(
+        (status = OK, description = "ファイルの内容"),
+        (status = 401, body = crate::error::ErrorResponse, description = "閲覧にログインが必要"),
+        (status = 404, body = crate::error::ErrorResponse, description = "索引に無い・非公開のアイテム、または実体が無い"),
+    )
+)]
+async fn download_item_by_path(
+    viewer: Viewer,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Query(query): Query<ItemPathQuery>,
+    request: Request,
+) -> Result<Response, AppError> {
+    let item_id = sqlx::query_scalar!(
+        r#"SELECT id as "id!" FROM archive_items WHERE archive_id = ? AND rel_path = ?"#,
+        id,
+        query.path
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+    // 公開範囲の判定は、アイテムが無いときも先に通す。見えないアーカイブで、パスがあるかを答えないため。
+    let Some(item_id) = item_id else {
+        load_viewable_archive(&state.pool, &viewer, id).await?;
+        return Err(AppError::NotFound);
+    };
+    let file = item_file(&state, &viewer, id, item_id).await?;
+    Ok(file.download(request).await)
+}
+
 /// 管理画面からのアイテムの配信 (→ docs/archive.md「アイテムの配信」)。未公開も渡す。
 /// 辞書を決めるときに、公開せずに中身を確かめるためのもの。
 /// 閲覧用の `download_item` の判定 (未公開は隠す) とは混ぜず、管理の権限で別に判定する。
@@ -800,7 +951,75 @@ async fn manage_download_item(
     Path((id, item_id)): Path<(i64, i64)>,
     request: Request,
 ) -> Result<Response, AppError> {
+    let file = manage_item_file(&state, &user, id, item_id).await?;
+    Ok(file.download(request).await)
+}
+
+/// 管理画面からの、相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。未公開も渡す。
+/// 管理画面の Markdown のプレビューが、未公開の画像も出すのに使う。
+#[utoipa::path(
+    get,
+    path = "/contents/{id}/archive/manage-download",
+    params(("id" = i64, Path), ItemPathQuery),
+    responses(
+        (status = OK, description = "ファイルの内容"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 404, body = crate::error::ErrorResponse, description = "管理できない・索引に無いアイテム、または実体が無い"),
+    )
+)]
+async fn manage_download_item_by_path(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Query(query): Query<ItemPathQuery>,
+    request: Request,
+) -> Result<Response, AppError> {
     let meta = archive::load_manageable_archive(&state.pool, &user, id).await?;
+    let exists = sqlx::query_scalar!(
+        r#"SELECT 1 as "one!: i64" FROM archive_items WHERE archive_id = ? AND rel_path = ?"#,
+        id,
+        query.path
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+    if exists.is_none() {
+        return Err(AppError::NotFound);
+    }
+    let file = contents::resolve_file_under(&state, &meta.path, &query.path).await?;
+    Ok(file.download(request).await)
+}
+
+/// 管理画面のアイテムの縮小画像 (→ docs/ui.md「画像のプレビュー」)。見える条件は `manage_download_item` と同じ。
+#[utoipa::path(
+    get,
+    path = "/contents/{id}/items/{item_id}/manage-thumbnail",
+    params(("id" = i64, Path), ("item_id" = i64, Path)),
+    responses(
+        (status = OK, description = "縮小画像 (JPEG か PNG)"),
+        (status = 304, description = "ETag が一致した"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 404, body = crate::error::ErrorResponse, description = "管理できない・所属しない・存在しないアイテム、実体が無い、またはプレビューしない画像"),
+    )
+)]
+async fn manage_thumbnail_item(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path((id, item_id)): Path<(i64, i64)>,
+    headers: HeaderMap,
+) -> Result<Response, AppError> {
+    let file = manage_item_file(&state, &user, id, item_id).await?;
+    file.thumbnail(&state, &headers).await
+}
+
+/// 管理の権限で、未公開も含めてアイテムの実体を引く。閲覧用の `item_file` とは判定を混ぜない
+/// (→ docs/archive.md「アイテムの配信」)。
+async fn manage_item_file(
+    state: &AppState,
+    user: &AuthUser,
+    id: i64,
+    item_id: i64,
+) -> Result<contents::ServedFile, AppError> {
+    let meta = archive::load_manageable_archive(&state.pool, user, id).await?;
     let rel_path = sqlx::query_scalar!(
         "SELECT rel_path FROM archive_items WHERE id = ? AND archive_id = ?",
         item_id,
@@ -809,9 +1028,7 @@ async fn manage_download_item(
     .fetch_optional(&state.pool)
     .await?
     .ok_or(AppError::NotFound)?;
-
-    let file = contents::resolve_file_under(&state, &meta.path, &rel_path).await?;
-    Ok(file.download(request).await)
+    contents::resolve_file_under(state, &meta.path, &rel_path).await
 }
 
 /// アイテムの縮小画像 (→ docs/ui.md「画像のプレビュー」)。見える条件は `download_item` と同じ。
@@ -868,6 +1085,8 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
     // (→ `api::browser`)。他のルートを巻き込まないよう別に組み立てて merge する。
     let download_routes = OpenApiRouter::new()
         .routes(routes!(download_item))
+        .routes(routes!(download_item_by_path))
+        .routes(routes!(manage_download_item_by_path))
         .routes(routes!(manage_download_item))
         .layer(axum::middleware::from_fn(
             super::browser::redirect_errors_for_browsers,
@@ -875,9 +1094,11 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
 
     OpenApiRouter::new()
         .routes(routes!(view_archive))
+        .routes(routes!(manage_view_archive))
         .routes(routes!(list_items, bulk_set_published))
         .routes(routes!(set_published))
         .routes(routes!(thumbnail_item))
+        .routes(routes!(manage_thumbnail_item))
         .merge(download_routes)
 }
 
@@ -887,7 +1108,14 @@ mod tests {
     use crate::api::archive::{AxisDict, AxisDictRow, AxisIndex};
 
     fn item_hit(title: &str, archive_id: i64, year: &str, rel_path: &str) -> ItemHit {
+        // 当たりの良さは揃え、タイトルから先の並びを確かめる。
+        let score = super::super::search::Terms::parse("a")
+            .expect("検索語がある")
+            .score(&[(FieldKind::Own, "a")])
+            .expect("当たる")
+            .score;
         ItemHit {
+            score,
             source: 0,
             archive_id,
             rel_path: rel_path.to_string(),
@@ -896,6 +1124,7 @@ mod tests {
                 id: 0,
                 title: title.to_string(),
                 file_name: String::new(),
+                rel_path: rel_path.to_string(),
                 subtitle: None,
                 image: None,
                 is_text: false,

@@ -7,6 +7,9 @@
  */
 
 import { flushSync } from 'svelte';
+import { isCodeFileName } from '$lib/code-highlight';
+import type { ContentLocation } from '$lib/content-location';
+import { viewerFileKind } from '$lib/file-kind';
 import { fileViewer, type ViewerFile } from '$lib/file-viewer.svelte';
 import { openImageViewer, type ViewerImage } from '$lib/image-viewer';
 
@@ -41,6 +44,25 @@ export function openViewerItem(
 ): Promise<void> {
 	const at = items.findIndex((candidate) => itemSrc(candidate) === itemSrc(item));
 	return openAt(at < 0 ? [item] : items, Math.max(at, 0), signal);
+}
+
+/**
+ * Markdown のプレビューの相対パスのリンクから、同じコンテンツの `path` のファイルを開く。
+ * 開いた一覧にあればそこへ移り (前後もそのまま送れる)、無ければそのファイルだけをビューアーで開く。
+ * ビューアーで開けない種類は、別のタブで開く。
+ */
+export function openLinkedPath(from: ContentLocation, path: string) {
+	const src = from.src(path);
+	if (fileViewer.moveToLocation(src)) return;
+	const fileName = path.slice(path.lastIndexOf('/') + 1);
+	// 一覧に無いファイルは、サーバーが中身を見た `isText` が無いので、拡張子で読めそうなものだけをテキストとして開く。
+	const kind = viewerFileKind(fileName, isCodeFileName(fileName));
+	if (!kind) {
+		window.open(src, '_blank', 'noopener,noreferrer');
+		return;
+	}
+	const file = { src, title: fileName, fileName, kind, location: { path, src: from.src } };
+	showFile([{ type: 'file', file }], 0);
 }
 
 function openAt(items: ViewerItem[], index: number, signal: AbortSignal): Promise<void> {

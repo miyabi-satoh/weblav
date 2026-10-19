@@ -108,7 +108,7 @@
 									required
 								/>
 							</Field.Field>
-							<Field.Field>
+							<Field.Field data-invalid={passwordMismatch}>
 								<Field.FieldLabel for="new-password-confirm" required
 									>{m.recover_new_password_confirm_label()}</Field.FieldLabel
 								>

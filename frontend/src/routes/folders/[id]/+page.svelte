@@ -1,5 +1,6 @@
 <script lang="ts">
-	import BrowseFilterInput from '$lib/components/browse-filter-input.svelte';
+	import BrowseControls from '$lib/components/browse-controls.svelte';
+	import BrowseHeading from '$lib/components/browse-heading.svelte';
 	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { resolve } from '$app/paths';
 	import { withQuery } from '$lib/href';
@@ -8,13 +9,12 @@
 	import { breadcrumbLinkClass, pathCrumbs } from '$lib/breadcrumb';
 	import { SORT_OPTIONS, DEFAULT_BROWSE_SORT, type BrowseSort } from '$lib/browse-sort';
 	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
-	import BrowseLayoutToggle from '$lib/components/browse-layout-toggle.svelte';
 	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
 	import FolderEntryList, { type FolderEntryRow } from '$lib/components/folder-entry-list.svelte';
-	import { browseControlsClass, browseGutterClass } from '$lib/list-row';
+	import { browseGutterClass } from '$lib/list-row';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
-	import { pageHeadingClass, pageEmptyTextClass } from '$lib/page-layout';
+	import { pageEmptyTextClass } from '$lib/page-layout';
 
 	let { data }: PageProps = $props();
 
@@ -90,16 +90,19 @@
 			{/each}
 		</BrowseBreadcrumb>
 
-		<h1 class={pageHeadingClass}>{currentName}</h1>
+		<BrowseHeading
+			heading={currentName}
+			contentId={data.contentId}
+			contentTitle={browse.folderTitle}
+			canEdit={browse.canEdit}
+		/>
 
 		{#if browse.entries.length > 0}
-			<div class={['mb-4', browseControlsClass]}>
-				<div class="flex flex-wrap gap-2.5">
+			<BrowseControls class="mb-4">
+				{#snippet sort()}
 					<BrowseSortSelect value={data.sort} options={SORT_OPTIONS} href={sortHref} />
-					<BrowseFilterInput />
-				</div>
-				<BrowseLayoutToggle />
-			</div>
+				{/snippet}
+			</BrowseControls>
 		{/if}
 	</div>
 

@@ -16,6 +16,7 @@
 		compact = false,
 		children,
 		subtitle,
+		leading,
 		trailing
 	}: {
 		/** `items` と同じ組み立て方で作る (押した行を `items` の中から `src` で探すため)。 */
@@ -28,6 +29,8 @@
 		children: Snippet;
 		/** タイトルの下に置く2段目。 */
 		subtitle?: Snippet;
+		/** 行の文字より前に置くもの (管理画面の選択のチェックなど)。行いっぱいのリンクの上に重ねて置く。 */
+		leading?: Snippet;
 		/** 行の文字の後ろに置くもの。 */
 		trailing?: Snippet;
 	} = $props();
@@ -40,6 +43,7 @@
 </script>
 
 <div class={browseRowClass(compact)}>
+	{@render leading?.()}
 	<ListRowIcon icon={FileIcon} {compact} thumbnail={file.thumbnail} />
 	<span class={browseRowTextClass()}>
 		<!-- API への直リンクか、URL のファイルの元の URL (→ $lib/api/urls.ts)。

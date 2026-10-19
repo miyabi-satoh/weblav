@@ -680,19 +680,21 @@ pub(super) async fn load_axis_index(
     Ok(result)
 }
 
-/// 照合語が、指定の位置でファイル名 (拡張子を除き小文字化済み) に現れるか (→ docs/archive.md「軸の定義」)。
-fn word_matches(stem: &str, word: &str, match_position: AxisMatchPosition) -> bool {
+/// 照合語が、指定の位置でファイル名 (小文字化済み) に現れるか (→ docs/archive.md「軸の定義」)。
+/// `name` は拡張子を含むファイル名、`stem` は拡張子を除いたもの。
+fn word_matches(name: &str, stem: &str, word: &str, match_position: AxisMatchPosition) -> bool {
     match match_position {
-        AxisMatchPosition::Anywhere => stem.contains(word),
-        AxisMatchPosition::End => stem.ends_with(word),
+        AxisMatchPosition::Anywhere => name.contains(word),
+        // 拡張子の前の末尾 (`2024_answer.pdf` の `answer`) にも、ファイル名全体の末尾 (`.pdf`) にも当てる。
+        AxisMatchPosition::End => stem.ends_with(word) || name.ends_with(word),
         // 直前が英数字でない位置。文字種の変わり目は含めない (`1kyu` の `kyu` を語の頭にしないため)。
         // `match_indices` は重ならない出現しか返さず、`xa_a_a` の `a_a` のように語の途中の出現に
         // 語の頭の出現が重なると見落とすので、出現の開始位置をすべて見る。
-        AxisMatchPosition::WordStart => stem
+        AxisMatchPosition::WordStart => name
             .char_indices()
-            .filter(|(index, _)| stem[*index..].starts_with(word))
+            .filter(|(index, _)| name[*index..].starts_with(word))
             .any(|(index, _)| {
-                stem[..index]
+                name[..index]
                     .chars()
                     .next_back()
                     .is_none_or(|c| !c.is_ascii_alphanumeric())
@@ -726,13 +728,18 @@ fn match_filename_word<'a>(
     entries: &'a [FilenameWordEntry],
     rel_path: &str,
 ) -> Option<(usize, &'a FilenameWordEntry)> {
+    let name = rel_path
+        .rsplit('/')
+        .next()
+        .unwrap_or(rel_path)
+        .to_lowercase();
     let stem = file_stem(rel_path).to_lowercase();
     // 位置で候補を絞ってから最長一致。`min_by_key` は同値なら先の要素を返すので、
     // 同じ長さはリストの上が残る。
     entries
         .iter()
         .enumerate()
-        .filter(|(_, entry)| word_matches(&stem, &entry.word_lower, entry.match_position))
+        .filter(|(_, entry)| word_matches(&name, &stem, &entry.word_lower, entry.match_position))
         .min_by_key(|(_, entry)| std::cmp::Reverse(entry.len))
 }
 
@@ -1051,7 +1058,7 @@ mod tests {
         }
     }
 
-    /// 語の頭はファイル名の先頭か直前が英数字でない位置、末尾は拡張子を除いたファイル名の末尾
+    /// 語の頭はファイル名の先頭か直前が英数字でない位置、末尾は拡張子の前かファイル名全体の末尾
     /// (→ docs/archive.md「軸の定義」)。
     #[test]
     fn derive_axis_value_filename_word_respects_the_match_position() {
@@ -1089,6 +1096,19 @@ mod tests {
             derive_axis_value(&axis.dict, "2024_hyoshi_shi.pdf").expect("値が導出されなかった");
         assert_eq!(matched.display, "誤り");
         assert!(derive_axis_value(&axis.dict, "2024_hyoshi_kokugo.pdf").is_none());
+    }
+
+    /// 拡張子も照らす。拡張子だけで分けたいときは `.md` のように書く (→ docs/archive.md「軸の定義」)。
+    #[test]
+    fn derive_axis_value_filename_word_matches_the_extension() {
+        for position in [AxisMatchPosition::Anywhere, AxisMatchPosition::End] {
+            let axis = filename_word_axis_at("種類", position, &[(".md", Some("文書"), 0)]);
+            assert!(derive_axis_value(&axis.dict, "docs/01-intro.md").is_some());
+            assert!(derive_axis_value(&axis.dict, "docs/01-intro.png").is_none());
+        }
+        // `.` の直後は語の頭なので、点を付けない拡張子も語の頭で当たる。
+        let axis = filename_word_axis_at("種類", AxisMatchPosition::WordStart, &[("png", None, 0)]);
+        assert!(derive_axis_value(&axis.dict, "assets/a.png").is_some());
     }
 
     /// 照合する位置は照合語の行ごとに持つ。同じ軸の中で、行ごとに違う位置で照合する (→ docs/archive.md「軸の定義」)。

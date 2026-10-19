@@ -3,6 +3,7 @@
  * 画面に置くのは `file-viewer.svelte` の1つだけ。前後には画像も並び、隣が画像なら画像のビューアーへ渡す。
  */
 
+import type { ContentLocation } from '$lib/content-location';
 import type { ViewerFileKind } from '$lib/file-kind';
 import type { ViewerItem } from '$lib/viewer-items';
 
@@ -23,6 +24,8 @@ export type ViewerFile = {
 	 * これを開く。中継できない相手 (名前を引くと LAN を指すものなど) も、閲覧する端末からは開けるため。
 	 */
 	originalUrl?: string;
+	/** コンテンツの中の場所。Markdown のプレビューが相対パスを解決するのに使う。 */
+	location?: ContentLocation;
 };
 
 let items = $state<ViewerItem[]>([]);
@@ -77,6 +80,16 @@ export const fileViewer = {
 	},
 	get nextIsImage() {
 		return items[index + 1]?.type === 'image';
+	},
+	/** 開いた一覧の中で、場所が `src` (→ `ContentLocation`) のものへ移る。一覧に無ければ `false`。 */
+	moveToLocation(src: string): boolean {
+		const target = items.findIndex((item) => {
+			const location = item.type === 'image' ? item.image.location : item.file.location;
+			return location?.src(location.path) === src;
+		});
+		if (target < 0) return false;
+		if (target !== index) move(target);
+		return true;
 	},
 	previous() {
 		if (index > 0) move(index - 1);

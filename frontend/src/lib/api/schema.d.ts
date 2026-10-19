@@ -799,6 +799,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/{id}/archive/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。Markdown のプレビューが、
+         *     相対パスの画像とリンクを開くのに使う。見える条件は `download_item` と同じ。
+         */
+        get: operations["download_item_by_path"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/archive/manage-download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 管理画面からの、相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。未公開も渡す。
+         *     管理画面の Markdown のプレビューが、未公開の画像も出すのに使う。
+         */
+        get: operations["manage_download_item_by_path"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/{id}/axes": {
         parameters: {
             query?: never;
@@ -1138,6 +1178,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/{id}/items/{item_id}/manage-thumbnail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 管理画面のアイテムの縮小画像 (→ docs/ui.md「画像のプレビュー」)。見える条件は `manage_download_item` と同じ。 */
+        get: operations["manage_thumbnail_item"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/{id}/items/{item_id}/thumbnail": {
         parameters: {
             query?: never;
@@ -1187,6 +1244,27 @@ export interface paths {
          *     中継するのは、閲覧できる一覧に書かれた URL だけ。誰でも任意の URL を取らせられる口にしないため。
          */
         get: operations["links_remote_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/manage-archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 管理画面のアイテムのタブの一覧。閲覧用の一覧 (`view_archive`) と同じ絞り込み・並べ替え・導出で、
+         *     未公開と実体の無いアイテムも含める (→ docs/archive.md「エンドポイント一覧」)。
+         *     閲覧者に見える姿を、管理画面を離れずに確かめるため。
+         */
+        get: operations["manage_view_archive"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1792,6 +1870,11 @@ export interface components {
             image?: components["schemas"]["ImageSize"] | null;
             /** @description テキストのビューアーで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューアー」)。 */
             isText: boolean;
+            /**
+             * @description アーカイブの登録先からの相対パス。Markdown のプレビューが、相対パスの画像とリンクを
+             *     このファイルの場所から解決するのに使う (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
+             */
+            relPath: string;
             /** @description 行の2段目に出す軸の値 (→ docs/ui.md「アーカイブの一覧画面」)。出す値が無ければ `None`。 */
             subtitle?: string | null;
             /** @description 行に縮小画像を出してみるか (→ docs/ui.md「画像のプレビュー」)。 */
@@ -1806,6 +1889,8 @@ export interface components {
             ancestors: components["schemas"]["GroupAncestor"][];
             archiveTitle: string;
             axes: components["schemas"]["ArchiveAxisResponse"][];
+            /** @description 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。 */
+            canEdit: boolean;
             /** @description アーカイブの登録先のフォルダーが見つからない。画面は空の一覧の代わりにそう出す。 */
             folderMissing: boolean;
             items: components["schemas"]["ArchiveViewItem"][];
@@ -2169,6 +2254,8 @@ export interface components {
              *     フォルダーもグループの下に置けるため、閲覧側のパンくずで上へ戻れるようにする。
              */
             ancestors: components["schemas"]["GroupAncestor"][];
+            /** @description 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。 */
+            canEdit: boolean;
             entries: components["schemas"]["FolderEntry"][];
             folderTitle: string;
             path: string;
@@ -2211,6 +2298,8 @@ export interface components {
              *     パンくず表示にそのまま使える。
              */
             ancestors: components["schemas"]["GroupAncestor"][];
+            /** @description 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。 */
+            canEdit: boolean;
             entries: components["schemas"]["ContentResponse"][];
             groupTitle: string;
         };
@@ -2329,6 +2418,8 @@ export interface components {
         LinksFileResponse: {
             /** @description ルートに近い順の祖先グループ。コンテンツ自身は含まない。 */
             ancestors: components["schemas"]["GroupAncestor"][];
+            /** @description 見ている人が、ファイルの入ったコンテンツを書き換えられるか。画面は真のとき、その編集ページへの導線を出す。 */
+            canEdit: boolean;
             /** @description フォルダー・アーカイブの中のファイルなら、そのコンテンツのタイトル。`file` コンテンツなら無し。 */
             containerTitle?: string | null;
             /** @description 書いた順のリンク。読めなければ無し (画面は読めなかった旨と、ファイルを新規タブで開く手段を出す)。 */
@@ -2347,6 +2438,16 @@ export interface components {
         LoginRequest: {
             password: string;
             username: string;
+        };
+        ManageArchiveViewItem: components["schemas"]["ArchiveViewItem"] & {
+            /** @description 索引にあるが実体が無い。閲覧の一覧からは外れている (→ docs/archive.md「アイテムの配信」)。 */
+            missing: boolean;
+            published: boolean;
+        };
+        ManageArchiveViewResponse: {
+            axes: components["schemas"]["ArchiveAxisResponse"][];
+            folderMissing: boolean;
+            items: components["schemas"]["ManageArchiveViewItem"][];
         };
         PickRootResponse: {
             /**
@@ -2458,7 +2559,7 @@ export interface components {
             /** @description 上のグループ。ルートに近い順で、最後が親。ルート直下なら空。行の2段目に、どこにあるかとして出す。 */
             ancestors: components["schemas"]["GroupAncestor"][];
             content: components["schemas"]["ContentResponse"];
-            /** @description タイトルでは当たらず、説明で当たったか。何で当たったか分かるよう、画面が説明を添える。 */
+            /** @description 説明で当たった語があるか。何で当たったか分かるよう、画面が説明を添える。 */
             matchedInDescription: boolean;
         };
         SearchFileHit: {
@@ -2498,7 +2599,7 @@ export interface components {
              * @description アーカイブの中の一覧なら、そのアイテムの id。
              */
             item?: number | null;
-            /** @description 題では当たらず、`note` で当たったか。何で当たったか分かるよう、画面が `note` を添える。 */
+            /** @description `note` で当たった語があるか。何で当たったか分かるよう、画面が `note` を添える。 */
             matchedInNote: boolean;
             note?: string | null;
             /** @description フォルダーの中の一覧なら、その相対パス。 */
@@ -2507,11 +2608,11 @@ export interface components {
             url: string;
         };
         SearchResponse: {
-            /** @description タイトル順。区画ごとの上限 (100 件) で打ち切る。 */
+            /** @description 当たりのよい順 (同じ程度ならタイトル順)。区画ごとの上限 (100 件) で打ち切る。 */
             contents: components["schemas"]["SearchContentHit"][];
             /** @description `contents` を打ち切ったか。 */
             contentsTruncated: boolean;
-            /** @description フォルダーの中のファイルとディレクトリ。名前順。区画ごとの上限 (100 件) で打ち切る。 */
+            /** @description フォルダーの中のファイルとディレクトリ。当たりのよい順 (同じ程度なら名前順)。区画ごとの上限 (100 件) で打ち切る。 */
             files: components["schemas"]["SearchFileHit"][];
             /** @description `files` を打ち切ったか。 */
             filesTruncated: boolean;
@@ -2520,11 +2621,11 @@ export interface components {
              *     その先のファイルとリンクの一覧は探していない。語を足しても広がらないので、打ち切りとは分けて伝える。
              */
             foldersIncomplete: boolean;
-            /** @description アーカイブのファイル。表示タイトル順。区画ごとの上限 (100 件) で打ち切る。 */
+            /** @description アーカイブのファイル。当たりのよい順 (同じ程度なら表示タイトル順)。区画ごとの上限 (100 件) で打ち切る。 */
             items: components["schemas"]["SearchItemHit"][];
             /** @description `items` を打ち切ったか。 */
             itemsTruncated: boolean;
-            /** @description リンクの一覧のファイルの中のリンク。題の順。区画ごとの上限 (100 件) で打ち切る。 */
+            /** @description リンクの一覧のファイルの中のリンク。当たりのよい順 (同じ程度なら題の順)。区画ごとの上限 (100 件) で打ち切る。 */
             links: components["schemas"]["SearchLinkHit"][];
             /** @description `links` を打ち切ったか。 */
             linksTruncated: boolean;
@@ -5333,6 +5434,88 @@ export interface operations {
             };
         };
     };
+    download_item_by_path: {
+        parameters: {
+            query: {
+                /** @description アーカイブの登録先からの相対パス。`/` 区切りで、アイテムの `relPath` と同じ形。 */
+                path: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ファイルの内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 閲覧にログインが必要 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 索引に無い・非公開のアイテム、または実体が無い */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    manage_download_item_by_path: {
+        parameters: {
+            query: {
+                /** @description アーカイブの登録先からの相対パス。`/` 区切りで、アイテムの `relPath` と同じ形。 */
+                path: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ファイルの内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 管理できない・索引に無いアイテム、または実体が無い */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_axes: {
         parameters: {
             query?: never;
@@ -6451,6 +6634,52 @@ export interface operations {
             };
         };
     };
+    manage_thumbnail_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 縮小画像 (JPEG か PNG) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description ETag が一致した */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 管理できない・所属しない・存在しないアイテム、実体が無い、またはプレビューしない画像 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     thumbnail_item: {
         parameters: {
             query?: never;
@@ -6600,6 +6829,46 @@ export interface operations {
             };
             /** @description 同時に中継している数が上限に達した */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    manage_view_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 未公開を含む、軸の選択肢と絞り込み後のアイテム一覧 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManageArchiveViewResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 管理できない・存在しない・アーカイブでない */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -315,6 +315,80 @@ async fn archive_download_item_serves_published_file(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK);
 }
 
+/// 相対パスで指したアイテムも、`item_id` で指したときと同じ条件で配信する。索引に無いパスは404
+/// (→ docs/archive.md「アイテムの配信」)。
+#[sqlx::test]
+async fn archive_download_item_by_path_serves_only_published_indexed_file(pool: SqlitePool) {
+    let (app, cookie, id, _dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
+    let download = |path: &'static str| {
+        let app = app.clone();
+        let cookie = cookie.clone();
+        async move {
+            let uri = format!("/api/v1/contents/{id}/archive/download?path={path}");
+            send_empty(app, "GET", &uri, &cookie).await.0
+        }
+    };
+
+    assert_eq!(download("2024_kokugo.pdf").await, StatusCode::NOT_FOUND);
+    publish_all_items(&pool, id).await;
+    assert_eq!(download("2024_kokugo.pdf").await, StatusCode::OK);
+    assert_eq!(download("missing.pdf").await, StatusCode::NOT_FOUND);
+}
+
+/// 管理用の一覧は、閲覧用の一覧と同じ導出・絞り込みで、未公開と実体の無いアイテムも含める
+/// (→ docs/archive.md「エンドポイント一覧」)。
+#[sqlx::test]
+async fn archive_manage_view_includes_unpublished_and_missing_items(pool: SqlitePool) {
+    let (app, cookie, id, dir) = setup_archive_with_filename_word_axis(pool).await;
+    std::fs::remove_file(dir.join("2024_unknown.pdf")).expect("ファイルを消せなかった");
+
+    let (status, body) = send_empty(
+        app,
+        "GET",
+        &format!("/api/v1/contents/{id}/manage-archive"),
+        &cookie,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let view: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    let items: Vec<(&str, bool, bool)> = view["items"]
+        .as_array()
+        .expect("itemsが配列でなかった")
+        .iter()
+        .map(|item| {
+            (
+                item["title"].as_str().expect("titleが無かった"),
+                item["published"].as_bool().expect("publishedが無かった"),
+                item["missing"].as_bool().expect("missingが無かった"),
+            )
+        })
+        .collect();
+    assert_eq!(
+        items,
+        vec![
+            ("2024_kokugo.pdf", false, false),
+            ("2024_eigo.pdf", false, false),
+            ("2024_unknown.pdf", false, true)
+        ],
+        "{body}"
+    );
+}
+
+/// 管理用の、相対パスで指した配信は未公開も渡す (→ docs/archive.md「アイテムの配信」)。
+#[sqlx::test]
+async fn archive_manage_download_item_by_path_serves_unpublished_file(pool: SqlitePool) {
+    let (app, cookie, id, _dir) = setup_archive_with_filename_word_axis(pool).await;
+    let uri = format!("/api/v1/contents/{id}/archive/manage-download?path=2024_kokugo.pdf");
+    let (status, body) = send_empty(app.clone(), "GET", &uri, &cookie).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let uri = format!("/api/v1/contents/{id}/archive/manage-download?path=missing.pdf");
+    assert_eq!(
+        send_empty(app, "GET", &uri, &cookie).await.0,
+        StatusCode::NOT_FOUND
+    );
+}
+
 /// 管理用の配信は、未公開のアイテムも渡す。匿名には401 (→ docs/archive.md「アイテムの配信」)。
 #[sqlx::test]
 async fn archive_manage_download_item_serves_unpublished_file(pool: SqlitePool) {

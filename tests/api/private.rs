@@ -730,3 +730,58 @@ async fn users_list_includes_private_content_count(pool: SqlitePool) {
         .unwrap_or_else(|| panic!("bobが見つからない: {json}"));
     assert_eq!(bob["privateContentCount"], 2, "{json}");
 }
+
+/// 閲覧の画面の `canEdit` は、書き換えられる人 (作成者と `admin`) にだけ真になる (→ docs/access.md「ロールと操作」)。
+#[sqlx::test]
+async fn browse_responses_tell_whether_the_viewer_can_edit(pool: SqlitePool) {
+    insert_user(&pool, "alice", "correct-password").await;
+    insert_user(&pool, "bob", "correct-password").await;
+    let alice_id = db_user_id(&pool, "alice").await;
+    register_content_root(&pool).await;
+    let dir = temp_test_dir("browse-can-edit");
+    let group_id = insert_group_under(&pool, "アリスのグループ", "public", None).await;
+    sqlx::query("UPDATE contents SET created_by = ? WHERE id = ?")
+        .bind(alice_id)
+        .bind(group_id)
+        .execute(&pool)
+        .await
+        .expect("グループの作成者を付けられなかった");
+    let folder_id = insert_folder_by(
+        &pool,
+        "アリスのフォルダー",
+        dir.path(),
+        "public",
+        Some(alice_id),
+        None,
+    )
+    .await;
+    let archive_id = insert_archive_by(
+        &pool,
+        "アリスのアーカイブ",
+        dir.path(),
+        "public",
+        Some(alice_id),
+        None,
+    )
+    .await;
+    let (app, admin) = admin_app(&pool).await;
+    let alice = login(app.clone(), "alice", "correct-password").await;
+    let bob = login(app.clone(), "bob", "correct-password").await;
+
+    for uri in [
+        format!("/api/v1/contents/{group_id}/group"),
+        format!("/api/v1/contents/{folder_id}/browse"),
+        format!("/api/v1/contents/{archive_id}/archive"),
+    ] {
+        for (cookie, expected) in [(&alice, true), (&admin, true), (&bob, false)] {
+            let (status, body) = send_empty(app.clone(), "GET", &uri, cookie).await;
+            assert_eq!(status, StatusCode::OK, "{uri}: {body}");
+            assert!(
+                body.contains(&format!(r#""canEdit":{expected}"#)),
+                "{uri}: {body}"
+            );
+        }
+        let (_, body) = send_anon(app.clone(), "GET", &uri).await;
+        assert!(body.contains(r#""canEdit":false"#), "{uri}: {body}");
+    }
+}

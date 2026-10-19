@@ -146,6 +146,11 @@
 			"text": "Copyright (c) 2024 Orson Peters\n\nThis software is provided 'as-is', without any express or implied warranty. In\nno event will the authors be held liable for any damages arising from the use of\nthis software.\n\nPermission is granted to anyone to use this software for any purpose, including\ncommercial applications, and to alter it and redistribute it freely, subject to\nthe following restrictions:\n\n1. The origin of this software must not be misrepresented; you must not claim\n    that you wrote the original software. If you use this software in a product,\n    an acknowledgment in the product documentation would be appreciated but is\n    not required.\n\n2. Altered source versions must be plainly marked as such, and must not be\n    misrepresented as being the original software.\n\n3. This notice may not be removed or altered from any source distribution."
 		},
 		{
+			"id": "MIT",
+			"name": "MIT License",
+			"text": "MIT License\n\nCopyright (c) 2024 Liam Dyer\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
+		},
+		{
 			"id": "Apache-2.0",
 			"name": "Apache License 2.0",
 			"text": "                              Apache License\n                        Version 2.0, January 2004\n                     http://www.apache.org/licenses/\n\nTERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION\n\n1. Definitions.\n\n   \"License\" shall mean the terms and conditions for use, reproduction,\n   and distribution as defined by Sections 1 through 9 of this document.\n\n   \"Licensor\" shall mean the copyright owner or entity authorized by\n   the copyright owner that is granting the License.\n\n   \"Legal Entity\" shall mean the union of the acting entity and all\n   other entities that control, are controlled by, or are under common\n   control with that entity. For the purposes of this definition,\n   \"control\" means (i) the power, direct or indirect, to cause the\n   direction or management of such entity, whether by contract or\n   otherwise, or (ii) ownership of fifty percent (50%) or more of the\n   outstanding shares, or (iii) beneficial ownership of such entity.\n\n   \"You\" (or \"Your\") shall mean an individual or Legal Entity\n   exercising permissions granted by this License.\n\n   \"Source\" form shall mean the preferred form for making modifications,\n   including but not limited to software source code, documentation\n   source, and configuration files.\n\n   \"Object\" form shall mean any form resulting from mechanical\n   transformation or translation of a Source form, including but\n   not limited to compiled object code, generated documentation,\n   and conversions to other media types.\n\n   \"Work\" shall mean the work of authorship, whether in Source or\n   Object form, made available under the License, as indicated by a\n   copyright notice that is included in or attached to the work\n   (an example is provided in the Appendix below).\n\n   \"Derivative Works\" shall mean any work, whether in Source or Object\n   form, that is based on (or derived from) the Work and for which the\n   editorial revisions, annotations, elaborations, or other modifications\n   represent, as a whole, an original work of authorship. For the purposes\n   of this License, Derivative Works shall not include works that remain\n   separable from, or merely link (or bind by name) to the interfaces of,\n   the Work and Derivative Works thereof.\n\n   \"Contribution\" shall mean any work of authorship, including\n   the original version of the Work and any modifications or additions\n   to that Work or Derivative Works thereof, that is intentionally\n   submitted to Licensor for inclusion in the Work by the copyright owner\n   or by an individual or Legal Entity authorized to submit on behalf of\n   the copyright owner. For the purposes of this definition, \"submitted\"\n   means any form of electronic, verbal, or written communication sent\n   to the Licensor or its representatives, including but not limited to\n   communication on electronic mailing lists, source code control systems,\n   and issue tracking systems that are managed by, or on behalf of, the\n   Licensor for the purpose of discussing and improving the Work, but\n   excluding communication that is conspicuously marked or otherwise\n   designated in writing by the copyright owner as \"Not a Contribution.\"\n\n   \"Contributor\" shall mean Licensor and any individual or Legal Entity\n   on behalf of whom a Contribution has been received by Licensor and\n   subsequently incorporated within the Work.\n\n2. Grant of Copyright License. Subject to the terms and conditions of\n   this License, each Contributor hereby grants to You a perpetual,\n   worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n   copyright license to reproduce, prepare Derivative Works of,\n   publicly display, publicly perform, sublicense, and distribute the\n   Work and such Derivative Works in Source or Object form.\n\n3. Grant of Patent License. Subject to the terms and conditions of\n   this License, each Contributor hereby grants to You a perpetual,\n   worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n   (except as stated in this section) patent license to make, have made,\n   use, offer to sell, sell, import, and otherwise transfer the Work,\n   where such license applies only to those patent claims licensable\n   by such Contributor that are necessarily infringed by their\n   Contribution(s) alone or by combination of their Contribution(s)\n   with the Work to which such Contribution(s) was submitted. If You\n   institute patent litigation against any entity (including a\n   cross-claim or counterclaim in a lawsuit) alleging that the Work\n   or a Contribution incorporated within the Work constitutes direct\n   or contributory patent infringement, then any patent licenses\n   granted to You under this License for that Work shall terminate\n   as of the date such litigation is filed.\n\n4. Redistribution. You may reproduce and distribute copies of the\n   Work or Derivative Works thereof in any medium, with or without\n   modifications, and in Source or Object form, provided that You\n   meet the following conditions:\n\n   (a) You must give any other recipients of the Work or\n       Derivative Works a copy of this License; and\n\n   (b) You must cause any modified files to carry prominent notices\n       stating that You changed the files; and\n\n   (c) You must retain, in the Source form of any Derivative Works\n       that You distribute, all copyright, patent, trademark, and\n       attribution notices from the Source form of the Work,\n       excluding those notices that do not pertain to any part of\n       the Derivative Works; and\n\n   (d) If the Work includes a \"NOTICE\" text file as part of its\n       distribution, then any Derivative Works that You distribute must\n       include a readable copy of the attribution notices contained\n       within such NOTICE file, excluding those notices that do not\n       pertain to any part of the Derivative Works, in at least one\n       of the following places: within a NOTICE text file distributed\n       as part of the Derivative Works; within the Source form or\n       documentation, if provided along with the Derivative Works; or,\n       within a display generated by the Derivative Works, if and\n       wherever such third-party notices normally appear. The contents\n       of the NOTICE file are for informational purposes only and\n       do not modify the License. You may add Your own attribution\n       notices within Derivative Works that You distribute, alongside\n       or as an addendum to the NOTICE text from the Work, provided\n       that such additional attribution notices cannot be construed\n       as modifying the License.\n\n   You may add Your own copyright statement to Your modifications and\n   may provide additional or different license terms and conditions\n   for use, reproduction, or distribution of Your modifications, or\n   for any such Derivative Works as a whole, provided Your use,\n   reproduction, and distribution of the Work otherwise complies with\n   the conditions stated in this License.\n\n5. Submission of Contributions. Unless You explicitly state otherwise,\n   any Contribution intentionally submitted for inclusion in the Work\n   by You to the Licensor shall be under the terms and conditions of\n   this License, without any additional terms or conditions.\n   Notwithstanding the above, nothing herein shall supersede or modify\n   the terms of any separate license agreement you may have executed\n   with Licensor regarding such Contributions.\n\n6. Trademarks. This License does not grant permission to use the trade\n   names, trademarks, service marks, or product names of the Licensor,\n   except as required for reasonable and customary use in describing the\n   origin of the Work and reproducing the content of the NOTICE file.\n\n7. Disclaimer of Warranty. Unless required by applicable law or\n   agreed to in writing, Licensor provides the Work (and each\n   Contributor provides its Contributions) on an \"AS IS\" BASIS,\n   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or\n   implied, including, without limitation, any warranties or conditions\n   of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A\n   PARTICULAR PURPOSE. You are solely responsible for determining the\n   appropriateness of using or redistributing the Work and assume any\n   risks associated with Your exercise of permissions under this License.\n\n8. Limitation of Liability. In no event and under no legal theory,\n   whether in tort (including negligence), contract, or otherwise,\n   unless required by applicable law (such as deliberate and grossly\n   negligent acts) or agreed to in writing, shall any Contributor be\n   liable to You for damages, including any direct, indirect, special,\n   incidental, or consequential damages of any character arising as a\n   result of this License or out of the use or inability to use the\n   Work (including but not limited to damages for loss of goodwill,\n   work stoppage, computer failure or malfunction, or any and all\n   other commercial damages or losses), even if such Contributor\n   has been advised of the possibility of such damages.\n\n9. Accepting Warranty or Additional Liability. While redistributing\n   the Work or Derivative Works thereof, You may choose to offer,\n   and charge a fee for, acceptance of support, warranty, indemnity,\n   or other liability obligations and/or rights consistent with this\n   License. However, in accepting such obligations, You may act only\n   on Your own behalf and on Your sole responsibility, not on behalf\n   of any other Contributor, and only if You agree to indemnify,\n   defend, and hold each Contributor harmless for any liability\n   incurred by, or claims asserted against, such Contributor by reason\n   of your accepting any such warranty or additional liability.\n\nEND OF TERMS AND CONDITIONS\n\nAPPENDIX: How to apply the Apache License to your work.\n\n   To apply the Apache License to your work, attach the following\n   boilerplate notice, with the fields enclosed by brackets \"[]\"\n   replaced with your own identifying information. (Don't include\n   the brackets!)  The text should be enclosed in the appropriate\n   comment syntax for the file format. We also recommend that a\n   file or class name and description of purpose be included on the\n   same \"printed page\" as the copyright notice for easier\n   identification within third-party archives.\n\nCopyright (c) 2016 Alex Crichton\nCopyright (c) 2017 The Tokio Authors\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n\thttp://www.apache.org/licenses/LICENSE-2.0\n\nUnless required by applicable law or agreed to in writing, software\ndistributed under the License is distributed on an \"AS IS\" BASIS,\nWITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\nSee the License for the specific language governing permissions and\nlimitations under the License.\n"
@@ -1225,6 +1230,17 @@
 			]
 		},
 		{
+			"name": "frizbee",
+			"versions": [
+				"0.13.0"
+			],
+			"license": "MIT",
+			"repository": "https://github.com/saghen/frizbee",
+			"texts": [
+				29
+			]
+		},
+		{
 			"name": "futures",
 			"versions": [
 				"0.3.34"
@@ -1232,7 +1248,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/rust-lang/futures-rs",
 			"texts": [
-				29
+				30
 			]
 		},
 		{
@@ -1243,7 +1259,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/rust-lang/futures-rs",
 			"texts": [
-				29
+				30
 			]
 		},
 		{
@@ -1254,7 +1270,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/rust-lang/futures-rs",
 			"texts": [
-				29
+				30
 			]
 		},
 		{
@@ -1265,7 +1281,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/rust-lang/futures-rs",
 			"texts": [
-				29
+				30
 			]
 		},
 		{
@@ -1276,7 +1292,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/Matthias247/futures-intrusive",
 			"texts": [
-				30
+				31
 			]
 		},
 		{
@@ -1287,7 +1303,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/rust-lang/futures-rs",
 			"texts": [
-				29
+				30
 			]
 		},
 		{
@@ -1298,7 +1314,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/rust-lang/futures-rs",
 			"texts": [
-				29
+				30
 			]
 		},
 		{
@@ -1309,7 +1325,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/rust-lang/futures-rs",
 			"texts": [
-				29
+				30
 			]
 		},
 		{
@@ -1320,7 +1336,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/rust-lang/futures-rs",
 			"texts": [
-				29
+				30
 			]
 		},
 		{
@@ -1397,7 +1413,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/fizyk20/generic-array",
 			"texts": [
-				31
+				32
 			]
 		},
 		{
@@ -1420,7 +1436,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/rust-random/getrandom",
 			"texts": [
-				32
+				33
 			]
 		},
 		{
@@ -1531,7 +1547,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/kyren/hashlink",
 			"texts": [
-				33
+				34
 			]
 		},
 		{
@@ -1553,7 +1569,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/hyperium/http",
 			"texts": [
-				34
+				35
 			]
 		},
 		{
@@ -1564,7 +1580,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/hyperium/http-body",
 			"texts": [
-				35
+				36
 			]
 		},
 		{
@@ -1575,7 +1591,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/hyperium/http-body",
 			"texts": [
-				35
+				36
 			]
 		},
 		{
@@ -1586,7 +1602,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/MarcusGrass/parse-range-headers",
 			"texts": [
-				36
+				37
 			]
 		},
 		{
@@ -1608,7 +1624,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/pyfisch/httpdate",
 			"texts": [
-				37
+				38
 			]
 		},
 		{
@@ -1630,7 +1646,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/hyperium/hyper",
 			"texts": [
-				38
+				39
 			]
 		},
 		{
@@ -1641,7 +1657,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/hyperium/hyper-util",
 			"texts": [
-				39
+				40
 			]
 		},
 		{
@@ -1652,7 +1668,7 @@
 			"license": "Unicode-3.0",
 			"repository": "https://github.com/unicode-org/icu4x",
 			"texts": [
-				40
+				41
 			]
 		},
 		{
@@ -1663,7 +1679,7 @@
 			"license": "Unicode-3.0",
 			"repository": "https://github.com/unicode-org/icu4x",
 			"texts": [
-				40
+				41
 			]
 		},
 		{
@@ -1674,7 +1690,7 @@
 			"license": "Unicode-3.0",
 			"repository": "https://github.com/unicode-org/icu4x",
 			"texts": [
-				40
+				41
 			]
 		},
 		{
@@ -1685,7 +1701,7 @@
 			"license": "Unicode-3.0",
 			"repository": "https://github.com/unicode-org/icu4x",
 			"texts": [
-				40
+				41
 			]
 		},
 		{
@@ -1696,7 +1712,7 @@
 			"license": "Unicode-3.0",
 			"repository": "https://github.com/unicode-org/icu4x",
 			"texts": [
-				40
+				41
 			]
 		},
 		{
@@ -1707,7 +1723,7 @@
 			"license": "Unicode-3.0",
 			"repository": "https://github.com/unicode-org/icu4x",
 			"texts": [
-				40
+				41
 			]
 		},
 		{
@@ -1718,7 +1734,7 @@
 			"license": "Unicode-3.0",
 			"repository": "https://github.com/unicode-org/icu4x",
 			"texts": [
-				40
+				41
 			]
 		},
 		{
@@ -1784,7 +1800,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/TheLarkInn/is-docker",
 			"texts": [
-				41
+				42
 			]
 		},
 		{
@@ -1795,7 +1811,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/TheLarkInn/is-wsl",
 			"texts": [
-				41
+				42
 			]
 		},
 		{
@@ -1883,7 +1899,7 @@
 			"license": "ISC",
 			"repository": "https://github.com/nagisa/rust_libloading/",
 			"texts": [
-				42
+				43
 			]
 		},
 		{
@@ -1894,7 +1910,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/rusqlite/rusqlite",
 			"texts": [
-				43
+				44
 			]
 		},
 		{
@@ -1905,7 +1921,7 @@
 			"license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
 			"repository": "https://github.com/sunfishcode/linux-raw-sys",
 			"texts": [
-				44,
+				45,
 				3
 			]
 		},
@@ -1917,7 +1933,7 @@
 			"license": "Unicode-3.0",
 			"repository": "https://github.com/unicode-org/icu4x",
 			"texts": [
-				40
+				41
 			]
 		},
 		{
@@ -1950,7 +1966,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/hawkw/matchers",
 			"texts": [
-				45
+				46
 			]
 		},
 		{
@@ -1961,8 +1977,8 @@
 			"license": "MIT AND BSD-3-Clause",
 			"repository": "https://github.com/ibraheemdev/matchit",
 			"texts": [
-				46,
-				47
+				47,
+				48
 			]
 		},
 		{
@@ -1984,7 +2000,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/Gilnaa/memoffset",
 			"texts": [
-				48
+				49
 			]
 		},
 		{
@@ -2006,7 +2022,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/abonander/mime_guess",
 			"texts": [
-				49
+				50
 			]
 		},
 		{
@@ -2029,7 +2045,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/mio",
 			"texts": [
-				50
+				51
 			]
 		},
 		{
@@ -2040,7 +2056,7 @@
 			"license": "BSD-3-Clause OR Apache-2.0",
 			"repository": "https://github.com/awxkee/moxcms",
 			"texts": [
-				51
+				52
 			]
 		},
 		{
@@ -2062,7 +2078,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/rwf2/multer",
 			"texts": [
-				52
+				53
 			]
 		},
 		{
@@ -2095,7 +2111,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/nushell/nu-ansi-term",
 			"texts": [
-				53
+				54
 			]
 		},
 		{
@@ -2249,7 +2265,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/Byron/open-rs",
 			"texts": [
-				54
+				55
 			]
 		},
 		{
@@ -2282,7 +2298,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/rust-openssl/rust-openssl",
 			"texts": [
-				55
+				56
 			]
 		},
 		{
@@ -2293,7 +2309,7 @@
 			"license": "MPL-2.0",
 			"repository": "https://github.com/soc/option-ext",
 			"texts": [
-				56
+				57
 			]
 		},
 		{
@@ -2436,7 +2452,7 @@
 			"license": "Unicode-3.0",
 			"repository": "https://github.com/unicode-org/icu4x",
 			"texts": [
-				40
+				41
 			]
 		},
 		{
@@ -2447,7 +2463,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/jhpratt/powerfmt",
 			"texts": [
-				57
+				58
 			]
 		},
 		{
@@ -2458,7 +2474,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/cryptocorrosion/cryptocorrosion",
 			"texts": [
-				58
+				59
 			]
 		},
 		{
@@ -2469,7 +2485,7 @@
 			"license": "BSD-3-Clause OR Apache-2.0",
 			"repository": "https://github.com/awxkee/pxfm",
 			"texts": [
-				51
+				52
 			]
 		},
 		{
@@ -2491,7 +2507,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tafia/quick-xml",
 			"texts": [
-				59
+				60
 			]
 		},
 		{
@@ -2513,7 +2529,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/rust-random/rand",
 			"texts": [
-				32
+				33
 			]
 		},
 		{
@@ -2524,7 +2540,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/rust-random/rand",
 			"texts": [
-				60
+				61
 			]
 		},
 		{
@@ -2568,8 +2584,8 @@
 			"license": "MIT",
 			"repository": "https://github.com/PolyMeilex/rfd",
 			"texts": [
-				61,
-				62
+				62,
+				63
 			]
 		},
 		{
@@ -2580,7 +2596,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/3Hren/msgpack-rust",
 			"texts": [
-				63
+				64
 			]
 		},
 		{
@@ -2591,7 +2607,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/3Hren/msgpack-rust",
 			"texts": [
-				63
+				64
 			]
 		},
 		{
@@ -2624,7 +2640,7 @@
 			"license": "MIT",
 			"repository": "https://pyrossh.dev/repos/rust-embed",
 			"texts": [
-				64
+				65
 			]
 		},
 		{
@@ -2635,7 +2651,7 @@
 			"license": "MIT",
 			"repository": "https://pyrossh.dev/repos/rust-embed",
 			"texts": [
-				64
+				65
 			]
 		},
 		{
@@ -2646,7 +2662,7 @@
 			"license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
 			"repository": "https://github.com/bytecodealliance/rustix",
 			"texts": [
-				44,
+				45,
 				3
 			]
 		},
@@ -2658,7 +2674,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/rustls/pki-types",
 			"texts": [
-				65
+				66
 			]
 		},
 		{
@@ -2680,7 +2696,7 @@
 			"license": "Unlicense OR MIT",
 			"repository": "https://github.com/BurntSushi/same-file",
 			"texts": [
-				66
+				67
 			]
 		},
 		{
@@ -2691,7 +2707,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/steffengy/schannel-rs",
 			"texts": [
-				67
+				68
 			]
 		},
 		{
@@ -2824,7 +2840,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/hawkw/sharded-slab",
 			"texts": [
-				68
+				69
 			]
 		},
 		{
@@ -2846,7 +2862,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/mcountryman/simd-adler32",
 			"texts": [
-				69
+				70
 			]
 		},
 		{
@@ -2868,7 +2884,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/slab",
 			"texts": [
-				70
+				71
 			]
 		},
 		{
@@ -2901,7 +2917,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/mvdnes/spin-rs",
 			"texts": [
-				71
+				72
 			]
 		},
 		{
@@ -2912,7 +2928,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/launchbadge/sqlx",
 			"texts": [
-				72
+				73
 			]
 		},
 		{
@@ -2923,7 +2939,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/launchbadge/sqlx",
 			"texts": [
-				72
+				73
 			]
 		},
 		{
@@ -2934,7 +2950,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/launchbadge/sqlx",
 			"texts": [
-				72
+				73
 			]
 		},
 		{
@@ -2956,7 +2972,7 @@
 			"license": "BSD-3-Clause",
 			"repository": "https://github.com/dalek-cryptography/subtle",
 			"texts": [
-				73
+				74
 			]
 		},
 		{
@@ -3056,7 +3072,7 @@
 			"license": "Unicode-3.0",
 			"repository": "https://github.com/unicode-org/icu4x",
 			"texts": [
-				40
+				41
 			]
 		},
 		{
@@ -3067,7 +3083,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tokio",
 			"texts": [
-				74
+				75
 			]
 		},
 		{
@@ -3078,7 +3094,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tokio",
 			"texts": [
-				74
+				75
 			]
 		},
 		{
@@ -3089,7 +3105,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tokio",
 			"texts": [
-				74
+				75
 			]
 		},
 		{
@@ -3155,7 +3171,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tower-rs/tower",
 			"texts": [
-				75
+				76
 			]
 		},
 		{
@@ -3166,7 +3182,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/imbolc/tower-cookies",
 			"texts": [
-				76
+				77
 			]
 		},
 		{
@@ -3177,7 +3193,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tower-rs/tower-http",
 			"texts": [
-				77
+				78
 			]
 		},
 		{
@@ -3188,7 +3204,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tower-rs/tower",
 			"texts": [
-				75
+				76
 			]
 		},
 		{
@@ -3199,7 +3215,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tower-rs/tower",
 			"texts": [
-				75
+				76
 			]
 		},
 		{
@@ -3210,7 +3226,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/maxcountryman/tower-sessions",
 			"texts": [
-				78
+				79
 			]
 		},
 		{
@@ -3221,7 +3237,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/maxcountryman/tower-sessions",
 			"texts": [
-				78
+				79
 			]
 		},
 		{
@@ -3232,7 +3248,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/maxcountryman/tower-sessions-stores",
 			"texts": [
-				79
+				80
 			]
 		},
 		{
@@ -3243,7 +3259,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tracing",
 			"texts": [
-				80
+				81
 			]
 		},
 		{
@@ -3254,7 +3270,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tracing",
 			"texts": [
-				80
+				81
 			]
 		},
 		{
@@ -3265,8 +3281,8 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tracing",
 			"texts": [
-				80,
-				81
+				81,
+				82
 			]
 		},
 		{
@@ -3277,7 +3293,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tracing",
 			"texts": [
-				80
+				81
 			]
 		},
 		{
@@ -3288,7 +3304,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tracing",
 			"texts": [
-				80
+				81
 			]
 		},
 		{
@@ -3321,7 +3337,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/paholg/typenum",
 			"texts": [
-				82
+				83
 			]
 		},
 		{
@@ -3354,7 +3370,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/algesten/ureq",
 			"texts": [
-				83
+				84
 			]
 		},
 		{
@@ -3409,7 +3425,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/juhaku/utoipa",
 			"texts": [
-				84
+				85
 			]
 		},
 		{
@@ -3420,7 +3436,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/juhaku/utoipa",
 			"texts": [
-				84
+				85
 			]
 		},
 		{
@@ -3442,7 +3458,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/smithay/wayland-rs",
 			"texts": [
-				85
+				86
 			]
 		},
 		{
@@ -3453,7 +3469,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/smithay/wayland-rs",
 			"texts": [
-				85
+				86
 			]
 		},
 		{
@@ -3464,8 +3480,8 @@
 			"license": "MIT",
 			"repository": "https://github.com/smithay/wayland-rs",
 			"texts": [
-				85,
-				86
+				86,
+				87
 			]
 		},
 		{
@@ -3476,7 +3492,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/smithay/wayland-rs",
 			"texts": [
-				85
+				86
 			]
 		},
 		{
@@ -3487,7 +3503,7 @@
 			"license": "CDLA-Permissive-2.0",
 			"repository": "https://github.com/rustls/webpki-roots",
 			"texts": [
-				87
+				88
 			]
 		},
 		{
@@ -3509,7 +3525,7 @@
 			"license": "Unlicense OR MIT",
 			"repository": "https://github.com/BurntSushi/winapi-util",
 			"texts": [
-				66
+				67
 			]
 		},
 		{
@@ -3520,7 +3536,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				88
+				89
 			]
 		},
 		{
@@ -3531,7 +3547,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				88
+				89
 			]
 		},
 		{
@@ -3542,7 +3558,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				88
+				89
 			]
 		},
 		{
@@ -3553,7 +3569,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				88
+				89
 			]
 		},
 		{
@@ -3564,7 +3580,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				88
+				89
 			]
 		},
 		{
@@ -3575,7 +3591,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				88
+				89
 			]
 		},
 		{
@@ -3586,7 +3602,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				88
+				89
 			]
 		},
 		{
@@ -3597,7 +3613,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				88
+				89
 			]
 		},
 		{
@@ -3608,7 +3624,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				88
+				89
 			]
 		},
 		{
@@ -3619,7 +3635,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				88
+				89
 			]
 		},
 		{
@@ -3630,7 +3646,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				88
+				89
 			]
 		},
 		{
@@ -3641,7 +3657,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/winnow-rs/winnow",
 			"texts": [
-				89
+				90
 			]
 		},
 		{
@@ -3652,7 +3668,7 @@
 			"license": "Unicode-3.0",
 			"repository": "https://github.com/unicode-org/icu4x",
 			"texts": [
-				40
+				41
 			]
 		},
 		{
@@ -3663,7 +3679,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/AltF02/x11-rs",
 			"texts": [
-				90
+				91
 			]
 		},
 		{
@@ -3674,7 +3690,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/AltF02/x11-rs",
 			"texts": [
-				90
+				91
 			]
 		},
 		{
@@ -3685,7 +3701,7 @@
 			"license": "Unicode-3.0",
 			"repository": "https://github.com/unicode-org/icu4x",
 			"texts": [
-				40
+				41
 			]
 		},
 		{
@@ -3696,7 +3712,7 @@
 			"license": "BSD-2-Clause OR Apache-2.0 OR MIT",
 			"repository": "https://github.com/google/zerocopy",
 			"texts": [
-				91
+				92
 			]
 		},
 		{
@@ -3707,7 +3723,7 @@
 			"license": "Unicode-3.0",
 			"repository": "https://github.com/unicode-org/icu4x",
 			"texts": [
-				40
+				41
 			]
 		},
 		{
@@ -3729,7 +3745,7 @@
 			"license": "Unicode-3.0",
 			"repository": "https://github.com/unicode-org/icu4x",
 			"texts": [
-				40
+				41
 			]
 		},
 		{
@@ -3740,7 +3756,7 @@
 			"license": "Unicode-3.0",
 			"repository": "https://github.com/unicode-org/icu4x",
 			"texts": [
-				40
+				41
 			]
 		},
 		{
@@ -3751,7 +3767,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/zip-rs/zip2",
 			"texts": [
-				81
+				82
 			]
 		},
 		{
@@ -3762,7 +3778,7 @@
 			"license": "Zlib",
 			"repository": "https://github.com/trifectatechfoundation/zlib-rs",
 			"texts": [
-				92
+				93
 			]
 		},
 		{
@@ -3773,7 +3789,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/dtolnay/zmij",
 			"texts": [
-				90
+				91
 			]
 		},
 		{
@@ -3784,7 +3800,7 @@
 			"license": "MIT OR Apache-2.0 OR Zlib",
 			"repository": "https://github.com/etemesi254/zune-image",
 			"texts": [
-				83
+				84
 			]
 		},
 		{
@@ -3795,7 +3811,7 @@
 			"license": "MIT OR Apache-2.0 OR Zlib",
 			"repository": "https://github.com/etemesi254/zune-image/tree/dev/crates/zune-jpeg",
 			"texts": [
-				83
+				84
 			]
 		}
 	]

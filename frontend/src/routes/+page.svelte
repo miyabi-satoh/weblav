@@ -1,16 +1,15 @@
 <script lang="ts">
-	import BrowseFilterInput from '$lib/components/browse-filter-input.svelte';
+	import BrowseControls from '$lib/components/browse-controls.svelte';
 	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
 	import { SORT_OPTIONS, browseSortHref, type BrowseSort } from '$lib/browse-sort';
-	import BrowseLayoutToggle from '$lib/components/browse-layout-toggle.svelte';
 	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
 	import ContentList from '$lib/components/content-list.svelte';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
-	import { browseControlsClass, browseGutterClass } from '$lib/list-row';
+	import { browseGutterClass } from '$lib/list-row';
 	import { pageEmptyTextClass } from '$lib/page-layout';
 
 	let { data }: PageProps = $props();
@@ -66,13 +65,11 @@
 			<p class={pageEmptyTextClass}>{m.home_empty()}</p>
 		{/if}
 	{:else}
-		<div class={['mb-4', browseControlsClass, browseGutterClass]}>
-			<div class="flex flex-wrap gap-2.5">
+		<BrowseControls class={['mb-4', browseGutterClass]}>
+			{#snippet sort()}
 				<BrowseSortSelect value={data.sort} options={SORT_OPTIONS} href={sortHref} />
-				<BrowseFilterInput />
-			</div>
-			<BrowseLayoutToggle />
-		</div>
+			{/snippet}
+		</BrowseControls>
 		<ContentList entries={data.contents} />
 	{/if}
 </div>

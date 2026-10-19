@@ -4,6 +4,7 @@
 	import type FileIcon from '@lucide/svelte/icons/file';
 	import { browseLayout } from '$lib/browse-layout.svelte';
 	import { THUMBNAIL_FOR_ATTRIBUTE } from '$lib/image-viewer';
+	import { tileBandClass } from '$lib/list-row';
 
 	// 1列リストの行の先頭、タイルの上に置くアイコン枠 (→ $lib/list-row.ts、タイルの大きさは docs/ui.md「UI 全般」)。
 	// `play` はページ内で再生する音声の行で、差し色の丸に再生アイコンを入れる。
@@ -41,38 +42,47 @@
 	let playIconSizeClass = $derived(tile ? 'size-7' : compact ? 'size-3.5 sm:size-4' : 'size-4');
 </script>
 
-<span
-	class={[
-		'flex shrink-0 items-center justify-center',
-		frameSizeClass,
-		play && 'rounded-full border-2 border-primary',
-		play && current && 'bg-primary'
-	]}
->
-	{#if play && current === 'playing'}
-		<PauseIcon class="fill-primary-foreground text-primary-foreground {playIconSizeClass}" />
-	{:else if play}
-		<PlayIcon
-			class={[
-				current ? 'fill-primary-foreground text-primary-foreground' : 'fill-primary text-primary',
-				playIconSizeClass
-			]}
-		/>
-	{:else if thumbnail && showThumbnail}
-		<!-- 行の文字が何の画像かを伝えるので、読み上げでは飛ばす。 -->
-		<img
-			src={thumbnail.src}
-			alt=""
-			loading="lazy"
-			decoding="async"
-			class={['size-full bg-muted object-cover', tile ? 'rounded-md' : 'rounded-sm']}
-			onerror={() => (failedSrc = thumbnail.src)}
-			{...{ [THUMBNAIL_FOR_ATTRIBUTE]: thumbnail.original }}
-		/>
-	{:else if Icon}
-		<Icon
-			class={[tile ? 'size-10' : 'size-6', accent ? 'text-primary' : 'text-sub-foreground']}
-			strokeWidth={1.5}
-		/>
-	{/if}
-</span>
+{#snippet frame()}
+	<span
+		class={[
+			'flex shrink-0 items-center justify-center',
+			frameSizeClass,
+			play && 'rounded-full border-2 border-primary',
+			play && current && 'bg-primary'
+		]}
+	>
+		{#if play && current === 'playing'}
+			<PauseIcon class="fill-primary-foreground text-primary-foreground {playIconSizeClass}" />
+		{:else if play}
+			<PlayIcon
+				class={[
+					current ? 'fill-primary-foreground text-primary-foreground' : 'fill-primary text-primary',
+					playIconSizeClass
+				]}
+			/>
+		{:else if thumbnail && showThumbnail}
+			<!-- 行の文字が何の画像かを伝えるので、読み上げでは飛ばす。 -->
+			<img
+				src={thumbnail.src}
+				alt=""
+				loading="lazy"
+				decoding="async"
+				class={['size-full bg-muted object-cover', tile ? 'rounded-md' : 'rounded-sm']}
+				onerror={() => (failedSrc = thumbnail.src)}
+				{...{ [THUMBNAIL_FOR_ATTRIBUTE]: thumbnail.original }}
+			/>
+		{:else if Icon}
+			<Icon
+				class={[tile ? 'size-10' : 'size-6', accent ? 'text-primary' : 'text-sub-foreground']}
+				strokeWidth={1.5}
+			/>
+		{/if}
+	</span>
+{/snippet}
+
+<!-- タイルでは、リンクの画像と同じ 16:9 の帯の中央に置く。縮小画像は 144px なので、帯いっぱいには広げない。 -->
+{#if tile}
+	<span class={tileBandClass}>{@render frame()}</span>
+{:else}
+	{@render frame()}
+{/if}
