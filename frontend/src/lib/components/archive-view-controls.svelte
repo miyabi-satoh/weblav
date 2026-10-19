@@ -109,31 +109,34 @@
 	<BrowseSortSelect value={sort} options={ARCHIVE_SORT_OPTIONS} href={sortHref} />
 {/snippet}
 
+{#snippet axisSelects()}
+	{#each axes as axis (axis.name)}
+		{@const filtered = selectedOption(axis) !== undefined}
+		<Select.Root type="single" bind:value={() => axisValue(axis), (v) => handleAxisChange(axis, v)}>
+			<BrowseSelectTrigger label={axis.name} value={axisLabel(axis)} highlighted={filtered} />
+			<Select.Content>
+				<Select.Item value={allValueFor(axis)}>{m.archive_view_filter_all()}</Select.Item>
+				<!-- 選んだときに残る件数を添える。0件の組み合わせを選ぶ前に見分けられる
+				     ようにするためで、選択肢自体は 0 でも消さない (→ docs/archive.md「エンドポイント一覧」)。 -->
+				{#each axis.options as option (option.value)}
+					<Select.Item value={option.value}>
+						<span>{option.value}</span>
+						<span class="text-xs text-muted-foreground">{option.count}</span>
+					</Select.Item>
+				{/each}
+			</Select.Content>
+		</Select.Root>
+	{/each}
+	{@render extra?.()}
+{/snippet}
+
 {#if hasItems || axes.length > 0}
 	<!-- 絞り込みで0件になっても並び順と絞り込みは残すが、並べる物が無いので切り替えは出さない。 -->
-	<BrowseControls layoutToggle={hasItems} sort={sortSelect}>
-		{#each axes as axis (axis.name)}
-			{@const filtered = selectedOption(axis) !== undefined}
-			<Select.Root
-				type="single"
-				bind:value={() => axisValue(axis), (v) => handleAxisChange(axis, v)}
-			>
-				<BrowseSelectTrigger label={axis.name} value={axisLabel(axis)} highlighted={filtered} />
-				<Select.Content>
-					<Select.Item value={allValueFor(axis)}>{m.archive_view_filter_all()}</Select.Item>
-					<!-- 選んだときに残る件数を添える。0件の組み合わせを選ぶ前に見分けられる
-					     ようにするためで、選択肢自体は 0 でも消さない (→ docs/archive.md「エンドポイント一覧」)。 -->
-					{#each axis.options as option (option.value)}
-						<Select.Item value={option.value}>
-							<span>{option.value}</span>
-							<span class="text-xs text-muted-foreground">{option.count}</span>
-						</Select.Item>
-					{/each}
-				</Select.Content>
-			</Select.Root>
-		{/each}
-		{@render extra?.()}
-	</BrowseControls>
+	<BrowseControls
+		layoutToggle={hasItems}
+		sort={sortSelect}
+		filters={axes.length > 0 || extra ? axisSelects : undefined}
+	/>
 {/if}
 
 <!-- フォルダーが無いときは、件数を数える物が無い (下に「フォルダーが見つかりません。」だけを出す)。 -->
