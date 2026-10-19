@@ -23,7 +23,7 @@
 		browseRowSubtitleClass,
 		browseRowTextClass,
 		browseRowTitleClass,
-		linkTileClass
+		tileBandClass
 	} from '$lib/list-row';
 	import ListRowGlyph from '$lib/components/list-row-glyph.svelte';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
@@ -169,8 +169,8 @@
 {/snippet}
 
 {#if browseLayout.tile}
-	<div class={linkTileClass}>
-		<span class="flex aspect-video w-full items-center justify-center overflow-hidden bg-muted">
+	<div class={browseRowClass()}>
+		<span class={tileBandClass}>
 			{#if imageUrl}
 				<!-- 行のタイトルが何の画像かを伝えるので、読み上げでは飛ばす。 -->
 				<img
@@ -185,7 +185,7 @@
 				<LinkIcon class="size-10 text-sub-foreground" strokeWidth={1.5} />
 			{/if}
 		</span>
-		<span class="flex w-full min-w-0 flex-col gap-1 px-3 pt-2.5 pb-3">
+		<span class={browseRowTextClass()}>
 			{@render titleLink('line-clamp-2 text-base leading-6 wrap-anywhere')}
 			{#if location || hasDescription}
 				<span class="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">

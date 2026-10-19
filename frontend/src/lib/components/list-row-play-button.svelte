@@ -52,10 +52,10 @@
 	{@render leading?.()}
 	<ListRowIcon play {current} {compact} />
 	<span class={browseRowTextClass()}>
-		<!-- ボタンは文字が中央に寄るので、行の寄せに合わせる。 -->
+		<!-- ボタンは文字が中央に寄るので、行の寄せ (左) に合わせる。 -->
 		<button
 			type="button"
-			class={[browseRowPressClass(), browseLayout.tile ? 'text-center' : 'text-left']}
+			class={[browseRowPressClass(), 'text-left']}
 			// 鳴っている行は一時停止のアイコンを出すので、押すと止める (下のバーのボタンと同じ動き)。
 			onclick={() => (current === 'playing' ? nowPlaying.pause() : nowPlaying.play(track, queue))}
 		>

@@ -50,16 +50,16 @@ const tileListClass = `grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:g
  */
 export const tileCornerClass = 'pointer-events-none absolute top-2 right-2';
 
-/** タイル1枚。行と同じく要素の全体を押せる。 */
-const tileClass =
-	'relative flex h-full w-full flex-col items-center gap-2 rounded-lg border bg-background px-3 pt-4 pb-3 text-center transition-colors hover:bg-muted/50';
-
 /**
- * リンクのタイル。ほかのタイルと違い、上に大きい画像を端まで置くカードにする (→ docs/ui.md「リンクのカード」)。
- * 押せる範囲と枠は `tileClass` に揃える。
+ * タイル1枚。上に 16:9 の帯 (リンクは画像、ほかはアイコンか縮小画像)、下に左寄せの文字を置くカード (→ docs/ui.md「UI 全般」)。
+ * 行と同じく要素の全体を押せる。
  */
-export const linkTileClass =
+const tileClass =
 	'relative flex h-full w-full flex-col overflow-hidden rounded-lg border bg-background text-left transition-colors hover:bg-muted/50';
+
+/** タイルの上の帯。 */
+export const tileBandClass =
+	'flex aspect-video w-full shrink-0 items-center justify-center overflow-hidden bg-muted';
 
 /** 閲覧側の一覧の `<ul>`。 */
 export function browseListClass(): string {
@@ -91,7 +91,9 @@ export const browseRowAboveClass = 'relative z-10';
 
 /** 行の文字 (タイトルと2段目) を包む要素。 */
 export function browseRowTextClass(): string {
-	return browseLayout.tile ? 'w-full min-w-0' : 'min-w-0 flex-1';
+	return browseLayout.tile
+		? 'flex w-full min-w-0 flex-col gap-1 px-3 pt-2.5 pb-3'
+		: 'min-w-0 flex-1';
 }
 
 /** 行の1段目。タイルは幅が狭いので一段小さくし、2行を超えた分は切る。区切りの無いファイル名も折り返す。 */
@@ -106,7 +108,5 @@ export function browseRowTitleClass(compact = false): string {
  */
 export function browseRowSubtitleClass(parts = false): string {
 	if (!browseLayout.tile) return listRowSubtitleClass;
-	return parts
-		? `${listRowSubtitleClass} flex justify-center gap-1`
-		: `${listRowSubtitleClass} truncate`;
+	return parts ? `${listRowSubtitleClass} flex gap-1` : `${listRowSubtitleClass} truncate`;
 }
