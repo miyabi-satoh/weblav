@@ -84,6 +84,9 @@
 		subtitle?: Snippet<[ArchiveViewRow]>;
 	} = $props();
 
+	// 行の部品の中では `trailing` が同名の口を指すので、外で読んでおく。
+	let hasTrailing = $derived(trailing !== undefined);
+
 	// ページ内の絞り込みが置かれていれば、行を絞る (→ docs/ui.md「一覧の絞り込み」)。
 	const filter = listFilter();
 	let rows = $derived(
@@ -208,7 +211,11 @@
 						{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
 					</ListRowFileLink>
 				{:else}
-					<ListRowDownloadLink href={downloadHref(row)} thumbnail={rowThumbnail(row)}>
+					<ListRowDownloadLink
+						href={downloadHref(row)}
+						thumbnail={rowThumbnail(row)}
+						tileCornerTaken={hasTrailing}
+					>
 						{@render itemTitle(row)}
 						{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
 						{#snippet leading()}{@render leadingSlot(row)}{/snippet}

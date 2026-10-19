@@ -3,6 +3,7 @@
 	import FileIcon from '@lucide/svelte/icons/file';
 	import { browseRowClass, browseRowPressClass, browseRowTextClass } from '$lib/list-row';
 	import ListRowGlyph from '$lib/components/list-row-glyph.svelte';
+	import { browseLayout } from '$lib/browse-layout.svelte';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
 	import * as m from '$lib/paraglide/messages.js';
 
@@ -14,7 +15,8 @@
 		children,
 		subtitle,
 		leading,
-		trailing
+		trailing,
+		tileCornerTaken = false
 	}: {
 		/** API への直リンク (→ $lib/api/urls.ts)。 */
 		href: string;
@@ -30,6 +32,8 @@
 		leading?: Snippet;
 		/** 行の文字と新規タブの印の間に置くもの。 */
 		trailing?: Snippet;
+		/** タイルの右上の隅をほかのもの (管理画面の公開の切り替え) が使う。新規タブの印をタイルでは出さない。 */
+		tileCornerTaken?: boolean;
 	} = $props();
 </script>
 
@@ -44,5 +48,7 @@
 		{@render subtitle?.()}
 	</span>
 	{@render trailing?.()}
-	<ListRowGlyph newTab />
+	{#if !(tileCornerTaken && browseLayout.tile)}
+		<ListRowGlyph newTab />
+	{/if}
 </div>

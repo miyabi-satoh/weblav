@@ -188,9 +188,13 @@
 		}
 	}
 
-	/** タイルでは左上の隅に重ね、リストでは行の頭に置く。どちらも行いっぱいのリンクより上で押せるようにする。 */
+	/** 選択のチェック。タイルでは左上の隅に重ね、リストでは行の頭に置く。どちらも行いっぱいのリンクより上で押せるようにする。 */
 	let cornerClass = $derived(
 		browseLayout.tile ? 'absolute top-3 left-3 z-10' : browseRowAboveClass
+	);
+	/** タイルでは、選択のチェックと向かい合う右上の隅に置く。 */
+	let switchClass = $derived(
+		browseLayout.tile ? 'absolute top-2.5 right-3 z-10' : browseRowAboveClass
 	);
 </script>
 
@@ -210,7 +214,7 @@
 	{@const item = byId.get(row.item.id)}
 	{#if item}
 		<Switch
-			class={browseRowAboveClass}
+			class={switchClass}
 			checked={item.published}
 			onCheckedChange={(checked) => setPublished(item.id, checked)}
 			disabled={anyBusy || !editable}
