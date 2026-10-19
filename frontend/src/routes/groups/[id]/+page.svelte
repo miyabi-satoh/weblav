@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BrowseHeading from '$lib/components/browse-heading.svelte';
 	import BrowseFilterInput from '$lib/components/browse-filter-input.svelte';
 	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { resolve } from '$app/paths';
@@ -12,7 +13,7 @@
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
 	import { browseControlsClass, browseGutterClass } from '$lib/list-row';
-	import { pageHeadingClass, pageEmptyTextClass } from '$lib/page-layout';
+	import { pageEmptyTextClass } from '$lib/page-layout';
 
 	let { data }: PageProps = $props();
 
@@ -43,7 +44,12 @@
 			<span>{browse.groupTitle}</span>
 		</BrowseBreadcrumb>
 
-		<h1 class={pageHeadingClass}>{browse.groupTitle}</h1>
+		<BrowseHeading
+			heading={browse.groupTitle}
+			contentId={data.contentId}
+			contentTitle={browse.groupTitle}
+			canEdit={browse.canEdit}
+		/>
 
 		{#if browse.entries.length > 0 || (data.aiLinks?.links.length ?? 0) > 0}
 			<div class={['mb-4', browseControlsClass]}>

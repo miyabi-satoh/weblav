@@ -189,6 +189,8 @@ struct ArchiveViewResponse {
     items: Vec<ArchiveViewItem>,
     /// アーカイブの登録先のフォルダーが見つからない。画面は空の一覧の代わりにそう出す。
     folder_missing: bool,
+    /// 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。
+    can_edit: bool,
 }
 
 /// 閲覧用のアーカイブ一覧。軸の定義・選択肢・導出済みタイトル付きのアイテム一覧を
@@ -250,6 +252,7 @@ async fn view_archive(
         axes,
         items,
         folder_missing,
+        can_edit: lineage.editable_by(&viewer),
     }))
 }
 

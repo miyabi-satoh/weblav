@@ -543,6 +543,7 @@
 	"browse_layout_label": "View",
 	"browse_layout_list": "List",
 	"browse_layout_tile": "Tiles",
+	"browse_heading_edit_label": "Edit {title}",
 	"audio_player_region_label": "Audio player",
 	"help_eyebrow": "Manual",
 	"help_title": "Using WebLAV",

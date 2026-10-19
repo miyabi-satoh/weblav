@@ -1889,6 +1889,8 @@ export interface components {
             ancestors: components["schemas"]["GroupAncestor"][];
             archiveTitle: string;
             axes: components["schemas"]["ArchiveAxisResponse"][];
+            /** @description 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。 */
+            canEdit: boolean;
             /** @description アーカイブの登録先のフォルダーが見つからない。画面は空の一覧の代わりにそう出す。 */
             folderMissing: boolean;
             items: components["schemas"]["ArchiveViewItem"][];
@@ -2252,6 +2254,8 @@ export interface components {
              *     フォルダーもグループの下に置けるため、閲覧側のパンくずで上へ戻れるようにする。
              */
             ancestors: components["schemas"]["GroupAncestor"][];
+            /** @description 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。 */
+            canEdit: boolean;
             entries: components["schemas"]["FolderEntry"][];
             folderTitle: string;
             path: string;
@@ -2294,6 +2298,8 @@ export interface components {
              *     パンくず表示にそのまま使える。
              */
             ancestors: components["schemas"]["GroupAncestor"][];
+            /** @description 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。 */
+            canEdit: boolean;
             entries: components["schemas"]["ContentResponse"][];
             groupTitle: string;
         };
@@ -2412,6 +2418,8 @@ export interface components {
         LinksFileResponse: {
             /** @description ルートに近い順の祖先グループ。コンテンツ自身は含まない。 */
             ancestors: components["schemas"]["GroupAncestor"][];
+            /** @description 見ている人が、ファイルの入ったコンテンツを書き換えられるか。画面は真のとき、その編集ページへの導線を出す。 */
+            canEdit: boolean;
             /** @description フォルダー・アーカイブの中のファイルなら、そのコンテンツのタイトル。`file` コンテンツなら無し。 */
             containerTitle?: string | null;
             /** @description 書いた順のリンク。読めなければ無し (画面は読めなかった旨と、ファイルを新規タブで開く手段を出す)。 */

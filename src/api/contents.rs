@@ -168,6 +168,16 @@ impl Lineage {
             .unwrap_or_default()
     }
 
+    /// `viewer` が自分を書き換えられるか (判定は `ensure_editable` と同じ)。
+    pub(super) fn editable_by(&self, viewer: &Viewer) -> bool {
+        match (viewer, self.0.first()) {
+            (Viewer::User(user), Some(own)) => {
+                ensure_editable(user, own.visibility, own.created_by).is_ok()
+            }
+            _ => false,
+        }
+    }
+
     /// 自分を除く祖先を、ルートに近い順で返す。パンくずにそのまま使える形。
     pub(super) fn breadcrumbs(&self) -> Vec<GroupAncestor> {
         self.0
@@ -1587,6 +1597,8 @@ struct FolderBrowseResponse {
     ancestors: Vec<GroupAncestor>,
     path: String,
     entries: Vec<FolderEntry>,
+    /// 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。
+    can_edit: bool,
 }
 
 /// `id` が指す `type = 'folder'` の行から、フォルダーのタイトルと登録済みルートパス
@@ -1826,6 +1838,7 @@ async fn browse_folder(
     Ok(Json(FolderBrowseResponse {
         folder_title,
         ancestors: lineage.breadcrumbs(),
+        can_edit: lineage.editable_by(&viewer),
         path: query.path,
         entries,
     }))
@@ -1848,6 +1861,8 @@ struct GroupBrowseResponse {
     /// パンくず表示にそのまま使える。
     ancestors: Vec<GroupAncestor>,
     entries: Vec<ContentResponse>,
+    /// 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。
+    can_edit: bool,
 }
 
 /// `id`が指す`type = 'group'`のコンテンツについて、タイトル・祖先パス・直下の子一覧を
@@ -1883,6 +1898,7 @@ async fn browse_group(
     let lineage = ensure_viewable(&state.pool, &viewer, id).await?;
     let group_title = group.title;
     let ancestors = lineage.breadcrumbs();
+    let can_edit = lineage.editable_by(&viewer);
 
     // 絞り込みと並べ替えを取得後に行う理由は `list_contents` と同じ。
     let mut rows = sqlx::query_as!(
@@ -1918,6 +1934,7 @@ async fn browse_group(
     Ok(Json(GroupBrowseResponse {
         group_title,
         ancestors,
+        can_edit,
         entries: with_previews(&state, entries).await?,
     }))
 }

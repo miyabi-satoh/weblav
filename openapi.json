@@ -6311,7 +6311,8 @@
           "ancestors",
           "axes",
           "items",
-          "folderMissing"
+          "folderMissing",
+          "canEdit"
         ],
         "properties": {
           "ancestors": {
@@ -6329,6 +6330,10 @@
             "items": {
               "$ref": "#/components/schemas/ArchiveAxisResponse"
             }
+          },
+          "canEdit": {
+            "type": "boolean",
+            "description": "見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。"
           },
           "folderMissing": {
             "type": "boolean",
@@ -7317,7 +7322,8 @@
           "folderTitle",
           "ancestors",
           "path",
-          "entries"
+          "entries",
+          "canEdit"
         ],
         "properties": {
           "ancestors": {
@@ -7326,6 +7332,10 @@
               "$ref": "#/components/schemas/GroupAncestor"
             },
             "description": "ルートに近い順の祖先グループ。自分自身は含まない。\nフォルダーもグループの下に置けるため、閲覧側のパンくずで上へ戻れるようにする。"
+          },
+          "canEdit": {
+            "type": "boolean",
+            "description": "見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。"
           },
           "entries": {
             "type": "array",
@@ -7439,7 +7449,8 @@
         "required": [
           "groupTitle",
           "ancestors",
-          "entries"
+          "entries",
+          "canEdit"
         ],
         "properties": {
           "ancestors": {
@@ -7448,6 +7459,10 @@
               "$ref": "#/components/schemas/GroupAncestor"
             },
             "description": "ルートに近い順(祖先→自分の直前の親まで)。自分自身は含まない。\nパンくず表示にそのまま使える。"
+          },
+          "canEdit": {
+            "type": "boolean",
+            "description": "見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。"
           },
           "entries": {
             "type": "array",
@@ -7816,7 +7831,8 @@
         "required": [
           "title",
           "name",
-          "ancestors"
+          "ancestors",
+          "canEdit"
         ],
         "properties": {
           "ancestors": {
@@ -7825,6 +7841,10 @@
               "$ref": "#/components/schemas/GroupAncestor"
             },
             "description": "ルートに近い順の祖先グループ。コンテンツ自身は含まない。"
+          },
+          "canEdit": {
+            "type": "boolean",
+            "description": "見ている人が、ファイルの入ったコンテンツを書き換えられるか。画面は真のとき、その編集ページへの導線を出す。"
           },
           "containerTitle": {
             "type": [

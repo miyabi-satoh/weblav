@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BrowseHeading from '$lib/components/browse-heading.svelte';
 	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
@@ -9,7 +10,7 @@
 	import ArchiveViewList, { type ArchiveViewRow } from '$lib/components/archive-view-list.svelte';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
-	import { pageHeadingClass, pageEmptyTextClass } from '$lib/page-layout';
+	import { pageEmptyTextClass } from '$lib/page-layout';
 
 	let { data }: PageProps = $props();
 
@@ -39,7 +40,12 @@
 			<span>{view.archiveTitle}</span>
 		</BrowseBreadcrumb>
 
-		<h1 class={pageHeadingClass}>{view.archiveTitle}</h1>
+		<BrowseHeading
+			heading={view.archiveTitle}
+			{contentId}
+			contentTitle={view.archiveTitle}
+			canEdit={view.canEdit}
+		/>
 
 		<ArchiveViewControls
 			axes={view.axes}
