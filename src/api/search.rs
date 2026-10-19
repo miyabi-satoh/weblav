@@ -42,7 +42,7 @@ pub(super) enum FieldKind {
 /// 1語の当たり方。並びの順によい。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Tier {
-    /// 飛ばし打ちか打ち間違いで当たる (`frizbee`)。
+    /// 文字が順に含まれる (飛ばし打ち。`frizbee`)。
     Fuzzy,
     /// どこかにそのまま含む。
     Substring,
@@ -58,11 +58,6 @@ const FUZZY_MIN_CHARS: usize = 3;
 /// ADR: 飛ばし打ちで、当たった文字の間に挟まってよい文字数の、語の長さに対する倍率。
 /// `frizbee` は間の広さを点数で下げるだけで外さないので、長い名前に散った文字 (`mugenp` が `admin_archive_..._desktop` に当たる) を外す。
 const FUZZY_MAX_GAPS_PER_CHAR: usize = 2;
-
-/// ADR: 打ち間違いを1文字・2文字まで許す語の長さ (文字数)。Meilisearch の既定 (`minWordSizeForTypos`) に倣う。
-/// 短い語は1文字違うだけで別の語になる (日本語の2〜3文字の語は特に) ので、許さない。
-const ONE_TYPO_MIN_CHARS: usize = 5;
-const TWO_TYPOS_MIN_CHARS: usize = 9;
 
 /// 当たりの良さ。`Ord` は、よいものが先 (小さい) になる向き。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -108,16 +103,10 @@ impl Term {
     fn new(text: &str) -> Self {
         let chars: Vec<char> = text.chars().collect();
         let fuzzy = (chars.len() >= FUZZY_MIN_CHARS).then(|| {
-            let max_typos = if chars.len() >= TWO_TYPOS_MIN_CHARS {
-                2
-            } else if chars.len() >= ONE_TYPO_MIN_CHARS {
-                1
-            } else {
-                0
-            };
+            // fzf と同じく、語の文字が全部、順に含まれるものだけを当てる (打ち間違いは許さない)。
             // 大文字と小文字は `normalize` で揃え済み。`Smart` だと語の英字しだいで変わるので、決めて渡す。
             let config = frizbee::Config::default()
-                .max_typos(Some(max_typos))
+                .max_typos(Some(0))
                 .casing(frizbee::CaseMatching::Ignore);
             frizbee::Matcher::new(text, &config)
         });
@@ -150,17 +139,8 @@ impl Term {
             .get(first..=last)
             .map_or(0, |part| part.chars().count());
         let gaps = span.saturating_sub(found.indices.len());
-        if gaps > self.chars.len() * FUZZY_MAX_GAPS_PER_CHAR {
-            return None;
-        }
-        // 当たらなかった文字がある (打ち間違いを含む) なら、語の頭から始まるものだけにする。
-        // 語の途中の短い一致 (`untis` が `accounts` の `unts` に当たる) を拾わないため (Meilisearch も語単位で照らす)。
-        let typo = found.indices.len() < self.chars.len();
-        let word_start = text[..first]
-            .chars()
-            .next_back()
-            .is_none_or(|before| !before.is_alphanumeric());
-        (!typo || word_start).then_some((Tier::Fuzzy, u32::from(found.score)))
+        (gaps <= self.chars.len() * FUZZY_MAX_GAPS_PER_CHAR)
+            .then_some((Tier::Fuzzy, u32::from(found.score)))
     }
 }
 
@@ -454,15 +434,11 @@ mod tests {
     }
 
     #[test]
-    fn score_accepts_typos_only_in_long_enough_terms() {
-        assert!(own("reveiw", "review-units.mp4").is_some());
-        assert!(own("revuew", "review-units.mp4").is_some());
-        assert!(own("lisetning", "listening 01").is_some());
-        // 打ち間違いは語の頭から照らす。語の途中の短い一致には当てない。
-        assert!(own("untis", "review-units").is_some());
-        assert!(own("untis", "accounts").is_none());
-        // 4文字の語は打ち間違いを許さない (飛ばし打ちにもならない)。
-        assert!(own("rvei", "review").is_none());
+    fn score_does_not_accept_typos() {
+        // 文字が足りない・入れ替わっているものは当てない (fzf と同じ)。
+        assert!(own("reveiw", "review-units.mp4").is_none());
+        assert!(own("revuew", "review-units.mp4").is_none());
+        assert!(own("revew", "review-units.mp4").is_some());
     }
 
     #[test]
@@ -471,9 +447,9 @@ mod tests {
         let word_start = own("unit", "review-units").expect("当たる");
         assert!(whole < own("mugenp", "mugenp のトップ").expect("当たる"));
         let inside = own("nit", "review-units").expect("当たる");
-        let typo = own("reveiw", "review-units").expect("当たる");
+        let skipped = own("revew", "review-units").expect("当たる");
         assert!(word_start < inside);
-        assert!(inside < typo);
+        assert!(inside < skipped);
         // あいまいに当たったものどうしの順は `frizbee` の点数に任せる。
     }
 
