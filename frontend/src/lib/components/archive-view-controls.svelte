@@ -100,6 +100,9 @@
 		return archiveSortHref(path, { ...filters, ...list?.query }, next);
 	}
 
+	// 件数は見出しにあるので、絞り込んでいないときは行ごと出さない。
+	let hideCount = $derived(countOnlyWhenFiltered && !hasFilters && shown === undefined);
+
 	// 軸の絞り込みだけを解除し、名前の絞り込みは残す。別の欄で打ったもので、解除の対象に見えないため。
 	let resetHref = $derived(withQuery(path, list?.query ?? {}));
 </script>
@@ -139,19 +142,15 @@
 {/if}
 
 <!-- フォルダーが無いときは、件数を数える物が無い (下に「フォルダーが見つかりません。」だけを出す)。 -->
-{#if !folderMissing}
+{#if !folderMissing && !hideCount}
 	<div class="mt-2 flex min-h-11 items-center justify-between gap-3 text-sm">
 		<p class="text-muted-foreground">
-			{#if countOnlyWhenFiltered && !hasFilters && shown === undefined}
-				<!-- 件数は見出しにある。 -->
-			{:else}
-				{shown !== undefined
-					? m.archive_view_count_filtered({
-							shown: formatNumber(shown),
-							count: formatNumber(total)
-						})
-					: m.archive_view_count({ count: formatNumber(total) })}
-			{/if}
+			{shown !== undefined
+				? m.archive_view_count_filtered({
+						shown: formatNumber(shown),
+						count: formatNumber(total)
+					})
+				: m.archive_view_count({ count: formatNumber(total) })}
 		</p>
 		{#if hasFilters}
 			<!-- パンくずと同じく実URL遷移にする。ブラウザーの戻る/進むを機能させるため。 -->
