@@ -560,9 +560,7 @@ test('一括公開: 絞り込んで全選択すると見えている行だけを
 			await expect(page.getByText(/^2\s\/\s3\s件のアイテム$|^2 \/ 3 items$/)).toBeVisible();
 			await selectAll.click();
 			await expect(page.getByText(/^2\s件選択中$|^2 selected$/)).toBeVisible();
-			await page
-				.getByRole('button', { name: /^選択したものを公開する$|^Publish selected$/ })
-				.click();
+			await page.getByRole('button', { name: /^公開する$|^Publish$/ }).click();
 			await expect(
 				page.getByText(/3\s件のアイテム \(2\s件公開\)|3 items \(2 published\)/)
 			).toBeVisible();
@@ -585,9 +583,7 @@ test('一括公開: 絞り込んで全選択すると見えている行だけを
 
 			await selectAll.click();
 			await expect(page.getByText(/^3\s件選択中$|^3 selected$/)).toBeVisible();
-			await page
-				.getByRole('button', { name: /^選択したものを非公開にする$|^Unpublish selected$/ })
-				.click();
+			await page.getByRole('button', { name: /^非公開にする$|^Unpublish$/ }).click();
 			await expect(
 				page.getByText(/3\s件のアイテム \(0\s件公開\)|3 items \(0 published\)/)
 			).toBeVisible();

@@ -286,11 +286,12 @@
 	</div>
 
 	{#if editable && visibleRows.length > 0}
-		<!-- 選択中は画面の上端に留める。件数の多いアーカイブで全選択しても操作を見失わないため。 -->
+		<!-- 選択中は画面の上端に留める。件数の多いアーカイブで全選択しても操作を見失わないため。
+		     留めたときに下の行が透けないよう塗るが、色は地 (ground) のままにして、選んだだけで段の色が変わらないようにする。 -->
 		<div
 			class={[
 				'-mx-4 flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 md:-mx-6 md:px-6',
-				selectedIds.length > 0 && 'sticky top-0 z-20 border-b bg-background'
+				selectedIds.length > 0 && 'sticky top-0 z-20 border-b bg-ground'
 			]}
 		>
 			<!-- チェックを label で包まない。中のボタンと label の両方がクリックを受け、2回切り替わって戻るため。 -->
@@ -308,9 +309,11 @@
 				</span>
 			</div>
 			{#if selectedIds.length > 0}
+				<!-- 公開と非公開は向きが逆なだけで重みは同じなので、どちらかを主のボタンにしない。 -->
 				<div class="flex flex-wrap gap-2">
 					<LoadingButton
 						size="sm"
+						variant="outline"
 						loading={bulkTarget === true}
 						disabled={anyBusy}
 						onclick={() => setBulkPublished(true)}

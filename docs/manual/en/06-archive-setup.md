@@ -47,9 +47,9 @@ Recordings
 
    ![The Items tab](images/archive-items-tab.webp)
 
-9. Select the files to show, then select “Publish selected”.
+9. Select the files to show, then select “Publish”.
 
-   ![Two selected items and the Publish selected button](images/archive-items-publish.webp)
+   ![Two selected items and the Publish button](images/archive-items-publish.webp)
 
 **Nothing appears if you forget step 9.**
 
@@ -117,11 +117,11 @@ Changing the source or level and saving clears that axis’s values table.
 
    ![The Rescan button on the Items tab](images/archive-items-tab.webp)
 
-2. Added files start unpublished. Select them, then select “Publish selected”.
+2. Added files start unpublished. Select them, then select “Publish”.
 
-   ![Two selected items and the Publish selected button](images/archive-items-publish.webp)
+   ![Two selected items and the Publish button](images/archive-items-publish.webp)
 
-To stop publishing files, select them, then choose “Unpublish selected”.
+To stop publishing files, select them, then choose “Unpublish”.
 
 ## When files or folders are not found
 
