@@ -113,6 +113,15 @@
 		onopenpath?.(path);
 	}
 
+	/** 読めなかった画像は、代わりの文字にする。相対パスの先がアイテムでない・無いときに、壊れた画像の印を出さないため。 */
+	function replaceBrokenImages(article: HTMLElement) {
+		for (const image of article.querySelectorAll('img')) {
+			const replace = () => image.replaceWith(document.createTextNode(image.alt));
+			if (image.complete && image.naturalWidth === 0) replace();
+			else image.addEventListener('error', replace, { once: true });
+		}
+	}
+
 	/** プレビューの中のコードの塊に、言語の指定 (```` ```yaml ````) に合わせて色を付ける。 */
 	function highlightCodeBlocks(article: HTMLElement) {
 		// 無害化で、コードの塊の class は `language-<言語>` の1つだけになっている (→ $lib/markdown-preview.ts)。
@@ -142,6 +151,7 @@
 			<article
 				class="markdown-body markdown-preview code-view mx-auto max-w-4xl rounded-md bg-background p-4 text-base leading-relaxed break-words text-foreground sm:p-6"
 				{@attach highlightCodeBlocks}
+				{@attach replaceBrokenImages}
 				onclick={handlePreviewClick}
 			>
 				{@html preview}
