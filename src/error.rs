@@ -132,6 +132,10 @@ pub enum AppError {
     /// 窓口につながらない・窓口が想定外の返事をした場合。
     #[error("account server unavailable: {0}")]
     AccountServer(String),
+    /// 公開できるフォルダーのある NAS や外付けのディスクにつながらない場合 (→ `folder_reach`)。
+    /// 「見つからない」と分けるのは、画面が電源やネットワークを確かめるよう伝えられるようにするため。
+    #[error("the shared folder is not reachable")]
+    FolderUnreachable,
 }
 
 /// API エラーの機械可読なコード。frontend はこの値で表示文言を選ぶ。
@@ -159,6 +163,7 @@ pub enum ErrorCode {
     AiTooLarge,
     AiUpstream,
     AccountServerUnavailable,
+    FolderUnreachable,
 }
 
 /// JSON に出る値と同じ文字列 (`not_found` など)。一覧を二重に持たないよう serde から作る。
@@ -259,6 +264,10 @@ impl AppError {
             Self::AccountServer(_) => {
                 (StatusCode::BAD_GATEWAY, ErrorCode::AccountServerUnavailable)
             }
+            Self::FolderUnreachable => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorCode::FolderUnreachable,
+            ),
         }
     }
 }

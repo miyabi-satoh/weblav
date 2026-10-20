@@ -2213,7 +2213,7 @@ export interface components {
          * @description API エラーの機械可読なコード。frontend はこの値で表示文言を選ぶ。
          * @enum {string}
          */
-        ErrorCode: "not_found" | "database_unavailable" | "unauthorized" | "forbidden" | "invalid_credentials" | "incorrect_current_password" | "invalid_recovery_code" | "too_many_requests" | "invalid_request_body" | "file_too_large" | "internal_error" | "conflict" | "config_unreadable" | "ai_not_linked" | "ai_not_allowed" | "ai_no_credit" | "ai_rate_limited" | "ai_links_daily_limit" | "ai_too_large" | "ai_upstream" | "account_server_unavailable";
+        ErrorCode: "not_found" | "database_unavailable" | "unauthorized" | "forbidden" | "invalid_credentials" | "incorrect_current_password" | "invalid_recovery_code" | "too_many_requests" | "invalid_request_body" | "file_too_large" | "internal_error" | "conflict" | "config_unreadable" | "ai_not_linked" | "ai_not_allowed" | "ai_no_credit" | "ai_rate_limited" | "ai_links_daily_limit" | "ai_too_large" | "ai_upstream" | "account_server_unavailable" | "folder_unreachable";
         /**
          * @description レスポンスボディの共通envelope。`code` が機械可読な契約(frontendはこちらでi18nする)、
          *     `message` は英語のデバッグ用の説明文で、画面には出さない。
@@ -2554,7 +2554,14 @@ export interface components {
              *     登録中のほかの公開できるフォルダーにも含まれるもの (入れ子) は数えない。
              */
             removedContentCount: number;
+            /** @description 今読めるか。一覧でだけ確かめ、登録の応答は読めたものなので `ready`。 */
+            status: components["schemas"]["RootStatus"];
         };
+        /**
+         * @description 公開できるフォルダーの今の様子 (→ `folder_reach::Reach`)。
+         * @enum {string}
+         */
+        RootStatus: "ready" | "missing" | "unreachable";
         SearchContentHit: {
             /** @description 上のグループ。ルートに近い順で、最後が親。ルート直下なら空。行の2段目に、どこにあるかとして出す。 */
             ancestors: components["schemas"]["GroupAncestor"][];

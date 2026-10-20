@@ -334,7 +334,7 @@ async fn search(
     )
     .await?;
     let (items, items_truncated) =
-        archive_items::search_items(&state.pool, found.archives, terms).await?;
+        archive_items::search_items(&state, found.archives, terms).await?;
     Ok(Json(SearchResponse {
         scope_title,
         contents: found.hits,

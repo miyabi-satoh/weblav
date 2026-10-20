@@ -21,6 +21,7 @@
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import type { PageProps } from './$types';
 	import type { components } from '$lib/api/schema';
 
@@ -155,6 +156,15 @@
 					<span class="mt-0.5 block text-xs text-muted-foreground">
 						{m.admin_roots_content_count({ count: formatNumber(root.contentCount) })}
 					</span>
+					<!-- 閲覧側では開いたときに初めて分かるので、管理の一覧で先に気づけるようにする (→ docs/folders.md「つながっているかの確かめ」)。 -->
+					{#if root.status !== 'ready'}
+						<span class="mt-1 flex items-start gap-1.5 text-xs text-warning-muted">
+							<TriangleAlertIcon class="mt-px size-3.5 shrink-0 text-warning-icon" />
+							{root.status === 'unreachable'
+								? m.admin_roots_status_unreachable()
+								: m.admin_roots_status_missing()}
+						</span>
+					{/if}
 				</div>
 				<RowActionsMenu name={root.name}>
 					<DropdownMenu.Item onSelect={() => openRename(root)}>

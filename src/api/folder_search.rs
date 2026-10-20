@@ -17,6 +17,7 @@ use super::search::{FieldKind, RESULT_LIMIT, Score, Terms, normalize};
 use super::sort::title_cmp;
 use crate::auth::Viewer;
 use crate::error::{AppError, run_blocking};
+use crate::folder_reach::OTHERS_WAIT;
 use crate::state::AppState;
 
 /// ADR: 1つのフォルダーで、検索のたびに辿るエントリ数の上限。
@@ -126,7 +127,15 @@ pub(super) async fn search(
     links_files: Vec<LinksFileContent>,
     terms: &Terms,
 ) -> Result<FolderSearch, AppError> {
-    let roots = super::roots::load_roots(&state.pool).await?;
+    // つながらない NAS やディスクのフォルダーは、検索全体を待たせずに飛ばす。
+    let mut reachable_folders = Vec::with_capacity(folders.len());
+    for folder in folders {
+        if super::roots::reachable(state, &folder.path, OTHERS_WAIT).await {
+            reachable_folders.push(folder);
+        }
+    }
+    let folders = reachable_folders;
+    let roots = super::roots::load_roots(state).await?;
     let own_dirs = state.own_dirs.clone();
     let mut walk_terms = terms.clone();
     let containers: Vec<Container> = folders

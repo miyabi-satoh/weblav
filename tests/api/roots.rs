@@ -619,3 +619,57 @@ fn json_path_and_name(path: &str, name: &str) -> String {
         json_string(name)
     )
 }
+
+/// 一覧には、行ごとに今読めるかが付く。外れた NAS やディスクのフォルダーは「つながらない」で、
+/// 中を開くと見つからない (404) ではなく 503 になる (→ docs/folders.md「NAS と外付けのディスク」)。
+/// Windows では `/Volumes/...` が外れたボリュームの形にならないので外す。
+#[cfg(not(windows))]
+#[sqlx::test]
+async fn a_root_on_a_disconnected_volume_is_unreachable(pool: SqlitePool) {
+    let (app, cookie) = admin_app(&pool).await;
+    // 無いボリュームの下。つなぎ直しも失敗する (ブックマークが無く、gvfs の共有でもない)。
+    let disconnected = "/Volumes/weblav-test-disconnected/share";
+    sqlx::query("INSERT INTO roots (name, path) VALUES ('nas', ?)")
+        .bind(disconnected)
+        .execute(&pool)
+        .await
+        .expect("公開できるフォルダーを登録できなかった");
+    let folder = insert_folder_by(&pool, "NAS", disconnected, "public", None, None).await;
+    // ボリュームはあり、フォルダーだけが消えたもの。
+    let removed = root_dir("roots-removed");
+    let removed_path = canonical_path_as_api_returns_it(&removed);
+    register_root(&pool, &removed).await;
+    drop(removed);
+
+    let (status, body) = send(app.clone(), roots_request("GET", ROOTS_URI, &cookie, None)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let roots: serde_json::Value = serde_json::from_str(&body).expect("JSON のはず");
+    let status_of = |path: &str| {
+        roots
+            .as_array()
+            .expect("配列のはず")
+            .iter()
+            .find(|root| root["path"] == path)
+            .map(|root| root["status"].clone())
+    };
+    assert_eq!(
+        status_of(disconnected),
+        Some("unreachable".into()),
+        "{body}"
+    );
+    assert_eq!(status_of(&removed_path), Some("missing".into()), "{body}");
+
+    let (status, body) = send_empty(
+        app,
+        "GET",
+        &format!("/api/v1/contents/{folder}/browse"),
+        &cookie,
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::SERVICE_UNAVAILABLE,
+        "folder_unreachable",
+    );
+}

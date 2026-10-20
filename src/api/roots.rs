@@ -6,6 +6,7 @@
 //! 一覧・名前の変更・削除は、LAN の端末の管理者もできる (`AdminUser`)。
 
 use std::path::{Path as FsPath, PathBuf};
+use std::time::Duration;
 
 use axum::Json;
 use axum::extract::{Path, State};
@@ -17,6 +18,7 @@ use utoipa_axum::routes;
 
 use crate::auth::AdminUser;
 use crate::error::{AppError, AppJson, run_blocking};
+use crate::folder_reach::{OTHERS_WAIT, Reach, TARGET_WAIT};
 use crate::state::AppState;
 
 use super::error_detail::ValidationDetail;
@@ -46,6 +48,29 @@ pub struct RootResponse {
     /// このフォルダーを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「公開できるフォルダー」)。
     /// 登録中のほかの公開できるフォルダーにも含まれるもの (入れ子) は数えない。
     pub removed_content_count: usize,
+    /// 今読めるか。一覧でだけ確かめ、登録の応答は読めたものなので `ready`。
+    pub status: RootStatus,
+}
+
+/// 公開できるフォルダーの今の様子 (→ `folder_reach::Reach`)。
+#[derive(Debug, Clone, Copy, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum RootStatus {
+    Ready,
+    /// フォルダーが無い・読めない。
+    Missing,
+    /// NAS や外付けのディスクにつながらない。
+    Unreachable,
+}
+
+impl From<&Reach> for RootStatus {
+    fn from(reach: &Reach) -> Self {
+        match reach {
+            Reach::Ready(_) => Self::Ready,
+            Reach::Gone => Self::Missing,
+            Reach::Unreachable => Self::Unreachable,
+        }
+    }
 }
 
 #[utoipa::path(
@@ -66,11 +91,16 @@ async fn list_roots(
             .fetch_all(&state.pool)
             .await?;
     let counts = ContentCounts::load(&state.pool).await?;
+    // 管理者が様子を見る画面なので、眠っている NAS が起きるまで待つ。
+    let paths = rows.iter().map(|row| row.path.clone()).collect();
+    let reaches = check_all(&state, paths, TARGET_WAIT).await;
     let roots = rows
         .into_iter()
-        .map(|row| RootResponse {
+        .zip(reaches)
+        .map(|(row, reach)| RootResponse {
             content_count: counts.under(&row.path),
             removed_content_count: counts.removed_with(&row.path),
+            status: RootStatus::from(&reach),
             id: row.id,
             name: row.name,
             path: row.path,
@@ -170,6 +200,8 @@ async fn create_root(
             name: row.name,
             content_count: counts.under(&row.path),
             removed_content_count: counts.removed_with(&row.path),
+            // 今 canonicalize できたフォルダー。
+            status: RootStatus::Ready,
             path: row.path,
         }),
     ))
@@ -272,11 +304,16 @@ async fn rename_root(
     tx.commit().await?;
 
     let counts = ContentCounts::load(&state.pool).await?;
+    let reach = state
+        .folder_reach
+        .check(&state.pool, &path, TARGET_WAIT)
+        .await;
     Ok(Json(RootResponse {
         id,
         name,
         content_count: counts.under(&path),
         removed_content_count: counts.removed_with(&path),
+        status: RootStatus::from(&reach),
         path,
     }))
 }
@@ -319,27 +356,75 @@ async fn delete_root(
 /// 古い判定が残る (→ docs/folders.md「公開できるフォルダー」)。
 ///
 /// **実体を辿れないものは落とす**。登録を消さずにフォルダーだけ消された場合、その中は配らない。
+/// つながらない NAS やディスクのものも落とす。ほかのフォルダーのために待たないよう、
+/// 確かめは短く打ち切る (`OTHERS_WAIT`)。開こうとしているフォルダーは、先に
+/// `ensure_reachable` で待っておくこと。
 /// canonicalize しておくのは、判定の相手 (`fs::canonical_dir` の戻り値) と同じ形で
 /// 比べるため。保存してある文字列は Windows の長いパスで `\\?\` の有無が食い違いうる
 /// (→ `fs::simplify_verbatim`)。
-pub(super) async fn load_roots(pool: &sqlx::SqlitePool) -> Result<Vec<Root>, AppError> {
+pub(super) async fn load_roots(state: &AppState) -> Result<Vec<Root>, AppError> {
     let rows = sqlx::query!(
         "SELECT name, path FROM roots WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE"
     )
-    .fetch_all(pool)
+    .fetch_all(&state.pool)
     .await?;
-    run_blocking(move || {
-        rows.into_iter()
-            .filter_map(|row| {
-                let path = std::fs::canonicalize(&row.path).ok()?;
-                Some(Root {
-                    name: row.name,
-                    path,
-                })
-            })
-            .collect()
-    })
-    .await
+    let paths = rows.iter().map(|row| row.path.clone()).collect();
+    let reaches = check_all(state, paths, OTHERS_WAIT).await;
+    Ok(rows
+        .into_iter()
+        .zip(reaches)
+        .filter_map(|(row, reach)| match reach {
+            Reach::Ready(path) => Some(Root {
+                name: row.name,
+                path,
+            }),
+            Reach::Gone | Reach::Unreachable => None,
+        })
+        .collect())
+}
+
+/// フォルダーの様子を並べて確かめる。並びは `paths` のまま。
+async fn check_all(state: &AppState, paths: Vec<String>, wait: Duration) -> Vec<Reach> {
+    let mut checks = tokio::task::JoinSet::new();
+    for (index, path) in paths.into_iter().enumerate() {
+        let reach = state.folder_reach.clone();
+        let pool = state.pool.clone();
+        checks.spawn(async move { (index, reach.check(&pool, &path, wait).await) });
+    }
+    let mut reaches: Vec<(usize, Reach)> = checks.join_all().await;
+    reaches.sort_by_key(|(index, _)| *index);
+    reaches.into_iter().map(|(_, reach)| reach).collect()
+}
+
+/// `path` を含む登録中の公開できるフォルダーが、つながらない NAS やディスクにあれば
+/// `FolderUnreachable`。開こうとしているフォルダーなので、眠っている NAS が起きるまで待つ
+/// (`TARGET_WAIT`)。どれにも含まれない・フォルダーが無いときは通す (それぞれの呼び出し側が
+/// 今までどおり 404 などにする)。
+pub(super) async fn ensure_reachable(state: &AppState, path: &str) -> Result<(), AppError> {
+    if reachable(state, path, TARGET_WAIT).await {
+        Ok(())
+    } else {
+        Err(AppError::FolderUnreachable)
+    }
+}
+
+/// `ensure_reachable` の、エラーにしない形。検索のように、つながらないフォルダーを飛ばして続けるときに使う。
+pub(super) async fn reachable(state: &AppState, path: &str, wait: Duration) -> bool {
+    let rows = match sqlx::query_scalar!("SELECT path FROM roots WHERE deleted_at IS NULL")
+        .fetch_all(&state.pool)
+        .await
+    {
+        Ok(rows) => rows,
+        // 確かめられないなら止めない。この後の DB の読み書きが同じように失敗する。
+        Err(_) => return true,
+    };
+    let containing = rows
+        .into_iter()
+        .filter(|root| contains(root, path))
+        .collect();
+    !check_all(state, containing, wait)
+        .await
+        .contains(&Reach::Unreachable)
 }
 
 /// 登録側の画面に出す場所。起点のフルパスの代わりに、公開できるフォルダーの名前と

@@ -8,6 +8,7 @@ pub mod error;
 pub mod file_ext;
 pub mod folder_access;
 pub mod folder_picker;
+pub mod folder_reach;
 pub mod logging;
 pub mod mdns;
 pub mod os_thumbnail;
@@ -147,6 +148,7 @@ pub async fn build_app(
             dirs.link_previews_dir(),
         )),
         own_dirs: vec![dirs.config_dir.clone(), dirs.data_dir.clone()],
+        folder_reach: Arc::default(),
         config_path: dirs.config_path(),
         running_server_settings: api::server_settings::ServerSettings::from_config(config),
         log: logging::LogControl::current_or_detached(config, dirs),
