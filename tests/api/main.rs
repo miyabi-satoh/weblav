@@ -24,6 +24,7 @@ mod archive;
 mod axes;
 mod backup;
 mod contents;
+mod folder_hidden;
 mod guards;
 mod images;
 mod inheritance;

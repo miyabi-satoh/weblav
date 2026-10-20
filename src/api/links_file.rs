@@ -86,7 +86,7 @@ async fn open(
     let opened = match (content_type, query.item) {
         (ContentType::Folder, None) => {
             let (title, root, lineage) = contents::folder_root(state, viewer, id).await?;
-            let file = contents::resolve_file_under(state, &root, &query.path).await?;
+            let file = contents::resolve_file_under(state, &root, &query.path, Some(id)).await?;
             Opened {
                 file,
                 lineage,

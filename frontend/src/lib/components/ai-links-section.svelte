@@ -19,11 +19,11 @@
 	import { pageEmptyTextClass } from '$lib/page-layout';
 	import * as m from '$lib/paraglide/messages.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import { Button } from '$lib/components/ui/button';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import ListRowLink from '$lib/components/list-row-link.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
+	import ListRowHidden from '$lib/components/list-row-hidden.svelte';
 	import SeparatedText from '$lib/components/separated-text.svelte';
 
 	type AiLinks = components['schemas']['AiLinksResponse'];
@@ -295,22 +295,12 @@
 					</li>
 				{:else if hiddenEntry.url === link.url}
 					<li class={browseItemClass()}>
-						<div
-							class={[
-								'flex min-h-14 items-center justify-between gap-3 py-2 text-sm text-muted-foreground',
-								browseGutterClass
-							]}
-							role="status"
-						>
-							<span class="min-w-0"
-								>{hiddenEntry.kind === 'page'
-									? m.group_ai_links_hidden_page({ title: hiddenEntry.label })
-									: m.group_ai_links_hidden_site({ site: hiddenEntry.label })}</span
-							>
-							<Button variant="ghost" size="sm" onclick={() => void undo(hiddenEntry)}>
-								{m.group_ai_links_undo_button()}
-							</Button>
-						</div>
+						<ListRowHidden
+							message={hiddenEntry.kind === 'page'
+								? m.contents_hidden_row({ title: hiddenEntry.label })
+								: m.group_ai_links_hidden_site({ site: hiddenEntry.label })}
+							onundo={() => void undo(hiddenEntry)}
+						/>
 					</li>
 				{/if}
 			{/each}

@@ -86,6 +86,14 @@ export function browseRowPressClass(): string {
 /** 行いっぱいに広げたリンクの上に重ねて、別に押せるようにする要素。 */
 export const browseRowAboveClass = 'relative z-10';
 
+/**
+ * 閲覧の一覧の行の右端に置く ⋮ メニューの入れ物。行いっぱいのリンクの上に重ねる。
+ * タイルでは、新規タブの印と同じ右上の隅に置く (印は出さない)。
+ */
+export function rowMenuSlotClass(): string {
+	return browseLayout.tile ? 'absolute top-1 right-1 z-10' : browseRowAboveClass;
+}
+
 /** 行の文字 (タイトルと2段目) を包む要素。 */
 export function browseRowTextClass(): string {
 	return browseLayout.tile

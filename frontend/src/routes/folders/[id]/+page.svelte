@@ -11,10 +11,16 @@
 	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
 	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
 	import FolderEntryList, { type FolderEntryRow } from '$lib/components/folder-entry-list.svelte';
-	import { browseGutterClass } from '$lib/list-row';
+	import { browseGutterClass, rowMenuSlotClass } from '$lib/list-row';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
 	import { pageEmptyTextClass } from '$lib/page-layout';
+	import { client } from '$lib/api/client';
+	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import ErrorDialog from '$lib/components/error-dialog.svelte';
+	import ListRowHidden from '$lib/components/list-row-hidden.svelte';
+	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 
 	let { data }: PageProps = $props();
 
@@ -55,6 +61,55 @@
 		browse.entries.map((entry) => ({ contentId, path: childPath(entry.name), entry }))
 	);
 
+	// 書き換えられる人は、行ごとに表示しないにできる (→ docs/folders.md「表示しないもの」)。
+	// 押した行は、その場で「元に戻す」の行に替える。取り消しは編集ページの「表示しないもの」でもできる。
+	type Hidden = { id: number; path: string; name: string };
+	let hidden = $state<Hidden[]>([]);
+	let busy = $state(false);
+	const errorDialog = new ErrorDialogState();
+
+	function hiddenOf(row: FolderEntryRow): Hidden | undefined {
+		return hidden.find((entry) => entry.path === row.path);
+	}
+
+	async function hide(row: FolderEntryRow) {
+		if (busy) return;
+		busy = true;
+		try {
+			await errorDialog.attempt(
+				() =>
+					client.POST('/api/v1/contents/{id}/hidden-entries', {
+						params: { path: { id: contentId } },
+						body: { path: row.path }
+					}),
+				(result) => {
+					if (!result.data) return;
+					hidden.push({ id: result.data.id, path: row.path, name: row.entry.name });
+				}
+			);
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function undo(entry: Hidden) {
+		if (busy) return;
+		busy = true;
+		try {
+			await errorDialog.attempt(
+				() =>
+					client.DELETE('/api/v1/contents/{id}/hidden-entries/{entry_id}', {
+						params: { path: { id: contentId, entry_id: entry.id } }
+					}),
+				() => {
+					hidden = hidden.filter((h) => h !== entry);
+				}
+			);
+		} finally {
+			busy = false;
+		}
+	}
+
 	function linksHref(row: FolderEntryRow): string {
 		return linksFileHref(
 			contentId,
@@ -63,6 +118,27 @@
 		);
 	}
 </script>
+
+{#snippet rowMenu(row: FolderEntryRow)}
+	<span class={rowMenuSlotClass()}>
+		<RowActionsMenu name={row.entry.name}>
+			<DropdownMenu.Item onSelect={() => void hide(row)}>
+				{m.folder_browse_hide_menu()}
+			</DropdownMenu.Item>
+		</RowActionsMenu>
+	</span>
+{/snippet}
+
+{#snippet hiddenRow(row: FolderEntryRow)}
+	{@const entry = hiddenOf(row)}
+	{#if entry}
+		<ListRowHidden
+			message={m.contents_hidden_row({ title: entry.name })}
+			{busy}
+			onundo={() => void undo(entry)}
+		/>
+	{/if}
+{/snippet}
 
 <svelte:head><title>{pageTitle(currentName)}</title></svelte:head>
 
@@ -109,6 +185,15 @@
 	{#if browse.entries.length === 0}
 		<p class={pageEmptyTextClass}>{m.folder_browse_empty()}</p>
 	{:else}
-		<FolderEntryList {rows} dirHref={(row) => browseHref(row.path)} {linksHref} />
+		<FolderEntryList
+			{rows}
+			dirHref={(row) => browseHref(row.path)}
+			{linksHref}
+			trailing={browse.canEdit ? rowMenu : undefined}
+			isHidden={(row) => hiddenOf(row) !== undefined}
+			{hiddenRow}
+		/>
 	{/if}
 </div>
+
+<ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

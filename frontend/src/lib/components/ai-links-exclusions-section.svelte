@@ -45,7 +45,7 @@
 						params: { path: { id: contentId, exclusion_id: exclusion.id } }
 					}),
 				async () => {
-					toast.success(m.contents_ai_exclusions_restored_toast());
+					toast.success(m.contents_hidden_restored_toast());
 					await invalidateAll();
 				}
 			);
@@ -57,7 +57,7 @@
 
 <section aria-labelledby="ai-exclusions-heading" class={sectionCardClass}>
 	<h2 id="ai-exclusions-heading" class="text-base font-semibold">
-		{m.contents_ai_exclusions_title()}
+		{m.contents_hidden_title()}
 	</h2>
 	<div class="flex flex-col gap-3">
 		<ToggleGroup.Root
@@ -90,10 +90,10 @@
 								variant="ghost"
 								size="sm"
 								disabled={restoring !== null}
-								aria-label={m.contents_ai_exclusions_restore_label({ name: nameOf(exclusion) })}
+								aria-label={m.contents_hidden_restore_label({ name: nameOf(exclusion) })}
 								onclick={() => void restore(exclusion)}
 							>
-								{m.contents_ai_exclusions_restore_button()}
+								{m.contents_hidden_restore_button()}
 							</Button>
 						{/if}
 					</li>

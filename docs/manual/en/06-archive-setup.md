@@ -121,7 +121,7 @@ Changing the source or level and saving clears that axis’s values table.
 
    ![Two selected items and the Publish button](images/archive-items-publish.webp)
 
-To stop publishing files, select them, then choose “Unpublish”.
+To stop publishing files, select them, then choose “Unpublish”. You can also open the archive, select “⋮” on a row, and choose “Unpublish”.
 
 ## When files or folders are not found
 
