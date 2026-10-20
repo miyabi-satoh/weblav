@@ -38,6 +38,19 @@ It is added to the list immediately.
 
 Do not add a broad location such as `C:\` or your entire user folder. This would allow all files inside it to be registered.
 
+## Add a folder on a NAS or an external disk
+
+You can also add a shared folder on a NAS or a folder on an external disk, as long as the computer running WebLAV can open it.
+
+1. On the computer running WebLAV, connect to the NAS share first. If you are asked for a password, save it (check “Remember my credentials” on Windows, or “Remember this password in my keychain” on macOS).
+2. Select “Add a folder...”, then choose a folder in the share in the window that opens.
+
+If you do not save the password, WebLAV cannot reconnect to the share, for example after the computer restarts.
+
+When the NAS or disk is not connected, the list shows “Not connected” for that folder. People who open the folder are told that it cannot be reached. Once it is connected again, they can view it as before.
+
+Only let people you trust write to the NAS share. Files they put in the share also appear to viewers.
+
 ## Rename one
 
 The name appears instead of the path when choosing a folder for content and when showing the content location.

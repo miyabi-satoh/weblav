@@ -377,8 +377,11 @@ async fn list_dirs(
 ) -> Result<Json<DirsResponse>, AppError> {
     let requested = query.path;
     let own_dirs = state.own_dirs.clone();
+    if !requested.is_empty() {
+        super::roots::ensure_reachable(&state, &requested).await?;
+    }
     // 判定のたびに読む (→ `roots::load_roots`)。`run_blocking` の中ではDBに触れない。
-    let roots = super::roots::load_roots(&state.pool).await?;
+    let roots = super::roots::load_roots(&state).await?;
 
     run_blocking(move || {
         Ok(Json(listing(
@@ -694,7 +697,8 @@ async fn count_target_files(
     let requested = query.path;
     let extensions = parse_extensions(query.extensions.as_deref());
     let own_dirs = state.own_dirs.clone();
-    let roots = super::roots::load_roots(&state.pool).await?;
+    super::roots::ensure_reachable(&state, &requested).await?;
+    let roots = super::roots::load_roots(&state).await?;
 
     run_blocking(move || {
         let own_dirs = OwnDirs::resolve(&own_dirs);

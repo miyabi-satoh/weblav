@@ -17,6 +17,7 @@ use utoipa_axum::routes;
 
 use crate::auth::{AuthUser, Viewer};
 use crate::error::{AppError, AppJson, run_blocking};
+use crate::folder_reach::OTHERS_WAIT;
 use crate::state::AppState;
 
 use super::archive::{self, ArchiveMeta, ValueKey};
@@ -217,6 +218,8 @@ async fn view_archive(
     Query(mut filters): Query<HashMap<String, String>>,
 ) -> Result<Json<ArchiveViewResponse>, AppError> {
     let (meta, lineage) = load_viewable_archive(&state.pool, &viewer, id).await?;
+    // 下でフォルダーの中を直接読むので、つながらない NAS やディスクを先に見分ける。
+    super::roots::ensure_reachable(&state, &meta.path).await?;
     let axes = archive::load_axis_index(&state.pool, id).await?;
 
     // `sort` は並び順の予約キーであり、軸の絞り込みには使わない
@@ -295,6 +298,7 @@ async fn manage_view_archive(
     Query(mut filters): Query<HashMap<String, String>>,
 ) -> Result<Json<ManageArchiveViewResponse>, AppError> {
     let meta = archive::load_manageable_archive(&state.pool, &user, id).await?;
+    super::roots::ensure_reachable(&state, &meta.path).await?;
     let axes = archive::load_axis_index(&state.pool, id).await?;
     let order = super::sort::ArchiveSortOrder::from_query(filters.remove("sort").as_deref());
 
@@ -586,12 +590,23 @@ fn item_hit_cmp(a: &ItemHit, b: &ItemHit) -> std::cmp::Ordering {
 /// アーカイブの公開アイテムを、表示タイトルと軸の値で探す。表示タイトル順に並べ、
 /// `search::RESULT_LIMIT` 件で打ち切って、打ち切ったかを添えて返す。
 pub(super) async fn search_items(
-    pool: &sqlx::SqlitePool,
+    state: &AppState,
     archives: Vec<SearchableArchive>,
     mut terms: super::search::Terms,
 ) -> Result<(Vec<super::search::SearchItemHit>, bool), AppError> {
+    let pool = &state.pool;
     let mut sources = Vec::with_capacity(archives.len());
-    for archive in archives {
+    // つながらない NAS やディスクのアーカイブは、検索全体を待たせずに飛ばす。
+    let paths: Vec<&str> = archives
+        .iter()
+        .map(|archive| archive.path.as_str())
+        .collect();
+    let reachable = super::roots::reachable_all(state, &paths, OTHERS_WAIT).await?;
+    for (archive, _) in archives
+        .into_iter()
+        .zip(reachable)
+        .filter(|(_, reachable)| *reachable)
+    {
         let axes = archive::load_axis_index(pool, archive.id).await?;
         let rows = published_items(pool, archive.id).await?;
         sources.push((archive, axes, rows));
@@ -733,6 +748,7 @@ async fn list_items(
     Path(id): Path<i64>,
 ) -> Result<Json<Vec<AdminArchiveItemResponse>>, AppError> {
     let meta = archive::load_manageable_archive(&state.pool, &user, id).await?;
+    super::roots::ensure_reachable(&state, &meta.path).await?;
     let axes = archive::load_axis_index(&state.pool, id).await?;
 
     let rows = sqlx::query_as!(
@@ -841,9 +857,19 @@ async fn set_published(
     Path((id, item_id)): Path<(i64, i64)>,
     AppJson(payload): AppJson<SetPublishedRequest>,
 ) -> Result<Json<AdminArchiveItemResponse>, AppError> {
+    // 書き換えた後で応答を組み立てられずに終わらないよう、書き換える前に見分ける。
+    // 鍵より前に置くのは、つながらない NAS を待つ間、ほかの書き込みを止めないため。
+    let path = archive::load_editable_archive(&state.pool, &user, id)
+        .await?
+        .path;
+    super::roots::ensure_reachable(&state, &path).await?;
     // 鍵を取る理由は`bulk_set_published`と同じ。
     let _write_guard = state.contents_write_lock.lock().await;
     let meta = archive::load_editable_archive(&state.pool, &user, id).await?;
+    // 鍵を待つ間に場所が変わっていたら、確かめていない場所を触らないよう確かめ直す。
+    if meta.path != path {
+        super::roots::ensure_reachable(&state, &meta.path).await?;
+    }
     let axes = archive::load_axis_index(&state.pool, id).await?;
 
     let row = sqlx::query_as!(

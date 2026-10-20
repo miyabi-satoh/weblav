@@ -44,6 +44,16 @@ Set your computer so that it does not sleep.
 - **macOS**: System Settings > Energy (or Battery on a laptop)
 - **Ubuntu**: In Settings > Power, turn off Automatic Suspend
 
+## “Can't reach the NAS or disk this folder is on” appears
+
+The computer running WebLAV cannot read the NAS or external disk that the folder is on.
+
+1. Check that the NAS or disk is turned on and connected to the same network.
+2. On the computer running WebLAV, check that you can open the share or disk. If you are asked for a password, save it and connect.
+3. Open the folder again on the viewer's screen.
+
+A NAS that was asleep takes a moment to wake up. Wait a little, then open it again.
+
 ## WebLAV does not start
 
 Send the logs in the `logs` folder at the data location (→ [Maintain WebLAV](09-maintenance.md)) to the person who prepared WebLAV, and ask them for help.

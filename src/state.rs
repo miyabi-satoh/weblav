@@ -27,6 +27,8 @@ pub struct AppState {
     /// ここ自身とその中は、公開できるフォルダーの中にあっても登録先・一覧・配信に使わせない
     /// (→ `api::roots::OwnDirs`、docs/folders.md「公開できるフォルダー」)。
     pub own_dirs: Vec<PathBuf>,
+    /// 公開できるフォルダーが今読めるか (→ `folder_reach`)。NAS が落ちていても、配下を触る要求を止めないため。
+    pub folder_reach: Arc<crate::folder_reach::FolderReach>,
     /// 管理画面から書き換える設定ファイル (`AppDirs::config_path()`、→ `api::server_settings`)。
     pub config_path: PathBuf,
     /// 起動したときに読んだ、管理画面で変えられる設定。ポートは実際に待ち受けている番号。

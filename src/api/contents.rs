@@ -724,7 +724,8 @@ async fn validate_folder_path(state: &AppState, path: Option<&str>) -> Result<St
 
     // 検証は全てブロッキングI/Oなので1つの `spawn_blocking` にまとめる。
     // 「公開できるフォルダー」はその前に読む (`run_blocking` の中ではDBに触れない)。
-    let roots = super::roots::load_roots(&state.pool).await?;
+    super::roots::ensure_reachable(state, &path).await?;
+    let roots = super::roots::load_roots(state).await?;
     let own_dirs = state.own_dirs.clone();
     let canonical = run_blocking(move || {
         super::fs::canonical_dir_within_roots(
@@ -1682,19 +1683,20 @@ fn reject_traversal_components(rel: &str) -> Result<(), AppError> {
 /// 理論上はその間に対象を書き換えられると検証をすり抜けられる(TOCTOU)。これを厳密に
 /// 塞ぐには Unix の `openat` + `O_NOFOLLOW` でファイルディスクリプタを固定する再設計
 /// (`ServeFile`も自前のストリーミング実装に置き換える)が要るが、今回のスコープ外とした。
-/// **folderの登録先(および祖先ディレクトリ)には、weblavプロセス以外の信頼できない主体に
-/// 書き込み権限を与えないこと。** 書き込み可能な第三者がいる共有フォルダーはサポート対象外。
-/// SMB/NFS共有・他のログインユーザーによる書き込み等でこの前提が崩れる場合は、この制限の
-/// 解消(上記の再設計)が必須になる。なお`file`コンテンツ(アップロード)はこのTOCTOUの
+/// **folderの登録先(および祖先ディレクトリ)に書き込めるのは、信頼できる人に限ること。**
+/// NAS の共有を登録するときは、その共有に書き込める人もここに入る (→ docs/folders.md「NAS と外付けのディスク」)。
+/// 信頼できない人が書き込める場所を公開する必要が出たら、この制限の解消(上記の再設計)が
+/// 必須になる。なお`file`コンテンツ(アップロード)はこのTOCTOUの
 /// 対象外: 実体は`blobs_dir`配下にweblavプロセス自身だけが書くcontent-addressedな
 /// 領域にあり、folderのような「外部が管理する共有ディレクトリ」を覗くものではないため。
 async fn resolve_path(state: &AppState, root: &str, rel: &str) -> Result<PathBuf, AppError> {
     reject_traversal_components(rel)?;
 
+    super::roots::ensure_reachable(state, root).await?;
     let root = PathBuf::from(root);
     let candidate = root.join(rel);
     let own_dirs = state.own_dirs.clone();
-    let roots = super::roots::load_roots(&state.pool).await?;
+    let roots = super::roots::load_roots(state).await?;
 
     let rel_owned = rel.to_string();
     let canonical_candidate = run_blocking(move || {

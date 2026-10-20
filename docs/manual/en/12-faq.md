@@ -6,7 +6,8 @@ No. WebLAV works only inside the same network.
 
 ## Can I show folders on a NAS or another computer?
 
-No. Copy them to the computer running WebLAV.
+Yes. If the computer running WebLAV can open the shared folder, you can add it as an allowed folder (→ [Add allowed folders](04-roots.md)).
+It can be viewed only while both the computer running WebLAV and the NAS are running.
 
 ## Some videos or audio files will not play
 

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT bookmark FROM folder_bookmarks WHERE path = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "bookmark",
+        "ordinal": 0,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c95d00daaf2b6a02a52cdae8f14ff85313e3cf812ef47b549ea2dbafaaec676b"
+}

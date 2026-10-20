@@ -315,7 +315,9 @@ async fn rescan(
 
     let scan_root = archive.path.clone();
     let own_dirs = state.own_dirs.clone();
-    let roots = super::roots::load_roots(&state.pool).await?;
+    // 見つからないと言う前に、NAS やディスクにつながらないのかを見分ける。
+    super::roots::ensure_reachable(&state, &scan_root).await?;
+    let roots = super::roots::load_roots(&state).await?;
     let result = run_blocking(move || {
         let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
         // `canonical_dir_within_roots` より先に見分ける (→ docs/archive.md「スキャン」)。

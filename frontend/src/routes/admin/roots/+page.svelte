@@ -21,6 +21,8 @@
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
+	import WarningBand from '$lib/components/warning-band.svelte';
 	import type { PageProps } from './$types';
 	import type { components } from '$lib/api/schema';
 
@@ -142,6 +144,15 @@
 	{/if}
 </div>
 
+<!-- 行ごとには短く出し、何を確かめればよいかは一覧の上に1回だけ出す。 -->
+{#if data.roots.some((root) => root.status === 'unreachable')}
+	<div class="px-4 pb-4 md:px-6">
+		<WarningBand class="rounded-md border">
+			<p class="text-sm leading-relaxed">{m.admin_roots_unreachable_warning()}</p>
+		</WarningBand>
+	</div>
+{/if}
+
 {#if data.roots.length === 0}
 	<p class="px-4 text-sm text-muted-foreground md:px-6">{m.admin_roots_empty()}</p>
 {:else}
@@ -155,6 +166,15 @@
 					<span class="mt-0.5 block text-xs text-muted-foreground">
 						{m.admin_roots_content_count({ count: formatNumber(root.contentCount) })}
 					</span>
+					<!-- 閲覧側では開いたときに初めて分かるので、管理の一覧で先に気づけるようにする (→ docs/folders.md「つながっているかの確かめ」)。 -->
+					{#if root.status !== 'ready'}
+						<span class="mt-1 flex items-start gap-1.5 text-xs text-warning-muted">
+							<TriangleAlertIcon class="mt-px size-3.5 shrink-0 text-warning-icon" />
+							{root.status === 'unreachable'
+								? m.admin_roots_status_unreachable()
+								: m.admin_roots_status_missing()}
+						</span>
+					{/if}
 				</div>
 				<RowActionsMenu name={root.name}>
 					<DropdownMenu.Item onSelect={() => openRename(root)}>

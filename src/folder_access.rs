@@ -32,6 +32,23 @@ pub async fn save(pool: &SqlitePool, path: &str, bookmark: &[u8]) -> Result<(), 
     Ok(())
 }
 
+/// 公開できるフォルダーのブックマーク。無い (macOS 以外・窓で選んでいない) か読めなければ `None`。
+pub async fn load(pool: &SqlitePool, path: &str) -> Option<Vec<u8>> {
+    sqlx::query_scalar!("SELECT bookmark FROM folder_bookmarks WHERE path = ?", path)
+        .fetch_optional(pool)
+        .await
+        .unwrap_or_else(|err| {
+            tracing::warn!(%path, %err, "failed to read a folder bookmark");
+            None
+        })
+}
+
+/// 外れた共有や外付けのディスクを、ブックマークからつなぎ直して読む許可を取り直す
+/// (→ `folder_reach`)。パスワードはキーチェーンに保存したものを使い、窓は出さない。
+pub fn reconnect(bookmark: &[u8]) -> Result<(), String> {
+    platform::reconnect(bookmark)
+}
+
 /// このプロセスで許可を戻したフォルダー。戻すたびに start を重ねないため (対になる stop は呼ばない)。
 static STARTED: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
 
@@ -129,17 +146,20 @@ mod platform {
         create(&url).map(Some)
     }
 
-    pub fn restore(bookmark: &[u8]) -> Result<Option<Vec<u8>>, String> {
+    /// 解決して読む許可を戻す。戻り値は、作り直したブックマーク (古くなっていたとき)。
+    fn resolve(
+        bookmark: &[u8],
+        options: NSURLBookmarkResolutionOptions,
+    ) -> Result<Option<Vec<u8>>, String> {
         let data = NSData::with_bytes(bookmark);
         let mut stale = Bool::NO;
         // SAFETY: `stale` は呼び出しの間だけ生きている有効なポインタ。
         let url: Retained<NSURL> = unsafe {
             NSURL::URLByResolvingBookmarkData_options_relativeToURL_bookmarkDataIsStale_error(
                 &data,
-                // つながっていない共有フォルダーや外付けのディスクで、マウントや確認の窓を出さない。
                 NSURLBookmarkResolutionOptions::WithSecurityScope
                     | NSURLBookmarkResolutionOptions::WithoutUI
-                    | NSURLBookmarkResolutionOptions::WithoutMounting,
+                    | options,
                 None,
                 &mut stale,
             )
@@ -155,6 +175,17 @@ mod platform {
         }
         Ok(None)
     }
+
+    /// 起動のときは、つながっていない共有や外付けのディスクをマウントしない。
+    /// つながらない NAS を待って起動が遅れないよう、つなぎ直しは使うときに回す (→ `reconnect`)。
+    pub fn restore(bookmark: &[u8]) -> Result<Option<Vec<u8>>, String> {
+        resolve(bookmark, NSURLBookmarkResolutionOptions::WithoutMounting)
+    }
+
+    /// 解決するとき、外れた共有をマウントし直してもらう。
+    pub fn reconnect(bookmark: &[u8]) -> Result<(), String> {
+        resolve(bookmark, NSURLBookmarkResolutionOptions::empty()).map(|_| ())
+    }
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -167,6 +198,10 @@ mod platform {
 
     pub fn restore(_bookmark: &[u8]) -> Result<Option<Vec<u8>>, String> {
         Ok(None)
+    }
+
+    pub fn reconnect(_bookmark: &[u8]) -> Result<(), String> {
+        Err("bookmarks are only used on macOS".to_string())
     }
 }
 

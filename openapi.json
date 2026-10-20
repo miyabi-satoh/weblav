@@ -7233,7 +7233,8 @@
           "ai_links_daily_limit",
           "ai_too_large",
           "ai_upstream",
-          "account_server_unavailable"
+          "account_server_unavailable",
+          "folder_unreachable"
         ]
       },
       "ErrorResponse": {
@@ -8223,7 +8224,8 @@
           "name",
           "path",
           "contentCount",
-          "removedContentCount"
+          "removedContentCount",
+          "status"
         ],
         "properties": {
           "contentCount": {
@@ -8247,8 +8249,21 @@
             "type": "integer",
             "description": "このフォルダーを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「公開できるフォルダー」)。\n登録中のほかの公開できるフォルダーにも含まれるもの (入れ子) は数えない。",
             "minimum": 0
+          },
+          "status": {
+            "$ref": "#/components/schemas/RootStatus",
+            "description": "今読めるか。一覧でだけ確かめ、登録の応答は読めたものなので `ready`。"
           }
         }
+      },
+      "RootStatus": {
+        "type": "string",
+        "description": "公開できるフォルダーの今の様子 (→ `folder_reach::Reach`)。",
+        "enum": [
+          "ready",
+          "missing",
+          "unreachable"
+        ]
       },
       "SearchContentHit": {
         "type": "object",

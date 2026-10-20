@@ -33,7 +33,8 @@ export const MESSAGES: Record<ErrorCode, () => string> = {
 	ai_links_daily_limit: m.error_ai_links_daily_limit,
 	ai_too_large: m.error_ai_too_large,
 	ai_upstream: m.error_ai_upstream,
-	account_server_unavailable: m.error_account_server_unavailable
+	account_server_unavailable: m.error_account_server_unavailable,
+	folder_unreachable: m.error_folder_unreachable
 };
 
 /** 想定外の形のレスポンスや通信エラーに使う汎用文言。 */
