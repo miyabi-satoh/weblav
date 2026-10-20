@@ -123,43 +123,77 @@ impl FolderReach {
         entry.running = Some((started, receiver.clone()));
         drop(entries);
 
-        let this = Arc::clone(self);
+        let finish = Finish {
+            reach: Arc::clone(self),
+            path: path.to_string(),
+            sender: Some(sender),
+        };
         let pool = pool.clone();
-        let path = path.to_string();
         tokio::spawn(async move {
             // つなぎ直しに使うブックマークは、つなぎ直してよいときだけ読む (macOS 以外は行が無い)。
             let bookmark = if reconnect {
-                crate::folder_access::load(&pool, &path).await
+                crate::folder_access::load(&pool, &finish.path).await
             } else {
                 None
             };
-            let probe = Arc::clone(&this.probe);
-            let probe_path = path.clone();
+            let probe = Arc::clone(&finish.reach.probe);
+            let probe_path = finish.path.clone();
             let result =
                 tokio::task::spawn_blocking(move || probe(&probe_path, reconnect, bookmark)).await;
             let (reach, reconnected) = match result {
                 Ok(result) => result,
                 Err(err) => {
-                    tracing::warn!(%path, %err, "folder check failed");
+                    tracing::warn!(path = %finish.path, %err, "folder check failed");
                     (Reach::Unreachable, false)
                 }
             };
-            if reach == Reach::Unreachable {
-                tracing::info!(%path, "a shared folder is not reachable");
-            }
-            {
-                let mut entries = this.entries.lock().unwrap_or_else(PoisonError::into_inner);
-                let entry = entries.entry(path).or_default();
-                entry.checked = Some((Instant::now(), reach.clone()));
-                entry.running = None;
-                if reconnected {
-                    entry.reconnected_at = Some(Instant::now());
-                }
-            }
-            // 待っている要求がもう無ければ、送れなくてよい。
-            let _ = sender.send(Some(reach));
+            finish.done(reach, reconnected);
         });
         Begin::Waiting(started, receiver)
+    }
+}
+
+/// 確かめの結果を残し、待っている要求に知らせる。確かめのタスクが結果を出さずに終わっても
+/// (panic など)、`running` が残ってそのパスが確かめ直されなくならないよう、捨てられたら `Unreachable` を残す。
+struct Finish {
+    reach: Arc<FolderReach>,
+    path: String,
+    sender: Option<watch::Sender<Option<Reach>>>,
+}
+
+impl Finish {
+    fn done(mut self, reach: Reach, reconnected: bool) {
+        self.record(reach, reconnected);
+    }
+
+    fn record(&mut self, reach: Reach, reconnected: bool) {
+        let Some(sender) = self.sender.take() else {
+            return;
+        };
+        if reach == Reach::Unreachable {
+            tracing::info!(path = %self.path, "a shared folder is not reachable");
+        }
+        {
+            let mut entries = self
+                .reach
+                .entries
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
+            let entry = entries.entry(self.path.clone()).or_default();
+            entry.checked = Some((Instant::now(), reach.clone()));
+            entry.running = None;
+            if reconnected {
+                entry.reconnected_at = Some(Instant::now());
+            }
+        }
+        // 待っている要求がもう無ければ、送れなくてよい。
+        let _ = sender.send(Some(reach));
+    }
+}
+
+impl Drop for Finish {
+    fn drop(&mut self) {
+        self.record(Reach::Unreachable, false);
     }
 }
 

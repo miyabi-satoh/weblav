@@ -866,6 +866,10 @@ async fn set_published(
     // 鍵を取る理由は`bulk_set_published`と同じ。
     let _write_guard = state.contents_write_lock.lock().await;
     let meta = archive::load_editable_archive(&state.pool, &user, id).await?;
+    // 鍵を待つ間に場所が変わっていたら、確かめていない場所を触らないよう確かめ直す。
+    if meta.path != path {
+        super::roots::ensure_reachable(&state, &meta.path).await?;
+    }
     let axes = archive::load_axis_index(&state.pool, id).await?;
 
     let row = sqlx::query_as!(

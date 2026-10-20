@@ -22,6 +22,7 @@
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
+	import WarningBand from '$lib/components/warning-band.svelte';
 	import type { PageProps } from './$types';
 	import type { components } from '$lib/api/schema';
 
@@ -142,6 +143,15 @@
 		<p class="mt-2 text-sm text-muted-foreground">{m.admin_roots_add_local_only()}</p>
 	{/if}
 </div>
+
+<!-- 行ごとには短く出し、何を確かめればよいかは一覧の上に1回だけ出す。 -->
+{#if data.roots.some((root) => root.status === 'unreachable')}
+	<div class="px-4 pb-4 md:px-6">
+		<WarningBand class="rounded-md border">
+			<p class="text-sm leading-relaxed">{m.admin_roots_unreachable_warning()}</p>
+		</WarningBand>
+	</div>
+{/if}
 
 {#if data.roots.length === 0}
 	<p class="px-4 text-sm text-muted-foreground md:px-6">{m.admin_roots_empty()}</p>

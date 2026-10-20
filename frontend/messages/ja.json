@@ -97,6 +97,7 @@
 	"admin_roots_content_count": "この中のコンテンツ: {count} 件",
 	"admin_roots_status_missing": "フォルダーが見つかりません",
 	"admin_roots_status_unreachable": "つながっていません",
+	"admin_roots_unreachable_warning": "つながっていないフォルダーがあります。NAS やディスクの電源とネットワークを確かめてください。",
 	"admin_roots_fetch_failed": "公開できるフォルダーを読み込めませんでした。しばらくしてからもう一度お試しください。",
 	"admin_roots_delete_confirm_title": "このフォルダーを削除しますか？",
 	"admin_roots_delete_confirm_description": "「{name}」はコンテンツに使用できなくなります。",
