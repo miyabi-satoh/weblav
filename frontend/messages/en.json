@@ -328,6 +328,7 @@
 	],
 	"contents_form_ai_within_days_description": "Set to 0 for any time.",
 	"contents_delete_confirm_title": "Delete this content?",
+	"contents_delete_confirm_description": "This will delete “{title}”. This action cannot be undone.",
 	"contents_delete_confirm_group_note": "Its contents will move to the root level.",
 	"contents_delete_confirm_loosened_note": "{count} of them will become visible to more people:",
 	"contents_delete_confirm_loosened_item": "“{title}” ({before} → {after})",

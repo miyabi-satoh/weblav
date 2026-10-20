@@ -78,7 +78,7 @@
 	busy={deleting}
 	onconfirm={handleDelete}
 >
-	{m.common_delete_confirm_description()}
+	{m.contents_delete_confirm_description({ title: content?.title ?? '' })}
 	{#if content?.type === 'group'}
 		<br />
 		{m.contents_delete_confirm_group_note()}
