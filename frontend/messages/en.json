@@ -104,8 +104,8 @@
 			}
 		}
 	],
-	"admin_roots_status_missing": "Folder not found.",
-	"admin_roots_status_unreachable": "Not connected. Check the power and network of the NAS or disk.",
+	"admin_roots_status_missing": "Folder not found",
+	"admin_roots_status_unreachable": "Not connected",
 	"admin_roots_fetch_failed": "Failed to load the allowed folders. Please try again later.",
 	"admin_roots_delete_confirm_title": "Remove this folder?",
 	"admin_roots_delete_confirm_description": "“{name}” will no longer be available for content.",
@@ -706,7 +706,7 @@
 	"ai_chat_answer_about": "About “{name}”",
 	"ai_chat_resize_label": "Panel height",
 	"error_account_server_unavailable": "Could not connect to the WebLAV account. Please try again later.",
-	"error_folder_unreachable": "Can't connect to the NAS or disk this folder is on. Check its power and network, then try again.",
+	"error_folder_unreachable": "Can't reach the NAS or disk this folder is on. Try again later, and tell your administrator if it keeps happening.",
 	"admin_settings_ai_heading": "AI",
 	"admin_settings_ai_fetch_failed": "Could not load the AI settings. Please try again later.",
 	"admin_settings_ai_link_button": "Register computer...",

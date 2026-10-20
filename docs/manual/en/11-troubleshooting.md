@@ -44,7 +44,7 @@ Set your computer so that it does not sleep.
 - **macOS**: System Settings > Energy (or Battery on a laptop)
 - **Ubuntu**: In Settings > Power, turn off Automatic Suspend
 
-## “Can't connect to the NAS or disk this folder is on” appears
+## “Can't reach the NAS or disk this folder is on” appears
 
 The computer running WebLAV cannot read the NAS or external disk that the folder is on.
 

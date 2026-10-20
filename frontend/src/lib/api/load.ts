@@ -48,7 +48,7 @@ export async function fetchOrError<T>(
 	if (response.status === 404) {
 		error(404, m.error_not_found());
 	}
-	// 画面ごとの「読み込めませんでした」では、NAS やディスクを確かめればよいと分からないため。
+	// 画面ごとの「読み込めませんでした」では、待てば開ける見込みがあると分からないため。
 	if (errorCode(body) === 'folder_unreachable') {
 		error(response.status, m.error_folder_unreachable());
 	}

@@ -45,9 +45,19 @@ const FAILED_FRESH: Duration = Duration::from_secs(5);
 /// つなぎ直しを頼む間隔。つながらない NAS へ、要求ごとにマウントを試みないため。
 const RECONNECT_INTERVAL: Duration = Duration::from_secs(30);
 
-#[derive(Default)]
+/// 確かめの中身。引数は、パス・つなぎ直してよいか・つなぎ直しに使うブックマーク。2つ目の戻り値は、つなぎ直しを頼んだか。
+/// テストで、戻らない確かめに差し替えられるようにしてある。
+type Probe = dyn Fn(&str, bool, Option<Vec<u8>>) -> (Reach, bool) + Send + Sync;
+
 pub struct FolderReach {
     entries: Mutex<HashMap<String, Entry>>,
+    probe: Arc<Probe>,
+}
+
+impl Default for FolderReach {
+    fn default() -> Self {
+        Self::with_probe(Arc::new(probe))
+    }
 }
 
 #[derive(Default)]
@@ -58,27 +68,28 @@ struct Entry {
     reconnected_at: Option<Instant>,
 }
 
+enum Begin {
+    Known(Reach),
+    Waiting(Instant, watch::Receiver<Option<Reach>>),
+}
+
 impl FolderReach {
-    /// `path` (登録した公開できるフォルダー) の様子。`wait` を過ぎても確かめが終わらなければ `Unreachable`。
+    fn with_probe(probe: Arc<Probe>) -> Self {
+        Self {
+            entries: Mutex::default(),
+            probe,
+        }
+    }
+
+    /// `path` の様子。確かめを始めてから `wait` を過ぎても終わらなければ `Unreachable`。
     pub async fn check(self: &Arc<Self>, pool: &SqlitePool, path: &str, wait: Duration) -> Reach {
-        let (mut receiver, wait) = match self.begin(path) {
+        let (mut receiver, started) = match self.begin(pool, path) {
             Begin::Known(reach) => return reach,
-            // 戻らないままの確かめに、後から来た要求がそれぞれ `TARGET_WAIT` ずつ待たされないよう、
-            // 始めた時刻から数えて打ち切る。
-            Begin::Running(started, receiver) => (
-                receiver,
-                wait.min(TARGET_WAIT.saturating_sub(started.elapsed())),
-            ),
-            Begin::Start { reconnect } => {
-                // つなぎ直しに使うブックマークは、確かめを始めるときだけ読む (macOS 以外は行が無い)。
-                let bookmark = if reconnect {
-                    crate::folder_access::load(pool, path).await
-                } else {
-                    None
-                };
-                (self.start(path, reconnect, bookmark), wait)
-            }
+            Begin::Waiting(started, receiver) => (receiver, started),
         };
+        // 待つ時間は、確かめを始めた時刻から数える。戻らない確かめに、後から来た要求まで
+        // それぞれ `wait` ずつ待たされないようにするため。
+        let wait = wait.saturating_sub(started.elapsed());
         let finished = tokio::time::timeout(wait, receiver.wait_for(Option::is_some)).await;
         match finished {
             Ok(Ok(reach)) => reach.clone().unwrap_or(Reach::Unreachable),
@@ -87,7 +98,9 @@ impl FolderReach {
         }
     }
 
-    fn begin(&self, path: &str) -> Begin {
+    /// 使い回せる結果か、走っている確かめを返す。どちらも無ければ確かめを始める。
+    /// 見てから始めるまでを1つの鍵の中で行い、同じパスの確かめが2本走らないようにする。
+    fn begin(self: &Arc<Self>, pool: &SqlitePool, path: &str) -> Begin {
         let mut entries = self.entries.lock().unwrap_or_else(PoisonError::into_inner);
         let entry = entries.entry(path.to_string()).or_default();
         if let Some((at, reach)) = &entry.checked {
@@ -100,33 +113,27 @@ impl FolderReach {
             }
         }
         if let Some((started, receiver)) = &entry.running {
-            return Begin::Running(*started, receiver.clone());
+            return Begin::Waiting(*started, receiver.clone());
         }
         let reconnect = entry
             .reconnected_at
             .is_none_or(|at| at.elapsed() >= RECONNECT_INTERVAL);
-        Begin::Start { reconnect }
-    }
-
-    fn start(
-        self: &Arc<Self>,
-        path: &str,
-        reconnect: bool,
-        bookmark: Option<Vec<u8>>,
-    ) -> watch::Receiver<Option<Reach>> {
-        let mut entries = self.entries.lock().unwrap_or_else(PoisonError::into_inner);
-        let entry = entries.entry(path.to_string()).or_default();
-        // ブックマークを読んでいる間に、ほかの要求が始めていればそれを待つ。
-        if let Some((_, receiver)) = &entry.running {
-            return receiver.clone();
-        }
         let (sender, receiver) = watch::channel(None);
-        entry.running = Some((Instant::now(), receiver.clone()));
+        let started = Instant::now();
+        entry.running = Some((started, receiver.clone()));
         drop(entries);
 
         let this = Arc::clone(self);
+        let pool = pool.clone();
         let path = path.to_string();
         tokio::spawn(async move {
+            // つなぎ直しに使うブックマークは、つなぎ直してよいときだけ読む (macOS 以外は行が無い)。
+            let bookmark = if reconnect {
+                crate::folder_access::load(&pool, &path).await
+            } else {
+                None
+            };
+            let probe = Arc::clone(&this.probe);
             let probe_path = path.clone();
             let result =
                 tokio::task::spawn_blocking(move || probe(&probe_path, reconnect, bookmark)).await;
@@ -152,22 +159,8 @@ impl FolderReach {
             // 待っている要求がもう無ければ、送れなくてよい。
             let _ = sender.send(Some(reach));
         });
-        receiver
+        Begin::Waiting(started, receiver)
     }
-
-    /// 登録や削除で、覚えている様子が古くなったフォルダーを忘れる。
-    pub fn forget(&self, path: &str) {
-        self.entries
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .remove(path);
-    }
-}
-
-enum Begin {
-    Known(Reach),
-    Running(Instant, watch::Receiver<Option<Reach>>),
-    Start { reconnect: bool },
 }
 
 /// 確かめる。2つ目の値は、つなぎ直しを頼んだか。
@@ -197,10 +190,15 @@ fn probe(path: &str, reconnect: bool, bookmark: Option<Vec<u8>>) -> (Reach, bool
 
 /// canonicalize して、中を1件読む。マウントの一覧に残ったまま NAS が落ちていると、
 /// フォルダーの属性はキャッシュから返っても、中を読む所で止まるため。
+///
+/// 中を読む権限が無いだけなら読めるものとする。つながってはいて、その先の操作がそれぞれの理由で断るため。
 fn readable(path: &Path) -> std::io::Result<PathBuf> {
     let canonical = std::fs::canonicalize(path)?;
-    std::fs::read_dir(&canonical)?.next().transpose()?;
-    Ok(canonical)
+    match std::fs::read_dir(&canonical).and_then(|mut entries| entries.next().transpose()) {
+        Ok(_) => Ok(canonical),
+        Err(err) if err.kind() == std::io::ErrorKind::PermissionDenied => Ok(canonical),
+        Err(err) => Err(err),
+    }
 }
 
 /// 外れることのある共有やディスクの根元。外れていると、ここごと無くなる。
@@ -365,11 +363,65 @@ mod tests {
         assert_eq!(gvfs_smb_url("/Volumes/share"), None);
     }
 
+    async fn memory_pool() -> SqlitePool {
+        SqlitePool::connect("sqlite::memory:")
+            .await
+            .expect("メモリの DB を開けるはず")
+    }
+
+    #[tokio::test]
+    async fn checks_of_the_same_folder_share_one_probe_and_its_result() {
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counted = Arc::clone(&calls);
+        let reach = Arc::new(FolderReach::with_probe(Arc::new(move |path, _, _| {
+            counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            std::thread::sleep(Duration::from_millis(100));
+            (Reach::Ready(PathBuf::from(path)), false)
+        })));
+        let pool = memory_pool().await;
+        let checks = (0..3).map(|_| {
+            let reach = Arc::clone(&reach);
+            let pool = pool.clone();
+            tokio::spawn(async move { reach.check(&pool, "/nas", TARGET_WAIT).await })
+        });
+        for check in checks {
+            let result = check.await.expect("確かめのタスクは落ちないはず");
+            assert_eq!(result, Reach::Ready(PathBuf::from("/nas")));
+        }
+        // 終わった直後は、結果を使い回す。
+        assert_eq!(
+            reach.check(&pool, "/nas", TARGET_WAIT).await,
+            Reach::Ready(PathBuf::from("/nas"))
+        );
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn a_probe_that_does_not_return_makes_later_checks_give_up_at_once() {
+        let (release, released) = std::sync::mpsc::channel::<()>();
+        let released = Mutex::new(released);
+        let reach = Arc::new(FolderReach::with_probe(Arc::new(move |_, _, _| {
+            let _ = released
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .recv();
+            (Reach::Gone, false)
+        })));
+        let pool = memory_pool().await;
+        let wait = Duration::from_millis(100);
+        assert_eq!(reach.check(&pool, "/nas", wait).await, Reach::Unreachable);
+        // 確かめを始めてから `wait` を過ぎているので、待たずに返る。
+        let later = Instant::now();
+        assert_eq!(reach.check(&pool, "/nas", wait).await, Reach::Unreachable);
+        assert!(later.elapsed() < wait, "{:?}", later.elapsed());
+        // 長く待つ要求は、始めた時刻から数えた残りだけ待ち、戻れば結果を受け取る。
+        release.send(()).expect("確かめは待っているはず");
+        assert_eq!(reach.check(&pool, "/nas", TARGET_WAIT).await, Reach::Gone);
+    }
+
     #[tokio::test]
     async fn a_readable_folder_is_ready_and_a_missing_one_is_gone() {
-        let pool = sqlx::SqlitePool::connect("sqlite::memory:")
-            .await
-            .expect("メモリの DB を開けるはず");
+        let pool = memory_pool().await;
         let dir = crate::test_support::TempDir::new("folder-reach");
         let reach = Arc::new(FolderReach::default());
         let path = dir.to_string_lossy().to_string();

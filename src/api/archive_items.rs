@@ -596,11 +596,17 @@ pub(super) async fn search_items(
 ) -> Result<(Vec<super::search::SearchItemHit>, bool), AppError> {
     let pool = &state.pool;
     let mut sources = Vec::with_capacity(archives.len());
-    for archive in archives {
-        // つながらない NAS やディスクのアーカイブは、検索全体を待たせずに飛ばす。
-        if !super::roots::reachable(state, &archive.path, OTHERS_WAIT).await {
-            continue;
-        }
+    // つながらない NAS やディスクのアーカイブは、検索全体を待たせずに飛ばす。
+    let paths: Vec<&str> = archives
+        .iter()
+        .map(|archive| archive.path.as_str())
+        .collect();
+    let reachable = super::roots::reachable_all(state, &paths, OTHERS_WAIT).await?;
+    for (archive, _) in archives
+        .into_iter()
+        .zip(reachable)
+        .filter(|(_, reachable)| *reachable)
+    {
         let axes = archive::load_axis_index(pool, archive.id).await?;
         let rows = published_items(pool, archive.id).await?;
         sources.push((archive, axes, rows));
@@ -851,11 +857,15 @@ async fn set_published(
     Path((id, item_id)): Path<(i64, i64)>,
     AppJson(payload): AppJson<SetPublishedRequest>,
 ) -> Result<Json<AdminArchiveItemResponse>, AppError> {
+    // 書き換えた後で応答を組み立てられずに終わらないよう、書き換える前に見分ける。
+    // 鍵より前に置くのは、つながらない NAS を待つ間、ほかの書き込みを止めないため。
+    let path = archive::load_editable_archive(&state.pool, &user, id)
+        .await?
+        .path;
+    super::roots::ensure_reachable(&state, &path).await?;
     // 鍵を取る理由は`bulk_set_published`と同じ。
     let _write_guard = state.contents_write_lock.lock().await;
     let meta = archive::load_editable_archive(&state.pool, &user, id).await?;
-    // 書き換えた後で応答を組み立てられずに終わらないよう、書き換える前に見分ける。
-    super::roots::ensure_reachable(&state, &meta.path).await?;
     let axes = archive::load_axis_index(&state.pool, id).await?;
 
     let row = sqlx::query_as!(

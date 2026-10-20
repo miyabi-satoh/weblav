@@ -139,6 +139,7 @@ async fn create_root(
 ) -> Result<(StatusCode, Json<RootResponse>), AppError> {
     let own_dirs = state.own_dirs.clone();
     let requested_path = payload.path;
+    ensure_reachable(&state, &requested_path).await?;
     let (path, folder_name) = run_blocking(move || {
         let canonical = canonical_dir(&requested_path)?;
         if OwnDirs::resolve(&own_dirs).contains(&canonical) {
@@ -304,9 +305,10 @@ async fn rename_root(
     tx.commit().await?;
 
     let counts = ContentCounts::load(&state.pool).await?;
+    // 画面は名前を変えたあと一覧を読み直すので、ここでは待たない。
     let reach = state
         .folder_reach
-        .check(&state.pool, &path, TARGET_WAIT)
+        .check(&state.pool, &path, OTHERS_WAIT)
         .await;
     Ok(Json(RootResponse {
         id,
@@ -398,10 +400,9 @@ async fn check_all(state: &AppState, paths: Vec<String>, wait: Duration) -> Vec<
 
 /// `path` を含む登録中の公開できるフォルダーが、つながらない NAS やディスクにあれば
 /// `FolderUnreachable`。開こうとしているフォルダーなので、眠っている NAS が起きるまで待つ
-/// (`TARGET_WAIT`)。どれにも含まれない・フォルダーが無いときは通す (それぞれの呼び出し側が
-/// 今までどおり 404 などにする)。
+/// (`TARGET_WAIT`)。フォルダーが無いときは通す (それぞれの呼び出し側が今までどおり 404 などにする)。
 pub(super) async fn ensure_reachable(state: &AppState, path: &str) -> Result<(), AppError> {
-    if reachable(state, path, TARGET_WAIT).await {
+    if reachable_all(state, &[path], TARGET_WAIT).await?[0] {
         Ok(())
     } else {
         Err(AppError::FolderUnreachable)
@@ -409,22 +410,48 @@ pub(super) async fn ensure_reachable(state: &AppState, path: &str) -> Result<(),
 }
 
 /// `ensure_reachable` の、エラーにしない形。検索のように、つながらないフォルダーを飛ばして続けるときに使う。
-pub(super) async fn reachable(state: &AppState, path: &str, wait: Duration) -> bool {
-    let rows = match sqlx::query_scalar!("SELECT path FROM roots WHERE deleted_at IS NULL")
+/// 並びは `paths` のまま。
+///
+/// 確かめるのは、それぞれのパスを含む登録中の公開できるフォルダー。どれにも含まれない
+/// (登録から外した後のコンテンツ・綴りの違う入力など) なら、そのパス自身を確かめる。
+/// 呼び出し側は、この後でそのパスを canonicalize するので、ここを素通りさせると NAS が落ちているときに止まる。
+pub(super) async fn reachable_all(
+    state: &AppState,
+    paths: &[&str],
+    wait: Duration,
+) -> Result<Vec<bool>, AppError> {
+    let roots = sqlx::query_scalar!("SELECT path FROM roots WHERE deleted_at IS NULL")
         .fetch_all(&state.pool)
-        .await
-    {
-        Ok(rows) => rows,
-        // 確かめられないなら止めない。この後の DB の読み書きが同じように失敗する。
-        Err(_) => return true,
-    };
-    let containing = rows
-        .into_iter()
-        .filter(|root| contains(root, path))
+        .await?;
+    let targets: Vec<Vec<String>> = paths
+        .iter()
+        .map(|path| {
+            let containing: Vec<String> = roots
+                .iter()
+                .filter(|root| contains(root, path))
+                .cloned()
+                .collect();
+            if containing.is_empty() {
+                vec![path.to_string()]
+            } else {
+                containing
+            }
+        })
         .collect();
-    !check_all(state, containing, wait)
-        .await
-        .contains(&Reach::Unreachable)
+    let mut unique: Vec<String> = targets.iter().flatten().cloned().collect();
+    unique.sort();
+    unique.dedup();
+    let reaches = check_all(state, unique.clone(), wait).await;
+    let unreachable: Vec<&String> = unique
+        .iter()
+        .zip(&reaches)
+        .filter(|(_, reach)| **reach == Reach::Unreachable)
+        .map(|(path, _)| path)
+        .collect();
+    Ok(targets
+        .iter()
+        .map(|targets| !targets.iter().any(|target| unreachable.contains(&target)))
+        .collect())
 }
 
 /// 登録側の画面に出す場所。起点のフルパスの代わりに、公開できるフォルダーの名前と

@@ -133,7 +133,7 @@ pub enum AppError {
     #[error("account server unavailable: {0}")]
     AccountServer(String),
     /// 公開できるフォルダーのある NAS や外付けのディスクにつながらない場合 (→ `folder_reach`)。
-    /// 「見つからない」と分けるのは、画面が電源やネットワークを確かめるよう伝えられるようにするため。
+    /// 「見つからない」と分けるのは、画面が「しばらくしてから開き直す」と伝えられるようにするため。
     #[error("the shared folder is not reachable")]
     FolderUnreachable,
 }

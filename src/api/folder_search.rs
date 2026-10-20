@@ -128,13 +128,13 @@ pub(super) async fn search(
     terms: &Terms,
 ) -> Result<FolderSearch, AppError> {
     // つながらない NAS やディスクのフォルダーは、検索全体を待たせずに飛ばす。
-    let mut reachable_folders = Vec::with_capacity(folders.len());
-    for folder in folders {
-        if super::roots::reachable(state, &folder.path, OTHERS_WAIT).await {
-            reachable_folders.push(folder);
-        }
-    }
-    let folders = reachable_folders;
+    let paths: Vec<&str> = folders.iter().map(|folder| folder.path.as_str()).collect();
+    let reachable = super::roots::reachable_all(state, &paths, OTHERS_WAIT).await?;
+    let folders: Vec<SearchableFolder> = folders
+        .into_iter()
+        .zip(reachable)
+        .filter_map(|(folder, reachable)| reachable.then_some(folder))
+        .collect();
     let roots = super::roots::load_roots(state).await?;
     let own_dirs = state.own_dirs.clone();
     let mut walk_terms = terms.clone();
