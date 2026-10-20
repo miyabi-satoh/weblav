@@ -106,7 +106,7 @@
 	],
 	"admin_roots_status_missing": "Folder not found",
 	"admin_roots_status_unreachable": "Not connected",
-	"admin_roots_unreachable_warning": "Some folders are not connected. Check that the NAS or disk is turned on and connected.",
+	"admin_roots_unreachable_warning": "Some folders are not connected. Check the power, network, and cables of the NAS or disk.",
 	"admin_roots_fetch_failed": "Failed to load the allowed folders. Please try again later.",
 	"admin_roots_delete_confirm_title": "Remove this folder?",
 	"admin_roots_delete_confirm_description": "“{name}” will no longer be available for content.",
