@@ -152,7 +152,7 @@ test('アーカイブの閲覧: 軸で絞り込み、音声を押すとページ
 			await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
 			await expect(page.getByText(/^3\s件のアイテム$|^3 items$/)).toBeVisible();
 			// 音声はページ内で再生するボタン、PDF は新規タブで開くリンク。
-			await expect(page.getByRole('button', { name: /2024 リスニング/ })).toBeVisible();
+			await expect(page.getByRole('button', { name: /^2024 リスニング/ })).toBeVisible();
 			await expect(page.getByRole('link', { name: /2024 解答/ })).toHaveAttribute(
 				'target',
 				'_blank'
@@ -163,9 +163,9 @@ test('アーカイブの閲覧: 軸で絞り込み、音声を押すとページ
 			await page.getByRole('option', { name: /^2023/ }).click();
 			await page.waitForURL((url) => url.searchParams.get('年度') === '2023');
 			await expect(page.getByText(/^1\s件のアイテム$|^1 item$/)).toBeVisible();
-			await expect(page.getByRole('button', { name: /2024 リスニング/ })).toHaveCount(0);
+			await expect(page.getByRole('button', { name: /^2024 リスニング/ })).toHaveCount(0);
 
-			await page.getByRole('button', { name: /2023 リスニング/ }).click();
+			await page.getByRole('button', { name: /^2023 リスニング/ }).click();
 			const player = page.getByRole('region', { name: AUDIO_PLAYER_REGION_NAME });
 			await expect(player).toBeVisible();
 			await expect(page.locator('audio')).toHaveAttribute(
@@ -189,7 +189,7 @@ test('プレイヤーの前・次の曲: 一覧に並んだ音声の順に移り
 			await page.goto(`/archives/${archive.id}`);
 			await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
 			// 並び順はサーバーが決めるので、画面に並んだ順を正とする。PDF の行は前後に数えない。
-			const audioRows = page.getByRole('button', { name: /リスニング/ });
+			const audioRows = page.getByRole('button', { name: /^\d{4} リスニング/ });
 			await expect(audioRows).toHaveCount(2);
 			const [first, second] = await audioRows.allInnerTexts();
 
@@ -222,7 +222,7 @@ test('プレイヤーの続けて再生: 切り替えた状態を、読み込み
 
 			await page.goto(`/archives/${archive.id}`);
 			await page
-				.getByRole('button', { name: /リスニング/ })
+				.getByRole('button', { name: /^\d{4} リスニング/ })
 				.first()
 				.click();
 			await expect(autoAdvance).toHaveAttribute('aria-pressed', 'false');
@@ -231,7 +231,7 @@ test('プレイヤーの続けて再生: 切り替えた状態を、読み込み
 
 			await page.reload();
 			await page
-				.getByRole('button', { name: /リスニング/ })
+				.getByRole('button', { name: /^\d{4} リスニング/ })
 				.first()
 				.click();
 			await expect(autoAdvance).toHaveAttribute('aria-pressed', 'true');
@@ -251,7 +251,7 @@ test('フォルダーの閲覧: 下の階層へ移り、パンくずで戻れる
 			await page.getByRole('link', { name: '2024', exact: true }).click();
 			await page.waitForURL((url) => url.searchParams.get('path') === '2024');
 			await expect(page.getByRole('heading', { level: 1, name: '2024' })).toBeVisible();
-			await expect(page.getByRole('button', { name: /listening\.mp3/ })).toBeVisible();
+			await expect(page.getByRole('button', { name: /^listening\.mp3/ })).toBeVisible();
 			await expect(page.getByRole('link', { name: /answer\.pdf/ })).toHaveAttribute(
 				'target',
 				'_blank'

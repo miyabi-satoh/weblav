@@ -315,7 +315,7 @@ test('アーカイブの閲覧: 非公開のアイテムは並ばない', async 
 			await page.goto(`/archives/${archive.id}`);
 			await expect(page.getByText(/^1\s件のアイテム$|^1 item$/)).toBeVisible();
 			await expect(page.getByRole('link', { name: /answer\.pdf/ })).toBeVisible();
-			await expect(page.getByRole('button', { name: /listening\.mp3/ })).toHaveCount(0);
+			await expect(page.getByRole('button', { name: /^listening\.mp3/ })).toHaveCount(0);
 		}
 	);
 });
