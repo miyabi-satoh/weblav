@@ -75,6 +75,20 @@ install-mac: bundle-mac
     cp -R target/release/bundle/WebLAV.app /Applications/
     open /Applications/WebLAV.app
 
+# 動いている WebLAV は install-mac と同じく SIGTERM で止める。
+# ログイン時の起動 (XDG Autostart) は今の実行ファイルのパスを書くので、置き場所は毎回同じにする。
+# .deb で配るまでの、開発する人の手元の常用版 (→ docs/distribution.md「ビルド・配布の方法」)。
+# Linux 版を ~/.local に入れ直し、起動し直す
+[linux]
+install-linux: build
+    -pkill -U "$(id -u)" -x weblav
+    for _ in $(seq 50); do pgrep -U "$(id -u)" -x weblav >/dev/null || exit 0; sleep 0.2; done; echo "WebLAV が10秒たっても終わりません" >&2; exit 1
+    install -Dm755 target/release/{{ bin_name }} ~/.local/bin/{{ bin_name }}
+    install -Dm644 assets/icon.svg ~/.local/share/icons/hicolor/scalable/apps/weblav.svg
+    mkdir -p ~/.local/share/applications
+    printf '[Desktop Entry]\nType=Application\nName=WebLAV\nExec=%s\nIcon=weblav\nTerminal=false\nCategories=Network;\n' "$HOME/.local/bin/{{ bin_name }}" > ~/.local/share/applications/weblav.desktop
+    setsid -f ~/.local/bin/{{ bin_name }} >/dev/null 2>&1
+
 # frontend/build が無ければビルドする (内部用)
 [private]
 ensure-frontend-build:

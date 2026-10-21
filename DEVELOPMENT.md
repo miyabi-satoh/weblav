@@ -141,6 +141,7 @@ just msix         # Windows: dist/weblav-v<version>.msix を作る (build → ma
 just install-windows  # Windows: 試しの MSIX を作って上から入れ直し、起動し直す
 just bundle-mac   # macOS: target/release/bundle/WebLAV.app を作る。公証していないので、まだ配らない
 just install-mac  # macOS: .app を作って /Applications に入れ直し、起動し直す
+just install-linux  # Linux: ~/.local/bin に入れ直し、ランチャーの項目を置いて起動し直す
 ```
 
 - Windows は Microsoft Store の MSIX だけで配る。
