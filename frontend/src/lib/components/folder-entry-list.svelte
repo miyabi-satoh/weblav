@@ -16,6 +16,7 @@
 </script>
 
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import FilterHighlight from '$lib/components/filter-highlight.svelte';
 	import { listFilter } from '$lib/list-filter.svelte';
 	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
@@ -44,22 +45,35 @@
 	import ListRowDownloadLink from '$lib/components/list-row-download-link.svelte';
 	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
 	import FolderIcon from '@lucide/svelte/icons/folder';
+	import { browseLayout } from '$lib/browse-layout.svelte';
 
 	// フォルダーの一覧 (`/folders/[id]`) と検索の結果で使う、フォルダーの中のファイル・ディレクトリの行。
 	// 押したときの動きを両方で揃えるため、種類ごとの描き分けをここに集める。
 	let {
 		rows: allRows,
 		dirHref,
-		linksHref
+		linksHref,
+		trailing,
+		isHidden,
+		hiddenRow
 	}: {
 		rows: FolderEntryRow[];
 		dirHref: (row: FolderEntryRow) => string;
 		linksHref: (row: FolderEntryRow) => string;
+		/** 行の右端に置くもの (書き換えられる人の ⋮ メニュー)。 */
+		trailing?: Snippet<[FolderEntryRow]>;
+		/** この画面で表示しないにした行か。真なら、行の代わりに `hiddenRow` を出す。 */
+		isHidden?: (row: FolderEntryRow) => boolean;
+		hiddenRow?: Snippet<[FolderEntryRow]>;
 	} = $props();
 
 	// ページ内の絞り込みが置かれていれば、タイトルで行を絞る (→ docs/ui.md「一覧の絞り込み」)。
 	const filter = listFilter();
 	let rows = $derived(filter ? filter.apply(allRows, (item) => item.entry.name) : allRows);
+	// 表示しないにした行は、続けて鳴らす音声やビューアーの前後にも入れない。
+	let shownRows = $derived(isHidden ? rows.filter((row) => !isHidden(row)) : rows);
+	// 行の部品の中では `trailing` が同名の口を指すので、外で読んでおく。
+	let hasTrailing = $derived(trailing !== undefined);
 
 	function downloadHref(row: FolderEntryRow): string {
 		return contentDownloadHref(row.contentId, row.path);
@@ -85,7 +99,7 @@
 
 	// 続けて鳴らすのは、この一覧の中の音声。
 	let audioQueue = $derived(
-		rows.filter((row) => !row.entry.isDir && isAudioFileName(row.entry.name)).map(toTrack)
+		shownRows.filter((row) => !row.entry.isDir && isAudioFileName(row.entry.name)).map(toTrack)
 	);
 
 	/** 画像の行なら、ビューアーに渡す形。大きさが分からない (読めない) 画像は普通のファイルの行にする。 */
@@ -115,7 +129,7 @@
 		};
 	}
 
-	let viewerList = $derived(viewerItems(rows, toViewerImage, toViewerFile));
+	let viewerList = $derived(viewerItems(shownRows, toViewerImage, toViewerFile));
 </script>
 
 {#snippet entryTitle(row: FolderEntryRow)}
@@ -132,6 +146,8 @@
 	/>
 {/snippet}
 
+{#snippet trailingSlot(row: FolderEntryRow)}{@render trailing?.(row)}{/snippet}
+
 {#if filter?.active && rows.length === 0}
 	<ListFilterEmpty />
 {:else}
@@ -140,7 +156,9 @@
 			{@const image = toViewerImage(row)}
 			{@const viewerFile = toViewerFile(row)}
 			<li class={browseItemClass()}>
-				{#if row.entry.isDir}
+				{#if isHidden?.(row) && hiddenRow}
+					{@render hiddenRow(row)}
+				{:else if row.entry.isDir}
 					<div class={browseRowClass(true)}>
 						<ListRowIcon icon={FolderIcon} compact />
 						<span class={browseRowTextClass()}>
@@ -148,7 +166,9 @@
 							<a href={dirHref(row)} class={browseRowPressClass()}>{@render entryTitle(row)}</a>
 							{@render entrySubtitle(row)}
 						</span>
-						<ListRowGlyph />
+						{@render trailing?.(row)}
+						<!-- タイルでは右上の隅をメニューが使う。 -->
+						{#if !(hasTrailing && browseLayout.tile)}<ListRowGlyph />{/if}
 					</div>
 				{:else if isLinksFileName(row.entry.name)}
 					<div class={browseRowClass(true)}>
@@ -158,27 +178,37 @@
 							<a href={linksHref(row)} class={browseRowPressClass()}>{@render entryTitle(row)}</a>
 							{@render entrySubtitle(row)}
 						</span>
-						<ListRowGlyph />
+						{@render trailing?.(row)}
+						{#if !(hasTrailing && browseLayout.tile)}<ListRowGlyph />{/if}
 					</div>
 				{:else if isAudioFileName(row.entry.name)}
 					<ListRowPlayButton track={toTrack(row)} queue={audioQueue} compact>
 						{@render entryTitle(row)}
 						{#snippet subtitle()}{@render entrySubtitle(row)}{/snippet}
+						{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
 					</ListRowPlayButton>
 				{:else if image}
 					<ListRowImageLink {image} items={viewerList} compact>
 						{@render entryTitle(row)}
 						{#snippet subtitle()}{@render entrySubtitle(row)}{/snippet}
+						{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
 					</ListRowImageLink>
 				{:else if viewerFile}
 					<ListRowFileLink file={viewerFile} items={viewerList} compact>
 						{@render entryTitle(row)}
 						{#snippet subtitle()}{@render entrySubtitle(row)}{/snippet}
+						{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
 					</ListRowFileLink>
 				{:else}
-					<ListRowDownloadLink href={downloadHref(row)} thumbnail={rowThumbnail(row)} compact>
+					<ListRowDownloadLink
+						href={downloadHref(row)}
+						thumbnail={rowThumbnail(row)}
+						compact
+						tileCornerTaken={hasTrailing}
+					>
 						{@render entryTitle(row)}
 						{#snippet subtitle()}{@render entrySubtitle(row)}{/snippet}
+						{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
 					</ListRowDownloadLink>
 				{/if}
 			</li>

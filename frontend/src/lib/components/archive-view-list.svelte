@@ -71,7 +71,9 @@
 		openable,
 		leading,
 		trailing,
-		subtitle: subtitleOverride
+		subtitle: subtitleOverride,
+		isHidden,
+		hiddenRow
 	}: {
 		rows: ArchiveViewRow[];
 		linksHref: (row: ArchiveViewRow) => string;
@@ -86,6 +88,9 @@
 		trailing?: Snippet<[ArchiveViewRow]>;
 		/** 2段目を差し替える (管理画面はパスと状態も出す)。 */
 		subtitle?: Snippet<[ArchiveViewRow]>;
+		/** この画面で非公開にした行か。真なら、行の代わりに `hiddenRow` を出す。 */
+		isHidden?: (row: ArchiveViewRow) => boolean;
+		hiddenRow?: Snippet<[ArchiveViewRow]>;
 	} = $props();
 
 	// 行の部品の中では `trailing` が同名の口を指すので、外で読んでおく。
@@ -101,6 +106,9 @@
 				: allRows
 	);
 
+	// 非公開にした行は、続けて鳴らす音声やビューアーの前後にも入れない。
+	let shownRows = $derived(isHidden ? rows.filter((row) => !isHidden(row)) : rows);
+
 	function downloadHref(row: ArchiveViewRow): string {
 		return urls.download(row.archiveId, row.item.id);
 	}
@@ -115,7 +123,9 @@
 	}
 
 	// 続けて鳴らすのは、この一覧の中の音声。
-	let audioQueue = $derived(rows.filter((row) => isAudioFileName(row.item.fileName)).map(toTrack));
+	let audioQueue = $derived(
+		shownRows.filter((row) => isAudioFileName(row.item.fileName)).map(toTrack)
+	);
 
 	/** 画像の行なら、ビューアーに渡す形。大きさが分からない (読めない) 画像は普通のファイルの行にする。 */
 	function toViewerImage(row: ArchiveViewRow): ViewerImage | undefined {
@@ -153,7 +163,7 @@
 		};
 	}
 
-	let viewerList = $derived(viewerItems(rows, toViewerImage, toViewerFile));
+	let viewerList = $derived(viewerItems(shownRows, toViewerImage, toViewerFile));
 </script>
 
 {#snippet itemTitle(row: ArchiveViewRow)}
@@ -181,7 +191,9 @@
 			{@const image = toViewerImage(row)}
 			{@const viewerFile = toViewerFile(row)}
 			<li class={browseItemClass()}>
-				{#if openable && !openable(row)}
+				{#if isHidden?.(row) && hiddenRow}
+					{@render hiddenRow(row)}
+				{:else if openable && !openable(row)}
 					<div class={browseRowClass()}>
 						{@render leading?.(row)}
 						<ListRowIcon icon={FileXIcon} />

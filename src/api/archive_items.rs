@@ -1011,7 +1011,7 @@ async fn manage_download_item_by_path(
     if exists.is_none() {
         return Err(AppError::NotFound);
     }
-    let file = contents::resolve_file_under(&state, &meta.path, &query.path).await?;
+    let file = contents::resolve_file_under(&state, &meta.path, &query.path, None).await?;
     Ok(file.download(request).await)
 }
 
@@ -1054,7 +1054,7 @@ async fn manage_item_file(
     .fetch_optional(&state.pool)
     .await?
     .ok_or(AppError::NotFound)?;
-    contents::resolve_file_under(state, &meta.path, &rel_path).await
+    contents::resolve_file_under(state, &meta.path, &rel_path, None).await
 }
 
 /// アイテムの縮小画像 (→ docs/ui.md「画像のプレビュー」)。見える条件は `download_item` と同じ。
@@ -1103,7 +1103,7 @@ pub(super) async fn item_file(
         return Err(AppError::NotFound);
     }
 
-    contents::resolve_file_under(state, &meta.path, &item.rel_path).await
+    contents::resolve_file_under(state, &meta.path, &item.rel_path, None).await
 }
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {

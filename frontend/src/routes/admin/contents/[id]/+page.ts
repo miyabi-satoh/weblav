@@ -16,12 +16,22 @@ export const load: PageLoad = async ({ parent, url }) => {
 					})
 				)
 			: null;
-	if (!isAdmin(user)) return { users: [], aiLinks: await aiLinks };
+	// フォルダーで表示しないにしたもの (→ docs/folders.md「表示しないもの」)。書き換えられない人には 403 なので、出さない。
+	const folderHidden =
+		content.type === 'folder'
+			? fetchOrNull(
+					client.GET('/api/v1/contents/{id}/hidden-entries', {
+						params: { path: { id: content.id } }
+					})
+				)
+			: null;
+	if (!isAdmin(user))
+		return { users: [], aiLinks: await aiLinks, folderHidden: await folderHidden };
 
 	const users = await fetchOrError(
 		client.GET('/api/v1/admin/users'),
 		m.admin_users_fetch_failed(),
 		{ loginRedirectFrom: url }
 	);
-	return { users, aiLinks: await aiLinks };
+	return { users, aiLinks: await aiLinks, folderHidden: await folderHidden };
 };

@@ -13,7 +13,7 @@ test('一覧の絞り込み: 打つと当たる行だけが残り、語が URL �
 			await setUpArchiveForBrowsing(page.request, archive);
 
 			await page.goto(`/archives/${archive.id}`);
-			const rows = page.getByRole('button', { name: /リスニング/ });
+			const rows = page.getByRole('button', { name: /^\d{4} リスニング/ });
 			await expect(rows).toHaveCount(2);
 
 			// 間を空けた当たり (「2023 リスニング」の 2・3・リ)。打ったらすぐ別の画面へ移って戻る。

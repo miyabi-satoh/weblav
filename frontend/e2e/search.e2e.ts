@@ -41,7 +41,7 @@ test('検索: ヘッダーから開いて打つと、アーカイブのファイ
 				await expect(levels.last()).toHaveAttribute('href', `/archives/${archive.id}`);
 				await page.keyboard.press('Escape');
 
-				await row.getByRole('button', { name: /2023 リスニング/ }).click();
+				await row.getByRole('button', { name: /^2023 リスニング/ }).click();
 				await expect(page.getByRole('region', { name: AUDIO_PLAYER_REGION_NAME })).toBeVisible();
 				await expect(page.locator('audio')).toHaveAttribute(
 					'src',
@@ -71,7 +71,7 @@ test('検索: 閲覧ページから開くとその中を探し、「すべて」
 			// 範囲の中の行は、どれもこのアーカイブのもの。
 			const rows = page
 				.getByRole('listitem')
-				.filter({ has: page.getByRole('button', { name: /2023 リスニング/ }) });
+				.filter({ has: page.getByRole('button', { name: /^2023 リスニング/ }) });
 			await expect(rows.first()).toBeVisible();
 			await expect(rows.filter({ hasNotText: name })).toHaveCount(0);
 

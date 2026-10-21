@@ -280,7 +280,7 @@ pub(super) fn ensure_editable(
 }
 
 /// folderコンテンツの `path` を取り出す。folderの行には書き込み時に必ず入れている。
-fn folder_path(path: Option<String>) -> Result<String, AppError> {
+pub(super) fn folder_path(path: Option<String>) -> Result<String, AppError> {
     path.ok_or(AppError::DataIntegrity("folder content without a path"))
 }
 
@@ -1303,6 +1303,8 @@ async fn update_content(
     // 拡張子の変更では消さない。索引対象であり続けたアイテムは公開フラグを保つ
     // (対象から外れた行は次の走査で消える)。
     let path_changed = existing_type == ContentType::Archive && existing.path != path;
+    // フォルダーで表示しないにしたものも、登録先からの相対パスなので同じ理由で捨てる (→ `folder_hidden`)。
+    let folder_path_changed = existing_type == ContentType::Folder && existing.path != path;
 
     // `path` の更新と索引の削除は同じトランザクションに入れる (→ docs/archive.md「スキャン」)。
     // 分けると、削除だけが失敗したときに新しい `path` と旧索引の組み合わせが残り、
@@ -1336,6 +1338,11 @@ async fn update_content(
 
     if path_changed {
         sqlx::query!("DELETE FROM archive_items WHERE archive_id = ?", id)
+            .execute(&mut *tx)
+            .await?;
+    }
+    if folder_path_changed {
+        sqlx::query!("DELETE FROM folder_hidden_entries WHERE content_id = ?", id)
             .execute(&mut *tx)
             .await?;
     }
@@ -1689,8 +1696,21 @@ fn reject_traversal_components(rel: &str) -> Result<(), AppError> {
 /// 必須になる。なお`file`コンテンツ(アップロード)はこのTOCTOUの
 /// 対象外: 実体は`blobs_dir`配下にweblavプロセス自身だけが書くcontent-addressedな
 /// 領域にあり、folderのような「外部が管理する共有ディレクトリ」を覗くものではないため。
-async fn resolve_path(state: &AppState, root: &str, rel: &str) -> Result<PathBuf, AppError> {
+///
+/// `hidden_of` はフォルダーのコンテンツの id で、そのフォルダーで表示しないにしたもの
+/// (→ `folder_hidden`) も、一覧に出さないものと同じく 404 にする。アーカイブは `None`
+/// (アイテムごとの公開・非公開で外すため)。
+pub(super) async fn resolve_path(
+    state: &AppState,
+    root: &str,
+    rel: &str,
+    hidden_of: Option<i64>,
+) -> Result<PathBuf, AppError> {
     reject_traversal_components(rel)?;
+    let hidden = match hidden_of {
+        Some(id) => super::folder_hidden::rel_paths(&state.pool, id).await?,
+        None => Vec::new(),
+    };
 
     super::roots::ensure_reachable(state, root).await?;
     let root = PathBuf::from(root);
@@ -1731,6 +1751,7 @@ async fn resolve_path(state: &AppState, root: &str, rel: &str) -> Result<PathBuf
         if super::fs::has_hidden_component(&canonical_root, FsPath::new(&rel_owned))
             || super::fs::has_dot_component(&canonical_root, &canonical_candidate)
             || own_dirs.contains(&canonical_candidate)
+            || super::folder_hidden::resolve(&canonical_root, &hidden).covers(&canonical_candidate)
         {
             return Err(AppError::NotFound);
         }
@@ -1754,6 +1775,7 @@ async fn resolve_path(state: &AppState, root: &str, rel: &str) -> Result<PathBuf
 fn read_entries(
     dir: &FsPath,
     own_dirs: &super::roots::OwnDirs,
+    hidden: &super::folder_hidden::Hidden,
     order: SortOrder,
 ) -> std::io::Result<Vec<FolderEntry>> {
     let mut entries = Vec::new();
@@ -1763,7 +1785,7 @@ fn read_entries(
             continue;
         };
         // `dir` は実体パスで、リンクは上で外しているので、エントリのパスも実体パスのまま比べられる。
-        if own_dirs.contains(&entry.path()) {
+        if own_dirs.contains(&entry.path()) || hidden.covers(&entry.path()) {
             continue;
         }
         // ここまで来ればシンボリックリンクではないので、`std::fs::metadata` を呼んでも
@@ -1825,7 +1847,7 @@ async fn browse_folder(
     Query(query): Query<BrowseQuery>,
 ) -> Result<Json<FolderBrowseResponse>, AppError> {
     let (folder_title, root, lineage) = folder_root(&state, &viewer, id).await?;
-    let target = resolve_path(&state, &root, &query.path).await?;
+    let target = resolve_path(&state, &root, &query.path, Some(id)).await?;
 
     if !path_is_dir(&target).await? {
         return Err(AppError::NotFound);
@@ -1833,8 +1855,19 @@ async fn browse_folder(
 
     let own_dirs = state.own_dirs.clone();
     let order = SortOrder::from_query(query.sort.as_deref());
+    let hidden = super::folder_hidden::rel_paths(&state.pool, id).await?;
     let entries = run_blocking(move || {
-        read_entries(&target, &super::roots::OwnDirs::resolve(&own_dirs), order)
+        // 登録先は `resolve_path` で読めることを確かめてある。
+        let hidden = match std::fs::canonicalize(&root) {
+            Ok(root) => super::folder_hidden::resolve(&root, &hidden),
+            Err(_) => return Err(AppError::NotFound),
+        };
+        Ok(read_entries(
+            &target,
+            &super::roots::OwnDirs::resolve(&own_dirs),
+            &hidden,
+            order,
+        )?)
     })
     .await??;
 
@@ -2124,7 +2157,7 @@ pub(super) async fn search_scope(
     ensure_viewable(&state.pool, viewer, id).await?;
     // フォルダーは、階層が無くても登録先を確かめる。消えた登録先を範囲にすると、どの語でも空になるため。
     if row.content_type == ContentType::Folder {
-        let target = resolve_path(state, &folder_path(row.path)?, path).await?;
+        let target = resolve_path(state, &folder_path(row.path)?, path, Some(id)).await?;
         if !path_is_dir(&target).await? {
             return Err(AppError::NotFound);
         }
@@ -2435,12 +2468,14 @@ impl ServedFile {
 /// `root` 配下の `rel` を `resolve_path` で解決する。ファイルでなければ404。
 /// folder配下のファイルとアーカイブアイテムの両方が、実体そのもの以外に
 /// 手がかりを持たない (DBにfile_nameを別途保存していない) ため共有する。
+/// `hidden_of` は `resolve_path` と同じ。
 pub(super) async fn resolve_file_under(
     state: &AppState,
     root: &str,
     rel: &str,
+    hidden_of: Option<i64>,
 ) -> Result<ServedFile, AppError> {
-    let target = resolve_path(state, root, rel).await?;
+    let target = resolve_path(state, root, rel, hidden_of).await?;
     if !path_is_file(&target).await? {
         return Err(AppError::NotFound);
     }
@@ -2529,7 +2564,7 @@ pub(super) async fn content_file(
         ContentType::Link | ContentType::Group | ContentType::Archive => Err(AppError::NotFound),
         ContentType::Folder => {
             let root = folder_path(row.path)?;
-            resolve_file_under(state, &root, rel).await
+            resolve_file_under(state, &root, rel, Some(id)).await
         }
         ContentType::File => {
             let hash = row

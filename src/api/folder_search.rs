@@ -147,13 +147,19 @@ pub(super) async fn search(
         })
         .collect();
 
+    // 表示しないにしたものは、一覧と同じく検索にも出さない (→ folder_hidden)。
+    let mut hidden_rels = Vec::with_capacity(folders.len());
+    for folder in &folders {
+        hidden_rels.push(super::folder_hidden::rel_paths(&state.pool, folder.id).await?);
+    }
+
     // 辿るのはディスクの I/O で、フォルダーの大きさに比例して重くなる。
     let (mut candidates, incomplete, mut sources) = run_blocking(move || {
         let own_dirs = OwnDirs::resolve(&own_dirs);
         let mut candidates = Vec::new();
         let mut truncated = false;
         let mut sources = Vec::new();
-        for (index, folder) in folders.into_iter().enumerate() {
+        for (index, (folder, hidden_rels)) in folders.into_iter().zip(hidden_rels).enumerate() {
             // 配信と同じく、公開できるフォルダーの外は辿らない (→ contents::resolve_path)。
             let Ok(root) = std::fs::canonicalize(&folder.path) else {
                 continue;
@@ -161,6 +167,7 @@ pub(super) async fn search(
             if !super::roots::is_within_roots(&roots, &root, &own_dirs) {
                 continue;
             }
+            let hidden = super::folder_hidden::resolve(&root, &hidden_rels);
             let folder_places = container_places(&folder.title, &folder.ancestors);
             let (entries, cut) =
                 super::fs::walk_entries(&root.join(&folder.sub_path), FOLDER_WALK_LIMIT, &own_dirs);
@@ -169,6 +176,9 @@ pub(super) async fn search(
                 // 結果のパスは、階層の中からでなく、フォルダーの登録パスからの相対にする。
                 if !folder.sub_path.is_empty() {
                     entry.rel_path = format!("{}/{}", folder.sub_path, entry.rel_path);
+                }
+                if hidden.covers(&root.join(&entry.rel_path)) {
+                    continue;
                 }
                 let name = entry
                     .rel_path

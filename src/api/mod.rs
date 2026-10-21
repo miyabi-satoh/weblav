@@ -13,6 +13,7 @@ mod completed_reader;
 mod connection_info;
 mod contents;
 pub mod error_detail;
+mod folder_hidden;
 mod folder_search;
 mod fs;
 mod health;
@@ -84,6 +85,7 @@ fn routes(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
         .merge(auth::router())
         .merge(ai::router())
         .merge(ai_links::router())
+        .merge(folder_hidden::router())
         .merge(connection_info::router())
         .merge(contents::router(max_upload_bytes))
         .merge(archive::router())

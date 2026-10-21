@@ -43,6 +43,14 @@ The remaining steps differ by type.
 
    ![The Add screen after choosing a folder](images/add-folder-ready.webp)
 
+### Hide some files or folders
+
+Open the folder, select “⋮” on the row of a file or folder you do not want to show, then choose “Hide”. Hiding a folder also hides everything inside it. Only people who can change the folder see “⋮”.
+
+To show it again, select “Undo” right away, or select “Show again” under “Hidden” on the content's edit page.
+
+Hidden files cannot be downloaded or found by search either. If you rename or move a file, it is shown again.
+
 ## File
 
 1. Select the area to choose a file (or drop a file there), then select “Register”.

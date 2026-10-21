@@ -30,6 +30,7 @@
 	import * as Field from '$lib/components/ui/field';
 	import * as Select from '$lib/components/ui/select';
 	import AiLinksExclusionsSection from '$lib/components/ai-links-exclusions-section.svelte';
+	import FolderHiddenSection from '$lib/components/folder-hidden-section.svelte';
 	import AiLinksSettingsSection from '$lib/components/ai-links-settings-section.svelte';
 	import DirPicker from '$lib/components/dir-picker.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
@@ -66,6 +67,10 @@
 
 	// グループの、AI がリンクを集める設定 (→ docs/ai.md「AI が集めるリンク」)。区画を分け、区画ごとに保存する。
 	let aiLinksSettings = $derived(content.type === 'group' ? data.aiLinks : null);
+	// 表示しないものが無ければ区画を出さない。表示しないにするのは閲覧の画面の行のメニューで行う。
+	let folderHidden = $derived(
+		content.type === 'folder' && data.folderHidden?.length ? data.folderHidden : null
+	);
 	let aiLinksDirty = $state(false);
 	let aiLinksSection = $state<{ discard: () => void } | null>(null);
 
@@ -362,6 +367,11 @@
 					{editable}
 				/>
 			{/if}
+		</div>
+	{:else if folderHidden != null}
+		<div class={sectionGridClass} {@attach masonry}>
+			{@render basicForm(true)}
+			<FolderHiddenSection contentId={content.id} entries={folderHidden} />
 		</div>
 	{:else}
 		{@render basicForm(false)}

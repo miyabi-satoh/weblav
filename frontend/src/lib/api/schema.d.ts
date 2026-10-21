@@ -1094,6 +1094,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/{id}/hidden-entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 表示しないにしたものの一覧。編集ページで取り消すために並べる。 */
+        get: operations["list_hidden_entries"];
+        put?: never;
+        /** フォルダーの中のファイルかサブフォルダーを表示しないにする。サブフォルダーなら中ごと外す。 */
+        post: operations["hide_entry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/hidden-entries/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** 表示しないにしたものを取り消す。 */
+        delete: operations["show_entry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/{id}/items": {
         parameters: {
             query?: never;
@@ -2279,6 +2314,13 @@ export interface components {
             /** @description 行に縮小画像を出してみるか (→ docs/ui.md「画像のプレビュー」)。 */
             thumbnail: boolean;
         };
+        FolderHiddenEntry: {
+            /** Format: int64 */
+            id: number;
+            isDir: boolean;
+            /** @description フォルダーの登録先からの相対パス ('/' 区切り)。 */
+            path: string;
+        };
         GenerateAxesRequest: {
             /** @description 画面が組み立てたプロンプト (貼り付け用に見せるものと同じ)。 */
             prompt: string;
@@ -2326,6 +2368,10 @@ export interface components {
             locale: string;
             slug: string;
             title: string;
+        };
+        HideFolderEntryRequest: {
+            /** @description 閲覧の画面と同じ、フォルダーの登録先からの相対パス。 */
+            path: string;
         };
         /** @description 表示するときの画像の縦横 (px)。EXIF の向きを当てた後の値。 */
         ImageSize: {
@@ -6408,6 +6454,138 @@ export interface operations {
                 };
             };
             /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_hidden_entries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 表示しないにした順の新しいものから */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderHiddenEntry"][];
+                };
+            };
+            /** @description 書き換えられるのは管理者と作成者だけ */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見えない・存在しない、またはフォルダーでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    hide_entry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HideFolderEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderHiddenEntry"];
+                };
+            };
+            /** @description 書き換えられるのは管理者と作成者だけ */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見えない・存在しない、フォルダーでない、またはフォルダーの中に無いパス */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description フォルダーのある NAS やディスクにつながらない */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    show_entry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                entry_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 書き換えられるのは管理者と作成者だけ */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見えない・存在しない、またはこのフォルダーの表示しないものでない */
             404: {
                 headers: {
                     [name: string]: unknown;
