@@ -242,7 +242,7 @@ mod tests {
 
     #[test]
     fn apply_keeps_other_items_and_comments() {
-        let text = "# 手で書いたコメント\n[server]\nbind = \"127.0.0.1\" # 右のコメント\nport = 3000\n\n[log]\nfilter = \"debug\"\n";
+        let text = "# 手で書いたコメント\n[server]\nbind = \"127.0.0.1\" # 右のコメント\nport = 8370\n\n[log]\nfilter = \"debug\"\n";
         let updated = apply(text, &SETTINGS).expect("書き換えられなかった");
         assert!(updated.contains("# 手で書いたコメント"), "{updated}");
         assert!(

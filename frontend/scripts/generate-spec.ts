@@ -1,7 +1,7 @@
 // `just spec` から呼ばれるアプリ仕様書ジェネレータ。
 //
 // 1. 一時 WEBLAV_HOME を作り、専用ポートで `target/debug/weblav-service` を起動する
-//    (開発中の dev-backend/:3000 と衝突しないように、かつ既存の開発用DBを汚さないように)。
+//    (開発中の dev-backend (既定のポート) と衝突しないように、かつ既存の開発用DBを汚さないように)。
 // 2. seed.sql を node:sqlite で直接流し込む(Rust側の変更なしでシードできる)。
 // 3. Playwright でスクリーンショットを撮り、paraglideのメッセージを直接importして文言を取る。
 //    各ショットは既定で desktop/tablet/mobile の3サイズを撮る(shots.ts の viewports で

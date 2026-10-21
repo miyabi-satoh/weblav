@@ -137,7 +137,7 @@ async function shootStory(
 		// 使い捨ての backend は 127.0.0.1 で待ち受けるので、そのままだと共有の画面が QR コードでなく
 		// 「他の端末からはつながりません」の案内になる。他の端末から開ける設置と同じ答えを返させる。
 		await context.route('**/api/v1/connection-info', (route) =>
-			route.fulfill({ json: { mdnsHostname: 'home-pc.local', port: 3000 } })
+			route.fulfill({ json: { mdnsHostname: 'home-pc.local', port: 8370 } })
 		);
 		if (account && !story.startsLoggedOut) {
 			const res = await context.request.post('/api/v1/auth/login', { data: account });

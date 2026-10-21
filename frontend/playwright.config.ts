@@ -8,7 +8,7 @@ const baseURL = process.env.E2E_BASE_URL;
 if (!baseURL) {
 	throw new Error(
 		'E2E_BASE_URL が未設定です。backendを起動してからそのURLを設定して実行する: ' +
-			'E2E_BASE_URL=http://127.0.0.1:3000 E2E_ADMIN_PASSWORD=... pnpm run test:e2e'
+			'E2E_BASE_URL=http://127.0.0.1:8370 E2E_ADMIN_PASSWORD=... pnpm run test:e2e'
 	);
 }
 

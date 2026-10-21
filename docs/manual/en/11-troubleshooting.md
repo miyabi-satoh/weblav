@@ -12,7 +12,7 @@ Check these in order.
 3. Check the server computer settings.
    - **Windows**: In Settings > Network & internet > the network you use, set “Network profile type” to “Private network”.
    - **macOS**: In System Settings > Network > Firewall > Options, set WebLAV to “Allow incoming connections”.
-   - **Ubuntu**: If you have turned on the firewall (ufw), enter `sudo ufw allow 3000/tcp` in Terminal (if the number after `:` in that address is not 3000, use that number).
+   - **Ubuntu**: If you have turned on the firewall (ufw), enter `sudo ufw allow 8370/tcp` in Terminal (if the number after `:` in that address is not 8370, use that number).
 4. Check the device settings, if it opens in Safari but not Chrome or another browser.
    - **iPhone and iPad**: In Settings > Privacy & Security > Local Network, turn on the browser.
    - **Mac**: In System Settings > Privacy & Security > Local Network, turn on the browser.
@@ -21,7 +21,7 @@ Check these in order.
 
 ## The port number changed
 
-This applies when the menu says “Port 3000 was unavailable; running on 3001”.
+This applies when the menu says something like “Port 8370 was unavailable; running on 8371”.
 Open the current address. To see it, select the share icon at the top right, then choose “Show QR code...”.
 
 If it changes often, change the port.
@@ -30,11 +30,12 @@ If it changes often, change the port.
 
    ![The Site settings tab](images/settings-page.webp)
 
-2. Set “Port” to a different number, such as 3100, then select “Save”.
+2. Set “Port” to a different number, such as 8390, then select “Save”.
 
    ![The Port section in Site settings](images/settings-port.webp)
 
 3. Restart WebLAV.
+4. On other devices, open the new address from the shared QR code (on Ubuntu with ufw, also allow the new number, for example with `sudo ufw allow 8390/tcp`).
 
 ## It stops opening after a while
 

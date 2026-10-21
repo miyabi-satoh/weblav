@@ -238,7 +238,7 @@ fn open_addr(addr: SocketAddr) -> SocketAddr {
     }
 }
 
-/// ブラウザーで開くときのオリジン (`http://localhost:3000` など)。
+/// ブラウザーで開くときのオリジン (`http://localhost:8370` など)。
 ///
 /// ループバックは `127.0.0.1` ではなく `localhost` と書く。`session.secure_cookie` を有効にすると、
 /// Edge・Chrome は HTTP の `127.0.0.1` ではログインの Cookie を受け取らず、`localhost` だけを
@@ -383,34 +383,34 @@ mod tests {
 
     #[test]
     fn unspecified_addr_becomes_loopback() {
-        let addr: SocketAddr = "0.0.0.0:3000".parse().unwrap();
-        assert_eq!(open_addr(addr), "127.0.0.1:3000".parse().unwrap());
+        let addr: SocketAddr = "0.0.0.0:8370".parse().unwrap();
+        assert_eq!(open_addr(addr), "127.0.0.1:8370".parse().unwrap());
     }
 
     #[test]
     fn loopback_addr_is_unchanged() {
-        let addr: SocketAddr = "127.0.0.1:3000".parse().unwrap();
+        let addr: SocketAddr = "127.0.0.1:8370".parse().unwrap();
         assert_eq!(open_addr(addr), addr);
     }
 
     #[test]
     fn browser_origin_names_the_loopback_localhost() {
-        let unspecified: SocketAddr = "0.0.0.0:3000".parse().expect("アドレスを解釈できなかった");
-        assert_eq!(browser_origin(unspecified), "http://localhost:3000");
+        let unspecified: SocketAddr = "0.0.0.0:8370".parse().expect("アドレスを解釈できなかった");
+        assert_eq!(browser_origin(unspecified), "http://localhost:8370");
         let loopback: SocketAddr = "127.0.0.1:3100"
             .parse()
             .expect("アドレスを解釈できなかった");
         assert_eq!(browser_origin(loopback), "http://localhost:3100");
-        let v6: SocketAddr = "[::1]:3000".parse().expect("アドレスを解釈できなかった");
-        assert_eq!(browser_origin(v6), "http://localhost:3000");
+        let v6: SocketAddr = "[::1]:8370".parse().expect("アドレスを解釈できなかった");
+        assert_eq!(browser_origin(v6), "http://localhost:8370");
         // `localhost` では届かないループバック・LAN のアドレスはそのまま。
-        let other_loopback: SocketAddr = "127.0.0.2:3000"
+        let other_loopback: SocketAddr = "127.0.0.2:8370"
             .parse()
             .expect("アドレスを解釈できなかった");
-        assert_eq!(browser_origin(other_loopback), "http://127.0.0.2:3000");
-        let lan: SocketAddr = "192.168.1.5:3000"
+        assert_eq!(browser_origin(other_loopback), "http://127.0.0.2:8370");
+        let lan: SocketAddr = "192.168.1.5:8370"
             .parse()
             .expect("アドレスを解釈できなかった");
-        assert_eq!(browser_origin(lan), "http://192.168.1.5:3000");
+        assert_eq!(browser_origin(lan), "http://192.168.1.5:8370");
     }
 }

@@ -3,7 +3,7 @@
 // `just spec` (generate-spec.ts)・`just e2e-local` (run-e2e.ts)・`just manual-shots` (manual-shots.ts) で共有する。
 //
 // 一時 WEBLAV_HOME と空きポートで起動するので、開発用 DB にも、並行して動いている
-// 開発サーバー (:3000) にも影響しない。呼び出し側は必ず `stop()` を呼ぶこと。
+// 開発サーバー (既定のポート) にも影響しない。呼び出し側は必ず `stop()` を呼ぶこと。
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';

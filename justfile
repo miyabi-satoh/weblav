@@ -132,7 +132,7 @@ dev:
 # E2Eブラウザーテストを実行する。backendの起動方法は複数あり一つに決め打てないため、
 # 事前に起動しておくこと (`just dev-backend`等)。管理者アカウントでの
 # ログインを検証するため、そのユーザー名・パスワードを渡す (ユーザー名省略時は"admin")。
-# 例: just e2e http://127.0.0.1:3000 P@ssw0rd
+# 例: just e2e http://127.0.0.1:8370 P@ssw0rd
 # 引数は `$` 付きで環境変数として渡す。コマンド文字列に埋め込むと、Windows の cmd.exe が
 # パスワード中の `%` や `"` を解釈して値や構文が壊れるため。
 e2e $E2E_BASE_URL $E2E_ADMIN_PASSWORD $E2E_ADMIN_USER="admin":
