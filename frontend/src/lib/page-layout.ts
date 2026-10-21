@@ -6,6 +6,9 @@ import { browseGutterClass } from '$lib/list-row';
 /** 見出し (`<h1>`) の文字の大きさ。閲覧側・管理画面とも同じ大きさで置く (→ docs/ui.md「UI 全般」)。 */
 export const pageHeadingTextClass = 'text-lg font-semibold';
 
+/** 横にボタンを並べる段の見出し (`<h1>`)。長いタイトルは折り返し、ボタンの場所を残す。 */
+export const pageHeadingInRowClass = `min-w-0 flex-1 wrap-anywhere ${pageHeadingTextClass}`;
+
 /** 閲覧側の画面の見出し (`<h1>`)。管理画面の見出しの段は `adminPageHeaderClass` を使う。 */
 export const pageHeadingClass = `mb-4 ${pageHeadingTextClass}`;
 

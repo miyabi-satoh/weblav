@@ -623,13 +623,7 @@ pub(super) async fn search_items(
             .collect();
         let mut hits: Vec<ItemHit> = Vec::new();
         for (index, (archive, axes, rows, _)) in sources.iter().enumerate() {
-            let places: Vec<String> = archive
-                .ancestors
-                .iter()
-                .map(|group| group.title.as_str())
-                .chain(std::iter::once(archive.title.as_str()))
-                .map(super::search::normalize)
-                .collect();
+            let places = super::search::container_places(&archive.title, &archive.ancestors);
             let template = archive.title_template.as_deref();
             let template_axes = archive::template_placeholder_names(template);
             let no_filters = vec![None; axes.len()];
@@ -839,13 +833,14 @@ struct SetPublishedRequest {
 }
 
 /// 公開フラグの単体切り替え (→ docs/archive.md「アイテムの公開」・「エンドポイント一覧」)。
+/// DB の行を書き換えるだけなので、フォルダーのある NAS やディスクにつながらなくても切り替えられる。
 #[utoipa::path(
     put,
     path = "/contents/{id}/items/{item_id}",
     params(("id" = i64, Path), ("item_id" = i64, Path)),
     request_body = SetPublishedRequest,
     responses(
-        (status = OK, body = AdminArchiveItemResponse, description = "更新後のアイテム"),
+        (status = 204, description = "更新した"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの"),
         (status = 404, body = crate::error::ErrorResponse, description = "所属しない・存在しないアイテム"),
@@ -856,40 +851,22 @@ async fn set_published(
     State(state): State<AppState>,
     Path((id, item_id)): Path<(i64, i64)>,
     AppJson(payload): AppJson<SetPublishedRequest>,
-) -> Result<Json<AdminArchiveItemResponse>, AppError> {
-    // 書き換えた後で応答を組み立てられずに終わらないよう、書き換える前に見分ける。
-    // 鍵より前に置くのは、つながらない NAS を待つ間、ほかの書き込みを止めないため。
-    let path = archive::load_editable_archive(&state.pool, &user, id)
-        .await?
-        .path;
-    super::roots::ensure_reachable(&state, &path).await?;
+) -> Result<StatusCode, AppError> {
     // 鍵を取る理由は`bulk_set_published`と同じ。
     let _write_guard = state.contents_write_lock.lock().await;
-    let meta = archive::load_editable_archive(&state.pool, &user, id).await?;
-    // 鍵を待つ間に場所が変わっていたら、確かめていない場所を触らないよう確かめ直す。
-    if meta.path != path {
-        super::roots::ensure_reachable(&state, &meta.path).await?;
-    }
-    let axes = archive::load_axis_index(&state.pool, id).await?;
-
-    let row = sqlx::query_as!(
-        ItemRow,
-        r#"UPDATE archive_items SET published = ? WHERE id = ? AND archive_id = ?
-           RETURNING id as "id!", rel_path, published as "published: bool",
-                     created_at as "created_at!""#,
+    archive::ensure_editable_archive(&state.pool, &user, id).await?;
+    let result = sqlx::query!(
+        "UPDATE archive_items SET published = ? WHERE id = ? AND archive_id = ?",
         payload.published,
         item_id,
         id,
     )
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or(AppError::NotFound)?;
-
-    let root = PathBuf::from(&meta.path);
-    let (_, response) =
-        run_blocking(move || to_admin_response(row, &axes, meta.title_template.as_deref(), &root))
-            .await?;
-    Ok(Json(response))
+    .execute(&state.pool)
+    .await?;
+    if result.rows_affected() != 1 {
+        return Err(AppError::NotFound);
+    }
+    Ok(StatusCode::NO_CONTENT)
 }
 
 // --- 配信 ---

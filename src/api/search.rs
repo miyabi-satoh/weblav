@@ -28,6 +28,17 @@ pub(super) fn normalize(text: &str) -> String {
         .to_lowercase()
 }
 
+/// 入れているコンテンツと上のグループの名前を、場所として照らす形 (`normalize` 済み) にする。空の名前は除く。
+pub(super) fn container_places(title: &str, ancestors: &[GroupAncestor]) -> Vec<String> {
+    ancestors
+        .iter()
+        .map(|group| group.title.as_str())
+        .chain(std::iter::once(title))
+        .filter(|name| !name.is_empty())
+        .map(normalize)
+        .collect()
+}
+
 /// 照らす文字列の種類 (→ docs/search.md「一致のしかた」)。並びの順に重く、当たりの順を決める。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum FieldKind {

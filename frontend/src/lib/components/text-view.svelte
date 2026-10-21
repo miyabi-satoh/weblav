@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { highlightCode, highlightCodeBlock, isCodeFileName } from '$lib/code-highlight';
+	import { isPlainClick } from '$lib/image-viewer';
 	import type { ContentLocation } from '$lib/content-location';
 	import {
 		isMarkdownFileName,
@@ -102,8 +103,7 @@
 
 	/** 相対パスのリンクは、ページを移らずにビューアーで開く。修飾キー付きは、ブラウザーの別のタブで開く動きに任せる。 */
 	function handlePreviewClick(event: MouseEvent) {
-		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
-			return;
+		if (!isPlainClick(event)) return;
 		if (!(event.target instanceof Element)) return;
 		const path = event.target
 			.closest(`a[${LINKED_PATH_ATTRIBUTE}]`)

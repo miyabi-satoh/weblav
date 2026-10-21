@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { activeFieldClass, fieldLabelClass } from '$lib/filter-field';
 	import type { ComponentProps } from 'svelte';
 	import * as Select from '$lib/components/ui/select';
 
@@ -22,12 +23,12 @@
 	aria-label={label}
 	class={[
 		'min-w-30 gap-3 px-4 data-[size=default]:h-14',
-		highlighted && 'border-primary bg-primary/10 dark:bg-primary/10 [&_svg]:text-primary',
+		highlighted && [activeFieldClass, '[&_svg]:text-primary'],
 		className
 	]}
 >
 	<span class="flex flex-col items-start gap-px">
-		<span class="text-xs {highlighted ? 'text-primary' : 'text-muted-foreground'}">{label}</span>
+		<span class={fieldLabelClass(highlighted)}>{label}</span>
 		<span class="text-base {highlighted ? 'text-primary' : 'text-sub-foreground'}">{value}</span>
 	</span>
 </Select.Trigger>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { pageHeadingTextClass } from '$lib/page-layout';
+	import { pageHeadingInRowClass } from '$lib/page-layout';
 	import { page } from '$app/state';
 	import { isAdmin } from '$lib/auth';
 	import { resolve } from '$app/paths';
@@ -68,7 +68,7 @@
 	</a>
 	<!-- 閲覧画面へのリンクと⋮は、どのタブでも同じ所に出すので見出しの段に置く (→ docs/ui.md「UI 全般」)。 -->
 	<div class="mt-2 flex items-start gap-2">
-		<h1 class={['min-w-0 flex-1 wrap-anywhere', pageHeadingTextClass]}>{content.title}</h1>
+		<h1 class={pageHeadingInRowClass}>{content.title}</h1>
 		<div class="flex shrink-0 items-center gap-1">
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- contentViewHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
 			<Button

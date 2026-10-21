@@ -45,7 +45,6 @@
 	import ListRowDownloadLink from '$lib/components/list-row-download-link.svelte';
 	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
 	import FolderIcon from '@lucide/svelte/icons/folder';
-	import { browseLayout } from '$lib/browse-layout.svelte';
 
 	// フォルダーの一覧 (`/folders/[id]`) と検索の結果で使う、フォルダーの中のファイル・ディレクトリの行。
 	// 押したときの動きを両方で揃えるため、種類ごとの描き分けをここに集める。
@@ -167,8 +166,7 @@
 							{@render entrySubtitle(row)}
 						</span>
 						{@render trailing?.(row)}
-						<!-- タイルでは右上の隅をメニューが使う。 -->
-						{#if !(hasTrailing && browseLayout.tile)}<ListRowGlyph />{/if}
+						<ListRowGlyph />
 					</div>
 				{:else if isLinksFileName(row.entry.name)}
 					<div class={browseRowClass(true)}>
@@ -179,7 +177,7 @@
 							{@render entrySubtitle(row)}
 						</span>
 						{@render trailing?.(row)}
-						{#if !(hasTrailing && browseLayout.tile)}<ListRowGlyph />{/if}
+						<ListRowGlyph />
 					</div>
 				{:else if isAudioFileName(row.entry.name)}
 					<ListRowPlayButton track={toTrack(row)} queue={audioQueue} compact>

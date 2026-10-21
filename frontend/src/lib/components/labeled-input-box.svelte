@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { activeFieldClass, fieldLabelClass } from '$lib/filter-field';
 	import XIcon from '@lucide/svelte/icons/x';
 	import type { ClassValue } from 'svelte/elements';
 
@@ -37,12 +38,12 @@
 <div
 	class={[
 		'flex h-14 items-center gap-1 rounded-lg border border-input bg-background pr-1 pl-4 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 dark:bg-input/30',
-		active && 'border-primary bg-primary/10 dark:bg-primary/10',
+		active && activeFieldClass,
 		className
 	]}
 >
 	<label class="flex min-w-0 flex-1 flex-col gap-px">
-		<span class="text-xs {active ? 'text-primary' : 'text-muted-foreground'}">{label}</span>
+		<span class={fieldLabelClass(active)}>{label}</span>
 		<input
 			bind:this={input}
 			{id}
