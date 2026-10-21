@@ -14,7 +14,7 @@ const ABOUT_CONFIG = 'about.toml';
 
 // 条文のファイルを同梱していないので、cargo-about が SPDX のひな形 (著作権者が空欄) で埋めるクレートの版と、
 // 代わりに出す条文 (TEXTS_DIR に置いたもの)。条文は各クレートの .cargo_vcs_info.json が指す公開時のコミットから取った。
-// - objc2.txt: madsmtm/objc2 の LICENSE.md (b4167b5・8852b42・8d214f5・7b1abfd で同じ) と MIT の条文。
+// - objc2.txt: madsmtm/objc2 の LICENSE.md (b4167b5・8852b42・8d214f5・7b1abfd・d7d2fa2 で同じ) と MIT の条文。
 //   上流は MIT で提供すると書くだけで、著作権表示をどこにも掲げていないので、著作権者の行は置かない。
 // - dlopen2.txt: OpenByteDev/dlopen2 の LICENSE (cc80e4a)
 // - tower-sessions.txt: maxcountryman/tower-sessions の LICENSE (b58463d)
@@ -25,7 +25,7 @@ const ABOUT_CONFIG = 'about.toml';
 // 表に無い版が現れたら生成を止めるので、その版の条文を確かめてから版を足す。
 const OVERRIDES = {
   'block2@0.6.2': { id: 'MIT', file: 'objc2.txt' },
-  'objc2@0.6.4': { id: 'MIT', file: 'objc2.txt' },
+  'objc2@0.6.5': { id: 'MIT', file: 'objc2.txt' },
   'objc2-encode@4.1.0': { id: 'MIT', file: 'objc2.txt' },
   'objc2-foundation@0.3.2': { id: 'MIT', file: 'objc2.txt' },
   'dlopen2@0.8.2': { id: 'MIT', file: 'dlopen2.txt' },
