@@ -34,7 +34,7 @@ struct Running;
 impl Running {
     fn acquire() -> Option<Self> {
         RUNNING
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |running| {
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |running| {
                 (running < MAX_RUNNING).then_some(running + 1)
             })
             .ok()
