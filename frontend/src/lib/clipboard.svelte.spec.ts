@@ -37,9 +37,9 @@ it('ダイアログの外では、写してから押したボタンにフォー�
 	button.textContent = 'copy';
 	document.body.appendChild(button);
 
-	await clickToCopy(button, 'http://example.local:3000');
+	await clickToCopy(button, 'http://example.local:8370');
 
-	expect(copied).toEqual(['http://example.local:3000']);
+	expect(copied).toEqual(['http://example.local:8370']);
 	expect(document.activeElement).toBe(button);
 	expect(document.querySelector('textarea')).toBeNull();
 });

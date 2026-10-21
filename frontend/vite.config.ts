@@ -44,7 +44,7 @@ export default defineConfig({
 	server: {
 		// `pnpm run dev` 時、/api への呼び出しは weblav.exe の axum サーバー(固定ポート)へ委譲する。
 		proxy: {
-			'/api': 'http://127.0.0.1:3000'
+			'/api': 'http://127.0.0.1:8370'
 		}
 	},
 	test: {

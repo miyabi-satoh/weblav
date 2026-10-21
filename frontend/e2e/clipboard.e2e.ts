@@ -64,7 +64,7 @@ test('共有の QR コードの画面から、ページのアドレスをコピ�
 	try {
 		// mDNS が使えない環境でもアドレスを出すよう、ホスト名を返させる。
 		await page.route('**/api/v1/connection-info', (route) =>
-			route.fulfill({ json: { mdnsHostname: 'e2e-host.local', port: 3000 } })
+			route.fulfill({ json: { mdnsHostname: 'e2e-host.local', port: 8370 } })
 		);
 		await page.goto('/');
 		await page.getByRole('button', { name: SHARE_TRIGGER_NAME }).click();
@@ -73,7 +73,7 @@ test('共有の QR コードの画面から、ページのアドレスをコピ�
 		const copyButton = dialog.getByRole('button', { name: SHARE_COPY_BUTTON_NAME });
 		await copyButton.click();
 		await expect(copyButton).toBeFocused();
-		expect(await readClipboard(page)).toBe(`${new URL(baseURL!).protocol}//e2e-host.local:3000/`);
+		expect(await readClipboard(page)).toBe(`${new URL(baseURL!).protocol}//e2e-host.local:8370/`);
 	} finally {
 		await page.context().close();
 	}

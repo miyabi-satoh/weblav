@@ -585,17 +585,17 @@ mod tests {
         let tmp = TempDir::new("already-running-addr");
         let running = AlreadyRunning {
             addr_path: tmp.path().join("weblav.addr"),
-            configured: "0.0.0.0:3000"
+            configured: "0.0.0.0:8370"
                 .parse()
                 .expect("アドレスの書き方が正しくない"),
         };
         assert_eq!(running.addr(), None, "書かれる前は None のはず");
 
-        std::fs::write(&running.addr_path, "0.0.0.0:3001").expect("weblav.addr を書けなかった");
+        std::fs::write(&running.addr_path, "0.0.0.0:8371").expect("weblav.addr を書けなかった");
         assert_eq!(
             running.addr(),
             Some(
-                "0.0.0.0:3001"
+                "0.0.0.0:8371"
                     .parse()
                     .expect("アドレスの書き方が正しくない")
             )

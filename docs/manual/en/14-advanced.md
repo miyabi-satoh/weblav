@@ -28,7 +28,7 @@ Items you do not write use their default values.
 | Section | Item | Default | Meaning |
 |---|---|---|---|
 | `[server]` | `bind` | `"0.0.0.0"` | The address to listen on. Set it to `"127.0.0.1"` to allow connections only from the computer running WebLAV. |
-| | `port` | `3000` | The port to listen on. |
+| | `port` | `8370` | The port to listen on. |
 | `[log]` | `filter` | `"info"` | Log detail. Set to `"debug"` for more detail. |
 | | `output` | `"file"` | Where logs go. `"file"` writes files; `"stdout"` writes to the screen when starting from a terminal. |
 | `[session]` | `secret` | `""` | The key used to sign logins. It is generated automatically when blank. Usually, do not write this. |

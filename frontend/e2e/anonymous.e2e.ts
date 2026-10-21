@@ -22,7 +22,7 @@ test.use({ storageState: EMPTY_STORAGE_STATE });
  * 既定のバックエンドの URL を添える。
  */
 function localeCookie(name: string, value: string, baseURL: string | undefined) {
-	return { name, value, url: baseURL ?? 'http://127.0.0.1:3000' };
+	return { name, value, url: baseURL ?? 'http://127.0.0.1:8370' };
 }
 
 test('ログインページにユーザー名・パスワード入力欄がある', async ({ page }) => {

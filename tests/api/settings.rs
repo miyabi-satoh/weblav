@@ -79,7 +79,7 @@ async fn admin_can_save_server_settings_to_config_file(pool: SqlitePool) {
     std::fs::write(&config_path, "# 手で書いた\n[log]\nfilter = \"debug\"\n")
         .expect("config.toml を作れなかった");
     let cookie = admin_cookie(app.clone(), &pool).await;
-    let defaults = r#"{"port":3000,"uploadMaxSizeMb":100,"sessionExpiryDays":14}"#;
+    let defaults = r#"{"port":8370,"uploadMaxSizeMb":100,"sessionExpiryDays":14}"#;
 
     let (status, body) = send_empty(app.clone(), "GET", ADMIN_SERVER_SETTINGS_URI, &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -190,7 +190,7 @@ async fn server_settings_reject_out_of_range_values(pool: SqlitePool) {
         "PUT",
         ADMIN_SERVER_SETTINGS_URI,
         &cookie,
-        r#"{"port":3000,"uploadMaxSizeMb":100,"sessionExpiryDays":0}"#,
+        r#"{"port":8370,"uploadMaxSizeMb":100,"sessionExpiryDays":0}"#,
     )
     .await;
     assert_error(

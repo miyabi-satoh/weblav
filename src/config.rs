@@ -204,7 +204,8 @@ impl Default for ServerConfig {
         Self {
             // 理由は `config.example.toml` の bind コメント参照
             bind: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-            port: 3000,
+            // 理由は `config.example.toml` の port コメント参照
+            port: 8370,
         }
     }
 }
@@ -360,7 +361,7 @@ mod tests {
         let text = include_str!("../config.example.toml");
         let config: Config = toml::from_str(text).expect("config.example.toml should parse");
         assert_eq!(config.server.bind, IpAddr::V4(Ipv4Addr::UNSPECIFIED));
-        assert_eq!(config.server.port, 3000);
+        assert_eq!(config.server.port, 8370);
         assert_eq!(config.log.filter, "info");
         assert_eq!(config.log.output, LogOutput::File);
         assert_eq!(config.session.secret, "");
@@ -372,7 +373,7 @@ mod tests {
     #[test]
     fn empty_input_uses_defaults() {
         let config: Config = toml::from_str("").expect("empty input should use defaults");
-        assert_eq!(config.server.socket_addr().port(), 3000);
+        assert_eq!(config.server.socket_addr().port(), 8370);
         assert_eq!(config.log.output, LogOutput::File);
     }
 
@@ -398,7 +399,7 @@ mod tests {
     #[test]
     fn missing_file_falls_back_to_default() {
         let config = Config::load_from(Path::new("does/not/exist/config.toml")).unwrap();
-        assert_eq!(config.server.port, 3000);
+        assert_eq!(config.server.port, 8370);
     }
 
     #[test]

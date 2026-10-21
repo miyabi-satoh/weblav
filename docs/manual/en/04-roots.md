@@ -9,12 +9,12 @@ Folders inside it appear only after you register them as “Folder” or “Arch
 > **You can add folders only on the computer running WebLAV, when it is open at a `localhost` address.**
 >
 > - The “Add a folder...” button does not appear when you open the admin pages from a phone or another computer.
-> - It also does not appear on the same computer when you use the QR code address, such as `http://my-pc.local:3000`.
+> - It also does not appear on the same computer when you use the QR code address, such as `http://my-pc.local:8370`.
 > - You can rename and remove folders from the admin pages on any device.
 
 ## Open it
 
-1. On the computer running WebLAV, choose “Open in browser” from the WebLAV icon in the task tray (menu bar on macOS, top right of the screen on Ubuntu). This opens `http://localhost:3000`.
+1. On the computer running WebLAV, choose “Open in browser” from the WebLAV icon in the task tray (menu bar on macOS, top right of the screen on Ubuntu). This opens `http://localhost:8370`.
 
    ![WebLAV icon menu in the task tray on Windows](images/quickstart-tray-menu.webp)
 
