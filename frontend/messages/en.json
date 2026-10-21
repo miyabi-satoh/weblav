@@ -783,7 +783,7 @@
 	"group_ai_links_hide_page": "Don't show this page",
 	"group_ai_links_hide_site": "Don't show pages from “{site}”",
 	"contents_hidden_row": "“{title}” is now hidden.",
-	"group_ai_links_hidden_site": "Pages from “{site}” won't be shown.",
+	"group_ai_links_hidden_site": "Pages from “{site}” are now hidden.",
 	"action_undo": "Undo",
 	"link_detail_more_button": "More actions",
 	"contents_ai_links_no_new_toast": "No new links were found for “{title}”.",
