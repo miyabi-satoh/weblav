@@ -1162,7 +1162,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** 公開フラグの単体切り替え (→ docs/archive.md「アイテムの公開」・「エンドポイント一覧」)。 */
+        /**
+         * 公開フラグの単体切り替え (→ docs/archive.md「アイテムの公開」・「エンドポイント一覧」)。
+         *     DB の行を書き換えるだけなので、フォルダーのある NAS やディスクにつながらなくても切り替えられる。
+         */
         put: operations["set_published"];
         post?: never;
         delete?: never;
@@ -6703,14 +6706,12 @@ export interface operations {
             };
         };
         responses: {
-            /** @description 更新後のアイテム */
-            200: {
+            /** @description 更新した */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["AdminArchiveItemResponse"];
-                };
+                content?: never;
             };
             /** @description 未ログイン */
             401: {

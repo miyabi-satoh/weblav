@@ -82,7 +82,7 @@
 	let canPin = $derived(aiLinks.canPin);
 	let canHide = $derived(aiLinks.canEdit);
 
-	let busy = false;
+	let busy = $state(false);
 	const errorDialog = new ErrorDialogState();
 
 	async function pin(link: AiLink) {
@@ -299,6 +299,7 @@
 							message={hiddenEntry.kind === 'page'
 								? m.contents_hidden_row({ title: hiddenEntry.label })
 								: m.group_ai_links_hidden_site({ site: hiddenEntry.label })}
+							{busy}
 							onundo={() => void undo(hiddenEntry)}
 						/>
 					</li>

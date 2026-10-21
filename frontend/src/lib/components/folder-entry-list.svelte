@@ -167,8 +167,7 @@
 							{@render entrySubtitle(row)}
 						</span>
 						{@render trailing?.(row)}
-						<!-- タイルでは右上の隅をメニューが使う。 -->
-						{#if !(hasTrailing && browseLayout.tile)}<ListRowGlyph />{/if}
+						<ListRowGlyph />
 					</div>
 				{:else if isLinksFileName(row.entry.name)}
 					<div class={browseRowClass(true)}>
@@ -179,7 +178,7 @@
 							{@render entrySubtitle(row)}
 						</span>
 						{@render trailing?.(row)}
-						{#if !(hasTrailing && browseLayout.tile)}<ListRowGlyph />{/if}
+						<ListRowGlyph />
 					</div>
 				{:else if isAudioFileName(row.entry.name)}
 					<ListRowPlayButton track={toTrack(row)} queue={audioQueue} compact>

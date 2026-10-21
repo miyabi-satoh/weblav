@@ -3,7 +3,6 @@
 	import { resolve } from '$app/paths';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import { client } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import {
 		archiveItemManageDownloadHref,
 		archiveItemManageThumbnailHref,
@@ -126,18 +125,15 @@
 		if (anyBusy) return;
 		savingIds = [...savingIds, itemId];
 		try {
-			const { error, response } = await client.PUT('/api/v1/contents/{id}/items/{item_id}', {
-				params: { path: { id: contentId, item_id: itemId } },
-				body: { published }
-			});
-			if (!response.ok) {
-				errorDialog.show(errorMessage(error));
-				return;
-			}
 			// 見出しの件数も変わるので、一覧ごと取り直す。
-			await invalidateAll();
-		} catch {
-			errorDialog.show(GENERIC_ERROR_MESSAGE());
+			await errorDialog.attempt(
+				() =>
+					client.PUT('/api/v1/contents/{id}/items/{item_id}', {
+						params: { path: { id: contentId, item_id: itemId } },
+						body: { published }
+					}),
+				() => invalidateAll()
+			);
 		} finally {
 			savingIds = savingIds.filter((id) => id !== itemId);
 		}
@@ -148,18 +144,17 @@
 		bulkTarget = published;
 		const itemIds = [...selectedIds];
 		try {
-			const { error, response } = await client.PUT('/api/v1/contents/{id}/items', {
-				params: { path: { id: contentId } },
-				body: { itemIds, published }
-			});
-			if (!response.ok) {
-				errorDialog.show(errorMessage(error));
-				return;
-			}
-			selectedIds = [];
-			await invalidateAll();
-		} catch {
-			errorDialog.show(GENERIC_ERROR_MESSAGE());
+			await errorDialog.attempt(
+				() =>
+					client.PUT('/api/v1/contents/{id}/items', {
+						params: { path: { id: contentId } },
+						body: { itemIds, published }
+					}),
+				async () => {
+					selectedIds = [];
+					await invalidateAll();
+				}
+			);
 		} finally {
 			bulkTarget = null;
 		}
@@ -202,8 +197,9 @@
 	{#if editable}
 		<Checkbox
 			class={cornerClass}
-			checked={selectedIds.includes(row.item.id)}
-			onCheckedChange={(checked) => toggleSelect(row.item.id, checked)}
+			bind:checked={
+				() => selectedIds.includes(row.item.id), (checked) => toggleSelect(row.item.id, checked)
+			}
 			disabled={anyBusy}
 			aria-label={m.archive_items_select_row_label({ path: row.item.relPath })}
 		/>
@@ -215,8 +211,7 @@
 	{#if item}
 		<Switch
 			class={switchClass}
-			checked={item.published}
-			onCheckedChange={(checked) => setPublished(item.id, checked)}
+			bind:checked={() => item.published, (checked) => setPublished(item.id, checked)}
 			disabled={anyBusy || !editable}
 			aria-label={m.archive_items_publish_row_label({ path: item.relPath })}
 		/>
@@ -299,9 +294,8 @@
 			<div class="flex items-center gap-2 text-sm">
 				<Checkbox
 					id="select-all-items"
-					checked={allSelected}
+					bind:checked={() => allSelected, toggleSelectAll}
 					indeterminate={selectedIds.length > 0 && !allSelected}
-					onCheckedChange={toggleSelectAll}
 					disabled={anyBusy}
 					aria-label={m.archive_items_select_all_label()}
 				/>

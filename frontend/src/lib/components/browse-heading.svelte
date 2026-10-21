@@ -4,7 +4,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import { headerIconActionClass } from '$lib/header-action';
 	import { cn } from '$lib/utils';
-	import { pageHeadingTextClass } from '$lib/page-layout';
+	import { pageHeadingInRowClass } from '$lib/page-layout';
 
 	// 閲覧の画面の見出し。書き換えられる人には、右端に編集ページへのペンを出す (→ docs/ui.md「UI 全般」)。
 
@@ -22,7 +22,7 @@
 </script>
 
 <div class="mb-4 flex items-start gap-2">
-	<h1 class={['min-w-0 flex-1 wrap-anywhere', pageHeadingTextClass]}>{heading}</h1>
+	<h1 class={pageHeadingInRowClass}>{heading}</h1>
 	{#if canEdit}
 		<!-- 見出しの行の高さを変えないよう上下を打ち消し、アイコンの右の端を余白の線に揃える。 -->
 		<a

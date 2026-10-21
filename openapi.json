@@ -4448,7 +4448,7 @@
     },
     "/api/v1/contents/{id}/items/{item_id}": {
       "put": {
-        "summary": "公開フラグの単体切り替え (→ docs/archive.md「アイテムの公開」・「エンドポイント一覧」)。",
+        "summary": "公開フラグの単体切り替え (→ docs/archive.md「アイテムの公開」・「エンドポイント一覧」)。\nDB の行を書き換えるだけなので、フォルダーのある NAS やディスクにつながらなくても切り替えられる。",
         "operationId": "set_published",
         "parameters": [
           {
@@ -4481,15 +4481,8 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "更新後のアイテム",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminArchiveItemResponse"
-                }
-              }
-            }
+          "204": {
+            "description": "更新した"
           },
           "401": {
             "description": "未ログイン",

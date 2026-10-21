@@ -13,7 +13,7 @@ use super::contents::{self, FolderEntry, GroupAncestor};
 use super::link_preview::{self, LinkPreview};
 use super::links_file;
 use super::roots::OwnDirs;
-use super::search::{FieldKind, RESULT_LIMIT, Score, Terms, normalize};
+use super::search::{FieldKind, RESULT_LIMIT, Score, Terms, container_places, normalize};
 use super::sort::title_cmp;
 use crate::auth::Viewer;
 use crate::error::{AppError, run_blocking};
@@ -422,17 +422,6 @@ async fn search_links(
     let truncated = hits.len() > RESULT_LIMIT;
     hits.truncate(RESULT_LIMIT);
     Ok((hits.into_iter().map(|(_, _, hit)| hit).collect(), truncated))
-}
-
-/// 入れているコンテンツと上のグループの名前を、場所として照らす形 (`normalize` 済み) にする。空の名前は除く。
-fn container_places(title: &str, ancestors: &[GroupAncestor]) -> Vec<String> {
-    ancestors
-        .iter()
-        .map(|group| group.title.as_str())
-        .chain(std::iter::once(title))
-        .filter(|name| !name.is_empty())
-        .map(normalize)
-        .collect()
 }
 
 /// 画面のカードと同じ題。覚えているページのタイトル、無ければ、開き方の決まるファイルならファイル名、ほかはホスト名。
