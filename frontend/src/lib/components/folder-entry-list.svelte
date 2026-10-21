@@ -45,7 +45,6 @@
 	import ListRowDownloadLink from '$lib/components/list-row-download-link.svelte';
 	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
 	import FolderIcon from '@lucide/svelte/icons/folder';
-	import { browseLayout } from '$lib/browse-layout.svelte';
 
 	// フォルダーの一覧 (`/folders/[id]`) と検索の結果で使う、フォルダーの中のファイル・ディレクトリの行。
 	// 押したときの動きを両方で揃えるため、種類ごとの描き分けをここに集める。
