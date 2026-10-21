@@ -21,7 +21,7 @@ Check these in order.
 
 ## The port number changed
 
-This applies when the menu says “Port 8370 was unavailable; running on 8371”.
+This applies when the menu says something like “Port 8370 was unavailable; running on 8371”.
 Open the current address. To see it, select the share icon at the top right, then choose “Show QR code...”.
 
 If it changes often, change the port.
@@ -30,7 +30,7 @@ If it changes often, change the port.
 
    ![The Site settings tab](images/settings-page.webp)
 
-2. Set “Port” to a different number, such as 3100, then select “Save”.
+2. Set “Port” to a different number, such as 8390, then select “Save”.
 
    ![The Port section in Site settings](images/settings-port.webp)
 

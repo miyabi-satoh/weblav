@@ -52,7 +52,8 @@ const ADMIN_SHOTS = [
 	'roots-delete',
 	'axis-row-actions',
 	'archive-items-tab',
-	'archive-items-publish'
+	'archive-items-publish',
+	'share-qr'
 ];
 const DIAGRAM_SHOTS = ['how-it-works'];
 const ALL_SHOTS = [...ADMIN_SHOTS, ...DIAGRAM_SHOTS];
@@ -368,7 +369,7 @@ async function shootAdmin() {
 			if (want('settings-port')) {
 				// 保存はしない。変えた項目に付く印と、戻すボタンも写す。
 				const port = page.getByRole('textbox', { name: 'ポート' });
-				await port.fill('3100');
+				await port.fill('8390');
 				await port.blur();
 				await shotSection(
 					page,
@@ -531,6 +532,18 @@ async function shootAdmin() {
 				padTop: 16,
 				padBottom: 8
 			});
+		}
+
+		if (want('share-qr')) {
+			// 使い捨ての backend は 127.0.0.1 で待ち受けるので、そのままだと QR コードでなく
+			// 「他の端末からはつながりません」の案内になる。他の端末から開ける設置と同じ答えを返させる。
+			await page.route('**/api/v1/connection-info', (route) =>
+				route.fulfill({ json: { mdnsHostname: 'my-pc.local', port: 8370 } })
+			);
+			await goto(page, '/');
+			await page.getByRole('button', { name: 'このページを共有' }).click();
+			await page.getByRole('menuitem', { name: 'QR コードを表示...' }).click();
+			await shotElement(page, 'share-qr', dialog(page));
 		}
 	} finally {
 		await closePagesAndStop(backend);
