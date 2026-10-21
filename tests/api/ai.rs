@@ -652,7 +652,7 @@ async fn backup_does_not_contain_the_app_token(pool: SqlitePool) {
         zip::ZipArchive::new(std::io::Cursor::new(bytes.to_vec())).expect("zip として読めなかった");
     for index in 0..zip.len() {
         let mut entry = zip.by_index(index).expect("zip の中身を読めなかった");
-        let name = entry.name().to_string();
+        let name = entry.name().expect("ZIP のエントリ名を読む").into_owned();
         assert!(
             name == "manifest.json" || name == "weblav.db" || name.starts_with("blobs/"),
             "バックアップに想定外のファイルがある: {name}"
