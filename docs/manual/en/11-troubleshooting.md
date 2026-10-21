@@ -35,7 +35,7 @@ If it changes often, change the port.
    ![The Port section in Site settings](images/settings-port.webp)
 
 3. Restart WebLAV.
-4. On other devices, open the new address from the shared QR code (on Ubuntu with ufw, also enter `sudo ufw allow <new number>/tcp`).
+4. On other devices, open the new address from the shared QR code (on Ubuntu with ufw, also allow the new number, for example with `sudo ufw allow 8390/tcp`).
 
 ## It stops opening after a while
 

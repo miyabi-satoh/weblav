@@ -35,7 +35,7 @@
    ![サイト設定のポートの欄](images/settings-port.webp)
 
 3. WebLAV を起動し直す
-4. ほかの端末では、共有の QR コードから新しいアドレスを開き直す (Ubuntu で ufw を使っているときは、`sudo ufw allow <新しい番号>/tcp` と打つ)
+4. ほかの端末では、共有の QR コードから新しいアドレスを開き直す (Ubuntu で ufw を使っているときは、新しい番号で `sudo ufw allow 8390/tcp` のように打つ)
 
 ## しばらくすると開けなくなる
 
