@@ -3,8 +3,8 @@ name = "weblav"
 version = "1.0.0"
 description = "Web-based Local Access Viewer"
 edition = "2024"
-# tray-icon 0.26 (と muda 0.21) が Rust 1.90 を要する。
-rust-version = "1.90"
+# Atomic の try_update (Windows の縮小画像) が Rust 1.95 を要する (tray-icon 0.26 と muda 0.21 は 1.90)。
+rust-version = "1.95"
 # crates.io には出さない。cargo-about の `private.ignore` もこれを見て、ライセンス表示から weblav 自身を外す。
 publish = false
 # CLI は src/bin/weblav-cli.rs、サーバーだけを動かす exe は src/bin/weblav-service.rs に分けてある
