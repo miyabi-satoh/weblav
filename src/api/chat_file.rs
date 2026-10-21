@@ -193,12 +193,14 @@ fn numbered_parts(zip: &ZipArchive<Cursor<&[u8]>>, prefix: &str) -> Vec<(u32, St
     let mut parts: Vec<(u32, String)> = zip
         .file_names()
         .filter_map(|name| {
+            // 名前を読めないものは、番号の付いた XML ではない。
+            let name = name.ok()?;
             let number = name
                 .strip_prefix(prefix)?
                 .strip_suffix(".xml")?
                 .parse()
                 .ok()?;
-            Some((number, name.to_string()))
+            Some((number, name.into_owned()))
         })
         .collect();
     parts.sort_unstable();

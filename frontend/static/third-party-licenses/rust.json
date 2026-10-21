@@ -273,6 +273,11 @@
 		{
 			"id": "MIT",
 			"name": "MIT License",
+			"text": "The MIT License (MIT)\n\nCopyright (c) 2015 Carl Lerche + nix-rust Authors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in\nall copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\nTHE SOFTWARE.\n"
+		},
+		{
+			"id": "MIT",
+			"name": "MIT License",
 			"text": "The MIT License (MIT)\r\n\r\nCopyright (c) 2014 Benjamin Sago\r\nCopyright (c) 2021-2022 The Nushell Project Developers\r\n\r\nPermission is hereby granted, free of charge, to any person obtaining a copy\r\nof this software and associated documentation files (the \"Software\"), to deal\r\nin the Software without restriction, including without limitation the rights\r\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\r\ncopies of the Software, and to permit persons to whom the Software is\r\nfurnished to do so, subject to the following conditions:\r\n\r\nThe above copyright notice and this permission notice shall be included in all\r\ncopies or substantial portions of the Software.\r\n\r\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\r\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\r\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\r\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\r\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\r\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\r\nSOFTWARE.\r\n"
 		},
 		{
@@ -1086,7 +1091,7 @@
 		{
 			"name": "encoding_rs",
 			"versions": [
-				"0.8.41"
+				"0.8.42"
 			],
 			"license": "(Apache-2.0 OR MIT) AND BSD-3-Clause",
 			"repository": "https://github.com/hsivonen/encoding_rs",
@@ -2082,17 +2087,6 @@
 			]
 		},
 		{
-			"name": "multiversion",
-			"versions": [
-				"0.9.0"
-			],
-			"license": "MIT OR Apache-2.0",
-			"repository": "https://github.com/calebzulawski/multiversion",
-			"texts": [
-				12
-			]
-		},
-		{
 			"name": "native-tls",
 			"versions": [
 				"0.2.18"
@@ -2104,6 +2098,17 @@
 			]
 		},
 		{
+			"name": "nix",
+			"versions": [
+				"0.31.3"
+			],
+			"license": "MIT",
+			"repository": "https://github.com/nix-rust/nix",
+			"texts": [
+				54
+			]
+		},
+		{
 			"name": "nu-ansi-term",
 			"versions": [
 				"0.50.3"
@@ -2111,7 +2116,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/nushell/nu-ansi-term",
 			"texts": [
-				54
+				55
 			]
 		},
 		{
@@ -2139,7 +2144,7 @@
 		{
 			"name": "objc2",
 			"versions": [
-				"0.6.4"
+				"0.6.5"
 			],
 			"license": "MIT",
 			"repository": "https://github.com/madsmtm/objc2",
@@ -2265,7 +2270,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/Byron/open-rs",
 			"texts": [
-				55
+				56
 			]
 		},
 		{
@@ -2298,7 +2303,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/rust-openssl/rust-openssl",
 			"texts": [
-				56
+				57
 			]
 		},
 		{
@@ -2309,7 +2314,7 @@
 			"license": "MPL-2.0",
 			"repository": "https://github.com/soc/option-ext",
 			"texts": [
-				57
+				58
 			]
 		},
 		{
@@ -2463,7 +2468,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/jhpratt/powerfmt",
 			"texts": [
-				58
+				59
 			]
 		},
 		{
@@ -2474,7 +2479,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/cryptocorrosion/cryptocorrosion",
 			"texts": [
-				59
+				60
 			]
 		},
 		{
@@ -2507,7 +2512,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tafia/quick-xml",
 			"texts": [
-				60
+				61
 			]
 		},
 		{
@@ -2540,7 +2545,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/rust-random/rand",
 			"texts": [
-				61
+				62
 			]
 		},
 		{
@@ -2584,8 +2589,8 @@
 			"license": "MIT",
 			"repository": "https://github.com/PolyMeilex/rfd",
 			"texts": [
-				62,
-				63
+				63,
+				64
 			]
 		},
 		{
@@ -2596,7 +2601,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/3Hren/msgpack-rust",
 			"texts": [
-				64
+				65
 			]
 		},
 		{
@@ -2607,7 +2612,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/3Hren/msgpack-rust",
 			"texts": [
-				64
+				65
 			]
 		},
 		{
@@ -2635,23 +2640,23 @@
 		{
 			"name": "rust-embed",
 			"versions": [
-				"8.12.0"
+				"8.13.0"
 			],
 			"license": "MIT",
 			"repository": "https://pyrossh.dev/repos/rust-embed",
 			"texts": [
-				65
+				66
 			]
 		},
 		{
 			"name": "rust-embed-utils",
 			"versions": [
-				"8.12.0"
+				"8.13.0"
 			],
 			"license": "MIT",
 			"repository": "https://pyrossh.dev/repos/rust-embed",
 			"texts": [
-				65
+				66
 			]
 		},
 		{
@@ -2674,7 +2679,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/rustls/pki-types",
 			"texts": [
-				66
+				67
 			]
 		},
 		{
@@ -2696,7 +2701,7 @@
 			"license": "Unlicense OR MIT",
 			"repository": "https://github.com/BurntSushi/same-file",
 			"texts": [
-				67
+				68
 			]
 		},
 		{
@@ -2707,7 +2712,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/steffengy/schannel-rs",
 			"texts": [
-				68
+				69
 			]
 		},
 		{
@@ -2779,7 +2784,7 @@
 		{
 			"name": "serde_json",
 			"versions": [
-				"1.0.151"
+				"1.0.154"
 			],
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/serde-rs/json",
@@ -2824,7 +2829,7 @@
 			"name": "sha2",
 			"versions": [
 				"0.10.9",
-				"0.11.0"
+				"0.11.1"
 			],
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/RustCrypto/hashes",
@@ -2840,7 +2845,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/hawkw/sharded-slab",
 			"texts": [
-				69
+				70
 			]
 		},
 		{
@@ -2862,7 +2867,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/mcountryman/simd-adler32",
 			"texts": [
-				70
+				71
 			]
 		},
 		{
@@ -2884,7 +2889,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/slab",
 			"texts": [
-				71
+				72
 			]
 		},
 		{
@@ -2917,7 +2922,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/mvdnes/spin-rs",
 			"texts": [
-				72
+				73
 			]
 		},
 		{
@@ -2928,7 +2933,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/launchbadge/sqlx",
 			"texts": [
-				73
+				74
 			]
 		},
 		{
@@ -2939,7 +2944,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/launchbadge/sqlx",
 			"texts": [
-				73
+				74
 			]
 		},
 		{
@@ -2950,7 +2955,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/launchbadge/sqlx",
 			"texts": [
-				73
+				74
 			]
 		},
 		{
@@ -2972,7 +2977,7 @@
 			"license": "BSD-3-Clause",
 			"repository": "https://github.com/dalek-cryptography/subtle",
 			"texts": [
-				74
+				75
 			]
 		},
 		{
@@ -3078,12 +3083,12 @@
 		{
 			"name": "tokio",
 			"versions": [
-				"1.53.1"
+				"1.53.3"
 			],
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tokio",
 			"texts": [
-				75
+				76
 			]
 		},
 		{
@@ -3094,18 +3099,18 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tokio",
 			"texts": [
-				75
+				76
 			]
 		},
 		{
 			"name": "tokio-util",
 			"versions": [
-				"0.7.19"
+				"0.7.20"
 			],
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tokio",
 			"texts": [
-				75
+				76
 			]
 		},
 		{
@@ -3171,7 +3176,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tower-rs/tower",
 			"texts": [
-				76
+				77
 			]
 		},
 		{
@@ -3182,7 +3187,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/imbolc/tower-cookies",
 			"texts": [
-				77
+				78
 			]
 		},
 		{
@@ -3193,7 +3198,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tower-rs/tower-http",
 			"texts": [
-				78
+				79
 			]
 		},
 		{
@@ -3204,7 +3209,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tower-rs/tower",
 			"texts": [
-				76
+				77
 			]
 		},
 		{
@@ -3215,7 +3220,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tower-rs/tower",
 			"texts": [
-				76
+				77
 			]
 		},
 		{
@@ -3226,7 +3231,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/maxcountryman/tower-sessions",
 			"texts": [
-				79
+				80
 			]
 		},
 		{
@@ -3237,7 +3242,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/maxcountryman/tower-sessions",
 			"texts": [
-				79
+				80
 			]
 		},
 		{
@@ -3248,7 +3253,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/maxcountryman/tower-sessions-stores",
 			"texts": [
-				80
+				81
 			]
 		},
 		{
@@ -3259,7 +3264,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tracing",
 			"texts": [
-				81
+				82
 			]
 		},
 		{
@@ -3270,7 +3275,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tracing",
 			"texts": [
-				81
+				82
 			]
 		},
 		{
@@ -3281,8 +3286,8 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tracing",
 			"texts": [
-				81,
-				82
+				82,
+				83
 			]
 		},
 		{
@@ -3293,7 +3298,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tracing",
 			"texts": [
-				81
+				82
 			]
 		},
 		{
@@ -3304,13 +3309,13 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tracing",
 			"texts": [
-				81
+				82
 			]
 		},
 		{
 			"name": "tray-icon",
 			"versions": [
-				"0.26.0"
+				"0.26.1"
 			],
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/tauri-apps/tray-icon",
@@ -3337,7 +3342,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/paholg/typenum",
 			"texts": [
-				83
+				84
 			]
 		},
 		{
@@ -3370,7 +3375,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/algesten/ureq",
 			"texts": [
-				84
+				85
 			]
 		},
 		{
@@ -3425,7 +3430,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/juhaku/utoipa",
 			"texts": [
-				85
+				86
 			]
 		},
 		{
@@ -3436,7 +3441,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/juhaku/utoipa",
 			"texts": [
-				85
+				86
 			]
 		},
 		{
@@ -3458,7 +3463,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/smithay/wayland-rs",
 			"texts": [
-				86
+				87
 			]
 		},
 		{
@@ -3469,7 +3474,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/smithay/wayland-rs",
 			"texts": [
-				86
+				87
 			]
 		},
 		{
@@ -3480,8 +3485,8 @@
 			"license": "MIT",
 			"repository": "https://github.com/smithay/wayland-rs",
 			"texts": [
-				86,
-				87
+				87,
+				88
 			]
 		},
 		{
@@ -3492,7 +3497,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/smithay/wayland-rs",
 			"texts": [
-				86
+				87
 			]
 		},
 		{
@@ -3503,7 +3508,7 @@
 			"license": "CDLA-Permissive-2.0",
 			"repository": "https://github.com/rustls/webpki-roots",
 			"texts": [
-				88
+				89
 			]
 		},
 		{
@@ -3525,7 +3530,7 @@
 			"license": "Unlicense OR MIT",
 			"repository": "https://github.com/BurntSushi/winapi-util",
 			"texts": [
-				67
+				68
 			]
 		},
 		{
@@ -3536,7 +3541,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				89
+				90
 			]
 		},
 		{
@@ -3547,7 +3552,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				89
+				90
 			]
 		},
 		{
@@ -3558,7 +3563,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				89
+				90
 			]
 		},
 		{
@@ -3569,7 +3574,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				89
+				90
 			]
 		},
 		{
@@ -3580,7 +3585,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				89
+				90
 			]
 		},
 		{
@@ -3591,7 +3596,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				89
+				90
 			]
 		},
 		{
@@ -3602,7 +3607,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				89
+				90
 			]
 		},
 		{
@@ -3613,7 +3618,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				89
+				90
 			]
 		},
 		{
@@ -3624,7 +3629,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				89
+				90
 			]
 		},
 		{
@@ -3635,7 +3640,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				89
+				90
 			]
 		},
 		{
@@ -3646,7 +3651,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				89
+				90
 			]
 		},
 		{
@@ -3657,7 +3662,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/winnow-rs/winnow",
 			"texts": [
-				90
+				91
 			]
 		},
 		{
@@ -3679,7 +3684,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/AltF02/x11-rs",
 			"texts": [
-				91
+				92
 			]
 		},
 		{
@@ -3690,7 +3695,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/AltF02/x11-rs",
 			"texts": [
-				91
+				92
 			]
 		},
 		{
@@ -3712,7 +3717,7 @@
 			"license": "BSD-2-Clause OR Apache-2.0 OR MIT",
 			"repository": "https://github.com/google/zerocopy",
 			"texts": [
-				92
+				93
 			]
 		},
 		{
@@ -3762,12 +3767,12 @@
 		{
 			"name": "zip",
 			"versions": [
-				"8.6.0"
+				"9.0.5"
 			],
 			"license": "MIT",
 			"repository": "https://github.com/zip-rs/zip2",
 			"texts": [
-				82
+				83
 			]
 		},
 		{
@@ -3778,7 +3783,7 @@
 			"license": "Zlib",
 			"repository": "https://github.com/trifectatechfoundation/zlib-rs",
 			"texts": [
-				93
+				94
 			]
 		},
 		{
@@ -3789,7 +3794,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/dtolnay/zmij",
 			"texts": [
-				91
+				92
 			]
 		},
 		{
@@ -3800,7 +3805,7 @@
 			"license": "MIT OR Apache-2.0 OR Zlib",
 			"repository": "https://github.com/etemesi254/zune-image",
 			"texts": [
-				84
+				85
 			]
 		},
 		{
@@ -3811,7 +3816,7 @@
 			"license": "MIT OR Apache-2.0 OR Zlib",
 			"repository": "https://github.com/etemesi254/zune-image/tree/dev/crates/zune-jpeg",
 			"texts": [
-				84
+				85
 			]
 		}
 	]

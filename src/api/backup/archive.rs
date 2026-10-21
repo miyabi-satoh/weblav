@@ -327,7 +327,7 @@ fn extract(zip_path: &Path, db_out: &Path, blobs_dir: &Path) -> Result<(), ReadE
     let mut has_db = false;
     for index in 0..archive.len() {
         let mut entry = archive.by_index(index).map_err(zip_read_error)?;
-        let name = entry.name().to_owned();
+        let name = entry.name().map_err(zip_read_error)?.into_owned();
         if name == DB_ENTRY {
             // 2つ目があるのは、このアプリが作ったものではない。
             if has_db {
