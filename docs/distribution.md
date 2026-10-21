@@ -34,6 +34,8 @@ Windows 版の配布物を作る手段。
 - macOS は `just bundle-mac` で `target/release/bundle/WebLAV.app` を作る (`scripts/bundle-mac.mjs`、`installer/macos/Info.plist`)。
   証明書なしの署名 (ad-hoc) だけで、公証はしていない。
   `just install-mac` は、それを `/Applications` に入れ直して起動し直す。
+- Linux はまだ配っていない (.deb は作っていない)。手元で常用するときは `just install-linux` で、release の `weblav` を `~/.local/bin` に入れ、ランチャーの項目 (`~/.local/share/applications/weblav.desktop`) とアイコンを置いて起動し直す。
+  データは `~/.local/share/weblav` (`ProjectDirs`)。
 
 ## バージョン・アイコンの埋め込み
 
