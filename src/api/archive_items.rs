@@ -283,7 +283,7 @@ async fn view_archive(
         let (axes, items) = build_archive_view(&axes, rows, template.as_deref(), &filters, order);
         let items = items
             .into_iter()
-            .map(|(rel_path, item)| with_preview(&root, &rel_path, previews[&item.id], item))
+            .map(|(_, item)| with_preview(previews[&item.id], item))
             .collect::<Vec<_>>();
         (axes, items, folder_missing)
     })
@@ -360,8 +360,8 @@ async fn manage_view_archive(
         let (axes, items) = build_archive_view(&axes, rows, template.as_deref(), &filters, order);
         let items = items
             .into_iter()
-            .map(|(rel_path, item)| {
-                let item = with_preview(&root, &rel_path, previews[&item.id], item);
+            .map(|(_, item)| {
+                let item = with_preview(previews[&item.id], item);
                 ManageArchiveViewItem {
                     published: published[&item.id],
                     item,
@@ -379,38 +379,19 @@ async fn manage_view_archive(
     }))
 }
 
-/// アイテムの実体の情報。消えている・読めないものは `None`。ファイルを読むので、非同期のワーカーの外で呼ぶ。
-///
-/// 中身は渡さないので、アイテムごとに配信と同じ `resolve_path` は通さない。
-/// 索引はリンクでないファイルだけを拾う (→ docs/archive.md「スキャン」) が、索引の後に
-/// リンクへ差し替えられたものは辿らない。
-fn item_metadata(root: &std::path::Path, rel_path: &str) -> Option<std::fs::Metadata> {
-    std::fs::symlink_metadata(root.join(rel_path))
-        .ok()
-        .filter(|metadata| metadata.is_file())
-}
-
 /// 登録先のフォルダーごと無いか。読めないだけのものは含めない。ファイルシステムを見るので、非同期のワーカーの外で呼ぶ。
 pub(super) fn folder_missing(path: &std::path::Path) -> bool {
     std::fs::metadata(path).is_err_and(|err| err.kind() == std::io::ErrorKind::NotFound)
 }
 
 /// 行にプレビューの情報を足す。スキャンで読んで残した値を使い、ファイルは開かない (→ docs/archive.md「スキャン」)。
-/// まだ読んでいない行 (この仕組みより前に索引したもの) だけ、次のスキャンまでその場で読む。
-fn with_preview(
-    root: &std::path::Path,
-    rel_path: &str,
-    stored: StoredPreview,
-    item: ArchiveViewItem,
-) -> ArchiveViewItem {
-    let preview = if stored.read {
-        thumbnails::stored_preview(&item.file_name, stored.image, stored.is_text)
-    } else {
-        let Some(metadata) = item_metadata(root, rel_path) else {
-            return item;
-        };
-        thumbnails::file_preview(&item.file_name, &root.join(rel_path), metadata.len())
-    };
+/// まだ読んでいない行 (この仕組みより前に索引したもの) は、次のスキャンまでプレビューなしで並べる。
+/// その場で読むと、索引の大きいアーカイブでは一覧が開かず、再スキャンのボタンにも届かないため。
+fn with_preview(stored: StoredPreview, item: ArchiveViewItem) -> ArchiveViewItem {
+    if !stored.read {
+        return item;
+    }
+    let preview = thumbnails::stored_preview(&item.file_name, stored.image, stored.is_text);
     ArchiveViewItem {
         image: preview.image,
         is_text: preview.is_text,
@@ -693,12 +674,7 @@ pub(super) async fn search_items(
                     archive_id: archive.id,
                     archive_title: archive.title.clone(),
                     ancestors: archive.ancestors.clone(),
-                    item: with_preview(
-                        std::path::Path::new(&archive.path),
-                        &hit.rel_path,
-                        stored,
-                        hit.item,
-                    ),
+                    item: with_preview(stored, hit.item),
                 }
             })
             .collect();
