@@ -2899,6 +2899,10 @@ export interface components {
             /** @enum {string} */
             kind: "archiveFolderUnreadable";
             path: string;
+        } | {
+            /** @enum {string} */
+            kind: "archiveTooManyFiles";
+            limit: number;
         };
         VerifyTokenRequest: {
             token: string;

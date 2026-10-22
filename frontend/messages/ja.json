@@ -205,6 +205,7 @@
 	"error_detail_archive_folder_missing": "フォルダーが見つかりませんでした。",
 	"error_detail_archive_folder_unreadable": "「{path}」を読み取れませんでした。",
 	"error_detail_archive_folder_unreadable_root": "フォルダーを読み取れませんでした。",
+	"error_detail_archive_too_many_files": "ファイルが {limit} 個を超えているため、一覧にできません。拡張子で絞り込むか、中のフォルダーに分けて登録してください。",
 	"error_detail_backup_invalid": "このファイルは WebLAV のバックアップとして読み取れません。ダウンロードしたバックアップの zip ファイルを選んでください。",
 	"error_detail_backup_too_new": "このバックアップは、より新しい WebLAV ({appVersion}) で作成されました。復元する前に WebLAV を更新してください。",
 	"contents_form_create_title": "コンテンツを追加",

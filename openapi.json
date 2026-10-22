@@ -9363,6 +9363,26 @@
                 "type": "string"
               }
             }
+          },
+          {
+            "type": "object",
+            "description": "再スキャンで、索引できるファイル数の上限 (`limit`) を超えた (→ docs/archive.md「スキャン」)。",
+            "required": [
+              "limit",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "archiveTooManyFiles"
+                ]
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
           }
         ],
         "description": "422 の内訳。`kind` で場合分けし、文言に差し込む値を併せて渡す。"

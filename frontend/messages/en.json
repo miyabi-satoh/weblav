@@ -232,6 +232,7 @@
 	"error_detail_archive_folder_missing": "The folder was not found.",
 	"error_detail_archive_folder_unreadable": "Could not read “{path}”.",
 	"error_detail_archive_folder_unreadable_root": "The folder could not be read.",
+	"error_detail_archive_too_many_files": "This folder has more than {limit} files, so they can't be listed. Narrow it down by file extension, or register its subfolders separately.",
 	"error_detail_backup_invalid": "This file cannot be read as a WebLAV backup. Choose a backup zip file that you downloaded.",
 	"error_detail_backup_too_new": "This backup was made with a newer WebLAV ({appVersion}). Update WebLAV before restoring it.",
 	"contents_form_create_title": "Add content",

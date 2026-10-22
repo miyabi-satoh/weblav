@@ -7,8 +7,12 @@ type RescanResponse = components['schemas']['RescanResponse'];
 export type ArchiveScanResult =
 	{ ok: true; result: RescanResponse } | { ok: false; message: string; retryable: boolean };
 
-/** フォルダーが無い・読めない失敗は、直すまで再スキャンしても同じになる。 */
-const NOT_RETRYABLE = new Set(['archiveFolderMissing', 'archiveFolderUnreadable']);
+/** フォルダーが無い・読めない・多すぎる失敗は、直すまで再スキャンしても同じになる。 */
+const NOT_RETRYABLE = new Set([
+	'archiveFolderMissing',
+	'archiveFolderUnreadable',
+	'archiveTooManyFiles'
+]);
 
 /**
  * アーカイブを再スキャンする。失敗は投げずに、画面に出す文言にして返す。

@@ -340,7 +340,12 @@ async fn rescan(
     .await??;
 
     if result.truncated {
-        return Err(AppError::Validation("too many files to index".to_string()));
+        return Err(AppError::ValidationDetailed {
+            message: "too many files to index".to_string(),
+            detail: ValidationDetail::ArchiveTooManyFiles {
+                limit: super::fs::ITEM_LIMIT,
+            },
+        });
     }
     // 読めなかった分は同期しない (→ docs/archive.md「スキャン」)。
     if let Some(path) = result.unreadable {
