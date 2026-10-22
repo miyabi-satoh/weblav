@@ -36,7 +36,6 @@
 	import FilterHighlight from '$lib/components/filter-highlight.svelte';
 	import { listFilter } from '$lib/list-filter.svelte';
 	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
-	import FileXIcon from '@lucide/svelte/icons/file-x';
 	import type { Snippet } from 'svelte';
 	import type { ContentLocation } from '$lib/content-location';
 	import { isAudioFileName, isLinksFileName, viewerFileKind } from '$lib/file-kind';
@@ -68,7 +67,6 @@
 		linksHref,
 		urls = BROWSE_URLS,
 		matches,
-		openable,
 		leading,
 		trailing,
 		subtitle: subtitleOverride,
@@ -80,8 +78,6 @@
 		urls?: ArchiveItemUrls;
 		/** ページ内の絞り込みで残す行か。無ければ表示タイトルで照らす。 */
 		matches?: (row: ArchiveViewRow) => boolean;
-		/** 押して開ける行か。無ければ全部開ける (管理画面は、ファイルが見つからない行を開かせない)。 */
-		openable?: (row: ArchiveViewRow) => boolean;
 		/** 行の前に置くもの (管理画面の選択のチェック)。 */
 		leading?: Snippet<[ArchiveViewRow]>;
 		/** 行の後ろに置くもの (管理画面の公開の切り替え)。 */
@@ -193,16 +189,6 @@
 			<li class={browseItemClass()}>
 				{#if isHidden?.(row) && hiddenRow}
 					{@render hiddenRow(row)}
-				{:else if openable && !openable(row)}
-					<div class={browseRowClass()}>
-						{@render leading?.(row)}
-						<ListRowIcon icon={FileXIcon} />
-						<span class={browseRowTextClass()}>
-							{@render itemTitle(row)}
-							{@render itemSubtitle(row)}
-						</span>
-						{@render trailing?.(row)}
-					</div>
 				{:else if isLinksFileName(row.item.fileName)}
 					<div class={browseRowClass()}>
 						{@render leading?.(row)}

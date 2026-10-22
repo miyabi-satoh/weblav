@@ -125,7 +125,7 @@ To stop publishing files, select them, then choose “Unpublish”. You can also
 
 ## When files or folders are not found
 
-- Files you deleted or moved no longer appear in viewers’ lists. On the “Items” tab of the admin page they show “Not found”, and rescanning removes them from the list.
+- Files you deleted or moved stay in the list until you rescan, and opening one says it was not found. Rescanning removes them from the list.
 - If you move or rename a file inside the archive, rescanning adds it as a new file, and it starts unpublished again. Publish it again.
 
 If rescanning shows one of the following, the item list and the publish settings stay as they were.
@@ -135,3 +135,4 @@ If rescanning shows one of the following, the item list and the publish settings
   - If you disconnected a drive, connect it and rescan.
   - Viewers also see “The folder was not found.”
 - **“Could not read "(folder)".” / “The folder could not be read.”**: WebLAV cannot read that folder (in the latter case, the archive folder itself). Check the folder’s permissions on the computer, make it readable, then rescan. For a NAS share, check that it is connected.
+- **“This folder has more than 100,000 files, so they can't be listed.”**: The archive has more files than one archive can hold. Narrow it down by file extension on the “Details” tab, or register its subfolders as separate archives.

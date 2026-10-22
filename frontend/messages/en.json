@@ -261,6 +261,8 @@
 	"contents_edit_scan_blocked": "Basic information was saved. {reason}",
 	"contents_create_scan_failed": "The content was created. {reason} Rescan from the Items tab.",
 	"contents_create_scan_blocked": "The content was created. {reason}",
+	"archive_scan_listing_toast": "Finding files...",
+	"archive_scan_reading_toast": "Reading files... {done} / {total}",
 	"archive_scan_failed_title": "Couldn't scan the files",
 	"contents_menu_edit": "Edit",
 	"contents_menu_open": "Open",
@@ -504,8 +506,6 @@
 		}
 	],
 	"archive_items_empty": "No items yet. Try rescanning.",
-	"archive_items_missing_warning": "Some files were not found.",
-	"archive_items_missing_label": "Not found",
 	"archive_items_selected_count": "{count} selected",
 	"archive_items_select_all_label": "Select all",
 	"archive_items_select_row_label": "Select {path}",

@@ -221,7 +221,6 @@
 <!-- 閲覧の画面と同じ軸の値に、パスを足す。見るだけのときも、公開の状態は押せない切り替えで見せる。 -->
 {#snippet itemSubtitle(row: ArchiveViewRow)}
 	<ListRowSubtitle
-		prefix={byId.get(row.item.id)?.missing ? m.archive_items_missing_label() : undefined}
 		text={[row.item.subtitle ?? '', row.item.relPath].filter((part) => part !== '')}
 	/>
 {/snippet}
@@ -258,9 +257,9 @@
 			</div>
 		{/if}
 
-		{#if view.items.some((item) => item.missing)}
+		{#if view.folderMissing && view.items.length > 0}
 			<WarningBand class="rounded-md border">
-				<p class="text-sm leading-relaxed">{m.archive_items_missing_warning()}</p>
+				<p class="text-sm leading-relaxed">{m.error_detail_archive_folder_missing()}</p>
 			</WarningBand>
 		{/if}
 
@@ -347,7 +346,6 @@
 				{linksHref}
 				urls={MANAGE_URLS}
 				{matches}
-				openable={(row) => !byId.get(row.item.id)?.missing}
 				leading={selectBox}
 				trailing={publishSwitch}
 				subtitle={itemSubtitle}

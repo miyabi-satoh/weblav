@@ -282,6 +282,7 @@ pub struct RescanResponse {
 /// アーカイブの再スキャン。
 ///
 /// 権限は `AuthUser`。`user` は自分が作ったものだけ (→ docs/access.md「ロールと操作」)。
+/// 終わるまで応答しない。進み具合は `GET` の同じパスで見る。
 #[utoipa::path(
     post,
     path = "/contents/{id}/rescan",
@@ -306,7 +307,8 @@ async fn rescan(
 
     // 走査中の更新・削除と直列化する (→ docs/archive.md「スキャン」)。二重クリックで同じ
     // 走査が二重に走るのを防ぐと同時に、走査中に `path` が変わるのも防ぐ。
-    let _scan_guard = state.archive_scans.acquire(id)?;
+    let scan_guard = state.archive_scans.acquire(id)?;
+    let progress = scan_guard.progress();
 
     // 排他を取る前の確認の後に公開範囲が変わっていた場合に備え、取り直した値で判定し直す。
     // 更新は走査中なら409になるので、ここから先は公開範囲と path は変わらない。
@@ -318,7 +320,8 @@ async fn rescan(
     // 見つからないと言う前に、NAS やディスクにつながらないのかを見分ける。
     super::roots::ensure_reachable(&state, &scan_root).await?;
     let roots = super::roots::load_roots(&state).await?;
-    let result = run_blocking(move || {
+    let known = load_known_files(&state.pool, id).await?;
+    let items = run_blocking(move || {
         let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
         // `canonical_dir_within_roots` より先に見分ける (→ docs/archive.md「スキャン」)。
         if super::archive_items::folder_missing(std::path::Path::new(&scan_root)) {
@@ -329,33 +332,112 @@ async fn rescan(
         }
         // 「公開できるフォルダー」の外は再走査でも拒む (理由は `contents::resolve_path` と同じ)。
         let root = super::fs::canonical_dir_within_roots(&scan_root, &roots, &own_dirs)?;
-        Ok::<_, AppError>(super::fs::scan_files(
+        progress.start_listing();
+        let result = super::fs::scan_files(
             &root,
             extensions.as_deref(),
             super::fs::SCAN_LIMIT,
             super::fs::ITEM_LIMIT,
             &own_dirs,
-        ))
+        );
+        if result.truncated {
+            return Err(AppError::ValidationDetailed {
+                message: "too many files to index".to_string(),
+                detail: ValidationDetail::ArchiveTooManyFiles {
+                    limit: super::fs::ITEM_LIMIT,
+                },
+            });
+        }
+        // 読めなかった分は同期しない (→ docs/archive.md「スキャン」)。
+        if let Some(path) = result.unreadable {
+            return Err(AppError::ValidationDetailed {
+                message: "some folders could not be read".to_string(),
+                detail: ValidationDetail::ArchiveFolderUnreadable { path },
+            });
+        }
+        Ok(read_items(&root, result.rel_paths, &known, &progress))
     })
     .await??;
 
-    if result.truncated {
-        return Err(AppError::ValidationDetailed {
-            message: "too many files to index".to_string(),
-            detail: ValidationDetail::ArchiveTooManyFiles {
-                limit: super::fs::ITEM_LIMIT,
-            },
-        });
-    }
-    // 読めなかった分は同期しない (→ docs/archive.md「スキャン」)。
-    if let Some(path) = result.unreadable {
-        return Err(AppError::ValidationDetailed {
-            message: "some folders could not be read".to_string(),
-            detail: ValidationDetail::ArchiveFolderUnreadable { path },
-        });
-    }
+    sync_items(&state, id, &archive.path, &items).await
+}
 
-    sync_items(&state, id, &archive.path, &result.rel_paths).await
+/// 前のスキャンで読んだときのファイルの大きさと更新日時。`rel_path` ごと。
+/// 同じなら中身も変わっていないとみなし、読み直さない (→ docs/archive.md「スキャン」)。
+type KnownFiles = HashMap<String, (i64, Option<i64>)>;
+
+async fn load_known_files(pool: &sqlx::SqlitePool, id: i64) -> Result<KnownFiles, AppError> {
+    let rows = sqlx::query!(
+        r#"SELECT rel_path, file_size as "file_size!", modified_ns FROM archive_items
+           WHERE archive_id = ? AND file_size IS NOT NULL"#,
+        id
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| (row.rel_path, (row.file_size, row.modified_ns)))
+        .collect())
+}
+
+/// スキャンで見つけたファイル。
+struct ScannedItem {
+    rel_path: String,
+    /// 読み直した値。前のスキャンから変わっていない・大きさを見られなかったものは `None` で、残した値をそのまま使う。
+    file: Option<ScannedFile>,
+}
+
+struct ScannedFile {
+    size: i64,
+    modified_ns: Option<i64>,
+    image: Option<super::thumbnails::ImageSize>,
+    is_text: bool,
+}
+
+/// 見つけたファイルを1つずつ見て、変わったものだけプレビューの情報を読む。
+/// 一覧と検索はここで読んだ値を返すだけにし、ファイルを開かない (→ docs/archive.md「スキャン」)。
+/// 走査の後に消えたものは、見つからなかったものと同じに扱う。
+fn read_items(
+    root: &FsPath,
+    rel_paths: Vec<String>,
+    known: &KnownFiles,
+    progress: &crate::state::ScanProgress,
+) -> Vec<ScannedItem> {
+    progress.start_reading(rel_paths.len() as u64);
+    let mut items = Vec::with_capacity(rel_paths.len());
+    for rel_path in rel_paths {
+        let path = root.join(&rel_path);
+        let file = match std::fs::symlink_metadata(&path) {
+            Ok(metadata) => {
+                let size = i64::try_from(metadata.len()).unwrap_or(i64::MAX);
+                let modified_ns = metadata
+                    .modified()
+                    .ok()
+                    .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+                    .and_then(|duration| i64::try_from(duration.as_nanos()).ok());
+                if known.get(&rel_path) == Some(&(size, modified_ns)) {
+                    None
+                } else {
+                    let name = rel_path.rsplit('/').next().unwrap_or(&rel_path);
+                    let preview = super::thumbnails::file_preview(name, &path, metadata.len());
+                    Some(ScannedFile {
+                        size,
+                        modified_ns,
+                        image: preview.image,
+                        is_text: preview.is_text,
+                    })
+                }
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                progress.advance();
+                continue;
+            }
+            Err(_) => None,
+        };
+        items.push(ScannedItem { rel_path, file });
+        progress.advance();
+    }
+    items
 }
 
 /// 走査結果を `archive_items` へ反映する。
@@ -367,7 +449,7 @@ async fn sync_items(
     state: &AppState,
     id: i64,
     scanned_path: &str,
-    rel_paths: &[String],
+    items: &[ScannedItem],
 ) -> Result<Json<RescanResponse>, AppError> {
     let mut tx = crate::db::begin_write(&state.pool).await?;
 
@@ -389,18 +471,48 @@ async fn sync_items(
     .await?
     .into_iter()
     .collect();
-    let found: HashSet<&str> = rel_paths.iter().map(String::as_str).collect();
+    let found: HashSet<&str> = items.iter().map(|item| item.rel_path.as_str()).collect();
 
     let mut added = 0;
-    for rel_path in rel_paths {
-        if existing.contains(rel_path.as_str()) {
+    for item in items {
+        let rel_path = item.rel_path.as_str();
+        let file = item.file.as_ref();
+        let size = file.map(|file| file.size);
+        let modified_ns = file.and_then(|file| file.modified_ns);
+        let width = file.and_then(|file| file.image).map(|image| i64::from(image.width));
+        let height = file.and_then(|file| file.image).map(|image| i64::from(image.height));
+        let is_text = file.is_some_and(|file| file.is_text);
+        if existing.contains(rel_path) {
+            if file.is_some() {
+                sqlx::query!(
+                    "UPDATE archive_items SET file_size = ?, modified_ns = ?, image_width = ?,
+                         image_height = ?, is_text = ?
+                     WHERE archive_id = ? AND rel_path = ?",
+                    size,
+                    modified_ns,
+                    width,
+                    height,
+                    is_text,
+                    id,
+                    rel_path
+                )
+                .execute(&mut *tx)
+                .await?;
+            }
             continue;
         }
         // 新規は必ず非公開から始まる (→ docs/archive.md「アイテムの公開」)。
         sqlx::query!(
-            "INSERT INTO archive_items (archive_id, rel_path, published) VALUES (?, ?, 0)",
+            "INSERT INTO archive_items
+                 (archive_id, rel_path, published, file_size, modified_ns, image_width, image_height, is_text)
+             VALUES (?, ?, 0, ?, ?, ?, ?, ?)",
             id,
-            rel_path
+            rel_path,
+            size,
+            modified_ns,
+            width,
+            height,
+            is_text
         )
         .execute(&mut *tx)
         .await?;
@@ -426,12 +538,68 @@ async fn sync_items(
     Ok(Json(RescanResponse {
         added,
         removed,
-        total: rel_paths.len(),
+        total: items.len(),
     }))
 }
 
+/// 再スキャンの段階 (→ `crate::state::ScanPhase`)。
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+enum RescanPhase {
+    /// ファイルを集めている。件数はまだ分からない。
+    Listing,
+    /// 集めたファイルを読んでいる。`done` / `total` が進み具合。
+    Reading,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RescanProgressResponse {
+    /// 走査していなければ `None`。
+    phase: Option<RescanPhase>,
+    done: u64,
+    total: u64,
+}
+
+/// 再スキャンの進み具合。画面は再スキャンの応答を待つ間、これを繰り返し見て出す
+/// (→ docs/archive.md「スキャン」)。
+#[utoipa::path(
+    get,
+    path = "/contents/{id}/rescan",
+    params(("id" = i64, Path)),
+    responses(
+        (status = OK, body = RescanProgressResponse, description = "進み具合"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの"),
+        (status = 404, body = crate::error::ErrorResponse, description = "存在しない・アーカイブでない"),
+    )
+)]
+async fn rescan_progress(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<RescanProgressResponse>, AppError> {
+    ensure_editable_archive(&state.pool, &user, id).await?;
+    let response = match state.archive_scans.progress(id) {
+        Some(progress) => RescanProgressResponse {
+            phase: Some(match progress.phase {
+                crate::state::ScanPhase::Listing => RescanPhase::Listing,
+                crate::state::ScanPhase::Reading => RescanPhase::Reading,
+            }),
+            done: progress.done,
+            total: progress.total,
+        },
+        None => RescanProgressResponse {
+            phase: None,
+            done: 0,
+            total: 0,
+        },
+    };
+    Ok(Json(response))
+}
+
 pub(crate) fn router() -> OpenApiRouter<AppState> {
-    OpenApiRouter::new().routes(routes!(rescan))
+    OpenApiRouter::new().routes(routes!(rescan, rescan_progress))
 }
 
 // --- 軸の値の導出と表示タイトルの組み立て (→ docs/archive.md「軸の値の辞書と導出」・「表示タイトル」)。

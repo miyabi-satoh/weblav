@@ -1338,11 +1338,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * 再スキャンの進み具合。画面は再スキャンの応答を待つ間、これを繰り返し見て出す
+         *     (→ docs/archive.md「スキャン」)。
+         */
+        get: operations["rescan_progress"];
         put?: never;
         /**
          * アーカイブの再スキャン。
          * @description 権限は `AuthUser`。`user` は自分が作ったものだけ (→ docs/access.md「ロールと操作」)。
+         *     終わるまで応答しない。進み具合は `GET` の同じパスで見る。
          */
         post: operations["rescan"];
         delete?: never;
@@ -1632,18 +1637,16 @@ export interface components {
         AdminArchiveItemResponse: {
             /** Format: int64 */
             id: number;
-            /** @description ファイルが消えている・読めない。再スキャンすると一覧から外れる。 */
-            missing: boolean;
             /**
              * Format: int64
-             * @description UNIXエポックミリ秒。取得できない場合は `None`。
+             * @description 最後のスキャンで見た更新日時 (UNIXエポックミリ秒)。まだ読んでいない・取得できなかった行は `None`。
              */
             modifiedAt?: number | null;
             published: boolean;
             relPath: string;
             /**
              * Format: int64
-             * @description ファイルが消えている・読めないときは `None`。
+             * @description 最後のスキャンで見た大きさ。まだ読んでいない行は `None`。
              */
             size?: number | null;
             title: string;
@@ -2489,8 +2492,6 @@ export interface components {
             username: string;
         };
         ManageArchiveViewItem: components["schemas"]["ArchiveViewItem"] & {
-            /** @description 索引にあるが実体が無い。閲覧の一覧からは外れている (→ docs/archive.md「アイテムの配信」)。 */
-            missing: boolean;
             published: boolean;
         };
         ManageArchiveViewResponse: {
@@ -2564,6 +2565,18 @@ export interface components {
             parent_id?: number | null;
             title: string;
             visibility?: components["schemas"]["Visibility"] | null;
+        };
+        /**
+         * @description 再スキャンの段階 (→ `crate::state::ScanPhase`)。
+         * @enum {string}
+         */
+        RescanPhase: "listing" | "reading";
+        RescanProgressResponse: {
+            /** Format: int64 */
+            done: number;
+            phase?: components["schemas"]["RescanPhase"] | null;
+            /** Format: int64 */
+            total: number;
         };
         RescanResponse: {
             /** @description 新しく索引に加えたアイテム数。非公開から始まる。 */
@@ -7120,6 +7133,55 @@ export interface operations {
             };
             /** @description 同時に中継している数が上限に達した */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    rescan_progress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 進み具合 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RescanProgressResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `user` から見て他人が作ったもの */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 存在しない・アーカイブでない */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
