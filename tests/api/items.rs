@@ -484,7 +484,12 @@ async fn archive_view_keeps_vanished_items_until_rescan(pool: SqlitePool) {
             .as_array()
             .expect("配列でなかった")
             .iter()
-            .map(|item| item["fileName"].as_str().expect("fileNameが無かった").to_string())
+            .map(|item| {
+                item["fileName"]
+                    .as_str()
+                    .expect("fileNameが無かった")
+                    .to_string()
+            })
             .collect();
         names.sort_unstable();
         names

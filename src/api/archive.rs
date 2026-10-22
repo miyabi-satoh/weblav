@@ -479,8 +479,12 @@ async fn sync_items(
         let file = item.file.as_ref();
         let size = file.map(|file| file.size);
         let modified_ns = file.and_then(|file| file.modified_ns);
-        let width = file.and_then(|file| file.image).map(|image| i64::from(image.width));
-        let height = file.and_then(|file| file.image).map(|image| i64::from(image.height));
+        let width = file
+            .and_then(|file| file.image)
+            .map(|image| i64::from(image.width));
+        let height = file
+            .and_then(|file| file.image)
+            .map(|image| i64::from(image.height));
         let is_text = file.is_some_and(|file| file.is_text);
         if existing.contains(rel_path) {
             if file.is_some() {

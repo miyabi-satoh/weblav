@@ -84,7 +84,9 @@ struct StoredPreview {
 
 /// 行ごとの、残したプレビューの情報。行を導出に渡して手放す前に取っておく。
 fn stored_previews(rows: &[ItemRow]) -> HashMap<i64, StoredPreview> {
-    rows.iter().map(|row| (row.id, row.stored_preview())).collect()
+    rows.iter()
+        .map(|row| (row.id, row.stored_preview()))
+        .collect()
 }
 
 /// 閲覧者に見せるアイテム (閲覧用の一覧と検索)。公開判定は「アーカイブのvisibility」と

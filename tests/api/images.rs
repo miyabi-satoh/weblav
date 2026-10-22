@@ -322,7 +322,11 @@ async fn archive_image_sizes_come_from_the_last_scan(pool: SqlitePool) {
     assert_eq!(image(app.clone()).await, scanned);
 
     std::fs::write(dir.join("photo.png"), png_bytes(100, 400)).expect("画像を書けなかった");
-    assert_eq!(image(app.clone()).await, scanned, "次のスキャンまでは読み直さない");
+    assert_eq!(
+        image(app.clone()).await,
+        scanned,
+        "次のスキャンまでは読み直さない"
+    );
 
     let (status, body) = rescan(app.clone(), &cookie, id).await;
     assert_eq!(status, StatusCode::OK, "{body}");
