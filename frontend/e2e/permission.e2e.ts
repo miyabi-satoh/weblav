@@ -16,6 +16,7 @@ import {
 } from './archive-helpers';
 import {
 	anonymousContext,
+	basicSaveButton,
 	CONTENT_ADD_BUTTON_NAME,
 	CONTENT_TYPE_NAME,
 	contentRow,
@@ -277,7 +278,7 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 					await page.goto(`/admin/contents/${archive.id}`);
 					await page.getByRole('button', { name: /^作成者$|^Creator$/ }).click();
 					await page.getByRole('option', { name: username }).click();
-					await saveForm(page);
+					await saveForm(page, { button: basicSaveButton(page) });
 
 					await editorPage.reload();
 					await expect(editorPage.getByTestId('view-only-note')).toHaveCount(0);

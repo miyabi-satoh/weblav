@@ -32,7 +32,7 @@ import {
 	openAddDialog,
 	REGISTER_BUTTON_NAME,
 	requiredLabel,
-	SAVE_BUTTON_NAME,
+	specificSaveButton,
 	TITLE_LABEL,
 	uniqueId,
 	USE_THIS_FOLDER_BUTTON_NAME
@@ -126,7 +126,7 @@ test('一覧の表示: 登録したフォルダーで使い始めると、保存
 		async (folder) => {
 			await page.goto(`/admin/contents/${folder.id}`);
 			await page.getByRole('switch', { name: LIST_VIEW_SWITCH_NAME }).click();
-			await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
+			await specificSaveButton(page).click();
 			await expect(page.getByText(/3\s件のファイルが見つかりました|Found 3 files/)).toBeVisible();
 			// 一覧の表示を使うと、軸とアイテムのタブが出る。
 			await expect(page.getByRole('link', { name: /^アイテム$|^Items$/ })).toBeVisible();
@@ -150,7 +150,7 @@ test('一覧の表示: 使い始めたときのスキャンだけが失敗した
 		async (folder) => {
 			await page.goto(`/admin/contents/${folder.id}`);
 			await page.getByRole('switch', { name: LIST_VIEW_SWITCH_NAME }).click();
-			await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
+			await specificSaveButton(page).click();
 
 			const failed = page.getByRole('alertdialog', {
 				name: /^ファイルをスキャンできませんでした$|^Couldn't scan the files$/

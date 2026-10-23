@@ -12,6 +12,7 @@ import type { Page } from 'playwright';
 import {
 	AUDIO_PLAYER_REGION_NAME,
 	BROWSE_LAYOUT_LIST_NAME,
+	basicSaveButton,
 	BROWSE_LAYOUT_TILE_NAME,
 	CHOOSE_PATH_BUTTON_NAME,
 	CONFIRM_REGISTER_NAME,
@@ -21,7 +22,6 @@ import {
 	RENAME_MENU_ITEM_NAME,
 	ROOT_ADD_BUTTON_LOADING_NAME,
 	ROOT_ADD_BUTTON_NAME,
-	SAVE_BUTTON_NAME,
 	VISIBILITY_LABEL,
 	USER_ADD_BUTTON_NAME,
 	chooseContentType,
@@ -280,7 +280,7 @@ export const shots: Record<string, ShotEntry> = {
 	admin_contents_edit: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.archiveId}`);
-			await page.getByRole('button', { name: SAVE_BUTTON_NAME }).waitFor({ timeout: 5000 });
+			await basicSaveButton(page).waitFor({ timeout: 5000 });
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
 		}
 	},
@@ -294,7 +294,7 @@ export const shots: Record<string, ShotEntry> = {
 			// パスを変えずに公開範囲だけ変えても確認が出ることを示す。
 			await page.getByLabel(VISIBILITY_LABEL).click();
 			await page.getByRole('option', { name: /ログインした人|Logged-in users/ }).click();
-			await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
+			await basicSaveButton(page).click();
 			await page.getByRole('dialog', { name: CONFIRM_REGISTER_NAME }).waitFor({ timeout: 5000 });
 			await page.waitForFunction(
 				() => !/ファイルを数えています|Counting files/.test(document.body.innerText),

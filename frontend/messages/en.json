@@ -842,6 +842,9 @@
 	"contents_hidden_restore_label": "Show “{name}” again",
 	"contents_hidden_restored_toast": "It will be shown again.",
 	"contents_edit_basic_title": "Details",
+	"contents_edit_link_title": "Link",
+	"contents_edit_file_title": "File",
+	"contents_edit_folder_title": "Location and display",
 	"admin_ai_usage_auto": "Automatic updates",
 	"error_ai_links_daily_limit": "The daily update limit has been reached. You can update again tomorrow."
 }

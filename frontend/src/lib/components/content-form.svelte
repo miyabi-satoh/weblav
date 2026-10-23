@@ -7,7 +7,7 @@
 	 * 送信ボタンとダイアログの枠は置かない。呼び出し側が自分の形で用意する。
 	 */
 	import { visibilityLabel } from '$lib/content-labels';
-	import type { ContentFormState } from '$lib/content-form.svelte';
+	import type { ContentFormPart, ContentFormState } from '$lib/content-form.svelte';
 	import { isDirectoryContentType } from '$lib/content-types';
 	import { formatByteSize } from '$lib/format';
 	import * as m from '$lib/paraglide/messages.js';
@@ -41,6 +41,11 @@
 		 * `edit` は編集ページ。すべての項目を出す。種別は変えられず、ファイルは差し替えの任意項目になる。
 		 */
 		variant: 'create' | 'edit';
+		/**
+		 * 出す区画。編集ページは、どの種類にもある項目と種類ごとの項目を別の区画に分ける
+		 * (→ docs/ui.md「編集ページの区画」)。作成のダイアログは全部 (`all`) を1つに出す。
+		 */
+		part?: 'all' | ContentFormPart;
 		/** 親グループの候補。ラベルは祖先を辿ったパス。`edit` だけで使う。 */
 		parentCandidates?: { id: number; label: string }[];
 		/** 選べる公開範囲。呼び出し側が `selectableVisibilities` で算出する。 */
@@ -61,6 +66,7 @@
 	let {
 		form,
 		variant,
+		part = 'all',
 		parentCandidates = [],
 		visibilityOptions = [],
 		visibilityError = null,
@@ -70,9 +76,12 @@
 	}: Props = $props();
 
 	let editing = $derived(variant === 'edit');
-	let showsVisibility = $derived(editing || form.type === 'folder');
+	let showsCommon = $derived(part !== 'specific');
+	let showsSpecific = $derived(part !== 'common');
+	let showsVisibility = $derived(showsCommon && (editing || form.type === 'folder'));
 	// 作成では、group 以外はタイトルを自動で付ける。編集ページで直す。
-	let showsTitle = $derived(editing || form.type === 'group');
+	let showsTitle = $derived(showsCommon && (editing || form.type === 'group'));
+	let showsEditOnlyCommon = $derived(showsCommon && editing);
 
 	function parentSelectLabel(value: string): string {
 		if (value === 'root') return m.contents_form_parent_none();
@@ -81,7 +90,7 @@
 </script>
 
 <Field.FieldGroup>
-	{#if form.type === 'link'}
+	{#if showsSpecific && form.type === 'link'}
 		<Field.Field data-disabled={disabled}>
 			<Field.FieldLabel for="content-url" required>{m.contents_form_url_label()}</Field.FieldLabel>
 			<!-- type="url" だとブラウザーが `example.com` のようにプロトコルを省いた値を弾くので、text にする。
@@ -95,7 +104,7 @@
 				required
 			/>
 		</Field.Field>
-	{:else if isDirectoryContentType(form.type)}
+	{:else if showsSpecific && isDirectoryContentType(form.type)}
 		<Field.Field data-disabled={disabled}>
 			<!-- 編集では選び直せても空にはできないので、ファイルの欄と同じく作成のときだけ印を付ける。 -->
 			<!-- 入力欄ではないので label にしない。 -->
@@ -116,7 +125,7 @@
 				</Button>
 			</div>
 		</Field.Field>
-	{:else if form.type === 'file'}
+	{:else if showsSpecific && form.type === 'file'}
 		<Field.Field data-disabled={disabled}>
 			<Field.FieldLabel for="content-file" required={!editing}
 				>{m.contents_form_file_label()}</Field.FieldLabel
@@ -177,7 +186,7 @@
 			{/if}
 		</Field.Field>
 	{/if}
-	{#if editing}
+	{#if showsEditOnlyCommon}
 		<Field.Field data-disabled={disabled}>
 			<Field.FieldLabel for="content-parent">{m.contents_form_parent_label()}</Field.FieldLabel>
 			<!-- 親に指定できるのはgroupのみ(folderはFS実体でありDB階層とは別物)。 -->
@@ -221,7 +230,7 @@
 			{/if}
 		</Field.Field>
 	{/if}
-	{#if editing}
+	{#if showsEditOnlyCommon}
 		<Field.Field data-disabled={disabled}>
 			<Field.FieldLabel for="content-description"
 				>{m.contents_form_description_label()}</Field.FieldLabel
@@ -247,7 +256,7 @@
 		</Field.Field>
 	{/if}
 	<!-- フォルダーの見せ方は作成では聞かず、編集で変える (→ docs/folders.md「2つの表示」・「公開と非公開」)。 -->
-	{#if editing && form.type === 'folder'}
+	{#if showsSpecific && editing && form.type === 'folder'}
 		<Field.Field orientation="horizontal" data-disabled={disabled}>
 			<Field.FieldContent>
 				<Field.FieldLabel for="content-new-files-public"

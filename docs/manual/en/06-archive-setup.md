@@ -32,7 +32,7 @@ Recordings
    ![The folder picker with Recordings open](images/add-archive-picker.webp)
 
 3. Select “Register”. The folder's edit page opens.
-4. On the “Details” tab, turn on “Use the list view”, then select “Save”. The folder is scanned right away, and the progress appears next to the button. To publish only the files you choose, turn off “Publish new files” before saving.
+4. On the “Details” tab, turn on “Use the list view” under “Location and display”, then select “Save” in that section. The folder is scanned right away, and the progress appears next to the button. To publish only the files you choose, turn off “Publish new files” before saving.
 
    ![The Publish new files and Use the list view switches](images/folder-list-view.webp)
 5. Select the “Axes” tab, then select “Add axis...”.

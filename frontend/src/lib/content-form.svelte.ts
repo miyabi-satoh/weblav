@@ -22,6 +22,12 @@ type Visibility = components['schemas']['Visibility'];
 type AutoRescan = components['schemas']['AutoRescan'];
 type LinkMetadataResponse = components['schemas']['LinkMetadataResponse'];
 
+/**
+ * 編集ページの区画。どの種類にもある項目 (`common`) と、種類ごとの項目 (`specific`) に分け、
+ * 区画ごとに保存する (→ docs/ui.md「編集ページの区画」)。
+ */
+export type ContentFormPart = 'common' | 'specific';
+
 /** `POST /contents/link-metadata` を呼ぶ。取れない・通信に失敗したら `null`。 */
 async function fetchLinkMetadata(url: string): Promise<LinkMetadataResponse | null> {
 	try {
@@ -170,9 +176,10 @@ export class ContentFormState {
 
 	/**
 	 * 開いた時点の値。バックドロップのクリックと Esc で編集中のフォームを
-	 * 誤って閉じないよう、`dirty` の判定に使う。
+	 * 誤って閉じないよう、`dirty` の判定に使う。編集ページは区画ごとに保存するので、区画ごとに持つ。
 	 */
-	#dirtyState = new FormDirtyState(() => this.snapshot());
+	#commonDirtyState = new FormDirtyState(() => this.partSnapshot('common'));
+	#specificDirtyState = new FormDirtyState(() => this.partSnapshot('specific'));
 
 	snapshot(): FormSnapshot {
 		return {
@@ -191,9 +198,16 @@ export class ContentFormState {
 		};
 	}
 
+	/** 区画ごとの比較に使う値。`snapshot()` を区画の項目に絞ったもの。 */
+	private partSnapshot(part: ContentFormPart): Partial<FormSnapshot> {
+		const { title, parentId, description, visibility, ...specific } = this.snapshot();
+		return part === 'common' ? { title, parentId, description, visibility } : specific;
+	}
+
 	/** 開いた (または保存した) 時点の値を、これ以降の比較の基準にする。 */
 	markPristine(): void {
-		this.#dirtyState.markPristine();
+		this.#commonDirtyState.markPristine();
+		this.#specificDirtyState.markPristine();
 	}
 
 	/**
@@ -208,7 +222,12 @@ export class ContentFormState {
 	}
 
 	get dirty(): boolean {
-		return this.#dirtyState.dirty;
+		return this.partDirty('common') || this.partDirty('specific');
+	}
+
+	/** 区画の項目に、開いた (または保存した) 時点からの変更があるか。 */
+	partDirty(part: ContentFormPart): boolean {
+		return (part === 'common' ? this.#commonDirtyState : this.#specificDirtyState).dirty;
 	}
 
 	/** 新規作成の初期値に戻す。`parentId` は「このグループの中に追加」から渡せる。 */
@@ -312,6 +331,54 @@ export class ContentFormState {
 					body: this.toFormData() as unknown as components['schemas']['ReplaceContentUploadRequest']
 				})
 			: client.PUT('/api/v1/contents/{id}', { params, body: this.requestFields() });
+	}
+
+	/**
+	 * 区画の項目だけをフォームの値にし、ほかは保存済みの `saved` のまま `id` を置き換える。
+	 * 更新の API は全項目の置き換えなので、もう一方の区画の書きかけを一緒に送らないため。
+	 */
+	replacePart(id: number, part: ContentFormPart, saved: Content) {
+		const draft = new ContentFormState();
+		draft.loadFrom(saved, false);
+		draft.copyPartFrom(this, part);
+		return draft.replace(id);
+	}
+
+	private copyPartFrom(source: ContentFormState, part: ContentFormPart): void {
+		if (part === 'common') {
+			this.title = source.title;
+			this.parentId = source.parentId;
+			this.description = source.description;
+			this.visibility = source.visibility;
+		} else {
+			this.url = source.url;
+			this.path = source.path;
+			this.pathLabel = source.pathLabel;
+			this.files = source.files;
+			this.extensions = source.extensions;
+			this.listView = source.listView;
+			this.newFilesPublic = source.newFilesPublic;
+			this.autoRescan = source.autoRescan;
+		}
+	}
+
+	/**
+	 * 保存した区画の項目だけを読み直す。もう一方の区画の書きかけは残し、
+	 * その比較の基準 (開いた時点の値) も動かさない。
+	 */
+	loadPart(content: Content, canSeeFullPath: boolean, part: ContentFormPart): void {
+		const loaded = new ContentFormState();
+		loaded.loadFrom(content, canSeeFullPath);
+		this.copyPartFrom(loaded, part);
+		this.titleTemplate = loaded.titleTemplate;
+		if (part === 'common') {
+			this.resetRefetchState();
+		} else {
+			this.fileInputVersion++;
+			this.existingFileName = loaded.existingFileName;
+			this.existingFileSize = loaded.existingFileSize;
+		}
+		(part === 'common' ? this.#commonDirtyState : this.#specificDirtyState).markPristine();
 	}
 
 	/**
