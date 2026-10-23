@@ -315,12 +315,31 @@ async fn rescan(
     let archive = load_editable_archive(&state.pool, &user, id).await?;
     let extensions = super::fs::parse_extensions(archive.extensions.as_deref());
 
-    let scan_root = archive.path.clone();
-    let own_dirs = state.own_dirs.clone();
     // 見つからないと言う前に、NAS やディスクにつながらないのかを見分ける。
-    super::roots::ensure_reachable(&state, &scan_root).await?;
+    super::roots::ensure_reachable(&state, &archive.path).await?;
     let roots = super::roots::load_roots(&state).await?;
     let known = load_known_files(&state.pool, id).await?;
+    // 別のタスクで最後まで進める。画面を閉じられてハンドラが落とされても、ファイルを読む
+    // スレッドは止められず読み続けるので、読んだ分を残し、その間は排他も外さない
+    // (外すと、押し直した走査が同じフォルダーを同時に読む)。
+    tokio::spawn(async move {
+        let _scan_guard = scan_guard;
+        scan_and_sync(&state, id, archive, extensions, roots, known, progress).await
+    })
+    .await?
+}
+
+async fn scan_and_sync(
+    state: &AppState,
+    id: i64,
+    archive: ArchiveMeta,
+    extensions: Option<Vec<String>>,
+    roots: Vec<super::roots::Root>,
+    known: KnownFiles,
+    progress: std::sync::Arc<crate::state::ScanProgress>,
+) -> Result<Json<RescanResponse>, AppError> {
+    let scan_root = archive.path.clone();
+    let own_dirs = state.own_dirs.clone();
     let items = run_blocking(move || {
         let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
         // `canonical_dir_within_roots` より先に見分ける (→ docs/archive.md「スキャン」)。
@@ -359,7 +378,7 @@ async fn rescan(
     })
     .await??;
 
-    sync_items(&state, id, &archive.path, &items).await
+    sync_items(state, id, &archive.path, &items).await
 }
 
 /// 前のスキャンで読んだときのファイルの大きさと更新日時。`rel_path` ごと。
