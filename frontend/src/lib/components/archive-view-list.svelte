@@ -36,7 +36,6 @@
 	import FilterHighlight from '$lib/components/filter-highlight.svelte';
 	import { listFilter } from '$lib/list-filter.svelte';
 	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
-	import FileXIcon from '@lucide/svelte/icons/file-x';
 	import type { Snippet } from 'svelte';
 	import type { ContentLocation } from '$lib/content-location';
 	import { isAudioFileName, isLinksFileName, viewerFileKind } from '$lib/file-kind';
@@ -45,13 +44,17 @@
 	import type { Track } from '$lib/now-playing.svelte';
 	import type { ViewerImage } from '$lib/image-viewer';
 	import { viewerItems } from '$lib/viewer-items';
+	import { WindowVirtualizer } from 'virtua/svelte';
 	import {
 		browseItemClass,
-		browseListClass,
 		browseRowClass,
 		browseRowPressClass,
+		browseRowsPerLine,
 		browseRowTextClass,
-		browseRowTitleClass
+		browseRowTitleClass,
+		browseVirtualLineClass,
+		browseVirtualLineStyle,
+		browseVirtualListClass
 	} from '$lib/list-row';
 	import ListRowGlyph from '$lib/components/list-row-glyph.svelte';
 	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
@@ -68,7 +71,6 @@
 		linksHref,
 		urls = BROWSE_URLS,
 		matches,
-		openable,
 		leading,
 		trailing,
 		subtitle: subtitleOverride,
@@ -80,8 +82,6 @@
 		urls?: ArchiveItemUrls;
 		/** ページ内の絞り込みで残す行か。無ければ表示タイトルで照らす。 */
 		matches?: (row: ArchiveViewRow) => boolean;
-		/** 押して開ける行か。無ければ全部開ける (管理画面は、ファイルが見つからない行を開かせない)。 */
-		openable?: (row: ArchiveViewRow) => boolean;
 		/** 行の前に置くもの (管理画面の選択のチェック)。 */
 		leading?: Snippet<[ArchiveViewRow]>;
 		/** 行の後ろに置くもの (管理画面の公開の切り替え)。 */
@@ -105,6 +105,18 @@
 				? filter.apply(allRows, (row) => row.item.title)
 				: allRows
 	);
+
+	function rowKey(row: ArchiveViewRow): string {
+		return `${row.archiveId}-${row.item.id}`;
+	}
+
+	// 見えている所だけを描くので、行を1段ずつに分けて渡す。タイルは1段に何枚も並ぶ。
+	let rowsPerLine = $derived(browseRowsPerLine());
+	let lines = $derived.by(() => {
+		const result: ArchiveViewRow[][] = [];
+		for (let i = 0; i < rows.length; i += rowsPerLine) result.push(rows.slice(i, i + rowsPerLine));
+		return result;
+	});
 
 	// 非公開にした行は、続けて鳴らす音声やビューアーの前後にも入れない。
 	let shownRows = $derived(isHidden ? rows.filter((row) => !isHidden(row)) : rows);
@@ -183,72 +195,86 @@
 {#snippet leadingSlot(row: ArchiveViewRow)}{@render leading?.(row)}{/snippet}
 {#snippet trailingSlot(row: ArchiveViewRow)}{@render trailing?.(row)}{/snippet}
 
+<!-- 1つの行の中身。種類ごとに描き分ける。 -->
+{#snippet itemRow(row: ArchiveViewRow)}
+	{@const image = toViewerImage(row)}
+	{@const viewerFile = toViewerFile(row)}
+	{#if isHidden?.(row) && hiddenRow}
+		{@render hiddenRow(row)}
+	{:else if isLinksFileName(row.item.fileName)}
+		<div class={browseRowClass()}>
+			{@render leading?.(row)}
+			<ListRowIcon icon={LinksFileIcon} />
+			<span class={browseRowTextClass()}>
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
+				<a href={linksHref(row)} class={browseRowPressClass()}>{@render itemTitle(row)}</a>
+				{@render itemSubtitle(row)}
+			</span>
+			{@render trailing?.(row)}
+			<ListRowGlyph />
+		</div>
+	{:else if isAudioFileName(row.item.fileName)}
+		<ListRowPlayButton track={toTrack(row)} queue={audioQueue}>
+			{@render itemTitle(row)}
+			{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
+			{#snippet leading()}{@render leadingSlot(row)}{/snippet}
+			{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
+		</ListRowPlayButton>
+	{:else if image}
+		<ListRowImageLink {image} items={viewerList}>
+			{@render itemTitle(row)}
+			{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
+			{#snippet leading()}{@render leadingSlot(row)}{/snippet}
+			{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
+		</ListRowImageLink>
+	{:else if viewerFile}
+		<ListRowFileLink file={viewerFile} items={viewerList}>
+			{@render itemTitle(row)}
+			{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
+			{#snippet leading()}{@render leadingSlot(row)}{/snippet}
+			{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
+		</ListRowFileLink>
+	{:else}
+		<ListRowDownloadLink
+			href={downloadHref(row)}
+			thumbnail={rowThumbnail(row)}
+			tileCornerTaken={hasTrailing}
+		>
+			{@render itemTitle(row)}
+			{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
+			{#snippet leading()}{@render leadingSlot(row)}{/snippet}
+			{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
+		</ListRowDownloadLink>
+	{/if}
+{/snippet}
+
 {#if filter?.active && rows.length === 0}
 	<ListFilterEmpty />
 {:else}
-	<ul class={browseListClass()}>
-		{#each rows as row (`${row.archiveId}-${row.item.id}`)}
-			{@const image = toViewerImage(row)}
-			{@const viewerFile = toViewerFile(row)}
-			<li class={browseItemClass()}>
-				{#if isHidden?.(row) && hiddenRow}
-					{@render hiddenRow(row)}
-				{:else if openable && !openable(row)}
-					<div class={browseRowClass()}>
-						{@render leading?.(row)}
-						<ListRowIcon icon={FileXIcon} />
-						<span class={browseRowTextClass()}>
-							{@render itemTitle(row)}
-							{@render itemSubtitle(row)}
-						</span>
-						{@render trailing?.(row)}
-					</div>
-				{:else if isLinksFileName(row.item.fileName)}
-					<div class={browseRowClass()}>
-						{@render leading?.(row)}
-						<ListRowIcon icon={LinksFileIcon} />
-						<span class={browseRowTextClass()}>
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
-							<a href={linksHref(row)} class={browseRowPressClass()}>{@render itemTitle(row)}</a>
-							{@render itemSubtitle(row)}
-						</span>
-						{@render trailing?.(row)}
-						<ListRowGlyph />
-					</div>
-				{:else if isAudioFileName(row.item.fileName)}
-					<ListRowPlayButton track={toTrack(row)} queue={audioQueue}>
-						{@render itemTitle(row)}
-						{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
-						{#snippet leading()}{@render leadingSlot(row)}{/snippet}
-						{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
-					</ListRowPlayButton>
-				{:else if image}
-					<ListRowImageLink {image} items={viewerList}>
-						{@render itemTitle(row)}
-						{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
-						{#snippet leading()}{@render leadingSlot(row)}{/snippet}
-						{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
-					</ListRowImageLink>
-				{:else if viewerFile}
-					<ListRowFileLink file={viewerFile} items={viewerList}>
-						{@render itemTitle(row)}
-						{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
-						{#snippet leading()}{@render leadingSlot(row)}{/snippet}
-						{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
-					</ListRowFileLink>
-				{:else}
-					<ListRowDownloadLink
-						href={downloadHref(row)}
-						thumbnail={rowThumbnail(row)}
-						tileCornerTaken={hasTrailing}
+	<!-- 見えている所だけを描く。アーカイブは数万件になり、全部の行を描くとブラウザーのメモリが尽きて画面が落ちるため。 -->
+	<div role="list" class={browseVirtualListClass()}>
+		<!-- 1段の枚数が変わると段の組み方がすべて変わるので、測った高さを捨てて作り直す。 -->
+		{#key rowsPerLine}
+			<WindowVirtualizer data={lines} getKey={(line) => rowKey(line[0]!)}>
+				{#snippet children(line, index)}
+					<!-- 総数と位置を読み上げに渡す。描いている行しか無いので、無いと一覧が数十件に聞こえる。 -->
+					<div
+						class={browseVirtualLineClass(index === lines.length - 1)}
+						style={browseVirtualLineStyle(rowsPerLine)}
 					>
-						{@render itemTitle(row)}
-						{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
-						{#snippet leading()}{@render leadingSlot(row)}{/snippet}
-						{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
-					</ListRowDownloadLink>
-				{/if}
-			</li>
-		{/each}
-	</ul>
+						{#each line as row, column (rowKey(row))}
+							<div
+								role="listitem"
+								aria-setsize={rows.length}
+								aria-posinset={index * rowsPerLine + column + 1}
+								class={browseItemClass()}
+							>
+								{@render itemRow(row)}
+							</div>
+						{/each}
+					</div>
+				{/snippet}
+			</WindowVirtualizer>
+		{/key}
+	</div>
 {/if}

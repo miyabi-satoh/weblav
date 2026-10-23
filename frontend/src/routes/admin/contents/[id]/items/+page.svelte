@@ -9,7 +9,7 @@
 		archiveManageFileHref
 	} from '$lib/api/urls';
 	import type { components } from '$lib/api/schema';
-	import { rescanArchive } from '$lib/archive-scan';
+	import { rescanArchive, waitForRunningScan } from '$lib/archive-scan';
 	import { browseLayout } from '$lib/browse-layout.svelte';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { formatNumber } from '$lib/format';
@@ -119,7 +119,23 @@
 	let bulkTarget = $state<boolean | null>(null);
 	let rescanning = $state(false);
 	let rescanMessage = $state<string | null>(null);
-	let anyBusy = $derived(savingIds.length > 0 || bulkTarget !== null || rescanning);
+	/** 走っているスキャンの進み具合。押したボタンの横に出す (→ docs/archive.md「スキャン」)。 */
+	let scanProgress = $state<string | undefined>();
+	let scanning = $derived(rescanning || scanProgress !== undefined);
+	let anyBusy = $derived(savingIds.length > 0 || bulkTarget !== null || scanning);
+
+	// 開いたときにスキャンが走っていれば、終わるまで押させずに進み具合を出し、終わったら一覧を取り直す。
+	// スキャンは画面を閉じても続くので、開き直した画面がそれを知らないと、押し直して 409 になるため。
+	$effect(() => {
+		if (!editable) return;
+		const controller = new AbortController();
+		waitForRunningScan(contentId, (message) => (scanProgress = message), controller.signal).then(
+			(finished) => {
+				if (finished) invalidateAll();
+			}
+		);
+		return () => controller.abort();
+	});
 
 	async function setPublished(itemId: number, published: boolean) {
 		if (anyBusy) return;
@@ -167,7 +183,7 @@
 		// 失敗したときに、前回の成功の件数を今回の結果と読み違えさせない。
 		rescanMessage = null;
 		try {
-			const scan = await rescanArchive(contentId);
+			const scan = await rescanArchive(contentId, (message) => (scanProgress = message));
 			if (!scan.ok) {
 				errorDialog.show(scan.message);
 				return;
@@ -221,7 +237,6 @@
 <!-- 閲覧の画面と同じ軸の値に、パスを足す。見るだけのときも、公開の状態は押せない切り替えで見せる。 -->
 {#snippet itemSubtitle(row: ArchiveViewRow)}
 	<ListRowSubtitle
-		prefix={byId.get(row.item.id)?.missing ? m.archive_items_missing_label() : undefined}
 		text={[row.item.subtitle ?? '', row.item.relPath].filter((part) => part !== '')}
 	/>
 {/snippet}
@@ -248,19 +263,21 @@
 	<div class="flex flex-col gap-4">
 		{#if editable}
 			<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-				<LoadingButton variant="outline" loading={rescanning} disabled={anyBusy} onclick={rescan}>
+				<LoadingButton variant="outline" loading={scanning} disabled={anyBusy} onclick={rescan}>
 					<RefreshCwIcon class="size-4" />
 					{m.archive_items_rescan_button()}
 				</LoadingButton>
-				{#if rescanMessage}
+				{#if scanProgress}
+					<p role="status" class="text-sm text-muted-foreground">{scanProgress}</p>
+				{:else if rescanMessage}
 					<p class="text-sm text-muted-foreground">{rescanMessage}</p>
 				{/if}
 			</div>
 		{/if}
 
-		{#if view.items.some((item) => item.missing)}
+		{#if view.folderMissing && view.items.length > 0}
 			<WarningBand class="rounded-md border">
-				<p class="text-sm leading-relaxed">{m.archive_items_missing_warning()}</p>
+				<p class="text-sm leading-relaxed">{m.error_detail_archive_folder_missing()}</p>
 			</WarningBand>
 		{/if}
 
@@ -347,7 +364,6 @@
 				{linksHref}
 				urls={MANAGE_URLS}
 				{matches}
-				openable={(row) => !byId.get(row.item.id)?.missing}
 				leading={selectBox}
 				trailing={publishSwitch}
 				subtitle={itemSubtitle}

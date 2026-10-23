@@ -295,3 +295,43 @@ async fn archive_image_items_get_sizes_and_thumbnails(pool: SqlitePool) {
     let response = get_with_headers(app, &thumbnail_uri, &[]).await;
     assert_eq!(response.status(), StatusCode::OK);
 }
+
+/// アーカイブの画像の大きさはスキャンで読んで残し、一覧はファイルを開かずにそれを返す。
+/// 差し替えた画像は、次のスキャンで読み直す (→ docs/archive.md「スキャン」)。
+#[sqlx::test]
+async fn archive_image_sizes_come_from_the_last_scan(pool: SqlitePool) {
+    insert_admin(&pool, "admin-alice", "correct-password").await;
+    let dir = temp_test_dir("archive-image-sizes");
+    std::fs::write(dir.join("photo.png"), png_bytes(300, 200)).expect("画像を作れなかった");
+    let app = test_app(pool).await;
+    let cookie = login(app.clone(), "admin-alice", "correct-password").await;
+    let id = create_archive(app.clone(), &cookie, &dir, None).await;
+    let (status, body) = rescan(app.clone(), &cookie, id).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let image = |app: Router| {
+        let cookie = cookie.clone();
+        async move {
+            let uri = format!("/api/v1/contents/{id}/manage-archive");
+            let (status, body) = send_empty(app, "GET", &uri, &cookie).await;
+            assert_eq!(status, StatusCode::OK, "{body}");
+            parse_json(&body)["items"][0]["image"].clone()
+        }
+    };
+    let scanned = serde_json::json!({"width": 300, "height": 200});
+    assert_eq!(image(app.clone()).await, scanned);
+
+    std::fs::write(dir.join("photo.png"), png_bytes(100, 400)).expect("画像を書けなかった");
+    assert_eq!(
+        image(app.clone()).await,
+        scanned,
+        "次のスキャンまでは読み直さない"
+    );
+
+    let (status, body) = rescan(app.clone(), &cookie, id).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        image(app).await,
+        serde_json::json!({"width": 100, "height": 400})
+    );
+}

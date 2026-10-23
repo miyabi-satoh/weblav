@@ -335,12 +335,11 @@ async fn archive_download_item_by_path_serves_only_published_indexed_file(pool: 
     assert_eq!(download("missing.pdf").await, StatusCode::NOT_FOUND);
 }
 
-/// 管理用の一覧は、閲覧用の一覧と同じ導出・絞り込みで、未公開と実体の無いアイテムも含める
+/// 管理用の一覧は、閲覧用の一覧と同じ導出・絞り込みで、未公開のアイテムも含める
 /// (→ docs/archive.md「エンドポイント一覧」)。
 #[sqlx::test]
-async fn archive_manage_view_includes_unpublished_and_missing_items(pool: SqlitePool) {
-    let (app, cookie, id, dir) = setup_archive_with_filename_word_axis(pool).await;
-    std::fs::remove_file(dir.join("2024_unknown.pdf")).expect("ファイルを消せなかった");
+async fn archive_manage_view_includes_unpublished_items(pool: SqlitePool) {
+    let (app, cookie, id, _dir) = setup_archive_with_filename_word_axis(pool).await;
 
     let (status, body) = send_empty(
         app,
@@ -351,7 +350,7 @@ async fn archive_manage_view_includes_unpublished_and_missing_items(pool: Sqlite
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let view: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
-    let items: Vec<(&str, bool, bool)> = view["items"]
+    let items: Vec<(&str, bool)> = view["items"]
         .as_array()
         .expect("itemsが配列でなかった")
         .iter()
@@ -359,16 +358,15 @@ async fn archive_manage_view_includes_unpublished_and_missing_items(pool: Sqlite
             (
                 item["title"].as_str().expect("titleが無かった"),
                 item["published"].as_bool().expect("publishedが無かった"),
-                item["missing"].as_bool().expect("missingが無かった"),
             )
         })
         .collect();
     assert_eq!(
         items,
         vec![
-            ("2024_kokugo.pdf", false, false),
-            ("2024_eigo.pdf", false, false),
-            ("2024_unknown.pdf", false, true)
+            ("2024_kokugo.pdf", false),
+            ("2024_eigo.pdf", false),
+            ("2024_unknown.pdf", false)
         ],
         "{body}"
     );
@@ -436,65 +434,82 @@ async fn archive_list_items_includes_unpublished_with_derived_title(pool: Sqlite
     );
 }
 
-/// 管理用の一覧は、その時点のファイルの大きさと更新日時を付ける。
-/// 索引の後に消えたファイルは空欄にし、一覧自体は返す。
+/// 管理用の一覧は、最後のスキャンで見たファイルの大きさと更新日時を付ける。
+/// スキャンの後に書き換えたファイルは、次のスキャンで新しい値になる (→ docs/archive.md「スキャン」)。
 #[sqlx::test]
-async fn archive_list_items_reads_size_and_modified_at_from_files(pool: SqlitePool) {
+async fn archive_list_items_returns_size_and_modified_at_from_the_last_scan(pool: SqlitePool) {
     let (app, cookie, id, dir) = setup_archive_with_filename_word_axis(pool).await;
     std::fs::write(dir.join("2024_kokugo.pdf"), b"12345").expect("ファイルを書けなかった");
-    std::fs::remove_file(dir.join("2024_eigo.pdf")).expect("ファイルを消せなかった");
 
-    let (status, body) =
-        send_empty(app, "GET", &format!("/api/v1/contents/{id}/items"), &cookie).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    let items: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
-    let item = |rel_path: &str| {
-        items
-            .as_array()
-            .expect("配列でなかった")
-            .iter()
-            .find(|item| item["relPath"] == rel_path)
-            .unwrap_or_else(|| panic!("{rel_path} が無かった: {body}"))
-            .clone()
+    let kokugo = |app: Router| {
+        let cookie = cookie.clone();
+        async move {
+            let (status, body) =
+                send_empty(app, "GET", &format!("/api/v1/contents/{id}/items"), &cookie).await;
+            assert_eq!(status, StatusCode::OK, "{body}");
+            let items: serde_json::Value =
+                serde_json::from_str(&body).expect("JSONとして読めなかった");
+            items
+                .as_array()
+                .expect("配列でなかった")
+                .iter()
+                .find(|item| item["relPath"] == "2024_kokugo.pdf")
+                .unwrap_or_else(|| panic!("2024_kokugo.pdf が無かった: {body}"))
+                .clone()
+        }
     };
-    let kokugo = item("2024_kokugo.pdf");
-    assert_eq!(kokugo["size"], 5, "{body}");
+    let before = kokugo(app.clone()).await;
+    assert_eq!(before["size"], 0, "{before}");
     assert!(
-        kokugo["modifiedAt"].as_i64().is_some_and(|ms| ms > 0),
-        "{body}"
+        before["modifiedAt"].as_i64().is_some_and(|ms| ms > 0),
+        "{before}"
     );
-    assert_eq!(kokugo["missing"], false, "{body}");
-    let eigo = item("2024_eigo.pdf");
-    assert!(
-        eigo["missing"] == true && eigo["size"].is_null() && eigo["modifiedAt"].is_null(),
-        "{body}"
-    );
+
+    let (status, body) = rescan(app.clone(), &cookie, id).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(kokugo(app).await["size"], 5);
 }
 
-/// 閲覧の一覧は、索引の後に実体が消えた行を外す (→ docs/archive.md「アイテムの配信」)。
-/// 登録先のフォルダーごと無ければ、そう分かるように返す。
+/// 閲覧の一覧は、スキャンの後に実体が消えた行も、次のスキャンまで並べる。一覧のたびにファイルを
+/// 確かめないため (→ docs/archive.md「アイテムの配信」)。登録先のフォルダーごと無ければ、そう分かるように返す。
 #[sqlx::test]
-async fn archive_view_hides_items_whose_file_vanished_after_scan(pool: SqlitePool) {
-    let (app, _cookie, id, dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
+async fn archive_view_keeps_vanished_items_until_rescan(pool: SqlitePool) {
+    let (app, cookie, id, dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
     publish_all_items(&pool, id).await;
     std::fs::remove_file(dir.join("2024_eigo.pdf")).expect("ファイルを消せなかった");
 
+    let file_names = |body: &str| {
+        let parsed: serde_json::Value = serde_json::from_str(body).expect("JSONとして読めなかった");
+        let mut names: Vec<String> = parsed["items"]
+            .as_array()
+            .expect("配列でなかった")
+            .iter()
+            .map(|item| {
+                item["fileName"]
+                    .as_str()
+                    .expect("fileNameが無かった")
+                    .to_string()
+            })
+            .collect();
+        names.sort_unstable();
+        names
+    };
     let (status, body) = view_archive(app.clone(), "", id, &[]).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
-    let mut file_names: Vec<&str> = parsed["items"]
-        .as_array()
-        .expect("配列でなかった")
-        .iter()
-        .map(|item| item["fileName"].as_str().expect("fileNameが無かった"))
-        .collect();
-    file_names.sort_unstable();
     assert_eq!(
-        file_names,
+        file_names(&body),
+        vec!["2024_eigo.pdf", "2024_kokugo.pdf", "2024_unknown.pdf"],
+        "{body}"
+    );
+
+    let (status, body) = rescan(app.clone(), &cookie, id).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (_, body) = view_archive(app.clone(), "", id, &[]).await;
+    assert_eq!(
+        file_names(&body),
         vec!["2024_kokugo.pdf", "2024_unknown.pdf"],
         "{body}"
     );
-    assert_eq!(parsed["folderMissing"], false, "{body}");
 
     std::fs::remove_dir_all(&*dir).expect("フォルダーを消せなかった");
     let (status, body) = view_archive(app, "", id, &[]).await;

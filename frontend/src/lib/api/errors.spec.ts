@@ -43,6 +43,17 @@ describe('errorMessage', () => {
 		expect(unreadable('')).not.toContain('{path}');
 	});
 
+	it('shows the file limit when an archive has too many files', () => {
+		const message = errorMessage({
+			error: {
+				code: 'invalid_request_body',
+				message: 'x',
+				detail: { kind: 'archiveTooManyFiles', limit: 100000 }
+			}
+		});
+		expect(message).toContain('100,000');
+	});
+
 	it('falls back to the generic message for malformed bodies', () => {
 		expect(errorMessage(undefined)).toBe(GENERIC_ERROR_MESSAGE());
 	});

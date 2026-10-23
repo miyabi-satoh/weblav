@@ -1,3 +1,4 @@
+import { MediaQuery } from 'svelte/reactivity';
 import { browseLayout } from '$lib/browse-layout.svelte';
 
 /**
@@ -14,8 +15,10 @@ import { browseLayout } from '$lib/browse-layout.svelte';
  */
 export const listClass = 'border-y bg-background';
 
+const listItemBorderClass = 'border-b border-divider';
+
 /** 行の区切り。読み物のページの枠付きリスト (`page-layout.ts`) も同じ引き方にする。 */
-export const listItemClass = 'border-b border-divider last:border-b-0';
+export const listItemClass = `${listItemBorderClass} last:border-b-0`;
 
 /** 閲覧側の本文の左右の余白。行と、その外に置く見出し・文言で揃える。 */
 export const browseGutterClass = 'px-4 sm:px-6';
@@ -40,6 +43,41 @@ export const browseToggleItemClass =
 
 /** タイルの並べ。1枚の幅が 170〜230px ほどに収まるよう、幅に応じて列を増やす (→ docs/ui.md「UI 全般」)。 */
 const tileListClass = `grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 ${browseGutterClass}`;
+
+// 見えている所だけを描く一覧は、タイルを1段ずつ描くので、1段の枚数を画面の側で決める。
+// 段の列もこの数で引くので (`browseVirtualLineStyle`)、CSS と食い違って段の中で折り返すことはない。
+// 幅は上の `grid-cols-*` と同じ (Tailwind の既定のブレークポイント) にし、ほかの一覧とタイルの大きさを揃える。
+const tileColumnQueries: [MediaQuery, number][] = [
+	[new MediaQuery('min-width: 96rem'), 8],
+	[new MediaQuery('min-width: 80rem'), 6],
+	[new MediaQuery('min-width: 64rem'), 5],
+	[new MediaQuery('min-width: 48rem'), 4],
+	[new MediaQuery('min-width: 40rem'), 3]
+];
+
+/** 見えている所だけを描く一覧で、1つの段に並べる行の数。リストは1行ずつ、タイルは1段の枚数。 */
+export function browseRowsPerLine(): number {
+	if (!browseLayout.tile) return 1;
+	return tileColumnQueries.find(([query]) => query.current)?.[1] ?? 2;
+}
+
+/** 見えている所だけを描く一覧の外枠。行とタイルの1段は、この中に1つずつ重ねて置かれる。 */
+export function browseVirtualListClass(): string {
+	return browseLayout.tile ? browseGutterClass : listClass;
+}
+
+/** 見えている所だけを描く一覧の1段。`last:` が効かない (1段ずつ別の要素に入る) ので、最後かを渡す。 */
+export function browseVirtualLineClass(last: boolean): string {
+	if (browseLayout.tile) return last ? 'grid gap-3' : 'grid gap-3 pb-3';
+	return last ? '' : listItemBorderClass;
+}
+
+/** 見えている所だけを描く一覧の1段の列。タイルは `browseRowsPerLine()` の数だけ等分に並べる。 */
+export function browseVirtualLineStyle(perLine: number): string | undefined {
+	return browseLayout.tile
+		? `grid-template-columns: repeat(${perLine}, minmax(0, 1fr))`
+		: undefined;
+}
 
 /**
  * タイルの右上の隅。新規タブの印と、画像を開いている間の印を置く。

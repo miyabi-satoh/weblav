@@ -1,0 +1,68 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id as \"id!\", rel_path, published as \"published: bool\",\n                  created_at as \"created_at!\", file_size, modified_ns, image_width, image_height,\n                  is_text as \"is_text: bool\" FROM archive_items WHERE archive_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "rel_path",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "published: bool",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "created_at!",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "file_size",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "modified_ns",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "image_width",
+        "ordinal": 6,
+        "type_info": "Integer"
+      },
+      {
+        "name": "image_height",
+        "ordinal": 7,
+        "type_info": "Integer"
+      },
+      {
+        "name": "is_text: bool",
+        "ordinal": 8,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "0bde8f274b8b70da7c9953912e13229530cbd3e77a9e57c3c60524565bdc67b0"
+}

@@ -9,6 +9,7 @@
  */
 import * as m from '$lib/paraglide/messages.js';
 import type { components } from '$lib/api/schema';
+import { formatNumber } from '$lib/format';
 
 export type ErrorCode = components['schemas']['ErrorCode'];
 
@@ -112,6 +113,8 @@ function detailMessage(detail: ValidationDetail): string | undefined {
 			return m.error_detail_archive_folder_missing();
 		case 'archiveFolderUnreadable':
 			return unreadableFolderMessage(detail.path);
+		case 'archiveTooManyFiles':
+			return m.error_detail_archive_too_many_files({ limit: formatNumber(detail.limit) });
 		case 'backupInvalid':
 			return m.error_detail_backup_invalid();
 		case 'backupTooNew':

@@ -67,8 +67,8 @@ pub(super) fn is_image_file_name(name: &str) -> bool {
 /// 表示するときの画像の縦横 (px)。EXIF の向きを当てた後の値。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
 pub(super) struct ImageSize {
-    width: u32,
-    height: u32,
+    pub(super) width: u32,
+    pub(super) height: u32,
 }
 
 /// 一覧の行に添える、プレビューのための情報。一覧ごとの型 (アーカイブのアイテム・フォルダーの
@@ -92,6 +92,15 @@ pub(super) fn file_preview(name: &str, path: &Path, size: u64) -> FilePreview {
     FilePreview {
         image,
         is_text: super::text_files::is_text_file(name, path, size),
+        thumbnail: shows_thumbnail(name, image),
+    }
+}
+
+/// 前に `file_preview` で読んで残しておいた値から、プレビューの情報を組み立てる。ファイルは開かない。
+pub(super) fn stored_preview(name: &str, image: Option<ImageSize>, is_text: bool) -> FilePreview {
+    FilePreview {
+        image,
+        is_text,
         thumbnail: shows_thumbnail(name, image),
     }
 }

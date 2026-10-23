@@ -39,12 +39,54 @@ pub(super) async fn load_viewable_archive(
     Ok((meta, lineage))
 }
 
+#[derive(Default)]
 struct ItemRow {
     id: i64,
     rel_path: String,
     published: bool,
     /// スキャンでアイテムが見つかった日時 (→ `sort=new` の並び順)。
     created_at: String,
+    /// 以下はスキャンで読んで残した値 (→ docs/archive.md「スキャン」)。`file_size` が `None` ならまだ読んでいない。
+    file_size: Option<i64>,
+    modified_ns: Option<i64>,
+    image_width: Option<i64>,
+    image_height: Option<i64>,
+    is_text: bool,
+}
+
+impl ItemRow {
+    fn stored_preview(&self) -> StoredPreview {
+        let image = self
+            .image_width
+            .zip(self.image_height)
+            .and_then(|(width, height)| {
+                Some(thumbnails::ImageSize {
+                    width: u32::try_from(width).ok()?,
+                    height: u32::try_from(height).ok()?,
+                })
+            });
+        StoredPreview {
+            read: self.file_size.is_some(),
+            image,
+            is_text: self.is_text,
+        }
+    }
+}
+
+/// スキャンで読んで残した、行のプレビューの情報。
+#[derive(Clone, Copy)]
+struct StoredPreview {
+    /// 読んだことがあるか。無ければ `image`・`is_text` は意味を持たない。
+    read: bool,
+    image: Option<thumbnails::ImageSize>,
+    is_text: bool,
+}
+
+/// 行ごとの、残したプレビューの情報。行を導出に渡して手放す前に取っておく。
+fn stored_previews(rows: &[ItemRow]) -> HashMap<i64, StoredPreview> {
+    rows.iter()
+        .map(|row| (row.id, row.stored_preview()))
+        .collect()
 }
 
 /// 閲覧者に見せるアイテム (閲覧用の一覧と検索)。公開判定は「アーカイブのvisibility」と
@@ -57,7 +99,8 @@ async fn published_items(
     Ok(sqlx::query_as!(
         ItemRow,
         r#"SELECT id as "id!", rel_path, published as "published: bool",
-                  created_at as "created_at!" FROM archive_items
+                  created_at as "created_at!", file_size, modified_ns, image_width, image_height,
+                  is_text as "is_text: bool" FROM archive_items
            WHERE archive_id = ? AND published = 1"#,
         archive_id
     )
@@ -160,7 +203,7 @@ pub(super) struct ArchiveViewItem {
 }
 
 impl ArchiveViewItem {
-    /// プレビューの情報はファイルを読むので空のまま作り、見せる行にだけ `with_preview` で足す。
+    /// プレビューの情報は空のまま作り、見せる行にだけ `with_preview` で足す。
     fn new(
         id: i64,
         rel_path: String,
@@ -234,15 +277,13 @@ async fn view_archive(
     let root = PathBuf::from(&meta.path);
     let (axes, items, folder_missing) = run_blocking(move || {
         let folder_missing = folder_missing(&root);
-        // 選択肢と件数も実体のある行だけで数えるよう、組み立ての前に外す。
-        let (rows, sizes) = present_rows(&root, rows);
+        // 登録先ごと無ければ、どの行も開けないので並べない。行ごとの有無は確かめない (→ docs/archive.md「アイテムの配信」)。
+        let rows = if folder_missing { Vec::new() } else { rows };
+        let previews = stored_previews(&rows);
         let (axes, items) = build_archive_view(&axes, rows, template.as_deref(), &filters, order);
         let items = items
             .into_iter()
-            .map(|(rel_path, item)| {
-                let size = sizes[&item.id];
-                with_preview(&root, &rel_path, size, item)
-            })
+            .map(|(_, item)| with_preview(previews[&item.id], item))
             .collect::<Vec<_>>();
         (axes, items, folder_missing)
     })
@@ -266,8 +307,6 @@ struct ManageArchiveViewItem {
     #[serde(flatten)]
     item: ArchiveViewItem,
     published: bool,
-    /// 索引にあるが実体が無い。閲覧の一覧からは外れている (→ docs/archive.md「アイテムの配信」)。
-    missing: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -305,7 +344,8 @@ async fn manage_view_archive(
     let rows = sqlx::query_as!(
         ItemRow,
         r#"SELECT id as "id!", rel_path, published as "published: bool",
-                  created_at as "created_at!" FROM archive_items WHERE archive_id = ?"#,
+                  created_at as "created_at!", file_size, modified_ns, image_width, image_height,
+                  is_text as "is_text: bool" FROM archive_items WHERE archive_id = ?"#,
         id
     )
     .fetch_all(&state.pool)
@@ -316,19 +356,14 @@ async fn manage_view_archive(
     let root = PathBuf::from(&meta.path);
     let (axes, items, folder_missing) = run_blocking(move || {
         let folder_missing = folder_missing(&root);
+        let previews = stored_previews(&rows);
         let (axes, items) = build_archive_view(&axes, rows, template.as_deref(), &filters, order);
         let items = items
             .into_iter()
-            .map(|(rel_path, item)| {
-                let metadata = item_metadata(&root, &rel_path);
-                let missing = metadata.is_none();
-                let item = match metadata {
-                    Some(metadata) => with_preview(&root, &rel_path, metadata.len(), item),
-                    None => item,
-                };
+            .map(|(_, item)| {
+                let item = with_preview(previews[&item.id], item);
                 ManageArchiveViewItem {
                     published: published[&item.id],
-                    missing,
                     item,
                 }
             })
@@ -344,48 +379,19 @@ async fn manage_view_archive(
     }))
 }
 
-/// アイテムの実体の情報。消えている・読めないものは `None`。ファイルを読むので、非同期のワーカーの外で呼ぶ。
-///
-/// 中身は渡さないので、アイテムごとに配信と同じ `resolve_path` は通さない。
-/// 索引はリンクでないファイルだけを拾う (→ docs/archive.md「スキャン」) が、索引の後に
-/// リンクへ差し替えられたものは辿らない。
-fn item_metadata(root: &std::path::Path, rel_path: &str) -> Option<std::fs::Metadata> {
-    std::fs::symlink_metadata(root.join(rel_path))
-        .ok()
-        .filter(|metadata| metadata.is_file())
-}
-
 /// 登録先のフォルダーごと無いか。読めないだけのものは含めない。ファイルシステムを見るので、非同期のワーカーの外で呼ぶ。
 pub(super) fn folder_missing(path: &std::path::Path) -> bool {
     std::fs::metadata(path).is_err_and(|err| err.kind() == std::io::ErrorKind::NotFound)
 }
 
-/// 閲覧者に見せる行のうち、実体のあるものだけを残し、その大きさを `id` ごとに添える
-/// (→ docs/archive.md「アイテムの配信」)。開けない行を並べないため。
-fn present_rows(root: &std::path::Path, rows: Vec<ItemRow>) -> (Vec<ItemRow>, HashMap<i64, u64>) {
-    let mut sizes = HashMap::new();
-    let rows = rows
-        .into_iter()
-        .filter(|row| {
-            let Some(metadata) = item_metadata(root, &row.rel_path) else {
-                return false;
-            };
-            sizes.insert(row.id, metadata.len());
-            true
-        })
-        .collect();
-    (rows, sizes)
-}
-
-/// 行に、ページ内で見せるための情報 (画像の大きさ・テキストか) を埋める。ファイルを読むので、非同期のワーカーの外で呼ぶ。
-fn with_preview(
-    root: &std::path::Path,
-    rel_path: &str,
-    size: u64,
-    item: ArchiveViewItem,
-) -> ArchiveViewItem {
-    let path = root.join(rel_path);
-    let preview = thumbnails::file_preview(&item.file_name, &path, size);
+/// 行にプレビューの情報を足す。スキャンで読んで残した値を使い、ファイルは開かない (→ docs/archive.md「スキャン」)。
+/// まだ読んでいない行 (この仕組みより前に索引したもの) は、次のスキャンまでプレビューなしで並べる。
+/// その場で読むと、索引の大きいアーカイブでは一覧が開かず、再スキャンのボタンにも届かないため。
+fn with_preview(stored: StoredPreview, item: ArchiveViewItem) -> ArchiveViewItem {
+    if !stored.read {
+        return item;
+    }
+    let preview = thumbnails::stored_preview(&item.file_name, stored.image, stored.is_text);
     ArchiveViewItem {
         image: preview.image,
         is_text: preview.is_text,
@@ -612,13 +618,15 @@ pub(super) async fn search_items(
         sources.push((archive, axes, rows));
     }
 
-    // 導出は全アイテム × 軸 × 照合語の数だけ回り、行の情報はファイルを読むので、非同期のワーカーを塞がない。
+    // 導出は全アイテム × 軸 × 照合語の数だけ回るので、非同期のワーカーを塞がない。
     run_blocking(move || {
+        // フォルダーごと見つからないアーカイブは、閲覧の画面と同じく行を出さない (→ docs/archive.md「アイテムの配信」)。
         let sources: Vec<_> = sources
             .into_iter()
+            .filter(|(archive, _, _)| !folder_missing(std::path::Path::new(&archive.path)))
             .map(|(archive, axes, rows)| {
-                let (rows, sizes) = present_rows(std::path::Path::new(&archive.path), rows);
-                (archive, axes, rows, sizes)
+                let previews = stored_previews(&rows);
+                (archive, axes, rows, previews)
             })
             .collect();
         let mut hits: Vec<ItemHit> = Vec::new();
@@ -662,18 +670,13 @@ pub(super) async fn search_items(
         let hits = hits
             .into_iter()
             .map(|hit| {
-                let (archive, _, _, sizes) = &sources[hit.source];
-                let size = sizes[&hit.item.id];
+                let (archive, _, _, previews) = &sources[hit.source];
+                let stored = previews[&hit.item.id];
                 super::search::SearchItemHit {
                     archive_id: archive.id,
                     archive_title: archive.title.clone(),
                     ancestors: archive.ancestors.clone(),
-                    item: with_preview(
-                        std::path::Path::new(&archive.path),
-                        &hit.rel_path,
-                        size,
-                        hit.item,
-                    ),
+                    item: with_preview(stored, hit.item),
                 }
             })
             .collect();
@@ -691,26 +694,20 @@ struct AdminArchiveItemResponse {
     rel_path: String,
     published: bool,
     title: String,
-    /// ファイルが消えている・読めない。再スキャンすると一覧から外れる。
-    missing: bool,
-    /// ファイルが消えている・読めないときは `None`。
+    /// 最後のスキャンで見た大きさ。まだ読んでいない行は `None`。
     size: Option<u64>,
-    /// UNIXエポックミリ秒。取得できない場合は `None`。
+    /// 最後のスキャンで見た更新日時 (UNIXエポックミリ秒)。まだ読んでいない・取得できなかった行は `None`。
     modified_at: Option<i64>,
 }
 
-/// `root` はアーカイブのフォルダー。大きさと更新日時をファイルから読むので、非同期のワーカーの外で呼ぶ。
 fn to_admin_response(
     row: ItemRow,
     axes: &[archive::AxisIndex],
     template: Option<&str>,
-    root: &std::path::Path,
 ) -> (Vec<ValueKey>, AdminArchiveItemResponse) {
     let derived = archive::derive_item(&row.rel_path, axes, template);
     let sort_key = derived.sort_key();
-    // DB には持たず、その時点の値を出す (再スキャンまで古い値が出ないように)。
-    // 閲覧と同じく、索引の後にリンクへ差し替えられたものは辿らない。
-    let metadata = item_metadata(root, &row.rel_path);
+    // ファイルは開かず、スキャンで残した値を出す (→ docs/archive.md「スキャン」)。
     (
         sort_key,
         AdminArchiveItemResponse {
@@ -718,9 +715,8 @@ fn to_admin_response(
             rel_path: row.rel_path,
             published: row.published,
             title: derived.title,
-            missing: metadata.is_none(),
-            size: metadata.as_ref().map(|metadata| metadata.len()),
-            modified_at: metadata.as_ref().and_then(contents::modified_at_millis),
+            size: row.file_size.and_then(|size| u64::try_from(size).ok()),
+            modified_at: row.modified_ns.map(|ns| ns / 1_000_000),
         },
     )
 }
@@ -748,7 +744,8 @@ async fn list_items(
     let rows = sqlx::query_as!(
         ItemRow,
         r#"SELECT id as "id!", rel_path, published as "published: bool",
-                  created_at as "created_at!" FROM archive_items WHERE archive_id = ?"#,
+                  created_at as "created_at!", file_size, modified_ns, image_width, image_height,
+                  is_text as "is_text: bool" FROM archive_items WHERE archive_id = ?"#,
         id
     )
     .fetch_all(&state.pool)
@@ -756,11 +753,10 @@ async fn list_items(
 
     // 導出は全アイテム × 軸 × 照合語の数だけ回るので、非同期のワーカーを塞がない。
     let template = meta.title_template;
-    let root = PathBuf::from(&meta.path);
     let items = run_blocking(move || {
         let mut items: Vec<(Vec<ValueKey>, AdminArchiveItemResponse)> = rows
             .into_iter()
-            .map(|row| to_admin_response(row, &axes, template.as_deref(), &root))
+            .map(|row| to_admin_response(row, &axes, template.as_deref()))
             .collect();
         items.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.rel_path.cmp(&b.1.rel_path)));
         items.into_iter().map(|(_, item)| item).collect::<Vec<_>>()
@@ -1206,6 +1202,7 @@ mod tests {
                 rel_path: rel_path.to_string(),
                 published: true,
                 created_at: created_at.to_string(),
+                ..ItemRow::default()
             })
             .collect()
     }

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE archive_items SET file_size = ?, modified_ns = ?, image_width = ?,\n                         image_height = ?, is_text = ?\n                     WHERE archive_id = ? AND rel_path = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "a788527c87fdc7c3186fd844641fecef5d775223cf24b1376c267b276b1ada43"
+}

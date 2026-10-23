@@ -1,6 +1,8 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
+use std::time::{Duration, Instant};
 
 use sqlx::SqlitePool;
 use tokio::sync::Mutex;
@@ -115,7 +117,7 @@ pub struct AppState {
 /// 触る一瞬だけで、この鍵を持ったまま await しないため。
 #[derive(Default)]
 pub struct ArchiveScans {
-    running: StdMutex<HashSet<i64>>,
+    running: StdMutex<HashMap<i64, Arc<ScanProgress>>>,
 }
 
 impl ArchiveScans {
@@ -131,14 +133,94 @@ impl ArchiveScans {
     /// 返り値を保持している間だけ排他が有効で、drop すると解放される。
     pub fn acquire(self: &Arc<Self>, id: i64) -> Result<ArchiveScanGuard, crate::error::AppError> {
         let mut running = self.running.lock().expect("archive_scans lock poisoned");
-        if !running.insert(id) {
+        if running.contains_key(&id) {
             return Err(crate::error::AppError::Conflict(
                 "this archive is already being scanned".to_string(),
             ));
         }
+        let progress = Arc::new(ScanProgress::new());
+        running.insert(id, Arc::clone(&progress));
         Ok(ArchiveScanGuard {
             scans: Arc::clone(self),
             id,
+            progress,
+        })
+    }
+
+    /// `id` の走査の進み具合。走査していなければ `None`。
+    pub fn progress(&self, id: i64) -> Option<ScanProgressSnapshot> {
+        let running = self.running.lock().expect("archive_scans lock poisoned");
+        running.get(&id)?.snapshot()
+    }
+}
+
+/// 走査の進み具合 (→ docs/archive.md「スキャン」)。走査のスレッドが書き、進み具合の口が読む。
+///
+/// 排他は更新・削除も取るので、走査が段階を書くまでは「走査していない」と同じに見せる。
+pub struct ScanProgress {
+    phase: AtomicU8,
+    done: AtomicU64,
+    total: AtomicU64,
+    /// 排他を取った時刻。経過時間をサーバーで数えるのは、画面を開き直しても続きから出せるようにするため。
+    started: Instant,
+}
+
+/// 走査の段階。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScanPhase {
+    /// フォルダーの中を辿って、ファイルを集めている。件数は分からない。
+    Listing,
+    /// 集めたファイルを1つずつ見て、プレビューの情報を読んでいる。
+    Reading,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ScanProgressSnapshot {
+    pub phase: ScanPhase,
+    pub done: u64,
+    pub total: u64,
+    pub elapsed: Duration,
+}
+
+const PHASE_NONE: u8 = 0;
+const PHASE_LISTING: u8 = 1;
+const PHASE_READING: u8 = 2;
+
+impl ScanProgress {
+    fn new() -> Self {
+        Self {
+            phase: AtomicU8::new(PHASE_NONE),
+            done: AtomicU64::new(0),
+            total: AtomicU64::new(0),
+            started: Instant::now(),
+        }
+    }
+
+    pub fn start_listing(&self) {
+        self.phase.store(PHASE_LISTING, Ordering::Relaxed);
+    }
+
+    pub fn start_reading(&self, total: u64) {
+        self.done.store(0, Ordering::Relaxed);
+        self.total.store(total, Ordering::Relaxed);
+        self.phase.store(PHASE_READING, Ordering::Relaxed);
+    }
+
+    pub fn advance(&self) {
+        self.done.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn snapshot(&self) -> Option<ScanProgressSnapshot> {
+        let phase = match self.phase.load(Ordering::Relaxed) {
+            PHASE_NONE => return None,
+            PHASE_LISTING => ScanPhase::Listing,
+            _ => ScanPhase::Reading,
+        };
+        Some(ScanProgressSnapshot {
+            phase,
+            done: self.done.load(Ordering::Relaxed),
+            total: self.total.load(Ordering::Relaxed),
+            elapsed: self.started.elapsed(),
         })
     }
 }
@@ -149,6 +231,14 @@ impl ArchiveScans {
 pub struct ArchiveScanGuard {
     scans: Arc<ArchiveScans>,
     id: i64,
+    progress: Arc<ScanProgress>,
+}
+
+impl ArchiveScanGuard {
+    /// 走査の進み具合を書く先。走査のスレッドへ渡せるよう `Arc` で返す。
+    pub fn progress(&self) -> Arc<ScanProgress> {
+        Arc::clone(&self.progress)
+    }
 }
 
 impl Drop for ArchiveScanGuard {
@@ -158,5 +248,37 @@ impl Drop for ArchiveScanGuard {
         if let Ok(mut running) = self.scans.running.lock() {
             running.remove(&self.id);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scan_progress_is_visible_only_while_a_scan_reports_it() {
+        let scans = Arc::new(ArchiveScans::default());
+        let guard = scans.acquire(1).expect("走査を始められるはず");
+        // 更新・削除も排他を取るので、段階を書くまでは走査していないのと同じに見せる。
+        assert_eq!(scans.progress(1), None);
+
+        let progress = guard.progress();
+        progress.start_listing();
+        assert_eq!(
+            scans.progress(1).map(|snapshot| snapshot.phase),
+            Some(ScanPhase::Listing)
+        );
+        progress.start_reading(3);
+        progress.advance();
+        let snapshot = scans
+            .progress(1)
+            .expect("読んでいる間は進み具合が見えるはず");
+        assert_eq!(
+            (snapshot.phase, snapshot.done, snapshot.total),
+            (ScanPhase::Reading, 1, 3)
+        );
+
+        drop(guard);
+        assert_eq!(scans.progress(1), None);
     }
 }
