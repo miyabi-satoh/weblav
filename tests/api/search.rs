@@ -45,7 +45,10 @@ async fn search_finds_contents_and_published_archive_files(pool: SqlitePool) {
     assert_eq!(files[0]["folderTitle"], "英検 過去問", "{found}");
     assert_eq!(files[0]["ancestors"], serde_json::json!([]), "{found}");
     assert_eq!(files[0]["path"], "リスニング第1回.mp3", "{found}");
-    assert_eq!(files[0]["listed"]["title"], "リスニング第1回.mp3", "{found}");
+    assert_eq!(
+        files[0]["listed"]["title"], "リスニング第1回.mp3",
+        "{found}"
+    );
     // 行はフォルダーの口で開く。
     let (status, body) = send_anon(
         app.clone(),
