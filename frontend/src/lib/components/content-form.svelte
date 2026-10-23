@@ -17,6 +17,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import FileDropzone from '$lib/components/file-dropzone.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
+	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import * as Select from '$lib/components/ui/select';
 	import { Switch } from '$lib/components/ui/switch';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -262,9 +263,6 @@
 				<Field.FieldLabel for="content-new-files-public"
 					>{m.contents_form_new_files_public_label()}</Field.FieldLabel
 				>
-				<Field.FieldDescription
-					>{m.contents_form_new_files_public_description()}</Field.FieldDescription
-				>
 			</Field.FieldContent>
 			<Switch id="content-new-files-public" bind:checked={form.newFilesPublic} {disabled} />
 		</Field.Field>
@@ -285,22 +283,26 @@
 				<Input id="content-extensions" bind:value={form.extensions} />
 				<Field.FieldDescription>{m.contents_form_extensions_help()}</Field.FieldDescription>
 			</Field.Field>
-			<Field.Field data-disabled={disabled}>
-				<Field.FieldLabel for="content-auto-rescan"
-					>{m.contents_form_auto_rescan_label()}</Field.FieldLabel
+			<!-- グループの「自動の更新」と同じく丸ボタンにする。3つの状態が一目で見えるため (→ docs/ui.md「グループの編集ページ」)。 -->
+			<Field.FieldSet data-disabled={disabled}>
+				<Field.FieldLegend variant="label" id="content-auto-rescan-legend"
+					>{m.contents_form_auto_rescan_label()}</Field.FieldLegend
 				>
-				<Select.Root type="single" bind:value={form.autoRescan} {disabled}>
-					<Select.Trigger id="content-auto-rescan" class="w-full">
-						{autoRescanLabel(form.autoRescan)}
-					</Select.Trigger>
-					<Select.Content>
-						{#each AUTO_RESCAN_OPTIONS as option (option)}
-							<Select.Item value={option}>{autoRescanLabel(option)}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
-				<Field.FieldDescription>{m.contents_form_auto_rescan_help()}</Field.FieldDescription>
-			</Field.Field>
+				<RadioGroup.Root
+					bind:value={form.autoRescan}
+					{disabled}
+					aria-labelledby="content-auto-rescan-legend"
+				>
+					{#each AUTO_RESCAN_OPTIONS as option (option)}
+						<Field.Field orientation="horizontal" data-disabled={disabled} class="min-h-9">
+							<RadioGroup.Item value={option} id="content-auto-rescan-{option}" />
+							<Field.FieldLabel for="content-auto-rescan-{option}" class="font-normal"
+								>{autoRescanLabel(option)}</Field.FieldLabel
+							>
+						</Field.Field>
+					{/each}
+				</RadioGroup.Root>
+			</Field.FieldSet>
 		{/if}
 	{/if}
 </Field.FieldGroup>

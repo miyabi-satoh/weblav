@@ -479,7 +479,7 @@ async function shootAdmin() {
 				page,
 				'folder-list-view',
 				page.getByText('新しく見つかったファイルを公開する'),
-				page.getByText('中身の変わったフォルダーは', { exact: false }),
+				page.getByText('1\u00a0日ごと'),
 				{ padTop: 16, padBottom: 16 }
 			);
 		}

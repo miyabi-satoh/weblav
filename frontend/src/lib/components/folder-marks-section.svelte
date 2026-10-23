@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { toast } from 'svelte-sonner';
 	import { invalidateAll } from '$app/navigation';
 	import FileIcon from '@lucide/svelte/icons/file';
 	import FolderIcon from '@lucide/svelte/icons/folder';
@@ -31,10 +30,8 @@
 					client.DELETE('/api/v1/contents/{id}/marks/{mark_id}', {
 						params: { path: { id: contentId, mark_id: mark.id } }
 					}),
-				async () => {
-					toast.success(m.contents_marks_cleared_toast());
-					await invalidateAll();
-				}
+				// 押した行が消えるので、トーストは出さない (→ docs/ui.md「押した所で結果が見えない操作は、トーストで知らせる」)。
+				() => invalidateAll()
 			);
 		} finally {
 			clearing = null;
