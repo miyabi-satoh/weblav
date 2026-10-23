@@ -16,7 +16,6 @@ function savedLink(overrides: Partial<Content> = {}): Content {
 		url: 'https://example.com/saved',
 		visibility: 'public',
 		parentId: null,
-		aiLinks: false,
 		autoRescan: { mode: 'off', hours: null, time: null },
 		listView: false,
 		newFilesPublic: true,

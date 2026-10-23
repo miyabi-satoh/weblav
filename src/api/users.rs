@@ -27,8 +27,6 @@ pub struct UserListItem {
     /// そのユーザーが作成者の `private` の件数。削除の確認で、`hidden` として残る件数を
     /// 示すため (→ docs/access.md「ユーザーの削除と作成者」)。
     pub private_content_count: i64,
-    /// AI を使える印 (→ docs/ai.md「誰が使えるか」)。`admin` は印によらず使える。
-    pub ai_allowed: bool,
 }
 
 struct UserRow {
@@ -37,7 +35,6 @@ struct UserRow {
     role: Role,
     created_at: String,
     private_content_count: i64,
-    ai_allowed: bool,
 }
 
 impl From<UserRow> for UserListItem {
@@ -48,7 +45,6 @@ impl From<UserRow> for UserListItem {
             role: row.role,
             created_at: row.created_at,
             private_content_count: row.private_content_count,
-            ai_allowed: row.ai_allowed,
         }
     }
 }
@@ -68,8 +64,7 @@ async fn fetch_list_item(conn: &mut SqliteConnection, id: i64) -> Result<UserLis
         r#"SELECT id as "id!", username, role as "role: Role", created_at,
                   (SELECT COUNT(*) FROM contents
                    WHERE contents.created_by = users.id AND contents.visibility = ?)
-                      as "private_content_count!: i64",
-                  ai_allowed as "ai_allowed: bool"
+                      as "private_content_count!: i64"
            FROM users WHERE id = ?"#,
         Visibility::Private,
         id,
@@ -97,8 +92,7 @@ async fn list_users(
         r#"SELECT id as "id!", username, role as "role: Role", created_at,
                   (SELECT COUNT(*) FROM contents
                    WHERE contents.created_by = users.id AND contents.visibility = ?)
-                      as "private_content_count!: i64",
-                  ai_allowed as "ai_allowed: bool"
+                      as "private_content_count!: i64"
            FROM users
            ORDER BY username COLLATE NOCASE"#,
         Visibility::Private,
@@ -150,7 +144,6 @@ async fn create_user(
             role,
             created_at: created.created_at,
             private_content_count: 0,
-            ai_allowed: false,
         }),
     ))
 }
@@ -219,48 +212,6 @@ async fn update_role(
     sqlx::query!("UPDATE users SET role = ? WHERE id = ?", payload.role, id)
         .execute(&mut *tx)
         .await?;
-    let item = fetch_list_item(&mut tx, id).await?;
-    tx.commit().await?;
-
-    Ok(Json(item))
-}
-
-#[derive(Debug, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-struct UpdateAiAllowedRequest {
-    ai_allowed: bool,
-}
-
-/// AI を使える印を付け外しする (→ docs/ai.md「誰が使えるか」)。
-#[utoipa::path(
-    put,
-    path = "/admin/users/{id}/ai-allowed",
-    params(("id" = i64, Path)),
-    request_body = UpdateAiAllowedRequest,
-    responses(
-        (status = OK, body = UserListItem, description = "更新後のユーザー"),
-        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
-        (status = 404, body = crate::error::ErrorResponse, description = "存在しないユーザー"),
-    )
-)]
-async fn update_ai_allowed(
-    _admin: AdminUser,
-    State(state): State<AppState>,
-    Path(id): Path<i64>,
-    AppJson(payload): AppJson<UpdateAiAllowedRequest>,
-) -> Result<Json<UserListItem>, AppError> {
-    let mut tx = crate::db::begin_write(&state.pool).await?;
-    let updated = sqlx::query!(
-        "UPDATE users SET ai_allowed = ? WHERE id = ?",
-        payload.ai_allowed,
-        id
-    )
-    .execute(&mut *tx)
-    .await?;
-    if updated.rows_affected() == 0 {
-        return Err(AppError::NotFound);
-    }
     let item = fetch_list_item(&mut tx, id).await?;
     tx.commit().await?;
 
@@ -407,7 +358,6 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(list_users, create_user))
         .routes(routes!(update_role))
-        .routes(routes!(update_ai_allowed))
         .routes(routes!(reset_password))
         .routes(routes!(update_username))
         .routes(routes!(delete_user))

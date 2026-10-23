@@ -28,8 +28,6 @@ Change these on the “Site settings” tab in the admin pages.
 
   ![The Logs section in Site settings](images/settings-log.webp)
 
-- AI: Registering the computer with a WebLAV account to use the AI features (→ [Use the AI features](10-ai.md)).
-
 ## Back up and restore
 
 1. Select the “Site settings” tab in the admin pages.

@@ -91,22 +91,14 @@ Use “File extensions” (for example, `mp3, pdf`) on the “Settings” tab to
 
 ## Ask an AI
 
-If you are not sure how to set up the categories, you can have the AI service you use (ChatGPT, Claude, and so on) design them. You paste the prompt and the answer yourself, so WebLAV sends nothing to the AI in these steps.
+If you are not sure how to set up the categories, you can have the AI service you use (ChatGPT, Claude, and so on) design them. WebLAV never sends anything to the AI; you paste the prompt and the answer yourself.
 
-1. On the "Categories" tab, press "Ask an AI...". If you can use "Send to the AI from WebLAV" below, a screen to choose appears first. Under "Use another AI service", press "Show steps"
+1. On the "Categories" tab, press "Ask an AI..."
 2. Copy the prompt, then paste it into the AI service and send it. The prompt contains file paths, so check that it contains no names of people
 3. Paste the AI's answer into "Paste the AI's answer" and press "Check"
 4. Look at how many files get a value for each category and at the examples of display titles. If they look right, press "Import". To change the answer, press "Back" to return to the answer field
 
 Importing replaces the current categories and the display title. After importing, you can edit them like any other categories.
-
-### Send to the AI from WebLAV
-
-If an admin has registered this computer with a WebLAV account and you are allowed to use AI, “Send to the AI and get a suggestion” appears on the first screen after you press “Ask an AI...” (→ [Use the AI features](10-ai.md)). Selecting it makes WebLAV send the prompt to the AI, and when the answer comes back, it shows what the import will look like. No pasting is needed.
-
-- The names of the folders and files in that folder are sent to Google (Gemini) through the WebLAV account server.
-- It uses credit from the account.
-- The answer can take about a minute.
 
 ## Edit or delete categories
 

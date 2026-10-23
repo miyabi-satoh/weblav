@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\", username, role as \"role: Role\", created_at,\n                  (SELECT COUNT(*) FROM contents\n                   WHERE contents.created_by = users.id AND contents.visibility = ?)\n                      as \"private_content_count!: i64\",\n                  ai_allowed as \"ai_allowed: bool\"\n           FROM users WHERE id = ?",
+  "query": "SELECT id as \"id!\", username, role as \"role: Role\", created_at,\n                  (SELECT COUNT(*) FROM contents\n                   WHERE contents.created_by = users.id AND contents.visibility = ?)\n                      as \"private_content_count!: i64\"\n           FROM users\n           ORDER BY username COLLATE NOCASE",
   "describe": {
     "columns": [
       {
@@ -27,24 +27,18 @@
         "name": "private_content_count!: i64",
         "ordinal": 4,
         "type_info": "Integer"
-      },
-      {
-        "name": "ai_allowed: bool",
-        "ordinal": 5,
-        "type_info": "Integer"
       }
     ],
     "parameters": {
-      "Right": 2
+      "Right": 1
     },
     "nullable": [
-      false,
-      false,
+      true,
       false,
       false,
       false,
       false
     ]
   },
-  "hash": "9934350d9b78fda71d5252c25e0e594b05fde40b66cb72a9839bbf96792344ef"
+  "hash": "f5d48bcb497eb3abc3711f186fe3d7c9dfadff25e0f0e8c509eb6b43ac23d262"
 }

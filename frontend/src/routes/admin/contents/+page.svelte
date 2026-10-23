@@ -10,8 +10,6 @@
 	import { page } from '$app/state';
 	import { dialogFormClass } from '$lib/dialog-form';
 	import { client } from '$lib/api/client';
-	import { toast } from 'svelte-sonner';
-	import { refreshAiLinks } from '$lib/ai-links';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { canEditContent, isAdmin } from '$lib/auth';
 	import { archiveItemsSummary, contentTypeLabel, visibilityLabel } from '$lib/content-labels';
@@ -294,31 +292,6 @@
 			pendingReparent = null;
 		}
 	}
-
-	// AI のリンクを集め直す (→ docs/ai.md「AI が集めるリンク」)。数秒かかるので、進み具合と結果はトーストで知らせる。
-	let refreshingLinks = $state<number | null>(null);
-
-	async function refreshLinks(content: Content) {
-		if (refreshingLinks !== null) return;
-		refreshingLinks = content.id;
-		// 結果がこの画面に出ないので、集めている間も知らせる。失敗は消えないダイアログで出す (→ docs/ui.md「UI 全般」)。
-		const progress = toast.loading(m.contents_ai_links_refreshing_toast({ title: content.title }));
-		try {
-			const result = await errorDialog.attempt(() => refreshAiLinks(content.id));
-			if (result) {
-				// 新しいリンクが無ければ、何も入れ替わっていないことを伝える (→ docs/ai.md「AI が集めるリンク」)。
-				const message =
-					result.data?.added === 0
-						? m.contents_ai_links_no_new_toast({ title: content.title })
-						: m.contents_ai_links_refreshed_toast({ title: content.title });
-				toast.success(message, { id: progress });
-			} else {
-				toast.dismiss(progress);
-			}
-		} finally {
-			refreshingLinks = null;
-		}
-	}
 </script>
 
 {#snippet visibilityBadge(visibility: Visibility)}
@@ -495,14 +468,6 @@
 									{#if content.type === 'group' && canHoldContentOf(content, currentUserId)}
 										<DropdownMenu.Item onSelect={() => openCreateDialog(content)}>
 											{m.contents_menu_add_inside()}
-										</DropdownMenu.Item>
-									{/if}
-									{#if content.aiLinks && data.aiAvailable}
-										<DropdownMenu.Item
-											disabled={refreshingLinks !== null}
-											onSelect={() => refreshLinks(content)}
-										>
-											{m.contents_menu_refresh_ai_links()}
 										</DropdownMenu.Item>
 									{/if}
 									<DropdownMenu.Item>

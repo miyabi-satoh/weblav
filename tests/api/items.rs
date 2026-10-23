@@ -588,7 +588,6 @@ async fn a_root_may_contain_own_dirs_but_not_be_inside_them(pool: SqlitePool) {
         },
         None,
         FolderPicker::new(|| Ok(None)),
-        NO_ACCOUNT_SERVER,
     )
     .await
     .expect("failed to build app");

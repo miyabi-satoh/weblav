@@ -11,7 +11,6 @@ const root = path.join(import.meta.dirname, '..');
 // タスクトレイ (src/tray) は全角だけを見る。空白の検査は、コードのコメントの括弧まで拾うため。
 const targets = [
   { path: 'frontend/messages/ja.json', spacing: true },
-  { path: 'account-server/src/i18n.ts', spacing: true },
   { path: 'docs/manual/ja', spacing: true },
   { path: 'src/tray', spacing: false }
 ];

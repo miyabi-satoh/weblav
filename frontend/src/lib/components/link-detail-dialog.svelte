@@ -5,8 +5,6 @@
 	import { beforeNavigate } from '$app/navigation';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import SeparatedText from '$lib/components/separated-text.svelte';
 	import { formatTimeAgo } from '$lib/format';
 	import { linkDetail, linkSiteNameOf } from '$lib/link-detail.svelte';
@@ -142,51 +140,12 @@
 						<span class="sr-only">{m.link_detail_next_button()}</span>
 					</Button>
 				{/if}
-				{#if detail.menu && detail.menu.length > 0}
-					<DropdownMenu.Root>
-						<DropdownMenu.Trigger
-							class={[
-								buttonVariants({ variant: 'outline', size: 'icon-lg' }),
-								linkDetail.count > 1 && 'ml-auto'
-							]}
-						>
-							<EllipsisIcon />
-							<span class="sr-only">{m.link_detail_more_button()}</span>
-						</DropdownMenu.Trigger>
-						<DropdownMenu.Content align="start">
-							{#each detail.menu as item (item.label)}
-								<DropdownMenu.Item
-									onSelect={() => {
-										linkDetail.open = false;
-										item.run();
-									}}>{item.label}</DropdownMenu.Item
-								>
-							{/each}
-						</DropdownMenu.Content>
-					</DropdownMenu.Root>
-				{/if}
-				{#if detail.action}
-					{@const action = detail.action}
-					<Button
-						variant="outline"
-						class={[linkDetail.count > 1 && !detail.menu?.length && 'ml-auto']}
-						onclick={() => {
-							linkDetail.open = false;
-							action.run();
-						}}
-					>
-						{action.label}
-					</Button>
-				{/if}
 				<a
 					bind:this={openButton}
 					href={detail.href}
 					target="_blank"
 					rel="external noopener noreferrer"
-					class={[
-						buttonVariants(),
-						linkDetail.count > 1 && !detail.action && !detail.menu?.length && 'ml-auto'
-					]}
+					class={[buttonVariants(), linkDetail.count > 1 && 'ml-auto']}
 					onclick={() => (linkDetail.open = false)}
 				>
 					<ExternalLinkIcon data-icon="inline-start" />

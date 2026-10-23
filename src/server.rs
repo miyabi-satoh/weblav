@@ -393,7 +393,6 @@ fn spawn(
                     &dirs,
                     lan_port,
                     folder_picker,
-                    crate::ai::ACCOUNT_SERVER_URL,
                 )
                 .await
             }

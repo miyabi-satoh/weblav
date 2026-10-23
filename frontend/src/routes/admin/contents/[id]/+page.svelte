@@ -36,9 +36,7 @@
 	import ContentForm from '$lib/components/content-form.svelte';
 	import * as Field from '$lib/components/ui/field';
 	import * as Select from '$lib/components/ui/select';
-	import AiLinksExclusionsSection from '$lib/components/ai-links-exclusions-section.svelte';
 	import FolderMarksSection from '$lib/components/folder-marks-section.svelte';
-	import AiLinksSettingsSection from '$lib/components/ai-links-settings-section.svelte';
 	import DirPicker from '$lib/components/dir-picker.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
@@ -72,8 +70,6 @@
 	creatorDirty.markPristine();
 	let creatorChanged = $derived(canChangeCreator && !creatorLocked && creatorDirty.dirty);
 
-	// グループの、AI がリンクを集める設定 (→ docs/ai.md「AI が集めるリンク」)。区画を分け、区画ごとに保存する。
-	let aiLinksSettings = $derived(content.type === 'group' ? data.aiLinks : null);
 	// 公開・非公開を変えたものが無ければ区画を出さない。印を付けるのは閲覧の画面とアイテムのタブで行う。
 	// 一覧の表示を使うフォルダーでは、ファイルの印はアイテムのタブで見るので、フォルダーの印だけを並べる
 	// (選んで公開するフォルダーでは、公開したファイルの印が数万件になりうるため)。
@@ -84,16 +80,14 @@
 			: data.folderMarks;
 		return marks.length > 0 ? marks : null;
 	});
-	let aiLinksDirty = $state(false);
-	let aiLinksSection = $state<{ discard: () => void } | null>(null);
 
 	// 区画ごとに保存する (→ docs/ui.md「編集ページの区画」)。保存ボタンは、その区画の変更だけで決める。
 	let commonDirty = $derived(form.partDirty('common') || creatorChanged);
 	let specificDirty = $derived(form.partDirty('specific'));
 	// 離れるときの確認は、どの区画の変更でも出す。
-	let dirty = $derived(commonDirty || specificDirty || aiLinksDirty);
+	let dirty = $derived(commonDirty || specificDirty);
 
-	// 種類ごとの項目の区画の見出し。グループには種類ごとの項目が無い (AI の設定は別の区画)。
+	// 種類ごとの項目の区画の見出し。グループには種類ごとの項目が無い。
 	let specificTitle = $derived.by(() => {
 		if (content.type === 'link') return m.contents_edit_link_title();
 		if (content.type === 'file') return m.contents_edit_file_title();
@@ -332,7 +326,6 @@
 		// 変更を捨てたので、移動をもう一度止めないようにする。
 		form.markPristine();
 		creatorDirty.markPristine();
-		aiLinksSection?.discard();
 		// 行き先は SvelteKit のナビゲーションが解決済みの URL。
 		// eslint-disable-next-line svelte/no-navigation-without-resolve
 		await goto(target);
@@ -409,22 +402,6 @@
 		{@render partForm('common', m.contents_edit_basic_title())}
 		{#if specificTitle !== null}
 			{@render partForm('specific', specificTitle)}
-		{/if}
-		{#if aiLinksSettings != null}
-			<AiLinksSettingsSection
-				bind:this={aiLinksSection}
-				ondirtychange={(value) => (aiLinksDirty = value)}
-				contentId={content.id}
-				settings={aiLinksSettings}
-				{editable}
-			/>
-			{#if aiLinksSettings.enabled}
-				<AiLinksExclusionsSection
-					contentId={content.id}
-					exclusions={aiLinksSettings.exclusions}
-					{editable}
-				/>
-			{/if}
 		{/if}
 		{#if folderMarks != null}
 			<FolderMarksSection contentId={content.id} marks={folderMarks} />

@@ -67,8 +67,7 @@ impl LinkPreviews {
         }
     }
 
-    /// 外へ取りに行く枠を1つ取る。カードのほかに、AI が集めるリンクで一覧のページを開くときも同じ枠を使う
-    /// (→ `ai_link_pages`)。相手のサイトと回線を突きすぎない数は、何のために取るかによらないため。
+    /// 外へ取りに行く枠を1つ取る。
     pub(super) async fn permit(&self) -> tokio::sync::SemaphorePermit<'_> {
         self.permits.acquire().await.expect("閉じないセマフォ")
     }
@@ -151,25 +150,6 @@ pub(super) async fn cached(
         .collect())
 }
 
-/// `urls` のうち、最後に確かめたときにページが無くなっていたもの (404・410)。カードの情報は読まない。
-pub(super) async fn gone_urls(
-    pool: &SqlitePool,
-    urls: &[String],
-) -> Result<HashSet<String>, AppError> {
-    if urls.is_empty() {
-        return Ok(HashSet::new());
-    }
-    let urls_json = serde_json::to_string(urls).expect("文字列の並びは JSON にできる");
-    Ok(sqlx::query_scalar!(
-        "SELECT url FROM link_previews WHERE gone AND url IN (SELECT value FROM json_each(?))",
-        urls_json
-    )
-    .fetch_all(pool)
-    .await?
-    .into_iter()
-    .collect())
-}
-
 /// 取り直しの対象。見る権限は呼び出し側が確かめる。
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -178,8 +158,6 @@ struct RefreshLinkPreviewsRequest {
     content_ids: Vec<i64>,
     /// リンクの一覧のファイル。中のリンクを取り直す。見られないもの・一覧のファイルでないものは黙って飛ばす。
     links_file: Option<RefreshLinksFile>,
-    /// AI がリンクを集めるグループの id。集めたリンクを取り直す。見られないもの・グループでないものは黙って飛ばす。
-    ai_links_group: Option<i64>,
 }
 
 /// 取り直す一覧のファイル。指し方は `GET /contents/{id}/links` と同じ。
@@ -233,16 +211,6 @@ async fn refresh_link_previews(
             Ok(file_urls) => {
                 let room = MAX_REFRESH_TARGETS.saturating_sub(urls.len());
                 urls.extend(file_urls.into_iter().take(room));
-            }
-            Err(AppError::NotFound | AppError::Unauthorized) => {}
-            Err(err) => return Err(err),
-        }
-    }
-    if let Some(group) = payload.ai_links_group {
-        match super::ai_links::viewable_urls(&state, &viewer, group).await {
-            Ok(group_urls) => {
-                let room = MAX_REFRESH_TARGETS.saturating_sub(urls.len());
-                urls.extend(group_urls.into_iter().take(room));
             }
             Err(AppError::NotFound | AppError::Unauthorized) => {}
             Err(err) => return Err(err),

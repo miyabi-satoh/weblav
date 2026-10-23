@@ -1,5 +1,5 @@
 import { client } from '$lib/api/client';
-import { fetchOrError, fetchOrNull } from '$lib/api/load';
+import { fetchOrError } from '$lib/api/load';
 import * as m from '$lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
@@ -10,16 +10,14 @@ import type { PageLoad } from './$types';
 export const load: PageLoad = async ({ parent, url }) => {
 	await parent();
 
-	const [contents, hasSharedFolders, ai] = await Promise.all([
+	const [contents, hasSharedFolders] = await Promise.all([
 		fetchOrError(client.GET('/api/v1/admin/contents'), m.contents_fetch_failed(), {
 			loginRedirectFrom: url
 		}),
-		fetchSharedFolderPresence(),
-		// AI のリンクを更新する操作を行のメニューに出すか。取れなければ出さない。
-		fetchOrNull(client.GET('/api/v1/ai/availability'))
+		fetchSharedFolderPresence()
 	]);
 
-	return { contents, hasSharedFolders, aiAvailable: ai?.available ?? false };
+	return { contents, hasSharedFolders };
 };
 
 /**

@@ -80,7 +80,6 @@ jobs:
           cache-dependency-path: |
             pnpm-lock.yaml
             frontend/pnpm-lock.yaml
-            account-server/pnpm-lock.yaml
             site/pnpm-lock.yaml
 
       - if: steps.changes.outputs.code != 'false'
@@ -88,7 +87,6 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm --dir frontend install --frozen-lockfile
-          pnpm --dir account-server install --frozen-lockfile
           pnpm --dir site install --frozen-lockfile
 
       # vitest のコンポーネントテストと e2e が chromium で動くため。

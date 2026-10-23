@@ -1,5 +1,5 @@
 import { client } from '$lib/api/client';
-import { fetchOrError, fetchOrNull } from '$lib/api/load';
+import { fetchOrError } from '$lib/api/load';
 import { parseBrowseSort } from '$lib/browse-sort';
 import * as m from '$lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
@@ -13,18 +13,12 @@ export const load: PageLoad = async ({ parent, params, url }) => {
 	// 並び順はトップと同じ扱い (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
 	const sort = parseBrowseSort(url.searchParams.get('sort'));
 
-	const [browse, aiLinks] = await Promise.all([
-		fetchOrError(
-			client.GET('/api/v1/contents/{id}/group', {
-				params: { path: { id: contentId }, query: { sort } }
-			}),
-			m.group_browse_fetch_failed(),
-			{ loginRedirectFrom: url }
-		),
-		// AI が集めたリンク (→ docs/ai.md「AI が集めるリンク」)。取れなくても、グループの中身は見せる。
-		fetchOrNull(
-			client.GET('/api/v1/contents/{id}/ai-links', { params: { path: { id: contentId } } })
-		)
-	]);
-	return { contentId, browse, sort, aiLinks: aiLinks?.enabled ? aiLinks : null };
+	const browse = await fetchOrError(
+		client.GET('/api/v1/contents/{id}/group', {
+			params: { path: { id: contentId }, query: { sort } }
+		}),
+		m.group_browse_fetch_failed(),
+		{ loginRedirectFrom: url }
+	);
+	return { contentId, browse, sort };
 };

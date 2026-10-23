@@ -105,33 +105,6 @@ pub enum AppError {
     /// アプリケーションが定める実際の上限)。
     #[error("file too large")]
     FileTooLarge,
-    /// AI を使おうとしたが、このコンピューターを WebLAV のアカウントに登録していない場合。
-    /// 窓口がトークンを断った (窓口の側で登録を外された) ときも、手元のトークンを消してこれを返す (→ docs/ai.md)。
-    #[error("this PC is not linked to a WebLAV account")]
-    AiNotLinked,
-    /// ログイン済みだが、AI を使える印が付いていない編集者の場合 (→ docs/ai.md「誰が使えるか」)。
-    /// `Forbidden` と分けるのは、画面が「管理者に頼む」と伝えられるようにするため。
-    #[error("this user is not allowed to use AI")]
-    AiNotAllowed,
-    /// アカウントの残りが無い場合 (窓口の 402)。
-    #[error("the WebLAV account has no credit left")]
-    AiNoCredit,
-    /// 短い間に呼びすぎた場合 (窓口の 429)。ログインの `TooManyRequests` とは文言が違うので分ける。
-    #[error("too many AI requests")]
-    AiRateLimited,
-    /// AI が集めるリンクを、グループに決めた1日の回数まで集め直した場合 (→ docs/ai.md「AI が集めるリンク」)。
-    /// `AiRateLimited` と分けるのは、画面が「今日はここまで」と伝えられるようにするため。
-    #[error("the daily refresh limit of AI links is reached")]
-    AiLinksDailyLimit,
-    /// 送る文が、窓口の受ける上限を超える場合 (送る前に分かったものと、窓口の 413)。
-    #[error("the AI request is too large")]
-    AiTooLarge,
-    /// AI の側が失敗した場合 (窓口の 502)。答えの文が無い返事もここに入れる。
-    #[error("the AI service failed")]
-    AiUpstream,
-    /// 窓口につながらない・窓口が想定外の返事をした場合。
-    #[error("account server unavailable: {0}")]
-    AccountServer(String),
     /// 公開できるフォルダーのある NAS や外付けのディスクにつながらない場合 (→ `folder_reach`)。
     /// 「見つからない」と分けるのは、画面が「しばらくしてから開き直す」と伝えられるようにするため。
     #[error("the shared folder is not reachable")]
@@ -155,14 +128,6 @@ pub enum ErrorCode {
     InternalError,
     Conflict,
     ConfigUnreadable,
-    AiNotLinked,
-    AiNotAllowed,
-    AiNoCredit,
-    AiRateLimited,
-    AiLinksDailyLimit,
-    AiTooLarge,
-    AiUpstream,
-    AccountServerUnavailable,
     FolderUnreachable,
 }
 
@@ -252,18 +217,6 @@ impl AppError {
             Self::Conflict(_) => (StatusCode::CONFLICT, ErrorCode::Conflict),
             Self::ConfigUnreadable(_) => (StatusCode::CONFLICT, ErrorCode::ConfigUnreadable),
             Self::FileTooLarge => (StatusCode::PAYLOAD_TOO_LARGE, ErrorCode::FileTooLarge),
-            Self::AiNotLinked => (StatusCode::CONFLICT, ErrorCode::AiNotLinked),
-            Self::AiNotAllowed => (StatusCode::FORBIDDEN, ErrorCode::AiNotAllowed),
-            Self::AiNoCredit => (StatusCode::PAYMENT_REQUIRED, ErrorCode::AiNoCredit),
-            Self::AiRateLimited => (StatusCode::TOO_MANY_REQUESTS, ErrorCode::AiRateLimited),
-            Self::AiLinksDailyLimit => {
-                (StatusCode::TOO_MANY_REQUESTS, ErrorCode::AiLinksDailyLimit)
-            }
-            Self::AiTooLarge => (StatusCode::PAYLOAD_TOO_LARGE, ErrorCode::AiTooLarge),
-            Self::AiUpstream => (StatusCode::BAD_GATEWAY, ErrorCode::AiUpstream),
-            Self::AccountServer(_) => {
-                (StatusCode::BAD_GATEWAY, ErrorCode::AccountServerUnavailable)
-            }
             Self::FolderUnreachable => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 ErrorCode::FolderUnreachable,

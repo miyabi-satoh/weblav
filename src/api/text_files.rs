@@ -46,7 +46,6 @@ pub(super) fn is_text_file(name: &str, path: &Path, size: u64) -> bool {
 }
 
 /// 中身がテキストか。先頭の `SNIFF_BYTES` に NUL が無ければテキストとする。
-/// テキストのビューアーと、簡易チャットに付けるファイル (`chat_file`) で、同じ判定にする。
 pub(super) fn looks_like_text(data: &[u8]) -> bool {
     !data[..data.len().min(SNIFF_BYTES)].contains(&0)
 }

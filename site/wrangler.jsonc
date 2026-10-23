@@ -1,0 +1,14 @@
+// 紹介と規約類 (このディレクトリをビルドした dist/) を、静的なファイルだけの Worker で出す。`pnpm run deploy` が先にビルドする。
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	// 本番のホスト名を付けてある Worker の名前。変えると別の Worker になり、ホスト名を付け直すことになる。
+	"name": "weblav-account",
+	"compatibility_date": "2026-08-22",
+	"routes": [{ "pattern": "weblav.amiiby.com", "custom_domain": true }],
+	"workers_dev": false,
+	"assets": {
+		"directory": "dist",
+		"not_found_handling": "404-page",
+		"html_handling": "force-trailing-slash"
+	}
+}
