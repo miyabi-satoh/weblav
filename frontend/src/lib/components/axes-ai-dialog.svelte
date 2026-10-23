@@ -304,17 +304,17 @@
 		{/if}
 
 		<Dialog.Footer>
-			{#if promptFailed}
+			{#if step === 'manual'}
 				<Button variant="outline" onclick={() => (open = false)}>{m.action_cancel()}</Button>
-			{:else if step === 'manual'}
-				<Button variant="outline" onclick={() => (open = false)}>{m.action_cancel()}</Button>
-				<LoadingButton
-					loading={checking}
-					disabled={answer.trim() === '' || prompt === null}
-					onclick={checkPasted}
-				>
-					{m.archive_axes_ai_check_button()}
-				</LoadingButton>
+				{#if !promptFailed}
+					<LoadingButton
+						loading={checking}
+						disabled={answer.trim() === '' || prompt === null}
+						onclick={checkPasted}
+					>
+						{m.archive_axes_ai_check_button()}
+					</LoadingButton>
+				{/if}
 			{:else}
 				<Button variant="outline" disabled={importing} onclick={() => (step = 'manual')}>
 					{m.archive_axes_ai_back_button()}

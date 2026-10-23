@@ -523,7 +523,7 @@
 	"archive_axes_ai_dialog_title": "AI に分類の設計を相談",
 	"archive_axes_ai_dialog_description": "お使いの AI サービス (ChatGPT、Claude など) に分類と表示タイトルを設計してもらい、その回答をインポートします。",
 	"archive_axes_ai_step_copy": "1. プロンプトをコピーして AI サービスに貼り付ける",
-	"archive_axes_ai_privacy_note": "プロンプトにはこのフォルダー内のファイルのパスが含まれます。貼り付けた AI サービスに渡ります。",
+	"archive_axes_ai_privacy_note": "プロンプトにはこのフォルダー内のファイルのパスが含まれます。貼り付け先の AI サービスにも、これらのパスが伝わります。",
 	"archive_axes_ai_copy_button": "プロンプトをコピー",
 	"archive_axes_ai_prompt_failed": "プロンプトを作成できませんでした。いったん閉じて、もう一度開いてください。",
 	"archive_axes_ai_step_paste": "2. AI の回答を貼り付ける",
