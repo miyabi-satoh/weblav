@@ -613,7 +613,7 @@
 	"archive_axes_ai_dialog_title": "Ask an AI to design the categories",
 	"archive_axes_ai_dialog_description": "Have the AI service you use (ChatGPT, Claude, and so on) design the categories and the display title, then import its answer.",
 	"archive_axes_ai_step_copy": "1. Copy the prompt and paste it into the AI service",
-	"archive_axes_ai_privacy_note": "The prompt contains the paths of the files in this folder, and is sent to the AI service.",
+	"archive_axes_ai_privacy_note": "The prompt contains the paths of the files in this folder. They go to the AI service you paste it into.",
 	"archive_axes_ai_copy_button": "Copy the prompt",
 	"archive_axes_ai_prompt_failed": "Could not build the prompt. Close this and open it again.",
 	"archive_axes_ai_step_paste": "2. Paste the AI's answer",

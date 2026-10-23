@@ -279,7 +279,6 @@ UPSERT する処理は必須ではなくなる。値の管理画面は、その�
 | `GET /contents/{id}/axes` | `AuthUser` | 軸の一覧 |
 | `PUT /contents/{id}/axes` | `AdminUser` | 軸・値の辞書・表示タイトルのテンプレートをまとめて置き換える (→ 「軸の定義を外部の AI で作る」) |
 | `POST /contents/{id}/axes/import/preview` | `AdminUser` | まとめて置き換える前の導出結果。書き込まない (→ 「軸の定義を外部の AI で作る」) |
-| `POST /contents/{id}/axes/ai/generate` | `AuthUser` | 軸の定義を AI に考えてもらい、答えを返す。書き込まない (→ 「軸の定義を外部の AI で作る」) |
 | `POST /contents/{id}/axes` | `AdminUser` | 軸の追加 |
 | `PUT /contents/{id}/axes/{axis_id}` | `AdminUser` | 軸の名前・抽出元・階層番号・値が無くても組み立てるか・絞り込みに出すか・並び順の変更 |
 | `DELETE /contents/{id}/axes/{axis_id}` | `AdminUser` | 軸の削除 (テンプレートで参照中なら422 → 「表示タイトル」) |

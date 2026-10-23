@@ -860,8 +860,7 @@ const DEFAULT_VISIBILITY: Visibility = Visibility::Public;
 
 /// 新規作成時に書き込む公開範囲を決める。`user` も選べる (→ docs/access.md「ロールと操作」)。
 /// 作成なら作成者は操作した本人なので、`private` を選んでも制限は無い。
-/// 指定が無く、親が「作成者のみ」のグループなら「作成者のみ」にする。中にはそれしか置けないため
-/// (AI が集めたリンクを残すときのように、画面が公開範囲を送らない作成がある)。
+/// 指定が無く、親が「作成者のみ」のグループなら「作成者のみ」にする。中にはそれしか置けないため。
 fn resolve_visibility_for_create(
     requested: Option<Visibility>,
     parent: Option<&ParentGroup>,

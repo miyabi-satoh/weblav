@@ -213,31 +213,31 @@
 			<Dialog.Body>
 				<Spinner aria-label={m.common_loading()} />
 			</Dialog.Body>
+		{:else if promptFailed}
+			<Dialog.Body>
+				<p role="alert" class="text-sm text-destructive">{m.archive_axes_ai_prompt_failed()}</p>
+			</Dialog.Body>
 		{:else if step === 'manual'}
 			<Dialog.Body>
 				<section class="flex min-w-0 flex-col gap-2">
 					<h3 class="text-sm font-semibold">{m.archive_axes_ai_step_copy()}</h3>
 					<p class="text-sm text-muted-foreground">{m.archive_axes_ai_privacy_note()}</p>
-					{#if prompt !== null}
-						<Button variant="outline" class="w-fit" onclick={copyPrompt}>
-							{#if copyFeedback.copied}
-								<CheckIcon />
-							{:else}
-								<CopyIcon />
-							{/if}
-							{m.archive_axes_ai_copy_button()}
-						</Button>
-						<!-- 中身は畳んでおく。開いたままだと、ダイアログの途中でそれ自体がスクロールし、ホイールを取られるため。 -->
-						<details class="text-sm">
-							<summary class="w-fit cursor-pointer text-muted-foreground">
-								{m.archive_axes_ai_prompt_show()}
-							</summary>
-							<pre
-								class="mt-2 max-h-48 overflow-auto rounded-md border p-2 font-mono text-xs whitespace-pre-wrap">{prompt}</pre>
-						</details>
-					{:else}
-						<p role="alert" class="text-sm text-destructive">{m.archive_axes_ai_prompt_failed()}</p>
-					{/if}
+					<Button variant="outline" class="w-fit" onclick={copyPrompt}>
+						{#if copyFeedback.copied}
+							<CheckIcon />
+						{:else}
+							<CopyIcon />
+						{/if}
+						{m.archive_axes_ai_copy_button()}
+					</Button>
+					<!-- 中身は畳んでおく。開いたままだと、ダイアログの途中でそれ自体がスクロールし、ホイールを取られるため。 -->
+					<details class="text-sm">
+						<summary class="w-fit cursor-pointer text-muted-foreground">
+							{m.archive_axes_ai_prompt_show()}
+						</summary>
+						<pre
+							class="mt-2 max-h-48 overflow-auto rounded-md border p-2 font-mono text-xs whitespace-pre-wrap">{prompt}</pre>
+					</details>
 				</section>
 
 				<section class="flex min-w-0 flex-col gap-2">
@@ -304,7 +304,9 @@
 		{/if}
 
 		<Dialog.Footer>
-			{#if step === 'manual'}
+			{#if promptFailed}
+				<Button variant="outline" onclick={() => (open = false)}>{m.action_cancel()}</Button>
+			{:else if step === 'manual'}
 				<Button variant="outline" onclick={() => (open = false)}>{m.action_cancel()}</Button>
 				<LoadingButton
 					loading={checking}
@@ -313,15 +315,13 @@
 				>
 					{m.archive_axes_ai_check_button()}
 				</LoadingButton>
-			{:else if step === 'preview'}
+			{:else}
 				<Button variant="outline" disabled={importing} onclick={() => (step = 'manual')}>
 					{m.archive_axes_ai_back_button()}
 				</Button>
 				<LoadingButton loading={importing} disabled={!ready} onclick={importAxes}>
 					{m.archive_axes_ai_import_button()}
 				</LoadingButton>
-			{:else}
-				<Button variant="outline" onclick={() => (open = false)}>{m.action_cancel()}</Button>
 			{/if}
 		</Dialog.Footer>
 	</Dialog.Content>
