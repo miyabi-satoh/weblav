@@ -113,7 +113,7 @@ pub(super) async fn set_marks(
     targets: &[(String, bool)],
     public: bool,
 ) -> Result<(), AppError> {
-    let mut tx = pool.begin().await?;
+    let mut tx = crate::db::begin_write(pool).await?;
     for (path, is_dir) in targets {
         if *is_dir {
             let prefix = format!("{path}/");

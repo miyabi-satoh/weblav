@@ -111,30 +111,38 @@ export async function registerContentRoot(request: APIRequestContext): Promise<v
 }
 
 /**
- * folder / archive を登録する。サーバーからパスが見えないときだけ `null` を返す
+ * フォルダーを登録する。サーバーからパスが見えないときだけ `null` を返す
  * (呼び出し側でテストを飛ばす)。登録できない場所などほかの 422 は、判定が壊れたのを
  * 見逃さないよう例外にする。
+ * `listView` を渡すと、登録の後に一覧の表示を使い、新しく見つかったファイルを公開しない設定にする
+ * (前のアーカイブにあたる。→ docs/folders.md「2つの表示」)。
  */
 async function createDirectoryContentByApi(
 	request: APIRequestContext,
 	body: {
-		type: 'folder' | 'archive';
 		title: string;
 		path: string;
-		extensions?: string;
 		visibility?: Visibility;
 		parentId?: number;
-	}
+	},
+	listView?: { extensions?: string }
 ): Promise<DirectoryContent | null> {
 	// 置き場を登録していないので、どのパスもルートの外として断られる。
 	if (SERVER_IS_REMOTE) return null;
-	const res = await request.post('/api/v1/contents', { data: body });
+	const res = await request.post('/api/v1/contents', { data: { type: 'folder', ...body } });
 	if (!res.ok()) {
 		const text = await res.text();
 		if (res.status() === 422 && text.includes(PATH_NOT_ACCESSIBLE)) return null;
 		throw new Error(`コンテンツの登録に失敗しました (${res.status()}): ${text}`);
 	}
-	return (await res.json()) as DirectoryContent;
+	const created = (await res.json()) as DirectoryContent;
+	if (listView === undefined) return created;
+	return (await send(request, 'put', `/contents/${created.id}`, {
+		...created,
+		listView: true,
+		newFilesPublic: false,
+		extensions: listView.extensions
+	})) as DirectoryContent;
 }
 
 export const FIXTURE_UNREACHABLE =
@@ -190,9 +198,10 @@ export function sharedLocationLabel(shared: SharedContentRoot, dirName: string):
 }
 
 /**
- * フィクスチャの木を作って folder / archive として登録し、`body` に渡す。
+ * フィクスチャの木を作ってフォルダーとして登録し、`body` に渡す。
  * サーバーからパスが見えなければテストを飛ばす。登録したコンテンツと木は、途中で失敗しても片付ける。
- * タイトルは `namePrefix` から作る一意な名前 (木のディレクトリ名と同じ)。archive は木の mp3・pdf を拾う。
+ * タイトルは `namePrefix` から作る一意な名前 (木のディレクトリ名と同じ)。
+ * `type: 'archive'` は、一覧の表示を使い新しいファイルを公開しないフォルダーにし、木の mp3・pdf を拾う。
  * `files` (パス → 中身) を渡すと、既定の木の代わりにその木を作る。`parentId` を渡すと、そのグループの下に登録する。
  */
 export async function withDirectoryContent(
@@ -209,13 +218,11 @@ export async function withDirectoryContent(
 	const root = createFixtureTree(name, options.files);
 	let contentId: number | undefined;
 	try {
-		const content = await createDirectoryContentByApi(request, {
-			type: options.type,
-			title: name,
-			path: root,
-			extensions: options.type === 'archive' ? 'mp3,pdf' : undefined,
-			parentId: options.parentId
-		});
+		const content = await createDirectoryContentByApi(
+			request,
+			{ title: name, path: root, parentId: options.parentId },
+			options.type === 'archive' ? { extensions: 'mp3,pdf' } : undefined
+		);
 		test.skip(content === null, FIXTURE_UNREACHABLE);
 		contentId = content!.id;
 		await body(content!, name);

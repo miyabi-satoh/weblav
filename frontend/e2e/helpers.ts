@@ -175,7 +175,6 @@ export const CONTENT_TYPE_NAME = {
 	link: /^リンク|^Link/,
 	file: /^ファイル|^File/,
 	folder: /^フォルダー|^Folder/,
-	archive: /^アーカイブ|^Archive/,
 	group: /^グループ|^Group/
 } as const;
 
