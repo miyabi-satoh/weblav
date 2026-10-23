@@ -22,7 +22,6 @@
 	} from '$lib/content-form.svelte';
 	import { ancestorPath, byIdMap, flattenTree, selfAndAncestors } from '$lib/content-tree';
 	import { contentTypeIcon, isDirectoryContentType } from '$lib/content-types';
-	import { rescanArchive } from '$lib/archive-scan';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import {
 		canHoldContentOf,
@@ -99,14 +98,12 @@
 	let createParent = $state<Content | null>(null);
 	const form = new ContentFormState();
 	let saving = $state(false);
-	/** 保存に続くスキャンの進み具合。確認の窓の、押したボタンの近くに出す。 */
-	let scanProgress = $state<string | undefined>();
 
 	let currentUserId = $derived(page.data.user?.id);
 	let canSeeFullPath = $derived(isAdmin(page.data.user));
 
 	// 種別による制限は持たない。ログイン済みなら全部作れる (→ docs/access.md「ロールと操作」)。
-	const creatableTypes: ContentType[] = ['link', 'file', 'folder', 'archive', 'group'];
+	const creatableTypes: ContentType[] = ['link', 'file', 'folder', 'group'];
 
 	// 作成者のユーザーを削除した行は作成者が空になる (→ docs/access.md「ユーザーの削除と作成者」)。
 	function creatorLabel(content: Content): string {
@@ -197,23 +194,6 @@
 			if (!result.response.ok || !result.data) {
 				errorDialog.show(errorMessage(result.error));
 				return;
-			}
-			// アーカイブは作った直後にスキャンまで済ませる。空のアーカイブが残ると、
-			// 次に何を押せばよいか迷うため (→ docs/archive.md「スキャン」)。
-			if (form.type === 'archive') {
-				const scan = await rescanArchive(result.data.id, (message) => (scanProgress = message));
-				if (!scan.ok) {
-					// 作成は済んでいるので、一覧に出してから、スキャンだけできなかったと伝える。
-					formOpen = false;
-					await invalidateAll();
-					errorDialog.show(
-						scan.retryable
-							? m.contents_create_scan_failed({ reason: scan.message })
-							: m.contents_create_scan_blocked({ reason: scan.message }),
-						m.archive_scan_failed_title()
-					);
-					return;
-				}
 			}
 			formOpen = false;
 			// 任意の項目は、作った直後に編集ページで続けて入力する。
@@ -655,9 +635,7 @@
 	path={form.path}
 	pathLabel={form.pathLabel}
 	visibility={effectiveFormVisibility}
-	extensions={form.normalizedExtensions ?? undefined}
 	{saving}
-	progress={scanProgress}
 	onconfirm={saveContent}
 />
 

@@ -332,7 +332,7 @@
 						disabled={anyBusy}
 						onclick={() => setBulkPublished(true)}
 					>
-						{m.archive_items_bulk_publish()}
+						{m.marks_publish_button()}
 					</LoadingButton>
 					<LoadingButton
 						size="sm"
@@ -341,7 +341,7 @@
 						disabled={anyBusy}
 						onclick={() => setBulkPublished(false)}
 					>
-						{m.archive_items_bulk_unpublish()}
+						{m.marks_unpublish_button()}
 					</LoadingButton>
 					<Button size="sm" variant="ghost" disabled={anyBusy} onclick={() => (selectedIds = [])}>
 						{m.action_cancel()}

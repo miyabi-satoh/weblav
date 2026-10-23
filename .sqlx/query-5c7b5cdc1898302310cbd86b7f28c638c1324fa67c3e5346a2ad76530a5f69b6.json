@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT list_view as \"list_view: bool\" FROM contents WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "list_view: bool",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5c7b5cdc1898302310cbd86b7f28c638c1324fa67c3e5346a2ad76530a5f69b6"
+}

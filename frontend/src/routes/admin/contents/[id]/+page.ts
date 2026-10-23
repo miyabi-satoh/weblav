@@ -16,22 +16,21 @@ export const load: PageLoad = async ({ parent, url }) => {
 					})
 				)
 			: null;
-	// フォルダーで表示しないにしたもの (→ docs/folders.md「表示しないもの」)。書き換えられない人には 403 なので、出さない。
-	const folderHidden =
+	// フォルダーの中の公開・非公開の印 (→ docs/folders.md「公開と非公開」)。書き換えられない人には 403 なので、出さない。
+	const folderMarks =
 		content.type === 'folder'
 			? fetchOrNull(
-					client.GET('/api/v1/contents/{id}/hidden-entries', {
+					client.GET('/api/v1/contents/{id}/marks', {
 						params: { path: { id: content.id } }
 					})
 				)
 			: null;
-	if (!isAdmin(user))
-		return { users: [], aiLinks: await aiLinks, folderHidden: await folderHidden };
+	if (!isAdmin(user)) return { users: [], aiLinks: await aiLinks, folderMarks: await folderMarks };
 
 	const users = await fetchOrError(
 		client.GET('/api/v1/admin/users'),
 		m.admin_users_fetch_failed(),
 		{ loginRedirectFrom: url }
 	);
-	return { users, aiLinks: await aiLinks, folderHidden: await folderHidden };
+	return { users, aiLinks: await aiLinks, folderMarks: await folderMarks };
 };

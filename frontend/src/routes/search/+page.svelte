@@ -154,7 +154,7 @@
 		return {
 			label: title,
 			href: resolve('/archives/[id]', { id: String(id) }),
-			icon: contentTypeIcon('archive')
+			icon: contentTypeIcon('folder')
 		};
 	}
 

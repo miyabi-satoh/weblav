@@ -15,7 +15,6 @@
 		icon: Icon,
 		play = false,
 		current,
-		accent = false,
 		compact = false,
 		thumbnail
 	}: {
@@ -23,7 +22,6 @@
 		play?: boolean;
 		/** プレイヤーに載っている曲の行なら、鳴っているか (`playing`) 止まっているか (`paused`)。 */
 		current?: 'playing' | 'paused';
-		accent?: boolean;
 		/** フォルダー一覧の詰めた行 (`browseRowClass(true)`) と組み合わせる。タイルには効かない。 */
 		compact?: boolean;
 		/**
@@ -72,10 +70,7 @@
 				{...{ [THUMBNAIL_FOR_ATTRIBUTE]: thumbnail.original }}
 			/>
 		{:else if Icon}
-			<Icon
-				class={[tile ? 'size-10' : 'size-6', accent ? 'text-primary' : 'text-sub-foreground']}
-				strokeWidth={1.5}
-			/>
+			<Icon class={[tile ? 'size-10' : 'size-6', 'text-sub-foreground']} strokeWidth={1.5} />
 		{/if}
 	</span>
 {/snippet}

@@ -211,25 +211,23 @@
 						viewer={viewerFile && { file: viewerFile, items: viewerList }}
 						details={{ items: linkDetails, index: linkDetailIndex.get(content.id) ?? -1 }}
 					/>
-				{:else if content.type === 'folder' || content.type === 'archive' || content.type === 'group' || (content.type === 'file' && isLinksFileName(content.fileName))}
+				{:else if content.type === 'folder' || content.type === 'group' || (content.type === 'file' && isLinksFileName(content.fileName))}
 					<div class={browseRowClass()}>
 						{#if content.type === 'file'}
 							<ListRowIcon icon={LinksFileIcon} />
 						{:else}
-							<ListRowIcon
-								icon={contentTypeIcon(content.type)}
-								accent={content.type === 'archive'}
-							/>
+							<ListRowIcon icon={contentTypeIcon(content.type)} />
 						{/if}
 						<span class={browseRowTextClass()}>
-							{#if content.type === 'folder'}
-								<a
-									href={resolve('/folders/[id]', { id: String(content.id) })}
-									class={browseRowPressClass()}>{@render rowTitle(content)}</a
-								>
-							{:else if content.type === 'archive'}
+							<!-- 一覧の表示を使うフォルダーは、そちらを入口にする (→ docs/folders.md「2つの表示」)。 -->
+							{#if content.type === 'folder' && content.listView}
 								<a
 									href={resolve('/archives/[id]', { id: String(content.id) })}
+									class={browseRowPressClass()}>{@render rowTitle(content)}</a
+								>
+							{:else if content.type === 'folder'}
+								<a
+									href={resolve('/folders/[id]', { id: String(content.id) })}
 									class={browseRowPressClass()}>{@render rowTitle(content)}</a
 								>
 							{:else if content.type === 'group'}

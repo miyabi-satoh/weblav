@@ -18,9 +18,19 @@
 	import FileDropzone from '$lib/components/file-dropzone.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import * as Select from '$lib/components/ui/select';
+	import { Switch } from '$lib/components/ui/switch';
 	import { Textarea } from '$lib/components/ui/textarea';
 
 	type Visibility = components['schemas']['Visibility'];
+	type AutoRescan = components['schemas']['AutoRescan'];
+
+	const AUTO_RESCAN_OPTIONS: AutoRescan[] = ['manual', 'hourly', 'daily'];
+
+	function autoRescanLabel(value: AutoRescan): string {
+		if (value === 'hourly') return m.contents_form_auto_rescan_hourly();
+		if (value === 'daily') return m.contents_form_auto_rescan_daily();
+		return m.contents_form_auto_rescan_manual();
+	}
 
 	type Props = {
 		form: ContentFormState;
@@ -106,15 +116,6 @@
 				</Button>
 			</div>
 		</Field.Field>
-		{#if editing && form.type === 'archive'}
-			<Field.Field data-disabled={disabled}>
-				<Field.FieldLabel for="content-extensions"
-					>{m.contents_form_extensions_label()}</Field.FieldLabel
-				>
-				<Input id="content-extensions" bind:value={form.extensions} />
-				<Field.FieldDescription>{m.contents_form_extensions_help()}</Field.FieldDescription>
-			</Field.Field>
-		{/if}
 	{:else if form.type === 'file'}
 		<Field.Field data-disabled={disabled}>
 			<Field.FieldLabel for="content-file" required={!editing}
@@ -244,5 +245,53 @@
 				{/if}
 			{/if}
 		</Field.Field>
+	{/if}
+	<!-- フォルダーの見せ方は作成では聞かず、編集で変える (→ docs/folders.md「2つの表示」・「公開と非公開」)。 -->
+	{#if editing && form.type === 'folder'}
+		<Field.Field orientation="horizontal" data-disabled={disabled}>
+			<Field.FieldContent>
+				<Field.FieldLabel for="content-new-files-public"
+					>{m.contents_form_new_files_public_label()}</Field.FieldLabel
+				>
+				<Field.FieldDescription
+					>{m.contents_form_new_files_public_description()}</Field.FieldDescription
+				>
+			</Field.FieldContent>
+			<Switch id="content-new-files-public" bind:checked={form.newFilesPublic} {disabled} />
+		</Field.Field>
+		<Field.Field orientation="horizontal" data-disabled={disabled}>
+			<Field.FieldContent>
+				<Field.FieldLabel for="content-list-view"
+					>{m.contents_form_list_view_label()}</Field.FieldLabel
+				>
+				<Field.FieldDescription>{m.contents_form_list_view_description()}</Field.FieldDescription>
+			</Field.FieldContent>
+			<Switch id="content-list-view" bind:checked={form.listView} {disabled} />
+		</Field.Field>
+		{#if form.listView}
+			<Field.Field data-disabled={disabled}>
+				<Field.FieldLabel for="content-extensions"
+					>{m.contents_form_extensions_label()}</Field.FieldLabel
+				>
+				<Input id="content-extensions" bind:value={form.extensions} />
+				<Field.FieldDescription>{m.contents_form_extensions_help()}</Field.FieldDescription>
+			</Field.Field>
+			<Field.Field data-disabled={disabled}>
+				<Field.FieldLabel for="content-auto-rescan"
+					>{m.contents_form_auto_rescan_label()}</Field.FieldLabel
+				>
+				<Select.Root type="single" bind:value={form.autoRescan} {disabled}>
+					<Select.Trigger id="content-auto-rescan" class="w-full">
+						{autoRescanLabel(form.autoRescan)}
+					</Select.Trigger>
+					<Select.Content>
+						{#each AUTO_RESCAN_OPTIONS as option (option)}
+							<Select.Item value={option}>{autoRescanLabel(option)}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+				<Field.FieldDescription>{m.contents_form_auto_rescan_help()}</Field.FieldDescription>
+			</Field.Field>
+		{/if}
 	{/if}
 </Field.FieldGroup>

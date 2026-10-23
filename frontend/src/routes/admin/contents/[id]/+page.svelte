@@ -30,7 +30,7 @@
 	import * as Field from '$lib/components/ui/field';
 	import * as Select from '$lib/components/ui/select';
 	import AiLinksExclusionsSection from '$lib/components/ai-links-exclusions-section.svelte';
-	import FolderHiddenSection from '$lib/components/folder-hidden-section.svelte';
+	import FolderMarksSection from '$lib/components/folder-marks-section.svelte';
 	import AiLinksSettingsSection from '$lib/components/ai-links-settings-section.svelte';
 	import DirPicker from '$lib/components/dir-picker.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
@@ -67,10 +67,16 @@
 
 	// グループの、AI がリンクを集める設定 (→ docs/ai.md「AI が集めるリンク」)。区画を分け、区画ごとに保存する。
 	let aiLinksSettings = $derived(content.type === 'group' ? data.aiLinks : null);
-	// 表示しないものが無ければ区画を出さない。表示しないにするのは閲覧の画面の行のメニューで行う。
-	let folderHidden = $derived(
-		content.type === 'folder' && data.folderHidden?.length ? data.folderHidden : null
-	);
+	// 公開・非公開を変えたものが無ければ区画を出さない。印を付けるのは閲覧の画面とアイテムのタブで行う。
+	// 一覧の表示を使うフォルダーでは、ファイルの印はアイテムのタブで見るので、フォルダーの印だけを並べる
+	// (選んで公開するフォルダーでは、公開したファイルの印が数万件になりうるため)。
+	let folderMarks = $derived.by(() => {
+		if (content.type !== 'folder' || !data.folderMarks) return null;
+		const marks = content.listView
+			? data.folderMarks.filter((mark) => mark.isDir)
+			: data.folderMarks;
+		return marks.length > 0 ? marks : null;
+	});
 	let aiLinksDirty = $state(false);
 	let aiLinksSection = $state<{ discard: () => void } | null>(null);
 
@@ -184,9 +190,13 @@
 		saving = true;
 
 		try {
-			// 場所を変えると索引が空になるので、保存に続けてスキャンする (→ docs/archive.md「スキャン」)。
+			// 場所を変えると索引が空になり、一覧の表示を使い始めたときは索引がまだ無いので、
+			// 保存に続けてスキャンする (→ docs/archive.md「スキャン」)。
 			const rescansAfterSave =
-				form.dirty && content.type === 'archive' && content.path !== form.path;
+				form.dirty &&
+				content.type === 'folder' &&
+				form.listView &&
+				(content.path !== form.path || !content.listView);
 			// 作成者を先に送る。基本情報の保存で場所が変わると索引が空になるので、その後に
 			// 失敗して再スキャンまで届かない形を作らないため。
 			if (creatorChanged) {
@@ -336,7 +346,7 @@
 			</Field.Field>
 		{/if}
 		{#if editable}
-			<div>
+			<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
 				<!-- パスはテキスト入力ではないため、required では未選択を防げない。 -->
 				<LoadingButton
 					type="submit"
@@ -345,6 +355,10 @@
 						(isDirectoryContentType(form.type) && form.path === '') ||
 						visibilityError !== null}>{m.action_save()}</LoadingButton
 				>
+				<!-- 確認の窓を通らずに始めたスキャン (一覧の表示を使い始めたとき) は、ボタンの横に進み具合を出す。 -->
+				{#if scanProgress && !confirmRegisterOpen}
+					<p role="status" class="text-sm text-muted-foreground">{scanProgress}</p>
+				{/if}
 			</div>
 		{/if}
 	</form>
@@ -370,10 +384,10 @@
 				/>
 			{/if}
 		</div>
-	{:else if folderHidden != null}
+	{:else if folderMarks != null}
 		<div class={sectionGridClass} {@attach masonry}>
 			{@render basicForm(true)}
-			<FolderHiddenSection contentId={content.id} entries={folderHidden} />
+			<FolderMarksSection contentId={content.id} marks={folderMarks} />
 		</div>
 	{:else}
 		{@render basicForm(false)}
@@ -393,7 +407,9 @@
 	pathLabel={form.pathLabel}
 	visibility={effectiveFormVisibility}
 	extensions={form.normalizedExtensions ?? undefined}
-	clearsPublished={content.type === 'archive' && content.path !== form.path}
+	listView={form.listView}
+	newFilesPublic={form.newFilesPublic}
+	clearsMarks={content.type === 'folder' && content.path !== form.path}
 	{saving}
 	progress={scanProgress}
 	onconfirm={saveContent}

@@ -19,6 +19,7 @@ import * as m from '$lib/paraglide/messages.js';
 type Content = components['schemas']['AdminContentResponse'];
 type ContentType = components['schemas']['ContentType'];
 type Visibility = components['schemas']['Visibility'];
+type AutoRescan = components['schemas']['AutoRescan'];
 type LinkMetadataResponse = components['schemas']['LinkMetadataResponse'];
 
 /** `POST /contents/link-metadata` を呼ぶ。取れない・通信に失敗したら `null`。 */
@@ -44,6 +45,9 @@ type FormSnapshot = {
 	description: string;
 	hasFiles: boolean;
 	extensions: string;
+	listView: boolean;
+	newFilesPublic: boolean;
+	autoRescan: AutoRescan;
 };
 
 export class ContentFormState {
@@ -60,10 +64,16 @@ export class ContentFormState {
 	 */
 	parentId = $state('root');
 	description = $state('');
-	/** `archive` 専用。対象拡張子 (カンマ区切り、空なら全ファイル)。 */
+	/** `folder` の一覧の表示で索引する拡張子 (カンマ区切り、空なら全ファイル)。 */
 	extensions = $state('');
+	/** `folder` 専用。軸で絞り込む一覧の表示を使うか (→ docs/folders.md「2つの表示」)。 */
+	listView = $state(false);
+	/** `folder` 専用。新しく見つかったファイルを公開するか (→ docs/folders.md「公開と非公開」)。 */
+	newFilesPublic = $state(true);
+	/** `folder` の一覧の表示で、自動で再スキャンする間隔。 */
+	autoRescan = $state<AutoRescan>('manual');
 	/**
-	 * `archive` 専用。表示タイトルの組み立てテンプレート。
+	 * `folder` の一覧の表示の、表示タイトルの組み立てテンプレート。
 	 * この画面では編集させず (軸がまだ無い・変わりうるため、軸の設定画面に委ねる)、
 	 * 取得した値を保存時にそのまま送り返すためだけに持つ。
 	 */
@@ -174,7 +184,10 @@ export class ContentFormState {
 			description: this.description,
 			visibility: this.visibility,
 			hasFiles: (this.files?.length ?? 0) > 0,
-			extensions: this.extensions
+			extensions: this.extensions,
+			listView: this.listView,
+			newFilesPublic: this.newFilesPublic,
+			autoRescan: this.autoRescan
 		};
 	}
 
@@ -208,6 +221,9 @@ export class ContentFormState {
 		this.parentId = parentId;
 		this.description = '';
 		this.extensions = '';
+		this.listView = false;
+		this.newFilesPublic = true;
+		this.autoRescan = 'manual';
 		this.titleTemplate = null;
 		this.visibility = 'public';
 		this.files = undefined;
@@ -229,22 +245,35 @@ export class ContentFormState {
 		return this.parentId === 'root' ? null : Number(this.parentId);
 	}
 
-	/** 送信・件数確認の両方で使う拡張子。archive 以外と空入力は `null`。 */
+	/** 送信・件数確認の両方で使う拡張子。一覧の表示を使うフォルダー以外と空入力は `null`。 */
 	get normalizedExtensions(): string | null {
-		return this.type === 'archive' && this.extensions.trim() !== '' ? this.extensions.trim() : null;
+		return this.type === 'folder' && this.listView && this.extensions.trim() !== ''
+			? this.extensions.trim()
+			: null;
 	}
 
 	/** JSON で送る作成・更新に共通の項目。`type` は更新で送らないので含めない。 */
-	requestFields() {
+	private commonFields() {
 		return {
 			parentId: this.parentIdValue,
 			title: this.title,
 			url: this.type === 'link' ? this.url : null,
 			path: isDirectoryContentType(this.type) ? this.path : null,
 			description: this.description.trim() === '' ? null : this.description,
-			visibility: this.visibility,
+			visibility: this.visibility
+		};
+	}
+
+	/** 更新で JSON に送る項目。フォルダーの見せ方の設定は、作成では聞かず編集で変える (→ docs/ui.md「UI 全般」)。 */
+	requestFields() {
+		const folder = this.type === 'folder';
+		return {
+			...this.commonFields(),
 			extensions: this.normalizedExtensions,
-			titleTemplate: this.titleTemplate
+			titleTemplate: this.titleTemplate,
+			listView: folder ? this.listView : null,
+			newFilesPublic: folder ? this.newFilesPublic : null,
+			autoRescan: folder ? this.autoRescan : null
 		};
 	}
 
@@ -253,7 +282,7 @@ export class ContentFormState {
 	 * 種別を選び直しても、前の種別で打ったタイトルが残らないようにする。
 	 */
 	createRequestFields() {
-		return { ...this.requestFields(), title: this.type === 'group' ? this.title : null };
+		return { ...this.commonFields(), title: this.type === 'group' ? this.title : null };
 	}
 
 	/**
@@ -261,7 +290,7 @@ export class ContentFormState {
 	 * 作成 (`forCreate`) ではタイトルを送らず、サーバーがファイル名から付ける。
 	 */
 	toFormData(forCreate = false): FormData {
-		const fields = this.requestFields();
+		const fields = this.commonFields();
 		const body = new FormData();
 		if (!forCreate) body.append('title', fields.title);
 		if (fields.description !== null) body.append('description', fields.description);
@@ -298,6 +327,9 @@ export class ContentFormState {
 		this.parentId = content.parentId === null ? 'root' : String(content.parentId);
 		this.description = content.description ?? '';
 		this.extensions = content.extensions ?? '';
+		this.listView = content.listView;
+		this.newFilesPublic = content.newFilesPublic;
+		this.autoRescan = content.autoRescan;
 		this.titleTemplate = content.titleTemplate ?? null;
 		this.visibility = content.visibility;
 		this.files = undefined;

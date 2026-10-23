@@ -2294,6 +2294,8 @@ export interface components {
             canEdit: boolean;
             entries: components["schemas"]["FolderEntry"][];
             folderTitle: string;
+            /** @description 一覧の表示 (軸で絞り込む平らな一覧) も使うか。画面は真のとき、表示の切り替えを出す。 */
+            listView: boolean;
             path: string;
         };
         FolderEntry: {

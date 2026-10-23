@@ -535,6 +535,51 @@ mod tests {
     use super::*;
     use image::{Rgb, RgbImage, Rgba, RgbaImage};
 
+    /// 撮影日時 (`DateTimeOriginal`) だけを持つ EXIF の APP1 を付けた、JPEG の頭。
+    fn jpeg_head_with_taken_at(taken_at: &str) -> Vec<u8> {
+        // TIFF (リトルエンディアン): 頭 8 バイト、IFD0 は Exif IFD への1項目、Exif IFD は撮影日時の1項目。
+        let mut tiff = Vec::new();
+        tiff.extend_from_slice(b"II*\0");
+        tiff.extend_from_slice(&8u32.to_le_bytes());
+        // IFD0: 項目1つ (ExifIFDPointer = 0x8769, LONG)、次の IFD は無し。
+        tiff.extend_from_slice(&1u16.to_le_bytes());
+        tiff.extend_from_slice(&0x8769u16.to_le_bytes());
+        tiff.extend_from_slice(&4u16.to_le_bytes());
+        tiff.extend_from_slice(&1u32.to_le_bytes());
+        let exif_ifd_offset = 8 + 2 + 12 + 4;
+        tiff.extend_from_slice(&(exif_ifd_offset as u32).to_le_bytes());
+        tiff.extend_from_slice(&0u32.to_le_bytes());
+        // Exif IFD: 項目1つ (DateTimeOriginal = 0x9003, ASCII, 20 バイト)。値は IFD の後ろに置く。
+        let value_offset = exif_ifd_offset + 2 + 12 + 4;
+        tiff.extend_from_slice(&1u16.to_le_bytes());
+        tiff.extend_from_slice(&0x9003u16.to_le_bytes());
+        tiff.extend_from_slice(&2u16.to_le_bytes());
+        tiff.extend_from_slice(&20u32.to_le_bytes());
+        tiff.extend_from_slice(&(value_offset as u32).to_le_bytes());
+        tiff.extend_from_slice(&0u32.to_le_bytes());
+        tiff.extend_from_slice(taken_at.as_bytes());
+        tiff.push(0);
+
+        let mut app1 = b"Exif\0\0".to_vec();
+        app1.extend_from_slice(&tiff);
+        let mut jpeg = vec![0xFF, 0xD8, 0xFF, 0xE1];
+        jpeg.extend_from_slice(
+            &u16::try_from(app1.len() + 2)
+                .expect("APP1 が大きすぎる")
+                .to_be_bytes(),
+        );
+        jpeg.extend_from_slice(&app1);
+        jpeg
+    }
+
+    #[test]
+    fn taken_at_reads_the_exif_shooting_date_as_written() {
+        let head = jpeg_head_with_taken_at("2015:07:25 18:30:00");
+        // 2015-07-25 18:30:00 を UTC として数えた値。
+        assert_eq!(taken_at_from_exif(&head), Some(1_437_849_000));
+        assert_eq!(taken_at_from_exif(b"not a jpeg"), None);
+    }
+
     fn temp_dir(name: &str) -> crate::test_support::TempDir {
         crate::test_support::project_temp_dir("thumbnails", name)
     }

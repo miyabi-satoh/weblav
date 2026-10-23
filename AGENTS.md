@@ -112,6 +112,7 @@
   - `site_settings_` — サイト設定関連 (ホームの見出しと管理画面のサイト設定の両方で使う)
   - `account_` — 自分のアカウントの操作 (ユーザーメニューのダイアログ) で共有する文言 (`account_current_password_label`)
   - `media_` — 音声のプレイヤーと動画のビューアーで共有する再生の操作 (`media_play_button`)
+  - `marks_` — フォルダーの中の公開・非公開 (フォルダーの表示・一覧の表示・アイテムのタブで共有する。`marks_publish_button`)
 - **API エラーの表示文言は `error_<code>` に統一**し、`AppError::status_and_code()` が返す `code` 文字列とそのまま対応させる。
   例: `code: "not_found"` → キー `error_not_found`。
   個々の API 呼び出し側で文言を作り分けない。

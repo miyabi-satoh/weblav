@@ -28,10 +28,14 @@
 		 * (→ docs/folders.md「登録前の確認」)。
 		 */
 		visibility: Visibility;
-		/** `archive` の対象拡張子(カンマ区切り)。件数の数え方を絞り込む。 */
+		/** 一覧の表示で索引する拡張子 (カンマ区切り)。件数の数え方を絞り込む。 */
 		extensions?: string;
-		/** 登録済みの `archive` の場所を変える保存か。変えるとアイテムの公開設定が消える。 */
-		clearsPublished?: boolean;
+		/** 一覧の表示を使うか。読めない場所があると索引できないことを伝える。 */
+		listView?: boolean;
+		/** 新しく見つかったファイルを公開するか (→ docs/folders.md「公開と非公開」)。 */
+		newFilesPublic?: boolean;
+		/** 登録済みのフォルダーの場所を変える保存か。変えると公開・非公開の印が消える。 */
+		clearsMarks?: boolean;
 		/** 保存処理中か。確認後の送信は呼び出し側が行う。 */
 		saving?: boolean;
 		/** 保存に続くスキャンの進み具合。押したボタンの近くに出す (→ docs/archive.md「スキャン」)。 */
@@ -46,7 +50,9 @@
 		pathLabel,
 		visibility,
 		extensions,
-		clearsPublished = false,
+		listView = false,
+		newFilesPublic = true,
+		clearsMarks = false,
 		saving = false,
 		progress,
 		onconfirm
@@ -104,7 +110,7 @@
 	}
 
 	let formattedCount = $derived(formatNumber(count));
-	let archiveUnscannable = $derived(contentType === 'archive' && unreadable !== null);
+	let archiveUnscannable = $derived(listView && unreadable !== null);
 
 	/** 件数の見出し。打ち切られた場合は下限値であることを示す。 */
 	let countHeadline = $derived(
@@ -118,16 +124,16 @@
 	/**
 	 * 実効的な閲覧範囲の説明 (→ docs/folders.md「登録前の確認」)。
 	 *
-	 * `archive` のアイテムは登録時点では既定非公開で、公開範囲による文言分岐が無い
-	 * (公開するかどうかは登録後に個別に選ぶ)ため、`visibility` を見ない専用の文言にする。
+	 * 新しく見つかったファイルを公開しないフォルダーは、登録した時点では何も見えないので、
+	 * 公開範囲による文言分岐が無く、`visibility` を見ない専用の文言にする。
 	 * 件数が打ち切られたときは、見出しと同じく下限であることを示す。
 	 */
 	let scopeMessage = $derived.by(() => {
 		const params = { count: formattedCount };
-		if (contentType === 'archive') {
+		if (!newFilesPublic) {
 			return truncated
-				? m.confirm_register_scope_archive_truncated(params)
-				: m.confirm_register_scope_archive(params);
+				? m.confirm_register_scope_chosen_truncated(params)
+				: m.confirm_register_scope_chosen(params);
 		}
 		if (visibility === 'public') {
 			return truncated
@@ -140,10 +146,10 @@
 	});
 
 	let noteMessage = $derived(
-		contentType === 'folder'
-			? m.confirm_register_note_folder()
-			: contentType === 'archive' && clearsPublished
-				? m.confirm_register_note_archive_path_changed()
+		clearsMarks
+			? m.confirm_register_note_path_changed()
+			: newFilesPublic
+				? m.confirm_register_note_folder()
 				: null
 	);
 </script>

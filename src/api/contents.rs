@@ -1619,6 +1619,8 @@ struct FolderBrowseResponse {
     entries: Vec<FolderEntry>,
     /// 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。
     can_edit: bool,
+    /// 一覧の表示 (軸で絞り込む平らな一覧) も使うか。画面は真のとき、表示の切り替えを出す。
+    list_view: bool,
 }
 
 /// `id` が指す `type = 'folder'` の行から、フォルダーのタイトルと登録済みルートパス
@@ -1644,6 +1646,15 @@ pub(super) async fn folder_root(
 
     let lineage = ensure_viewable(&state.pool, viewer, id).await?;
     Ok((row.title, folder_path(row.path)?, lineage))
+}
+
+async fn uses_list_view(pool: &sqlx::SqlitePool, id: i64) -> Result<bool, AppError> {
+    Ok(sqlx::query_scalar!(
+        r#"SELECT list_view as "list_view: bool" FROM contents WHERE id = ?"#,
+        id
+    )
+    .fetch_one(pool)
+    .await?)
 }
 
 /// パスの状態をファイルシステムに問い合わせる。
@@ -1914,6 +1925,7 @@ async fn browse_folder(
         folder_title,
         ancestors: lineage.breadcrumbs(),
         can_edit,
+        list_view: uses_list_view(&state.pool, id).await?,
         path: query.path,
         entries,
     }))
