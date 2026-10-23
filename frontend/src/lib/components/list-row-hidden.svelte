@@ -4,7 +4,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 
 	// 閲覧の一覧で、表示しないにした行の代わりに出す行。押した人がその場で取り消せるようにする
-	// (AI が集めたリンク・フォルダー・アーカイブで共有する)。
+	// (フォルダー・アーカイブで共有する)。
 	let {
 		message,
 		busy = false,

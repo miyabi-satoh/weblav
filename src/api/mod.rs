@@ -1,6 +1,3 @@
-mod ai;
-mod ai_link_pages;
-pub mod ai_links;
 mod archive;
 mod archive_axes;
 mod archive_axis_hints;
@@ -8,7 +5,6 @@ mod archive_items;
 mod auth;
 pub mod backup;
 mod browser;
-mod chat_file;
 mod completed_reader;
 mod connection_info;
 mod contents;
@@ -86,8 +82,6 @@ fn routes(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .merge(health::router())
         .merge(auth::router())
-        .merge(ai::router())
-        .merge(ai_links::router())
         .merge(folder_marks::router())
         .merge(connection_info::router())
         .merge(contents::router(max_upload_bytes))

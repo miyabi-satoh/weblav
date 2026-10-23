@@ -378,18 +378,7 @@ CREATE TABLE link_previews (
     shown_at INTEGER NOT NULL DEFAULT 0,     -- 最後に一覧に出た時刻。上限を超えたら古い順に消す
     bytes INTEGER NOT NULL DEFAULT 0
 );
-
--- AI を誰がどれだけ使ったかの記録 (→ ai.md「窓口の呼び出しと、使った量の記録」)。呼び出しごとに1行。
-CREATE TABLE ai_usage (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER REFERENCES users (id) ON DELETE SET NULL,
-    username TEXT NOT NULL,  -- 使った時点のユーザー名。ユーザーを消した後も内訳に出す
-    kind TEXT NOT NULL,      -- 使った機能 ('axes')
-    used INTEGER NOT NULL,   -- 1回の購入で付く量を 1,000,000 とした整数
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-);
-CREATE INDEX ai_usage_user_id ON ai_usage (user_id);
 ```
 
 `users` テーブルは `id` / `username` / `password_hash` / `role` / `created_at` に、
-`recovery_code_hash` (→ access.md「リカバリコード」) と `ai_allowed` (→ ai.md「誰が使えるか」) を足してある。セッション用テーブルは `tower-sessions-sqlx-store` が別途作成する。
+`recovery_code_hash` (→ access.md「リカバリコード」) を足してある。セッション用テーブルは `tower-sessions-sqlx-store` が別途作成する。

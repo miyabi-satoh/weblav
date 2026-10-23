@@ -9,7 +9,7 @@
 	type AutoMode = components['schemas']['AutoMode'];
 
 	// 自動で回す処理の時刻 (しない・前回から N 時間たったら・毎日 HH:MM を過ぎたら) の丸ボタンの組。
-	// グループの AI のリンクの自動の更新と、ライブラリの自動の再スキャンで同じ形にする (→ docs/ui.md「グループの編集ページ」)。
+	// 一覧の表示を使うフォルダーの自動の再スキャンで使う (→ docs/archive.md「スキャン」)。
 	let {
 		id,
 		label,

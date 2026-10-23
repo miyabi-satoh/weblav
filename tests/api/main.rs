@@ -17,8 +17,6 @@ use weblav::config::{AppDirs, Config, LogOutput};
 use weblav::folder_picker::FolderPicker;
 use weblav::{auth, build_app};
 
-mod ai;
-mod ai_links;
 mod anonymous;
 mod archive;
 mod axes;
@@ -206,15 +204,10 @@ async fn app_with_picker(
         },
         None,
         folder_picker,
-        NO_ACCOUNT_SERVER,
     )
     .await
     .expect("failed to build app")
 }
-
-/// どこにもつながない窓口の URL。AI の機能を確かめないテストのアプリに渡す
-/// (開発版の既定は手元の窓口なので、動いていればテストがつながってしまう)。
-const NO_ACCOUNT_SERVER: &str = "http://127.0.0.1:1";
 
 /// アップロード系テストはblobの実体(ファイルの有無)を直接検証したいので、
 /// `blobs_dir`のパスも一緒に返すバリアント。

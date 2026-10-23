@@ -27,7 +27,6 @@ const LINK_PREVIEWS_DIR_NAME: &str = "link-previews";
 const BACKUP_WORK_DIR_NAME: &str = "backup-work";
 const LOCK_FILE_NAME: &str = "weblav.lock";
 const ADDR_FILE_NAME: &str = "weblav.addr";
-const AI_ACCOUNT_FILE_NAME: &str = "ai-account.json";
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -121,12 +120,6 @@ impl AppDirs {
     /// 動いているサーバーの実際の待ち受けのアドレスを書くファイル (→ `server::AlreadyRunning`)。
     pub fn addr_path(&self) -> PathBuf {
         self.data_dir.join(ADDR_FILE_NAME)
-    }
-
-    /// コンピューターの登録の状態 (アプリ用のトークンなど) を置くファイル (→ `crate::ai`、docs/ai.md「コンピューターの登録」)。
-    /// この PC と窓口のアカウントを結ぶものなので、バックアップには入れない。
-    pub fn ai_account_path(&self) -> PathBuf {
-        self.data_dir.join(AI_ACCOUNT_FILE_NAME)
     }
 }
 

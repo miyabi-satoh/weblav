@@ -19,8 +19,7 @@ pub(super) enum AutoMode {
     Daily,
 }
 
-/// 自動で回す処理の時刻の設定。グループの AI のリンクの自動の更新 (→ docs/ai.md「自動の更新」) と、
-/// ライブラリの自動の再スキャン (→ docs/archive.md「スキャン」) で同じ形を使う。
+/// 自動で回す処理の時刻の設定。ライブラリの自動の再スキャン (→ docs/archive.md「スキャン」) で使う。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct AutoRefresh {

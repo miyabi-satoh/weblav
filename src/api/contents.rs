@@ -470,8 +470,6 @@ pub struct AdminContentResponse {
     pub new_files_public: bool,
     /// 一覧の表示を使うフォルダーを、自動で再スキャンする時刻 (→ docs/archive.md「スキャン」)。
     pub auto_rescan: AutoRefresh,
-    /// AI がリンクを集めるグループか (→ docs/ai.md「AI が集めるリンク」)。一覧の行に、集め直す操作を出すのに使う。
-    pub ai_links: bool,
     /// 一覧の表示を使うフォルダーの場合のみ`Some`。アイテムの数と公開している数。
     pub archive_items: Option<super::archive_items::ArchiveItemCounts>,
 }
@@ -481,7 +479,6 @@ impl AdminContentResponse {
         row: ContentRow,
         created_by_username: Option<String>,
         root_records: &[super::roots::RootRecord],
-        ai_links: bool,
         archive_items: Option<super::archive_items::ArchiveItemCounts>,
     ) -> Self {
         let location = row
@@ -521,7 +518,6 @@ impl AdminContentResponse {
                 row.auto_rescan_hours,
                 row.auto_rescan_time,
             ),
-            ai_links,
             archive_items,
         }
     }
@@ -542,8 +538,6 @@ async fn admin_response(
         None => None,
     };
     let root_records = super::roots::load_root_records(pool).await?;
-    let ai_links =
-        row.content_type == ContentType::Group && super::ai_links::is_enabled(pool, row.id).await?;
     let archive_items = if row.list_view {
         Some(super::archive_items::item_counts_of(pool, row.id).await?)
     } else {
@@ -553,7 +547,6 @@ async fn admin_response(
         row,
         username,
         &root_records,
-        ai_links,
         archive_items,
     ))
 }
@@ -867,8 +860,7 @@ const DEFAULT_VISIBILITY: Visibility = Visibility::Public;
 
 /// 新規作成時に書き込む公開範囲を決める。`user` も選べる (→ docs/access.md「ロールと操作」)。
 /// 作成なら作成者は操作した本人なので、`private` を選んでも制限は無い。
-/// 指定が無く、親が「作成者のみ」のグループなら「作成者のみ」にする。中にはそれしか置けないため
-/// (AI が集めたリンクを残すときのように、画面が公開範囲を送らない作成がある)。
+/// 指定が無く、親が「作成者のみ」のグループなら「作成者のみ」にする。中にはそれしか置けないため。
 fn resolve_visibility_for_create(
     requested: Option<Visibility>,
     parent: Option<&ParentGroup>,
@@ -1000,7 +992,6 @@ async fn list_admin_contents(
             .map(|row| (row.id, row.username))
             .collect();
     let root_records = super::roots::load_root_records(&state.pool).await?;
-    let ai_link_groups = super::ai_links::enabled_groups(&state.pool).await?;
     let archive_item_counts = super::archive_items::item_counts(&state.pool).await?;
 
     Ok(Json(
@@ -1008,20 +999,13 @@ async fn list_admin_contents(
             .filter(|row| can_see_in_admin_list(&user, row.visibility, row.created_by))
             .map(|row| {
                 let username = row.created_by.and_then(|id| usernames.get(&id).cloned());
-                let ai_links = ai_link_groups.contains(&row.id);
                 let archive_items = row.list_view.then(|| {
                     archive_item_counts
                         .get(&row.id)
                         .copied()
                         .unwrap_or_default()
                 });
-                AdminContentResponse::from_row(
-                    row,
-                    username,
-                    &root_records,
-                    ai_links,
-                    archive_items,
-                )
+                AdminContentResponse::from_row(row, username, &root_records, archive_items)
             })
             .collect(),
     ))

@@ -5,7 +5,6 @@
  * 画像を開くまで読み込まないよう、本体と CSS は開くときに取りに行く。
  */
 
-import { aiChat } from '$lib/ai-chat.svelte';
 import type { ContentLocation } from '$lib/content-location';
 import * as m from '$lib/paraglide/messages.js';
 import type { ViewerItem } from '$lib/viewer-items';
@@ -157,31 +156,8 @@ export async function openImageViewer(
 		zoomTitle: m.image_viewer_zoom_button(),
 		arrowPrevTitle: m.image_viewer_previous_button(),
 		arrowNextTitle: m.image_viewer_next_button(),
-		errorMsg: m.image_viewer_error(),
-		// 「AI に聞く」のパネルを開いている間は、パネルの手前で止める (→ routes/layout.css の `.pswp`)。
-		// 既定は画面全体の大きさで画像を置くので、ビューアーの要素の大きさに合わせる。
-		getViewportSizeFn: (_options, pswp) => {
-			const element = (pswp as { element?: HTMLElement }).element;
-			return {
-				x: element?.clientWidth || document.documentElement.clientWidth,
-				y: element?.clientHeight || window.innerHeight
-			};
-		}
+		errorMsg: m.image_viewer_error()
 	});
-
-	// パネルを開け閉めしてビューアーの大きさが変わったら、画像を置き直す。PhotoSwipe は窓の大きさの変化しか見ない。
-	const resize = new ResizeObserver(() => viewer.updateSize(true));
-	viewer.on('bindEvents', () => {
-		if (viewer.element) resize.observe(viewer.element);
-	});
-	viewer.on('destroy', () => resize.disconnect());
-
-	// 見ている画像を簡易チャットへ渡す (→ docs/ui.md「AI に聞く」)。
-	viewer.on('change', () => {
-		const image = images[viewer.currIndex];
-		if (image) aiChat.setFile('image', { name: image.title, src: image.src, sendsContent: true });
-	});
-	viewer.on('destroy', () => aiChat.setFile('image', null));
 
 	viewer.addFilter('thumbEl', (thumbnail, data) => {
 		const rowThumbnail = document.querySelector<HTMLElement>(
@@ -251,27 +227,6 @@ export async function openImageViewer(
 			});
 		}
 	});
-
-	// 右下の「AI に聞く」はビューアーの後ろに隠れるので、上部のバーからも開く (→ file-viewer.svelte と同じ)。
-	if (aiChat.available) {
-		viewer.on('uiRegister', () => {
-			viewer.ui?.registerElement({
-				name: 'aiChat',
-				title: m.ai_chat_open_button(),
-				ariaLabel: m.ai_chat_open_button(),
-				isButton: true,
-				appendTo: 'bar',
-				html: icon(
-					'<path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/>'
-				),
-				// 拡大 (10) の手前。
-				order: 9,
-				onClick: () => {
-					aiChat.open = !aiChat.open;
-				}
-			});
-		});
-	}
 
 	// 何の画像かを上部のバーに出す。PhotoSwipe は題名を出す部品を持たない。
 	viewer.on('uiRegister', () => {

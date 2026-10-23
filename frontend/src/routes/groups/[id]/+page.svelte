@@ -7,7 +7,6 @@
 	import { SORT_OPTIONS, browseSortHref, type BrowseSort } from '$lib/browse-sort';
 	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
 	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
-	import AiLinksSection from '$lib/components/ai-links-section.svelte';
 	import ContentList from '$lib/components/content-list.svelte';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
@@ -54,22 +53,14 @@
 			canEdit={browse.canEdit}
 		/>
 
-		{#if browse.entries.length > 0 || (data.aiLinks?.links.length ?? 0) > 0}
-			<!-- 並び順が効くのはグループの中身だけ。AI が集めたリンクは、AI が選んだ順に並ぶ。 -->
-			<BrowseControls class="mb-4" sort={browse.entries.length > 0 ? sortSelect : undefined} />
+		{#if browse.entries.length > 0}
+			<BrowseControls class="mb-4" sort={sortSelect} />
 		{/if}
 	</div>
 
 	{#if browse.entries.length > 0}
 		<ContentList entries={browse.entries} />
-	{:else if data.aiLinks == null}
+	{:else}
 		<p class={pageEmptyTextClass}>{m.group_browse_empty()}</p>
-	{/if}
-
-	{#if data.aiLinks != null}
-		<!-- 別のグループへ移ったときに作り直す。自動の更新を開くたびに頼み、この画面で表示しないにした行を持ち越さないため。 -->
-		{#key data.contentId}
-			<AiLinksSection groupId={data.contentId} aiLinks={data.aiLinks} />
-		{/key}
 	{/if}
 </div>

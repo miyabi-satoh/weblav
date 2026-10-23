@@ -98,10 +98,6 @@ pub struct AppState {
     /// 他の端末に mDNS の名前 (→ `crate::mdns`) とあわせて案内するポート。
     /// 全インターフェースで待ち受けていないときは`None`。
     pub lan_port: Option<u16>,
-    /// コンピューターの登録の状態と、つなぐ窓口 (→ `crate::ai`)。
-    pub ai: Arc<crate::ai::Ai>,
-    /// AI がリンクを集めている最中のグループ (→ `crate::api::ai_links`)。
-    pub ai_links: Arc<crate::api::ai_links::AiLinks>,
 }
 
 /// 走査中のアーカイブidの集合。
