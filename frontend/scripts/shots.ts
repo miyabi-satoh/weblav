@@ -511,7 +511,7 @@ export const shots: Record<string, ShotEntry> = {
 	admin_archive_axes_add_dialog: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.archiveId}/axes`);
-			await openAddDialog(page, /^軸を追加\.\.\.$|^Add axis\.\.\.$/, { timeout: 5000 });
+			await openAddDialog(page, /^分類を追加\.\.\.$|^Add category\.\.\.$/, { timeout: 5000 });
 			// 階層ごとの値はダイアログを開いてから取るので、選択肢が出るまで待つ。
 			await page.getByRole('dialog').getByRole('radio').first().waitFor({ timeout: 5000 });
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });

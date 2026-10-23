@@ -50,6 +50,9 @@ const ADMIN_SHOTS = [
 	'add-archive-picker',
 	'folder-list-view',
 	'axis-add-dir',
+	'archive-axes-tab',
+	'axis-add-word',
+	'archive-axes-template',
 	'roots-delete',
 	'axis-row-actions',
 	'archive-items-tab',
@@ -486,15 +489,38 @@ async function shootAdmin() {
 
 		if (want('axis-add-dir')) {
 			await goto(page, `/admin/contents/${archive!.id}/axes`);
-			await page.getByRole('button', { name: '軸を追加...' }).click();
+			await page.getByRole('button', { name: '分類を追加...' }).click();
 			await waitForDialog(page);
 			const d = dialog(page);
-			await d.getByLabel(/^軸の名前/).fill('年度');
+			await d.getByLabel(/^分類の名前/).fill('年度');
 			await page.locator('#axis-source').click();
 			await page.getByRole('option', { name: 'フォルダーの階層' }).click();
 			await d.getByText('階層 1').click();
-			await d.getByLabel(/^軸の名前/).focus();
+			await d.getByLabel(/^分類の名前/).focus();
 			await shotElement(page, 'axis-add-dir', d);
+		}
+
+		if (want('archive-axes-tab')) {
+			await goto(page, `/admin/contents/${archive!.id}/axes`);
+			await shotBetween(
+				page,
+				'archive-axes-tab',
+				page.getByRole('navigation', { name: 'コンテンツの設定' }),
+				page.getByRole('button', { name: '分類を追加...' }),
+				{ padTop: 8, padBottom: 16 }
+			);
+		}
+
+		if (want('axis-add-word')) {
+			await goto(page, `/admin/contents/${archive!.id}/axes`);
+			await page.getByRole('button', { name: '分類を追加...' }).click();
+			await waitForDialog(page);
+			const d = dialog(page);
+			await d.getByLabel(/^分類の名前/).fill('種類');
+			await page.locator('#axis-source').click();
+			await page.getByRole('option', { name: 'ファイル名の単語' }).click();
+			await d.getByLabel(/^分類の名前/).focus();
+			await shotElement(page, 'axis-add-word', d);
 		}
 
 		// 共有の中のコンテンツは、録音を足して5件。
@@ -525,7 +551,7 @@ async function shootAdmin() {
 			await shotBetween(
 				page,
 				'axis-row-actions',
-				page.getByRole('heading', { name: '軸', exact: true }),
+				page.getByRole('heading', { name: '分類', exact: true }),
 				page.getByText('ファイル名の単語'),
 				{
 					padTop: 20,
@@ -534,9 +560,21 @@ async function shootAdmin() {
 			);
 		}
 
+		if (want('archive-axes-template')) {
+			await goto(page, `/admin/contents/${archive!.id}/axes`);
+			await shotBetween(
+				page,
+				'archive-axes-template',
+				page.getByRole('heading', { name: '表示タイトルのテンプレート' }),
+				page.getByText('拡張子を除いたファイル名です', { exact: false }),
+				{ padTop: 16, padBottom: 16 }
+			);
+		}
+
 		const tabs = page.getByRole('navigation', { name: 'コンテンツの設定' });
 		const rowCheck = (index: number) => page.getByRole('checkbox', { name: /を選択$/ }).nth(index);
-		const rowOf = (index: number) => rowCheck(index).locator('xpath=ancestor::li[1]');
+		const rowOf = (index: number) =>
+			rowCheck(index).locator('xpath=ancestor::*[@role="listitem"][1]');
 		if (want('archive-items-tab')) {
 			await goto(page, `/admin/contents/${archive!.id}/items`);
 			await shotBetween(page, 'archive-items-tab', tabs, rowOf(2), { padTop: 8, padBottom: 8 });

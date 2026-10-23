@@ -4,7 +4,7 @@
 
 | What you want to show | Type |
 |---|---|
-| A folder on your computer. You can add a list filterable by year or session | Folder (for the list → [Set up the list view](06-archive-setup.md)) |
+| A folder on your computer. You can also organize it as a library filterable by year or session | Folder (for the library → [Set up a library](06-archive-setup.md)) |
 | One file | File (upload, up to 100 MB by default) |
 | An external website | Link |
 | A collection of items | Group |
@@ -56,7 +56,7 @@ By default, everything in a folder is published. Unpublish files or folders you 
 
 To publish only the items you choose, turn off “Publish new files” under “Location and display” on the “Details” tab of the edit page, then select “Save” in that section. New files start unpublished, so choose “Publish” for the ones to show. Publishing a file also makes the folders above it browsable.
 
-Your changes are listed under “Changed publishing” on the edit page, and “Undo” reverts one. For a folder that uses the list view, only folders are listed there. Publish or unpublish files on the “Items” tab (→ [Set up the list view](06-archive-setup.md)).
+Your changes are listed under “Publishing changes” on the edit page, and “Undo” reverts one. For a folder organized as a library, only folders are listed there. Publish or unpublish files on the “Items” tab (→ [Set up a library](06-archive-setup.md)).
 
 ## File
 
@@ -140,7 +140,7 @@ To see how it looks to viewers, select “View on site” next to the heading of
 - Title and description
 - Link: Use “Refetch title” and “Refetch description” to fetch them again from the linked site.
 - File: Drop a new file or select one to replace it.
-- Folder: “Publish new files” (→ “Publish or unpublish” above) and “Use the list view” (→ [Set up the list view](06-archive-setup.md)). Neither is asked when you add a folder, so change them here.
+- Folder: “Publish new files” (→ “Publish or unpublish” above) and “Organize as a library” (→ [Set up a library](06-archive-setup.md)). Neither is asked when you add a folder, so change them here.
   - Changing the location with “Change...” under “Path” clears all publish changes and the list.
 
 ## Delete

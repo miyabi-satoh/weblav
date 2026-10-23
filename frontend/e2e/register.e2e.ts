@@ -38,8 +38,8 @@ import {
 	USE_THIS_FOLDER_BUTTON_NAME
 } from './helpers';
 
-/** 編集ページの「一覧の表示を使う」のスイッチ。 */
-const LIST_VIEW_SWITCH_NAME = /^一覧の表示を使う$|^Use the list view$/;
+/** 編集ページの「ライブラリとして整理する」のスイッチ。 */
+const LIST_VIEW_SWITCH_NAME = /^ライブラリとして整理する$|^Organize as a library$/;
 
 // 待ち続けて制限時間を使い切ると、後片付けまで時間切れになる (→ archive.e2e.ts)。
 test.use({ actionTimeout: 10_000, navigationTimeout: 10_000 });

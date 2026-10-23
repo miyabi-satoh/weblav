@@ -235,7 +235,7 @@ async function setupArchiveFixtures(
 			parentId: groupId,
 			title: ARCHIVE_TITLE,
 			path: FIXTURE_DIR,
-			description: '軸による絞り込み・表示タイトルのスクリーンショット用のフィクスチャです。',
+			description: '分類による絞り込み・表示タイトルのスクリーンショット用のフィクスチャです。',
 			visibility: 'authenticated'
 		})
 	).json()) as { id: number };

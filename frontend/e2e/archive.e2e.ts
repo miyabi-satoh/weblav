@@ -94,7 +94,7 @@ test('軸の追加: フォルダーの階層は、階層ごとの値の例を見
 			await page.getByRole('button', { name: ADD_AXIS_BUTTON_NAME }).click();
 			await waitForDialog(page);
 			const dialog = page.getByRole('dialog');
-			await dialog.getByLabel(requiredLabel('軸の名前', 'Axis name')).fill('回');
+			await dialog.getByLabel(requiredLabel('分類の名前', 'Category name')).fill('回');
 
 			// 新規の抽出元はフォルダーの階層で、第1階層が選ばれている。値の例は件数の多い順。
 			const level1 = dialog.getByLabel(dirLevelRadioLabel(1));

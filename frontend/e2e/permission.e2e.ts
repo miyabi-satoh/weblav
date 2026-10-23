@@ -261,7 +261,7 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 					).toHaveCount(0);
 
 					// 値の辞書は見えるが、保存ボタンは出ない (selectAxis は保存ボタンで読み込みを待つので使わない)。
-					await editorPage.getByRole('link', { name: /^軸$|^Axes$/ }).click();
+					await editorPage.getByRole('link', { name: /^分類$|^Categories$/ }).click();
 					// アイテムのタブにも同じ名前の軸の絞り込みがあるので、移り終えてから押す。
 					await editorPage.waitForURL(/\/axes$/);
 					await editorPage
