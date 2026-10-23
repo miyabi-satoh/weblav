@@ -24,7 +24,7 @@ mod archive;
 mod axes;
 mod backup;
 mod contents;
-mod folder_hidden;
+mod folder_marks;
 mod guards;
 mod images;
 mod inheritance;
@@ -131,7 +131,7 @@ async fn insert_folder_by(
     .expect("folderを挿入できなかった")
 }
 
-/// archive を直接INSERTし、idを返す。
+/// 一覧の表示を使い、新しいファイルを公開しないフォルダー (前のアーカイブにあたる) を直接INSERTし、idを返す。
 async fn insert_archive_by(
     pool: &SqlitePool,
     title: &str,
@@ -141,8 +141,8 @@ async fn insert_archive_by(
     parent_id: Option<i64>,
 ) -> i64 {
     sqlx::query_scalar(
-        "INSERT INTO contents (type, parent_id, title, path, visibility, created_by) \
-         VALUES ('archive', ?, ?, ?, ?, ?) RETURNING id",
+        "INSERT INTO contents (type, parent_id, title, path, visibility, created_by, list_view, new_files_public) \
+         VALUES ('folder', ?, ?, ?, ?, ?, 1, 0) RETURNING id",
     )
     .bind(parent_id)
     .bind(title)
@@ -543,7 +543,8 @@ async fn db_user_id(pool: &SqlitePool, username: &str) -> i64 {
         .expect("ユーザーのidを取得できなかった")
 }
 
-/// アーカイブを1件作り、そのidを返す。`dir` は登録先の絶対パス。
+/// 一覧の表示を使い、新しいファイルを公開しないフォルダー (前のアーカイブにあたる) を1件作り、
+/// そのidを返す。`dir` は登録先の絶対パス。
 async fn create_archive(
     app: Router,
     cookie: &str,
@@ -551,6 +552,16 @@ async fn create_archive(
     extensions: Option<&str>,
 ) -> i64 {
     let path_json = json_string(&dir.display().to_string());
+    let (status, body) = send_json(
+        app.clone(),
+        "POST",
+        "/api/v1/contents",
+        cookie,
+        &format!(r#"{{"type":"folder","title":"英検 過去問","path":{path_json}}}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let id = extract_id(&body);
     let extensions_json = match extensions {
         Some(ext) => format!(
             r#","extensions":{}"#,
@@ -560,16 +571,16 @@ async fn create_archive(
     };
     let (status, body) = send_json(
         app,
-        "POST",
-        "/api/v1/contents",
+        "PUT",
+        &format!("/api/v1/contents/{id}"),
         cookie,
         &format!(
-            r#"{{"type":"archive","title":"英検 過去問","path":{path_json}{extensions_json}}}"#
+            r#"{{"title":"英検 過去問","path":{path_json},"listView":true,"newFilesPublic":false{extensions_json}}}"#
         ),
     )
     .await;
-    assert_eq!(status, StatusCode::CREATED, "{body}");
-    extract_id(&body)
+    assert_eq!(status, StatusCode::OK, "{body}");
+    id
 }
 
 async fn rescan(app: Router, cookie: &str, id: i64) -> (StatusCode, String) {
@@ -644,15 +655,50 @@ async fn view_archive(
     .await
 }
 
-/// アーカイブ配下のアイテムを全件公開にする (テストの前準備用)。
+/// ファイル `rel_path` に公開の印を付ける (テストの前準備用)。
+async fn mark_published(pool: &SqlitePool, archive_id: i64, rel_path: &str) {
+    sqlx::query!(
+        "INSERT INTO folder_marks (content_id, path, is_dir, public, created_at) VALUES (?, ?, 0, 1, 0)
+         ON CONFLICT (content_id, path) DO UPDATE SET public = 1",
+        archive_id,
+        rel_path
+    )
+    .execute(pool)
+    .await
+    .expect("公開の印を付けられなかった");
+}
+
+/// 索引の行のうち、公開しているものの相対パス (昇順)。印はファイルにだけ付けたテストで使う。
+async fn published_rel_paths(pool: &SqlitePool, archive_id: i64) -> Vec<String> {
+    sqlx::query_scalar!(
+        r#"SELECT i.rel_path FROM archive_items i
+           JOIN contents c ON c.id = i.archive_id
+           LEFT JOIN folder_marks m ON m.content_id = i.archive_id AND m.path = i.rel_path
+           WHERE i.archive_id = ? AND COALESCE(m.public, c.new_files_public) = 1
+           ORDER BY i.rel_path"#,
+        archive_id
+    )
+    .fetch_all(pool)
+    .await
+    .expect("公開しているものを読めなかった")
+}
+
+/// フォルダーの中を全部公開にする (テストの前準備用)。新しいファイルを公開する設定にし、非公開の印を消す。
 async fn publish_all_items(pool: &SqlitePool, archive_id: i64) {
     sqlx::query!(
-        "UPDATE archive_items SET published = 1 WHERE archive_id = ?",
+        "UPDATE contents SET new_files_public = 1 WHERE id = ?",
         archive_id
     )
     .execute(pool)
     .await
-    .expect("公開フラグを立てられなかった");
+    .expect("新しいファイルを公開する設定にできなかった");
+    sqlx::query!(
+        "DELETE FROM folder_marks WHERE content_id = ? AND public = 0",
+        archive_id
+    )
+    .execute(pool)
+    .await
+    .expect("非公開の印を消せなかった");
 }
 
 /// 一覧APIから`username`のidを引く。ユーザー管理APIはid採番をレスポンスで返すが、

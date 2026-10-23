@@ -1,0 +1,116 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url, path,\n                  description, created_at as \"created_at!\", file_name, file_size,\n                  visibility as \"visibility: Visibility\", created_by, extensions, title_template,\n                  list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                  auto_rescan as \"auto_rescan: AutoRescan\"\n           FROM contents\n           WHERE parent_id IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "content_type: ContentType",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "parent_id",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "title",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "url",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "path",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "description",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at!",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "file_name",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "file_size",
+        "ordinal": 9,
+        "type_info": "Integer"
+      },
+      {
+        "name": "visibility: Visibility",
+        "ordinal": 10,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_by",
+        "ordinal": 11,
+        "type_info": "Integer"
+      },
+      {
+        "name": "extensions",
+        "ordinal": 12,
+        "type_info": "Text"
+      },
+      {
+        "name": "title_template",
+        "ordinal": 13,
+        "type_info": "Text"
+      },
+      {
+        "name": "list_view: bool",
+        "ordinal": 14,
+        "type_info": "Integer"
+      },
+      {
+        "name": "new_files_public: bool",
+        "ordinal": 15,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_rescan: AutoRescan",
+        "ordinal": 16,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d82b323279c902811b24e45c0b91f91a6e1a0c75b38ba6a4557110eee317eb6e"
+}

@@ -5,7 +5,7 @@
 //! から使う。
 
 use std::collections::{HashMap, HashSet};
-use std::path::Path as FsPath;
+use std::path::{Path as FsPath, PathBuf};
 
 use axum::Json;
 use axum::extract::{Path, State};
@@ -66,6 +66,57 @@ pub(super) async fn load_item_rel_paths(
     .fetch_all(pool)
     .await?;
     Ok(rel_paths)
+}
+
+/// アイテムの相対パスと、日付の軸が使う日付 (`dated_at`)。
+pub(super) async fn load_item_facts(
+    pool: &sqlx::SqlitePool,
+    archive_id: i64,
+) -> Result<Vec<(String, Option<i64>)>, AppError> {
+    let rows = sqlx::query!(
+        "SELECT rel_path, taken_at, modified_ns FROM archive_items WHERE archive_id = ?",
+        archive_id
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| (row.rel_path, dated_at(row.taken_at, row.modified_ns)))
+        .collect())
+}
+
+/// 軸の値を導くのに使う、アイテム1件の手掛かり。
+#[derive(Clone, Copy)]
+pub(super) struct ItemFacts<'a> {
+    pub(super) rel_path: &'a str,
+    /// 撮影日 (無ければ更新日) の Unix 秒 (`dated_at`)。日付の軸が使う。
+    pub(super) dated_at: Option<i64>,
+}
+
+impl<'a> From<&'a str> for ItemFacts<'a> {
+    fn from(rel_path: &'a str) -> Self {
+        Self {
+            rel_path,
+            dated_at: None,
+        }
+    }
+}
+
+/// 日付の軸が使う日付。写真の撮影日を先にし、無ければファイルの更新日にする (→ docs/archive.md「軸の定義」)。
+/// 更新日はコピーし直すと変わるが、撮影日を持たないファイル (動画・文書) にも値を出すため。
+pub(super) fn dated_at(taken_at: Option<i64>, modified_ns: Option<i64>) -> Option<i64> {
+    taken_at.or_else(|| modified_ns.map(|ns| ns.div_euclid(1_000_000_000)))
+}
+
+/// 日付の軸の生の値。年は `2024`、年月は `2024-06`。文字の順に並べると時の順になる。
+/// 表示名は、階層の軸と同じく値の辞書で付け直せる。
+pub(super) fn date_value(dated_at: i64, month: bool) -> Option<String> {
+    let at = time::OffsetDateTime::from_unix_timestamp(dated_at).ok()?;
+    Some(if month {
+        format!("{:04}-{:02}", at.year(), u8::from(at.month()))
+    } else {
+        format!("{:04}", at.year())
+    })
 }
 
 /// `dir_level` 軸の階層番号。保存時に必須にしてあるので、無ければデータの不整合。
@@ -192,7 +243,8 @@ pub(super) struct ArchiveMeta {
     pub title_template: Option<String>,
 }
 
-/// `id` が指す `type = 'archive'` の行を取得する。存在しない・archiveでなければ404。
+/// `id` が指す、一覧の表示を使うフォルダーの行を取得する。存在しない・フォルダーでない・
+/// 一覧の表示を使っていなければ404。
 pub(super) async fn load_archive(
     pool: &sqlx::SqlitePool,
     id: i64,
@@ -200,14 +252,14 @@ pub(super) async fn load_archive(
     let row = sqlx::query!(
         r#"SELECT type as "content_type: ContentType", title, path, extensions,
                   visibility as "visibility: super::contents::Visibility", created_by,
-                  title_template
+                  title_template, list_view as "list_view: bool"
            FROM contents WHERE id = ?"#,
         id
     )
     .fetch_optional(pool)
     .await?
     .ok_or(AppError::NotFound)?;
-    if row.content_type != ContentType::Archive {
+    if row.content_type != ContentType::Folder || !row.list_view {
         return Err(AppError::NotFound);
     }
     let path = row
@@ -378,12 +430,18 @@ async fn scan_and_sync(
                 detail: ValidationDetail::ArchiveFolderUnreadable { path },
             });
         }
-        Ok(read_items(&root, result.rel_paths, &known, &progress))
+        let items = read_items(&root, result.rel_paths, &known, &progress);
+        Ok((items, result.dirs))
     })
     .await??;
+    let (items, dirs) = items;
 
-    sync_items(state, id, &archive.path, &items).await
+    sync_items(state, id, &archive.path, &items, &dirs).await
 }
+
+/// 索引の読み方の版。読み方を変えたら上げ、古い版で読んだ行を、変わっていなくても読み直す。
+/// 2 は写真の撮影日 (EXIF) を読む版。
+const READ_VERSION: i64 = 2;
 
 /// 前のスキャンで読んだときのファイルの大きさと更新日時。`rel_path` ごと。
 /// 同じなら中身も変わっていないとみなし、読み直さない (→ docs/archive.md「スキャン」)。
@@ -392,8 +450,9 @@ type KnownFiles = HashMap<String, (i64, Option<i64>)>;
 async fn load_known_files(pool: &sqlx::SqlitePool, id: i64) -> Result<KnownFiles, AppError> {
     let rows = sqlx::query!(
         r#"SELECT rel_path, file_size as "file_size!", modified_ns, image_width FROM archive_items
-           WHERE archive_id = ? AND file_size IS NOT NULL"#,
-        id
+           WHERE archive_id = ? AND file_size IS NOT NULL AND read_version >= ?"#,
+        id,
+        READ_VERSION
     )
     .fetch_all(pool)
     .await?;
@@ -423,6 +482,7 @@ struct ScannedFile {
     modified_ns: Option<i64>,
     image: Option<super::thumbnails::ImageSize>,
     is_text: bool,
+    taken_at: Option<i64>,
 }
 
 /// 見つけたファイルを1つずつ見て、変わったものだけプレビューの情報を読む。
@@ -450,12 +510,14 @@ fn read_items(
                     None
                 } else {
                     let name = rel_path.rsplit('/').next().unwrap_or(&rel_path);
-                    let preview = super::thumbnails::file_preview(name, &path, metadata.len());
+                    let (preview, taken_at) =
+                        super::thumbnails::scan_preview(name, &path, metadata.len());
                     Some(ScannedFile {
                         size,
                         modified_ns,
                         image: preview.image,
                         is_text: preview.is_text,
+                        taken_at,
                     })
                 }
             }
@@ -481,6 +543,7 @@ async fn sync_items(
     id: i64,
     scanned_path: &str,
     items: &[ScannedItem],
+    dirs: &[(String, Option<i64>)],
 ) -> Result<Json<RescanResponse>, AppError> {
     let mut tx = crate::db::begin_write(&state.pool).await?;
 
@@ -517,17 +580,20 @@ async fn sync_items(
             .and_then(|file| file.image)
             .map(|image| i64::from(image.height));
         let is_text = file.is_some_and(|file| file.is_text);
+        let taken_at = file.and_then(|file| file.taken_at);
         if existing.contains(rel_path) {
             if file.is_some() {
                 sqlx::query!(
                     "UPDATE archive_items SET file_size = ?, modified_ns = ?, image_width = ?,
-                         image_height = ?, is_text = ?
+                         image_height = ?, is_text = ?, taken_at = ?, read_version = ?
                      WHERE archive_id = ? AND rel_path = ?",
                     size,
                     modified_ns,
                     width,
                     height,
                     is_text,
+                    taken_at,
+                    READ_VERSION,
                     id,
                     rel_path
                 )
@@ -536,18 +602,21 @@ async fn sync_items(
             }
             continue;
         }
-        // 新規は必ず非公開から始まる (→ docs/archive.md「アイテムの公開」)。
+        // 公開するかは印で決まるので、索引には中身だけを書く (→ docs/folders.md「公開と非公開」)。
         sqlx::query!(
             "INSERT INTO archive_items
-                 (archive_id, rel_path, published, file_size, modified_ns, image_width, image_height, is_text)
-             VALUES (?, ?, 0, ?, ?, ?, ?, ?)",
+                 (archive_id, rel_path, file_size, modified_ns, image_width, image_height, is_text,
+                  taken_at, read_version)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             id,
             rel_path,
             size,
             modified_ns,
             width,
             height,
-            is_text
+            is_text,
+            taken_at,
+            READ_VERSION
         )
         .execute(&mut *tx)
         .await?;
@@ -568,6 +637,14 @@ async fn sync_items(
         removed += 1;
     }
 
+    replace_dirs(&mut tx, id, dirs).await?;
+    sqlx::query!(
+        "UPDATE contents SET last_scanned_at = unixepoch('subsec') * 1000 WHERE id = ?",
+        id
+    )
+    .execute(&mut *tx)
+    .await?;
+
     tx.commit().await?;
 
     Ok(Json(RescanResponse {
@@ -575,6 +652,405 @@ async fn sync_items(
         removed,
         total: items.len(),
     }))
+}
+
+/// 自動の再スキャンの時刻を見回る間隔。選べる間隔の最短 (1時間) より十分に短くし、遅れを小さくする。
+const AUTO_RESCAN_CHECK: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// 自動の再スキャン (→ docs/archive.md「スキャン」)。間隔を選んだフォルダーを、前のスキャンから
+/// その間隔が過ぎたら再スキャンする。同じ NAS を同時に読ませないよう、1件ずつ順に走らせる。
+pub(crate) fn spawn_auto_rescan(state: AppState) {
+    tokio::spawn(async move {
+        let mut tried: HashMap<i64, std::time::Instant> = HashMap::new();
+        let mut ticker = tokio::time::interval(AUTO_RESCAN_CHECK);
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            ticker.tick().await;
+            if let Err(err) = run_due_rescans(&state, &mut tried).await {
+                tracing::warn!(error = %crate::error::error_chain(&err), "automatic rescan check failed");
+            }
+        }
+    });
+}
+
+async fn run_due_rescans(
+    state: &AppState,
+    tried: &mut HashMap<i64, std::time::Instant>,
+) -> Result<(), AppError> {
+    let rows = sqlx::query!(
+        r#"SELECT id as "id!", auto_rescan as "auto_rescan: super::contents::AutoRescan",
+                  last_scanned_at
+           FROM contents
+           WHERE type = 'folder' AND list_view = 1 AND auto_rescan != 'manual'"#
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    let now_ms = time::OffsetDateTime::now_utc().unix_timestamp() * 1000;
+    for row in rows {
+        let interval_ms: i64 = match row.auto_rescan {
+            super::contents::AutoRescan::Manual => continue,
+            super::contents::AutoRescan::Hourly => 60 * 60 * 1000,
+            super::contents::AutoRescan::Daily => 24 * 60 * 60 * 1000,
+        };
+        let due = row
+            .last_scanned_at
+            .is_none_or(|at| now_ms - at >= interval_ms);
+        // 失敗したもの (NAS につながらない・フォルダーが無い) は、次の間隔まで試し直さない。
+        // 毎回の見回りで同じ失敗を繰り返し、ログを埋めないため。
+        let interval = std::time::Duration::from_millis(interval_ms.unsigned_abs());
+        let tried_recently = tried.get(&row.id).is_some_and(|at| at.elapsed() < interval);
+        if !due || tried_recently {
+            continue;
+        }
+        tried.insert(row.id, std::time::Instant::now());
+        // 手で始めたスキャンが走っていれば、それに任せる。
+        let Ok(scan_guard) = state.archive_scans.acquire(row.id) else {
+            continue;
+        };
+        let progress = scan_guard.progress();
+        progress.start_listing();
+        let archive = load_archive(&state.pool, row.id).await?;
+        if let Err(err) = scan_and_sync(state, row.id, archive, progress).await {
+            tracing::info!(archive_id = row.id, error = %crate::error::error_chain(&err), "automatic rescan skipped");
+        }
+        drop(scan_guard);
+    }
+    Ok(())
+}
+
+/// 一覧の表示を開いたときに、前のスキャンから中身が変わったフォルダーだけを読み直す (→ docs/archive.md「スキャン」)。
+///
+/// フォルダーは、中にファイルを足したり消したりすると更新日時が変わる。索引したフォルダーの更新日時だけを
+/// 見て、変わったフォルダーは直下を、新しいフォルダーは中ごと読む。NAS でも全体を読み直すより軽く、
+/// 置いたファイルが次の再スキャンを待たずに一覧に出る。ファイルの中身を書き換えただけではフォルダーの
+/// 更新日時は変わらないので、それは再スキャンで拾う。
+/// 新しく見つけたファイルの大きさと撮影日は、一覧を待たせないよう裏で読む。
+/// スキャンが走っている間・NAS につながらない間は何もしない (一覧は最後のスキャンの中身を出す)。
+pub(super) async fn refresh_changed_dirs(state: &AppState, id: i64, archive: &ArchiveMeta) {
+    if let Err(err) = try_refresh_changed_dirs(state, id, archive).await {
+        tracing::warn!(archive_id = id, error = %crate::error::error_chain(&err), "refreshing changed folders failed");
+    }
+}
+
+async fn try_refresh_changed_dirs(
+    state: &AppState,
+    id: i64,
+    archive: &ArchiveMeta,
+) -> Result<(), AppError> {
+    let Ok(scan_guard) = state.archive_scans.acquire(id) else {
+        return Ok(());
+    };
+    let known: HashMap<String, Option<i64>> = sqlx::query!(
+        "SELECT rel_path, modified_ns FROM archive_dirs WHERE archive_id = ?",
+        id
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|row| (row.rel_path, row.modified_ns))
+    .collect();
+    // まだスキャンしていない (フォルダーの更新日時を持っていない) なら、比べようがない。
+    if known.is_empty()
+        || super::roots::ensure_reachable(state, &archive.path)
+            .await
+            .is_err()
+    {
+        return Ok(());
+    }
+    let roots = super::roots::load_roots(state).await?;
+    let own_dirs = state.own_dirs.clone();
+    let extensions = super::fs::parse_extensions(archive.extensions.as_deref());
+    let scan_root = archive.path.clone();
+    let changes = run_blocking(move || {
+        let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
+        let root = super::fs::canonical_dir_within_roots(&scan_root, &roots, &own_dirs)?;
+        Ok::<_, AppError>(find_dir_changes(
+            &root,
+            &known,
+            extensions.as_deref(),
+            &own_dirs,
+        ))
+    })
+    .await??;
+    if changes.is_empty() {
+        return Ok(());
+    }
+    let added = apply_dir_changes(state, id, &archive.path, &changes).await?;
+    if added.is_empty() {
+        return Ok(());
+    }
+    let state = state.clone();
+    let path = archive.path.clone();
+    tokio::spawn(async move {
+        if let Err(err) = fill_previews(&state, id, &path, added, scan_guard).await {
+            tracing::warn!(archive_id = id, error = %crate::error::error_chain(&err), "reading new files failed");
+        }
+    });
+    Ok(())
+}
+
+/// 前のスキャンからの、フォルダーの変わり方。
+#[derive(Default)]
+struct DirChanges {
+    /// 消えたフォルダー。中のものも索引から外す。
+    removed_dirs: Vec<String>,
+    /// 中身が変わったフォルダーと、その直下の索引対象のファイル・新しい更新日時。
+    changed_dirs: Vec<(String, Option<i64>, Vec<String>)>,
+    /// 新しく見つかったフォルダーと更新日時。
+    new_dirs: Vec<(String, Option<i64>)>,
+    /// 新しく見つかったフォルダーの中のファイル。
+    new_dir_files: Vec<String>,
+}
+
+impl DirChanges {
+    fn is_empty(&self) -> bool {
+        self.removed_dirs.is_empty() && self.changed_dirs.is_empty() && self.new_dirs.is_empty()
+    }
+}
+
+fn find_dir_changes(
+    root: &FsPath,
+    known: &HashMap<String, Option<i64>>,
+    extensions: Option<&[String]>,
+    own_dirs: &super::roots::OwnDirs,
+) -> DirChanges {
+    let mut changes = DirChanges::default();
+    for (rel, modified_ns) in known {
+        let path = if rel.is_empty() {
+            root.to_path_buf()
+        } else {
+            root.join(rel)
+        };
+        let Ok(metadata) = std::fs::metadata(&path) else {
+            changes.removed_dirs.push(rel.clone());
+            continue;
+        };
+        let now = super::fs::dir_modified_ns(&metadata);
+        if now == *modified_ns {
+            continue;
+        }
+        // 読めなければ、次の回か再スキャンに任せる。
+        let Ok((files, subdirs)) = super::fs::list_dir_shallow(root, rel, extensions, own_dirs)
+        else {
+            continue;
+        };
+        for (subdir, sub_modified) in subdirs {
+            if known.contains_key(&subdir) {
+                continue;
+            }
+            let result = super::fs::scan_files(
+                &root.join(&subdir),
+                extensions,
+                super::fs::SCAN_LIMIT,
+                super::fs::ITEM_LIMIT,
+                own_dirs,
+            );
+            if result.truncated || result.unreadable.is_some() {
+                continue;
+            }
+            changes.new_dirs.push((subdir.clone(), sub_modified));
+            for (inner, inner_modified) in result.dirs {
+                if !inner.is_empty() {
+                    changes
+                        .new_dirs
+                        .push((format!("{subdir}/{inner}"), inner_modified));
+                }
+            }
+            changes.new_dir_files.extend(
+                result
+                    .rel_paths
+                    .into_iter()
+                    .map(|file| format!("{subdir}/{file}")),
+            );
+        }
+        changes.changed_dirs.push((rel.clone(), now, files));
+    }
+    changes
+}
+
+/// 親のフォルダーの相対パス。登録先の直下なら空文字。
+fn parent_rel(rel_path: &str) -> &str {
+    rel_path.rsplit_once('/').map_or("", |(parent, _)| parent)
+}
+
+/// フォルダーの変わり方を索引へ書く。新しく足したファイルを返す。
+async fn apply_dir_changes(
+    state: &AppState,
+    id: i64,
+    scanned_path: &str,
+    changes: &DirChanges,
+) -> Result<Vec<String>, AppError> {
+    let mut tx = crate::db::begin_write(&state.pool).await?;
+    let current_path = sqlx::query_scalar!("SELECT path FROM contents WHERE id = ?", id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .flatten();
+    if current_path.as_deref() != Some(scanned_path) {
+        return Ok(Vec::new());
+    }
+    let existing: HashSet<String> = sqlx::query_scalar!(
+        "SELECT rel_path FROM archive_items WHERE archive_id = ?",
+        id
+    )
+    .fetch_all(&mut *tx)
+    .await?
+    .into_iter()
+    .collect();
+
+    for dir in &changes.removed_dirs {
+        let pattern = format!("{}/%", like_escape(dir));
+        sqlx::query!(
+            r"DELETE FROM archive_items WHERE archive_id = ? AND rel_path LIKE ? ESCAPE '\'",
+            id,
+            pattern
+        )
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query!(
+            r"DELETE FROM archive_dirs WHERE archive_id = ? AND (rel_path = ? OR rel_path LIKE ? ESCAPE '\')",
+            id,
+            dir,
+            pattern
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    let mut added = Vec::new();
+    for (dir, modified_ns, files) in &changes.changed_dirs {
+        let found: HashSet<&str> = files.iter().map(String::as_str).collect();
+        for gone in existing
+            .iter()
+            .filter(|rel| parent_rel(rel) == dir && !found.contains(rel.as_str()))
+        {
+            sqlx::query!(
+                "DELETE FROM archive_items WHERE archive_id = ? AND rel_path = ?",
+                id,
+                gone
+            )
+            .execute(&mut *tx)
+            .await?;
+        }
+        added.extend(
+            files
+                .iter()
+                .filter(|file| !existing.contains(*file))
+                .cloned(),
+        );
+        sqlx::query!(
+            "UPDATE archive_dirs SET modified_ns = ? WHERE archive_id = ? AND rel_path = ?",
+            modified_ns,
+            id,
+            dir
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    for (dir, modified_ns) in &changes.new_dirs {
+        sqlx::query!(
+            "INSERT OR REPLACE INTO archive_dirs (archive_id, rel_path, modified_ns) VALUES (?, ?, ?)",
+            id,
+            dir,
+            modified_ns
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    added.extend(
+        changes
+            .new_dir_files
+            .iter()
+            .filter(|file| !existing.contains(*file))
+            .cloned(),
+    );
+    // 大きさなどはまだ読んでいない (`file_size` が NULL) まま足し、裏で読む (`fill_previews`)。
+    for rel_path in &added {
+        sqlx::query!(
+            "INSERT OR IGNORE INTO archive_items (archive_id, rel_path, read_version) VALUES (?, ?, ?)",
+            id,
+            rel_path,
+            READ_VERSION
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+    Ok(added)
+}
+
+/// 足したファイルの大きさ・撮影日などを読んで書く。読む間は排他を持ち、進み具合を出す。
+async fn fill_previews(
+    state: &AppState,
+    id: i64,
+    scanned_path: &str,
+    rel_paths: Vec<String>,
+    scan_guard: crate::state::ArchiveScanGuard,
+) -> Result<(), AppError> {
+    let progress = scan_guard.progress();
+    let root = PathBuf::from(scanned_path);
+    let items =
+        run_blocking(move || read_items(&root, rel_paths, &KnownFiles::new(), &progress)).await?;
+    let mut tx = crate::db::begin_write(&state.pool).await?;
+    for item in &items {
+        let Some(file) = &item.file else {
+            continue;
+        };
+        let width = file.image.map(|image| i64::from(image.width));
+        let height = file.image.map(|image| i64::from(image.height));
+        sqlx::query!(
+            "UPDATE archive_items SET file_size = ?, modified_ns = ?, image_width = ?,
+                 image_height = ?, is_text = ?, taken_at = ?, read_version = ?
+             WHERE archive_id = ? AND rel_path = ?",
+            file.size,
+            file.modified_ns,
+            width,
+            height,
+            file.is_text,
+            file.taken_at,
+            READ_VERSION,
+            id,
+            item.rel_path
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+    drop(scan_guard);
+    Ok(())
+}
+
+/// LIKE の `%`・`_`・`\` を、そのままの文字として照らすよう逃がす。
+fn like_escape(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for ch in value.chars() {
+        if matches!(ch, '%' | '_' | '\\') {
+            escaped.push('\\');
+        }
+        escaped.push(ch);
+    }
+    escaped
+}
+
+/// 辿ったフォルダーとその更新日時を、今回の走査の結果で置き換える。
+async fn replace_dirs(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    id: i64,
+    dirs: &[(String, Option<i64>)],
+) -> Result<(), AppError> {
+    sqlx::query!("DELETE FROM archive_dirs WHERE archive_id = ?", id)
+        .execute(&mut **tx)
+        .await?;
+    for (rel_path, modified_ns) in dirs {
+        sqlx::query!(
+            "INSERT INTO archive_dirs (archive_id, rel_path, modified_ns) VALUES (?, ?, ?)",
+            id,
+            rel_path,
+            modified_ns
+        )
+        .execute(&mut **tx)
+        .await?;
+    }
+    Ok(())
 }
 
 /// 再スキャンの段階 (→ `crate::state::ScanPhase`)。
@@ -775,6 +1251,12 @@ pub(super) enum AxisDict {
         dir_level: i64,
         values: DirLevelDict,
     },
+    /// 日付の軸。辞書は階層の軸と同じく、表示名と並び順の上書き。
+    Date {
+        /// 年月まで分けるか。偽なら年だけ。
+        month: bool,
+        values: DirLevelDict,
+    },
     FilenameWord {
         /// 辞書の行そのものが照合語リスト。`position` 順 (読み込み時にソート済み)。
         entries: Vec<FilenameWordEntry>,
@@ -820,6 +1302,10 @@ impl AxisDict {
             },
             AxisSource::FilenameWord => Self::FilenameWord {
                 entries: filename_word_entries(rows),
+            },
+            AxisSource::DateYear | AxisSource::DateMonth => Self::Date {
+                month: source == AxisSource::DateMonth,
+                values: DirLevelDict::new(rows),
             },
         })
     }
@@ -916,19 +1402,34 @@ fn word_matches(name: &str, stem: &str, word: &str, match_position: AxisMatchPos
     }
 }
 
-/// 軸1本・アイテム1件の値を導出する (→ docs/archive.md「軸の定義」・「軸の値の辞書と導出」のアルゴリズム)。
-pub(super) fn derive_axis_value(dict: &AxisDict, rel_path: &str) -> Option<DerivedAxisValue> {
+/// 階層の軸と日付の軸の、辞書を引く前の生の値。照合語の軸は辞書の行で決まるので `None`。
+pub(super) fn raw_axis_value(dict: &AxisDict, item: ItemFacts<'_>) -> Option<String> {
     match dict {
-        AxisDict::DirLevel { dir_level, values } => {
-            let raw = dir_level_value(rel_path, *dir_level)?;
-            let (key, display_name) = values.lookup(raw);
+        AxisDict::DirLevel { dir_level, .. } => {
+            dir_level_value(item.rel_path, *dir_level).map(str::to_string)
+        }
+        AxisDict::Date { month, .. } => date_value(item.dated_at?, *month),
+        AxisDict::FilenameWord { .. } => None,
+    }
+}
+
+/// 軸1本・アイテム1件の値を導出する (→ docs/archive.md「軸の定義」・「軸の値の辞書と導出」のアルゴリズム)。
+pub(super) fn derive_axis_value<'a>(
+    dict: &AxisDict,
+    item: impl Into<ItemFacts<'a>>,
+) -> Option<DerivedAxisValue> {
+    let item = item.into();
+    match dict {
+        AxisDict::DirLevel { values, .. } | AxisDict::Date { values, .. } => {
+            let raw = raw_axis_value(dict, item)?;
+            let (key, display_name) = values.lookup(&raw);
             Some(DerivedAxisValue {
-                display: display_name.unwrap_or(raw).to_string(),
+                display: display_name.map_or_else(|| raw.clone(), str::to_string),
                 key,
             })
         }
         AxisDict::FilenameWord { entries } => {
-            let (_, entry) = match_filename_word(entries, rel_path)?;
+            let (_, entry) = match_filename_word(entries, item.rel_path)?;
             Some(DerivedAxisValue {
                 display: entry.display.clone(),
                 key: entry.key.clone(),
@@ -960,7 +1461,7 @@ fn match_filename_word<'a>(
 /// アイテムの値が決まるか、決まるならどの辞書の行でか (値の辞書の予告用)。
 pub(super) enum AxisRowMatch {
     Unset,
-    /// `dir_level` 軸で値が決まる。辞書に無い生の値もあるので、行は特定しない。
+    /// 階層の軸か日付の軸で値が決まる。辞書に無い生の値もあるので、行は特定しない。
     DirLevel,
     /// `filename_word` 軸で、値を決めた辞書の行の位置 (辞書の行の順)。
     FilenameWordRow(usize),
@@ -968,13 +1469,13 @@ pub(super) enum AxisRowMatch {
 
 /// `derive_axis_value` と同じ照合で、値が決まるかと、決めた行を返す。
 /// 予告でアイテムごとに照合を1回で済ませるため、導出結果の組み立ては省く。
-pub(super) fn match_axis_row(dict: &AxisDict, rel_path: &str) -> AxisRowMatch {
+pub(super) fn match_axis_row(dict: &AxisDict, item: ItemFacts<'_>) -> AxisRowMatch {
     match dict {
-        AxisDict::DirLevel { dir_level, .. } => match dir_level_value(rel_path, *dir_level) {
+        AxisDict::DirLevel { .. } | AxisDict::Date { .. } => match raw_axis_value(dict, item) {
             Some(_) => AxisRowMatch::DirLevel,
             None => AxisRowMatch::Unset,
         },
-        AxisDict::FilenameWord { entries } => match match_filename_word(entries, rel_path) {
+        AxisDict::FilenameWord { entries } => match match_filename_word(entries, item.rel_path) {
             Some((index, _)) => AxisRowMatch::FilenameWordRow(index),
             None => AxisRowMatch::Unset,
         },
@@ -1056,16 +1557,18 @@ fn all_axis_placeholders_unset(
 /// (通常は起こらないが) 見つからない場合、テンプレート自体が解析できない場合
 /// (保存時に検証済みのため通常は起こらない) も同様にファイル名へ落とす。
 /// テンプレートが原因でこの関数がエラーになることは無い。
-pub(super) fn derive_item(
-    rel_path: &str,
+pub(super) fn derive_item<'a>(
+    item: impl Into<ItemFacts<'a>>,
     axes: &[AxisIndex],
     template: Option<&str>,
 ) -> DerivedItem {
+    let item = item.into();
+    let rel_path = item.rel_path;
     let file_name = rel_path.rsplit('/').next().unwrap_or(rel_path).to_string();
 
     let axis_values: Vec<Option<DerivedAxisValue>> = axes
         .iter()
-        .map(|axis| derive_axis_value(&axis.dict, rel_path))
+        .map(|axis| derive_axis_value(&axis.dict, item))
         .collect();
 
     // 拡張子を除いたファイル名。軸が全て埋まっていても同じタイトルに潰れる
@@ -1140,6 +1643,38 @@ mod tests {
         // 階層が足りない。
         assert_eq!(dir_level_value("listening.mp3", 1), None);
         assert_eq!(dir_level_value("listening.mp3", 0), None);
+    }
+
+    #[test]
+    fn date_axis_value_groups_by_year_or_month_and_prefers_the_shooting_date() {
+        // 2024-06-15 12:00:00 UTC
+        let june = 1_718_452_800;
+        assert_eq!(date_value(june, false).as_deref(), Some("2024"));
+        assert_eq!(date_value(june, true).as_deref(), Some("2024-06"));
+        assert_eq!(
+            dated_at(Some(june), Some(0)),
+            Some(june),
+            "撮影日があれば更新日より先に使うはず"
+        );
+        assert_eq!(
+            dated_at(None, Some(june * 1_000_000_000)),
+            Some(june),
+            "撮影日が無ければ更新日に落とすはず"
+        );
+        let dict =
+            AxisDict::new(AxisSource::DateMonth, None, Vec::new()).expect("組み立てられるはず");
+        let item = ItemFacts {
+            rel_path: "IMG_0001.JPG",
+            dated_at: Some(june),
+        };
+        assert_eq!(
+            derive_axis_value(&dict, item).map(|value| value.display),
+            Some("2024-06".to_string())
+        );
+        assert!(
+            derive_axis_value(&dict, "IMG_0001.JPG").is_none(),
+            "日付が無ければ未設定のはず"
+        );
     }
 
     #[test]

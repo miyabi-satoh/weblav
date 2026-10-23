@@ -19,6 +19,8 @@ const ABOUT_CONFIG = 'about.toml';
 // - dlopen2.txt: OpenByteDev/dlopen2 の LICENSE (cc80e4a)
 // - tower-sessions.txt: maxcountryman/tower-sessions の LICENSE (b58463d)
 // - tower-sessions-stores.txt: maxcountryman/tower-sessions-stores の LICENSE (b34a2f3)
+// - kamadak-exif.txt: クレートに同梱の LICENSE (0.6.1)。このクレートは条文を同梱しているが、cargo-about が
+//   src/lib.rs の冒頭の表示をコードごと本文として拾い、見せられない本文になるので差し替える。
 // 差し替えは1つの版に本文1つ。その版が cargo-about から得た本文は全部落とすので、本文が複数要るクレート
 // (`Apache-2.0 AND MIT` など) を足すときは、形を広げてから足す。
 // 版まで書くのは、新しい版で上流が条文を同梱したり著作権者を変えたりしても、古い条文を黙って当てないため。
@@ -29,6 +31,7 @@ const OVERRIDES = {
   'objc2-encode@4.1.0': { id: 'MIT', file: 'objc2.txt' },
   'objc2-foundation@0.3.2': { id: 'MIT', file: 'objc2.txt' },
   'dlopen2@0.8.2': { id: 'MIT', file: 'dlopen2.txt' },
+  'kamadak-exif@0.6.1': { id: 'BSD-2-Clause', file: 'kamadak-exif.txt' },
   'tower-sessions-core@0.14.0': { id: 'MIT', file: 'tower-sessions.txt' },
   'tower-sessions-sqlx-store@0.15.0': {
     id: 'MIT',

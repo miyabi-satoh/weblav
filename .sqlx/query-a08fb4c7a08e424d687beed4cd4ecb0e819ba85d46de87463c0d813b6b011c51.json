@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM archive_dirs WHERE archive_id = ? AND (rel_path = ? OR rel_path LIKE ? ESCAPE '\\')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "a08fb4c7a08e424d687beed4cd4ecb0e819ba85d46de87463c0d813b6b011c51"
+}

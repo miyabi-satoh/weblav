@@ -25,13 +25,7 @@ async fn search_finds_contents_and_published_archive_files(pool: SqlitePool) {
     std::fs::write(dir.join("リスニング第1回.mp3"), b"").expect("ファイルを作れなかった");
     std::fs::write(dir.join("リスニング第2回.mp3"), b"").expect("ファイルを作れなかった");
     let (app, _cookie, archive_id) = setup_archive(&pool, &dir, None).await;
-    sqlx::query!(
-        "UPDATE archive_items SET published = 1 WHERE archive_id = ? AND rel_path = 'リスニング第1回.mp3'",
-        archive_id
-    )
-    .execute(&pool)
-    .await
-    .expect("公開フラグを立てられなかった");
+    mark_published(&pool, archive_id, "リスニング第1回.mp3").await;
     let group_id = insert_group_under(&pool, "教材", "public", None).await;
     let link_id = insert_link_by(&pool, "英語のページ", "public", None, Some(group_id)).await;
     sqlx::query!(

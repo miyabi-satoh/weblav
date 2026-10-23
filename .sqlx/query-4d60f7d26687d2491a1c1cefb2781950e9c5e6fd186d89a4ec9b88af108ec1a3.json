@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO folder_marks (content_id, path, is_dir, public, created_at) VALUES (?, ?, 0, 1, 0)\n         ON CONFLICT (content_id, path) DO UPDATE SET public = 1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "4d60f7d26687d2491a1c1cefb2781950e9c5e6fd186d89a4ec9b88af108ec1a3"
+}

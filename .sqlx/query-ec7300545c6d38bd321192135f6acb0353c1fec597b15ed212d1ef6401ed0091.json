@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT path, public as \"public: bool\" FROM folder_marks WHERE content_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "path",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "public: bool",
+        "ordinal": 1,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "ec7300545c6d38bd321192135f6acb0353c1fec597b15ed212d1ef6401ed0091"
+}

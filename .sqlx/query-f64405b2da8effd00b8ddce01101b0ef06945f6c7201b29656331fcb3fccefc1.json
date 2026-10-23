@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE archive_dirs SET modified_ns = ? WHERE archive_id = ? AND rel_path = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "f64405b2da8effd00b8ddce01101b0ef06945f6c7201b29656331fcb3fccefc1"
+}

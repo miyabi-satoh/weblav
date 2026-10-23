@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM folder_marks WHERE content_id = ? AND path = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "5021211c1711f97620ea7ba2053d02e9e6f95514f964c151821be06a74ef7832"
+}

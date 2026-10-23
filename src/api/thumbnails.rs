@@ -96,6 +96,23 @@ pub(super) fn file_preview(name: &str, path: &Path, size: u64) -> FilePreview {
     }
 }
 
+/// スキャンで残す、プレビューの情報と写真の撮影日 (EXIF、Unix 秒)。撮影日は日付の軸が使う
+/// (→ docs/archive.md「軸の定義」)。大きさと同じ先頭のバイトから読み、ファイルを二度読まない。
+/// ブロッキング I/O なので `run_blocking` の中から呼ぶ。
+pub(super) fn scan_preview(name: &str, path: &Path, size: u64) -> (FilePreview, Option<i64>) {
+    let (image, taken_at) = if is_image_file_name(name) {
+        read_image_header(path)
+    } else {
+        (None, None)
+    };
+    let preview = FilePreview {
+        image,
+        is_text: super::text_files::is_text_file(name, path, size),
+        thumbnail: shows_thumbnail(name, image),
+    };
+    (preview, taken_at)
+}
+
 /// 前に `file_preview` で読んで残しておいた値から、プレビューの情報を組み立てる。ファイルは開かない。
 pub(super) fn stored_preview(name: &str, image: Option<ImageSize>, is_text: bool) -> FilePreview {
     FilePreview {
@@ -108,19 +125,55 @@ pub(super) fn stored_preview(name: &str, image: Option<ImageSize>, is_text: bool
 /// `path` の画像の、表示するときの大きさ。読めないファイルは `None`。
 /// 拡張子は見ないので、呼び出し側が名前で画像かを判定してから呼ぶ。
 fn read_image_size(path: &Path) -> Option<ImageSize> {
+    read_image_header(path).0
+}
+
+/// `path` の画像の大きさと撮影日。読めないものは `None`。
+fn read_image_header(path: &Path) -> (Option<ImageSize>, Option<i64>) {
     let mut prefix = Vec::new();
-    File::open(path)
-        .ok()?
-        .take(HEADER_PREFIX_BYTES)
-        .read_to_end(&mut prefix)
-        .ok()?;
+    let read =
+        File::open(path).and_then(|file| file.take(HEADER_PREFIX_BYTES).read_to_end(&mut prefix));
+    if read.is_err() {
+        return (None, None);
+    }
     let truncated = prefix.len() as u64 == HEADER_PREFIX_BYTES;
-    size_from_reader(Cursor::new(prefix)).or_else(|| {
+    let taken_at = taken_at_from_exif(&prefix);
+    let size = size_from_reader(Cursor::new(prefix)).or_else(|| {
         // 先頭だけでは読めない形式 (EXIF がファイルの後ろにある WebP など) は全体を読む。
         truncated
             .then(|| size_from_reader(BufReader::new(File::open(path).ok()?)))
             .flatten()
-    })
+    });
+    (size, taken_at)
+}
+
+/// EXIF の撮影日時 (`DateTimeOriginal`、無ければ `DateTime`) を Unix 秒で。
+/// EXIF の日時は時差を持たないので、書かれた年月日と時刻をそのまま UTC として数える。
+/// 日付の軸は年と月だけを取り出すので、カメラに合わせた日付のまま分けられる。
+fn taken_at_from_exif(prefix: &[u8]) -> Option<i64> {
+    let exif = exif::Reader::new()
+        .read_from_container(&mut Cursor::new(prefix))
+        .ok()?;
+    [exif::Tag::DateTimeOriginal, exif::Tag::DateTime]
+        .iter()
+        .find_map(|tag| {
+            let field = exif.get_field(*tag, exif::In::PRIMARY)?;
+            let exif::Value::Ascii(ref values) = field.value else {
+                return None;
+            };
+            let value = exif::DateTime::from_ascii(values.first()?).ok()?;
+            let date = time::Date::from_calendar_date(
+                i32::from(value.year),
+                time::Month::try_from(value.month).ok()?,
+                value.day,
+            )
+            .ok()?;
+            let at = date
+                .with_hms(value.hour, value.minute, value.second)
+                .ok()?
+                .assume_utc();
+            Some(at.unix_timestamp())
+        })
 }
 
 fn size_from_reader(reader: impl BufRead + Seek) -> Option<ImageSize> {

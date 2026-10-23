@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE contents SET last_scanned_at = unixepoch('subsec') * 1000 WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "2938250029771008d449841d1f29bd63e903bd4aed37c4ed912442d60c5bf994"
+}

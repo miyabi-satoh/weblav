@@ -1,9 +1,10 @@
-//! アーカイブ型コンテンツの作成と再スキャン。
+//! フォルダーの一覧の表示 (索引) の設定と再スキャン。
 
 use super::*;
 
+/// 作ったフォルダーは、後から一覧の表示を使う設定にでき、索引する拡張子は均して残す。
 #[sqlx::test]
-async fn archive_content_create_by_admin_normalizes_extensions(pool: SqlitePool) {
+async fn folder_turns_on_the_list_view_later_and_normalizes_extensions(pool: SqlitePool) {
     let dir = temp_test_dir("archive-create");
     let canonical_dir = dir
         .canonicalize()
@@ -13,26 +14,42 @@ async fn archive_content_create_by_admin_normalizes_extensions(pool: SqlitePool)
 
     let path_json = json_string(&dir.display().to_string());
     let (status, body) = send_json(
-        app,
+        app.clone(),
         "POST",
         "/api/v1/contents",
         &cookie,
+        &format!(r#"{{"type":"folder","title":"英検 過去問","path":{path_json}}}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let created = parse_json(&body);
+    assert_eq!(
+        created["listView"], false,
+        "作った時点では一覧の表示を使わない"
+    );
+    assert_eq!(created["newFilesPublic"], true, "{body}");
+    let id = extract_id(&body);
+
+    let (status, body) = send_json(
+        app,
+        "PUT",
+        &format!("/api/v1/contents/{id}"),
+        &cookie,
         &format!(
-            r#"{{"type":"archive","title":"英検 過去問","path":{path_json},"extensions":".MP3, pdf ,,"}}"#
+            r#"{{"title":"英検 過去問","path":{path_json},"listView":true,"extensions":".MP3, pdf ,,"}}"#
         ),
     )
     .await;
-
-    assert_eq!(status, StatusCode::CREATED, "{body}");
-    let created: serde_json::Value =
-        serde_json::from_str(&body).expect("作成レスポンスをJSONとして読めなかった");
-    assert_eq!(created["type"], "archive", "{body}");
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let updated = parse_json(&body);
+    assert_eq!(updated["type"], "folder", "{body}");
+    assert_eq!(updated["listView"], true, "{body}");
     assert_eq!(
-        created["path"].as_str().expect("pathが返らなかった"),
+        updated["path"].as_str().expect("pathが返らなかった"),
         canonical_path_as_api_returns_it(&canonical_dir),
         "{body}"
     );
-    assert_eq!(created["extensions"], "mp3,pdf", "{body}");
+    assert_eq!(updated["extensions"], "mp3,pdf", "{body}");
 }
 
 /// **roots 封じ込めが唯一の認可障壁**になったので、編集者でも外は 422 になることを確かめる。
@@ -145,7 +162,7 @@ async fn title_template_can_be_changed_by_the_creator_and_an_admin(pool: SqliteP
     let path_json = json_string(&dir.display().to_string());
     let put = |cookie: String, template: &str| {
         let body = format!(
-            r#"{{"type":"archive","title":"英検 過去問","path":{path_json},"titleTemplate":{}}}"#,
+            r#"{{"title":"英検 過去問","path":{path_json},"listView":true,"titleTemplate":{}}}"#,
             serde_json::to_string(template).expect("テンプレートをJSON文字列にできなかった")
         );
         let app = app.clone();
@@ -172,26 +189,17 @@ async fn title_template_can_be_changed_by_the_creator_and_an_admin(pool: SqliteP
     assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
 }
 
-/// 編集者もアーカイブを作れる (→ docs/access.md「ロールと操作」)。
+/// 編集者も、自分のフォルダーの一覧の表示を使う設定にできる (→ docs/access.md「ロールと操作」)。
 #[sqlx::test]
-async fn archive_content_create_by_regular_user_succeeds(pool: SqlitePool) {
+async fn regular_user_turns_on_the_list_view_of_their_folder(pool: SqlitePool) {
     insert_user(&pool, "bob", "correct-password").await;
     let dir = temp_test_dir("archive-by-user");
 
     let app = test_app(pool).await;
     let cookie = login(app.clone(), "bob", "correct-password").await;
 
-    let path_json = json_string(&dir.display().to_string());
-    let (status, body) = send_json(
-        app,
-        "POST",
-        "/api/v1/contents",
-        &cookie,
-        &format!(r#"{{"type":"archive","title":"英検 過去問","path":{path_json}}}"#),
-    )
-    .await;
-
-    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let id = create_archive(app, &cookie, &dir, None).await;
+    assert!(id > 0);
 }
 
 /// 走査は再帰的にファイルを拾い、ドット始まりを除き、拡張子で絞り込む。
@@ -219,19 +227,18 @@ async fn archive_rescan_indexes_files_recursively_as_unpublished(pool: SqlitePoo
     assert_eq!(result["removed"], 0, "{body}");
     assert_eq!(result["total"], 2, "{body}");
 
-    let rows = sqlx::query!(
-        "SELECT rel_path, published FROM archive_items WHERE archive_id = ? ORDER BY rel_path",
+    let rel_paths = sqlx::query_scalar!(
+        "SELECT rel_path FROM archive_items WHERE archive_id = ? ORDER BY rel_path",
         id
     )
     .fetch_all(&pool)
     .await
     .expect("索引を読めなかった");
-    let rel_paths: Vec<&str> = rows.iter().map(|row| row.rel_path.as_str()).collect();
     assert_eq!(
         rel_paths,
         vec!["2024/第1回/listening.mp3", "2024/第1回/script.pdf"]
     );
-    assert!(rows.iter().all(|row| row.published == 0));
+    assert!(published_rel_paths(&pool, id).await.is_empty());
 }
 
 /// 別々のアーカイブの再スキャンが同時に重なっても、データベースのロックで失敗しない。
@@ -297,13 +304,7 @@ async fn archive_rescan_keeps_published_flags_and_removes_vanished_items(pool: S
 
     let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
 
-    sqlx::query!(
-        "UPDATE archive_items SET published = 1 WHERE archive_id = ? AND rel_path = 'keep.mp3'",
-        id
-    )
-    .execute(&pool)
-    .await
-    .expect("公開フラグを立てられなかった");
+    mark_published(&pool, id, "keep.mp3").await;
 
     std::fs::remove_file(dir.join("gone.mp3")).expect("ファイルを消せなかった");
     std::fs::write(dir.join("new.mp3"), b"").expect("ファイルを作れなかった");
@@ -316,18 +317,8 @@ async fn archive_rescan_keeps_published_flags_and_removes_vanished_items(pool: S
     assert_eq!(result["removed"], 1, "{body}");
     assert_eq!(result["total"], 2, "{body}");
 
-    let rows = sqlx::query!(
-        "SELECT rel_path, published FROM archive_items WHERE archive_id = ? ORDER BY rel_path",
-        id
-    )
-    .fetch_all(&pool)
-    .await
-    .expect("索引を読めなかった");
-    let published: Vec<(&str, i64)> = rows
-        .iter()
-        .map(|row| (row.rel_path.as_str(), row.published))
-        .collect();
-    assert_eq!(published, vec![("keep.mp3", 1), ("new.mp3", 0)]);
+    assert_eq!(item_count(&pool, id).await, 2);
+    assert_eq!(published_rel_paths(&pool, id).await, vec!["keep.mp3"]);
 }
 
 /// 管理画面の一覧は、アーカイブにアイテムの数と公開している数を添える (→ docs/ui.md「UI 全般」)。
@@ -340,13 +331,7 @@ async fn admin_contents_list_counts_the_items_and_published_items_of_an_archive(
     let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
     let (status, body) = rescan(app.clone(), &cookie, id).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    sqlx::query!(
-        "UPDATE archive_items SET published = 1 WHERE archive_id = ? AND rel_path = 'a.mp3'",
-        id
-    )
-    .execute(&pool)
-    .await
-    .expect("公開フラグを立てられなかった");
+    mark_published(&pool, id, "a.mp3").await;
 
     let (status, body) = send_empty(app, "GET", "/api/v1/admin/contents", &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -437,13 +422,7 @@ async fn archive_extensions_change_keeps_flags_of_still_matching_items(pool: Sql
     std::fs::write(dir.join("b.pdf"), b"").expect("ファイルを作れなかった");
 
     let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
-    sqlx::query!(
-        "UPDATE archive_items SET published = 1 WHERE archive_id = ?",
-        id
-    )
-    .execute(&pool)
-    .await
-    .expect("公開フラグを立てられなかった");
+    publish_all_items(&pool, id).await;
 
     let path_json = json_string(&dir.display().to_string());
     let (status, body) = send_json(
@@ -463,18 +442,10 @@ async fn archive_extensions_change_keeps_flags_of_still_matching_items(pool: Sql
     assert_eq!(result["added"], 0, "{body}");
     assert_eq!(result["removed"], 1, "{body}");
 
-    let rows = sqlx::query!(
-        "SELECT rel_path, published FROM archive_items WHERE archive_id = ?",
-        id
-    )
-    .fetch_all(&pool)
-    .await
-    .expect("索引を読めなかった");
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].rel_path, "a.mp3");
     assert_eq!(
-        rows[0].published, 1,
-        "対象であり続けたアイテムの公開フラグは保つ"
+        published_rel_paths(&pool, id).await,
+        vec!["a.mp3"],
+        "対象であり続けたアイテムは公開のまま"
     );
 }
 
@@ -492,13 +463,7 @@ async fn archive_path_change_clears_indexed_items(pool: SqlitePool) {
     let id = create_archive(app.clone(), &cookie, &old_dir, None).await;
     let (status, body) = rescan(app.clone(), &cookie, id).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    sqlx::query!(
-        "UPDATE archive_items SET published = 1 WHERE archive_id = ?",
-        id
-    )
-    .execute(&pool)
-    .await
-    .expect("公開フラグを立てられなかった");
+    mark_published(&pool, id, "a.mp3").await;
 
     let path_json = json_string(&new_dir.display().to_string());
     let (status, body) = send_json(
@@ -512,6 +477,12 @@ async fn archive_path_change_clears_indexed_items(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK, "{body}");
 
     assert_eq!(item_count(&pool, id).await, 0);
+    let marks: i64 =
+        sqlx::query_scalar!("SELECT COUNT(*) FROM folder_marks WHERE content_id = ?", id)
+            .fetch_one(&pool)
+            .await
+            .expect("印を数えられなかった");
+    assert_eq!(marks, 0, "登録先を変えたら公開の印も捨てる");
 }
 
 /// 走査はシンボリックリンクを索引しない。`follow_links(false)` はリンク先へ再帰

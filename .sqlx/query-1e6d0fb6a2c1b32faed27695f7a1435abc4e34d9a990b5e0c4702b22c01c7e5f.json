@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT i.rel_path FROM archive_items i\n           JOIN contents c ON c.id = i.archive_id\n           LEFT JOIN folder_marks m ON m.content_id = i.archive_id AND m.path = i.rel_path\n           WHERE i.archive_id = ? AND COALESCE(m.public, c.new_files_public) = 1\n           ORDER BY i.rel_path",
+  "describe": {
+    "columns": [
+      {
+        "name": "rel_path",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1e6d0fb6a2c1b32faed27695f7a1435abc4e34d9a990b5e0c4702b22c01c7e5f"
+}

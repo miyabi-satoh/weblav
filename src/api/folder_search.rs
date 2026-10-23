@@ -147,10 +147,10 @@ pub(super) async fn search(
         })
         .collect();
 
-    // 表示しないにしたものは、一覧と同じく検索にも出さない (→ folder_hidden)。
-    let mut hidden_rels = Vec::with_capacity(folders.len());
+    // 公開していないものは、一覧と同じく検索にも出さない (→ folder_marks)。
+    let mut all_marks = Vec::with_capacity(folders.len());
     for folder in &folders {
-        hidden_rels.push(super::folder_hidden::rel_paths(&state.pool, folder.id).await?);
+        all_marks.push(super::folder_marks::Marks::load(&state.pool, folder.id).await?);
     }
 
     // 辿るのはディスクの I/O で、フォルダーの大きさに比例して重くなる。
@@ -159,7 +159,7 @@ pub(super) async fn search(
         let mut candidates = Vec::new();
         let mut truncated = false;
         let mut sources = Vec::new();
-        for (index, (folder, hidden_rels)) in folders.into_iter().zip(hidden_rels).enumerate() {
+        for (index, (folder, marks)) in folders.into_iter().zip(all_marks).enumerate() {
             // 配信と同じく、公開できるフォルダーの外は辿らない (→ contents::resolve_path)。
             let Ok(root) = std::fs::canonicalize(&folder.path) else {
                 continue;
@@ -167,7 +167,6 @@ pub(super) async fn search(
             if !super::roots::is_within_roots(&roots, &root, &own_dirs) {
                 continue;
             }
-            let hidden = super::folder_hidden::resolve(&root, &hidden_rels);
             let folder_places = container_places(&folder.title, &folder.ancestors);
             let (entries, cut) =
                 super::fs::walk_entries(&root.join(&folder.sub_path), FOLDER_WALK_LIMIT, &own_dirs);
@@ -177,7 +176,12 @@ pub(super) async fn search(
                 if !folder.sub_path.is_empty() {
                     entry.rel_path = format!("{}/{}", folder.sub_path, entry.rel_path);
                 }
-                if hidden.covers(&root.join(&entry.rel_path)) {
+                let shown = if entry.is_dir {
+                    marks.dir_reachable(&entry.rel_path)
+                } else {
+                    marks.is_public(&entry.rel_path)
+                };
+                if !shown {
                     continue;
                 }
                 let name = entry
@@ -281,14 +285,15 @@ async fn archive_sources(
         ancestors,
     } in archives
     {
+        let marks = super::folder_marks::Marks::load(&state.pool, archive_id).await?;
         let items = sqlx::query!(
-            r#"SELECT id as "id!", rel_path FROM archive_items WHERE archive_id = ? AND published = 1"#,
+            r#"SELECT id as "id!", rel_path FROM archive_items WHERE archive_id = ?"#,
             archive_id
         )
         .fetch_all(&state.pool)
         .await?;
         for item in items {
-            if !links_file::is_links_file_name(&item.rel_path) {
+            if !links_file::is_links_file_name(&item.rel_path) || !marks.is_public(&item.rel_path) {
                 continue;
             }
             // 消えた・隠しになったものは、一覧と同じく出さない。

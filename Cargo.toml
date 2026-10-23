@@ -42,6 +42,7 @@ httpdate = "1.0.3"
 icu_normalizer = { version = "2.3.0", default-features = false, features = ["compiled_data"] }
 # 縮小画像とリンクのカードの画像に使う。`ico` はサイトのアイコン (favicon.ico) を読むため。
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "gif", "webp", "bmp", "ico"] }
+kamadak-exif = "0.6.1"
 mime_guess = "2.0.5"
 open = "5.4.3"
 percent-encoding = "2.3.2"

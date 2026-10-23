@@ -579,6 +579,21 @@ pub(super) struct ScanResult {
     /// 読めなかった分は `rel_paths` から欠けるので、再スキャンはこれがあれば同期しない
     /// (欠けた分が「消えた」と見なされて公開フラグごと消えるため)。
     pub(super) unreadable: Option<String>,
+    /// 辿ったフォルダーの相対パス (登録先そのものは空文字) と更新日時 (Unix ナノ秒)。
+    /// 一覧の表示を開いたときに、変わったフォルダーだけを読み直す手掛かりにする (→ docs/archive.md「スキャン」)。
+    pub(super) dirs: Vec<DirStamp>,
+}
+
+/// フォルダーの相対パスと更新日時 (Unix ナノ秒)。
+pub(super) type DirStamp = (String, Option<i64>);
+
+/// フォルダーの更新日時 (Unix ナノ秒)。中のものを足したり消したりすると変わる。
+pub(super) fn dir_modified_ns(metadata: &std::fs::Metadata) -> Option<i64> {
+    metadata
+        .modified()
+        .ok()
+        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+        .and_then(|duration| i64::try_from(duration.as_nanos()).ok())
 }
 
 /// `root` 配下を再帰的に走査し、索引対象のファイルを集める。
@@ -604,6 +619,7 @@ pub(super) fn scan_files(
     own_dirs: &OwnDirs,
 ) -> ScanResult {
     let mut rel_paths = Vec::new();
+    let mut dirs = Vec::new();
     let mut scanned = 0;
     let mut unreadable = None;
 
@@ -637,6 +653,13 @@ pub(super) fn scan_files(
                 continue;
             }
         };
+        if entry.file_type().is_dir()
+            && let Ok(rel) = entry.path().strip_prefix(root)
+            && let Some(rel) = rel.to_str()
+        {
+            let modified_ns = entry.metadata().ok().as_ref().and_then(dir_modified_ns);
+            dirs.push((normalize_rel_path(rel), modified_ns));
+        }
         // 登録先そのもの (depth 0) は、配下のエントリではないので数えない。
         if entry.depth() == 0 {
             continue;
@@ -647,6 +670,7 @@ pub(super) fn scan_files(
                 rel_paths,
                 truncated: true,
                 unreadable,
+                dirs,
             };
         }
         if !entry.file_type().is_file() {
@@ -669,6 +693,7 @@ pub(super) fn scan_files(
                 rel_paths,
                 truncated: true,
                 unreadable,
+                dirs,
             };
         }
     }
@@ -677,7 +702,51 @@ pub(super) fn scan_files(
         rel_paths,
         truncated: false,
         unreadable,
+        dirs,
     }
+}
+
+/// `root` の下のフォルダー `dir_rel` の直下にある、索引対象のファイル (`root` からの相対パス) と
+/// サブフォルダー (相対パスと更新日時)。除外の規則は `scan_files` と同じ。
+/// 一覧の表示を開いたときに、変わったフォルダーだけを読み直すのに使う (→ `archive::refresh_changed_dirs`)。
+pub(super) fn list_dir_shallow(
+    root: &FsPath,
+    dir_rel: &str,
+    extensions: Option<&[String]>,
+    own_dirs: &OwnDirs,
+) -> std::io::Result<(Vec<String>, Vec<DirStamp>)> {
+    let dir = if dir_rel.is_empty() {
+        root.to_path_buf()
+    } else {
+        root.join(dir_rel)
+    };
+    let mut files = Vec::new();
+    let mut subdirs = Vec::new();
+    let walker = WalkDir::new(&dir)
+        .follow_links(false)
+        .min_depth(1)
+        .max_depth(1)
+        .into_iter()
+        .filter_entry(|entry| is_walkable(entry, own_dirs));
+    for entry in walker {
+        let entry = entry.map_err(std::io::Error::other)?;
+        let Some(rel) = entry
+            .path()
+            .strip_prefix(root)
+            .ok()
+            .and_then(|rel| rel.to_str())
+        else {
+            continue;
+        };
+        let rel = normalize_rel_path(rel);
+        if entry.file_type().is_dir() {
+            let modified_ns = entry.metadata().ok().as_ref().and_then(dir_modified_ns);
+            subdirs.push((rel, modified_ns));
+        } else if entry.file_type().is_file() && matches_extensions(entry.path(), extensions) {
+            files.push(rel);
+        }
+    }
+    Ok((files, subdirs))
 }
 
 /// 登録前の確認用に、対象になるファイル数を数える。

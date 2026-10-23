@@ -4163,176 +4163,6 @@
         }
       }
     },
-    "/api/v1/contents/{id}/hidden-entries": {
-      "get": {
-        "summary": "表示しないにしたものの一覧。編集ページで取り消すために並べる。",
-        "operationId": "list_hidden_entries",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "表示しないにした順の新しいものから",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/FolderHiddenEntry"
-                  }
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "書き換えられるのは管理者と作成者だけ",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "見えない・存在しない、またはフォルダーでない",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "summary": "フォルダーの中のファイルかサブフォルダーを表示しないにする。サブフォルダーなら中ごと外す。",
-        "operationId": "hide_entry",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/HideFolderEntryRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FolderHiddenEntry"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "書き換えられるのは管理者と作成者だけ",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "見えない・存在しない、フォルダーでない、またはフォルダーの中に無いパス",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "フォルダーのある NAS やディスクにつながらない",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/contents/{id}/hidden-entries/{entry_id}": {
-      "delete": {
-        "summary": "表示しないにしたものを取り消す。",
-        "operationId": "show_entry",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          },
-          {
-            "name": "entry_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "403": {
-            "description": "書き換えられるのは管理者と作成者だけ",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "見えない・存在しない、またはこのフォルダーの表示しないものでない",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/contents/{id}/items": {
       "get": {
         "summary": "管理用のアイテム一覧。非公開も含めた全件を返す (→ docs/archive.md「エンドポイント一覧」)。",
@@ -4918,6 +4748,169 @@
           },
           "404": {
             "description": "管理できない・存在しない・アーカイブでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/{id}/marks": {
+      "get": {
+        "summary": "公開・非公開の印の一覧。編集ページで、新しく見つかったファイルの扱いと違うものを並べて取り消すため。",
+        "operationId": "list_marks",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "印を付けた順の新しいものから",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FolderMark"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "書き換えられるのは管理者と作成者だけ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "見えない・存在しない、またはフォルダーでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "フォルダーの中のファイルかサブフォルダーを、公開か非公開にする。サブフォルダーなら中ごと。",
+        "operationId": "set_mark",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetFolderMarkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "書き換えられるのは管理者と作成者だけ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "見えない・存在しない、フォルダーでない、またはフォルダーの中に無いパス",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "フォルダーのある NAS やディスクにつながらない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/{id}/marks/{mark_id}": {
+      "delete": {
+        "summary": "印を取り消し、祖先か「新しく見つかったファイル」の設定に従わせる。",
+        "operationId": "delete_mark",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "mark_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "書き換えられるのは管理者と作成者だけ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "見えない・存在しない、またはこのフォルダーの印でない",
             "content": {
               "application/json": {
                 "schema": {
@@ -5894,6 +5887,9 @@
           "title",
           "rootDeleted",
           "visibility",
+          "listView",
+          "newFilesPublic",
+          "autoRescan",
           "aiLinks"
         ],
         "properties": {
@@ -5905,12 +5901,16 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/ArchiveItemCounts",
-                "description": "`type = 'archive'` の場合のみ`Some`。アイテムの数と公開している数。"
+                "description": "一覧の表示を使うフォルダーの場合のみ`Some`。アイテムの数と公開している数。"
               },
               {
                 "type": "null"
               }
             ]
+          },
+          "autoRescan": {
+            "$ref": "#/components/schemas/AutoRescan",
+            "description": "一覧の表示を使うフォルダーを、自動で再スキャンする間隔。"
           },
           "createdBy": {
             "type": [
@@ -5938,7 +5938,7 @@
               "string",
               "null"
             ],
-            "description": "`type = 'archive'` の場合のみ`Some`。索引対象の拡張子をカンマ区切りで持つ。\n空なら全ファイルが対象。"
+            "description": "`type = 'folder'` の一覧の表示で、索引する拡張子をカンマ区切りで持つ。\n`None` か空なら全ファイルが対象。"
           },
           "fileName": {
             "type": [
@@ -5957,6 +5957,14 @@
           "id": {
             "type": "integer",
             "format": "int64"
+          },
+          "listView": {
+            "type": "boolean",
+            "description": "`type = 'folder'` で、一覧の表示 (索引して軸で絞り込む) を使うか。ほかの種類は `false`。"
+          },
+          "newFilesPublic": {
+            "type": "boolean",
+            "description": "`type = 'folder'` で、印の無いファイル (新しく見つかったもの) を公開するか (→ docs/folders.md「公開と非公開」)。"
           },
           "parentId": {
             "type": [
@@ -5998,7 +6006,7 @@
               "string",
               "null"
             ],
-            "description": "`type = 'archive'` の場合のみ`Some`。表示タイトルの組み立てテンプレート\n(→ docs/archive.md「表示タイトル」)。`None`ならファイル名をそのまま表示する。"
+            "description": "`type = 'folder'` の一覧の表示の、表示タイトルの組み立てテンプレート\n(→ docs/archive.md「表示タイトル」)。`None`ならファイル名をそのまま表示する。"
           },
           "type": {
             "$ref": "#/components/schemas/ContentType"
@@ -6599,6 +6607,15 @@
           }
         }
       },
+      "AutoRescan": {
+        "type": "string",
+        "description": "`contents.auto_rescan`。一覧の表示を使うフォルダーを、自動で再スキャンする間隔 (→ docs/archive.md「スキャン」)。",
+        "enum": [
+          "manual",
+          "hourly",
+          "daily"
+        ]
+      },
       "AxisMatchPosition": {
         "type": "string",
         "description": "`archive_axis_values.match_position`。照合語をファイル名のどこで照合するか (→ docs/archive.md「軸の定義」)。\n`filename_word` 軸の行だけが `anywhere` 以外を持てる。",
@@ -6689,7 +6706,9 @@
         "description": "`archive_axes.source`。2値のみで正規表現は受け付けない (→ docs/archive.md「軸の定義」)。\n\nDB上は `dir_level` / `filename_word` の snake_case (マイグレーションのコメント参照)。\nJSONはプロジェクト全体の慣例 (camelCase) に合わせるため、表現をそれぞれ別に持つ。",
         "enum": [
           "dirLevel",
-          "filenameWord"
+          "filenameWord",
+          "dateYear",
+          "dateMonth"
         ]
       },
       "AxisValueInput": {
@@ -6941,6 +6960,7 @@
               "id",
               "title",
               "private",
+              "listView",
               "type"
             ],
             "properties": {
@@ -6953,6 +6973,10 @@
               "id": {
                 "type": "integer",
                 "format": "int64"
+              },
+              "listView": {
+                "type": "boolean",
+                "description": "一覧の表示 (軸で絞り込む平らな一覧) を使うか。使うなら、閲覧の入口はそちらを開く。"
               },
               "private": {
                 "type": "boolean"
@@ -7065,40 +7089,6 @@
                 ]
               }
             }
-          },
-          {
-            "type": "object",
-            "description": "索引型。アイテム一覧は含めない(別途 `GET /contents/{id}/archive` で取得する)。\n`folder` と同じく `path` は出さない。",
-            "required": [
-              "id",
-              "title",
-              "private",
-              "type"
-            ],
-            "properties": {
-              "description": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "id": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "private": {
-                "type": "boolean"
-              },
-              "title": {
-                "type": "string"
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "archive"
-                ]
-              }
-            }
           }
         ],
         "description": "一般の閲覧者(匿名を含む)向けのレスポンス。`path`(サーバー上の絶対パス)は\n一切含めない(一般の閲覧者にファイルシステムのレイアウトを漏らさないため)。type分岐が\nフロントからも自然に扱えるよう、tagged enumにしてある。\n\n各バリアントの `private` は、公開範囲が `private` なら真。一覧に「作成者のみ」の印を出すため\n(→ docs/access.md「フロントエンドのガード反転」)。一覧に並ぶ `private` は必ず閲覧者自身のもの (`can_list`)。"
@@ -7110,8 +7100,7 @@
           "link",
           "folder",
           "file",
-          "group",
-          "archive"
+          "group"
         ]
       },
       "CountResponse": {
@@ -7171,13 +7160,6 @@
               "null"
             ]
           },
-          "extensions": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "`type = 'archive'` のみ。索引対象の拡張子をカンマ区切りで指定する。\n省略・空なら全ファイルを索引する。"
-          },
           "parentId": {
             "type": [
               "integer",
@@ -7198,13 +7180,6 @@
               "null"
             ],
             "description": "タイトル。省略・空なら自動で付ける (`resolve_create_title`)。`group` だけは必須。"
-          },
-          "titleTemplate": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "`type = 'archive'` のみ。表示タイトルの組み立てテンプレート (→ docs/archive.md「表示タイトル」)。\n作成時点では軸がまだ存在しないため、プレースホルダーを含む値は422になる。"
           },
           "type": {
             "$ref": "#/components/schemas/ContentType"
@@ -7573,7 +7548,8 @@
           "name",
           "isDir",
           "isText",
-          "thumbnail"
+          "thumbnail",
+          "public"
         ],
         "properties": {
           "image": {
@@ -7605,6 +7581,10 @@
           "name": {
             "type": "string"
           },
+          "public": {
+            "type": "boolean",
+            "description": "公開しているか (→ docs/folders.md「公開と非公開」)。閲覧する人には公開しているものしか返さない。\nフォルダーは、それ自身に公開の印が届いているかで、中に公開したものがあって辿れるだけなら偽。"
+          },
           "size": {
             "type": [
               "integer",
@@ -7620,12 +7600,13 @@
           }
         }
       },
-      "FolderHiddenEntry": {
+      "FolderMark": {
         "type": "object",
         "required": [
           "id",
           "path",
-          "isDir"
+          "isDir",
+          "public"
         ],
         "properties": {
           "id": {
@@ -7638,6 +7619,9 @@
           "path": {
             "type": "string",
             "description": "フォルダーの登録先からの相対パス ('/' 区切り)。"
+          },
+          "public": {
+            "type": "boolean"
           }
         }
       },
@@ -7776,18 +7760,6 @@
           },
           "title": {
             "type": "string"
-          }
-        }
-      },
-      "HideFolderEntryRequest": {
-        "type": "object",
-        "required": [
-          "path"
-        ],
-        "properties": {
-          "path": {
-            "type": "string",
-            "description": "閲覧の画面と同じ、フォルダーの登録先からの相対パス。"
           }
         }
       },
@@ -8847,6 +8819,22 @@
           }
         }
       },
+      "SetFolderMarkRequest": {
+        "type": "object",
+        "required": [
+          "path",
+          "public"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "閲覧の画面と同じ、フォルダーの登録先からの相対パス。"
+          },
+          "public": {
+            "type": "boolean"
+          }
+        }
+      },
       "SetPublishedRequest": {
         "type": "object",
         "required": [
@@ -8945,6 +8933,17 @@
           "title"
         ],
         "properties": {
+          "autoRescan": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AutoRescan",
+                "description": "`type = 'folder'` のみ。自動で再スキャンする間隔。省略時は現在値のまま。"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "description": {
             "type": [
               "string",
@@ -8956,7 +8955,21 @@
               "string",
               "null"
             ],
-            "description": "`type = 'archive'` のみ。索引対象の拡張子をカンマ区切りで指定する。\n省略・空なら全ファイルを索引する。"
+            "description": "`type = 'folder'` のみ。一覧の表示で索引する拡張子をカンマ区切りで指定する。\n省略・空なら全ファイルを索引する。"
+          },
+          "listView": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "`type = 'folder'` のみ。一覧の表示を使うか。省略時は現在値のまま。"
+          },
+          "newFilesPublic": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "`type = 'folder'` のみ。印の無いファイル (新しく見つかったもの) を公開するか。省略時は現在値のまま。"
           },
           "parentId": {
             "type": [
@@ -8980,7 +8993,7 @@
               "string",
               "null"
             ],
-            "description": "`type = 'archive'` のみ。表示タイトルの組み立てテンプレート (→ docs/archive.md「表示タイトル」)。\n保存時にプレースホルダーが実在する軸名であることを検証する。"
+            "description": "`type = 'folder'` のみ。一覧の表示の、表示タイトルの組み立てテンプレート (→ docs/archive.md「表示タイトル」)。\n保存時にプレースホルダーが実在する軸名であることを検証する。"
           },
           "url": {
             "type": [

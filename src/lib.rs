@@ -166,6 +166,7 @@ pub async fn build_app(
         ai,
         ai_links: Arc::default(),
     };
+    api::spawn_auto_rescan(state.clone());
     let app = app.with_state(state);
 
     Ok(app)

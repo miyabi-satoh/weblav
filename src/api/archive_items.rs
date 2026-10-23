@@ -52,9 +52,18 @@ struct ItemRow {
     image_width: Option<i64>,
     image_height: Option<i64>,
     is_text: bool,
+    /// 写真の撮影日 (Unix 秒)。日付の軸が使う。
+    taken_at: Option<i64>,
 }
 
 impl ItemRow {
+    fn facts(&self) -> archive::ItemFacts<'_> {
+        archive::ItemFacts {
+            rel_path: &self.rel_path,
+            dated_at: archive::dated_at(self.taken_at, self.modified_ns),
+        }
+    }
+
     fn stored_preview(&self) -> StoredPreview {
         let image = self
             .image_width
@@ -89,23 +98,35 @@ fn stored_previews(rows: &[ItemRow]) -> HashMap<i64, StoredPreview> {
         .collect()
 }
 
-/// 閲覧者に見せるアイテム (閲覧用の一覧と検索)。公開判定は「アーカイブのvisibility」と
-/// 「アイテムのpublished」の両方で (→ docs/archive.md「アイテムの公開」)、ここは後者だけを見る。
+/// アーカイブの全アイテム。`published` はフォルダーの公開・非公開の印から決める
+/// (→ docs/folders.md「公開と非公開」)。
+async fn all_items(pool: &sqlx::SqlitePool, archive_id: i64) -> Result<Vec<ItemRow>, AppError> {
+    let marks = super::folder_marks::Marks::load(pool, archive_id).await?;
+    let mut rows = sqlx::query_as!(
+        ItemRow,
+        r#"SELECT id as "id!", rel_path, 0 as "published!: bool",
+                  created_at as "created_at!", file_size, modified_ns, image_width, image_height,
+                  is_text as "is_text: bool", taken_at FROM archive_items WHERE archive_id = ?"#,
+        archive_id
+    )
+    .fetch_all(pool)
+    .await?;
+    for row in &mut rows {
+        row.published = marks.is_public(&row.rel_path);
+    }
+    Ok(rows)
+}
+
+/// 閲覧者に見せるアイテム (閲覧用の一覧と検索)。公開判定は「フォルダーのvisibility」と
+/// 「アイテムの公開」の両方で (→ docs/archive.md「アイテムの公開」)、ここは後者だけを見る。
 /// 配信 (`item_file`) も同じ条件を見るので、片方を変えるときはもう片方も直す。
 async fn published_items(
     pool: &sqlx::SqlitePool,
     archive_id: i64,
 ) -> Result<Vec<ItemRow>, AppError> {
-    Ok(sqlx::query_as!(
-        ItemRow,
-        r#"SELECT id as "id!", rel_path, published as "published: bool",
-                  created_at as "created_at!", file_size, modified_ns, image_width, image_height,
-                  is_text as "is_text: bool" FROM archive_items
-           WHERE archive_id = ? AND published = 1"#,
-        archive_id
-    )
-    .fetch_all(pool)
-    .await?)
+    let mut rows = all_items(pool, archive_id).await?;
+    rows.retain(|row| row.published);
+    Ok(rows)
 }
 
 /// アーカイブのアイテムの数と、そのうち公開しているものの数。
@@ -117,43 +138,37 @@ pub struct ArchiveItemCounts {
     pub published: i64,
 }
 
-/// アーカイブごとのアイテムの数。アイテムが1件も無いアーカイブは入らない。
+/// 一覧の表示を使うフォルダーごとのアイテムの数。アイテムが1件も無いものは入らない。
 pub(super) async fn item_counts(
     pool: &sqlx::SqlitePool,
 ) -> Result<HashMap<i64, ArchiveItemCounts>, AppError> {
-    Ok(sqlx::query!(
-        r#"SELECT archive_id as "archive_id!", COUNT(*) as "total!: i64",
-                  SUM(published) as "published!: i64"
-           FROM archive_items GROUP BY archive_id"#
-    )
-    .fetch_all(pool)
-    .await?
-    .into_iter()
-    .map(|row| {
-        let counts = ArchiveItemCounts {
-            total: row.total,
-            published: row.published,
-        };
-        (row.archive_id, counts)
-    })
-    .collect())
+    let ids =
+        sqlx::query_scalar!(r#"SELECT DISTINCT archive_id as "archive_id!" FROM archive_items"#)
+            .fetch_all(pool)
+            .await?;
+    let mut counts = HashMap::with_capacity(ids.len());
+    for id in ids {
+        counts.insert(id, item_counts_of(pool, id).await?);
+    }
+    Ok(counts)
 }
 
-/// 1つのアーカイブのアイテムの数。
+/// 1つのフォルダーのアイテムの数。
 pub(super) async fn item_counts_of(
     pool: &sqlx::SqlitePool,
     archive_id: i64,
 ) -> Result<ArchiveItemCounts, AppError> {
-    let row = sqlx::query!(
-        r#"SELECT COUNT(*) as "total!: i64", COALESCE(SUM(published), 0) as "published!: i64"
-           FROM archive_items WHERE archive_id = ?"#,
+    let marks = super::folder_marks::Marks::load(pool, archive_id).await?;
+    let rel_paths = sqlx::query_scalar!(
+        "SELECT rel_path FROM archive_items WHERE archive_id = ?",
         archive_id
     )
-    .fetch_one(pool)
+    .fetch_all(pool)
     .await?;
+    let published = rel_paths.iter().filter(|rel| marks.is_public(rel)).count();
     Ok(ArchiveItemCounts {
-        total: row.total,
-        published: row.published,
+        total: i64::try_from(rel_paths.len()).unwrap_or(i64::MAX),
+        published: i64::try_from(published).unwrap_or(i64::MAX),
     })
 }
 
@@ -263,6 +278,7 @@ async fn view_archive(
     let (meta, lineage) = load_viewable_archive(&state.pool, &viewer, id).await?;
     // 下でフォルダーの中を直接読むので、つながらない NAS やディスクを先に見分ける。
     super::roots::ensure_reachable(&state, &meta.path).await?;
+    archive::refresh_changed_dirs(&state, id, &meta).await;
     let axes = archive::load_axis_index(&state.pool, id).await?;
 
     // `sort` は並び順の予約キーであり、軸の絞り込みには使わない
@@ -338,18 +354,11 @@ async fn manage_view_archive(
 ) -> Result<Json<ManageArchiveViewResponse>, AppError> {
     let meta = archive::load_manageable_archive(&state.pool, &user, id).await?;
     super::roots::ensure_reachable(&state, &meta.path).await?;
+    archive::refresh_changed_dirs(&state, id, &meta).await;
     let axes = archive::load_axis_index(&state.pool, id).await?;
     let order = super::sort::ArchiveSortOrder::from_query(filters.remove("sort").as_deref());
 
-    let rows = sqlx::query_as!(
-        ItemRow,
-        r#"SELECT id as "id!", rel_path, published as "published: bool",
-                  created_at as "created_at!", file_size, modified_ns, image_width, image_height,
-                  is_text as "is_text: bool" FROM archive_items WHERE archive_id = ?"#,
-        id
-    )
-    .fetch_all(&state.pool)
-    .await?;
+    let rows = all_items(&state.pool, id).await?;
     let published: HashMap<i64, bool> = rows.iter().map(|row| (row.id, row.published)).collect();
 
     let template = meta.title_template;
@@ -432,7 +441,7 @@ fn build_archive_view(
     let items: Vec<(i64, String, archive::DerivedItem, String)> = rows
         .into_iter()
         .map(|row| {
-            let derived = archive::derive_item(&row.rel_path, axes, template);
+            let derived = archive::derive_item(row.facts(), axes, template);
             (row.id, row.rel_path, derived, row.created_at)
         })
         .collect();
@@ -636,7 +645,7 @@ pub(super) async fn search_items(
             let template_axes = archive::template_placeholder_names(template);
             let no_filters = vec![None; axes.len()];
             for row in rows {
-                let derived = archive::derive_item(&row.rel_path, axes, template);
+                let derived = archive::derive_item(row.facts(), axes, template);
                 let title = super::search::normalize(&derived.title);
                 let values: Vec<String> = derived
                     .axis_values
@@ -705,7 +714,7 @@ fn to_admin_response(
     axes: &[archive::AxisIndex],
     template: Option<&str>,
 ) -> (Vec<ValueKey>, AdminArchiveItemResponse) {
-    let derived = archive::derive_item(&row.rel_path, axes, template);
+    let derived = archive::derive_item(row.facts(), axes, template);
     let sort_key = derived.sort_key();
     // ファイルは開かず、スキャンで残した値を出す (→ docs/archive.md「スキャン」)。
     (
@@ -741,15 +750,7 @@ async fn list_items(
     super::roots::ensure_reachable(&state, &meta.path).await?;
     let axes = archive::load_axis_index(&state.pool, id).await?;
 
-    let rows = sqlx::query_as!(
-        ItemRow,
-        r#"SELECT id as "id!", rel_path, published as "published: bool",
-                  created_at as "created_at!", file_size, modified_ns, image_width, image_height,
-                  is_text as "is_text: bool" FROM archive_items WHERE archive_id = ?"#,
-        id
-    )
-    .fetch_all(&state.pool)
-    .await?;
+    let rows = all_items(&state.pool, id).await?;
 
     // 導出は全アイテム × 軸 × 照合語の数だけ回るので、非同期のワーカーを塞がない。
     let template = meta.title_template;
@@ -803,21 +804,11 @@ async fn bulk_set_published(
     let _write_guard = state.contents_write_lock.lock().await;
     archive::ensure_editable_archive(&state.pool, &user, id).await?;
 
-    let mut tx = crate::db::begin_write(&state.pool).await?;
+    let mut targets = Vec::with_capacity(payload.item_ids.len());
     for item_id in &payload.item_ids {
-        let result = sqlx::query!(
-            "UPDATE archive_items SET published = ? WHERE id = ? AND archive_id = ?",
-            payload.published,
-            item_id,
-            id
-        )
-        .execute(&mut *tx)
-        .await?;
-        if result.rows_affected() != 1 {
-            return Err(AppError::NotFound);
-        }
+        targets.push((item_rel_path(&state.pool, id, *item_id).await?, false));
     }
-    tx.commit().await?;
+    super::folder_marks::set_marks(&state.pool, id, &targets, payload.published).await?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -851,18 +842,26 @@ async fn set_published(
     // 鍵を取る理由は`bulk_set_published`と同じ。
     let _write_guard = state.contents_write_lock.lock().await;
     archive::ensure_editable_archive(&state.pool, &user, id).await?;
-    let result = sqlx::query!(
-        "UPDATE archive_items SET published = ? WHERE id = ? AND archive_id = ?",
-        payload.published,
-        item_id,
-        id,
-    )
-    .execute(&state.pool)
-    .await?;
-    if result.rows_affected() != 1 {
-        return Err(AppError::NotFound);
-    }
+    let rel_path = item_rel_path(&state.pool, id, item_id).await?;
+    super::folder_marks::set_marks(&state.pool, id, &[(rel_path, false)], payload.published)
+        .await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// アイテムの、登録先からの相対パス。このフォルダーのアイテムでなければ404。
+async fn item_rel_path(
+    pool: &sqlx::SqlitePool,
+    archive_id: i64,
+    item_id: i64,
+) -> Result<String, AppError> {
+    sqlx::query_scalar!(
+        "SELECT rel_path FROM archive_items WHERE id = ? AND archive_id = ?",
+        item_id,
+        archive_id
+    )
+    .fetch_optional(pool)
+    .await?
+    .ok_or(AppError::NotFound)
 }
 
 // --- 配信 ---
@@ -1060,23 +1059,18 @@ pub(super) async fn item_file(
 ) -> Result<contents::ServedFile, AppError> {
     let (meta, _) = load_viewable_archive(&state.pool, viewer, id).await?;
 
-    let item = sqlx::query!(
-        r#"SELECT rel_path, published as "published: bool"
-           FROM archive_items WHERE id = ? AND archive_id = ?"#,
-        item_id,
-        id
-    )
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or(AppError::NotFound)?;
+    let rel_path = item_rel_path(&state.pool, id, item_id).await?;
 
     // 非公開はログイン済みの閲覧者にも隠す (→ docs/archive.md「アイテムの公開」、docs/access.md「匿名閲覧の受け口」)。
     // 一覧と検索 (published_items) も同じ条件を見るので、片方を変えるときはもう片方も直す。
-    if !item.published {
+    if !super::folder_marks::Marks::load(&state.pool, id)
+        .await?
+        .is_public(&rel_path)
+    {
         return Err(AppError::NotFound);
     }
 
-    contents::resolve_file_under(state, &meta.path, &item.rel_path, None).await
+    contents::resolve_file_under(state, &meta.path, &rel_path, None).await
 }
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {

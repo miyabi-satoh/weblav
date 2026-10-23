@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT OR IGNORE INTO archive_items (archive_id, rel_path, read_version) VALUES (?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "76f89c083fc65b7d7cffa857f1ef84802f2a00bc37ae54a6fb8ff244ea3f6c79"
+}

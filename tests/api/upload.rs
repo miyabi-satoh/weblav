@@ -563,10 +563,9 @@ async fn create_content_json_with_file_type_is_validation_error(pool: SqlitePool
     );
 }
 
-/// type=archive はスキーマだけ先に用意してある段階なので、作成は422で断る。
-/// スキャン・軸・アイテムが揃うまで、中身を持たないアーカイブ行を作らせない。
+/// 種類 `archive` はフォルダーにまとめたので、もう受けない (要求の形の誤りとして 422)。
 #[sqlx::test]
-async fn create_content_with_archive_type_and_no_path_is_validation_error(pool: SqlitePool) {
+async fn create_content_with_the_removed_archive_type_is_rejected(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
 
     let (status, body) = send_json(
@@ -607,20 +606,20 @@ async fn contents_accepts_public_visibility_at_schema_level(pool: SqlitePool) {
     assert_eq!(visibility, "public");
 }
 
-/// アーカイブを消すと、配下のアイテム・軸・軸の値がすべて連鎖削除されること。
+/// 一覧の表示を使うフォルダーを消すと、配下のアイテム・軸・軸の値・印がすべて連鎖削除されること。
 #[sqlx::test]
 async fn deleting_archive_cascades_to_items_axes_and_values(pool: SqlitePool) {
     sqlx::query(
         "INSERT INTO contents (id, type, title, path, visibility)
-         VALUES (1, 'archive', '英検 過去問', '/tmp/eiken', 'public')",
+         VALUES (1, 'folder', '英検 過去問', '/tmp/eiken', 'public')",
     )
     .execute(&pool)
     .await
     .expect("archive row should be storable");
 
     sqlx::query(
-        "INSERT INTO archive_items (archive_id, rel_path, published)
-         VALUES (1, '2024/1/grade_2/listening.mp3', 1)",
+        "INSERT INTO archive_items (archive_id, rel_path)
+         VALUES (1, '2024/1/grade_2/listening.mp3')",
     )
     .execute(&pool)
     .await
