@@ -316,18 +316,18 @@ async fn rescan(
     // 排他を取る前の確認の後に公開範囲が変わっていた場合に備え、取り直した値で判定し直す。
     // 更新は走査中なら409になるので、ここから先は公開範囲と path は変わらない。
     let archive = load_editable_archive(&state.pool, &user, id).await?;
-    let extensions = super::fs::parse_extensions(archive.extensions.as_deref());
 
-    // 見つからないと言う前に、NAS やディスクにつながらないのかを見分ける。
-    super::roots::ensure_reachable(&state, &archive.path).await?;
-    let roots = super::roots::load_roots(&state).await?;
-    let known = load_known_files(&state.pool, id).await?;
     // 別のタスクで最後まで進める。画面を閉じられてハンドラが落とされても、ファイルを読む
     // スレッドは止められず読み続けるので、読んだ分を残し、その間は排他も外さない
     // (外すと、押し直した走査が同じフォルダーを同時に読む)。
     tokio::spawn(async move {
         let _scan_guard = scan_guard;
-        scan_and_sync(&state, id, archive, extensions, roots, known, progress).await
+        let result = scan_and_sync(&state, id, archive, progress).await;
+        // 画面を閉じた後に失敗すると、応答を受ける相手がいないので、ログにだけ残る。
+        if let Err(err) = &result {
+            tracing::warn!(archive_id = id, error = %crate::error::error_chain(err), "archive rescan failed");
+        }
+        result
     })
     .await?
 }
@@ -336,11 +336,13 @@ async fn scan_and_sync(
     state: &AppState,
     id: i64,
     archive: ArchiveMeta,
-    extensions: Option<Vec<String>>,
-    roots: Vec<super::roots::Root>,
-    known: KnownFiles,
     progress: std::sync::Arc<crate::state::ScanProgress>,
 ) -> Result<Json<RescanResponse>, AppError> {
+    let extensions = super::fs::parse_extensions(archive.extensions.as_deref());
+    // 見つからないと言う前に、NAS やディスクにつながらないのかを見分ける。
+    super::roots::ensure_reachable(state, &archive.path).await?;
+    let roots = super::roots::load_roots(state).await?;
+    let known = load_known_files(&state.pool, id).await?;
     let scan_root = archive.path.clone();
     let own_dirs = state.own_dirs.clone();
     let items = run_blocking(move || {

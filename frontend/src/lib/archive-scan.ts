@@ -49,7 +49,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 /**
  * スキャンの進み具合を、押したボタンの近くに出す文言として渡し続ける (→ docs/archive.md「スキャン」)。
  * 1回の応答を待ってから次を問い合わせる。重ねると応答が前後し、件数が戻って見えるため。
- * `stopWhenIdle` なら、走っていない・見られないと分かった所で止め、走り終えたのを見届けたかを返す。
+ * `stopWhenIdle` なら、走っていないと分かった所で止めて `true` を返す。問い合わせの失敗では止めない
+ * (一度の失敗で待つのをやめると、走っている間にボタンを押させてしまうため)。
  * 止められた後は何も渡さない。
  */
 async function pollProgress(
@@ -64,7 +65,7 @@ async function pollProgress(
 		const message = await fetchProgress(id);
 		if (signal.aborted) break;
 		if (message) onProgress(message);
-		else if (stopWhenIdle) return message === null;
+		else if (message === null && stopWhenIdle) return true;
 	}
 	return false;
 }

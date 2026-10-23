@@ -117,7 +117,7 @@ Changing the source or level and saving clears that axis’s values table.
 
    ![The Rescan button on the Items tab](images/archive-items-tab.webp)
 
-   With many files this takes a while, and the number of files read and the elapsed time appear next to the button. The scan finishes even if you close the page.
+   With many files this takes a while, and the progress and the elapsed time appear next to the button. The scan finishes even if you close the page.
 
 2. Added files start unpublished. Select them, then select “Publish”.
 
