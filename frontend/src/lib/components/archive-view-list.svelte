@@ -5,16 +5,13 @@
 		archiveItemDownloadHref,
 		archiveItemThumbnailHref
 	} from '$lib/api/urls';
-	import type { RowLocation } from '$lib/row-location';
 
 	type ArchiveViewItem = components['schemas']['ArchiveViewItem'];
 
-	/** 1行分。検索では、ほかのアーカイブの行も並ぶので、行ごとにアーカイブを持つ。 */
+	/** 1行分。 */
 	export type ArchiveViewRow = {
 		archiveId: number;
 		item: ArchiveViewItem;
-		/** 検索の結果の、どこにあるか。2段目の、軸の値 (`item.subtitle`) の前に出す。 */
-		location?: RowLocation;
 	};
 
 	/** 行が開く・縮小画像を出す URL。管理画面は、未公開も渡す管理用の口を使う。 */
@@ -64,7 +61,7 @@
 	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
 	import ListRowDownloadLink from '$lib/components/list-row-download-link.svelte';
 
-	// アーカイブの一覧 (`/archives/[id]`)・検索の結果・管理画面のアイテムのタブで使う、アーカイブのファイルの行。
+	// 一覧の表示 (`/archives/[id]`)・管理画面のアイテムのタブで使う、アーカイブのファイルの行。
 	// 押したときの動きと見え方を揃えるため、種類ごとの描き分けをここに集める。
 	let {
 		rows: allRows,
@@ -187,7 +184,7 @@
 	{#if subtitleOverride}
 		{@render subtitleOverride(row)}
 	{:else}
-		<ListRowSubtitle location={row.location} text={row.item.subtitle} />
+		<ListRowSubtitle text={row.item.subtitle} />
 	{/if}
 {/snippet}
 

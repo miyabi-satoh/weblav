@@ -15,7 +15,7 @@ import {
 	basicSaveButton,
 	BROWSE_LAYOUT_TILE_NAME,
 	CHOOSE_PATH_BUTTON_NAME,
-	CONFIRM_REGISTER_NAME,
+	CONFIRM_SAVE_NAME,
 	CONTENT_ADD_BUTTON_NAME,
 	DELETE_MENU_ITEM_NAME,
 	DIR_PICKER_NAME,
@@ -295,7 +295,7 @@ export const shots: Record<string, ShotEntry> = {
 			await page.getByLabel(VISIBILITY_LABEL).click();
 			await page.getByRole('option', { name: /ログインした人|Logged-in users/ }).click();
 			await basicSaveButton(page).click();
-			await page.getByRole('dialog', { name: CONFIRM_REGISTER_NAME }).waitFor({ timeout: 5000 });
+			await page.getByRole('dialog', { name: CONFIRM_SAVE_NAME }).waitFor({ timeout: 5000 });
 			await page.waitForFunction(
 				() => !/ファイルを数えています|Counting files/.test(document.body.innerText),
 				null,
@@ -550,7 +550,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// 検索: 語で探した結果 (コンテンツとアーカイブのファイルの2区画)。
+	// 検索: 語で探した結果 (コンテンツとフォルダーの中の2区画)。
 	search: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, `/search?q=${encodeURIComponent('リスニング')}`);

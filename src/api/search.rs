@@ -13,9 +13,10 @@ use crate::auth::Viewer;
 use crate::error::AppError;
 use crate::state::AppState;
 
-use super::archive_items::{self, ArchiveViewItem};
+use super::archive_items;
 use super::contents::{self, ContentResponse, GroupAncestor};
 use super::folder_search::{self, SearchFileHit, SearchLinkHit};
+use super::sort::title_cmp;
 
 /// ADR: 区画ごとに返す件数の上限 (→ docs/search.md「結果の並びと上限」)。
 /// 語を足さずに目で追える数として 100 件にしている。
@@ -252,17 +253,6 @@ pub(super) struct SearchContentHit {
 
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct SearchItemHit {
-    pub(super) archive_id: i64,
-    /// 行の2段目に、どこにあるかとして出す。
-    pub(super) archive_title: String,
-    /// アーカイブより上のグループ。ルートに近い順で、ルート直下なら空。場所の頭に出す。
-    pub(super) ancestors: Vec<GroupAncestor>,
-    pub(super) item: ArchiveViewItem,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
 struct SearchResponse {
     /// `within` のコンテンツのタイトル。切り替えの「『…』の中」に出す。`within` が無ければ `None`。
     scope_title: Option<String>,
@@ -270,11 +260,8 @@ struct SearchResponse {
     contents: Vec<SearchContentHit>,
     /// `contents` を打ち切ったか。
     contents_truncated: bool,
-    /// アーカイブのファイル。当たりのよい順 (同じ程度なら表示タイトル順)。区画ごとの上限 (100 件) で打ち切る。
-    items: Vec<SearchItemHit>,
-    /// `items` を打ち切ったか。
-    items_truncated: bool,
-    /// フォルダーの中のファイルとディレクトリ。当たりのよい順 (同じ程度なら名前順)。区画ごとの上限 (100 件) で打ち切る。
+    /// フォルダーの中のファイルとディレクトリ。一覧の表示の索引で当たったものも同じ並びに入れる。
+    /// 当たりのよい順 (同じ程度ならタイトル順)。区画ごとの上限 (100 件) で打ち切る。
     files: Vec<SearchFileHit>,
     /// `files` を打ち切ったか。
     files_truncated: bool,
@@ -316,8 +303,6 @@ async fn search(
             scope_title,
             contents: Vec::new(),
             contents_truncated: false,
-            items: Vec::new(),
-            items_truncated: false,
             files: Vec::new(),
             files_truncated: false,
             folders_incomplete: false,
@@ -346,18 +331,59 @@ async fn search(
     .await?;
     let (items, items_truncated) =
         archive_items::search_items(&state, found.archives, terms).await?;
+    let (files, files_truncated) = merge_file_hits(
+        items,
+        in_folders.files,
+        items_truncated || in_folders.files_truncated,
+    );
     Ok(Json(SearchResponse {
         scope_title,
         contents: found.hits,
         contents_truncated: found.truncated,
-        items,
-        items_truncated,
-        files: in_folders.files,
-        files_truncated: in_folders.files_truncated,
+        files,
+        files_truncated,
         folders_incomplete: in_folders.incomplete,
         links: in_folders.links,
         links_truncated: in_folders.links_truncated,
     }))
+}
+
+/// 一覧の表示の索引の当たりと、フォルダーを辿った当たりを、1つの並びにつなぐ (→ docs/search.md「結果の並びと上限」)。
+/// 閲覧する人には、どのフォルダーが一覧の表示を使うかが見えず、区画を分けても違いを読み取れないため。
+/// どちらも当たりのよい順に並んでいるので、順を崩さずに差し込む。同じ程度ならタイトル順で、同じタイトルは索引の側を先にする。
+fn merge_file_hits(
+    listed: Vec<(Score, SearchFileHit)>,
+    walked: Vec<(Score, SearchFileHit)>,
+    truncated: bool,
+) -> (Vec<SearchFileHit>, bool) {
+    fn title(hit: &SearchFileHit) -> &str {
+        hit.listed
+            .as_ref()
+            .map_or(hit.entry.name.as_str(), |listed| listed.title.as_str())
+    }
+    let total = listed.len() + walked.len();
+    let mut listed = listed.into_iter().peekable();
+    let mut walked = walked.into_iter().peekable();
+    let mut merged = Vec::with_capacity(total.min(RESULT_LIMIT));
+    while merged.len() < RESULT_LIMIT {
+        let take_listed = match (listed.peek(), walked.peek()) {
+            (Some(a), Some(b)) => {
+                a.0.cmp(&b.0)
+                    .then_with(|| title_cmp(title(&a.1), title(&b.1)))
+                    .is_le()
+            }
+            (Some(_), None) => true,
+            (None, Some(_)) => false,
+            (None, None) => break,
+        };
+        let next = if take_listed {
+            listed.next()
+        } else {
+            walked.next()
+        };
+        merged.extend(next.map(|(_, hit)| hit));
+    }
+    (merged, truncated || total > RESULT_LIMIT)
 }
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
@@ -485,5 +511,79 @@ mod tests {
             &[(FieldKind::Own, "01-login.md"), (FieldKind::Place, "spec")],
         );
         assert!(in_name.expect("当たる").score < in_place.expect("当たる").score);
+    }
+
+    fn file_hit(name: &str, listed: Option<&str>) -> SearchFileHit {
+        SearchFileHit {
+            content_id: 1,
+            folder_title: "folder".to_owned(),
+            ancestors: Vec::new(),
+            path: name.to_owned(),
+            entry: crate::api::contents::FolderEntry::indexed_file(
+                name.to_owned(),
+                None,
+                false,
+                false,
+            ),
+            listed: listed.map(|title| folder_search::ListedTitle {
+                title: title.to_owned(),
+                subtitle: None,
+            }),
+        }
+    }
+
+    fn rank(rank: u32) -> Score {
+        Score { rank, fuzzy: 0 }
+    }
+
+    fn names(hits: &[SearchFileHit]) -> Vec<&str> {
+        hits.iter().map(|hit| hit.path.as_str()).collect()
+    }
+
+    #[test]
+    fn merge_file_hits_interleaves_by_score() {
+        let listed = vec![
+            (rank(3), file_hit("a.jpg", Some("A"))),
+            (rank(1), file_hit("c.jpg", Some("C"))),
+        ];
+        let walked = vec![(rank(2), file_hit("b.jpg", None))];
+        let (merged, truncated) = merge_file_hits(listed, walked, false);
+        assert_eq!(names(&merged), ["a.jpg", "b.jpg", "c.jpg"]);
+        assert!(!truncated);
+    }
+
+    #[test]
+    fn merge_file_hits_orders_ties_by_shown_title() {
+        // 索引の行はファイル名でなく表示タイトルで比べる。
+        let listed = vec![(rank(1), file_hit("z.jpg", Some("B")))];
+        let walked = vec![
+            (rank(1), file_hit("a.jpg", None)),
+            (rank(1), file_hit("c.jpg", None)),
+        ];
+        let (merged, _) = merge_file_hits(listed, walked, false);
+        assert_eq!(names(&merged), ["a.jpg", "z.jpg", "c.jpg"]);
+    }
+
+    #[test]
+    fn merge_file_hits_cuts_at_the_limit_and_reports_it() {
+        let listed = (0..RESULT_LIMIT)
+            .map(|i| {
+                (
+                    rank(1),
+                    file_hit(&format!("l{i:03}"), Some(&format!("l{i:03}"))),
+                )
+            })
+            .collect();
+        let walked = vec![(rank(1), file_hit("w", None))];
+        let (merged, truncated) = merge_file_hits(listed, walked, false);
+        assert_eq!(merged.len(), RESULT_LIMIT);
+        assert!(truncated);
+    }
+
+    #[test]
+    fn merge_file_hits_keeps_truncation_from_either_side() {
+        let (_, truncated) =
+            merge_file_hits(Vec::new(), vec![(rank(1), file_hit("w", None))], true);
+        assert!(truncated);
     }
 }

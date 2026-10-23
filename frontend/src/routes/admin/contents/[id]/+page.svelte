@@ -448,6 +448,7 @@
 	listView={confirmSpecific ? form.listView : content.listView}
 	newFilesPublic={confirmSpecific ? form.newFilesPublic : content.newFilesPublic}
 	clearsMarks={confirmSpecific && content.type === 'folder' && content.path !== form.path}
+	editing
 	{saving}
 	progress={scanProgress}
 	onconfirm={saveContent}

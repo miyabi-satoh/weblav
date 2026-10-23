@@ -2480,6 +2480,11 @@ export interface components {
             /** @description ファイルに書かれた `title`。省かれているか読めなければファイル名。 */
             title: string;
         };
+        ListedTitle: {
+            /** @description 行の2段目に出す軸の値 (→ docs/ui.md「アーカイブの一覧画面」)。出す値が無ければ `None`。 */
+            subtitle?: string | null;
+            title: string;
+        };
         LogSettingsResponse: {
             /** @description ログをファイルに書いているか (`config.toml` の `log.output = "file"`)。書いていなければダウンロードできない。 */
             fileOutput: boolean;
@@ -2643,17 +2648,9 @@ export interface components {
             entry: components["schemas"]["FolderEntry"];
             /** @description 行の2段目に、どこにあるかとして出す。 */
             folderTitle: string;
+            listed?: components["schemas"]["ListedTitle"] | null;
             /** @description フォルダーの登録パスからの相対パス (`/` 区切り)。エントリ自身の名前まで含む。 */
             path: string;
-        };
-        SearchItemHit: {
-            /** @description アーカイブより上のグループ。ルートに近い順で、ルート直下なら空。場所の頭に出す。 */
-            ancestors: components["schemas"]["GroupAncestor"][];
-            /** Format: int64 */
-            archiveId: number;
-            /** @description 行の2段目に、どこにあるかとして出す。 */
-            archiveTitle: string;
-            item: components["schemas"]["ArchiveViewItem"];
         };
         SearchLinkHit: {
             /** @description 一覧のファイルを持つコンテンツより上のグループ。ルートに近い順で、ルート直下なら空。場所の頭に出す。 */
@@ -2685,7 +2682,10 @@ export interface components {
             contents: components["schemas"]["SearchContentHit"][];
             /** @description `contents` を打ち切ったか。 */
             contentsTruncated: boolean;
-            /** @description フォルダーの中のファイルとディレクトリ。当たりのよい順 (同じ程度なら名前順)。区画ごとの上限 (100 件) で打ち切る。 */
+            /**
+             * @description フォルダーの中のファイルとディレクトリ。一覧の表示の索引で当たったものも同じ並びに入れる。
+             *     当たりのよい順 (同じ程度ならタイトル順)。区画ごとの上限 (100 件) で打ち切る。
+             */
             files: components["schemas"]["SearchFileHit"][];
             /** @description `files` を打ち切ったか。 */
             filesTruncated: boolean;
@@ -2694,10 +2694,6 @@ export interface components {
              *     その先のファイルとリンクの一覧は探していない。語を足しても広がらないので、打ち切りとは分けて伝える。
              */
             foldersIncomplete: boolean;
-            /** @description アーカイブのファイル。当たりのよい順 (同じ程度なら表示タイトル順)。区画ごとの上限 (100 件) で打ち切る。 */
-            items: components["schemas"]["SearchItemHit"][];
-            /** @description `items` を打ち切ったか。 */
-            itemsTruncated: boolean;
             /** @description リンクの一覧のファイルの中のリンク。当たりのよい順 (同じ程度なら題の順)。区画ごとの上限 (100 件) で打ち切る。 */
             links: components["schemas"]["SearchLinkHit"][];
             /** @description `links` を打ち切ったか。 */

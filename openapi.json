@@ -8099,6 +8099,24 @@
           }
         }
       },
+      "ListedTitle": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "subtitle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "行の2段目に出す軸の値 (→ docs/ui.md「アーカイブの一覧画面」)。出す値が無ければ `None`。"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
       "LogSettingsResponse": {
         "type": "object",
         "required": [
@@ -8582,38 +8600,20 @@
             "type": "string",
             "description": "行の2段目に、どこにあるかとして出す。"
           },
+          "listed": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ListedTitle",
+                "description": "一覧の表示の索引で当たった行なら、その表示タイトルと軸の値。行のタイトルと2段目に出す。\n索引で照らすのは表示タイトルと軸の値で、ファイル名と階層ではないため (→ docs/search.md「何を照らすか」)。"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "path": {
             "type": "string",
             "description": "フォルダーの登録パスからの相対パス (`/` 区切り)。エントリ自身の名前まで含む。"
-          }
-        }
-      },
-      "SearchItemHit": {
-        "type": "object",
-        "required": [
-          "archiveId",
-          "archiveTitle",
-          "ancestors",
-          "item"
-        ],
-        "properties": {
-          "ancestors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/GroupAncestor"
-            },
-            "description": "アーカイブより上のグループ。ルートに近い順で、ルート直下なら空。場所の頭に出す。"
-          },
-          "archiveId": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "archiveTitle": {
-            "type": "string",
-            "description": "行の2段目に、どこにあるかとして出す。"
-          },
-          "item": {
-            "$ref": "#/components/schemas/ArchiveViewItem"
           }
         }
       },
@@ -8695,8 +8695,6 @@
         "required": [
           "contents",
           "contentsTruncated",
-          "items",
-          "itemsTruncated",
           "files",
           "filesTruncated",
           "foldersIncomplete",
@@ -8720,7 +8718,7 @@
             "items": {
               "$ref": "#/components/schemas/SearchFileHit"
             },
-            "description": "フォルダーの中のファイルとディレクトリ。当たりのよい順 (同じ程度なら名前順)。区画ごとの上限 (100 件) で打ち切る。"
+            "description": "フォルダーの中のファイルとディレクトリ。一覧の表示の索引で当たったものも同じ並びに入れる。\n当たりのよい順 (同じ程度ならタイトル順)。区画ごとの上限 (100 件) で打ち切る。"
           },
           "filesTruncated": {
             "type": "boolean",
@@ -8729,17 +8727,6 @@
           "foldersIncomplete": {
             "type": "boolean",
             "description": "大きなフォルダーを途中までしか辿っていないか (1つのフォルダーで 20,000 件まで)。\nその先のファイルとリンクの一覧は探していない。語を足しても広がらないので、打ち切りとは分けて伝える。"
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SearchItemHit"
-            },
-            "description": "アーカイブのファイル。当たりのよい順 (同じ程度なら表示タイトル順)。区画ごとの上限 (100 件) で打ち切る。"
-          },
-          "itemsTruncated": {
-            "type": "boolean",
-            "description": "`items` を打ち切ったか。"
           },
           "links": {
             "type": "array",

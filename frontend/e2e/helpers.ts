@@ -168,6 +168,8 @@ export const CHANGE_PATH_BUTTON_NAME = /^変更\.\.\.$|^Change\.\.\.$/;
 /** 登録前の確認ダイアログと、その確定ボタン。 */
 export const CONFIRM_REGISTER_NAME = /^この設定で登録しますか？$|^Register with these settings\?$/;
 export const REGISTER_BUTTON_NAME = /^登録する$|^Register$/;
+/** 編集ページで保存するときの同じ確認ダイアログ。 */
+export const CONFIRM_SAVE_NAME = /^この設定で保存しますか？$|^Save with these settings\?$/;
 
 /** 管理画面の一覧の上にある追加ボタン。表示言語 (ja/en) のどちらでも見つかるようにする。 */
 export const CONTENT_ADD_BUTTON_NAME = /^追加\.\.\.$|^Add\.\.\.$/;

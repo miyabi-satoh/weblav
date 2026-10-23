@@ -17,7 +17,6 @@
 	} from '$lib/row-location';
 	import * as m from '$lib/paraglide/messages.js';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
-	import ArchiveViewList, { type ArchiveViewRow } from '$lib/components/archive-view-list.svelte';
 	import BrowseLayoutToggle from '$lib/components/browse-layout-toggle.svelte';
 	import ContentList from '$lib/components/content-list.svelte';
 	import FolderEntryList, { type FolderEntryRow } from '$lib/components/folder-entry-list.svelte';
@@ -106,12 +105,9 @@
 
 	let result = $derived(data.result);
 	let contentHits = $derived(result?.contents ?? []);
-	let itemHits = $derived(result?.items ?? []);
 	let fileHits = $derived(result?.files ?? []);
 	let linkHits = $derived(result?.links ?? []);
-	let hasHits = $derived(
-		contentHits.length + itemHits.length + fileHits.length + linkHits.length > 0
-	);
+	let hasHits = $derived(contentHits.length + fileHits.length + linkHits.length > 0);
 
 	// 2段目に出す、どこにあるか。上のグループから順に並べ、押すと選んだ段の画面を開く (→ docs/search.md「画面」)。
 
@@ -184,30 +180,18 @@
 		return hit?.matchedInDescription && content.description ? content.description : null;
 	}
 
-	let itemRows = $derived<ArchiveViewRow[]>(
-		itemHits.map((hit) => ({
-			archiveId: hit.archiveId,
-			item: hit.item,
-			location: locationOf(
-				hit.ancestors,
-				[archiveLevel(hit.archiveId, hit.archiveTitle)],
-				hit.archiveId
-			)
-		}))
-	);
-
-	function linksHref(row: ArchiveViewRow): string {
-		return linksFileHref(row.archiveId, { item: row.item.id });
-	}
-
 	let fileRows = $derived<FolderEntryRow[]>(
 		fileHits.map((hit) => ({
 			contentId: hit.contentId,
 			path: hit.path,
 			entry: hit.entry,
+			listed: hit.listed,
+			// 一覧の表示の索引で当たった行は、閲覧の画面と同じく階層を見せず、一覧の表示を場所にする (→ docs/search.md「画面」)。
 			location: locationOf(
 				hit.ancestors,
-				folderLevels(hit.contentId, hit.folderTitle, hit.path),
+				hit.listed
+					? [archiveLevel(hit.contentId, hit.folderTitle)]
+					: folderLevels(hit.contentId, hit.folderTitle, hit.path),
 				hit.contentId
 			)
 		}))
@@ -367,17 +351,8 @@
 				{/if}
 			</section>
 		{/if}
-		{#if itemRows.length > 0}
-			<section class={contentHits.length > 0 ? 'mt-8' : undefined}>
-				{@render sectionHeading(m.search_items_heading(), itemRows.length, result.itemsTruncated)}
-				<ArchiveViewList rows={itemRows} {linksHref} />
-				{#if result.itemsTruncated}
-					{@render truncatedNote(itemRows.length)}
-				{/if}
-			</section>
-		{/if}
 		{#if fileRows.length > 0}
-			<section class={contentHits.length + itemRows.length > 0 ? 'mt-8' : undefined}>
+			<section class={contentHits.length > 0 ? 'mt-8' : undefined}>
 				{@render sectionHeading(m.search_files_heading(), fileRows.length, result.filesTruncated)}
 				<FolderEntryList rows={fileRows} dirHref={folderHref} linksHref={folderLinksHref} />
 				{#if result.filesTruncated}
@@ -386,9 +361,7 @@
 			</section>
 		{/if}
 		{#if linkRows.length > 0}
-			<section
-				class={contentHits.length + itemRows.length + fileRows.length > 0 ? 'mt-8' : undefined}
-			>
+			<section class={contentHits.length + fileRows.length > 0 ? 'mt-8' : undefined}>
 				{@render sectionHeading(m.search_links_heading(), linkRows.length, result.linksTruncated)}
 				<LinksEntryList rows={linkRows} />
 				{#if result.linksTruncated}

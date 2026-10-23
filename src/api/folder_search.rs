@@ -63,6 +63,17 @@ pub(super) struct SearchFileHit {
     /// フォルダーの登録パスからの相対パス (`/` 区切り)。エントリ自身の名前まで含む。
     pub(super) path: String,
     pub(super) entry: FolderEntry,
+    /// 一覧の表示の索引で当たった行なら、その表示タイトルと軸の値。行のタイトルと2段目に出す。
+    /// 索引で照らすのは表示タイトルと軸の値で、ファイル名と階層ではないため (→ docs/search.md「何を照らすか」)。
+    pub(super) listed: Option<ListedTitle>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct ListedTitle {
+    pub(super) title: String,
+    /// 行の2段目に出す軸の値 (→ docs/ui.md「アーカイブの一覧画面」)。出す値が無ければ `None`。
+    pub(super) subtitle: Option<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -88,7 +99,8 @@ pub(super) struct SearchLinkHit {
 }
 
 pub(super) struct FolderSearch {
-    pub(super) files: Vec<SearchFileHit>,
+    /// 当たりのよい順。一覧の表示の索引の当たりとつなぐため、当たりの良さを添える。
+    pub(super) files: Vec<(Score, SearchFileHit)>,
     pub(super) files_truncated: bool,
     /// 辿るエントリ数の上限で、辿りきれなかったフォルダーがあるか。その先のファイルと一覧のファイルは探していない。
     pub(super) incomplete: bool,
@@ -247,13 +259,17 @@ pub(super) async fn search(
             .filter_map(|candidate| {
                 let entry = contents::folder_entry(candidate.name, &candidate.absolute)?;
                 let folder = &containers[candidate.folder];
-                Some(SearchFileHit {
-                    content_id: folder.id,
-                    folder_title: folder.title.clone(),
-                    ancestors: folder.ancestors.clone(),
-                    path: candidate.rel_path,
-                    entry,
-                })
+                Some((
+                    candidate.score,
+                    SearchFileHit {
+                        content_id: folder.id,
+                        folder_title: folder.title.clone(),
+                        ancestors: folder.ancestors.clone(),
+                        path: candidate.rel_path,
+                        entry,
+                        listed: None,
+                    },
+                ))
             })
             .collect::<Vec<_>>()
     })

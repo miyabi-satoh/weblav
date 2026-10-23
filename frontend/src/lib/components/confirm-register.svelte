@@ -36,6 +36,8 @@
 		newFilesPublic?: boolean;
 		/** 登録済みのフォルダーの場所を変える保存か。変えると公開・非公開の印が消える。 */
 		clearsMarks?: boolean;
+		/** 編集ページの保存か。作るときの「登録」でなく「保存」の言い方にする。 */
+		editing?: boolean;
 		/** 保存処理中か。確認後の送信は呼び出し側が行う。 */
 		saving?: boolean;
 		/** 保存に続くスキャンの進み具合。押したボタンの近くに出す (→ docs/archive.md「スキャン」)。 */
@@ -53,6 +55,7 @@
 		listView = false,
 		newFilesPublic = true,
 		clearsMarks = false,
+		editing = false,
 		saving = false,
 		progress,
 		onconfirm
@@ -157,7 +160,9 @@
 <Dialog.Root bind:open>
 	<Dialog.Content class="sm:max-w-lg">
 		<Dialog.Header class="text-left">
-			<Dialog.Title>{m.confirm_register_title()}</Dialog.Title>
+			<Dialog.Title
+				>{editing ? m.confirm_register_save_title() : m.confirm_register_title()}</Dialog.Title
+			>
 		</Dialog.Header>
 		<Dialog.Body>
 			<dl class="min-w-0 text-sm">
@@ -222,7 +227,7 @@
 				type="button"
 				loading={saving}
 				disabled={loadError !== '' || loading}
-				onclick={onconfirm}>{m.confirm_register_action()}</LoadingButton
+				onclick={onconfirm}>{editing ? m.action_save() : m.confirm_register_action()}</LoadingButton
 			>
 		</Dialog.Footer>
 	</Dialog.Content>

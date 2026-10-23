@@ -12,7 +12,7 @@ const SEARCH_LINK_NAME = /^検索$|^Search$/;
 const SEARCH_INPUT_LABEL = /^\s*(検索する語句|Search for)\s*$/;
 const LOCATION_BUTTON_NAME = /^(場所|Location): /;
 
-test('検索: ヘッダーから開いて打つと、アーカイブのファイルが出て、押すとその場で鳴る', async ({
+test('検索: ヘッダーから開いて打つと、一覧の表示を使うフォルダーのファイルが出て、押すとその場で鳴る', async ({
 	page
 }) => {
 	const groupTitle = uniqueId('e2e-search-group');
@@ -45,7 +45,7 @@ test('検索: ヘッダーから開いて打つと、アーカイブのファイ
 				await expect(page.getByRole('region', { name: AUDIO_PLAYER_REGION_NAME })).toBeVisible();
 				await expect(page.locator('audio')).toHaveAttribute(
 					'src',
-					new RegExp(`/api/v1/contents/${archive.id}/items/\\d+/download$`)
+					new RegExp(`/api/v1/contents/${archive.id}/download\\?path=`)
 				);
 			}
 		);

@@ -1599,6 +1599,28 @@ pub(super) struct FolderEntry {
     pub(super) public: bool,
 }
 
+impl FolderEntry {
+    /// 一覧の表示の索引から作るファイルの行。検索の結果の行は2段目に場所を出し、大きさと日時を出さないので、それらは持たない。
+    /// 索引に並ぶのは公開しているファイルだけなので、公開している行にする。
+    pub(super) fn indexed_file(
+        name: String,
+        image: Option<super::thumbnails::ImageSize>,
+        is_text: bool,
+        thumbnail: bool,
+    ) -> Self {
+        Self {
+            name,
+            is_dir: false,
+            size: None,
+            modified_at: None,
+            image,
+            is_text,
+            thumbnail,
+            public: true,
+        }
+    }
+}
+
 /// 更新日時を UNIX エポックミリ秒で返す。取れなければ `None`。
 pub(super) fn modified_at_millis(metadata: &std::fs::Metadata) -> Option<i64> {
     metadata

@@ -376,6 +376,7 @@
 	"dir_picker_selected_none": "Choose a folder",
 	"dir_picker_confirm": "Use this folder",
 	"confirm_register_title": "Register with these settings?",
+	"confirm_register_save_title": "Save with these settings?",
 	"confirm_register_type_label": "Type",
 	"confirm_register_path_label": "Location",
 	"confirm_register_counting": "Counting files...",
@@ -392,7 +393,7 @@
 		}
 	],
 	"confirm_register_scope_chosen_truncated": "There are {count} or more files. New files start unpublished, and you choose which ones to publish.",
-	"confirm_register_note_folder": "Check that nothing you want kept private is mixed in. After registering, you can also unpublish individual files and folders.",
+	"confirm_register_note_folder": "Check that nothing you want kept private is mixed in. You can also unpublish individual files and folders.",
 	"confirm_register_note_path_changed": "Changing the location clears every publishing change.",
 	"confirm_register_scope_folder_public": [
 		{
@@ -692,7 +693,6 @@
 		}
 	],
 	"search_contents_heading": "Contents",
-	"search_items_heading": "In folder lists",
 	"search_files_heading": "In folders",
 	"search_links_heading": "In link lists",
 	"search_empty": "Nothing matches “{query}”.",
@@ -837,7 +837,6 @@
 	"contents_ai_exclusions_sites_empty": "No hidden sites.",
 	"contents_hidden_restore_button": "Show again",
 	"contents_hidden_restore_label": "Show “{name}” again",
-	"contents_hidden_restored_toast": "It will be shown again.",
 	"contents_edit_basic_title": "Details",
 	"contents_edit_link_title": "Link",
 	"contents_edit_file_title": "File",

@@ -22,6 +22,8 @@ use crate::state::AppState;
 
 use super::archive::{self, ArchiveMeta, ValueKey};
 use super::contents;
+use super::contents::FolderEntry;
+use super::folder_search::{ListedTitle, SearchFileHit};
 use super::search::FieldKind;
 use super::sort::title_cmp;
 use super::thumbnails;
@@ -608,7 +610,7 @@ pub(super) async fn search_items(
     state: &AppState,
     archives: Vec<SearchableArchive>,
     mut terms: super::search::Terms,
-) -> Result<(Vec<super::search::SearchItemHit>, bool), AppError> {
+) -> Result<(Vec<(super::search::Score, SearchFileHit)>, bool), AppError> {
     let pool = &state.pool;
     let mut sources = Vec::with_capacity(archives.len());
     // つながらない NAS やディスクのアーカイブは、検索全体を待たせずに飛ばす。
@@ -681,12 +683,25 @@ pub(super) async fn search_items(
             .map(|hit| {
                 let (archive, _, _, previews) = &sources[hit.source];
                 let stored = previews[&hit.item.id];
-                super::search::SearchItemHit {
-                    archive_id: archive.id,
-                    archive_title: archive.title.clone(),
+                let item = with_preview(stored, hit.item);
+                // フォルダーの中のファイルの当たりと同じ行にする。配信はフォルダーの口が同じ印で確かめる (→ docs/folders.md「公開と非公開」)。
+                let hit_row = SearchFileHit {
+                    content_id: archive.id,
+                    folder_title: archive.title.clone(),
                     ancestors: archive.ancestors.clone(),
-                    item: with_preview(stored, hit.item),
-                }
+                    path: item.rel_path,
+                    entry: FolderEntry::indexed_file(
+                        item.file_name,
+                        item.image,
+                        item.is_text,
+                        item.thumbnail,
+                    ),
+                    listed: Some(ListedTitle {
+                        title: item.title,
+                        subtitle: item.subtitle,
+                    }),
+                };
+                (hit.score, hit_row)
             })
             .collect();
         (hits, truncated)
