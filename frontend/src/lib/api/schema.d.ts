@@ -1094,41 +1094,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/contents/{id}/hidden-entries": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 表示しないにしたものの一覧。編集ページで取り消すために並べる。 */
-        get: operations["list_hidden_entries"];
-        put?: never;
-        /** フォルダーの中のファイルかサブフォルダーを表示しないにする。サブフォルダーなら中ごと外す。 */
-        post: operations["hide_entry"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/contents/{id}/hidden-entries/{entry_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** 表示しないにしたものを取り消す。 */
-        delete: operations["show_entry"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/contents/{id}/items": {
         parameters: {
             query?: never;
@@ -1306,6 +1271,41 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/marks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 公開・非公開の印の一覧。編集ページで、新しく見つかったファイルの扱いと違うものを並べて取り消すため。 */
+        get: operations["list_marks"];
+        /** フォルダーの中のファイルかサブフォルダーを、公開か非公開にする。サブフォルダーなら中ごと。 */
+        put: operations["set_mark"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/marks/{mark_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** 印を取り消し、祖先か「新しく見つかったファイル」の設定に従わせる。 */
+        delete: operations["delete_mark"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1660,6 +1660,8 @@ export interface components {
             /** @description AI がリンクを集めるグループか (→ docs/ai.md「AI が集めるリンク」)。一覧の行に、集め直す操作を出すのに使う。 */
             aiLinks: boolean;
             archiveItems?: components["schemas"]["ArchiveItemCounts"] | null;
+            /** @description 一覧の表示を使うフォルダーを、自動で再スキャンする時刻 (→ docs/archive.md「スキャン」)。 */
+            autoRescan: components["schemas"]["AutoRefresh"];
             /**
              * Format: int64
              * @description 作成者のユーザーid。`None`なら作成者なし (→ docs/access.md「公開範囲」)。
@@ -1669,8 +1671,8 @@ export interface components {
             createdByUsername?: string | null;
             description?: string | null;
             /**
-             * @description `type = 'archive'` の場合のみ`Some`。索引対象の拡張子をカンマ区切りで持つ。
-             *     空なら全ファイルが対象。
+             * @description `type = 'folder'` の一覧の表示で、索引する拡張子をカンマ区切りで持つ。
+             *     `None` か空なら全ファイルが対象。
              */
             extensions?: string | null;
             /** @description `type = 'file'` の場合のみ`Some`。`blob_hash`(内部実装detail)は含めない。 */
@@ -1679,6 +1681,10 @@ export interface components {
             fileSize?: number | null;
             /** Format: int64 */
             id: number;
+            /** @description `type = 'folder'` で、一覧の表示 (索引して軸で絞り込む) を使うか。ほかの種類は `false`。 */
+            listView: boolean;
+            /** @description `type = 'folder'` で、印の無いファイル (新しく見つかったもの) を公開するか (→ docs/folders.md「公開と非公開」)。 */
+            newFilesPublic: boolean;
             /**
              * Format: int64
              * @description 親グループのid。`None`ならルート直下。
@@ -1702,7 +1708,7 @@ export interface components {
             rootName?: string | null;
             title: string;
             /**
-             * @description `type = 'archive'` の場合のみ`Some`。表示タイトルの組み立てテンプレート
+             * @description `type = 'folder'` の一覧の表示の、表示タイトルの組み立てテンプレート
              *     (→ docs/archive.md「表示タイトル」)。`None`ならファイル名をそのまま表示する。
              */
             titleTemplate?: string | null;
@@ -1937,11 +1943,14 @@ export interface components {
             items: components["schemas"]["ArchiveViewItem"][];
         };
         /**
-         * @description 自動の更新の決め方。
+         * @description 自動で回す処理の決め方。
          * @enum {string}
          */
         AutoMode: "off" | "interval" | "daily";
-        /** @description 自動の更新の設定 (→ docs/ai.md「自動の更新」)。グループが開かれたときに、決めた時間を過ぎていれば集め直す。 */
+        /**
+         * @description 自動で回す処理の時刻の設定。グループの AI のリンクの自動の更新 (→ docs/ai.md「自動の更新」) と、
+         *     ライブラリの自動の再スキャン (→ docs/archive.md「スキャン」) で同じ形を使う。
+         */
         AutoRefresh: {
             /**
              * Format: int32
@@ -1991,7 +2000,7 @@ export interface components {
          *     JSONはプロジェクト全体の慣例 (camelCase) に合わせるため、表現をそれぞれ別に持つ。
          * @enum {string}
          */
-        AxisSource: "dirLevel" | "filenameWord";
+        AxisSource: "dirLevel" | "filenameWord" | "dateYear" | "dateMonth";
         AxisValueInput: {
             displayName?: string | null;
             matchPosition?: components["schemas"]["AxisMatchPosition"];
@@ -2081,6 +2090,8 @@ export interface components {
             description?: string | null;
             /** Format: int64 */
             id: number;
+            /** @description 一覧の表示 (軸で絞り込む平らな一覧) を使うか。使うなら、閲覧の入口はそちらを開く。 */
+            listView: boolean;
             private: boolean;
             title: string;
             /** @enum {string} */
@@ -2116,21 +2127,13 @@ export interface components {
             title: string;
             /** @enum {string} */
             type: "group";
-        } | {
-            description?: string | null;
-            /** Format: int64 */
-            id: number;
-            private: boolean;
-            title: string;
-            /** @enum {string} */
-            type: "archive";
         };
         /**
          * @description `contents.type`。管理画面のレスポンスにもそのまま `type` として載せるため、
          *     `Serialize`/`Deserialize`/`ToSchema` も併せて持つ(`auth::Role` と同じ書き方)。
          * @enum {string}
          */
-        ContentType: "link" | "folder" | "file" | "group" | "archive";
+        ContentType: "link" | "folder" | "file" | "group";
         CountResponse: {
             /** @description 数え上げたファイル数。`truncated` が `true` なら下限値。 */
             count: number;
@@ -2162,11 +2165,6 @@ export interface components {
         CreateContentRequest: {
             description?: string | null;
             /**
-             * @description `type = 'archive'` のみ。索引対象の拡張子をカンマ区切りで指定する。
-             *     省略・空なら全ファイルを索引する。
-             */
-            extensions?: string | null;
-            /**
              * Format: int64
              * @description 親グループのid。省略/`null`ならルート直下に作成する。
              *     検証(存在確認・`type = 'group'`確認)は`validate_parent`で行う。
@@ -2175,11 +2173,6 @@ export interface components {
             path?: string | null;
             /** @description タイトル。省略・空なら自動で付ける (`resolve_create_title`)。`group` だけは必須。 */
             title?: string | null;
-            /**
-             * @description `type = 'archive'` のみ。表示タイトルの組み立てテンプレート (→ docs/archive.md「表示タイトル」)。
-             *     作成時点では軸がまだ存在しないため、プレースホルダーを含む値は422になる。
-             */
-            titleTemplate?: string | null;
             type: components["schemas"]["ContentType"];
             url?: string | null;
             visibility?: components["schemas"]["Visibility"] | null;
@@ -2299,6 +2292,8 @@ export interface components {
             canEdit: boolean;
             entries: components["schemas"]["FolderEntry"][];
             folderTitle: string;
+            /** @description 一覧の表示 (軸で絞り込む平らな一覧) も使うか。画面は真のとき、表示の切り替えを出す。 */
+            listView: boolean;
             path: string;
         };
         FolderEntry: {
@@ -2313,6 +2308,11 @@ export interface components {
             modifiedAt?: number | null;
             name: string;
             /**
+             * @description 公開しているか (→ docs/folders.md「公開と非公開」)。閲覧する人には公開しているものしか返さない。
+             *     フォルダーは、それ自身に公開の印が届いているかで、中に公開したものがあって辿れるだけなら偽。
+             */
+            public: boolean;
+            /**
              * Format: int64
              * @description ディレクトリの場合は `None`。
              */
@@ -2320,12 +2320,13 @@ export interface components {
             /** @description 行に縮小画像を出してみるか (→ docs/ui.md「画像のプレビュー」)。 */
             thumbnail: boolean;
         };
-        FolderHiddenEntry: {
+        FolderMark: {
             /** Format: int64 */
             id: number;
             isDir: boolean;
             /** @description フォルダーの登録先からの相対パス ('/' 区切り)。 */
             path: string;
+            public: boolean;
         };
         GenerateAxesRequest: {
             /** @description 画面が組み立てたプロンプト (貼り付け用に見せるものと同じ)。 */
@@ -2374,10 +2375,6 @@ export interface components {
             locale: string;
             slug: string;
             title: string;
-        };
-        HideFolderEntryRequest: {
-            /** @description 閲覧の画面と同じ、フォルダーの登録先からの相対パス。 */
-            path: string;
         };
         /** @description 表示するときの画像の縦横 (px)。EXIF の向きを当てた後の値。 */
         ImageSize: {
@@ -2479,6 +2476,11 @@ export interface components {
             /** @description パンくずの最後に出す名前。`file` コンテンツは一覧に出ている登録したタイトル、ほかはファイル名。 */
             name: string;
             /** @description ファイルに書かれた `title`。省かれているか読めなければファイル名。 */
+            title: string;
+        };
+        ListedTitle: {
+            /** @description 行の2段目に出す軸の値 (→ docs/ui.md「アーカイブの一覧画面」)。出す値が無ければ `None`。 */
+            subtitle?: string | null;
             title: string;
         };
         LogSettingsResponse: {
@@ -2644,17 +2646,9 @@ export interface components {
             entry: components["schemas"]["FolderEntry"];
             /** @description 行の2段目に、どこにあるかとして出す。 */
             folderTitle: string;
+            listed?: components["schemas"]["ListedTitle"] | null;
             /** @description フォルダーの登録パスからの相対パス (`/` 区切り)。エントリ自身の名前まで含む。 */
             path: string;
-        };
-        SearchItemHit: {
-            /** @description アーカイブより上のグループ。ルートに近い順で、ルート直下なら空。場所の頭に出す。 */
-            ancestors: components["schemas"]["GroupAncestor"][];
-            /** Format: int64 */
-            archiveId: number;
-            /** @description 行の2段目に、どこにあるかとして出す。 */
-            archiveTitle: string;
-            item: components["schemas"]["ArchiveViewItem"];
         };
         SearchLinkHit: {
             /** @description 一覧のファイルを持つコンテンツより上のグループ。ルートに近い順で、ルート直下なら空。場所の頭に出す。 */
@@ -2686,7 +2680,10 @@ export interface components {
             contents: components["schemas"]["SearchContentHit"][];
             /** @description `contents` を打ち切ったか。 */
             contentsTruncated: boolean;
-            /** @description フォルダーの中のファイルとディレクトリ。当たりのよい順 (同じ程度なら名前順)。区画ごとの上限 (100 件) で打ち切る。 */
+            /**
+             * @description フォルダーの中のファイルとディレクトリ。一覧の表示の索引で当たったものも同じ並びに入れる。
+             *     当たりのよい順 (同じ程度ならタイトル順)。区画ごとの上限 (100 件) で打ち切る。
+             */
             files: components["schemas"]["SearchFileHit"][];
             /** @description `files` を打ち切ったか。 */
             filesTruncated: boolean;
@@ -2695,10 +2692,6 @@ export interface components {
              *     その先のファイルとリンクの一覧は探していない。語を足しても広がらないので、打ち切りとは分けて伝える。
              */
             foldersIncomplete: boolean;
-            /** @description アーカイブのファイル。当たりのよい順 (同じ程度なら表示タイトル順)。区画ごとの上限 (100 件) で打ち切る。 */
-            items: components["schemas"]["SearchItemHit"][];
-            /** @description `items` を打ち切ったか。 */
-            itemsTruncated: boolean;
             /** @description リンクの一覧のファイルの中のリンク。当たりのよい順 (同じ程度なら題の順)。区画ごとの上限 (100 件) で打ち切る。 */
             links: components["schemas"]["SearchLinkHit"][];
             /** @description `links` を打ち切ったか。 */
@@ -2739,6 +2732,11 @@ export interface components {
              */
             createdBy: number;
         };
+        SetFolderMarkRequest: {
+            /** @description 閲覧の画面と同じ、フォルダーの登録先からの相対パス。 */
+            path: string;
+            public: boolean;
+        };
         SetPublishedRequest: {
             published: boolean;
         };
@@ -2774,12 +2772,17 @@ export interface components {
             aiAllowed: boolean;
         };
         UpdateContentRequest: {
+            autoRescan?: components["schemas"]["AutoRefresh"] | null;
             description?: string | null;
             /**
-             * @description `type = 'archive'` のみ。索引対象の拡張子をカンマ区切りで指定する。
+             * @description `type = 'folder'` のみ。一覧の表示で索引する拡張子をカンマ区切りで指定する。
              *     省略・空なら全ファイルを索引する。
              */
             extensions?: string | null;
+            /** @description `type = 'folder'` のみ。一覧の表示を使うか。省略時は現在値のまま。 */
+            listView?: boolean | null;
+            /** @description `type = 'folder'` のみ。印の無いファイル (新しく見つかったもの) を公開するか。省略時は現在値のまま。 */
+            newFilesPublic?: boolean | null;
             /**
              * Format: int64
              * @description 親グループのid。省略/`null`ならルート直下へ移動する (完全上書き型PUTの一部
@@ -2789,7 +2792,7 @@ export interface components {
             path?: string | null;
             title: string;
             /**
-             * @description `type = 'archive'` のみ。表示タイトルの組み立てテンプレート (→ docs/archive.md「表示タイトル」)。
+             * @description `type = 'folder'` のみ。一覧の表示の、表示タイトルの組み立てテンプレート (→ docs/archive.md「表示タイトル」)。
              *     保存時にプレースホルダーが実在する軸名であることを検証する。
              */
             titleTemplate?: string | null;
@@ -6489,138 +6492,6 @@ export interface operations {
             };
         };
     };
-    list_hidden_entries: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 表示しないにした順の新しいものから */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FolderHiddenEntry"][];
-                };
-            };
-            /** @description 書き換えられるのは管理者と作成者だけ */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 見えない・存在しない、またはフォルダーでない */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    hide_entry: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["HideFolderEntryRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FolderHiddenEntry"];
-                };
-            };
-            /** @description 書き換えられるのは管理者と作成者だけ */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 見えない・存在しない、フォルダーでない、またはフォルダーの中に無いパス */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description フォルダーのある NAS やディスクにつながらない */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    show_entry: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-                entry_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description 書き換えられるのは管理者と作成者だけ */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 見えない・存在しない、またはこのフォルダーの表示しないものでない */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
     list_items: {
         parameters: {
             query?: never;
@@ -7076,6 +6947,136 @@ export interface operations {
                 };
             };
             /** @description 管理できない・存在しない・アーカイブでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_marks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 印を付けた順の新しいものから */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderMark"][];
+                };
+            };
+            /** @description 書き換えられるのは管理者と作成者だけ */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見えない・存在しない、またはフォルダーでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_mark: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetFolderMarkRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 書き換えられるのは管理者と作成者だけ */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見えない・存在しない、フォルダーでない、またはフォルダーの中に無いパス */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description フォルダーのある NAS やディスクにつながらない */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_mark: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                mark_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 書き換えられるのは管理者と作成者だけ */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見えない・存在しない、またはこのフォルダーの印でない */
             404: {
                 headers: {
                     [name: string]: unknown;

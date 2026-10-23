@@ -12,7 +12,7 @@ import type { PageLoad } from './$types';
 // 対象のコンテンツは [id]/+layout.ts が一覧から探して渡す。
 export const load: PageLoad = async ({ parent, url }) => {
 	const { content, contentId } = await parent();
-	if (content.type !== 'archive') {
+	if (!content.listView) {
 		error(404, m.error_not_found());
 	}
 

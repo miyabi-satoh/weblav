@@ -15,7 +15,7 @@ INSERT INTO users (username, password_hash, role, recovery_code_hash) VALUES
 	('admin', '$argon2id$v=19$m=19456,t=2,p=1$5f4Qisl4f3Qt3EMHJh5wQA$NtazHK/CG5KWnLXHOpJgCD4OwScUoPnNAklMk4UzwdE', 'admin', '$argon2id$v=19$m=19456,t=2,p=1$qAk/18nthJ6XkcDmJhByWQ$aowiQPVbSDVz6u++2lnl+5GDScif+77pXyugElBCzsU'),
 	('testuser', '$argon2id$v=19$m=19456,t=2,p=1$gLSPXk1zOWE8M7D88iTUdQ$uBQP1Ld3kTQBRON5/Qo+ybHrIlMsOrZ/+c7VSKtc8R8', 'user', NULL);
 
--- 環境に依存しない type だけをここでシードする(type='folder'/'archive'/'file' は
+-- 環境に依存しない type だけをここでシードする(type='folder'/'file' は
 -- 実在する絶対パス・実体ファイルが要るため generate-spec.ts 側で追加INSERTする)。
 --
 -- visibility は匿名閲覧のショット(home_anonymous)のために書き分ける。
@@ -25,11 +25,11 @@ INSERT INTO contents (type, title, url, description, visibility) VALUES
 	('link', 'サンプルリンク2', 'https://example.com/2', NULL, 'authenticated'),
 	('link', '公開サンプルリンク', 'https://example.com/public', '未ログインでも見えるコンテンツです。', 'public');
 
--- 原稿の 05-groups.md のスクリーンショット用: type=link/folder/file/group/archive の
+-- 原稿の 05-groups.md のスクリーンショット用: type=link/folder/file/group の
 -- カード全種類を1つのgroup配下に揃える。既存のtype=link/folderは再利用せず
 -- 専用の子行を新規に作る(home_with_contents/home_anonymous等の既存ショットが
 -- ルート直下の並びを前提にしており、既存行を子に移すとそちらが意図せず変化するため)。
--- folder/archive/fileは環境依存のためgenerate-spec.ts側で追加し、parent_idも
+-- folder/fileは環境依存のためgenerate-spec.ts側で追加し、parent_idも
 -- そちらで設定する。
 INSERT INTO contents (type, title, description, visibility) VALUES
 	('group', '教材(グループ)', 'グループ閲覧のスクリーンショット用のフィクスチャです。', 'authenticated'),

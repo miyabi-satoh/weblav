@@ -30,6 +30,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use super::error_detail::ValidationDetail;
+use super::schedule::{AutoMode, AutoRefresh, parse_auto_refresh};
 use super::search::FieldKind;
 use super::sort::{SortOrder, SortQuery, title_cmp};
 use crate::auth::{AdminUser, AuthUser, Viewer};
@@ -54,10 +55,6 @@ pub enum ContentType {
     Folder,
     File,
     Group,
-    /// サーバー上のフォルダーを索引し、属性軸で絞り込めるフラットな一覧として見せる。
-    /// `Folder`(階層をそのまま辿る)とは性質も用途も違うため別の型にしてある
-    /// (→ docs/archive.md)。
-    Archive,
 }
 
 /// `contents.visibility`。公開範囲を表す (→ docs/access.md「公開範囲」)。
@@ -300,10 +297,17 @@ struct ContentRow {
     file_size: Option<i64>,
     visibility: Visibility,
     created_by: Option<i64>,
-    /// `type = 'archive'` のみ。索引対象の拡張子をカンマ区切りで保持する。
+    /// `type = 'folder'` の一覧の表示で、索引する拡張子をカンマ区切りで保持する。
     extensions: Option<String>,
-    /// `type = 'archive'` のみ。表示タイトルの組み立てテンプレート (→ docs/archive.md「表示タイトル」)。
+    /// `type = 'folder'` の一覧の表示の、表示タイトルの組み立てテンプレート (→ docs/archive.md「表示タイトル」)。
     title_template: Option<String>,
+    /// `type = 'folder'` で、一覧の表示 (索引して軸で絞り込む) を使うか。
+    list_view: bool,
+    /// `type = 'folder'` で、印の無いファイル (新しく見つかったもの) を公開するか。
+    new_files_public: bool,
+    auto_rescan_mode: AutoMode,
+    auto_rescan_hours: Option<i64>,
+    auto_rescan_time: Option<String>,
 }
 
 /// 一般の閲覧者(匿名を含む)向けのレスポンス。`path`(サーバー上の絶対パス)は
@@ -326,11 +330,14 @@ pub enum ContentResponse {
         /// 一覧 (`list_contents`・`browse_group`) でだけ埋める。新しい情報は画面が取り直しを頼んで得る。
         preview: Option<super::link_preview::LinkPreview>,
     },
+    #[serde(rename_all = "camelCase")]
     Folder {
         id: i64,
         title: String,
         description: Option<String>,
         private: bool,
+        /// 一覧の表示 (軸で絞り込む平らな一覧) を使うか。使うなら、閲覧の入口はそちらを開く。
+        list_view: bool,
     },
     // 複数語のフィールドを持つのはこのバリアントだけ。enum に付けた `rename_all` は
     // バリアント名にしか効かないので、フィールドの camelCase はここで指定する。
@@ -360,14 +367,6 @@ pub enum ContentResponse {
         description: Option<String>,
         private: bool,
     },
-    /// 索引型。アイテム一覧は含めない(別途 `GET /contents/{id}/archive` で取得する)。
-    /// `folder` と同じく `path` は出さない。
-    Archive {
-        id: i64,
-        title: String,
-        description: Option<String>,
-        private: bool,
-    },
 }
 
 impl TryFrom<ContentRow> for ContentResponse {
@@ -378,12 +377,6 @@ impl TryFrom<ContentRow> for ContentResponse {
         // 万一必須カラムがNULLだった場合(将来型が増えてマイグレーションミス等)は
         // レスポンスを諦めて500にする方が、フロントに嘘の空文字列を返すより安全。
         match row.content_type {
-            ContentType::Archive => Ok(ContentResponse::Archive {
-                id: row.id,
-                title: row.title,
-                description: row.description,
-                private,
-            }),
             ContentType::Link => {
                 let url = row
                     .url
@@ -402,6 +395,7 @@ impl TryFrom<ContentRow> for ContentResponse {
                 title: row.title,
                 description: row.description,
                 private,
+                list_view: row.list_view,
             }),
             ContentType::File => {
                 let file_name = row
@@ -464,15 +458,21 @@ pub struct AdminContentResponse {
     pub created_by: Option<i64>,
     /// 作成者のユーザー名。管理画面の一覧の「作成者」に出す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。
     pub created_by_username: Option<String>,
-    /// `type = 'archive'` の場合のみ`Some`。索引対象の拡張子をカンマ区切りで持つ。
-    /// 空なら全ファイルが対象。
+    /// `type = 'folder'` の一覧の表示で、索引する拡張子をカンマ区切りで持つ。
+    /// `None` か空なら全ファイルが対象。
     pub extensions: Option<String>,
-    /// `type = 'archive'` の場合のみ`Some`。表示タイトルの組み立てテンプレート
+    /// `type = 'folder'` の一覧の表示の、表示タイトルの組み立てテンプレート
     /// (→ docs/archive.md「表示タイトル」)。`None`ならファイル名をそのまま表示する。
     pub title_template: Option<String>,
+    /// `type = 'folder'` で、一覧の表示 (索引して軸で絞り込む) を使うか。ほかの種類は `false`。
+    pub list_view: bool,
+    /// `type = 'folder'` で、印の無いファイル (新しく見つかったもの) を公開するか (→ docs/folders.md「公開と非公開」)。
+    pub new_files_public: bool,
+    /// 一覧の表示を使うフォルダーを、自動で再スキャンする時刻 (→ docs/archive.md「スキャン」)。
+    pub auto_rescan: AutoRefresh,
     /// AI がリンクを集めるグループか (→ docs/ai.md「AI が集めるリンク」)。一覧の行に、集め直す操作を出すのに使う。
     pub ai_links: bool,
-    /// `type = 'archive'` の場合のみ`Some`。アイテムの数と公開している数。
+    /// 一覧の表示を使うフォルダーの場合のみ`Some`。アイテムの数と公開している数。
     pub archive_items: Option<super::archive_items::ArchiveItemCounts>,
 }
 
@@ -514,6 +514,13 @@ impl AdminContentResponse {
             created_by_username,
             extensions: row.extensions,
             title_template: row.title_template,
+            list_view: row.list_view,
+            new_files_public: row.new_files_public,
+            auto_rescan: AutoRefresh::from_columns(
+                row.auto_rescan_mode,
+                row.auto_rescan_hours,
+                row.auto_rescan_time,
+            ),
             ai_links,
             archive_items,
         }
@@ -537,9 +544,10 @@ async fn admin_response(
     let root_records = super::roots::load_root_records(pool).await?;
     let ai_links =
         row.content_type == ContentType::Group && super::ai_links::is_enabled(pool, row.id).await?;
-    let archive_items = match row.content_type {
-        ContentType::Archive => Some(super::archive_items::item_counts_of(pool, row.id).await?),
-        _ => None,
+    let archive_items = if row.list_view {
+        Some(super::archive_items::item_counts_of(pool, row.id).await?)
+    } else {
+        None
     };
     Ok(AdminContentResponse::from_row(
         row,
@@ -571,14 +579,6 @@ pub struct CreateContentRequest {
     /// 公開範囲。省略時は既定値 (→ docs/access.md「ロールと操作」)。
     #[serde(default)]
     pub visibility: Option<Visibility>,
-    /// `type = 'archive'` のみ。索引対象の拡張子をカンマ区切りで指定する。
-    /// 省略・空なら全ファイルを索引する。
-    #[serde(default)]
-    pub extensions: Option<String>,
-    /// `type = 'archive'` のみ。表示タイトルの組み立てテンプレート (→ docs/archive.md「表示タイトル」)。
-    /// 作成時点では軸がまだ存在しないため、プレースホルダーを含む値は422になる。
-    #[serde(default)]
-    pub title_template: Option<String>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -596,14 +596,23 @@ pub struct UpdateContentRequest {
     /// (→ docs/access.md「ロールと操作」)。
     #[serde(default)]
     pub visibility: Option<Visibility>,
-    /// `type = 'archive'` のみ。索引対象の拡張子をカンマ区切りで指定する。
+    /// `type = 'folder'` のみ。一覧の表示で索引する拡張子をカンマ区切りで指定する。
     /// 省略・空なら全ファイルを索引する。
     #[serde(default)]
     pub extensions: Option<String>,
-    /// `type = 'archive'` のみ。表示タイトルの組み立てテンプレート (→ docs/archive.md「表示タイトル」)。
+    /// `type = 'folder'` のみ。一覧の表示の、表示タイトルの組み立てテンプレート (→ docs/archive.md「表示タイトル」)。
     /// 保存時にプレースホルダーが実在する軸名であることを検証する。
     #[serde(default)]
     pub title_template: Option<String>,
+    /// `type = 'folder'` のみ。一覧の表示を使うか。省略時は現在値のまま。
+    #[serde(default)]
+    pub list_view: Option<bool>,
+    /// `type = 'folder'` のみ。印の無いファイル (新しく見つかったもの) を公開するか。省略時は現在値のまま。
+    #[serde(default)]
+    pub new_files_public: Option<bool>,
+    /// `type = 'folder'` のみ。自動で再スキャンする時刻。省略時は現在値のまま。
+    #[serde(default)]
+    pub auto_rescan: Option<AutoRefresh>,
 }
 
 /// タイトルの前後の空白を取り除いた上で検証する。空タイトルを弾く。
@@ -936,7 +945,9 @@ async fn list_contents(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
                   description, created_at as "created_at!", file_name, file_size,
-                  visibility as "visibility: Visibility", created_by, extensions, title_template
+                  visibility as "visibility: Visibility", created_by, extensions, title_template,
+                  list_view as "list_view: bool", new_files_public as "new_files_public: bool",
+                  auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents
            WHERE parent_id IS NULL"#,
     )
@@ -972,7 +983,9 @@ async fn list_admin_contents(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
                   description, created_at as "created_at!", file_name, file_size,
-                  visibility as "visibility: Visibility", created_by, extensions, title_template
+                  visibility as "visibility: Visibility", created_by, extensions, title_template,
+                  list_view as "list_view: bool", new_files_public as "new_files_public: bool",
+                  auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents
            ORDER BY id"#,
     )
@@ -996,7 +1009,7 @@ async fn list_admin_contents(
             .map(|row| {
                 let username = row.created_by.and_then(|id| usernames.get(&id).cloned());
                 let ai_links = ai_link_groups.contains(&row.id);
-                let archive_items = (row.content_type == ContentType::Archive).then(|| {
+                let archive_items = row.list_view.then(|| {
                     archive_item_counts
                         .get(&row.id)
                         .copied()
@@ -1073,13 +1086,11 @@ async fn create_content(
     let visibility = resolve_visibility_for_create(payload.visibility, parent.as_ref());
     ensure_fits_parent(parent.as_ref(), visibility, Some(user.id))?;
     let parent_id = parent.map(|parent| parent.id);
-    let (url, path, extensions, title_template) = match payload.content_type {
-        ContentType::Link => (link_url, None, None, None),
+    let (url, path) = match payload.content_type {
+        ContentType::Link => (link_url, None),
         ContentType::Folder => (
             None,
             Some(validate_folder_path(&state, payload.path.as_deref()).await?),
-            None,
-            None,
         ),
         // fileはJSONではなくmultipart専用エンドポイント(upload_content)で作る。
         ContentType::File => {
@@ -1087,25 +1098,11 @@ async fn create_content(
                 "use POST /contents/upload to create a file content".to_string(),
             ));
         }
-        ContentType::Group => (None, None, None, None),
-        // 登録先の検証は folder と同じ。索引するだけで、見せ方が違うだけのため。
-        ContentType::Archive => (
-            None,
-            Some(validate_folder_path(&state, payload.path.as_deref()).await?),
-            super::archive::normalize_extensions(payload.extensions.as_deref()),
-            // 作成時点では軸が1つも存在しないため、プレースホルダーを含む値は
-            // ここで422になる (→ docs/archive.md「表示タイトル」)。
-            super::archive::validate_title_template(
-                &state.pool,
-                None,
-                payload.title_template.as_deref(),
-            )
-            .await?,
-        ),
+        ContentType::Group => (None, None),
     };
     let derived_title = match payload.content_type {
         ContentType::Link => link_title,
-        ContentType::Folder | ContentType::Archive => path.as_deref().map(title_from_path),
+        ContentType::Folder => path.as_deref().map(title_from_path),
         ContentType::File | ContentType::Group => None,
     };
     let title = resolve_create_title(
@@ -1121,11 +1118,13 @@ async fn create_content(
     let row = sqlx::query_as!(
         ContentRow,
         r#"INSERT INTO contents (type, parent_id, title, url, path, description,
-                                  visibility, extensions, title_template, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                  visibility, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
                      path, description, created_at as "created_at!", file_name, file_size,
-                     visibility as "visibility: Visibility", created_by, extensions, title_template"#,
+                     visibility as "visibility: Visibility", created_by, extensions, title_template,
+                     list_view as "list_view: bool", new_files_public as "new_files_public: bool",
+                     auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         content_type,
         parent_id,
         title,
@@ -1133,8 +1132,6 @@ async fn create_content(
         path,
         description,
         visibility,
-        extensions,
-        title_template,
         user.id,
     )
     .fetch_one(&state.pool)
@@ -1236,7 +1233,9 @@ async fn update_content(
     // 公開範囲を変えると、古い値に基づいて判定してしまうため。
     let existing = sqlx::query!(
         r#"SELECT type as "content_type: ContentType", path,
-                  visibility as "visibility: Visibility", created_by
+                  visibility as "visibility: Visibility", created_by,
+                  list_view as "list_view: bool", new_files_public as "new_files_public: bool",
+                  auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents WHERE id = ?"#,
         id
     )
@@ -1255,7 +1254,7 @@ async fn update_content(
     )?;
     // 走査中の `path` 変更を防ぐ (→ docs/archive.md「スキャン」)。取れなければ 409 を返し、
     // 待たない。待つと走査が終わるまで `contents_write_lock` を握り続けることになる。
-    let _scan_guard = (existing_type == ContentType::Archive)
+    let _scan_guard = (existing_type == ContentType::Folder)
         .then(|| state.archive_scans.acquire(id))
         .transpose()?;
 
@@ -1274,19 +1273,6 @@ async fn update_content(
         ContentType::Folder => (
             None,
             Some(validate_folder_path(&state, payload.path.as_deref()).await?),
-            None,
-            None,
-        ),
-        // fileはJSONではなくmultipart専用エンドポイント(replace_content_upload)で更新する。
-        ContentType::File => {
-            return Err(AppError::Validation(
-                "use PUT /contents/{id}/upload to update a file content".to_string(),
-            ));
-        }
-        ContentType::Group => (None, None, None, None),
-        ContentType::Archive => (
-            None,
-            Some(validate_folder_path(&state, payload.path.as_deref()).await?),
             super::archive::normalize_extensions(payload.extensions.as_deref()),
             super::archive::validate_title_template(
                 &state.pool,
@@ -1295,16 +1281,34 @@ async fn update_content(
             )
             .await?,
         ),
+        // fileはJSONではなくmultipart専用エンドポイント(replace_content_upload)で更新する。
+        ContentType::File => {
+            return Err(AppError::Validation(
+                "use PUT /contents/{id}/upload to update a file content".to_string(),
+            ));
+        }
+        ContentType::Group => (None, None, None, None),
     };
+    let is_folder = existing_type == ContentType::Folder;
+    let list_view = is_folder && payload.list_view.unwrap_or(existing.list_view);
+    let new_files_public = payload
+        .new_files_public
+        .unwrap_or(existing.new_files_public);
+    let auto_rescan = match payload.auto_rescan {
+        Some(auto) => parse_auto_refresh(auto)?,
+        None => AutoRefresh::from_columns(
+            existing.auto_rescan_mode,
+            existing.auto_rescan_hours,
+            existing.auto_rescan_time,
+        ),
+    };
+    let auto_rescan_hours = auto_rescan.hours.map(i64::from);
 
-    // `path` を変えたら索引を捨てる (→ docs/archive.md「スキャン」)。`rel_path` は登録先を
-    // 起点とする相対パスなので、起点が変われば同じ `rel_path` が別のファイルを指す。
-    // 残すと変更前の公開フラグが無関係なファイルへ引き継がれる。
-    // 拡張子の変更では消さない。索引対象であり続けたアイテムは公開フラグを保つ
-    // (対象から外れた行は次の走査で消える)。
-    let path_changed = existing_type == ContentType::Archive && existing.path != path;
-    // フォルダーで表示しないにしたものも、登録先からの相対パスなので同じ理由で捨てる (→ `folder_hidden`)。
-    let folder_path_changed = existing_type == ContentType::Folder && existing.path != path;
+    // `path` を変えたら、索引と公開・非公開の印を捨てる (→ docs/archive.md「スキャン」)。
+    // どちらも登録先を起点とする相対パスなので、起点が変われば同じパスが別のファイルを指す。
+    // 残すと変更前の公開が無関係なファイルへ引き継がれる。
+    // 拡張子の変更では消さない (対象から外れた行は次の走査で消える)。
+    let path_changed = is_folder && existing.path != path;
 
     // `path` の更新と索引の削除は同じトランザクションに入れる (→ docs/archive.md「スキャン」)。
     // 分けると、削除だけが失敗したときに新しい `path` と旧索引の組み合わせが残り、
@@ -1317,11 +1321,15 @@ async fn update_content(
         r#"UPDATE contents
            SET parent_id = ?, title = ?, url = ?, path = ?, description = ?,
                visibility = ?, extensions = ?, title_template = ?,
+               list_view = ?, new_files_public = ?,
+               auto_rescan_mode = ?, auto_rescan_hours = ?, auto_rescan_time = ?,
                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
            WHERE id = ?
            RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
                      path, description, created_at as "created_at!", file_name, file_size,
-                     visibility as "visibility: Visibility", created_by, extensions, title_template"#,
+                     visibility as "visibility: Visibility", created_by, extensions, title_template,
+                     list_view as "list_view: bool", new_files_public as "new_files_public: bool",
+                     auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         parent_id,
         title,
         url,
@@ -1330,6 +1338,11 @@ async fn update_content(
         visibility,
         extensions,
         title_template,
+        list_view,
+        new_files_public,
+        auto_rescan.mode,
+        auto_rescan_hours,
+        auto_rescan.time,
         id,
     )
     .fetch_optional(&mut *tx)
@@ -1340,11 +1353,20 @@ async fn update_content(
         sqlx::query!("DELETE FROM archive_items WHERE archive_id = ?", id)
             .execute(&mut *tx)
             .await?;
-    }
-    if folder_path_changed {
-        sqlx::query!("DELETE FROM folder_hidden_entries WHERE content_id = ?", id)
+        sqlx::query!("DELETE FROM archive_dirs WHERE archive_id = ?", id)
             .execute(&mut *tx)
             .await?;
+        sqlx::query!("DELETE FROM folder_marks WHERE content_id = ?", id)
+            .execute(&mut *tx)
+            .await?;
+        // 新しい場所はまだ読んでいないので、前の場所のスキャンの時刻を残さない。保存の後のスキャンが
+        // 失敗したときに、自動の再スキャンが前の場所の時刻から数えて遅れないため。
+        sqlx::query!(
+            "UPDATE contents SET last_scanned_at = NULL WHERE id = ?",
+            id
+        )
+        .execute(&mut *tx)
+        .await?;
     }
 
     tx.commit().await?;
@@ -1411,7 +1433,9 @@ async fn set_creator(
            WHERE id = ?
            RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
                      path, description, created_at as "created_at!", file_name, file_size,
-                     visibility as "visibility: Visibility", created_by, extensions, title_template"#,
+                     visibility as "visibility: Visibility", created_by, extensions, title_template,
+                     list_view as "list_view: bool", new_files_public as "new_files_public: bool",
+                     auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         payload.created_by,
         id,
     )
@@ -1457,7 +1481,7 @@ async fn delete_content(
 
     // 走査中の削除を防ぐ (→ docs/archive.md「スキャン」)。走査の途中で行が消えると、
     // 同期が消えたアーカイブの索引を書き戻してしまう。update_content と同じく待たない。
-    let _scan_guard = (existing_type == ContentType::Archive)
+    let _scan_guard = (existing_type == ContentType::Folder)
         .then(|| state.archive_scans.acquire(id))
         .transpose()?;
 
@@ -1586,6 +1610,31 @@ pub(super) struct FolderEntry {
     is_text: bool,
     /// 行に縮小画像を出してみるか (→ docs/ui.md「画像のプレビュー」)。
     thumbnail: bool,
+    /// 公開しているか (→ docs/folders.md「公開と非公開」)。閲覧する人には公開しているものしか返さない。
+    /// フォルダーは、それ自身に公開の印が届いているかで、中に公開したものがあって辿れるだけなら偽。
+    pub(super) public: bool,
+}
+
+impl FolderEntry {
+    /// 一覧の表示の索引から作るファイルの行。検索の結果の行は2段目に場所を出し、大きさと日時を出さないので、それらは持たない。
+    /// 索引に並ぶのは公開しているファイルだけなので、公開している行にする。
+    pub(super) fn indexed_file(
+        name: String,
+        image: Option<super::thumbnails::ImageSize>,
+        is_text: bool,
+        thumbnail: bool,
+    ) -> Self {
+        Self {
+            name,
+            is_dir: false,
+            size: None,
+            modified_at: None,
+            image,
+            is_text,
+            thumbnail,
+            public: true,
+        }
+    }
 }
 
 /// 更新日時を UNIX エポックミリ秒で返す。取れなければ `None`。
@@ -1608,6 +1657,8 @@ struct FolderBrowseResponse {
     entries: Vec<FolderEntry>,
     /// 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。
     can_edit: bool,
+    /// 一覧の表示 (軸で絞り込む平らな一覧) も使うか。画面は真のとき、表示の切り替えを出す。
+    list_view: bool,
 }
 
 /// `id` が指す `type = 'folder'` の行から、フォルダーのタイトルと登録済みルートパス
@@ -1633,6 +1684,15 @@ pub(super) async fn folder_root(
 
     let lineage = ensure_viewable(&state.pool, viewer, id).await?;
     Ok((row.title, folder_path(row.path)?, lineage))
+}
+
+async fn uses_list_view(pool: &sqlx::SqlitePool, id: i64) -> Result<bool, AppError> {
+    Ok(sqlx::query_scalar!(
+        r#"SELECT list_view as "list_view: bool" FROM contents WHERE id = ?"#,
+        id
+    )
+    .fetch_one(pool)
+    .await?)
 }
 
 /// パスの状態をファイルシステムに問い合わせる。
@@ -1697,19 +1757,19 @@ fn reject_traversal_components(rel: &str) -> Result<(), AppError> {
 /// 対象外: 実体は`blobs_dir`配下にweblavプロセス自身だけが書くcontent-addressedな
 /// 領域にあり、folderのような「外部が管理する共有ディレクトリ」を覗くものではないため。
 ///
-/// `hidden_of` はフォルダーのコンテンツの id で、そのフォルダーで表示しないにしたもの
-/// (→ `folder_hidden`) も、一覧に出さないものと同じく 404 にする。アーカイブは `None`
-/// (アイテムごとの公開・非公開で外すため)。
+/// `marks_of` はフォルダーのコンテンツの id で、そのフォルダーで公開していないもの
+/// (→ `folder_marks`) も、一覧に出さないものと同じく 404 にする。フォルダーは、中に公開したものが
+/// あれば辿れる。書き換えられる人には `None` を渡す (非公開のものも開いて公開を決めるため)。
 pub(super) async fn resolve_path(
     state: &AppState,
     root: &str,
     rel: &str,
-    hidden_of: Option<i64>,
+    marks_of: Option<i64>,
 ) -> Result<PathBuf, AppError> {
     reject_traversal_components(rel)?;
-    let hidden = match hidden_of {
-        Some(id) => super::folder_hidden::rel_paths(&state.pool, id).await?,
-        None => Vec::new(),
+    let marks = match marks_of {
+        Some(id) => Some(super::folder_marks::Marks::load(&state.pool, id).await?),
+        None => None,
     };
 
     super::roots::ensure_reachable(state, root).await?;
@@ -1751,9 +1811,19 @@ pub(super) async fn resolve_path(
         if super::fs::has_hidden_component(&canonical_root, FsPath::new(&rel_owned))
             || super::fs::has_dot_component(&canonical_root, &canonical_candidate)
             || own_dirs.contains(&canonical_candidate)
-            || super::folder_hidden::resolve(&canonical_root, &hidden).covers(&canonical_candidate)
         {
             return Err(AppError::NotFound);
+        }
+        if let Some(marks) = &marks {
+            let rel = super::folder_marks::rel_of(&canonical_root, &canonical_candidate)?;
+            let shown = if canonical_candidate.is_dir() {
+                marks.dir_reachable(&rel)
+            } else {
+                marks.is_public(&rel)
+            };
+            if !shown {
+                return Err(AppError::NotFound);
+            }
         }
         Ok::<_, AppError>(canonical_candidate)
     })
@@ -1772,10 +1842,15 @@ pub(super) async fn resolve_path(
 /// 実際のファイルオープンまでの間に対象が差し替えられ得るTOCTOU(Time-of-check
 /// to time-of-use)の窓を広げてしまう。単純にリンクそのものを見せない方が安全。
 /// これによりroot外を指すリンクの名前・サイズ・更新日時が一覧経由で漏れることも防げる。
+///
+/// `dir_rel` は `dir` の登録先からの相対パス。`marks` で公開を見る。`only_public` なら、公開して
+/// いないものを外す (閲覧する人)。書き換えられる人には全部を返し、行ごとの公開を添える。
 fn read_entries(
     dir: &FsPath,
+    dir_rel: &str,
     own_dirs: &super::roots::OwnDirs,
-    hidden: &super::folder_hidden::Hidden,
+    marks: &super::folder_marks::Marks,
+    only_public: bool,
     order: SortOrder,
 ) -> std::io::Result<Vec<FolderEntry>> {
     let mut entries = Vec::new();
@@ -1785,13 +1860,23 @@ fn read_entries(
             continue;
         };
         // `dir` は実体パスで、リンクは上で外しているので、エントリのパスも実体パスのまま比べられる。
-        if own_dirs.contains(&entry.path()) || hidden.covers(&entry.path()) {
+        if own_dirs.contains(&entry.path()) {
             continue;
         }
+        let rel = if dir_rel.is_empty() {
+            name.clone()
+        } else {
+            format!("{dir_rel}/{name}")
+        };
         // ここまで来ればシンボリックリンクではないので、`std::fs::metadata` を呼んでも
         // 実体(非リンク)のメタデータがそのまま返る。取得自体が失敗した場合
         // (権限エラー等)はそのエントリだけ読み飛ばす。
-        if let Some(entry) = folder_entry(name, &entry.path()) {
+        if let Some(mut entry) = folder_entry(name, &entry.path()) {
+            entry.public = marks.is_public(&rel);
+            let shown = entry.public || (entry.is_dir && marks.dir_reachable(&rel));
+            if only_public && !shown {
+                continue;
+            }
             entries.push(entry);
         }
     }
@@ -1826,6 +1911,7 @@ pub(super) fn folder_entry(name: String, path: &FsPath) -> Option<FolderEntry> {
         image: preview.as_ref().and_then(|preview| preview.image),
         is_text: preview.as_ref().is_some_and(|preview| preview.is_text),
         thumbnail: preview.as_ref().is_some_and(|preview| preview.thumbnail),
+        public: true,
     })
 }
 
@@ -1847,7 +1933,9 @@ async fn browse_folder(
     Query(query): Query<BrowseQuery>,
 ) -> Result<Json<FolderBrowseResponse>, AppError> {
     let (folder_title, root, lineage) = folder_root(&state, &viewer, id).await?;
-    let target = resolve_path(&state, &root, &query.path, Some(id)).await?;
+    let can_edit = lineage.editable_by(&viewer);
+    // 書き換えられる人は、公開していないものも見て公開を決める。
+    let target = resolve_path(&state, &root, &query.path, (!can_edit).then_some(id)).await?;
 
     if !path_is_dir(&target).await? {
         return Err(AppError::NotFound);
@@ -1855,17 +1943,17 @@ async fn browse_folder(
 
     let own_dirs = state.own_dirs.clone();
     let order = SortOrder::from_query(query.sort.as_deref());
-    let hidden = super::folder_hidden::rel_paths(&state.pool, id).await?;
+    let marks = super::folder_marks::Marks::load(&state.pool, id).await?;
     let entries = run_blocking(move || {
         // 登録先は `resolve_path` で読めることを確かめてある。
-        let hidden = match std::fs::canonicalize(&root) {
-            Ok(root) => super::folder_hidden::resolve(&root, &hidden),
-            Err(_) => return Err(AppError::NotFound),
-        };
-        Ok(read_entries(
+        let root = std::fs::canonicalize(&root).map_err(|_| AppError::NotFound)?;
+        let dir_rel = super::folder_marks::rel_of(&root, &target)?;
+        Ok::<_, AppError>(read_entries(
             &target,
+            &dir_rel,
             &super::roots::OwnDirs::resolve(&own_dirs),
-            &hidden,
+            &marks,
+            !can_edit,
             order,
         )?)
     })
@@ -1874,7 +1962,8 @@ async fn browse_folder(
     Ok(Json(FolderBrowseResponse {
         folder_title,
         ancestors: lineage.breadcrumbs(),
-        can_edit: lineage.editable_by(&viewer),
+        can_edit,
+        list_view: uses_list_view(&state.pool, id).await?,
         path: query.path,
         entries,
     }))
@@ -1941,7 +2030,9 @@ async fn browse_group(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
                   description, created_at as "created_at!", file_name, file_size,
-                  visibility as "visibility: Visibility", created_by, extensions, title_template
+                  visibility as "visibility: Visibility", created_by, extensions, title_template,
+                  list_view as "list_view: bool", new_files_public as "new_files_public: bool",
+                  auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents
            WHERE parent_id = ?"#,
         id,
@@ -2124,10 +2215,7 @@ pub(super) struct SearchScope {
 /// 範囲にできる種類と階層の形か。階層を持てるのはフォルダーだけで、空の区切り (`a//b`・末尾の `/`) は
 /// 受けない。`resolve_path` は区切りを均して通すが、範囲の名前と結果のパスがずれるため。
 fn check_scope_target(content_type: ContentType, path: &str) -> Result<(), AppError> {
-    let container = matches!(
-        content_type,
-        ContentType::Group | ContentType::Folder | ContentType::Archive
-    );
+    let container = matches!(content_type, ContentType::Group | ContentType::Folder);
     let path_ok = path.is_empty()
         || (content_type == ContentType::Folder && path.split('/').all(|part| !part.is_empty()));
     if container && path_ok {
@@ -2137,7 +2225,7 @@ fn check_scope_target(content_type: ContentType, path: &str) -> Result<(), AppEr
     }
 }
 
-/// 範囲に指定されたグループ・フォルダー・アーカイブを、開けることを確かめて引く。
+/// 範囲に指定されたグループ・フォルダーを、開けることを確かめて引く。
 /// 開けなければ、その画面を開くのと同じく 401/404 にする。ほかの種類と、無い階層は 404。
 pub(super) async fn search_scope(
     state: &AppState,
@@ -2220,7 +2308,9 @@ pub(super) async fn search_contents(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
                   description, created_at as "created_at!", file_name, file_size,
-                  visibility as "visibility: Visibility", created_by, extensions, title_template
+                  visibility as "visibility: Visibility", created_by, extensions, title_template,
+                  list_view as "list_view: bool", new_files_public as "new_files_public: bool",
+                  auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents"#,
     )
     .fetch_all(&state.pool)
@@ -2255,6 +2345,7 @@ pub(super) async fn search_contents(
         .map(|scope| scope.path.clone())
         .unwrap_or_default();
 
+    let scoped_to_sub_path = !folder_sub_path.is_empty();
     // 照らすのは全行の文字列を揃える計算で、件数に比例して重くなる。
     let mut terms_owned = terms.clone();
     let (mut hits, archives, folders, links_files, groups) = run_blocking(move || {
@@ -2264,7 +2355,9 @@ pub(super) async fn search_contents(
         let mut links_files = Vec::new();
         for row in rows {
             match row.content_type {
-                ContentType::Archive => archives.push((
+                // 一覧の表示を使うフォルダーは、索引から探す。フォルダーの表示の中の階層に絞るときは、
+                // その階層を辿る (索引は階層で絞らないため)。
+                ContentType::Folder if row.list_view && !scoped_to_sub_path => archives.push((
                     row.id,
                     row.title.clone(),
                     row.path.clone(),
@@ -2468,14 +2561,14 @@ impl ServedFile {
 /// `root` 配下の `rel` を `resolve_path` で解決する。ファイルでなければ404。
 /// folder配下のファイルとアーカイブアイテムの両方が、実体そのもの以外に
 /// 手がかりを持たない (DBにfile_nameを別途保存していない) ため共有する。
-/// `hidden_of` は `resolve_path` と同じ。
+/// `marks_of` は `resolve_path` と同じ。
 pub(super) async fn resolve_file_under(
     state: &AppState,
     root: &str,
     rel: &str,
-    hidden_of: Option<i64>,
+    marks_of: Option<i64>,
 ) -> Result<ServedFile, AppError> {
-    let target = resolve_path(state, root, rel, hidden_of).await?;
+    let target = resolve_path(state, root, rel, marks_of).await?;
     if !path_is_file(&target).await? {
         return Err(AppError::NotFound);
     }
@@ -2555,16 +2648,15 @@ pub(super) async fn content_file(
     .ok_or(AppError::NotFound)?;
 
     // 公開範囲の判定はファイルシステムに触る前に行う(理由は`folder_root`のコメント)。
-    ensure_viewable(&state.pool, viewer, id).await?;
+    let lineage = ensure_viewable(&state.pool, viewer, id).await?;
 
     match row.content_type {
-        // アーカイブのアイテムは専用の配信エンドポイント
-        // (`GET /contents/{id}/items/{item_id}/download`、→ archive_items::download_item)
-        // で扱う。
-        ContentType::Link | ContentType::Group | ContentType::Archive => Err(AppError::NotFound),
+        ContentType::Link | ContentType::Group => Err(AppError::NotFound),
         ContentType::Folder => {
             let root = folder_path(row.path)?;
-            resolve_file_under(state, &root, rel, Some(id)).await
+            // 書き換えられる人は、公開していないものも開いて公開を決める。
+            let marks_of = (!lineage.editable_by(viewer)).then_some(id);
+            resolve_file_under(state, &root, rel, marks_of).await
         }
         ContentType::File => {
             let hash = row
@@ -2937,7 +3029,9 @@ async fn upload_content(
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
            RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
                      path, description, created_at as "created_at!", file_name, file_size,
-                     visibility as "visibility: Visibility", created_by, extensions, title_template"#,
+                     visibility as "visibility: Visibility", created_by, extensions, title_template,
+                     list_view as "list_view: bool", new_files_public as "new_files_public: bool",
+                     auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         content_type,
         parent_id,
         title,
@@ -3089,7 +3183,9 @@ async fn replace_content_upload(
            WHERE id = ?
            RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
                      path, description, created_at as "created_at!", file_name, file_size,
-                     visibility as "visibility: Visibility", created_by, extensions, title_template"#,
+                     visibility as "visibility: Visibility", created_by, extensions, title_template,
+                     list_view as "list_view: bool", new_files_public as "new_files_public: bool",
+                     auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         parent_id,
         title,
         description,
@@ -3254,6 +3350,11 @@ mod tests {
             created_by,
             extensions: None,
             title_template: None,
+            list_view: false,
+            new_files_public: true,
+            auto_rescan_mode: AutoMode::Off,
+            auto_rescan_hours: None,
+            auto_rescan_time: None,
         }
     }
 
@@ -3354,16 +3455,14 @@ mod tests {
 
     #[test]
     fn check_scope_target_accepts_only_containers_and_clean_folder_levels() {
-        use ContentType::{Archive, File, Folder, Group, Link};
+        use ContentType::{File, Folder, Group, Link};
         for (content_type, path, ok) in [
             (Group, "", true),
             (Folder, "", true),
-            (Archive, "", true),
             (Folder, "2024/リスニング", true),
             (Link, "", false),
             (File, "", false),
             (Group, "2024", false),
-            (Archive, "2024", false),
             (Folder, "2024/", false),
             (Folder, "/2024", false),
             (Folder, "2024//a", false),

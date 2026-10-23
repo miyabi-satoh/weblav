@@ -16,7 +16,6 @@ export function contentTypeLabel(type: ContentType): string {
 	if (type === 'folder') return m.contents_type_folder();
 	if (type === 'group') return m.contents_type_group();
 	if (type === 'file') return m.contents_type_file();
-	if (type === 'archive') return m.contents_type_archive();
 	return type;
 }
 
@@ -26,7 +25,6 @@ export function contentTypeDescription(type: ContentType): string {
 	if (type === 'folder') return m.contents_type_folder_description();
 	if (type === 'group') return m.contents_type_group_description();
 	if (type === 'file') return m.contents_type_file_description();
-	if (type === 'archive') return m.contents_type_archive_description();
 	return type;
 }
 
@@ -38,7 +36,7 @@ export function visibilityLabel(visibility: Visibility): string {
 	return visibility;
 }
 
-/** アーカイブのアイテムの数と、そのうち公開している数。一覧・編集ページの見出し・アイテムのタブで同じ言い方にする。 */
+/** 一覧の表示を使うフォルダーのアイテムの数と、そのうち公開している数。一覧・編集ページの見出し・アイテムのタブで同じ言い方にする。 */
 export function archiveItemsSummary(counts: { total: number; published: number }): string {
 	return m.archive_items_summary({
 		count: formatNumber(counts.total),

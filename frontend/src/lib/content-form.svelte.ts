@@ -19,7 +19,21 @@ import * as m from '$lib/paraglide/messages.js';
 type Content = components['schemas']['AdminContentResponse'];
 type ContentType = components['schemas']['ContentType'];
 type Visibility = components['schemas']['Visibility'];
+type AutoMode = components['schemas']['AutoMode'];
+
+/**
+ * 自動の再スキャンを選び直したときに入れておく値。書き換えたファイルを拾えれば足りるので1日おき、
+ * 時刻は NAS を使う人の少ない夜中にする。
+ */
+const AUTO_RESCAN_DEFAULT_HOURS = 24;
+const AUTO_RESCAN_DEFAULT_TIME = '03:00';
 type LinkMetadataResponse = components['schemas']['LinkMetadataResponse'];
+
+/**
+ * 編集ページの区画。どの種類にもある項目 (`common`) と、種類ごとの項目 (`specific`) に分け、
+ * 区画ごとに保存する (→ docs/ui.md「編集ページの区画」)。
+ */
+export type ContentFormPart = 'common' | 'specific';
 
 /** `POST /contents/link-metadata` を呼ぶ。取れない・通信に失敗したら `null`。 */
 async function fetchLinkMetadata(url: string): Promise<LinkMetadataResponse | null> {
@@ -44,6 +58,11 @@ type FormSnapshot = {
 	description: string;
 	hasFiles: boolean;
 	extensions: string;
+	listView: boolean;
+	newFilesPublic: boolean;
+	autoRescanMode: AutoMode;
+	autoRescanHours: number;
+	autoRescanTime: string;
 };
 
 export class ContentFormState {
@@ -60,10 +79,18 @@ export class ContentFormState {
 	 */
 	parentId = $state('root');
 	description = $state('');
-	/** `archive` 専用。対象拡張子 (カンマ区切り、空なら全ファイル)。 */
+	/** `folder` の一覧の表示で索引する拡張子 (カンマ区切り、空なら全ファイル)。 */
 	extensions = $state('');
+	/** `folder` 専用。軸で絞り込む一覧の表示を使うか (→ docs/folders.md「2つの表示」)。 */
+	listView = $state(false);
+	/** `folder` 専用。新しく見つかったファイルを公開するか (→ docs/folders.md「公開と非公開」)。 */
+	newFilesPublic = $state(true);
+	/** `folder` の一覧の表示で、自動で再スキャンする間隔。 */
+	autoRescanMode = $state<AutoMode>('off');
+	autoRescanHours = $state(AUTO_RESCAN_DEFAULT_HOURS);
+	autoRescanTime = $state(AUTO_RESCAN_DEFAULT_TIME);
 	/**
-	 * `archive` 専用。表示タイトルの組み立てテンプレート。
+	 * `folder` の一覧の表示の、表示タイトルの組み立てテンプレート。
 	 * この画面では編集させず (軸がまだ無い・変わりうるため、軸の設定画面に委ねる)、
 	 * 取得した値を保存時にそのまま送り返すためだけに持つ。
 	 */
@@ -160,9 +187,10 @@ export class ContentFormState {
 
 	/**
 	 * 開いた時点の値。バックドロップのクリックと Esc で編集中のフォームを
-	 * 誤って閉じないよう、`dirty` の判定に使う。
+	 * 誤って閉じないよう、`dirty` の判定に使う。編集ページは区画ごとに保存するので、区画ごとに持つ。
 	 */
-	#dirtyState = new FormDirtyState(() => this.snapshot());
+	#commonDirtyState = new FormDirtyState(() => this.partSnapshot('common'));
+	#specificDirtyState = new FormDirtyState(() => this.partSnapshot('specific'));
 
 	snapshot(): FormSnapshot {
 		return {
@@ -174,13 +202,25 @@ export class ContentFormState {
 			description: this.description,
 			visibility: this.visibility,
 			hasFiles: (this.files?.length ?? 0) > 0,
-			extensions: this.extensions
+			extensions: this.extensions,
+			listView: this.listView,
+			newFilesPublic: this.newFilesPublic,
+			autoRescanMode: this.autoRescanMode,
+			autoRescanHours: this.autoRescanHours,
+			autoRescanTime: this.autoRescanTime
 		};
+	}
+
+	/** 区画ごとの比較に使う値。`snapshot()` を区画の項目に絞ったもの。 */
+	private partSnapshot(part: ContentFormPart): Partial<FormSnapshot> {
+		const { title, parentId, description, visibility, ...specific } = this.snapshot();
+		return part === 'common' ? { title, parentId, description, visibility } : specific;
 	}
 
 	/** 開いた (または保存した) 時点の値を、これ以降の比較の基準にする。 */
 	markPristine(): void {
-		this.#dirtyState.markPristine();
+		this.#commonDirtyState.markPristine();
+		this.#specificDirtyState.markPristine();
 	}
 
 	/**
@@ -195,7 +235,12 @@ export class ContentFormState {
 	}
 
 	get dirty(): boolean {
-		return this.#dirtyState.dirty;
+		return this.partDirty('common') || this.partDirty('specific');
+	}
+
+	/** 区画の項目に、開いた (または保存した) 時点からの変更があるか。 */
+	partDirty(part: ContentFormPart): boolean {
+		return (part === 'common' ? this.#commonDirtyState : this.#specificDirtyState).dirty;
 	}
 
 	/** 新規作成の初期値に戻す。`parentId` は「このグループの中に追加」から渡せる。 */
@@ -208,6 +253,11 @@ export class ContentFormState {
 		this.parentId = parentId;
 		this.description = '';
 		this.extensions = '';
+		this.listView = false;
+		this.newFilesPublic = true;
+		this.autoRescanMode = 'off';
+		this.autoRescanHours = AUTO_RESCAN_DEFAULT_HOURS;
+		this.autoRescanTime = AUTO_RESCAN_DEFAULT_TIME;
 		this.titleTemplate = null;
 		this.visibility = 'public';
 		this.files = undefined;
@@ -229,22 +279,41 @@ export class ContentFormState {
 		return this.parentId === 'root' ? null : Number(this.parentId);
 	}
 
-	/** 送信・件数確認の両方で使う拡張子。archive 以外と空入力は `null`。 */
+	/** 送信・件数確認の両方で使う拡張子。一覧の表示を使うフォルダー以外と空入力は `null`。 */
 	get normalizedExtensions(): string | null {
-		return this.type === 'archive' && this.extensions.trim() !== '' ? this.extensions.trim() : null;
+		return this.type === 'folder' && this.listView && this.extensions.trim() !== ''
+			? this.extensions.trim()
+			: null;
 	}
 
 	/** JSON で送る作成・更新に共通の項目。`type` は更新で送らないので含めない。 */
-	requestFields() {
+	private commonFields() {
 		return {
 			parentId: this.parentIdValue,
 			title: this.title,
 			url: this.type === 'link' ? this.url : null,
 			path: isDirectoryContentType(this.type) ? this.path : null,
 			description: this.description.trim() === '' ? null : this.description,
-			visibility: this.visibility,
+			visibility: this.visibility
+		};
+	}
+
+	/** 更新で JSON に送る項目。フォルダーの見せ方の設定は、作成では聞かず編集で変える (→ docs/ui.md「UI 全般」)。 */
+	requestFields() {
+		const folder = this.type === 'folder';
+		return {
+			...this.commonFields(),
 			extensions: this.normalizedExtensions,
-			titleTemplate: this.titleTemplate
+			titleTemplate: this.titleTemplate,
+			listView: folder ? this.listView : null,
+			newFilesPublic: folder ? this.newFilesPublic : null,
+			autoRescan: folder
+				? {
+						mode: this.autoRescanMode,
+						hours: this.autoRescanMode === 'interval' ? this.autoRescanHours : null,
+						time: this.autoRescanMode === 'daily' ? this.autoRescanTime : null
+					}
+				: null
 		};
 	}
 
@@ -253,7 +322,7 @@ export class ContentFormState {
 	 * 種別を選び直しても、前の種別で打ったタイトルが残らないようにする。
 	 */
 	createRequestFields() {
-		return { ...this.requestFields(), title: this.type === 'group' ? this.title : null };
+		return { ...this.commonFields(), title: this.type === 'group' ? this.title : null };
 	}
 
 	/**
@@ -261,7 +330,7 @@ export class ContentFormState {
 	 * 作成 (`forCreate`) ではタイトルを送らず、サーバーがファイル名から付ける。
 	 */
 	toFormData(forCreate = false): FormData {
-		const fields = this.requestFields();
+		const fields = this.commonFields();
 		const body = new FormData();
 		if (!forCreate) body.append('title', fields.title);
 		if (fields.description !== null) body.append('description', fields.description);
@@ -286,6 +355,56 @@ export class ContentFormState {
 	}
 
 	/**
+	 * 区画の項目だけをフォームの値にし、ほかは保存済みの `saved` のまま `id` を置き換える。
+	 * 更新の API は全項目の置き換えなので、もう一方の区画の書きかけを一緒に送らないため。
+	 */
+	replacePart(id: number, part: ContentFormPart, saved: Content) {
+		const draft = new ContentFormState();
+		draft.loadFrom(saved, false);
+		draft.copyPartFrom(this, part);
+		return draft.replace(id);
+	}
+
+	private copyPartFrom(source: ContentFormState, part: ContentFormPart): void {
+		if (part === 'common') {
+			this.title = source.title;
+			this.parentId = source.parentId;
+			this.description = source.description;
+			this.visibility = source.visibility;
+		} else {
+			this.url = source.url;
+			this.path = source.path;
+			this.pathLabel = source.pathLabel;
+			this.files = source.files;
+			this.extensions = source.extensions;
+			this.listView = source.listView;
+			this.newFilesPublic = source.newFilesPublic;
+			this.autoRescanMode = source.autoRescanMode;
+			this.autoRescanHours = source.autoRescanHours;
+			this.autoRescanTime = source.autoRescanTime;
+		}
+	}
+
+	/**
+	 * 保存した区画の項目だけを読み直す。もう一方の区画の書きかけは残し、
+	 * その比較の基準 (開いた時点の値) も動かさない。
+	 */
+	loadPart(content: Content, canSeeFullPath: boolean, part: ContentFormPart): void {
+		const loaded = new ContentFormState();
+		loaded.loadFrom(content, canSeeFullPath);
+		this.copyPartFrom(loaded, part);
+		this.titleTemplate = loaded.titleTemplate;
+		if (part === 'common') {
+			this.resetRefetchState();
+		} else {
+			this.fileInputVersion++;
+			this.existingFileName = loaded.existingFileName;
+			this.existingFileSize = loaded.existingFileSize;
+		}
+		(part === 'common' ? this.#commonDirtyState : this.#specificDirtyState).markPristine();
+	}
+
+	/**
 	 * 既存のコンテンツを読み込む。`canSeeFullPath` は、場所をフルパスで出してよい人か
 	 * (管理者。→ docs/folders.md「公開できるフォルダー」)。
 	 */
@@ -298,6 +417,11 @@ export class ContentFormState {
 		this.parentId = content.parentId === null ? 'root' : String(content.parentId);
 		this.description = content.description ?? '';
 		this.extensions = content.extensions ?? '';
+		this.listView = content.listView;
+		this.newFilesPublic = content.newFilesPublic;
+		this.autoRescanMode = content.autoRescan.mode;
+		this.autoRescanHours = content.autoRescan.hours ?? AUTO_RESCAN_DEFAULT_HOURS;
+		this.autoRescanTime = content.autoRescan.time ?? AUTO_RESCAN_DEFAULT_TIME;
 		this.titleTemplate = content.titleTemplate ?? null;
 		this.visibility = content.visibility;
 		this.files = undefined;

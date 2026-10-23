@@ -2,8 +2,8 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { escapeRegExp, requiredLabel, SAVE_BUTTON_NAME, saveForm, waitForDialog } from './helpers';
 
-/** 軸の画面の「軸を追加...」。admin にだけ出る。 */
-export const ADD_AXIS_BUTTON_NAME = /^軸を追加\.\.\.$|^Add axis\.\.\.$/;
+/** 分類の画面の「分類を追加...」。admin にだけ出る。 */
+export const ADD_AXIS_BUTTON_NAME = /^分類を追加\.\.\.$|^Add category\.\.\.$/;
 
 // ラベルは文言の前後で改行しているので、前後の空白を許す。
 const SOURCE_LABEL = /^\s*(抽出元|Source)\s*$/;
@@ -36,7 +36,7 @@ export async function addAxis(
 	await page.getByRole('button', { name: ADD_AXIS_BUTTON_NAME }).click();
 	await waitForDialog(page);
 	const dialog = page.getByRole('dialog');
-	await dialog.getByLabel(requiredLabel('軸の名前', 'Axis name')).fill(name);
+	await dialog.getByLabel(requiredLabel('分類の名前', 'Category name')).fill(name);
 	await dialog.getByLabel(SOURCE_LABEL).click();
 	if ('dirLevel' in source) {
 		await page.getByRole('option', { name: /^フォルダーの階層$|^Folder level$/ }).click();

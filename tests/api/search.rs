@@ -17,21 +17,15 @@ async fn search(app: Router, query: &str) -> serde_json::Value {
     parse_json(&body)
 }
 
-/// コンテンツはタイトルと説明で、アーカイブのファイルは表示タイトルで当たる。
-/// アーカイブの非公開のアイテムは出さない。
+/// コンテンツはタイトルと説明で、一覧の表示を使うフォルダーのファイルは表示タイトルで当たる。
+/// 非公開のファイルは出さない。
 #[sqlx::test]
 async fn search_finds_contents_and_published_archive_files(pool: SqlitePool) {
     let dir = temp_test_dir("search");
     std::fs::write(dir.join("リスニング第1回.mp3"), b"").expect("ファイルを作れなかった");
     std::fs::write(dir.join("リスニング第2回.mp3"), b"").expect("ファイルを作れなかった");
     let (app, _cookie, archive_id) = setup_archive(&pool, &dir, None).await;
-    sqlx::query!(
-        "UPDATE archive_items SET published = 1 WHERE archive_id = ? AND rel_path = 'リスニング第1回.mp3'",
-        archive_id
-    )
-    .execute(&pool)
-    .await
-    .expect("公開フラグを立てられなかった");
+    mark_published(&pool, archive_id, "リスニング第1回.mp3").await;
     let group_id = insert_group_under(&pool, "教材", "public", None).await;
     let link_id = insert_link_by(&pool, "英語のページ", "public", None, Some(group_id)).await;
     sqlx::query!(
@@ -44,19 +38,35 @@ async fn search_finds_contents_and_published_archive_files(pool: SqlitePool) {
 
     let found = search(app.clone(), "リスニング").await;
 
-    let items = found["items"].as_array().expect("items は配列");
-    assert_eq!(items.len(), 1, "{found}");
-    assert_eq!(items[0]["archiveId"], archive_id, "{found}");
-    assert_eq!(items[0]["archiveTitle"], "英検 過去問", "{found}");
-    assert_eq!(items[0]["ancestors"], serde_json::json!([]), "{found}");
-    assert_eq!(items[0]["item"]["title"], "リスニング第1回.mp3", "{found}");
+    // 一覧の表示の索引で当たった行も、フォルダーの中の当たりと同じ並びに入る。
+    let files = found["files"].as_array().expect("files は配列");
+    assert_eq!(files.len(), 1, "{found}");
+    assert_eq!(files[0]["contentId"], archive_id, "{found}");
+    assert_eq!(files[0]["folderTitle"], "英検 過去問", "{found}");
+    assert_eq!(files[0]["ancestors"], serde_json::json!([]), "{found}");
+    assert_eq!(files[0]["path"], "リスニング第1回.mp3", "{found}");
+    assert_eq!(
+        files[0]["listed"]["title"], "リスニング第1回.mp3",
+        "{found}"
+    );
+    // 行はフォルダーの口で開く。
+    let (status, body) = send_anon(
+        app.clone(),
+        "GET",
+        &format!(
+            "/api/v1/contents/{archive_id}/download?path={}",
+            utf8_percent_encode("リスニング第1回.mp3", NON_ALPHANUMERIC)
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
     let contents = found["contents"].as_array().expect("contents は配列");
     assert_eq!(contents.len(), 1, "{found}");
     assert_eq!(contents[0]["content"]["id"], link_id, "{found}");
     assert_eq!(contents[0]["ancestors"][0]["title"], "教材", "{found}");
     assert_eq!(contents[0]["matchedInDescription"], true, "{found}");
     assert_eq!(found["contentsTruncated"], false, "{found}");
-    assert_eq!(found["itemsTruncated"], false, "{found}");
+    assert_eq!(found["filesTruncated"], false, "{found}");
 }
 
 /// 語が空なら探さない。
@@ -68,7 +78,7 @@ async fn search_with_a_blank_query_returns_nothing(pool: SqlitePool) {
     let found = search(app, " ").await;
 
     assert_eq!(found["contents"], serde_json::json!([]), "{found}");
-    assert_eq!(found["items"], serde_json::json!([]), "{found}");
+    assert_eq!(found["files"], serde_json::json!([]), "{found}");
 }
 
 /// フォルダーの中はファイルとディレクトリの名前で、リンクの一覧のファイルの中は題と `note` で当たる。

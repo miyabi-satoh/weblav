@@ -11,6 +11,7 @@
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import {
+		type ContentFormPart,
 		ContentFormState,
 		contentFormEffectiveVisibility,
 		contentFormVisibilityError,
@@ -20,7 +21,13 @@
 	import { isDirectoryContentType } from '$lib/content-types';
 	import { rescanArchive } from '$lib/archive-scan';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { canHoldContentOf, loosenedByReparent, selectableVisibilities } from '$lib/visibility';
+	import {
+		canHoldContentOf,
+		effectiveVisibilityUnder,
+		loosenedByReparent,
+		selectableVisibilities
+	} from '$lib/visibility';
+	import { contentPathLabel } from '$lib/root-location';
 	import { visibilityLabel } from '$lib/content-labels';
 	import { formatNumber } from '$lib/format';
 	import * as m from '$lib/paraglide/messages.js';
@@ -30,7 +37,7 @@
 	import * as Field from '$lib/components/ui/field';
 	import * as Select from '$lib/components/ui/select';
 	import AiLinksExclusionsSection from '$lib/components/ai-links-exclusions-section.svelte';
-	import FolderHiddenSection from '$lib/components/folder-hidden-section.svelte';
+	import FolderMarksSection from '$lib/components/folder-marks-section.svelte';
 	import AiLinksSettingsSection from '$lib/components/ai-links-settings-section.svelte';
 	import DirPicker from '$lib/components/dir-picker.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
@@ -56,7 +63,7 @@
 	);
 
 	// 作成者の付け替えは admin だけ。`private` は付け替えられない (→ docs/access.md「ロールと操作」)。
-	// 基本情報の保存ボタンで一緒に保存する。
+	// 基本情報の区画の保存ボタンで一緒に保存する。
 	let canChangeCreator = $derived(isAdmin(page.data.user));
 	let creatorLocked = $derived(content.visibility === 'private' || form.visibility === 'private');
 	let savedCreatorId = $derived(String(content.createdBy ?? ''));
@@ -67,17 +74,36 @@
 
 	// グループの、AI がリンクを集める設定 (→ docs/ai.md「AI が集めるリンク」)。区画を分け、区画ごとに保存する。
 	let aiLinksSettings = $derived(content.type === 'group' ? data.aiLinks : null);
-	// 表示しないものが無ければ区画を出さない。表示しないにするのは閲覧の画面の行のメニューで行う。
-	let folderHidden = $derived(
-		content.type === 'folder' && data.folderHidden?.length ? data.folderHidden : null
-	);
+	// 公開・非公開を変えたものが無ければ区画を出さない。印を付けるのは閲覧の画面とアイテムのタブで行う。
+	// 一覧の表示を使うフォルダーでは、ファイルの印はアイテムのタブで見るので、フォルダーの印だけを並べる
+	// (選んで公開するフォルダーでは、公開したファイルの印が数万件になりうるため)。
+	let folderMarks = $derived.by(() => {
+		if (content.type !== 'folder' || !data.folderMarks) return null;
+		const marks = content.listView
+			? data.folderMarks.filter((mark) => mark.isDir)
+			: data.folderMarks;
+		return marks.length > 0 ? marks : null;
+	});
 	let aiLinksDirty = $state(false);
 	let aiLinksSection = $state<{ discard: () => void } | null>(null);
 
-	// 基本情報の区画の保存ボタンは、この区画の変更だけで決める。AI の設定の区画は自分の保存ボタンを持つ。
-	let basicDirty = $derived(form.dirty || creatorChanged);
+	// 区画ごとに保存する (→ docs/ui.md「編集ページの区画」)。保存ボタンは、その区画の変更だけで決める。
+	let commonDirty = $derived(form.partDirty('common') || creatorChanged);
+	let specificDirty = $derived(form.partDirty('specific'));
 	// 離れるときの確認は、どの区画の変更でも出す。
-	let dirty = $derived(basicDirty || aiLinksDirty);
+	let dirty = $derived(commonDirty || specificDirty || aiLinksDirty);
+
+	// 種類ごとの項目の区画の見出し。グループには種類ごとの項目が無い (AI の設定は別の区画)。
+	let specificTitle = $derived.by(() => {
+		if (content.type === 'link') return m.contents_edit_link_title();
+		if (content.type === 'file') return m.contents_edit_file_title();
+		if (content.type === 'folder') return m.contents_edit_folder_title();
+		return null;
+	});
+
+	function partDirty(part: ContentFormPart): boolean {
+		return part === 'common' ? commonDirty : specificDirty;
+	}
 
 	function creatorSelectLabel(value: string): string {
 		if (value === '') return m.contents_form_creator_none();
@@ -88,7 +114,11 @@
 		);
 	}
 
-	let saving = $state(false);
+	/** 保存している区画。保存中はどの区画の保存ボタンも押せなくする。 */
+	let savingPart = $state<ContentFormPart | null>(null);
+	let saving = $derived(savingPart !== null);
+	/** 確認の窓を開いている保存の区画。確認の窓には、その区画の項目だけを変えた後の値を見せる。 */
+	let confirmingPart = $state<ContentFormPart>('common');
 	/** 保存に続くスキャンの進み具合。確認の窓の、押したボタンの近くに出す。 */
 	let scanProgress = $state<string | undefined>();
 
@@ -135,10 +165,23 @@
 	let effectiveFormVisibility = $derived(contentFormEffectiveVisibility(form, contentById));
 
 	// パスか公開範囲が変わったときだけ確認を出す。タイトルだけの変更で巨大なツリーを数え直さないため。
-	let needsRegisterConfirm = $derived(
-		isDirectoryContentType(form.type) &&
-			form.path !== '' &&
-			(content.path !== form.path || content.visibility !== form.visibility)
+	// パスは種類ごとの区画、公開範囲は基本情報の区画にあるので、保存する区画の側の変更だけを見る。
+	function needsRegisterConfirm(part: ContentFormPart): boolean {
+		if (!isDirectoryContentType(form.type) || form.path === '') return false;
+		return part === 'specific'
+			? content.path !== form.path
+			: content.visibility !== form.visibility;
+	}
+
+	// 確認の窓に見せる値。保存しない区画の項目は保存済みの値にする。
+	let confirmSpecific = $derived(confirmingPart === 'specific');
+	let confirmVisibility = $derived(
+		confirmSpecific
+			? effectiveVisibilityUnder(content.visibility, content.parentId, contentById)
+			: effectiveFormVisibility
+	);
+	let confirmPathLabel = $derived(
+		confirmSpecific ? form.pathLabel : (contentPathLabel(content, canSeeFullPath) ?? '')
 	);
 
 	// 親の付け替えで見える範囲が広がるとき。公開範囲は書き換えないので、保存前に知らせる (→ docs/access.md「親が外れるときの公開範囲」)。
@@ -159,12 +202,16 @@
 			.map((c) => ({ id: c.id, label: ancestorPath(c.id, contentById) }))
 	);
 
-	function handleSubmit(e: SubmitEvent) {
+	function handleSubmit(e: SubmitEvent, part: ContentFormPart) {
 		e.preventDefault();
-		if (saving || visibilityError !== null) return;
-		if (loosened !== null) {
-			confirmLoosenedOpen = true;
-			return;
+		if (saving) return;
+		confirmingPart = part;
+		if (part === 'common') {
+			if (visibilityError !== null) return;
+			if (loosened !== null) {
+				confirmLoosenedOpen = true;
+				return;
+			}
 		}
 		confirmRegisterOrSave();
 	}
@@ -172,7 +219,7 @@
 	function confirmRegisterOrSave() {
 		confirmLoosenedOpen = false;
 		// 対象ファイル数と実効的な閲覧範囲を見せてから送る (→ docs/folders.md「登録前の確認」)。
-		if (needsRegisterConfirm) {
+		if (needsRegisterConfirm(confirmingPart)) {
 			confirmRegisterOpen = true;
 			return;
 		}
@@ -181,15 +228,19 @@
 
 	async function saveContent() {
 		if (saving) return;
-		saving = true;
+		const part = confirmingPart;
+		savingPart = part;
 
 		try {
-			// 場所を変えると索引が空になるので、保存に続けてスキャンする (→ docs/archive.md「スキャン」)。
+			// 場所を変えると索引が空になり、一覧の表示を使い始めたときは索引がまだ無いので、
+			// 保存に続けてスキャンする (→ docs/archive.md「スキャン」)。
 			const rescansAfterSave =
-				form.dirty && content.type === 'archive' && content.path !== form.path;
-			// 作成者を先に送る。基本情報の保存で場所が変わると索引が空になるので、その後に
-			// 失敗して再スキャンまで届かない形を作らないため。
-			if (creatorChanged) {
+				part === 'specific' &&
+				form.partDirty('specific') &&
+				content.type === 'folder' &&
+				form.listView &&
+				(content.path !== form.path || !content.listView);
+			if (part === 'common' && creatorChanged) {
 				const result = await client.PUT('/api/v1/contents/{id}/creator', {
 					params: { path: { id: content.id } },
 					body: { createdBy: Number(creatorId) }
@@ -200,15 +251,15 @@
 				}
 				creatorDirty.markPristine();
 			}
-			if (form.dirty) {
-				const result = await form.replace(content.id);
+			if (form.partDirty(part)) {
+				const result = await form.replacePart(content.id, part, content);
 				if (!result.response.ok || !result.data) {
 					errorDialog.show(errorMessage(result.error));
 					// 作成者だけ保存できていることがあるので、見出しと一覧は取り直す。
 					await invalidateAll();
 					return;
 				}
-				form.loadFrom(result.data, canSeeFullPath);
+				form.loadPart(result.data, canSeeFullPath, part);
 			}
 			if (rescansAfterSave) {
 				const scan = await rescanArchive(content.id, (message) => (scanProgress = message));
@@ -232,7 +283,7 @@
 		} catch {
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
-			saving = false;
+			savingPart = null;
 			// 成否によらず確認ダイアログは閉じる。失敗時はフォームが残るので、直して保存し直せる。
 			confirmRegisterOpen = false;
 		}
@@ -288,22 +339,19 @@
 	}
 </script>
 
-{#snippet basicForm(card: boolean)}
+{#snippet partForm(part: ContentFormPart, title: string)}
 	<form
-		onsubmit={handleSubmit}
-		aria-labelledby={card ? 'basic-section-heading' : undefined}
-		class={card ? sectionCardClass : 'flex max-w-xl flex-col gap-6'}
+		onsubmit={(e) => handleSubmit(e, part)}
+		aria-labelledby="{part}-section-heading"
+		class={sectionCardClass}
 	>
-		{#if card}
-			<h2 id="basic-section-heading" class="text-base font-semibold">
-				{m.contents_edit_basic_title()}
-			</h2>
-		{/if}
+		<h2 id="{part}-section-heading" class="text-base font-semibold">{title}</h2>
 		<!-- 見るだけのときは、入力欄を押せない状態で値を見せる (→ docs/ui.md「UI 全般」)。 -->
 		<fieldset disabled={!editable} class="contents">
 			<ContentForm
 				{form}
 				variant="edit"
+				{part}
 				{parentCandidates}
 				{visibilityOptions}
 				{visibilityError}
@@ -312,7 +360,7 @@
 				disabled={!editable}
 			/>
 		</fieldset>
-		{#if canChangeCreator}
+		{#if part === 'common' && canChangeCreator}
 			<Field.Field data-disabled={creatorLocked}>
 				<Field.FieldLabel for="content-creator">{m.contents_form_creator_label()}</Field.FieldLabel>
 				<!-- 付け替えられない間は、選んでいた値でなく保存済みの作成者を見せる。送らない値を出さないため。 -->
@@ -336,25 +384,33 @@
 			</Field.Field>
 		{/if}
 		{#if editable}
-			<div>
+			<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
 				<!-- パスはテキスト入力ではないため、required では未選択を防げない。 -->
 				<LoadingButton
 					type="submit"
-					loading={saving}
-					disabled={!basicDirty ||
-						(isDirectoryContentType(form.type) && form.path === '') ||
-						visibilityError !== null}>{m.action_save()}</LoadingButton
+					loading={savingPart === part}
+					disabled={saving ||
+						!partDirty(part) ||
+						(part === 'specific' && isDirectoryContentType(form.type) && form.path === '') ||
+						(part === 'common' && visibilityError !== null)}>{m.action_save()}</LoadingButton
 				>
+				<!-- 確認の窓を通らずに始めたスキャン (一覧の表示を使い始めたとき) は、ボタンの横に進み具合を出す。 -->
+				{#if part === 'specific' && scanProgress && !confirmRegisterOpen}
+					<p role="status" class="text-sm text-muted-foreground">{scanProgress}</p>
+				{/if}
 			</div>
 		{/if}
 	</form>
 {/snippet}
 
 <div class={adminPageClass}>
-	{#if aiLinksSettings != null}
-		<!-- グループは、AI の設定を別の区画にし、サイト設定と同じく石垣に並べる (→ docs/ui.md「UI 全般」)。 -->
-		<div class={sectionGridClass} {@attach masonry}>
-			{@render basicForm(true)}
+	<!-- どの種類も、基本情報と種類ごとの項目を区画に分け、石垣に並べる (→ docs/ui.md「編集ページの区画」)。 -->
+	<div class={sectionGridClass} {@attach masonry}>
+		{@render partForm('common', m.contents_edit_basic_title())}
+		{#if specificTitle !== null}
+			{@render partForm('specific', specificTitle)}
+		{/if}
+		{#if aiLinksSettings != null}
 			<AiLinksSettingsSection
 				bind:this={aiLinksSection}
 				ondirtychange={(value) => (aiLinksDirty = value)}
@@ -369,15 +425,11 @@
 					{editable}
 				/>
 			{/if}
-		</div>
-	{:else if folderHidden != null}
-		<div class={sectionGridClass} {@attach masonry}>
-			{@render basicForm(true)}
-			<FolderHiddenSection contentId={content.id} entries={folderHidden} />
-		</div>
-	{:else}
-		{@render basicForm(false)}
-	{/if}
+		{/if}
+		{#if folderMarks != null}
+			<FolderMarksSection contentId={content.id} marks={folderMarks} />
+		{/if}
+	</div>
 </div>
 
 <DirPicker
@@ -389,11 +441,14 @@
 <ConfirmRegister
 	bind:open={confirmRegisterOpen}
 	contentType={form.type}
-	path={form.path}
-	pathLabel={form.pathLabel}
-	visibility={effectiveFormVisibility}
-	extensions={form.normalizedExtensions ?? undefined}
-	clearsPublished={content.type === 'archive' && content.path !== form.path}
+	path={confirmSpecific ? form.path : (content.path ?? '')}
+	pathLabel={confirmPathLabel}
+	visibility={confirmVisibility}
+	extensions={(confirmSpecific ? form.normalizedExtensions : content.extensions) ?? undefined}
+	listView={confirmSpecific ? form.listView : content.listView}
+	newFilesPublic={confirmSpecific ? form.newFilesPublic : content.newFilesPublic}
+	clearsMarks={confirmSpecific && content.type === 'folder' && content.path !== form.path}
+	editing
 	{saving}
 	progress={scanProgress}
 	onconfirm={saveContent}

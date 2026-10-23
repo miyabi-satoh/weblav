@@ -3,6 +3,7 @@
 	import type { RowLocation } from '$lib/row-location';
 
 	type FolderEntry = components['schemas']['FolderEntry'];
+	type ListedTitle = components['schemas']['ListedTitle'];
 
 	/** 1行分。検索では、ほかのフォルダーの行も並ぶので、行ごとにフォルダーを持つ。 */
 	export type FolderEntryRow = {
@@ -12,7 +13,17 @@
 		entry: FolderEntry;
 		/** 検索の結果の、どこにあるか。2段目に出す。省くと、ファイルの大きさと更新日時を出す。 */
 		location?: RowLocation;
+		/**
+		 * 検索で、一覧の表示の索引で当たった行の表示タイトルと軸の値。名前の代わりにタイトルを出し、
+		 * 2段目の場所の後ろに軸の値を出す。当たったのがファイル名でなく、表示タイトルと軸の値のため。
+		 */
+		listed?: ListedTitle | null;
 	};
+
+	/** 行に出す名前。 */
+	export function folderEntryTitle(row: FolderEntryRow): string {
+		return row.listed?.title ?? row.entry.name;
+	}
 </script>
 
 <script lang="ts">
@@ -45,6 +56,7 @@
 	import ListRowDownloadLink from '$lib/components/list-row-download-link.svelte';
 	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
 	import FolderIcon from '@lucide/svelte/icons/folder';
+	import * as m from '$lib/paraglide/messages.js';
 
 	// フォルダーの一覧 (`/folders/[id]`) と検索の結果で使う、フォルダーの中のファイル・ディレクトリの行。
 	// 押したときの動きを両方で揃えるため、種類ごとの描き分けをここに集める。
@@ -52,25 +64,18 @@
 		rows: allRows,
 		dirHref,
 		linksHref,
-		trailing,
-		isHidden,
-		hiddenRow
+		trailing
 	}: {
 		rows: FolderEntryRow[];
 		dirHref: (row: FolderEntryRow) => string;
 		linksHref: (row: FolderEntryRow) => string;
 		/** 行の右端に置くもの (書き換えられる人の ⋮ メニュー)。 */
 		trailing?: Snippet<[FolderEntryRow]>;
-		/** この画面で表示しないにした行か。真なら、行の代わりに `hiddenRow` を出す。 */
-		isHidden?: (row: FolderEntryRow) => boolean;
-		hiddenRow?: Snippet<[FolderEntryRow]>;
 	} = $props();
 
 	// ページ内の絞り込みが置かれていれば、タイトルで行を絞る (→ docs/ui.md「一覧の絞り込み」)。
 	const filter = listFilter();
-	let rows = $derived(filter ? filter.apply(allRows, (item) => item.entry.name) : allRows);
-	// 表示しないにした行は、続けて鳴らす音声やビューアーの前後にも入れない。
-	let shownRows = $derived(isHidden ? rows.filter((row) => !isHidden(row)) : rows);
+	let rows = $derived(filter ? filter.apply(allRows, folderEntryTitle) : allRows);
 	// 行の部品の中では `trailing` が同名の口を指すので、外で読んでおく。
 	let hasTrailing = $derived(trailing !== undefined);
 
@@ -93,12 +98,12 @@
 	}
 
 	function toTrack(row: FolderEntryRow): Track {
-		return { src: downloadHref(row), title: row.entry.name };
+		return { src: downloadHref(row), title: folderEntryTitle(row) };
 	}
 
 	// 続けて鳴らすのは、この一覧の中の音声。
 	let audioQueue = $derived(
-		shownRows.filter((row) => !row.entry.isDir && isAudioFileName(row.entry.name)).map(toTrack)
+		rows.filter((row) => !row.entry.isDir && isAudioFileName(row.entry.name)).map(toTrack)
 	);
 
 	/** 画像の行なら、ビューアーに渡す形。大きさが分からない (読めない) 画像は普通のファイルの行にする。 */
@@ -109,7 +114,7 @@
 			thumbnailSrc: contentThumbnailHref(row.contentId, row.path),
 			width: row.entry.image.width,
 			height: row.entry.image.height,
-			title: row.entry.name,
+			title: folderEntryTitle(row),
 			location: location(row)
 		};
 	}
@@ -120,7 +125,7 @@
 		if (!kind) return undefined;
 		return {
 			src: downloadHref(row),
-			title: row.entry.name,
+			title: folderEntryTitle(row),
 			fileName: row.entry.name,
 			kind,
 			thumbnail: rowThumbnail(row),
@@ -128,20 +133,24 @@
 		};
 	}
 
-	let viewerList = $derived(viewerItems(shownRows, toViewerImage, toViewerFile));
+	let viewerList = $derived(viewerItems(rows, toViewerImage, toViewerFile));
 </script>
 
 {#snippet entryTitle(row: FolderEntryRow)}
-	<span class={browseRowTitleClass(true)}><FilterHighlight text={row.entry.name} /></span>
+	<span class={browseRowTitleClass(true)}><FilterHighlight text={folderEntryTitle(row)} /></span>
 {/snippet}
 
 {#snippet entrySubtitle(row: FolderEntryRow)}
 	{@const entry = row.entry}
+	<!-- 非公開の行は、書き換えられる人にだけ並ぶ (→ docs/folders.md「公開と非公開」)。 -->
 	<ListRowSubtitle
+		prefix={entry.public ? undefined : m.marks_private_label()}
 		location={row.location}
-		text={row.location || entry.isDir
-			? undefined
-			: [formatByteSize(entry.size), formatDate(entry.modifiedAt)].filter((part) => part !== '')}
+		text={row.listed
+			? row.listed.subtitle
+			: row.location || entry.isDir
+				? undefined
+				: [formatByteSize(entry.size), formatDate(entry.modifiedAt)].filter((part) => part !== '')}
 	/>
 {/snippet}
 
@@ -155,9 +164,7 @@
 			{@const image = toViewerImage(row)}
 			{@const viewerFile = toViewerFile(row)}
 			<li class={browseItemClass()}>
-				{#if isHidden?.(row) && hiddenRow}
-					{@render hiddenRow(row)}
-				{:else if row.entry.isDir}
+				{#if row.entry.isDir}
 					<div class={browseRowClass(true)}>
 						<ListRowIcon icon={FolderIcon} compact />
 						<span class={browseRowTextClass()}>

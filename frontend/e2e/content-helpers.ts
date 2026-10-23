@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import {
+	basicSaveButton,
 	chooseContentType,
 	clickRowMenuItem,
 	confirmDelete,
@@ -73,7 +74,7 @@ export async function createLinkContent(
 		await page.getByLabel(VISIBILITY_LABEL).click();
 		await page.getByRole('option', { name: options.visibility }).click();
 	}
-	await saveForm(page);
+	await saveForm(page, { button: basicSaveButton(page) });
 	await expectContentEditPage(page, title);
 }
 

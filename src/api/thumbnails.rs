@@ -96,6 +96,23 @@ pub(super) fn file_preview(name: &str, path: &Path, size: u64) -> FilePreview {
     }
 }
 
+/// スキャンで残す、プレビューの情報と写真の撮影日 (EXIF、Unix 秒)。撮影日は日付の軸が使う
+/// (→ docs/archive.md「軸の定義」)。大きさと同じ先頭のバイトから読み、ファイルを二度読まない。
+/// ブロッキング I/O なので `run_blocking` の中から呼ぶ。
+pub(super) fn scan_preview(name: &str, path: &Path, size: u64) -> (FilePreview, Option<i64>) {
+    let (image, taken_at) = if is_image_file_name(name) {
+        read_image_header(path)
+    } else {
+        (None, None)
+    };
+    let preview = FilePreview {
+        image,
+        is_text: super::text_files::is_text_file(name, path, size),
+        thumbnail: shows_thumbnail(name, image),
+    };
+    (preview, taken_at)
+}
+
 /// 前に `file_preview` で読んで残しておいた値から、プレビューの情報を組み立てる。ファイルは開かない。
 pub(super) fn stored_preview(name: &str, image: Option<ImageSize>, is_text: bool) -> FilePreview {
     FilePreview {
@@ -108,19 +125,55 @@ pub(super) fn stored_preview(name: &str, image: Option<ImageSize>, is_text: bool
 /// `path` の画像の、表示するときの大きさ。読めないファイルは `None`。
 /// 拡張子は見ないので、呼び出し側が名前で画像かを判定してから呼ぶ。
 fn read_image_size(path: &Path) -> Option<ImageSize> {
+    read_image_header(path).0
+}
+
+/// `path` の画像の大きさと撮影日。読めないものは `None`。
+fn read_image_header(path: &Path) -> (Option<ImageSize>, Option<i64>) {
     let mut prefix = Vec::new();
-    File::open(path)
-        .ok()?
-        .take(HEADER_PREFIX_BYTES)
-        .read_to_end(&mut prefix)
-        .ok()?;
+    let read =
+        File::open(path).and_then(|file| file.take(HEADER_PREFIX_BYTES).read_to_end(&mut prefix));
+    if read.is_err() {
+        return (None, None);
+    }
     let truncated = prefix.len() as u64 == HEADER_PREFIX_BYTES;
-    size_from_reader(Cursor::new(prefix)).or_else(|| {
+    let taken_at = taken_at_from_exif(&prefix);
+    let size = size_from_reader(Cursor::new(prefix)).or_else(|| {
         // 先頭だけでは読めない形式 (EXIF がファイルの後ろにある WebP など) は全体を読む。
         truncated
             .then(|| size_from_reader(BufReader::new(File::open(path).ok()?)))
             .flatten()
-    })
+    });
+    (size, taken_at)
+}
+
+/// EXIF の撮影日時 (`DateTimeOriginal`、無ければ `DateTime`) を Unix 秒で。
+/// EXIF の日時は時差を持たないので、書かれた年月日と時刻をそのまま UTC として数える。
+/// 日付の軸は年と月だけを取り出すので、カメラに合わせた日付のまま分けられる。
+fn taken_at_from_exif(prefix: &[u8]) -> Option<i64> {
+    let exif = exif::Reader::new()
+        .read_from_container(&mut Cursor::new(prefix))
+        .ok()?;
+    [exif::Tag::DateTimeOriginal, exif::Tag::DateTime]
+        .iter()
+        .find_map(|tag| {
+            let field = exif.get_field(*tag, exif::In::PRIMARY)?;
+            let exif::Value::Ascii(ref values) = field.value else {
+                return None;
+            };
+            let value = exif::DateTime::from_ascii(values.first()?).ok()?;
+            let date = time::Date::from_calendar_date(
+                i32::from(value.year),
+                time::Month::try_from(value.month).ok()?,
+                value.day,
+            )
+            .ok()?;
+            let at = date
+                .with_hms(value.hour, value.minute, value.second)
+                .ok()?
+                .assume_utc();
+            Some(at.unix_timestamp())
+        })
 }
 
 fn size_from_reader(reader: impl BufRead + Seek) -> Option<ImageSize> {
@@ -481,6 +534,51 @@ fn fill_square(image: &DynamicImage, side: u32, anchor: CropAnchor) -> DynamicIm
 mod tests {
     use super::*;
     use image::{Rgb, RgbImage, Rgba, RgbaImage};
+
+    /// 撮影日時 (`DateTimeOriginal`) だけを持つ EXIF の APP1 を付けた、JPEG の頭。
+    fn jpeg_head_with_taken_at(taken_at: &str) -> Vec<u8> {
+        // TIFF (リトルエンディアン): 頭 8 バイト、IFD0 は Exif IFD への1項目、Exif IFD は撮影日時の1項目。
+        let mut tiff = Vec::new();
+        tiff.extend_from_slice(b"II*\0");
+        tiff.extend_from_slice(&8u32.to_le_bytes());
+        // IFD0: 項目1つ (ExifIFDPointer = 0x8769, LONG)、次の IFD は無し。
+        tiff.extend_from_slice(&1u16.to_le_bytes());
+        tiff.extend_from_slice(&0x8769u16.to_le_bytes());
+        tiff.extend_from_slice(&4u16.to_le_bytes());
+        tiff.extend_from_slice(&1u32.to_le_bytes());
+        let exif_ifd_offset = 8 + 2 + 12 + 4;
+        tiff.extend_from_slice(&(exif_ifd_offset as u32).to_le_bytes());
+        tiff.extend_from_slice(&0u32.to_le_bytes());
+        // Exif IFD: 項目1つ (DateTimeOriginal = 0x9003, ASCII, 20 バイト)。値は IFD の後ろに置く。
+        let value_offset = exif_ifd_offset + 2 + 12 + 4;
+        tiff.extend_from_slice(&1u16.to_le_bytes());
+        tiff.extend_from_slice(&0x9003u16.to_le_bytes());
+        tiff.extend_from_slice(&2u16.to_le_bytes());
+        tiff.extend_from_slice(&20u32.to_le_bytes());
+        tiff.extend_from_slice(&(value_offset as u32).to_le_bytes());
+        tiff.extend_from_slice(&0u32.to_le_bytes());
+        tiff.extend_from_slice(taken_at.as_bytes());
+        tiff.push(0);
+
+        let mut app1 = b"Exif\0\0".to_vec();
+        app1.extend_from_slice(&tiff);
+        let mut jpeg = vec![0xFF, 0xD8, 0xFF, 0xE1];
+        jpeg.extend_from_slice(
+            &u16::try_from(app1.len() + 2)
+                .expect("APP1 が大きすぎる")
+                .to_be_bytes(),
+        );
+        jpeg.extend_from_slice(&app1);
+        jpeg
+    }
+
+    #[test]
+    fn taken_at_reads_the_exif_shooting_date_as_written() {
+        let head = jpeg_head_with_taken_at("2015:07:25 18:30:00");
+        // 2015-07-25 18:30:00 を UTC として数えた値。
+        assert_eq!(taken_at_from_exif(&head), Some(1_437_849_000));
+        assert_eq!(taken_at_from_exif(b"not a jpeg"), None);
+    }
 
     fn temp_dir(name: &str) -> crate::test_support::TempDir {
         crate::test_support::project_temp_dir("thumbnails", name)

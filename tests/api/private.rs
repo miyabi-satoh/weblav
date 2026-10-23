@@ -472,12 +472,10 @@ async fn management_endpoints_hide_others_private_from_regular_users(pool: Sqlit
         let (status, body) = send_json(app.clone(), "PUT", &path, &cookie, &json).await;
         assert_eq!(status, StatusCode::NOT_FOUND, "PUT {path}: {body}");
     }
-    let published: i64 = sqlx::query_scalar("SELECT published FROM archive_items WHERE id = ?")
-        .bind(item_id)
-        .fetch_one(&db)
-        .await
-        .expect("アイテムを取得できなかった");
-    assert_eq!(published, 0, "他人の private のアイテムが公開された");
+    assert!(
+        published_rel_paths(&db, archive_id).await.is_empty(),
+        "他人の private のアイテムが公開された"
+    );
     let values: Vec<String> =
         sqlx::query_scalar("SELECT raw_value FROM archive_axis_values WHERE axis_id = ?")
             .bind(axis_id)
@@ -574,12 +572,10 @@ async fn archive_endpoints_forbid_writes_to_others_archives(pool: SqlitePool) {
         assert_eq!(status, StatusCode::FORBIDDEN, "PUT {path}: {body}");
     }
 
-    let published: i64 = sqlx::query_scalar("SELECT published FROM archive_items WHERE id = ?")
-        .bind(item_id)
-        .fetch_one(&db)
-        .await
-        .expect("アイテムを取得できなかった");
-    assert_eq!(published, 0, "他人のアイテムが公開された");
+    assert!(
+        published_rel_paths(&db, archive_id).await.is_empty(),
+        "他人のアイテムが公開された"
+    );
     let name: String = sqlx::query_scalar("SELECT name FROM archive_axes WHERE id = ?")
         .bind(axis_id)
         .fetch_one(&db)

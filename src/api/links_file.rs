@@ -94,7 +94,7 @@ async fn open(
                 content_title: None,
             }
         }
-        (ContentType::Archive, Some(item)) => {
+        (ContentType::Folder, Some(item)) => {
             let (meta, lineage) =
                 archive_items::load_viewable_archive(&state.pool, viewer, id).await?;
             let file = archive_items::item_file(state, viewer, id, item).await?;

@@ -5,7 +5,7 @@ import { linksFileHref } from '$lib/links-file';
 
 type Content = Pick<
 	components['schemas']['AdminContentResponse'],
-	'id' | 'type' | 'parentId' | 'url' | 'fileName'
+	'id' | 'type' | 'parentId' | 'url' | 'fileName' | 'listView'
 >;
 
 /** 閲覧画面での開き先。`external` なら外のサイトなので、閲覧画面と同じく別のタブで開く。 */
@@ -22,10 +22,14 @@ export function contentViewHref(content: Content): ContentViewHref {
 	switch (content.type) {
 		case 'group':
 			return { href: resolve('/groups/[id]', { id }), external: false };
+		// 一覧の表示を使うフォルダーは、閲覧画面と同じくそちらを開く (→ docs/folders.md「2つの表示」)。
 		case 'folder':
-			return { href: resolve('/folders/[id]', { id }), external: false };
-		case 'archive':
-			return { href: resolve('/archives/[id]', { id }), external: false };
+			return {
+				href: content.listView
+					? resolve('/archives/[id]', { id })
+					: resolve('/folders/[id]', { id }),
+				external: false
+			};
 		case 'link':
 			return { href: content.url ?? resolve('/'), external: content.url != null };
 		case 'file':

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id as \"id!\", path, is_dir as \"is_dir: bool\", public as \"public: bool\"\n               FROM folder_marks WHERE content_id = ? ORDER BY created_at DESC, id DESC",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "path",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "is_dir: bool",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "public: bool",
+        "ordinal": 3,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "291e1c4717b026ffe5478abf16d44c33fb4d3d149cb1c71fb37ab8f554151aae"
+}

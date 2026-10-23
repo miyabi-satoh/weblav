@@ -12,16 +12,16 @@ import type { Page } from 'playwright';
 import {
 	AUDIO_PLAYER_REGION_NAME,
 	BROWSE_LAYOUT_LIST_NAME,
+	basicSaveButton,
 	BROWSE_LAYOUT_TILE_NAME,
 	CHOOSE_PATH_BUTTON_NAME,
-	CONFIRM_REGISTER_NAME,
+	CONFIRM_SAVE_NAME,
 	CONTENT_ADD_BUTTON_NAME,
 	DELETE_MENU_ITEM_NAME,
 	DIR_PICKER_NAME,
 	RENAME_MENU_ITEM_NAME,
 	ROOT_ADD_BUTTON_LOADING_NAME,
 	ROOT_ADD_BUTTON_NAME,
-	SAVE_BUTTON_NAME,
 	VISIBILITY_LABEL,
 	USER_ADD_BUTTON_NAME,
 	chooseContentType,
@@ -280,7 +280,7 @@ export const shots: Record<string, ShotEntry> = {
 	admin_contents_edit: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.archiveId}`);
-			await page.getByRole('button', { name: SAVE_BUTTON_NAME }).waitFor({ timeout: 5000 });
+			await basicSaveButton(page).waitFor({ timeout: 5000 });
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
 		}
 	},
@@ -294,8 +294,8 @@ export const shots: Record<string, ShotEntry> = {
 			// パスを変えずに公開範囲だけ変えても確認が出ることを示す。
 			await page.getByLabel(VISIBILITY_LABEL).click();
 			await page.getByRole('option', { name: /ログインした人|Logged-in users/ }).click();
-			await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
-			await page.getByRole('dialog', { name: CONFIRM_REGISTER_NAME }).waitFor({ timeout: 5000 });
+			await basicSaveButton(page).click();
+			await page.getByRole('dialog', { name: CONFIRM_SAVE_NAME }).waitFor({ timeout: 5000 });
 			await page.waitForFunction(
 				() => !/ファイルを数えています|Counting files/.test(document.body.innerText),
 				null,
@@ -511,7 +511,7 @@ export const shots: Record<string, ShotEntry> = {
 	admin_archive_axes_add_dialog: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.archiveId}/axes`);
-			await openAddDialog(page, /^軸を追加\.\.\.$|^Add axis\.\.\.$/, { timeout: 5000 });
+			await openAddDialog(page, /^分類を追加\.\.\.$|^Add category\.\.\.$/, { timeout: 5000 });
 			// 階層ごとの値はダイアログを開いてから取るので、選択肢が出るまで待つ。
 			await page.getByRole('dialog').getByRole('radio').first().waitFor({ timeout: 5000 });
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
@@ -522,8 +522,8 @@ export const shots: Record<string, ShotEntry> = {
 	admin_archive_items: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.archiveId}/items`);
-			// アイテムは load() ではなくマウント後に取るので、waitForPageReady では待てない。表が出るまで待つ。
-			await page.getByRole('table').waitFor({ timeout: 5000 });
+			// 一覧の行が出るまで待つ。
+			await page.getByRole('listitem').first().waitFor({ timeout: 5000 });
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
 		}
 	},
@@ -550,7 +550,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// 検索: 語で探した結果 (コンテンツとアーカイブのファイルの2区画)。
+	// 検索: 語で探した結果 (コンテンツとフォルダーの中の2区画)。
 	search: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, `/search?q=${encodeURIComponent('リスニング')}`);

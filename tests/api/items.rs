@@ -470,11 +470,11 @@ async fn archive_list_items_returns_size_and_modified_at_from_the_last_scan(pool
     assert_eq!(kokugo(app).await["size"], 5);
 }
 
-/// 閲覧の一覧は、スキャンの後に実体が消えた行も、次のスキャンまで並べる。一覧のたびにファイルを
-/// 確かめないため (→ docs/archive.md「アイテムの配信」)。登録先のフォルダーごと無ければ、そう分かるように返す。
+/// 閲覧の一覧は、開いたときに中身が変わったフォルダーだけを読み直し、消えたファイルを外し、
+/// 足したファイルを並べる (→ docs/archive.md「スキャン」)。登録先のフォルダーごと無ければ、そう分かるように返す。
 #[sqlx::test]
-async fn archive_view_keeps_vanished_items_until_rescan(pool: SqlitePool) {
-    let (app, cookie, id, dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
+async fn archive_view_follows_files_added_or_removed_since_the_last_scan(pool: SqlitePool) {
+    let (app, _cookie, id, dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
     publish_all_items(&pool, id).await;
     std::fs::remove_file(dir.join("2024_eigo.pdf")).expect("ファイルを消せなかった");
 
@@ -494,20 +494,12 @@ async fn archive_view_keeps_vanished_items_until_rescan(pool: SqlitePool) {
         names.sort_unstable();
         names
     };
+    std::fs::write(dir.join("2024_sugaku.pdf"), b"").expect("ファイルを作れなかった");
     let (status, body) = view_archive(app.clone(), "", id, &[]).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
         file_names(&body),
-        vec!["2024_eigo.pdf", "2024_kokugo.pdf", "2024_unknown.pdf"],
-        "{body}"
-    );
-
-    let (status, body) = rescan(app.clone(), &cookie, id).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    let (_, body) = view_archive(app.clone(), "", id, &[]).await;
-    assert_eq!(
-        file_names(&body),
-        vec!["2024_kokugo.pdf", "2024_unknown.pdf"],
+        vec!["2024_kokugo.pdf", "2024_sugaku.pdf", "2024_unknown.pdf"],
         "{body}"
     );
 
@@ -814,13 +806,7 @@ async fn archive_bulk_publish_rejects_when_any_item_id_is_foreign(pool: SqlitePo
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 
-    let published: i64 = sqlx::query_scalar!(
-        "SELECT COUNT(*) FROM archive_items WHERE archive_id = ? AND published = 1",
-        id
-    )
-    .fetch_one(&pool)
-    .await
-    .expect("公開件数を数えられなかった");
+    let published = published_rel_paths(&pool, id).await.len();
     assert_eq!(
         published, 0,
         "全件が非公開のまま(ロールバックされている)であること"
@@ -861,13 +847,7 @@ async fn archive_bulk_publish_updates_all_items(pool: SqlitePool) {
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
 
-    let published: i64 = sqlx::query_scalar!(
-        "SELECT COUNT(*) FROM archive_items WHERE archive_id = ? AND published = 1",
-        id
-    )
-    .fetch_one(&pool)
-    .await
-    .expect("公開件数を数えられなかった");
+    let published = published_rel_paths(&pool, id).await.len();
     assert_eq!(published, 3);
 }
 

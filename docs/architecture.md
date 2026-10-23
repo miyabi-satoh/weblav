@@ -155,21 +155,24 @@ API のエラーは共通の envelope で返す。
 
 ## データモデルの全体像
 
-コンテンツは5種類 (`link` / `file` / `folder` / `group` / `archive`) を
+コンテンツは4種類 (`link` / `file` / `folder` / `group`) を
 `contents` テーブル1本で表す。type ごとに必要なカラムだけを埋め、
 「type ごとにどれが必須か」はアプリケーション層 (Rust) で検証する
 (既存の `url` / `path` / `blob_hash` と同じ方針)。
 
-`folder` / `archive` も `group` の配下に置ける (`parent_id` を持てる)。
+`folder` も `group` の配下に置ける (`parent_id` を持てる)。
 親になれるのは `group` だけ。
 `folder` を `authenticated` のグループ配下に置いて、中身ごとログインした人だけに見せられるようにするため。
 
-`archive` 固有の情報だけは行数が増えるため別テーブルに分ける。
+フォルダーの一覧の表示 (→ archive.md) と公開・非公開の印 (→ folders.md「公開と非公開」) は、行数が増えるため別テーブルに分ける。
+テーブル名の `archive` は、一覧の表示が別の種類 (`archive`) だった名残。
 
 | テーブル | 役割 |
 |---|---|
-| `contents` | 5種類のコンテンツ。`archive` は `path` + `extensions` + `title_template` を使う |
-| `archive_items` | アーカイブ配下のファイル1件。相対パスと公開フラグのみ |
+| `contents` | 4種類のコンテンツ。`folder` は `path` と、一覧の表示の設定 (`list_view`・`extensions`・`title_template`・`auto_rescan`)・`new_files_public` を使う |
+| `folder_marks` | フォルダーの中のパスごとの公開・非公開の印 |
+| `archive_items` | 一覧の表示の索引。ファイル1件の相対パスと、スキャンで読んだプレビューの情報・撮影日 |
+| `archive_dirs` | 索引したフォルダーとその更新日時 (開いたときに変わった所だけ読み直す手掛かり) |
 | `archive_axes` | 属性軸の定義 (名前・抽出元・階層番号) |
 | `archive_axis_values` | 軸の値の辞書 (生の値・表示名・並び順) |
 
@@ -215,16 +218,16 @@ type ごとの必須カラムの検証 (`url` / `path` / `blob_hash`) は結局
 ### スキーマ
 
 ```sql
--- contents (CHECK制約なし。archive用の2カラムと created_by は ALTER TABLE で追加する)
+-- contents (CHECK制約なし。一覧の表示の列と created_by は ALTER TABLE で追加する)
 CREATE TABLE contents (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    -- 'link' | 'file' | 'folder' | 'group' | 'archive'
+    -- 'link' | 'file' | 'folder' | 'group'
     -- 値の検証はアプリケーション層で行う (→ 「既存テーブルの変更」)
     type TEXT NOT NULL,
     parent_id INTEGER REFERENCES contents (id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     url TEXT,          -- link のみ必須
-    path TEXT,         -- folder / archive のみ必須。canonicalize済みの絶対パス
+    path TEXT,         -- folder のみ必須。canonicalize済みの絶対パス
     description TEXT,
     -- 'public' | 'authenticated' | 'private' | 'hidden'。
     -- 親グループから継承する (→ access.md「祖先のグループを辿る」・「親が外れるときの公開範囲」)。private のグループの中は、その作成者の private だけ (→ access.md「作成者のみのグループ」)
@@ -235,11 +238,16 @@ CREATE TABLE contents (
     blob_hash TEXT,    -- file のみ。SHA-256(64桁16進)。実体は blobs_dir/<hash>
     file_name TEXT,    -- file のみ
     file_size INTEGER, -- file のみ
-    -- archive のみ。索引対象の拡張子をカンマ区切りで保持する。NULL/空なら全ファイル
+    -- folder の一覧の表示のみ。索引対象の拡張子をカンマ区切りで保持する。NULL/空なら全ファイル
     extensions TEXT,
-    -- archive のみ。表示タイトルのテンプレート (例: '{科目}（{資料種別}）')。
+    -- folder の一覧の表示のみ。表示タイトルのテンプレート (例: '{科目}（{資料種別}）')。
     -- NULL ならファイル名をそのまま表示する
     title_template TEXT,
+    -- folder のみ。一覧の表示を使うか・印の無いファイルを公開するか・自動の再スキャンの間隔と最後のスキャン
+    list_view INTEGER NOT NULL DEFAULT 0,
+    new_files_public INTEGER NOT NULL DEFAULT 1,
+    auto_rescan TEXT NOT NULL DEFAULT 'manual',
+    last_scanned_at INTEGER,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
@@ -256,14 +264,38 @@ CREATE TABLE archive_items (
     -- アーカイブの登録先フォルダーからの相対パス。区切りは '/' に正規化して保存する。
     -- 同一性の判断はこの値のみで行う。
     rel_path TEXT NOT NULL,
-    -- 0=非公開。スキャンで新しく見つかった行は必ず 0 から始まる。
-    published INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    -- スキャンで読んだプレビューの情報と撮影日 (→ archive.md「スキャン」)。file_size が NULL ならまだ読んでいない
+    file_size INTEGER,
+    modified_ns INTEGER,
+    image_width INTEGER,
+    image_height INTEGER,
+    is_text INTEGER NOT NULL DEFAULT 0,
+    taken_at INTEGER,
+    read_version INTEGER NOT NULL DEFAULT 1,
     UNIQUE (archive_id, rel_path)
 );
 
--- 一覧は「このアーカイブの公開アイテム」を全件引くため。
-CREATE INDEX idx_archive_items_archive_id ON archive_items (archive_id, published);
+CREATE INDEX idx_archive_items_archive_id ON archive_items (archive_id);
+
+-- 公開・非公開の印 (→ folders.md「公開と非公開」)。path は登録先からの相対パス。
+CREATE TABLE folder_marks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content_id INTEGER NOT NULL REFERENCES contents (id) ON DELETE CASCADE,
+    path TEXT NOT NULL,
+    is_dir INTEGER NOT NULL,
+    public INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    UNIQUE (content_id, path)
+);
+
+-- 索引したフォルダーとその更新日時 (→ archive.md「スキャン」)。
+CREATE TABLE archive_dirs (
+    archive_id INTEGER NOT NULL REFERENCES contents (id) ON DELETE CASCADE,
+    rel_path TEXT NOT NULL,
+    modified_ns INTEGER,
+    PRIMARY KEY (archive_id, rel_path)
+);
 
 -- 属性軸の定義。
 CREATE TABLE archive_axes (
@@ -274,6 +306,7 @@ CREATE TABLE archive_axes (
     name TEXT NOT NULL,
     -- 'dir_level' | 'filename_word'
     source TEXT NOT NULL,
+    -- 'dir_level' | 'filename_word' | 'date_year' | 'date_month'
     -- source='dir_level' のときのみ使う。アーカイブ登録先の直下を 1 とする階層番号。
     dir_level INTEGER,
     -- 1=閲覧側の絞り込みに出す。0 でも表示タイトルとアイテムの並び順には使う(→ archive.md「軸の定義」)。

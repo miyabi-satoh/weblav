@@ -33,6 +33,10 @@ pub enum AxisSource {
     DirLevel,
     /// 拡張子を含むファイル名に対する部分一致。
     FilenameWord,
+    /// 写真の撮影日 (無ければ更新日) の年。
+    DateYear,
+    /// 写真の撮影日 (無ければ更新日) の年と月。
+    DateMonth,
 }
 
 /// `archive_axis_values.match_position`。照合語をファイル名のどこで照合するか (→ docs/archive.md「軸の定義」)。
@@ -91,9 +95,13 @@ fn validate_axis_source(source: AxisSource, dir_level: Option<i64>) -> Result<()
         AxisSource::DirLevel if dir_level.is_none_or(|level| level < 1) => Err(
             AppError::Validation("dirLevel axis requires dirLevel >= 1".to_string()),
         ),
-        AxisSource::FilenameWord if dir_level.is_some() => Err(AppError::Validation(
-            "filenameWord axis must not have dirLevel".to_string(),
-        )),
+        AxisSource::FilenameWord | AxisSource::DateYear | AxisSource::DateMonth
+            if dir_level.is_some() =>
+        {
+            Err(AppError::Validation(
+                "only a dirLevel axis may have dirLevel".to_string(),
+            ))
+        }
         _ => Ok(()),
     }
 }
@@ -503,15 +511,23 @@ async fn list_axis_values(
                 match_position: row.match_position,
             })
             .collect(),
-        AxisSource::DirLevel => {
-            let dir_level = super::archive::require_dir_level(axis.dir_level)?;
-
-            let rel_paths = super::archive::load_item_rel_paths(&state.pool, id).await?;
+        AxisSource::DirLevel | AxisSource::DateYear | AxisSource::DateMonth => {
+            // 生の値を取り出すだけなので、辞書は空で組み立てる。
+            let source = super::archive::AxisDict::new(axis.source, axis.dir_level, Vec::new())?;
+            let facts = super::archive::load_item_facts(&state.pool, id).await?;
             // 走査と並べ替えはアイテム数に比例するので、非同期のワーカーを塞がない (→ docs/archive.md「軸の設定を助ける表示」)。
             run_blocking(move || {
-                let raw_values: HashSet<&str> = rel_paths
+                let raw_values: HashSet<String> = facts
                     .iter()
-                    .filter_map(|rel_path| super::archive::dir_level_value(rel_path, dir_level))
+                    .filter_map(|(rel_path, dated_at)| {
+                        super::archive::raw_axis_value(
+                            &source,
+                            super::archive::ItemFacts {
+                                rel_path,
+                                dated_at: *dated_at,
+                            },
+                        )
+                    })
                     .collect();
 
                 // 並び順はアイテムの並び替えと同じ `ValueKey` の順序 (→ docs/archive.md「軸の値の辞書と導出」)。
@@ -519,9 +535,9 @@ async fn list_axis_values(
                 let mut entries: Vec<(super::archive::ValueKey, AxisValueResponse)> = raw_values
                     .into_iter()
                     .map(|raw_value| {
-                        let (key, display_name) = dict.lookup(raw_value);
+                        let (key, display_name) = dict.lookup(&raw_value);
                         let value = AxisValueResponse {
-                            raw_value: raw_value.to_string(),
+                            raw_value: raw_value.clone(),
                             display_name: display_name.map(str::to_string),
                             match_position: AxisMatchPosition::Anywhere,
                         };
@@ -638,9 +654,11 @@ fn normalize_axis_values(
                 "duplicate value '{raw_value}'"
             )));
         }
-        if source == AxisSource::DirLevel && entry.match_position != AxisMatchPosition::Anywhere {
+        if source != AxisSource::FilenameWord && entry.match_position != AxisMatchPosition::Anywhere
+        {
             return Err(AppError::Validation(
-                "dirLevel axis values must use matchPosition anywhere".to_string(),
+                "only filenameWord axis values may use a matchPosition other than anywhere"
+                    .to_string(),
             ));
         }
         let display_name =
@@ -720,19 +738,28 @@ async fn preview_axis_values(
     let rows = normalize_axis_values(axis.source, payload.values)?;
     let row_count = match axis.source {
         AxisSource::FilenameWord => rows.len(),
-        AxisSource::DirLevel => 0,
+        AxisSource::DirLevel | AxisSource::DateYear | AxisSource::DateMonth => 0,
     };
     let dict = super::archive::AxisDict::new(axis.source, axis.dir_level, rows)?;
 
-    let mut items = sqlx::query_as!(
-        AxisValuesPreviewItem,
-        r#"SELECT id as "id!", rel_path FROM archive_items WHERE archive_id = ?"#,
+    let mut items: Vec<(AxisValuesPreviewItem, Option<i64>)> = sqlx::query!(
+        r#"SELECT id as "id!", rel_path, taken_at, modified_ns FROM archive_items WHERE archive_id = ?"#,
         id
     )
     .fetch_all(&state.pool)
-    .await?;
+    .await?
+    .into_iter()
+    .map(|row| {
+        let dated_at = super::archive::dated_at(row.taken_at, row.modified_ns);
+        let item = AxisValuesPreviewItem {
+            id: row.id,
+            rel_path: row.rel_path,
+        };
+        (item, dated_at)
+    })
+    .collect();
     // 例を `rel_path` の昇順で取るため、先に並べておく。
-    items.sort_unstable_by(|a, b| a.rel_path.cmp(&b.rel_path));
+    items.sort_unstable_by(|a, b| a.0.rel_path.cmp(&b.0.rel_path));
     // 非同期のワーカーを塞がない (→ docs/archive.md「軸の設定を助ける表示」)。
     let response = run_blocking(move || {
         let item_count = items.len();
@@ -742,8 +769,12 @@ async fn preview_axis_values(
             std::iter::repeat_with(AxisValuesPreviewRow::default)
                 .take(row_count)
                 .collect();
-        for item in items {
-            match super::archive::match_axis_row(&dict, &item.rel_path) {
+        for (item, dated_at) in items {
+            let facts = super::archive::ItemFacts {
+                rel_path: &item.rel_path,
+                dated_at,
+            };
+            match super::archive::match_axis_row(&dict, facts) {
                 AxisRowMatch::Unset => {
                     unset += 1;
                     if unset_examples.len() < EXAMPLE_LIMIT {
@@ -924,12 +955,7 @@ async fn preview_import_axes(
     )
     .fetch_one(&state.pool)
     .await?;
-    let mut rel_paths = sqlx::query_scalar!(
-        "SELECT rel_path FROM archive_items WHERE archive_id = ?",
-        id
-    )
-    .fetch_all(&state.pool)
-    .await?;
+    let mut rel_paths = super::archive::load_item_facts(&state.pool, id).await?;
     rel_paths.sort_unstable();
 
     // 件数に比例して重くなるので、非同期のワーカーを塞がない。
@@ -941,8 +967,12 @@ async fn preview_import_axes(
             .map(|i| i * item_count / IMPORT_EXAMPLE_LIMIT.min(item_count))
             .collect();
         let mut examples = Vec::new();
-        for (position, rel_path) in rel_paths.iter().enumerate() {
-            let derived = super::archive::derive_item(rel_path, &index, template.as_deref());
+        for (position, (rel_path, dated_at)) in rel_paths.iter().enumerate() {
+            let facts = super::archive::ItemFacts {
+                rel_path,
+                dated_at: *dated_at,
+            };
+            let derived = super::archive::derive_item(facts, &index, template.as_deref());
             for (count, value) in counts.iter_mut().zip(&derived.axis_values) {
                 if value.is_some() {
                     *count += 1;

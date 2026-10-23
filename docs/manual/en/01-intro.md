@@ -17,10 +17,10 @@ You can open this manual at any time from “Manual” on the WebLAV icon in the
 
 Only contents registered in the admin pages appear for viewers.
 
-![How folders on the computer relate to the viewer's screen: add "Shared" as an allowed folder, then register "Teaching materials" as a folder and "EIKEN" as an archive. Only those two appear for viewers. Unregistered "Drafts" and "Household accounts" outside the allowed folder do not appear.](images/how-it-works.webp)
+![How folders on the computer relate to the viewer's screen: add "Shared" as an allowed folder, then register "Teaching materials" and "EIKEN" as folders. Only those two appear for viewers. Unregistered "Drafts" and "Household accounts" outside the allowed folder do not appear.](images/how-it-works.webp)
 
 - **Allowed folders**: The area from which you can choose contents. Adding one alone does not show anything to viewers.
-- **Contents**: Register folders in an allowed folder as a “Folder” or “Archive” to show them. These are what viewers see.
+- **Contents**: Register folders in an allowed folder as a “Folder” to show them. These are what viewers see.
 
 ## Quick start
 

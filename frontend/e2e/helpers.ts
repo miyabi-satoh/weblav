@@ -43,12 +43,21 @@ export const PASSWORD_HASH_TIMEOUT = 15_000;
 export const SAVE_BUTTON_NAME = /^保存する$|^Save$/;
 
 /**
- * グループの編集ページの「基本情報」の区画の保存ボタン。
- * グループは AI の設定の区画にも保存ボタンがあり、区画ごとに保存するため (→ docs/ui.md「UI 全般」)。
+ * コンテンツの編集ページの「基本情報」の区画の保存ボタン。
+ * 編集ページは区画ごとに保存ボタンを持つため (→ docs/ui.md「編集ページの区画」)。
  */
-export function groupBasicSaveButton(page: Page): Locator {
+export function basicSaveButton(page: Page): Locator {
 	return page
 		.getByRole('form', { name: /^基本情報$|^Details$/ })
+		.getByRole('button', { name: SAVE_BUTTON_NAME });
+}
+
+/** コンテンツの編集ページの、種類ごとの項目の区画 (リンク先・ファイル・場所と見せ方) の保存ボタン。 */
+export function specificSaveButton(page: Page): Locator {
+	return page
+		.getByRole('form', {
+			name: /^リンク先$|^Link$|^ファイル$|^File$|^場所と見せ方$|^Location and display$/
+		})
 		.getByRole('button', { name: SAVE_BUTTON_NAME });
 }
 export const DELETE_CONFIRM_BUTTON_NAME = /削除する|^Delete$/;
@@ -159,6 +168,8 @@ export const CHANGE_PATH_BUTTON_NAME = /^変更\.\.\.$|^Change\.\.\.$/;
 /** 登録前の確認ダイアログと、その確定ボタン。 */
 export const CONFIRM_REGISTER_NAME = /^この設定で登録しますか？$|^Register with these settings\?$/;
 export const REGISTER_BUTTON_NAME = /^登録する$|^Register$/;
+/** 編集ページで保存するときの同じ確認ダイアログ。 */
+export const CONFIRM_SAVE_NAME = /^この設定で保存しますか？$|^Save with these settings\?$/;
 
 /** 管理画面の一覧の上にある追加ボタン。表示言語 (ja/en) のどちらでも見つかるようにする。 */
 export const CONTENT_ADD_BUTTON_NAME = /^追加\.\.\.$|^Add\.\.\.$/;
@@ -175,7 +186,6 @@ export const CONTENT_TYPE_NAME = {
 	link: /^リンク|^Link/,
 	file: /^ファイル|^File/,
 	folder: /^フォルダー|^Folder/,
-	archive: /^アーカイブ|^Archive/,
 	group: /^グループ|^Group/
 } as const;
 

@@ -6,11 +6,11 @@ import { LIST_FILTER_QUERY } from '$lib/list-filter';
 import * as m from '$lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
-// アーカイブのアイテムのタブ。閲覧の画面 (`/archives/[id]`) と同じ絞り込みと並べ替えで、未公開も並べる
+// 一覧の表示を使うフォルダーの、アイテムのタブ。閲覧の画面 (`/archives/[id]`) と同じ絞り込みと並べ替えで、未公開も並べる
 // (→ docs/ui.md「アーカイブのアイテムのタブ」)。クエリの扱いは閲覧の画面の +page.ts と同じ。
 export const load: PageLoad = async ({ parent, url }) => {
 	const { content, contentId } = await parent();
-	if (content.type !== 'archive') {
+	if (!content.listView) {
 		error(404, m.error_not_found());
 	}
 

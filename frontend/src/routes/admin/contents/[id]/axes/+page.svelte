@@ -90,12 +90,13 @@
 		return m.archive_axes_match_position_option_anywhere();
 	}
 
-	const AXIS_SOURCES: AxisSource[] = ['dirLevel', 'filenameWord'];
+	const AXIS_SOURCES: AxisSource[] = ['dirLevel', 'filenameWord', 'dateYear', 'dateMonth'];
 
 	function sourceOptionLabel(source: AxisSource): string {
-		return source === 'dirLevel'
-			? m.archive_axes_source_option_dir_level()
-			: m.archive_axes_source_option_filename_word();
+		if (source === 'dirLevel') return m.archive_axes_source_option_dir_level();
+		if (source === 'dateYear') return m.archive_axes_source_date_year();
+		if (source === 'dateMonth') return m.archive_axes_source_date_month();
+		return m.archive_axes_source_option_filename_word();
 	}
 
 	/** 軸の保存に送る body。作成・編集・並べ替えで送る項目を揃える。 */
@@ -111,9 +112,10 @@
 	}
 
 	function axisSourceLabel(axis: Axis): string {
-		return axis.source === 'dirLevel'
-			? m.archive_axes_source_dir_level({ level: String(axis.dirLevel ?? '') })
-			: m.archive_axes_source_filename_word();
+		if (axis.source === 'dirLevel')
+			return m.archive_axes_source_dir_level({ level: String(axis.dirLevel ?? '') });
+		if (axis.source === 'filenameWord') return m.archive_axes_source_filename_word();
+		return sourceOptionLabel(axis.source);
 	}
 
 	// 軸の追加・編集ダイアログ。
@@ -1158,7 +1160,9 @@
 						<p class="text-sm text-muted-foreground">
 							{axis.source === 'dirLevel'
 								? m.archive_axes_values_hint_dir_level()
-								: m.archive_axes_values_hint_filename_word()}
+								: axis.source === 'filenameWord'
+									? m.archive_axes_values_hint_filename_word()
+									: m.archive_axes_values_hint_date()}
 						</p>
 					</div>
 
@@ -1306,7 +1310,8 @@
 													{/if}
 												</Table.Cell>
 												<Table.Cell class="py-1.5">
-													{#if axis.source === 'dirLevel'}
+													<!-- 階層と日付の軸は、値がアイテムから決まるので、生の値は打たせない。 -->
+													{#if axis.source !== 'filenameWord'}
 														<span class="text-sm">{row.rawValue}</span>
 													{:else}
 														<!-- スマートフォン幅では横に並べると入力欄が潰れるので、件数を下に回す。

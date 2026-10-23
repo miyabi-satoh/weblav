@@ -16,6 +16,7 @@ import {
 } from './archive-helpers';
 import {
 	anonymousContext,
+	basicSaveButton,
 	CONTENT_ADD_BUTTON_NAME,
 	CONTENT_TYPE_NAME,
 	contentRow,
@@ -192,15 +193,11 @@ test('編集者: 管理のタブが出ず、ユーザー管理とサイト設定
 				await editorPage.waitForURL((url) => url.pathname === '/admin/contents');
 			}
 
-			// フォルダーとアーカイブも編集者に開いている (→ docs/access.md「ロールと操作」)。
+			// フォルダーも編集者に開いている (→ docs/access.md「ロールと操作」)。
 			await editorPage.getByRole('button', { name: CONTENT_ADD_BUTTON_NAME }).click();
 			await waitForDialog(editorPage);
 			const dialog = editorPage.getByRole('dialog');
-			for (const name of [
-				CONTENT_TYPE_NAME.link,
-				CONTENT_TYPE_NAME.folder,
-				CONTENT_TYPE_NAME.archive
-			]) {
+			for (const name of [CONTENT_TYPE_NAME.link, CONTENT_TYPE_NAME.folder]) {
 				await expect(dialog.getByRole('button', { name })).toBeEnabled();
 			}
 		} finally {
@@ -264,7 +261,7 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 					).toHaveCount(0);
 
 					// 値の辞書は見えるが、保存ボタンは出ない (selectAxis は保存ボタンで読み込みを待つので使わない)。
-					await editorPage.getByRole('link', { name: /^軸$|^Axes$/ }).click();
+					await editorPage.getByRole('link', { name: /^分類$|^Categories$/ }).click();
 					// アイテムのタブにも同じ名前の軸の絞り込みがあるので、移り終えてから押す。
 					await editorPage.waitForURL(/\/axes$/);
 					await editorPage
@@ -281,7 +278,7 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 					await page.goto(`/admin/contents/${archive.id}`);
 					await page.getByRole('button', { name: /^作成者$|^Creator$/ }).click();
 					await page.getByRole('option', { name: username }).click();
-					await saveForm(page);
+					await saveForm(page, { button: basicSaveButton(page) });
 
 					await editorPage.reload();
 					await expect(editorPage.getByTestId('view-only-note')).toHaveCount(0);

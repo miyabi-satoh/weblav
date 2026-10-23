@@ -27,14 +27,14 @@
 	let view = $derived(contentViewHref(content));
 	let deletingContent = $state<typeof content | null>(null);
 
-	// アーカイブは「基本情報 / 軸定義 / アイテム」を同列に並べる (→ docs/access.md「ロールと操作」)。
+	// 一覧の表示を使うフォルダーは「基本情報 / 軸定義 / アイテム」を同列に並べる (→ docs/access.md「ロールと操作」)。
 	let tabs = $derived.by(() => {
 		const id = String(data.contentId);
 		const basic = {
 			href: resolve('/admin/contents/[id]', { id }),
 			label: m.contents_edit_tabs_basic()
 		};
-		if (content.type !== 'archive') return [basic];
+		if (!content.listView) return [basic];
 		return [
 			basic,
 			{ href: resolve('/admin/contents/[id]/axes', { id }), label: m.archive_tabs_axes() },

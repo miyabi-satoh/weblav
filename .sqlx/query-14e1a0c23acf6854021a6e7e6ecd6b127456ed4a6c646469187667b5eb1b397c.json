@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id as \"id!\", rel_path, taken_at, modified_ns FROM archive_items WHERE archive_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "rel_path",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "taken_at",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "modified_ns",
+        "ordinal": 3,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "14e1a0c23acf6854021a6e7e6ecd6b127456ed4a6c646469187667b5eb1b397c"
+}

@@ -48,7 +48,11 @@ const ADMIN_SHOTS = [
 	'add-folder-ready',
 	'quickstart-roots',
 	'add-archive-picker',
+	'folder-list-view',
 	'axis-add-dir',
+	'archive-axes-tab',
+	'axis-add-word',
+	'archive-axes-template',
 	'roots-delete',
 	'axis-row-actions',
 	'archive-items-tab',
@@ -92,7 +96,9 @@ const WEBP_QUALITY = 0.85;
 const WINDOWS_SHARED_PATH = 'C:\\Users\\user\\Documents\\共有';
 
 // Ctrl-C はこちらで受けて片付ける (下の SIGINT)。Playwright に先にブラウザーを閉じさせない。
-const browser = await chromium.launch({ handleSIGINT: false });
+// 時刻の欄などブラウザーが描く部品は、コンテキストの locale でなく起動時の言語で書式が決まる。
+// 日本語の画面の画像に「03:00 AM」と写らないよう、日本語で起動する。
+const browser = await chromium.launch({ handleSIGINT: false, args: ['--lang=ja-JP'] });
 /** makeSharedDir が作った一時フォルダー。最後に消す。 */
 const tempDirs: string[] = [];
 
@@ -446,7 +452,7 @@ async function shootAdmin() {
 		if (want('add-archive-picker')) {
 			await goto(page, '/admin/contents');
 			await openAddDialog(page, CONTENT_ADD_BUTTON_NAME);
-			await chooseContentType(page, 'archive');
+			await chooseContentType(page, 'folder');
 			await dialog(page).getByRole('button', { name: CHOOSE_PATH_BUTTON_NAME }).click();
 			await picker(page).waitFor();
 			await dialog(page).getByRole('button', { name: '共有' }).click();
@@ -455,27 +461,68 @@ async function shootAdmin() {
 			await shotElement(page, 'add-archive-picker', dialog(page));
 		}
 
-		const archive = await send(page.request, 'POST', '/contents', {
-			type: 'archive',
+		// マニュアルの手順 (06-archive-setup.md) と同じく、フォルダーを作ってから一覧の表示を使う。
+		const created = await send(page.request, 'POST', '/contents', {
+			type: 'folder',
 			title: '録音',
 			path: path.join(shared, '録音'),
-			visibility: 'public',
+			visibility: 'public'
+		});
+		// 完全上書き型の PUT なので、作成時の応答をそのまま送り直す。
+		const archive = await send(page.request, 'PUT', `/contents/${created!.id}`, {
+			...created,
+			listView: true,
+			newFilesPublic: false,
 			extensions: 'mp3'
 		});
 		// 階層ごとの値は、索引を作ってから出る。
 		await send(page.request, 'POST', `/contents/${archive!.id}/rescan`);
 
+		if (want('folder-list-view')) {
+			await goto(page, `/admin/contents/${archive!.id}`);
+			await shotBetween(
+				page,
+				'folder-list-view',
+				page.getByText('新しく見つかったファイルを公開する'),
+				page.getByText('を過ぎたら', { exact: true }),
+				{ padTop: 16, padBottom: 16 }
+			);
+		}
+
 		if (want('axis-add-dir')) {
 			await goto(page, `/admin/contents/${archive!.id}/axes`);
-			await page.getByRole('button', { name: '軸を追加...' }).click();
+			await page.getByRole('button', { name: '分類を追加...' }).click();
 			await waitForDialog(page);
 			const d = dialog(page);
-			await d.getByLabel(/^軸の名前/).fill('年度');
+			await d.getByLabel(/^分類の名前/).fill('年度');
 			await page.locator('#axis-source').click();
 			await page.getByRole('option', { name: 'フォルダーの階層' }).click();
 			await d.getByText('階層 1').click();
-			await d.getByLabel(/^軸の名前/).focus();
+			await d.getByLabel(/^分類の名前/).focus();
 			await shotElement(page, 'axis-add-dir', d);
+		}
+
+		if (want('archive-axes-tab')) {
+			await goto(page, `/admin/contents/${archive!.id}/axes`);
+			await shotBetween(
+				page,
+				'archive-axes-tab',
+				page.getByRole('navigation', { name: 'コンテンツの設定' }),
+				page.getByRole('button', { name: '分類を追加...' }),
+				{ padTop: 8, padBottom: 16 }
+			);
+		}
+
+		if (want('axis-add-word')) {
+			await goto(page, `/admin/contents/${archive!.id}/axes`);
+			await page.getByRole('button', { name: '分類を追加...' }).click();
+			await waitForDialog(page);
+			const d = dialog(page);
+			await d.getByLabel(/^分類の名前/).fill('種類');
+			await page.locator('#axis-source').click();
+			await page.getByRole('option', { name: 'ファイル名の単語' }).click();
+			await d.getByLabel(/^分類の名前/).focus();
+			await shotElement(page, 'axis-add-word', d);
 		}
 
 		// 共有の中のコンテンツは、録音を足して5件。
@@ -506,7 +553,7 @@ async function shootAdmin() {
 			await shotBetween(
 				page,
 				'axis-row-actions',
-				page.getByRole('heading', { name: '軸', exact: true }),
+				page.getByRole('heading', { name: '分類', exact: true }),
 				page.getByText('ファイル名の単語'),
 				{
 					padTop: 20,
@@ -515,9 +562,21 @@ async function shootAdmin() {
 			);
 		}
 
+		if (want('archive-axes-template')) {
+			await goto(page, `/admin/contents/${archive!.id}/axes`);
+			await shotBetween(
+				page,
+				'archive-axes-template',
+				page.getByRole('heading', { name: '表示タイトルのテンプレート' }),
+				page.getByText('拡張子を除いたファイル名です', { exact: false }),
+				{ padTop: 16, padBottom: 16 }
+			);
+		}
+
 		const tabs = page.getByRole('navigation', { name: 'コンテンツの設定' });
 		const rowCheck = (index: number) => page.getByRole('checkbox', { name: /を選択$/ }).nth(index);
-		const rowOf = (index: number) => rowCheck(index).locator('xpath=ancestor::li[1]');
+		const rowOf = (index: number) =>
+			rowCheck(index).locator('xpath=ancestor::*[@role="listitem"][1]');
 		if (want('archive-items-tab')) {
 			await goto(page, `/admin/contents/${archive!.id}/items`);
 			await shotBetween(page, 'archive-items-tab', tabs, rowOf(2), { padTop: 8, padBottom: 8 });

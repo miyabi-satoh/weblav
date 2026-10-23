@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE contents SET new_files_public = 1 WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "111bceaaab9d7d8ebeb0f36c616d151a573681d3b74ec68f33d3b5d1136de896"
+}

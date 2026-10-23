@@ -526,15 +526,15 @@ const archive: Story = {
 			}
 		},
 		{
-			caption: '「軸」のタブを開く',
+			caption: '「分類」のタブを開く',
 			async run(page) {
-				await page.getByRole('link', { name: /^軸$/ }).click();
+				await page.getByRole('link', { name: /^分類$/ }).click();
 				await page.waitForURL(/\/axes$/);
 				await page.getByRole('button', { name: /^級/ }).first().waitFor();
 			}
 		},
 		{
-			caption: '軸「級」を選ぶ (値の辞書が出る)',
+			caption: '分類「級」を選ぶ (値の辞書が出る)',
 			async run(page) {
 				await page.getByRole('button', { name: /^級/ }).first().click();
 				await page.locator('form tbody tr').first().waitFor();
@@ -552,10 +552,10 @@ const archive: Story = {
 			}
 		},
 		{
-			caption: '「軸を追加...」を押す',
+			caption: '「分類を追加...」を押す',
 			roles: ADMIN_ONLY,
 			async run(page) {
-				await openAddDialog(page, /^軸を追加\.\.\.$/);
+				await openAddDialog(page, /^分類を追加\.\.\.$/);
 				await page.getByRole('dialog').getByRole('radio').first().waitFor();
 			}
 		},

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { toast } from 'svelte-sonner';
 	import { invalidateAll } from '$app/navigation';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/schema';
@@ -44,10 +43,8 @@
 					client.DELETE('/api/v1/contents/{id}/ai-links/exclusions/{exclusion_id}', {
 						params: { path: { id: contentId, exclusion_id: exclusion.id } }
 					}),
-				async () => {
-					toast.success(m.contents_hidden_restored_toast());
-					await invalidateAll();
-				}
+				// 押した行が消えるので、トーストは出さない (→ docs/ui.md「押した所で結果が見えない操作は、トーストで知らせる」)。
+				() => invalidateAll()
 			);
 		} finally {
 			restoring = null;

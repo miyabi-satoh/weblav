@@ -11,7 +11,7 @@ import { TEST_ADMIN } from './test-account.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
 const SEED_SQL_PATH = path.join(import.meta.dirname, 'seed.sql');
-// folder・archive コンテンツのショット用フィクスチャ。type=archive も同じツリーを
+// folder コンテンツのショット用フィクスチャ。一覧の表示を使う folder も同じツリーを
 // 索引先にする(英検/年度でdirLevel軸2種、級でfilenameWord軸、共通テストで
 // 「未設定」フォールバックを実演できるため → shots.ts)。
 //
@@ -181,7 +181,7 @@ function seedDatabase(dbPath: string): { groupId: number; folderId: number } {
 	});
 }
 
-/** `05〜07`のショット用に、`type=archive`/`type=file`のフィクスチャをHTTP API経由で作る。
+/** `05〜07`のショット用に、一覧の表示を使う folder と `type=file` のフィクスチャをHTTP API経由で作る。
  *
  * DBへの直接INSERTにしないのは、軸の導出・表示タイトルの組み立てといった
  * ロジックを本物のAPI(rescan・軸CRUD・公開切り替え)にそのまま通すことで、
@@ -228,14 +228,22 @@ async function setupArchiveFixtures(
 	}
 
 	const ARCHIVE_TITLE = '英検・共通テスト索引';
-	const archive = (await (
+	// フォルダーを作ってから、一覧の表示を使い、新しいファイルを公開しない設定にする (→ docs/folders.md「2つの表示」)。
+	const created = (await (
 		await apiJson('/contents', 'POST', {
-			type: 'archive',
+			type: 'folder',
 			parentId: groupId,
 			title: ARCHIVE_TITLE,
 			path: FIXTURE_DIR,
-			description: '軸による絞り込み・表示タイトルのスクリーンショット用のフィクスチャです。',
-			visibility: 'authenticated',
+			description: '分類による絞り込み・表示タイトルのスクリーンショット用のフィクスチャです。',
+			visibility: 'authenticated'
+		})
+	).json()) as { id: number };
+	const archive = (await (
+		await apiJson(`/contents/${created.id}`, 'PUT', {
+			...created,
+			listView: true,
+			newFilesPublic: false,
 			extensions: 'mp3,pdf'
 		})
 	).json()) as { id: number };

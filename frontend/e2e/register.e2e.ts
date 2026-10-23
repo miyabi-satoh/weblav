@@ -19,6 +19,7 @@ import {
 	removeFixtureTree,
 	sharedContentRoot,
 	sharedLocationLabel,
+	withDirectoryContent,
 	type SharedContentRoot
 } from './fixture-helpers';
 import {
@@ -31,10 +32,14 @@ import {
 	openAddDialog,
 	REGISTER_BUTTON_NAME,
 	requiredLabel,
+	specificSaveButton,
 	TITLE_LABEL,
 	uniqueId,
 	USE_THIS_FOLDER_BUTTON_NAME
 } from './helpers';
+
+/** 編集ページの「ライブラリとして整理する」のスイッチ。 */
+const LIST_VIEW_SWITCH_NAME = /^ライブラリとして整理する$|^Organize as a library$/;
 
 // 待ち続けて制限時間を使い切ると、後片付けまで時間切れになる (→ archive.e2e.ts)。
 test.use({ actionTimeout: 10_000, navigationTimeout: 10_000 });
@@ -112,60 +117,54 @@ test('フォルダー: パスを辿って選び、件数と閲覧範囲を確か
 	}
 });
 
-test('アーカイブ: パスを辿って選び、索引される件数を確かめてから登録できる', async ({ page }) => {
-	const shared = await sharedContentRoot(page.request);
-	test.skip(shared === null, FIXTURE_UNREACHABLE);
-
-	const name = uniqueId('e2e-register-archive');
-	const tree = createFixtureTree(name);
-	try {
-		await openCreateForm(page, 'archive');
-		await pickDirectory(page, shared!, name);
-		await confirmRegister(page, name, /3\s個のファイルを一覧にします|3 files will be indexed/);
-		// 作成に続けてスキャンまで済んでいて、再スキャンを押さなくてもアイテムが並ぶ。
-		const id = page.url().split('/').pop();
-		const items = (await send(page.request, 'get', `/contents/${id}/items`)) as unknown[];
-		expect(items).toHaveLength(3);
-	} finally {
-		await removeContentIfPresent(page, name);
-		removeFixtureTree(tree);
-	}
-});
-
-test('アーカイブ: 作成後のスキャンだけが失敗したら、作成は残し、再スキャンを案内する', async ({
+test('一覧の表示: 登録したフォルダーで使い始めると、保存に続けてスキャンし、アイテムが並ぶ', async ({
 	page
 }) => {
-	const shared = await sharedContentRoot(page.request);
-	test.skip(shared === null, FIXTURE_UNREACHABLE);
-
-	await page.route(/\/api\/v1\/contents\/\d+\/rescan$/, (route) =>
-		route.fulfill({ status: 500, json: { error: { code: 'internal_error', message: '' } } })
+	await withDirectoryContent(
+		page.request,
+		{ type: 'folder', namePrefix: 'e2e-register-list-view' },
+		async (folder) => {
+			await page.goto(`/admin/contents/${folder.id}`);
+			await page.getByRole('switch', { name: LIST_VIEW_SWITCH_NAME }).click();
+			await specificSaveButton(page).click();
+			await expect(page.getByText(/3\s件のファイルが見つかりました|Found 3 files/)).toBeVisible();
+			// 一覧の表示を使うと、軸とアイテムのタブが出る。
+			await expect(page.getByRole('link', { name: /^アイテム$|^Items$/ })).toBeVisible();
+			const items = (await send(page.request, 'get', `/contents/${folder.id}/items`)) as unknown[];
+			expect(items).toHaveLength(3);
+		}
 	);
-	const name = uniqueId('e2e-register-archive-scan-failed');
-	const tree = createFixtureTree(name);
-	try {
-		await openCreateForm(page, 'archive');
-		await pickDirectory(page, shared!, name);
-		await page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
-		await page
-			.getByRole('dialog', { name: CONFIRM_REGISTER_NAME })
-			.getByRole('button', { name: REGISTER_BUTTON_NAME })
-			.click();
+});
 
-		const failed = page.getByRole('alertdialog', {
-			name: /^ファイルをスキャンできませんでした$|^Couldn't scan the files$/
-		});
-		await expect(
-			failed.getByText(/コンテンツを作成しました|The content was created/)
-		).toBeVisible();
-		// 作成は残っていて、一覧に行が出ている。
-		await expect(page).toHaveURL(/\/admin\/contents$/);
-		const contents = (await send(page.request, 'get', '/admin/contents')) as { title: string }[];
-		expect(contents.some((content) => content.title === name)).toBe(true);
-	} finally {
-		await removeContentIfPresent(page, name);
-		removeFixtureTree(tree);
-	}
+test('一覧の表示: 使い始めたときのスキャンだけが失敗したら、保存は残し、再スキャンを案内する', async ({
+	page
+}) => {
+	await page.route(/\/api\/v1\/contents\/\d+\/rescan$/, (route) =>
+		route.request().method() === 'POST'
+			? route.fulfill({ status: 500, json: { error: { code: 'internal_error', message: '' } } })
+			: route.continue()
+	);
+	await withDirectoryContent(
+		page.request,
+		{ type: 'folder', namePrefix: 'e2e-register-list-view-failed' },
+		async (folder) => {
+			await page.goto(`/admin/contents/${folder.id}`);
+			await page.getByRole('switch', { name: LIST_VIEW_SWITCH_NAME }).click();
+			await specificSaveButton(page).click();
+
+			const failed = page.getByRole('alertdialog', {
+				name: /^ファイルをスキャンできませんでした$|^Couldn't scan the files$/
+			});
+			await expect(
+				failed.getByText(/基本情報を保存しました|Basic information was saved/)
+			).toBeVisible();
+			const contents = (await send(page.request, 'get', '/admin/contents')) as {
+				id: number;
+				listView: boolean;
+			}[];
+			expect(contents.find((content) => content.id === folder.id)?.listView).toBe(true);
+		}
+	);
 });
 
 test('確認で「戻る」を押すと登録せず、フォームに戻る', async ({ page }) => {
@@ -216,9 +215,7 @@ test('ファイル: 選んだファイルをアップロードして登録でき
 	}
 });
 
-test('公開できるフォルダーが0件なら、フォルダーとアーカイブは選べず、理由が出る', async ({
-	page
-}) => {
+test('公開できるフォルダーが0件なら、フォルダーは選べず、理由が出る', async ({ page }) => {
 	// 登録済みのフォルダーは他のテストと共有しているので消さない。
 	// 0件かどうかを確かめる問い合わせ (上位の一覧) だけを空にして、画面の出し分けを見る。
 	await page.route(
@@ -233,7 +230,6 @@ test('公開できるフォルダーが0件なら、フォルダーとアーカ�
 
 	const dialog = page.getByRole('dialog');
 	await expect(dialog.getByRole('button', { name: CONTENT_TYPE_NAME.folder })).toBeDisabled();
-	await expect(dialog.getByRole('button', { name: CONTENT_TYPE_NAME.archive })).toBeDisabled();
 	await expect(dialog.getByRole('button', { name: CONTENT_TYPE_NAME.link })).toBeEnabled();
 	await expect(
 		dialog.getByText(/「公開できるフォルダー」を登録してください|Register an allowed folder/)

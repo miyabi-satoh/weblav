@@ -5,6 +5,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { send, withUserByApi } from './api-helpers';
 import { createLinkContent, openCreateForm, removeContentIfPresent } from './content-helpers';
 import {
+	basicSaveButton,
 	clickRowMenuItem,
 	CLOSE_BUTTON_NAME,
 	CONTENT_SUBMIT_BUTTON_NAME,
@@ -59,7 +60,7 @@ test.describe('コンテンツ', () => {
 		try {
 			await createLinkContent(page, title);
 			await page.getByLabel(TITLE_LABEL).fill('   ');
-			await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
+			await basicSaveButton(page).click();
 
 			await expectErrorDialog(page, INVALID_INPUT_TEXT);
 			// サーバー側も元のタイトルのまま。

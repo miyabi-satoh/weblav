@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT DISTINCT archive_id as \"archive_id!\" FROM archive_items",
+  "describe": {
+    "columns": [
+      {
+        "name": "archive_id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "fe91fde4de300e47adbaec1094c20d9aa4a8a0f87dcb799bcd41d5ff1c1b57ef"
+}

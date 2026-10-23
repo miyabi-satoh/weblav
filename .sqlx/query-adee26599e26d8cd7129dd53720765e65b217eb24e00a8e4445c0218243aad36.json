@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT new_files_public as \"new_files_public: bool\" FROM contents WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "new_files_public: bool",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "adee26599e26d8cd7129dd53720765e65b217eb24e00a8e4445c0218243aad36"
+}

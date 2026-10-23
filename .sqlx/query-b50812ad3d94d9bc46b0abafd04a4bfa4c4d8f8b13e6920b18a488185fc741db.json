@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id as \"id!\", auto_rescan_mode as \"auto_rescan_mode: AutoMode\",\n                  auto_rescan_hours, auto_rescan_time, last_scanned_at\n           FROM contents\n           WHERE type = 'folder' AND list_view = 1 AND auto_rescan_mode != 'off'",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_rescan_mode: AutoMode",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "auto_rescan_hours",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_rescan_time",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "last_scanned_at",
+        "ordinal": 4,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "b50812ad3d94d9bc46b0abafd04a4bfa4c4d8f8b13e6920b18a488185fc741db"
+}

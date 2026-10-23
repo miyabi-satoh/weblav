@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FolderViewSwitch from '$lib/components/folder-view-switch.svelte';
 	import BrowseHeading from '$lib/components/browse-heading.svelte';
 	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { resolve } from '$app/paths';
@@ -68,7 +69,7 @@
 	<span class={rowMenuSlotClass()}>
 		<RowActionsMenu name={row.item.title}>
 			<DropdownMenu.Item onSelect={() => void setPublished(row, false)}>
-				{m.archive_view_unpublish_menu()}
+				{m.marks_unpublish_button()}
 			</DropdownMenu.Item>
 		</RowActionsMenu>
 	</span>
@@ -97,6 +98,8 @@
 			contentTitle={view.archiveTitle}
 			canEdit={view.canEdit}
 		/>
+
+		<div class="mb-4"><FolderViewSwitch {contentId} current="list" /></div>
 
 		<ArchiveViewControls
 			axes={view.axes}

@@ -10,7 +10,7 @@ import { test, expect } from '@playwright/test';
 import { withContentByApi } from './api-helpers';
 import { ADMIN_USERNAME } from './auth';
 import {
-	groupBasicSaveButton,
+	basicSaveButton,
 	anonymousContext,
 	AUDIO_PLAYER_REGION_NAME,
 	BROWSE_LAYOUT_LIST_NAME,
@@ -129,7 +129,7 @@ test('管理画面: コンテンツを編集できる', async ({ page }) => {
 		await page.getByRole('alertdialog').getByRole('button', { name: CANCEL_BUTTON_NAME }).click();
 		await expect(page).toHaveURL(/\/admin\/contents\/\d+$/);
 
-		await saveForm(page);
+		await saveForm(page, { button: basicSaveButton(page) });
 		await expect(page.getByRole('heading', { level: 1, name: editedTitle })).toBeVisible();
 
 		// 保存した後は確認を出さずに移れる。
@@ -486,7 +486,7 @@ test('コンテンツ一覧: ドラッグで見える範囲が広がるときは
 		await page.waitForURL(/\/admin\/contents\/\d+$/);
 		await page.getByLabel(VISIBILITY_LABEL).click();
 		await page.getByRole('option', { name: /ログインした人|Logged-in users/ }).click();
-		await saveForm(page, { button: groupBasicSaveButton(page) });
+		await saveForm(page, { button: basicSaveButton(page) });
 
 		// 誰でも公開のリンクを、いったんログイン必須のグループへ入れて絞る (確認は出ない)。
 		await createLinkContent(page, linkTitle, { parentTitle: restrictedGroupTitle });
@@ -542,7 +542,7 @@ test('コンテンツ一覧: 見出しの行へドラッグするとルートへ
 		await page.waitForURL(/\/admin\/contents\/\d+$/);
 		await page.getByLabel(VISIBILITY_LABEL).click();
 		await page.getByRole('option', { name: /ログインした人|Logged-in users/ }).click();
-		await saveForm(page, { button: groupBasicSaveButton(page) });
+		await saveForm(page, { button: basicSaveButton(page) });
 		await createLinkContent(page, linkTitle, { parentTitle: restrictedGroupTitle });
 		await page.goto('/admin/contents');
 
