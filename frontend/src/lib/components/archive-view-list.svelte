@@ -53,6 +53,7 @@
 		browseRowTextClass,
 		browseRowTitleClass,
 		browseVirtualLineClass,
+		browseVirtualLineStyle,
 		browseVirtualListClass
 	} from '$lib/list-row';
 	import ListRowGlyph from '$lib/components/list-row-glyph.svelte';
@@ -256,9 +257,20 @@
 		{#key rowsPerLine}
 			<WindowVirtualizer data={lines} getKey={(line) => rowKey(line[0]!)}>
 				{#snippet children(line, index)}
-					<div class={browseVirtualLineClass(index === lines.length - 1)}>
-						{#each line as row (rowKey(row))}
-							<div role="listitem" class={browseItemClass()}>{@render itemRow(row)}</div>
+					<!-- 総数と位置を読み上げに渡す。描いている行しか無いので、無いと一覧が数十件に聞こえる。 -->
+					<div
+						class={browseVirtualLineClass(index === lines.length - 1)}
+						style={browseVirtualLineStyle(rowsPerLine)}
+					>
+						{#each line as row, column (rowKey(row))}
+							<div
+								role="listitem"
+								aria-setsize={rows.length}
+								aria-posinset={index * rowsPerLine + column + 1}
+								class={browseItemClass()}
+							>
+								{@render itemRow(row)}
+							</div>
 						{/each}
 					</div>
 				{/snippet}

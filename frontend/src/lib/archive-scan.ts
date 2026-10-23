@@ -44,46 +44,48 @@ async function fetchProgress(id: number): Promise<string | null | undefined> {
 	}
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
  * スキャンの進み具合を、押したボタンの近くに出す文言として渡し続ける (→ docs/archive.md「スキャン」)。
- * 返した関数で止めると、`undefined` を渡して消させる。
- * 最初の問い合わせを間隔の後にするので、すぐ終わるスキャンでは何も出さない。
+ * 1回の応答を待ってから次を問い合わせる。重ねると応答が前後し、件数が戻って見えるため。
+ * `stopWhenIdle` なら、走っていない・見られないと分かった所で止め、走り終えたのを見届けたかを返す。
+ * 止められた後は何も渡さない。
  */
-function watchProgress(id: number, onProgress: (message: string | undefined) => void): () => void {
-	let stopped = false;
-	const timer = setInterval(async () => {
+async function pollProgress(
+	id: number,
+	onProgress: (message: string) => void,
+	signal: AbortSignal,
+	stopWhenIdle: boolean
+): Promise<boolean> {
+	while (!signal.aborted) {
+		await sleep(PROGRESS_INTERVAL_MS);
+		if (signal.aborted) break;
 		const message = await fetchProgress(id);
-		if (!stopped && message) onProgress(message);
-	}, PROGRESS_INTERVAL_MS);
-	return () => {
-		stopped = true;
-		clearInterval(timer);
-		onProgress(undefined);
-	};
+		if (signal.aborted) break;
+		if (message) onProgress(message);
+		else if (stopWhenIdle) return message === null;
+	}
+	return false;
 }
 
 /**
  * 走っているスキャンがあれば、終わるまで進み具合を渡し続けて待つ。走り終えたのを見届けたかを返す。
  * スキャンは画面を閉じても続くので、開き直した画面が、終わるまで押させずに待つため。
- * `signal` で止めると、見届けずに `false` を返す (画面を離れた後まで問い合わせ続けないため)。
+ * `signal` で止めると、見届けずに `false` を返し、表示も消させない (後から始めた表示を消さないため)。
  */
 export async function waitForRunningScan(
 	id: number,
 	onProgress: (message: string | undefined) => void,
 	signal: AbortSignal
 ): Promise<boolean> {
-	let message = await fetchProgress(id);
-	if (!message) return false;
+	const first = await fetchProgress(id);
+	if (!first || signal.aborted) return false;
+	onProgress(first);
 	try {
-		while (message !== null) {
-			if (signal.aborted) return false;
-			if (message) onProgress(message);
-			await new Promise((resolve) => setTimeout(resolve, PROGRESS_INTERVAL_MS));
-			message = await fetchProgress(id);
-		}
-		return !signal.aborted;
+		return await pollProgress(id, onProgress, signal, true);
 	} finally {
-		onProgress(undefined);
+		if (!signal.aborted) onProgress(undefined);
 	}
 }
 
@@ -97,7 +99,9 @@ export async function rescanArchive(
 	id: number,
 	onProgress: (message: string | undefined) => void
 ): Promise<ArchiveScanResult> {
-	const stopProgress = watchProgress(id, onProgress);
+	// 最初の問い合わせを間隔の後にするので、すぐ終わるスキャンでは何も出さない。
+	const progress = new AbortController();
+	void pollProgress(id, onProgress, progress.signal, false);
 	try {
 		const { data, error, response } = await client.POST('/api/v1/contents/{id}/rescan', {
 			params: { path: { id } }
@@ -114,6 +118,7 @@ export async function rescanArchive(
 	} catch {
 		return { ok: false, message: GENERIC_ERROR_MESSAGE(), retryable: true };
 	} finally {
-		stopProgress();
+		progress.abort();
+		onProgress(undefined);
 	}
 }

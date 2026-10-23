@@ -620,8 +620,10 @@ pub(super) async fn search_items(
 
     // 導出は全アイテム × 軸 × 照合語の数だけ回るので、非同期のワーカーを塞がない。
     run_blocking(move || {
+        // フォルダーごと見つからないアーカイブは、閲覧の画面と同じく行を出さない (→ docs/archive.md「アイテムの配信」)。
         let sources: Vec<_> = sources
             .into_iter()
+            .filter(|(archive, _, _)| !folder_missing(std::path::Path::new(&archive.path)))
             .map(|(archive, axes, rows)| {
                 let previews = stored_previews(&rows);
                 (archive, axes, rows, previews)

@@ -42,12 +42,11 @@ export const browseToggleItemClass =
 	'h-14 bg-background text-muted-foreground data-[state=on]:bg-primary/10 data-[state=on]:text-primary';
 
 /** タイルの並べ。1枚の幅が 170〜230px ほどに収まるよう、幅に応じて列を増やす (→ docs/ui.md「UI 全般」)。 */
-const tileColumnsClass =
-	'grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8';
-const tileListClass = `${tileColumnsClass} ${browseGutterClass}`;
+const tileListClass = `grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 ${browseGutterClass}`;
 
-// 見えている所だけを描く一覧は、タイルを1段ずつ描くので、1段の枚数を画面の側でも知る。
-// 上の `grid-cols-*` と同じ幅 (Tailwind の既定のブレークポイント) で切り替える。
+// 見えている所だけを描く一覧は、タイルを1段ずつ描くので、1段の枚数を画面の側で決める。
+// 段の列もこの数で引くので (`browseVirtualLineStyle`)、CSS と食い違って段の中で折り返すことはない。
+// 幅は上の `grid-cols-*` と同じ (Tailwind の既定のブレークポイント) にし、ほかの一覧とタイルの大きさを揃える。
 const tileColumnQueries: [MediaQuery, number][] = [
 	[new MediaQuery('min-width: 96rem'), 8],
 	[new MediaQuery('min-width: 80rem'), 6],
@@ -69,8 +68,15 @@ export function browseVirtualListClass(): string {
 
 /** 見えている所だけを描く一覧の1段。`last:` が効かない (1段ずつ別の要素に入る) ので、最後かを渡す。 */
 export function browseVirtualLineClass(last: boolean): string {
-	if (browseLayout.tile) return last ? tileColumnsClass : `${tileColumnsClass} pb-3`;
+	if (browseLayout.tile) return last ? 'grid gap-3' : 'grid gap-3 pb-3';
 	return last ? '' : listItemBorderClass;
+}
+
+/** 見えている所だけを描く一覧の1段の列。タイルは `browseRowsPerLine()` の数だけ等分に並べる。 */
+export function browseVirtualLineStyle(perLine: number): string | undefined {
+	return browseLayout.tile
+		? `grid-template-columns: repeat(${perLine}, minmax(0, 1fr))`
+		: undefined;
 }
 
 /**

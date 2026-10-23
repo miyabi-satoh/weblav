@@ -309,6 +309,9 @@ async fn rescan(
     // 走査が二重に走るのを防ぐと同時に、走査中に `path` が変わるのも防ぐ。
     let scan_guard = state.archive_scans.acquire(id)?;
     let progress = scan_guard.progress();
+    // 走査の準備 (NAS につながるかの確かめなど) の間も走査中に見せる。開き直した画面が
+    // 走っていないと読んで押させ、409 にしないため。
+    progress.start_listing();
 
     // 排他を取る前の確認の後に公開範囲が変わっていた場合に備え、取り直した値で判定し直す。
     // 更新は走査中なら409になるので、ここから先は公開範囲と path は変わらない。
@@ -351,7 +354,6 @@ async fn scan_and_sync(
         }
         // 「公開できるフォルダー」の外は再走査でも拒む (理由は `contents::resolve_path` と同じ)。
         let root = super::fs::canonical_dir_within_roots(&scan_root, &roots, &own_dirs)?;
-        progress.start_listing();
         let result = super::fs::scan_files(
             &root,
             extensions.as_deref(),
@@ -387,14 +389,22 @@ type KnownFiles = HashMap<String, (i64, Option<i64>)>;
 
 async fn load_known_files(pool: &sqlx::SqlitePool, id: i64) -> Result<KnownFiles, AppError> {
     let rows = sqlx::query!(
-        r#"SELECT rel_path, file_size as "file_size!", modified_ns FROM archive_items
+        r#"SELECT rel_path, file_size as "file_size!", modified_ns, image_width FROM archive_items
            WHERE archive_id = ? AND file_size IS NOT NULL"#,
         id
     )
     .fetch_all(pool)
     .await?;
+    // 画像なのに大きさを読めなかった行は、変わっていなくても読み直す。NAS の読み取りが
+    // 一時的に失敗しただけのことがあり、残すと次にファイルが変わるまでプレビューが出ないため。
     Ok(rows
         .into_iter()
+        .filter(|row| {
+            row.image_width.is_some()
+                || !super::thumbnails::is_image_file_name(
+                    row.rel_path.rsplit('/').next().unwrap_or(&row.rel_path),
+                )
+        })
         .map(|row| (row.rel_path, (row.file_size, row.modified_ns)))
         .collect())
 }

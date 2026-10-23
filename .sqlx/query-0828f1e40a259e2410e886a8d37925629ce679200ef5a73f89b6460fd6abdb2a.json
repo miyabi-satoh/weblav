@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT rel_path, file_size as \"file_size!\", modified_ns FROM archive_items\n           WHERE archive_id = ? AND file_size IS NOT NULL",
+  "query": "SELECT rel_path, file_size as \"file_size!\", modified_ns, image_width FROM archive_items\n           WHERE archive_id = ? AND file_size IS NOT NULL",
   "describe": {
     "columns": [
       {
@@ -17,6 +17,11 @@
         "name": "modified_ns",
         "ordinal": 2,
         "type_info": "Integer"
+      },
+      {
+        "name": "image_width",
+        "ordinal": 3,
+        "type_info": "Integer"
       }
     ],
     "parameters": {
@@ -25,8 +30,9 @@
     "nullable": [
       false,
       true,
+      true,
       true
     ]
   },
-  "hash": "34276e07118bd72528c4be1b0289077b1dd5d243fd1ca1cc18238218138317d7"
+  "hash": "0828f1e40a259e2410e886a8d37925629ce679200ef5a73f89b6460fd6abdb2a"
 }
