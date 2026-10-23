@@ -48,6 +48,7 @@ const ADMIN_SHOTS = [
 	'add-folder-ready',
 	'quickstart-roots',
 	'add-archive-picker',
+	'folder-list-view',
 	'axis-add-dir',
 	'roots-delete',
 	'axis-row-actions',
@@ -446,7 +447,7 @@ async function shootAdmin() {
 		if (want('add-archive-picker')) {
 			await goto(page, '/admin/contents');
 			await openAddDialog(page, CONTENT_ADD_BUTTON_NAME);
-			await chooseContentType(page, 'archive');
+			await chooseContentType(page, 'folder');
 			await dialog(page).getByRole('button', { name: CHOOSE_PATH_BUTTON_NAME }).click();
 			await picker(page).waitFor();
 			await dialog(page).getByRole('button', { name: '共有' }).click();
@@ -455,15 +456,33 @@ async function shootAdmin() {
 			await shotElement(page, 'add-archive-picker', dialog(page));
 		}
 
-		const archive = await send(page.request, 'POST', '/contents', {
-			type: 'archive',
+		// マニュアルの手順 (06-archive-setup.md) と同じく、フォルダーを作ってから一覧の表示を使う。
+		const created = await send(page.request, 'POST', '/contents', {
+			type: 'folder',
 			title: '録音',
 			path: path.join(shared, '録音'),
-			visibility: 'public',
+			visibility: 'public'
+		});
+		// 完全上書き型の PUT なので、作成時の応答をそのまま送り直す。
+		const archive = await send(page.request, 'PUT', `/contents/${created!.id}`, {
+			...created,
+			listView: true,
+			newFilesPublic: false,
 			extensions: 'mp3'
 		});
 		// 階層ごとの値は、索引を作ってから出る。
 		await send(page.request, 'POST', `/contents/${archive!.id}/rescan`);
+
+		if (want('folder-list-view')) {
+			await goto(page, `/admin/contents/${archive!.id}`);
+			await shotBetween(
+				page,
+				'folder-list-view',
+				page.getByText('新しく見つかったファイルを公開する'),
+				page.getByText('中身の変わったフォルダーは', { exact: false }),
+				{ padTop: 16, padBottom: 16 }
+			);
+		}
 
 		if (want('axis-add-dir')) {
 			await goto(page, `/admin/contents/${archive!.id}/axes`);

@@ -2,9 +2,9 @@
 
 An “allowed folder” is the area from which you can choose contents.
 **Adding one alone does not show anything to viewers.**
-Folders inside it appear only after you register them as “Folder” or “Archive” in [Register contents](05-register-content.md).
+Folders inside it appear only after you register them as “Folder” in [Register contents](05-register-content.md).
 
-![How folders on the computer relate to the viewer's screen: add "Shared" as an allowed folder, then register "Teaching materials" as a folder and "EIKEN" as an archive. Only those two appear for viewers. Unregistered "Drafts" and "Household accounts" outside the allowed folder do not appear.](images/how-it-works.webp)
+![How folders on the computer relate to the viewer's screen: add "Shared" as an allowed folder, then register "Teaching materials" and "EIKEN" as folders. Only those two appear for viewers. Unregistered "Drafts" and "Household accounts" outside the allowed folder do not appear.](images/how-it-works.webp)
 
 > **You can add folders only on the computer running WebLAV, when it is open at a `localhost` address.**
 >

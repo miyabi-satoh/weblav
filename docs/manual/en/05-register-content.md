@@ -4,16 +4,15 @@
 
 | What you want to show | Type |
 |---|---|
-| A folder on your computer, as it is | Folder |
-| Many files, filterable by year or session | Archive (→ [Set up an archive](06-archive-setup.md)) |
+| A folder on your computer. You can add a list filterable by year or session | Folder (for the list → [Set up the list view](06-archive-setup.md)) |
 | One file | File (upload, up to 100 MB by default) |
 | An external website | Link |
 | A collection of items | Group |
 
-You can choose folders and archives only from “Allowed folders” (→ [Add allowed folders](04-roots.md)).
+You can choose folders only from “Allowed folders” (→ [Add allowed folders](04-roots.md)).
 Only items registered here appear for viewers.
 
-![How folders on the computer relate to the viewer's screen: add "Shared" as an allowed folder, then register "Teaching materials" as a folder and "EIKEN" as an archive. Only those two appear for viewers. Unregistered "Drafts" and "Household accounts" outside the allowed folder do not appear.](images/how-it-works.webp)
+![How folders on the computer relate to the viewer's screen: add "Shared" as an allowed folder, then register "Teaching materials" and "EIKEN" as folders. Only those two appear for viewers. Unregistered "Drafts" and "Household accounts" outside the allowed folder do not appear.](images/how-it-works.webp)
 
 Titles are assigned automatically. To change one, use the edit page that opens after registration.
 
@@ -43,13 +42,21 @@ The remaining steps differ by type.
 
    ![The Add screen after choosing a folder](images/add-folder-ready.webp)
 
-### Hide some files or folders
+### Publish or unpublish
 
-Open the folder, select “⋮” on the row of a file or folder you do not want to show, then choose “Hide”. Hiding a folder also hides everything inside it. Only people who can change the folder see “⋮”.
+By default, everything in a folder is published. Unpublish files or folders you do not want to show.
 
-To show it again, select “Undo” right away, or select “Show again” under “Hidden” on the content's edit page.
+1. Open the folder, then select “⋮” on the row of a file or folder.
+2. Choose “Unpublish”. To publish it again, choose “Publish”.
 
-Hidden files cannot be downloaded or found by search either. If you rename or move a file, it is shown again.
+- Only people who can change the folder see “⋮”. They also see unpublished items, marked “Unpublished” under the name.
+- Publishing or unpublishing a folder applies to everything inside it. Earlier changes to items inside it are cleared.
+- Unpublished files cannot be downloaded or found by search either.
+- If you rename or move a file, your change to it no longer applies, and it is treated like a newly found file.
+
+To publish only the items you choose, turn off “Publish new files” on the “Details” tab of the edit page, then save. New files start unpublished, so choose “Publish” for the ones to show. Publishing a file also makes the folders above it browsable.
+
+Your changes are listed under “Changed publishing” on the edit page, and “Undo” reverts one. For a folder that uses the list view, only folders are listed there. Publish or unpublish files on the “Items” tab (→ [Set up the list view](06-archive-setup.md)).
 
 ## File
 
@@ -133,7 +140,8 @@ To see how it looks to viewers, select “View on site” next to the heading of
 - Title and description
 - Link: Use “Refetch title” and “Refetch description” to fetch them again from the linked site.
 - File: Drop a new file or select one to replace it.
-- Archive: Use “File extensions” (for example, `mp3, pdf`) to limit the files included. Leave it empty for all files. After changing it, select “Rescan” on the “Items” tab (→ [Set up an archive](06-archive-setup.md)).
+- Folder: “Publish new files” (→ “Publish or unpublish” above) and “Use the list view” (→ [Set up the list view](06-archive-setup.md)). Neither is asked when you add a folder, so change them here.
+  - Changing the location with “Change...” under “Path” clears all publish changes and the list.
 
 ## Delete
 
@@ -147,5 +155,5 @@ To see how it looks to viewers, select “View on site” next to the heading of
 
 You can also delete from the edit page: select “⋮” next to the heading, then choose “Delete...”. After deleting, you return to the list.
 
-- Deleting a folder or archive does not delete files on your computer.
+- Deleting a folder does not delete files on your computer.
 - Deleting a group moves its contents out of the group, to the top level.

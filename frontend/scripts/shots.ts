@@ -522,8 +522,8 @@ export const shots: Record<string, ShotEntry> = {
 	admin_archive_items: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.archiveId}/items`);
-			// アイテムは load() ではなくマウント後に取るので、waitForPageReady では待てない。表が出るまで待つ。
-			await page.getByRole('table').waitFor({ timeout: 5000 });
+			// 一覧の行が出るまで待つ。
+			await page.getByRole('listitem').first().waitFor({ timeout: 5000 });
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
 		}
 	},
