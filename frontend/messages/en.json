@@ -237,7 +237,7 @@
 	"error_detail_backup_too_new": "This backup was made with a newer WebLAV ({appVersion}). Update WebLAV before restoring it.",
 	"contents_form_create_title": "Add content",
 	"contents_edit_tabs_label": "Content settings",
-	"contents_edit_tabs_basic": "Details",
+	"contents_edit_tabs_basic": "Settings",
 	"contents_edit_loosened_title": "Visible to more people",
 	"contents_edit_loosened_description": "Because the parent group changes, this will actually be “{after}” instead of “{before}”.",
 	"contents_reparent_loosened_description": "Moving “{title}” into “{group}” changes the effective visibility from “{before}” to “{after}”.",
@@ -306,9 +306,7 @@
 	"contents_form_list_view_label": "Organize as a library",
 	"contents_form_list_view_description": "Lists all the files together so you can filter them by categories.",
 	"contents_form_auto_rescan_label": "Automatic rescan",
-	"contents_form_auto_rescan_manual": "Off",
-	"contents_form_auto_rescan_hourly": "Every hour",
-	"contents_form_auto_rescan_daily": "Every day",
+	"contents_form_auto_rescan_interval_after": "have passed since the last scan",
 	"contents_form_extensions_label": "File extensions",
 	"contents_form_extensions_help": "Separate with commas (e.g. mp3, pdf). Leave it empty to include every file.",
 	"contents_form_parent_label": "Parent group",
@@ -810,10 +808,9 @@
 	],
 	"contents_form_ai_daily_limit_description": "Set to 0 for no limit.",
 	"contents_form_ai_auto_label": "Automatic updates",
-	"contents_form_ai_auto_off": "Off",
-	"contents_form_ai_auto_interval_before": "When",
-	"contents_form_ai_auto_interval_after": "have passed since the last update",
-	"contents_form_ai_auto_hours_unit": [
+	"schedule_off": "Off",
+	"schedule_interval_before": "When",
+	"schedule_hours_unit": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],
 			"selectors": ["countPlural"],
@@ -823,9 +820,10 @@
 			}
 		}
 	],
-	"contents_form_ai_auto_daily_before": "Every day after",
-	"contents_form_ai_auto_daily_after": "",
-	"contents_form_ai_auto_time_label": "Time",
+	"schedule_daily_before": "Every day after",
+	"schedule_daily_after": "",
+	"schedule_time_label": "Time",
+	"contents_form_ai_auto_interval_after": "have passed since the last update",
 	"contents_form_ai_auto_description": "Updates when the group is opened. Each update uses credits.",
 	"contents_marks_title": "Publishing changes",
 	"contents_marks_clear_button": "Undo",

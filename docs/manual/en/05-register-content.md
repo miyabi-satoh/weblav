@@ -54,7 +54,7 @@ By default, everything in a folder is published. Unpublish files or folders you 
 - Unpublished files cannot be downloaded or found by search either.
 - If you rename or move a file, your change to it no longer applies, and it is treated like a newly found file.
 
-To publish only the items you choose, turn off “Publish new files” under “Location and display” on the “Details” tab of the edit page, then select “Save” in that section. New files start unpublished, so choose “Publish” for the ones to show. Publishing a file also makes the folders above it browsable.
+To publish only the items you choose, turn off “Publish new files” under “Location and display” on the “Settings” tab of the edit page, then select “Save” in that section. New files start unpublished, so choose “Publish” for the ones to show. Publishing a file also makes the folders above it browsable.
 
 Your changes are listed under “Publishing changes” on the edit page, and “Undo” reverts one. For a folder organized as a library, only folders are listed there. Publish or unpublish files on the “Items” tab (→ [Set up a library](06-archive-setup.md)).
 

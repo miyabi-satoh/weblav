@@ -21,6 +21,7 @@ use crate::state::AppState;
 use super::archive_axes::{AxisMatchPosition, AxisSource};
 use super::contents::ContentType;
 use super::error_detail::ValidationDetail;
+use super::schedule::{AutoMode, AutoRefresh};
 
 /// 保存用に `extensions` を正規化する。`fs::parse_extensions` と同じ規則で解釈し、
 /// カンマ区切りの文字列に戻す。空なら `None` (全ファイルが対象)。
@@ -654,14 +655,15 @@ async fn sync_items(
     }))
 }
 
-/// 自動の再スキャンの時刻を見回る間隔。選べる間隔の最短 (1時間) より十分に短くし、遅れを小さくする。
+/// 自動の再スキャンの時刻を見回る間隔。選べる間隔の最短 (1時間) と時刻の刻み (1分) に合わせ、遅れを小さくする。
 const AUTO_RESCAN_CHECK: std::time::Duration = std::time::Duration::from_secs(60);
 
-/// 自動の再スキャン (→ docs/archive.md「スキャン」)。間隔を選んだフォルダーを、前のスキャンから
-/// その間隔が過ぎたら再スキャンする。同じ NAS を同時に読ませないよう、1件ずつ順に走らせる。
+/// 自動の再スキャン (→ docs/archive.md「スキャン」)。時刻を決めたフォルダーを、前のスキャンから
+/// 決めた時間が過ぎたら再スキャンする。同じ NAS を同時に読ませないよう、1件ずつ順に走らせる。
 pub(crate) fn spawn_auto_rescan(state: AppState) {
     tokio::spawn(async move {
-        let mut tried: HashMap<i64, std::time::Instant> = HashMap::new();
+        // 試した時刻 (UNIX 秒)。
+        let mut tried: HashMap<i64, i64> = HashMap::new();
         let mut ticker = tokio::time::interval(AUTO_RESCAN_CHECK);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
@@ -673,36 +675,38 @@ pub(crate) fn spawn_auto_rescan(state: AppState) {
     });
 }
 
-async fn run_due_rescans(
-    state: &AppState,
-    tried: &mut HashMap<i64, std::time::Instant>,
-) -> Result<(), AppError> {
+async fn run_due_rescans(state: &AppState, tried: &mut HashMap<i64, i64>) -> Result<(), AppError> {
     let rows = sqlx::query!(
-        r#"SELECT id as "id!", auto_rescan as "auto_rescan: super::contents::AutoRescan",
-                  last_scanned_at
+        r#"SELECT id as "id!", auto_rescan_mode as "auto_rescan_mode: AutoMode",
+                  auto_rescan_hours, auto_rescan_time, last_scanned_at
            FROM contents
-           WHERE type = 'folder' AND list_view = 1 AND auto_rescan != 'manual'"#
+           WHERE type = 'folder' AND list_view = 1 AND auto_rescan_mode != 'off'"#
     )
     .fetch_all(&state.pool)
     .await?;
-    let now_ms = time::OffsetDateTime::now_utc().unix_timestamp() * 1000;
+    let now = time::OffsetDateTime::now_utc().unix_timestamp();
     for row in rows {
-        let interval_ms: i64 = match row.auto_rescan {
-            super::contents::AutoRescan::Manual => continue,
-            super::contents::AutoRescan::Hourly => 60 * 60 * 1000,
-            super::contents::AutoRescan::Daily => 24 * 60 * 60 * 1000,
+        let auto = AutoRefresh::from_columns(
+            row.auto_rescan_mode,
+            row.auto_rescan_hours,
+            row.auto_rescan_time,
+        );
+        let daily_mark = match auto.time.as_deref() {
+            Some(time) if auto.mode == AutoMode::Daily => {
+                Some(super::schedule::last_daily_mark(&state.pool, time).await?)
+            }
+            _ => None,
         };
-        let due = row
-            .last_scanned_at
-            .is_none_or(|at| now_ms - at >= interval_ms);
-        // 失敗したもの (NAS につながらない・フォルダーが無い) は、次の間隔まで試し直さない。
+        // 失敗したもの (NAS につながらない・フォルダーが無い) は、試した時刻を前回とみなし、次の回まで試し直さない。
         // 毎回の見回りで同じ失敗を繰り返し、ログを埋めないため。
-        let interval = std::time::Duration::from_millis(interval_ms.unsigned_abs());
-        let tried_recently = tried.get(&row.id).is_some_and(|at| at.elapsed() < interval);
-        if !due || tried_recently {
+        let last = row
+            .last_scanned_at
+            .map(|at| at / 1000)
+            .max(tried.get(&row.id).copied());
+        if !super::schedule::is_due(&auto, last, now, daily_mark) {
             continue;
         }
-        tried.insert(row.id, std::time::Instant::now());
+        tried.insert(row.id, now);
         // 手で始めたスキャンが走っていれば、それに任せる。
         let Ok(scan_guard) = state.archive_scans.acquire(row.id) else {
             continue;

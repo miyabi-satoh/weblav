@@ -52,6 +52,50 @@ async fn folder_turns_on_the_list_view_later_and_normalizes_extensions(pool: Sql
     assert_eq!(updated["extensions"], "mp3,pdf", "{body}");
 }
 
+/// 自動の再スキャンの時刻は、グループの自動の更新と同じ形で保存し、決め方に合わない値は断る。
+/// 決め方ごとの場合は `src/api/schedule.rs` の単体テストで見る。
+#[sqlx::test]
+async fn folder_saves_the_auto_rescan_time_and_rejects_a_bad_one(pool: SqlitePool) {
+    let dir = temp_test_dir("archive-auto-rescan");
+    let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
+    let path_json = json_string(&dir.display().to_string());
+    let put = |auto: &str| {
+        format!(
+            r#"{{"title":"英検 過去問","path":{path_json},"listView":true,"autoRescan":{auto}}}"#
+        )
+    };
+
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        &format!("/api/v1/contents/{id}"),
+        &cookie,
+        &put(r#"{"mode":"daily","hours":6,"time":"3:00"}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        parse_json(&body)["autoRescan"],
+        serde_json::json!({"mode": "daily", "hours": null, "time": "03:00"}),
+        "{body}"
+    );
+
+    let (status, body) = send_json(
+        app,
+        "PUT",
+        &format!("/api/v1/contents/{id}"),
+        &cookie,
+        &put(r#"{"mode":"interval","hours":0}"#),
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+}
+
 /// **roots 封じ込めが唯一の認可障壁**になったので、編集者でも外は 422 になることを確かめる。
 /// 作成・更新の両方を見る (種別による admin 判定が無くなり、更新経路の検査が薄くなったため)。
 #[sqlx::test]

@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url, path,\n                  description, created_at as \"created_at!\", file_name, file_size,\n                  visibility as \"visibility: Visibility\", created_by, extensions, title_template,\n                  list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                  auto_rescan as \"auto_rescan: AutoRescan\"\n           FROM contents\n           ORDER BY id",
+  "query": "INSERT INTO contents (type, parent_id, title, description, visibility,\n                                  blob_hash, file_name, file_size, created_by)\n           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)\n           RETURNING id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url,\n                     path, description, created_at as \"created_at!\", file_name, file_size,\n                     visibility as \"visibility: Visibility\", created_by, extensions, title_template,\n                     list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                     auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time",
   "describe": {
     "columns": [
       {
@@ -84,13 +84,23 @@
         "type_info": "Integer"
       },
       {
-        "name": "auto_rescan: AutoRescan",
+        "name": "auto_rescan_mode: AutoMode",
         "ordinal": 16,
+        "type_info": "Text"
+      },
+      {
+        "name": "auto_rescan_hours",
+        "ordinal": 17,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_rescan_time",
+        "ordinal": 18,
         "type_info": "Text"
       }
     ],
     "parameters": {
-      "Right": 0
+      "Right": 9
     },
     "nullable": [
       false,
@@ -109,8 +119,10 @@
       true,
       false,
       false,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "51f6335133d2de326dcfb1a400957b49c8c87480266702ad81072f7e3d62d022"
+  "hash": "a58dcfef3d8b90e3ffe2073b33469ddad26c0aebc1eabcac3255cc49a0bcf036"
 }

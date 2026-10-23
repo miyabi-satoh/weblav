@@ -1660,8 +1660,8 @@ export interface components {
             /** @description AI がリンクを集めるグループか (→ docs/ai.md「AI が集めるリンク」)。一覧の行に、集め直す操作を出すのに使う。 */
             aiLinks: boolean;
             archiveItems?: components["schemas"]["ArchiveItemCounts"] | null;
-            /** @description 一覧の表示を使うフォルダーを、自動で再スキャンする間隔。 */
-            autoRescan: components["schemas"]["AutoRescan"];
+            /** @description 一覧の表示を使うフォルダーを、自動で再スキャンする時刻 (→ docs/archive.md「スキャン」)。 */
+            autoRescan: components["schemas"]["AutoRefresh"];
             /**
              * Format: int64
              * @description 作成者のユーザーid。`None`なら作成者なし (→ docs/access.md「公開範囲」)。
@@ -1943,11 +1943,14 @@ export interface components {
             items: components["schemas"]["ArchiveViewItem"][];
         };
         /**
-         * @description 自動の更新の決め方。
+         * @description 自動で回す処理の決め方。
          * @enum {string}
          */
         AutoMode: "off" | "interval" | "daily";
-        /** @description 自動の更新の設定 (→ docs/ai.md「自動の更新」)。グループが開かれたときに、決めた時間を過ぎていれば集め直す。 */
+        /**
+         * @description 自動で回す処理の時刻の設定。グループの AI のリンクの自動の更新 (→ docs/ai.md「自動の更新」) と、
+         *     ライブラリの自動の再スキャン (→ docs/archive.md「スキャン」) で同じ形を使う。
+         */
         AutoRefresh: {
             /**
              * Format: int32
@@ -1958,11 +1961,6 @@ export interface components {
             /** @description `daily` のときの時刻。WebLAV を動かす PC の現地時刻の `HH:MM`。 */
             time?: string | null;
         };
-        /**
-         * @description `contents.auto_rescan`。一覧の表示を使うフォルダーを、自動で再スキャンする間隔 (→ docs/archive.md「スキャン」)。
-         * @enum {string}
-         */
-        AutoRescan: "manual" | "hourly" | "daily";
         /**
          * @description `archive_axis_values.match_position`。照合語をファイル名のどこで照合するか (→ docs/archive.md「軸の定義」)。
          *     `filename_word` 軸の行だけが `anywhere` 以外を持てる。
@@ -2774,7 +2772,7 @@ export interface components {
             aiAllowed: boolean;
         };
         UpdateContentRequest: {
-            autoRescan?: components["schemas"]["AutoRescan"] | null;
+            autoRescan?: components["schemas"]["AutoRefresh"] | null;
             description?: string | null;
             /**
              * @description `type = 'folder'` のみ。一覧の表示で索引する拡張子をカンマ区切りで指定する。

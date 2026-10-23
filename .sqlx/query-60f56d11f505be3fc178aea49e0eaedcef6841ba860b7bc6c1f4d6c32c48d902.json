@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "UPDATE contents\n           SET parent_id = ?, title = ?, description = ?, blob_hash = ?,\n               file_name = ?, file_size = ?, visibility = ?,\n               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')\n           WHERE id = ?\n           RETURNING id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url,\n                     path, description, created_at as \"created_at!\", file_name, file_size,\n                     visibility as \"visibility: Visibility\", created_by, extensions, title_template,\n                     list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                     auto_rescan as \"auto_rescan: AutoRescan\"",
+  "query": "UPDATE contents\n           SET parent_id = ?, title = ?, description = ?, blob_hash = ?,\n               file_name = ?, file_size = ?, visibility = ?,\n               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')\n           WHERE id = ?\n           RETURNING id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url,\n                     path, description, created_at as \"created_at!\", file_name, file_size,\n                     visibility as \"visibility: Visibility\", created_by, extensions, title_template,\n                     list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                     auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time",
   "describe": {
     "columns": [
       {
@@ -84,8 +84,18 @@
         "type_info": "Integer"
       },
       {
-        "name": "auto_rescan: AutoRescan",
+        "name": "auto_rescan_mode: AutoMode",
         "ordinal": 16,
+        "type_info": "Text"
+      },
+      {
+        "name": "auto_rescan_hours",
+        "ordinal": 17,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_rescan_time",
+        "ordinal": 18,
         "type_info": "Text"
       }
     ],
@@ -109,8 +119,10 @@
       true,
       false,
       false,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "b97bcb2fbd2781de3a49f77b11439bbfe8552f4924f2f716eebf5915df34e046"
+  "hash": "60f56d11f505be3fc178aea49e0eaedcef6841ba860b7bc6c1f4d6c32c48d902"
 }

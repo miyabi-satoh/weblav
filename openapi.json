@@ -5909,8 +5909,8 @@
             ]
           },
           "autoRescan": {
-            "$ref": "#/components/schemas/AutoRescan",
-            "description": "一覧の表示を使うフォルダーを、自動で再スキャンする間隔。"
+            "$ref": "#/components/schemas/AutoRefresh",
+            "description": "一覧の表示を使うフォルダーを、自動で再スキャンする時刻 (→ docs/archive.md「スキャン」)。"
           },
           "createdBy": {
             "type": [
@@ -6572,7 +6572,7 @@
       },
       "AutoMode": {
         "type": "string",
-        "description": "自動の更新の決め方。",
+        "description": "自動で回す処理の決め方。",
         "enum": [
           "off",
           "interval",
@@ -6581,7 +6581,7 @@
       },
       "AutoRefresh": {
         "type": "object",
-        "description": "自動の更新の設定 (→ docs/ai.md「自動の更新」)。グループが開かれたときに、決めた時間を過ぎていれば集め直す。",
+        "description": "自動で回す処理の時刻の設定。グループの AI のリンクの自動の更新 (→ docs/ai.md「自動の更新」) と、\nライブラリの自動の再スキャン (→ docs/archive.md「スキャン」) で同じ形を使う。",
         "required": [
           "mode"
         ],
@@ -6606,15 +6606,6 @@
             "description": "`daily` のときの時刻。WebLAV を動かす PC の現地時刻の `HH:MM`。"
           }
         }
-      },
-      "AutoRescan": {
-        "type": "string",
-        "description": "`contents.auto_rescan`。一覧の表示を使うフォルダーを、自動で再スキャンする間隔 (→ docs/archive.md「スキャン」)。",
-        "enum": [
-          "manual",
-          "hourly",
-          "daily"
-        ]
       },
       "AxisMatchPosition": {
         "type": "string",
@@ -8928,8 +8919,8 @@
           "autoRescan": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/AutoRescan",
-                "description": "`type = 'folder'` のみ。自動で再スキャンする間隔。省略時は現在値のまま。"
+                "$ref": "#/components/schemas/AutoRefresh",
+                "description": "`type = 'folder'` のみ。自動で再スキャンする時刻。省略時は現在値のまま。"
               },
               {
                 "type": "null"

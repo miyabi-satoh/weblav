@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url, path,\n                  description, created_at as \"created_at!\", file_name, file_size,\n                  visibility as \"visibility: Visibility\", created_by, extensions, title_template,\n                  list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                  auto_rescan as \"auto_rescan: AutoRescan\"\n           FROM contents\n           WHERE parent_id = ?",
+  "query": "SELECT id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url, path,\n                  description, created_at as \"created_at!\", file_name, file_size,\n                  visibility as \"visibility: Visibility\", created_by, extensions, title_template,\n                  list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                  auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time\n           FROM contents\n           ORDER BY id",
   "describe": {
     "columns": [
       {
@@ -84,33 +84,45 @@
         "type_info": "Integer"
       },
       {
-        "name": "auto_rescan: AutoRescan",
+        "name": "auto_rescan_mode: AutoMode",
         "ordinal": 16,
+        "type_info": "Text"
+      },
+      {
+        "name": "auto_rescan_hours",
+        "ordinal": 17,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_rescan_time",
+        "ordinal": 18,
         "type_info": "Text"
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 0
     },
     "nullable": [
-      true,
       false,
-      true,
       false,
-      true,
-      true,
-      true,
-      false,
-      true,
       true,
       false,
       true,
       true,
       true,
       false,
+      true,
+      true,
       false,
-      false
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true
     ]
   },
-  "hash": "4c6b083127486750495acc1158802b9a2c50a3fc47a0d41133cbb28c14829bae"
+  "hash": "573f6861d53811985c6d9a2c39000ef4b6f45489df5e5d896004a2920cb7782f"
 }

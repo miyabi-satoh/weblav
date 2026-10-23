@@ -32,7 +32,7 @@ Recordings
    ![The folder picker with Recordings open](images/add-archive-picker.webp)
 
 3. Select “Register”. The folder's edit page opens.
-4. On the “Details” tab, turn on “Organize as a library” under “Location and display”, then select “Save” in that section. The folder is scanned right away, and the progress appears next to the button. To publish only the files you choose, turn off “Publish new files” before saving.
+4. On the “Settings” tab, turn on “Organize as a library” under “Location and display”, then select “Save” in that section. The folder is scanned right away, and the progress appears next to the button. To publish only the files you choose, turn off “Publish new files” before saving.
 
    ![The Publish new files and Organize as a library switches](images/folder-list-view.webp)
 5. Select the “Categories” tab, then select “Add category...”.
@@ -87,7 +87,7 @@ As with folder-level categories, you can change the display names and order in t
 
 ## Limit the files in the list
 
-Use “File extensions” (for example, `mp3, pdf`) on the “Details” tab to limit the files in the list. Leave it empty for all files. After changing it, select “Rescan” on the “Items” tab.
+Use “File extensions” (for example, `mp3, pdf`) on the “Settings” tab to limit the files in the list. Leave it empty for all files. After changing it, select “Rescan” on the “Items” tab.
 
 ## Ask an AI
 
@@ -138,7 +138,7 @@ When you change a file's contents (for example, replace a photo with one of the 
 
    With many files this takes a while, and the progress and the elapsed time appear next to the button. The scan finishes even if you close the page.
 
-To rescan at regular intervals, choose “Every hour” or “Every day” in “Automatic rescan” on the “Details” tab.
+To rescan automatically, choose “When … have passed since the last scan” or “Every day after …” in “Automatic rescan” on the “Settings” tab, and enter the hours or the time. A time at night, when few people use the NAS, keeps the scan out of their way.
 
 Added files are published if “Publish new files” is on, and start unpublished if it is off. To show files that started unpublished, select them, then select “Publish”.
 
@@ -153,8 +153,8 @@ To stop publishing files, select them, then choose “Unpublish”. You can also
 If rescanning shows one of the following, the item list and the publish settings stay as they were.
 
 - **“The folder was not found.”**: The registered folder was deleted, moved, or renamed, or an external drive was disconnected.
-  - If you moved or renamed it, select “Change...” under “Path” on the “Details” tab and choose it. The publish changes and the list are cleared, so set them up again.
+  - If you moved or renamed it, select “Change...” under “Path” on the “Settings” tab and choose it. The publish changes and the list are cleared, so set them up again.
   - If you disconnected a drive, connect it and rescan.
   - Viewers also see “The folder was not found.”
 - **“Could not read "(folder)".” / “The folder could not be read.”**: WebLAV cannot read that folder (in the latter case, the registered folder itself). Check the folder’s permissions on the computer, make it readable, then rescan. For a NAS share, check that it is connected.
-- **“This folder has more than 100,000 files, so they can't be listed.”**: The folder has more files than one list can hold. Narrow it down by file extension on the “Details” tab, or register its subfolders as separate folders.
+- **“This folder has more than 100,000 files, so it can't be organized as a library.”**: The folder has more files than one list can hold. Narrow it down by file extension on the “Settings” tab, or register its subfolders as separate folders.

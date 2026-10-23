@@ -26,6 +26,7 @@ mod logs;
 mod page_dates;
 mod remote_file;
 mod roots;
+mod schedule;
 mod search;
 pub mod server_settings;
 pub mod setup;

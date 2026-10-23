@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "INSERT INTO contents (type, parent_id, title, url, path, description,\n                                  visibility, created_by)\n           VALUES (?, ?, ?, ?, ?, ?, ?, ?)\n           RETURNING id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url,\n                     path, description, created_at as \"created_at!\", file_name, file_size,\n                     visibility as \"visibility: Visibility\", created_by, extensions, title_template,\n                     list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                     auto_rescan as \"auto_rescan: AutoRescan\"",
+  "query": "UPDATE contents\n           SET parent_id = ?, title = ?, url = ?, path = ?, description = ?,\n               visibility = ?, extensions = ?, title_template = ?,\n               list_view = ?, new_files_public = ?,\n               auto_rescan_mode = ?, auto_rescan_hours = ?, auto_rescan_time = ?,\n               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')\n           WHERE id = ?\n           RETURNING id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url,\n                     path, description, created_at as \"created_at!\", file_name, file_size,\n                     visibility as \"visibility: Visibility\", created_by, extensions, title_template,\n                     list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                     auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time",
   "describe": {
     "columns": [
       {
@@ -84,13 +84,23 @@
         "type_info": "Integer"
       },
       {
-        "name": "auto_rescan: AutoRescan",
+        "name": "auto_rescan_mode: AutoMode",
         "ordinal": 16,
+        "type_info": "Text"
+      },
+      {
+        "name": "auto_rescan_hours",
+        "ordinal": 17,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_rescan_time",
+        "ordinal": 18,
         "type_info": "Text"
       }
     ],
     "parameters": {
-      "Right": 8
+      "Right": 14
     },
     "nullable": [
       false,
@@ -109,8 +119,10 @@
       true,
       false,
       false,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "bc42a68f1ea7f6c7763a1e1bc22608250f73f1d9224e1dfe2c291484e6e62a3b"
+  "hash": "a1523ce8a4708205601566d7db957914b56630a7dd35456c43d4161b63c8d54a"
 }

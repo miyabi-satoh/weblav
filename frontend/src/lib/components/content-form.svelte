@@ -15,24 +15,14 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
+	import AutoScheduleField from '$lib/components/auto-schedule-field.svelte';
 	import FileDropzone from '$lib/components/file-dropzone.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
-	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import * as Select from '$lib/components/ui/select';
 	import { Switch } from '$lib/components/ui/switch';
 	import { Textarea } from '$lib/components/ui/textarea';
 
 	type Visibility = components['schemas']['Visibility'];
-	type AutoRescan = components['schemas']['AutoRescan'];
-
-	const AUTO_RESCAN_OPTIONS: AutoRescan[] = ['manual', 'hourly', 'daily'];
-
-	function autoRescanLabel(value: AutoRescan): string {
-		if (value === 'hourly') return m.contents_form_auto_rescan_hourly();
-		if (value === 'daily') return m.contents_form_auto_rescan_daily();
-		return m.contents_form_auto_rescan_manual();
-	}
-
 	type Props = {
 		form: ContentFormState;
 		/**
@@ -283,26 +273,15 @@
 				<Input id="content-extensions" bind:value={form.extensions} />
 				<Field.FieldDescription>{m.contents_form_extensions_help()}</Field.FieldDescription>
 			</Field.Field>
-			<!-- グループの「自動の更新」と同じく丸ボタンにする。3つの状態が一目で見えるため (→ docs/ui.md「グループの編集ページ」)。 -->
-			<Field.FieldSet data-disabled={disabled}>
-				<Field.FieldLegend variant="label" id="content-auto-rescan-legend"
-					>{m.contents_form_auto_rescan_label()}</Field.FieldLegend
-				>
-				<RadioGroup.Root
-					bind:value={form.autoRescan}
-					{disabled}
-					aria-labelledby="content-auto-rescan-legend"
-				>
-					{#each AUTO_RESCAN_OPTIONS as option (option)}
-						<Field.Field orientation="horizontal" data-disabled={disabled} class="min-h-9">
-							<RadioGroup.Item value={option} id="content-auto-rescan-{option}" />
-							<Field.FieldLabel for="content-auto-rescan-{option}" class="font-normal"
-								>{autoRescanLabel(option)}</Field.FieldLabel
-							>
-						</Field.Field>
-					{/each}
-				</RadioGroup.Root>
-			</Field.FieldSet>
+			<AutoScheduleField
+				id="content-auto-rescan"
+				label={m.contents_form_auto_rescan_label()}
+				intervalAfter={m.contents_form_auto_rescan_interval_after()}
+				bind:mode={form.autoRescanMode}
+				bind:hours={form.autoRescanHours}
+				bind:time={form.autoRescanTime}
+				{disabled}
+			/>
 		{/if}
 	{/if}
 </Field.FieldGroup>

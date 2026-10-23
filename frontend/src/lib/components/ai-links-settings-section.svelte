@@ -11,10 +11,10 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
-	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Switch } from '$lib/components/ui/switch';
 	import { Button } from '$lib/components/ui/button';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
+	import AutoScheduleField from '$lib/components/auto-schedule-field.svelte';
 	import IntegerInput from '$lib/components/integer-input.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -42,8 +42,6 @@
 	/** 自動の更新を選び直したときに入れておく値。 */
 	const DEFAULT_HOURS = 6;
 	const DEFAULT_TIME = '07:00';
-	// Field.Field の横並びはラベルを伸ばすので、文の途中に欄を置く行では言葉の幅に戻す。
-	const sentenceRowClass = 'min-h-9 flex-wrap [&>[data-slot=field-label]]:flex-none';
 
 	let on = $state(untrack(() => settings.enabled));
 	// 検索キーワードは1つの欄に1つの検索。サーバーには改行でつないで送る (→ docs/ai.md「AI が集めるリンク」)。
@@ -229,67 +227,16 @@
 						>{m.contents_form_ai_daily_limit_description()}</Field.FieldDescription
 					>
 				</Field.Field>
-				<Field.FieldSet data-disabled={!editable}>
-					<Field.FieldLegend variant="label" id="content-ai-auto-legend"
-						>{m.contents_form_ai_auto_label()}</Field.FieldLegend
-					>
-					<RadioGroup.Root bind:value={mode} aria-labelledby="content-ai-auto-legend">
-						<Field.Field orientation="horizontal" data-disabled={!editable} class="min-h-9">
-							<RadioGroup.Item value="off" id="content-ai-auto-off" />
-							<Field.FieldLabel for="content-ai-auto-off" class="font-normal"
-								>{m.contents_form_ai_auto_off()}</Field.FieldLabel
-							>
-						</Field.Field>
-						<!-- 数の欄を文の途中に置く。押せる範囲を丸だけでなく文の言葉にも広げる。 -->
-						<Field.Field
-							orientation="horizontal"
-							data-disabled={!editable}
-							class={sentenceRowClass}
-						>
-							<RadioGroup.Item value="interval" id="content-ai-auto-interval" />
-							<Field.FieldLabel for="content-ai-auto-interval" class="font-normal"
-								>{m.contents_form_ai_auto_interval_before()}</Field.FieldLabel
-							>
-							<IntegerInput
-								id="content-ai-auto-hours"
-								class="w-44"
-								min={1}
-								max={MAX_COUNT}
-								unit={m.contents_form_ai_auto_hours_unit({ count: hours })}
-								label={m.contents_form_ai_auto_hours_unit({ count: hours })}
-								bind:value={hours}
-								required={mode === 'interval'}
-							/>
-							<Field.FieldLabel for="content-ai-auto-interval" class="font-normal"
-								>{m.contents_form_ai_auto_interval_after()}</Field.FieldLabel
-							>
-						</Field.Field>
-						<Field.Field
-							orientation="horizontal"
-							data-disabled={!editable}
-							class={sentenceRowClass}
-						>
-							<RadioGroup.Item value="daily" id="content-ai-auto-daily" />
-							<Field.FieldLabel for="content-ai-auto-daily" class="font-normal"
-								>{m.contents_form_ai_auto_daily_before()}</Field.FieldLabel
-							>
-							<Input
-								id="content-ai-auto-time"
-								type="time"
-								class="w-40"
-								aria-label={m.contents_form_ai_auto_time_label()}
-								bind:value={time}
-								required={mode === 'daily'}
-							/>
-							{#if m.contents_form_ai_auto_daily_after() !== ''}
-								<Field.FieldLabel for="content-ai-auto-daily" class="font-normal"
-									>{m.contents_form_ai_auto_daily_after()}</Field.FieldLabel
-								>
-							{/if}
-						</Field.Field>
-					</RadioGroup.Root>
-					<Field.FieldDescription>{m.contents_form_ai_auto_description()}</Field.FieldDescription>
-				</Field.FieldSet>
+				<AutoScheduleField
+					id="content-ai-auto"
+					label={m.contents_form_ai_auto_label()}
+					intervalAfter={m.contents_form_ai_auto_interval_after()}
+					description={m.contents_form_ai_auto_description()}
+					bind:mode
+					bind:hours
+					bind:time
+					disabled={!editable}
+				/>
 			</Field.FieldGroup>
 		{/if}
 	</fieldset>

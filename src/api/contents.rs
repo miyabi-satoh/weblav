@@ -30,6 +30,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use super::error_detail::ValidationDetail;
+use super::schedule::{AutoMode, AutoRefresh, parse_auto_refresh};
 use super::search::FieldKind;
 use super::sort::{SortOrder, SortQuery, title_cmp};
 use crate::auth::{AdminUser, AuthUser, Viewer};
@@ -54,16 +55,6 @@ pub enum ContentType {
     Folder,
     File,
     Group,
-}
-
-/// `contents.auto_rescan`。一覧の表示を使うフォルダーを、自動で再スキャンする間隔 (→ docs/archive.md「スキャン」)。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema, sqlx::Type)]
-#[serde(rename_all = "lowercase")]
-#[sqlx(rename_all = "lowercase")]
-pub enum AutoRescan {
-    Manual,
-    Hourly,
-    Daily,
 }
 
 /// `contents.visibility`。公開範囲を表す (→ docs/access.md「公開範囲」)。
@@ -314,7 +305,9 @@ struct ContentRow {
     list_view: bool,
     /// `type = 'folder'` で、印の無いファイル (新しく見つかったもの) を公開するか。
     new_files_public: bool,
-    auto_rescan: AutoRescan,
+    auto_rescan_mode: AutoMode,
+    auto_rescan_hours: Option<i64>,
+    auto_rescan_time: Option<String>,
 }
 
 /// 一般の閲覧者(匿名を含む)向けのレスポンス。`path`(サーバー上の絶対パス)は
@@ -475,8 +468,8 @@ pub struct AdminContentResponse {
     pub list_view: bool,
     /// `type = 'folder'` で、印の無いファイル (新しく見つかったもの) を公開するか (→ docs/folders.md「公開と非公開」)。
     pub new_files_public: bool,
-    /// 一覧の表示を使うフォルダーを、自動で再スキャンする間隔。
-    pub auto_rescan: AutoRescan,
+    /// 一覧の表示を使うフォルダーを、自動で再スキャンする時刻 (→ docs/archive.md「スキャン」)。
+    pub auto_rescan: AutoRefresh,
     /// AI がリンクを集めるグループか (→ docs/ai.md「AI が集めるリンク」)。一覧の行に、集め直す操作を出すのに使う。
     pub ai_links: bool,
     /// 一覧の表示を使うフォルダーの場合のみ`Some`。アイテムの数と公開している数。
@@ -523,7 +516,11 @@ impl AdminContentResponse {
             title_template: row.title_template,
             list_view: row.list_view,
             new_files_public: row.new_files_public,
-            auto_rescan: row.auto_rescan,
+            auto_rescan: AutoRefresh::from_columns(
+                row.auto_rescan_mode,
+                row.auto_rescan_hours,
+                row.auto_rescan_time,
+            ),
             ai_links,
             archive_items,
         }
@@ -613,9 +610,9 @@ pub struct UpdateContentRequest {
     /// `type = 'folder'` のみ。印の無いファイル (新しく見つかったもの) を公開するか。省略時は現在値のまま。
     #[serde(default)]
     pub new_files_public: Option<bool>,
-    /// `type = 'folder'` のみ。自動で再スキャンする間隔。省略時は現在値のまま。
+    /// `type = 'folder'` のみ。自動で再スキャンする時刻。省略時は現在値のまま。
     #[serde(default)]
-    pub auto_rescan: Option<AutoRescan>,
+    pub auto_rescan: Option<AutoRefresh>,
 }
 
 /// タイトルの前後の空白を取り除いた上で検証する。空タイトルを弾く。
@@ -950,7 +947,7 @@ async fn list_contents(
                   description, created_at as "created_at!", file_name, file_size,
                   visibility as "visibility: Visibility", created_by, extensions, title_template,
                   list_view as "list_view: bool", new_files_public as "new_files_public: bool",
-                  auto_rescan as "auto_rescan: AutoRescan"
+                  auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents
            WHERE parent_id IS NULL"#,
     )
@@ -988,7 +985,7 @@ async fn list_admin_contents(
                   description, created_at as "created_at!", file_name, file_size,
                   visibility as "visibility: Visibility", created_by, extensions, title_template,
                   list_view as "list_view: bool", new_files_public as "new_files_public: bool",
-                  auto_rescan as "auto_rescan: AutoRescan"
+                  auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents
            ORDER BY id"#,
     )
@@ -1127,7 +1124,7 @@ async fn create_content(
                      path, description, created_at as "created_at!", file_name, file_size,
                      visibility as "visibility: Visibility", created_by, extensions, title_template,
                      list_view as "list_view: bool", new_files_public as "new_files_public: bool",
-                     auto_rescan as "auto_rescan: AutoRescan""#,
+                     auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         content_type,
         parent_id,
         title,
@@ -1238,7 +1235,7 @@ async fn update_content(
         r#"SELECT type as "content_type: ContentType", path,
                   visibility as "visibility: Visibility", created_by,
                   list_view as "list_view: bool", new_files_public as "new_files_public: bool",
-                  auto_rescan as "auto_rescan: AutoRescan"
+                  auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents WHERE id = ?"#,
         id
     )
@@ -1297,7 +1294,15 @@ async fn update_content(
     let new_files_public = payload
         .new_files_public
         .unwrap_or(existing.new_files_public);
-    let auto_rescan = payload.auto_rescan.unwrap_or(existing.auto_rescan);
+    let auto_rescan = match payload.auto_rescan {
+        Some(auto) => parse_auto_refresh(auto)?,
+        None => AutoRefresh::from_columns(
+            existing.auto_rescan_mode,
+            existing.auto_rescan_hours,
+            existing.auto_rescan_time,
+        ),
+    };
+    let auto_rescan_hours = auto_rescan.hours.map(i64::from);
 
     // `path` を変えたら、索引と公開・非公開の印を捨てる (→ docs/archive.md「スキャン」)。
     // どちらも登録先を起点とする相対パスなので、起点が変われば同じパスが別のファイルを指す。
@@ -1316,14 +1321,15 @@ async fn update_content(
         r#"UPDATE contents
            SET parent_id = ?, title = ?, url = ?, path = ?, description = ?,
                visibility = ?, extensions = ?, title_template = ?,
-               list_view = ?, new_files_public = ?, auto_rescan = ?,
+               list_view = ?, new_files_public = ?,
+               auto_rescan_mode = ?, auto_rescan_hours = ?, auto_rescan_time = ?,
                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
            WHERE id = ?
            RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
                      path, description, created_at as "created_at!", file_name, file_size,
                      visibility as "visibility: Visibility", created_by, extensions, title_template,
                      list_view as "list_view: bool", new_files_public as "new_files_public: bool",
-                     auto_rescan as "auto_rescan: AutoRescan""#,
+                     auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         parent_id,
         title,
         url,
@@ -1334,7 +1340,9 @@ async fn update_content(
         title_template,
         list_view,
         new_files_public,
-        auto_rescan,
+        auto_rescan.mode,
+        auto_rescan_hours,
+        auto_rescan.time,
         id,
     )
     .fetch_optional(&mut *tx)
@@ -1419,7 +1427,7 @@ async fn set_creator(
                      path, description, created_at as "created_at!", file_name, file_size,
                      visibility as "visibility: Visibility", created_by, extensions, title_template,
                      list_view as "list_view: bool", new_files_public as "new_files_public: bool",
-                     auto_rescan as "auto_rescan: AutoRescan""#,
+                     auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         payload.created_by,
         id,
     )
@@ -2016,7 +2024,7 @@ async fn browse_group(
                   description, created_at as "created_at!", file_name, file_size,
                   visibility as "visibility: Visibility", created_by, extensions, title_template,
                   list_view as "list_view: bool", new_files_public as "new_files_public: bool",
-                  auto_rescan as "auto_rescan: AutoRescan"
+                  auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents
            WHERE parent_id = ?"#,
         id,
@@ -2294,7 +2302,7 @@ pub(super) async fn search_contents(
                   description, created_at as "created_at!", file_name, file_size,
                   visibility as "visibility: Visibility", created_by, extensions, title_template,
                   list_view as "list_view: bool", new_files_public as "new_files_public: bool",
-                  auto_rescan as "auto_rescan: AutoRescan"
+                  auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents"#,
     )
     .fetch_all(&state.pool)
@@ -3015,7 +3023,7 @@ async fn upload_content(
                      path, description, created_at as "created_at!", file_name, file_size,
                      visibility as "visibility: Visibility", created_by, extensions, title_template,
                      list_view as "list_view: bool", new_files_public as "new_files_public: bool",
-                     auto_rescan as "auto_rescan: AutoRescan""#,
+                     auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         content_type,
         parent_id,
         title,
@@ -3169,7 +3177,7 @@ async fn replace_content_upload(
                      path, description, created_at as "created_at!", file_name, file_size,
                      visibility as "visibility: Visibility", created_by, extensions, title_template,
                      list_view as "list_view: bool", new_files_public as "new_files_public: bool",
-                     auto_rescan as "auto_rescan: AutoRescan""#,
+                     auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         parent_id,
         title,
         description,
@@ -3336,7 +3344,9 @@ mod tests {
             title_template: None,
             list_view: false,
             new_files_public: true,
-            auto_rescan: AutoRescan::Manual,
+            auto_rescan_mode: AutoMode::Off,
+            auto_rescan_hours: None,
+            auto_rescan_time: None,
         }
     }
 

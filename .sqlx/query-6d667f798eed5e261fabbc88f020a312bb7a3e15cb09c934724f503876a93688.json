@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT type as \"content_type: ContentType\", path,\n                  visibility as \"visibility: Visibility\", created_by,\n                  list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                  auto_rescan as \"auto_rescan: AutoRescan\"\n           FROM contents WHERE id = ?",
+  "query": "SELECT type as \"content_type: ContentType\", path,\n                  visibility as \"visibility: Visibility\", created_by,\n                  list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                  auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time\n           FROM contents WHERE id = ?",
   "describe": {
     "columns": [
       {
@@ -34,8 +34,18 @@
         "type_info": "Integer"
       },
       {
-        "name": "auto_rescan: AutoRescan",
+        "name": "auto_rescan_mode: AutoMode",
         "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "auto_rescan_hours",
+        "ordinal": 7,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_rescan_time",
+        "ordinal": 8,
         "type_info": "Text"
       }
     ],
@@ -49,8 +59,10 @@
       true,
       false,
       false,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "46355db12ea85d2590d0dd964b50f4caa692c0c49f59bdaa7bac9fea53fde3aa"
+  "hash": "6d667f798eed5e261fabbc88f020a312bb7a3e15cb09c934724f503876a93688"
 }

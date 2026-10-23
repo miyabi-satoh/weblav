@@ -96,7 +96,9 @@ const WEBP_QUALITY = 0.85;
 const WINDOWS_SHARED_PATH = 'C:\\Users\\user\\Documents\\共有';
 
 // Ctrl-C はこちらで受けて片付ける (下の SIGINT)。Playwright に先にブラウザーを閉じさせない。
-const browser = await chromium.launch({ handleSIGINT: false });
+// 時刻の欄などブラウザーが描く部品は、コンテキストの locale でなく起動時の言語で書式が決まる。
+// 日本語の画面の画像に「03:00 AM」と写らないよう、日本語で起動する。
+const browser = await chromium.launch({ handleSIGINT: false, args: ['--lang=ja-JP'] });
 /** makeSharedDir が作った一時フォルダー。最後に消す。 */
 const tempDirs: string[] = [];
 
@@ -482,7 +484,7 @@ async function shootAdmin() {
 				page,
 				'folder-list-view',
 				page.getByText('新しく見つかったファイルを公開する'),
-				page.getByText('1\u00a0日ごと'),
+				page.getByText('を過ぎたら', { exact: true }),
 				{ padTop: 16, padBottom: 16 }
 			);
 		}

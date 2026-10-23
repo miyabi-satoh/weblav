@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "INSERT INTO contents (type, parent_id, title, description, visibility,\n                                  blob_hash, file_name, file_size, created_by)\n           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)\n           RETURNING id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url,\n                     path, description, created_at as \"created_at!\", file_name, file_size,\n                     visibility as \"visibility: Visibility\", created_by, extensions, title_template,\n                     list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                     auto_rescan as \"auto_rescan: AutoRescan\"",
+  "query": "SELECT id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url, path,\n                  description, created_at as \"created_at!\", file_name, file_size,\n                  visibility as \"visibility: Visibility\", created_by, extensions, title_template,\n                  list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                  auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time\n           FROM contents\n           WHERE parent_id IS NULL",
   "describe": {
     "columns": [
       {
@@ -84,33 +84,45 @@
         "type_info": "Integer"
       },
       {
-        "name": "auto_rescan: AutoRescan",
+        "name": "auto_rescan_mode: AutoMode",
         "ordinal": 16,
+        "type_info": "Text"
+      },
+      {
+        "name": "auto_rescan_hours",
+        "ordinal": 17,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_rescan_time",
+        "ordinal": 18,
         "type_info": "Text"
       }
     ],
     "parameters": {
-      "Right": 9
+      "Right": 0
     },
     "nullable": [
-      false,
-      false,
       true,
       false,
-      true,
-      true,
-      true,
-      false,
-      true,
       true,
       false,
       true,
       true,
       true,
       false,
+      true,
+      true,
       false,
-      false
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true
     ]
   },
-  "hash": "1fa0b7e45dc2efc293e2dc7db143848ddd5ee4d0bae874e76af08efe443c9c5b"
+  "hash": "c6eb6a73c3f62ca4947fe970bcb855ff1364d66204ba4560e5422c857296947b"
 }

@@ -19,7 +19,14 @@ import * as m from '$lib/paraglide/messages.js';
 type Content = components['schemas']['AdminContentResponse'];
 type ContentType = components['schemas']['ContentType'];
 type Visibility = components['schemas']['Visibility'];
-type AutoRescan = components['schemas']['AutoRescan'];
+type AutoMode = components['schemas']['AutoMode'];
+
+/**
+ * 自動の再スキャンを選び直したときに入れておく値。書き換えたファイルを拾えれば足りるので1日おき、
+ * 時刻は NAS を使う人の少ない夜中にする。
+ */
+const AUTO_RESCAN_DEFAULT_HOURS = 24;
+const AUTO_RESCAN_DEFAULT_TIME = '03:00';
 type LinkMetadataResponse = components['schemas']['LinkMetadataResponse'];
 
 /**
@@ -53,7 +60,9 @@ type FormSnapshot = {
 	extensions: string;
 	listView: boolean;
 	newFilesPublic: boolean;
-	autoRescan: AutoRescan;
+	autoRescanMode: AutoMode;
+	autoRescanHours: number;
+	autoRescanTime: string;
 };
 
 export class ContentFormState {
@@ -77,7 +86,9 @@ export class ContentFormState {
 	/** `folder` 専用。新しく見つかったファイルを公開するか (→ docs/folders.md「公開と非公開」)。 */
 	newFilesPublic = $state(true);
 	/** `folder` の一覧の表示で、自動で再スキャンする間隔。 */
-	autoRescan = $state<AutoRescan>('manual');
+	autoRescanMode = $state<AutoMode>('off');
+	autoRescanHours = $state(AUTO_RESCAN_DEFAULT_HOURS);
+	autoRescanTime = $state(AUTO_RESCAN_DEFAULT_TIME);
 	/**
 	 * `folder` の一覧の表示の、表示タイトルの組み立てテンプレート。
 	 * この画面では編集させず (軸がまだ無い・変わりうるため、軸の設定画面に委ねる)、
@@ -194,7 +205,9 @@ export class ContentFormState {
 			extensions: this.extensions,
 			listView: this.listView,
 			newFilesPublic: this.newFilesPublic,
-			autoRescan: this.autoRescan
+			autoRescanMode: this.autoRescanMode,
+			autoRescanHours: this.autoRescanHours,
+			autoRescanTime: this.autoRescanTime
 		};
 	}
 
@@ -242,7 +255,9 @@ export class ContentFormState {
 		this.extensions = '';
 		this.listView = false;
 		this.newFilesPublic = true;
-		this.autoRescan = 'manual';
+		this.autoRescanMode = 'off';
+		this.autoRescanHours = AUTO_RESCAN_DEFAULT_HOURS;
+		this.autoRescanTime = AUTO_RESCAN_DEFAULT_TIME;
 		this.titleTemplate = null;
 		this.visibility = 'public';
 		this.files = undefined;
@@ -292,7 +307,13 @@ export class ContentFormState {
 			titleTemplate: this.titleTemplate,
 			listView: folder ? this.listView : null,
 			newFilesPublic: folder ? this.newFilesPublic : null,
-			autoRescan: folder ? this.autoRescan : null
+			autoRescan: folder
+				? {
+						mode: this.autoRescanMode,
+						hours: this.autoRescanMode === 'interval' ? this.autoRescanHours : null,
+						time: this.autoRescanMode === 'daily' ? this.autoRescanTime : null
+					}
+				: null
 		};
 	}
 
@@ -358,7 +379,9 @@ export class ContentFormState {
 			this.extensions = source.extensions;
 			this.listView = source.listView;
 			this.newFilesPublic = source.newFilesPublic;
-			this.autoRescan = source.autoRescan;
+			this.autoRescanMode = source.autoRescanMode;
+			this.autoRescanHours = source.autoRescanHours;
+			this.autoRescanTime = source.autoRescanTime;
 		}
 	}
 
@@ -396,7 +419,9 @@ export class ContentFormState {
 		this.extensions = content.extensions ?? '';
 		this.listView = content.listView;
 		this.newFilesPublic = content.newFilesPublic;
-		this.autoRescan = content.autoRescan;
+		this.autoRescanMode = content.autoRescan.mode;
+		this.autoRescanHours = content.autoRescan.hours ?? AUTO_RESCAN_DEFAULT_HOURS;
+		this.autoRescanTime = content.autoRescan.time ?? AUTO_RESCAN_DEFAULT_TIME;
 		this.titleTemplate = content.titleTemplate ?? null;
 		this.visibility = content.visibility;
 		this.files = undefined;
