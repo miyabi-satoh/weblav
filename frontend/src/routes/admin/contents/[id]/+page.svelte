@@ -89,6 +89,8 @@
 	}
 
 	let saving = $state(false);
+	/** 保存に続くスキャンの進み具合。確認の窓の、押したボタンの近くに出す。 */
+	let scanProgress = $state<string | undefined>();
 
 	let dirPickerOpen = $state(false);
 	let confirmRegisterOpen = $state(false);
@@ -209,7 +211,7 @@
 				form.loadFrom(result.data, canSeeFullPath);
 			}
 			if (rescansAfterSave) {
-				const scan = await rescanArchive(content.id);
+				const scan = await rescanArchive(content.id, (message) => (scanProgress = message));
 				if (scan.ok) {
 					toast.success(
 						m.contents_edit_saved_scanned_toast({ total: formatNumber(scan.result.total) })
@@ -393,6 +395,7 @@
 	extensions={form.normalizedExtensions ?? undefined}
 	clearsPublished={content.type === 'archive' && content.path !== form.path}
 	{saving}
+	progress={scanProgress}
 	onconfirm={saveContent}
 />
 

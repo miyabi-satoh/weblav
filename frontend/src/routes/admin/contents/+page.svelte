@@ -99,6 +99,8 @@
 	let createParent = $state<Content | null>(null);
 	const form = new ContentFormState();
 	let saving = $state(false);
+	/** 保存に続くスキャンの進み具合。確認の窓の、押したボタンの近くに出す。 */
+	let scanProgress = $state<string | undefined>();
 
 	let currentUserId = $derived(page.data.user?.id);
 	let canSeeFullPath = $derived(isAdmin(page.data.user));
@@ -199,7 +201,7 @@
 			// アーカイブは作った直後にスキャンまで済ませる。空のアーカイブが残ると、
 			// 次に何を押せばよいか迷うため (→ docs/archive.md「スキャン」)。
 			if (form.type === 'archive') {
-				const scan = await rescanArchive(result.data.id);
+				const scan = await rescanArchive(result.data.id, (message) => (scanProgress = message));
 				if (!scan.ok) {
 					// 作成は済んでいるので、一覧に出してから、スキャンだけできなかったと伝える。
 					formOpen = false;
@@ -655,6 +657,7 @@
 	visibility={effectiveFormVisibility}
 	extensions={form.normalizedExtensions ?? undefined}
 	{saving}
+	progress={scanProgress}
 	onconfirm={saveContent}
 />
 

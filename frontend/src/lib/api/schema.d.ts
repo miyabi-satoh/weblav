@@ -2574,6 +2574,11 @@ export interface components {
         RescanProgressResponse: {
             /** Format: int64 */
             done: number;
+            /**
+             * Format: int64
+             * @description 走査を始めてからの秒数。走査していなければ 0。
+             */
+            elapsedSeconds: number;
             phase?: components["schemas"]["RescanPhase"] | null;
             /** Format: int64 */
             total: number;

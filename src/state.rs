@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
+use std::time::{Duration, Instant};
 
 use sqlx::SqlitePool;
 use tokio::sync::Mutex;
@@ -137,7 +138,7 @@ impl ArchiveScans {
                 "this archive is already being scanned".to_string(),
             ));
         }
-        let progress = Arc::new(ScanProgress::default());
+        let progress = Arc::new(ScanProgress::new());
         running.insert(id, Arc::clone(&progress));
         Ok(ArchiveScanGuard {
             scans: Arc::clone(self),
@@ -156,11 +157,12 @@ impl ArchiveScans {
 /// 走査の進み具合 (→ docs/archive.md「スキャン」)。走査のスレッドが書き、進み具合の口が読む。
 ///
 /// 排他は更新・削除も取るので、走査が段階を書くまでは「走査していない」と同じに見せる。
-#[derive(Default)]
 pub struct ScanProgress {
     phase: AtomicU8,
     done: AtomicU64,
     total: AtomicU64,
+    /// 排他を取った時刻。経過時間をサーバーで数えるのは、画面を開き直しても続きから出せるようにするため。
+    started: Instant,
 }
 
 /// 走査の段階。
@@ -177,6 +179,7 @@ pub struct ScanProgressSnapshot {
     pub phase: ScanPhase,
     pub done: u64,
     pub total: u64,
+    pub elapsed: Duration,
 }
 
 const PHASE_NONE: u8 = 0;
@@ -184,6 +187,15 @@ const PHASE_LISTING: u8 = 1;
 const PHASE_READING: u8 = 2;
 
 impl ScanProgress {
+    fn new() -> Self {
+        Self {
+            phase: AtomicU8::new(PHASE_NONE),
+            done: AtomicU64::new(0),
+            total: AtomicU64::new(0),
+            started: Instant::now(),
+        }
+    }
+
     pub fn start_listing(&self) {
         self.phase.store(PHASE_LISTING, Ordering::Relaxed);
     }
@@ -208,6 +220,7 @@ impl ScanProgress {
             phase,
             done: self.done.load(Ordering::Relaxed),
             total: self.total.load(Ordering::Relaxed),
+            elapsed: self.started.elapsed(),
         })
     }
 }
@@ -257,13 +270,12 @@ mod tests {
         );
         progress.start_reading(3);
         progress.advance();
+        let snapshot = scans
+            .progress(1)
+            .expect("読んでいる間は進み具合が見えるはず");
         assert_eq!(
-            scans.progress(1),
-            Some(ScanProgressSnapshot {
-                phase: ScanPhase::Reading,
-                done: 1,
-                total: 3
-            })
+            (snapshot.phase, snapshot.done, snapshot.total),
+            (ScanPhase::Reading, 1, 3)
         );
 
         drop(guard);

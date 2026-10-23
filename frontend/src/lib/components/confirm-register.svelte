@@ -34,6 +34,8 @@
 		clearsPublished?: boolean;
 		/** 保存処理中か。確認後の送信は呼び出し側が行う。 */
 		saving?: boolean;
+		/** 保存に続くスキャンの進み具合。押したボタンの近くに出す (→ docs/archive.md「スキャン」)。 */
+		progress?: string;
 		onconfirm: () => void;
 	};
 
@@ -46,6 +48,7 @@
 		extensions,
 		clearsPublished = false,
 		saving = false,
+		progress,
 		onconfirm
 	}: Props = $props();
 
@@ -199,6 +202,9 @@
 						{/if}
 					</WarningBand>
 				{/if}
+			{/if}
+			{#if progress}
+				<p role="status" class="text-sm text-muted-foreground">{progress}</p>
 			{/if}
 		</Dialog.Body>
 

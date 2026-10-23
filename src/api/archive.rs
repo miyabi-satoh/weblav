@@ -582,6 +582,8 @@ pub struct RescanProgressResponse {
     phase: Option<RescanPhase>,
     done: u64,
     total: u64,
+    /// 走査を始めてからの秒数。走査していなければ 0。
+    elapsed_seconds: u64,
 }
 
 /// 再スキャンの進み具合。画面は再スキャンの応答を待つ間、これを繰り返し見て出す
@@ -611,11 +613,13 @@ async fn rescan_progress(
             }),
             done: progress.done,
             total: progress.total,
+            elapsed_seconds: progress.elapsed.as_secs(),
         },
         None => RescanProgressResponse {
             phase: None,
             done: 0,
             total: 0,
+            elapsed_seconds: 0,
         },
     };
     Ok(Json(response))

@@ -8416,12 +8416,19 @@
         "type": "object",
         "required": [
           "done",
-          "total"
+          "total",
+          "elapsedSeconds"
         ],
         "properties": {
           "done": {
             "type": "integer",
             "format": "int64",
+            "minimum": 0
+          },
+          "elapsedSeconds": {
+            "type": "integer",
+            "format": "int64",
+            "description": "走査を始めてからの秒数。走査していなければ 0。",
             "minimum": 0
           },
           "phase": {
