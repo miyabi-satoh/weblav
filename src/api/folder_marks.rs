@@ -116,12 +116,13 @@ pub(super) async fn set_marks(
     let mut tx = crate::db::begin_write(pool).await?;
     for (path, is_dir) in targets {
         if *is_dir {
+            // LIKE は ASCII の大文字・小文字を区別しないので、頭の一致は substr で照らす。
+            // 大文字・小文字を区別するファイルシステムで、綴りの違う隣のフォルダーの印まで消さないため。
             let prefix = format!("{path}/");
-            let pattern = format!("{}%", escape_like(&prefix));
             sqlx::query!(
-                r"DELETE FROM folder_marks WHERE content_id = ? AND path LIKE ? ESCAPE '\'",
+                "DELETE FROM folder_marks WHERE content_id = ?1 AND substr(path, 1, length(?2)) = ?2",
                 content_id,
-                pattern
+                prefix
             )
             .execute(&mut *tx)
             .await?;
@@ -177,18 +178,6 @@ async fn load_in(
         default_public,
         marks: rows.into_iter().map(|row| (row.path, row.public)).collect(),
     })
-}
-
-/// LIKE の `%`・`_`・`\` を、そのままの文字として照らすよう逃がす。
-fn escape_like(value: &str) -> String {
-    let mut escaped = String::with_capacity(value.len());
-    for ch in value.chars() {
-        if matches!(ch, '%' | '_' | '\\') {
-            escaped.push('\\');
-        }
-        escaped.push(ch);
-    }
-    escaped
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -380,8 +369,31 @@ mod tests {
         );
     }
 
-    #[test]
-    fn like_escape_keeps_wildcards_literal() {
-        assert_eq!(escape_like(r"a%b_c\d"), r"a\%b\_c\\d");
+    #[sqlx::test]
+    async fn marking_a_folder_keeps_marks_of_a_sibling_spelled_in_other_case(pool: SqlitePool) {
+        let content_id = sqlx::query_scalar!(
+            "INSERT INTO contents (type, title, path, visibility, new_files_public) VALUES ('folder', 'f', '/f', 'public', 0) RETURNING id"
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("フォルダーを作れるはず");
+        set_marks(
+            &pool,
+            content_id,
+            &[("Photos/a_1.jpg".to_string(), false)],
+            true,
+        )
+        .await
+        .expect("ファイルに印を付けられるはず");
+        set_marks(&pool, content_id, &[("photos".to_string(), true)], false)
+            .await
+            .expect("フォルダーに印を付けられるはず");
+        let marks = Marks::load(&pool, content_id)
+            .await
+            .expect("印を読めるはず");
+        assert!(
+            marks.marks.contains_key("Photos/a_1.jpg"),
+            "綴りの違う隣のフォルダーの印は残るはず"
+        );
     }
 }

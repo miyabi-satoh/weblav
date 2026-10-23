@@ -1359,6 +1359,14 @@ async fn update_content(
         sqlx::query!("DELETE FROM folder_marks WHERE content_id = ?", id)
             .execute(&mut *tx)
             .await?;
+        // 新しい場所はまだ読んでいないので、前の場所のスキャンの時刻を残さない。保存の後のスキャンが
+        // 失敗したときに、自動の再スキャンが前の場所の時刻から数えて遅れないため。
+        sqlx::query!(
+            "UPDATE contents SET last_scanned_at = NULL WHERE id = ?",
+            id
+        )
+        .execute(&mut *tx)
+        .await?;
     }
 
     tx.commit().await?;
