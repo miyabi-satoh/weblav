@@ -451,21 +451,25 @@ fn build_archive_view(
     // 軸ごとの選択肢 (表示名 → 比較キー)。絞り込みに出さない軸は `None`。
     // 選択肢は絞り込み前の全体 (閲覧者に見えるアイテム全体) から作る
     // (→ docs/archive.md「軸の値の辞書と導出」)。現在の絞り込み条件では狭めない。
+    // 見えるアイテムに値が1つも無い軸も、「すべて」しか選べない欄になるので `None` にする
+    // (公開の切り替えで値を持つアイテムが見えるようになれば、また出る)。
     let options_by_axis: Vec<Option<HashMap<String, ValueKey>>> = axes
         .iter()
         .enumerate()
         .map(|(i, axis)| {
-            axis.filterable.then(|| {
-                let mut options = HashMap::new();
-                for (_, _, derived, _) in &items {
-                    if let Some(value) = &derived.axis_values[i] {
-                        options
-                            .entry(value.display.clone())
-                            .or_insert_with(|| value.key.clone());
+            axis.filterable
+                .then(|| {
+                    let mut options = HashMap::new();
+                    for (_, _, derived, _) in &items {
+                        if let Some(value) = &derived.axis_values[i] {
+                            options
+                                .entry(value.display.clone())
+                                .or_insert_with(|| value.key.clone());
+                        }
                     }
-                }
-                options
-            })
+                    options
+                })
+                .filter(|options| !options.is_empty())
         })
         .collect();
 
@@ -504,9 +508,6 @@ fn build_archive_view(
         .zip(options_by_axis)
         .enumerate()
         .filter_map(|(i, (axis, options))| {
-            // 見えるアイテムに値が1つも無い軸は、「すべて」しか選べない欄になるので返さない。
-            // 公開の切り替えで値を持つアイテムが見えるようになれば、また返る。
-            let options = options.filter(|options| !options.is_empty())?;
             // 件数は他の軸の絞り込みを効かせたまま数える。選択肢そのものは
             // 絞り込み前の全体から作る (両者で母集団が違う)。
             let mut counts: HashMap<&str, usize> = HashMap::new();
@@ -518,7 +519,7 @@ fn build_archive_view(
                 }
             }
             // 表示名が違えば比較キーも違うので、キーだけで順が決まる。
-            let mut options: Vec<(String, ValueKey)> = options.into_iter().collect();
+            let mut options: Vec<(String, ValueKey)> = options?.into_iter().collect();
             options.sort_by(|a, b| a.1.cmp(&b.1));
             Some(ArchiveAxisResponse {
                 name: axis.name.clone(),
