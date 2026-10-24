@@ -2511,6 +2511,13 @@ async fn serve_file_response(
         header::CONTENT_DISPOSITION,
         content_disposition_header(disposition, file_name),
     );
+    // 共有フォルダーのファイルは同じ URL のまま差し替わる。指定が無いとブラウザーは更新日時から
+    // 決めた間は問い合わせずに古い中身を出すので、毎回 ETag で確かめさせる (変わっていなければ 304)。
+    // 閲覧の権限を確かめて出すものなので、共有のキャッシュには置かせない。
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-cache"),
+    );
 
     response
 }

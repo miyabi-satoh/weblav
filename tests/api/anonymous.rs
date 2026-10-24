@@ -576,6 +576,47 @@ async fn folder_download_allows_inline_for_pdf(pool: SqlitePool) {
     assert!(disposition.starts_with("inline"), "{disposition}");
 }
 
+/// ファイルは同じ URL のまま差し替わるので、ブラウザーに毎回確かめさせる。
+#[sqlx::test]
+async fn folder_download_asks_browser_to_revalidate(pool: SqlitePool) {
+    insert_user(&pool, "alice", "correct-password").await;
+    let dir = temp_test_dir("download-revalidate");
+    std::fs::write(dir.join("clip.mp4"), b"fake video").unwrap();
+
+    let content_id = insert_folder_by(
+        &pool,
+        "教材",
+        dir.display().to_string(),
+        "authenticated",
+        None,
+        None,
+    )
+    .await;
+
+    let app = test_app(pool).await;
+    let cookie = login(app.clone(), "alice", "correct-password").await;
+
+    let response = send_raw(
+        app,
+        build_request(
+            "GET",
+            &format!("/api/v1/contents/{content_id}/download?path=clip.mp4"),
+            Some(&cookie),
+            None,
+        ),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response
+            .headers()
+            .get(header::CACHE_CONTROL)
+            .and_then(|v| v.to_str().ok()),
+        Some("private, no-cache")
+    );
+}
+
 /// 音声ファイルはgzip圧縮の対象外(`CompressionLayer::compress_when`)であるべき。
 /// gzipにするとRange/Content-Lengthが失われ、既に圧縮済みの音声を再圧縮するだけ無駄になる。
 /// `SizeAbove`の既定閾値(32バイト)に埋もれないよう、それを超えるサイズのファイルで検証する。
