@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto, refreshAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import * as m from '$lib/paraglide/messages.js';
 	import { getLocale, getTextDirection } from '$lib/paraglide/runtime';
@@ -95,9 +95,9 @@
 		// トップページは匿名でも開けるため、ログアウト後はログイン画面ではなくトップへ戻す。
 		// 既にトップに居る場合、`goto` はURLが同じなので load を再実行しない
 		// (ヘッダーがユーザー名のまま、要ログインのカードも並んだままになる)。
-		// 遷移の有無に関わらず再取得させるため `invalidateAll()` を続けて呼ぶ。
+		// 遷移の有無に関わらず再取得させるため `refreshAll()` を続けて呼ぶ。
 		await goto(resolve('/'));
-		await invalidateAll();
+		await refreshAll();
 	}
 </script>
 

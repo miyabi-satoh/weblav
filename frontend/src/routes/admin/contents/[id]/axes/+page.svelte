@@ -3,7 +3,7 @@
 	import { adminPageClass } from '$lib/page-layout';
 	import { tick, untrack } from 'svelte';
 	import { flip } from 'svelte/animate';
-	import { invalidateAll } from '$app/navigation';
+	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { client } from '$lib/api/client';
 	import { archiveItemManageDownloadHref } from '$lib/api/urls';
@@ -285,7 +285,7 @@
 				// 軸名の変更はサーバー側でtitle_templateも書き換えるため、直後に取り直す。
 				// 取り直しに失敗すると画面ごとエラーになるが、それはサーバーに届かないときで、
 				// 画面を残しても保存できないため受け入れる。
-				await invalidateAll();
+				await refreshAll();
 			}
 			axisDialogOpen = false;
 		} catch {
@@ -479,7 +479,7 @@
 
 	$effect(() => {
 		const axisId = selectedAxisId;
-		// 依存は選択中の軸だけにする。軸の編集後の invalidateAll で data が変わるたびに読み直すと、
+		// 依存は選択中の軸だけにする。軸の編集後の refreshAll で data が変わるたびに読み直すと、
 		// 保存していない行の編集が消える。
 		untrack(() => reloadAxisValues(axisId));
 	});
@@ -1721,6 +1721,6 @@
 	{/snippet}
 </ConfirmDialog>
 
-<AxesAiDialog bind:open={aiDialogOpen} contentId={data.contentId} onimported={invalidateAll} />
+<AxesAiDialog bind:open={aiDialogOpen} contentId={data.contentId} onimported={() => refreshAll()} />
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

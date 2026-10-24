@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto, refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { client } from '$lib/api/client';
@@ -57,7 +57,7 @@
 				// インライン表示できない型 (docx・zip 等) はダウンロードが始まるだけで
 				// この文書は遷移しない。ヘッダーが未ログインのまま残ると「ログインに
 				// 失敗した」ように見えるので、先に画面の状態を更新しておく。
-				await invalidateAll();
+				await refreshAll();
 				window.location.assign(target);
 			} else {
 				// `target` はブラウザーのURLから取った実パスであり、route id ではないため

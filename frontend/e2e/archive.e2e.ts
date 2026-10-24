@@ -564,6 +564,9 @@ test('一括公開: 絞り込んで全選択すると見えている行だけを
 			await expect(
 				page.getByText(/3\s件のアイテム \(2\s件公開\)|3 items \(2 published\)/)
 			).toBeVisible();
+			// 切り替えた後に一覧を取り直しても、名前の絞り込みは外れない。
+			await expect(filter).toHaveValue('2024/');
+			await expect(page.getByText(/^2\s\/\s3\s件のアイテム$|^2 \/ 3 items$/)).toBeVisible();
 
 			// 読み直しても保たれ、絞り込みで隠れていた行は公開していない。
 			await page.reload();

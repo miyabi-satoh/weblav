@@ -1,6 +1,6 @@
 <script lang="ts">
 	import CircleUserRoundIcon from '@lucide/svelte/icons/circle-user-round';
-	import { invalidateAll } from '$app/navigation';
+	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { dialogFormClass } from '$lib/dialog-form';
 	import * as m from '$lib/paraglide/messages.js';
@@ -99,7 +99,7 @@
 		changeUsernameOpen = false;
 		toast.success(m.change_username_done_toast());
 		// ヘッダーなどに出している自分の名前を引き直す。変更は済んでいるので、失敗を変更の失敗として見せない。
-		await invalidateAll();
+		await refreshAll();
 	}
 </script>
 

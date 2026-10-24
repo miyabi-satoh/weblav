@@ -20,7 +20,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import FolderViewSwitch from '$lib/components/folder-view-switch.svelte';
-	import { invalidateAll } from '$app/navigation';
+	import { refreshAll } from '$app/navigation';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 
 	let { data }: PageProps = $props();
@@ -77,7 +77,7 @@
 						params: { path: { id: contentId } },
 						body: { path: row.path, public: isPublic }
 					}),
-				() => invalidateAll()
+				() => refreshAll()
 			);
 		} finally {
 			busy = false;
