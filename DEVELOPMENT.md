@@ -18,6 +18,7 @@
   - i18n: Paraglide (`en` / `ja`)
   - テスト: vitest (unit) + Playwright (e2e)
 - パッケージ管理: pnpm (frontend)
+- タスクの実行: just 1.56 以上 (`dev-backend` などが、式を渡したレシピの `[env]` 属性を使うため)
 
 ## セットアップ
 

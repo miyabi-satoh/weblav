@@ -186,7 +186,7 @@ fmt-check:
     cargo fmt --check
     cd {{ frontend_dir }} && pnpm run format:check
 
-# Lint を実行する (clippy + eslint)。prettier の検査は fmt-check が受け持つ
+# Lint を実行する (clippy + eslint)
 lint: ensure-frontend-build
     cargo clippy --all-targets -- -D warnings
     cd {{ frontend_dir }} && pnpm run lint

@@ -24,7 +24,7 @@ Windows 版の配布物を作る手段。
   マニュアル (→ help.md) には各 OS の手順を書く。
 - Windows 版のビルドは **Windows の PC で手動**で行う (CI は Linux で `just ci` を流すだけで、配布物は作らない。→ DEVELOPMENT.md)。
 - **Windows は Microsoft Store の MSIX だけで配る** (→ 「MSIX (Windows)」)。exe だけやほかのインストーラでは配らない。マニュアル (→ help.md) は Store 版で書く。
-  - `just msix` で **`dist/weblav-v<version>.msix`** を作る。どの版か区別できるように、バージョン番号をファイル名に入れる。
+  - `just msix` で **`dist/weblav-v<version>.msix`** を作る。検査は流さないので、CI を通った main で作る。どの版か区別できるように、バージョン番号をファイル名に入れる。
   - Store に出すまで試すときは、自己署名の MSIX を入れる (→ 「MSIX (Windows)」)。
 - 中の exe (`weblav.exe`) のビルドは `just build` と同じで、バージョン情報・アイコンの埋め込みは `build.rs` (→ 「バージョン・アイコンの埋め込み」) が毎回行うため専用の手順は要らない。
 - **MSVC のランタイムは静的リンクする** (`.cargo/config.toml` の `+crt-static`)。
