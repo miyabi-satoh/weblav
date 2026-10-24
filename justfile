@@ -189,7 +189,7 @@ fmt-check:
 # Lint を実行する (clippy + eslint)。prettier の検査は fmt-check が受け持つ
 lint: ensure-frontend-build
     cargo clippy --all-targets -- -D warnings
-    cd {{ frontend_dir }} && pnpm exec eslint .
+    cd {{ frontend_dir }} && pnpm run lint
     node scripts/check-tailwind-arbitrary.mjs
     node scripts/check-long-vowel.mjs
     node scripts/check-parentheses.mjs

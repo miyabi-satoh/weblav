@@ -119,7 +119,7 @@ worktree で `cargo check` などを直に流すときは `SQLX_OFFLINE=true` �
 ```sh
 just test        # テスト実行 (cargo test + vitest)
 just e2e-local   # E2E を使い捨ての backend (一時 WEBLAV_HOME・管理者1人) に対して実行する。開発用 DB は使わない
-just ci          # fmt-check → lint → check → api-types-check → licenses-check → test → build → e2e-local を一括実行 (CI が流す)
+just ci          # frontend-build → fmt-check → lint → check → api-types-check → licenses-check → test → site-check → build → e2e-local を一括実行 (CI が流す)
 ```
 
 ## ビルド
