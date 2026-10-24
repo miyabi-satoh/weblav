@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { invalidateAll } from '$app/navigation';
+	import { refreshAll } from '$app/navigation';
 	import { dialogFormClass } from '$lib/dialog-form';
 	import * as m from '$lib/paraglide/messages.js';
 	import { client } from '$lib/api/client';
@@ -50,7 +50,7 @@
 	async function handleConfirm() {
 		open = false;
 		// 管理画面の「まだ作っていない」の帯を消す。
-		await invalidateAll();
+		await refreshAll();
 	}
 </script>
 

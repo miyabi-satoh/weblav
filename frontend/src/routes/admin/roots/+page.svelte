@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { refreshAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { dialogFormClass } from '$lib/dialog-form';
 	import { client } from '$lib/api/client';
@@ -59,7 +59,7 @@
 			if (path == null) return;
 			await errorDialog.attempt(
 				() => client.POST('/api/v1/admin/roots', { body: { path } }),
-				() => invalidateAll()
+				() => refreshAll()
 			);
 		} finally {
 			adding = false;
@@ -103,7 +103,7 @@
 					}),
 				async () => {
 					renamingOpen = false;
-					await invalidateAll();
+					await refreshAll();
 				}
 			);
 		} finally {
@@ -120,7 +120,7 @@
 				() => client.DELETE('/api/v1/admin/roots/{id}', { params: { path: { id: target.id } } }),
 				async () => {
 					deletingRoot = null;
-					await invalidateAll();
+					await refreshAll();
 				}
 			);
 		} finally {

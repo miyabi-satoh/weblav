@@ -14,6 +14,28 @@ describe('removeAxisFromTemplate', () => {
 		expect(removeAxisFromTemplate('{年度} - {季節}', '季節')).toBe('{年度}');
 	});
 
+	it('removes the brackets around the axis together with it', () => {
+		expect(removeAxisFromTemplate('[{季節}] {場所}', '季節')).toBe('{場所}');
+		expect(removeAxisFromTemplate('{年度}（{回}） {科目}', '回')).toBe('{年度} {科目}');
+		expect(removeAxisFromTemplate('[({季節})] {場所}', '季節')).toBe('{場所}');
+	});
+
+	it('drops the separator after the axis when only separators precede it', () => {
+		expect(removeAxisFromTemplate('- {年度} {季節}', '年度')).toBe('- {季節}');
+	});
+
+	it('keeps the brackets around the axis before the removed one', () => {
+		expect(removeAxisFromTemplate('[{場所}] {季節}', '季節')).toBe('[{場所}]');
+		expect(removeAxisFromTemplate('{年度} {学年} {号} [{教科}] {状態}', '状態')).toBe(
+			'{年度} {学年} {号} [{教科}]'
+		);
+	});
+
+	it('keeps brackets shared with another axis', () => {
+		expect(removeAxisFromTemplate('[{教科}・{科目}]', '教科')).toBe('[{科目}]');
+		expect(removeAxisFromTemplate('{年度} ({学年} {組})', '組')).toBe('{年度} ({学年})');
+	});
+
 	it('removes every occurrence of the axis', () => {
 		expect(removeAxisFromTemplate('{年度} {季節} {年度}', '年度')).toBe('{季節}');
 	});

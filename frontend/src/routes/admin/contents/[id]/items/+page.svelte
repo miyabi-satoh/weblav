@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import { client } from '$lib/api/client';
@@ -131,7 +131,7 @@
 		const controller = new AbortController();
 		waitForRunningScan(contentId, (message) => (scanProgress = message), controller.signal).then(
 			(finished) => {
-				if (finished) invalidateAll();
+				if (finished) refreshAll();
 			}
 		);
 		return () => controller.abort();
@@ -148,7 +148,7 @@
 						params: { path: { id: contentId, item_id: itemId } },
 						body: { published }
 					}),
-				() => invalidateAll()
+				() => refreshAll()
 			);
 		} finally {
 			savingIds = savingIds.filter((id) => id !== itemId);
@@ -168,7 +168,7 @@
 					}),
 				async () => {
 					selectedIds = [];
-					await invalidateAll();
+					await refreshAll();
 				}
 			);
 		} finally {
@@ -193,7 +193,7 @@
 				removed: formatNumber(scan.result.removed)
 			});
 			selectedIds = [];
-			await invalidateAll();
+			await refreshAll();
 		} finally {
 			rescanning = false;
 		}

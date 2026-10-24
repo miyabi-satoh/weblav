@@ -42,8 +42,21 @@ export default defineConfig(
 		}
 	},
 	{
-		// Override or add rule settings here, such as:
-		// 'svelte/button-has-type': 'error'
-		rules: {}
+		rules: {
+			// invalidateAll と invalidate は取り直すときに page.state を空に戻すので、そこに置いた一覧の絞り込みの語が消える
+			// (→ $lib/list-filter.svelte.ts)。page.state を残す refreshAll を使う。
+			'no-restricted-imports': [
+				'error',
+				{
+					paths: [
+						{
+							name: '$app/navigation',
+							importNames: ['invalidateAll', 'invalidate'],
+							message: 'refreshAll を使う (page.state を残すため)。'
+						}
+					]
+				}
+			]
+		}
 	}
 );

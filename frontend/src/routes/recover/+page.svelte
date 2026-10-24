@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto, refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { client } from '$lib/api/client';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
@@ -56,7 +56,7 @@
 
 	// 再設定と同時にログイン済みになっている。ヘッダーの表示を取り直してから移る。
 	async function handleKept() {
-		await invalidateAll();
+		await refreshAll();
 		await goto(resolve('/admin/contents'));
 	}
 </script>

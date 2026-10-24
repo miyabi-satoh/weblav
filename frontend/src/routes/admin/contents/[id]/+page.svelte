@@ -4,7 +4,7 @@
 	import { masonry } from '$lib/masonry';
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
+	import { beforeNavigate, goto, refreshAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { isAdmin } from '$lib/auth';
 	import { client } from '$lib/api/client';
@@ -252,7 +252,7 @@
 				if (!result.response.ok || !result.data) {
 					errorDialog.show(errorMessage(result.error));
 					// 作成者だけ保存できていることがあるので、見出しと一覧は取り直す。
-					await invalidateAll();
+					await refreshAll();
 					return;
 				}
 				form.loadPart(result.data, canSeeFullPath, part);
@@ -278,7 +278,7 @@
 				toast.success(m.contents_edit_saved_toast({ section }));
 			}
 			// 見出しのタイトルと、公開範囲の判定に使う一覧を取り直す。
-			await invalidateAll();
+			await refreshAll();
 		} catch {
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {

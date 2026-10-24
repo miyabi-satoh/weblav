@@ -5,7 +5,7 @@
 		pageHeadingTextClass,
 		adminTableBandClass
 	} from '$lib/page-layout';
-	import { invalidateAll } from '$app/navigation';
+	import { refreshAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { dialogFormClass } from '$lib/dialog-form';
 	import { client } from '$lib/api/client';
@@ -103,7 +103,7 @@
 		// 並びはサーバーの `ORDER BY username COLLATE NOCASE` に従う。手元で並べ替えると
 		// 畳み方が違い、作った直後だけ位置がずれる (→ src/api/users.rs)。
 		// 作成は成功しているので、再検証の失敗を作成の失敗として見せない。
-		await invalidateAll();
+		await refreshAll();
 	}
 
 	// 権限変更。行ごとのSelectから直接送信する(確認ダイアログは挟まない。
@@ -126,7 +126,7 @@
 					// 自分自身をadminから降格した場合、この画面はもう開けなくなる
 					// (→ +layout.tsのガード)。再検証してリダイレクトさせる。
 					if (target.id === currentUserId && role !== 'admin') {
-						await invalidateAll();
+						await refreshAll();
 					}
 				}
 			);
@@ -204,7 +204,7 @@
 		renamingUser = null;
 		// 並びはサーバーの `ORDER BY username COLLATE NOCASE` に従う (作成と同じ理由)。
 		// 自分の名前を変えたときのヘッダーの名前も、ここで引き直す。
-		await invalidateAll();
+		await refreshAll();
 	}
 
 	// 削除確認ダイアログ。
@@ -227,7 +227,7 @@
 					// 自分自身を削除した場合、次のリクエストで401になる(→ src/auth.rsのAuthUser)。
 					// 再検証してログイン画面へのリダイレクトを起こさせる。
 					if (target.id === currentUserId) {
-						await invalidateAll();
+						await refreshAll();
 					}
 				}
 			);

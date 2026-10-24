@@ -558,12 +558,17 @@ test('一括公開: 絞り込んで全選択すると見えている行だけを
 			const selectAll = page.getByRole('checkbox', { name: /^すべて選択$|^Select all$/ });
 			await filter.fill('2024/');
 			await expect(page.getByText(/^2\s\/\s3\s件のアイテム$|^2 \/ 3 items$/)).toBeVisible();
+			// 語が URL (と page.state) に写ってから切り替える。写る前だと、取り直しで消える場合を確かめられない。
+			await expect(page).toHaveURL(/[?&]filter=2024/);
 			await selectAll.click();
 			await expect(page.getByText(/^2\s件選択中$|^2 selected$/)).toBeVisible();
 			await page.getByRole('button', { name: /^公開する$|^Publish$/ }).click();
 			await expect(
 				page.getByText(/3\s件のアイテム \(2\s件公開\)|3 items \(2 published\)/)
 			).toBeVisible();
+			// 切り替えた後に一覧を取り直しても、名前の絞り込みは外れない。
+			await expect(filter).toHaveValue('2024/');
+			await expect(page.getByText(/^2\s\/\s3\s件のアイテム$|^2 \/ 3 items$/)).toBeVisible();
 
 			// 読み直しても保たれ、絞り込みで隠れていた行は公開していない。
 			await page.reload();

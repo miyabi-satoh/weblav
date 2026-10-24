@@ -5,7 +5,7 @@
 		pageHeadingTextClass,
 		adminTableBandClass
 	} from '$lib/page-layout';
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto, refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { dialogFormClass } from '$lib/dialog-form';
@@ -274,7 +274,7 @@
 			const fresh = latest.data?.find((c) => c.id === content.id);
 			if (!latest.response.ok || !fresh) {
 				errorDialog.show(errorMessage(latest.error));
-				await invalidateAll();
+				await refreshAll();
 				return;
 			}
 			reparentForm.loadFrom(fresh, canSeeFullPath);
@@ -284,7 +284,7 @@
 				errorDialog.show(errorMessage(result.error));
 				return;
 			}
-			await invalidateAll();
+			await refreshAll();
 		} catch {
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
@@ -609,7 +609,7 @@
 	bind:content={deletingContent}
 	{contents}
 	{contentById}
-	ondeleted={invalidateAll}
+	ondeleted={() => refreshAll()}
 />
 
 <AlertDialog.Root

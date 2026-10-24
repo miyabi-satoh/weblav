@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { refreshAll } from '$app/navigation';
 	import FileIcon from '@lucide/svelte/icons/file';
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import { client } from '$lib/api/client';
@@ -31,7 +31,7 @@
 						params: { path: { id: contentId, mark_id: mark.id } }
 					}),
 				// 押した行が消えるので、トーストは出さない (→ docs/ui.md「押した所で結果が見えない操作は、トーストで知らせる」)。
-				() => invalidateAll()
+				() => refreshAll()
 			);
 		} finally {
 			clearing = null;
