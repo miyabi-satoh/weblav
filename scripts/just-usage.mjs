@@ -41,18 +41,14 @@ function processTable() {
     }
     return table;
   }
-  const out = execFileSync('ps', ['-A', '-o', 'pid=,ppid=,comm=,args='], {
+  // macOS の comm はフルパスで空白を含むことがあるので、最後の列にして残りを全部取る。
+  const out = execFileSync('ps', ['-A', '-o', 'pid=,ppid=,comm='], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'ignore']
   });
   for (const line of out.split('\n')) {
-    const m = line.trim().match(/^(\d+)\s+(\d+)\s+(\S+)\s*(.*)$/);
-    if (m)
-      table.set(Number(m[1]), {
-        ppid: Number(m[2]),
-        name: path.basename(m[3]),
-        args: m[4]
-      });
+    const m = line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/);
+    if (m) table.set(Number(m[1]), { ppid: Number(m[2]), name: path.basename(m[3]) });
   }
   return table;
 }
@@ -60,12 +56,24 @@ function processTable() {
 try {
   const table = processTable();
   // 間に just が backtick を流すシェル (sh・cmd) が挟まるので、名前で just を探す。
+  // Windows では pid 0 が自分を親に持つので、同じ pid に戻ったら打ち切る。
+  const seen = new Set();
   let pid = process.ppid;
-  while (table.has(pid) && table.get(pid).name !== 'just') pid = table.get(pid).ppid;
+  while (table.has(pid) && table.get(pid).name !== 'just' && !seen.has(pid)) {
+    seen.add(pid);
+    pid = table.get(pid).ppid;
+  }
   const just = table.get(pid);
-  if (just) {
+  if (just?.name === 'just') {
+    const args =
+      just.args ??
+      execFileSync('ps', ['-o', 'args=', '-p', String(pid)], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore']
+      }).trim();
     // 1つめの語は just 自身のパス。Windows の CommandLine は引用符で囲まれていることがある。
-    const recipe = just.args.replace(/^("[^"]*"|\S+)\s*/, '');
+    // タブは TSV の列を崩すので空白にする。
+    const recipe = args.replace(/^("[^"]*"|\S+)\s*/, '').replace(/\s/g, ' ');
     const callers = [];
     for (let p = just.ppid; table.has(p) && callers.length < CALLER_DEPTH; p = table.get(p).ppid) {
       callers.push(table.get(p).name);

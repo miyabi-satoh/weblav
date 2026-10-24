@@ -13,8 +13,8 @@ export DATABASE_URL := "sqlite:" + dev_db
 export SQLX_OFFLINE := env("SQLX_OFFLINE", if path_exists(dev_db) == "true" { "false" } else { "true" })
 bin_name := "weblav"
 # 使っているレシピを数えるため、data/just-usage.tsv を作ったマシンでだけ、起動のたびに1行足す (scripts/just-usage.mjs)。
-# just は変数をレシピより先に評価するので、どのレシピを打っても通る。
-_usage := if path_exists(data_dir / "just-usage.tsv") == "true" { `node scripts/just-usage.mjs` } else { "" }
+# just は変数をレシピより先に評価するので、どのレシピを打っても通る。node が無くても just を止めないよう 0 で終える (sh と cmd で同じ書き方)。
+_usage := if path_exists(data_dir / "just-usage.tsv") == "true" { `node scripts/just-usage.mjs || exit 0` } else { "" }
 
 # 使えるコマンド一覧を表示
 default:
