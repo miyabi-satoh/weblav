@@ -224,6 +224,8 @@
 		if (saving) return;
 		const part = confirmingPart;
 		savingPart = part;
+		// 知らせには、押した保存ボタンの区画の見出しを出す。
+		const section = (part === 'common' ? m.contents_edit_basic_title() : specificTitle) ?? '';
 
 		try {
 			// 場所を変えると索引が空になり、一覧の表示を使い始めたときは索引がまだ無いので、
@@ -259,18 +261,21 @@
 				const scan = await rescanArchive(content.id, (message) => (scanProgress = message));
 				if (scan.ok) {
 					toast.success(
-						m.contents_edit_saved_scanned_toast({ total: formatNumber(scan.result.total) })
+						m.contents_edit_saved_scanned_toast({
+							section,
+							total: formatNumber(scan.result.total)
+						})
 					);
 				} else {
 					errorDialog.show(
 						scan.retryable
-							? m.contents_edit_scan_failed({ reason: scan.message })
-							: m.contents_edit_scan_blocked({ reason: scan.message }),
+							? m.contents_edit_scan_failed({ section, reason: scan.message })
+							: m.contents_edit_scan_blocked({ section, reason: scan.message }),
 						m.archive_scan_failed_title()
 					);
 				}
 			} else {
-				toast.success(m.contents_edit_saved_toast());
+				toast.success(m.contents_edit_saved_toast({ section }));
 			}
 			// 見出しのタイトルと、公開範囲の判定に使う一覧を取り直す。
 			await invalidateAll();
