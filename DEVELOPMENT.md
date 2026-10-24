@@ -119,7 +119,7 @@ worktree で `cargo check` などを直に流すときは `SQLX_OFFLINE=true` �
 ```sh
 just test        # テスト実行 (cargo test + vitest)
 just e2e-local   # E2E を使い捨ての backend (一時 WEBLAV_HOME・管理者1人) に対して実行する。開発用 DB は使わない
-just ci          # fmt-check → lint → check-frontend → api-types-check → licenses-check → test → build → e2e-local を一括実行 (CI が流す)
+just ci          # fmt-check → lint → check → api-types-check → licenses-check → test → build → e2e-local を一括実行 (CI が流す)
 ```
 
 ## ビルド
@@ -199,8 +199,7 @@ just sqlx-prepare # sqlx::query! 系マクロのオフラインキャッシュ (
 just licenses    # Rust の依存のライセンス表示 (frontend/static/third-party-licenses/rust.json) を再生成 (要 cargo-about)
 just fmt         # コード整形 (cargo fmt + prettier)
 just lint        # Lint (clippy + eslint/prettier check)
-just check       # 型検査 (cargo check + svelte-check)
-just check-frontend  # svelte-check だけ (just ci が使う。Rust の型検査は lint の clippy が兼ねる)
+just check       # フロントエンドの型検査 (svelte-check。Rust の型検査は lint の clippy が兼ねる)
 just clean       # ビルド成果物を削除
 ```
 

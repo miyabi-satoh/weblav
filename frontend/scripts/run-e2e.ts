@@ -1,6 +1,6 @@
 // `just e2e-local` (→ `just ci`・CI) から呼ばれる。使い捨ての backend を立てて e2e を流し、片付ける。
 //
-// 起動済みのサーバーに当てる `just e2e` と違い、開発用 DB を使わない。e2e が作ったものは
+// 起動済みのサーバーに当てる (`pnpm run test:e2e` に E2E_BASE_URL などを渡す) のと違い、開発用 DB を使わない。e2e が作ったものは
 // 後片付けするが、途中で落ちたときに開発用 DB を汚さないで済む。
 // 管理者は1人だけ入れる。コンテンツは各テストが自分で作る前提 (→ frontend/e2e/api-helpers.ts)。
 // 初回セットアップ (管理者が0人のときだけ通る) を試すために、管理者を入れない backend をもう1つ立てる
@@ -68,7 +68,7 @@ function runPlaywright(
 				E2E_SETUP_BASE_URL: setupBaseURL,
 				E2E_ADMIN_USER: TEST_ADMIN.username,
 				E2E_ADMIN_PASSWORD: TEST_ADMIN.password,
-				// 手動の `just e2e` とログイン状態のファイルを取り合わないよう、使い捨ての場所に置く。
+				// 起動済みのサーバーに手で当てるときとログイン状態のファイルを取り合わないよう、使い捨ての場所に置く。
 				E2E_ADMIN_STORAGE_STATE: storageState
 			}
 		};

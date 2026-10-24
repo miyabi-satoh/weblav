@@ -149,7 +149,7 @@ test.describe('ユーザー', () => {
 
 	test('最後の管理者は、権限を変えられず削除もできない', async ({ page }) => {
 		const users = (await send(page.request, 'get', '/admin/users')) as { role: string }[];
-		// 開発用サーバーに当てる `just e2e` では、管理者が複数いることがある。
+		// 起動済みの開発用サーバーに当てるときは、管理者が複数いることがある。
 		test.skip(users.filter((user) => user.role === 'admin').length !== 1, '管理者が1人ではない');
 
 		await page.goto('/admin/users');
