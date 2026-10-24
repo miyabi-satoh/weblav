@@ -1257,7 +1257,7 @@ pub(super) enum AxisDict {
     },
     /// 日付の軸。辞書は階層の軸と同じく、表示名と並び順の上書き。
     Date {
-        /// 年月まで分けるか。偽なら年だけ。
+        /// 年を問わない月で分けるか。偽なら年で分ける。
         month: bool,
         values: DirLevelDict,
     },
