@@ -108,7 +108,7 @@ On the “Categories” tab, select “Edit...” or “Delete...” on the cate
 
 On the page opened by “Edit...”, you can also choose these settings:
 
-- Show as a filter: Turn this off to hide it from viewer filters. It is still used for the title and sort order.
+- Show as a filter: Turn this off to hide it from viewer filters. It is still used for the title and sort order. Even when it is on, the filter is hidden while no published file has a value for this category.
 - Show the file name when this category has no value: Turn this off to leave that part blank when building a title for a file without a value.
 
 Changing the source or level and saving clears that category’s values table.

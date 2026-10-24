@@ -192,7 +192,7 @@ struct ArchiveAxisOption {
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct ArchiveAxisResponse {
-    /// 絞り込みに出す軸だけを返す (→ docs/archive.md「軸の定義」)。
+    /// 絞り込みに出す軸のうち、選べる値があるものだけを返す (→ docs/archive.md「軸の定義」・「軸の値の辞書と導出」)。
     name: String,
     /// **絞り込み前の**、閲覧者に見えるアイテム全体から作る (→ docs/archive.md「軸の値の辞書と導出」)。
     /// 選択肢を絞り込み条件では狭めない (緩める側の選択肢を消さないため)。
@@ -504,6 +504,9 @@ fn build_archive_view(
         .zip(options_by_axis)
         .enumerate()
         .filter_map(|(i, (axis, options))| {
+            // 見えるアイテムに値が1つも無い軸は、「すべて」しか選べない欄になるので返さない。
+            // 公開の切り替えで値を持つアイテムが見えるようになれば、また返る。
+            let options = options.filter(|options| !options.is_empty())?;
             // 件数は他の軸の絞り込みを効かせたまま数える。選択肢そのものは
             // 絞り込み前の全体から作る (両者で母集団が違う)。
             let mut counts: HashMap<&str, usize> = HashMap::new();
@@ -515,7 +518,7 @@ fn build_archive_view(
                 }
             }
             // 表示名が違えば比較キーも違うので、キーだけで順が決まる。
-            let mut options: Vec<(String, ValueKey)> = options?.into_iter().collect();
+            let mut options: Vec<(String, ValueKey)> = options.into_iter().collect();
             options.sort_by(|a, b| a.1.cmp(&b.1));
             Some(ArchiveAxisResponse {
                 name: axis.name.clone(),
@@ -1451,6 +1454,24 @@ mod tests {
             ArchiveSortOrder::Axis,
         );
         assert_eq!(unfilterable_key.items.len(), 3);
+    }
+
+    /// 見えるアイテムに値が1つも無い軸は返さない。選べるのが「すべて」だけの欄になるため
+    /// (→ docs/archive.md「軸の値の辞書と導出」)。
+    #[test]
+    fn axes_without_any_value_among_visible_items_are_not_returned() {
+        let axes = [
+            level_axis("年度", 1, &[]),
+            word_axis("状態", &[("draft", Some("下書き"))]),
+        ];
+        let all = view(
+            &axes,
+            items(&["2024/a.pdf", "2023/b.pdf"]),
+            None,
+            &[],
+            ArchiveSortOrder::Axis,
+        );
+        assert_eq!(all.axis_names(), vec!["年度"]);
     }
 
     /// 2段目は、表示タイトルで使っていない軸のうち絞り込み中でない軸の値を、軸の順に表示名で並べる。
