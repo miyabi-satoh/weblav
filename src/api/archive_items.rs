@@ -473,7 +473,7 @@ fn build_archive_view(
         })
         .collect();
 
-    // 軸ごとに効かせる絞り込み。軸名に一致しないキー・選択肢の無い軸 (絞り込みに出さない軸・値の無い軸) のキー・
+    // 軸ごとに効かせる絞り込み。軸名に一致しないキー・選択肢の無い軸のキー・
     // どの選択肢にも一致しない値は無視する (→ docs/archive.md「エンドポイント一覧」)。
     let active_filters: Vec<Option<&str>> = axes
         .iter()
