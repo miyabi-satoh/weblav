@@ -46,7 +46,7 @@ generate-icon:
     pnpm run generate:icon
 
 # ビルドはWindows 実機で手動で行う想定 (→ docs/distribution.md)。検査は流さない。main に入るものは CI が
-# `just ci` を通しているので、main で作れば検査済みのものになる。
+# `just ci` を通しているので、main で作れば検査済みのものになる (ほかのブランチで作ると検査を通らない)。
 # 証明書は先に installer/msix/new-test-cert.ps1 で作っておく (→ docs/distribution.md「MSIX (Windows)」)。
 # Store に上げる版は `just msix --store` で、Store の発行元のまま署名せずに作る (dist/weblav-v<version>-store.msix)。
 # Windows版の MSIX を作る (dist/weblav-v<version>.msix、要: Windows SDK)。試しに入れるための自己署名の証明書で署名する
@@ -186,10 +186,10 @@ fmt-check:
     cargo fmt --check
     cd {{ frontend_dir }} && pnpm exec prettier --check .
 
-# Lint を実行する (clippy + eslint/prettier check)
+# Lint を実行する (clippy + eslint)。prettier の検査は fmt-check が受け持つ
 lint: ensure-frontend-build
     cargo clippy --all-targets -- -D warnings
-    cd {{ frontend_dir }} && pnpm run lint
+    cd {{ frontend_dir }} && pnpm exec eslint .
     node scripts/check-tailwind-arbitrary.mjs
     node scripts/check-long-vowel.mjs
     node scripts/check-parentheses.mjs

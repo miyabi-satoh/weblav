@@ -198,7 +198,7 @@ just spec        # アプリ仕様書を生成して mo に追加する。ブラ
 just sqlx-prepare # sqlx::query! 系マクロのオフラインキャッシュ (.sqlx/) を再生成 (要 開発用 DB)
 just licenses    # Rust の依存のライセンス表示 (frontend/static/third-party-licenses/rust.json) を再生成 (要 cargo-about)
 just fmt         # コード整形 (cargo fmt + prettier)
-just lint        # Lint (clippy + eslint/prettier check)
+just lint        # Lint (clippy + eslint。prettier の検査は fmt-check)
 just check       # フロントエンドの型検査 (svelte-check。Rust の型検査は lint の clippy が兼ねる)
 just clean       # ビルド成果物を削除
 ```
