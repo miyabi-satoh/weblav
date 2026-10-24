@@ -36,7 +36,7 @@ cargo install --locked cargo-about@0.9.2 --features cli   # `--features cli` が
 `git commit` 時に `src/**/*.rs`(・`migrations/**/*.sql`)の変更があれば
 `openapi.json` / `schema.d.ts` / `.sqlx/` の再生成漏れを、`Cargo.lock`・`about.toml`・`license-texts/`・生成と整形のスクリプトの変更があればライセンス表示の生成漏れを自動検知する。
 `git push` 時には整形 (`just fmt-check`) だけを確かめる。
-`just ci` (フォーマット→lint→型検査→生成物→test→build→e2e) は、GitHub Actions の CI が PR ごとに流す (`.github/workflows/ci.yml`)。
+`just ci` (フォーマット→lint→型検査→生成物→test→サイト→build→e2e) は、GitHub Actions の CI が PR ごとに流す (`.github/workflows/ci.yml`)。
 
 ## 開発
 
@@ -198,7 +198,7 @@ just spec        # アプリ仕様書を生成して mo に追加する。ブラ
 just sqlx-prepare # sqlx::query! 系マクロのオフラインキャッシュ (.sqlx/) を再生成 (要 開発用 DB)
 just licenses    # Rust の依存のライセンス表示 (frontend/static/third-party-licenses/rust.json) を再生成 (要 cargo-about)
 just fmt         # コード整形 (cargo fmt + prettier)
-just lint        # Lint (clippy + eslint。prettier の検査は fmt-check)
+just lint        # Lint (clippy + eslint)
 just check       # フロントエンドの型検査 (svelte-check。Rust の型検査は lint の clippy が兼ねる)
 just clean       # ビルド成果物を削除
 ```
