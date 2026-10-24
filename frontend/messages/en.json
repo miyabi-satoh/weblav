@@ -246,19 +246,19 @@
 	"contents_edit_discard_title": "Discard changes?",
 	"contents_edit_discard_description": "You have unsaved changes. They will be lost if you leave this page.",
 	"contents_edit_discard_confirm": "Discard and leave",
-	"contents_edit_saved_toast": "Basic information saved.",
+	"contents_edit_saved_toast": "“{section}” saved.",
 	"contents_edit_saved_scanned_toast": [
 		{
-			"declarations": ["input total", "local totalPlural = total: plural"],
+			"declarations": ["input section", "input total", "local totalPlural = total: plural"],
 			"selectors": ["totalPlural"],
 			"match": {
-				"totalPlural=one": "Basic information saved. Found {total} file.",
-				"totalPlural=other": "Basic information saved. Found {total} files."
+				"totalPlural=one": "“{section}” saved. Found {total} file.",
+				"totalPlural=other": "“{section}” saved. Found {total} files."
 			}
 		}
 	],
-	"contents_edit_scan_failed": "Basic information was saved. {reason} Rescan from the Items tab.",
-	"contents_edit_scan_blocked": "Basic information was saved. {reason}",
+	"contents_edit_scan_failed": "“{section}” was saved. {reason} Rescan from the Items tab.",
+	"contents_edit_scan_blocked": "“{section}” was saved. {reason}",
 	"archive_scan_listing_progress": "Finding files... ({elapsed} elapsed)",
 	"archive_scan_reading_progress": "Reading files... {done} / {total} ({elapsed} elapsed)",
 	"archive_scan_failed_title": "Couldn't scan the files",

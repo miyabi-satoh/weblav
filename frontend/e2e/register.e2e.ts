@@ -156,7 +156,7 @@ test('一覧の表示: 使い始めたときのスキャンだけが失敗した
 				name: /^ファイルをスキャンできませんでした$|^Couldn't scan the files$/
 			});
 			await expect(
-				failed.getByText(/基本情報を保存しました|Basic information was saved/)
+				failed.getByText(/「場所と見せ方」を保存しました|“Location and display” was saved/)
 			).toBeVisible();
 			const contents = (await send(page.request, 'get', '/admin/contents')) as {
 				id: number;
