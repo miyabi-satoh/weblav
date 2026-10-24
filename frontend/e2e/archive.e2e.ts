@@ -558,6 +558,8 @@ test('一括公開: 絞り込んで全選択すると見えている行だけを
 			const selectAll = page.getByRole('checkbox', { name: /^すべて選択$|^Select all$/ });
 			await filter.fill('2024/');
 			await expect(page.getByText(/^2\s\/\s3\s件のアイテム$|^2 \/ 3 items$/)).toBeVisible();
+			// 語が URL (と page.state) に写ってから切り替える。写る前だと、取り直しで消える場合を確かめられない。
+			await expect(page).toHaveURL(/[?&]filter=2024/);
 			await selectAll.click();
 			await expect(page.getByText(/^2\s件選択中$|^2 selected$/)).toBeVisible();
 			await page.getByRole('button', { name: /^公開する$|^Publish$/ }).click();
