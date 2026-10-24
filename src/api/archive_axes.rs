@@ -35,7 +35,7 @@ pub enum AxisSource {
     FilenameWord,
     /// 写真の撮影日 (無ければ更新日) の年。
     DateYear,
-    /// 写真の撮影日 (無ければ更新日) の年と月。
+    /// 写真の撮影日 (無ければ更新日) の月。年は問わない。
     DateMonth,
 }
 
