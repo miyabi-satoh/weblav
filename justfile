@@ -12,6 +12,9 @@ export DATABASE_URL := "sqlite:" + dev_db
 # 呼び出し側 (CI など) が渡した値はそのまま使う
 export SQLX_OFFLINE := env("SQLX_OFFLINE", if path_exists(dev_db) == "true" { "false" } else { "true" })
 bin_name := "weblav"
+# 使っているレシピを数えるため、data/just-usage.tsv を作ったマシンでだけ、起動のたびに1行足す (scripts/just-usage.mjs)。
+# just は変数をレシピより先に評価するので、どのレシピを打っても通る。
+_usage := if path_exists(data_dir / "just-usage.tsv") == "true" { `node scripts/just-usage.mjs` } else { "" }
 
 # 使えるコマンド一覧を表示
 default:
