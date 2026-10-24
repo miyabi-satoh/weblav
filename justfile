@@ -12,6 +12,9 @@ export DATABASE_URL := "sqlite:" + dev_db
 # 呼び出し側 (CI など) が渡した値はそのまま使う
 export SQLX_OFFLINE := env("SQLX_OFFLINE", if path_exists(dev_db) == "true" { "false" } else { "true" })
 bin_name := "weblav"
+# 使っているレシピを数えるため、data/just-usage.tsv を作ったマシンでだけ、起動のたびに1行足す (scripts/just-usage.mjs)。
+# just は変数をレシピより先に評価するので、どのレシピを打っても通る。node が無くても just を止めないよう 0 で終える (sh と cmd で同じ書き方)。
+_usage := if path_exists(data_dir / "just-usage.tsv") == "true" { `node scripts/just-usage.mjs || exit 0` } else { "" }
 
 # 使えるコマンド一覧を表示
 default:
@@ -45,14 +48,13 @@ run: build
 generate-icon:
     pnpm run generate:icon
 
-# Windows版の MSIX を作る (dist/weblav-v<version>.msix、要: Windows SDK)。試しに入れるための自己署名の証明書で署名する。
-# ビルドはWindows 実機で手動で行う想定 (→ docs/distribution.md)。`ci`に依存させているのは、
-# 配布物だけ`test`を素通りして壊れたまま渡してしまわないようにするため (タスクトレイの絵の
-# サイズ不一致等はテストでしか検知しない、→ src/tray/mod.rsのtray_icon_asset_is_a_valid_square_rgba_buffer)。
+# ビルドはWindows 実機で手動で行う想定 (→ docs/distribution.md)。検査は流さない。main に入るものは CI が
+# `just ci` を通しているので、main で作れば検査済みのものになる (ほかのブランチで作ると検査を通らない)。
 # 証明書は先に installer/msix/new-test-cert.ps1 で作っておく (→ docs/distribution.md「MSIX (Windows)」)。
 # Store に上げる版は `just msix --store` で、Store の発行元のまま署名せずに作る (dist/weblav-v<version>-store.msix)。
+# Windows版の MSIX を作る (dist/weblav-v<version>.msix、要: Windows SDK)。試しに入れるための自己署名の証明書で署名する
 [windows]
-msix *args: ci
+msix *args: build
     node scripts/msix.mjs {{ args }}
 
 # 試しの MSIX を作ってこの PC に上から入れ直し、起動し直す (データとログイン時の起動の設定は残る)
@@ -64,24 +66,25 @@ install-windows: (msix "--install")
 bundle-mac: build
     node scripts/bundle-mac.mjs
 
-# 動いている WebLAV は SIGTERM で止める (トレイは受けて片付けないので、処理中のリクエストは切れる)。
-# macOS 版の .app を作って /Applications に入れ直し、起動し直す
-[macos]
-install-mac: bundle-mac
+# 動いている WebLAV を SIGTERM で止め、終わるまで待つ (トレイは受けて片付けないので、処理中のリクエストは切れる)
+[private]
+[unix]
+stop-weblav:
     -pkill -U "$(id -u)" -x weblav
     for _ in $(seq 50); do pgrep -U "$(id -u)" -x weblav >/dev/null || exit 0; sleep 0.2; done; echo "WebLAV が10秒たっても終わりません" >&2; exit 1
+
+# macOS 版の .app を作って /Applications に入れ直し、起動し直す
+[macos]
+install-mac: bundle-mac stop-weblav
     rm -rf /Applications/WebLAV.app
     cp -R target/release/bundle/WebLAV.app /Applications/
     open /Applications/WebLAV.app
 
-# 動いている WebLAV は install-mac と同じく SIGTERM で止める。
 # ログイン時の起動 (XDG Autostart) は今の実行ファイルのパスを書くので、置き場所は毎回同じにする。
 # .deb で配るまでの、開発する人の手元の常用版 (→ docs/distribution.md「ビルド・配布の方法」)。
 # Linux 版を ~/.local に入れ直し、起動し直す
 [linux]
-install-linux: build
-    -pkill -U "$(id -u)" -x weblav
-    for _ in $(seq 50); do pgrep -U "$(id -u)" -x weblav >/dev/null || exit 0; sleep 0.2; done; echo "WebLAV が10秒たっても終わりません" >&2; exit 1
+install-linux: build stop-weblav
     install -Dm755 target/release/{{ bin_name }} ~/.local/bin/{{ bin_name }}
     install -Dm644 assets/icon.svg ~/.local/share/icons/hicolor/scalable/apps/weblav.svg
     mkdir -p ~/.local/share/applications
@@ -93,24 +96,16 @@ install-linux: build
 ensure-frontend-build:
     @{{ if path_exists(justfile_directory() / frontend_dir / "build") == "true" { "echo frontend/build exists" } else { "just frontend-build" } }}
 
-# 開発版のサーバーを起動する (DBはdata/dev-runtime/配下、Ctrl+Cで止める)。
-# トレイは出さずに済むよう、サーバーだけの `weblav-service` を動かす
-[unix]
+# トレイは出さずに済むよう、サーバーだけの `weblav-service` を動かす。
+# 開発版のサーバーを起動する (DBはdata/dev-runtime/配下、Ctrl+Cで止める)
+[env("WEBLAV_HOME", data_dir / "dev-runtime")]
 dev-backend: ensure-frontend-build
-    WEBLAV_HOME="{{ data_dir }}/dev-runtime" cargo run --bin weblav-service
-
-[windows]
-dev-backend: ensure-frontend-build
-    set "WEBLAV_HOME={{ data_dir }}\dev-runtime" && cargo run --bin weblav-service
+    cargo run --bin weblav-service
 
 # 開発版のCLIを引数付きで起動する。--create-user/--openapi/-v等を渡す (DBはdev-backendと同じ)
-[unix]
+[env("WEBLAV_HOME", data_dir / "dev-runtime")]
 dev-cli *args: ensure-frontend-build
-    WEBLAV_HOME="{{ data_dir }}/dev-runtime" cargo run --quiet --bin weblav-cli -- {{ args }}
-
-[windows]
-dev-cli *args: ensure-frontend-build
-    set "WEBLAV_HOME={{ data_dir }}\dev-runtime" && cargo run --quiet --bin weblav-cli -- {{ args }}
+    cargo run --quiet --bin weblav-cli -- {{ args }}
 
 # frontend を開発モードで起動 (HMR, /api は backend にプロキシ)
 dev-frontend:
@@ -120,28 +115,19 @@ dev-frontend:
 dev:
     cd {{ frontend_dir }} && pnpm exec concurrently -n backend,frontend -c blue,green "just dev-backend" "just dev-frontend"
 
-# E2Eブラウザーテストを実行する。backendの起動方法は複数あり一つに決め打てないため、
-# 事前に起動しておくこと (`just dev-backend`等)。管理者アカウントでの
-# ログインを検証するため、そのユーザー名・パスワードを渡す (ユーザー名省略時は"admin")。
-# 例: just e2e http://127.0.0.1:8370 P@ssw0rd
-# 引数は `$` 付きで環境変数として渡す。コマンド文字列に埋め込むと、Windows の cmd.exe が
-# パスワード中の `%` や `"` を解釈して値や構文が壊れるため。
-e2e $E2E_BASE_URL $E2E_ADMIN_PASSWORD $E2E_ADMIN_USER="admin":
-    cd {{ frontend_dir }} && pnpm run test:e2e
-
-# E2Eブラウザーテストを、使い捨てのbackend (一時WEBLAV_HOME・空きポート・管理者1人) に対して実行する。
-# 開発用DBを使わないので、途中で落ちても汚さない。`just ci` (CI) から呼ばれる
+# 開発用DBを使わないので、途中で落ちても汚さない。`just ci` (CI) から呼ばれる。
+# E2Eブラウザーテストを、使い捨てのbackend (一時WEBLAV_HOME・空きポート・管理者1人) に対して実行する
 e2e-local: ensure-frontend-build
     cargo build --bin weblav-service
     cd {{ frontend_dir }} && node scripts/run-e2e.ts
 
-# 開発用の DB に、まだ当てていないマイグレーションを当てる (DB が無い clone と worktree の中では何もしない)。
-# pull・rebase の後に lefthook (post-merge・post-rewrite) が流す
+# pull・rebase の後に lefthook (post-merge・post-rewrite) が流す。
+# 開発用の DB に、まだ当てていないマイグレーションを当てる (DB が無い clone と worktree の中では何もしない)
 dev-db-migrate:
     node scripts/dev-db-migrate.mjs
 
-# sqlx::query! 系マクロのオフラインキャッシュ(.sqlx/)を再生成する (クエリ変更時に実行してコミットする)。
-# DB は just dev-backend と同じもの (DATABASE_URL)
+# DB は just dev-backend と同じもの (DATABASE_URL)。
+# sqlx::query! 系マクロのオフラインキャッシュ(.sqlx/)を再生成する (クエリ変更時に実行してコミットする)
 sqlx-prepare: ensure-frontend-build
     cargo sqlx prepare -- --all-targets
 
@@ -157,10 +143,9 @@ openapi: ensure-frontend-build
 api-types: openapi
     cd {{ frontend_dir }} && pnpm run generate:api-types
 
-# openapi.json / schema.d.ts が最新か確認する (再生成して差分が無いことを見る)
 # API変更時に再生成を忘れるとレビュー・型検査どちらでも気づけない
 # (既存フィールドの変更・削除でも型エラーにならない)ため、専用のチェックが要る。
-# pre-commit hook(lefthook)と `just ci` (CI が流す) の両方がこのレシピを呼ぶ。
+# openapi.json / schema.d.ts が最新か確認する (再生成して差分が無いことを見る)。pre-commit hook と `just ci` から呼ばれる
 api-types-check: api-types
     node scripts/check-generated.mjs api-types openapi.json frontend/src/lib/api/schema.d.ts
 
@@ -172,24 +157,24 @@ licenses:
 licenses-check: licenses
     node scripts/check-generated.mjs licenses frontend/static/third-party-licenses/rust.json
 
-# マニュアルの画像のうち、管理画面と仕組みの図を、使い捨ての backend で撮り直す (→ docs/help.md)。
-# 名前を渡すと、その画像だけを撮る (例: just manual-shots roots-page settings-page)
+# マニュアルの画像のうち、管理画面と仕組みの図を、使い捨ての backend で撮り直す (→ docs/help.md)。名前を渡すと、その画像だけを撮る (例: just manual-shots roots-page settings-page)
 manual-shots *names: frontend-build
     cargo build --bin weblav-service
     cd {{ frontend_dir }} && node scripts/manual-shots.ts {{ names }}
 
-# 画面の操作を1つずつ撮り、1秒に1コマで切り替わる動画と、全コマを並べた一覧の画像 (.sheet.png) にする (要: ffmpeg。出力は docs/generated/flip/)。
-# 名前を渡すと、その筋書きだけを撮る (例: just flip-videos browse admin。筋書きは frontend/scripts/flip-stories.ts)
+# 名前を渡すと、その筋書きだけを撮る (例: just flip-videos browse admin。筋書きは frontend/scripts/flip-stories.ts)。
+# 画面の操作を1つずつ撮り、1秒に1コマで切り替わる動画と、全コマを並べた一覧の画像 (.sheet.png) にする (要: ffmpeg。出力は docs/generated/flip/)
 flip-videos *names: frontend-build
     cargo build --bin weblav-service
     cd {{ frontend_dir }} && node scripts/flip-videos.ts {{ names }}
 
 # ビルドより前に、原稿のフォルダーの指定を確かめる (相対パスはリポジトリの直下から)
-_spec-dir:
+[private]
+spec-dir:
     @node -e "const d = process.env.WEBLAV_SPEC_DIR; if (!d || !require('fs').statSync(d, { throwIfNoEntry: false })?.isDirectory()) { console.error('WEBLAV_SPEC_DIR に仕様書の原稿のフォルダーを指定してください'); process.exit(1); }"
 
 # アプリ仕様書を生成してmoに追加する (ブラウザーは開かない。要: mo。原稿のフォルダーを WEBLAV_SPEC_DIR で渡す)
-spec: _spec-dir frontend-build
+spec: spec-dir frontend-build
     cargo build
     cd {{ frontend_dir }} && node scripts/generate-spec.ts
     mo -R docs/generated/spec/ --target weblav-spec --no-open
@@ -202,8 +187,9 @@ fmt:
 # フォーマット崩れがないか確認する (pre-push hook から呼ばれる。書き換えない)
 fmt-check:
     cargo fmt --check
+    cd {{ frontend_dir }} && pnpm run format:check
 
-# Lint を実行する (clippy + eslint/prettier check)
+# Lint を実行する (clippy + eslint)
 lint: ensure-frontend-build
     cargo clippy --all-targets -- -D warnings
     cd {{ frontend_dir }} && pnpm run lint
@@ -216,12 +202,8 @@ site-check:
     cd site && pnpm run check
     cd site && pnpm run build
 
-# 型検査を実行する (cargo check + svelte-check)
-check: ensure-frontend-build check-frontend
-    cargo check
-
-# フロントエンドだけ型検査する。`ci` はこちらを使う (Rust の型検査は `lint` の clippy が兼ねるので、二重に走らせない)
-check-frontend: ensure-frontend-build
+# フロントエンドを型検査する (svelte-check)。Rust の型検査は `lint` の clippy が兼ねる
+check: ensure-frontend-build
     cd {{ frontend_dir }} && pnpm run check
 
 # テストを実行する (cargo test + vitest)
@@ -229,11 +211,11 @@ test: ensure-frontend-build
     cargo test
     cd {{ frontend_dir }} && pnpm exec vitest run
 
-# 一連の品質チェック (フォーマット→lint→型検査→生成物→test→build→e2e)。
-# CI (GitHub Actions) が PR ごとに流す。e2e は build の後に置き、その時点のフロントで流す。
+# e2e は build の後に置き、その時点のフロントで流す。
 # 先に frontend-build を流すのは、残っている frontend/build で ensure-frontend-build が飛ばされ、
-# Paraglide の生成物が古いまま型検査に進まないようにするため (just は同じレシピを1回しか流さないので、build の分と重ならない)
-ci: frontend-build fmt-check lint check-frontend api-types-check licenses-check test site-check build e2e-local
+# Paraglide の生成物が古いまま型検査に進まないようにするため (just は同じレシピを1回しか流さないので、build の分と重ならない)。
+# 一連の品質チェック (フォーマット→lint→型検査→生成物→test→サイト→build→e2e)。CI (GitHub Actions) が PR ごとに流す
+ci: frontend-build fmt-check lint check api-types-check licenses-check test site-check build e2e-local
 
 # ビルド成果物を削除する
 [unix]

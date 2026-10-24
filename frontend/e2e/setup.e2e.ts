@@ -2,7 +2,7 @@
 //
 // 管理者が0人のサーバーでしか通せないので、ほかのテストとは別の、使い捨ての backend に当てる。
 // `just e2e-local` (scripts/run-e2e.ts) が立てて `E2E_SETUP_BASE_URL` で渡す。
-// 起動済みの開発サーバーに当てる `just e2e` では管理者がいるので、このテストは飛ばす。
+// 起動済みの開発サーバーに当てるときは管理者がいるので、このテストは飛ばす。
 // 管理者を作ると二度と通せないので、1本の中で失敗と成功を続けて見る。
 import { test, expect } from '@playwright/test';
 import {

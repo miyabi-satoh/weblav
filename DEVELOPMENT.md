@@ -18,6 +18,7 @@
   - i18n: Paraglide (`en` / `ja`)
   - テスト: vitest (unit) + Playwright (e2e)
 - パッケージ管理: pnpm (frontend)
+- タスクの実行: just 1.56 以上 (`dev-backend` などが、式を渡したレシピの `[env]` 属性を使うため)
 
 ## セットアップ
 
@@ -36,7 +37,7 @@ cargo install --locked cargo-about@0.9.2 --features cli   # `--features cli` が
 `git commit` 時に `src/**/*.rs`(・`migrations/**/*.sql`)の変更があれば
 `openapi.json` / `schema.d.ts` / `.sqlx/` の再生成漏れを、`Cargo.lock`・`about.toml`・`license-texts/`・生成と整形のスクリプトの変更があればライセンス表示の生成漏れを自動検知する。
 `git push` 時には整形 (`just fmt-check`) だけを確かめる。
-`just ci` (フォーマット→lint→型検査→生成物→test→build→e2e) は、GitHub Actions の CI が PR ごとに流す (`.github/workflows/ci.yml`)。
+`just ci` (フォーマット→lint→型検査→生成物→test→サイト→build→e2e) は、GitHub Actions の CI が PR ごとに流す (`.github/workflows/ci.yml`)。
 
 ## 開発
 
@@ -119,7 +120,7 @@ worktree で `cargo check` などを直に流すときは `SQLX_OFFLINE=true` �
 ```sh
 just test        # テスト実行 (cargo test + vitest)
 just e2e-local   # E2E を使い捨ての backend (一時 WEBLAV_HOME・管理者1人) に対して実行する。開発用 DB は使わない
-just ci          # fmt-check → lint → check-frontend → api-types-check → licenses-check → test → build → e2e-local を一括実行 (CI が流す)
+just ci          # frontend-build → fmt-check → lint → check → api-types-check → licenses-check → test → site-check → build → e2e-local を一括実行 (CI が流す)
 ```
 
 ## ビルド
@@ -198,9 +199,8 @@ just spec        # アプリ仕様書を生成して mo に追加する。ブラ
 just sqlx-prepare # sqlx::query! 系マクロのオフラインキャッシュ (.sqlx/) を再生成 (要 開発用 DB)
 just licenses    # Rust の依存のライセンス表示 (frontend/static/third-party-licenses/rust.json) を再生成 (要 cargo-about)
 just fmt         # コード整形 (cargo fmt + prettier)
-just lint        # Lint (clippy + eslint/prettier check)
-just check       # 型検査 (cargo check + svelte-check)
-just check-frontend  # svelte-check だけ (just ci が使う。Rust の型検査は lint の clippy が兼ねる)
+just lint        # Lint (clippy + eslint)
+just check       # フロントエンドの型検査 (svelte-check。Rust の型検査は lint の clippy が兼ねる)
 just clean       # ビルド成果物を削除
 ```
 

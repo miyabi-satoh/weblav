@@ -16,7 +16,7 @@ export const ADMIN_PASSWORD = (() => {
 
 /**
  * auth.setup.ts が保存し、認証済みが前提のテストが読み込むstorageStateの保存先。
- * 使い捨ての backend に当てる `just e2e-local` は、手動の `just e2e` と取り合わないよう env で別の場所に向ける。
+ * 使い捨ての backend に当てる `just e2e-local` は、起動済みのサーバーに手で当てるときと取り合わないよう env で別の場所に向ける。
  */
 export const ADMIN_STORAGE_STATE =
 	process.env.E2E_ADMIN_STORAGE_STATE ?? path.join(import.meta.dirname, '.auth', 'admin.json');
