@@ -1470,7 +1470,7 @@ export interface components {
             value: string;
         };
         ArchiveAxisResponse: {
-            /** @description 絞り込みに出す軸だけを返す (→ docs/archive.md「軸の定義」)。 */
+            /** @description 絞り込みに出す軸のうち、選べる値があるものだけを返す (→ docs/archive.md「軸の定義」・「軸の値の辞書と導出」)。 */
             name: string;
             /**
              * @description **絞り込み前の**、閲覧者に見えるアイテム全体から作る (→ docs/archive.md「軸の値の辞書と導出」)。

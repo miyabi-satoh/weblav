@@ -98,7 +98,7 @@ async fn archive_view_on_non_archive_content_is_not_found(pool: SqlitePool) {
 }
 
 /// 新しく見つかったアイテムは非公開から始まるため (→ docs/archive.md「スキャン」)、再スキャン直後の一覧は
-/// 空になる。
+/// 空になる。見えるアイテムに値が無い軸も返さない (→ docs/archive.md「軸の値の辞書と導出」)。
 #[sqlx::test]
 async fn archive_view_returns_empty_before_publishing(pool: SqlitePool) {
     let (app, _cookie, id, _dir) = setup_archive_with_filename_word_axis(pool).await;
@@ -107,11 +107,7 @@ async fn archive_view_returns_empty_before_publishing(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
     assert_eq!(parsed["items"], serde_json::json!([]), "{body}");
-    assert_eq!(
-        parsed["axes"][0]["options"],
-        serde_json::json!([]),
-        "{body}"
-    );
+    assert_eq!(parsed["axes"], serde_json::json!([]), "{body}");
 }
 
 /// `sort` クエリで並び順を選べる。並べ方の場合分けは `build_archive_view` の単体テストで見る。

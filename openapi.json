@@ -5056,7 +5056,7 @@
         "properties": {
           "name": {
             "type": "string",
-            "description": "絞り込みに出す軸だけを返す (→ docs/archive.md「軸の定義」)。"
+            "description": "絞り込みに出す軸のうち、選べる値があるものだけを返す (→ docs/archive.md「軸の定義」・「軸の値の辞書と導出」)。"
           },
           "options": {
             "type": "array",
