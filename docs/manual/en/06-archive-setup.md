@@ -81,9 +81,9 @@ The extension is matched too, so to sort files by extension, register words with
 
 ## Separate by date taken
 
-To separate photos by the year or month they were taken, select “Add category...” and choose “Year taken” or “Month taken” as the source. Values look like `2024` or `2024-06`. Files without a date taken (such as videos and documents) use the file's modified date.
+To separate photos by the year or month they were taken, select “Add category...” and choose “Year taken” or “Month taken” as the source. Values look like `2024` or `06`. The month ignores the year, so June of every year becomes `06`. With both a year and a month category, viewers can filter by the year, the month, or both. Files without a date taken (such as videos and documents) use the file's modified date.
 
-As with folder-level categories, you can change the display names and order in the values table that opens when you select the category row.
+As with folder-level categories, you can change the display names (such as `06` to `June`) and order in the values table that opens when you select the category row.
 
 ## Limit the files in the list
 

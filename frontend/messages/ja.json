@@ -346,7 +346,7 @@
 	"archive_axes_dialog_name_help": "表示タイトルのテンプレートでは、この名前を \\{ \\} で囲んで参照します。",
 	"archive_axes_dialog_source_label": "抽出元",
 	"archive_axes_source_date_year": "撮影日の年",
-	"archive_axes_source_date_month": "撮影日の年月",
+	"archive_axes_source_date_month": "撮影日の月",
 	"archive_axes_values_hint_date": "撮影日から決まる値です。撮影日の無いファイルは更新日を使います。表示名と順序を変更できます。",
 	"archive_axes_source_option_dir_level": "フォルダーの階層",
 	"archive_axes_source_option_filename_word": "ファイル名の単語",

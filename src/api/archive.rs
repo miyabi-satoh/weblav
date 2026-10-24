@@ -109,12 +109,12 @@ pub(super) fn dated_at(taken_at: Option<i64>, modified_ns: Option<i64>) -> Optio
     taken_at.or_else(|| modified_ns.map(|ns| ns.div_euclid(1_000_000_000)))
 }
 
-/// 日付の軸の生の値。年は `2024`、年月は `2024-06`。文字の順に並べると時の順になる。
+/// 日付の軸の生の値。年は `2024`、月は `06` (→ docs/archive.md「軸の定義」)。文字の順に並べると、年は時の順、月は1月から12月の順になる。
 /// 表示名は、階層の軸と同じく値の辞書で付け直せる。
 pub(super) fn date_value(dated_at: i64, month: bool) -> Option<String> {
     let at = time::OffsetDateTime::from_unix_timestamp(dated_at).ok()?;
     Some(if month {
-        format!("{:04}-{:02}", at.year(), u8::from(at.month()))
+        format!("{:02}", u8::from(at.month()))
     } else {
         format!("{:04}", at.year())
     })
@@ -1257,7 +1257,7 @@ pub(super) enum AxisDict {
     },
     /// 日付の軸。辞書は階層の軸と同じく、表示名と並び順の上書き。
     Date {
-        /// 年月まで分けるか。偽なら年だけ。
+        /// 年を問わない月で分けるか。偽なら年で分ける。
         month: bool,
         values: DirLevelDict,
     },
@@ -1650,11 +1650,11 @@ mod tests {
     }
 
     #[test]
-    fn date_axis_value_groups_by_year_or_month_and_prefers_the_shooting_date() {
+    fn date_axis_value_groups_by_year_or_month_of_any_year_and_prefers_the_shooting_date() {
         // 2024-06-15 12:00:00 UTC
         let june = 1_718_452_800;
         assert_eq!(date_value(june, false).as_deref(), Some("2024"));
-        assert_eq!(date_value(june, true).as_deref(), Some("2024-06"));
+        assert_eq!(date_value(june, true).as_deref(), Some("06"));
         assert_eq!(
             dated_at(Some(june), Some(0)),
             Some(june),
@@ -1673,7 +1673,7 @@ mod tests {
         };
         assert_eq!(
             derive_axis_value(&dict, item).map(|value| value.display),
-            Some("2024-06".to_string())
+            Some("06".to_string())
         );
         assert!(
             derive_axis_value(&dict, "IMG_0001.JPG").is_none(),
