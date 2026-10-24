@@ -35,8 +35,8 @@ function processTable() {
     for (const p of JSON.parse(json)) {
       table.set(p.ProcessId, {
         ppid: p.ParentProcessId,
-        name: p.Name.replace(/\.exe$/i, ''),
-        args: p.CommandLine ?? ''
+        name: (p.Name ?? '').replace(/\.exe$/i, ''),
+        args: p.CommandLine
       });
     }
     return table;
@@ -48,7 +48,9 @@ function processTable() {
   });
   for (const line of out.split('\n')) {
     const m = line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/);
-    if (m) table.set(Number(m[1]), { ppid: Number(m[2]), name: path.basename(m[3]) });
+    // ログインシェルは `-bash` のように先頭に - が付くので外し、同じシェルを1つの名前で数える。
+    if (m)
+      table.set(Number(m[1]), { ppid: Number(m[2]), name: path.basename(m[3]).replace(/^-/, '') });
   }
   return table;
 }
@@ -65,15 +67,17 @@ try {
   }
   const just = table.get(pid);
   if (just?.name === 'just') {
+    // Windows で CommandLine を読めなかったときは null で、引数なしの '' と分ける。
     const args =
-      just.args ??
-      execFileSync('ps', ['-o', 'args=', '-p', String(pid)], {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore']
-      }).trim();
+      process.platform === 'win32'
+        ? just.args
+        : execFileSync('ps', ['-o', 'args=', '-p', String(pid)], {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore']
+          }).trim();
     // 1つめの語は just 自身のパス。Windows の CommandLine は引用符で囲まれていることがある。
     // タブは TSV の列を崩すので空白にする。
-    const recipe = args.replace(/^("[^"]*"|\S+)\s*/, '').replace(/\s/g, ' ');
+    const recipe = (args ?? '').replace(/^("[^"]*"|\S+)\s*/, '').replace(/\s/g, ' ');
     const callers = [];
     for (let p = just.ppid; table.has(p) && callers.length < CALLER_DEPTH; p = table.get(p).ppid) {
       callers.push(table.get(p).name);
@@ -86,7 +90,12 @@ try {
         stdio: ['ignore', 'pipe', 'ignore']
       }
     ).trim();
-    const row = [new Date().toISOString(), hostname(), recipe || '(default)', callers.join(' < ')];
+    const row = [
+      new Date().toISOString(),
+      hostname(),
+      args == null ? '(unknown)' : recipe || '(default)',
+      callers.join(' < ')
+    ];
     appendFileSync(
       path.join(path.dirname(commonDir), 'data', 'just-usage.tsv'),
       row.join('\t') + '\n'
