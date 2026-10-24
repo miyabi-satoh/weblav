@@ -109,7 +109,7 @@ pub(super) fn dated_at(taken_at: Option<i64>, modified_ns: Option<i64>) -> Optio
     taken_at.or_else(|| modified_ns.map(|ns| ns.div_euclid(1_000_000_000)))
 }
 
-/// 日付の軸の生の値。年は `2024`、月は `06` (→ docs/archive.md「軸の定義」)。文字の順に並べると時の順になる。
+/// 日付の軸の生の値。年は `2024`、月は `06` (→ docs/archive.md「軸の定義」)。文字の順に並べると、年は時の順、月は1月から12月の順になる。
 /// 表示名は、階層の軸と同じく値の辞書で付け直せる。
 pub(super) fn date_value(dated_at: i64, month: bool) -> Option<String> {
     let at = time::OffsetDateTime::from_unix_timestamp(dated_at).ok()?;
