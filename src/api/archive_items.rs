@@ -473,7 +473,7 @@ fn build_archive_view(
         })
         .collect();
 
-    // 軸ごとに効かせる絞り込み。軸名に一致しないキー・絞り込みに出さない軸のキー・
+    // 軸ごとに効かせる絞り込み。軸名に一致しないキー・選択肢の無い軸 (絞り込みに出さない軸・値の無い軸) のキー・
     // どの選択肢にも一致しない値は無視する (→ docs/archive.md「エンドポイント一覧」)。
     let active_filters: Vec<Option<&str>> = axes
         .iter()
@@ -508,6 +508,7 @@ fn build_archive_view(
         .zip(options_by_axis)
         .enumerate()
         .filter_map(|(i, (axis, options))| {
+            let options = options?;
             // 件数は他の軸の絞り込みを効かせたまま数える。選択肢そのものは
             // 絞り込み前の全体から作る (両者で母集団が違う)。
             let mut counts: HashMap<&str, usize> = HashMap::new();
@@ -519,7 +520,7 @@ fn build_archive_view(
                 }
             }
             // 表示名が違えば比較キーも違うので、キーだけで順が決まる。
-            let mut options: Vec<(String, ValueKey)> = options?.into_iter().collect();
+            let mut options: Vec<(String, ValueKey)> = options.into_iter().collect();
             options.sort_by(|a, b| a.1.cmp(&b.1));
             Some(ArchiveAxisResponse {
                 name: axis.name.clone(),
