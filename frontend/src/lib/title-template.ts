@@ -7,7 +7,7 @@ export function axisPlaceholder(name: string): string {
 // プレースホルダーの `{` `}` も同じ文字の種類なので除く。
 const OPENING_BRACKET = /(?!\{)[\p{Ps}\p{Pi}]$/u;
 const CLOSING_BRACKET = /^(?!\})[\p{Pe}\p{Pf}]/u;
-// 文字・数字・プレースホルダーの括弧・軸を囲む括弧以外 (空白・区切りの記号) を、軸の間の区切りとみなす。
+// 文字・数字・括弧 (プレースホルダーの `{` `}` を含む) 以外 (空白・区切りの記号) を、軸の間の区切りとみなす。
 // 括弧を区切りに含めると、前の軸を囲む閉じ括弧まで消えるため。
 const LEADING_SEPARATORS = /^[^\p{L}\p{N}{}\p{Ps}\p{Pe}\p{Pi}\p{Pf}]+/u;
 const TRAILING_SEPARATORS = /[^\p{L}\p{N}{}\p{Ps}\p{Pe}\p{Pi}\p{Pf}]+$/u;
