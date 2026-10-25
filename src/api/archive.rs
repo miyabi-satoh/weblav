@@ -441,17 +441,18 @@ async fn scan_and_sync(
                 detail: ValidationDetail::ArchiveFolderUnreadable { path },
             });
         }
-        let items = read_items(&root, result.rel_paths, &known, &progress);
-        Ok(Some((items, result.dirs)))
+        let (items, complete) = read_items(&root, result.rel_paths, &known, &progress);
+        Ok(Some((items, complete, result.dirs)))
     })
     .await??;
-    let Some((items, dirs)) = items else {
-        return save_read_items(&state.pool, id, &archive.path, &[]).await;
+    let Some((items, complete, dirs)) = items else {
+        return cancelled_before_reading(&state.pool, id).await;
     };
 
     // 読み終える前の中止では、読まなかったファイルを「消えた」と見なさないよう同期しない。
     // 読んだ分は残し、次のスキャンが読み直さずに済むようにする (→ docs/archive.md「スキャンの中止」)。
-    if progress.is_cancelled() {
+    // 読み終えた後に届いた中止は無視する。全部読めているので、同期した方が正しい索引になるため。
+    if !complete {
         return save_read_items(&state.pool, id, &archive.path, &items).await;
     }
     sync_items(state, id, &archive.path, &items, &dirs).await
@@ -506,17 +507,18 @@ struct ScannedFile {
 /// 見つけたファイルを1つずつ見て、変わったものだけプレビューの情報を読む。
 /// 一覧と検索はここで読んだ値を返すだけにし、ファイルを開かない (→ docs/archive.md「スキャン」)。
 /// 走査の後に消えたものは、見つからなかったものと同じに扱う。
+/// 中止で途中で切り上げたら、2つ目に `false` を返す。
 fn read_items(
     root: &FsPath,
     rel_paths: Vec<String>,
     known: &KnownFiles,
     progress: &crate::state::ScanProgress,
-) -> Vec<ScannedItem> {
+) -> (Vec<ScannedItem>, bool) {
     progress.start_reading(rel_paths.len() as u64);
     let mut items = Vec::with_capacity(rel_paths.len());
     for rel_path in rel_paths {
         if progress.is_cancelled() {
-            break;
+            return (items, false);
         }
         let path = root.join(&rel_path);
         let file = match std::fs::symlink_metadata(&path) {
@@ -551,7 +553,7 @@ fn read_items(
         items.push(ScannedItem { rel_path, file });
         progress.advance();
     }
-    items
+    (items, true)
 }
 
 /// 走査結果を `archive_items` へ反映する。
@@ -619,6 +621,25 @@ async fn sync_items(
         removed,
         total: items.len(),
         cancelled: false,
+    }))
+}
+
+/// ファイルを集め終える前に中止したスキャンの結果。読んだものが無いので何も書かない。
+async fn cancelled_before_reading(
+    pool: &sqlx::SqlitePool,
+    id: i64,
+) -> Result<Json<RescanResponse>, AppError> {
+    let total = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) as "count!: i64" FROM archive_items WHERE archive_id = ?"#,
+        id
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(Json(RescanResponse {
+        added: 0,
+        removed: 0,
+        total: usize::try_from(total).unwrap_or_default(),
+        cancelled: true,
     }))
 }
 
@@ -1066,7 +1087,7 @@ async fn fill_previews(
     let progress = scan_guard.progress();
     let root = PathBuf::from(scanned_path);
     let items =
-        run_blocking(move || read_items(&root, rel_paths, &KnownFiles::new(), &progress)).await?;
+        run_blocking(move || read_items(&root, rel_paths, &KnownFiles::new(), &progress).0).await?;
     let mut tx = crate::db::begin_write(&state.pool).await?;
     for item in &items {
         let Some(file) = &item.file else {
@@ -1741,13 +1762,14 @@ mod tests {
         progress.start_listing();
         scans.cancel(1);
 
-        let items = read_items(
+        let (items, complete) = read_items(
             tmp.path(),
             vec!["a.mp3".to_string()],
             &KnownFiles::new(),
             &progress,
         );
         assert!(items.is_empty(), "中止の後は読まないはず");
+        assert!(!complete, "読み終えていないと返すはず");
     }
 
     /// 中止したスキャンは、読んだ分だけを足し、読まなかったファイルを消さない (→ docs/archive.md「スキャンの中止」)。

@@ -128,7 +128,7 @@ When you change a file's contents (for example, replace a photo with one of the 
 
    ![The Rescan button on the Items tab](images/archive-items-tab.webp)
 
-   With many files this takes a while, and the progress and the elapsed time appear next to the button. The scan finishes even if you close the page. To stop it, select “Stop”. The files read so far are added to the list, and the next scan picks up where it left off.
+   With many files this takes a while, and the progress and the elapsed time appear next to the button. The scan finishes even if you close the page. To stop it, select “Stop”. Once reading has started, the files read so far are added to the list, and the next scan picks up where it left off.
 
 To rescan automatically, choose “When … have passed since the last scan” or “Every day after …” in “Automatic rescan” on the “Settings” tab, and enter the hours or the time. A time at night, when few people use the NAS, keeps the scan out of their way.
 
