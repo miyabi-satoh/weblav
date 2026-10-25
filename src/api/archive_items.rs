@@ -849,6 +849,8 @@ async fn bulk_set_published(
 ) -> Result<Json<BulkSetPublishedResponse>, AppError> {
     // 全選択の対象は、鍵を取る前に索引から引く。索引を作り直すと数秒かかり、その間ほかの書き込みを塞ぐため。
     // 鍵を取った後に索引が変わっても、画面が見ていた結果の番号を切り替えるのは同じ (下の `snapshot` の説明)。
+    // 書き換えられない人に索引を作らせないよう、先に一度確かめる (書く前に鍵の中でもう一度確かめる)。
+    archive::ensure_editable_archive(&state.pool, &user, id).await?;
     let snapshot_targets = match (&payload.item_ids, payload.snapshot) {
         (Some(_), None) => None,
         (None, Some(token)) => {
