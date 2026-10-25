@@ -79,9 +79,9 @@ Use “Match position” to choose where in the file name a word must occur.
 
 The extension is matched too, so to sort files by extension, register words with a dot, such as `.md` or `.pdf`.
 
-## Separate by date taken
+## Separate by date
 
-To separate photos by the year or month they were taken, select “Add category...” and choose “Year taken” or “Month taken” as the source. Values look like `2024` or `06`. The month ignores the year, so June of every year becomes `06`. With both a year and a month category, viewers can filter by the year, the month, or both. Files without a date taken (such as videos and documents) use the file's modified date.
+To separate files by year or month, select “Add category...” and choose “Year (file date)” or “Month (file date)” as the source. Photos use the date taken, and files without one (such as videos and documents) use the file's modified date. Values look like `2024` or `06`. The month ignores the year, so June of every year becomes `06`. With both a year and a month category, viewers can filter by the year, the month, or both.
 
 As with folder-level categories, you can change the display names (such as `06` to `June`) and order in the values table that opens when you select the category row.
 
@@ -128,7 +128,7 @@ When you change a file's contents (for example, replace a photo with one of the 
 
    ![The Rescan button on the Items tab](images/archive-items-tab.webp)
 
-   With many files this takes a while, and the progress and the elapsed time appear next to the button. The scan finishes even if you close the page.
+   With many files this takes a while, and the progress and the elapsed time appear next to the button. The scan finishes even if you close the page. To stop it, select “Stop”. Once reading has started, the files read so far are added to the list, and the next scan picks up where it left off.
 
 To rescan automatically, choose “When … have passed since the last scan” or “Every day after …” in “Automatic rescan” on the “Settings” tab, and enter the hours or the time. A time at night, when few people use the NAS, keeps the scan out of their way.
 

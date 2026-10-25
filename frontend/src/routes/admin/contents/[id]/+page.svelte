@@ -19,7 +19,8 @@
 	} from '$lib/content-form.svelte';
 	import { ancestorPath, byIdMap, selfAndAncestors } from '$lib/content-tree';
 	import { isDirectoryContentType } from '$lib/content-types';
-	import { rescanArchive } from '$lib/archive-scan';
+	import { cancelScan, rescanArchive } from '$lib/archive-scan';
+	import ScanProgress from '$lib/components/scan-progress.svelte';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import {
 		canHoldContentOf,
@@ -261,10 +262,12 @@
 				const scan = await rescanArchive(content.id, (message) => (scanProgress = message));
 				if (scan.ok) {
 					toast.success(
-						m.contents_edit_saved_scanned_toast({
-							section,
-							total: formatNumber(scan.result.total)
-						})
+						scan.result.cancelled
+							? m.contents_edit_saved_scan_cancelled_toast({ section })
+							: m.contents_edit_saved_scanned_toast({
+									section,
+									total: formatNumber(scan.result.total)
+								})
 					);
 				} else {
 					errorDialog.show(
@@ -394,7 +397,7 @@
 				>
 				<!-- 確認の窓を通らずに始めたスキャン (一覧の表示を使い始めたとき) は、ボタンの横に進み具合を出す。 -->
 				{#if part === 'specific' && scanProgress && !confirmRegisterOpen}
-					<p role="status" class="text-sm text-muted-foreground">{scanProgress}</p>
+					<ScanProgress message={scanProgress} oncancel={() => cancelScan(content.id)} />
 				{/if}
 			</div>
 		{/if}
@@ -433,6 +436,7 @@
 	editing
 	{saving}
 	progress={scanProgress}
+	oncancelscan={() => cancelScan(content.id)}
 	onconfirm={saveContent}
 />
 

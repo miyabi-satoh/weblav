@@ -9,7 +9,8 @@
 		archiveManageFileHref
 	} from '$lib/api/urls';
 	import type { components } from '$lib/api/schema';
-	import { rescanArchive, waitForRunningScan } from '$lib/archive-scan';
+	import { cancelScan, rescanArchive, waitForRunningScan } from '$lib/archive-scan';
+	import ScanProgress from '$lib/components/scan-progress.svelte';
 	import { browseLayout } from '$lib/browse-layout.svelte';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { formatNumber } from '$lib/format';
@@ -188,10 +189,12 @@
 				errorDialog.show(scan.message);
 				return;
 			}
-			rescanMessage = m.archive_items_rescan_result({
-				added: formatNumber(scan.result.added),
-				removed: formatNumber(scan.result.removed)
-			});
+			rescanMessage = scan.result.cancelled
+				? m.archive_items_rescan_cancelled()
+				: m.archive_items_rescan_result({
+						added: formatNumber(scan.result.added),
+						removed: formatNumber(scan.result.removed)
+					});
 			selectedIds = [];
 			await refreshAll();
 		} finally {
@@ -268,7 +271,7 @@
 					{m.archive_items_rescan_button()}
 				</LoadingButton>
 				{#if scanProgress}
-					<p role="status" class="text-sm text-muted-foreground">{scanProgress}</p>
+					<ScanProgress message={scanProgress} oncancel={() => cancelScan(contentId)} />
 				{:else if rescanMessage}
 					<p class="text-sm text-muted-foreground">{rescanMessage}</p>
 				{/if}

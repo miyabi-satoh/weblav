@@ -258,9 +258,11 @@
 		}
 	],
 	"contents_edit_scan_failed": "“{section}” was saved. {reason} Rescan from the Items tab.",
+	"contents_edit_saved_scan_cancelled_toast": "“{section}” was saved. The scan was stopped.",
 	"contents_edit_scan_blocked": "“{section}” was saved. {reason}",
 	"archive_scan_listing_progress": "Finding files... ({elapsed} elapsed)",
 	"archive_scan_reading_progress": "Reading files... {done} / {total} ({elapsed} elapsed)",
+	"archive_scan_cancel_button": "Stop",
 	"archive_scan_failed_title": "Couldn't scan the files",
 	"contents_menu_edit": "Edit",
 	"contents_menu_open": "Open",
@@ -399,9 +401,9 @@
 	"archive_axes_dialog_name_label": "Category name",
 	"archive_axes_dialog_name_help": "In the title template, refer to this category by its name in braces.",
 	"archive_axes_dialog_source_label": "Source",
-	"archive_axes_source_date_year": "Year taken",
-	"archive_axes_source_date_month": "Month taken",
-	"archive_axes_values_hint_date": "Values come from the date taken, or the date modified for files without one. You can change the display names and order.",
+	"archive_axes_source_date_year": "Year (file date)",
+	"archive_axes_source_date_month": "Month (file date)",
+	"archive_axes_values_hint_date": "Values come from the file's modified date or the photo's date taken. You can change the display names and order.",
 	"archive_axes_source_option_dir_level": "Folder level",
 	"archive_axes_source_option_filename_word": "Word in file name",
 	"archive_axes_dialog_dir_level_label": "Level number",
@@ -475,6 +477,7 @@
 	"archive_tabs_axes": "Categories",
 	"archive_tabs_items": "Items",
 	"archive_items_rescan_button": "Rescan",
+	"archive_items_rescan_cancelled": "Rescan stopped",
 	"archive_items_rescan_result": "Rescan result: {added} added, {removed} removed",
 	"archive_items_summary": [
 		{

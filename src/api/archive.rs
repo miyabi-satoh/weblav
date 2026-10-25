@@ -9,6 +9,7 @@ use std::path::{Path as FsPath, PathBuf};
 
 use axum::Json;
 use axum::extract::{Path, State};
+use axum::http::StatusCode;
 use serde::Serialize;
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
@@ -330,6 +331,8 @@ pub struct RescanResponse {
     removed: usize,
     /// 同期後の索引の総数。
     total: usize,
+    /// 途中で中止したか。中止したときは消えたファイルを外さず、読み終えた分だけを索引に書く。
+    cancelled: bool,
 }
 
 /// アーカイブの再スキャン。
@@ -398,7 +401,9 @@ async fn scan_and_sync(
     let known = load_known_files(&state.pool, id).await?;
     let scan_root = archive.path.clone();
     let own_dirs = state.own_dirs.clone();
+    let reader_progress = std::sync::Arc::clone(&progress);
     let items = run_blocking(move || {
+        let progress = reader_progress;
         let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
         // `canonical_dir_within_roots` より先に見分ける (→ docs/archive.md「スキャン」)。
         if super::archive_items::folder_missing(std::path::Path::new(&scan_root)) {
@@ -409,13 +414,18 @@ async fn scan_and_sync(
         }
         // 「公開できるフォルダー」の外は再走査でも拒む (理由は `contents::resolve_path` と同じ)。
         let root = super::fs::canonical_dir_within_roots(&scan_root, &roots, &own_dirs)?;
-        let result = super::fs::scan_files(
+        let result = super::fs::scan_files_until(
             &root,
             extensions.as_deref(),
             super::fs::SCAN_LIMIT,
             super::fs::ITEM_LIMIT,
             &own_dirs,
+            &|| progress.is_cancelled(),
         );
+        // ファイルを集め終える前の中止は、読んだものが無いので何も書かない。
+        if progress.is_cancelled() {
+            return Ok(None);
+        }
         if result.truncated {
             return Err(AppError::ValidationDetailed {
                 message: "too many files to index".to_string(),
@@ -431,12 +441,20 @@ async fn scan_and_sync(
                 detail: ValidationDetail::ArchiveFolderUnreadable { path },
             });
         }
-        let items = read_items(&root, result.rel_paths, &known, &progress);
-        Ok((items, result.dirs))
+        let (items, complete) = read_items(&root, result.rel_paths, &known, &progress);
+        Ok(Some((items, complete, result.dirs)))
     })
     .await??;
-    let (items, dirs) = items;
+    let Some((items, complete, dirs)) = items else {
+        return cancelled_before_reading(&state.pool, id).await;
+    };
 
+    // 読み終える前の中止では、読まなかったファイルを「消えた」と見なさないよう同期しない。
+    // 読んだ分は残し、次のスキャンが読み直さずに済むようにする (→ docs/archive.md「スキャンの中止」)。
+    // 読み終えた後に届いた中止は無視する。全部読めているので、同期した方が正しい索引になるため。
+    if !complete {
+        return save_read_items(&state.pool, id, &archive.path, &items).await;
+    }
     sync_items(state, id, &archive.path, &items, &dirs).await
 }
 
@@ -489,15 +507,19 @@ struct ScannedFile {
 /// 見つけたファイルを1つずつ見て、変わったものだけプレビューの情報を読む。
 /// 一覧と検索はここで読んだ値を返すだけにし、ファイルを開かない (→ docs/archive.md「スキャン」)。
 /// 走査の後に消えたものは、見つからなかったものと同じに扱う。
+/// 中止で途中で切り上げたら、2つ目に `false` を返す。
 fn read_items(
     root: &FsPath,
     rel_paths: Vec<String>,
     known: &KnownFiles,
     progress: &crate::state::ScanProgress,
-) -> Vec<ScannedItem> {
+) -> (Vec<ScannedItem>, bool) {
     progress.start_reading(rel_paths.len() as u64);
     let mut items = Vec::with_capacity(rel_paths.len());
     for rel_path in rel_paths {
+        if progress.is_cancelled() {
+            return (items, false);
+        }
         let path = root.join(&rel_path);
         let file = match std::fs::symlink_metadata(&path) {
             Ok(metadata) => {
@@ -531,7 +553,7 @@ fn read_items(
         items.push(ScannedItem { rel_path, file });
         progress.advance();
     }
-    items
+    (items, true)
 }
 
 /// 走査結果を `archive_items` へ反映する。
@@ -568,6 +590,107 @@ async fn sync_items(
     .collect();
     let found: HashSet<&str> = items.iter().map(|item| item.rel_path.as_str()).collect();
 
+    let added = write_items(&mut tx, id, items, &existing).await?;
+
+    let mut removed = 0;
+    for rel_path in existing.iter().filter(|rel| !found.contains(rel.as_str())) {
+        // 墓標は残さない。行を消すことが「一度対象から外れたら公開フラグを
+        // 復元しない」の実装になる (→ docs/archive.md「スキャン」)。
+        sqlx::query!(
+            "DELETE FROM archive_items WHERE archive_id = ? AND rel_path = ?",
+            id,
+            rel_path
+        )
+        .execute(&mut *tx)
+        .await?;
+        removed += 1;
+    }
+
+    replace_dirs(&mut tx, id, dirs).await?;
+    sqlx::query!(
+        "UPDATE contents SET last_scanned_at = unixepoch('subsec') * 1000 WHERE id = ?",
+        id
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(Json(RescanResponse {
+        added,
+        removed,
+        total: items.len(),
+        cancelled: false,
+    }))
+}
+
+/// ファイルを集め終える前に中止したスキャンの結果。読んだものが無いので何も書かない。
+async fn cancelled_before_reading(
+    pool: &sqlx::SqlitePool,
+    id: i64,
+) -> Result<Json<RescanResponse>, AppError> {
+    let total = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) as "count!: i64" FROM archive_items WHERE archive_id = ?"#,
+        id
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(Json(RescanResponse {
+        added: 0,
+        removed: 0,
+        total: usize::try_from(total).unwrap_or_default(),
+        cancelled: true,
+    }))
+}
+
+/// 中止したスキャンの、読み終えた分だけを索引に書く。消えたファイルは外さず、
+/// フォルダーの更新日時と最後のスキャンの時刻も書かない。どちらも全体を見たときにだけ正しいため。
+async fn save_read_items(
+    pool: &sqlx::SqlitePool,
+    id: i64,
+    scanned_path: &str,
+    items: &[ScannedItem],
+) -> Result<Json<RescanResponse>, AppError> {
+    let mut tx = crate::db::begin_write(pool).await?;
+    let current_path = sqlx::query_scalar!("SELECT path FROM contents WHERE id = ?", id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    if current_path.as_deref() != Some(scanned_path) {
+        return Err(AppError::Conflict(
+            "the target directory changed during the scan".to_string(),
+        ));
+    }
+    let existing: HashSet<String> = sqlx::query_scalar!(
+        "SELECT rel_path FROM archive_items WHERE archive_id = ?",
+        id
+    )
+    .fetch_all(&mut *tx)
+    .await?
+    .into_iter()
+    .collect();
+    // 読めなかった新しいファイルは足さない。次のスキャンで読む。
+    let read: Vec<&ScannedItem> = items
+        .iter()
+        .filter(|item| item.file.is_some() || existing.contains(&item.rel_path))
+        .collect();
+    let added = write_items(&mut tx, id, read, &existing).await?;
+    tx.commit().await?;
+    Ok(Json(RescanResponse {
+        added,
+        removed: 0,
+        total: existing.len() + added,
+        cancelled: true,
+    }))
+}
+
+/// 読んだファイルを索引に書く。新しいものは足し、既にあるものは読み直した値で書き換える。足した件数を返す。
+async fn write_items<'a>(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    id: i64,
+    items: impl IntoIterator<Item = &'a ScannedItem>,
+    existing: &HashSet<String>,
+) -> Result<usize, AppError> {
     let mut added = 0;
     for item in items {
         let rel_path = item.rel_path.as_str();
@@ -598,7 +721,7 @@ async fn sync_items(
                     id,
                     rel_path
                 )
-                .execute(&mut *tx)
+                .execute(&mut **tx)
                 .await?;
             }
             continue;
@@ -619,40 +742,11 @@ async fn sync_items(
             taken_at,
             READ_VERSION
         )
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await?;
         added += 1;
     }
-
-    let mut removed = 0;
-    for rel_path in existing.iter().filter(|rel| !found.contains(rel.as_str())) {
-        // 墓標は残さない。行を消すことが「一度対象から外れたら公開フラグを
-        // 復元しない」の実装になる (→ docs/archive.md「スキャン」)。
-        sqlx::query!(
-            "DELETE FROM archive_items WHERE archive_id = ? AND rel_path = ?",
-            id,
-            rel_path
-        )
-        .execute(&mut *tx)
-        .await?;
-        removed += 1;
-    }
-
-    replace_dirs(&mut tx, id, dirs).await?;
-    sqlx::query!(
-        "UPDATE contents SET last_scanned_at = unixepoch('subsec') * 1000 WHERE id = ?",
-        id
-    )
-    .execute(&mut *tx)
-    .await?;
-
-    tx.commit().await?;
-
-    Ok(Json(RescanResponse {
-        added,
-        removed,
-        total: items.len(),
-    }))
+    Ok(added)
 }
 
 /// 自動の再スキャンの時刻を見回る間隔。選べる間隔の最短 (1時間) と時刻の刻み (1分) に合わせ、遅れを小さくする。
@@ -993,7 +1087,7 @@ async fn fill_previews(
     let progress = scan_guard.progress();
     let root = PathBuf::from(scanned_path);
     let items =
-        run_blocking(move || read_items(&root, rel_paths, &KnownFiles::new(), &progress)).await?;
+        run_blocking(move || read_items(&root, rel_paths, &KnownFiles::new(), &progress).0).await?;
     let mut tx = crate::db::begin_write(&state.pool).await?;
     for item in &items {
         let Some(file) = &item.file else {
@@ -1117,8 +1211,31 @@ async fn rescan_progress(
     Ok(Json(response))
 }
 
+/// 走っている再スキャンの中止。止まると、再スキャンの応答が `cancelled` で返る
+/// (→ docs/archive.md「スキャンの中止」)。走っていなければ何もしない。押したときに終わっていることがあるため。
+#[utoipa::path(
+    delete,
+    path = "/contents/{id}/rescan",
+    params(("id" = i64, Path)),
+    responses(
+        (status = NO_CONTENT, description = "中止を頼んだ (走っていなければ何もしない)"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの"),
+        (status = 404, body = crate::error::ErrorResponse, description = "存在しない・アーカイブでない"),
+    )
+)]
+async fn cancel_rescan(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<StatusCode, AppError> {
+    ensure_editable_archive(&state.pool, &user, id).await?;
+    state.archive_scans.cancel(id);
+    Ok(StatusCode::NO_CONTENT)
+}
+
 pub(crate) fn router() -> OpenApiRouter<AppState> {
-    OpenApiRouter::new().routes(routes!(rescan, rescan_progress))
+    OpenApiRouter::new().routes(routes!(rescan, rescan_progress, cancel_rescan))
 }
 
 // --- 軸の値の導出と表示タイトルの組み立て (→ docs/archive.md「軸の値の辞書と導出」・「表示タイトル」)。
@@ -1624,6 +1741,115 @@ pub(super) fn derive_item<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn read_file() -> Option<ScannedFile> {
+        Some(ScannedFile {
+            size: 1,
+            modified_ns: Some(1),
+            image: None,
+            is_text: false,
+            taken_at: None,
+        })
+    }
+
+    #[test]
+    fn read_items_stops_reading_once_cancelled() {
+        let tmp = crate::test_support::project_temp_dir("archive-tests", "read-cancel");
+        std::fs::write(tmp.path().join("a.mp3"), b"").expect("ファイルを作れなかった");
+        let scans = std::sync::Arc::new(crate::state::ArchiveScans::default());
+        let guard = scans.acquire(1).expect("走査を始められるはず");
+        let progress = guard.progress();
+        progress.start_listing();
+        scans.cancel(1);
+
+        let (items, complete) = read_items(
+            tmp.path(),
+            vec!["a.mp3".to_string()],
+            &KnownFiles::new(),
+            &progress,
+        );
+        assert!(items.is_empty(), "中止の後は読まないはず");
+        assert!(!complete, "読み終えていないと返すはず");
+    }
+
+    /// 最後まで読んだら読み終えたと返す。呼び出し側はこれで同期を選ぶので、読み終えた後に届いた中止は効かない (→ docs/archive.md「スキャンの中止」)。
+    #[test]
+    fn read_items_reports_complete_when_it_reads_every_file() {
+        let tmp = crate::test_support::project_temp_dir("archive-tests", "read-complete");
+        std::fs::write(tmp.path().join("a.mp3"), b"").expect("ファイルを作れなかった");
+        let scans = std::sync::Arc::new(crate::state::ArchiveScans::default());
+        let guard = scans.acquire(1).expect("走査を始められるはず");
+        let progress = guard.progress();
+        progress.start_listing();
+
+        let (items, complete) = read_items(
+            tmp.path(),
+            vec!["a.mp3".to_string()],
+            &KnownFiles::new(),
+            &progress,
+        );
+        assert_eq!(items.len(), 1);
+        assert!(complete, "読み終えたと返すはず");
+    }
+
+    /// 中止したスキャンは、読んだ分だけを足し、読まなかったファイルを消さない (→ docs/archive.md「スキャンの中止」)。
+    #[sqlx::test]
+    async fn save_read_items_adds_read_files_and_keeps_the_rest(pool: sqlx::SqlitePool) {
+        let id = sqlx::query_scalar!(
+            "INSERT INTO contents (type, title, path, visibility, new_files_public) VALUES ('folder', 'f', '/f', 'public', 0) RETURNING id"
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("フォルダーを作れるはず");
+        for rel_path in ["old.mp3", "unread.mp3"] {
+            sqlx::query("INSERT INTO archive_items (archive_id, rel_path) VALUES (?, ?)")
+                .bind(id)
+                .bind(rel_path)
+                .execute(&pool)
+                .await
+                .expect("アイテムを足せるはず");
+        }
+        let items = [
+            ScannedItem {
+                rel_path: "old.mp3".to_string(),
+                file: None,
+            },
+            ScannedItem {
+                rel_path: "new.mp3".to_string(),
+                file: read_file(),
+            },
+            // 大きさを見られなかった新しいファイルは、次のスキャンに任せる。
+            ScannedItem {
+                rel_path: "failed.mp3".to_string(),
+                file: None,
+            },
+        ];
+
+        let Json(result) = save_read_items(&pool, id, "/f", &items)
+            .await
+            .expect("読んだ分を書けるはず");
+        assert!(result.cancelled);
+        assert_eq!((result.added, result.removed, result.total), (1, 0, 3));
+
+        let mut rel_paths: Vec<String> =
+            sqlx::query_scalar("SELECT rel_path FROM archive_items WHERE archive_id = ?")
+                .bind(id)
+                .fetch_all(&pool)
+                .await
+                .expect("アイテムを読めるはず");
+        rel_paths.sort();
+        assert_eq!(rel_paths, ["new.mp3", "old.mp3", "unread.mp3"]);
+        let last_scanned_at: Option<i64> =
+            sqlx::query_scalar("SELECT last_scanned_at FROM contents WHERE id = ?")
+                .bind(id)
+                .fetch_one(&pool)
+                .await
+                .expect("フォルダーを読めるはず");
+        assert_eq!(
+            last_scanned_at, None,
+            "全体を見ていないので、スキャンした時刻は書かないはず"
+        );
+    }
 
     #[test]
     fn normalize_extensions_returns_a_canonical_list() {

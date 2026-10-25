@@ -1091,7 +1091,11 @@ export interface paths {
          *     終わるまで応答しない。進み具合は `GET` の同じパスで見る。
          */
         post: operations["rescan"];
-        delete?: never;
+        /**
+         * 走っている再スキャンの中止。止まると、再スキャンの応答が `cancelled` で返る
+         *     (→ docs/archive.md「スキャンの中止」)。走っていなければ何もしない。押したときに終わっていることがあるため。
+         */
+        delete: operations["cancel_rescan"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2137,6 +2141,8 @@ export interface components {
         RescanResponse: {
             /** @description 新しく索引に加えたアイテム数。非公開から始まる。 */
             added: number;
+            /** @description 途中で中止したか。中止したときは消えたファイルを外さず、読み終えた分だけを索引に書く。 */
+            cancelled: boolean;
             /**
              * @description 索引から取り除いたアイテム数。実体が消えたもの、または拡張子の対象から
              *     外れたもの。
@@ -5941,6 +5947,53 @@ export interface operations {
             };
             /** @description 登録先が見つからない・読めない場所がある・大きすぎる */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cancel_rescan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 中止を頼んだ (走っていなければ何もしない) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `user` から見て他人が作ったもの */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 存在しない・アーカイブでない */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

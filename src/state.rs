@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
 
@@ -143,6 +143,17 @@ impl ArchiveScans {
         })
     }
 
+    /// `id` の走査に中止を頼む。走査のスレッドが次に見たところで止まる。
+    /// 進み具合を出していない排他 (更新・削除など) は止めない。止めると保存が抜けるため。
+    pub fn cancel(&self, id: i64) {
+        let running = self.running.lock().expect("archive_scans lock poisoned");
+        if let Some(progress) = running.get(&id)
+            && progress.phase.load(Ordering::Relaxed) != PHASE_NONE
+        {
+            progress.cancelled.store(true, Ordering::Relaxed);
+        }
+    }
+
     /// `id` の走査の進み具合。走査していなければ `None`。
     pub fn progress(&self, id: i64) -> Option<ScanProgressSnapshot> {
         let running = self.running.lock().expect("archive_scans lock poisoned");
@@ -157,6 +168,7 @@ pub struct ScanProgress {
     phase: AtomicU8,
     done: AtomicU64,
     total: AtomicU64,
+    cancelled: AtomicBool,
     /// 排他を取った時刻。経過時間をサーバーで数えるのは、画面を開き直しても続きから出せるようにするため。
     started: Instant,
 }
@@ -188,6 +200,7 @@ impl ScanProgress {
             phase: AtomicU8::new(PHASE_NONE),
             done: AtomicU64::new(0),
             total: AtomicU64::new(0),
+            cancelled: AtomicBool::new(false),
             started: Instant::now(),
         }
     }
@@ -204,6 +217,11 @@ impl ScanProgress {
 
     pub fn advance(&self) {
         self.done.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// 中止を頼まれたか。走査のスレッドが、ファイルを1つ見るごとに確かめる。
+    pub fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::Relaxed)
     }
 
     fn snapshot(&self) -> Option<ScanProgressSnapshot> {
@@ -276,5 +294,19 @@ mod tests {
 
         drop(guard);
         assert_eq!(scans.progress(1), None);
+    }
+
+    #[test]
+    fn cancel_reaches_only_a_scan_that_reports_progress() {
+        let scans = Arc::new(ArchiveScans::default());
+        let guard = scans.acquire(1).expect("走査を始められるはず");
+        let progress = guard.progress();
+        // 更新・削除の排他は止めない。
+        scans.cancel(1);
+        assert!(!progress.is_cancelled());
+
+        progress.start_listing();
+        scans.cancel(1);
+        assert!(progress.is_cancelled());
     }
 }

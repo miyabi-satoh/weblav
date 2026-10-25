@@ -4127,6 +4127,56 @@
             }
           }
         }
+      },
+      "delete": {
+        "summary": "走っている再スキャンの中止。止まると、再スキャンの応答が `cancelled` で返る\n(→ docs/archive.md「スキャンの中止」)。走っていなければ何もしない。押したときに終わっていることがあるため。",
+        "operationId": "cancel_rescan",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "中止を頼んだ (走っていなければ何もしない)"
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`user` から見て他人が作ったもの",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "存在しない・アーカイブでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/contents/{id}/thumbnail": {
@@ -6976,13 +7026,18 @@
         "required": [
           "added",
           "removed",
-          "total"
+          "total",
+          "cancelled"
         ],
         "properties": {
           "added": {
             "type": "integer",
             "description": "新しく索引に加えたアイテム数。非公開から始まる。",
             "minimum": 0
+          },
+          "cancelled": {
+            "type": "boolean",
+            "description": "途中で中止したか。中止したときは消えたファイルを外さず、読み終えた分だけを索引に書く。"
           },
           "removed": {
             "type": "integer",
