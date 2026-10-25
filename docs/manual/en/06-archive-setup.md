@@ -79,9 +79,9 @@ Use “Match position” to choose where in the file name a word must occur.
 
 The extension is matched too, so to sort files by extension, register words with a dot, such as `.md` or `.pdf`.
 
-## Separate by date taken
+## Separate by date
 
-To separate photos by the year or month they were taken, select “Add category...” and choose “Year taken” or “Month taken” as the source. Values look like `2024` or `06`. The month ignores the year, so June of every year becomes `06`. With both a year and a month category, viewers can filter by the year, the month, or both. Files without a date taken (such as videos and documents) use the file's modified date.
+To separate files by year or month, select “Add category...” and choose “Year (file date)” or “Month (file date)” as the source. Photos use the date taken, and files without one (such as videos and documents) use the file's modified date. Values look like `2024` or `06`. The month ignores the year, so June of every year becomes `06`. With both a year and a month category, viewers can filter by the year, the month, or both.
 
 As with folder-level categories, you can change the display names (such as `06` to `June`) and order in the values table that opens when you select the category row.
 
