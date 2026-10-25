@@ -347,7 +347,7 @@
 	"archive_axes_dialog_source_label": "抽出元",
 	"archive_axes_source_date_year": "年 (ファイルの日付)",
 	"archive_axes_source_date_month": "月 (ファイルの日付)",
-	"archive_axes_values_hint_date": "ファイルの日付から決まる値です。写真は撮影日を、撮影日の無いファイルは更新日を使います。表示名と順序を変更できます。",
+	"archive_axes_values_hint_date": "写真の撮影日またはファイルの更新日から決まる値です。表示名と順序を変更できます。",
 	"archive_axes_source_option_dir_level": "フォルダーの階層",
 	"archive_axes_source_option_filename_word": "ファイル名の単語",
 	"archive_axes_dialog_dir_level_label": "階層の番号",

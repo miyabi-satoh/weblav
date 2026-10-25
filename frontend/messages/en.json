@@ -401,7 +401,7 @@
 	"archive_axes_dialog_source_label": "Source",
 	"archive_axes_source_date_year": "Year (file date)",
 	"archive_axes_source_date_month": "Month (file date)",
-	"archive_axes_values_hint_date": "Values come from the file date: the date taken for photos, or the date modified for files without one. You can change the display names and order.",
+	"archive_axes_values_hint_date": "Values come from the photo's date taken or the file's modified date. You can change the display names and order.",
 	"archive_axes_source_option_dir_level": "Folder level",
 	"archive_axes_source_option_filename_word": "Word in file name",
 	"archive_axes_dialog_dir_level_label": "Level number",
