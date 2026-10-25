@@ -149,4 +149,3 @@ If rescanning shows one of the following, the item list and the publish settings
   - If you disconnected a drive, connect it and rescan.
   - Viewers also see “The folder was not found.”
 - **“Could not read "(folder)".” / “The folder could not be read.”**: WebLAV cannot read that folder (in the latter case, the registered folder itself). Check the folder’s permissions on the computer, make it readable, then rescan. For a NAS share, check that it is connected.
-- **“This folder has more than 100,000 files, so it can't be organized as a library.”**: The folder has more files than one list can hold. Narrow it down by file extension on the “Settings” tab, or register its subfolders as separate folders.

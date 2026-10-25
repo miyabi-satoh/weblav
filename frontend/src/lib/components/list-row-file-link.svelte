@@ -21,8 +21,11 @@
 	}: {
 		/** `items` と同じ組み立て方で作る (押した行を `items` の中から `src` で探すため)。 */
 		file: ViewerFile;
-		/** この行が並ぶ一覧の、ページ内で開くもの (表示順。→ $lib/viewer-items.ts)。ビューアーの前・次になる。 */
-		items: ViewerItem[];
+		/**
+		 * この行が並ぶ一覧の、ページ内で開くもの (表示順。→ $lib/viewer-items.ts)。ビューアーの前・次になる。
+		 * 関数なら押したときに呼ぶ (区切って取る一覧は、前後の区切りを取ってから作る)。
+		 */
+		items: ViewerItem[] | (() => Promise<ViewerItem[]>);
 		/** フォルダー一覧の詰めた行 (`browseRowClass(true)`) にする。タイルには効かない。 */
 		compact?: boolean;
 		/** 行のタイトル。これを包むリンクの押せる範囲が、行いっぱいに広がる。 */
@@ -35,10 +38,19 @@
 		trailing?: Snippet;
 	} = $props();
 
+	/** 前後の区切りを取っている間。続けて押されても、ビューアーを重ねて開かないため。 */
+	let opening = false;
+
 	function handleClick(event: MouseEvent) {
 		if (!isPlainClick(event)) return;
 		event.preventDefault();
-		void openViewerItem({ type: 'file', file }, items);
+		if (opening) return;
+		opening = true;
+		void (typeof items === 'function' ? items() : Promise.resolve(items))
+			.then((list) => openViewerItem({ type: 'file', file }, list))
+			.finally(() => {
+				opening = false;
+			});
 	}
 </script>
 

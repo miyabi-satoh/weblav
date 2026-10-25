@@ -1,6 +1,7 @@
 mod archive;
 mod archive_axes;
 mod archive_axis_hints;
+pub mod archive_index;
 mod archive_items;
 mod auth;
 pub mod backup;
@@ -17,6 +18,7 @@ mod help;
 pub mod link_preview;
 mod link_title;
 mod links_file;
+mod list_filter;
 mod local;
 mod logs;
 mod page_dates;

@@ -992,7 +992,7 @@ async fn list_admin_contents(
             .map(|row| (row.id, row.username))
             .collect();
     let root_records = super::roots::load_root_records(&state.pool).await?;
-    let archive_item_counts = super::archive_items::item_counts(&state.pool).await?;
+    let archive_item_counts = super::archive_items::item_counts(&state).await?;
 
     Ok(Json(
         rows.into_iter()
@@ -1752,7 +1752,7 @@ pub(super) async fn resolve_path(
 ) -> Result<PathBuf, AppError> {
     reject_traversal_components(rel)?;
     let marks = match marks_of {
-        Some(id) => Some(super::folder_marks::Marks::load(&state.pool, id).await?),
+        Some(id) => Some(super::archive_index::marks(state, id).await?.1),
         None => None,
     };
 
@@ -1927,7 +1927,7 @@ async fn browse_folder(
 
     let own_dirs = state.own_dirs.clone();
     let order = SortOrder::from_query(query.sort.as_deref());
-    let marks = super::folder_marks::Marks::load(&state.pool, id).await?;
+    let (_, marks) = super::archive_index::marks(&state, id).await?;
     let entries = run_blocking(move || {
         // 登録先は `resolve_path` で読めることを確かめてある。
         let root = std::fs::canonicalize(&root).map_err(|_| AppError::NotFound)?;
@@ -2408,12 +2408,11 @@ pub(super) async fn search_contents(
 
     let archives = archives
         .into_iter()
-        .map(|(id, title, path, title_template, ancestors)| {
+        .map(|(id, title, path, _title_template, ancestors)| {
             Ok(super::archive_items::SearchableArchive {
                 id,
                 title,
                 path: path.ok_or(AppError::DataIntegrity("archive content without a path"))?,
-                title_template,
                 ancestors,
             })
         })

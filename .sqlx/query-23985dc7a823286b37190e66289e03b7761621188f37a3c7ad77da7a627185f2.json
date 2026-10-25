@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT type as \"content_type: ContentType\", title, path, extensions,\n                  visibility as \"visibility: super::contents::Visibility\", created_by,\n                  title_template, list_view as \"list_view: bool\"\n           FROM contents WHERE id = ?",
+  "query": "SELECT type as \"content_type: ContentType\", title, path, extensions,\n                  visibility as \"visibility: super::contents::Visibility\", created_by,\n                  list_view as \"list_view: bool\"\n           FROM contents WHERE id = ?",
   "describe": {
     "columns": [
       {
@@ -34,13 +34,8 @@
         "type_info": "Integer"
       },
       {
-        "name": "title_template",
-        "ordinal": 6,
-        "type_info": "Text"
-      },
-      {
         "name": "list_view: bool",
-        "ordinal": 7,
+        "ordinal": 6,
         "type_info": "Integer"
       }
     ],
@@ -54,9 +49,8 @@
       true,
       false,
       true,
-      true,
       false
     ]
   },
-  "hash": "dc1a91d043a563c4d8dc8cf0c95993d80431a7eea25edd2bd7f08243d8661be4"
+  "hash": "23985dc7a823286b37190e66289e03b7761621188f37a3c7ad77da7a627185f2"
 }

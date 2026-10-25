@@ -299,6 +299,8 @@ pub(super) async fn restore_staged(state: &AppState, id: &str) -> Result<(), App
         &state.revoked_sessions,
     )
     .await;
+    // DB が丸ごと替わるので、版の数も当てにならない。失敗しても途中まで書いたかもしれないので、どちらでも捨てる。
+    state.archive_index.clear();
     match result {
         // 戻した DB の公開フォルダーを読めるようにする (→ docs/distribution.md「ビルド・配布の方法」)。
         Ok(()) => {

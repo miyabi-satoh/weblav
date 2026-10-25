@@ -9,12 +9,8 @@ type RescanResponse = components['schemas']['RescanResponse'];
 export type ArchiveScanResult =
 	{ ok: true; result: RescanResponse } | { ok: false; message: string; retryable: boolean };
 
-/** フォルダーが無い・読めない・多すぎる失敗は、直すまで再スキャンしても同じになる。 */
-const NOT_RETRYABLE = new Set([
-	'archiveFolderMissing',
-	'archiveFolderUnreadable',
-	'archiveTooManyFiles'
-]);
+/** フォルダーが無い・読めない失敗は、直すまで再スキャンしても同じになる。 */
+const NOT_RETRYABLE = new Set(['archiveFolderMissing', 'archiveFolderUnreadable']);
 
 /**
  * 進み具合を見に行く間隔 (ms)。数万件を読む NAS では1件ずつ数十ミリ秒かかるので、1秒ごとでも数字は動いて見える。

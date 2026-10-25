@@ -218,7 +218,7 @@ fn openapi_doc_has_prefixed_health_path() {
     assert!(json.contains("AxisResponse"), "{json}");
     assert!(json.contains("AxisValueResponse"), "{json}");
     assert!(json.contains("ArchiveViewResponse"), "{json}");
-    assert!(json.contains("AdminArchiveItemResponse"), "{json}");
+    assert!(json.contains("ManageArchiveViewResponse"), "{json}");
     assert!(json.contains("UserListItem"), "{json}");
     assert!(!json.contains("utoipa-axum"), "{json}");
     assert!(openapi.info.license.is_none());

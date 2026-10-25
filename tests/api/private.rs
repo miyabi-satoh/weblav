@@ -439,7 +439,11 @@ async fn management_endpoints_hide_others_private_from_regular_users(pool: Sqlit
 
     for (method, path) in [
         ("POST", format!("/api/v1/contents/{archive_id}/rescan")),
-        ("GET", format!("/api/v1/contents/{archive_id}/items")),
+        ("GET", format!("/api/v1/contents/{archive_id}/path-samples")),
+        (
+            "GET",
+            format!("/api/v1/contents/{archive_id}/manage-archive"),
+        ),
         (
             "GET",
             format!("/api/v1/contents/{archive_id}/items/{item_id}/manage-download"),
@@ -526,7 +530,7 @@ async fn archive_endpoints_forbid_writes_to_others_archives(pool: SqlitePool) {
     let cookie = login(app.clone(), "bob", "correct-password").await;
 
     for path in [
-        format!("/api/v1/contents/{archive_id}/items"),
+        format!("/api/v1/contents/{archive_id}/path-samples"),
         format!("/api/v1/contents/{archive_id}/axes"),
         format!("/api/v1/contents/{archive_id}/axes/{axis_id}/values"),
     ] {

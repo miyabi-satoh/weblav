@@ -1,0 +1,23 @@
+{
+	"_comment": "一覧の名前の絞り込みの当たり方 (→ docs/ui.md「一覧の絞り込み」)。画面の $lib/list-filter.ts とサーバーの api::list_filter が同じ表でテストし、食い違わないようにする。match は matchFilter (タイトル)、contains は containsTerms (パス) の当たり。",
+	"match": [
+		{ "text": "リスニング リスト", "query": "リスト", "hit": true },
+		{ "text": "英検 リスニング 第2回", "query": "英リス2", "hit": true },
+		{ "text": "英検 リスニング", "query": "ス英", "hit": false },
+		{ "text": "2025 リスニング", "query": "2025　リス", "hit": true },
+		{ "text": "2025 リスニング", "query": "2024 リス", "hit": false },
+		{ "text": "ABC教材", "query": "ａｂｃ", "hit": true },
+		{ "text": "バイオ", "query": "ﾊﾞｲｵ", "hit": true },
+		{ "text": "ﾊﾞｲｵ", "query": "バイ", "hit": true },
+		{ "text": "なんでも", "query": "", "hit": true },
+		{ "text": "なんでも", "query": "  　", "hit": true },
+		{ "text": "Lesson 12", "query": "LESSON", "hit": true },
+		{ "text": "第1回", "query": "1第", "hit": false }
+	],
+	"contains": [
+		{ "text": "docs/generated/spec/01-login.md", "query": "SPEC ０１", "hit": true },
+		{ "text": "docs/manual/en/06-archive-setup.md", "query": "spec", "hit": false },
+		{ "text": "2024/英語/lesson1.mp3", "query": "英語/les", "hit": true },
+		{ "text": "2024/英語/lesson1.mp3", "query": "英les", "hit": false }
+	]
+}

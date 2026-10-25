@@ -1254,10 +1254,13 @@ async fn axes_import_previews_without_saving_then_replaces_axes_and_template(poo
         .map(|axis| axis["name"].as_str().expect("axis name").to_string())
         .collect();
     assert_eq!(names, ["年度", "種別"]);
-    let (status, body) =
-        send_empty(app, "GET", &format!("/api/v1/contents/{id}/items"), &cookie).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    assert!(body.contains(r#""title":"2024年度 リスニング""#), "{body}");
+    let items = manage_items(app, &cookie, id).await;
+    assert!(
+        items
+            .iter()
+            .any(|item| item["title"] == "2024年度 リスニング"),
+        "{items:?}"
+    );
 }
 
 #[sqlx::test]

@@ -34,12 +34,16 @@ const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
     ("POST", "/api/v1/contents/9999/axes/1/values/preview"),
     ("GET", "/api/v1/contents/9999/dir-levels"),
     ("GET", "/api/v1/contents/9999/filename-words"),
-    ("GET", "/api/v1/contents/9999/items"),
+    ("GET", "/api/v1/contents/9999/path-samples"),
     ("PUT", "/api/v1/contents/9999/items"),
     ("PUT", "/api/v1/contents/9999/items/1"),
     ("GET", "/api/v1/contents/9999/items/1/manage-download"),
     ("GET", "/api/v1/contents/9999/items/1/manage-thumbnail"),
     ("GET", "/api/v1/contents/9999/manage-archive"),
+    (
+        "GET",
+        "/api/v1/contents/9999/manage-archive/page?snapshot=x&offset=0",
+    ),
     (
         "GET",
         "/api/v1/contents/9999/archive/manage-download?path=a.pdf",

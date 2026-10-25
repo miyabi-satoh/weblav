@@ -242,7 +242,6 @@ pub(super) struct ArchiveMeta {
     pub extensions: Option<String>,
     pub visibility: super::contents::Visibility,
     pub created_by: Option<i64>,
-    pub title_template: Option<String>,
 }
 
 /// `id` が指す、一覧の表示を使うフォルダーの行を取得する。存在しない・フォルダーでない・
@@ -254,7 +253,7 @@ pub(super) async fn load_archive(
     let row = sqlx::query!(
         r#"SELECT type as "content_type: ContentType", title, path, extensions,
                   visibility as "visibility: super::contents::Visibility", created_by,
-                  title_template, list_view as "list_view: bool"
+                  list_view as "list_view: bool"
            FROM contents WHERE id = ?"#,
         id
     )
@@ -273,7 +272,6 @@ pub(super) async fn load_archive(
         extensions: row.extensions,
         visibility: row.visibility,
         created_by: row.created_by,
-        title_template: row.title_template,
     })
 }
 
@@ -378,7 +376,7 @@ async fn rescan(
     // (外すと、押し直した走査が同じフォルダーを同時に読む)。
     tokio::spawn(async move {
         let _scan_guard = scan_guard;
-        let result = scan_and_sync(&state, id, archive, progress).await;
+        let result = scan_and_sync(&state, id, archive, progress, None).await;
         // 画面を閉じた後に失敗すると、応答を受ける相手がいないので、ログにだけ残る。
         if let Err(err) = &result {
             tracing::warn!(archive_id = id, error = %crate::error::error_chain(err), "archive rescan failed");
@@ -388,11 +386,13 @@ async fn rescan(
     .await?
 }
 
+/// `scan_limit` は走査するエントリの数の上限。自動の再スキャンだけが渡す。
 async fn scan_and_sync(
     state: &AppState,
     id: i64,
     archive: ArchiveMeta,
     progress: std::sync::Arc<crate::state::ScanProgress>,
+    scan_limit: Option<usize>,
 ) -> Result<Json<RescanResponse>, AppError> {
     let extensions = super::fs::parse_extensions(archive.extensions.as_deref());
     // 見つからないと言う前に、NAS やディスクにつながらないのかを見分ける。
@@ -414,11 +414,12 @@ async fn scan_and_sync(
         }
         // 「公開できるフォルダー」の外は再走査でも拒む (理由は `contents::resolve_path` と同じ)。
         let root = super::fs::canonical_dir_within_roots(&scan_root, &roots, &own_dirs)?;
+        // 索引する件数では断らない (→ docs/archive.md「件数の上限」)。
         let result = super::fs::scan_files_until(
             &root,
             extensions.as_deref(),
-            super::fs::SCAN_LIMIT,
-            super::fs::ITEM_LIMIT,
+            scan_limit.unwrap_or(usize::MAX),
+            usize::MAX,
             &own_dirs,
             &|| progress.is_cancelled(),
         );
@@ -426,13 +427,11 @@ async fn scan_and_sync(
         if progress.is_cancelled() {
             return Ok(None);
         }
+        // 途中までの結果で同期すると、残りが「消えた」と見なされるので同期しない。打ち切るのは自動の再スキャンだけ。
         if result.truncated {
-            return Err(AppError::ValidationDetailed {
-                message: "too many files to index".to_string(),
-                detail: ValidationDetail::ArchiveTooManyFiles {
-                    limit: super::fs::ITEM_LIMIT,
-                },
-            });
+            return Err(AppError::Validation(
+                "too many entries to scan automatically".to_string(),
+            ));
         }
         // 読めなかった分は同期しない (→ docs/archive.md「スキャン」)。
         if let Some(path) = result.unreadable {
@@ -808,7 +807,10 @@ async fn run_due_rescans(state: &AppState, tried: &mut HashMap<i64, i64>) -> Res
         let progress = scan_guard.progress();
         progress.start_listing();
         let archive = load_archive(&state.pool, row.id).await?;
-        if let Err(err) = scan_and_sync(state, row.id, archive, progress).await {
+        // 人が見ていないので、巨大なツリーで長く居座っても止める人がいない。走査するエントリの数で打ち切る
+        // (→ docs/archive.md「件数の上限」)。
+        let limit = Some(super::fs::SCAN_LIMIT);
+        if let Err(err) = scan_and_sync(state, row.id, archive, progress, limit).await {
             tracing::info!(archive_id = row.id, error = %crate::error::error_chain(&err), "automatic rescan skipped");
         }
         drop(scan_guard);
@@ -873,14 +875,7 @@ async fn try_refresh_changed_dirs(
     if changes.is_empty() {
         return Ok(());
     }
-    let added = apply_dir_changes(
-        &state.pool,
-        id,
-        &archive.path,
-        &changes,
-        super::fs::ITEM_LIMIT,
-    )
-    .await?;
+    let added = apply_dir_changes(&state.pool, id, &archive.path, &changes).await?;
     if added.is_empty() {
         return Ok(());
     }
@@ -943,11 +938,13 @@ fn find_dir_changes(
             if known.contains_key(&subdir) {
                 continue;
             }
+            // 索引する件数では断らない (→ docs/archive.md「件数の上限」)。一覧を開いた人には止める手段が無いので、
+            // 走査するエントリの数では打ち切り、その新しいフォルダーは再スキャンに任せる。
             let result = super::fs::scan_files(
                 &root.join(&subdir),
                 extensions,
                 super::fs::SCAN_LIMIT,
-                super::fs::ITEM_LIMIT,
+                usize::MAX,
                 own_dirs,
             );
             if result.truncated || result.unreadable.is_some() {
@@ -979,14 +976,11 @@ fn parent_rel(rel_path: &str) -> &str {
 }
 
 /// フォルダーの変わり方を索引へ書く。新しく足したファイルを返す。
-/// 足すと件数が `item_limit` を超えるなら、足さずに空を返す。消えたものを外すことと
-/// フォルダーの更新日時は書く (→ docs/archive.md「スキャン」)。
 async fn apply_dir_changes(
     pool: &sqlx::SqlitePool,
     id: i64,
     scanned_path: &str,
     changes: &DirChanges,
-    item_limit: usize,
 ) -> Result<Vec<String>, AppError> {
     let mut tx = crate::db::begin_write(pool).await?;
     let current_path = sqlx::query_scalar!("SELECT path FROM contents WHERE id = ?", id)
@@ -1071,23 +1065,6 @@ async fn apply_dir_changes(
             .filter(|file| !existing.contains(*file))
             .cloned(),
     );
-    // 消した後の件数で比べる。消えたものを外した結果で上限に収まるなら足してよいため。
-    let total = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) as "count!: i64" FROM archive_items WHERE archive_id = ?"#,
-        id
-    )
-    .fetch_one(&mut *tx)
-    .await?;
-    if usize::try_from(total).unwrap_or(usize::MAX) + added.len() > item_limit {
-        tracing::info!(
-            archive_id = id,
-            total,
-            new_files = added.len(),
-            "new files not added: the archive would exceed the item limit"
-        );
-        tx.commit().await?;
-        return Ok(Vec::new());
-    }
     // 大きさなどはまだ読んでいない (`file_size` が NULL) まま足し、裏で読む (`fill_previews`)。
     for rel_path in &added {
         sqlx::query!(
@@ -1633,25 +1610,11 @@ pub(super) fn match_axis_row(dict: &AxisDict, item: ItemFacts<'_>) -> AxisRowMat
 /// アイテム1件の導出結果。
 pub(super) struct DerivedItem {
     pub title: String,
-    /// `rel_path` の最後の要素。階層は出さない方針だが、ページ内
-    /// プレイヤーへの振り分け (→ docs/ui.md「音声のページ内プレイヤー」) が拡張子で決まるため、
-    /// 組み立て済みタイトルとは別に持たせる。
-    pub file_name: String,
     /// `axes` と同じ順・同じ本数。`None` は「未設定」。
     pub axis_values: Vec<Option<DerivedAxisValue>>,
     /// タイトルをテンプレートで組み立てたか。ファイル名に落ちた行では、テンプレートの軸も
     /// タイトルで読めないので、行の2段目に出す (→ docs/ui.md「アーカイブの一覧画面」)。
     pub title_from_template: bool,
-}
-
-impl DerivedItem {
-    /// アイテムの既定の並び順の比較キー (→ docs/archive.md「エンドポイント一覧」)。
-    pub(super) fn sort_key(&self) -> Vec<ValueKey> {
-        self.axis_values
-            .iter()
-            .map(|value| value.as_ref().map_or(ValueKey::Unset, |v| v.key.clone()))
-            .collect()
-    }
 }
 
 /// テンプレートのプレースホルダーを表示値で置き換えて組み立てる。
@@ -1755,11 +1718,10 @@ pub(super) fn derive_item<'a>(
         _ => None,
     };
     let title_from_template = assembled.is_some();
-    let title = assembled.unwrap_or_else(|| file_name.clone());
+    let title = assembled.unwrap_or(file_name);
 
     DerivedItem {
         title,
-        file_name,
         axis_values,
         title_from_template,
     }
@@ -1817,75 +1779,6 @@ mod tests {
         );
         assert_eq!(items.len(), 1);
         assert!(complete, "読み終えたと返すはず");
-    }
-
-    /// 開いたときに足すと上限を超えるなら足さず、消えたものは外す。消した後で収まるなら足す (→ docs/archive.md「スキャン」)。
-    #[sqlx::test]
-    async fn apply_dir_changes_adds_nothing_when_it_would_exceed_the_limit(pool: sqlx::SqlitePool) {
-        let id = sqlx::query_scalar!(
-            "INSERT INTO contents (type, title, path, visibility, new_files_public) VALUES ('folder', 'f', '/f', 'public', 0) RETURNING id"
-        )
-        .fetch_one(&pool)
-        .await
-        .expect("フォルダーを作れるはず");
-        for rel_path in ["a.mp3", "gone.mp3"] {
-            sqlx::query("INSERT INTO archive_items (archive_id, rel_path) VALUES (?, ?)")
-                .bind(id)
-                .bind(rel_path)
-                .execute(&pool)
-                .await
-                .expect("アイテムを足せるはず");
-        }
-        sqlx::query(
-            "INSERT INTO archive_dirs (archive_id, rel_path, modified_ns) VALUES (?, '', 1)",
-        )
-        .bind(id)
-        .execute(&pool)
-        .await
-        .expect("フォルダーの更新日時を足せるはず");
-        let changes = DirChanges {
-            changed_dirs: vec![(
-                String::new(),
-                Some(2),
-                vec![
-                    "a.mp3".to_string(),
-                    "b.mp3".to_string(),
-                    "c.mp3".to_string(),
-                ],
-            )],
-            ..DirChanges::default()
-        };
-        let count = |pool: sqlx::SqlitePool| async move {
-            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM archive_items WHERE archive_id = ?")
-                .bind(id)
-                .fetch_one(&pool)
-                .await
-                .expect("数えられるはず")
-        };
-
-        let added = apply_dir_changes(&pool, id, "/f", &changes, 2)
-            .await
-            .expect("書けるはず");
-        assert!(added.is_empty(), "上限を超えるなら足さないはず");
-        assert_eq!(count(pool.clone()).await, 1, "消えたものは外すはず");
-        let modified: Option<i64> =
-            sqlx::query_scalar("SELECT modified_ns FROM archive_dirs WHERE archive_id = ?")
-                .bind(id)
-                .fetch_one(&pool)
-                .await
-                .expect("フォルダーの更新日時を読めるはず");
-        assert_eq!(
-            modified,
-            Some(2),
-            "フォルダーの更新日時は書き、開くたびに読み直さないはず"
-        );
-
-        // ちょうど上限なら足す。
-        let added = apply_dir_changes(&pool, id, "/f", &changes, 3)
-            .await
-            .expect("書けるはず");
-        assert_eq!(added, vec!["b.mp3".to_string(), "c.mp3".to_string()]);
-        assert_eq!(count(pool.clone()).await, 3);
     }
 
     /// 中止したスキャンは、読んだ分だけを足し、読まなかったファイルを消さない (→ docs/archive.md「スキャンの中止」)。
@@ -2376,7 +2269,6 @@ mod tests {
         // 両方設定済み: 組み立てる。
         let item = derive_item("2024/2024_国語.pdf", &axes, Some("{年度}年度の{科目}"));
         assert_eq!(item.title, "2024年度の国語");
-        assert_eq!(item.file_name, "2024_国語.pdf");
 
         // 科目が未設定(どの語にも一致しない): ファイル名にフォールバックする。
         let item = derive_item("2024/2024_英語.pdf", &axes, Some("{年度}年度の{科目}"));

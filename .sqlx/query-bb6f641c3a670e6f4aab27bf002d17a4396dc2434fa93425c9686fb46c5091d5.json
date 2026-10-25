@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\", rel_path, 0 as \"published!: bool\",\n                  created_at as \"created_at!\", file_size, modified_ns, image_width, image_height,\n                  is_text as \"is_text: bool\", taken_at FROM archive_items WHERE archive_id = ?",
+  "query": "SELECT id as \"id!\", rel_path, created_at as \"created_at!\", file_size, modified_ns,\n                  image_width, image_height, is_text as \"is_text: bool\", taken_at\n           FROM archive_items WHERE archive_id = ?",
   "describe": {
     "columns": [
       {
@@ -14,43 +14,38 @@
         "type_info": "Text"
       },
       {
-        "name": "published!: bool",
-        "ordinal": 2,
-        "type_info": "Null"
-      },
-      {
         "name": "created_at!",
-        "ordinal": 3,
+        "ordinal": 2,
         "type_info": "Text"
       },
       {
         "name": "file_size",
-        "ordinal": 4,
+        "ordinal": 3,
         "type_info": "Integer"
       },
       {
         "name": "modified_ns",
-        "ordinal": 5,
+        "ordinal": 4,
         "type_info": "Integer"
       },
       {
         "name": "image_width",
-        "ordinal": 6,
+        "ordinal": 5,
         "type_info": "Integer"
       },
       {
         "name": "image_height",
-        "ordinal": 7,
+        "ordinal": 6,
         "type_info": "Integer"
       },
       {
         "name": "is_text: bool",
-        "ordinal": 8,
+        "ordinal": 7,
         "type_info": "Integer"
       },
       {
         "name": "taken_at",
-        "ordinal": 9,
+        "ordinal": 8,
         "type_info": "Integer"
       }
     ],
@@ -60,7 +55,6 @@
     "nullable": [
       true,
       false,
-      null,
       false,
       true,
       true,
@@ -70,5 +64,5 @@
       true
     ]
   },
-  "hash": "ce5646d852f87b69f173baa5807973633d60f30f1bbf8ca2c8a91059bc307185"
+  "hash": "bb6f641c3a670e6f4aab27bf002d17a4396dc2434fa93425c9686fb46c5091d5"
 }

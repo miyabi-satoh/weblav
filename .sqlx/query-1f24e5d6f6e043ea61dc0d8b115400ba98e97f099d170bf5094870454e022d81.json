@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT index_version, marks_version FROM archive_versions WHERE content_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "index_version",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "marks_version",
+        "ordinal": 1,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "1f24e5d6f6e043ea61dc0d8b115400ba98e97f099d170bf5094870454e022d81"
+}

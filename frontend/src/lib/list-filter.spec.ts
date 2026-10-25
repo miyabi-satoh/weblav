@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { containsTerms, highlightSegments, matchFilter, parseFilterTerms } from './list-filter';
+import cases from './list-filter-cases.json';
 
 function match(text: string, query: string) {
 	return matchFilter(text, parseFilterTerms(query));
@@ -55,5 +56,16 @@ describe('containsTerms', () => {
 		expect(containsTerms('docs/manual/en/06-archive-setup.md', parseFilterTerms('spec'))).toBe(
 			false
 		);
+	});
+});
+
+// サーバー (api::list_filter) と同じ表で、当たるかどうかが食い違わないことを確かめる (→ docs/archive.md「一覧の API を区切って返す」)。
+describe('shared cases with the server', () => {
+	it.each(cases.match)('matchFilter($text, $query) hits: $hit', ({ text, query, hit }) => {
+		expect(matchFilter(text, parseFilterTerms(query)) !== null).toBe(hit);
+	});
+
+	it.each(cases.contains)('containsTerms($text, $query) hits: $hit', ({ text, query, hit }) => {
+		expect(containsTerms(text, parseFilterTerms(query))).toBe(hit);
 	});
 });
