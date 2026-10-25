@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO folder_marks (content_id, path, is_dir, public, created_at)\n               SELECT ?, value, ?, ?, unixepoch() FROM json_each(?) WHERE true\n               ON CONFLICT (content_id, path) DO UPDATE\n               SET is_dir = excluded.is_dir, public = excluded.public, created_at = excluded.created_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "2041adb69b7ff1c941799bfe09f40ff2777046a490f4fb11c0aad32be96557d9"
+}

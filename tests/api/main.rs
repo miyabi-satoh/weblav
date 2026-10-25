@@ -648,6 +648,22 @@ async fn view_archive(
     .await
 }
 
+/// 管理用の一覧の先頭の区切りの行 (未公開を含む)。テストのアーカイブは区切りの大きさより小さいので、全件が入る。
+async fn manage_items(app: Router, cookie: &str, archive_id: i64) -> Vec<serde_json::Value> {
+    let (status, body) = send_empty(
+        app,
+        "GET",
+        &format!("/api/v1/contents/{archive_id}/manage-archive"),
+        cookie,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    parse_json(&body)["items"]
+        .as_array()
+        .expect("items が配列でなかった")
+        .clone()
+}
+
 /// ファイル `rel_path` に公開の印を付ける (テストの前準備用)。
 async fn mark_published(pool: &SqlitePool, archive_id: i64, rel_path: &str) {
     sqlx::query!(

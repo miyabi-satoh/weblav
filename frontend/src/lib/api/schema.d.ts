@@ -545,9 +545,9 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * 閲覧用のアーカイブ一覧。軸の定義・選択肢・導出済みタイトル付きのアイテム一覧を
-         *     1回のリクエストで返す (→ docs/archive.md「エンドポイント一覧」)。
-         * @description クエリキーは軸名、値は選択肢の表示名 (`?科目=国語`)。**効かないキー・値は無視する**
+         * 閲覧用のアーカイブ一覧の、最初の区切り。軸の定義・選択肢・件数と、絞って並べた結果の名前を返す
+         *     (→ docs/archive.md「エンドポイント一覧」・「一覧の API を区切って返す」)。
+         * @description クエリの軸の絞り込みは `axis.<軸名>=<表示名>`。**効かないキー・値は無視する**
          *     (422にしない。→ docs/archive.md「エンドポイント一覧」)。
          *     utoipaはキーが動的なクエリを型付けできないため `params` には載せていない。
          */
@@ -592,6 +592,23 @@ export interface paths {
          *     管理画面の Markdown のプレビューが、未公開の画像も出すのに使う。
          */
         get: operations["manage_download_item_by_path"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/archive/page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 閲覧用の一覧の、区切りの続き (→ docs/archive.md「一覧の API を区切って返す」)。 */
+        get: operations["view_archive_page"];
         put?: never;
         post?: never;
         delete?: never;
@@ -842,15 +859,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 管理用のアイテム一覧。非公開も含めた全件を返す (→ docs/archive.md「エンドポイント一覧」)。 */
-        get: operations["list_items"];
+        get?: never;
         /**
-         * 公開フラグの一括切り替え (→ docs/archive.md「アイテムの公開」・「エンドポイント一覧」)。
-         * @description `itemIds` に所属しない id が1件でもあれば、どの行も更新せず404にする
-         *     (単体切り替えと同じ「所属しない id は404」を一括の場合も全件成立が条件、
-         *     → docs/archive.md「エンドポイント一覧」)。`itemIds` が空なら何もせず204にする (「全件成立」が
-         *     自明に真になるため)。1件ずつ`UPDATE`する構成のラウンドトリップ数は、
-         *     1回のスキャンで索引できる件数の上限 (`ITEM_LIMIT`) で有界。
+         * 公開フラグの一括切り替え (→ docs/archive.md「アイテムの公開」・「まとめて公開を切り替える」・「エンドポイント一覧」)。
+         * @description `itemIds` で送るときは、所属しない id が1件でもあれば、どの行も更新せず404にする
+         *     (単体切り替えと同じ「所属しない id は404」を一括の場合も全件成立が条件にする)。
+         *
+         *     `snapshot` で送るときは、**画面が見ていた結果の番号そのもの**を対象にし、絞り込みをやり直さない。
+         *     やり直すと、その間に表示名が変わって絞り込みが効かなくなったときや新しいファイルが入ったときに、
+         *     見ていないものまで切り替えてしまうため。結果を作った後に索引から消えた番号は飛ばす
+         *     (消えたファイルに切り替える中身は無く、1件のために全体を断ると押し直しても同じになるため)。
          */
         put: operations["bulk_set_published"];
         post?: never;
@@ -1004,11 +1022,28 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * 管理画面のアイテムのタブの一覧。閲覧用の一覧 (`view_archive`) と同じ絞り込み・並べ替え・導出で、
+         * 管理画面のアイテムのタブの一覧の、最初の区切り。閲覧用の一覧 (`view_archive`) と同じ絞り込み・並べ替え・導出で、
          *     未公開と実体の無いアイテムも含める (→ docs/archive.md「エンドポイント一覧」)。
-         *     閲覧者に見える姿を、管理画面を離れずに確かめるため。
+         *     閲覧者に見える姿を、管理画面を離れずに確かめるため。名前の語はパスでも照らし、公開の状態 (`status`) でも絞る。
          */
         get: operations["manage_view_archive"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/manage-archive/page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 管理画面のアイテムのタブの一覧の、区切りの続き。 */
+        get: operations["manage_view_archive_page"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1047,6 +1082,26 @@ export interface paths {
         post?: never;
         /** 印を取り消し、祖先か「新しく見つかったファイル」の設定に従わせる。 */
         delete: operations["delete_mark"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/path-samples": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * AI に渡す依頼文に載せる、アイテムのパスの例 (→ docs/archive.md「軸の定義を外部の AI で作る」)。
+         *     依頼文に載せるのは例だけなので、全件を画面へ送らずにここで選ぶ (→ docs/archive.md「ほかに全件を前提にしているもの」)。
+         */
+        get: operations["path_samples"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1379,23 +1434,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        AdminArchiveItemResponse: {
-            /** Format: int64 */
-            id: number;
-            /**
-             * Format: int64
-             * @description 最後のスキャンで見た更新日時 (UNIXエポックミリ秒)。まだ読んでいない・取得できなかった行は `None`。
-             */
-            modifiedAt?: number | null;
-            published: boolean;
-            relPath: string;
-            /**
-             * Format: int64
-             * @description 最後のスキャンで見た大きさ。まだ読んでいない行は `None`。
-             */
-            size?: number | null;
-            title: string;
-        };
         /**
          * @description 管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。
          *     `user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「公開できるフォルダー」の配下だけ
@@ -1462,7 +1500,7 @@ export interface components {
         ArchiveAxisOption: {
             /**
              * @description **この選択肢を選んだときに残る件数** (→ docs/archive.md「エンドポイント一覧」)。
-             *     他の軸の現在の絞り込みは効かせたまま、この軸だけをこの値に置き換えて数える。
+             *     他の軸・名前の語・公開の状態の絞り込みは効かせたまま、この軸だけをこの値に置き換えて数える。
              *     0件になる組み合わせを選ぶ前に見分けられるようにするためのもので、
              *     選択肢自体は 0 でも消さない (緩める側の選択肢を消さない方針は変えない)。
              */
@@ -1491,6 +1529,17 @@ export interface components {
             published: number;
             /** Format: int64 */
             total: number;
+        };
+        ArchivePageResponse: {
+            /** @description 消えた・非公開になった行は `null`。 */
+            items: (components["schemas"]["ArchiveViewItem"] | null)[];
+            /** @description 結果を作った後に、索引か公開・非公開の印が変わったか。画面は一覧の上に取り直しを出す。 */
+            stale: boolean;
+        };
+        ArchiveStatusCounts: {
+            all: number;
+            published: number;
+            unpublished: number;
         };
         ArchiveViewItem: {
             /** @description `rel_path` の最後の要素。ページ内プレイヤーへの振り分け (→ docs/ui.md「音声のページ内プレイヤー」) に使う。 */
@@ -1523,7 +1572,14 @@ export interface components {
             canEdit: boolean;
             /** @description アーカイブの登録先のフォルダーが見つからない。画面は空の一覧の代わりにそう出す。 */
             folderMissing: boolean;
-            items: components["schemas"]["ArchiveViewItem"][];
+            /** @description 先頭の区切り。引いた時点で消えた・非公開になった行は `null` (→ docs/archive.md「一覧の API を区切って返す」)。 */
+            items: (components["schemas"]["ArchiveViewItem"] | null)[];
+            /** @description 区切った続き (`/archive/page`) を引くときに渡す、絞って並べた結果の名前。 */
+            snapshot: string;
+            /** @description 絞り込み後の件数。 */
+            total: number;
+            /** @description 絞り込む前の、見えるアイテムの数。 */
+            totalAll: number;
         };
         /**
          * @description 自動で回す処理の決め方。
@@ -1620,9 +1676,19 @@ export interface components {
             /** @description この行で値が決まるアイテム数。ほかの行のほうが長く一致したアイテムは数えない。 */
             matched: number;
         };
+        /** @description まとめて切り替える対象。`itemIds` か、`snapshot` (と除く番号) のどちらか一方。 */
         BulkSetPublishedRequest: {
-            itemIds: number[];
+            /** @description `snapshot` から除く番号 (すべて選択した後に外した行)。 */
+            exceptIds?: number[];
+            /** @description 選んだ行の番号。 */
+            itemIds?: number[] | null;
             published: boolean;
+            /** @description 「すべて選択」したときの、画面が見ていた結果の名前 (管理用の一覧が返したもの)。 */
+            snapshot?: string | null;
+        };
+        BulkSetPublishedResponse: {
+            /** @description 切り替えた件数。結果を作った後に索引から消えた番号は数えない。 */
+            updated: number;
         };
         ChangePasswordRequest: {
             currentPassword: string;
@@ -2055,13 +2121,29 @@ export interface components {
             password: string;
             username: string;
         };
+        ManageArchivePageResponse: {
+            items: (components["schemas"]["ManageArchiveViewItem"] | null)[];
+            stale: boolean;
+        };
         ManageArchiveViewItem: components["schemas"]["ArchiveViewItem"] & {
             published: boolean;
         };
         ManageArchiveViewResponse: {
             axes: components["schemas"]["ArchiveAxisResponse"][];
             folderMissing: boolean;
-            items: components["schemas"]["ManageArchiveViewItem"][];
+            /** @description 消えた行は `null`。 */
+            items: (components["schemas"]["ManageArchiveViewItem"] | null)[];
+            snapshot: string;
+            /** @description 軸と名前の語で絞ったうえでの、公開の状態ごとの件数。絞り込みの欄に出す。 */
+            statusCounts: components["schemas"]["ArchiveStatusCounts"];
+            total: number;
+            totalAll: number;
+        };
+        PathSamplesResponse: {
+            /** @description アイテムの数 (未公開を含む)。 */
+            itemCount: number;
+            /** @description パスを並べたうえで、間を空けて選んだ例。先頭だけだと最初のフォルダーのファイルに偏るため。 */
+            relPaths: string[];
         };
         PickRootResponse: {
             /**
@@ -2470,10 +2552,6 @@ export interface components {
             /** @enum {string} */
             kind: "archiveFolderUnreadable";
             path: string;
-        } | {
-            /** @enum {string} */
-            kind: "archiveTooManyFiles";
-            limit: number;
         };
         VerifyTokenRequest: {
             token: string;
@@ -4285,7 +4363,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 軸の選択肢と絞り込み後のアイテム一覧 */
+            /** @description 軸の選択肢と、絞り込み後のアイテムの先頭の区切り */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -4387,6 +4465,60 @@ export interface operations {
             };
             /** @description 管理できない・索引に無いアイテム、または実体が無い */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    view_archive_page: {
+        parameters: {
+            query: {
+                /** @description 最初の要求が返した結果の名前。 */
+                snapshot: string;
+                offset: number;
+                limit?: number | null;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 区切った行 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchivePageResponse"];
+                };
+            };
+            /** @description 閲覧にログインが必要 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 存在しない・アーカイブでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 結果が捨てられた・別の人や口のもの。最初から取り直す */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5184,46 +5316,6 @@ export interface operations {
             };
         };
     };
-    list_items: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 非公開を含む全アイテム */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminArchiveItemResponse"][];
-                };
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 存在しない・アーカイブでない */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
     bulk_set_published: {
         parameters: {
             query?: never;
@@ -5240,11 +5332,13 @@ export interface operations {
         };
         responses: {
             /** @description 更新した */
-            204: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["BulkSetPublishedResponse"];
+                };
             };
             /** @description 未ログイン */
             401: {
@@ -5266,6 +5360,24 @@ export interface operations {
             };
             /** @description 所属しないitem_idを含む */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 結果が捨てられた・別の人のもの */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description itemIds と snapshot のどちらか一方を送っていない */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5620,7 +5732,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 未公開を含む、軸の選択肢と絞り込み後のアイテム一覧 */
+            /** @description 未公開を含む、軸の選択肢と絞り込み後のアイテムの先頭の区切り */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5640,6 +5752,60 @@ export interface operations {
             };
             /** @description 管理できない・存在しない・アーカイブでない */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    manage_view_archive_page: {
+        parameters: {
+            query: {
+                /** @description 最初の要求が返した結果の名前。 */
+                snapshot: string;
+                offset: number;
+                limit?: number | null;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 区切った行 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManageArchivePageResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 管理できない・存在しない・アーカイブでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 結果が捨てられた・別の人や口のもの。最初から取り直す */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5769,6 +5935,46 @@ export interface operations {
                 };
             };
             /** @description 見えない・存在しない、またはこのフォルダーの印でない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    path_samples: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description アイテムの数とパスの例 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PathSamplesResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 管理できない・存在しない・アーカイブでない */
             404: {
                 headers: {
                     [name: string]: unknown;

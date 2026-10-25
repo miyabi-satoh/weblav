@@ -22,7 +22,6 @@ use crate::state::AppState;
 
 /// ADR: 1つのフォルダーで、検索のたびに辿るエントリ数の上限。
 /// 索引を持たずに打つたび辿るので、巨大なツリーを指したフォルダーで検索ごと遅くならないよう抑える。
-/// 登録前の確認・アーカイブの索引の上限 (`fs::ITEM_LIMIT`) と同じ桁にしている。
 const FOLDER_WALK_LIMIT: usize = 20_000;
 
 /// 検索の対象にするフォルダー。閲覧者が一覧で見られることは、呼び出し側が確かめる。
@@ -162,7 +161,7 @@ pub(super) async fn search(
     // 公開していないものは、一覧と同じく検索にも出さない (→ folder_marks)。
     let mut all_marks = Vec::with_capacity(folders.len());
     for folder in &folders {
-        all_marks.push(super::folder_marks::Marks::load(&state.pool, folder.id).await?);
+        all_marks.push(super::archive_index::marks(state, folder.id).await?.1);
     }
 
     // 辿るのはディスクの I/O で、フォルダーの大きさに比例して重くなる。
@@ -301,7 +300,7 @@ async fn archive_sources(
         ancestors,
     } in archives
     {
-        let marks = super::folder_marks::Marks::load(&state.pool, archive_id).await?;
+        let (_, marks) = super::archive_index::marks(state, archive_id).await?;
         let items = sqlx::query!(
             r#"SELECT id as "id!", rel_path FROM archive_items WHERE archive_id = ?"#,
             archive_id

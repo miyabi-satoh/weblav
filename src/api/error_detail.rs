@@ -63,7 +63,4 @@ pub enum ValidationDetail {
     /// `path` は最初に読めなかった場所の、登録先からの相対パス。登録先そのものなら空文字。
     #[serde(rename_all = "camelCase")]
     ArchiveFolderUnreadable { path: String },
-    /// 再スキャンで、索引できるファイル数の上限 (`limit`) を超えた (→ docs/archive.md「スキャン」)。
-    #[serde(rename_all = "camelCase")]
-    ArchiveTooManyFiles { limit: usize },
 }

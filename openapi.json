@@ -1974,8 +1974,8 @@
     },
     "/api/v1/contents/{id}/archive": {
       "get": {
-        "summary": "閲覧用のアーカイブ一覧。軸の定義・選択肢・導出済みタイトル付きのアイテム一覧を\n1回のリクエストで返す (→ docs/archive.md「エンドポイント一覧」)。",
-        "description": "クエリキーは軸名、値は選択肢の表示名 (`?科目=国語`)。**効かないキー・値は無視する**\n(422にしない。→ docs/archive.md「エンドポイント一覧」)。\nutoipaはキーが動的なクエリを型付けできないため `params` には載せていない。",
+        "summary": "閲覧用のアーカイブ一覧の、最初の区切り。軸の定義・選択肢・件数と、絞って並べた結果の名前を返す\n(→ docs/archive.md「エンドポイント一覧」・「一覧の API を区切って返す」)。",
+        "description": "クエリの軸の絞り込みは `axis.<軸名>=<表示名>`。**効かないキー・値は無視する**\n(422にしない。→ docs/archive.md「エンドポイント一覧」)。\nutoipaはキーが動的なクエリを型付けできないため `params` には載せていない。",
         "operationId": "view_archive",
         "parameters": [
           {
@@ -1990,7 +1990,7 @@
         ],
         "responses": {
           "200": {
-            "description": "軸の選択肢と絞り込み後のアイテム一覧",
+            "description": "軸の選択肢と、絞り込み後のアイテムの先頭の区切り",
             "content": {
               "application/json": {
                 "schema": {
@@ -2113,6 +2113,95 @@
           },
           "404": {
             "description": "管理できない・索引に無いアイテム、または実体が無い",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/{id}/archive/page": {
+      "get": {
+        "summary": "閲覧用の一覧の、区切りの続き (→ docs/archive.md「一覧の API を区切って返す」)。",
+        "operationId": "view_archive_page",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "snapshot",
+            "in": "query",
+            "description": "最初の要求が返した結果の名前。",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "区切った行",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchivePageResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "閲覧にログインが必要",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "存在しない・アーカイブでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "結果が捨てられた・別の人や口のもの。最初から取り直す",
             "content": {
               "application/json": {
                 "schema": {
@@ -3176,59 +3265,9 @@
       }
     },
     "/api/v1/contents/{id}/items": {
-      "get": {
-        "summary": "管理用のアイテム一覧。非公開も含めた全件を返す (→ docs/archive.md「エンドポイント一覧」)。",
-        "operationId": "list_items",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "非公開を含む全アイテム",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AdminArchiveItemResponse"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "未ログイン",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "存在しない・アーカイブでない",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
       "put": {
-        "summary": "公開フラグの一括切り替え (→ docs/archive.md「アイテムの公開」・「エンドポイント一覧」)。",
-        "description": "`itemIds` に所属しない id が1件でもあれば、どの行も更新せず404にする\n(単体切り替えと同じ「所属しない id は404」を一括の場合も全件成立が条件、\n→ docs/archive.md「エンドポイント一覧」)。`itemIds` が空なら何もせず204にする (「全件成立」が\n自明に真になるため)。1件ずつ`UPDATE`する構成のラウンドトリップ数は、\n1回のスキャンで索引できる件数の上限 (`ITEM_LIMIT`) で有界。",
+        "summary": "公開フラグの一括切り替え (→ docs/archive.md「アイテムの公開」・「まとめて公開を切り替える」・「エンドポイント一覧」)。",
+        "description": "`itemIds` で送るときは、所属しない id が1件でもあれば、どの行も更新せず404にする\n(単体切り替えと同じ「所属しない id は404」を一括の場合も全件成立が条件にする)。\n\n`snapshot` で送るときは、**画面が見ていた結果の番号そのもの**を対象にし、絞り込みをやり直さない。\nやり直すと、その間に表示名が変わって絞り込みが効かなくなったときや新しいファイルが入ったときに、\n見ていないものまで切り替えてしまうため。結果を作った後に索引から消えた番号は飛ばす\n(消えたファイルに切り替える中身は無く、1件のために全体を断ると押し直しても同じになるため)。",
         "operationId": "bulk_set_published",
         "parameters": [
           {
@@ -3252,8 +3291,15 @@
           "required": true
         },
         "responses": {
-          "204": {
-            "description": "更新した"
+          "200": {
+            "description": "更新した",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkSetPublishedResponse"
+                }
+              }
+            }
           },
           "401": {
             "description": "未ログイン",
@@ -3277,6 +3323,26 @@
           },
           "404": {
             "description": "所属しないitem_idを含む",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "結果が捨てられた・別の人のもの",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "itemIds と snapshot のどちらか一方を送っていない",
             "content": {
               "application/json": {
                 "schema": {
@@ -3724,7 +3790,7 @@
     },
     "/api/v1/contents/{id}/manage-archive": {
       "get": {
-        "summary": "管理画面のアイテムのタブの一覧。閲覧用の一覧 (`view_archive`) と同じ絞り込み・並べ替え・導出で、\n未公開と実体の無いアイテムも含める (→ docs/archive.md「エンドポイント一覧」)。\n閲覧者に見える姿を、管理画面を離れずに確かめるため。",
+        "summary": "管理画面のアイテムのタブの一覧の、最初の区切り。閲覧用の一覧 (`view_archive`) と同じ絞り込み・並べ替え・導出で、\n未公開と実体の無いアイテムも含める (→ docs/archive.md「エンドポイント一覧」)。\n閲覧者に見える姿を、管理画面を離れずに確かめるため。名前の語はパスでも照らし、公開の状態 (`status`) でも絞る。",
         "operationId": "manage_view_archive",
         "parameters": [
           {
@@ -3739,7 +3805,7 @@
         ],
         "responses": {
           "200": {
-            "description": "未公開を含む、軸の選択肢と絞り込み後のアイテム一覧",
+            "description": "未公開を含む、軸の選択肢と絞り込み後のアイテムの先頭の区切り",
             "content": {
               "application/json": {
                 "schema": {
@@ -3760,6 +3826,95 @@
           },
           "404": {
             "description": "管理できない・存在しない・アーカイブでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/{id}/manage-archive/page": {
+      "get": {
+        "summary": "管理画面のアイテムのタブの一覧の、区切りの続き。",
+        "operationId": "manage_view_archive_page",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "snapshot",
+            "in": "query",
+            "description": "最初の要求が返した結果の名前。",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "区切った行",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManageArchivePageResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "管理できない・存在しない・アーカイブでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "結果が捨てられた・別の人や口のもの。最初から取り直す",
             "content": {
               "application/json": {
                 "schema": {
@@ -3923,6 +4078,55 @@
           },
           "404": {
             "description": "見えない・存在しない、またはこのフォルダーの印でない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/{id}/path-samples": {
+      "get": {
+        "summary": "AI に渡す依頼文に載せる、アイテムのパスの例 (→ docs/archive.md「軸の定義を外部の AI で作る」)。\n依頼文に載せるのは例だけなので、全件を画面へ送らずにここで選ぶ (→ docs/archive.md「ほかに全件を前提にしているもの」)。",
+        "operationId": "path_samples",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "アイテムの数とパスの例",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PathSamplesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "管理できない・存在しない・アーカイブでない",
             "content": {
               "application/json": {
                 "schema": {
@@ -4899,47 +5103,6 @@
   },
   "components": {
     "schemas": {
-      "AdminArchiveItemResponse": {
-        "type": "object",
-        "required": [
-          "id",
-          "relPath",
-          "published",
-          "title"
-        ],
-        "properties": {
-          "id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "modifiedAt": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64",
-            "description": "最後のスキャンで見た更新日時 (UNIXエポックミリ秒)。まだ読んでいない・取得できなかった行は `None`。"
-          },
-          "published": {
-            "type": "boolean"
-          },
-          "relPath": {
-            "type": "string"
-          },
-          "size": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64",
-            "description": "最後のスキャンで見た大きさ。まだ読んでいない行は `None`。",
-            "minimum": 0
-          },
-          "title": {
-            "type": "string"
-          }
-        }
-      },
       "AdminContentResponse": {
         "type": "object",
         "description": "管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。\n`user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「公開できるフォルダー」の配下だけ\nなので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「公開できるフォルダー」)。",
@@ -5088,7 +5251,7 @@
         "properties": {
           "count": {
             "type": "integer",
-            "description": "**この選択肢を選んだときに残る件数** (→ docs/archive.md「エンドポイント一覧」)。\n他の軸の現在の絞り込みは効かせたまま、この軸だけをこの値に置き換えて数える。\n0件になる組み合わせを選ぶ前に見分けられるようにするためのもので、\n選択肢自体は 0 でも消さない (緩める側の選択肢を消さない方針は変えない)。",
+            "description": "**この選択肢を選んだときに残る件数** (→ docs/archive.md「エンドポイント一覧」)。\n他の軸・名前の語・公開の状態の絞り込みは効かせたまま、この軸だけをこの値に置き換えて数える。\n0件になる組み合わせを選ぶ前に見分けられるようにするためのもので、\n選択肢自体は 0 でも消さない (緩める側の選択肢を消さない方針は変えない)。",
             "minimum": 0
           },
           "value": {
@@ -5132,6 +5295,55 @@
           "total": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "ArchivePageResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "stale"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ArchiveViewItem"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "消えた・非公開になった行は `null`。"
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "結果を作った後に、索引か公開・非公開の印が変わったか。画面は一覧の上に取り直しを出す。"
+          }
+        }
+      },
+      "ArchiveStatusCounts": {
+        "type": "object",
+        "required": [
+          "all",
+          "published",
+          "unpublished"
+        ],
+        "properties": {
+          "all": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "published": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unpublished": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       },
@@ -5195,6 +5407,9 @@
           "archiveTitle",
           "ancestors",
           "axes",
+          "snapshot",
+          "total",
+          "totalAll",
           "items",
           "folderMissing",
           "canEdit"
@@ -5227,8 +5442,30 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ArchiveViewItem"
-            }
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ArchiveViewItem"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "先頭の区切り。引いた時点で消えた・非公開になった行は `null` (→ docs/archive.md「一覧の API を区切って返す」)。"
+          },
+          "snapshot": {
+            "type": "string",
+            "description": "区切った続き (`/archive/page`) を引くときに渡す、絞って並べた結果の名前。"
+          },
+          "total": {
+            "type": "integer",
+            "description": "絞り込み後の件数。",
+            "minimum": 0
+          },
+          "totalAll": {
+            "type": "integer",
+            "description": "絞り込む前の、見えるアイテムの数。",
+            "minimum": 0
           }
         }
       },
@@ -5488,20 +5725,52 @@
       },
       "BulkSetPublishedRequest": {
         "type": "object",
+        "description": "まとめて切り替える対象。`itemIds` か、`snapshot` (と除く番号) のどちらか一方。",
         "required": [
-          "itemIds",
           "published"
         ],
         "properties": {
-          "itemIds": {
+          "exceptIds": {
             "type": "array",
             "items": {
               "type": "integer",
               "format": "int64"
-            }
+            },
+            "description": "`snapshot` から除く番号 (すべて選択した後に外した行)。"
+          },
+          "itemIds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "選んだ行の番号。"
           },
           "published": {
             "type": "boolean"
+          },
+          "snapshot": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "「すべて選択」したときの、画面が見ていた結果の名前 (管理用の一覧が返したもの)。"
+          }
+        }
+      },
+      "BulkSetPublishedResponse": {
+        "type": "object",
+        "required": [
+          "updated"
+        ],
+        "properties": {
+          "updated": {
+            "type": "integer",
+            "description": "切り替えた件数。結果を作った後に索引から消えた番号は数えない。",
+            "minimum": 0
           }
         }
       },
@@ -6746,6 +7015,31 @@
           }
         }
       },
+      "ManageArchivePageResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "stale"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ManageArchiveViewItem"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "stale": {
+            "type": "boolean"
+          }
+        }
+      },
       "ManageArchiveViewItem": {
         "allOf": [
           {
@@ -6768,6 +7062,10 @@
         "type": "object",
         "required": [
           "axes",
+          "snapshot",
+          "total",
+          "totalAll",
+          "statusCounts",
           "items",
           "folderMissing"
         ],
@@ -6784,8 +7082,52 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ManageArchiveViewItem"
-            }
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ManageArchiveViewItem"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "消えた行は `null`。"
+          },
+          "snapshot": {
+            "type": "string"
+          },
+          "statusCounts": {
+            "$ref": "#/components/schemas/ArchiveStatusCounts",
+            "description": "軸と名前の語で絞ったうえでの、公開の状態ごとの件数。絞り込みの欄に出す。"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalAll": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "PathSamplesResponse": {
+        "type": "object",
+        "required": [
+          "itemCount",
+          "relPaths"
+        ],
+        "properties": {
+          "itemCount": {
+            "type": "integer",
+            "description": "アイテムの数 (未公開を含む)。",
+            "minimum": 0
+          },
+          "relPaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "パスを並べたうえで、間を空けて選んだ例。先頭だけだと最初のフォルダーのファイルに偏るため。"
           }
         }
       },
@@ -8024,26 +8366,6 @@
               },
               "path": {
                 "type": "string"
-              }
-            }
-          },
-          {
-            "type": "object",
-            "description": "再スキャンで、索引できるファイル数の上限 (`limit`) を超えた (→ docs/archive.md「スキャン」)。",
-            "required": [
-              "limit",
-              "kind"
-            ],
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "archiveTooManyFiles"
-                ]
-              },
-              "limit": {
-                "type": "integer",
-                "minimum": 0
               }
             }
           }

@@ -130,29 +130,48 @@ pub(super) async fn set_marks(
     }
     // 祖先の印は、ここで付け直すものの中にあることもあるので、消した後で読み直す。
     let marks = load_in(&mut tx, content_id).await?;
+    let mut removed: Vec<&str> = Vec::new();
+    let mut files: Vec<&str> = Vec::new();
+    let mut dirs: Vec<&str> = Vec::new();
     for (path, is_dir) in targets {
         if marks.inherited(path, false) == public {
-            sqlx::query!(
-                "DELETE FROM folder_marks WHERE content_id = ? AND path = ?",
-                content_id,
-                path
-            )
-            .execute(&mut *tx)
-            .await?;
+            removed.push(path);
+        } else if *is_dir {
+            dirs.push(path);
         } else {
-            sqlx::query!(
-                r#"INSERT INTO folder_marks (content_id, path, is_dir, public, created_at)
-                   VALUES (?, ?, ?, ?, unixepoch())
-                   ON CONFLICT (content_id, path) DO UPDATE
-                   SET is_dir = excluded.is_dir, public = excluded.public, created_at = excluded.created_at"#,
-                content_id,
-                path,
-                is_dir,
-                public
-            )
-            .execute(&mut *tx)
-            .await?;
+            files.push(path);
         }
+    }
+    // まとめて書く。一覧の「すべて選択」では数十万件になり、1件ずつ書くと書き込みを10秒近く塞ぐため
+    // (→ docs/archive.md「まとめて公開を切り替える」)。パスの列は JSON にして `json_each` で展開する。
+    if !removed.is_empty() {
+        let paths = serde_json::to_string(&removed).expect("文字列の列は JSON にできる");
+        sqlx::query!(
+            "DELETE FROM folder_marks WHERE content_id = ? AND path IN (SELECT value FROM json_each(?))",
+            content_id,
+            paths
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    for (paths, is_dir) in [(files, false), (dirs, true)] {
+        if paths.is_empty() {
+            continue;
+        }
+        let paths = serde_json::to_string(&paths).expect("文字列の列は JSON にできる");
+        // `WHERE true` は、SELECT から入れる INSERT の ON CONFLICT を SQLite が結合の一部と読まないための決まり。
+        sqlx::query!(
+            r#"INSERT INTO folder_marks (content_id, path, is_dir, public, created_at)
+               SELECT ?, value, ?, ?, unixepoch() FROM json_each(?) WHERE true
+               ON CONFLICT (content_id, path) DO UPDATE
+               SET is_dir = excluded.is_dir, public = excluded.public, created_at = excluded.created_at"#,
+            content_id,
+            is_dir,
+            public,
+            paths
+        )
+        .execute(&mut *tx)
+        .await?;
     }
     tx.commit().await?;
     Ok(())

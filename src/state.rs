@@ -71,6 +71,8 @@ pub struct AppState {
     pub contents_write_lock: Arc<Mutex<()>>,
     /// アーカイブごとの走査の排他 (→ docs/archive.md「スキャン」)。
     pub archive_scans: Arc<ArchiveScans>,
+    /// 一覧の表示の、導出済みの全アイテム・印・区切って返す結果の集まり (→ docs/archive.md「大きなアーカイブの一覧」)。
+    pub archive_index: Arc<crate::api::archive_index::ArchiveIndexCache>,
     /// admin数の不変条件に関わる書き込み(権限変更・削除)を直列化するための鍵
     /// (→ docs/access.md「admin の最後の1人」)。`users`テーブルへの書き込み全般ではなく、この
     /// 不変条件を検査する2箇所(update_role/delete_user)と、下に書く箇所が対象。

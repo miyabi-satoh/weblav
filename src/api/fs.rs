@@ -23,19 +23,15 @@ use crate::state::AppState;
 
 use super::roots::{OwnDirs, Root};
 
-/// 1回の走査で索引できるファイル数の上限。登録前の確認も、この件数を超えたら打ち切る。
-///
-/// `SCAN_LIMIT` とは別に持つのは、走査したエントリのほとんどが対象になる
-/// ツリーでも、DBへ書き込む行数の側で歯止めが要るため。
-/// 写真のバックアップのように1つのフォルダーに数万枚あるのは普通の使い方なので、
-/// それを収めつつ、1つのトランザクションでの同期や一括の公開切り替えが数秒で終わる桁にする。
-pub(super) const ITEM_LIMIT: usize = 100_000;
+/// 登録前の確認で、数え上げを打ち切るファイル数。超えたら「10万個以上」と出す。
+/// 確認の窓が出るまで、巨大なフォルダーを数え切るのを待たせないため。索引する件数の上限ではない
+/// (→ docs/archive.md「件数の上限」)。
+pub(super) const COUNT_LIMIT: usize = 100_000;
 
-/// 走査するエントリ数の上限。`ITEM_LIMIT` だけでは、対象拡張子に一致しないファイルや
-/// ディレクトリしか無い巨大なツリーで打ち切りが効かず、`spawn_blocking` のワーカーを
-/// 長時間占有できてしまう。数えたかどうかに関わらず、見たエントリの総数で打ち切る。
-/// `ITEM_LIMIT` より大きくしてあるのは、拡張子を絞った場合でも上限の件数までは
-/// 数え切れる余地を残すため。
+/// 走査するエントリ数の上限。登録前の確認と、人が見ていない走査 (自動の再スキャン・一覧を開いたときの読み直し)
+/// に掛ける。対象の拡張子に一致しないファイルやディレクトリばかりの巨大なツリーで、`spawn_blocking` の
+/// ワーカーを長く塞いでも止める人がいないため。手で始めたスキャンは中止できるので掛けない。
+/// `COUNT_LIMIT` より大きくしてあるのは、拡張子を絞った場合でも数え上げの上限までは数え切れる余地を残すため。
 pub(super) const SCAN_LIMIT: usize = 500_000;
 
 /// 一覧・数え上げ・索引の対象にするかの判定 (名前と種別だけで決まる部分)。
@@ -796,7 +792,7 @@ async fn count_target_files(
             &canonical,
             extensions.as_deref(),
             SCAN_LIMIT,
-            ITEM_LIMIT,
+            COUNT_LIMIT,
             &own_dirs,
         );
         Ok(Json(CountResponse {
@@ -1039,7 +1035,7 @@ mod tests {
             .expect("リンクを作れなかった");
 
         let (mut entries, truncated) =
-            walk_entries(&dir, ITEM_LIMIT, &OwnDirs::resolve(&[data_dir]));
+            walk_entries(&dir, COUNT_LIMIT, &OwnDirs::resolve(&[data_dir]));
         entries.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
 
         assert!(!truncated);
@@ -1088,7 +1084,7 @@ mod tests {
             &dir,
             None,
             SCAN_LIMIT,
-            ITEM_LIMIT,
+            COUNT_LIMIT,
             &OwnDirs::resolve(&[data_dir]),
         );
         assert_eq!(result.rel_paths, vec!["a.mp3".to_string()]);
@@ -1105,7 +1101,7 @@ mod tests {
         std::fs::write(dir.join("ok/a.mp3"), b"").expect("ファイルを作れなかった");
         std::fs::write(dir.join("locked/b.mp3"), b"").expect("ファイルを作れなかった");
         let locked = crate::test_support::Unreadable::new(dir.join("locked"));
-        let result = scan_files(&dir, None, SCAN_LIMIT, ITEM_LIMIT, &OwnDirs::default());
+        let result = scan_files(&dir, None, SCAN_LIMIT, COUNT_LIMIT, &OwnDirs::default());
         drop(locked);
 
         assert_eq!(result.rel_paths, vec!["ok/a.mp3".to_string()]);
@@ -1133,16 +1129,16 @@ mod tests {
         std::fs::write(sub.join("b.MP3"), b"").expect("ファイルを作れなかった");
         std::fs::write(sub.join("c.pdf"), b"").expect("ファイルを作れなかった");
 
-        assert_eq!(count(dir, None, SCAN_LIMIT, ITEM_LIMIT), (3, false));
+        assert_eq!(count(dir, None, SCAN_LIMIT, COUNT_LIMIT), (3, false));
         // 対象拡張子が1つも無くても、走査したエントリ数で打ち切られる。
         let none = vec!["zip".to_string()];
-        assert_eq!(count(dir, Some(&none), 2, ITEM_LIMIT), (0, true));
+        assert_eq!(count(dir, Some(&none), 2, COUNT_LIMIT), (0, true));
         // 走査したエントリ数には、登録先そのものと除外したもの (ドット始まり) を含めない。
-        assert_eq!(count(dir, None, 4, ITEM_LIMIT), (3, false));
+        assert_eq!(count(dir, None, 4, COUNT_LIMIT), (3, false));
         // 一致するファイルが上限を超えたら打ち切る。ちょうど上限なら打ち切らない。
         assert_eq!(count(dir, None, SCAN_LIMIT, 2), (3, true));
         assert_eq!(count(dir, None, SCAN_LIMIT, 3), (3, false));
         let mp3 = vec!["mp3".to_string()];
-        assert_eq!(count(dir, Some(&mp3), SCAN_LIMIT, ITEM_LIMIT), (2, false));
+        assert_eq!(count(dir, Some(&mp3), SCAN_LIMIT, COUNT_LIMIT), (2, false));
     }
 }
