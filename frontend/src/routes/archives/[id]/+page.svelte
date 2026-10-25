@@ -64,7 +64,11 @@
 				})
 			}
 		} as unknown as { params: { path: { id: number } } };
-		const { data: next } = await client.GET('/api/v1/contents/{id}/archive', requestInit);
+		// 取れなかったら理由を出す。黙ると、空の行が出たまま再読み込みのボタンも効かないように見えるため。
+		const result = await errorDialog.attempt(() =>
+			client.GET('/api/v1/contents/{id}/archive', requestInit)
+		);
+		const next = result?.data;
 		// 待つ間にページを移った・別の語を打ったなら、古い結果を出さない。
 		if (!next || requestedFor !== data || nameFilter !== appliedName) return;
 		refetched = { data, view: next };

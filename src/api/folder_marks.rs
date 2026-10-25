@@ -110,11 +110,11 @@ pub(super) fn rel_of(root: &FsPath, path: &FsPath) -> Result<String, AppError> {
 pub(super) async fn set_marks(
     pool: &SqlitePool,
     content_id: i64,
-    targets: &[(String, bool)],
+    targets: Vec<(String, bool)>,
     public: bool,
 ) -> Result<(), AppError> {
     let mut tx = crate::db::begin_write(pool).await?;
-    for (path, is_dir) in targets {
+    for (path, is_dir) in &targets {
         if *is_dir {
             // LIKE は ASCII の大文字・小文字を区別しないので、頭の一致は substr で照らす。
             // 大文字・小文字を区別するファイルシステムで、綴りの違う隣のフォルダーの印まで消さないため。
@@ -130,22 +130,30 @@ pub(super) async fn set_marks(
     }
     // 祖先の印は、ここで付け直すものの中にあることもあるので、消した後で読み直す。
     let marks = load_in(&mut tx, content_id).await?;
-    let mut removed: Vec<&str> = Vec::new();
-    let mut files: Vec<&str> = Vec::new();
-    let mut dirs: Vec<&str> = Vec::new();
-    for (path, is_dir) in targets {
-        if marks.inherited(path, false) == public {
-            removed.push(path);
-        } else if *is_dir {
-            dirs.push(path);
-        } else {
-            files.push(path);
-        }
-    }
     // まとめて書く。一覧の「すべて選択」では数十万件になり、1件ずつ書くと書き込みを10秒近く塞ぐため
     // (→ docs/archive.md「まとめて公開を切り替える」)。パスの列は JSON にして `json_each` で展開する。
-    if !removed.is_empty() {
-        let paths = serde_json::to_string(&removed).expect("文字列の列は JSON にできる");
+    // 振り分けと JSON にするのは件数に比例するので、非同期のワーカーを塞がない。
+    let (removed, files, dirs) = run_blocking(move || {
+        let mut removed: Vec<&str> = Vec::new();
+        let mut files: Vec<&str> = Vec::new();
+        let mut dirs: Vec<&str> = Vec::new();
+        for (path, is_dir) in &targets {
+            if marks.inherited(path, false) == public {
+                removed.push(path);
+            } else if *is_dir {
+                dirs.push(path);
+            } else {
+                files.push(path);
+            }
+        }
+        let json = |paths: Vec<&str>| {
+            (!paths.is_empty())
+                .then(|| serde_json::to_string(&paths).expect("文字列の列は JSON にできる"))
+        };
+        (json(removed), json(files), json(dirs))
+    })
+    .await?;
+    if let Some(paths) = removed {
         sqlx::query!(
             "DELETE FROM folder_marks WHERE content_id = ? AND path IN (SELECT value FROM json_each(?))",
             content_id,
@@ -155,10 +163,9 @@ pub(super) async fn set_marks(
         .await?;
     }
     for (paths, is_dir) in [(files, false), (dirs, true)] {
-        if paths.is_empty() {
+        let Some(paths) = paths else {
             continue;
-        }
-        let paths = serde_json::to_string(&paths).expect("文字列の列は JSON にできる");
+        };
         // `WHERE true` は、SELECT から入れる INSERT の ON CONFLICT を SQLite が結合の一部と読まないための決まり。
         sqlx::query!(
             r#"INSERT INTO folder_marks (content_id, path, is_dir, public, created_at)
@@ -292,7 +299,7 @@ async fn set_mark(
         Ok::<_, AppError>((rel_of(&root, &target)?, target.is_dir()))
     })
     .await??;
-    set_marks(&state.pool, id, &[(path, is_dir)], payload.public).await?;
+    set_marks(&state.pool, id, vec![(path, is_dir)], payload.public).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -399,12 +406,12 @@ mod tests {
         set_marks(
             &pool,
             content_id,
-            &[("Photos/a_1.jpg".to_string(), false)],
+            vec![("Photos/a_1.jpg".to_string(), false)],
             true,
         )
         .await
         .expect("ファイルに印を付けられるはず");
-        set_marks(&pool, content_id, &[("photos".to_string(), true)], false)
+        set_marks(&pool, content_id, vec![("photos".to_string(), true)], false)
             .await
             .expect("フォルダーに印を付けられるはず");
         let marks = Marks::load(&pool, content_id)

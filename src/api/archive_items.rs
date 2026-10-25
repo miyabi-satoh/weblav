@@ -77,7 +77,7 @@ pub(super) async fn item_counts(
     let mut counts = HashMap::with_capacity(ids.len());
     for id in ids {
         let (_, marks) = archive_index::marks(state, id).await?;
-        counts.insert(id, count_items(&state.pool, id, &marks).await?);
+        counts.insert(id, count_items(&state.pool, id, marks).await?);
     }
     Ok(counts)
 }
@@ -87,14 +87,14 @@ pub(super) async fn item_counts_of(
     pool: &sqlx::SqlitePool,
     archive_id: i64,
 ) -> Result<ArchiveItemCounts, AppError> {
-    let marks = Marks::load(pool, archive_id).await?;
-    count_items(pool, archive_id, &marks).await
+    let marks = Arc::new(Marks::load(pool, archive_id).await?);
+    count_items(pool, archive_id, marks).await
 }
 
 async fn count_items(
     pool: &sqlx::SqlitePool,
     archive_id: i64,
-    marks: &Marks,
+    marks: Arc<Marks>,
 ) -> Result<ArchiveItemCounts, AppError> {
     let rel_paths = sqlx::query_scalar!(
         "SELECT rel_path FROM archive_items WHERE archive_id = ?",
@@ -102,11 +102,14 @@ async fn count_items(
     )
     .fetch_all(pool)
     .await?;
-    let published = rel_paths.iter().filter(|rel| marks.is_public(rel)).count();
-    Ok(ArchiveItemCounts {
-        total: i64::try_from(rel_paths.len()).unwrap_or(i64::MAX),
-        published: i64::try_from(published).unwrap_or(i64::MAX),
+    run_blocking(move || {
+        let published = rel_paths.iter().filter(|rel| marks.is_public(rel)).count();
+        ArchiveItemCounts {
+            total: i64::try_from(rel_paths.len()).unwrap_or(i64::MAX),
+            published: i64::try_from(published).unwrap_or(i64::MAX),
+        }
     })
+    .await
 }
 
 // --- GET /contents/{id}/archive (閲覧用) ---
@@ -783,11 +786,15 @@ async fn path_samples(
     )
     .fetch_all(&state.pool)
     .await?;
-    rel_paths.sort();
-    Ok(Json(PathSamplesResponse {
-        item_count: rel_paths.len(),
-        rel_paths: spread(&rel_paths, PATH_SAMPLE_LIMIT),
-    }))
+    let response = run_blocking(move || {
+        rel_paths.sort();
+        PathSamplesResponse {
+            item_count: rel_paths.len(),
+            rel_paths: spread(&rel_paths, PATH_SAMPLE_LIMIT),
+        }
+    })
+    .await?;
+    Ok(Json(response))
 }
 
 /// まとめて切り替える対象。`itemIds` か、`snapshot` (と除く番号) のどちらか一方。
@@ -840,32 +847,29 @@ async fn bulk_set_published(
     Path(id): Path<i64>,
     AppJson(payload): AppJson<BulkSetPublishedRequest>,
 ) -> Result<Json<BulkSetPublishedResponse>, AppError> {
-    // 公開範囲の判定から書き込みまでを`contents_write_lock`で直列化する。判定の後に
-    // 他人の`private`へ変わっても書き込まないため (公開範囲の更新は同じ鍵を取る)。
-    let _write_guard = state.contents_write_lock.lock().await;
-    archive::ensure_editable_archive(&state.pool, &user, id).await?;
-
-    let targets: Vec<String> = match (payload.item_ids, payload.snapshot) {
-        (Some(item_ids), None) => {
-            let mut targets = Vec::with_capacity(item_ids.len());
-            for item_id in &item_ids {
-                targets.push(item_rel_path(&state.pool, id, *item_id).await?);
-            }
-            targets
-        }
+    // 全選択の対象は、鍵を取る前に索引から引く。索引を作り直すと数秒かかり、その間ほかの書き込みを塞ぐため。
+    // 鍵を取った後に索引が変わっても、画面が見ていた結果の番号を切り替えるのは同じ (下の `snapshot` の説明)。
+    let snapshot_targets = match (&payload.item_ids, payload.snapshot) {
+        (Some(_), None) => None,
         (None, Some(token)) => {
             let snapshot = state
                 .archive_index
                 .snapshot(&token, id, SnapshotKind::Manage, Some(user.id))
                 .ok_or_else(snapshot_gone)?;
             let (_, index) = archive_index::index(&state, id).await?;
-            let except: std::collections::HashSet<i64> = payload.except_ids.into_iter().collect();
-            snapshot
-                .ids
-                .iter()
-                .filter(|id| !except.contains(id))
-                .filter_map(|&id| Some(index.get(id)?.rel_path.clone()))
-                .collect()
+            let except_ids = payload.except_ids;
+            Some(
+                run_blocking(move || {
+                    let except: std::collections::HashSet<i64> = except_ids.into_iter().collect();
+                    snapshot
+                        .ids
+                        .iter()
+                        .filter(|id| !except.contains(id))
+                        .filter_map(|&id| Some((index.get(id)?.rel_path.clone(), false)))
+                        .collect::<Vec<_>>()
+                })
+                .await?,
+            )
         }
         _ => {
             return Err(AppError::Validation(
@@ -873,9 +877,24 @@ async fn bulk_set_published(
             ));
         }
     };
+
+    // 公開範囲の判定から書き込みまでを`contents_write_lock`で直列化する。判定の後に
+    // 他人の`private`へ変わっても書き込まないため (公開範囲の更新は同じ鍵を取る)。
+    let _write_guard = state.contents_write_lock.lock().await;
+    archive::ensure_editable_archive(&state.pool, &user, id).await?;
+
+    let targets: Vec<(String, bool)> = if let Some(targets) = snapshot_targets {
+        targets
+    } else {
+        let item_ids = payload.item_ids.unwrap_or_default();
+        let mut targets = Vec::with_capacity(item_ids.len());
+        for item_id in &item_ids {
+            targets.push((item_rel_path(&state.pool, id, *item_id).await?, false));
+        }
+        targets
+    };
     let updated = targets.len();
-    let targets: Vec<(String, bool)> = targets.into_iter().map(|path| (path, false)).collect();
-    super::folder_marks::set_marks(&state.pool, id, &targets, payload.published).await?;
+    super::folder_marks::set_marks(&state.pool, id, targets, payload.published).await?;
 
     Ok(Json(BulkSetPublishedResponse { updated }))
 }
@@ -910,7 +929,7 @@ async fn set_published(
     let _write_guard = state.contents_write_lock.lock().await;
     archive::ensure_editable_archive(&state.pool, &user, id).await?;
     let rel_path = item_rel_path(&state.pool, id, item_id).await?;
-    super::folder_marks::set_marks(&state.pool, id, &[(rel_path, false)], payload.published)
+    super::folder_marks::set_marks(&state.pool, id, vec![(rel_path, false)], payload.published)
         .await?;
     Ok(StatusCode::NO_CONTENT)
 }

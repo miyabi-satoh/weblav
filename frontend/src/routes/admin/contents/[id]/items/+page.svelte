@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick, untrack } from 'svelte';
 	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
@@ -78,15 +79,20 @@
 	/**
 	 * 名前の語・公開の状態で取り直した結果。ページの読み込みは画面の URL の語しか知らないので
 	 * (shallow routing は読み込みを走らせない)、それと違う語・状態のときはこちらを出す。
+	 * 軸・並び順を選び直す (ページを移る) と `data` が替わるので、取ったときの `data` も持って見分ける。
 	 */
 	let refetched = $state.raw<{
+		data: typeof data;
 		name: string;
 		status: Status;
 		view: ManageArchiveViewResponse;
 	} | null>(null);
 	let fromData = $derived(appliedName === data.nameFilter && appliedStatus === 'all');
 	let view = $derived(
-		!fromData && refetched?.name === appliedName && refetched.status === appliedStatus
+		!fromData &&
+			refetched?.data === data &&
+			refetched.name === appliedName &&
+			refetched.status === appliedStatus
 			? refetched.view
 			: data.view
 	);
@@ -102,6 +108,7 @@
 	/** 今の軸・並び順・名前の語・公開の状態で、最初の区切りから取り直す。 */
 	async function refetch(keepPosition: boolean) {
 		const position = keepPosition ? (listView?.firstVisibleIndex() ?? 0) : 0;
+		const requestedFor = data;
 		const name = appliedName;
 		const wanted = appliedStatus;
 		// 軸名がキーのクエリは生成された型に載らない (→ archives/[id]/+page.ts)。
@@ -115,10 +122,14 @@
 				})
 			}
 		} as unknown as { params: { path: { id: number } } };
-		const { data: next } = await client.GET('/api/v1/contents/{id}/manage-archive', requestInit);
-		// 待つ間に別の語・状態を選んだなら、古い結果を出さない。
-		if (!next || name !== appliedName || wanted !== appliedStatus) return;
-		refetched = { name, status: wanted, view: next };
+		// 取れなかったら理由を出す。黙ると、空の行が出たまま再読み込みのボタンも効かないように見えるため。
+		const result = await errorDialog.attempt(() =>
+			client.GET('/api/v1/contents/{id}/manage-archive', requestInit)
+		);
+		const next = result?.data;
+		// 待つ間にページを移った・別の語・状態を選んだなら、古い結果を出さない。
+		if (!next || requestedFor !== data || name !== appliedName || wanted !== appliedStatus) return;
+		refetched = { data, name, status: wanted, view: next };
 		if (position > 0) void listView?.scrollToIndex(position);
 	}
 
@@ -138,6 +149,14 @@
 		if (!fromData) void refetch(false);
 	});
 
+	// 公開の状態で絞ったまま軸・並び順を選び直したら、新しいページの読み込み (状態は「すべて」) に状態を効かせて取り直す。
+	$effect(() => {
+		const current = data;
+		untrack(() => {
+			if (!reloading && !fromData && refetched?.data !== current) void refetch(false);
+		});
+	});
+
 	// 結果が捨てられた (しばらく使わなかった) ら、見ていた所から取り直す。
 	$effect(() => {
 		if (list.expired) {
@@ -147,9 +166,16 @@
 	});
 
 	/** 書き換えた後に、見出しの件数ごと取り直す。読み込みは画面の URL の語で取るので、違う語・状態なら続けて取り直す。 */
+	// 取り直している間は、上の `$effect` に取り直させない。ここで見ていた所から取り直すため。
+	let reloading = false;
 	async function reload() {
-		await refreshAll();
-		if (!fromData) await refetch(true);
+		reloading = true;
+		try {
+			await refreshAll();
+			if (!fromData) await refetch(true);
+		} finally {
+			reloading = false;
+		}
 	}
 
 	function linksHref(row: ArchiveViewRow<ManageItem>): string {
@@ -164,8 +190,11 @@
 	let exceptIds = $state<number[]>([]);
 	// 一覧を取り直したら、選択は外す。選択は前の結果の番号で持っていて、新しい結果に引き継ぐと、
 	// 数も対象も変わったのに気づけないため。
+	// ただし1行の公開を切り替えて取り直すときは残す。公開の状態で絞っていなければ、結果の行は変わらないため。
+	let keepSelection = false;
 	$effect(() => {
 		void list;
+		if (keepSelection) return;
 		selectAll = false;
 		selectedIds = [];
 		exceptIds = [];
@@ -233,7 +262,16 @@
 						params: { path: { id: contentId, item_id: itemId } },
 						body: { published }
 					}),
-				() => reload()
+				async () => {
+					keepSelection = appliedStatus === 'all';
+					try {
+						await reload();
+						// 取り直した一覧の後始末 (上の `$effect`) が走り終えるまで残す。
+						await tick();
+					} finally {
+						keepSelection = false;
+					}
+				}
 			);
 		} finally {
 			savingIds = savingIds.filter((id) => id !== itemId);

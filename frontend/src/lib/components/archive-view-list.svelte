@@ -37,7 +37,7 @@
 
 <script lang="ts" generics="T extends ArchiveViewItem">
 	import FilterHighlight from '$lib/components/filter-highlight.svelte';
-	import type { Snippet } from 'svelte';
+	import { tick, type Snippet } from 'svelte';
 	import type { ContentLocation } from '$lib/content-location';
 	import { isAudioFileName, isLinksFileName, viewerFileKind } from '$lib/file-kind';
 	import { LinksFileIcon } from '$lib/links-file';
@@ -148,7 +148,16 @@
 		const line = Math.floor(index / rowsPerLine);
 		page = Math.floor(line / PAGE_LINES);
 		await list.ensureLoaded(index);
+		// ページが替わると一覧を作り直すので、作り直した後の一覧で動かす。
+		await tick();
 		virtualizer?.scrollToIndex(line - page * PAGE_LINES);
+	}
+
+	/** ページを移り、その先頭から見せる。下のボタンで移ったときに、新しいページの途中から始まらないように。 */
+	async function goToPage(next: number) {
+		page = next;
+		await tick();
+		virtualizer?.scrollToIndex(0);
 	}
 
 	function rowAt(index: number): ArchiveViewRow<T> | null | undefined {
@@ -202,6 +211,8 @@
 					while (next < list.total) {
 						const start = next;
 						await list.ensureLoaded(start);
+						// 取れなかった区切りは飛ばさない。投げると再生の側が今の並びの終わりで止め、次に曲を替えたときにまた試す。
+						if (list.get(start) === undefined) throw new Error('chunk not loaded');
 						next = Math.min(
 							(Math.floor(start / ARCHIVE_CHUNK_SIZE) + 1) * ARCHIVE_CHUNK_SIZE,
 							list.total
@@ -337,7 +348,12 @@
 
 {#snippet pageNav()}
 	<div class="flex flex-wrap items-center justify-center gap-3 py-4">
-		<Button type="button" variant="outline" disabled={page === 0} onclick={() => (page -= 1)}>
+		<Button
+			type="button"
+			variant="outline"
+			disabled={page === 0}
+			onclick={() => void goToPage(page - 1)}
+		>
 			{m.archive_view_previous_page({ count: formatNumber(PAGE_LINES * rowsPerLine) })}
 		</Button>
 		<span class="text-sm text-muted-foreground">
@@ -347,7 +363,7 @@
 			type="button"
 			variant="outline"
 			disabled={page >= pageCount - 1}
-			onclick={() => (page += 1)}
+			onclick={() => void goToPage(page + 1)}
 		>
 			{m.archive_view_next_page({ count: formatNumber(PAGE_LINES * rowsPerLine) })}
 		</Button>

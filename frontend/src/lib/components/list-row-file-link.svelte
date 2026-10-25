@@ -38,12 +38,19 @@
 		trailing?: Snippet;
 	} = $props();
 
+	/** 前後の区切りを取っている間。続けて押されても、ビューアーを重ねて開かないため。 */
+	let opening = false;
+
 	function handleClick(event: MouseEvent) {
 		if (!isPlainClick(event)) return;
 		event.preventDefault();
-		void (typeof items === 'function' ? items() : Promise.resolve(items)).then((list) =>
-			openViewerItem({ type: 'file', file }, list)
-		);
+		if (opening) return;
+		opening = true;
+		void (typeof items === 'function' ? items() : Promise.resolve(items))
+			.then((list) => openViewerItem({ type: 'file', file }, list))
+			.finally(() => {
+				opening = false;
+			});
 	}
 </script>
 

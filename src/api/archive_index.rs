@@ -28,6 +28,10 @@ const MAX_ENTRIES: usize = 4;
 /// 数でなく量で縛る。64MB は30万件の結果で約25個ぶん。
 const MAX_SNAPSHOT_BYTES: usize = 64 * 1024 * 1024;
 
+/// 結果の集まり1つに、番号の列とは別に数える量。名前・軸の絞り込みの値・表の行のぶん。
+/// 0件の結果も量に数え、上限で数を縛るため。4KB で、上限まで溜まっても約1.6万個。
+const SNAPSHOT_OVERHEAD_BYTES: usize = 4 * 1024;
+
 /// 索引の1行。`published` はフォルダーの公開・非公開の印から決める (→ docs/folders.md「公開と非公開」)。
 #[derive(Default)]
 pub(super) struct ItemRow {
@@ -513,7 +517,7 @@ impl Snapshots {
 }
 
 fn snapshot_bytes(snapshot: &Snapshot) -> usize {
-    snapshot.ids.len() * std::mem::size_of::<i64>()
+    SNAPSHOT_OVERHEAD_BYTES + snapshot.ids.len() * std::mem::size_of::<i64>()
 }
 
 /// フォルダーの索引と印の版 (`archive_versions`)。
@@ -539,7 +543,6 @@ pub(super) async fn versions(pool: &sqlx::SqlitePool, id: i64) -> Result<Version
 
 struct Entry {
     index: Option<(i64, Arc<ArchiveIndex>)>,
-    marks: Option<(i64, Arc<Marks>)>,
     /// 同じフォルダーを同時に作り始めないための鍵。冷えたところへ要求が重なると、それぞれ数秒の導出を回すため。
     build: Arc<tokio::sync::Mutex<()>>,
     last_used: Instant,
@@ -549,7 +552,6 @@ impl Default for Entry {
     fn default() -> Self {
         Self {
             index: None,
-            marks: None,
             build: Arc::default(),
             last_used: Instant::now(),
         }
@@ -562,7 +564,16 @@ impl Default for Entry {
 #[derive(Default)]
 pub struct ArchiveIndexCache {
     entries: StdMutex<HashMap<i64, Entry>>,
+    /// 印は導出の結果と別に持つ。管理画面の件数や検索のように多くのフォルダーの印を引く所が、
+    /// 数を縛った導出の結果 (`MAX_ENTRIES`) を押し出さないため。印はフォルダーの数だけで、使われなくなったら捨てる。
+    marks: StdMutex<HashMap<i64, StoredMarks>>,
     snapshots: StdMutex<Snapshots>,
+}
+
+struct StoredMarks {
+    version: i64,
+    marks: Arc<Marks>,
+    last_used: Instant,
 }
 
 impl ArchiveIndexCache {
@@ -572,6 +583,7 @@ impl ArchiveIndexCache {
             .lock()
             .expect("archive index lock poisoned")
             .clear();
+        self.marks.lock().expect("marks lock poisoned").clear();
         *self.snapshots.lock().expect("snapshot lock poisoned") = Snapshots::default();
     }
 
@@ -602,9 +614,14 @@ impl ArchiveIndexCache {
     }
 
     fn cached_marks(&self, id: i64, version: i64) -> Option<Arc<Marks>> {
-        let entries = self.entries.lock().expect("archive index lock poisoned");
-        let (cached, marks) = entries.get(&id)?.marks.as_ref()?;
-        (*cached == version).then(|| Arc::clone(marks))
+        let now = Instant::now();
+        let mut marks = self.marks.lock().expect("marks lock poisoned");
+        marks.retain(|key, stored| *key == id || now.duration_since(stored.last_used) <= IDLE_TTL);
+        let stored = marks
+            .get_mut(&id)
+            .filter(|stored| stored.version == version)?;
+        stored.last_used = now;
+        Some(Arc::clone(&stored.marks))
     }
 
     fn store_index(&self, id: i64, version: i64, index: &Arc<ArchiveIndex>) {
@@ -615,10 +632,14 @@ impl ArchiveIndexCache {
     }
 
     fn store_marks(&self, id: i64, version: i64, marks: &Arc<Marks>) {
-        let mut entries = self.entries.lock().expect("archive index lock poisoned");
-        if let Some(entry) = entries.get_mut(&id) {
-            entry.marks = Some((version, Arc::clone(marks)));
-        }
+        self.marks.lock().expect("marks lock poisoned").insert(
+            id,
+            StoredMarks {
+                version,
+                marks: Arc::clone(marks),
+                last_used: Instant::now(),
+            },
+        );
     }
 
     /// 結果の集まりを持ち、名前を返す。
@@ -700,7 +721,6 @@ pub(super) async fn index_if_cached_or_build(
 /// `id` (フォルダー) の公開・非公開の印を、今の版で返す。
 pub(super) async fn marks(state: &AppState, id: i64) -> Result<(i64, Arc<Marks>), AppError> {
     let cache = &state.archive_index;
-    cache.touch(id);
     let version = versions(&state.pool, id).await?.marks;
     if let Some(marks) = cache.cached_marks(id, version) {
         return Ok((version, marks));
