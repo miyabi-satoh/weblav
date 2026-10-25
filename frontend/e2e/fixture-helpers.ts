@@ -234,13 +234,24 @@ export async function withDirectoryContent(
 
 type ArchiveItem = { id: number; relPath: string; published: boolean; title: string };
 
-/** アーカイブを再スキャンし、索引したアイテムの一覧を返す。 */
+/** アーカイブを再スキャンし、索引したアイテムの一覧を返す。フィクスチャーは最初の区切りに収まる件数しか置かない。 */
 export async function rescanArchive(
 	request: APIRequestContext,
 	archiveId: number
 ): Promise<ArchiveItem[]> {
 	await send(request, 'post', `/contents/${archiveId}/rescan`);
-	return (await send(request, 'get', `/contents/${archiveId}/items`)) as ArchiveItem[];
+	return await listArchiveItems(request, archiveId);
+}
+
+/** 管理用の一覧の最初の区切りの、アイテムの一覧を返す。 */
+export async function listArchiveItems(
+	request: APIRequestContext,
+	archiveId: number
+): Promise<ArchiveItem[]> {
+	const body = (await send(request, 'get', `/contents/${archiveId}/manage-archive`)) as {
+		items: (ArchiveItem | null)[];
+	};
+	return body.items.filter((item): item is ArchiveItem => item !== null);
 }
 
 /** `relPaths` のアイテムだけを公開する。 */

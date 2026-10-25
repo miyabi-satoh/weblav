@@ -15,6 +15,7 @@ import {
 import {
 	createFixtureTree,
 	FIXTURE_UNREACHABLE,
+	listArchiveItems,
 	LOCATION_SEPARATOR,
 	removeFixtureTree,
 	sharedContentRoot,
@@ -130,8 +131,7 @@ test('一覧の表示: 登録したフォルダーで使い始めると、保存
 			await expect(page.getByText(/3\s件のファイルが見つかりました|Found 3 files/)).toBeVisible();
 			// 一覧の表示を使うと、軸とアイテムのタブが出る。
 			await expect(page.getByRole('link', { name: /^アイテム$|^Items$/ })).toBeVisible();
-			const items = (await send(page.request, 'get', `/contents/${folder.id}/items`)) as unknown[];
-			expect(items).toHaveLength(3);
+			expect(await listArchiveItems(page.request, folder.id)).toHaveLength(3);
 		}
 	);
 });
