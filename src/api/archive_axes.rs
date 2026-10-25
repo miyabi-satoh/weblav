@@ -75,10 +75,8 @@ fn validate_axis_name(name: &str) -> Result<String, AppError> {
         });
     }
     // `sort` は並び順のクエリキーで予約している (→ docs/archive.md「エンドポイント一覧」, docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
-    // 同名の軸を許すと、その軸の絞り込みクエリが常に並び順として消費され、
-    // 絞り込めなくなる (`build_archive_view` が `"sort"` キーを軸名より先に取り出すため)。
-    // `filter` は画面のページ内の絞り込みのクエリキーで、画面がサーバーへ送らずに取り除くので、同名の軸は絞り込めない
-    // (→ docs/ui.md「一覧の絞り込み」)。
+    // 画面の URL は軸の名前をそのままクエリのキーにする (`?科目=国語`) ので、並び順 (`sort`) と名前の語 (`filter`)
+    // と同じ名前の軸は、画面がそのキーを軸として読めず絞り込めない (→ docs/ui.md「一覧の絞り込み」)。
     if name == "sort" || name == "filter" {
         return Err(AppError::ValidationDetailed {
             message: format!("axis name '{name}' is reserved"),
