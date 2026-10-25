@@ -1772,6 +1772,27 @@ mod tests {
         assert!(!complete, "読み終えていないと返すはず");
     }
 
+    /// 読み終えたら、後から中止が届いても読み終えたと返す。呼び出し側はそれで同期を選ぶ (→ docs/archive.md「スキャンの中止」)。
+    #[test]
+    fn read_items_reports_complete_when_cancelled_after_reading() {
+        let tmp = crate::test_support::project_temp_dir("archive-tests", "read-complete");
+        std::fs::write(tmp.path().join("a.mp3"), b"").expect("ファイルを作れなかった");
+        let scans = std::sync::Arc::new(crate::state::ArchiveScans::default());
+        let guard = scans.acquire(1).expect("走査を始められるはず");
+        let progress = guard.progress();
+        progress.start_listing();
+
+        let (items, complete) = read_items(
+            tmp.path(),
+            vec!["a.mp3".to_string()],
+            &KnownFiles::new(),
+            &progress,
+        );
+        scans.cancel(1);
+        assert_eq!(items.len(), 1);
+        assert!(complete, "読み終えたと返すはず");
+    }
+
     /// 中止したスキャンは、読んだ分だけを足し、読まなかったファイルを消さない (→ docs/archive.md「スキャンの中止」)。
     #[sqlx::test]
     async fn save_read_items_adds_read_files_and_keeps_the_rest(pool: sqlx::SqlitePool) {
