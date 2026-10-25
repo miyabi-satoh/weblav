@@ -979,8 +979,8 @@ fn parent_rel(rel_path: &str) -> &str {
 }
 
 /// フォルダーの変わり方を索引へ書く。新しく足したファイルを返す。
-/// 書いた後の件数が `item_limit` を超えるなら、何も書かずに空を返す。再スキャンと同じ上限で揃え、
-/// 超えたことは再スキャンの「多すぎる」で知らせる (→ docs/archive.md「スキャン」)。
+/// 足すと件数が `item_limit` を超えるなら、足さずに空を返す。消えたものを外すことと
+/// フォルダーの更新日時は書く (→ docs/archive.md「スキャン」)。
 async fn apply_dir_changes(
     pool: &sqlx::SqlitePool,
     id: i64,
@@ -1071,6 +1071,23 @@ async fn apply_dir_changes(
             .filter(|file| !existing.contains(*file))
             .cloned(),
     );
+    // 消した後の件数で比べる。消えたものを外した結果で上限に収まるなら足してよいため。
+    let total = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) as "count!: i64" FROM archive_items WHERE archive_id = ?"#,
+        id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    if usize::try_from(total).unwrap_or(usize::MAX) + added.len() > item_limit {
+        tracing::info!(
+            archive_id = id,
+            total,
+            new_files = added.len(),
+            "new files not added: the archive would exceed the item limit"
+        );
+        tx.commit().await?;
+        return Ok(Vec::new());
+    }
     // 大きさなどはまだ読んでいない (`file_size` が NULL) まま足し、裏で読む (`fill_previews`)。
     for rel_path in &added {
         sqlx::query!(
@@ -1081,16 +1098,6 @@ async fn apply_dir_changes(
         )
         .execute(&mut *tx)
         .await?;
-    }
-    let total = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) as "count!: i64" FROM archive_items WHERE archive_id = ?"#,
-        id
-    )
-    .fetch_one(&mut *tx)
-    .await?;
-    if usize::try_from(total).unwrap_or(usize::MAX) > item_limit {
-        tx.rollback().await?;
-        return Ok(Vec::new());
     }
     tx.commit().await?;
     Ok(added)
@@ -1812,22 +1819,23 @@ mod tests {
         assert!(complete, "読み終えたと返すはず");
     }
 
-    /// 開いたときに足すと上限を超えるなら、何も書かない。超えなければ足す (→ docs/archive.md「スキャン」)。
+    /// 開いたときに足すと上限を超えるなら足さず、消えたものは外す。消した後で収まるなら足す (→ docs/archive.md「スキャン」)。
     #[sqlx::test]
-    async fn apply_dir_changes_writes_nothing_when_it_would_exceed_the_limit(
-        pool: sqlx::SqlitePool,
-    ) {
+    async fn apply_dir_changes_adds_nothing_when_it_would_exceed_the_limit(pool: sqlx::SqlitePool) {
         let id = sqlx::query_scalar!(
             "INSERT INTO contents (type, title, path, visibility, new_files_public) VALUES ('folder', 'f', '/f', 'public', 0) RETURNING id"
         )
         .fetch_one(&pool)
         .await
         .expect("フォルダーを作れるはず");
-        sqlx::query("INSERT INTO archive_items (archive_id, rel_path) VALUES (?, 'a.mp3')")
-            .bind(id)
-            .execute(&pool)
-            .await
-            .expect("アイテムを足せるはず");
+        for rel_path in ["a.mp3", "gone.mp3"] {
+            sqlx::query("INSERT INTO archive_items (archive_id, rel_path) VALUES (?, ?)")
+                .bind(id)
+                .bind(rel_path)
+                .execute(&pool)
+                .await
+                .expect("アイテムを足せるはず");
+        }
         sqlx::query(
             "INSERT INTO archive_dirs (archive_id, rel_path, modified_ns) VALUES (?, '', 1)",
         )
@@ -1859,15 +1867,20 @@ mod tests {
             .await
             .expect("書けるはず");
         assert!(added.is_empty(), "上限を超えるなら足さないはず");
-        assert_eq!(count(pool.clone()).await, 1);
+        assert_eq!(count(pool.clone()).await, 1, "消えたものは外すはず");
         let modified: Option<i64> =
             sqlx::query_scalar("SELECT modified_ns FROM archive_dirs WHERE archive_id = ?")
                 .bind(id)
                 .fetch_one(&pool)
                 .await
                 .expect("フォルダーの更新日時を読めるはず");
-        assert_eq!(modified, Some(1), "フォルダーの更新日時も書かないはず");
+        assert_eq!(
+            modified,
+            Some(2),
+            "フォルダーの更新日時は書き、開くたびに読み直さないはず"
+        );
 
+        // ちょうど上限なら足す。
         let added = apply_dir_changes(&pool, id, "/f", &changes, 3)
             .await
             .expect("書けるはず");
