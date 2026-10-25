@@ -214,7 +214,7 @@ struct ArchiveViewResponse {
     snapshot: String,
     /// 絞り込み後の件数。
     total: usize,
-    /// 絞り込む前の、見えるアイテムの数。
+    /// 軸で絞った後、名前の語で絞る前の数。
     total_all: usize,
     /// 先頭の区切り。引いた時点で消えた・非公開になった行は `null` (→ docs/archive.md「一覧の API を区切って返す」)。
     items: Vec<Option<ArchiveViewItem>>,
@@ -459,6 +459,7 @@ struct ManageArchiveViewResponse {
     axes: Vec<ArchiveAxisResponse>,
     snapshot: String,
     total: usize,
+    /// 軸で絞った後、名前の語と公開の状態で絞る前の数。
     total_all: usize,
     /// 軸と名前の語で絞ったうえでの、公開の状態ごとの件数。絞り込みの欄に出す。
     status_counts: ArchiveStatusCounts,

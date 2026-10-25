@@ -5464,7 +5464,7 @@
           },
           "totalAll": {
             "type": "integer",
-            "description": "絞り込む前の、見えるアイテムの数。",
+            "description": "軸で絞った後、名前の語で絞る前の数。",
             "minimum": 0
           }
         }
@@ -7106,6 +7106,7 @@
           },
           "totalAll": {
             "type": "integer",
+            "description": "軸で絞った後、名前の語と公開の状態で絞る前の数。",
             "minimum": 0
           }
         }

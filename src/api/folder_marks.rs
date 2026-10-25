@@ -44,10 +44,23 @@ impl Marks {
         )
         .fetch_all(pool)
         .await?;
-        Ok(Self {
+        Self::build(
             default_public,
-            marks: rows.into_iter().map(|row| (row.path, row.public)).collect(),
+            rows.into_iter().map(|row| (row.path, row.public)),
+        )
+        .await
+    }
+
+    /// 印の表を組む。全部を切り替えたフォルダーでは印が件数ぶん (数十万) あるので、非同期のワーカーを塞がない。
+    async fn build(
+        default_public: bool,
+        rows: impl Iterator<Item = (String, bool)> + Send + 'static,
+    ) -> Result<Self, AppError> {
+        run_blocking(move || Self {
+            default_public,
+            marks: rows.collect(),
         })
+        .await
     }
 
     /// `rel` ('/' 区切り。空なら登録先そのもの) が公開か。一番深い印で決まる。
@@ -200,10 +213,11 @@ async fn load_in(
     )
     .fetch_all(&mut **tx)
     .await?;
-    Ok(Marks {
+    Marks::build(
         default_public,
-        marks: rows.into_iter().map(|row| (row.path, row.public)).collect(),
-    })
+        rows.into_iter().map(|row| (row.path, row.public)),
+    )
+    .await
 }
 
 #[derive(Debug, Serialize, ToSchema)]

@@ -1578,7 +1578,7 @@ export interface components {
             snapshot: string;
             /** @description 絞り込み後の件数。 */
             total: number;
-            /** @description 絞り込む前の、見えるアイテムの数。 */
+            /** @description 軸で絞った後、名前の語で絞る前の数。 */
             totalAll: number;
         };
         /**
@@ -2137,6 +2137,7 @@ export interface components {
             /** @description 軸と名前の語で絞ったうえでの、公開の状態ごとの件数。絞り込みの欄に出す。 */
             statusCounts: components["schemas"]["ArchiveStatusCounts"];
             total: number;
+            /** @description 軸で絞った後、名前の語と公開の状態で絞る前の数。 */
             totalAll: number;
         };
         PathSamplesResponse: {

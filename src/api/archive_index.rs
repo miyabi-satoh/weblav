@@ -318,7 +318,7 @@ pub(super) struct ListResult {
     pub(super) active_filters: Vec<Option<String>>,
     /// 絞って並べたアイテムの番号。
     pub(super) ids: Vec<i64>,
-    /// 絞り込む前の、見えるアイテムの数。
+    /// 軸で絞った後、名前の語と公開の状態で絞る前の数。名前で絞り込み中の「N / M 件」の M にする。
     pub(super) total_all: usize,
     pub(super) status_counts: StatusCounts,
 }
@@ -427,6 +427,10 @@ pub(super) fn run_query(
         })
         .collect();
 
+    let total_all = visible
+        .iter()
+        .filter(|&&i| matches_axes(&index.items[i], None))
+        .count();
     let mut status_counts = StatusCounts::default();
     let mut ids = Vec::new();
     for &(i, published) in &named {
@@ -449,7 +453,7 @@ pub(super) fn run_query(
         axes,
         active_filters,
         ids,
-        total_all: visible.len(),
+        total_all,
         status_counts,
     }
 }
@@ -845,6 +849,20 @@ mod tests {
         assert_eq!(result.ids, [1, 2]);
         assert_eq!(result.total_all, 2);
         assert_eq!(result.axes[0].options, [("国語".to_string(), 2)]);
+    }
+
+    /// 「N / M 件」の M は、軸で絞った後、名前の語で絞る前の数。
+    #[test]
+    fn run_query_counts_total_all_within_the_axis_filter() {
+        let index = index(FILES);
+        let published = |_: &IndexedItem| true;
+        let axis_query = ListQuery {
+            filters: HashMap::from([("科目".to_string(), "国語".to_string())]),
+            ..query("_1", StatusFilter::All)
+        };
+        let result = run_query(&index, &published, false, &axis_query);
+        assert_eq!(result.ids, [1]);
+        assert_eq!(result.total_all, 2);
     }
 
     /// 結果の集まりは、作ったフォルダー・口・人からしか引けない。
