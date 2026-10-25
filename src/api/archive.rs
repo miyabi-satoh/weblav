@@ -1772,9 +1772,9 @@ mod tests {
         assert!(!complete, "読み終えていないと返すはず");
     }
 
-    /// 読み終えたら、後から中止が届いても読み終えたと返す。呼び出し側はそれで同期を選ぶ (→ docs/archive.md「スキャンの中止」)。
+    /// 最後まで読んだら読み終えたと返す。呼び出し側はこれで同期を選ぶので、読み終えた後に届いた中止は効かない (→ docs/archive.md「スキャンの中止」)。
     #[test]
-    fn read_items_reports_complete_when_cancelled_after_reading() {
+    fn read_items_reports_complete_when_it_reads_every_file() {
         let tmp = crate::test_support::project_temp_dir("archive-tests", "read-complete");
         std::fs::write(tmp.path().join("a.mp3"), b"").expect("ファイルを作れなかった");
         let scans = std::sync::Arc::new(crate::state::ArchiveScans::default());
@@ -1788,7 +1788,6 @@ mod tests {
             &KnownFiles::new(),
             &progress,
         );
-        scans.cancel(1);
         assert_eq!(items.len(), 1);
         assert!(complete, "読み終えたと返すはず");
     }
