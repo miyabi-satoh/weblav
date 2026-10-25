@@ -281,13 +281,10 @@ async function setupArchiveFixtures(
 
 	await api(`/contents/${archiveId}/rescan`, { method: 'POST' });
 
-	const items = (await (await api(`/contents/${archiveId}/items`)).json()) as Array<{
-		id: number;
-	}>;
-	await apiJson(`/contents/${archiveId}/items`, 'PUT', {
-		itemIds: items.map((item) => item.id),
-		published: true
-	});
+	const { snapshot } = (await (await api(`/contents/${archiveId}/manage-archive`)).json()) as {
+		snapshot: string;
+	};
+	await apiJson(`/contents/${archiveId}/items`, 'PUT', { snapshot, published: true });
 
 	// type=file: multipart専用エンドポイント(→ src/api/contents.rs)で作る。
 	const form = new FormData();
