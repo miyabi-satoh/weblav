@@ -79,21 +79,22 @@
 		const current = ++session;
 		const path = { params: { path: { id: contentId } } };
 		try {
-			const [levels, words, items] = await Promise.all([
+			// パスは例だけを取る。全件を取ると、数十万件のフォルダーで重いため (→ docs/archive.md「ほかに全件を前提にしているもの」)。
+			const [levels, words, samples] = await Promise.all([
 				client.GET('/api/v1/contents/{id}/dir-levels', path),
 				client.GET('/api/v1/contents/{id}/filename-words', path),
-				client.GET('/api/v1/contents/{id}/items', path)
+				client.GET('/api/v1/contents/{id}/path-samples', path)
 			]);
 			if (current !== session) return;
-			if (!levels.data || !words.data || !items.data) {
+			if (!levels.data || !words.data || !samples.data) {
 				promptFailed = true;
 				return;
 			}
 			prompt = buildAxesPrompt({
-				itemCount: items.data.length,
+				itemCount: samples.data.itemCount,
 				levels: levels.data,
 				words: words.data.words,
-				relPaths: items.data.map((item) => item.relPath)
+				relPaths: samples.data.relPaths
 			});
 		} catch {
 			promptFailed = true;

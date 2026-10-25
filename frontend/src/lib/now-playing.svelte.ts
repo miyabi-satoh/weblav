@@ -12,6 +12,18 @@ export type Track = {
 	originalUrl?: string;
 };
 
+/**
+ * 並びの続きを足す口 (→ docs/archive.md「続けて鳴らす音声とビューアー」)。区切って取るアーカイブの一覧は、
+ * 手元にある曲だけで並びを作るので、終わりに近づいたら続きを取って足す。続きが無ければ空を返す。
+ */
+export type TrackSource = { more: () => Promise<Track[]> };
+
+/**
+ * 残り何曲で続きを取りに行くか。曲の差し替えは終わった操作の中で同期的に行う (下の ADR) ので、
+ * 終わってから取りに行くと、ロック画面で続けて鳴らしているときに止まる。曲の長さより取る時間はずっと短い。
+ */
+const PREFETCH_REMAINING = 10;
+
 /** 「続けて再生」の状態を端末に覚えさせるキー。 */
 const AUTO_ADVANCE_STORAGE_KEY = 'weblav:audio-auto-advance';
 
@@ -19,6 +31,9 @@ const AUTO_ADVANCE_STORAGE_KEY = 'weblav:audio-auto-advance';
 // 絞り込みを変えたりしても、鳴っている曲の前後が入れ替わらないようにするため。
 let queue = $state<Track[]>([]);
 let index = $state(-1);
+/** 並びの続きを足す口。続きが無いと分かったら外す。 */
+let source: TrackSource | null = null;
+let fetchingMore = false;
 let autoAdvance = $state(readStored(AUTO_ADVANCE_STORAGE_KEY) === 'true');
 // 前・次の曲では止めたまま曲だけ替えるので、一時停止の状態は曲をまたいで持つ。
 let paused = $state(true);
@@ -95,8 +110,31 @@ function resume() {
 	});
 }
 
+/** 終わりに近づいていたら、並びの続きを取って足しておく。 */
+function prefetch() {
+	const current = source;
+	if (!current || fetchingMore || queue.length - 1 - index > PREFETCH_REMAINING) return;
+	fetchingMore = true;
+	void current
+		.more()
+		.then((tracks) => {
+			if (source !== current) return;
+			const known = new Set(queue.map((track) => track.src));
+			const added = tracks.filter((track) => !known.has(track.src));
+			if (added.length === 0) source = null;
+			else queue = [...queue, ...added];
+		})
+		.catch(() => {
+			// 取れなければ、今ある並びの終わりで止まる。次に曲を替えたときにまた試す。
+		})
+		.finally(() => {
+			if (source === current) fetchingMore = false;
+		});
+}
+
 /** 今の曲を要素に読み込ませる。止めていなければ鳴らす。 */
 function load() {
+	prefetch();
 	if (!element) return;
 	failed = false;
 	const track = queue[index];
@@ -166,8 +204,9 @@ export const nowPlaying = {
 	/**
 	 * 一覧の行から再生を始める。止めていても鳴らす。
 	 * `list` は、押した行が並んでいた一覧の音声 (表示順)。1つの一覧の中で `src` は重ならない。
+	 * `more` は、`list` の続きを足す口 (区切って取る一覧で渡す)。
 	 */
-	play(track: Track, list: Track[] = [track]) {
+	play(track: Track, list: Track[] = [track], more?: TrackSource) {
 		// 今の曲の行なら、頭に戻さず続きから鳴らす (src を入れ直すと読み込み直しになる)。
 		// 読み込めなかった曲は、押し直したら読み込み直す。
 		if (element && queue[index]?.src === track.src && !failed) {
@@ -177,6 +216,8 @@ export const nowPlaying = {
 		const found = list.findIndex((t) => t.src === track.src);
 		queue = found < 0 ? [track] : list.map((t) => ({ ...t }));
 		index = Math.max(found, 0);
+		source = found < 0 ? null : (more ?? null);
+		fetchingMore = false;
 		paused = false;
 		load();
 	},
@@ -208,6 +249,7 @@ export const nowPlaying = {
 	stop() {
 		queue = [];
 		index = -1;
+		source = null;
 		load();
 		// 閉じた後も音の処理を動かし続けないよう止める。次の再生の操作の中で再開する。
 		// 一時停止では止めない。ロック画面からの再生は操作の中と見なされず、再開できないことがあるため。

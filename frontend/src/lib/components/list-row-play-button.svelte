@@ -3,7 +3,7 @@
 	import { browseLayout } from '$lib/browse-layout.svelte';
 	import { browseRowClass, browseRowPressClass, browseRowTextClass } from '$lib/list-row';
 	import { cn } from '$lib/utils';
-	import { nowPlaying, type Track } from '$lib/now-playing.svelte';
+	import { nowPlaying, type Track, type TrackSource } from '$lib/now-playing.svelte';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
 	import * as m from '$lib/paraglide/messages.js';
 
@@ -11,6 +11,7 @@
 	let {
 		track,
 		queue,
+		more,
 		compact = false,
 		children,
 		subtitle,
@@ -19,8 +20,13 @@
 	}: {
 		/** キューと同じ組み立て方で作る (押した行をキューの中から `src` で探すため)。 */
 		track: Track;
-		/** この行が並ぶ一覧の音声 (表示順)。プレイヤーの前・次の曲になる。 */
-		queue: Track[];
+		/**
+		 * この行が並ぶ一覧の音声 (表示順)。プレイヤーの前・次の曲になる。
+		 * 関数なら押したときに呼ぶ (区切って取る一覧は、手元にある曲から押した時点で作る)。
+		 */
+		queue: Track[] | (() => Track[]);
+		/** `queue` の続きを足す口 (→ `nowPlaying.play`)。 */
+		more?: TrackSource;
 		/** フォルダー一覧の詰めた行 (`browseRowClass(true)`) にする。タイルには効かない。 */
 		compact?: boolean;
 		/** 行のタイトル。これを包むボタンの押せる範囲が、行いっぱいに広がる。 */
@@ -57,7 +63,10 @@
 			type="button"
 			class={[browseRowPressClass(), 'text-left']}
 			// 鳴っている行は一時停止のアイコンを出すので、押すと止める (下のバーのボタンと同じ動き)。
-			onclick={() => (current === 'playing' ? nowPlaying.pause() : nowPlaying.play(track, queue))}
+			onclick={() =>
+				current === 'playing'
+					? nowPlaying.pause()
+					: nowPlaying.play(track, typeof queue === 'function' ? queue() : queue, more)}
 		>
 			{@render children()}
 			{#if current}
