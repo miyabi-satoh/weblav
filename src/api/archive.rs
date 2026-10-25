@@ -873,7 +873,14 @@ async fn try_refresh_changed_dirs(
     if changes.is_empty() {
         return Ok(());
     }
-    let added = apply_dir_changes(state, id, &archive.path, &changes).await?;
+    let added = apply_dir_changes(
+        &state.pool,
+        id,
+        &archive.path,
+        &changes,
+        super::fs::ITEM_LIMIT,
+    )
+    .await?;
     if added.is_empty() {
         return Ok(());
     }
@@ -972,13 +979,16 @@ fn parent_rel(rel_path: &str) -> &str {
 }
 
 /// フォルダーの変わり方を索引へ書く。新しく足したファイルを返す。
+/// 書いた後の件数が `item_limit` を超えるなら、何も書かずに空を返す。再スキャンと同じ上限で揃え、
+/// 超えたことは再スキャンの「多すぎる」で知らせる (→ docs/archive.md「スキャン」)。
 async fn apply_dir_changes(
-    state: &AppState,
+    pool: &sqlx::SqlitePool,
     id: i64,
     scanned_path: &str,
     changes: &DirChanges,
+    item_limit: usize,
 ) -> Result<Vec<String>, AppError> {
-    let mut tx = crate::db::begin_write(&state.pool).await?;
+    let mut tx = crate::db::begin_write(pool).await?;
     let current_path = sqlx::query_scalar!("SELECT path FROM contents WHERE id = ?", id)
         .fetch_optional(&mut *tx)
         .await?
@@ -1071,6 +1081,16 @@ async fn apply_dir_changes(
         )
         .execute(&mut *tx)
         .await?;
+    }
+    let total = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) as "count!: i64" FROM archive_items WHERE archive_id = ?"#,
+        id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    if usize::try_from(total).unwrap_or(usize::MAX) > item_limit {
+        tx.rollback().await?;
+        return Ok(Vec::new());
     }
     tx.commit().await?;
     Ok(added)
@@ -1790,6 +1810,69 @@ mod tests {
         );
         assert_eq!(items.len(), 1);
         assert!(complete, "読み終えたと返すはず");
+    }
+
+    /// 開いたときに足すと上限を超えるなら、何も書かない。超えなければ足す (→ docs/archive.md「スキャン」)。
+    #[sqlx::test]
+    async fn apply_dir_changes_writes_nothing_when_it_would_exceed_the_limit(
+        pool: sqlx::SqlitePool,
+    ) {
+        let id = sqlx::query_scalar!(
+            "INSERT INTO contents (type, title, path, visibility, new_files_public) VALUES ('folder', 'f', '/f', 'public', 0) RETURNING id"
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("フォルダーを作れるはず");
+        sqlx::query("INSERT INTO archive_items (archive_id, rel_path) VALUES (?, 'a.mp3')")
+            .bind(id)
+            .execute(&pool)
+            .await
+            .expect("アイテムを足せるはず");
+        sqlx::query(
+            "INSERT INTO archive_dirs (archive_id, rel_path, modified_ns) VALUES (?, '', 1)",
+        )
+        .bind(id)
+        .execute(&pool)
+        .await
+        .expect("フォルダーの更新日時を足せるはず");
+        let changes = DirChanges {
+            changed_dirs: vec![(
+                String::new(),
+                Some(2),
+                vec![
+                    "a.mp3".to_string(),
+                    "b.mp3".to_string(),
+                    "c.mp3".to_string(),
+                ],
+            )],
+            ..DirChanges::default()
+        };
+        let count = |pool: sqlx::SqlitePool| async move {
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM archive_items WHERE archive_id = ?")
+                .bind(id)
+                .fetch_one(&pool)
+                .await
+                .expect("数えられるはず")
+        };
+
+        let added = apply_dir_changes(&pool, id, "/f", &changes, 2)
+            .await
+            .expect("書けるはず");
+        assert!(added.is_empty(), "上限を超えるなら足さないはず");
+        assert_eq!(count(pool.clone()).await, 1);
+        let modified: Option<i64> =
+            sqlx::query_scalar("SELECT modified_ns FROM archive_dirs WHERE archive_id = ?")
+                .bind(id)
+                .fetch_one(&pool)
+                .await
+                .expect("フォルダーの更新日時を読めるはず");
+        assert_eq!(modified, Some(1), "フォルダーの更新日時も書かないはず");
+
+        let added = apply_dir_changes(&pool, id, "/f", &changes, 3)
+            .await
+            .expect("書けるはず");
+        assert_eq!(added, vec!["b.mp3".to_string(), "c.mp3".to_string()]);
+        assert_eq!(count(pool.clone()).await, 3);
     }
 
     /// 中止したスキャンは、読んだ分だけを足し、読まなかったファイルを消さない (→ docs/archive.md「スキャンの中止」)。
