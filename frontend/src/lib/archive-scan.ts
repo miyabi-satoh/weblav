@@ -91,6 +91,17 @@ export async function waitForRunningScan(
 }
 
 /**
+ * 走っているスキャンに中止を頼む。止まると、スキャンを始めた側に `cancelled` の結果が返る。
+ * 頼めなかったら投げる (スキャンは続くので、押し直せるようにするため)。
+ */
+export async function cancelScan(id: number): Promise<void> {
+	const { response } = await client.DELETE('/api/v1/contents/{id}/rescan', {
+		params: { path: { id } }
+	});
+	if (!response.ok) throw new Error(`cancel failed: ${response.status}`);
+}
+
+/**
  * アーカイブを再スキャンする。失敗は投げずに、画面に出す文言にして返す。
  *
  * 作成・場所の変更の直後にも呼ぶ (→ docs/archive.md「スキャン」)。その場合は作成・保存が

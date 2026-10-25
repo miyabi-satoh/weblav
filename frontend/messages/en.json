@@ -258,9 +258,11 @@
 		}
 	],
 	"contents_edit_scan_failed": "“{section}” was saved. {reason} Rescan from the Items tab.",
+	"contents_edit_saved_scan_cancelled_toast": "“{section}” was saved. The scan was stopped.",
 	"contents_edit_scan_blocked": "“{section}” was saved. {reason}",
 	"archive_scan_listing_progress": "Finding files... ({elapsed} elapsed)",
 	"archive_scan_reading_progress": "Reading files... {done} / {total} ({elapsed} elapsed)",
+	"archive_scan_cancel_button": "Stop",
 	"archive_scan_failed_title": "Couldn't scan the files",
 	"contents_menu_edit": "Edit",
 	"contents_menu_open": "Open",
@@ -475,6 +477,7 @@
 	"archive_tabs_axes": "Categories",
 	"archive_tabs_items": "Items",
 	"archive_items_rescan_button": "Rescan",
+	"archive_items_rescan_cancelled": "Rescan stopped",
 	"archive_items_rescan_result": "Rescan result: {added} added, {removed} removed",
 	"archive_items_summary": [
 		{

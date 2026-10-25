@@ -365,6 +365,30 @@ async fn archive_rescan_keeps_published_flags_and_removes_vanished_items(pool: S
     assert_eq!(published_rel_paths(&pool, id).await, vec!["keep.mp3"]);
 }
 
+/// 再スキャンの中止は、走っていなければ何もしない。押したときに終わっていることがあるため
+/// (→ docs/archive.md「スキャンの中止」)。
+#[sqlx::test]
+async fn cancelling_a_rescan_that_is_not_running_does_nothing(pool: SqlitePool) {
+    let dir = temp_test_dir("archive-cancel-idle");
+    std::fs::write(dir.join("a.mp3"), b"").expect("ファイルを作れなかった");
+    let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
+
+    let (status, body) = send_empty(
+        app.clone(),
+        "DELETE",
+        &format!("/api/v1/contents/{id}/rescan"),
+        &cookie,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+
+    let (status, body) = rescan(app, &cookie, id).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let result = parse_json(&body);
+    assert_eq!(result["cancelled"], false, "{body}");
+    assert_eq!(result["total"], 1, "{body}");
+}
+
 /// 管理画面の一覧は、アーカイブにアイテムの数と公開している数を添える (→ docs/ui.md「UI 全般」)。
 #[sqlx::test]
 async fn admin_contents_list_counts_the_items_and_published_items_of_an_archive(pool: SqlitePool) {

@@ -8,6 +8,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import LoadingButton from '$lib/components/loading-button.svelte';
+	import ScanProgress from '$lib/components/scan-progress.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import WarningBand from '$lib/components/warning-band.svelte';
 	import { formatNumber } from '$lib/format';
@@ -42,6 +43,8 @@
 		saving?: boolean;
 		/** 保存に続くスキャンの進み具合。押したボタンの近くに出す (→ docs/archive.md「スキャン」)。 */
 		progress?: string;
+		/** 進み具合の横の「中止する」で呼ぶ。 */
+		oncancelscan?: () => Promise<void>;
 		onconfirm: () => void;
 	};
 
@@ -58,6 +61,7 @@
 		editing = false,
 		saving = false,
 		progress,
+		oncancelscan,
 		onconfirm
 	}: Props = $props();
 
@@ -214,7 +218,9 @@
 					</WarningBand>
 				{/if}
 			{/if}
-			{#if progress}
+			{#if progress && oncancelscan}
+				<ScanProgress message={progress} oncancel={oncancelscan} />
+			{:else if progress}
 				<p role="status" class="text-sm text-muted-foreground">{progress}</p>
 			{/if}
 		</Dialog.Body>

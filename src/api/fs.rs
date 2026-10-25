@@ -618,6 +618,21 @@ pub(super) fn scan_files(
     item_limit: usize,
     own_dirs: &OwnDirs,
 ) -> ScanResult {
+    scan_files_until(root, extensions, scan_limit, item_limit, own_dirs, &|| {
+        false
+    })
+}
+
+/// `scan_files` の、`stop` が真を返したら途中で切り上げるもの。再スキャンの中止に使う。
+/// 切り上げた結果は欠けているので、呼び出し側は同期に使わない。
+pub(super) fn scan_files_until(
+    root: &FsPath,
+    extensions: Option<&[String]>,
+    scan_limit: usize,
+    item_limit: usize,
+    own_dirs: &OwnDirs,
+    stop: &dyn Fn() -> bool,
+) -> ScanResult {
     let mut rel_paths = Vec::new();
     let mut dirs = Vec::new();
     let mut scanned = 0;
@@ -629,6 +644,9 @@ pub(super) fn scan_files(
         .filter_entry(|entry| is_walkable(entry, own_dirs));
 
     for entry in walker {
+        if stop() {
+            break;
+        }
         let entry = match entry {
             Ok(entry) => entry,
             // 走査の途中で消えたものは、見つからなかったものと同じに扱う (同期で行が外れる)。
