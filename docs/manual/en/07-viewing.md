@@ -39,6 +39,8 @@ Some contents are visible only to signed-in users (→ [Sign in and display](03-
 
   ![The audio player at the bottom of the screen](images/viewing-player.webp)
 
+- Each press of the rightmost button changes what happens when a track ends: Stop after this track, Play through the list, Repeat all, or Repeat one. The leftmost button turns shuffle on or off. The browser remembers both.
+
 - Select an image, PDF, video, text, Word, Excel, or PowerPoint file to open it in place. Use the buttons at the sides or swipe to move between files.
 - To print or save, first open it in a new tab with the arrow button at the top.
 

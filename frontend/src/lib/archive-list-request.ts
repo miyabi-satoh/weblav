@@ -5,7 +5,7 @@
 
 import { client } from '$lib/api/client';
 import type { components } from '$lib/api/schema';
-import type { ChunkFetch } from '$lib/archive-paged-list.svelte';
+import type { ChunkFetch, ShuffleFetch } from '$lib/archive-paged-list.svelte';
 import { ARCHIVE_CHUNK_SIZE } from '$lib/archive-paged-list.svelte';
 import { LIST_FILTER_QUERY } from '$lib/list-filter';
 
@@ -57,6 +57,30 @@ export function manageChunks(id: number): ChunkFetch<ManageArchiveViewItem> {
 		});
 		if (response.status === 409) return { expired: true };
 		if (!data) throw new Error(`manage archive page failed: ${response.status}`);
+		return data;
+	};
+}
+
+/** 閲覧用の一覧の、音声の行を混ぜた結果の作り方 (→ docs/archive.md「音声のシャッフル」)。 */
+export function viewShuffle(id: number): ShuffleFetch<ArchiveViewItem> {
+	return async (snapshot) => {
+		const { data, response } = await client.GET('/api/v1/contents/{id}/archive/shuffle', {
+			params: { path: { id }, query: { snapshot, limit: ARCHIVE_CHUNK_SIZE } }
+		});
+		if (response.status === 409) return { expired: true };
+		if (!data) throw new Error(`archive shuffle failed: ${response.status}`);
+		return data;
+	};
+}
+
+/** 管理用の一覧の、音声の行を混ぜた結果の作り方。 */
+export function manageShuffle(id: number): ShuffleFetch<ManageArchiveViewItem> {
+	return async (snapshot) => {
+		const { data, response } = await client.GET('/api/v1/contents/{id}/manage-archive/shuffle', {
+			params: { path: { id }, query: { snapshot, limit: ARCHIVE_CHUNK_SIZE } }
+		});
+		if (response.status === 409) return { expired: true };
+		if (!data) throw new Error(`manage archive shuffle failed: ${response.status}`);
 		return data;
 	};
 }

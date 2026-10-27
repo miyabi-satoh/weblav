@@ -4,7 +4,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import {
 	AUDIO_PLAYER_REGION_NAME,
-	AUTO_ADVANCE_BUTTON_NAME,
 	CLOSE_BUTTON_NAME,
 	confirmDelete,
 	DELETE_CONFIRM_BUTTON_NAME,
@@ -12,8 +11,11 @@ import {
 	NEXT_FILE_BUTTON_NAME,
 	NEXT_TRACK_BUTTON_NAME,
 	PREVIOUS_TRACK_BUTTON_NAME,
+	REPEAT_LIST_BUTTON_NAME,
+	REPEAT_OFF_BUTTON_NAME,
 	requiredLabel,
 	SAVE_BUTTON_NAME,
+	SHUFFLE_BUTTON_NAME,
 	saveForm,
 	waitForDialog
 } from './helpers';
@@ -211,30 +213,36 @@ test('プレイヤーの前・次の曲: 一覧に並んだ音声の順に移り
 	);
 });
 
-test('プレイヤーの続けて再生: 切り替えた状態を、読み込み直しても覚えている', async ({ page }) => {
+test('プレイヤーのリピートとシャッフル: 切り替えた状態を、読み込み直しても覚えている', async ({
+	page
+}) => {
 	await withDirectoryContent(
 		page.request,
 		{ type: 'archive', namePrefix: 'e2e-archive-auto' },
 		async (archive) => {
 			await setUpArchiveForBrowsing(page.request, archive);
 			const player = page.getByRole('region', { name: AUDIO_PLAYER_REGION_NAME });
-			const autoAdvance = player.getByRole('button', { name: AUTO_ADVANCE_BUTTON_NAME });
+			const shuffle = player.getByRole('button', { name: SHUFFLE_BUTTON_NAME });
+			const playFirst = () =>
+				page
+					.getByRole('button', { name: /^\d{4} リスニング/ })
+					.first()
+					.click();
 
 			await page.goto(`/archives/${archive.id}`);
-			await page
-				.getByRole('button', { name: /^\d{4} リスニング/ })
-				.first()
-				.click();
-			await expect(autoAdvance).toHaveAttribute('aria-pressed', 'false');
-			await autoAdvance.click();
-			await expect(autoAdvance).toHaveAttribute('aria-pressed', 'true');
+			await playFirst();
+			await player.getByRole('button', { name: REPEAT_OFF_BUTTON_NAME }).click();
+			await expect(player.getByRole('button', { name: REPEAT_LIST_BUTTON_NAME })).toBeVisible();
+			await expect(shuffle).toHaveAttribute('aria-pressed', 'false');
+			await shuffle.click();
+			await expect(shuffle).toHaveAttribute('aria-pressed', 'true');
 
 			await page.reload();
-			await page
-				.getByRole('button', { name: /^\d{4} リスニング/ })
-				.first()
-				.click();
-			await expect(autoAdvance).toHaveAttribute('aria-pressed', 'true');
+			await playFirst();
+			await expect(player.getByRole('button', { name: REPEAT_LIST_BUTTON_NAME })).toBeVisible();
+			await expect(shuffle).toHaveAttribute('aria-pressed', 'true');
+			// シャッフルの順はサーバーで混ぜた結果から取る。届けば次の曲へ進める。
+			await expect(player.getByRole('button', { name: NEXT_TRACK_BUTTON_NAME })).toBeEnabled();
 		}
 	);
 });

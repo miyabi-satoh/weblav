@@ -1,19 +1,22 @@
+import audioExtensions from '$lib/audio-extensions.json';
+
 /** ファイル名の拡張子 (小文字、ドットを除く)。ドットが無ければ `undefined`。 */
 export function fileExtension(fileName: string): string | undefined {
 	const dot = fileName.lastIndexOf('.');
 	return dot < 0 ? undefined : fileName.slice(dot + 1).toLowerCase();
 }
 
+// 一覧は、サーバーがシャッフルで音声の行を選ぶとき (`archive_index::AUDIO_EXTENSIONS`) と同じファイル。
+// 片方だけ変えると、画面が鳴らす行とサーバーが混ぜる行が食い違うので、テストで揃える。
+const AUDIO_EXTENSIONS = new Set<string>(audioExtensions);
+
 /**
  * ファイル名の拡張子から、ページ内で再生すべき音声ファイルかを判定する。
  *
  * 振り分けはファイルの種類(拡張子→MIME)で決まり、コンテンツの種類には依存しない
- * (→ docs/ui.md「音声のページ内プレイヤー」)。バックエンドの実際のMIME判定(`mime_guess`crate)とは
- * 独立した簡易判定で、ズレても影響は「新規タブで開くか、ページ内再生するか」という
- * 表示上の振り分けにとどまる(配信自体は同じダウンロードエンドポイントを使う)。
+ * (→ docs/ui.md「音声のページ内プレイヤー」)。配信の MIME の判定 (`mime_guess` crate) とは別の簡易な判定で、
+ * ズレても「新規タブで開くか、ページ内再生するか」の振り分けにとどまる (配信は同じダウンロードの口)。
  */
-const AUDIO_EXTENSIONS = new Set(['mp3', 'm4a', 'wav', 'ogg', 'oga', 'flac', 'aac', 'wma', 'opus']);
-
 export function isAudioFileName(fileName: string): boolean {
 	const extension = fileExtension(fileName);
 	return extension !== undefined && AUDIO_EXTENSIONS.has(extension);

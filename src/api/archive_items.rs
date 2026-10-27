@@ -314,6 +314,7 @@ async fn view_archive(
         kind: SnapshotKind::View,
         owner: snapshot_owner(&viewer),
         ids: result.ids.into(),
+        positions: None,
         active_filters: result.active_filters.into(),
         versions,
     };
@@ -376,6 +377,9 @@ struct ArchivePageResponse {
     items: Vec<Option<ArchiveViewItem>>,
     /// 結果を作った後に、索引か公開・非公開の印が変わったか。画面は一覧の上に取り直しを出す。
     stale: bool,
+    /// 混ぜた結果 (`/archive/shuffle`) のときだけ、各行の混ぜる前の結果での位置。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    positions: Option<Vec<u32>>,
 }
 
 /// 閲覧用の一覧の、区切りの続き (→ docs/archive.md「一覧の API を区切って返す」)。
@@ -408,17 +412,100 @@ async fn view_archive_page(
         .ok_or_else(snapshot_gone)?;
     let (versions, index) = archive_index::index(&state, id).await?;
     let (_, marks) = archive_index::marks(&state, id).await?;
-    let items = view_page(
-        &index,
-        &marks,
-        &snapshot,
-        query.offset,
-        page_limit(query.limit),
-    );
+    let limit = page_limit(query.limit);
+    let items = view_page(&index, &marks, &snapshot, query.offset, limit);
     Ok(Json(ArchivePageResponse {
         items,
         stale: versions != snapshot.versions,
+        positions: page_positions(&snapshot, query.offset, limit),
     }))
+}
+
+#[derive(Debug, Deserialize, IntoParams)]
+#[serde(rename_all = "camelCase")]
+struct ShuffleQuery {
+    /// 混ぜる元の結果の名前 (一覧の最初の要求が返したもの)。
+    snapshot: String,
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct ArchiveShuffleResponse {
+    /// 混ぜた結果の名前。続きは `/archive/page` で引く。
+    snapshot: String,
+    total: usize,
+    /// 消えた・非公開になった行は `null`。
+    items: Vec<Option<ArchiveViewItem>>,
+    /// 各行の、混ぜる前の結果での位置。
+    positions: Vec<u32>,
+}
+
+/// 閲覧用の一覧の結果のうち、音声の行だけを混ぜた順に並べた結果を作り、その先頭の区切りを返す
+/// (→ docs/archive.md「音声のシャッフル」)。
+#[utoipa::path(
+    get,
+    path = "/contents/{id}/archive/shuffle",
+    params(("id" = i64, Path), ShuffleQuery),
+    responses(
+        (status = OK, body = ArchiveShuffleResponse, description = "混ぜた結果の先頭の区切り"),
+        (status = 401, body = crate::error::ErrorResponse, description = "閲覧にログインが必要"),
+        (status = 404, body = crate::error::ErrorResponse, description = "存在しない・アーカイブでない"),
+        (status = 409, body = crate::error::ErrorResponse, description = "元の結果が捨てられた・別の人や口のもの。最初から取り直す"),
+    )
+)]
+async fn view_archive_shuffle(
+    viewer: Viewer,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Query(query): Query<ShuffleQuery>,
+) -> Result<Json<ArchiveShuffleResponse>, AppError> {
+    load_viewable_archive(&state.pool, &viewer, id).await?;
+    let source = state
+        .archive_index
+        .snapshot(
+            &query.snapshot,
+            id,
+            SnapshotKind::View,
+            snapshot_owner(&viewer),
+        )
+        .ok_or_else(snapshot_gone)?;
+    let (shuffled, index, marks) = shuffle_snapshot(&state, id, source).await?;
+    let limit = page_limit(query.limit);
+    let items = view_page(&index, &marks, &shuffled, 0, limit);
+    let positions = page_positions(&shuffled, 0, limit).unwrap_or_default();
+    let total = shuffled.ids.len();
+    let snapshot = state.archive_index.create_snapshot(shuffled)?;
+    Ok(Json(ArchiveShuffleResponse {
+        snapshot,
+        total,
+        items,
+        positions,
+    }))
+}
+
+/// `source` の音声の行を混ぜた結果と、区切りを組み立てるのに使う今の索引と印。
+async fn shuffle_snapshot(
+    state: &AppState,
+    id: i64,
+    source: Arc<Snapshot>,
+) -> Result<(Snapshot, Arc<ArchiveIndex>, Arc<Marks>), AppError> {
+    let (_, index) = archive_index::index(state, id).await?;
+    let (_, marks) = archive_index::marks(state, id).await?;
+    let seed = super::random_u64()?;
+    run_blocking(move || {
+        let shuffled = source.shuffled_audio(&index, seed);
+        (shuffled, index, marks)
+    })
+    .await
+}
+
+/// 混ぜた結果なら、区切りの各行の混ぜる前の位置。
+fn page_positions(snapshot: &Snapshot, offset: usize, limit: usize) -> Option<Vec<u32>> {
+    let positions = snapshot.positions.as_deref()?;
+    let start = offset.min(positions.len());
+    let end = start.saturating_add(limit).min(positions.len());
+    Some(positions[start..end].to_vec())
 }
 
 fn snapshot_gone() -> AppError {
@@ -512,6 +599,7 @@ async fn manage_view_archive(
         kind: SnapshotKind::Manage,
         owner: Some(user.id),
         ids: result.ids.into(),
+        positions: None,
         active_filters: result.active_filters.into(),
         versions,
     };
@@ -554,6 +642,9 @@ fn manage_page(
 struct ManageArchivePageResponse {
     items: Vec<Option<ManageArchiveViewItem>>,
     stale: bool,
+    /// 混ぜた結果 (`/manage-archive/shuffle`) のときだけ、各行の混ぜる前の結果での位置。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    positions: Option<Vec<u32>>,
 }
 
 /// 管理画面のアイテムのタブの一覧の、区切りの続き。
@@ -581,16 +672,61 @@ async fn manage_view_archive_page(
         .ok_or_else(snapshot_gone)?;
     let (versions, index) = archive_index::index(&state, id).await?;
     let (_, marks) = archive_index::marks(&state, id).await?;
-    let items = manage_page(
-        &index,
-        &marks,
-        &snapshot,
-        query.offset,
-        page_limit(query.limit),
-    );
+    let limit = page_limit(query.limit);
+    let items = manage_page(&index, &marks, &snapshot, query.offset, limit);
     Ok(Json(ManageArchivePageResponse {
         items,
         stale: versions != snapshot.versions,
+        positions: page_positions(&snapshot, query.offset, limit),
+    }))
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct ManageArchiveShuffleResponse {
+    /// 混ぜた結果の名前。続きは `/manage-archive/page` で引く。
+    snapshot: String,
+    total: usize,
+    /// 消えた行は `null`。
+    items: Vec<Option<ManageArchiveViewItem>>,
+    /// 各行の、混ぜる前の結果での位置。
+    positions: Vec<u32>,
+}
+
+/// 管理画面のアイテムのタブの一覧の、音声の行を混ぜた結果 (→ `view_archive_shuffle`)。
+#[utoipa::path(
+    get,
+    path = "/contents/{id}/manage-archive/shuffle",
+    params(("id" = i64, Path), ShuffleQuery),
+    responses(
+        (status = OK, body = ManageArchiveShuffleResponse, description = "混ぜた結果の先頭の区切り"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 404, body = crate::error::ErrorResponse, description = "管理できない・存在しない・アーカイブでない"),
+        (status = 409, body = crate::error::ErrorResponse, description = "元の結果が捨てられた・別の人や口のもの。最初から取り直す"),
+    )
+)]
+async fn manage_view_archive_shuffle(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Query(query): Query<ShuffleQuery>,
+) -> Result<Json<ManageArchiveShuffleResponse>, AppError> {
+    archive::load_manageable_archive(&state.pool, &user, id).await?;
+    let source = state
+        .archive_index
+        .snapshot(&query.snapshot, id, SnapshotKind::Manage, Some(user.id))
+        .ok_or_else(snapshot_gone)?;
+    let (shuffled, index, marks) = shuffle_snapshot(&state, id, source).await?;
+    let limit = page_limit(query.limit);
+    let items = manage_page(&index, &marks, &shuffled, 0, limit);
+    let positions = page_positions(&shuffled, 0, limit).unwrap_or_default();
+    let total = shuffled.ids.len();
+    let snapshot = state.archive_index.create_snapshot(shuffled)?;
+    Ok(Json(ManageArchiveShuffleResponse {
+        snapshot,
+        total,
+        items,
+        positions,
     }))
 }
 
@@ -1178,8 +1314,10 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(view_archive))
         .routes(routes!(view_archive_page))
+        .routes(routes!(view_archive_shuffle))
         .routes(routes!(manage_view_archive))
         .routes(routes!(manage_view_archive_page))
+        .routes(routes!(manage_view_archive_shuffle))
         .routes(routes!(path_samples))
         .routes(routes!(bulk_set_published))
         .routes(routes!(set_published))

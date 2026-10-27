@@ -1,15 +1,19 @@
 <script lang="ts">
-	import { nowPlaying } from '$lib/now-playing.svelte';
+	import { nowPlaying, REPEAT_MODES, type RepeatMode } from '$lib/now-playing.svelte';
 	import * as m from '$lib/paraglide/messages.js';
 	import MediaSeekBar from '$lib/components/media-seek-bar.svelte';
 	import { clampTime, SKIP_SECONDS } from '$lib/media';
 	import { Button } from '$lib/components/ui/button';
 	import AudioSpectrum from '$lib/components/audio-spectrum.svelte';
+	import ArrowRightToLineIcon from '@lucide/svelte/icons/arrow-right-to-line';
 	import ListEndIcon from '@lucide/svelte/icons/list-end';
 	import PauseIcon from '@lucide/svelte/icons/pause';
 	import PlayIcon from '@lucide/svelte/icons/play';
+	import Repeat1Icon from '@lucide/svelte/icons/repeat-1';
+	import RepeatIcon from '@lucide/svelte/icons/repeat';
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import RotateCwIcon from '@lucide/svelte/icons/rotate-cw';
+	import ShuffleIcon from '@lucide/svelte/icons/shuffle';
 	import SkipBackIcon from '@lucide/svelte/icons/skip-back';
 	import SkipForwardIcon from '@lucide/svelte/icons/skip-forward';
 	import Volume2Icon from '@lucide/svelte/icons/volume-2';
@@ -99,9 +103,19 @@
 		}
 	}
 
-	function handleEnded() {
-		// 曲の終わりで一時停止の状態になっているので、次の曲は明示的に鳴らす。
-		if (nowPlaying.autoAdvance) nowPlaying.next({ play: true });
+	/** 曲が終わったときの動きごとの、ボタンの印と名前。押すたびに `REPEAT_MODES` の順に進む。 */
+	const REPEAT_BUTTONS: Record<RepeatMode, { icon: typeof XIcon; label: () => string }> = {
+		off: { icon: ArrowRightToLineIcon, label: m.audio_player_repeat_off_button },
+		list: { icon: ListEndIcon, label: m.audio_player_repeat_list_button },
+		all: { icon: RepeatIcon, label: m.audio_player_repeat_all_button },
+		one: { icon: Repeat1Icon, label: m.audio_player_repeat_one_button }
+	};
+
+	let repeatButton = $derived(REPEAT_BUTTONS[nowPlaying.repeat]);
+
+	function cycleRepeat() {
+		const at = REPEAT_MODES.indexOf(nowPlaying.repeat);
+		nowPlaying.repeat = REPEAT_MODES[(at + 1) % REPEAT_MODES.length];
 	}
 
 	// ロック画面・イヤホンのボタンからの操作 (→ docs/ui.md「音声のページ内プレイヤー」)。
@@ -158,13 +172,20 @@
 	{
 		disabled = false,
 		pressed,
+		active = pressed,
 		class: className
-	}: { disabled?: boolean; pressed?: boolean; class?: string } = {}
+	}: {
+		disabled?: boolean;
+		pressed?: boolean;
+		/** 押した見た目にするか。オン・オフでないボタンは `pressed` を渡さず、見た目だけをこれで決める。 */
+		active?: boolean;
+		class?: string;
+	} = {}
 )}
 	<Button
 		variant="ghost"
 		size="icon-lg"
-		class={['text-sub-foreground', pressed && 'bg-muted text-primary', className]}
+		class={['text-sub-foreground', active && 'bg-muted text-primary', className]}
 		aria-label={label}
 		aria-pressed={pressed}
 		{disabled}
@@ -184,8 +205,8 @@
 		bind:offsetHeight={height}
 		class="fixed inset-x-0 bottom-0 z-30 flex flex-wrap items-center gap-x-4 border-t bg-background px-4 pt-2 pb-3 shadow-lg md:grid md:audio-player-grid md:items-center md:gap-x-6 md:gap-y-2 md:px-6 md:py-3"
 	>
-		<!-- スマートフォン幅では、曲名+閉じる / シークバー+時間 / 操作の3段に分ける。
-		     タブレット以上では、曲名(左)・操作(中央)・閉じる(右)の1段目と、
+		<!-- スマートフォン幅では、曲名+ミュート+閉じる / シークバー+時間 / 操作の3段に分ける。
+		     タブレット以上では、曲名(左)・操作(中央)・ミュート+閉じる(右)の1段目と、
 		     全幅のシークバーの2段目にする (前へ・再生・次へを中央に置く一般的な音楽アプリの形、→ docs/ui.md「音声のページ内プレイヤー」)。 -->
 		<!-- reduced-motion時だけ横スクロール領域になり、キーボードで読み進めるための
 		     正当なtabindex (→ docs/ui.md「UI 全般」)。 -->
@@ -214,6 +235,13 @@
 			{#if nowPlaying.analyser && !prefersReducedMotion}
 				<AudioSpectrum analyser={nowPlaying.analyser} paused={nowPlaying.paused} class="h-6 w-16" />
 			{/if}
+			<!-- 操作の段は、44px のボタンが7つで埋まるので、ミュートはこちらに置く (→ docs/ui.md「音声のページ内プレイヤー」)。 -->
+			{@render iconButton(
+				nowPlaying.muted ? VolumeXIcon : Volume2Icon,
+				m.media_mute_button(),
+				() => (nowPlaying.muted = !nowPlaying.muted),
+				{ pressed: nowPlaying.muted }
+			)}
 			{@render iconButton(XIcon, m.action_close(), nowPlaying.stop)}
 		</div>
 		{#if nowPlaying.failed}
@@ -243,10 +271,10 @@
 			class="order-3 flex w-full items-center justify-between md:order-none md:col-start-2 md:row-start-1 md:w-auto md:gap-1 md:justify-self-center"
 		>
 			{@render iconButton(
-				ListEndIcon,
-				m.audio_player_auto_advance_button(),
-				() => (nowPlaying.autoAdvance = !nowPlaying.autoAdvance),
-				{ pressed: nowPlaying.autoAdvance }
+				ShuffleIcon,
+				m.audio_player_shuffle_button(),
+				() => (nowPlaying.shuffle = !nowPlaying.shuffle),
+				{ pressed: nowPlaying.shuffle }
 			)}
 			{@render iconButton(SkipBackIcon, m.audio_player_previous_button(), previous)}
 			{@render iconButton(RotateCcwIcon, m.media_rewind_button(), () => skip(-SKIP_SECONDS))}
@@ -266,12 +294,11 @@
 			{@render iconButton(SkipForwardIcon, m.audio_player_next_button(), () => nowPlaying.next(), {
 				disabled: !nowPlaying.hasNext
 			})}
-			{@render iconButton(
-				nowPlaying.muted ? VolumeXIcon : Volume2Icon,
-				m.media_mute_button(),
-				() => (nowPlaying.muted = !nowPlaying.muted),
-				{ pressed: nowPlaying.muted }
-			)}
+			<!-- 4つの状態を順に回すので、押した・押していないの2つでは表せず、aria-pressed を付けない。
+			     名前に今の状態を出し、止まる (off) 以外は押した見た目にする。 -->
+			{@render iconButton(repeatButton.icon, repeatButton.label(), cycleRepeat, {
+				active: nowPlaying.repeat !== 'off'
+			})}
 		</div>
 	</div>
 {/if}
@@ -284,6 +311,6 @@
 	onloadstart={() => (currentTime = duration = 0)}
 	ontimeupdate={(event) => (currentTime = event.currentTarget.currentTime)}
 	ondurationchange={(event) => (duration = event.currentTarget.duration || 0)}
-	onended={handleEnded}
+	onended={nowPlaying.ended}
 	onerror={nowPlaying.markFailed}
 ></audio>

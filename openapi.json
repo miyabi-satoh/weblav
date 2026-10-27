@@ -2213,6 +2213,86 @@
         }
       }
     },
+    "/api/v1/contents/{id}/archive/shuffle": {
+      "get": {
+        "summary": "閲覧用の一覧の結果のうち、音声の行だけを混ぜた順に並べた結果を作り、その先頭の区切りを返す\n(→ docs/archive.md「音声のシャッフル」)。",
+        "operationId": "view_archive_shuffle",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "snapshot",
+            "in": "query",
+            "description": "混ぜる元の結果の名前 (一覧の最初の要求が返したもの)。",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "混ぜた結果の先頭の区切り",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveShuffleResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "閲覧にログインが必要",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "存在しない・アーカイブでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "元の結果が捨てられた・別の人や口のもの。最初から取り直す",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contents/{id}/axes": {
       "get": {
         "summary": "軸の一覧。並び替えUIでの左からの順番 (`position`) 順に返す。",
@@ -3926,6 +4006,86 @@
         }
       }
     },
+    "/api/v1/contents/{id}/manage-archive/shuffle": {
+      "get": {
+        "summary": "管理画面のアイテムのタブの一覧の、音声の行を混ぜた結果 (→ `view_archive_shuffle`)。",
+        "operationId": "manage_view_archive_shuffle",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "snapshot",
+            "in": "query",
+            "description": "混ぜる元の結果の名前 (一覧の最初の要求が返したもの)。",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "混ぜた結果の先頭の区切り",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManageArchiveShuffleResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "管理できない・存在しない・アーカイブでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "元の結果が捨てられた・別の人や口のもの。最初から取り直す",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contents/{id}/marks": {
       "get": {
         "summary": "公開・非公開の印の一覧。編集ページで、新しく見つかったファイルの扱いと違うものを並べて取り消すため。",
@@ -5319,9 +5479,63 @@
             },
             "description": "消えた・非公開になった行は `null`。"
           },
+          "positions": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "description": "混ぜた結果 (`/archive/shuffle`) のときだけ、各行の混ぜる前の結果での位置。"
+          },
           "stale": {
             "type": "boolean",
             "description": "結果を作った後に、索引か公開・非公開の印が変わったか。画面は一覧の上に取り直しを出す。"
+          }
+        }
+      },
+      "ArchiveShuffleResponse": {
+        "type": "object",
+        "required": [
+          "snapshot",
+          "total",
+          "items",
+          "positions"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ArchiveViewItem"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "消えた・非公開になった行は `null`。"
+          },
+          "positions": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "description": "各行の、混ぜる前の結果での位置。"
+          },
+          "snapshot": {
+            "type": "string",
+            "description": "混ぜた結果の名前。続きは `/archive/page` で引く。"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       },
@@ -7035,8 +7249,62 @@
               ]
             }
           },
+          "positions": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "description": "混ぜた結果 (`/manage-archive/shuffle`) のときだけ、各行の混ぜる前の結果での位置。"
+          },
           "stale": {
             "type": "boolean"
+          }
+        }
+      },
+      "ManageArchiveShuffleResponse": {
+        "type": "object",
+        "required": [
+          "snapshot",
+          "total",
+          "items",
+          "positions"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ManageArchiveViewItem"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "消えた行は `null`。"
+          },
+          "positions": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "description": "各行の、混ぜる前の結果での位置。"
+          },
+          "snapshot": {
+            "type": "string",
+            "description": "混ぜた結果の名前。続きは `/manage-archive/page` で引く。"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       },

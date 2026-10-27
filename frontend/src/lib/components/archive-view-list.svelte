@@ -189,12 +189,96 @@
 		return { path: row.item.relPath, src: (path) => urls.file(row.archiveId, path) };
 	}
 
-	function toTrack(row: ArchiveViewRow<T>): Track {
-		return { src: downloadHref(row), title: row.item.title };
+	function toTrack(row: ArchiveViewRow<T>, position: number): Track {
+		return { src: downloadHref(row), title: row.item.title, position };
 	}
 
-	function audioTracks(rows: ArchiveViewRow<T>[]): Track[] {
-		return rows.filter((row) => isAudioFileName(row.item.fileName)).map(toTrack);
+	/** `list` の `start` 行目から `end` 行目の手前までの、手元にある音声の行。`positionOf` は並びの中の位置。 */
+	function audioTracksBetween(
+		source: ArchivePagedList<T>,
+		start: number,
+		end: number,
+		positionOf: (index: number) => number | undefined = (index) => index
+	): Track[] {
+		const tracks: Track[] = [];
+		for (let i = start; i < end; i++) {
+			const item = source.get(i);
+			if (!item) continue;
+			const row = { archiveId, item };
+			const position = positionOf(i);
+			if (position === undefined || isHidden?.(row) || !isAudioFileName(item.fileName)) continue;
+			tracks.push(toTrack(row, position));
+		}
+		return tracks;
+	}
+
+	/**
+	 * `source` の `from` 行目から先の音声を、区切りごとに返す口。音声の無い区切りが続くこともあるので、
+	 * 曲が見つかるか終わりまで進む。
+	 */
+	function chunkedTracks(
+		source: ArchivePagedList<T>,
+		from: number,
+		positionOf?: (index: number) => number | undefined
+	): () => Promise<Track[]> {
+		let next = from;
+		return async () => {
+			while (next < source.total) {
+				const start = next;
+				await source.ensureLoaded(start);
+				// 取れなかった区切りは飛ばさない。投げると再生の側が今の並びの終わりで止め、次に曲を替えたときにまた試す。
+				if (source.get(start) === undefined) throw new Error('chunk not loaded');
+				next = Math.min(
+					(Math.floor(start / ARCHIVE_CHUNK_SIZE) + 1) * ARCHIVE_CHUNK_SIZE,
+					source.total
+				);
+				const tracks = audioTracksBetween(source, start, next, positionOf);
+				if (tracks.length > 0) return tracks;
+			}
+			return [];
+		};
+	}
+
+	/**
+	 * `source` の並びで `from` 行目から続ける口。曲の位置は再生を始めた一覧のものなので、
+	 * 絞り込みを変えて一覧が替わっても、始めた一覧から続ける。
+	 */
+	function orderedSource(source: ArchivePagedList<T>, from: number): TrackSource {
+		const after = (track: Track) =>
+			orderedSource(source, track.position === undefined ? source.total : track.position + 1);
+		return {
+			more: chunkedTracks(source, from),
+			shuffled: source.canShuffle ? () => shuffledSource(source, after) : undefined,
+			after
+		};
+	}
+
+	/**
+	 * 一覧の音声を、サーバーで混ぜた順に返す口 (→ docs/archive.md「音声のシャッフル」)。
+	 * 手元に全部の行が無いので、全体から混ぜるのはサーバーに任せる。最初に続きを取るときに混ぜた結果を作る。
+	 */
+	function shuffledSource(
+		source: ArchivePagedList<T>,
+		after: (track: Track) => TrackSource
+	): TrackSource {
+		// 1つの口で作る混ぜた結果は1つ。取り直しのたびに作ると、サーバーに使わない結果が溜まる。
+		let more: Promise<(() => Promise<Track[]>) | null> | undefined;
+		return {
+			more: async () => {
+				more ??= source
+					.shuffled()
+					.then((shuffled) =>
+						shuffled ? chunkedTracks(shuffled, 0, (index) => shuffled.positionOf(index)) : null
+					);
+				const next = await more.catch((error: unknown) => {
+					// 作れなかったら、次に頼まれたときに作り直す。
+					more = undefined;
+					throw error;
+				});
+				return next ? next() : [];
+			},
+			after
+		};
 	}
 
 	/**
@@ -202,27 +286,12 @@
 	 * 終わりに近づいたら続きの区切りを取って足す (→ docs/archive.md「続けて鳴らす音声とビューアー」)。
 	 */
 	function audioQueue(index: number): { queue: () => Track[]; more: TrackSource } {
-		let next = list.loadedRange(index)[1];
 		return {
-			queue: () => audioTracks(loadedRowsAround(index)),
-			more: {
-				more: async () => {
-					// 音声の無い区切りが続くこともあるので、曲が見つかるか終わりまで進む。
-					while (next < list.total) {
-						const start = next;
-						await list.ensureLoaded(start);
-						// 取れなかった区切りは飛ばさない。投げると再生の側が今の並びの終わりで止め、次に曲を替えたときにまた試す。
-						if (list.get(start) === undefined) throw new Error('chunk not loaded');
-						next = Math.min(
-							(Math.floor(start / ARCHIVE_CHUNK_SIZE) + 1) * ARCHIVE_CHUNK_SIZE,
-							list.total
-						);
-						const tracks = audioTracks(rowsBetween(start, next));
-						if (tracks.length > 0) return tracks;
-					}
-					return [];
-				}
-			}
+			queue: () => {
+				const [start, end] = list.loadedRange(index);
+				return audioTracksBetween(list, start, end);
+			},
+			more: orderedSource(list, list.loadedRange(index)[1])
 		};
 	}
 
@@ -312,7 +381,7 @@
 		</div>
 	{:else if isAudioFileName(row.item.fileName)}
 		{@const audio = audioQueue(index)}
-		<ListRowPlayButton track={toTrack(row)} queue={audio.queue} more={audio.more}>
+		<ListRowPlayButton track={toTrack(row, index)} queue={audio.queue} more={audio.more}>
 			{@render itemTitle(row)}
 			{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
 			{#snippet leading()}{@render leadingSlot(row)}{/snippet}

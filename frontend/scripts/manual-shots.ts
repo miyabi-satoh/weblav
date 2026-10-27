@@ -1,8 +1,8 @@
 // `just manual-shots` から呼ばれる。マニュアルの画像 (docs/manual/ja/images) のうち、
-// 管理画面と仕組みの図を、使い捨ての backend で撮り直して WebP で書き出す (→ docs/help.md)。
+// 管理画面・音声のプレイヤーと仕組みの図を、使い捨ての backend で撮り直して WebP で書き出す (→ docs/help.md)。
 // 画面の文言や見た目を変えたら流し直す。名前を渡すと、その画像だけを撮る (`just manual-shots roots-page`)。
 //
-// ここに無い画像 (タスクトレイ・OS の窓・閲覧側の画面など) は手で撮っている。
+// ここに無い画像 (タスクトレイ・OS の窓・ほかの閲覧側の画面など) は手で撮っている。
 // 撮れるものを足すときは、名前を ADMIN_SHOTS などの一覧に足し、下の撮影の流れに `want('名前')` で足す。
 // データは元の画像に写っていた名前に合わせてある。
 
@@ -57,7 +57,8 @@ const ADMIN_SHOTS = [
 	'axis-row-actions',
 	'archive-items-tab',
 	'archive-items-publish',
-	'share-qr'
+	'share-qr',
+	'viewing-player'
 ];
 const DIAGRAM_SHOTS = ['how-it-works'];
 const ALL_SHOTS = [...ADMIN_SHOTS, ...DIAGRAM_SHOTS];
@@ -85,6 +86,10 @@ const want = (name: string) => ONLY.size === 0 || ONLY.has(name);
 const DESKTOP_WIDTH = 800;
 /** スマートフォン幅の画像 (タブがアイコンになる) を撮る幅。 */
 const MOBILE_WIDTH = 450;
+/** 音声のプレイヤーを撮る幅。操作の段が3段に分かれる、スマートフォンの幅。 */
+const PLAYER_WIDTH = 390;
+/** プレイヤーに写す曲の長さ (秒)。元の画像の 6:12 に合わせる。 */
+const PLAYER_TRACK_SECONDS = 372;
 /** 欄が画面の下にはみ出さない高さ。はみ出すと clip の外が切れる。 */
 const VIEWPORT_HEIGHT = 2400;
 /** WebP の品質。1枚あたり数十 KB に収まり、文字が滲まない (→ docs/help.md)。 */
@@ -123,9 +128,31 @@ function makeSharedDir(): string {
 		mkdirSync(path.dirname(file), { recursive: true });
 		writeFileSync(file, '');
 	}
+	// プレイヤーを撮る曲は、鳴らせる中身が要る。名前は元の画像に合わせて .mp3 にし、中身は無音の WAV にする
+	// (ブラウザーは拡張子でなく中身で形式を見て鳴らす)。
+	writeFileSync(path.join(shared, '音楽/朝の散歩.mp3'), silentWav(PLAYER_TRACK_SECONDS));
 	mkdirSync(path.join(shared, '教材'));
 	// サーバーは実パスで返す (macOS の一時フォルダーは /private/var/...)。置き換えはこちらに合わせる。
 	return realpathSync(shared);
+}
+
+/** 無音の WAV (8kHz・8bit・モノラル)。 */
+function silentWav(seconds: number): Buffer {
+	const samples = 8000 * seconds;
+	const buffer = Buffer.alloc(44 + samples, 128);
+	buffer.write('RIFF', 0);
+	buffer.writeUInt32LE(36 + samples, 4);
+	buffer.write('WAVEfmt ', 8);
+	buffer.writeUInt32LE(16, 16);
+	buffer.writeUInt16LE(1, 20);
+	buffer.writeUInt16LE(1, 22);
+	buffer.writeUInt32LE(8000, 24);
+	buffer.writeUInt32LE(8000, 28);
+	buffer.writeUInt16LE(1, 32);
+	buffer.writeUInt16LE(8, 34);
+	buffer.write('data', 36);
+	buffer.writeUInt32LE(samples, 40);
+	return buffer;
 }
 
 async function send(request: APIRequestContext, method: string, apiPath: string, data?: unknown) {
@@ -325,12 +352,32 @@ async function shootAdmin() {
 			);
 		}
 
-		for (const title of ['写真', '音楽', '書類'])
-			await send(page.request, 'POST', '/contents', {
+		const folderIds = new Map<string, number>();
+		for (const title of ['写真', '音楽', '書類']) {
+			const folder = await send(page.request, 'POST', '/contents', {
 				type: 'folder',
 				path: path.join(shared, title),
 				visibility: 'public'
 			});
+			folderIds.set(title, folder!.id);
+		}
+
+		if (want('viewing-player')) {
+			const phone = await newPage(backend, PLAYER_WIDTH);
+			await goto(phone, `/folders/${folderIds.get('音楽')}`);
+			await phone.getByRole('button', { name: '朝の散歩.mp3', exact: true }).click();
+			const player = phone.getByRole('region', { name: 'オーディオプレーヤー' });
+			// 鳴っている途中の位置で止め、写る時刻と再生ボタンを決まった形にする。
+			await phone.waitForFunction(() => (document.querySelector('audio')?.currentTime ?? 0) > 0);
+			await phone.evaluate(() => {
+				const audio = document.querySelector('audio')!;
+				audio.pause();
+				audio.currentTime = 1;
+			});
+			await player.getByText('0:01').waitFor();
+			await shotElement(phone, 'viewing-player', player);
+			await phone.context().close();
+		}
 		const group = await send(page.request, 'POST', '/contents', {
 			type: 'group',
 			title: '旅行の思い出',

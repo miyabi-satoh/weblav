@@ -17,7 +17,7 @@
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/schema';
 	import { ArchivePagedList } from '$lib/archive-paged-list.svelte';
-	import { archiveListQuery, viewChunks } from '$lib/archive-list-request';
+	import { archiveListQuery, viewChunks, viewShuffle } from '$lib/archive-list-request';
 	import { LIST_FILTER_QUERY } from '$lib/list-filter';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
@@ -42,7 +42,13 @@
 	let refetched = $state.raw<{ data: typeof data; view: ArchiveViewResponse } | null>(null);
 	let view = $derived(refetched?.data === data ? refetched.view : data.view);
 
-	let list = $derived(new ArchivePagedList<ArchiveViewItem>(view, viewChunks(data.contentId)));
+	let list = $derived(
+		new ArchivePagedList<ArchiveViewItem>(
+			view,
+			viewChunks(data.contentId),
+			viewShuffle(data.contentId)
+		)
+	);
 	$effect(() => {
 		const current = list;
 		return () => current.dispose();

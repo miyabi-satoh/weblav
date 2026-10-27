@@ -449,6 +449,67 @@ async fn archive_view_pages_through_a_snapshot(pool: SqlitePool) {
     }
 }
 
+/// 音声のシャッフルは、一覧の結果のうち音声の行だけを混ぜた結果を作り、各行の元の位置を添える。続きは同じ区切りの口で引く
+/// (→ docs/archive.md「音声のシャッフル」)。混ぜ方の場合分けは `archive_index` の単体テストで見る。
+#[sqlx::test]
+async fn archive_shuffle_returns_only_audio_rows_with_their_positions(pool: SqlitePool) {
+    let dir = temp_test_dir("archive-shuffle");
+    for name in ["a.mp3", "b.pdf", "c.m4a", "d.wav"] {
+        std::fs::write(dir.join(name), b"").expect("ファイルを作れなかった");
+    }
+    let (app, _cookie, id) = setup_archive(&pool, &dir, None).await;
+    publish_all_items(&pool, id).await;
+
+    let (status, body) = view_archive(app.clone(), "", id, &[]).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let list = parse_json(&body);
+    let snapshot = list["snapshot"].as_str().expect("snapshot が返らなかった");
+
+    let uri = format!("/api/v1/contents/{id}/archive/shuffle?snapshot={snapshot}&limit=2");
+    let (status, body) = send(app.clone(), build_request("GET", &uri, None, None)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let shuffled = parse_json(&body);
+    assert_eq!(shuffled["total"], 3, "{body}");
+    for (item, position) in shuffled["items"]
+        .as_array()
+        .expect("items が無い")
+        .iter()
+        .zip(shuffled["positions"].as_array().expect("positions が無い"))
+    {
+        let position = usize::try_from(position.as_u64().expect("位置は数のはず"))
+            .expect("位置は usize に収まるはず");
+        assert_eq!(item["id"], list["items"][position]["id"], "{body}");
+    }
+
+    let token = shuffled["snapshot"]
+        .as_str()
+        .expect("snapshot が返らなかった");
+    let uri = format!("/api/v1/contents/{id}/archive/page?snapshot={token}&offset=2");
+    let (status, body) = send(app.clone(), build_request("GET", &uri, None, None)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let page = parse_json(&body);
+    assert_eq!(page["items"].as_array().map(Vec::len), Some(1), "{body}");
+    assert_eq!(
+        page["positions"].as_array().map(Vec::len),
+        Some(1),
+        "{body}"
+    );
+    let mut names: Vec<String> = shuffled["items"]
+        .as_array()
+        .into_iter()
+        .chain(page["items"].as_array())
+        .flatten()
+        .filter_map(|item| item["fileName"].as_str().map(str::to_string))
+        .collect();
+    names.sort();
+    assert_eq!(names, ["a.mp3", "c.m4a", "d.wav"], "{body}");
+
+    // 元の結果が無ければ混ぜられない。
+    let uri = format!("/api/v1/contents/{id}/archive/shuffle?snapshot=unknown");
+    let (status, body) = send(app, build_request("GET", &uri, None, None)).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+}
+
 /// 名前の語 (`filter`) はサーバーで照らす。管理用はパスでも照らし、公開の状態 (`status`) でも絞る
 /// (→ docs/archive.md「一覧の API を区切って返す」)。
 #[sqlx::test]
