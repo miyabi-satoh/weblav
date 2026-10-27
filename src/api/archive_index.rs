@@ -586,10 +586,9 @@ impl Snapshots {
 fn snapshot_bytes(snapshot: &Snapshot) -> usize {
     SNAPSHOT_OVERHEAD_BYTES
         + snapshot.ids.len() * std::mem::size_of::<i64>()
-        + snapshot
-            .positions
-            .as_ref()
-            .map_or(0, |positions| positions.len() * std::mem::size_of::<usize>())
+        + snapshot.positions.as_ref().map_or(0, |positions| {
+            positions.len() * std::mem::size_of::<usize>()
+        })
 }
 
 /// フォルダーの索引と印の版 (`archive_versions`)。
@@ -955,7 +954,10 @@ mod tests {
         };
 
         let shuffled = snapshot.shuffled_audio(&index, 42);
-        let positions = shuffled.positions.as_deref().expect("混ぜた結果は位置を持つはず");
+        let positions = shuffled
+            .positions
+            .as_deref()
+            .expect("混ぜた結果は位置を持つはず");
         assert_eq!(shuffled.ids.len(), 30);
         for (id, &position) in shuffled.ids.iter().zip(positions) {
             assert_eq!(ids[position], *id);

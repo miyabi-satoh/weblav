@@ -480,13 +480,19 @@ async fn archive_shuffle_returns_only_audio_rows_with_their_positions(pool: Sqli
         assert_eq!(item["id"], list["items"][position]["id"], "{body}");
     }
 
-    let token = shuffled["snapshot"].as_str().expect("snapshot が返らなかった");
+    let token = shuffled["snapshot"]
+        .as_str()
+        .expect("snapshot が返らなかった");
     let uri = format!("/api/v1/contents/{id}/archive/page?snapshot={token}&offset=2");
     let (status, body) = send(app.clone(), build_request("GET", &uri, None, None)).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let page = parse_json(&body);
     assert_eq!(page["items"].as_array().map(Vec::len), Some(1), "{body}");
-    assert_eq!(page["positions"].as_array().map(Vec::len), Some(1), "{body}");
+    assert_eq!(
+        page["positions"].as_array().map(Vec::len),
+        Some(1),
+        "{body}"
+    );
     let mut names: Vec<String> = shuffled["items"]
         .as_array()
         .into_iter()
