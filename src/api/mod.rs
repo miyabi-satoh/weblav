@@ -51,6 +51,13 @@ pub(crate) fn random_hex<const N: usize>() -> std::io::Result<String> {
     Ok(hex_encode(&bytes))
 }
 
+/// 乱数の種。混ぜる順を毎回変えるのに使う。
+pub(crate) fn random_u64() -> std::io::Result<u64> {
+    let mut bytes = [0u8; 8];
+    getrandom::fill(&mut bytes).map_err(std::io::Error::other)?;
+    Ok(u64::from_le_bytes(bytes))
+}
+
 /// バイト列を小文字16進文字列に変換する (この用途だけのために `hex` クレートを増やさない)。
 pub(crate) fn hex_encode(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()

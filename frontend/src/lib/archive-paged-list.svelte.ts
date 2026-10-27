@@ -17,8 +17,23 @@ export const ARCHIVE_CHUNK_SIZE = 500;
  */
 const MAX_CHUNKS = 20;
 
-/** 区切りの続きの応答。結果が捨てられていたら `expired`。 */
-export type ChunkResult<T> = { items: (T | null)[]; stale: boolean } | { expired: true };
+/**
+ * 区切りの続きの応答。結果が捨てられていたら `expired`。
+ * 混ぜた結果 (`shuffled`) の区切りは、各行の混ぜる前の位置 (`positions`) を添える。
+ */
+export type ChunkResult<T> =
+	{ items: (T | null)[]; stale: boolean; positions?: number[] | null } | { expired: true };
+
+/** 最初の区切り。 */
+type FirstChunk<T> = {
+	snapshot: string;
+	total: number;
+	items: (T | null)[];
+	positions?: number[] | null;
+};
+
+/** この一覧の音声の行を混ぜた結果を作る (→ docs/archive.md「音声のシャッフル」)。 */
+export type ShuffleFetch<T> = (snapshot: string) => Promise<FirstChunk<T> | { expired: true }>;
 
 export type ChunkFetch<T> = (
 	snapshot: string,
@@ -37,22 +52,47 @@ export class ArchivePagedList<T> {
 	readonly failed = new SvelteSet<number>();
 
 	#chunks = new SvelteMap<number, (T | null)[]>();
+	// 画面には出さないので、変わったことを知らせる SvelteMap にしない。
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	#positions = new Map<number, number[]>();
 	// 取りに行っている要求。画面には出さないので、変わったことを知らせる SvelteMap にしない。
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	#pending = new Map<number, { controller: AbortController; done: Promise<void> }>();
 	/** 最後に要った順の区切りの番号 (古い順)。捨てるのは古いものから。 */
 	#used: number[] = [];
 	#fetch: ChunkFetch<T>;
+	#shuffle: ShuffleFetch<T> | undefined;
 
-	constructor(
-		first: { snapshot: string; total: number; items: (T | null)[] },
-		fetch: ChunkFetch<T>
-	) {
+	constructor(first: FirstChunk<T>, fetch: ChunkFetch<T>, shuffle?: ShuffleFetch<T>) {
 		this.snapshot = first.snapshot;
 		this.total = first.total;
 		this.#fetch = fetch;
-		this.#chunks.set(0, first.items);
+		this.#shuffle = shuffle;
+		this.#store(0, first.items, first.positions);
 		this.#used.push(0);
+	}
+
+	/** 音声の行を混ぜた結果を作れるか。 */
+	get canShuffle(): boolean {
+		return this.#shuffle !== undefined;
+	}
+
+	/**
+	 * この一覧の音声の行を、サーバーで混ぜた順に並べた一覧。手元に全部が無いので、全体から混ぜるのはサーバーに任せる。
+	 * この一覧の結果が捨てられていたら `null`。
+	 */
+	async shuffled(): Promise<ArchivePagedList<T> | null> {
+		if (!this.#shuffle) return null;
+		const first = await this.#shuffle(this.snapshot);
+		if ('expired' in first) return null;
+		return new ArchivePagedList(first, this.#fetch);
+	}
+
+	/** 混ぜた一覧の `index` 行目の、混ぜる前の一覧での位置。まだ取っていないか、混ぜた一覧でなければ `undefined`。 */
+	positionOf(index: number): number | undefined {
+		return this.#positions.get(Math.floor(index / ARCHIVE_CHUNK_SIZE))?.[
+			index % ARCHIVE_CHUNK_SIZE
+		];
 	}
 
 	/** `index` 行目。まだ取っていなければ `undefined`、消えた・非公開になった行は `null`。 */
@@ -130,7 +170,7 @@ export class ArchivePagedList<T> {
 				this.expired = true;
 				return;
 			}
-			this.#chunks.set(chunk, result.items);
+			this.#store(chunk, result.items, result.positions);
 			if (result.stale) this.stale = true;
 			this.#evict();
 		} catch {
@@ -138,6 +178,11 @@ export class ArchivePagedList<T> {
 		} finally {
 			if (this.#pending.get(chunk)?.controller === controller) this.#pending.delete(chunk);
 		}
+	}
+
+	#store(chunk: number, items: (T | null)[], positions: number[] | null | undefined) {
+		this.#chunks.set(chunk, items);
+		if (positions) this.#positions.set(chunk, positions);
 	}
 
 	#touch(chunk: number) {
@@ -152,6 +197,7 @@ export class ArchivePagedList<T> {
 			if (oldest === undefined) return;
 			this.#used.splice(this.#used.indexOf(oldest), 1);
 			this.#chunks.delete(oldest);
+			this.#positions.delete(oldest);
 		}
 	}
 }

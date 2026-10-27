@@ -617,6 +617,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/{id}/archive/shuffle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 閲覧用の一覧の結果のうち、音声の行だけを混ぜた順に並べた結果を作り、その先頭の区切りを返す
+         *     (→ docs/archive.md「音声のシャッフル」)。
+         */
+        get: operations["view_archive_shuffle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/{id}/axes": {
         parameters: {
             query?: never;
@@ -1044,6 +1064,23 @@ export interface paths {
         };
         /** 管理画面のアイテムのタブの一覧の、区切りの続き。 */
         get: operations["manage_view_archive_page"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/manage-archive/shuffle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 管理画面のアイテムのタブの一覧の、音声の行を混ぜた結果 (→ `view_archive_shuffle`)。 */
+        get: operations["manage_view_archive_shuffle"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1533,8 +1570,19 @@ export interface components {
         ArchivePageResponse: {
             /** @description 消えた・非公開になった行は `null`。 */
             items: (components["schemas"]["ArchiveViewItem"] | null)[];
+            /** @description 混ぜた結果 (`/archive/shuffle`) のときだけ、各行の混ぜる前の結果での位置。 */
+            positions?: number[] | null;
             /** @description 結果を作った後に、索引か公開・非公開の印が変わったか。画面は一覧の上に取り直しを出す。 */
             stale: boolean;
+        };
+        ArchiveShuffleResponse: {
+            /** @description 消えた・非公開になった行は `null`。 */
+            items: (components["schemas"]["ArchiveViewItem"] | null)[];
+            /** @description 各行の、混ぜる前の結果での位置。 */
+            positions: number[];
+            /** @description 混ぜた結果の名前。続きは `/archive/page` で引く。 */
+            snapshot: string;
+            total: number;
         };
         ArchiveStatusCounts: {
             all: number;
@@ -2123,7 +2171,18 @@ export interface components {
         };
         ManageArchivePageResponse: {
             items: (components["schemas"]["ManageArchiveViewItem"] | null)[];
+            /** @description 混ぜた結果 (`/manage-archive/shuffle`) のときだけ、各行の混ぜる前の結果での位置。 */
+            positions?: number[] | null;
             stale: boolean;
+        };
+        ManageArchiveShuffleResponse: {
+            /** @description 消えた行は `null`。 */
+            items: (components["schemas"]["ManageArchiveViewItem"] | null)[];
+            /** @description 各行の、混ぜる前の結果での位置。 */
+            positions: number[];
+            /** @description 混ぜた結果の名前。続きは `/manage-archive/page` で引く。 */
+            snapshot: string;
+            total: number;
         };
         ManageArchiveViewItem: components["schemas"]["ArchiveViewItem"] & {
             published: boolean;
@@ -4529,6 +4588,59 @@ export interface operations {
             };
         };
     };
+    view_archive_shuffle: {
+        parameters: {
+            query: {
+                /** @description 混ぜる元の結果の名前 (一覧の最初の要求が返したもの)。 */
+                snapshot: string;
+                limit?: number | null;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 混ぜた結果の先頭の区切り */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchiveShuffleResponse"];
+                };
+            };
+            /** @description 閲覧にログインが必要 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 存在しない・アーカイブでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 元の結果が捨てられた・別の人や口のもの。最初から取り直す */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_axes: {
         parameters: {
             query?: never;
@@ -5806,6 +5918,59 @@ export interface operations {
                 };
             };
             /** @description 結果が捨てられた・別の人や口のもの。最初から取り直す */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    manage_view_archive_shuffle: {
+        parameters: {
+            query: {
+                /** @description 混ぜる元の結果の名前 (一覧の最初の要求が返したもの)。 */
+                snapshot: string;
+                limit?: number | null;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 混ぜた結果の先頭の区切り */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManageArchiveShuffleResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 管理できない・存在しない・アーカイブでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 元の結果が捨てられた・別の人や口のもの。最初から取り直す */
             409: {
                 headers: {
                     [name: string]: unknown;

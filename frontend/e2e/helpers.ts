@@ -127,8 +127,11 @@ export const BROWSE_LAYOUT_TILE_NAME = /^タイル$|^Tiles$/;
 export const PREVIOUS_TRACK_BUTTON_NAME = /^前のトラック$|^Previous track$/;
 export const NEXT_TRACK_BUTTON_NAME = /^次のトラック$|^Next track$/;
 export const NEXT_FILE_BUTTON_NAME = /^次のファイル$|^Next file$/;
-/** ページ内プレイヤーの「続けて再生」。 */
-export const AUTO_ADVANCE_BUTTON_NAME = /^次を自動的に再生$|^Play next automatically$/;
+/** ページ内プレイヤーの、曲が終わったときの動きのボタン。名前は今の状態。 */
+export const REPEAT_OFF_BUTTON_NAME = /^1\s曲で止まる$|^Stop after this track$/;
+export const REPEAT_LIST_BUTTON_NAME = /^続けて再生$|^Play through the list$/;
+/** ページ内プレイヤーの「シャッフル」。 */
+export const SHUFFLE_BUTTON_NAME = /^シャッフル$|^Shuffle$/;
 
 /**
  * 保存し、保存したことを知らせるトーストが出るまで待つ。

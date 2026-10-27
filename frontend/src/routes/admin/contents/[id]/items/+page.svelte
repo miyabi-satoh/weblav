@@ -18,7 +18,7 @@
 	import { linksFileHref } from '$lib/links-file';
 	import { LIST_FILTER_QUERY } from '$lib/list-filter';
 	import { ArchivePagedList } from '$lib/archive-paged-list.svelte';
-	import { archiveListQuery, manageChunks } from '$lib/archive-list-request';
+	import { archiveListQuery, manageChunks, manageShuffle } from '$lib/archive-list-request';
 	import ArchiveStaleNotice from '$lib/components/archive-stale-notice.svelte';
 	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
 	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
@@ -97,7 +97,13 @@
 			: data.view
 	);
 
-	let list = $derived(new ArchivePagedList<ManageItem>(view, manageChunks(data.contentId)));
+	let list = $derived(
+		new ArchivePagedList<ManageItem>(
+			view,
+			manageChunks(data.contentId),
+			manageShuffle(data.contentId)
+		)
+	);
 	$effect(() => {
 		const current = list;
 		return () => current.dispose();

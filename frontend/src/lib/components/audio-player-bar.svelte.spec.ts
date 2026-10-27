@@ -46,7 +46,7 @@ async function pauseAt(seconds: number) {
 describe('AudioPlayerBar', () => {
 	afterEach(() => {
 		nowPlaying.stop();
-		nowPlaying.autoAdvance = false;
+		nowPlaying.repeat = 'off';
 		nowPlaying.muted = false;
 	});
 
@@ -116,10 +116,10 @@ describe('AudioPlayerBar', () => {
 		await expect.element(page.getByRole('button', { name: /^(再生|Play)$/ })).toBeVisible();
 	});
 
-	it('plays the next track when "play next automatically" is on and a track ends', async () => {
+	it('plays the next track when playing through the list and a track ends', async () => {
 		const first = { src: silentWavUrl(1), title: 'first' };
 		const second = { src: silentWavUrl(8), title: 'second' };
-		nowPlaying.autoAdvance = true;
+		nowPlaying.repeat = 'list';
 		await render(AudioPlayerBar);
 		await userEvent.click(document.body);
 		nowPlaying.play(first, [first, second]);
@@ -131,6 +131,26 @@ describe('AudioPlayerBar', () => {
 			.toBe(second.src);
 		await expect.poll(async () => (await loadedAudio()).paused).toBe(false);
 		await expect.element(page.getByRole('button', { name: /^(一時停止|Pause)$/ })).toBeVisible();
+	});
+
+	it('cycles what happens at the end of a track, leaving the repeat of one track to the element', async () => {
+		const first = { src: silentWavUrl(8), title: 'first' };
+		await render(AudioPlayerBar);
+		nowPlaying.play(first, [first]);
+		const audio = await loadedAudio();
+
+		const labels: (string | null)[] = [];
+		for (let i = 0; i < 4; i++) {
+			const button = page.getByRole('button', {
+				name: /^(1\s曲で止まる|続けて再生|全曲リピート|1\s曲リピート|Stop after this track|Play through the list|Repeat all|Repeat one)$/
+			});
+			labels.push(button.element().getAttribute('aria-label'));
+			await button.click();
+			if (nowPlaying.repeat === 'one') expect(audio.loop).toBe(true);
+		}
+		expect(nowPlaying.repeat).toBe('off');
+		expect(audio.loop).toBe(false);
+		expect(new Set(labels).size).toBe(4);
 	});
 
 	it('resumes from the current position when the current track is chosen again', async () => {

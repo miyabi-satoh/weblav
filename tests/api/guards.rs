@@ -46,6 +46,10 @@ const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
     ),
     (
         "GET",
+        "/api/v1/contents/9999/manage-archive/shuffle?snapshot=x",
+    ),
+    (
+        "GET",
         "/api/v1/contents/9999/archive/manage-download?path=a.pdf",
     ),
     ("GET", "/api/v1/admin/fs/dirs"),

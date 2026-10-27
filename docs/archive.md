@@ -341,6 +341,15 @@ Plex・Jellyfin は一覧を区切って取り (何件目から何件)、Google 
 - **ビューアーは、開くときに前後の区切りを取っておき、その範囲で前後に移る**。PhotoSwipe もファイルのビューアーも、開いた時点の並びを持って前後を決めるため。範囲は開いた行の前後500件以上で、端の手前で行き止まりになる。上の数字はその範囲の中での位置。
 - 消えた行と非公開になった行は、並びに入れない。
 
+### 音声のシャッフル
+
+- **シャッフルの順は、サーバーで一覧の結果の音声の行だけを混ぜて作る** (`GET /contents/{id}/archive/shuffle`、管理用は `/manage-archive/shuffle`)。手元にある区切りだけを混ぜると、全体からの順にならないため。
+  混ぜた結果は元の結果と同じ結果の集まりとして持ち (作った口・人・版を引き継ぐ)、続きは区切りの口 (`/archive/page`) でそのまま引く。混ぜた結果が音声の行だけを持つのは、音声の無い区切りが続いて取りに行く回数が増えないようにするため。
+  音声かどうかは拡張子で見て、画面の `isAudioFileName` (`file-kind.ts`) と同じ一覧にする。
+- 混ぜた結果の区切りは、各行の元の結果での位置 (`positions`) を添える。シャッフルを切ったとき、今の曲が手元の並びに無ければ、その位置の次から元の並びで続けるため。
+- 混ぜた結果は、シャッフルをオンにしたとき (オンのまま再生を始めたときを含む) に、続きを取りに行くところで作る。曲の差し替えは操作の中で同期的に行うので (→ 「続けて鳴らす音声とビューアー」)、押した曲を先に鳴らし、並びは届いてから伸ばす。
+- 混ぜ方は Fisher–Yates。乱数は種を `getrandom` で取った splitmix64 で、暗号の強さは要らないので `rand` クレートは使わない。
+
 ### まとめて公開を切り替える
 
 - `PUT /contents/{id}/items` は、番号の一覧 (`itemIds`) の代わりに、`snapshot` と外した番号 (`exceptIds`) を受ける。手元に全件が無いと番号を集められず、30万件の番号は要求の大きさの上限も超えるため。
@@ -368,12 +377,14 @@ Plex・Jellyfin は一覧を区切って取り (何件目から何件)、Google 
 | メソッド・パス | 権限 | 用途 |
 |---|---|---|
 | `GET /contents/{id}/archive` | `Viewer` | 閲覧用。軸の定義・選択肢・件数と、絞って並べた結果の名前 (`snapshot`) と先頭の区切りを返す。軸の絞り込みは `axis.<軸名>=<表示名>`、ほかに `sort`・`filter` (名前の語)・`limit` (→ 「一覧の API を区切って返す」、ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」) |
-| `GET /contents/{id}/archive/page` | `Viewer` | 閲覧用の区切りの続き (`snapshot`・`offset`・`limit`)。結果が捨てられていたら 409 |
+| `GET /contents/{id}/archive/page` | `Viewer` | 閲覧用の区切りの続き (`snapshot`・`offset`・`limit`)。結果が捨てられていたら 409。混ぜた結果なら元の位置 (`positions`) を添える |
+| `GET /contents/{id}/archive/shuffle` | `Viewer` | 閲覧用の結果 (`snapshot`) の音声の行を混ぜた結果を作り、名前と先頭の区切りを返す (→ 「音声のシャッフル」)。元の結果が捨てられていたら 409 |
 | `POST /contents/{id}/rescan` | `AuthUser` | 再スキャン (→ 「スキャン」) |
 | `GET /contents/{id}/rescan` | `AuthUser` | 再スキャンの進み具合 (→ 「スキャン」) |
 | `DELETE /contents/{id}/rescan` | `AuthUser` | 再スキャンの中止 (→ 「スキャンの中止」) |
 | `GET /contents/{id}/manage-archive` | `AuthUser` | 管理画面のアイテムのタブ。閲覧用の一覧と同じ絞り込み・並べ替え・導出で、未公開のアイテムも含め、公開しているか (`published`) を付ける。名前の語はパスでも照らし、`status` (公開の状態) でも絞る |
 | `GET /contents/{id}/manage-archive/page` | `AuthUser` | 管理用の区切りの続き |
+| `GET /contents/{id}/manage-archive/shuffle` | `AuthUser` | 管理用の結果の音声の行を混ぜた結果 |
 | `GET /contents/{id}/path-samples` | `AuthUser` | AI に渡す依頼文に載せるパスの例とアイテムの数 (→ 「ほかに全件を前提にしているもの」) |
 | `GET /contents/{id}/items/{item_id}/manage-thumbnail` | `AuthUser` | 管理画面の縮小画像。未公開も出す |
 | `GET /contents/{id}/archive/manage-download` | `AuthUser` | 管理画面からの、相対パスで指したアイテムの配信。未公開も渡す |

@@ -472,9 +472,72 @@ pub(super) struct Snapshot {
     /// 作った人。匿名の閲覧者は `None`。
     pub(super) owner: Option<i64>,
     pub(super) ids: Arc<[i64]>,
+    /// 混ぜた結果 (`shuffled_audio`) だけが持つ、元の結果での各行の位置。シャッフルを切ったとき、
+    /// 画面が今の曲の次から元の並びで続けるのに使う。
+    pub(super) positions: Option<Arc<[usize]>>,
     pub(super) active_filters: Arc<[Option<String>]>,
     /// 作ったときの版。新しくなったかを画面に知らせる (`stale`)。
     pub(super) versions: Versions,
+}
+
+impl Snapshot {
+    /// この結果のうち音声の行だけを、`seed` で混ぜた順に並べた結果 (→ docs/archive.md「音声のシャッフル」)。
+    /// 区切って取る一覧は全部が画面に無いので、全体から混ぜるにはサーバーで混ぜる。
+    /// 作った口・人・版はこの結果のものを引き継ぐ。
+    pub(super) fn shuffled_audio(&self, index: &ArchiveIndex, seed: u64) -> Snapshot {
+        let mut rows: Vec<(i64, usize)> = self
+            .ids
+            .iter()
+            .enumerate()
+            .filter(|&(_, &id)| {
+                index
+                    .get(id)
+                    .is_some_and(|item| is_audio_file_name(item.file_name()))
+            })
+            .map(|(position, &id)| (id, position))
+            .collect();
+        shuffle(&mut rows, seed);
+        Snapshot {
+            archive_id: self.archive_id,
+            kind: self.kind,
+            owner: self.owner,
+            ids: rows.iter().map(|&(id, _)| id).collect(),
+            positions: Some(rows.iter().map(|&(_, position)| position).collect()),
+            active_filters: Arc::clone(&self.active_filters),
+            versions: self.versions,
+        }
+    }
+}
+
+/// ページ内で鳴らす音声の拡張子。画面の `AUDIO_EXTENSIONS` (`frontend/src/lib/file-kind.ts`) と揃える。
+/// 画面が音声として並べる行と、混ぜる行を同じにするため。
+const AUDIO_EXTENSIONS: [&str; 9] = [
+    "mp3", "m4a", "wav", "ogg", "oga", "flac", "aac", "wma", "opus",
+];
+
+fn is_audio_file_name(name: &str) -> bool {
+    name.rsplit_once('.').is_some_and(|(_, extension)| {
+        AUDIO_EXTENSIONS
+            .iter()
+            .any(|audio| extension.eq_ignore_ascii_case(audio))
+    })
+}
+
+/// Fisher–Yates で混ぜる。乱数は splitmix64。混ぜ方に暗号の強さは要らず、この用途だけのために
+/// `rand` クレートを増やさないため。
+fn shuffle<T>(items: &mut [T], seed: u64) {
+    let mut state = seed;
+    for i in (1..items.len()).rev() {
+        state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^= z >> 31;
+        // 0..=i へ偏りを小さく写す (Lemire の掛け算)。上位の64ビットは i + 1 未満なので usize に収まる。
+        let bound = u128::try_from(i + 1).expect("index fits in u128");
+        let j = usize::try_from((u128::from(z) * bound) >> 64).expect("below the bound");
+        items.swap(i, j);
+    }
 }
 
 struct StoredSnapshot {
@@ -521,7 +584,12 @@ impl Snapshots {
 }
 
 fn snapshot_bytes(snapshot: &Snapshot) -> usize {
-    SNAPSHOT_OVERHEAD_BYTES + snapshot.ids.len() * std::mem::size_of::<i64>()
+    SNAPSHOT_OVERHEAD_BYTES
+        + snapshot.ids.len() * std::mem::size_of::<i64>()
+        + snapshot
+            .positions
+            .as_ref()
+            .map_or(0, |positions| positions.len() * std::mem::size_of::<usize>())
 }
 
 /// フォルダーの索引と印の版 (`archive_versions`)。
@@ -865,6 +933,42 @@ mod tests {
         assert_eq!(result.total_all, 2);
     }
 
+    /// 混ぜた結果は元の結果の音声の行だけを持ち、各行の元の位置を添える。同じ種なら同じ順になる。
+    #[test]
+    fn shuffled_audio_keeps_only_audio_rows_with_their_positions() {
+        let paths: Vec<String> = (0..40)
+            .map(|n| {
+                let extension = if n % 4 == 0 { "pdf" } else { "MP3" };
+                format!("a/kokugo_{n}.{extension}")
+            })
+            .collect();
+        let index = index(&paths.iter().map(String::as_str).collect::<Vec<_>>());
+        let ids: Vec<i64> = index.items.iter().rev().map(|item| item.id).collect();
+        let snapshot = Snapshot {
+            archive_id: 1,
+            kind: SnapshotKind::View,
+            owner: None,
+            ids: ids.clone().into(),
+            positions: None,
+            active_filters: Vec::new().into(),
+            versions: Versions::default(),
+        };
+
+        let shuffled = snapshot.shuffled_audio(&index, 42);
+        let positions = shuffled.positions.as_deref().expect("混ぜた結果は位置を持つはず");
+        assert_eq!(shuffled.ids.len(), 30);
+        for (id, &position) in shuffled.ids.iter().zip(positions) {
+            assert_eq!(ids[position], *id);
+            let item = index.get(*id).expect("索引にある行のはず");
+            assert!(is_audio_file_name(item.file_name()));
+        }
+        let mut sorted = positions.to_vec();
+        sorted.sort_unstable();
+        assert_ne!(positions, sorted.as_slice(), "混ざっているはず");
+        assert_eq!(shuffled.ids, snapshot.shuffled_audio(&index, 42).ids);
+        assert_ne!(shuffled.ids, snapshot.shuffled_audio(&index, 43).ids);
+    }
+
     /// 結果の集まりは、作ったフォルダー・口・人からしか引けない。
     #[test]
     fn snapshots_are_bound_to_the_archive_kind_and_owner() {
@@ -875,6 +979,7 @@ mod tests {
                 kind: SnapshotKind::Manage,
                 owner: Some(7),
                 ids: vec![1, 2].into(),
+                positions: None,
                 active_filters: Vec::new().into(),
                 versions: Versions::default(),
             })
