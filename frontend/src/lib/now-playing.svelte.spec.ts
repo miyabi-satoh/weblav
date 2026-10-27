@@ -90,4 +90,35 @@ describe('nowPlaying', () => {
 		await expect.poll(() => nowPlaying.hasNext).toBe(true);
 		expect(playedOrder(10)).toEqual(['/t3', '/t4', '/t5', '/t6', '/t7', '/t8', '/t9']);
 	});
+
+	it('shuffles the loaded tracks when the list can no longer make a shuffled order', async () => {
+		const list = tracks(5);
+		const source: TrackSource = {
+			more: async () => [],
+			shuffled: () => ({ more: async () => [] })
+		};
+		nowPlaying.shuffle = true;
+		nowPlaying.play(list[0], list, source);
+		await expect.poll(() => nowPlaying.hasNext).toBe(true);
+		expect([...playedOrder(10)].sort()).toEqual(list.map((t) => t.src).sort());
+	});
+
+	it('keeps tracks fetched in order while shuffle was turned on', async () => {
+		const list = tracks(6);
+		let resolve: (tracks: Track[]) => void = () => {};
+		let calls = 0;
+		const source: TrackSource = {
+			more: () => {
+				calls += 1;
+				return calls === 1 ? new Promise<Track[]>((r) => (resolve = r)) : Promise.resolve([]);
+			}
+		};
+		nowPlaying.play(list[0], list.slice(0, 2), source);
+		nowPlaying.shuffle = true;
+		resolve(list.slice(2));
+		await Promise.resolve();
+		nowPlaying.shuffle = false;
+		await expect.poll(() => nowPlaying.hasNext).toBe(true);
+		expect(playedOrder(10)).toEqual(list.map((t) => t.src));
+	});
 });

@@ -5486,6 +5486,7 @@
             ],
             "items": {
               "type": "integer",
+              "format": "int32",
               "minimum": 0
             },
             "description": "混ぜた結果 (`/archive/shuffle`) のときだけ、各行の混ぜる前の結果での位置。"
@@ -5523,6 +5524,7 @@
             "type": "array",
             "items": {
               "type": "integer",
+              "format": "int32",
               "minimum": 0
             },
             "description": "各行の、混ぜる前の結果での位置。"
@@ -7254,6 +7256,7 @@
             ],
             "items": {
               "type": "integer",
+              "format": "int32",
               "minimum": 0
             },
             "description": "混ぜた結果 (`/manage-archive/shuffle`) のときだけ、各行の混ぜる前の結果での位置。"
@@ -7290,6 +7293,7 @@
             "type": "array",
             "items": {
               "type": "integer",
+              "format": "int32",
               "minimum": 0
             },
             "description": "各行の、混ぜる前の結果での位置。"

@@ -476,7 +476,8 @@ async fn archive_shuffle_returns_only_audio_rows_with_their_positions(pool: Sqli
         .iter()
         .zip(shuffled["positions"].as_array().expect("positions が無い"))
     {
-        let position = position.as_u64().expect("位置は数のはず") as usize;
+        let position = usize::try_from(position.as_u64().expect("位置は数のはず"))
+            .expect("位置は usize に収まるはず");
         assert_eq!(item["id"], list["items"][position]["id"], "{body}");
     }
 

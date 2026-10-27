@@ -474,7 +474,7 @@ pub(super) struct Snapshot {
     pub(super) ids: Arc<[i64]>,
     /// 混ぜた結果 (`shuffled_audio`) だけが持つ、元の結果での各行の位置。シャッフルを切ったとき、
     /// 画面が今の曲の次から元の並びで続けるのに使う。
-    pub(super) positions: Option<Arc<[usize]>>,
+    pub(super) positions: Option<Arc<[u32]>>,
     pub(super) active_filters: Arc<[Option<String>]>,
     /// 作ったときの版。新しくなったかを画面に知らせる (`stale`)。
     pub(super) versions: Versions,
@@ -485,7 +485,7 @@ impl Snapshot {
     /// 区切って取る一覧は全部が画面に無いので、全体から混ぜるにはサーバーで混ぜる。
     /// 作った口・人・版はこの結果のものを引き継ぐ。
     pub(super) fn shuffled_audio(&self, index: &ArchiveIndex, seed: u64) -> Snapshot {
-        let mut rows: Vec<(i64, usize)> = self
+        let mut rows: Vec<(i64, u32)> = self
             .ids
             .iter()
             .enumerate()
@@ -494,7 +494,13 @@ impl Snapshot {
                     .get(id)
                     .is_some_and(|item| is_audio_file_name(item.file_name()))
             })
-            .map(|(position, &id)| (id, position))
+            // usize の半分の量で持つ。40億件の結果はメモリに載らないので、u32 に収まる。
+            .map(|(position, &id)| {
+                (
+                    id,
+                    u32::try_from(position).expect("result positions fit in u32"),
+                )
+            })
             .collect();
         shuffle(&mut rows, seed);
         Snapshot {
@@ -509,7 +515,7 @@ impl Snapshot {
     }
 }
 
-/// ページ内で鳴らす音声の拡張子。画面の `AUDIO_EXTENSIONS` (`frontend/src/lib/file-kind.ts`) と揃える。
+/// ページ内で鳴らす音声の拡張子。画面と同じ一覧 (`frontend/src/lib/audio-extensions.json`) で、テストで揃える。
 /// 画面が音声として並べる行と、混ぜる行を同じにするため。
 const AUDIO_EXTENSIONS: [&str; 9] = [
     "mp3", "m4a", "wav", "ogg", "oga", "flac", "aac", "wma", "opus",
@@ -586,9 +592,10 @@ impl Snapshots {
 fn snapshot_bytes(snapshot: &Snapshot) -> usize {
     SNAPSHOT_OVERHEAD_BYTES
         + snapshot.ids.len() * std::mem::size_of::<i64>()
-        + snapshot.positions.as_ref().map_or(0, |positions| {
-            positions.len() * std::mem::size_of::<usize>()
-        })
+        + snapshot
+            .positions
+            .as_ref()
+            .map_or(0, |positions| positions.len() * std::mem::size_of::<u32>())
 }
 
 /// フォルダーの索引と印の版 (`archive_versions`)。
@@ -960,7 +967,7 @@ mod tests {
             .expect("混ぜた結果は位置を持つはず");
         assert_eq!(shuffled.ids.len(), 30);
         for (id, &position) in shuffled.ids.iter().zip(positions) {
-            assert_eq!(ids[position], *id);
+            assert_eq!(ids[position as usize], *id);
             let item = index.get(*id).expect("索引にある行のはず");
             assert!(is_audio_file_name(item.file_name()));
         }
@@ -969,6 +976,15 @@ mod tests {
         assert_ne!(positions, sorted.as_slice(), "混ざっているはず");
         assert_eq!(shuffled.ids, snapshot.shuffled_audio(&index, 42).ids);
         assert_ne!(shuffled.ids, snapshot.shuffled_audio(&index, 43).ids);
+    }
+
+    /// 音声の拡張子は、画面と同じ一覧にする。
+    #[test]
+    fn audio_extensions_match_the_frontend() {
+        let frontend: Vec<String> =
+            serde_json::from_str(include_str!("../../frontend/src/lib/audio-extensions.json"))
+                .expect("拡張子の一覧を読めるはず");
+        assert_eq!(frontend, AUDIO_EXTENSIONS);
     }
 
     /// 結果の集まりは、作ったフォルダー・口・人からしか引けない。

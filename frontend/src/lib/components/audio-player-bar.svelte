@@ -172,13 +172,20 @@
 	{
 		disabled = false,
 		pressed,
+		active = pressed,
 		class: className
-	}: { disabled?: boolean; pressed?: boolean; class?: string } = {}
+	}: {
+		disabled?: boolean;
+		pressed?: boolean;
+		/** 押した見た目にするか。オン・オフでないボタンは `pressed` を渡さず、見た目だけをこれで決める。 */
+		active?: boolean;
+		class?: string;
+	} = {}
 )}
 	<Button
 		variant="ghost"
 		size="icon-lg"
-		class={['text-sub-foreground', pressed && 'bg-muted text-primary', className]}
+		class={['text-sub-foreground', active && 'bg-muted text-primary', className]}
 		aria-label={label}
 		aria-pressed={pressed}
 		{disabled}
@@ -289,15 +296,9 @@
 			})}
 			<!-- 4つの状態を順に回すので、押した・押していないの2つでは表せず、aria-pressed を付けない。
 			     名前に今の状態を出し、止まる (off) 以外は押した見た目にする。 -->
-			<Button
-				variant="ghost"
-				size="icon-lg"
-				class={['text-sub-foreground', nowPlaying.repeat !== 'off' && 'bg-muted text-primary']}
-				aria-label={repeatButton.label()}
-				onclick={cycleRepeat}
-			>
-				<repeatButton.icon class="size-5" />
-			</Button>
+			{@render iconButton(repeatButton.icon, repeatButton.label(), cycleRepeat, {
+				active: nowPlaying.repeat !== 'off'
+			})}
 		</div>
 	</div>
 {/if}

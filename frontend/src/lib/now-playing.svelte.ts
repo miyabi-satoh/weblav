@@ -68,9 +68,13 @@ function shuffledCopy<T>(items: readonly T[]): T[] {
 // 絞り込みを変えたりしても、鳴っている曲の前後が入れ替わらないようにするため。
 let queue = $state<Track[]>([]);
 let index = $state(-1);
-/** 並びの続きを足す口。続きが無いと分かったら外す。 */
-let source: TrackSource | null = null;
-let fetchingMore = false;
+/** 並びの続きを足す口。続きが無いと分かったら外す。外れると全曲リピートで端から戻れるようになるので、画面に知らせる。 */
+let source = $state.raw<TrackSource | null>(null);
+/**
+ * 続きを取りに行っている口。シャッフルを切り替えて同じ口に戻ったとき、取っている最中の口へもう一度頼まないため
+ * (口の中の位置は取り終えてから進むので、二重に頼むと同じ区切りが返り、続きが無いと見誤る)。
+ */
+let fetching: TrackSource | null = null;
 let repeat = $state(storedRepeat());
 let shuffle = $state(readStored(SHUFFLE_STORAGE_KEY) === 'true');
 /** シャッフル中だけ、混ぜる前の並びと続きの口。切ったときに、今の曲の位置から元の並びに戻すため。 */
@@ -150,6 +154,13 @@ function resume() {
 	});
 }
 
+/** `queue` の後ろに、まだ無い曲を足した並び。 */
+function appendNew(queue: Track[], tracks: Track[]): Track[] {
+	const known = new Set(queue.map((track) => track.src));
+	const added = tracks.filter((track) => !known.has(track.src));
+	return added.length === 0 ? queue : [...queue, ...added];
+}
+
 /** 最後の曲の次に最初へ戻れるか。続きを取り切ってからでないと、まだ取っていない曲を飛ばすことになる。 */
 function wraps() {
 	return repeat === 'all' && source === null && queue.length > 0;
@@ -172,7 +183,6 @@ function enterShuffle() {
 	queue = server ? [current] : [current, ...shuffledCopy(queue.filter((_, i) => i !== index))];
 	index = 0;
 	source = server ?? null;
-	fetchingMore = false;
 }
 
 /** 混ぜる前の並びに戻し、今の曲の次から続ける。 */
@@ -191,28 +201,36 @@ function leaveShuffle() {
 		index = 0;
 		source = saved.source?.after?.(current) ?? null;
 	}
-	fetchingMore = false;
 }
 
 /** 終わりに近づいていたら、並びの続きを取って足しておく。 */
 function prefetch() {
 	const current = source;
-	if (!current || fetchingMore || queue.length - 1 - index > PREFETCH_REMAINING) return;
-	fetchingMore = true;
+	if (!current || fetching === current || queue.length - 1 - index > PREFETCH_REMAINING) return;
+	fetching = current;
 	void current
 		.more()
 		.then((tracks) => {
+			// 取っている間にシャッフルをオンにしたら、混ぜる前の並びに足しておく。口の中の位置はもう進んでいるので、
+			// 捨てるとオフにしたときにその区切りを飛ばす。
+			if (ordered?.source === current) {
+				ordered.queue = appendNew(ordered.queue, tracks);
+				return;
+			}
 			if (source !== current) return;
-			const known = new Set(queue.map((track) => track.src));
-			const added = tracks.filter((track) => !known.has(track.src));
-			if (added.length === 0) source = null;
-			else queue = [...queue, ...added];
+			const added = appendNew(queue, tracks);
+			if (added.length > queue.length) queue = added;
+			else if (ordered && queue.length === 1) {
+				// 混ぜた結果を作れなかった (元の結果が捨てられていた) ので、手元の並びを混ぜる。
+				queue = [queue[0], ...shuffledCopy(ordered.queue.filter((t) => t.src !== queue[0].src))];
+				source = null;
+			} else source = null;
 		})
 		.catch(() => {
 			// 取れなければ、今ある並びの終わりで止まる。次に曲を替えたときにまた試す。
 		})
 		.finally(() => {
-			if (source === current) fetchingMore = false;
+			if (fetching === current) fetching = null;
 		});
 }
 
@@ -316,7 +334,6 @@ export const nowPlaying = {
 		queue = found < 0 ? [track] : list.map((t) => ({ ...t }));
 		index = Math.max(found, 0);
 		source = found < 0 ? null : (more ?? null);
-		fetchingMore = false;
 		ordered = null;
 		if (shuffle) enterShuffle();
 		paused = false;
@@ -345,8 +362,16 @@ export const nowPlaying = {
 	next({ play = false }: { play?: boolean } = {}) {
 		if (index < 0) return;
 		if (index < queue.length - 1) index += 1;
-		else if (wraps()) index = 0;
-		else return;
+		else if (wraps()) {
+			// シャッフルなら、1周ごとに混ぜ直す (同じ順を繰り返さない)。終わった曲が続けて鳴らないよう、先頭には置かない。
+			if (shuffle) {
+				const finished = queue[index];
+				const rest = shuffledCopy(queue.filter((_, i) => i !== index));
+				queue =
+					rest.length === 0 ? [finished] : [rest[0], ...shuffledCopy([finished, ...rest.slice(1)])];
+			}
+			index = 0;
+		} else return;
 		if (play) paused = false;
 		load();
 	},

@@ -239,36 +239,45 @@
 		};
 	}
 
-	/** 一覧の並びで `from` 行目から続ける口。 */
-	function orderedSource(from: number): TrackSource {
+	/**
+	 * `source` の並びで `from` 行目から続ける口。曲の位置は再生を始めた一覧のものなので、
+	 * 絞り込みを変えて一覧が替わっても、始めた一覧から続ける。
+	 */
+	function orderedSource(source: ArchivePagedList<T>, from: number): TrackSource {
+		const after = (track: Track) =>
+			orderedSource(source, track.position === undefined ? source.total : track.position + 1);
 		return {
-			more: chunkedTracks(list, from),
-			shuffled: list.canShuffle ? shuffledSource : undefined,
-			after: afterTrack
+			more: chunkedTracks(source, from),
+			shuffled: source.canShuffle ? () => shuffledSource(source, after) : undefined,
+			after
 		};
-	}
-
-	/** シャッフルを切ったとき、今の曲の次から一覧の並びで続ける口。 */
-	function afterTrack(track: Track): TrackSource {
-		return orderedSource(track.position === undefined ? list.total : track.position + 1);
 	}
 
 	/**
 	 * 一覧の音声を、サーバーで混ぜた順に返す口 (→ docs/archive.md「音声のシャッフル」)。
 	 * 手元に全部の行が無いので、全体から混ぜるのはサーバーに任せる。最初に続きを取るときに混ぜた結果を作る。
 	 */
-	function shuffledSource(): TrackSource {
-		let more: (() => Promise<Track[]>) | undefined;
+	function shuffledSource(
+		source: ArchivePagedList<T>,
+		after: (track: Track) => TrackSource
+	): TrackSource {
+		// 1つの口で作る混ぜた結果は1つ。取り直しのたびに作ると、サーバーに使わない結果が溜まる。
+		let more: Promise<(() => Promise<Track[]>) | null> | undefined;
 		return {
 			more: async () => {
-				if (!more) {
-					const shuffled = await list.shuffled();
-					if (!shuffled) return [];
-					more = chunkedTracks(shuffled, 0, (index) => shuffled.positionOf(index));
-				}
-				return more();
+				more ??= source
+					.shuffled()
+					.then((shuffled) =>
+						shuffled ? chunkedTracks(shuffled, 0, (index) => shuffled.positionOf(index)) : null
+					);
+				const next = await more.catch((error: unknown) => {
+					// 作れなかったら、次に頼まれたときに作り直す。
+					more = undefined;
+					throw error;
+				});
+				return next ? next() : [];
 			},
-			after: afterTrack
+			after
 		};
 	}
 
@@ -282,7 +291,7 @@
 				const [start, end] = list.loadedRange(index);
 				return audioTracksBetween(list, start, end);
 			},
-			more: orderedSource(list.loadedRange(index)[1])
+			more: orderedSource(list, list.loadedRange(index)[1])
 		};
 	}
 

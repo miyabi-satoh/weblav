@@ -379,7 +379,7 @@ struct ArchivePageResponse {
     stale: bool,
     /// 混ぜた結果 (`/archive/shuffle`) のときだけ、各行の混ぜる前の結果での位置。
     #[serde(skip_serializing_if = "Option::is_none")]
-    positions: Option<Vec<usize>>,
+    positions: Option<Vec<u32>>,
 }
 
 /// 閲覧用の一覧の、区切りの続き (→ docs/archive.md「一覧の API を区切って返す」)。
@@ -438,7 +438,7 @@ struct ArchiveShuffleResponse {
     /// 消えた・非公開になった行は `null`。
     items: Vec<Option<ArchiveViewItem>>,
     /// 各行の、混ぜる前の結果での位置。
-    positions: Vec<usize>,
+    positions: Vec<u32>,
 }
 
 /// 閲覧用の一覧の結果のうち、音声の行だけを混ぜた順に並べた結果を作り、その先頭の区切りを返す
@@ -501,7 +501,7 @@ async fn shuffle_snapshot(
 }
 
 /// 混ぜた結果なら、区切りの各行の混ぜる前の位置。
-fn page_positions(snapshot: &Snapshot, offset: usize, limit: usize) -> Option<Vec<usize>> {
+fn page_positions(snapshot: &Snapshot, offset: usize, limit: usize) -> Option<Vec<u32>> {
     let positions = snapshot.positions.as_deref()?;
     let start = offset.min(positions.len());
     let end = start.saturating_add(limit).min(positions.len());
@@ -644,7 +644,7 @@ struct ManageArchivePageResponse {
     stale: bool,
     /// 混ぜた結果 (`/manage-archive/shuffle`) のときだけ、各行の混ぜる前の結果での位置。
     #[serde(skip_serializing_if = "Option::is_none")]
-    positions: Option<Vec<usize>>,
+    positions: Option<Vec<u32>>,
 }
 
 /// 管理画面のアイテムのタブの一覧の、区切りの続き。
@@ -690,7 +690,7 @@ struct ManageArchiveShuffleResponse {
     /// 消えた行は `null`。
     items: Vec<Option<ManageArchiveViewItem>>,
     /// 各行の、混ぜる前の結果での位置。
-    positions: Vec<usize>,
+    positions: Vec<u32>,
 }
 
 /// 管理画面のアイテムのタブの一覧の、音声の行を混ぜた結果 (→ `view_archive_shuffle`)。
