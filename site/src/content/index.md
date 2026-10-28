@@ -5,14 +5,14 @@ description: WebLAV は、パソコンに入っている音声・動画・PDF・
 lead: |
   パソコンに入っている写真・音楽・PDF などを、同じ Wi-Fi につながったスマホやタブレットのブラウザーで、そのまま見られます。
   見る側にアプリは要りません。クラウドに上げ直す必要もありません。
-badges: [無料, Windows 10 / 11・macOS・Linux, スマホはブラウザーだけ]
+badges: [無料, Windows, Mac, Linux]
 hero:
   - src: ./images/phone-home.png
     alt: スマホの画面。グループ「よく見るサイト」と、「ラジオの録音」「家族の写真」「資料」「音楽」のフォルダーが縦に並んでいる
   - src: ./images/tablet-pdf.png
     alt: タブレットの画面。「資料」フォルダーの中の3つの PDF が、ファイル名・サイズ・日付つきで並んでいる
 color: '#0d5f63'
-platforms: [windows, macos]
+platforms: [windows, macos, linux]
 status: coming-soon
 ---
 
