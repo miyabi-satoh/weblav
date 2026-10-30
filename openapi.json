@@ -5354,6 +5354,249 @@
         }
       }
     },
+    "/api/v1/shares/{id}/browse": {
+      "get": {
+        "summary": "共有の中の一覧。",
+        "operationId": "browse_share",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "共有からの相対パス。区切りは `/`。省略時 (空文字列) は共有そのもの。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "並び順。`title` (既定、タイトル順) か `new` (新しい順)。知らない値は既定として扱う。",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "共有の中の一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareBrowseResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・場所が無い、見られない、フォルダーでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "共有のある NAS やディスクにつながらない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/dirs": {
+      "get": {
+        "summary": "共有の中のフォルダーだけの一覧。移動・コピーの先を選ぶのに使う。",
+        "operationId": "list_share_dirs",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "共有からの相対パス。区切りは `/`。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "フォルダーの一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareDirsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・場所が無い、見られない、フォルダーでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/download": {
+      "get": {
+        "summary": "共有の中のファイルのダウンロード。ブラウザーが直接開く。",
+        "operationId": "download_share_file",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "共有からの相対パス。区切りは `/`。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・ファイルが無い、見られない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/thumbnail": {
+      "get": {
+        "summary": "共有の中の画像の縮小画像 (→ docs/ui.md「画像のプレビュー」)。",
+        "operationId": "share_thumbnail",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "共有からの相対パス。区切りは `/`。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "縮小画像 (JPEG か PNG)"
+          },
+          "304": {
+            "description": "ETag が一致した"
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "見られない・存在しない、またはプレビューしない画像",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/site-settings": {
       "get": {
         "operationId": "get_site_settings",
@@ -6759,6 +7002,17 @@
           },
           "path": {
             "type": "string"
+          },
+          "share": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FolderShare",
+                "description": "見ている場所を、共有の中の場所として見たもの (→ `api::shares`)。ログインしていて、その共有を\n見られるときだけ。画面は、ここからファイルの操作へつなぐ。"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -6842,6 +7096,34 @@
           },
           "public": {
             "type": "boolean"
+          }
+        }
+      },
+      "FolderShare": {
+        "type": "object",
+        "description": "フォルダーのコンテンツの中の場所を、共有の中の場所として見たもの。フォルダーの画面から\n共有の操作へつなぐのに使う。",
+        "required": [
+          "id",
+          "name",
+          "path",
+          "access"
+        ],
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/ShareAccess",
+            "description": "この場所で、見ている人ができること。"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "共有の id。"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "共有からの相対パス。実体の綴りを `/` でつなぐ。"
           }
         }
       },
@@ -7287,6 +7569,23 @@
           "title": {
             "type": "string",
             "description": "ファイルに書かれた `title`。省かれているか読めなければファイル名。"
+          }
+        }
+      },
+      "ListedAs": {
+        "type": "object",
+        "description": "その場所をフォルダーとして載せているコンテンツ (→ docs/ui.md「掲載中」)。",
+        "required": [
+          "contentId",
+          "title"
+        ],
+        "properties": {
+          "contentId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
           }
         }
       },
@@ -8202,6 +8501,152 @@
           "all"
         ]
       },
+      "ShareBrowseResponse": {
+        "type": "object",
+        "required": [
+          "share",
+          "access",
+          "path",
+          "entries",
+          "canListOnHome"
+        ],
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/ShareAccess",
+            "description": "この場所でできること。"
+          },
+          "canListOnHome": {
+            "type": "boolean",
+            "description": "この場所をホームに載せられるか (まだ載せていない)。"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShareEntry"
+            }
+          },
+          "listedAs": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ListedAs",
+                "description": "この場所を載せているコンテンツ。"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "path": {
+            "type": "string",
+            "description": "共有からの相対パス。実体の綴りを `/` でつなぐ。共有そのものなら空。"
+          },
+          "share": {
+            "$ref": "#/components/schemas/ShareRef"
+          },
+          "uploadMaxBytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "アップロードできる1ファイルの大きさの上限 (バイト)。上限が無ければ `None`。",
+            "minimum": 0
+          }
+        }
+      },
+      "ShareDirEntry": {
+        "type": "object",
+        "description": "フォルダーの選択に出す1行。",
+        "required": [
+          "name",
+          "path"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "共有からの相対パス。次の階層を開くときにそのまま `path` に渡す。"
+          }
+        }
+      },
+      "ShareDirsResponse": {
+        "type": "object",
+        "required": [
+          "share",
+          "path",
+          "access",
+          "entries"
+        ],
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/ShareAccess",
+            "description": "この場所でできること。移動・コピーの先には `add` 以上が要る。"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShareDirEntry"
+            }
+          },
+          "parent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "1つ上の階層。共有そのものでは `None`。"
+          },
+          "path": {
+            "type": "string",
+            "description": "共有からの相対パス。共有そのものなら空。"
+          },
+          "share": {
+            "$ref": "#/components/schemas/ShareRef"
+          }
+        }
+      },
+      "ShareEntry": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FolderEntry"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "listedAs": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ListedAs",
+                    "description": "このフォルダーを載せているコンテンツ。ファイルと、載せていないフォルダーでは `None`。"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "description": "共有の中の1行。フォルダーの中の行と同じ形に、載せているコンテンツを添える。"
+      },
+      "ShareRef": {
+        "type": "object",
+        "description": "共有を指す最小限の情報。",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "ShareResponse": {
         "type": "object",
         "description": "ログインしたユーザーに見える共有の1件。",
@@ -8848,6 +9293,21 @@
               },
               "path": {
                 "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "共有の中に作るファイル・フォルダーの名前に使えない (空・`/` を含む・ドットで始まる・長すぎる・\nWindows で使えない名前など。→ `api::shares::paths::validate_name`)。",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "entryNameInvalid"
+                ]
               }
             }
           }

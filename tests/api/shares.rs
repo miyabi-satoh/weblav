@@ -218,3 +218,308 @@ async fn a_folder_keeps_its_location_after_the_share_is_hidden(pool: SqlitePool)
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
 }
+
+/// 共有を1つ用意し、`taro` (一般ユーザー) と管理者でログインしておく。
+struct ShareFixture {
+    app: Router,
+    admin: String,
+    taro: String,
+    dir: test_support::TempDir,
+    id: i64,
+}
+
+async fn share_fixture(pool: &SqlitePool, name: &str) -> ShareFixture {
+    let (app, admin) = admin_app(pool).await;
+    insert_user(pool, "taro", "password").await;
+    let dir = root_dir(name);
+    register_root(pool, &dir).await;
+    let id = root_id_of(pool, &canonical_path_as_api_returns_it(&dir)).await;
+    let taro = login(app.clone(), "taro", "password").await;
+    ShareFixture {
+        app,
+        admin,
+        taro,
+        dir,
+        id,
+    }
+}
+
+fn browse_uri(id: i64, path: &str) -> String {
+    format!(
+        "/api/v1/shares/{id}/browse?path={}",
+        utf8_percent_encode(path, NON_ALPHANUMERIC)
+    )
+}
+
+fn entry_names(body: &serde_json::Value) -> Vec<String> {
+    body["entries"]
+        .as_array()
+        .expect("entries は配列のはず")
+        .iter()
+        .map(|entry| entry["name"].as_str().expect("名前").to_string())
+        .collect()
+}
+
+/// 中を一覧でき、ドット始まりは出さない。共有の既定 (「見る」) のできることが返る。
+#[sqlx::test]
+async fn a_share_can_be_browsed(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-browse").await;
+    std::fs::create_dir_all(share.dir.join("教材")).expect("フォルダーを作れなかった");
+    std::fs::create_dir_all(share.dir.join(".secret")).expect("フォルダーを作れなかった");
+    std::fs::write(share.dir.join("教材").join("a.pdf"), b"pdf").expect("書けなかった");
+    std::fs::write(share.dir.join("memo.txt"), b"memo").expect("書けなかった");
+    std::fs::write(share.dir.join(".env"), b"x").expect("書けなかった");
+
+    let (status, body) = send_empty(
+        share.app.clone(),
+        "GET",
+        &browse_uri(share.id, ""),
+        &share.taro,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let body = parse_json(&body);
+    assert_eq!(body["access"], "read");
+    assert_eq!(body["path"], "");
+    assert_eq!(body["share"]["id"], share.id);
+    assert_eq!(entry_names(&body), vec!["教材", "memo.txt"]);
+    assert_eq!(body["canListOnHome"], true);
+
+    let (status, body) = send_empty(
+        share.app.clone(),
+        "GET",
+        &browse_uri(share.id, "教材"),
+        &share.taro,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let body = parse_json(&body);
+    assert_eq!(body["path"], "教材");
+    assert_eq!(entry_names(&body), vec!["a.pdf"]);
+
+    // 管理者はすべての操作ができる。
+    let (status, body) =
+        send_empty(share.app, "GET", &browse_uri(share.id, ""), &share.admin).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body)["access"], "all");
+}
+
+/// 共有の外へ出る道・一覧に出さないもの・見られない共有・ファイルは、どれも同じ 404。
+#[sqlx::test]
+async fn escapes_and_hidden_places_in_a_share_are_not_found(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-escapes").await;
+    std::fs::create_dir_all(share.dir.join(".secret")).expect("フォルダーを作れなかった");
+    std::fs::write(share.dir.join("memo.txt"), b"memo").expect("書けなかった");
+    let outside = temp_root_dir("shares-escapes-outside");
+    std::fs::create_dir_all(&outside).expect("フォルダーを作れなかった");
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&outside, share.dir.join("link")).expect("リンクを作れなかった");
+
+    let mut paths = vec![
+        "..",
+        "../shares-escapes-outside",
+        ".secret",
+        "missing",
+        "memo.txt",
+    ];
+    if cfg!(unix) {
+        paths.push("link");
+    }
+    for path in paths {
+        let uri = browse_uri(share.id, path);
+        let (status, body) = send_empty(share.app.clone(), "GET", &uri, &share.taro).await;
+        assert_error_case(status, &body, StatusCode::NOT_FOUND, "not_found", &uri);
+    }
+    let (status, body) =
+        send_empty(share.app.clone(), "GET", &browse_uri(9999, ""), &share.taro).await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
+
+    set_access(
+        share.app.clone(),
+        &share.admin,
+        share.id,
+        r#"{"editorAccess":"none","users":[]}"#,
+    )
+    .await;
+    for uri in [
+        browse_uri(share.id, ""),
+        format!("/api/v1/shares/{}/download?path=memo.txt", share.id),
+        format!("/api/v1/shares/{}/dirs?path=", share.id),
+    ] {
+        let (status, body) = send_empty(share.app.clone(), "GET", &uri, &share.taro).await;
+        assert_error_case(status, &body, StatusCode::NOT_FOUND, "not_found", &uri);
+    }
+}
+
+/// ファイルはダウンロードでき、フォルダーはダウンロードできない。
+#[sqlx::test]
+async fn a_file_in_a_share_can_be_downloaded(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-download").await;
+    std::fs::create_dir_all(share.dir.join("教材")).expect("フォルダーを作れなかった");
+    std::fs::write(share.dir.join("教材").join("memo.txt"), b"memo").expect("書けなかった");
+    let uri = |path: &str| {
+        format!(
+            "/api/v1/shares/{}/download?path={}",
+            share.id,
+            utf8_percent_encode(path, NON_ALPHANUMERIC)
+        )
+    };
+
+    let (status, body) =
+        send_empty(share.app.clone(), "GET", &uri("教材/memo.txt"), &share.taro).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body, "memo");
+    let (status, body) = send_empty(share.app, "GET", &uri("教材"), &share.taro).await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
+}
+
+/// フォルダーの選択には、フォルダーだけが出る。
+#[sqlx::test]
+async fn share_dirs_list_only_folders(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-dirs").await;
+    std::fs::create_dir_all(share.dir.join("b").join("c")).expect("フォルダーを作れなかった");
+    std::fs::create_dir_all(share.dir.join("a")).expect("フォルダーを作れなかった");
+    std::fs::write(share.dir.join("memo.txt"), b"memo").expect("書けなかった");
+
+    let (status, body) = send_empty(
+        share.app.clone(),
+        "GET",
+        &format!("/api/v1/shares/{}/dirs?path=", share.id),
+        &share.taro,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let body = parse_json(&body);
+    assert_eq!(body["parent"], serde_json::Value::Null);
+    assert_eq!(
+        body["entries"],
+        serde_json::json!([{"name": "a", "path": "a"}, {"name": "b", "path": "b"}])
+    );
+    let (status, body) = send_empty(
+        share.app,
+        "GET",
+        &format!("/api/v1/shares/{}/dirs?path=b", share.id),
+        &share.taro,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let body = parse_json(&body);
+    assert_eq!(body["parent"], "");
+    assert_eq!(
+        body["entries"],
+        serde_json::json!([{"name": "c", "path": "b/c"}])
+    );
+}
+
+/// フォルダーとして載せている場所には、載せているコンテンツが付く。他人の「作成者のみ」は出さない。
+#[sqlx::test]
+async fn listed_folders_are_marked_in_a_share(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-listed").await;
+    std::fs::create_dir_all(share.dir.join("教材")).expect("フォルダーを作れなかった");
+    std::fs::create_dir_all(share.dir.join("私物")).expect("フォルダーを作れなかった");
+    let admin_id = db_user_id(&pool, "admin-alice").await;
+    let listed = insert_folder_by(
+        &pool,
+        "英検の教材",
+        std::fs::canonicalize(share.dir.join("教材")).expect("canonicalize できなかった"),
+        "authenticated",
+        Some(admin_id),
+        None,
+    )
+    .await;
+    insert_folder_by(
+        &pool,
+        "先生の私物",
+        std::fs::canonicalize(share.dir.join("私物")).expect("canonicalize できなかった"),
+        "private",
+        Some(admin_id),
+        None,
+    )
+    .await;
+
+    let (status, body) = send_empty(
+        share.app.clone(),
+        "GET",
+        &browse_uri(share.id, ""),
+        &share.taro,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let body = parse_json(&body);
+    let entries = body["entries"].as_array().expect("配列のはず");
+    assert_eq!(
+        entries[0]["listedAs"],
+        serde_json::json!({"contentId": listed, "title": "英検の教材"})
+    );
+    assert_eq!(entries[1]["listedAs"], serde_json::Value::Null);
+
+    let (status, body) = send_empty(
+        share.app.clone(),
+        "GET",
+        &browse_uri(share.id, "教材"),
+        &share.taro,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let body = parse_json(&body);
+    assert_eq!(body["listedAs"]["contentId"], listed);
+    assert_eq!(body["canListOnHome"], false);
+
+    // 管理者には、他人の「作成者のみ」も出る。
+    let (status, body) = send_empty(
+        share.app,
+        "GET",
+        &browse_uri(share.id, "私物"),
+        &share.admin,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body)["listedAs"]["title"], "先生の私物");
+}
+
+/// フォルダーのコンテンツの画面には、見られる共有の中の場所が付く。匿名と、見られない人には付かない。
+#[sqlx::test]
+async fn a_folder_content_points_to_its_share(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-folder-link").await;
+    std::fs::create_dir_all(share.dir.join("教材").join("英検")).expect("フォルダーを作れなかった");
+    let id = insert_folder_by(
+        &pool,
+        "教材",
+        std::fs::canonicalize(share.dir.join("教材")).expect("canonicalize できなかった"),
+        "public",
+        None,
+        None,
+    )
+    .await;
+    let uri = format!(
+        "/api/v1/contents/{id}/browse?path={}",
+        utf8_percent_encode("英検", NON_ALPHANUMERIC)
+    );
+
+    let (status, body) = send_empty(share.app.clone(), "GET", &uri, &share.taro).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        parse_json(&body)["share"],
+        serde_json::json!({
+            "id": share.id,
+            "name": canonical_path_as_api_returns_it(&share.dir),
+            "path": "教材/英検",
+            "access": "read",
+        })
+    );
+
+    let (status, body) = send_anon(share.app.clone(), "GET", &uri).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body)["share"], serde_json::Value::Null);
+
+    set_access(
+        share.app.clone(),
+        &share.admin,
+        share.id,
+        r#"{"editorAccess":"none","users":[]}"#,
+    )
+    .await;
+    let (status, body) = send_empty(share.app, "GET", &uri, &share.taro).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body)["share"], serde_json::Value::Null);
+}

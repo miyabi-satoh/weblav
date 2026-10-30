@@ -243,7 +243,11 @@ pub(super) async fn viewable_link_url(
 }
 
 /// 管理画面の一覧に出すか (→ docs/access.md「管理画面の一覧が `user` に見えること」)。他人の `private` は `admin` にだけ出す。
-fn can_see_in_admin_list(user: &AuthUser, visibility: Visibility, created_by: Option<i64>) -> bool {
+pub(super) fn can_see_in_admin_list(
+    user: &AuthUser,
+    visibility: Visibility,
+    created_by: Option<i64>,
+) -> bool {
     visibility != Visibility::Private || user.is_admin() || created_by == Some(user.id)
 }
 
@@ -1663,6 +1667,9 @@ struct FolderBrowseResponse {
     can_edit: bool,
     /// 一覧の表示 (軸で絞り込む平らな一覧) も使うか。画面は真のとき、表示の切り替えを出す。
     list_view: bool,
+    /// 見ている場所を、共有の中の場所として見たもの (→ `api::shares`)。ログインしていて、その共有を
+    /// 見られるときだけ。画面は、ここからファイルの操作へつなぐ。
+    share: Option<super::shares::FolderShare>,
 }
 
 /// `id` が指す `type = 'folder'` の行から、フォルダーのタイトルと登録済みルートパス
@@ -1724,7 +1731,7 @@ async fn path_exists(path: &FsPath) -> Result<bool, AppError> {
 ///
 /// Windows では `:` を含む名前も弾く。`a.mp3:stream` は代替データストリームを指し、
 /// 一覧に出ないものを配信できてしまうため (→ docs/folders.md「公開できるフォルダー」)。
-fn reject_traversal_components(rel: &str) -> Result<(), AppError> {
+pub(super) fn reject_traversal_components(rel: &str) -> Result<(), AppError> {
     for component in FsPath::new(rel).components() {
         match component {
             Component::Normal(name) if cfg!(windows) && name.to_string_lossy().contains(':') => {
@@ -1849,11 +1856,12 @@ pub(super) async fn resolve_path(
 ///
 /// `dir_rel` は `dir` の登録先からの相対パス。`marks` で公開を見る。`only_public` なら、公開して
 /// いないものを外す (閲覧する人)。書き換えられる人には全部を返し、行ごとの公開を添える。
-fn read_entries(
+/// 共有の中を見るとき (→ `api::shares`) は印が無いので `None` を渡す。どれも公開している行にする。
+pub(super) fn read_entries(
     dir: &FsPath,
     dir_rel: &str,
     own_dirs: &super::roots::OwnDirs,
-    marks: &super::folder_marks::Marks,
+    marks: Option<&super::folder_marks::Marks>,
     only_public: bool,
     order: SortOrder,
 ) -> std::io::Result<Vec<FolderEntry>> {
@@ -1876,10 +1884,12 @@ fn read_entries(
         // 実体(非リンク)のメタデータがそのまま返る。取得自体が失敗した場合
         // (権限エラー等)はそのエントリだけ読み飛ばす。
         if let Some(mut entry) = folder_entry(name, &entry.path()) {
-            entry.public = marks.is_public(&rel);
-            let shown = entry.public || (entry.is_dir && marks.dir_reachable(&rel));
-            if only_public && !shown {
-                continue;
+            if let Some(marks) = marks {
+                entry.public = marks.is_public(&rel);
+                let shown = entry.public || (entry.is_dir && marks.dir_reachable(&rel));
+                if only_public && !shown {
+                    continue;
+                }
             }
             entries.push(entry);
         }
@@ -1948,7 +1958,9 @@ async fn browse_folder(
     let own_dirs = state.own_dirs.clone();
     let order = SortOrder::from_query(query.sort.as_deref());
     let (_, marks) = super::archive_index::marks(&state, id).await?;
+    let dir = target.clone();
     let entries = run_blocking(move || {
+        let target = dir;
         // 登録先は `resolve_path` で読めることを確かめてある。
         let root = std::fs::canonicalize(&root).map_err(|_| AppError::NotFound)?;
         let dir_rel = super::folder_marks::rel_of(&root, &target)?;
@@ -1956,13 +1968,17 @@ async fn browse_folder(
             &target,
             &dir_rel,
             &super::roots::OwnDirs::resolve(&own_dirs),
-            &marks,
+            Some(&marks),
             !can_edit,
             order,
         )?)
     })
     .await??;
 
+    let share = match &viewer {
+        Viewer::User(user) => super::shares::folder_share(&state, user, &target).await?,
+        Viewer::Anonymous => None,
+    };
     Ok(Json(FolderBrowseResponse {
         folder_title,
         ancestors: lineage.breadcrumbs(),
@@ -1970,6 +1986,7 @@ async fn browse_folder(
         list_view: uses_list_view(&state.pool, id).await?,
         path: query.path,
         entries,
+        share,
     }))
 }
 

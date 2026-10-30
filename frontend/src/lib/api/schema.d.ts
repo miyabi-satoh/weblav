@@ -1492,6 +1492,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/shares/{id}/browse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 共有の中の一覧。 */
+        get: operations["browse_share"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/dirs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 共有の中のフォルダーだけの一覧。移動・コピーの先を選ぶのに使う。 */
+        get: operations["list_share_dirs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 共有の中のファイルのダウンロード。ブラウザーが直接開く。 */
+        get: operations["download_share_file"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/thumbnail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 共有の中の画像の縮小画像 (→ docs/ui.md「画像のプレビュー」)。 */
+        get: operations["share_thumbnail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/site-settings": {
         parameters: {
             query?: never;
@@ -2020,6 +2088,7 @@ export interface components {
             /** @description 一覧の表示 (軸で絞り込む平らな一覧) も使うか。画面は真のとき、表示の切り替えを出す。 */
             listView: boolean;
             path: string;
+            share?: components["schemas"]["FolderShare"] | null;
         };
         FolderEntry: {
             image?: components["schemas"]["ImageSize"] | null;
@@ -2052,6 +2121,22 @@ export interface components {
             /** @description フォルダーの登録先からの相対パス ('/' 区切り)。 */
             path: string;
             public: boolean;
+        };
+        /**
+         * @description フォルダーのコンテンツの中の場所を、共有の中の場所として見たもの。フォルダーの画面から
+         *     共有の操作へつなぐのに使う。
+         */
+        FolderShare: {
+            /** @description この場所で、見ている人ができること。 */
+            access: components["schemas"]["ShareAccess"];
+            /**
+             * Format: int64
+             * @description 共有の id。
+             */
+            id: number;
+            name: string;
+            /** @description 共有からの相対パス。実体の綴りを `/` でつなぐ。 */
+            path: string;
         };
         GroupAncestor: {
             /** Format: int64 */
@@ -2193,6 +2278,12 @@ export interface components {
             /** @description パンくずの最後に出す名前。`file` コンテンツは一覧に出ている登録したタイトル、ほかはファイル名。 */
             name: string;
             /** @description ファイルに書かれた `title`。省かれているか読めなければファイル名。 */
+            title: string;
+        };
+        /** @description その場所をフォルダーとして載せているコンテンツ (→ docs/ui.md「掲載中」)。 */
+        ListedAs: {
+            /** Format: int64 */
+            contentId: number;
             title: string;
         };
         ListedTitle: {
@@ -2499,6 +2590,48 @@ export interface components {
          * @enum {string}
          */
         ShareAccess: "none" | "read" | "add" | "all";
+        ShareBrowseResponse: {
+            /** @description この場所でできること。 */
+            access: components["schemas"]["ShareAccess"];
+            /** @description この場所をホームに載せられるか (まだ載せていない)。 */
+            canListOnHome: boolean;
+            entries: components["schemas"]["ShareEntry"][];
+            listedAs?: components["schemas"]["ListedAs"] | null;
+            /** @description 共有からの相対パス。実体の綴りを `/` でつなぐ。共有そのものなら空。 */
+            path: string;
+            share: components["schemas"]["ShareRef"];
+            /**
+             * Format: int64
+             * @description アップロードできる1ファイルの大きさの上限 (バイト)。上限が無ければ `None`。
+             */
+            uploadMaxBytes?: number | null;
+        };
+        /** @description フォルダーの選択に出す1行。 */
+        ShareDirEntry: {
+            name: string;
+            /** @description 共有からの相対パス。次の階層を開くときにそのまま `path` に渡す。 */
+            path: string;
+        };
+        ShareDirsResponse: {
+            /** @description この場所でできること。移動・コピーの先には `add` 以上が要る。 */
+            access: components["schemas"]["ShareAccess"];
+            entries: components["schemas"]["ShareDirEntry"][];
+            /** @description 1つ上の階層。共有そのものでは `None`。 */
+            parent?: string | null;
+            /** @description 共有からの相対パス。共有そのものなら空。 */
+            path: string;
+            share: components["schemas"]["ShareRef"];
+        };
+        /** @description 共有の中の1行。フォルダーの中の行と同じ形に、載せているコンテンツを添える。 */
+        ShareEntry: components["schemas"]["FolderEntry"] & {
+            listedAs?: components["schemas"]["ListedAs"] | null;
+        };
+        /** @description 共有を指す最小限の情報。 */
+        ShareRef: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+        };
         /** @description ログインしたユーザーに見える共有の1件。 */
         ShareResponse: {
             /** @description このユーザーが、この共有のいちばん上でできること。`none` のものは一覧に出さない。 */
@@ -2688,6 +2821,9 @@ export interface components {
             /** @enum {string} */
             kind: "archiveFolderUnreadable";
             path: string;
+        } | {
+            /** @enum {string} */
+            kind: "entryNameInvalid";
         };
         VerifyTokenRequest: {
             token: string;
@@ -7122,6 +7258,192 @@ export interface operations {
             };
             /** @description 未ログイン */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    browse_share: {
+        parameters: {
+            query?: {
+                /** @description 共有からの相対パス。区切りは `/`。省略時 (空文字列) は共有そのもの。 */
+                path?: string;
+                /** @description 並び順。`title` (既定、タイトル順) か `new` (新しい順)。知らない値は既定として扱う。 */
+                sort?: string | null;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 共有の中の一覧 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareBrowseResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・場所が無い、見られない、フォルダーでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有のある NAS やディスクにつながらない */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_share_dirs: {
+        parameters: {
+            query?: {
+                /** @description 共有からの相対パス。区切りは `/`。 */
+                path?: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description フォルダーの一覧 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareDirsResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・場所が無い、見られない、フォルダーでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    download_share_file: {
+        parameters: {
+            query?: {
+                /** @description 共有からの相対パス。区切りは `/`。 */
+                path?: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・ファイルが無い、見られない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    share_thumbnail: {
+        parameters: {
+            query?: {
+                /** @description 共有からの相対パス。区切りは `/`。 */
+                path?: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 縮小画像 (JPEG か PNG) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description ETag が一致した */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見られない・存在しない、またはプレビューしない画像 */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

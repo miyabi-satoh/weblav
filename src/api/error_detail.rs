@@ -63,4 +63,7 @@ pub enum ValidationDetail {
     /// `path` は最初に読めなかった場所の、登録先からの相対パス。登録先そのものなら空文字。
     #[serde(rename_all = "camelCase")]
     ArchiveFolderUnreadable { path: String },
+    /// 共有の中に作るファイル・フォルダーの名前に使えない (空・`/` を含む・ドットで始まる・長すぎる・
+    /// Windows で使えない名前など。→ `api::shares::paths::validate_name`)。
+    EntryNameInvalid,
 }

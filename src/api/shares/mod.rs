@@ -5,7 +5,11 @@
 //! 共有が入れ子のときは、その場所を含む共有のうち一番強いものを使う
 //! (外側で見られるものは、内側の共有の扱いに関わらず外側から辿れば見られるため)。
 
+mod browse;
+mod paths;
+
 use std::collections::HashMap;
+use std::path::Path as FsPath;
 
 use axum::Json;
 use axum::extract::State;
@@ -77,6 +81,14 @@ impl AccessMap {
             .unwrap_or(ShareAccess::None)
     }
 
+    #[cfg(test)]
+    pub(super) fn for_test(entries: &[(i64, ShareAccess)]) -> Self {
+        Self {
+            admin: false,
+            by_root: entries.iter().copied().collect(),
+        }
+    }
+
     /// ある場所を含む共有 (`containing`) のうち、一番強いもの。どれにも含まれなければ `None`。
     pub(super) fn effective(&self, containing: impl IntoIterator<Item = i64>) -> ShareAccess {
         containing
@@ -137,8 +149,55 @@ async fn list_shares(
     Ok(Json(shares))
 }
 
+/// フォルダーのコンテンツの中の場所を、共有の中の場所として見たもの。フォルダーの画面から
+/// 共有の操作へつなぐのに使う。
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FolderShare {
+    /// 共有の id。
+    pub id: i64,
+    pub name: String,
+    /// 共有からの相対パス。実体の綴りを `/` でつなぐ。
+    pub path: String,
+    /// この場所で、見ている人ができること。
+    pub access: ShareAccess,
+}
+
+/// 実体のパス `canonical` (フォルダーのコンテンツの中で見ている場所) を、`user` が見られる共有の中の
+/// 場所として返す。見られなければ `None`。
+///
+/// 共有は、その場所を含み、いちばん上で見られるもののうち最も外側を採る (→ `roots::containing_root`)。
+pub(super) async fn folder_share(
+    state: &AppState,
+    user: &AuthUser,
+    canonical: &FsPath,
+) -> Result<Option<FolderShare>, AppError> {
+    let roots = super::roots::load_roots(state).await?;
+    let access = AccessMap::load(&state.pool, user).await?;
+    let at = paths::effective_access(&access, &roots, canonical);
+    if at < ShareAccess::Read {
+        return Ok(None);
+    }
+    let Some(root) = roots
+        .iter()
+        .filter(|root| canonical.starts_with(&root.path))
+        .filter(|root| paths::effective_access(&access, &roots, &root.path) >= ShareAccess::Read)
+        .min_by_key(|root| root.path.components().count())
+    else {
+        return Ok(None);
+    };
+    Ok(Some(FolderShare {
+        id: root.id,
+        name: root.name.clone(),
+        path: super::folder_marks::rel_of(&root.path, canonical)?,
+        access: at,
+    }))
+}
+
 pub(crate) fn router() -> OpenApiRouter<AppState> {
-    OpenApiRouter::new().routes(routes!(list_shares))
+    OpenApiRouter::new()
+        .routes(routes!(list_shares))
+        .merge(browse::router())
 }
 
 #[cfg(test)]
