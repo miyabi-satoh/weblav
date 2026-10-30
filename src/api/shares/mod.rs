@@ -226,8 +226,8 @@ pub(super) async fn folder_share(
     }))
 }
 
-/// `max_upload_bytes` はアップロードの1つのファイルの上限 (→ `write::router`)。
-pub(crate) fn router(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
+/// `max_upload_bytes` はアップロードの1つのファイルの上限 (→ `write::router`)。`None` なら上限なし。
+pub(crate) fn router(max_upload_bytes: Option<u64>) -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(list_shares))
         .merge(browse::router())

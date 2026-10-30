@@ -680,11 +680,11 @@ async fn created_by_can_be_changed_only_by_an_admin(pool: SqlitePool) {
 #[sqlx::test]
 async fn regular_user_can_create_private_content(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
-    let (app, _blobs_dir) = test_app_with_blobs(pool).await;
+    let app = test_app(pool).await;
     let cookie = login(app.clone(), "alice", "correct-password").await;
 
     let (status, body) = send_json(
-        app.clone(),
+        app,
         "POST",
         "/api/v1/contents",
         &cookie,
@@ -692,20 +692,6 @@ async fn regular_user_can_create_private_content(pool: SqlitePool) {
     )
     .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
-    assert!(body.contains(r#""visibility":"private""#), "{body}");
-
-    let response = app
-        .oneshot(multipart_request(
-            "POST",
-            "/api/v1/contents/upload",
-            &cookie,
-            &[("title", "私の資料"), ("visibility", "private")],
-            Some(("file", "doc.txt", b"hello")),
-        ))
-        .await
-        .expect("request should not fail");
-    assert_eq!(response.status(), StatusCode::CREATED);
-    let body = body_string(response).await;
     assert!(body.contains(r#""visibility":"private""#), "{body}");
 }
 

@@ -499,10 +499,15 @@ async fn finish(state: &AppState, job: &Job, log_id: Option<i64>, result: &Resul
     if let Err(err) = result {
         tracing::info!(job = %job.id, error = %crate::error::error_chain(err), "a share job failed");
     }
+    // 記録を閉じてから処理を終わったことにする。終わったのを見た画面やテストが記録を読んだとき、
+    // まだ途中のままになっていないように。
+    if let Some(log_id) = log_id {
+        close_log(state, job, log_id, result).await;
+    }
     job.finish(result);
-    let Some(log_id) = log_id else {
-        return;
-    };
+}
+
+async fn close_log(state: &AppState, job: &Job, log_id: i64, result: &Result<(), AppError>) {
     let snapshot = job.snapshot();
     let (state_code, error) = match result {
         Ok(()) if job.progress.is_cancelled() => (OpResult::Cancelled, None),

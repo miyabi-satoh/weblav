@@ -137,6 +137,8 @@
 	"admin_settings_port_description": "If you change the number, bookmarks and QR codes you handed out no longer open.",
 	"admin_settings_upload_label": "Upload limit",
 	"admin_settings_upload_unit": "MB",
+	"admin_settings_upload_unlimited": "No limit",
+	"admin_settings_upload_description": "The maximum size of each file uploaded to a share.",
 	"admin_settings_session_label": "Stay signed in for",
 	"admin_settings_session_unit": [
 		{
@@ -297,9 +299,6 @@
 	"contents_form_path_change": "Change...",
 	"contents_form_path_unset": "Not selected",
 	"contents_form_file_label": "File",
-	"contents_form_file_current_label": "Current file",
-	"contents_form_dropzone_hint": "Drop a file here, or click to choose one",
-	"contents_form_dropzone_replace_hint": "To replace it, drop a file here, or click to choose one",
 	"contents_form_new_files_public_label": "Publish new files",
 	"contents_form_list_view_label": "Organize as a library",
 	"contents_form_list_view_description": "Lists all the files together so you can filter them by categories.",

@@ -137,23 +137,19 @@ async fn folder_thumbnail_anonymous_on_authenticated_folder_is_unauthorized(pool
 #[sqlx::test]
 async fn uploaded_image_gets_size_in_home_list_and_thumbnail(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
-    let app = test_app(pool).await;
+    let (app, blobs_dir) = test_app_with_blobs(pool.clone()).await;
     let cookie = login(app.clone(), "alice", "correct-password").await;
 
     let png = png_bytes(120, 80);
-    let response = app
-        .clone()
-        .oneshot(multipart_request(
-            "POST",
-            "/api/v1/contents/upload",
-            &cookie,
-            &[("title", "写真")],
-            Some(("file", "photo.png", &png)),
-        ))
-        .await
-        .expect("リクエストの実行に失敗した");
-    assert_eq!(response.status(), StatusCode::CREATED);
-    let id = extract_id(&body_string(response).await);
+    let id = insert_file_content(
+        &pool,
+        &blobs_dir,
+        ("写真", "photo.png", &png),
+        None,
+        "public",
+        None,
+    )
+    .await;
 
     let (status, body) = send_empty(app.clone(), "GET", "/api/v1/contents", &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -182,22 +178,18 @@ async fn uploaded_image_gets_size_in_home_list_and_thumbnail(pool: SqlitePool) {
 #[sqlx::test]
 async fn uploaded_text_file_is_marked_as_text_in_home_list(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
-    let app = test_app(pool).await;
+    let (app, blobs_dir) = test_app_with_blobs(pool.clone()).await;
     let cookie = login(app.clone(), "alice", "correct-password").await;
 
-    let response = app
-        .clone()
-        .oneshot(multipart_request(
-            "POST",
-            "/api/v1/contents/upload",
-            &cookie,
-            &[("title", "設定")],
-            Some(("file", "config.yml", b"name: weblav\n")),
-        ))
-        .await
-        .expect("リクエストの実行に失敗した");
-    assert_eq!(response.status(), StatusCode::CREATED);
-    let id = extract_id(&body_string(response).await);
+    let id = insert_file_content(
+        &pool,
+        &blobs_dir,
+        ("設定", "config.yml", b"name: weblav\n"),
+        None,
+        "public",
+        None,
+    )
+    .await;
 
     let (status, body) = send_empty(app, "GET", "/api/v1/contents", &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -216,24 +208,19 @@ async fn uploaded_text_file_is_marked_as_text_in_home_list(pool: SqlitePool) {
 async fn uploaded_image_gets_size_in_group_list(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
     let group_id = insert_group_under(&pool, "アルバム", "authenticated", None).await;
-    let app = test_app(pool).await;
+    let (app, blobs_dir) = test_app_with_blobs(pool.clone()).await;
     let cookie = login(app.clone(), "alice", "correct-password").await;
 
     let png = png_bytes(60, 90);
-    let parent = group_id.to_string();
-    let response = app
-        .clone()
-        .oneshot(multipart_request(
-            "POST",
-            "/api/v1/contents/upload",
-            &cookie,
-            &[("title", "写真"), ("parentId", &parent)],
-            Some(("file", "photo.png", &png)),
-        ))
-        .await
-        .expect("リクエストの実行に失敗した");
-    assert_eq!(response.status(), StatusCode::CREATED);
-    let id = extract_id(&body_string(response).await);
+    let id = insert_file_content(
+        &pool,
+        &blobs_dir,
+        ("写真", "photo.png", &png),
+        Some(group_id),
+        "public",
+        None,
+    )
+    .await;
 
     let (status, body) = send_empty(
         app,

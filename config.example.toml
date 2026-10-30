@@ -49,5 +49,5 @@ secure_cookie = false
 expiry_days = 14
 
 [upload]
-# ファイルアップロード型コンテンツ1件あたりの最大サイズ(MiB)。
-max_size_mb = 100
+# 共有へアップロードするファイル1つあたりの最大サイズ(MiB)。書かなければ上限なし。
+# max_size_mb = 100

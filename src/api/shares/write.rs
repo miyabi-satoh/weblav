@@ -28,6 +28,11 @@ use super::{ShareAccess, join_rel, require};
 /// 拡張子を直すかを決めるのに読む、ファイルの頭の大きさ (→ `fsops::sniff_image`)。
 const SNIFF_BYTES: usize = 64;
 
+/// multipartの受付上限(`DefaultBodyLimit`)は、許したい1つのファイルの大きさに、区切りの文字列などの
+/// 分の余裕を足した値にする。厳密な上限は受け取りながら確かめる (`write_field`) ので、ここは
+/// 話にならないほど大きい要求を早めに切るためのもの。
+const UPLOAD_BODY_OVERHEAD_BYTES: u64 = 1024 * 1024;
+
 #[derive(Debug, Deserialize, IntoParams)]
 struct UploadQuery {
     /// 置き先のフォルダーの、共有からの相対パス。省略時 (空文字列) は共有そのもの。
@@ -164,14 +169,14 @@ impl Drop for ReceivedFile {
     }
 }
 
-/// `field` を `dir` の中の作業用のファイルに書き込む。`max_bytes` を超えたら 413。
+/// `field` を `dir` の中の作業用のファイルに書き込む。`max_bytes` を超えたら 413 (`None` なら上限なし)。
 ///
 /// 作業用のファイルは置き先と同じフォルダーに作る。同じディスクの中なら、置くときに写し直さずに済むため。
 /// 一覧に出ない名前で、無いときだけ作る (同じ名前の何かを書き換えないため)。
 async fn receive_file(
     field: &mut axum::extract::multipart::Field<'_>,
     dir: &FsPath,
-    max_bytes: u64,
+    max_bytes: Option<u64>,
 ) -> Result<ReceivedFile, AppError> {
     let temp = dir.join(format!(
         "{}{}.part",
@@ -197,13 +202,13 @@ async fn receive_file(
 async fn write_field(
     field: &mut axum::extract::multipart::Field<'_>,
     file: &mut tokio::fs::File,
-    max_bytes: u64,
+    max_bytes: Option<u64>,
 ) -> Result<(Vec<u8>, u64), AppError> {
     let mut head = Vec::with_capacity(SNIFF_BYTES);
     let mut size: u64 = 0;
     while let Some(chunk) = field.chunk().await.map_err(multipart_error_to_app_error)? {
         size += chunk.len() as u64;
-        if size > max_bytes {
+        if max_bytes.is_some_and(|max| size > max) {
             return Err(AppError::FileTooLarge);
         }
         if head.len() < SNIFF_BYTES {
@@ -430,15 +435,18 @@ async fn list_on_home(
 }
 
 /// `max_upload_bytes` は1つのファイルの上限。要求の大きさの上限は、それに multipart の区切りの分を足す。
-pub(super) fn router(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
-    let body_limit =
-        max_upload_bytes.saturating_add(crate::api::contents::UPLOAD_BODY_OVERHEAD_BYTES);
-    let upload_routes =
-        OpenApiRouter::new()
-            .routes(routes!(upload_to_share))
-            .layer(DefaultBodyLimit::max(
-                usize::try_from(body_limit).unwrap_or(usize::MAX),
-            ));
+/// 上限なし (`None`) なら、要求の大きさの上限 (axum の既定は 2MB) をこの口でだけ外す。
+/// ほかの口に掛からないよう、別の `OpenApiRouter` に分けてから merge する。
+pub(super) fn router(max_upload_bytes: Option<u64>) -> OpenApiRouter<AppState> {
+    let body_limit = match max_upload_bytes {
+        Some(max) => DefaultBodyLimit::max(
+            usize::try_from(max.saturating_add(UPLOAD_BODY_OVERHEAD_BYTES)).unwrap_or(usize::MAX),
+        ),
+        None => DefaultBodyLimit::disable(),
+    };
+    let upload_routes = OpenApiRouter::new()
+        .routes(routes!(upload_to_share))
+        .layer(body_limit);
     OpenApiRouter::new()
         .routes(routes!(create_share_folder))
         .routes(routes!(rename_share_entry))

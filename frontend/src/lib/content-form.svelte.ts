@@ -47,7 +47,7 @@ async function fetchLinkMetadata(url: string): Promise<LinkMetadataResponse | nu
 	}
 }
 
-/** 開いた時点との比較に使う値。`FileList` は比較できないので、選ばれているかだけを見る。 */
+/** 開いた時点との比較に使う値。 */
 type FormSnapshot = {
 	type: ContentType;
 	visibility: Visibility;
@@ -56,7 +56,6 @@ type FormSnapshot = {
 	path: string;
 	parentId: string;
 	description: string;
-	hasFiles: boolean;
 	extensions: string;
 	listView: boolean;
 	newFilesPublic: boolean;
@@ -97,16 +96,9 @@ export class ContentFormState {
 	titleTemplate = $state<string | null>(null);
 	visibility = $state<Visibility>('public');
 	/**
-	 * `file` 専用。作成時は必須、編集時は「差し替えるときだけ選ぶ」任意項目
-	 * (未選択なら既存の blob を保つ)。
+	 * `file` の編集で、今のファイルを示すための表示用。ファイルは差し替えない
+	 * (ファイルは共有の中に置く。前から登録してある file コンテンツは題などだけを直せる)。
 	 */
-	files = $state<FileList | undefined>(undefined);
-	/**
-	 * ファイルの入力欄を作り直すための連番。`files` を空にしても、ブラウザーは入力欄に
-	 * 選んだファイルを残す。保存後もページに留まる編集で、選択済みに見えないようにする。
-	 */
-	fileInputVersion = $state(0);
-	/** 編集時に、差し替えていない現在のファイルを示すための表示用。 */
 	existingFileName = $state<string | null>(null);
 	existingFileSize = $state<number | null>(null);
 
@@ -201,7 +193,6 @@ export class ContentFormState {
 			parentId: this.parentId,
 			description: this.description,
 			visibility: this.visibility,
-			hasFiles: (this.files?.length ?? 0) > 0,
 			extensions: this.extensions,
 			listView: this.listView,
 			newFilesPublic: this.newFilesPublic,
@@ -260,8 +251,6 @@ export class ContentFormState {
 		this.autoRescanTime = AUTO_RESCAN_DEFAULT_TIME;
 		this.titleTemplate = null;
 		this.visibility = 'public';
-		this.files = undefined;
-		this.fileInputVersion++;
 		this.existingFileName = null;
 		this.existingFileSize = null;
 		this.resetRefetchState();
@@ -325,19 +314,14 @@ export class ContentFormState {
 		return { ...this.commonFields(), title: this.type === 'group' ? this.title : null };
 	}
 
-	/**
-	 * `file` の作成・差し替えで送る multipart。ファイルを選んでいなければ `file` を含めない。
-	 * 作成 (`forCreate`) ではタイトルを送らず、サーバーがファイル名から付ける。
-	 */
-	toFormData(forCreate = false): FormData {
+	/** `file` の題などを直すときに送る multipart。ファイルは送らない (差し替えはしない)。 */
+	toFormData(): FormData {
 		const fields = this.commonFields();
 		const body = new FormData();
-		if (!forCreate) body.append('title', fields.title);
+		body.append('title', fields.title);
 		if (fields.description !== null) body.append('description', fields.description);
 		body.append('visibility', fields.visibility);
 		if (fields.parentId !== null) body.append('parentId', String(fields.parentId));
-		const file = this.files?.[0];
-		if (file) body.append('file', file);
 		return body;
 	}
 
@@ -375,7 +359,6 @@ export class ContentFormState {
 			this.url = source.url;
 			this.path = source.path;
 			this.pathLabel = source.pathLabel;
-			this.files = source.files;
 			this.extensions = source.extensions;
 			this.listView = source.listView;
 			this.newFilesPublic = source.newFilesPublic;
@@ -397,7 +380,6 @@ export class ContentFormState {
 		if (part === 'common') {
 			this.resetRefetchState();
 		} else {
-			this.fileInputVersion++;
 			this.existingFileName = loaded.existingFileName;
 			this.existingFileSize = loaded.existingFileSize;
 		}
@@ -424,8 +406,6 @@ export class ContentFormState {
 		this.autoRescanTime = content.autoRescan.time ?? AUTO_RESCAN_DEFAULT_TIME;
 		this.titleTemplate = content.titleTemplate ?? null;
 		this.visibility = content.visibility;
-		this.files = undefined;
-		this.fileInputVersion++;
 		this.existingFileName = content.fileName ?? null;
 		this.existingFileSize = content.fileSize ?? null;
 		this.resetRefetchState();

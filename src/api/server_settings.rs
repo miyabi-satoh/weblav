@@ -29,8 +29,8 @@ const MAX_SESSION_EXPIRY_DAYS: i64 = 3650;
 pub struct ServerSettings {
     /// 待ち受けるポート。
     pub port: u16,
-    /// ファイルのアップロード1件あたりの上限 (MiB)。
-    pub upload_max_size_mb: u64,
+    /// 共有へのファイルのアップロード1件あたりの上限 (MiB)。`None` なら上限なし。
+    pub upload_max_size_mb: Option<u64>,
     /// 最後に使ってから、ログインが切れるまでの日数。
     pub session_expiry_days: i64,
 }
@@ -135,7 +135,10 @@ fn validate(settings: &ServerSettings) -> Result<(), AppError> {
     if settings.port == 0 {
         return Err(AppError::Validation("port must be 1 or greater".into()));
     }
-    if !(1..=MAX_UPLOAD_MAX_SIZE_MB).contains(&settings.upload_max_size_mb) {
+    if settings
+        .upload_max_size_mb
+        .is_some_and(|mb| !(1..=MAX_UPLOAD_MAX_SIZE_MB).contains(&mb))
+    {
         return Err(AppError::Validation(format!(
             "uploadMaxSizeMb must be between 1 and {MAX_UPLOAD_MAX_SIZE_MB}"
         )));
@@ -201,13 +204,11 @@ fn write_saved(path: &Path, settings: &ServerSettings) -> Result<(), AppError> {
 fn apply(text: &str, settings: &ServerSettings) -> Result<String, String> {
     let mut doc: toml_edit::DocumentMut = text.parse().map_err(|err| format!("{err}"))?;
     set(&mut doc, "server", "port", i64::from(settings.port))?;
-    // 上限は `validate` で i64 に収まる範囲に絞ってある。
-    set(
-        &mut doc,
-        "upload",
-        "max_size_mb",
-        settings.upload_max_size_mb as i64,
-    )?;
+    // 上限は `validate` で i64 に収まる範囲に絞ってある。上限なしは、項目を消して既定 (上限なし) に任せる。
+    match settings.upload_max_size_mb {
+        Some(mb) => set(&mut doc, "upload", "max_size_mb", mb as i64)?,
+        None => remove(&mut doc, "upload", "max_size_mb"),
+    }
     set(
         &mut doc,
         "session",
@@ -226,6 +227,13 @@ fn set(doc: &mut toml_edit::DocumentMut, table: &str, key: &str, value: i64) -> 
     Ok(())
 }
 
+/// 表 (`[upload]` など) に項目があれば消す。表が無ければ何もしない (空の表を足さない)。
+fn remove(doc: &mut toml_edit::DocumentMut, table: &str, key: &str) {
+    if let Some(table) = doc.get_mut(table).and_then(|item| item.as_table_like_mut()) {
+        table.remove(key);
+    }
+}
+
 pub(crate) fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new().routes(routes!(get_server_settings, update_server_settings))
 }
@@ -236,7 +244,7 @@ mod tests {
 
     const SETTINGS: ServerSettings = ServerSettings {
         port: 3100,
-        upload_max_size_mb: 500,
+        upload_max_size_mb: Some(500),
         session_expiry_days: 30,
     };
 
@@ -264,6 +272,20 @@ mod tests {
     }
 
     #[test]
+    fn apply_removes_the_upload_cap_when_unlimited() {
+        let text = "[upload]\nmax_size_mb = 100\n";
+        let unlimited = ServerSettings {
+            upload_max_size_mb: None,
+            ..SETTINGS
+        };
+        let updated = apply(text, &unlimited).expect("書き換えられなかった");
+        assert!(!updated.contains("max_size_mb"), "{updated}");
+        let config: Config = toml::from_str(&updated).expect("書き換えた結果が読めない");
+        assert_eq!(ServerSettings::from_config(&config), unlimited);
+        assert!(validate(&unlimited).is_ok());
+    }
+
+    #[test]
     fn apply_rejects_a_non_table_section() {
         assert!(apply("server = 1\n", &SETTINGS).is_err());
     }
@@ -277,11 +299,11 @@ mod tests {
                 ..SETTINGS
             },
             ServerSettings {
-                upload_max_size_mb: 0,
+                upload_max_size_mb: Some(0),
                 ..SETTINGS
             },
             ServerSettings {
-                upload_max_size_mb: MAX_UPLOAD_MAX_SIZE_MB + 1,
+                upload_max_size_mb: Some(MAX_UPLOAD_MAX_SIZE_MB + 1),
                 ..SETTINGS
             },
             ServerSettings {

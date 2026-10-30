@@ -151,20 +151,16 @@ async fn links_file_in_an_archive_is_opened_by_its_item(pool: SqlitePool) {
 /// 取り込んだファイルは、一覧の行と同じく登録したタイトルをパンくずに出す。
 #[sqlx::test]
 async fn links_file_content_is_named_by_its_registered_title(pool: SqlitePool) {
-    let (app, cookie) = admin_app(&pool).await;
-    let response = send_raw(
-        app.clone(),
-        multipart_request(
-            "POST",
-            "/api/v1/contents/upload",
-            &cookie,
-            &[("title", "今朝のリンク"), ("visibility", "public")],
-            Some(("file", "a.links.toml", LINKS_TOML.as_bytes())),
-        ),
+    let (app, blobs_dir) = test_app_with_blobs(pool.clone()).await;
+    let id = insert_file_content(
+        &pool,
+        &blobs_dir,
+        ("今朝のリンク", "a.links.toml", LINKS_TOML.as_bytes()),
+        None,
+        "public",
+        None,
     )
     .await;
-    assert_eq!(response.status(), StatusCode::CREATED);
-    let id = created_id(response).await;
 
     let (status, body) = send_anon(app, "GET", &format!("/api/v1/contents/{id}/links")).await;
     assert_eq!(status, StatusCode::OK, "{body}");

@@ -77,19 +77,15 @@ async fn restoring_a_backup_brings_back_the_data_and_files(pool: SqlitePool) {
     insert_user(&pool, "taro", "password").await;
     let other_cookie = login(app.clone(), "taro", "password").await;
 
-    let response = app
-        .clone()
-        .oneshot(multipart_request(
-            "POST",
-            "/api/v1/contents/upload",
-            &cookie,
-            &[("title", "資料")],
-            Some(("file", "doc.txt", b"hello backup")),
-        ))
-        .await
-        .expect("request should not fail");
-    assert_eq!(response.status(), StatusCode::CREATED);
-    let file_id = created_id(response).await;
+    let file_id = insert_file_content(
+        &pool,
+        &blobs_dir,
+        ("資料", "doc.txt", b"hello backup"),
+        None,
+        "public",
+        None,
+    )
+    .await;
 
     let zip = download_backup(app.clone(), &cookie).await;
 

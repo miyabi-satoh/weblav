@@ -285,25 +285,21 @@ impl std::fmt::Debug for SessionConfig {
     }
 }
 
-/// ファイルアップロード型コンテンツ(type='file')の設定。
-#[derive(Debug, Clone, Copy, Deserialize)]
+/// 共有へのファイルのアップロードの設定。
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct UploadConfig {
     /// 1ファイルあたりの最大サイズ(MiB)。ストリーミング中に厳密にこの値でチェックする
-    /// (multipartボディ全体に掛けるサーバー側の受付上限は、これに加えてテキストフィールド分の
-    /// 余裕を持たせた値を別途使う。`AppState::max_upload_bytes`・`contents::router`参照)。
-    pub max_size_mb: u64,
-}
-
-impl Default for UploadConfig {
-    fn default() -> Self {
-        Self { max_size_mb: 100 }
-    }
+    /// (multipartボディ全体に掛けるサーバー側の受付上限は、これに加えて区切りの分の
+    /// 余裕を持たせた値を別途使う。`AppState::max_upload_bytes`・`shares::write::router`参照)。
+    /// 既定は上限なし (`None`)。書き込むのは共有の中で、ディスクの空きは置く前に確かめるため。
+    pub max_size_mb: Option<u64>,
 }
 
 impl UploadConfig {
-    pub fn max_bytes(&self) -> u64 {
-        self.max_size_mb.saturating_mul(1024 * 1024)
+    /// 1ファイルあたりの最大バイト数。上限なしなら `None`。
+    pub fn max_bytes(&self) -> Option<u64> {
+        self.max_size_mb.map(|mb| mb.saturating_mul(1024 * 1024))
     }
 }
 
@@ -360,7 +356,7 @@ mod tests {
         assert_eq!(config.session.secret, "");
         assert!(!config.session.secure_cookie);
         assert_eq!(config.session.expiry_days, 14);
-        assert_eq!(config.upload.max_size_mb, 100);
+        assert_eq!(config.upload.max_size_mb, None);
     }
 
     #[test]

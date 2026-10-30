@@ -101,7 +101,8 @@
 	let canSeeFullPath = $derived(isAdmin(page.data.user));
 
 	// 種別による制限は持たない。ログイン済みなら全部作れる (→ docs/access.md「ロールと操作」)。
-	const creatableTypes: ContentType[] = ['link', 'file', 'folder', 'group'];
+	// ファイルは共有の中に置くので、ここでは作らない。前から登録してある file コンテンツは一覧に残る。
+	const creatableTypes: ContentType[] = ['link', 'folder', 'group'];
 
 	// 作成者のユーザーを削除した行は作成者が空になる (→ docs/access.md「ユーザーの削除と作成者」)。
 	function creatorLabel(content: Content): string {
@@ -149,7 +150,7 @@
 	}
 
 	// 入力した値は消さない。種別を選び直しても入力し直さずに済むようにするため。
-	// 送るのは選んだ種別の項目だけなので (`requestFields` / `toFormData`)、前の種別の値は送られない。
+	// 送るのは選んだ種別の項目だけなので (`createRequestFields`)、前の種別の値は送られない。
 	function backToTypes() {
 		createStep = 'type';
 	}
@@ -170,25 +171,9 @@
 		saving = true;
 
 		try {
-			if (form.type === 'file') {
-				// input required属性で通常は防がれるが、念のため明示的にもチェックしておく。
-				if (!form.files?.[0]) {
-					errorDialog.show(GENERIC_ERROR_MESSAGE());
-					return;
-				}
-			}
-			const result =
-				form.type === 'file'
-					? await client.POST('/api/v1/contents/upload', {
-							// openapi-fetch は FormData をそのまま送るが、生成された型はスキーマの形のままなので
-							// キャストする (実行時の挙動とは無関係)。
-							body: form.toFormData(
-								true
-							) as unknown as components['schemas']['UploadContentRequest']
-						})
-					: await client.POST('/api/v1/contents', {
-							body: { type: form.type, ...form.createRequestFields() }
-						});
+			const result = await client.POST('/api/v1/contents', {
+				body: { type: form.type, ...form.createRequestFields() }
+			});
 			if (!result.response.ok || !result.data) {
 				errorDialog.show(errorMessage(result.error));
 				return;

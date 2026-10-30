@@ -40,11 +40,11 @@ pub struct AppState {
     pub log: crate::logging::LogControl,
     /// `config.toml` の読み・書き換えを直列化する。2人が同時に保存すると、片方の書き換えが消えるため。
     pub config_write_lock: Arc<Mutex<()>>,
-    /// アップロード1件あたりの最大バイト数(`config.upload.max_size_mb`から算出)。
+    /// アップロード1件あたりの最大バイト数(`config.upload.max_size_mb`から算出)。`None` なら上限なし。
     /// multipartをストリーミングで受け取る際、この値を超えたら
     /// `AppError::FileTooLarge` にする(サーバー全体の受付上限は`contents::router`側の
     /// `DefaultBodyLimit`が別途担う。両者の役割分担はそちらのコメント参照)。
-    pub max_upload_bytes: u64,
+    pub max_upload_bytes: Option<u64>,
     /// `contents`テーブルへの書き込みを直列化するための鍵。直列化が要る書き込みは次の2つ。
     /// - blobの「実体確定(commit_blob)→DB書き込み→参照無しGC」。これが無いと、
     ///   あるリクエストがGCの参照カウント確認(COUNT)をした直後に、別リクエストが

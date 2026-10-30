@@ -558,26 +558,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/contents/upload": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * ファイルコンテンツを新規作成する(multipart)。`file`は必須、`title`/`description`は省略可
-         *     (`title`を省くとファイル名から付ける)。
-         */
-        post: operations["upload_content"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/contents/{id}": {
         parameters: {
             query?: never;
@@ -1297,8 +1277,9 @@ export interface paths {
         };
         get?: never;
         /**
-         * ファイルコンテンツを更新する(multipart)。`file`を指定した場合のみ実体を差し替える
-         *     (指定しなければ既存のblobを維持する)。`type = 'file'` 以外のidに対しては422にする
+         * ファイルコンテンツの題・説明・親・公開範囲を更新する(multipart)。ファイルの差し替えはしない
+         *     (`file` を送ると422)。ファイルは共有の中に置いて扱う (→ `api::shares`)。この口が multipart のままなのは、
+         *     前からある画面と送り方を変えないため。`type = 'file'` 以外のidに対しては422にする
          *     (link/folderの更新は既存の`PUT /contents/{id}`(JSON)を使う)。
          */
         put: operations["replace_content_upload"];
@@ -2723,14 +2704,12 @@ export interface components {
             values: components["schemas"]["AxisValueInput"][];
         };
         /**
-         * @description utoipaのOpenAPIドキュメント用のダミー構造体(`UploadContentRequest`と同様、
-         *     実際のリクエストは`axum::extract::Multipart`で受け取る)。`file`は差し替え時のみ
-         *     指定する(省略時は既存のファイルを維持する)。
+         * @description utoipaのOpenAPIドキュメント用のダミー構造体。実際のリクエストは
+         *     `axum::extract::Multipart` で受け取るため、この構造体自体はデシリアライズに使わない
+         *     (`multipart/form-data`のスキーマ表現としてutoipaに渡すためだけのもの)。
          */
         ReplaceContentUploadRequest: {
             description?: string | null;
-            /** Format: binary */
-            file?: string | null;
             /**
              * Format: int64
              * @description 親グループのid。省略/空ならルート直下へ移動する。
@@ -2897,9 +2876,9 @@ export interface components {
             sessionExpiryDays: number;
             /**
              * Format: int64
-             * @description ファイルのアップロード1件あたりの上限 (MiB)。
+             * @description 共有へのファイルのアップロード1件あたりの上限 (MiB)。`None` なら上限なし。
              */
-            uploadMaxSizeMb: number;
+            uploadMaxSizeMb?: number | null;
         };
         ServerSettingsResponse: {
             /** @description `config.toml` に書いていないときの値。画面が、変えてある項目に印を付け、戻せるようにするため。 */
@@ -3207,24 +3186,6 @@ export interface components {
         UpdateSiteSettingsRequest: {
             homeHeading: string;
             siteName: string;
-        };
-        /**
-         * @description utoipaのOpenAPIドキュメント用のダミー構造体。実際のリクエストは
-         *     `axum::extract::Multipart` で受け取るため、この構造体自体はデシリアライズに使わない
-         *     (`multipart/form-data`のスキーマ表現としてutoipaに渡すためだけのもの)。
-         */
-        UploadContentRequest: {
-            description?: string | null;
-            /** Format: binary */
-            file: string;
-            /**
-             * Format: int64
-             * @description 親グループのid。省略/空ならルート直下に作成する。
-             */
-            parent_id?: number | null;
-            /** @description 省略・空ならファイル名 (拡張子を除く) にする。 */
-            title?: string | null;
-            visibility?: components["schemas"]["Visibility"] | null;
         };
         UploadResponse: {
             /** @description 送った順。 */
@@ -5104,57 +5065,6 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    upload_content: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["UploadContentRequest"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminContentResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Payload Too Large */
-            413: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7401,15 +7311,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Payload Too Large */
-            413: {
                 headers: {
                     [name: string]: unknown;
                 };

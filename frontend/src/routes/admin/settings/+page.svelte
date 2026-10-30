@@ -14,6 +14,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Switch } from '$lib/components/ui/switch';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import BackupRestore from '$lib/components/backup-restore.svelte';
 	import AboutSection from '$lib/components/about-section.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
@@ -48,11 +49,30 @@
 	// 取れなかったとき (null) は、区画に理由だけを出して入力欄を出さない。下の 0 は使われない。
 	let server = $state(untrack(() => data.serverSettings));
 	let port = $state(untrack(() => server?.saved.port ?? 0));
-	let uploadMaxSizeMb = $state(untrack(() => server?.saved.uploadMaxSizeMb ?? 0));
+	// 上限なし (null) のときも、数の欄には前に入れた値か既定の目安を残す。「上限なし」を外したときに打ち直さずに済むため。
+	const UPLOAD_MAX_SIZE_MB_SUGGESTION = 100;
+	let uploadUnlimited = $state(untrack(() => (server?.saved.uploadMaxSizeMb ?? null) === null));
+	let uploadMaxSizeMb = $state(
+		untrack(() => server?.saved.uploadMaxSizeMb ?? UPLOAD_MAX_SIZE_MB_SUGGESTION)
+	);
+	// 送る値。上限なしなら null。
+	let uploadCap = $derived(uploadUnlimited ? null : uploadMaxSizeMb);
 	let sessionExpiryDays = $state(untrack(() => server?.saved.sessionExpiryDays ?? 0));
 
 	// 既定の値に戻しただけでは保存されないので、保存していない変更があることを保存ボタンの横に出す。
-	const serverDirty = new FormDirtyState(() => ({ port, uploadMaxSizeMb, sessionExpiryDays }));
+	const serverDirty = new FormDirtyState(() => ({ port, uploadCap, sessionExpiryDays }));
+
+	// アップロード上限を、上限なしも含めて入れる。
+	function setUploadCap(value: number | null | undefined) {
+		uploadUnlimited = (value ?? null) === null;
+		if (value != null) uploadMaxSizeMb = value;
+	}
+
+	function uploadCapText(value: number | null | undefined): string {
+		return value == null
+			? m.admin_settings_upload_unlimited()
+			: `${value} ${m.admin_settings_upload_unit()}`;
+	}
 	serverDirty.markPristine();
 
 	// 戻すボタンは、戻すと消える。フォーカスが行き場を失わないよう、戻した入力欄へ移す。
@@ -108,13 +128,14 @@
 				error,
 				response
 			} = await client.PUT('/api/v1/admin/server-settings', {
-				body: { port, uploadMaxSizeMb, sessionExpiryDays }
+				body: { port, uploadMaxSizeMb: uploadCap, sessionExpiryDays }
 			});
 			if (!response.ok || !saved) {
 				errorDialog.show(errorMessage(error));
 				return;
 			}
 			server = saved;
+			setUploadCap(saved.saved.uploadMaxSizeMb);
 			serverDirty.markPristine();
 			toast.success(m.admin_settings_server_saved_toast());
 		} catch {
@@ -179,7 +200,7 @@
 <svelte:head><title>{pageTitle(m.admin_settings_title())}</title></svelte:head>
 
 <!-- 保存した値が動いている値と違う (次の起動から効く、またはポートをずらして起動した) ときに添える。 -->
-{#snippet runningValue(saved: number, running: number)}
+{#snippet runningValue(saved: number | string, running: number | string)}
 	{#if saved !== running}
 		<Field.FieldDescription
 			>{m.admin_settings_running_value({ value: running })}</Field.FieldDescription
@@ -189,7 +210,12 @@
 
 <!-- 既定の値へ戻すボタン。変えてある項目にだけ出す。印や既定の値の文を足さず、ボタンが出ていることで変えてあると分かる形にする。
      戻すのは入力欄の値だけで、保存は区画の保存ボタンで行う。 -->
-{#snippet defaultValue(name: string, value: number, initial: number, reset: () => void)}
+{#snippet defaultValue(
+	name: string,
+	value: number | null,
+	initial: number | null,
+	reset: () => void
+)}
 	{#if value !== initial}
 		<div>
 			<Button
@@ -268,29 +294,40 @@
 						{@render runningValue(server.saved.port, server.running.port)}
 					</Field.Field>
 					<Field.Field>
-						<Field.FieldLabel for="server-upload" required
+						<Field.FieldLabel for="server-upload" required={!uploadUnlimited}
 							>{m.admin_settings_upload_label()}</Field.FieldLabel
 						>
-						<IntegerInput
-							id="server-upload"
-							class={serverNumberWidthClass}
-							min={1}
-							max={MAX_UPLOAD_MAX_SIZE_MB}
-							unit={m.admin_settings_upload_unit()}
-							bind:value={uploadMaxSizeMb}
-							required
-						/>
+						<Field.FieldDescription>{m.admin_settings_upload_description()}</Field.FieldDescription>
+						<Field.Field orientation="horizontal">
+							<Checkbox id="server-upload-unlimited" bind:checked={uploadUnlimited} />
+							<Field.FieldLabel for="server-upload-unlimited"
+								>{m.admin_settings_upload_unlimited()}</Field.FieldLabel
+							>
+						</Field.Field>
+						{#if !uploadUnlimited}
+							<IntegerInput
+								id="server-upload"
+								class={serverNumberWidthClass}
+								min={1}
+								max={MAX_UPLOAD_MAX_SIZE_MB}
+								unit={m.admin_settings_upload_unit()}
+								bind:value={uploadMaxSizeMb}
+								required
+							/>
+						{/if}
 						{@render defaultValue(
 							m.admin_settings_upload_label(),
-							uploadMaxSizeMb,
-							server.defaults.uploadMaxSizeMb,
+							uploadCap,
+							server.defaults.uploadMaxSizeMb ?? null,
 							() =>
-								resetField(
-									'server-upload',
-									() => (uploadMaxSizeMb = server?.defaults.uploadMaxSizeMb ?? uploadMaxSizeMb)
+								resetField('server-upload-unlimited', () =>
+									setUploadCap(server?.defaults.uploadMaxSizeMb)
 								)
 						)}
-						{@render runningValue(server.saved.uploadMaxSizeMb, server.running.uploadMaxSizeMb)}
+						{@render runningValue(
+							uploadCapText(server.saved.uploadMaxSizeMb),
+							uploadCapText(server.running.uploadMaxSizeMb)
+						)}
 					</Field.Field>
 					<Field.Field>
 						<Field.FieldLabel for="server-session" required

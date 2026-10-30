@@ -727,7 +727,7 @@ async fn uploading_needs_add_access_to_a_visible_folder(pool: SqlitePool) {
 #[sqlx::test]
 async fn an_upload_over_the_limit_is_rejected(pool: SqlitePool) {
     let mut config = Config::default();
-    config.upload.max_size_mb = 1;
+    config.upload.max_size_mb = Some(1);
     let app = app_in(pool.clone(), &config, &next_app_dir()).await;
     let admin = admin_cookie(app.clone(), &pool).await;
     let dir = root_dir("shares-upload-limit");
@@ -749,6 +749,26 @@ async fn an_upload_over_the_limit_is_rejected(pool: SqlitePool) {
         .filter_map(|entry| entry.ok())
         .collect();
     assert!(left.is_empty(), "何も残さないはず: {left:?}");
+}
+
+/// 上限なし (既定) なら、axum の既定の要求の大きさの上限 (2MB) を超えるファイルも受け取る。
+#[sqlx::test]
+async fn an_upload_without_a_limit_accepts_large_files(pool: SqlitePool) {
+    let app = app_in(pool.clone(), &Config::default(), &next_app_dir()).await;
+    let admin = admin_cookie(app.clone(), &pool).await;
+    let dir = root_dir("shares-upload-unlimited");
+    register_root(&pool, &dir).await;
+    let id = root_id_of(&pool, &canonical_path_as_api_returns_it(&dir)).await;
+
+    let content = vec![b'x'; 3 * 1024 * 1024];
+    let request = upload_request(&upload_uri(id, ""), &admin, &[("big.bin", &content)]);
+    let (status, body) = send(app, request).await;
+
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let size = std::fs::metadata(dir.join("big.bin"))
+        .expect("置いたファイルが無い")
+        .len();
+    assert_eq!(size, content.len() as u64);
 }
 
 /// 置いたファイルは、次の再スキャンを待たずに一覧の表示の索引に入る。

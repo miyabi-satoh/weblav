@@ -149,7 +149,7 @@ async fn browse_share(
         entries,
         can_list_on_home: listed_as.is_none(),
         listed_as,
-        upload_max_bytes: Some(state.max_upload_bytes),
+        upload_max_bytes: state.max_upload_bytes,
         trash,
     }))
 }

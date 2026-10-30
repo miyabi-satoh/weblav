@@ -234,6 +234,41 @@ async fn test_app(pool: SqlitePool) -> Router {
     test_app_with_blobs(pool).await.0
 }
 
+/// file コンテンツを直接作り、idを返す。実体は `blobs_dir` に内容のハッシュの名前で置く (アプリと同じ形)。
+/// 画面からはもう作れない (ファイルは共有の中に置く) が、前から登録してあるものは読める・直せるので、
+/// それを確かめるテストで使う。作成者は `created_by`、公開範囲は `visibility`。
+async fn insert_file_content(
+    pool: &SqlitePool,
+    blobs_dir: &std::path::Path,
+    file: (&str, &str, &[u8]),
+    parent_id: Option<i64>,
+    visibility: &str,
+    created_by: Option<i64>,
+) -> i64 {
+    use sha2::Digest;
+    let (title, file_name, content) = file;
+    let hash: String = sha2::Sha256::digest(content)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    std::fs::create_dir_all(blobs_dir).expect("blobs_dir を作れなかった");
+    std::fs::write(blobs_dir.join(&hash), content).expect("blob を書けなかった");
+    sqlx::query_scalar(
+        "INSERT INTO contents (type, parent_id, title, visibility, blob_hash, file_name, file_size, created_by) \
+         VALUES ('file', ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+    )
+    .bind(parent_id)
+    .bind(title)
+    .bind(visibility)
+    .bind(hash)
+    .bind(file_name)
+    .bind(content.len() as i64)
+    .bind(created_by)
+    .fetch_one(pool)
+    .await
+    .expect("fileを挿入できなかった")
+}
+
 /// `blobs_dir`直下(`tmp/`を除く)にあるblobファイルの数を数える。コミット済みの
 /// blob(重複排除の単位)がいくつ残っているかをテストから確認するためのヘルパー。
 fn count_committed_blobs(blobs_dir: &std::path::Path) -> usize {
@@ -356,10 +391,6 @@ fn extract_id(body: &str) -> i64 {
         .expect("レスポンスをJSONとして読めなかった")["id"]
         .as_i64()
         .expect("idが返らなかった")
-}
-
-async fn created_id(response: Response) -> i64 {
-    extract_id(&body_string(response).await)
 }
 
 /// クッキーのみ付けたボディ無しリクエストを送る(GET/DELETE用)。

@@ -1963,64 +1963,6 @@
         }
       }
     },
-    "/api/v1/contents/upload": {
-      "post": {
-        "summary": "ファイルコンテンツを新規作成する(multipart)。`file`は必須、`title`/`description`は省略可\n(`title`を省くとファイル名から付ける)。",
-        "operationId": "upload_content",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/UploadContentRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminContentResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Payload Too Large",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/contents/{id}": {
       "put": {
         "operationId": "update_content",
@@ -4856,7 +4798,7 @@
     },
     "/api/v1/contents/{id}/upload": {
       "put": {
-        "summary": "ファイルコンテンツを更新する(multipart)。`file`を指定した場合のみ実体を差し替える\n(指定しなければ既存のblobを維持する)。`type = 'file'` 以外のidに対しては422にする\n(link/folderの更新は既存の`PUT /contents/{id}`(JSON)を使う)。",
+        "summary": "ファイルコンテンツの題・説明・親・公開範囲を更新する(multipart)。ファイルの差し替えはしない\n(`file` を送ると422)。ファイルは共有の中に置いて扱う (→ `api::shares`)。この口が multipart のままなのは、\n前からある画面と送り方を変えないため。`type = 'file'` 以外のidに対しては422にする\n(link/folderの更新は既存の`PUT /contents/{id}`(JSON)を使う)。",
         "operationId": "replace_content_upload",
         "parameters": [
           {
@@ -4912,16 +4854,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Payload Too Large",
             "content": {
               "application/json": {
                 "schema": {
@@ -9217,7 +9149,7 @@
       },
       "ReplaceContentUploadRequest": {
         "type": "object",
-        "description": "utoipaのOpenAPIドキュメント用のダミー構造体(`UploadContentRequest`と同様、\n実際のリクエストは`axum::extract::Multipart`で受け取る)。`file`は差し替え時のみ\n指定する(省略時は既存のファイルを維持する)。",
+        "description": "utoipaのOpenAPIドキュメント用のダミー構造体。実際のリクエストは\n`axum::extract::Multipart` で受け取るため、この構造体自体はデシリアライズに使わない\n(`multipart/form-data`のスキーマ表現としてutoipaに渡すためだけのもの)。",
         "required": [
           "title"
         ],
@@ -9227,13 +9159,6 @@
               "string",
               "null"
             ]
-          },
-          "file": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "binary"
           },
           "parent_id": {
             "type": [
@@ -9652,7 +9577,6 @@
         "description": "管理画面で変えられる設定。",
         "required": [
           "port",
-          "uploadMaxSizeMb",
           "sessionExpiryDays"
         ],
         "properties": {
@@ -9668,9 +9592,12 @@
             "description": "最後に使ってから、ログインが切れるまでの日数。"
           },
           "uploadMaxSizeMb": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int64",
-            "description": "ファイルのアップロード1件あたりの上限 (MiB)。",
+            "description": "共有へのファイルのアップロード1件あたりの上限 (MiB)。`None` なら上限なし。",
             "minimum": 0
           }
         }
@@ -10518,51 +10445,6 @@
           },
           "siteName": {
             "type": "string"
-          }
-        }
-      },
-      "UploadContentRequest": {
-        "type": "object",
-        "description": "utoipaのOpenAPIドキュメント用のダミー構造体。実際のリクエストは\n`axum::extract::Multipart` で受け取るため、この構造体自体はデシリアライズに使わない\n(`multipart/form-data`のスキーマ表現としてutoipaに渡すためだけのもの)。",
-        "required": [
-          "file"
-        ],
-        "properties": {
-          "description": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "file": {
-            "type": "string",
-            "format": "binary"
-          },
-          "parent_id": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64",
-            "description": "親グループのid。省略/空ならルート直下に作成する。"
-          },
-          "title": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "省略・空ならファイル名 (拡張子を除く) にする。"
-          },
-          "visibility": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/Visibility",
-                "description": "公開範囲。省略/空なら既定値。"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         }
       },

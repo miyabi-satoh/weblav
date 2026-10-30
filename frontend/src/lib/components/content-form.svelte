@@ -16,7 +16,6 @@
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import AutoScheduleField from '$lib/components/auto-schedule-field.svelte';
-	import FileDropzone from '$lib/components/file-dropzone.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import * as Select from '$lib/components/ui/select';
 	import { Switch } from '$lib/components/ui/switch';
@@ -117,37 +116,16 @@
 			</div>
 		</Field.Field>
 	{:else if showsSpecific && form.type === 'file'}
+		<!-- ファイルは差し替えない (ファイルは共有の中に置く)。前から登録してあるものは、今のファイルを見せるだけ。 -->
 		<Field.Field data-disabled={disabled}>
-			<Field.FieldLabel for="content-file" required={!editing}
-				>{m.contents_form_file_label()}</Field.FieldLabel
-			>
-			{#if editing}
-				{#if form.existingFileName !== null}
-					<p class="text-sm text-muted-foreground">
-						{m.contents_form_file_current_label()}: {form.existingFileName}
-						{#if form.existingFileSize !== null}
-							({formatByteSize(form.existingFileSize)})
-						{/if}
-					</p>
-				{/if}
-				{#if !disabled}
-					{#key form.fileInputVersion}
-						<FileDropzone
-							id="content-file"
-							bind:files={form.files}
-							hint={m.contents_form_dropzone_replace_hint()}
-						/>
-					{/key}
-				{/if}
-			{:else}
-				{#key form.fileInputVersion}
-					<FileDropzone
-						id="content-file"
-						bind:files={form.files}
-						required
-						hint={m.contents_form_dropzone_hint()}
-					/>
-				{/key}
+			<Field.FieldLabel>{m.contents_form_file_label()}</Field.FieldLabel>
+			{#if form.existingFileName !== null}
+				<p class="text-sm text-muted-foreground">
+					{form.existingFileName}
+					{#if form.existingFileSize !== null}
+						({formatByteSize(form.existingFileSize)})
+					{/if}
+				</p>
 			{/if}
 		</Field.Field>
 	{/if}
