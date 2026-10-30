@@ -177,7 +177,7 @@ export const CONFIRM_SAVE_NAME = /^この設定で保存しますか？$|^Save w
 /** 管理画面の一覧の上にある追加ボタン。表示言語 (ja/en) のどちらでも見つかるようにする。 */
 export const CONTENT_ADD_BUTTON_NAME = /^追加\.\.\.$|^Add\.\.\.$/;
 export const USER_ADD_BUTTON_NAME = /^ユーザーを追加\.\.\.$|^Add user\.\.\.$/;
-/** 公開できるフォルダーの行の⋮メニューにある「名前を変更」。 */
+/** 共有の行の⋮メニューにある「名前を変更」。 */
 export const RENAME_MENU_ITEM_NAME = /^名前を変更\.\.\.$|^Rename\.\.\.$/;
 export const ROOT_ADD_BUTTON_NAME = /^フォルダーを追加\.\.\.$|^Add a folder\.\.\.$/;
 /** 窓が閉じるのを待つ間の追加ボタン。名前の頭にスピナーの「読み込み中」が付く。 */
@@ -187,7 +187,6 @@ export const ROOT_ADD_BUTTON_LOADING_NAME =
 /** コンテンツの作成ダイアログで選ぶ種別のボタン。名前には説明が続くので前方一致で探す。 */
 export const CONTENT_TYPE_NAME = {
 	link: /^リンク|^Link/,
-	file: /^ファイル|^File/,
 	folder: /^フォルダー|^Folder/,
 	group: /^グループ|^Group/
 } as const;

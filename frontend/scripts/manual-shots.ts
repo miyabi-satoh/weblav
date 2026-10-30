@@ -98,7 +98,7 @@ const WEBP_QUALITY = 0.85;
  * 画像に写すパス。OS で違う画面は Windows のものを載せる (→ docs/help.md) ので、
  * 手元のパスを API の応答の中でこれに置き換える。
  */
-const WINDOWS_SHARED_PATH = 'C:\\Users\\user\\Documents\\共有';
+const WINDOWS_SHARED_PATH = 'C:\\Users\\user\\Documents\\学校';
 
 // Ctrl-C はこちらで受けて片付ける (下の SIGINT)。Playwright に先にブラウザーを閉じさせない。
 // 時刻の欄などブラウザーが描く部品は、コンテキストの locale でなく起動時の言語で書式が決まる。
@@ -107,11 +107,11 @@ const browser = await chromium.launch({ handleSIGINT: false, args: ['--lang=ja-J
 /** makeSharedDir が作った一時フォルダー。最後に消す。 */
 const tempDirs: string[] = [];
 
-/** 公開できるフォルダー「共有」と、その中のフォルダー・ファイルを作り、絶対パスを返す。 */
+/** 共有にする「学校」フォルダーと、その中のフォルダー・ファイルを作り、絶対パスを返す。 */
 function makeSharedDir(): string {
 	const base = mkdtempSync(path.join(tmpdir(), 'weblav-manual-shots-files-'));
 	tempDirs.push(base);
-	const shared = path.join(base, '共有');
+	const shared = path.join(base, '学校');
 	const files = [
 		'写真/運動会.jpg',
 		'音楽/校歌.mp3',
@@ -160,13 +160,6 @@ async function send(request: APIRequestContext, method: string, apiPath: string,
 	if (!res.ok())
 		throw new Error(`${method} ${apiPath} が失敗しました (${res.status()}): ${await res.text()}`);
 	return res.status() === 204 ? null : ((await res.json()) as { id: number });
-}
-
-async function upload(page: Page, title: string, fileName: string, mimeType: string) {
-	const res = await page.request.post('/api/v1/contents/upload', {
-		multipart: { title, file: { name: fileName, mimeType, buffer: Buffer.from('') } }
-	});
-	if (!res.ok()) throw new Error(`${title} のアップロードが失敗しました (${res.status()})`);
 }
 
 /** 管理者でログインしたページを開く。ログイン画面は撮らないので API で入る。 */
@@ -389,8 +382,6 @@ async function shootAdmin() {
 			parentId: group!.id,
 			visibility: 'public'
 		});
-		await upload(page, '今月の予定', '今月の予定.pdf', 'application/pdf');
-		await upload(page, '集合写真', '集合写真.jpg', 'image/jpeg');
 
 		const SETTINGS_SHOTS = [
 			'settings-page',
@@ -477,7 +468,7 @@ async function shootAdmin() {
 			if (want('add-folder-form')) await shotElement(page, 'add-folder-form', dialog(page));
 			await dialog(page).getByRole('button', { name: CHOOSE_PATH_BUTTON_NAME }).click();
 			await picker(page).waitFor();
-			await dialog(page).getByRole('button', { name: '共有' }).click();
+			await dialog(page).getByRole('button', { name: '学校' }).click();
 			await dialog(page).getByRole('button', { name: '教材' }).click();
 			await dialog(page).getByText('このフォルダーにはサブフォルダーがありません。').waitFor();
 			if (want('add-folder-picker')) await shotElement(page, 'add-folder-picker', dialog(page));
@@ -502,7 +493,7 @@ async function shootAdmin() {
 			await chooseContentType(page, 'folder');
 			await dialog(page).getByRole('button', { name: CHOOSE_PATH_BUTTON_NAME }).click();
 			await picker(page).waitFor();
-			await dialog(page).getByRole('button', { name: '共有' }).click();
+			await dialog(page).getByRole('button', { name: '学校' }).click();
 			await dialog(page).getByRole('button', { name: '録音' }).click();
 			await dialog(page).getByRole('button', { name: '2025' }).waitFor();
 			await shotElement(page, 'add-archive-picker', dialog(page));

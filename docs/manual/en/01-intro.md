@@ -11,16 +11,17 @@ You can open this manual at any time from “Manual” on the WebLAV icon in the
 - Play audio
 - View images, PDFs, videos, and text
 - List links to external websites
+- Upload, rename, move, and delete files in folders on the computer from a browser
 - Choose who can see each item: anyone, signed-in users only, or only you
 
 ## How it works
 
 Only contents registered in the admin pages appear for viewers.
 
-![How folders on the computer relate to the viewer's screen: add "Shared" as an allowed folder, then register "Teaching materials" and "EIKEN" as folders. Only those two appear for viewers. Unregistered "Drafts" and "Household accounts" outside the allowed folder do not appear.](images/how-it-works.webp)
+![How folders on the computer relate to the viewer's screen: add "学校" (School) as a share, then register "教材" (Teaching materials) and "英検" (EIKEN) inside it as folders. Only those two appear for viewers. Unregistered "下書き" (Drafts) and "家計簿" (Household accounts) outside the share do not appear.](images/how-it-works.webp)
 
-- **Allowed folders**: The area from which you can choose contents. Adding one alone does not show anything to viewers.
-- **Contents**: Register folders in an allowed folder as a “Folder” to show them. These are what viewers see.
+- **Shares**: Folders that WebLAV may work with. Signed-in users can view, add, or move the files inside, depending on their permissions. Adding one alone does not show anything to people who are not signed in.
+- **Contents**: Register folders in a share as a “Folder” to show them. These are what viewers see.
 
 ## Quick start
 
@@ -32,9 +33,9 @@ Only contents registered in the admin pages appear for viewers.
 
    ![The setup screen](images/quickstart-setup.webp)
 
-3. In “Allowed folders” in the admin pages, add a folder that you are willing to share. The button for adding appears only when you open it from “Open in browser” in the task tray menu on the computer running WebLAV (→ [Add allowed folders](04-roots.md)).
+3. In “Shares” in the admin pages, add a folder that you are willing to share. The button for adding appears only when you open it from “Open in browser” in the task tray menu on the computer running WebLAV (→ [Add shares](04-shares.md)).
 
-   ![The Allowed folders page](images/quickstart-roots.webp)
+   ![The Shares page](images/quickstart-roots.webp)
 
 4. In “Contents”, choose “Folder” from “Add...” and register the folder you want to show.
 
@@ -45,5 +46,5 @@ Only contents registered in the admin pages appear for viewers.
    ![The Share this page screen](images/share-qr.webp)
 
 - Detailed instructions → [Set up](02-setup.md)
-- Other types and visibility → [Register contents](05-register-content.md)
+- Other types and visibility → [Register contents](06-register-content.md)
 - If you cannot open it → [Troubleshooting](11-troubleshooting.md)

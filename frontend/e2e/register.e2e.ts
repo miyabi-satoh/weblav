@@ -1,4 +1,4 @@
-// コンテンツを画面から登録する流れのうち、種別ごとに入力が違うもの (ファイル・フォルダー・アーカイブ)。
+// コンテンツを画面から登録する流れのうち、種別ごとに入力が違うもの (フォルダー・アーカイブ)。
 // リンクとグループは admin.e2e.ts で通している。
 //
 // フォルダーとアーカイブは、パスをテキストで入れさせずに選ばせ、登録の前に対象の件数を見せる
@@ -6,12 +6,7 @@
 import path from 'node:path';
 import { test, expect, type Page } from '@playwright/test';
 import { send } from './api-helpers';
-import {
-	expectContentEditPage,
-	openCreateForm,
-	removeContentIfPresent,
-	submitCreateForm
-} from './content-helpers';
+import { expectContentEditPage, openCreateForm, removeContentIfPresent } from './content-helpers';
 import {
 	createFixtureTree,
 	FIXTURE_UNREACHABLE,
@@ -32,7 +27,6 @@ import {
 	DIR_PICKER_NAME,
 	openAddDialog,
 	REGISTER_BUTTON_NAME,
-	requiredLabel,
 	specificSaveButton,
 	TITLE_LABEL,
 	uniqueId,
@@ -54,14 +48,14 @@ async function pickDirectory(page: Page, shared: SharedContentRoot, dirName: str
 	const picker = page.getByRole('dialog', { name: DIR_PICKER_NAME });
 	const useThisFolder = picker.getByRole('button', { name: USE_THIS_FOLDER_BUTTON_NAME });
 
-	// 上位の一覧には、フルパスではなく登録した名前が並ぶ (→ docs/folders.md「公開できるフォルダー」)。
+	// 上位の一覧には、フルパスではなく登録した名前が並ぶ (→ docs/folders.md「共有」)。
 	const rootButton = picker.getByRole('button', { name: shared.rootName, exact: true });
 	await expect(rootButton).toBeVisible();
 	await expect(useThisFolder).toBeDisabled();
 
 	// 一覧は押すたびに読み直すので、「選択中」が移り終わるのを待ってから次を押す。
 	// 待たずに決めると、読み込み中の1つ上の階層 (これも選べる) を決めてしまう。
-	// 「選択中」は「名前 / その先」の形で出る。公開できるフォルダーそのものではパンくずの末尾と
+	// 「選択中」は「名前 / その先」の形で出る。共有そのものではパンくずの末尾と
 	// 同じ文字列になるので、後ろ (選択中) を見る。
 	const labels = [shared.rootName];
 	const selected = () => picker.getByText(labels.join(LOCATION_SEPARATOR), { exact: true }).last();
@@ -102,7 +96,7 @@ test('フォルダー: パスを辿って選び、件数と閲覧範囲を確か
 		await expect(page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME })).toBeDisabled();
 
 		await pickDirectory(page, shared!, name);
-		// 選んだ場所は、フルパスではなく「公開できるフォルダーの名前 / その先」で出る。
+		// 選んだ場所は、フルパスではなく「共有の名前 / その先」で出る。
 		await expect(
 			page.getByRole('dialog').getByText(sharedLocationLabel(shared!, name), { exact: true })
 		).toBeVisible();
@@ -197,25 +191,7 @@ test('確認で「戻る」を押すと登録せず、フォームに戻る', as
 	}
 });
 
-test('ファイル: 選んだファイルをアップロードして登録できる', async ({ page }) => {
-	const title = uniqueId('e2e-register-file');
-	const fileName = `${title}.txt`;
-	try {
-		await openCreateForm(page, 'file');
-		await page.getByLabel(requiredLabel('ファイル', 'File')).setInputFiles({
-			name: fileName,
-			mimeType: 'text/plain',
-			buffer: Buffer.from('e2e')
-		});
-		await submitCreateForm(page, title);
-		// 見出しの下と「現在のファイル」の2か所に出る。
-		await expect(page.getByText(fileName, { exact: true })).toBeVisible();
-	} finally {
-		await removeContentIfPresent(page, title);
-	}
-});
-
-test('公開できるフォルダーが0件なら、フォルダーは選べず、理由が出る', async ({ page }) => {
+test('共有が0件なら、フォルダーは選べず、理由が出る', async ({ page }) => {
 	// 登録済みのフォルダーは他のテストと共有しているので消さない。
 	// 0件かどうかを確かめる問い合わせ (上位の一覧) だけを空にして、画面の出し分けを見る。
 	await page.route(
@@ -231,7 +207,5 @@ test('公開できるフォルダーが0件なら、フォルダーは選べず�
 	const dialog = page.getByRole('dialog');
 	await expect(dialog.getByRole('button', { name: CONTENT_TYPE_NAME.folder })).toBeDisabled();
 	await expect(dialog.getByRole('button', { name: CONTENT_TYPE_NAME.link })).toBeEnabled();
-	await expect(
-		dialog.getByText(/「公開できるフォルダー」を登録してください|Register an allowed folder/)
-	).toBeVisible();
+	await expect(dialog.getByText(/「共有」を登録してください|Register a share/)).toBeVisible();
 });

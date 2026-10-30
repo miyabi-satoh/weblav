@@ -15,7 +15,9 @@ To make the user an administrator, choose “Admin” under “Role” in the li
 ## Roles
 
 - **Editor**: Can register contents. They can change or delete only contents they registered. They can only view contents registered by other people in the admin pages.
-- **Admin**: Can change or delete all contents. They can also manage users, allowed folders, and site settings.
+- **Admin**: Can change or delete all contents. They can also manage users, shares, and site settings.
+
+What editors can do in a share (view, add, move, delete) is set for each share. To give a person different permissions, in “Shares” in the admin pages, select “⋮” on the share row, choose “Permissions...”, then choose that person's permission under “Per-user exceptions” (→ [Add shares](04-shares.md)). Administrators can do everything in every share.
 
 ## Reset a password
 
@@ -54,6 +56,7 @@ Let them know to log in with the new username from now on, including when they u
    ![The Delete user confirmation](images/user-delete.webp)
 
 Contents registered by the deleted user remain, and only administrators can change them.
+The record of what they did in shares is kept.
 Contents with “Creator only” visibility become “Hidden”.
 If someone will take over, choose that person under “Creator” on the content edit page, then select “Save”.
 

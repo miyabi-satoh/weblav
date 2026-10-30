@@ -2,7 +2,7 @@
 
 ## Write the configuration file (config.toml)
 
-Create `config.toml` at the settings location (→ [Maintain WebLAV](09-maintenance.md)) and add settings to it.
+Create `config.toml` at the settings location (→ [Maintain WebLAV](10-maintenance.md)) and add settings to it.
 If you have saved the “Server” section in Site settings, the file already exists, so add to it. Do not write the same section heading, such as `[server]`, twice.
 After saving, restart WebLAV.
 
@@ -34,7 +34,7 @@ Items you do not write use their default values.
 | `[session]` | `secret` | `""` | The key used to sign logins. It is generated automatically when blank. Usually, do not write this. |
 | | `secure_cookie` | `false` | Set to `true` when using HTTPS (→ “Use HTTPS” below). |
 | | `expiry_days` | `14` | Days to stay signed in. |
-| `[upload]` | `max_size_mb` | `100` | Maximum upload size in MB. |
+| `[upload]` | `max_size_mb` | none (no limit) | Maximum size in MB of each file uploaded to a share. No limit when omitted. |
 
 - You can also change `port`, `expiry_days`, and `max_size_mb` in Site settings in the admin pages.
 - If `bind` is set to a specific address of the computer (such as `192.168.1.10`), the “Setup” screen cannot be opened. Set it back to the default while creating the first administrator.
@@ -64,4 +64,4 @@ Run a reverse proxy such as nginx or Caddy on the same computer as WebLAV. Let i
 
 **If you forget step 2, anyone on the network can create the first administrator.**
 
-Create the first administrator and add “Allowed folders” from Edge or Chrome on the computer running WebLAV, opened from the menu.
+Create the first administrator and add “Shares” from Edge or Chrome on the computer running WebLAV, opened from the menu.

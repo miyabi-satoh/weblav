@@ -38,8 +38,7 @@ export interface ShotFixtures {
 	groupId: number;
 	folderId: number;
 	archiveId: number;
-	fileId: number;
-	/** 登録済みの「公開できるフォルダー」の絶対パス (→ docs/folders.md「公開できるフォルダー」)。 */
+	/** 登録済みの「共有」の絶対パス (→ docs/folders.md「共有」)。 */
 	sharedFolder: string;
 	/** `sharedFolder` の名前。ピッカーの最初の一覧に、フルパスの代わりに出る。 */
 	sharedFolderName: string;
@@ -256,8 +255,8 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// ディレクトリ選択ダイアログ。登録済みの「公開できるフォルダー」から1階層降りた状態
-	// (パンくずが公開できるフォルダーから始まる)。
+	// ディレクトリ選択ダイアログ。登録済みの「共有」から1階層降りた状態
+	// (パンくずが共有から始まる)。
 	admin_contents_dir_picker: {
 		viewports: ['desktop'],
 		async run(page, ctx) {
@@ -266,7 +265,7 @@ export const shots: Record<string, ShotEntry> = {
 			await chooseContentType(page, 'folder');
 			await page.getByRole('button', { name: CHOOSE_PATH_BUTTON_NAME }).click();
 			await page.getByRole('dialog', { name: DIR_PICKER_NAME }).waitFor({ timeout: 5000 });
-			// 最初の一覧は登録済みの「公開できるフォルダー」。その中へ1階層降りる。
+			// 最初の一覧は登録済みの「共有」。その中へ1階層降りる。
 			// ボタンの accessible name はアイコンのSVGを含んで完全一致しないため、
 			// 行内のテキストで特定する (クリックは親のbuttonへバブルする)。
 			await page.getByText(ctx.fixtures.sharedFolderName, { exact: true }).click();
@@ -321,7 +320,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// 管理画面: 公開できるフォルダー。seed.sql の登録済みフォルダーが並ぶ。
+	// 管理画面: 共有。seed.sql の登録済みフォルダーが並ぶ。
 	admin_roots: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, '/admin/roots');
@@ -329,7 +328,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// 管理画面: 公開できるフォルダーの追加で、OS のフォルダー選択の窓が閉じるのを待っているところ。
+	// 管理画面: 共有の追加で、OS のフォルダー選択の窓が閉じるのを待っているところ。
 	// 窓はブラウザーの外に出るので、撮るときは窓を開く口の応答を返さずに待たせる。
 	admin_roots_picking: {
 		viewports: ['desktop', 'mobile'],
@@ -344,7 +343,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// 管理画面: 公開できるフォルダーの名前の変更ダイアログ。行の⋮メニューから開く。
+	// 管理画面: 共有の名前の変更ダイアログ。行の⋮メニューから開く。
 	admin_roots_rename: {
 		viewports: ['desktop'],
 		async run(page, ctx) {
@@ -355,7 +354,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// 管理画面: 公開できるフォルダーの削除の確認。中のコンテンツの件数が文中に入る。
+	// 管理画面: 共有の削除の確認。中のコンテンツの件数が文中に入る。
 	admin_roots_delete_confirm: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, '/admin/roots');

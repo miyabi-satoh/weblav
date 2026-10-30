@@ -7,12 +7,10 @@
 // 運用DBを汚さないため)。作成の途中で失敗しても片付けが走るよう、作成の前から
 // try/finally で囲む。
 import { test, expect } from '@playwright/test';
-import { withContentByApi } from './api-helpers';
 import { ADMIN_USERNAME } from './auth';
 import {
 	basicSaveButton,
 	anonymousContext,
-	AUDIO_PLAYER_REGION_NAME,
 	BROWSE_LAYOUT_LIST_NAME,
 	BROWSE_LAYOUT_TILE_NAME,
 	CANCEL_BUTTON_NAME,
@@ -236,30 +234,6 @@ test('ホーム: 公開コンテンツが管理者にも未ログインにも表
 	}
 });
 
-test('ホーム: 音声のファイルは、新規タブではなくページ内のプレイヤーで開く', async ({ page }) => {
-	const title = uniqueId('E2E音声ファイル');
-	await withContentByApi(
-		page.request,
-		{
-			title,
-			fileName: 'e2e.mp3',
-			mimeType: 'audio/mpeg',
-			buffer: Buffer.from('e2e')
-		},
-		async ({ id }) => {
-			// 中身は再生できなくてよい (振り分けは拡張子で決まり、画面の動きだけを見る)。
-			await page.goto('/');
-			await expect(page.getByRole('link', { name: title })).toHaveCount(0);
-			await page.getByRole('button', { name: title }).click();
-			await expect(page.getByRole('region', { name: AUDIO_PLAYER_REGION_NAME })).toBeVisible();
-			await expect(page.locator('audio')).toHaveAttribute(
-				'src',
-				new RegExp(`/api/v1/contents/${id}/download$`)
-			);
-		}
-	);
-});
-
 test('作成者のみ: 作成者の一覧にだけ印付きで並び、作成者を削除すると非表示で残る', async ({
 	page,
 	browser
@@ -369,21 +343,24 @@ test('管理画面: サイト設定を保存するとホームの見出しに出
 
 test('管理画面: サーバーの設定は、既定から変えると印が付き、既定の値に戻せる', async ({ page }) => {
 	// 保存はしない。運用の config.toml を書き換えないため。
+	// 数の欄で見る (アップロード上限は既定が「上限なし」で、数の欄が出ていないため)。
 	const res = await page.request.get('/api/v1/admin/server-settings');
 	const { saved, defaults } = (await res.json()) as Record<
 		'saved' | 'defaults',
-		{ uploadMaxSizeMb: number }
+		{ sessionExpiryDays: number }
 	>;
 	// 既定の値とも保存した値とも違う値にする。
 	const changed = [1, 2]
-		.map((n) => defaults.uploadMaxSizeMb + n)
-		.find((n) => n !== saved.uploadMaxSizeMb)!;
+		.map((n) => defaults.sessionExpiryDays + n)
+		.find((n) => n !== saved.sessionExpiryDays)!;
 
 	await page.goto('/admin/settings');
 	const form = page.getByRole('form', { name: /^サーバー$|^Server$/ });
-	const input = form.getByRole('textbox', { name: /^アップロード上限|^Upload limit/ });
+	const input = form.getByRole('textbox', {
+		name: /^ログインを維持する期間|^Stay signed in for/
+	});
 	const reset = form.getByRole('button', {
-		name: /^既定値に戻す: アップロード上限$|^Reset to default: Upload limit$/
+		name: /^既定値に戻す: ログインを維持する期間$|^Reset to default: Stay signed in for$/
 	});
 
 	await input.fill(String(changed));
@@ -393,7 +370,7 @@ test('管理画面: サーバーの設定は、既定から変えると印が付
 	).toBeVisible();
 
 	await reset.click();
-	await expect(input).toHaveValue(String(defaults.uploadMaxSizeMb));
+	await expect(input).toHaveValue(String(defaults.sessionExpiryDays));
 	await expect(reset).toBeHidden();
 	// 押したボタンは消えるので、フォーカスは戻した入力欄へ移る。
 	await expect(input).toBeFocused();

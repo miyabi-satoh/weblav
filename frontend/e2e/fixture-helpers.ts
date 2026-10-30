@@ -1,8 +1,8 @@
 // フォルダー・アーカイブの e2e 用に、実在するディレクトリを用意する。
 //
 // サーバーが同じマシンで動いている前提で、リポジトリの target/ 配下にファイルの木を作り、
-// その絶対パスを API で登録する。木の置き場そのものを「公開できるフォルダー」に登録して
-// おかないと、コンテンツ側の登録が通らない (→ auth.setup.ts、docs/folders.md「公開できるフォルダー」)。
+// その絶対パスを API で登録する。木の置き場そのものを「共有」に登録して
+// おかないと、コンテンツ側の登録が通らない (→ auth.setup.ts、docs/folders.md「共有」)。
 // サーバーからパスが見えない (別のマシンで動いている等) ときは、登録が 422 になるので
 // テストを飛ばす。
 import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -14,7 +14,7 @@ import { SERVER_IS_REMOTE } from './server-location';
 
 const FIXTURE_BASE = path.resolve(import.meta.dirname, '../../target/e2e-fixtures');
 
-/** コンテンツの登録先に使う木の置き場。ここ自身を「公開できるフォルダー」に登録する。 */
+/** コンテンツの登録先に使う木の置き場。ここ自身を「共有」に登録する。 */
 const CONTENT_ROOT = path.join(FIXTURE_BASE, 'content');
 /**
  * `CONTENT_ROOT` を登録するときの名前。フォルダー名 (`content`) のままだと、開発用 DB に
@@ -23,7 +23,7 @@ const CONTENT_ROOT = path.join(FIXTURE_BASE, 'content');
 const CONTENT_ROOT_NAME = 'e2e-content';
 
 /**
- * 「公開できるフォルダー」の登録そのものを試す木の置き場。`CONTENT_ROOT` の外に置く
+ * 「共有」の登録そのものを試す木の置き場。`CONTENT_ROOT` の外に置く
  * (登録済みのフォルダーと範囲が重なるものは登録できないため)。
  */
 const ROOT_FIXTURE_BASE = path.join(FIXTURE_BASE, 'roots');
@@ -49,7 +49,7 @@ export function createFixtureTree(
 	return createTreeIn(CONTENT_ROOT, name, files);
 }
 
-/** 「公開できるフォルダー」として登録するための木。登録済みのフォルダーの外に作る。 */
+/** 「共有」として登録するための木。登録済みのフォルダーの外に作る。 */
 export function createRootFixtureTree(name: string): string {
 	return createTreeIn(ROOT_FIXTURE_BASE, name, FIXTURE_FILES);
 }
@@ -87,7 +87,7 @@ const PATH_NOT_ACCESSIBLE = 'path does not exist or is not accessible';
 const ROOT_ALREADY_REGISTERED = '"kind":"rootAlreadyRegistered"';
 
 /**
- * コンテンツの木の置き場を「公開できるフォルダー」に登録する (→ auth.setup.ts)。
+ * コンテンツの木の置き場を「共有」に登録する (→ auth.setup.ts)。
  *
  * 起動済みの開発用サーバーに当てるときは前回の登録が残っているので、二重登録の 422 は
  * 登録済みとみなす。サーバーからパスが見えないときも通す (個々のテストが飛ばす)。
@@ -107,7 +107,7 @@ export async function registerContentRoot(request: APIRequestContext): Promise<v
 	) {
 		return;
 	}
-	throw new Error(`公開できるフォルダーの登録に失敗しました (${res.status()}): ${text}`);
+	throw new Error(`共有の登録に失敗しました (${res.status()}): ${text}`);
 }
 
 /**
@@ -188,7 +188,7 @@ export const LOCATION_SEPARATOR = ' / ';
 
 /**
  * 置き場の中の `dirName` が、登録側の画面でどう出るか。フルパスではなく
- * 「公開できるフォルダーの名前 / その先」になる (→ docs/folders.md「公開できるフォルダー」)。
+ * 「共有の名前 / その先」になる (→ docs/folders.md「共有」)。
  */
 export function sharedLocationLabel(shared: SharedContentRoot, dirName: string): string {
 	const target = path.join(shared.contentRoot, dirName);

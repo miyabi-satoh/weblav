@@ -1,4 +1,4 @@
-// 「公開できるフォルダー」の管理画面 (→ docs/folders.md「公開できるフォルダー」)。
+// 「共有」の管理画面 (→ docs/folders.md「共有」)。
 // サーバーの PC からしか触れない画面なので、別のマシンのサーバーに当てるときは飛ばす。
 // ファイルシステムの実体が要るため、admin.e2e.ts ではなくこちらに置く。
 import { realpathSync } from 'node:fs';
@@ -56,7 +56,7 @@ async function stubFolderPicker(page: Page, respond: (route: Route) => Promise<v
 	await page.route('**/api/v1/admin/roots/pick', respond);
 }
 
-// 窓で選ぶとすぐフォルダー名で追加する。一覧には名前とフルパスの両方が出る (→ docs/folders.md「公開できるフォルダー」)。
+// 窓で選ぶとすぐフォルダー名で追加する。一覧には名前とフルパスの両方が出る (→ docs/folders.md「共有」)。
 test('フォルダーを選ぶとフォルダー名で追加されて名前とフルパスが並び、名前を変えられる', async ({
 	page
 }) => {
@@ -163,16 +163,14 @@ test('管理画面のタブから開ける', async ({ page }) => {
 	await page.goto('/admin/contents');
 	await page
 		.getByRole('navigation')
-		.getByRole('link', { name: /^公開できるフォルダー$|^Allowed folders$/ })
+		.getByRole('link', { name: /^共有$|^Shares$/ })
 		.click();
 
-	await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-		/^公開できるフォルダー$|^Allowed folders$/
-	);
+	await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^共有$|^Shares$/);
 });
 
 // 登録を消しても、そのフォルダーを指すコンテンツの登録は残る。その編集ページのピッカーが、
-// 辿れない位置で行き止まりにならず、上位の一覧から選び直せること (→ docs/folders.md「公開できるフォルダー」)。
+// 辿れない位置で行き止まりにならず、上位の一覧から選び直せること (→ docs/folders.md「共有」)。
 test('登録を消したフォルダーを指すコンテンツでも、ピッカーは上位の一覧から開き直せる', async ({
 	page
 }) => {
@@ -197,7 +195,7 @@ test('登録を消したフォルダーを指すコンテンツでも、ピッ�
 				await page.goto(`/admin/contents/${content.id}`);
 				await page.getByRole('button', { name: CHANGE_PATH_BUTTON_NAME }).click();
 
-				// 上位の一覧 (登録済みの「公開できるフォルダー」。名前で並ぶ) に落ちていること。
+				// 上位の一覧 (登録済みの「共有」。名前で並ぶ) に落ちていること。
 				// 開発用 DB では置き場の登録が別の名前・親のフォルダーのこともあるので、実際の名前を引く。
 				const shared = await sharedContentRoot(page.request);
 				test.skip(shared === null, FIXTURE_UNREACHABLE);

@@ -136,7 +136,7 @@ Added files are published if “Publish new files” is on, and start unpublishe
 
 ![Two selected items and the Publish button](images/archive-items-publish.webp)
 
-To stop publishing files, select them, then choose “Unpublish”. You can also select “⋮” on a row in the library and choose “Unpublish”. Both views share the same publish settings, so a change in one applies to the other (→ [Register contents](05-register-content.md)).
+To stop publishing files, select them, then choose “Unpublish”. You can also select “⋮” on a row in the library and choose “Unpublish”. Both views share the same publish settings, so a change in one applies to the other (→ [Register contents](06-register-content.md)).
 
 ## When files or folders are not found
 
@@ -148,4 +148,4 @@ If rescanning shows one of the following, the item list and the publish settings
   - If you moved or renamed it, select “Change...” under “Path” on the “Settings” tab and choose it. The publish changes and the list are cleared, so set them up again.
   - If you disconnected a drive, connect it and rescan.
   - Viewers also see “The folder was not found.”
-- **“Could not read "(folder)".” / “The folder could not be read.”**: WebLAV cannot read that folder (in the latter case, the registered folder itself). Check the folder’s permissions on the computer, make it readable, then rescan. For a NAS share, check that it is connected.
+- **“Could not read "(folder)".” / “The folder could not be read.”**: WebLAV cannot read that folder (in the latter case, the registered folder itself). Check the folder’s permissions on the computer, make it readable, then rescan. For a NAS shared folder, check that it is connected.

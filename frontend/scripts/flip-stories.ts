@@ -465,14 +465,14 @@ const contents: Story = {
 			}
 		},
 		{
-			caption: 'パスの「選ぶ...」を押す (公開できるフォルダーが並ぶ)',
+			caption: 'パスの「選ぶ...」を押す (共有が並ぶ)',
 			async run(page) {
 				await page.getByRole('button', { name: CHOOSE_PATH_BUTTON_NAME }).click();
 				await page.getByRole('dialog', { name: DIR_PICKER_NAME }).waitFor();
 			}
 		},
 		{
-			caption: '公開できるフォルダーの中へ進む',
+			caption: '共有の中へ進む',
 			async run(page, ctx) {
 				await page.getByText(ctx.fixtures.sharedFolderName, { exact: true }).click();
 				await page.getByText(/^1\sつ上へ$/).waitFor();
@@ -584,7 +584,7 @@ const archive: Story = {
 };
 
 const admin: Story = {
-	title: '管理: ユーザー・公開できるフォルダー・サイト設定',
+	title: '管理: ユーザー・共有・サイト設定',
 	roles: ['admin', 'user'],
 	steps: [
 		{
@@ -663,12 +663,12 @@ const admin: Story = {
 			}
 		},
 		{
-			caption: '公開できるフォルダーを開く',
+			caption: '共有を開く',
 			roles: ADMIN_ONLY,
 			run: (page) => open(page, '/admin/roots')
 		},
 		{
-			caption: '公開できるフォルダーの URL を開く (コンテンツ管理へ戻される)',
+			caption: '共有の URL を開く (コンテンツ管理へ戻される)',
 			roles: USER_ONLY,
 			async run(page) {
 				await page.goto('/admin/roots');

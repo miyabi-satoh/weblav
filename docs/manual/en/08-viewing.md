@@ -14,7 +14,7 @@ Some contents are visible only to signed-in users (→ [Sign in and display](03-
 
 ## Find files
 
-- Select a row with “›” to open it.
+- Select a group or folder row to open it. Rows that open in a new tab have a mark after the title.
 
   ![The home list open on a phone](images/viewing-home.webp)
 
@@ -49,3 +49,13 @@ Some contents are visible only to signed-in users (→ [Sign in and display](03-
 - You can also control videos with the same keys as YouTube (Space or K to play or pause, J and L to go back or forward 10 seconds, M to mute, F for full screen, Home and End to jump to the start or end, 0 to 9 to jump to 0% to 90% of the video).
 
 - Select a link to see its image, title, and description in full. Select “Open in new tab” to open the page in a new tab. Use the arrow buttons at the bottom left to move between links. If the link points to a file such as a PDF, video, audio file, or image, it opens in place, just like a file. Select a file whose name ends with `.links.toml` to list the links in it.
+
+## Check what people who are not signed in see
+
+While signed in, you can show pages as people who are not signed in see them. Use this to check after setting visibility.
+
+1. Select your username at the top right, then choose “View as a visitor”.
+2. Open Home and folders to check. If you open something people who are not signed in cannot see, “People who aren't logged in can't see this.” appears.
+3. When you are done, select “Back” in the bar below the header.
+
+While you are viewing this way, actions only for signed-in users, such as “⋮” on rows and the “Shares” section, do not appear. Closing the browser also returns you to the normal view.
