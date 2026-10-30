@@ -1,5 +1,5 @@
 import { client } from '$lib/api/client';
-import { fetchOrError } from '$lib/api/load';
+import { fetchOrError, fetchOrNull } from '$lib/api/load';
 import { parseBrowseSort } from '$lib/browse-sort';
 import * as m from '$lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
@@ -23,5 +23,8 @@ export const load: PageLoad = async ({ parent, params, url }) => {
 		m.folder_browse_fetch_failed(),
 		{ loginRedirectFrom: url }
 	);
-	return { contentId, browse, sort };
+	// 共有の中で操作できる場所なら、移動・コピーの置き先の候補を取る (→ docs/ui.md「共有の中の画面」)。
+	// 取れなくても一覧は出し、コピーを出さないだけにする。
+	const shares = browse.share ? ((await fetchOrNull(client.GET('/api/v1/shares'))) ?? []) : [];
+	return { contentId, browse, sort, shares };
 };

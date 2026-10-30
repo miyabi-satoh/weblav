@@ -6,6 +6,7 @@
 	import { cn } from '$lib/utils';
 	import { pageHeadingInRowClass } from '$lib/page-layout';
 	import { viewAs } from '$lib/view-as.svelte';
+	import type { Snippet } from 'svelte';
 
 	// 閲覧の画面の見出し。書き換えられる人には、右端に編集ページへのペンを出す (→ docs/ui.md「UI 全般」)。
 
@@ -17,13 +18,16 @@
 		/** 編集するコンテンツの名前。ペンの読み上げに使う。 */
 		contentTitle: string;
 		canEdit: boolean;
+		/** ペンの手前に置く操作 (共有の中で足せるフォルダーの「追加」)。 */
+		actions?: Snippet;
 	};
 
-	let { heading, contentId, contentTitle, canEdit }: Props = $props();
+	let { heading, contentId, contentTitle, canEdit, actions }: Props = $props();
 </script>
 
 <div class="mb-4 flex items-start gap-2">
 	<h1 class={pageHeadingInRowClass}>{heading}</h1>
+	{@render actions?.()}
 	<!-- 閲覧者として見ている間は、ログインしていない人に見える形にするので出さない。 -->
 	{#if canEdit && !viewAs.active}
 		<!-- 見出しの行の高さを変えないよう上下を打ち消し、アイコンの右の端を余白の線に揃える。 -->
