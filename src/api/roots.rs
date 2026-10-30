@@ -57,6 +57,9 @@ pub struct RootResponse {
     pub editor_access: ShareAccess,
     /// ユーザーごとの例外。ユーザー名の順。
     pub user_access: Vec<RootUserAccess>,
+    /// 中を書き換えられる許可があるか。macOS のサンドボックスで、読むだけの許可のまま登録した共有は偽。
+    /// 偽なら、この PC で窓から選び直してもらう (`POST /admin/roots/{id}/repick`)。
+    pub writable: bool,
 }
 
 /// 共有の、ユーザーごとの例外の1件。
@@ -110,6 +113,7 @@ async fn list_roots(
     .await?;
     let counts = ContentCounts::load(&state.pool).await?;
     let mut user_access = load_user_access(&state.pool).await?;
+    let read_only = crate::folder_access::read_only_paths(&state.pool).await?;
     // 管理者が様子を見る画面なので、眠っている NAS が起きるまで待つ。
     let paths = rows.iter().map(|row| row.path.clone()).collect();
     let reaches = check_all(&state, paths, TARGET_WAIT).await;
@@ -120,6 +124,7 @@ async fn list_roots(
             content_count: counts.under(&row.path),
             removed_content_count: counts.removed_with(&row.path),
             status: RootStatus::from(&reach),
+            writable: !read_only.contains(&row.path),
             id: row.id,
             name: row.name,
             path: row.path,
@@ -229,6 +234,9 @@ async fn create_root(
             removed_content_count: counts.removed_with(&row.path),
             // 今 canonicalize できたフォルダー。
             status: RootStatus::Ready,
+            writable: !crate::folder_access::read_only_paths(&state.pool)
+                .await?
+                .contains(&row.path),
             path: row.path,
             editor_access: row.editor_access,
             user_access,
@@ -361,6 +369,9 @@ async fn root_response(state: &AppState, id: i64) -> Result<RootResponse, AppErr
         content_count: counts.under(&row.path),
         removed_content_count: counts.removed_with(&row.path),
         status: RootStatus::from(&reach),
+        writable: !crate::folder_access::read_only_paths(&state.pool)
+            .await?
+            .contains(&row.path),
         path: row.path,
         editor_access: row.editor_access,
         user_access,
@@ -855,11 +866,15 @@ async fn pick_root(
     };
     // 画面に出し、そのまま登録に渡す値なので、ほかの口と同じ形に揃える。
     let path = path_to_string(picked)?;
-    // 窓で選んだ今のうちに、次の起動でも読めるようにしておく (→ docs/distribution.md「ビルド・配布の方法」)。
-    // キーは登録と同じく実体のパス。
-    let lookup = path.clone();
+    keep_bookmark(&state, path.clone()).await?;
+    Ok(Json(PickRootResponse { path: Some(path) }))
+}
+
+/// 窓で選んだ今のうちに、次の起動でも読み書きできるようにしておく (→ docs/distribution.md「ビルド・配布の方法」)。
+/// キーは登録と同じく実体のパス。macOS 以外では何もしない。
+async fn keep_bookmark(state: &AppState, path: String) -> Result<(), AppError> {
     let bookmark = run_blocking(move || -> Result<_, AppError> {
-        let Ok(canonical) = canonical_dir(&lookup) else {
+        let Ok(canonical) = canonical_dir(&path) else {
             return Ok(None);
         };
         // 作れないまま登録させると、サンドボックスでは起動し直した後に読めないフォルダーが残る。
@@ -877,13 +892,88 @@ async fn pick_root(
     if let Some((canonical, bookmark)) = bookmark {
         crate::folder_access::save(&state.pool, &canonical, &bookmark).await?;
     }
-    Ok(Json(PickRootResponse { path: Some(path) }))
+    Ok(())
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct RepickRootResponse {
+    /// 取り直した後の共有。窓をキャンセルしたら `null` (何も変えない)。
+    root: Option<RootResponse>,
+}
+
+/// 登録済みの共有を、サーバーの PC の窓で選び直してもらい、書き込みの許可を取り直す。
+///
+/// macOS のサンドボックスでは、許可は利用者が窓で選んだときにしか増やせない。読むだけの許可で登録した共有
+/// (`RootResponse::writable` が偽) を書き換えられるようにするため。選ぶのは同じフォルダーでなければならず、
+/// 別のフォルダーなら 422 にして何も変えない (別の場所の許可で共有を差し替えないため)。
+#[utoipa::path(
+    post,
+    path = "/admin/roots/{id}/repick",
+    params(("id" = i64, Path)),
+    responses(
+        (status = OK, body = RepickRootResponse, description = "取り直した後の共有。キャンセルなら root が null"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 404, body = crate::error::ErrorResponse, description = "サーバーのPC以外からの要求か、共有が無い"),
+        (status = 409, body = crate::error::ErrorResponse, description = "窓がもう開いている"),
+        (status = 422, body = crate::error::ErrorResponse, description = "別のフォルダーを選んだ"),
+    )
+)]
+async fn repick_root(
+    _: LocalRequest,
+    _admin: AdminUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<RepickRootResponse>, AppError> {
+    let root = sqlx::query!(
+        "SELECT name, path FROM roots WHERE id = ? AND deleted_at IS NULL",
+        id
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(AppError::NotFound)?;
+    let session = state
+        .folder_picker
+        .begin()
+        .ok_or_else(|| AppError::Conflict("a folder picker is already open".to_string()))?;
+    let picked = run_blocking(move || {
+        session
+            .pick()
+            .map_err(|_| AppError::Io(std::io::Error::other("the folder picker is not running")))
+    })
+    .await??;
+    let Some(picked) = picked else {
+        return Ok(Json(RepickRootResponse { root: None }));
+    };
+    // 登録と同じく実体のパスで比べる。窓が返す綴りは、リンクを辿る前の形のことがあるため。
+    let canonical = run_blocking(move || -> Result<_, AppError> {
+        let picked = path_to_string(picked)?;
+        match canonical_dir(&picked) {
+            Ok(canonical) => Ok(Some(path_to_string(canonical)?)),
+            Err(_) => Ok(None),
+        }
+    })
+    .await??;
+    if canonical.as_deref() != Some(root.path.as_str()) {
+        return Err(AppError::ValidationDetailed {
+            message: "the picked folder is not the share's folder".to_string(),
+            detail: ValidationDetail::RepickedOtherFolder { name: root.name },
+        });
+    }
+    keep_bookmark(&state, root.path.clone()).await?;
+    crate::folder_access::forget_restored(&root.path);
+    crate::folder_access::restore(&state.pool).await;
+    Ok(Json(RepickRootResponse {
+        root: Some(root_response(&state, id).await?),
+    }))
 }
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(list_roots, create_root))
         .routes(routes!(pick_root))
+        .routes(routes!(repick_root))
         .routes(routes!(rename_root, delete_root))
         .routes(routes!(update_root_access))
 }

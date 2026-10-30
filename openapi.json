@@ -806,6 +806,86 @@
         }
       }
     },
+    "/api/v1/admin/roots/{id}/repick": {
+      "post": {
+        "summary": "登録済みの共有を、サーバーの PC の窓で選び直してもらい、書き込みの許可を取り直す。",
+        "description": "macOS のサンドボックスでは、許可は利用者が窓で選んだときにしか増やせない。読むだけの許可で登録した共有\n(`RootResponse::writable` が偽) を書き換えられるようにするため。選ぶのは同じフォルダーでなければならず、\n別のフォルダーなら 422 にして何も変えない (別の場所の許可で共有を差し替えないため)。",
+        "operationId": "repick_root",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "取り直した後の共有。キャンセルなら root が null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepickRootResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "サーバーのPC以外からの要求か、共有が無い",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "窓がもう開いている",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "別のフォルダーを選んだ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/server-settings": {
       "get": {
         "operationId": "get_server_settings",
@@ -9133,6 +9213,22 @@
           }
         }
       },
+      "RepickRootResponse": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RootResponse",
+                "description": "取り直した後の共有。窓をキャンセルしたら `null` (何も変えない)。"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
       "ReplaceAxisValuesRequest": {
         "type": "object",
         "required": [
@@ -9300,7 +9396,8 @@
           "removedContentCount",
           "status",
           "editorAccess",
-          "userAccess"
+          "userAccess",
+          "writable"
         ],
         "properties": {
           "contentCount": {
@@ -9339,6 +9436,10 @@
               "$ref": "#/components/schemas/RootUserAccess"
             },
             "description": "ユーザーごとの例外。ユーザー名の順。"
+          },
+          "writable": {
+            "type": "boolean",
+            "description": "中を書き換えられる許可があるか。macOS のサンドボックスで、読むだけの許可のまま登録した共有は偽。\n偽なら、この PC で窓から選び直してもらう (`POST /admin/roots/{id}/repick`)。"
           }
         }
       },
@@ -10780,6 +10881,25 @@
                 "type": "string",
                 "enum": [
                   "rootAlreadyRegistered"
+                ]
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "共有の書き込みの許可を取り直すとき、窓で別のフォルダーを選んだ。`name` は取り直そうとした共有の名前。",
+            "required": [
+              "name",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "repickedOtherFolder"
                 ]
               },
               "name": {

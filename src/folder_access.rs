@@ -1,4 +1,4 @@
-//! macOS のサンドボックスで、公開できるフォルダーを起動し直しても読めるようにする
+//! macOS のサンドボックスで、共有を起動し直しても読み書きできるようにする
 //! (security-scoped bookmark、→ docs/distribution.md「ビルド・配布の方法」)。
 //!
 //! サンドボックスでは、利用者がフォルダー選択の窓で選んだフォルダーしか読めず、その許可は
@@ -20,16 +20,51 @@ pub fn bookmark(path: &Path) -> Result<Option<Vec<u8>>, String> {
 }
 
 /// 窓で選んだフォルダーのブックマークを残す。同じパスがあれば書き直す。
+/// 窓で選んで作るブックマークは書き込みの許可を持つ (`bookmark`)。
 pub async fn save(pool: &SqlitePool, path: &str, bookmark: &[u8]) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "INSERT INTO folder_bookmarks (path, bookmark) VALUES (?, ?)
-         ON CONFLICT (path) DO UPDATE SET bookmark = excluded.bookmark",
+        "INSERT INTO folder_bookmarks (path, bookmark, read_write) VALUES (?, ?, 1)
+         ON CONFLICT (path) DO UPDATE SET bookmark = excluded.bookmark, read_write = 1",
         path,
         bookmark
     )
     .execute(pool)
     .await?;
     Ok(())
+}
+
+/// 古くなったブックマークを作り直したものに置き換える。許可の種類は前のまま
+/// (読むだけの許可から作り直しても、書き込みの許可にはならないため)。
+async fn renew(pool: &SqlitePool, path: &str, bookmark: &[u8]) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "UPDATE folder_bookmarks SET bookmark = ? WHERE path = ?",
+        bookmark,
+        path
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// 読むだけの許可のブックマークしか無いフォルダーのパス。サンドボックスでは中を書き換えられないので、
+/// 管理画面で選び直すよう知らせる。ブックマークが無いフォルダー (macOS 以外など) は含めない。
+pub async fn read_only_paths(pool: &SqlitePool) -> Result<BTreeSet<String>, sqlx::Error> {
+    Ok(
+        sqlx::query_scalar!("SELECT path FROM folder_bookmarks WHERE read_write = 0")
+            .fetch_all(pool)
+            .await?
+            .into_iter()
+            .collect(),
+    )
+}
+
+/// 選び直したフォルダーの許可を、次の `restore` で取り直させる。読むだけの許可で戻していても、
+/// 書き込みの許可のブックマークで戻し直すため。
+pub fn forget_restored(path: &str) {
+    STARTED
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .remove(path);
 }
 
 /// 公開できるフォルダーのブックマーク。無い (macOS 以外・窓で選んでいない) か読めなければ `None`。
@@ -107,7 +142,7 @@ pub async fn restore(pool: &SqlitePool) {
             .insert(path.clone());
         // 古くなったブックマーク (フォルダーが動いた等) は、戻せても作り直しを求められる。
         if let Some(renewed) = renewed
-            && let Err(err) = save(pool, &path, &renewed).await
+            && let Err(err) = renew(pool, &path, &renewed).await
         {
             tracing::warn!(%path, %err, "failed to renew a folder bookmark");
         }
@@ -124,10 +159,9 @@ mod platform {
         NSData, NSString, NSURL, NSURLBookmarkCreationOptions, NSURLBookmarkResolutionOptions,
     };
 
-    /// 公開できるフォルダーは読むだけなので、読む許可のブックマークにする。
+    /// 共有の中を書き換えるので、書き込みの許可も持つブックマークにする。
     fn creation_options() -> NSURLBookmarkCreationOptions {
         NSURLBookmarkCreationOptions::WithSecurityScope
-            | NSURLBookmarkCreationOptions::SecurityScopeAllowOnlyReadAccess
     }
 
     fn create(url: &NSURL) -> Result<Vec<u8>, String> {

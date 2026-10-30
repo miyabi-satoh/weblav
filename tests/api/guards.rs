@@ -130,6 +130,7 @@ const LOCAL_ONLY_APIS: &[(&str, &str)] = &[
     ("POST", "/api/v1/setup/restore"),
     ("POST", "/api/v1/admin/roots"),
     ("POST", "/api/v1/admin/roots/pick"),
+    ("POST", "/api/v1/admin/roots/9999/repick"),
 ];
 
 fn is_roots_api(uri: &str) -> bool {

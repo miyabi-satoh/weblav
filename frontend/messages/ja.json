@@ -204,6 +204,7 @@
 	"error_detail_root_name_taken": "「{name}」という名前の公開できるフォルダーがすでにあります。別の名前を指定してください。",
 	"error_detail_root_already_registered": "このフォルダーはすでに「{name}」として登録されています。",
 	"error_detail_root_inside_own_dirs": "WebLAV が設定とデータを保存しているフォルダーは、公開できるフォルダーにできません。",
+	"error_detail_repicked_other_folder": "選んだフォルダーが「{name}」のフォルダーと違います。同じフォルダーを選んでください。",
 	"error_detail_archive_folder_missing": "フォルダーが見つかりませんでした。",
 	"error_detail_archive_folder_unreadable": "「{path}」を読み取れませんでした。",
 	"error_detail_archive_folder_unreadable_root": "フォルダーを読み取れませんでした。",

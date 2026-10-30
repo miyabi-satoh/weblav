@@ -327,6 +327,124 @@ async fn picking_a_root_keeps_a_bookmark_on_macos(pool: SqlitePool) {
     weblav::folder_access::restore(&pool).await;
 }
 
+/// 共有の id。
+async fn registered_root_id(pool: &SqlitePool, dir: &std::path::Path) -> i64 {
+    register_root(pool, dir).await;
+    sqlx::query_scalar("SELECT id FROM roots WHERE path = ?")
+        .bind(canonical_path_as_api_returns_it(dir))
+        .fetch_one(pool)
+        .await
+        .expect("共有の行を引けなかった")
+}
+
+/// 読むだけの許可のブックマークしか無い共有は、一覧で書き込めないと出る。ブックマークの無い共有 (macOS 以外) は書き込める。
+#[sqlx::test]
+async fn roots_list_tells_whether_each_root_is_writable(pool: SqlitePool) {
+    let read_only = root_dir("roots-read-only");
+    let writable = root_dir("roots-writable");
+    registered_root_id(&pool, &read_only).await;
+    registered_root_id(&pool, &writable).await;
+    sqlx::query("INSERT INTO folder_bookmarks (path, bookmark) VALUES (?, x'00')")
+        .bind(canonical_path_as_api_returns_it(&read_only))
+        .execute(&pool)
+        .await
+        .expect("ブックマークを入れられなかった");
+    let (app, cookie) = admin_app(&pool).await;
+
+    let (status, body) = send(app, roots_request("GET", ROOTS_URI, &cookie, None)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let roots = parse_json(&body);
+    let writable_of = |dir: &std::path::Path| {
+        let path = canonical_path_as_api_returns_it(dir);
+        roots
+            .as_array()
+            .expect("配列でない")
+            .iter()
+            .find(|root| root["path"] == path.as_str())
+            .unwrap_or_else(|| panic!("{path} が一覧に無い: {body}"))["writable"]
+            .clone()
+    };
+    assert_eq!(writable_of(&read_only), false);
+    assert_eq!(writable_of(&writable), true);
+}
+
+/// 書き込みの許可の取り直しでは、同じフォルダーを選べば共有を返し、キャンセルなら `null` を返す。
+#[sqlx::test]
+async fn repicking_the_same_folder_returns_the_root(pool: SqlitePool) {
+    let dir = root_dir("roots-repick-same");
+    let id = registered_root_id(&pool, &dir).await;
+    let picked = dir.to_path_buf();
+    let data = temp_test_dir("roots-repick-same-data");
+    let app = app_with_picker(
+        pool.clone(),
+        &Config::default(),
+        &data,
+        FolderPicker::new(move || Ok(Some(picked.clone()))),
+    )
+    .await;
+    let cookie = admin_cookie(app.clone(), &pool).await;
+    let uri = format!("{ROOTS_URI}/{id}/repick");
+
+    let (status, body) = send(app, roots_request("POST", &uri, &cookie, None)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let root = &parse_json(&body)["root"];
+    assert_eq!(root["id"], id, "{body}");
+    assert_eq!(root["writable"], true, "{body}");
+
+    let cancel_data = temp_test_dir("roots-repick-cancel-data");
+    let app = app_with_picker(
+        pool.clone(),
+        &Config::default(),
+        &cancel_data,
+        FolderPicker::new(|| Ok(None)),
+    )
+    .await;
+    let cookie = login(app.clone(), "admin-alice", "correct-password").await;
+    let (status, body) = send(app, roots_request("POST", &uri, &cookie, None)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body, r#"{"root":null}"#);
+}
+
+/// 別のフォルダーを選んだら 422 にし、ブックマークを書かない。
+#[sqlx::test]
+async fn repicking_a_different_folder_is_rejected(pool: SqlitePool) {
+    let dir = root_dir("roots-repick-target");
+    let other = root_dir("roots-repick-other");
+    let id = registered_root_id(&pool, &dir).await;
+    let picked = other.to_path_buf();
+    let data = temp_test_dir("roots-repick-other-data");
+    let app = app_with_picker(
+        pool.clone(),
+        &Config::default(),
+        &data,
+        FolderPicker::new(move || Ok(Some(picked.clone()))),
+    )
+    .await;
+    let cookie = admin_cookie(app.clone(), &pool).await;
+
+    let (status, body) = send(
+        app,
+        roots_request("POST", &format!("{ROOTS_URI}/{id}/repick"), &cookie, None),
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+    assert_eq!(
+        parse_json(&body)["error"]["detail"]["kind"],
+        "repickedOtherFolder",
+        "{body}"
+    );
+    let bookmarks: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM folder_bookmarks")
+        .fetch_one(&pool)
+        .await
+        .expect("ブックマークを数えられなかった");
+    assert_eq!(bookmarks, 0);
+}
+
 /// 窓は同時に1つだけ。開いている間の2つ目は 409 で、閉じたらまた開ける。
 #[sqlx::test]
 async fn only_one_root_picker_opens_at_a_time(pool: SqlitePool) {

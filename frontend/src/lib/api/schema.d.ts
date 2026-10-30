@@ -220,6 +220,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/roots/{id}/repick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 登録済みの共有を、サーバーの PC の窓で選び直してもらい、書き込みの許可を取り直す。
+         * @description macOS のサンドボックスでは、許可は利用者が窓で選んだときにしか増やせない。読むだけの許可で登録した共有
+         *     (`RootResponse::writable` が偽) を書き換えられるようにするため。選ぶのは同じフォルダーでなければならず、
+         *     別のフォルダーなら 422 にして何も変えない (別の場所の許可で共有を差し替えないため)。
+         */
+        post: operations["repick_root"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/server-settings": {
         parameters: {
             query?: never;
@@ -2700,6 +2722,9 @@ export interface components {
         RenameUserRequest: {
             username: string;
         };
+        RepickRootResponse: {
+            root?: components["schemas"]["RootResponse"] | null;
+        };
         ReplaceAxisValuesRequest: {
             values: components["schemas"]["AxisValueInput"][];
         };
@@ -2781,6 +2806,11 @@ export interface components {
             status: components["schemas"]["RootStatus"];
             /** @description ユーザーごとの例外。ユーザー名の順。 */
             userAccess: components["schemas"]["RootUserAccess"][];
+            /**
+             * @description 中を書き換えられる許可があるか。macOS のサンドボックスで、読むだけの許可のまま登録した共有は偽。
+             *     偽なら、この PC で窓から選び直してもらう (`POST /admin/roots/{id}/repick`)。
+             */
+            writable: boolean;
         };
         /**
          * @description 公開できるフォルダーの今の様子 (→ `folder_reach::Reach`)。
@@ -3278,6 +3308,10 @@ export interface components {
         } | {
             /** @enum {string} */
             kind: "rootAlreadyRegistered";
+            name: string;
+        } | {
+            /** @enum {string} */
+            kind: "repickedOtherFolder";
             name: string;
         } | {
             /** @enum {string} */
@@ -4041,6 +4075,73 @@ export interface operations {
                 };
             };
             /** @description 存在しないユーザーを含む */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    repick_root: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取り直した後の共有。キャンセルなら root が null */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepickRootResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description サーバーのPC以外からの要求か、共有が無い */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 窓がもう開いている */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 別のフォルダーを選んだ */
             422: {
                 headers: {
                     [name: string]: unknown;

@@ -231,6 +231,7 @@
 	"error_detail_root_name_taken": "An allowed folder named “{name}” already exists. Choose a different name.",
 	"error_detail_root_already_registered": "This folder is already registered as “{name}”.",
 	"error_detail_root_inside_own_dirs": "The folder where WebLAV keeps its settings and data can't be an allowed folder.",
+	"error_detail_repicked_other_folder": "The folder you chose is not the folder of “{name}”. Choose the same folder.",
 	"error_detail_archive_folder_missing": "The folder was not found.",
 	"error_detail_archive_folder_unreadable": "Could not read “{path}”.",
 	"error_detail_archive_folder_unreadable_root": "The folder could not be read.",
