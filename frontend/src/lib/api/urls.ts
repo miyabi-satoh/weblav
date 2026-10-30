@@ -60,6 +60,16 @@ export function contentThumbnailHref(contentId: number, path?: string): string {
 	return withQuery(base, path === undefined || path === '' ? {} : { path });
 }
 
+/** `GET /api/v1/shares/{id}/download` へのリンク。`path` は共有の一番上からの相対パス。 */
+export function shareDownloadHref(shareId: number, path: string): string {
+	return withQuery(`/api/v1/shares/${shareId}/download`, { path });
+}
+
+/** `GET /api/v1/shares/{id}/thumbnail` へのリンク。`path` は `shareDownloadHref` と同じ。 */
+export function shareThumbnailHref(shareId: number, path: string): string {
+	return withQuery(`/api/v1/shares/${shareId}/thumbnail`, { path });
+}
+
 /** `GET /api/v1/contents/{id}/items/{item_id}/download` へのリンク。 */
 export function archiveItemDownloadHref(contentId: number, itemId: number): string {
 	return `/api/v1/contents/${contentId}/items/${itemId}/download`;

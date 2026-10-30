@@ -29,7 +29,6 @@
 		browseRowTextClass,
 		browseRowTitleClass
 	} from '$lib/list-row';
-	import ListRowGlyph from '$lib/components/list-row-glyph.svelte';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
 	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
 	import ListRowImageLink from '$lib/components/list-row-image-link.svelte';
@@ -244,7 +243,6 @@
 							{@render rowSubtitle(content)}
 						</span>
 						{@render rowPrivate(content)}
-						<ListRowGlyph />
 					</div>
 				{:else if isAudioContent(content)}
 					<ListRowPlayButton track={toTrack(content)} queue={audioQueue}>

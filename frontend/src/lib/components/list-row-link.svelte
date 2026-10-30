@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FilterHighlight from '$lib/components/filter-highlight.svelte';
 	import LinkIcon from '@lucide/svelte/icons/link';
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
+	import type { Snippet } from 'svelte';
 	import { browseLayout } from '$lib/browse-layout.svelte';
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
 	import { openViewerItem, type ViewerItem } from '$lib/viewer-items';
@@ -23,7 +23,7 @@
 		browseRowTitleClass,
 		tileBandClass
 	} from '$lib/list-row';
-	import ListRowGlyph from '$lib/components/list-row-glyph.svelte';
+	import ListRowNewTab from '$lib/components/list-row-new-tab.svelte';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
 	import RowLocationButton from '$lib/components/row-location.svelte';
 	import SeparatedText from '$lib/components/separated-text.svelte';
@@ -43,7 +43,8 @@
 		preview,
 		private: isPrivate = false,
 		viewer,
-		details
+		details,
+		trailing
 	}: {
 		href: string;
 		/** 省くと、ページのタイトル (無ければホスト名) を出す。 */
@@ -61,6 +62,8 @@
 		viewer?: { file: ViewerFile; items: ViewerItem[] };
 		/** 開いた一覧に並ぶ、詳しい表示を出すリンクと、その中のこの行の位置。詳しい表示で前後へ移るのに使う。 */
 		details?: { items: LinkDetail[]; index: number };
+		/** 行の右端に置くもの (⋮ のメニュー)。 */
+		trailing?: Snippet;
 	} = $props();
 
 	// ビューアーで開かないリンクは、詳しい表示を挟んでから新しいタブで開く (→ docs/ui.md「リンクのカード」)。
@@ -148,9 +151,13 @@
 		rel="external noopener noreferrer"
 		onclick={handleClick}
 	>
-		<span class={titleClass}><FilterHighlight text={shownTitle} /></span>
 		{#if !viewer && !opensDetail}
+			<ListRowNewTab>
+				<span class={titleClass}><FilterHighlight text={shownTitle} /></span>
+			</ListRowNewTab>
 			<span class="sr-only">{m.contents_opens_in_new_tab()}</span>
+		{:else}
+			<span class={titleClass}><FilterHighlight text={shownTitle} /></span>
 		{/if}
 	</a>
 {/snippet}
@@ -181,11 +188,9 @@
 			{/if}
 			<span class="flex items-center gap-2 text-xs text-muted-foreground">
 				{@render meta(false)}
-				{#if !viewer && !opensDetail}
-					<ExternalLinkIcon class="ml-auto size-4 shrink-0" strokeWidth={1.8} />
-				{/if}
 			</span>
 		</span>
+		{@render trailing?.()}
 	</div>
 {:else}
 	<div class={browseRowClass()}>
@@ -200,8 +205,6 @@
 		{#if isPrivate}
 			<span class="shrink-0 text-sm text-muted-foreground">{m.contents_visibility_private()}</span>
 		{/if}
-		{#if !viewer && !opensDetail}
-			<ListRowGlyph newTab />
-		{/if}
+		{@render trailing?.()}
 	</div>
 {/if}

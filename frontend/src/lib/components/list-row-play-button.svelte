@@ -35,7 +35,7 @@
 		subtitle?: Snippet;
 		/** 行の文字より前に置くもの (管理画面の選択のチェックなど)。行いっぱいのリンクの上に重ねて置く。 */
 		leading?: Snippet;
-		/** 行の文字と「再生中」の印の間に置くもの。 */
+		/** 行の右端に置くもの (「作成者のみ」の印・⋮ のメニュー)。「再生中」の印より右に置く。 */
 		trailing?: Snippet;
 	} = $props();
 
@@ -75,9 +75,9 @@
 		</button>
 		{@render subtitle?.()}
 	</span>
-	{@render trailing?.()}
 	<!-- 読み上げにはボタンの名前で渡す。タイルは幅が狭いので、文字では出さない (→ docs/ui.md「UI 全般」)。 -->
 	{#if current && !browseLayout.tile}
 		<span class="shrink-0 text-xs text-primary" aria-hidden="true">{m.now_playing_label()}</span>
 	{/if}
+	{@render trailing?.()}
 </div>

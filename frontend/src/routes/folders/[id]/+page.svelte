@@ -59,7 +59,11 @@
 	}
 
 	let rows = $derived<FolderEntryRow[]>(
-		browse.entries.map((entry) => ({ contentId, path: childPath(entry.name), entry }))
+		browse.entries.map((entry) => ({
+			source: { kind: 'content', id: contentId },
+			path: childPath(entry.name),
+			entry
+		}))
 	);
 
 	// 書き換えられる人には、非公開のものも印を添えて並ぶ。行ごとに公開・非公開を切り替える
