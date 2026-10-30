@@ -26,7 +26,11 @@ export const MESSAGES: Record<ErrorCode, () => string> = {
 	internal_error: m.error_internal_error,
 	conflict: m.error_conflict,
 	config_unreadable: m.error_config_unreadable,
-	folder_unreachable: m.error_folder_unreachable
+	folder_unreachable: m.error_folder_unreachable,
+	insufficient_storage: m.error_insufficient_storage,
+	trash_unavailable: m.error_trash_unavailable,
+	entry_in_use: m.error_entry_in_use,
+	share_read_only: m.error_share_read_only
 };
 
 /** 想定外の形のレスポンスや通信エラーに使う汎用文言。 */

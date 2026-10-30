@@ -1521,7 +1521,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
+                  "$ref": "#/components/schemas/MeResponse"
                 }
               }
             }
@@ -1873,6 +1873,37 @@
           },
           "422": {
             "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/hidden": {
+      "get": {
+        "summary": "非表示のコンテンツの一覧。`admin` には全部、ほかの人には自分が作成者のものだけを返す。\n自分が非表示にしたものを、閲覧の場から消えた後に探して戻せるようにするため。新しく非表示にした順。",
+        "operationId": "list_hidden_contents",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HiddenContentResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
             "content": {
               "application/json": {
                 "schema": {
@@ -4754,6 +4785,75 @@
         }
       }
     },
+    "/api/v1/contents/{id}/unhide": {
+      "post": {
+        "summary": "非表示のコンテンツを、非表示にする前の公開範囲に戻す。覚えていなければ (この仕組みより前に非表示に\nしたもの) `authenticated` に戻す。前が他人の `private` なら、作成者でない人は戻せない (403)。\n非表示でないものはそのままの公開範囲を返す (二度押しを失敗にしないため)。",
+        "operationId": "unhide_content",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnhideResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "作成者・admin以外か、前が他人の作成者のみ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "存在しないか、他人の作成者のみ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "作成者のみのグループの決まりに合わない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contents/{id}/upload": {
       "put": {
         "summary": "ファイルコンテンツを更新する(multipart)。`file`を指定した場合のみ実体を差し替える\n(指定しなければ既存のblobを維持する)。`type = 'file'` 以外のidに対しては422にする\n(link/folderの更新は既存の`PUT /contents/{id}`(JSON)を使う)。",
@@ -4832,6 +4932,78 @@
           },
           "422": {
             "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/{id}/visibility": {
+      "put": {
+        "summary": "公開範囲だけを変える。ホームなどの一覧の行から、編集画面を開かずに変えるため。\n変えてよいかの判定は編集 (`update_content`) と同じ。",
+        "operationId": "set_visibility",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetVisibilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "作成者・admin以外か、他人の作成者のみにかかわる変更",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "存在しないか、他人の作成者のみ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "作成者のみのグループの決まりに合わない",
             "content": {
               "application/json": {
                 "schema": {
@@ -7267,9 +7439,13 @@
               "title",
               "url",
               "private",
+              "canEdit",
               "type"
             ],
             "properties": {
+              "canEdit": {
+                "type": "boolean"
+              },
               "description": {
                 "type": [
                   "string",
@@ -7315,10 +7491,14 @@
               "id",
               "title",
               "private",
+              "canEdit",
               "listView",
               "type"
             ],
             "properties": {
+              "canEdit": {
+                "type": "boolean"
+              },
               "description": {
                 "type": [
                   "string",
@@ -7353,6 +7533,7 @@
               "id",
               "title",
               "private",
+              "canEdit",
               "fileName",
               "fileSize",
               "isText",
@@ -7360,6 +7541,9 @@
               "type"
             ],
             "properties": {
+              "canEdit": {
+                "type": "boolean"
+              },
               "description": {
                 "type": [
                   "string",
@@ -7418,9 +7602,13 @@
               "id",
               "title",
               "private",
+              "canEdit",
               "type"
             ],
             "properties": {
+              "canEdit": {
+                "type": "boolean"
+              },
               "description": {
                 "type": [
                   "string",
@@ -7446,7 +7634,7 @@
             }
           }
         ],
-        "description": "一般の閲覧者(匿名を含む)向けのレスポンス。`path`(サーバー上の絶対パス)は\n一切含めない(一般の閲覧者にファイルシステムのレイアウトを漏らさないため)。type分岐が\nフロントからも自然に扱えるよう、tagged enumにしてある。\n\n各バリアントの `private` は、公開範囲が `private` なら真。一覧に「作成者のみ」の印を出すため\n(→ docs/access.md「フロントエンドのガード反転」)。一覧に並ぶ `private` は必ず閲覧者自身のもの (`can_list`)。"
+        "description": "一般の閲覧者(匿名を含む)向けのレスポンス。`path`(サーバー上の絶対パス)は\n一切含めない(一般の閲覧者にファイルシステムのレイアウトを漏らさないため)。type分岐が\nフロントからも自然に扱えるよう、tagged enumにしてある。\n\n各バリアントの `private` は、公開範囲が `private` なら真。一覧に「作成者のみ」の印を出すため\n(→ docs/access.md「フロントエンドのガード反転」)。一覧に並ぶ `private` は必ず閲覧者自身のもの (`can_list`)。\n\n各バリアントの `can_edit` は、閲覧者がそのコンテンツを書き換えられるか (`admin` か作成者)。一覧の行から\n編集・公開範囲の変更を出すかを画面が決めるのに使う。匿名 (「閲覧者として見る」を含む) には常に偽。\n\nenum に付けた `rename_all` はバリアント名にしか効かないので、フィールドの camelCase はバリアントごとに指定する。"
       },
       "ContentType": {
         "type": "string",
@@ -8183,6 +8371,30 @@
           }
         }
       },
+      "HiddenContentResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AdminContentResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "restoreVisibility": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Visibility",
+                    "description": "「表示に戻す」で戻る公開範囲。前が他人の `private` で、閲覧者が戻せないなら `None`。"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "description": "非表示のコンテンツの1行。管理画面の一覧と同じ形に、戻すときの公開範囲を添える。"
+      },
       "ImageSize": {
         "type": "object",
         "description": "表示するときの画像の縦横 (px)。EXIF の向きを当てた後の値。",
@@ -8781,6 +8993,27 @@
             "minimum": 0
           }
         }
+      },
+      "MeResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UserResponse"
+          },
+          {
+            "type": "object",
+            "required": [
+              "hiddenContentCount"
+            ],
+            "properties": {
+              "hiddenContentCount": {
+                "type": "integer",
+                "format": "int64",
+                "description": "非表示のコンテンツの一覧 (`GET /contents/hidden`) に並ぶ件数。ユーザーメニューに出す。"
+              }
+            }
+          }
+        ],
+        "description": "ログイン中の利用者。ほかの応答の `UserResponse` に、画面の出し分けに使う件数を添える。"
       },
       "OnConflict": {
         "type": "string",
@@ -9504,6 +9737,17 @@
           }
         }
       },
+      "SetVisibilityRequest": {
+        "type": "object",
+        "required": [
+          "visibility"
+        ],
+        "properties": {
+          "visibility": {
+            "$ref": "#/components/schemas/Visibility"
+          }
+        }
+      },
       "SetupRestoreRequest": {
         "type": "object",
         "required": [
@@ -10118,6 +10362,18 @@
           "shareId": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "UnhideResponse": {
+        "type": "object",
+        "required": [
+          "visibility"
+        ],
+        "properties": {
+          "visibility": {
+            "$ref": "#/components/schemas/Visibility",
+            "description": "戻した後の公開範囲。"
           }
         }
       },

@@ -785,3 +785,160 @@ async fn browse_responses_tell_whether_the_viewer_can_edit(pool: SqlitePool) {
         assert!(body.contains(r#""canEdit":false"#), "{uri}: {body}");
     }
 }
+
+/// 公開範囲だけを変える口で非表示にし、非表示の一覧から元の公開範囲に戻せる。
+/// 一覧の件数は `/auth/me` にも出る。
+#[sqlx::test]
+async fn hidden_content_returns_to_its_visibility_before_hiding(pool: SqlitePool) {
+    insert_user(&pool, "alice", "correct-password").await;
+    let alice_id = db_user_id(&pool, "alice").await;
+    let id = insert_link_by(&pool, "社内Wiki", "public", Some(alice_id), None).await;
+    let app = test_app(pool).await;
+    let cookie = login(app.clone(), "alice", "correct-password").await;
+
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        &format!("/api/v1/contents/{id}/visibility"),
+        &cookie,
+        r#"{"visibility":"hidden"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+
+    let (_, body) = send_empty(app.clone(), "GET", "/api/v1/auth/me", &cookie).await;
+    assert_eq!(parse_json(&body)["hiddenContentCount"], 1, "{body}");
+    let (status, body) = send_empty(app.clone(), "GET", "/api/v1/contents/hidden", &cookie).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let hidden = parse_json(&body);
+    assert_eq!(hidden[0]["id"], id, "{body}");
+    assert_eq!(hidden[0]["restoreVisibility"], "public", "{body}");
+
+    let (status, body) = send_empty(
+        app.clone(),
+        "POST",
+        &format!("/api/v1/contents/{id}/unhide"),
+        &cookie,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body)["visibility"], "public", "{body}");
+    let (_, body) = send_empty(app, "GET", "/api/v1/auth/me", &cookie).await;
+    assert_eq!(parse_json(&body)["hiddenContentCount"], 0, "{body}");
+}
+
+/// 前の公開範囲を覚えていない非表示は、ログインした人に見える公開範囲に戻す。
+#[sqlx::test]
+async fn hidden_content_without_memory_returns_to_authenticated(pool: SqlitePool) {
+    insert_user(&pool, "alice", "correct-password").await;
+    let alice_id = db_user_id(&pool, "alice").await;
+    let id = insert_link_by(&pool, "準備中", "hidden", Some(alice_id), None).await;
+    let app = test_app(pool).await;
+    let cookie = login(app.clone(), "alice", "correct-password").await;
+
+    let (status, body) = send_empty(
+        app,
+        "POST",
+        &format!("/api/v1/contents/{id}/unhide"),
+        &cookie,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body)["visibility"], "authenticated", "{body}");
+}
+
+/// 削除したユーザーの「作成者のみ」は非表示で残るが、作成者のみには誰も戻せない。
+/// 一覧では戻し先を出さず、戻そうとすると403。
+#[sqlx::test]
+async fn hidden_private_of_deleted_user_cannot_be_restored(pool: SqlitePool) {
+    insert_user(&pool, "bob", "correct-password").await;
+    let bob_id = db_user_id(&pool, "bob").await;
+    let id = insert_link_by(&pool, "ボブのメモ", "private", Some(bob_id), None).await;
+    let (app, admin) = admin_app(&pool).await;
+
+    let (status, body) = send_empty(
+        app.clone(),
+        "DELETE",
+        &format!("/api/v1/admin/users/{bob_id}"),
+        &admin,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+
+    let (_, body) = send_empty(app.clone(), "GET", "/api/v1/contents/hidden", &admin).await;
+    let hidden = parse_json(&body);
+    assert_eq!(hidden[0]["id"], id, "{body}");
+    assert!(hidden[0]["restoreVisibility"].is_null(), "{body}");
+
+    let (status, body) = send_empty(
+        app,
+        "POST",
+        &format!("/api/v1/contents/{id}/unhide"),
+        &admin,
+    )
+    .await;
+    assert_error(status, &body, StatusCode::FORBIDDEN, "forbidden");
+}
+
+/// 非表示の一覧は、`admin` 以外には自分が作成者のものだけを返す。
+#[sqlx::test]
+async fn hidden_list_shows_only_own_contents_to_regular_users(pool: SqlitePool) {
+    insert_user(&pool, "alice", "correct-password").await;
+    insert_user(&pool, "bob", "correct-password").await;
+    let alice_id = db_user_id(&pool, "alice").await;
+    let bob_id = db_user_id(&pool, "bob").await;
+    insert_link_by(&pool, "アリスの準備中", "hidden", Some(alice_id), None).await;
+    insert_link_by(&pool, "ボブの準備中", "hidden", Some(bob_id), None).await;
+    let app = test_app(pool).await;
+    let cookie = login(app.clone(), "alice", "correct-password").await;
+
+    let (_, body) = send_empty(app, "GET", "/api/v1/contents/hidden", &cookie).await;
+    assert!(body.contains("アリスの準備中"), "{body}");
+    assert!(!body.contains("ボブの準備中"), "{body}");
+}
+
+/// 一覧の各行の `canEdit` は、作成者と `admin` にだけ真。匿名には偽。
+#[sqlx::test]
+async fn content_list_tells_whether_the_viewer_can_edit_each_row(pool: SqlitePool) {
+    insert_user(&pool, "alice", "correct-password").await;
+    insert_user(&pool, "bob", "correct-password").await;
+    let alice_id = db_user_id(&pool, "alice").await;
+    insert_link_by(&pool, "アリスのリンク", "public", Some(alice_id), None).await;
+    let app = test_app(pool).await;
+
+    let alice = login(app.clone(), "alice", "correct-password").await;
+    let (_, body) = send_empty(app.clone(), "GET", "/api/v1/contents", &alice).await;
+    assert_eq!(parse_json(&body)[0]["canEdit"], true, "{body}");
+    let bob = login(app.clone(), "bob", "correct-password").await;
+    let (_, body) = send_empty(app.clone(), "GET", "/api/v1/contents", &bob).await;
+    assert_eq!(parse_json(&body)[0]["canEdit"], false, "{body}");
+    let (_, body) = send_anon(app, "GET", "/api/v1/contents").await;
+    assert_eq!(parse_json(&body)[0]["canEdit"], false, "{body}");
+}
+
+/// 「閲覧者として見る」の cookie があると、閲覧の口はログインしていても匿名として答える。
+/// ログインが要る口 (`/auth/me`) はそのまま。
+#[sqlx::test]
+async fn view_as_cookie_makes_browsing_anonymous(pool: SqlitePool) {
+    insert_user(&pool, "alice", "correct-password").await;
+    let alice_id = db_user_id(&pool, "alice").await;
+    insert_link_by(
+        &pool,
+        "ログインした人向け",
+        "authenticated",
+        Some(alice_id),
+        None,
+    )
+    .await;
+    let app = test_app(pool).await;
+    let cookie = login(app.clone(), "alice", "correct-password").await;
+    let viewing_as = format!("{cookie}; WEBLAV_VIEW_AS=anonymous");
+
+    let (_, body) = send_empty(app.clone(), "GET", "/api/v1/contents", &cookie).await;
+    assert!(body.contains("ログインした人向け"), "{body}");
+    let (_, body) = send_empty(app.clone(), "GET", "/api/v1/contents", &viewing_as).await;
+    assert!(!body.contains("ログインした人向け"), "{body}");
+
+    let (status, body) = send_empty(app, "GET", "/api/v1/auth/me", &viewing_as).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+}

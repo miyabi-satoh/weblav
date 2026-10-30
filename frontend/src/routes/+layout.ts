@@ -23,7 +23,7 @@ export const load: LayoutLoad = async ({ route, url }) => {
 	const currentPath = url.pathname + url.search;
 
 	let response: Response;
-	let data: components['schemas']['UserResponse'] | undefined;
+	let data: components['schemas']['MeResponse'] | undefined;
 	try {
 		({ data, response } = await client.GET('/api/v1/auth/me'));
 	} catch {

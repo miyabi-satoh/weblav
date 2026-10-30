@@ -1,0 +1,140 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url, path,\n                  description, created_at as \"created_at!\", file_name, file_size,\n                  visibility as \"visibility: Visibility\", created_by, extensions, title_template,\n                  list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                  auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time,\n                  visibility_before_hidden as \"visibility_before_hidden: Visibility\",\n                  (SELECT username FROM users WHERE users.id = contents.created_by) as created_by_username\n           FROM contents\n           WHERE visibility = ?1 AND (?2 OR created_by = ?3)\n           ORDER BY updated_at DESC, id",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "content_type: ContentType",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "parent_id",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "title",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "url",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "path",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "description",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at!",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "file_name",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "file_size",
+        "ordinal": 9,
+        "type_info": "Integer"
+      },
+      {
+        "name": "visibility: Visibility",
+        "ordinal": 10,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_by",
+        "ordinal": 11,
+        "type_info": "Integer"
+      },
+      {
+        "name": "extensions",
+        "ordinal": 12,
+        "type_info": "Text"
+      },
+      {
+        "name": "title_template",
+        "ordinal": 13,
+        "type_info": "Text"
+      },
+      {
+        "name": "list_view: bool",
+        "ordinal": 14,
+        "type_info": "Integer"
+      },
+      {
+        "name": "new_files_public: bool",
+        "ordinal": 15,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_rescan_mode: AutoMode",
+        "ordinal": 16,
+        "type_info": "Text"
+      },
+      {
+        "name": "auto_rescan_hours",
+        "ordinal": 17,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_rescan_time",
+        "ordinal": 18,
+        "type_info": "Text"
+      },
+      {
+        "name": "visibility_before_hidden: Visibility",
+        "ordinal": 19,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_by_username",
+        "ordinal": 20,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "79c36cce605c67e8a98bcb60b2fbcde229c7503754d9d6dbc6f19de37ece44f4"
+}

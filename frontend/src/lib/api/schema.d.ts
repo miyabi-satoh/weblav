@@ -517,6 +517,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/hidden": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 非表示のコンテンツの一覧。`admin` には全部、ほかの人には自分が作成者のものだけを返す。
+         *     自分が非表示にしたものを、閲覧の場から消えた後に探して戻せるようにするため。新しく非表示にした順。
+         */
+        get: operations["list_hidden_contents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/link-metadata": {
         parameters: {
             query?: never;
@@ -1247,6 +1267,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/{id}/unhide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 非表示のコンテンツを、非表示にする前の公開範囲に戻す。覚えていなければ (この仕組みより前に非表示に
+         *     したもの) `authenticated` に戻す。前が他人の `private` なら、作成者でない人は戻せない (403)。
+         *     非表示でないものはそのままの公開範囲を返す (二度押しを失敗にしないため)。
+         */
+        post: operations["unhide_content"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/{id}/upload": {
         parameters: {
             query?: never;
@@ -1261,6 +1302,26 @@ export interface paths {
          *     (link/folderの更新は既存の`PUT /contents/{id}`(JSON)を使う)。
          */
         put: operations["replace_content_upload"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 公開範囲だけを変える。ホームなどの一覧の行から、編集画面を開かずに変えるため。
+         *     変えてよいかの判定は編集 (`update_content`) と同じ。
+         */
+        put: operations["set_visibility"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2079,8 +2140,14 @@ export interface components {
          *
          *     各バリアントの `private` は、公開範囲が `private` なら真。一覧に「作成者のみ」の印を出すため
          *     (→ docs/access.md「フロントエンドのガード反転」)。一覧に並ぶ `private` は必ず閲覧者自身のもの (`can_list`)。
+         *
+         *     各バリアントの `can_edit` は、閲覧者がそのコンテンツを書き換えられるか (`admin` か作成者)。一覧の行から
+         *     編集・公開範囲の変更を出すかを画面が決めるのに使う。匿名 (「閲覧者として見る」を含む) には常に偽。
+         *
+         *     enum に付けた `rename_all` はバリアント名にしか効かないので、フィールドの camelCase はバリアントごとに指定する。
          */
         ContentResponse: {
+            canEdit: boolean;
             description?: string | null;
             /** Format: int64 */
             id: number;
@@ -2092,6 +2159,7 @@ export interface components {
             /** @description `url` の必須チェック(type=linkのみ扱う現状は常にSome)は書き込み側で行う。 */
             url: string;
         } | {
+            canEdit: boolean;
             description?: string | null;
             /** Format: int64 */
             id: number;
@@ -2102,6 +2170,7 @@ export interface components {
             /** @enum {string} */
             type: "folder";
         } | {
+            canEdit: boolean;
             description?: string | null;
             /**
              * @description ダウンロード時のファイル名。ダウンロードURL自体は`id`ベース
@@ -2125,6 +2194,7 @@ export interface components {
             /** @enum {string} */
             type: "file";
         } | {
+            canEdit: boolean;
             description?: string | null;
             /** Format: int64 */
             id: number;
@@ -2405,6 +2475,10 @@ export interface components {
             slug: string;
             title: string;
         };
+        /** @description 非表示のコンテンツの1行。管理画面の一覧と同じ形に、戻すときの公開範囲を添える。 */
+        HiddenContentResponse: components["schemas"]["AdminContentResponse"] & {
+            restoreVisibility?: components["schemas"]["Visibility"] | null;
+        };
         /** @description 表示するときの画像の縦横 (px)。EXIF の向きを当てた後の値。 */
         ImageSize: {
             /** Format: int32 */
@@ -2576,6 +2650,14 @@ export interface components {
             total: number;
             /** @description 軸で絞った後、名前の語と公開の状態で絞る前の数。 */
             totalAll: number;
+        };
+        /** @description ログイン中の利用者。ほかの応答の `UserResponse` に、画面の出し分けに使う件数を添える。 */
+        MeResponse: components["schemas"]["UserResponse"] & {
+            /**
+             * Format: int64
+             * @description 非表示のコンテンツの一覧 (`GET /contents/hidden`) に並ぶ件数。ユーザーメニューに出す。
+             */
+            hiddenContentCount: number;
         };
         /**
          * @description 置き先に同じ名前があるときの扱い。
@@ -2842,6 +2924,9 @@ export interface components {
         SetPublishedRequest: {
             published: boolean;
         };
+        SetVisibilityRequest: {
+            visibility: components["schemas"]["Visibility"];
+        };
         SetupRestoreRequest: {
             /** @description 受け取ったときに返した id。 */
             id: string;
@@ -3074,6 +3159,10 @@ export interface components {
             path?: string;
             /** Format: int64 */
             shareId: number;
+        };
+        UnhideResponse: {
+            /** @description 戻した後の公開範囲。 */
+            visibility: components["schemas"]["Visibility"];
         };
         UpdateContentRequest: {
             autoRescan?: components["schemas"]["AutoRefresh"] | null;
@@ -4633,7 +4722,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserResponse"];
+                    "application/json": components["schemas"]["MeResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -4953,6 +5042,35 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_hidden_contents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HiddenContentResponse"][];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7181,6 +7299,64 @@ export interface operations {
             };
         };
     };
+    unhide_content: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnhideResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 作成者・admin以外か、前が他人の作成者のみ */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 存在しないか、他人の作成者のみ */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 作成者のみのグループの決まりに合わない */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     replace_content_upload: {
         parameters: {
             query?: never;
@@ -7242,6 +7418,66 @@ export interface operations {
                 };
             };
             /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_visibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetVisibilityRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 作成者・admin以外か、他人の作成者のみにかかわる変更 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 存在しないか、他人の作成者のみ */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 作成者のみのグループの決まりに合わない */
             422: {
                 headers: {
                     [name: string]: unknown;

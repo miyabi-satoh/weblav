@@ -320,9 +320,15 @@ struct ContentRow {
 ///
 /// 各バリアントの `private` は、公開範囲が `private` なら真。一覧に「作成者のみ」の印を出すため
 /// (→ docs/access.md「フロントエンドのガード反転」)。一覧に並ぶ `private` は必ず閲覧者自身のもの (`can_list`)。
+///
+/// 各バリアントの `can_edit` は、閲覧者がそのコンテンツを書き換えられるか (`admin` か作成者)。一覧の行から
+/// 編集・公開範囲の変更を出すかを画面が決めるのに使う。匿名 (「閲覧者として見る」を含む) には常に偽。
+///
+/// enum に付けた `rename_all` はバリアント名にしか効かないので、フィールドの camelCase はバリアントごとに指定する。
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum ContentResponse {
+    #[serde(rename_all = "camelCase")]
     Link {
         id: i64,
         title: String,
@@ -330,6 +336,7 @@ pub enum ContentResponse {
         url: String,
         description: Option<String>,
         private: bool,
+        can_edit: bool,
         /// カードに出すページの情報で、覚えているもの (→ docs/ui.md「リンクのカード」)。
         /// 一覧 (`list_contents`・`browse_group`) でだけ埋める。新しい情報は画面が取り直しを頼んで得る。
         preview: Option<super::link_preview::LinkPreview>,
@@ -340,17 +347,17 @@ pub enum ContentResponse {
         title: String,
         description: Option<String>,
         private: bool,
+        can_edit: bool,
         /// 一覧の表示 (軸で絞り込む平らな一覧) を使うか。使うなら、閲覧の入口はそちらを開く。
         list_view: bool,
     },
-    // 複数語のフィールドを持つのはこのバリアントだけ。enum に付けた `rename_all` は
-    // バリアント名にしか効かないので、フィールドの camelCase はここで指定する。
     #[serde(rename_all = "camelCase")]
     File {
         id: i64,
         title: String,
         description: Option<String>,
         private: bool,
+        can_edit: bool,
         /// ダウンロード時のファイル名。ダウンロードURL自体は`id`ベース
         /// (`/contents/{id}/download`)なので、これは表示・保存名のヒント用。
         file_name: String,
@@ -365,19 +372,29 @@ pub enum ContentResponse {
         thumbnail: bool,
     },
     /// 仮想フォルダー。子一覧は含めない(別途 `GET /contents/{id}/group` で取得する)。
+    #[serde(rename_all = "camelCase")]
     Group {
         id: i64,
         title: String,
         description: Option<String>,
         private: bool,
+        can_edit: bool,
     },
 }
 
-impl TryFrom<ContentRow> for ContentResponse {
-    type Error = AppError;
+/// 閲覧者が書き換えられるか (`ensure_editable` と同じ判定)。一覧に並ぶものは閲覧者に見えるものだけなので、
+/// 存在を隠す判定 (`ensure_manageable`) は要らない。
+fn can_edit(viewer: &Viewer, created_by: Option<i64>) -> bool {
+    match viewer {
+        Viewer::User(user) => user.is_admin() || created_by == Some(user.id),
+        Viewer::Anonymous => false,
+    }
+}
 
-    fn try_from(row: ContentRow) -> Result<Self, Self::Error> {
+impl ContentResponse {
+    fn from_row(row: ContentRow, viewer: &Viewer) -> Result<Self, AppError> {
         let private = row.visibility == Visibility::Private;
+        let can_edit = can_edit(viewer, row.created_by);
         // 万一必須カラムがNULLだった場合(将来型が増えてマイグレーションミス等)は
         // レスポンスを諦めて500にする方が、フロントに嘘の空文字列を返すより安全。
         match row.content_type {
@@ -391,6 +408,7 @@ impl TryFrom<ContentRow> for ContentResponse {
                     url,
                     description: row.description,
                     private,
+                    can_edit,
                     preview: None,
                 })
             }
@@ -399,6 +417,7 @@ impl TryFrom<ContentRow> for ContentResponse {
                 title: row.title,
                 description: row.description,
                 private,
+                can_edit,
                 list_view: row.list_view,
             }),
             ContentType::File => {
@@ -413,6 +432,7 @@ impl TryFrom<ContentRow> for ContentResponse {
                     title: row.title,
                     description: row.description,
                     private,
+                    can_edit,
                     file_name,
                     file_size,
                     image: None,
@@ -425,6 +445,7 @@ impl TryFrom<ContentRow> for ContentResponse {
                 title: row.title,
                 description: row.description,
                 private,
+                can_edit,
             }),
         }
     }
@@ -967,7 +988,7 @@ async fn list_contents(
     let contents = rows
         .into_iter()
         .filter(|row| can_list(&viewer, row.visibility, row.created_by))
-        .map(ContentResponse::try_from)
+        .map(|row| ContentResponse::from_row(row, &viewer))
         .collect::<Result<Vec<_>, _>>()?;
     Ok(Json(with_previews(&state, contents).await?))
 }
@@ -2130,7 +2151,7 @@ async fn browse_group(
                 can_list(&viewer, row.visibility, row.created_by)
             }
         })
-        .map(ContentResponse::try_from)
+        .map(|row| ContentResponse::from_row(row, &viewer))
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(Json(GroupBrowseResponse {
@@ -2493,7 +2514,7 @@ pub(super) async fn search_contents(
     let mut contents = Vec::with_capacity(hits.len());
     for (row, found) in hits {
         placements.push((group_lineage(&groups, row.parent_id), found.in_detail));
-        contents.push(ContentResponse::try_from(row)?);
+        contents.push(ContentResponse::from_row(row, viewer)?);
     }
     let contents = with_previews(state, contents).await?;
 
@@ -3293,6 +3314,261 @@ async fn replace_content_upload(
     Ok(Json(admin_response(&state.pool, row).await?))
 }
 
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SetVisibilityRequest {
+    pub visibility: Visibility,
+}
+
+/// 公開範囲だけを変える。ホームなどの一覧の行から、編集画面を開かずに変えるため。
+/// 変えてよいかの判定は編集 (`update_content`) と同じ。
+#[utoipa::path(
+    put,
+    path = "/contents/{id}/visibility",
+    params(("id" = i64, Path)),
+    request_body = SetVisibilityRequest,
+    responses(
+        (status = 204),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "作成者・admin以外か、他人の作成者のみにかかわる変更"),
+        (status = 404, body = crate::error::ErrorResponse, description = "存在しないか、他人の作成者のみ"),
+        (status = 422, body = crate::error::ErrorResponse, description = "作成者のみのグループの決まりに合わない"),
+    )
+)]
+async fn set_visibility(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    AppJson(payload): AppJson<SetVisibilityRequest>,
+) -> Result<StatusCode, AppError> {
+    let _write_guard = state.contents_write_lock.lock().await;
+    let existing = fetch_visibility_state(&state.pool, id).await?;
+    change_visibility(&state.pool, &user, id, &existing, payload.visibility).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UnhideResponse {
+    /// 戻した後の公開範囲。
+    pub visibility: Visibility,
+}
+
+/// 非表示のコンテンツを、非表示にする前の公開範囲に戻す。覚えていなければ (この仕組みより前に非表示に
+/// したもの) `authenticated` に戻す。前が他人の `private` なら、作成者でない人は戻せない (403)。
+/// 非表示でないものはそのままの公開範囲を返す (二度押しを失敗にしないため)。
+#[utoipa::path(
+    post,
+    path = "/contents/{id}/unhide",
+    params(("id" = i64, Path)),
+    responses(
+        (status = OK, body = UnhideResponse),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "作成者・admin以外か、前が他人の作成者のみ"),
+        (status = 404, body = crate::error::ErrorResponse, description = "存在しないか、他人の作成者のみ"),
+        (status = 422, body = crate::error::ErrorResponse, description = "作成者のみのグループの決まりに合わない"),
+    )
+)]
+async fn unhide_content(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<UnhideResponse>, AppError> {
+    let _write_guard = state.contents_write_lock.lock().await;
+    let existing = fetch_visibility_state(&state.pool, id).await?;
+    if existing.visibility != Visibility::Hidden {
+        ensure_editable(&user, existing.visibility, existing.created_by)?;
+        return Ok(Json(UnhideResponse {
+            visibility: existing.visibility,
+        }));
+    }
+    let target = restore_target(existing.visibility_before_hidden);
+    let visibility = change_visibility(&state.pool, &user, id, &existing, target).await?;
+    Ok(Json(UnhideResponse { visibility }))
+}
+
+/// 非表示から戻すときの公開範囲。覚えていなければ、ログインした人に見える `authenticated` にする
+/// (`public` に戻すと、隠していたものを匿名にまで見せてしまうため)。
+fn restore_target(before_hidden: Option<Visibility>) -> Visibility {
+    match before_hidden {
+        Some(Visibility::Hidden) | None => Visibility::Authenticated,
+        Some(visibility) => visibility,
+    }
+}
+
+struct VisibilityState {
+    parent_id: Option<i64>,
+    content_type: ContentType,
+    visibility: Visibility,
+    visibility_before_hidden: Option<Visibility>,
+    created_by: Option<i64>,
+}
+
+async fn fetch_visibility_state(
+    pool: &sqlx::SqlitePool,
+    id: i64,
+) -> Result<VisibilityState, AppError> {
+    sqlx::query_as!(
+        VisibilityState,
+        r#"SELECT parent_id, type as "content_type: ContentType",
+                  visibility as "visibility: Visibility",
+                  visibility_before_hidden as "visibility_before_hidden: Visibility",
+                  created_by
+           FROM contents WHERE id = ?"#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?
+    .ok_or(AppError::NotFound)
+}
+
+/// 公開範囲を `requested` に変える。判定は `update_content` と同じ。
+/// 呼び出し側は `contents_write_lock` を握ったまま `existing` を読んでから呼ぶこと。
+async fn change_visibility(
+    pool: &sqlx::SqlitePool,
+    user: &AuthUser,
+    id: i64,
+    existing: &VisibilityState,
+    requested: Visibility,
+) -> Result<Visibility, AppError> {
+    ensure_editable(user, existing.visibility, existing.created_by)?;
+    let visibility = resolve_visibility_for_update(
+        user,
+        Some(requested),
+        existing.visibility,
+        existing.created_by,
+    )?;
+    if visibility == existing.visibility {
+        return Ok(visibility);
+    }
+    let parent = validate_parent(pool, existing.parent_id, None).await?;
+    ensure_fits_parent(parent.as_ref(), visibility, existing.created_by)?;
+    if existing.content_type == ContentType::Group && visibility == Visibility::Private {
+        ensure_children_fit_private_group(pool, id, existing.created_by).await?;
+    }
+    // 非表示にする前の公開範囲は、マイグレーションのトリガーが覚える
+    // (→ migrations/20261101120000_visibility_before_hidden.sql)。
+    sqlx::query!(
+        r#"UPDATE contents SET visibility = ?,
+               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+           WHERE id = ?"#,
+        visibility,
+        id,
+    )
+    .execute(pool)
+    .await?;
+    Ok(visibility)
+}
+
+/// 非表示のコンテンツの1行。管理画面の一覧と同じ形に、戻すときの公開範囲を添える。
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HiddenContentResponse {
+    #[serde(flatten)]
+    pub content: AdminContentResponse,
+    /// 「表示に戻す」で戻る公開範囲。前が他人の `private` で、閲覧者が戻せないなら `None`。
+    pub restore_visibility: Option<Visibility>,
+}
+
+/// 非表示のコンテンツの一覧。`admin` には全部、ほかの人には自分が作成者のものだけを返す。
+/// 自分が非表示にしたものを、閲覧の場から消えた後に探して戻せるようにするため。新しく非表示にした順。
+#[utoipa::path(
+    get,
+    path = "/contents/hidden",
+    responses(
+        (status = OK, body = Vec<HiddenContentResponse>),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+    )
+)]
+async fn list_hidden_contents(
+    user: AuthUser,
+    State(state): State<AppState>,
+) -> Result<Json<Vec<HiddenContentResponse>>, AppError> {
+    let is_admin = user.is_admin();
+    let rows = sqlx::query!(
+        r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
+                  description, created_at as "created_at!", file_name, file_size,
+                  visibility as "visibility: Visibility", created_by, extensions, title_template,
+                  list_view as "list_view: bool", new_files_public as "new_files_public: bool",
+                  auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time,
+                  visibility_before_hidden as "visibility_before_hidden: Visibility",
+                  (SELECT username FROM users WHERE users.id = contents.created_by) as created_by_username
+           FROM contents
+           WHERE visibility = ?1 AND (?2 OR created_by = ?3)
+           ORDER BY updated_at DESC, id"#,
+        Visibility::Hidden,
+        is_admin,
+        user.id,
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    let root_records = super::roots::load_root_records(&state.pool).await?;
+    let archive_item_counts = super::archive_items::item_counts(&state).await?;
+
+    let items = rows
+        .into_iter()
+        .map(|row| {
+            let before = row.visibility_before_hidden;
+            let restore = restore_target(before);
+            let restorable = restore != Visibility::Private || row.created_by == Some(user.id);
+            let archive_items = row.list_view.then(|| {
+                archive_item_counts
+                    .get(&row.id)
+                    .copied()
+                    .unwrap_or_default()
+            });
+            let content = ContentRow {
+                id: row.id,
+                content_type: row.content_type,
+                parent_id: row.parent_id,
+                title: row.title,
+                url: row.url,
+                path: row.path,
+                description: row.description,
+                created_at: row.created_at,
+                file_name: row.file_name,
+                file_size: row.file_size,
+                visibility: row.visibility,
+                created_by: row.created_by,
+                extensions: row.extensions,
+                title_template: row.title_template,
+                list_view: row.list_view,
+                new_files_public: row.new_files_public,
+                auto_rescan_mode: row.auto_rescan_mode,
+                auto_rescan_hours: row.auto_rescan_hours,
+                auto_rescan_time: row.auto_rescan_time,
+            };
+            HiddenContentResponse {
+                content: AdminContentResponse::from_row(
+                    content,
+                    row.created_by_username,
+                    &root_records,
+                    archive_items,
+                ),
+                restore_visibility: restorable.then_some(restore),
+            }
+        })
+        .collect();
+    Ok(Json(items))
+}
+
+/// `list_hidden_contents` が返す件数。ユーザーメニューに「非表示のコンテンツ (N)」と出すため。
+pub(crate) async fn hidden_content_count(
+    pool: &sqlx::SqlitePool,
+    user: &AuthUser,
+) -> Result<i64, AppError> {
+    let is_admin = user.is_admin();
+    Ok(sqlx::query_scalar!(
+        r#"SELECT COUNT(*) as "count!: i64" FROM contents
+           WHERE visibility = ?1 AND (?2 OR created_by = ?3)"#,
+        Visibility::Hidden,
+        is_admin,
+        user.id,
+    )
+    .fetch_one(pool)
+    .await?)
+}
+
 /// `max_upload_bytes`は許可したい実際のファイルサイズ(`AppState::max_upload_bytes`)。
 /// アップロード系エンドポイントにのみ`DefaultBodyLimit`を適用するため、別の
 /// `OpenApiRouter`として組み立ててから`merge`する(`OpenApiRouter::route_layer`は
@@ -3320,6 +3596,9 @@ pub(crate) fn router(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
         .routes(routes!(list_contents, create_content))
         .routes(routes!(update_content, delete_content))
         .routes(routes!(set_creator))
+        .routes(routes!(set_visibility))
+        .routes(routes!(unhide_content))
+        .routes(routes!(list_hidden_contents))
         .routes(routes!(list_admin_contents))
         .routes(routes!(fetch_link_metadata))
         .routes(routes!(browse_folder))
