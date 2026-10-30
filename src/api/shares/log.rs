@@ -58,10 +58,6 @@ pub enum OpResult {
 }
 
 /// 共有の中の場所。記録には、そのときの共有の名前を写して残す。
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "共有の中を書き換える口を足すときに使う")
-)]
 #[derive(Debug, Clone)]
 pub(super) struct LoggedPlace {
     pub(super) root_id: i64,
@@ -70,10 +66,6 @@ pub(super) struct LoggedPlace {
 }
 
 /// 書き込む1行。
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "共有の中を書き換える口を足すときに使う")
-)]
 #[derive(Debug, Clone)]
 pub(super) struct OpRecord {
     pub(super) op: ShareOp,
@@ -89,10 +81,6 @@ pub(super) struct OpRecord {
     pub(super) error: Option<String>,
 }
 
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "共有の中を書き換える口を足すときに使う")
-)]
 impl OpRecord {
     /// `user` が共有 `root_id` の中の `paths` を扱った記録。置き先・件数・結果は後から足す。
     pub(super) fn new(
@@ -117,19 +105,21 @@ impl OpRecord {
         }
     }
 
-    #[expect(dead_code, reason = "共有の中を書き換える口を足すときに使う")]
     pub(super) fn dest(mut self, dest: LoggedPlace) -> Self {
         self.dest = Some(dest);
         self
     }
 
-    #[expect(dead_code, reason = "共有の中を書き換える口を足すときに使う")]
     pub(super) fn counts(mut self, items: u64, bytes: u64) -> Self {
         self.item_count = Some(items);
         self.byte_count = Some(bytes);
         self
     }
 
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "コピー・移動・削除の口を足すときに使う")
+    )]
     pub(super) fn result(mut self, result: OpResult) -> Self {
         self.result = result;
         self
@@ -144,10 +134,6 @@ impl OpRecord {
 }
 
 /// 1行書く。書いた行の id を返す (裏で続く操作は、終わったときに `finish` で結果を書く)。
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "共有の中を書き換える口を足すときに使う")
-)]
 pub(super) async fn record(pool: &sqlx::SqlitePool, record: &OpRecord) -> Result<i64, AppError> {
     let paths = serde_json::to_string(&record.paths)
         .map_err(|err| AppError::Io(std::io::Error::other(err)))?;
@@ -187,7 +173,6 @@ pub(super) async fn record(pool: &sqlx::SqlitePool, record: &OpRecord) -> Result
 }
 
 /// `record` の失敗をログに出すだけにする版。記録できなくても操作は済んでいるため。
-#[expect(dead_code, reason = "共有の中を書き換える口を足すときに使う")]
 pub(super) async fn record_or_warn(pool: &sqlx::SqlitePool, record: &OpRecord) -> Option<i64> {
     match self::record(pool, record).await {
         Ok(id) => Some(id),
@@ -201,7 +186,7 @@ pub(super) async fn record_or_warn(pool: &sqlx::SqlitePool, record: &OpRecord) -
 /// 裏で続いた操作 (`OpResult::Running` で書いた行) の結果を書く。失敗はログに出すだけ。
 #[cfg_attr(
     not(test),
-    expect(dead_code, reason = "共有の中を書き換える口を足すときに使う")
+    expect(dead_code, reason = "コピー・移動・削除の口を足すときに使う")
 )]
 pub(super) async fn finish(
     pool: &sqlx::SqlitePool,
@@ -228,10 +213,6 @@ pub(super) async fn finish(
     }
 }
 
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "共有の中を書き換える口を足すときに使う")
-)]
 fn saturating_i64(value: u64) -> i64 {
     i64::try_from(value).unwrap_or(i64::MAX)
 }

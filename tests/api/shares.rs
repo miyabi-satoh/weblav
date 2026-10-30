@@ -572,3 +572,384 @@ async fn share_operations_are_listed_newest_first_in_pages(pool: SqlitePool) {
     assert_eq!(body["items"][0]["op"], "mkdir");
     assert!(body["nextBefore"].is_null(), "{body}");
 }
+
+/// `files` を `file` の欄に並べた multipart の要求。
+fn upload_request(uri: &str, cookie: &str, files: &[(&str, &[u8])]) -> Request<Body> {
+    const BOUNDARY: &str = "----weblavshareupload0123456789";
+    let mut body = Vec::new();
+    for (name, content) in files {
+        body.extend_from_slice(format!("--{BOUNDARY}\r\n").as_bytes());
+        body.extend_from_slice(
+            format!("Content-Disposition: form-data; name=\"file\"; filename=\"{name}\"\r\n")
+                .as_bytes(),
+        );
+        body.extend_from_slice(b"Content-Type: application/octet-stream\r\n\r\n");
+        body.extend_from_slice(content);
+        body.extend_from_slice(b"\r\n");
+    }
+    body.extend_from_slice(format!("--{BOUNDARY}--\r\n").as_bytes());
+    Request::builder()
+        .method("POST")
+        .uri(uri)
+        .header(header::COOKIE, cookie)
+        .header(
+            header::CONTENT_TYPE,
+            format!("multipart/form-data; boundary={BOUNDARY}"),
+        )
+        .body(Body::from(body))
+        .expect("リクエストを組み立てられなかった")
+}
+
+fn upload_uri(id: i64, path: &str) -> String {
+    format!(
+        "/api/v1/shares/{id}/upload?path={}",
+        utf8_percent_encode(path, NON_ALPHANUMERIC)
+    )
+}
+
+/// 共有の既定を変える。
+async fn set_editor_access(share: &ShareFixture, access: &str) {
+    set_access(
+        share.app.clone(),
+        &share.admin,
+        share.id,
+        &format!(r#"{{"editorAccess":"{access}","users":[]}}"#),
+    )
+    .await;
+}
+
+/// 先頭だけ JPEG の印を持つ中身 (→ `fsops::sniff_image`)。
+const JPEG_BYTES: &[u8] = &[0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, b'J', b'F', b'I', b'F'];
+
+/// いくつかのファイルを1回で置ける。同じ名前は番号を付け、中身が JPEG の `.HEIC` は `.jpg` にする。
+/// 置いたことを記録に残す。
+#[sqlx::test]
+async fn files_can_be_uploaded_into_a_share(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-upload").await;
+    set_editor_access(&share, "add").await;
+    std::fs::create_dir_all(share.dir.join("教材")).expect("フォルダーを作れなかった");
+    std::fs::write(share.dir.join("教材").join("memo.txt"), b"old").expect("書けなかった");
+
+    let request = upload_request(
+        &upload_uri(share.id, "教材"),
+        &share.taro,
+        &[
+            ("memo.txt", b"new"),
+            ("IMG_0001.HEIC", JPEG_BYTES),
+            ("a.pdf", b"pdf"),
+        ],
+    );
+    let (status, body) = send(share.app.clone(), request).await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(
+        parse_json(&body)["files"],
+        serde_json::json!([
+            {"name": "memo (1).txt", "renamed": true, "extensionFixed": false},
+            {"name": "IMG_0001.jpg", "renamed": false, "extensionFixed": true},
+            {"name": "a.pdf", "renamed": false, "extensionFixed": false},
+        ])
+    );
+    let dir = share.dir.join("教材");
+    assert_eq!(
+        std::fs::read(dir.join("memo.txt")).expect("読めなかった"),
+        b"old"
+    );
+    assert_eq!(
+        std::fs::read(dir.join("memo (1).txt")).expect("読めなかった"),
+        b"new"
+    );
+    assert!(dir.join("IMG_0001.jpg").is_file());
+    let leftovers: Vec<String> = std::fs::read_dir(&dir)
+        .expect("読めなかった")
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .filter(|name| name.starts_with('.'))
+        .collect();
+    assert!(
+        leftovers.is_empty(),
+        "作業用のファイルが残った: {leftovers:?}"
+    );
+
+    let logged: Vec<(String, String, String)> =
+        sqlx::query_as("SELECT op, paths, result FROM share_operations ORDER BY id")
+            .fetch_all(&pool)
+            .await
+            .expect("記録を読めなかった");
+    assert_eq!(
+        logged,
+        vec![
+            (
+                "upload".to_string(),
+                r#"["教材/memo (1).txt"]"#.to_string(),
+                "succeeded".to_string()
+            ),
+            (
+                "upload".to_string(),
+                r#"["教材/IMG_0001.jpg"]"#.to_string(),
+                "succeeded".to_string()
+            ),
+            (
+                "upload".to_string(),
+                r#"["教材/a.pdf"]"#.to_string(),
+                "succeeded".to_string()
+            ),
+        ]
+    );
+}
+
+/// 見るだけの人は足せない (403)。見えない場所・一覧に出さない場所は 404。
+#[sqlx::test]
+async fn uploading_needs_add_access_to_a_visible_folder(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-upload-denied").await;
+    std::fs::create_dir_all(share.dir.join(".secret")).expect("フォルダーを作れなかった");
+
+    let request = upload_request(&upload_uri(share.id, ""), &share.taro, &[("a.pdf", b"pdf")]);
+    let (status, body) = send(share.app.clone(), request).await;
+    assert_error(status, &body, StatusCode::FORBIDDEN, "forbidden");
+
+    set_editor_access(&share, "add").await;
+    let request = upload_request(
+        &upload_uri(share.id, ".secret"),
+        &share.taro,
+        &[("a.pdf", b"pdf")],
+    );
+    let (status, body) = send(share.app.clone(), request).await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
+
+    set_editor_access(&share, "none").await;
+    let request = upload_request(&upload_uri(share.id, ""), &share.taro, &[("a.pdf", b"pdf")]);
+    let (status, body) = send(share.app.clone(), request).await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
+    assert!(!share.dir.join("a.pdf").exists());
+}
+
+/// 1つのファイルの上限を超えたら 413 にし、途中まで受け取ったものは残さない。
+#[sqlx::test]
+async fn an_upload_over_the_limit_is_rejected(pool: SqlitePool) {
+    let mut config = Config::default();
+    config.upload.max_size_mb = 1;
+    let app = app_in(pool.clone(), &config, &next_app_dir()).await;
+    let admin = admin_cookie(app.clone(), &pool).await;
+    let dir = root_dir("shares-upload-limit");
+    register_root(&pool, &dir).await;
+    let id = root_id_of(&pool, &canonical_path_as_api_returns_it(&dir)).await;
+
+    let content = vec![b'x'; 1024 * 1024 + 1];
+    let request = upload_request(&upload_uri(id, ""), &admin, &[("big.bin", &content)]);
+    let (status, body) = send(app, request).await;
+
+    assert_error(
+        status,
+        &body,
+        StatusCode::PAYLOAD_TOO_LARGE,
+        "file_too_large",
+    );
+    let left: Vec<_> = std::fs::read_dir(&*dir)
+        .expect("読めなかった")
+        .filter_map(|entry| entry.ok())
+        .collect();
+    assert!(left.is_empty(), "何も残さないはず: {left:?}");
+}
+
+/// 置いたファイルは、次の再スキャンを待たずに一覧の表示の索引に入る。
+#[sqlx::test]
+async fn an_uploaded_file_enters_the_list_view_index(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-upload-index").await;
+    std::fs::write(share.dir.join("a.pdf"), b"pdf").expect("書けなかった");
+    let archive_id = create_archive(share.app.clone(), &share.admin, &share.dir, None).await;
+    let (status, body) = rescan(share.app.clone(), &share.admin, archive_id).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let request = upload_request(
+        &upload_uri(share.id, ""),
+        &share.admin,
+        &[("b.pdf", b"pdf")],
+    );
+    let (status, body) = send(share.app.clone(), request).await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+
+    // 索引は裏で読み直すので、入るまで待つ。
+    let mut indexed = Vec::new();
+    for _ in 0..100 {
+        indexed = sqlx::query_scalar::<_, String>(
+            "SELECT rel_path FROM archive_items WHERE archive_id = ? ORDER BY rel_path",
+        )
+        .bind(archive_id)
+        .fetch_all(&pool)
+        .await
+        .expect("索引を読めなかった");
+        if indexed.len() == 2 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    assert_eq!(indexed, vec!["a.pdf", "b.pdf"]);
+}
+
+fn json_uri(id: i64, action: &str) -> String {
+    format!("/api/v1/shares/{id}/{action}")
+}
+
+/// 新しいフォルダーを作れる。同じ名前があれば 422 (`entryNameTaken`)、使えない名前は `entryNameInvalid`。
+#[sqlx::test]
+async fn a_folder_can_be_created_in_a_share(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-mkdir").await;
+    let uri = json_uri(share.id, "folders");
+    let request = r#"{"path":"","name":"教材"}"#;
+
+    let (status, body) = send_json(share.app.clone(), "POST", &uri, &share.taro, request).await;
+    assert_error(status, &body, StatusCode::FORBIDDEN, "forbidden");
+
+    set_editor_access(&share, "add").await;
+    let (status, body) = send_json(share.app.clone(), "POST", &uri, &share.taro, request).await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(parse_json(&body)["path"], "教材");
+    assert!(share.dir.join("教材").is_dir());
+
+    let (status, body) = send_json(share.app.clone(), "POST", &uri, &share.taro, request).await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+    assert_eq!(
+        parse_json(&body)["error"]["detail"]["kind"],
+        "entryNameTaken"
+    );
+
+    let (status, body) = send_json(
+        share.app.clone(),
+        "POST",
+        &uri,
+        &share.taro,
+        r#"{"path":"","name":".git"}"#,
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+    assert_eq!(
+        parse_json(&body)["error"]["detail"]["kind"],
+        "entryNameInvalid"
+    );
+}
+
+/// 名前の変更は「すべて」の人だけ。変えると、中のものの公開・非公開の印が付いていく。
+/// 共有そのものは変えられない。
+#[sqlx::test]
+async fn renaming_needs_full_access_and_carries_marks_along(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-rename").await;
+    std::fs::create_dir_all(share.dir.join("教材")).expect("フォルダーを作れなかった");
+    std::fs::write(share.dir.join("教材").join("a.pdf"), b"pdf").expect("書けなかった");
+    let folder = insert_folder_by(&pool, "共有", &*share.dir, "public", None, None).await;
+    sqlx::query(
+        "INSERT INTO folder_marks (content_id, path, is_dir, public, created_at) VALUES (?, '教材/a.pdf', 0, 0, 0)",
+    )
+    .bind(folder)
+    .execute(&pool)
+    .await
+    .expect("印を入れられなかった");
+    let uri = json_uri(share.id, "rename");
+    let request = r#"{"path":"教材","name":"教材 2026"}"#;
+
+    set_editor_access(&share, "add").await;
+    let (status, body) = send_json(share.app.clone(), "POST", &uri, &share.taro, request).await;
+    assert_error(status, &body, StatusCode::FORBIDDEN, "forbidden");
+
+    set_editor_access(&share, "all").await;
+    let (status, body) = send_json(share.app.clone(), "POST", &uri, &share.taro, request).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body)["path"], "教材 2026");
+    assert!(share.dir.join("教材 2026").join("a.pdf").is_file());
+    let marks: Vec<String> =
+        sqlx::query_scalar("SELECT path FROM folder_marks WHERE content_id = ?")
+            .bind(folder)
+            .fetch_all(&pool)
+            .await
+            .expect("印を読めなかった");
+    assert_eq!(marks, vec!["教材 2026/a.pdf"]);
+
+    let (status, body) = send_json(
+        share.app.clone(),
+        "POST",
+        &uri,
+        &share.taro,
+        r#"{"path":"","name":"別の名前"}"#,
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+    assert_eq!(
+        parse_json(&body)["error"]["detail"]["kind"],
+        "entryProtected"
+    );
+}
+
+/// 中に別の共有があるフォルダーは、名前を変えられない。
+#[sqlx::test]
+async fn a_folder_holding_another_share_cannot_be_renamed(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-rename-nested").await;
+    let inner = share.dir.join("教材").join("英検");
+    std::fs::create_dir_all(&inner).expect("フォルダーを作れなかった");
+    register_root(&pool, &inner).await;
+
+    let (status, body) = send_json(
+        share.app.clone(),
+        "POST",
+        &json_uri(share.id, "rename"),
+        &share.admin,
+        r#"{"path":"教材","name":"教材 2026"}"#,
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+    assert_eq!(
+        parse_json(&body)["error"]["detail"]["kind"],
+        "entryProtected"
+    );
+    assert!(inner.is_dir());
+}
+
+/// 見られる人は、フォルダーをホームに載せられる。載せると共有の一覧に「掲載中」が付く。
+#[sqlx::test]
+async fn a_share_folder_can_be_listed_on_home(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-list-on-home").await;
+    std::fs::create_dir_all(share.dir.join("教材")).expect("フォルダーを作れなかった");
+
+    let (status, body) = send_json(
+        share.app.clone(),
+        "POST",
+        &json_uri(share.id, "list-on-home"),
+        &share.taro,
+        r#"{"path":"教材","visibility":"authenticated"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let created = parse_json(&body);
+    assert_eq!(created["title"], "教材");
+    assert_eq!(created["visibility"], "authenticated");
+
+    let (status, body) = send_empty(
+        share.app.clone(),
+        "GET",
+        &browse_uri(share.id, "教材"),
+        &share.taro,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let body = parse_json(&body);
+    assert_eq!(body["listedAs"]["contentId"], created["id"]);
+    assert_eq!(body["canListOnHome"], false);
+}

@@ -71,4 +71,7 @@ pub enum ValidationDetail {
     EntryNameTaken { name: String },
     /// フォルダーを、そのフォルダー自身やその中へ移動・コピーしようとした。
     TransferIntoItself,
+    /// 共有そのもの・中に別の共有や WebLAV のデータを含むものを、名前の変更・移動・削除・上書きしようとした。
+    /// 共有の登録や WebLAV 自身が、その場所を指したまま見失うため。
+    EntryProtected,
 }

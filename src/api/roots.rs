@@ -744,6 +744,11 @@ impl OwnDirs {
     pub(super) fn contains(&self, path: &FsPath) -> bool {
         self.0.iter().any(|dir| path.starts_with(dir))
     }
+
+    /// 置き場のどれかが、`path` そのものかその中にあるか (`path` を動かすと置き場も動く)。**実体パスを渡すこと**。
+    pub(super) fn any_within(&self, path: &FsPath) -> bool {
+        self.0.iter().any(|dir| dir.starts_with(path))
+    }
 }
 
 /// 公開できるフォルダーごとのコンテンツの件数を数えるための材料。

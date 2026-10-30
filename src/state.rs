@@ -71,6 +71,8 @@ pub struct AppState {
     pub contents_write_lock: Arc<Mutex<()>>,
     /// アーカイブごとの走査の排他 (→ docs/archive.md「スキャン」)。
     pub archive_scans: Arc<ArchiveScans>,
+    /// 共有の中のフォルダーごとの、アップロードしたファイルに名前を付けて置く順番 (→ `api::shares`)。
+    pub share_dir_locks: Arc<DirLocks>,
     /// 一覧の表示の、導出済みの全アイテム・印・区切って返す結果の集まり (→ docs/archive.md「大きなアーカイブの一覧」)。
     pub archive_index: Arc<crate::api::archive_index::ArchiveIndexCache>,
     /// admin数の不変条件に関わる書き込み(権限変更・削除)を直列化するための鍵
@@ -100,6 +102,23 @@ pub struct AppState {
     /// 他の端末に mDNS の名前 (→ `crate::mdns`) とあわせて案内するポート。
     /// 全インターフェースで待ち受けていないときは`None`。
     pub lan_port: Option<u16>,
+}
+
+/// フォルダーごとの鍵。同じフォルダーに同時に置くアップロードが、同じ空きの名前を選ばないよう順に並べる。
+///
+/// `std::sync::Mutex` を使う。鍵を持つのは `spawn_blocking` の中で名前を決めて置く間だけで、await しないため。
+#[derive(Default)]
+pub struct DirLocks {
+    dirs: StdMutex<HashMap<PathBuf, Arc<StdMutex<()>>>>,
+}
+
+impl DirLocks {
+    /// `dir` の鍵。使い終わった (ほかに持つ人のいない) 鍵は、ここで片付ける。
+    pub fn get(&self, dir: &std::path::Path) -> Arc<StdMutex<()>> {
+        let mut dirs = self.dirs.lock().expect("dir locks poisoned");
+        dirs.retain(|_, lock| Arc::strong_count(lock) > 1);
+        Arc::clone(dirs.entry(dir.to_path_buf()).or_default())
+    }
 }
 
 /// 走査中のアーカイブidの集合。

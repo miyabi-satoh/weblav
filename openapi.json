@@ -5609,6 +5609,253 @@
         }
       }
     },
+    "/api/v1/shares/{id}/folders": {
+      "post": {
+        "summary": "共有の中に新しいフォルダーを作る。",
+        "operationId": "create_share_folder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShareFolderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "作った",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharePathResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "この場所に足せない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・フォルダーが無い、見られない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "共有に書き込めない (`share_read_only`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "名前が使えない (`entryNameInvalid`)・同じ名前がある (`entryNameTaken`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/list-on-home": {
+      "post": {
+        "summary": "共有の中のフォルダーを、フォルダーのコンテンツとしてホームに載せる。タイトルはフォルダー名から付ける。\n見られる場所なら載せられる (コンテンツの作成と同じ)。",
+        "operationId": "list_on_home",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListOnHomeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "載せた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminContentResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・フォルダーが無い、見られない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "フォルダーでない、公開範囲が合わない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/rename": {
+      "post": {
+        "summary": "共有の中のファイル・フォルダーの名前を変える。大文字・小文字だけの変更もできる。\n共有そのものと、中に別の共有を含むフォルダーは変えられない。",
+        "operationId": "rename_share_entry",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameShareEntryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "名前を変えた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharePathResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "この場所で名前を変えられない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・ファイルが無い、見られない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "共有に書き込めない・ほかのアプリが開いている",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "名前が使えない・同じ名前がある・共有そのもの (`entryProtected`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/shares/{id}/thumbnail": {
       "get": {
         "summary": "共有の中の画像の縮小画像 (→ docs/ui.md「画像のプレビュー」)。",
@@ -5652,6 +5899,125 @@
           },
           "404": {
             "description": "見られない・存在しない、またはプレビューしない画像",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/upload": {
+      "post": {
+        "summary": "共有の中のフォルダーにファイルを置く。同じ名前があれば、番号を付けた名前で置く (上書きしない)。",
+        "description": "中身が画像なのに拡張子が合っていなければ直す (→ `fsops::fixed_extension`)。\nいくつか送って途中で失敗したら、それまでに置いたものは残る (画面は1つずつ送る)。",
+        "operationId": "upload_to_share",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "置き先のフォルダーの、共有からの相対パス。省略時 (空文字列) は共有そのもの。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "置いた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "この場所に足せない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・フォルダーが無い、見られない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "共有に書き込めない (`share_read_only`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "1つのファイルが上限を超えた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "ファイルが無い、名前が使えない (`entryNameInvalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "507": {
+            "description": "置き先の空きが足りない",
             "content": {
               "application/json": {
                 "schema": {
@@ -6789,6 +7155,21 @@
           }
         }
       },
+      "CreateShareFolderRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "作る場所 (フォルダー) の、共有からの相対パス。空文字列は共有そのもの。"
+          }
+        }
+      },
       "CreateUserRequest": {
         "type": "object",
         "required": [
@@ -7647,6 +8028,26 @@
           }
         }
       },
+      "ListOnHomeRequest": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "載せるフォルダーの、共有からの相対パス。空文字列は共有そのもの。"
+          },
+          "visibility": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Visibility",
+                "description": "公開範囲。省略時は既定値。"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
       "ListedAs": {
         "type": "object",
         "description": "その場所をフォルダーとして載せているコンテンツ (→ docs/ui.md「掲載中」)。",
@@ -8010,6 +8411,23 @@
           "name": {
             "type": "string",
             "description": "新しい名前。前後の空白は除く。空ならフォルダー名にする。"
+          }
+        }
+      },
+      "RenameShareEntryRequest": {
+        "type": "object",
+        "required": [
+          "path",
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "新しい名前。"
+          },
+          "path": {
+            "type": "string",
+            "description": "名前を変えるものの、共有からの相対パス。"
           }
         }
       },
@@ -8855,6 +9273,18 @@
           }
         }
       },
+      "SharePathResponse": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "作った・名前を変えた後の場所の、共有からの相対パス。"
+          }
+        }
+      },
       "ShareRef": {
         "type": "object",
         "description": "共有を指す最小限の情報。",
@@ -8891,6 +9321,23 @@
           },
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "ShareUploadRequest": {
+        "type": "object",
+        "description": "OpenAPI のための形。実際は `Multipart` で受け取る。",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "binary"
+            },
+            "description": "置くファイル。いくつでも並べられる。"
           }
         }
       },
@@ -9134,6 +9581,44 @@
                 "type": "null"
               }
             ]
+          }
+        }
+      },
+      "UploadResponse": {
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UploadedFile"
+            },
+            "description": "送った順。"
+          }
+        }
+      },
+      "UploadedFile": {
+        "type": "object",
+        "description": "置いたファイル。",
+        "required": [
+          "name",
+          "renamed",
+          "extensionFixed"
+        ],
+        "properties": {
+          "extensionFixed": {
+            "type": "boolean",
+            "description": "中身が画像なのに拡張子が合っていなかったので、直した。"
+          },
+          "name": {
+            "type": "string",
+            "description": "置いた名前。"
+          },
+          "renamed": {
+            "type": "boolean",
+            "description": "同じ名前があったので、番号を付けた。"
           }
         }
       },
@@ -9566,6 +10051,21 @@
                 "type": "string",
                 "enum": [
                   "transferIntoItself"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "共有そのもの・中に別の共有や WebLAV のデータを含むものを、名前の変更・移動・削除・上書きしようとした。\n共有の登録や WebLAV 自身が、その場所を指したまま見失うため。",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "entryProtected"
                 ]
               }
             }

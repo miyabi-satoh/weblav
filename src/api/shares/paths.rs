@@ -22,10 +22,6 @@ const NAME_MAX_BYTES: usize = 255;
 /// NFC にそろえるのは、macOS から送られる NFD の名前と、ほかの端末から送られる NFC の名前が、
 /// 見た目は同じなのに別のファイルになるのを避けるため。
 /// ドットで始まる名前は、作れても一覧に出ないので拒む (→ `fs::is_visible_entry`)。
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "アップロード・名前の変更の口を足すときに使う")
-)]
 pub(super) fn validate_name(name: &str) -> Result<String, AppError> {
     let name = icu_normalizer::ComposingNormalizerBorrowed::new_nfc()
         .normalize(name)
@@ -161,10 +157,6 @@ fn resolve_under(
 }
 
 /// 新しく作るものの置き場所。`dir` は既にあるフォルダー、`target` はその中の `name` (まだ無いとは限らない)。
-#[expect(
-    dead_code,
-    reason = "アップロード・新しいフォルダーの口を足すときに使う"
-)]
 #[derive(Debug)]
 pub(super) struct NewEntry {
     pub(super) dir: Resolved,
@@ -175,10 +167,6 @@ pub(super) struct NewEntry {
 /// 共有 `root_id` の中のフォルダー `dir_rel` に、`name` を作る場所を決める。
 /// フォルダーでなければ 404。名前が使えなければ 422 (`entryNameInvalid`)。
 /// 名前が既にあるかは見ない。作る側が、作るときに重なりを確かめる (確かめてから作るまでの間に作られうるため)。
-#[expect(
-    dead_code,
-    reason = "アップロード・新しいフォルダーの口を足すときに使う"
-)]
 pub(super) async fn resolve_parent_for_new(
     state: &AppState,
     user: &AuthUser,
@@ -194,6 +182,39 @@ pub(super) async fn resolve_parent_for_new(
     }
     let target = dir.canonical.join(&name);
     Ok(NewEntry { dir, name, target })
+}
+
+/// 名前の変更・移動・削除・上書きをしてよい場所か。共有そのもの、中に別の共有か WebLAV のデータを
+/// 含むものは 422 (`entryProtected`)。動かすと、共有の登録や WebLAV 自身がその場所を見失うため。
+pub(super) async fn ensure_not_protected(
+    state: &AppState,
+    resolved: &Resolved,
+) -> Result<(), AppError> {
+    let protected = || AppError::ValidationDetailed {
+        message: "the entry is a shared folder or contains one".to_string(),
+        detail: ValidationDetail::EntryProtected,
+    };
+    if resolved.rel.is_empty() {
+        return Err(protected());
+    }
+    // 共有は登録したときの実体のパスで照らす。つながらない NAS の共有も見落とさないよう、
+    // ファイルシステムには聞かない。
+    let stored = PathBuf::from(crate::api::fs::path_to_string(resolved.canonical.clone())?);
+    let roots = sqlx::query_scalar!("SELECT path FROM roots WHERE deleted_at IS NULL")
+        .fetch_all(&state.pool)
+        .await?;
+    if roots
+        .iter()
+        .any(|root| FsPath::new(root).starts_with(&stored))
+    {
+        return Err(protected());
+    }
+    let own_dirs = state.own_dirs.clone();
+    let canonical = resolved.canonical.clone();
+    if run_blocking(move || OwnDirs::resolve(&own_dirs).any_within(&canonical)).await? {
+        return Err(protected());
+    }
+    Ok(())
 }
 
 /// 実体のパス `canonical` で `user` ができること。それを含む共有のうち一番強いもの

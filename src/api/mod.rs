@@ -110,7 +110,7 @@ fn routes(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
         .merge(roots::router())
         .merge(search::router())
         .merge(setup::router())
-        .merge(shares::router())
+        .merge(shares::router(max_upload_bytes))
         .merge(logs::router())
         .merge(backup::router())
         .merge(server_settings::router())

@@ -252,6 +252,21 @@ async fn apply_changes(state: &AppState, changes: &[Change]) -> Result<BTreeSet<
     Ok(changed)
 }
 
+/// `dir` (実体のパス) の中身を表示に含む、一覧の表示を使うコンテンツ。`dir` に足したものを索引に入れさせるのに使う。
+pub(super) async fn list_views_containing(
+    pool: &sqlx::SqlitePool,
+    dir: &Path,
+) -> Result<Vec<i64>, AppError> {
+    let dir = stored_form(dir)?;
+    let mut conn = pool.acquire().await?;
+    Ok(folder_rows(&mut conn)
+        .await?
+        .into_iter()
+        .filter(|row| row.list_view && dir.starts_with(&row.path))
+        .map(|row| row.id)
+        .collect())
+}
+
 /// 一覧の表示を使うコンテンツの中を、裏で読み直させる。共有の中に置いた・動かしたものが、
 /// 次の再スキャンを待たずに一覧に出るようにするため (→ `archive::refresh_changed_dirs`)。
 pub(super) fn refresh_after_change(state: &AppState, ids: impl IntoIterator<Item = i64>) {

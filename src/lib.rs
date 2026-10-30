@@ -151,6 +151,7 @@ pub async fn build_app(
         config_write_lock: Arc::new(tokio::sync::Mutex::new(())),
         contents_write_lock: Arc::new(tokio::sync::Mutex::new(())),
         archive_scans: Arc::new(crate::state::ArchiveScans::default()),
+        share_dir_locks: Arc::default(),
         archive_index: Arc::default(),
         users_write_lock: Arc::new(tokio::sync::Mutex::new(())),
         setup_tokens: Arc::new(api::setup::SetupTokens::default()),

@@ -230,6 +230,81 @@ fn file_name(path: &Path) -> String {
         .unwrap_or_default()
 }
 
+/// アップロードの途中のファイルの名前の頭。ドットで始めて一覧に出さない (→ `fs::is_visible_entry`)。
+pub(super) const UPLOAD_TEMP_PREFIX: &str = ".weblav-upload-";
+
+/// 作業用のファイルを、途中で止まった残りとみなすまでの時間。今まさに受け取っている大きなファイル
+/// (遅い回線で数時間かかりうる) を消さないよう、1日にする。
+const STALE_TEMP_AGE: std::time::Duration = std::time::Duration::from_secs(24 * 60 * 60);
+
+/// `dir` 直下の、途中で止まったアップロード・コピーの作業用の残り (古いもの) を消す。
+/// 片付けられなくても、一覧には出ない名前なのでそのままにする。
+pub(super) fn remove_stale_temps(dir: &Path) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    let now = std::time::SystemTime::now();
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else {
+            continue;
+        };
+        if !name.starts_with(UPLOAD_TEMP_PREFIX) && !name.starts_with(COPY_TEMP_PREFIX) {
+            continue;
+        }
+        let stale = entry
+            .metadata()
+            .and_then(|metadata| metadata.modified())
+            .ok()
+            .and_then(|modified| now.duration_since(modified).ok())
+            .is_some_and(|age| age > STALE_TEMP_AGE);
+        if stale {
+            let _ = remove_tree(&entry.path());
+        }
+    }
+}
+
+/// 受け取り終えた作業用のファイル `temp` を、`dir` の中に `name` (ふさがっていれば番号を付けた名前) で置く。
+/// 置いた名前を返す。
+///
+/// 空きを確かめてから置くまでの間に、ほかの人が同じ名前を作っても上書きしないよう、置き先が無いときだけ
+/// 成り立つ方法 (ハードリンク) で置く。ハードリンクを作れないファイルシステム (FAT・一部の NAS) では、
+/// 確かめてから名前を変える (この間の行き違いだけは残る)。
+/// WebLAV の中のアップロードどうしは、呼び出し側がフォルダーごとの鍵で順に置く。
+pub(super) fn place_new_file(temp: &Path, dir: &Path, name: &str) -> Result<String, AppError> {
+    let mut previous: Option<String> = None;
+    loop {
+        let candidate = free_name(dir, name, false);
+        // 空いていると判定した名前が、置こうとするとふさがっている、が続けて起きたら、判定が当てにならない。
+        if previous.as_deref() == Some(candidate.as_str()) {
+            return Err(name_taken(&candidate));
+        }
+        match link_new(temp, &dir.join(&candidate)) {
+            Ok(()) => return Ok(candidate),
+            Err(err) if err.kind() == io::ErrorKind::AlreadyExists => previous = Some(candidate),
+            Err(err) => return Err(map_io_error(err)),
+        }
+    }
+}
+
+/// `temp` を `target` に置く。`target` が既にあれば `AlreadyExists`。
+fn link_new(temp: &Path, target: &Path) -> io::Result<()> {
+    match fs::hard_link(temp, target) {
+        Ok(()) => {
+            // 置き終えているので、作業用の名前が残っても失敗にしない (古くなったら片付ける)。
+            let _ = fs::remove_file(temp);
+            Ok(())
+        }
+        Err(err) if err.kind() == io::ErrorKind::AlreadyExists => Err(err),
+        Err(_) => {
+            if exists(target) {
+                return Err(io::Error::from(io::ErrorKind::AlreadyExists));
+            }
+            fs::rename(temp, target)
+        }
+    }
+}
+
 /// `a` と `b` が同じものを指しているか。大文字小文字を区別しないファイルシステムで、
 /// `a.txt` を `A.txt` に変えるときは、置き先が「既にある」ように見えるので見分ける。
 fn same_entry(a: &Path, b: &Path) -> bool {
@@ -547,6 +622,54 @@ mod tests {
 
     fn temp_dir(name: &str) -> crate::test_support::TempDir {
         crate::test_support::project_temp_dir("shares-fsops", name)
+    }
+
+    #[test]
+    fn a_new_file_is_placed_under_a_free_name() {
+        let dir = temp_dir("place-new");
+        fs::write(dir.join("写真.jpg"), b"old").expect("書けなかった");
+        let temp = dir.join(format!("{UPLOAD_TEMP_PREFIX}x.part"));
+        fs::write(&temp, b"new").expect("書けなかった");
+
+        let name = place_new_file(&temp, &dir, "写真.jpg").expect("置けるはず");
+
+        assert_eq!(name, "写真 (1).jpg");
+        assert_eq!(
+            fs::read(dir.join("写真.jpg")).expect("読めなかった"),
+            b"old"
+        );
+        assert_eq!(fs::read(dir.join(&name)).expect("読めなかった"), b"new");
+        assert!(!temp.exists(), "作業用のファイルは残さない");
+    }
+
+    #[test]
+    fn only_old_temps_are_removed() {
+        let dir = temp_dir("stale-temps");
+        let old = dir.join(format!("{UPLOAD_TEMP_PREFIX}old.part"));
+        let fresh = dir.join(format!("{UPLOAD_TEMP_PREFIX}fresh.part"));
+        let other = dir.join("memo.txt");
+        for path in [&old, &fresh, &other] {
+            fs::write(path, b"x").expect("書けなかった");
+        }
+        let two_days_ago =
+            std::time::SystemTime::now() - std::time::Duration::from_secs(2 * 24 * 60 * 60);
+        File::options()
+            .write(true)
+            .open(&old)
+            .and_then(|file| file.set_modified(two_days_ago))
+            .expect("更新日時を変えられなかった");
+        fs::write(&other, b"x").expect("書けなかった");
+        File::options()
+            .write(true)
+            .open(&other)
+            .and_then(|file| file.set_modified(two_days_ago))
+            .expect("更新日時を変えられなかった");
+
+        remove_stale_temps(&dir);
+
+        assert!(!old.exists());
+        assert!(fresh.exists());
+        assert!(other.exists(), "作業用でないものは消さない");
     }
 
     #[test]

@@ -21,6 +21,7 @@ mod paths;
     reason = "名前の変更・コピー・移動・削除の口を足すときに使う"
 )]
 mod repoint;
+mod write;
 
 use std::collections::HashMap;
 use std::path::Path as FsPath;
@@ -213,10 +214,12 @@ pub(super) async fn folder_share(
     }))
 }
 
-pub(crate) fn router() -> OpenApiRouter<AppState> {
+/// `max_upload_bytes` はアップロードの1つのファイルの上限 (→ `write::router`)。
+pub(crate) fn router(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(list_shares))
         .merge(browse::router())
+        .merge(write::router(max_upload_bytes))
         .merge(log::router())
 }
 

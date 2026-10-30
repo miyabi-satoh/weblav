@@ -43,7 +43,7 @@ use crate::state::AppState;
 /// オーバーヘッド分の余裕を追加した値にする。厳密な上限はハンドラ内でストリーミング中に
 /// 別途チェックする(`stream_field_to_temp_blob`)ため、ここはあくまで「話にならないほど
 /// 大きいリクエストを早期に切る」ためのバックストップ。
-const UPLOAD_BODY_OVERHEAD_BYTES: u64 = 1024 * 1024;
+pub(super) const UPLOAD_BODY_OVERHEAD_BYTES: u64 = 1024 * 1024;
 
 /// `contents.type`。管理画面のレスポンスにもそのまま `type` として載せるため、
 /// `Serialize`/`Deserialize`/`ToSchema` も併せて持つ(`auth::Role` と同じ書き方)。
@@ -1080,17 +1080,79 @@ async fn create_content(
         (None, None)
     };
 
+    let created = insert_content(
+        &state,
+        &user,
+        NewContent {
+            content_type: payload.content_type,
+            parent_id: payload.parent_id,
+            title: payload.title,
+            link_title,
+            url: link_url,
+            path: payload.path,
+            description: link_description.or(payload.description),
+            visibility: payload.visibility,
+        },
+    )
+    .await?;
+    Ok((StatusCode::CREATED, Json(created)))
+}
+
+/// 作るコンテンツ。リンクの URL とページから取ったタイトルは、取りに行った後のもの。
+struct NewContent {
+    content_type: ContentType,
+    parent_id: Option<i64>,
+    title: Option<String>,
+    /// リンクのページから取ったタイトル。`title` が無いときに使う。
+    link_title: Option<String>,
+    url: Option<String>,
+    /// フォルダーの登録先 (入力のまま。検証はここで行う)。
+    path: Option<String>,
+    description: Option<String>,
+    visibility: Option<Visibility>,
+}
+
+/// フォルダーのコンテンツを、ルート直下に作る。共有の画面の「ホームに載せる」から使う。
+pub(super) async fn create_folder_content(
+    state: &AppState,
+    user: &AuthUser,
+    path: String,
+    visibility: Option<Visibility>,
+) -> Result<AdminContentResponse, AppError> {
+    insert_content(
+        state,
+        user,
+        NewContent {
+            content_type: ContentType::Folder,
+            parent_id: None,
+            title: None,
+            link_title: None,
+            url: None,
+            path: Some(path),
+            description: None,
+            visibility,
+        },
+    )
+    .await
+}
+
+/// 作成の、検証して書き込む部分。時間のかかる取得 (リンクのページ) は、呼び出し側が先に済ませておく。
+async fn insert_content(
+    state: &AppState,
+    user: &AuthUser,
+    new: NewContent,
+) -> Result<AdminContentResponse, AppError> {
     // 親の検証からINSERTまでを直列化する (→ `AppState::contents_write_lock`)。
     let _write_guard = state.contents_write_lock.lock().await;
-    let parent = validate_parent(&state.pool, payload.parent_id, None).await?;
-    let visibility = resolve_visibility_for_create(payload.visibility, parent.as_ref());
+    let parent = validate_parent(&state.pool, new.parent_id, None).await?;
+    let visibility = resolve_visibility_for_create(new.visibility, parent.as_ref());
     ensure_fits_parent(parent.as_ref(), visibility, Some(user.id))?;
     let parent_id = parent.map(|parent| parent.id);
-    let (url, path) = match payload.content_type {
-        ContentType::Link => (link_url, None),
+    let (url, path) = match new.content_type {
+        ContentType::Link => (new.url, None),
         ContentType::Folder => (
             None,
-            Some(validate_folder_path(&state, &user, payload.path.as_deref(), None).await?),
+            Some(validate_folder_path(state, user, new.path.as_deref(), None).await?),
         ),
         // fileはJSONではなくmultipart専用エンドポイント(upload_content)で作る。
         ContentType::File => {
@@ -1100,21 +1162,16 @@ async fn create_content(
         }
         ContentType::Group => (None, None),
     };
-    let derived_title = match payload.content_type {
-        ContentType::Link => link_title,
+    let derived_title = match new.content_type {
+        ContentType::Link => new.link_title,
         ContentType::Folder => path.as_deref().map(title_from_path),
         ContentType::File | ContentType::Group => None,
     };
-    let title = resolve_create_title(
-        &state.pool,
-        parent_id,
-        payload.title.as_deref(),
-        derived_title,
-    )
-    .await?;
+    let title =
+        resolve_create_title(&state.pool, parent_id, new.title.as_deref(), derived_title).await?;
 
-    let content_type = payload.content_type;
-    let description = link_description.or(payload.description);
+    let content_type = new.content_type;
+    let description = new.description;
     let row = sqlx::query_as!(
         ContentRow,
         r#"INSERT INTO contents (type, parent_id, title, url, path, description,
@@ -1137,10 +1194,7 @@ async fn create_content(
     .fetch_one(&state.pool)
     .await?;
 
-    Ok((
-        StatusCode::CREATED,
-        Json(admin_response(&state.pool, row).await?),
-    ))
+    admin_response(&state.pool, row).await
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
