@@ -591,5 +591,15 @@
 	"contents_edit_basic_title": "基本情報",
 	"contents_edit_link_title": "リンク先",
 	"contents_edit_file_title": "ファイル",
-	"contents_edit_folder_title": "場所と見せ方"
+	"contents_edit_folder_title": "場所と見せ方",
+	"contents_row_visibility_menu": "公開範囲...",
+	"contents_row_hide_menu": "非表示にする",
+	"contents_hidden_toast": "「{title}」を非表示にしました。",
+	"contents_visibility_dialog_title": "「{title}」の公開範囲",
+	"shares_heading": "共有",
+	"shares_empty": "使える共有はありません。",
+	"shares_access_read": "あなた: 読むだけ",
+	"shares_access_add": "あなた: 足すだけ",
+	"shares_access_all": "あなた: すべての操作",
+	"shares_fetch_failed": "共有の一覧を読み込めませんでした。しばらくしてからもう一度お試しください。"
 }

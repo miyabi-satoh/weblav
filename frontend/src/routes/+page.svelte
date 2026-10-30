@@ -7,6 +7,7 @@
 	import { SORT_OPTIONS, browseSortHref, type BrowseSort } from '$lib/browse-sort';
 	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
 	import ContentList from '$lib/components/content-list.svelte';
+	import ShareList from '$lib/components/share-list.svelte';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
 	import { browseGutterClass } from '$lib/list-row';
@@ -70,6 +71,15 @@
 				<BrowseSortSelect value={data.sort} options={SORT_OPTIONS} href={sortHref} />
 			{/snippet}
 		</BrowseControls>
-		<ContentList entries={data.contents} />
+		<ContentList entries={data.contents} actions />
+	{/if}
+	{#if data.shares.length > 0}
+		<!-- 共有はコンテンツとは別の区画にして、一覧の下に置く。ホームの主役はコンテンツのため。 -->
+		<section class="mt-12" aria-labelledby="home-shares-heading">
+			<h2 id="home-shares-heading" class={['mb-2 text-base font-semibold', browseGutterClass]}>
+				{m.shares_heading()}
+			</h2>
+			<ShareList shares={data.shares} />
+		</section>
 	{/if}
 </div>

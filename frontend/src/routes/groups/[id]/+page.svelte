@@ -59,7 +59,7 @@
 	</div>
 
 	{#if browse.entries.length > 0}
-		<ContentList entries={browse.entries} />
+		<ContentList entries={browse.entries} actions />
 	{:else}
 		<p class={pageEmptyTextClass}>{m.group_browse_empty()}</p>
 	{/if}
