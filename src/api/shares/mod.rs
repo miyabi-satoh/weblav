@@ -14,6 +14,7 @@ mod browse;
     )
 )]
 mod fsops;
+pub(crate) mod log;
 mod paths;
 
 use std::collections::HashMap;
@@ -211,6 +212,7 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(list_shares))
         .merge(browse::router())
+        .merge(log::router())
 }
 
 #[cfg(test)]

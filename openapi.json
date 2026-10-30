@@ -918,6 +918,72 @@
         }
       }
     },
+    "/api/v1/admin/share-operations": {
+      "get": {
+        "summary": "共有の中のファイルを書き換えた操作の記録。新しい順。",
+        "operationId": "list_share_operations",
+        "parameters": [
+          {
+            "name": "before",
+            "in": "query",
+            "description": "これより前 (id が小さい) の記録を返す。前の応答の `nextBefore` を渡す。省略すると新しいものから。",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "返す件数。既定 100、上限 1000。",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "操作の記録",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareOperationsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/site-settings": {
       "put": {
         "operationId": "update_site_settings",
@@ -7798,6 +7864,16 @@
           }
         }
       },
+      "OpResult": {
+        "type": "string",
+        "description": "操作の結果。",
+        "enum": [
+          "running",
+          "succeeded",
+          "failed",
+          "cancelled"
+        ]
+      },
       "PathSamplesResponse": {
         "type": "object",
         "required": [
@@ -8643,6 +8719,141 @@
           }
         ],
         "description": "共有の中の1行。フォルダーの中の行と同じ形に、載せているコンテンツを添える。"
+      },
+      "ShareOp": {
+        "type": "string",
+        "description": "操作の種類。",
+        "enum": [
+          "upload",
+          "mkdir",
+          "rename",
+          "move",
+          "copy",
+          "delete",
+          "list_on_home"
+        ]
+      },
+      "ShareOperationResponse": {
+        "type": "object",
+        "description": "記録の1行。",
+        "required": [
+          "id",
+          "at",
+          "username",
+          "op",
+          "shareId",
+          "shareName",
+          "paths",
+          "result"
+        ],
+        "properties": {
+          "at": {
+            "type": "string",
+            "description": "操作した時刻 (UTC、ISO 8601)。"
+          },
+          "byteCount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "扱ったファイルの大きさの合計 (バイト)。"
+          },
+          "destPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "destShareId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "移動・コピーの置き先のフォルダー、名前の変更の後の場所。"
+          },
+          "destShareName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "失敗したときの API のエラーの code。"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "itemCount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "扱ったファイル・フォルダーの数。終わるまで分からないものは `None`。"
+          },
+          "op": {
+            "$ref": "#/components/schemas/ShareOp"
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "扱った場所の、共有からの相対パス。"
+          },
+          "result": {
+            "$ref": "#/components/schemas/OpResult"
+          },
+          "shareId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "shareName": {
+            "type": "string",
+            "description": "そのときの共有の名前。"
+          },
+          "userId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "操作したユーザー。消したユーザーでも残る (`username` はそのときの名前)。"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "ShareOperationsResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShareOperationResponse"
+            },
+            "description": "新しい順。"
+          },
+          "nextBefore": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "続きがあれば、次に `before` へ渡す値。"
+          }
+        }
       },
       "ShareRef": {
         "type": "object",

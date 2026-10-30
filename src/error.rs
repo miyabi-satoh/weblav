@@ -194,6 +194,11 @@ fn username_taken(name: String) -> AppError {
 }
 
 impl AppError {
+    /// 応答に載せる機械可読な code。裏で続く処理の失敗を、後から同じ code で伝えるのに使う。
+    pub fn code(&self) -> ErrorCode {
+        self.status_and_code().1
+    }
+
     fn status_and_code(&self) -> (StatusCode, ErrorCode) {
         match self {
             Self::NotFound => (StatusCode::NOT_FOUND, ErrorCode::NotFound),

@@ -236,6 +236,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/share-operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 共有の中のファイルを書き換えた操作の記録。新しい順。 */
+        get: operations["list_share_operations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/site-settings": {
         parameters: {
             query?: never;
@@ -2333,6 +2350,11 @@ export interface components {
             /** @description 軸で絞った後、名前の語と公開の状態で絞る前の数。 */
             totalAll: number;
         };
+        /**
+         * @description 操作の結果。
+         * @enum {string}
+         */
+        OpResult: "running" | "succeeded" | "failed" | "cancelled";
         PathSamplesResponse: {
             /** @description アイテムの数 (未公開を含む)。 */
             itemCount: number;
@@ -2629,6 +2651,60 @@ export interface components {
         /** @description 共有の中の1行。フォルダーの中の行と同じ形に、載せているコンテンツを添える。 */
         ShareEntry: components["schemas"]["FolderEntry"] & {
             listedAs?: components["schemas"]["ListedAs"] | null;
+        };
+        /**
+         * @description 操作の種類。
+         * @enum {string}
+         */
+        ShareOp: "upload" | "mkdir" | "rename" | "move" | "copy" | "delete" | "list_on_home";
+        /** @description 記録の1行。 */
+        ShareOperationResponse: {
+            /** @description 操作した時刻 (UTC、ISO 8601)。 */
+            at: string;
+            /**
+             * Format: int64
+             * @description 扱ったファイルの大きさの合計 (バイト)。
+             */
+            byteCount?: number | null;
+            destPath?: string | null;
+            /**
+             * Format: int64
+             * @description 移動・コピーの置き先のフォルダー、名前の変更の後の場所。
+             */
+            destShareId?: number | null;
+            destShareName?: string | null;
+            /** @description 失敗したときの API のエラーの code。 */
+            error?: string | null;
+            /** Format: int64 */
+            id: number;
+            /**
+             * Format: int64
+             * @description 扱ったファイル・フォルダーの数。終わるまで分からないものは `None`。
+             */
+            itemCount?: number | null;
+            op: components["schemas"]["ShareOp"];
+            /** @description 扱った場所の、共有からの相対パス。 */
+            paths: string[];
+            result: components["schemas"]["OpResult"];
+            /** Format: int64 */
+            shareId: number;
+            /** @description そのときの共有の名前。 */
+            shareName: string;
+            /**
+             * Format: int64
+             * @description 操作したユーザー。消したユーザーでも残る (`username` はそのときの名前)。
+             */
+            userId?: number | null;
+            username: string;
+        };
+        ShareOperationsResponse: {
+            /** @description 新しい順。 */
+            items: components["schemas"]["ShareOperationResponse"][];
+            /**
+             * Format: int64
+             * @description 続きがあれば、次に `before` へ渡す値。
+             */
+            nextBefore?: number | null;
         };
         /** @description 共有を指す最小限の情報。 */
         ShareRef: {
@@ -3675,6 +3751,49 @@ export interface operations {
             };
             /** @description 範囲の外の値 */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_share_operations: {
+        parameters: {
+            query?: {
+                /** @description これより前 (id が小さい) の記録を返す。前の応答の `nextBefore` を渡す。省略すると新しいものから。 */
+                before?: number | null;
+                /** @description 返す件数。既定 100、上限 1000。 */
+                limit?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作の記録 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareOperationsResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外 */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

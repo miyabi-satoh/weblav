@@ -532,3 +532,43 @@ async fn a_folder_content_points_to_its_share(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(parse_json(&body)["share"], serde_json::Value::Null);
 }
+
+/// 操作の記録は新しい順に返し、続きは `nextBefore` から読む。
+#[sqlx::test]
+async fn share_operations_are_listed_newest_first_in_pages(pool: SqlitePool) {
+    let (app, admin) = admin_app(&pool).await;
+    for (op, path) in [("mkdir", "a"), ("upload", "a/b.pdf"), ("delete", "c")] {
+        sqlx::query(
+            "INSERT INTO share_operations (user_id, username, op, root_id, root_name, paths, result)
+             VALUES (1, 'admin', ?, 1, '教材', json_array(?), 'succeeded')",
+        )
+        .bind(op)
+        .bind(path)
+        .execute(&pool)
+        .await
+        .expect("記録を入れられなかった");
+    }
+
+    let uri = "/api/v1/admin/share-operations?limit=2";
+    let (status, body) = send_empty(app.clone(), "GET", uri, &admin).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let body = parse_json(&body);
+    let ops: Vec<&str> = body["items"]
+        .as_array()
+        .expect("配列のはず")
+        .iter()
+        .map(|item| item["op"].as_str().expect("op"))
+        .collect();
+    assert_eq!(ops, vec!["delete", "upload"]);
+    assert_eq!(body["items"][1]["paths"], serde_json::json!(["a/b.pdf"]));
+    assert_eq!(body["items"][1]["shareName"], "教材");
+    let next = body["nextBefore"].as_i64().expect("続きがあるはず");
+
+    let uri = format!("/api/v1/admin/share-operations?limit=2&before={next}");
+    let (status, body) = send_empty(app, "GET", &uri, &admin).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let body = parse_json(&body);
+    assert_eq!(body["items"].as_array().expect("配列のはず").len(), 1);
+    assert_eq!(body["items"][0]["op"], "mkdir");
+    assert!(body["nextBefore"].is_null(), "{body}");
+}
