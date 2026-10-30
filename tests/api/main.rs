@@ -455,7 +455,7 @@ async fn setup_archive(
 /// この実行の置き場所 (`test_app_run_dir`) の下に置く。data_dir (`<連番>`) とは
 /// 別のディレクトリの下なので、その祖先にはならない。
 ///
-/// この親そのものが「公開できるフォルダー」として登録される (→ `register_content_root`)。
+/// この親そのものが「共有」として登録される (→ `register_content_root`)。
 fn temp_test_dir(name: &str) -> test_support::TempDir {
     test_support::TempDir::at(temp_test_path(name))
 }
@@ -465,24 +465,24 @@ fn temp_test_path(name: &str) -> std::path::PathBuf {
     content_root().join(format!("{name}-{:?}", std::thread::current().id()))
 }
 
-/// `temp_test_dir` の親。テストの土台として、ここを「公開できるフォルダー」に登録する。
+/// `temp_test_dir` の親。テストの土台として、ここを「共有」に登録する。
 fn content_root() -> std::path::PathBuf {
     let parent = test_app_run_dir().join("folders");
     std::fs::create_dir_all(&parent).expect("一時ディレクトリの親を作れなかった");
     parent
 }
 
-/// パスを使う操作が通るように、`temp_test_dir` の親を「公開できるフォルダー」へ入れておく
-/// (→ docs/folders.md「公開できるフォルダー」)。登録が1件も無いと、`folder`/`archive` は何も登録できない。
+/// パスを使う操作が通るように、`temp_test_dir` の親を「共有」へ入れておく
+/// (→ docs/folders.md「共有」)。登録が1件も無いと、`folder`/`archive` は何も登録できない。
 ///
-/// 「公開できるフォルダー」そのものの登録・削除を試すテストは、この外 (`temp_root_dir`) を
+/// 「共有」そのものの登録・削除を試すテストは、この外 (`temp_root_dir`) を
 /// 使う。件数や起点が、ここの登録に左右されないようにするため。
 async fn register_content_root(pool: &SqlitePool) {
     let canonical = std::fs::canonicalize(content_root()).expect("canonicalize できなかった");
     register_root(pool, &canonical).await;
 }
 
-/// 「公開できるフォルダー」へ直接入れる。登録の口はループバック限定なので、土台を
+/// 「共有」へ直接入れる。登録の口はループバック限定なので、土台を
 /// 用意するだけのテストは API を通さない。**canonicalize 済みのパスを渡すこと**。
 ///
 /// 名前はパスと同じにする。名前は重なりを拒むので、パスごとに違う値にしておく。
@@ -493,10 +493,10 @@ async fn register_root(pool: &SqlitePool, canonical: &std::path::Path) {
         .bind(&path)
         .execute(pool)
         .await
-        .expect("公開できるフォルダーを登録できなかった");
+        .expect("共有を登録できなかった");
 }
 
-/// 「公開できるフォルダー」の登録を試すテスト用の一時ディレクトリ (Drop で消える)。`temp_test_dir` とは別の親に置く。
+/// 「共有」の登録を試すテスト用の一時ディレクトリ (Drop で消える)。`temp_test_dir` とは別の親に置く。
 fn temp_root_dir(name: &str) -> test_support::TempDir {
     test_support::TempDir::at(temp_root_path(name))
 }

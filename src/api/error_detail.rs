@@ -44,16 +44,16 @@ pub enum ValidationDetail {
     UsernameTaken { name: String },
     /// 最後の管理者は降格・削除できない (→ docs/access.md「admin の最後の1人」)。
     LastAdmin,
-    /// 同じ名前の「公開できるフォルダー」が既にある (→ docs/folders.md「公開できるフォルダー」)。
+    /// 同じ名前の「共有」が既にある (→ docs/folders.md「共有」)。
     #[serde(rename_all = "camelCase")]
     RootNameTaken { name: String },
-    /// そのフォルダーは「公開できるフォルダー」に登録済み (→ docs/folders.md「公開できるフォルダー」)。
+    /// そのフォルダーは「共有」に登録済み (→ docs/folders.md「共有」)。
     #[serde(rename_all = "camelCase")]
     RootAlreadyRegistered { name: String },
     /// 共有の書き込みの許可を取り直すとき、窓で別のフォルダーを選んだ。`name` は取り直そうとした共有の名前。
     #[serde(rename_all = "camelCase")]
     RepickedOtherFolder { name: String },
-    /// WebLAV 自身の置き場 (設定とデータ) の中は、公開できるフォルダーにできない (→ docs/folders.md「公開できるフォルダー」)。
+    /// WebLAV 自身の置き場 (設定とデータ) の中は、共有にできない (→ docs/folders.md「共有」)。
     RootInsideOwnDirs,
     /// 受け取ったファイルが WebLAV のバックアップではない・壊れている (→ docs/access.md「バックアップとリストア」)。
     BackupInvalid,

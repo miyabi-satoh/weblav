@@ -1,6 +1,6 @@
 //! この PC の中からの要求だけを通す extractor。
 //!
-//! 初回セットアップ (→ docs/access.md「初回セットアップ」) と「公開できるフォルダー」の管理 (→ docs/folders.md「公開できるフォルダー」) が使う。
+//! 初回セットアップ (→ docs/access.md「初回セットアップ」) と「共有」の管理 (→ docs/folders.md「共有」) が使う。
 //! どちらも、サーバーの PC の前にいる人だけに許す操作。
 
 use std::net::{IpAddr, SocketAddr};

@@ -194,7 +194,7 @@
 	<ul class={listClass}>
 		{#each data.roots as root (root.id)}
 			<li class={[listItemClass, 'flex min-h-14 items-center gap-4 px-4 py-3 md:px-6']}>
-				<!-- 名前と併せてフルパスも出す (→ docs/folders.md「公開できるフォルダー」)。 -->
+				<!-- 名前と併せてフルパスも出す (→ docs/folders.md「共有」)。 -->
 				<div class="min-w-0 flex-1">
 					<span class="block text-sm wrap-anywhere">{root.name}</span>
 					<span class="mt-0.5 block text-xs wrap-anywhere text-muted-foreground">{root.path}</span>

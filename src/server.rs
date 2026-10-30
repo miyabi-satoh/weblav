@@ -113,7 +113,7 @@ impl ServerExited {
 
 /// 設定の読み込みからポートの bind までを済ませ、サーバーを動かし始める。
 ///
-/// `folder_picker` は「公開できるフォルダー」を選ぶ窓を出す手段 (→ `crate::folder_picker`)。
+/// `folder_picker` は「共有」を選ぶ窓を出す手段 (→ `crate::folder_picker`)。
 pub fn start(
     on_port_unavailable: OnPortUnavailable,
     folder_picker: FolderPicker,

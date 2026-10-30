@@ -441,8 +441,8 @@ impl ContentResponse {
 }
 
 /// 管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。
-/// `user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「公開できるフォルダー」の配下だけ
-/// なので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「公開できるフォルダー」)。
+/// `user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「共有」の配下だけ
+/// なので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「共有」)。
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AdminContentResponse {
@@ -454,14 +454,14 @@ pub struct AdminContentResponse {
     pub title: String,
     pub url: Option<String>,
     pub path: Option<String>,
-    /// `path` を含む「公開できるフォルダー」の名前。画面では起点のフルパスの代わりに出す
-    /// (→ docs/folders.md「公開できるフォルダー」)。`path` が無いか、どの公開できるフォルダーにも含まれなければ `None`。
+    /// `path` を含む「共有」の名前。画面では起点のフルパスの代わりに出す
+    /// (→ docs/folders.md「共有」)。`path` が無いか、どの共有にも含まれなければ `None`。
     pub root_name: Option<String>,
     /// `root_name` のフォルダーから先の相対パス (`/` 区切り)。フォルダーそのものなら空文字列。
     /// `root_name` が `None` なら `None`。
     pub path_in_root: Option<String>,
-    /// `root_name` の公開できるフォルダーが削除済みか。画面では名前の代わりに
-    /// 「(見つからない公開できるフォルダー)」と出す。`root_name` が `None` なら `false`。
+    /// `root_name` の共有が削除済みか。画面では名前の代わりに
+    /// 「(見つからない共有)」と出す。`root_name` が `None` なら `false`。
     pub root_deleted: bool,
     pub description: Option<String>,
     /// `type = 'file'` の場合のみ`Some`。`blob_hash`(内部実装detail)は含めない。
@@ -736,7 +736,7 @@ async fn validate_folder_path(
     super::validate::non_empty(&path, "path is required")?;
 
     // 検証は全てブロッキングI/Oなので1つの `spawn_blocking` にまとめる。
-    // 「公開できるフォルダー」はその前に読む (`run_blocking` の中ではDBに触れない)。
+    // 「共有」はその前に読む (`run_blocking` の中ではDBに触れない)。
     super::roots::ensure_reachable(state, &path).await?;
     let roots = if current == Some(path.as_str()) {
         super::roots::load_roots(state).await?
@@ -1779,7 +1779,7 @@ async fn path_is_file(path: &FsPath) -> Result<bool, AppError> {
 /// 安価な一次フィルタ。`..`・ルート・(Windowsの)ドライブプレフィックス等を弾く。
 ///
 /// Windows では `:` を含む名前も弾く。`a.mp3:stream` は代替データストリームを指し、
-/// 一覧に出ないものを配信できてしまうため (→ docs/folders.md「公開できるフォルダー」)。
+/// 一覧に出ないものを配信できてしまうため (→ docs/folders.md「共有」)。
 pub(super) fn reject_traversal_components(rel: &str) -> Result<(), AppError> {
     for component in FsPath::new(rel).components() {
         match component {
@@ -1843,10 +1843,10 @@ pub(super) async fn resolve_path(
         let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
         let canonical_root = std::fs::canonicalize(&root).map_err(|_| AppError::NotFound)?;
 
-        // 「公開できるフォルダー」の外は**配信の側でも**拒む。登録時の検証
+        // 「共有」の外は**配信の側でも**拒む。登録時の検証
         // (`validate_folder_path`) は書き込み経路にしか掛からないので、登録を
         // 消したあとや、登録済みのフォルダーを削除したあとも配信され続ける
-        // (→ docs/folders.md「公開できるフォルダー」)。
+        // (→ docs/folders.md「共有」)。
         //
         // **候補パスに触る前に判定する**。触ってから弾くと、候補が実在するかどうかで
         // 応答までの時間が変わり、存在を推し量る手がかりになる。
@@ -1862,8 +1862,8 @@ pub(super) async fn resolve_path(
         }
         // 一覧に出さないもの (ドット始まり・シンボリックリンク・隠し属性) は配信もしない。
         // 一覧に出ないだけでパスを知っていれば落とせる、という食い違いを残さないため。
-        // weblav 自身の置き場 (設定とデータ) の中も同じ (公開できるフォルダーが `C:\` のような祖先でもありうる)。
-        // いずれも存在を伏せるため 404 (→ docs/folders.md「公開できるフォルダー」)。
+        // weblav 自身の置き場 (設定とデータ) の中も同じ (共有が `C:\` のような祖先でもありうる)。
+        // いずれも存在を伏せるため 404 (→ docs/folders.md「共有」)。
         //
         // 名前は、要求の名前と実体の名前の両方で見る。Windows の 8.3 短縮名 (`ENV~1`) は
         // ドットで始まらないまま `.env` に解決されるため。リンクを見分けるには、辿る前の
@@ -1893,7 +1893,7 @@ pub(super) async fn resolve_path(
 }
 
 /// `dir` 直下のエントリを列挙する。ドットファイル(`.DS_Store`等)と weblav 自身の置き場
-/// (`own_dirs`。→ docs/folders.md「公開できるフォルダー」) は除外し、
+/// (`own_dirs`。→ docs/folders.md「共有」) は除外し、
 /// ディレクトリ優先(固定)→`order`で選んだ順(タイトル順か新しい順)でソートする。
 ///
 /// シンボリックリンクは一覧に表示しない(ポリシー)。もし表示してリンク先を

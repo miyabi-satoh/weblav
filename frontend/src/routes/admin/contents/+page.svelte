@@ -68,7 +68,7 @@
 
 	let { data }: PageProps = $props();
 	let contents = $derived(data.contents);
-	// 「公開できるフォルダー」が0件なら、パスを持つ種別は選ばせない (→ docs/folders.md「公開できるフォルダー」)。
+	// 「共有」が0件なら、パスを持つ種別は選ばせない (→ docs/folders.md「共有」)。
 	let unavailableTypes = $derived(
 		data.hasSharedFolders ? [] : (['folder', 'archive'] as ContentType[])
 	);

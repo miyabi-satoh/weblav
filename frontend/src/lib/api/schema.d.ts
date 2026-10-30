@@ -1848,8 +1848,8 @@ export interface components {
     schemas: {
         /**
          * @description 管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。
-         *     `user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「公開できるフォルダー」の配下だけ
-         *     なので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「公開できるフォルダー」)。
+         *     `user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「共有」の配下だけ
+         *     なので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「共有」)。
          */
         AdminContentResponse: {
             archiveItems?: components["schemas"]["ArchiveItemCounts"] | null;
@@ -1890,13 +1890,13 @@ export interface components {
              */
             pathInRoot?: string | null;
             /**
-             * @description `root_name` の公開できるフォルダーが削除済みか。画面では名前の代わりに
-             *     「(見つからない公開できるフォルダー)」と出す。`root_name` が `None` なら `false`。
+             * @description `root_name` の共有が削除済みか。画面では名前の代わりに
+             *     「(見つからない共有)」と出す。`root_name` が `None` なら `false`。
              */
             rootDeleted: boolean;
             /**
-             * @description `path` を含む「公開できるフォルダー」の名前。画面では起点のフルパスの代わりに出す
-             *     (→ docs/folders.md「公開できるフォルダー」)。`path` が無いか、どの公開できるフォルダーにも含まれなければ `None`。
+             * @description `path` を含む「共有」の名前。画面では起点のフルパスの代わりに出す
+             *     (→ docs/folders.md「共有」)。`path` が無いか、どの共有にも含まれなければ `None`。
              */
             rootName?: string | null;
             title: string;
@@ -2323,18 +2323,18 @@ export interface components {
         DirsResponse: {
             entries: components["schemas"]["DirEntryItem"][];
             /**
-             * @description 1つ上の階層。上位の一覧では `None`。登録済みの「公開できるフォルダー」そのものからは
+             * @description 1つ上の階層。上位の一覧では `None`。登録済みの「共有」そのものからは
              *     空文字列 (= 上位の一覧) へ戻る。
              */
             parent?: string | null;
             /** @description 正規化済みの現在位置。ルートの一覧では空文字列。 */
             path: string;
             /**
-             * @description パンくずの起点。現在位置を含む「公開できるフォルダー」。上位の一覧では `None`。
+             * @description パンくずの起点。現在位置を含む「共有」。上位の一覧では `None`。
              *     パンくずを辿れるところから始めるために使う (→ docs/folders.md「一覧 API」)。
              */
             root?: string | null;
-            /** @description `root` の名前。パンくずの先頭に、フルパスの代わりに出す (→ docs/folders.md「公開できるフォルダー」)。 */
+            /** @description `root` の名前。パンくずの先頭に、フルパスの代わりに出す (→ docs/folders.md「共有」)。 */
             rootName?: string | null;
             /** @description 現在位置そのものを登録先に選べるか。ルートの一覧では `false`。 */
             selectable: boolean;
@@ -2798,8 +2798,8 @@ export interface components {
             /** @description canonicalize 済みの絶対パス。 */
             path: string;
             /**
-             * @description このフォルダーを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「公開できるフォルダー」)。
-             *     登録中のほかの公開できるフォルダーにも含まれるもの (入れ子) は数えない。
+             * @description このフォルダーを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「共有」)。
+             *     登録中のほかの共有にも含まれるもの (入れ子) は数えない。
              */
             removedContentCount: number;
             /** @description 今読めるか。一覧でだけ確かめ、登録の応答は読めたものなので `ready`。 */
@@ -2813,7 +2813,7 @@ export interface components {
             writable: boolean;
         };
         /**
-         * @description 公開できるフォルダーの今の様子 (→ `folder_reach::Reach`)。
+         * @description 共有の今の様子 (→ `folder_reach::Reach`)。
          * @enum {string}
          */
         RootStatus: "ready" | "missing" | "unreachable";
@@ -3583,7 +3583,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description パスが存在しない・ディレクトリでない・公開できるフォルダーの外 */
+            /** @description パスが存在しない・ディレクトリでない・共有の外 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3597,7 +3597,7 @@ export interface operations {
     list_dirs: {
         parameters: {
             query?: {
-                /** @description 一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「公開できるフォルダー」の一覧。 */
+                /** @description 一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「共有」の一覧。 */
                 path?: string;
             };
             header?: never;
@@ -3624,7 +3624,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description パスが存在しない・ディレクトリでない・公開できるフォルダーの外 */
+            /** @description パスが存在しない・ディレクトリでない・共有の外 */
             422: {
                 headers: {
                     [name: string]: unknown;

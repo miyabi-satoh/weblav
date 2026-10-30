@@ -146,8 +146,8 @@ async fn contents_create_link_by_regular_user_keeps_requested_visibility(pool: S
     assert!(body.contains(r#""visibility":"authenticated""#), "{body}");
 }
 
-/// 編集者も folder を作れる。選べるのは「公開できるフォルダー」の中だけなので、
-/// 誰が選んでも範囲は同じ (→ docs/access.md「ロールと操作」・docs/folders.md「公開できるフォルダー」)。
+/// 編集者も folder を作れる。選べるのは「共有」の中だけなので、
+/// 誰が選んでも範囲は同じ (→ docs/access.md「ロールと操作」・docs/folders.md「共有」)。
 #[sqlx::test]
 async fn contents_create_folder_by_regular_user_succeeds(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;

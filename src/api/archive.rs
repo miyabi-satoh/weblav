@@ -412,7 +412,7 @@ async fn scan_and_sync(
                 detail: ValidationDetail::ArchiveFolderMissing,
             });
         }
-        // 「公開できるフォルダー」の外は再走査でも拒む (理由は `contents::resolve_path` と同じ)。
+        // 「共有」の外は再走査でも拒む (理由は `contents::resolve_path` と同じ)。
         let root = super::fs::canonical_dir_within_roots(&scan_root, &roots, &own_dirs)?;
         // 索引する件数では断らない (→ docs/archive.md「件数の上限」)。
         let result = super::fs::scan_files_until(

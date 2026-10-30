@@ -124,7 +124,7 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "NSRunningApplication",
 ] }
 # トレイの表示言語 (→ src/tray/mod.rs の tray_locale)。
-# 公開できるフォルダーの security-scoped bookmark (→ src/folder_access.rs)。
+# 共有の security-scoped bookmark (→ src/folder_access.rs)。
 objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "std",
     "NSArray",

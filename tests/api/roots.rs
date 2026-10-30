@@ -1,4 +1,4 @@
-//! 公開できるフォルダー (→ docs/folders.md「公開できるフォルダー」)
+//! 共有 (→ docs/folders.md「共有」)
 
 use super::*;
 
@@ -46,7 +46,7 @@ async fn roots_can_be_registered_listed_and_deleted(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(!body.contains(&json_string(&path)), "{body}");
 
-    // 行は削除済みの印を付けて残る (→ docs/folders.md「公開できるフォルダー」)。
+    // 行は削除済みの印を付けて残る (→ docs/folders.md「共有」)。
     let deleted: bool = sqlx::query_scalar!(
         r#"SELECT deleted_at IS NOT NULL as "deleted!: bool" FROM roots WHERE id = ?"#,
         id
@@ -172,7 +172,7 @@ async fn a_root_can_be_renamed(pool: SqlitePool) {
 }
 
 /// 削除済みのフォルダーは、判定から外れ、中を辿れない
-/// (行は場所の表示のためだけに残す → docs/folders.md「公開できるフォルダー」)。
+/// (行は場所の表示のためだけに残す → docs/folders.md「共有」)。
 #[sqlx::test]
 async fn a_deleted_root_is_left_out_of_every_check(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
@@ -490,7 +490,7 @@ async fn only_one_root_picker_opens_at_a_time(pool: SqlitePool) {
 }
 
 /// 名前は前後の空白を除いて保存し、同じ名前 (大文字小文字だけの違いも含む) は拒む。
-/// 名前がフルパスの代わりに見分ける手掛かりになるため (→ docs/folders.md「公開できるフォルダー」)。
+/// 名前がフルパスの代わりに見分ける手掛かりになるため (→ docs/folders.md「共有」)。
 #[sqlx::test]
 async fn a_root_name_is_trimmed_and_must_be_unique(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
@@ -611,7 +611,7 @@ async fn admin_contents_locate_a_path_by_its_root_name(pool: SqlitePool) {
     );
 }
 
-/// 入れ子は登録できる。同じフォルダーの二重登録だけを拒み、登録済みの名前を返す (→ docs/folders.md「公開できるフォルダー」)。
+/// 入れ子は登録できる。同じフォルダーの二重登録だけを拒み、登録済みの名前を返す (→ docs/folders.md「共有」)。
 #[sqlx::test]
 async fn a_root_can_be_nested_but_not_registered_twice(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
@@ -638,7 +638,7 @@ async fn a_root_can_be_nested_but_not_registered_twice(pool: SqlitePool) {
     assert!(body.contains(r#""name":"child""#), "{body}");
 }
 
-/// 入れ子では、外側を起点にする。外側から内側へ辿っても、「上へ」で外側へ戻れる (→ docs/folders.md「公開できるフォルダー」)。
+/// 入れ子では、外側を起点にする。外側から内側へ辿っても、「上へ」で外側へ戻れる (→ docs/folders.md「共有」)。
 #[sqlx::test]
 async fn browsing_into_a_nested_root_keeps_the_outer_one_as_the_start(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
@@ -676,7 +676,7 @@ async fn browsing_into_a_nested_root_keeps_the_outer_one_as_the_start(pool: Sqli
 }
 
 /// 登録し直すと、中に残っていたコンテンツの件数が戻る。削除でコンテンツの登録は
-/// 消していないため (→ docs/folders.md「公開できるフォルダー」)。
+/// 消していないため (→ docs/folders.md「共有」)。
 #[sqlx::test]
 async fn re_registering_a_root_reports_the_contents_left_inside(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
@@ -751,7 +751,7 @@ async fn a_root_on_a_disconnected_volume_is_unreachable(pool: SqlitePool) {
         .bind(disconnected)
         .execute(&pool)
         .await
-        .expect("公開できるフォルダーを登録できなかった");
+        .expect("共有を登録できなかった");
     let folder = insert_folder_by(&pool, "NAS", disconnected, "public", None, None).await;
     // ボリュームはあり、フォルダーだけが消えたもの。
     let removed = root_dir("roots-removed");

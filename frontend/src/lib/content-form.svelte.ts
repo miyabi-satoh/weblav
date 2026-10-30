@@ -388,7 +388,7 @@ export class ContentFormState {
 
 	/**
 	 * 既存のコンテンツを読み込む。`canSeeFullPath` は、場所をフルパスで出してよい人か
-	 * (管理者。→ docs/folders.md「公開できるフォルダー」)。
+	 * (管理者。→ docs/folders.md「共有」)。
 	 */
 	loadFrom(content: Content, canSeeFullPath: boolean): void {
 		this.type = content.type;

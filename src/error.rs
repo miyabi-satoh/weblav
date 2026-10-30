@@ -105,7 +105,7 @@ pub enum AppError {
     /// アプリケーションが定める実際の上限)。
     #[error("file too large")]
     FileTooLarge,
-    /// 公開できるフォルダーのある NAS や外付けのディスクにつながらない場合 (→ `folder_reach`)。
+    /// 共有のある NAS や外付けのディスクにつながらない場合 (→ `folder_reach`)。
     /// 「見つからない」と分けるのは、画面が「しばらくしてから開き直す」と伝えられるようにするため。
     #[error("the shared folder is not reachable")]
     FolderUnreachable,

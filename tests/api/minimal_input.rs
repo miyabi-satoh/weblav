@@ -35,7 +35,7 @@ async fn a_folder_without_a_title_is_named_after_the_folder_and_numbered(pool: S
     );
 }
 
-/// 公開できるフォルダーは、名前を省くとフォルダー名になり、重なれば連番を付ける。
+/// 共有は、名前を省くとフォルダー名になり、重なれば連番を付ける。
 #[sqlx::test]
 async fn a_root_without_a_name_gets_a_numbered_folder_name(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;

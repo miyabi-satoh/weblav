@@ -1,4 +1,4 @@
-//! 「公開できるフォルダー」(→ docs/folders.md「公開できるフォルダー」) の管理 API。
+//! 「共有」(→ docs/folders.md「共有」) の管理 API。
 //!
 //! コンテンツに使えるパスは、ここに登録したフォルダーの配下だけになる。
 //! 追加できるのは**サーバーの PC の前にいる管理者**だけ (`LocalRequest` + `AdminUser`)。
@@ -27,10 +27,10 @@ use super::fs::{canonical_dir, inside_own_dirs, path_to_string};
 use super::local::LocalRequest;
 use super::shares::{AccessMap, ShareAccess};
 
-/// 登録済みの「公開できるフォルダー」1件。
+/// 登録済みの「共有」1件。
 ///
 /// 判定 (`is_within_roots`) には `path` だけを使う。`name` はコンテンツの登録側の画面で
-/// 起点のフルパスの代わりに出す (→ docs/folders.md「公開できるフォルダー」)。
+/// 起点のフルパスの代わりに出す (→ docs/folders.md「共有」)。
 #[derive(Debug, Clone)]
 pub(super) struct Root {
     pub(super) id: i64,
@@ -48,8 +48,8 @@ pub struct RootResponse {
     pub path: String,
     /// このフォルダーの中にある登録済みコンテンツの数。
     pub content_count: usize,
-    /// このフォルダーを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「公開できるフォルダー」)。
-    /// 登録中のほかの公開できるフォルダーにも含まれるもの (入れ子) は数えない。
+    /// このフォルダーを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「共有」)。
+    /// 登録中のほかの共有にも含まれるもの (入れ子) は数えない。
     pub removed_content_count: usize,
     /// 今読めるか。一覧でだけ確かめ、登録の応答は読めたものなので `ready`。
     pub status: RootStatus,
@@ -71,7 +71,7 @@ pub struct RootUserAccess {
     pub access: ShareAccess,
 }
 
-/// 公開できるフォルダーの今の様子 (→ `folder_reach::Reach`)。
+/// 共有の今の様子 (→ `folder_reach::Reach`)。
 #[derive(Debug, Clone, Copy, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum RootStatus {
@@ -180,7 +180,7 @@ async fn create_root(
     .await??;
     let requested_name = super::validate::trimmed_or_none(payload.name.as_deref());
 
-    // 同じフォルダーの二重登録は拒む。入れ子は許す (→ docs/folders.md「公開できるフォルダー」)。削除済みは数えない。
+    // 同じフォルダーの二重登録は拒む。入れ子は許す (→ docs/folders.md「共有」)。削除済みは数えない。
     //
     // 確認と INSERT は同じ書き込みトランザクションで行う。別々にすると、2つの登録が
     // 同時に来たときに、互いを見ないまま両方が確認を通る。
@@ -500,7 +500,7 @@ async fn delete_root(
     Path(id): Path<i64>,
 ) -> Result<StatusCode, AppError> {
     // 行は消さずに削除済みの印を付ける。残ったコンテンツの場所を、起点を隠したまま出すため
-    // (→ docs/folders.md「公開できるフォルダー」)。
+    // (→ docs/folders.md「共有」)。
     let deleted = sqlx::query!(
         "UPDATE roots SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
          WHERE id = ? AND deleted_at IS NULL",
@@ -515,10 +515,10 @@ async fn delete_root(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// 登録済みの「公開できるフォルダー」を、判定に使える形 (canonicalize 済み) で返す。
+/// 登録済みの「共有」を、判定に使える形 (canonicalize 済み) で返す。
 ///
 /// 判定のたびに読む。件数は多くても数件で、キャッシュを持つと登録・削除の直後に
-/// 古い判定が残る (→ docs/folders.md「公開できるフォルダー」)。
+/// 古い判定が残る (→ docs/folders.md「共有」)。
 ///
 /// **実体を辿れないものは落とす**。登録を消さずにフォルダーだけ消された場合、その中は配らない。
 /// つながらない NAS やディスクのものも落とす。ほかのフォルダーのために待たないよう、
@@ -579,7 +579,7 @@ async fn check_all(state: &AppState, paths: Vec<String>, wait: Duration) -> Vec<
     reaches.into_iter().map(|(_, reach)| reach).collect()
 }
 
-/// `path` を含む登録中の公開できるフォルダーが、つながらない NAS やディスクにあれば
+/// `path` を含む登録中の共有が、つながらない NAS やディスクにあれば
 /// `FolderUnreachable`。開こうとしているフォルダーなので、眠っている NAS が起きるまで待つ
 /// (`TARGET_WAIT`)。フォルダーが無いときは通す (それぞれの呼び出し側が今までどおり 404 などにする)。
 pub(super) async fn ensure_reachable(state: &AppState, path: &str) -> Result<(), AppError> {
@@ -593,7 +593,7 @@ pub(super) async fn ensure_reachable(state: &AppState, path: &str) -> Result<(),
 /// `ensure_reachable` の、エラーにしない形。検索のように、つながらないフォルダーを飛ばして続けるときに使う。
 /// 並びは `paths` のまま。
 ///
-/// 確かめるのは、それぞれのパスを含む登録中の公開できるフォルダー。どれにも含まれない
+/// 確かめるのは、それぞれのパスを含む登録中の共有。どれにも含まれない
 /// (登録から外した後のコンテンツ・綴りの違う入力など) なら、そのパス自身を確かめる。
 /// 呼び出し側は、この後でそのパスを canonicalize するので、ここを素通りさせると NAS が落ちているときに止まる。
 pub(super) async fn reachable_all(
@@ -635,14 +635,14 @@ pub(super) async fn reachable_all(
         .collect())
 }
 
-/// 登録側の画面に出す場所。起点のフルパスの代わりに、公開できるフォルダーの名前と
-/// そこから先のパスを返す (→ docs/folders.md「公開できるフォルダー」)。
+/// 登録側の画面に出す場所。起点のフルパスの代わりに、共有の名前と
+/// そこから先のパスを返す (→ docs/folders.md「共有」)。
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct RootLocation {
     pub(super) root_name: String,
-    /// 公開できるフォルダーから先の相対パス。区切りは `/` にそろえる。フォルダーそのものなら空。
+    /// 共有から先の相対パス。区切りは `/` にそろえる。フォルダーそのものなら空。
     pub(super) path_in_root: String,
-    /// 含む公開できるフォルダーが削除済みか。
+    /// 含む共有が削除済みか。
     pub(super) root_deleted: bool,
 }
 
@@ -672,7 +672,7 @@ pub(super) async fn load_root_records(
     )
 }
 
-/// `path` (コンテンツに保存された canonicalize 済みの絶対パス) を含む公開できるフォルダーを探し、
+/// `path` (コンテンツに保存された canonicalize 済みの絶対パス) を含む共有を探し、
 /// 画面に出す場所を組み立てる。どれにも含まれなければ `None`。
 ///
 /// 登録中が当たれば、最も外側を採る (入れ子の起点の決まりは `containing_root` と同じ)。
@@ -709,10 +709,10 @@ pub(super) fn default_name(path: &FsPath) -> String {
 
 /// `canonical` が、登録済みのどれかの中にあるか。
 ///
-/// **パスを使う操作はすべてこれを通す** (→ docs/folders.md「公開できるフォルダー」)。登録時の検証だけでは、
+/// **パスを使う操作はすべてこれを通す** (→ docs/folders.md「共有」)。登録時の検証だけでは、
 /// 登録後にフォルダーを削除された場合にそのまま配信され続ける。
 ///
-/// weblav 自身の置き場 (設定とデータ) の中も外す。公開できるフォルダーがその祖先 (`C:\` など) でも、
+/// weblav 自身の置き場 (設定とデータ) の中も外す。共有がその祖先 (`C:\` など) でも、
 /// その中は登録先にも配信にも使わせない。
 pub(super) fn is_within_roots(roots: &[Root], canonical: &FsPath, own_dirs: &OwnDirs) -> bool {
     !own_dirs.contains(canonical) && containing_root(roots, canonical).is_some()
@@ -734,7 +734,7 @@ pub(super) fn containing_root<'a>(roots: &'a [Root], canonical: &FsPath) -> Opti
 /// (中身が無いので、外すものも無い)。
 ///
 /// どこを公開するかは設置者に任せるが、ここだけはアプリが必ず外す
-/// (→ docs/folders.md「公開できるフォルダー」)。守りたいのは選ぶことではなく中身が出ることなので、祖先は選べる。
+/// (→ docs/folders.md「共有」)。守りたいのは選ぶことではなく中身が出ることなので、祖先は選べる。
 ///
 /// 一覧や走査ではエントリごとに比べるので、要求ごとに `resolve` で1回だけ求めて持ち回る。
 #[derive(Debug, Default)]
@@ -762,9 +762,9 @@ impl OwnDirs {
     }
 }
 
-/// 公開できるフォルダーごとのコンテンツの件数を数えるための材料。
+/// 共有ごとのコンテンツの件数を数えるための材料。
 ///
-/// パスを持つコンテンツ (`folder`・`archive`) の登録先と、登録中の公開できるフォルダー。
+/// パスを持つコンテンツ (`folder`・`archive`) の登録先と、登録中の共有。
 /// 多くても数百件なので、まとめて読んで数える。SQL で前方一致を書くと、区切り文字の扱いを
 /// `contains` と二重に持つことになる。
 struct ContentCounts {

@@ -26,10 +26,10 @@ pub struct AppState {
     /// リンクのカードの画像の置き場と、同時に取りに行く数の上限 (→ `api::link_preview`)。
     pub link_previews: Arc<crate::api::link_preview::LinkPreviews>,
     /// weblav 自身の置き場 (`AppDirs` の設定とデータ)。設定ファイル・DB・セッション鍵・blobが入る。
-    /// ここ自身とその中は、公開できるフォルダーの中にあっても登録先・一覧・配信に使わせない
-    /// (→ `api::roots::OwnDirs`、docs/folders.md「公開できるフォルダー」)。
+    /// ここ自身とその中は、共有の中にあっても登録先・一覧・配信に使わせない
+    /// (→ `api::roots::OwnDirs`、docs/folders.md「共有」)。
     pub own_dirs: Vec<PathBuf>,
-    /// 公開できるフォルダーが今読めるか (→ `folder_reach`)。NAS が落ちていても、配下を触る要求を止めないため。
+    /// 共有が今読めるか (→ `folder_reach`)。NAS が落ちていても、配下を触る要求を止めないため。
     pub folder_reach: Arc<crate::folder_reach::FolderReach>,
     /// 管理画面から書き換える設定ファイル (`AppDirs::config_path()`、→ `api::server_settings`)。
     pub config_path: PathBuf,

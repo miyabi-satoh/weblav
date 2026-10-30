@@ -22,7 +22,7 @@
 		initialPath?: string;
 		/**
 		 * 「このフォルダーにする」で選ばれた絶対パスと、画面に出す場所。
-		 * 場所は、公開できるフォルダーの中なら「名前 / その先」。
+		 * 場所は、共有の中なら「名前 / その先」。
 		 */
 		onselect: (path: string, label: string) => void;
 	};
@@ -37,8 +37,8 @@
 	let loadError = $state('');
 
 	let crumbs = $derived(listing === null ? [] : pathTrail(listing.path, listing.root));
-	// 公開できるフォルダーの中では、先頭 (公開できるフォルダーそのもの) にフルパスではなく名前を出す
-	// (→ docs/folders.md「公開できるフォルダー」)。起点が見つからないと `pathTrail` は切らずに全部返すので、
+	// 共有の中では、先頭 (共有そのもの) にフルパスではなく名前を出す
+	// (→ docs/folders.md「共有」)。起点が見つからないと `pathTrail` は切らずに全部返すので、
 	// そのときは置き換えない (先頭だけ名前にすると、途中の階層が名前の後ろに続いて見える)。
 	let rootName = $derived(
 		listing?.rootName != null &&
@@ -74,8 +74,8 @@
 			if (!isCurrent()) return;
 			if (!response.ok || !data) {
 				// 開いた位置が辿れる範囲の外だと 422 になる。既存コンテンツのパスを初期位置に
-				// 渡しているので、「公開できるフォルダー」を消した後などに起こる
-				// (→ docs/folders.md「公開できるフォルダー」)。行き止まりにせず、上位の一覧から選び直させる。
+				// 渡しているので、「共有」を消した後などに起こる
+				// (→ docs/folders.md「共有」)。行き止まりにせず、上位の一覧から選び直させる。
 				if (response.status === 422 && path !== '') {
 					await load('');
 					return;
@@ -117,7 +117,7 @@
 </script>
 
 {#snippet entryRow(entry: DirEntryItem)}
-	<!-- 選べないディレクトリも辿れる (→ docs/folders.md「公開できるフォルダー」)。
+	<!-- 選べないディレクトリも辿れる (→ docs/folders.md「共有」)。
 	     選択の可否だけを落とし、中を見ることは妨げない。 -->
 	<button type="button" class={rowClass} onclick={() => load(entry.path)}>
 		<FolderIcon

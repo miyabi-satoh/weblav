@@ -67,7 +67,7 @@ pub fn forget_restored(path: &str) {
         .remove(path);
 }
 
-/// 公開できるフォルダーのブックマーク。無い (macOS 以外・窓で選んでいない) か読めなければ `None`。
+/// 共有のブックマーク。無い (macOS 以外・窓で選んでいない) か読めなければ `None`。
 pub async fn load(pool: &SqlitePool, path: &str) -> Option<Vec<u8>> {
     sqlx::query_scalar!("SELECT bookmark FROM folder_bookmarks WHERE path = ?", path)
         .fetch_optional(pool)
