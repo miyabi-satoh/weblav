@@ -9,6 +9,7 @@
 	import { client } from '$lib/api/client';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { selectableVisibilities } from '$lib/visibility';
+	import { viewAs } from '$lib/view-as.svelte';
 	import { contentDownloadHref, contentRemoteHref, contentThumbnailHref } from '$lib/api/urls';
 	import { contentTypeIcon } from '$lib/content-types';
 	import {
@@ -249,7 +250,8 @@
 </script>
 
 {#snippet rowMenu(content: ContentEntry)}
-	{#if actions && content.canEdit}
+	<!-- 閲覧者として見ている間は、ログインしていない人に見える形にするので出さない。 -->
+	{#if actions && content.canEdit && !viewAs.active}
 		<span class={rowMenuSlotClass()}>
 			<RowActionsMenu name={content.title}>
 				<DropdownMenu.Item>

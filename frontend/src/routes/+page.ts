@@ -1,6 +1,7 @@
 import { client } from '$lib/api/client';
 import { fetchOrError, fetchOrNull } from '$lib/api/load';
 import { parseBrowseSort } from '$lib/browse-sort';
+import { viewAs } from '$lib/view-as.svelte';
 import * as m from '$lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
@@ -17,13 +18,14 @@ export const load: PageLoad = async ({ parent, url }) => {
 
 	// 見出しに出すサイト設定も、未ログインで読める (→ docs/ui.md「UI 全般」)。
 	// 共有はログインした人にだけ並べる (→ docs/ui.md「UI 全般」)。取れなくてもホームは出し、区画だけを出さない。
+	// 閲覧者として見ている間は、ログインしていない人と同じく並べない。
 	const [contents, siteSettings, shares] = await Promise.all([
 		fetchOrError(
 			client.GET('/api/v1/contents', { params: { query: { sort } } }),
 			m.contents_fetch_failed()
 		),
 		fetchOrError(client.GET('/api/v1/site-settings'), m.site_settings_fetch_failed()),
-		user ? fetchOrNull(client.GET('/api/v1/shares')) : null
+		user && !viewAs.active ? fetchOrNull(client.GET('/api/v1/shares')) : null
 	]);
 	return { contents, siteSettings, sort, shares: shares ?? [] };
 };

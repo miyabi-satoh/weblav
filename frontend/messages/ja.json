@@ -601,5 +601,17 @@
 	"shares_access_read": "あなた: 読むだけ",
 	"shares_access_add": "あなた: 足すだけ",
 	"shares_access_all": "あなた: すべての操作",
-	"shares_fetch_failed": "共有の一覧を読み込めませんでした。しばらくしてからもう一度お試しください。"
+	"shares_fetch_failed": "共有の一覧を読み込めませんでした。しばらくしてからもう一度お試しください。",
+	"view_as_menu_item": "閲覧者として見る",
+	"view_as_stop_menu_item": "閲覧者として見るのをやめる",
+	"view_as_banner": "閲覧者として見ています。ログインしていない人には、この形で見えます。",
+	"view_as_back_button": "戻る",
+	"view_as_unauthorized": "ログインしていない人には見えません。",
+	"hidden_menu_item": "非表示のコンテンツ ({count})",
+	"hidden_title": "非表示のコンテンツ",
+	"hidden_empty": "非表示のコンテンツはありません。",
+	"hidden_fetch_failed": "非表示のコンテンツを読み込めませんでした。しばらくしてからもう一度お試しください。",
+	"hidden_unhide_menu": "表示に戻す",
+	"hidden_restore_to": "戻すと「{visibility}」",
+	"hidden_unhidden_toast": "「{title}」を「{visibility}」に戻しました。"
 }

@@ -24,6 +24,7 @@
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import ListRowHidden from '$lib/components/list-row-hidden.svelte';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
+	import { viewAs } from '$lib/view-as.svelte';
 
 	type ArchiveViewResponse = components['schemas']['ArchiveViewResponse'];
 	type ArchiveViewItem = components['schemas']['ArchiveViewItem'];
@@ -205,7 +206,7 @@
 			{list}
 			archiveId={contentId}
 			{linksHref}
-			trailing={view.canEdit ? rowMenu : undefined}
+			trailing={view.canEdit && !viewAs.active ? rowMenu : undefined}
 			isHidden={(row) => unpublished.includes(row.item.id)}
 			{hiddenRow}
 		/>

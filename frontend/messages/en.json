@@ -723,5 +723,17 @@
 	"shares_access_read": "You: read only",
 	"shares_access_add": "You: add only",
 	"shares_access_all": "You: full access",
-	"shares_fetch_failed": "Couldn't load the shares. Please try again later."
+	"shares_fetch_failed": "Couldn't load the shares. Please try again later.",
+	"view_as_menu_item": "View as a visitor",
+	"view_as_stop_menu_item": "Stop viewing as a visitor",
+	"view_as_banner": "You're viewing as a visitor. This is how people who aren't logged in see it.",
+	"view_as_back_button": "Back",
+	"view_as_unauthorized": "People who aren't logged in can't see this.",
+	"hidden_menu_item": "Hidden content ({count})",
+	"hidden_title": "Hidden content",
+	"hidden_empty": "There is no hidden content.",
+	"hidden_fetch_failed": "Couldn't load the hidden content. Please try again later.",
+	"hidden_unhide_menu": "Show again",
+	"hidden_restore_to": "Shows to: {visibility}",
+	"hidden_unhidden_toast": "Set “{title}” back to “{visibility}”."
 }

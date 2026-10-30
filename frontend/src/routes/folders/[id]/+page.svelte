@@ -22,6 +22,7 @@
 	import FolderViewSwitch from '$lib/components/folder-view-switch.svelte';
 	import { refreshAll } from '$app/navigation';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
+	import { viewAs } from '$lib/view-as.svelte';
 
 	let { data }: PageProps = $props();
 
@@ -166,7 +167,7 @@
 			{rows}
 			dirHref={(row) => browseHref(row.path)}
 			{linksHref}
-			trailing={browse.canEdit ? rowMenu : undefined}
+			trailing={browse.canEdit && !viewAs.active ? rowMenu : undefined}
 		/>
 	{/if}
 </div>
