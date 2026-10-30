@@ -673,3 +673,118 @@ async fn a_root_on_a_disconnected_volume_is_unreachable(pool: SqlitePool) {
         "folder_unreachable",
     );
 }
+
+/// 共有の権限を変えると、一覧に既定と例外が出る。例外は送った内容で置き換わる。
+#[sqlx::test]
+async fn a_root_access_can_be_set_and_listed(pool: SqlitePool) {
+    let (app, cookie) = admin_app(&pool).await;
+    insert_user(&pool, "taro", "password").await;
+    insert_user(&pool, "hanako", "password").await;
+    let taro = db_user_id(&pool, "taro").await;
+    let hanako = db_user_id(&pool, "hanako").await;
+    let dir = root_dir("roots-access");
+    let path = canonical_path_as_api_returns_it(&dir);
+    let (status, body) = send(
+        app.clone(),
+        roots_request("POST", ROOTS_URI, &cookie, Some(&json_path(&path))),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let created = parse_json(&body);
+    // 既定は「見る」で、例外は無い。
+    assert_eq!(created["editorAccess"], "read", "{body}");
+    assert_eq!(created["userAccess"], serde_json::json!([]), "{body}");
+    let id = extract_id(&body);
+    let uri = format!("{ROOTS_URI}/{id}/access");
+
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        &uri,
+        &cookie,
+        &format!(
+            r#"{{"editorAccess":"add","users":[{{"userId":{taro},"access":"none"}},{{"userId":{hanako},"access":"all"}}]}}"#
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, body) = send(app.clone(), roots_request("GET", ROOTS_URI, &cookie, None)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let listed = parse_json(&body);
+    let root = listed
+        .as_array()
+        .expect("配列が返るはず")
+        .iter()
+        .find(|root| root["id"] == id)
+        .expect("変えた共有が一覧にあるはず");
+    assert_eq!(root["editorAccess"], "add");
+    // ユーザー名の順。
+    assert_eq!(
+        root["userAccess"],
+        serde_json::json!([
+            {"userId": hanako, "username": "hanako", "access": "all"},
+            {"userId": taro, "username": "taro", "access": "none"},
+        ])
+    );
+
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        &uri,
+        &cookie,
+        r#"{"editorAccess":"read","users":[]}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let updated = parse_json(&body);
+    assert_eq!(updated["editorAccess"], "read");
+    assert_eq!(updated["userAccess"], serde_json::json!([]));
+
+    // 知らないユーザーは拒み、何も変えない。
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        &uri,
+        &cookie,
+        r#"{"editorAccess":"all","users":[{"userId":9999,"access":"all"}]}"#,
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+    let editor_access: String = sqlx::query_scalar("SELECT editor_access FROM roots WHERE id = ?")
+        .bind(id)
+        .fetch_one(&pool)
+        .await
+        .expect("共有の行を引けなかった");
+    assert_eq!(editor_access, "read");
+
+    // 知らない値は JSON の段階で拒む。
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        &uri,
+        &cookie,
+        r#"{"editorAccess":"owner","users":[]}"#,
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+
+    let (status, body) = send_json(
+        app,
+        "PUT",
+        &format!("{ROOTS_URI}/9999/access"),
+        &cookie,
+        r#"{"editorAccess":"read","users":[]}"#,
+    )
+    .await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
+}

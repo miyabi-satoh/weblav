@@ -200,6 +200,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/roots/{id}/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 共有の中で一般ユーザーができることを変える (→ `api::shares`)。管理者は常にすべての操作ができるので、
+         *     管理者の例外を送っても効かない。
+         */
+        put: operations["update_root_access"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/server-settings": {
         parameters: {
             query?: never;
@@ -1451,6 +1471,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 見える共有の一覧。名前の順。
+         * @description つながらない NAS の共有も出す (開いたときに、つながらないと伝える)。ファイルシステムには触らず、
+         *     登録したパスの文字列で入れ子を判定する (→ `roots::contains`)。
+         */
+        get: operations["list_shares"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/site-settings": {
         parameters: {
             query?: never;
@@ -2309,6 +2350,8 @@ export interface components {
         RootResponse: {
             /** @description このフォルダーの中にある登録済みコンテンツの数。 */
             contentCount: number;
+            /** @description 一般ユーザーがこの中でできることの既定 (→ `api::shares`)。 */
+            editorAccess: components["schemas"]["ShareAccess"];
             /** Format: int64 */
             id: number;
             /** @description 登録側の画面でフルパスの代わりに出す名前。同じ名前は無い (大文字小文字も区別しない)。 */
@@ -2322,12 +2365,21 @@ export interface components {
             removedContentCount: number;
             /** @description 今読めるか。一覧でだけ確かめ、登録の応答は読めたものなので `ready`。 */
             status: components["schemas"]["RootStatus"];
+            /** @description ユーザーごとの例外。ユーザー名の順。 */
+            userAccess: components["schemas"]["RootUserAccess"][];
         };
         /**
          * @description 公開できるフォルダーの今の様子 (→ `folder_reach::Reach`)。
          * @enum {string}
          */
         RootStatus: "ready" | "missing" | "unreachable";
+        /** @description 共有の、ユーザーごとの例外の1件。 */
+        RootUserAccess: {
+            access: components["schemas"]["ShareAccess"];
+            /** Format: int64 */
+            userId: number;
+            username: string;
+        };
         SearchContentHit: {
             /** @description 上のグループ。ルートに近い順で、最後が親。ルート直下なら空。行の2段目に、どこにあるかとして出す。 */
             ancestors: components["schemas"]["GroupAncestor"][];
@@ -2442,6 +2494,19 @@ export interface components {
             id: string;
             token: string;
         };
+        /**
+         * @description 共有の中でできること。弱い順に並べ、`Ord` で比べる (入れ子では強い方を採る)。
+         * @enum {string}
+         */
+        ShareAccess: "none" | "read" | "add" | "all";
+        /** @description ログインしたユーザーに見える共有の1件。 */
+        ShareResponse: {
+            /** @description このユーザーが、この共有のいちばん上でできること。`none` のものは一覧に出さない。 */
+            access: components["schemas"]["ShareAccess"];
+            /** Format: int64 */
+            id: number;
+            name: string;
+        };
         SiteSettingsResponse: {
             /** @description ホームの一覧の上に大きく出す見出し。未設定は空文字列。 */
             homeHeading: string;
@@ -2499,6 +2564,12 @@ export interface components {
         UpdateRoleRequest: {
             role: components["schemas"]["Role"];
         };
+        UpdateRootAccessRequest: {
+            /** @description 一般ユーザーの既定。 */
+            editorAccess: components["schemas"]["ShareAccess"];
+            /** @description ユーザーごとの例外。ここに無いユーザーの例外は消す (送った内容で置き換える)。 */
+            users: components["schemas"]["UserAccessRequest"][];
+        };
         UpdateSiteSettingsRequest: {
             homeHeading: string;
             siteName: string;
@@ -2520,6 +2591,11 @@ export interface components {
             /** @description 省略・空ならファイル名 (拡張子を除く) にする。 */
             title?: string | null;
             visibility?: components["schemas"]["Visibility"] | null;
+        };
+        UserAccessRequest: {
+            access: components["schemas"]["ShareAccess"];
+            /** Format: int64 */
+            userId: number;
         };
         UserListItem: {
             createdAt: string;
@@ -3283,6 +3359,68 @@ export interface operations {
             };
             /** @description 存在しない */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_root_access: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRootAccessRequest"];
+            };
+        };
+        responses: {
+            /** @description 権限を変えた共有 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RootResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 存在しない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 存在しないユーザーを含む */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6955,6 +7093,35 @@ export interface operations {
             };
             /** @description セットアップ済み・トークンが違う・期限切れ・この PC の外からの要求 */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_shares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 見える共有の一覧 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareResponse"][];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

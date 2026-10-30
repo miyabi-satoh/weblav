@@ -727,6 +727,85 @@
         }
       }
     },
+    "/api/v1/admin/roots/{id}/access": {
+      "put": {
+        "summary": "共有の中で一般ユーザーができることを変える (→ `api::shares`)。管理者は常にすべての操作ができるので、\n管理者の例外を送っても効かない。",
+        "operationId": "update_root_access",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRootAccessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "権限を変えた共有",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RootResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "存在しない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "存在しないユーザーを含む",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/server-settings": {
       "get": {
         "operationId": "get_server_settings",
@@ -5243,6 +5322,38 @@
         }
       }
     },
+    "/api/v1/shares": {
+      "get": {
+        "summary": "見える共有の一覧。名前の順。",
+        "description": "つながらない NAS の共有も出す (開いたときに、つながらないと伝える)。ファイルシステムには触らず、\n登録したパスの文字列で入れ子を判定する (→ `roots::contains`)。",
+        "operationId": "list_shares",
+        "responses": {
+          "200": {
+            "description": "見える共有の一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShareResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/site-settings": {
       "get": {
         "operationId": "get_site_settings",
@@ -7701,13 +7812,19 @@
           "path",
           "contentCount",
           "removedContentCount",
-          "status"
+          "status",
+          "editorAccess",
+          "userAccess"
         ],
         "properties": {
           "contentCount": {
             "type": "integer",
             "description": "このフォルダーの中にある登録済みコンテンツの数。",
             "minimum": 0
+          },
+          "editorAccess": {
+            "$ref": "#/components/schemas/ShareAccess",
+            "description": "一般ユーザーがこの中でできることの既定 (→ `api::shares`)。"
           },
           "id": {
             "type": "integer",
@@ -7729,6 +7846,13 @@
           "status": {
             "$ref": "#/components/schemas/RootStatus",
             "description": "今読めるか。一覧でだけ確かめ、登録の応答は読めたものなので `ready`。"
+          },
+          "userAccess": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RootUserAccess"
+            },
+            "description": "ユーザーごとの例外。ユーザー名の順。"
           }
         }
       },
@@ -7740,6 +7864,27 @@
           "missing",
           "unreachable"
         ]
+      },
+      "RootUserAccess": {
+        "type": "object",
+        "description": "共有の、ユーザーごとの例外の1件。",
+        "required": [
+          "userId",
+          "username",
+          "access"
+        ],
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/ShareAccess"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
       },
       "SearchContentHit": {
         "type": "object",
@@ -8047,6 +8192,38 @@
           }
         }
       },
+      "ShareAccess": {
+        "type": "string",
+        "description": "共有の中でできること。弱い順に並べ、`Ord` で比べる (入れ子では強い方を採る)。",
+        "enum": [
+          "none",
+          "read",
+          "add",
+          "all"
+        ]
+      },
+      "ShareResponse": {
+        "type": "object",
+        "description": "ログインしたユーザーに見える共有の1件。",
+        "required": [
+          "id",
+          "name",
+          "access"
+        ],
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/ShareAccess",
+            "description": "このユーザーが、この共有のいちばん上でできること。`none` のものは一覧に出さない。"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "SiteSettingsResponse": {
         "type": "object",
         "required": [
@@ -8210,6 +8387,26 @@
           }
         }
       },
+      "UpdateRootAccessRequest": {
+        "type": "object",
+        "required": [
+          "editorAccess",
+          "users"
+        ],
+        "properties": {
+          "editorAccess": {
+            "$ref": "#/components/schemas/ShareAccess",
+            "description": "一般ユーザーの既定。"
+          },
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserAccessRequest"
+            },
+            "description": "ユーザーごとの例外。ここに無いユーザーの例外は消す (送った内容で置き換える)。"
+          }
+        }
+      },
       "UpdateSiteSettingsRequest": {
         "type": "object",
         "required": [
@@ -8267,6 +8464,22 @@
                 "type": "null"
               }
             ]
+          }
+        }
+      },
+      "UserAccessRequest": {
+        "type": "object",
+        "required": [
+          "userId",
+          "access"
+        ],
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/ShareAccess"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },

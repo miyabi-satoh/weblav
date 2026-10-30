@@ -3,7 +3,8 @@
 //! いずれもログイン済みなら `role` を問わない (→ docs/access.md「ロールと操作」)。`folder`/`archive` の
 //! 登録先を選ばせるためだけの読み取り専用エンドポイント。
 //!
-//! 登録先に選べるのは「公開できるフォルダー」(→ `api::roots`) の配下だけ。判定そのものは
+//! 登録先に選べるのは「公開できるフォルダー」(→ `api::roots`) の配下のうち、そのユーザーが中を
+//! 見られるもの (→ `api::shares`) だけ。判定そのものは
 //! `api::roots` に置き、ここは辿り方 (`listing`) を持つ。
 
 use std::fs::{DirEntry, FileType};
@@ -369,7 +370,7 @@ pub(super) fn path_to_string(path: PathBuf) -> Result<String, AppError> {
     )
 )]
 async fn list_dirs(
-    _user: AuthUser,
+    user: AuthUser,
     State(state): State<AppState>,
     Query(query): Query<DirsQuery>,
 ) -> Result<Json<DirsResponse>, AppError> {
@@ -379,7 +380,8 @@ async fn list_dirs(
         super::roots::ensure_reachable(&state, &requested).await?;
     }
     // 判定のたびに読む (→ `roots::load_roots`)。`run_blocking` の中ではDBに触れない。
-    let roots = super::roots::load_roots(&state).await?;
+    // 中を見られない共有は、無いものとして扱う。
+    let roots = super::roots::load_roots_for(&state, &user).await?;
 
     run_blocking(move || {
         Ok(Json(listing(
@@ -775,7 +777,7 @@ pub(super) fn list_dir_shallow(
     )
 )]
 async fn count_target_files(
-    _user: AuthUser,
+    user: AuthUser,
     State(state): State<AppState>,
     Query(query): Query<CountQuery>,
 ) -> Result<Json<CountResponse>, AppError> {
@@ -783,7 +785,7 @@ async fn count_target_files(
     let extensions = parse_extensions(query.extensions.as_deref());
     let own_dirs = state.own_dirs.clone();
     super::roots::ensure_reachable(&state, &requested).await?;
-    let roots = super::roots::load_roots(&state).await?;
+    let roots = super::roots::load_roots_for(&state, &user).await?;
 
     run_blocking(move || {
         let own_dirs = OwnDirs::resolve(&own_dirs);
@@ -816,6 +818,7 @@ mod tests {
 
     fn test_root(path: &FsPath) -> Root {
         Root {
+            id: 0,
             name: "materials".to_string(),
             path: path.to_path_buf(),
         }

@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "INSERT INTO roots (name, path) VALUES (?, ?)\n           ON CONFLICT (path) DO UPDATE SET name = excluded.name, deleted_at = NULL\n           RETURNING id as \"id!\", name, path",
+  "query": "SELECT id as \"id!\", name, path, editor_access as \"editor_access: ShareAccess\"\n           FROM roots WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE",
   "describe": {
     "columns": [
       {
@@ -17,16 +17,22 @@
         "name": "path",
         "ordinal": 2,
         "type_info": "Text"
+      },
+      {
+        "name": "editor_access: ShareAccess",
+        "ordinal": 3,
+        "type_info": "Text"
       }
     ],
     "parameters": {
-      "Right": 2
+      "Right": 0
     },
     "nullable": [
+      true,
       false,
       false,
       false
     ]
   },
-  "hash": "759abaec328c886bb076f5bd0c75ee3e59406ef8e1dbc48bba5b630291a159e4"
+  "hash": "71161bd6b9680c6bf8dc64f75a742ebbe9c40cfa9362142f29b3550788c058c6"
 }

@@ -37,6 +37,7 @@ mod roots;
 mod search;
 mod settings;
 mod setup;
+mod shares;
 mod system;
 mod upload;
 mod users;

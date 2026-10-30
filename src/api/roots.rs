@@ -5,6 +5,7 @@
 //! LAN の端末からは、追加の口があること自体を見せずに 404 にする。
 //! 一覧・名前の変更・削除は、LAN の端末の管理者もできる (`AdminUser`)。
 
+use std::collections::HashMap;
 use std::path::{Path as FsPath, PathBuf};
 use std::time::Duration;
 
@@ -24,6 +25,7 @@ use crate::state::AppState;
 use super::error_detail::ValidationDetail;
 use super::fs::{canonical_dir, inside_own_dirs, path_to_string};
 use super::local::LocalRequest;
+use super::shares::{AccessMap, ShareAccess};
 
 /// 登録済みの「公開できるフォルダー」1件。
 ///
@@ -31,6 +33,7 @@ use super::local::LocalRequest;
 /// 起点のフルパスの代わりに出す (→ docs/folders.md「公開できるフォルダー」)。
 #[derive(Debug, Clone)]
 pub(super) struct Root {
+    pub(super) id: i64,
     pub(super) name: String,
     pub(super) path: PathBuf,
 }
@@ -50,6 +53,19 @@ pub struct RootResponse {
     pub removed_content_count: usize,
     /// 今読めるか。一覧でだけ確かめ、登録の応答は読めたものなので `ready`。
     pub status: RootStatus,
+    /// 一般ユーザーがこの中でできることの既定 (→ `api::shares`)。
+    pub editor_access: ShareAccess,
+    /// ユーザーごとの例外。ユーザー名の順。
+    pub user_access: Vec<RootUserAccess>,
+}
+
+/// 共有の、ユーザーごとの例外の1件。
+#[derive(Debug, Clone, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RootUserAccess {
+    pub user_id: i64,
+    pub username: String,
+    pub access: ShareAccess,
 }
 
 /// 公開できるフォルダーの今の様子 (→ `folder_reach::Reach`)。
@@ -86,11 +102,14 @@ async fn list_roots(
     _admin: AdminUser,
     State(state): State<AppState>,
 ) -> Result<Json<Vec<RootResponse>>, AppError> {
-    let rows =
-        sqlx::query!(r#"SELECT id as "id!", name, path FROM roots WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE"#)
-            .fetch_all(&state.pool)
-            .await?;
+    let rows = sqlx::query!(
+        r#"SELECT id as "id!", name, path, editor_access as "editor_access: ShareAccess"
+           FROM roots WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE"#
+    )
+    .fetch_all(&state.pool)
+    .await?;
     let counts = ContentCounts::load(&state.pool).await?;
+    let mut user_access = load_user_access(&state.pool).await?;
     // 管理者が様子を見る画面なので、眠っている NAS が起きるまで待つ。
     let paths = rows.iter().map(|row| row.path.clone()).collect();
     let reaches = check_all(&state, paths, TARGET_WAIT).await;
@@ -104,6 +123,8 @@ async fn list_roots(
             id: row.id,
             name: row.name,
             path: row.path,
+            editor_access: row.editor_access,
+            user_access: user_access.remove(&row.id).unwrap_or_default(),
         })
         .collect();
     Ok(Json(roots))
@@ -184,7 +205,7 @@ async fn create_root(
     let row = sqlx::query!(
         r#"INSERT INTO roots (name, path) VALUES (?, ?)
            ON CONFLICT (path) DO UPDATE SET name = excluded.name, deleted_at = NULL
-           RETURNING id as "id!", name, path"#,
+           RETURNING id as "id!", name, path, editor_access as "editor_access: ShareAccess""#,
         name,
         path
     )
@@ -194,6 +215,11 @@ async fn create_root(
     // 0件とは限らない。削除したフォルダーを登録し直すと、その中のコンテンツが戻る
     // (コンテンツの登録は削除時に消していない)。
     let counts = ContentCounts::load(&state.pool).await?;
+    // 登録し直した共有では、前の権限の設定が残っている。
+    let user_access = load_user_access(&state.pool)
+        .await?
+        .remove(&row.id)
+        .unwrap_or_default();
     Ok((
         StatusCode::CREATED,
         Json(RootResponse {
@@ -204,6 +230,8 @@ async fn create_root(
             // 今 canonicalize できたフォルダー。
             status: RootStatus::Ready,
             path: row.path,
+            editor_access: row.editor_access,
+            user_access,
         }),
     ))
 }
@@ -304,20 +332,144 @@ async fn rename_root(
         .await?;
     tx.commit().await?;
 
+    root_response(&state, id).await.map(Json)
+}
+
+/// 1件ぶんの応答を、DB の今の値から組み立てる。名前や権限を変えた後に返す。
+async fn root_response(state: &AppState, id: i64) -> Result<RootResponse, AppError> {
+    let row = sqlx::query!(
+        r#"SELECT name, path, editor_access as "editor_access: ShareAccess"
+           FROM roots WHERE id = ? AND deleted_at IS NULL"#,
+        id
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(AppError::NotFound)?;
     let counts = ContentCounts::load(&state.pool).await?;
-    // 画面は名前を変えたあと一覧を読み直すので、ここでは待たない。
+    let user_access = load_user_access(&state.pool)
+        .await?
+        .remove(&id)
+        .unwrap_or_default();
+    // 画面は変えたあと一覧を読み直すので、ここでは待たない。
     let reach = state
         .folder_reach
-        .check(&state.pool, &path, OTHERS_WAIT)
+        .check(&state.pool, &row.path, OTHERS_WAIT)
         .await;
-    Ok(Json(RootResponse {
+    Ok(RootResponse {
         id,
-        name,
-        content_count: counts.under(&path),
-        removed_content_count: counts.removed_with(&path),
+        name: row.name,
+        content_count: counts.under(&row.path),
+        removed_content_count: counts.removed_with(&row.path),
         status: RootStatus::from(&reach),
-        path,
-    }))
+        path: row.path,
+        editor_access: row.editor_access,
+        user_access,
+    })
+}
+
+/// 共有ごとの、ユーザーごとの例外。ユーザー名の順。
+async fn load_user_access(
+    pool: &sqlx::SqlitePool,
+) -> Result<HashMap<i64, Vec<RootUserAccess>>, AppError> {
+    let rows = sqlx::query!(
+        r#"SELECT root_user_access.root_id, root_user_access.user_id,
+                  users.username, root_user_access.access as "access: ShareAccess"
+           FROM root_user_access JOIN users ON users.id = root_user_access.user_id
+           ORDER BY users.username COLLATE NOCASE"#
+    )
+    .fetch_all(pool)
+    .await?;
+    let mut by_root: HashMap<i64, Vec<RootUserAccess>> = HashMap::new();
+    for row in rows {
+        by_root
+            .entry(row.root_id)
+            .or_default()
+            .push(RootUserAccess {
+                user_id: row.user_id,
+                username: row.username,
+                access: row.access,
+            });
+    }
+    Ok(by_root)
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct UpdateRootAccessRequest {
+    /// 一般ユーザーの既定。
+    editor_access: ShareAccess,
+    /// ユーザーごとの例外。ここに無いユーザーの例外は消す (送った内容で置き換える)。
+    users: Vec<UserAccessRequest>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct UserAccessRequest {
+    user_id: i64,
+    access: ShareAccess,
+}
+
+/// 共有の中で一般ユーザーができることを変える (→ `api::shares`)。管理者は常にすべての操作ができるので、
+/// 管理者の例外を送っても効かない。
+#[utoipa::path(
+    put,
+    path = "/admin/roots/{id}/access",
+    params(("id" = i64, Path)),
+    request_body = UpdateRootAccessRequest,
+    responses(
+        (status = OK, body = RootResponse, description = "権限を変えた共有"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 404, body = crate::error::ErrorResponse, description = "存在しない"),
+        (status = 422, body = crate::error::ErrorResponse, description = "存在しないユーザーを含む"),
+    )
+)]
+async fn update_root_access(
+    _admin: AdminUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    AppJson(payload): AppJson<UpdateRootAccessRequest>,
+) -> Result<Json<RootResponse>, AppError> {
+    // ユーザーの削除と行き違うと、消えたユーザーの例外を足そうとして外部キーで落ちるので、同じ鍵で並べる。
+    let _users_guard = state.users_write_lock.lock().await;
+    let mut tx = crate::db::begin_write(&state.pool).await?;
+    let updated = sqlx::query!(
+        "UPDATE roots SET editor_access = ? WHERE id = ? AND deleted_at IS NULL",
+        payload.editor_access,
+        id
+    )
+    .execute(&mut *tx)
+    .await?
+    .rows_affected();
+    if updated == 0 {
+        return Err(AppError::NotFound);
+    }
+    sqlx::query!("DELETE FROM root_user_access WHERE root_id = ?", id)
+        .execute(&mut *tx)
+        .await?;
+    for user in &payload.users {
+        let exists = sqlx::query_scalar!(
+            r#"SELECT EXISTS (SELECT 1 FROM users WHERE id = ?) as "exists!: bool""#,
+            user.user_id
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        if !exists {
+            return Err(AppError::Validation("unknown user".to_string()));
+        }
+        // 同じユーザーが2度来たら、後の方にする。
+        sqlx::query!(
+            "INSERT INTO root_user_access (root_id, user_id, access) VALUES (?, ?, ?)
+             ON CONFLICT (root_id, user_id) DO UPDATE SET access = excluded.access",
+            id,
+            user.user_id,
+            user.access
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+    root_response(&state, id).await.map(Json)
 }
 
 #[utoipa::path(
@@ -366,7 +518,7 @@ async fn delete_root(
 /// (→ `fs::simplify_verbatim`)。
 pub(super) async fn load_roots(state: &AppState) -> Result<Vec<Root>, AppError> {
     let rows = sqlx::query!(
-        "SELECT name, path FROM roots WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE"
+        r#"SELECT id as "id!", name, path FROM roots WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE"#
     )
     .fetch_all(&state.pool)
     .await?;
@@ -377,11 +529,29 @@ pub(super) async fn load_roots(state: &AppState) -> Result<Vec<Root>, AppError> 
         .zip(reaches)
         .filter_map(|(row, reach)| match reach {
             Reach::Ready(path) => Some(Root {
+                id: row.id,
                 name: row.name,
                 path,
             }),
             Reach::Gone | Reach::Unreachable => None,
         })
+        .collect())
+}
+
+/// `load_roots` のうち、`user` が中を見られるもの (→ `api::shares`)。登録先を選ぶ口
+/// (ディレクトリの一覧・数え上げ・フォルダーの登録先) に使う。
+///
+/// 見られない共有を外すだけでよい。入れ子で外側が見られれば、内側の場所は外側に含まれるので
+/// 判定 (`is_within_roots`) を通る。これは共有の中でできることを、含む共有のうち一番強いもので決めるのと同じ。
+pub(super) async fn load_roots_for(
+    state: &AppState,
+    user: &crate::auth::AuthUser,
+) -> Result<Vec<Root>, AppError> {
+    let roots = load_roots(state).await?;
+    let access = AccessMap::load(&state.pool, user).await?;
+    Ok(roots
+        .into_iter()
+        .filter(|root| access.of_root(root.id) >= ShareAccess::Read)
         .collect())
 }
 
@@ -633,7 +803,7 @@ impl ContentCounts {
 /// 文字列の前方一致ではなく `Path` の要素で比べる。`C:\教材` が `C:\教材2` を含むと
 /// 判定されず、マルチバイトのパスでも文字の途中で切らない。大文字小文字も区別する
 /// (canonicalize 済みなので、同じ場所なら同じ綴りになる)。
-fn contains(parent: &str, child: &str) -> bool {
+pub(super) fn contains(parent: &str, child: &str) -> bool {
     FsPath::new(child).starts_with(FsPath::new(parent))
 }
 
@@ -710,6 +880,7 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(list_roots, create_root))
         .routes(routes!(pick_root))
         .routes(routes!(rename_root, delete_root))
+        .routes(routes!(update_root_access))
 }
 
 #[cfg(test)]
@@ -841,6 +1012,7 @@ mod tests {
     fn the_containing_root_is_the_outermost() {
         let sep = std::path::MAIN_SEPARATOR;
         let root = |name: &str, path: &str| Root {
+            id: 0,
             name: name.to_string(),
             path: PathBuf::from(path),
         };

@@ -718,7 +718,15 @@ fn has_no_scheme(url: &str) -> bool {
 /// 一貫した比較ができるようにするため)。
 ///
 /// `std::fs::canonicalize` はブロッキングI/Oのため `spawn_blocking` に載せる。
-async fn validate_folder_path(state: &AppState, path: Option<&str>) -> Result<String, AppError> {
+///
+/// 選べるのは `user` が中を見られる共有の中だけ (→ `api::shares`)。ただし今の登録先 (`current`) の
+/// ままなら、見られなくなった後でも通す。ほかの項目を直すたびに登録先を選び直させないため。
+async fn validate_folder_path(
+    state: &AppState,
+    user: &AuthUser,
+    path: Option<&str>,
+    current: Option<&str>,
+) -> Result<String, AppError> {
     // 入力は選択UIが返した値をそのまま送る想定なので trim しない。Unix系では
     // 前後に空白を含むディレクトリ名が有効で、落とすと別のパスとして扱われる。
     let path = path.unwrap_or_default().to_string();
@@ -727,7 +735,11 @@ async fn validate_folder_path(state: &AppState, path: Option<&str>) -> Result<St
     // 検証は全てブロッキングI/Oなので1つの `spawn_blocking` にまとめる。
     // 「公開できるフォルダー」はその前に読む (`run_blocking` の中ではDBに触れない)。
     super::roots::ensure_reachable(state, &path).await?;
-    let roots = super::roots::load_roots(state).await?;
+    let roots = if current == Some(path.as_str()) {
+        super::roots::load_roots(state).await?
+    } else {
+        super::roots::load_roots_for(state, user).await?
+    };
     let own_dirs = state.own_dirs.clone();
     let canonical = run_blocking(move || {
         super::fs::canonical_dir_within_roots(
@@ -1074,7 +1086,7 @@ async fn create_content(
         ContentType::Link => (link_url, None),
         ContentType::Folder => (
             None,
-            Some(validate_folder_path(&state, payload.path.as_deref()).await?),
+            Some(validate_folder_path(&state, &user, payload.path.as_deref(), None).await?),
         ),
         // fileはJSONではなくmultipart専用エンドポイント(upload_content)で作る。
         ContentType::File => {
@@ -1256,7 +1268,15 @@ async fn update_content(
         ContentType::Link => (link_url.transpose()?.map(|(url, _)| url), None, None, None),
         ContentType::Folder => (
             None,
-            Some(validate_folder_path(&state, payload.path.as_deref()).await?),
+            Some(
+                validate_folder_path(
+                    &state,
+                    &user,
+                    payload.path.as_deref(),
+                    existing.path.as_deref(),
+                )
+                .await?,
+            ),
             super::archive::normalize_extensions(payload.extensions.as_deref()),
             super::archive::validate_title_template(
                 &state.pool,

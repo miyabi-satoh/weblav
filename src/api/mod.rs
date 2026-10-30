@@ -28,6 +28,7 @@ mod schedule;
 mod search;
 pub mod server_settings;
 pub mod setup;
+mod shares;
 mod site_settings;
 mod sort;
 mod text_files;
@@ -106,6 +107,7 @@ fn routes(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
         .merge(roots::router())
         .merge(search::router())
         .merge(setup::router())
+        .merge(shares::router())
         .merge(logs::router())
         .merge(backup::router())
         .merge(server_settings::router())

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM root_user_access WHERE root_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "45a1211710d0e4a411f36af996a3a3767c26bdbd4d8f31702316d4af11080313"
+}
