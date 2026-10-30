@@ -6,6 +6,14 @@
 //! (外側で見られるものは、内側の共有の扱いに関わらず外側から辿れば見られるため)。
 
 mod browse;
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "アップロード・名前の変更・コピー・移動・削除の口を足すときに使う"
+    )
+)]
+mod fsops;
 mod paths;
 
 use std::collections::HashMap;
@@ -161,6 +169,8 @@ pub struct FolderShare {
     pub path: String,
     /// この場所で、見ている人ができること。
     pub access: ShareAccess,
+    /// 消したものを OS のごみ箱へ送れる場所か。偽なら、消すと元に戻せない。
+    pub trash: bool,
 }
 
 /// 実体のパス `canonical` (フォルダーのコンテンツの中で見ている場所) を、`user` が見られる共有の中の
@@ -186,11 +196,14 @@ pub(super) async fn folder_share(
     else {
         return Ok(None);
     };
+    let path = canonical.to_path_buf();
+    let trash = crate::error::run_blocking(move || fsops::trash_available(&path)).await?;
     Ok(Some(FolderShare {
         id: root.id,
         name: root.name.clone(),
         path: super::folder_marks::rel_of(&root.path, canonical)?,
         access: at,
+        trash,
     }))
 }
 

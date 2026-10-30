@@ -284,6 +284,8 @@ async fn a_share_can_be_browsed(pool: SqlitePool) {
     assert_eq!(body["share"]["id"], share.id);
     assert_eq!(entry_names(&body), vec!["教材", "memo.txt"]);
     assert_eq!(body["canListOnHome"], true);
+    // ごみ箱を使えるかは置き場所で決まるので、値ではなく出していることを見る。
+    assert!(body["trash"].is_boolean(), "{body}");
 
     let (status, body) = send_empty(
         share.app.clone(),
@@ -498,8 +500,15 @@ async fn a_folder_content_points_to_its_share(pool: SqlitePool) {
 
     let (status, body) = send_empty(share.app.clone(), "GET", &uri, &share.taro).await;
     assert_eq!(status, StatusCode::OK, "{body}");
+    let mut found = parse_json(&body)["share"].clone();
+    // ごみ箱を使えるかは置き場所で決まるので、値ではなく出していることを見る。
+    let trash = found
+        .as_object_mut()
+        .expect("share が付くはず")
+        .remove("trash");
+    assert!(trash.is_some_and(|trash| trash.is_boolean()), "{body}");
     assert_eq!(
-        parse_json(&body)["share"],
+        found,
         serde_json::json!({
             "id": share.id,
             "name": canonical_path_as_api_returns_it(&share.dir),

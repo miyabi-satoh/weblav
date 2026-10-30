@@ -84,6 +84,8 @@ pub struct ShareBrowseResponse {
     upload_max_bytes: Option<u64>,
     /// この場所をホームに載せられるか (まだ載せていない)。
     can_list_on_home: bool,
+    /// 消したものを OS のごみ箱へ送れる場所か。偽なら、消すと元に戻せない。
+    trash: bool,
 }
 
 /// 共有の中の一覧。
@@ -109,19 +111,21 @@ async fn browse_share(
     let own_dirs = state.own_dirs.clone();
     let dir = resolved.canonical.clone();
     let rel = resolved.rel.clone();
-    let entries = run_blocking(move || {
+    let (entries, trash) = run_blocking(move || {
         if !dir.is_dir() {
             return Err(AppError::NotFound);
         }
+        let trash = super::fsops::trash_available(&dir);
         let entries =
             contents::read_entries(&dir, &rel, &OwnDirs::resolve(&own_dirs), None, false, order)?;
-        Ok(entries
+        let entries = entries
             .into_iter()
             .map(|entry| {
                 let path = entry.is_dir.then(|| path_to_string(dir.join(&entry.name)));
                 (entry, path)
             })
-            .collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        Ok((entries, trash))
     })
     .await??;
 
@@ -145,6 +149,7 @@ async fn browse_share(
         can_list_on_home: listed_as.is_none(),
         listed_as,
         upload_max_bytes: Some(state.max_upload_bytes),
+        trash,
     }))
 }
 

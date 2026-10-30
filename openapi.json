@@ -6906,7 +6906,11 @@
           "internal_error",
           "conflict",
           "config_unreadable",
-          "folder_unreachable"
+          "folder_unreachable",
+          "insufficient_storage",
+          "trash_unavailable",
+          "entry_in_use",
+          "share_read_only"
         ]
       },
       "ErrorResponse": {
@@ -7106,7 +7110,8 @@
           "id",
           "name",
           "path",
-          "access"
+          "access",
+          "trash"
         ],
         "properties": {
           "access": {
@@ -7124,6 +7129,10 @@
           "path": {
             "type": "string",
             "description": "共有からの相対パス。実体の綴りを `/` でつなぐ。"
+          },
+          "trash": {
+            "type": "boolean",
+            "description": "消したものを OS のごみ箱へ送れる場所か。偽なら、消すと元に戻せない。"
           }
         }
       },
@@ -8508,7 +8517,8 @@
           "access",
           "path",
           "entries",
-          "canListOnHome"
+          "canListOnHome",
+          "trash"
         ],
         "properties": {
           "access": {
@@ -8542,6 +8552,10 @@
           },
           "share": {
             "$ref": "#/components/schemas/ShareRef"
+          },
+          "trash": {
+            "type": "boolean",
+            "description": "消したものを OS のごみ箱へ送れる場所か。偽なら、消すと元に戻せない。"
           },
           "uploadMaxBytes": {
             "type": [
@@ -9307,6 +9321,40 @@
                 "type": "string",
                 "enum": [
                   "entryNameInvalid"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "置き先に同じ名前のファイル・フォルダーが既にある。",
+            "required": [
+              "name",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "entryNameTaken"
+                ]
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "フォルダーを、そのフォルダー自身やその中へ移動・コピーしようとした。",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "transferIntoItself"
                 ]
               }
             }

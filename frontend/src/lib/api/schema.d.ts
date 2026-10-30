@@ -2050,7 +2050,7 @@ export interface components {
          * @description API エラーの機械可読なコード。frontend はこの値で表示文言を選ぶ。
          * @enum {string}
          */
-        ErrorCode: "not_found" | "database_unavailable" | "unauthorized" | "forbidden" | "invalid_credentials" | "incorrect_current_password" | "invalid_recovery_code" | "too_many_requests" | "invalid_request_body" | "file_too_large" | "internal_error" | "conflict" | "config_unreadable" | "folder_unreachable";
+        ErrorCode: "not_found" | "database_unavailable" | "unauthorized" | "forbidden" | "invalid_credentials" | "incorrect_current_password" | "invalid_recovery_code" | "too_many_requests" | "invalid_request_body" | "file_too_large" | "internal_error" | "conflict" | "config_unreadable" | "folder_unreachable" | "insufficient_storage" | "trash_unavailable" | "entry_in_use" | "share_read_only";
         /**
          * @description レスポンスボディの共通envelope。`code` が機械可読な契約(frontendはこちらでi18nする)、
          *     `message` は英語のデバッグ用の説明文で、画面には出さない。
@@ -2137,6 +2137,8 @@ export interface components {
             name: string;
             /** @description 共有からの相対パス。実体の綴りを `/` でつなぐ。 */
             path: string;
+            /** @description 消したものを OS のごみ箱へ送れる場所か。偽なら、消すと元に戻せない。 */
+            trash: boolean;
         };
         GroupAncestor: {
             /** Format: int64 */
@@ -2600,6 +2602,8 @@ export interface components {
             /** @description 共有からの相対パス。実体の綴りを `/` でつなぐ。共有そのものなら空。 */
             path: string;
             share: components["schemas"]["ShareRef"];
+            /** @description 消したものを OS のごみ箱へ送れる場所か。偽なら、消すと元に戻せない。 */
+            trash: boolean;
             /**
              * Format: int64
              * @description アップロードできる1ファイルの大きさの上限 (バイト)。上限が無ければ `None`。
@@ -2824,6 +2828,13 @@ export interface components {
         } | {
             /** @enum {string} */
             kind: "entryNameInvalid";
+        } | {
+            /** @enum {string} */
+            kind: "entryNameTaken";
+            name: string;
+        } | {
+            /** @enum {string} */
+            kind: "transferIntoItself";
         };
         VerifyTokenRequest: {
             token: string;

@@ -66,4 +66,9 @@ pub enum ValidationDetail {
     /// 共有の中に作るファイル・フォルダーの名前に使えない (空・`/` を含む・ドットで始まる・長すぎる・
     /// Windows で使えない名前など。→ `api::shares::paths::validate_name`)。
     EntryNameInvalid,
+    /// 置き先に同じ名前のファイル・フォルダーが既にある。
+    #[serde(rename_all = "camelCase")]
+    EntryNameTaken { name: String },
+    /// フォルダーを、そのフォルダー自身やその中へ移動・コピーしようとした。
+    TransferIntoItself,
 }

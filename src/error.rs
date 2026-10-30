@@ -109,6 +109,19 @@ pub enum AppError {
     /// 「見つからない」と分けるのは、画面が「しばらくしてから開き直す」と伝えられるようにするため。
     #[error("the shared folder is not reachable")]
     FolderUnreachable,
+    /// 共有の置き先に空きが足りない (→ `api::shares::fsops`)。
+    #[error("not enough free space")]
+    InsufficientStorage,
+    /// ごみ箱を使えない場所 (ネットワークのドライブなど) で、ごみ箱へ送ろうとした (→ `api::shares::fsops`)。
+    /// 画面は「元に戻せません」と伝えて、完全に消すかを選び直させる。
+    #[error("the trash is not available here")]
+    TrashUnavailable,
+    /// ほかのアプリが開いていて、名前の変更・移動・削除ができない (Windows の共有違反など)。
+    #[error("the file is in use")]
+    EntryInUse,
+    /// OS が書き込みを許さない (読み取り専用の共有・権限が無い)。
+    #[error("the shared folder is read-only")]
+    ShareReadOnly,
 }
 
 /// API エラーの機械可読なコード。frontend はこの値で表示文言を選ぶ。
@@ -129,6 +142,10 @@ pub enum ErrorCode {
     Conflict,
     ConfigUnreadable,
     FolderUnreachable,
+    InsufficientStorage,
+    TrashUnavailable,
+    EntryInUse,
+    ShareReadOnly,
 }
 
 /// JSON に出る値と同じ文字列 (`not_found` など)。一覧を二重に持たないよう serde から作る。
@@ -221,6 +238,13 @@ impl AppError {
                 StatusCode::SERVICE_UNAVAILABLE,
                 ErrorCode::FolderUnreachable,
             ),
+            Self::InsufficientStorage => (
+                StatusCode::INSUFFICIENT_STORAGE,
+                ErrorCode::InsufficientStorage,
+            ),
+            Self::TrashUnavailable => (StatusCode::CONFLICT, ErrorCode::TrashUnavailable),
+            Self::EntryInUse => (StatusCode::CONFLICT, ErrorCode::EntryInUse),
+            Self::ShareReadOnly => (StatusCode::CONFLICT, ErrorCode::ShareReadOnly),
         }
     }
 }
