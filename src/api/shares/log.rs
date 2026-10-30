@@ -116,19 +116,8 @@ impl OpRecord {
         self
     }
 
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "コピー・移動・削除の口を足すときに使う")
-    )]
     pub(super) fn result(mut self, result: OpResult) -> Self {
         self.result = result;
-        self
-    }
-
-    #[expect(dead_code, reason = "共有の中を書き換える口を足すときに使う")]
-    pub(super) fn failed(mut self, err: &AppError) -> Self {
-        self.result = OpResult::Failed;
-        self.error = Some(err.code().to_string());
         self
     }
 }
@@ -184,10 +173,6 @@ pub(super) async fn record_or_warn(pool: &sqlx::SqlitePool, record: &OpRecord) -
 }
 
 /// 裏で続いた操作 (`OpResult::Running` で書いた行) の結果を書く。失敗はログに出すだけ。
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "コピー・移動・削除の口を足すときに使う")
-)]
 pub(super) async fn finish(
     pool: &sqlx::SqlitePool,
     id: i64,

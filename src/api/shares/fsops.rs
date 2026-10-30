@@ -48,7 +48,7 @@ impl TransferProgress {
         self.bytes.fetch_add(bytes, Ordering::Relaxed);
     }
 
-    fn add_item(&self) {
+    pub(super) fn add_item(&self) {
         self.items.fetch_add(1, Ordering::Relaxed);
     }
 }
@@ -88,7 +88,7 @@ fn is_sharing_violation(err: &io::Error) -> bool {
 }
 
 /// リンクを辿らずに、何かがあるか (壊れたリンクもあるとみなす)。
-fn exists(path: &Path) -> bool {
+pub(super) fn exists(path: &Path) -> bool {
     fs::symlink_metadata(path).is_ok()
 }
 
@@ -224,7 +224,7 @@ pub(super) fn create_dir_new(path: &Path) -> Result<(), AppError> {
     })
 }
 
-fn file_name(path: &Path) -> String {
+pub(super) fn file_name(path: &Path) -> String {
     path.file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_default()
@@ -307,7 +307,7 @@ fn link_new(temp: &Path, target: &Path) -> io::Result<()> {
 
 /// `a` と `b` が同じものを指しているか。大文字小文字を区別しないファイルシステムで、
 /// `a.txt` を `A.txt` に変えるときは、置き先が「既にある」ように見えるので見分ける。
-fn same_entry(a: &Path, b: &Path) -> bool {
+pub(super) fn same_entry(a: &Path, b: &Path) -> bool {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
@@ -511,19 +511,63 @@ fn remove_tree(path: &Path) -> io::Result<()> {
     }
 }
 
-/// 消す。`permanent` でなければ OS のごみ箱へ送る。`trash` はごみ箱を使える場所か (→ `trash_available`)。
-/// 使えない場所でごみ箱へ送ろうとしたら 409 (`trash_unavailable`)。黙って完全に消さない。
-pub(super) fn delete(paths: &[PathBuf], permanent: bool, trash: bool) -> Result<(), AppError> {
+/// 消したものの行き先。動いている WebLAV は OS のごみ箱を使う。
+///
+/// テストでは、利用者のごみ箱へ本物のファイルを送らないよう、決まったフォルダーへ動かすか、
+/// ごみ箱の無い場所として扱う。
+#[derive(Debug, Clone)]
+pub enum TrashPolicy {
+    /// OS のごみ箱。使えるかは場所で決まる (→ `trash_available`)。
+    System,
+    /// どこでも使えるものとして、このフォルダーへ動かす。テスト用。
+    Folder(PathBuf),
+    /// どこにも無い。テスト用。
+    Unavailable,
+}
+
+impl TrashPolicy {
+    /// `path` のある場所で、ごみ箱へ送れるか。ブロッキングI/Oを行うことがある。
+    pub(super) fn available(&self, path: &Path) -> bool {
+        match self {
+            Self::System => trash_available(path),
+            Self::Folder(_) => true,
+            Self::Unavailable => false,
+        }
+    }
+
+    fn send(&self, paths: &[PathBuf]) -> Result<(), AppError> {
+        match self {
+            Self::System => trash_context().delete_all(paths).map_err(trash_error),
+            Self::Folder(dir) => {
+                fs::create_dir_all(dir).map_err(map_io_error)?;
+                for path in paths {
+                    let name = format!("{}-{}", crate::api::random_hex::<8>()?, file_name(path));
+                    fs::rename(path, dir.join(name)).map_err(map_io_error)?;
+                }
+                Ok(())
+            }
+            Self::Unavailable => Err(AppError::TrashUnavailable),
+        }
+    }
+}
+
+/// 消す。`permanent` でなければ、ごみ箱へ送る。ごみ箱を使えない場所でごみ箱へ送ろうとしたら
+/// 409 (`trash_unavailable`)。黙って完全に消さない。
+pub(super) fn delete(
+    paths: &[PathBuf],
+    permanent: bool,
+    trash: &TrashPolicy,
+) -> Result<(), AppError> {
     if permanent {
         for path in paths {
             remove_tree(path).map_err(map_io_error)?;
         }
         return Ok(());
     }
-    if !trash {
+    if !paths.iter().all(|path| trash.available(path)) {
         return Err(AppError::TrashUnavailable);
     }
-    trash_context().delete_all(paths).map_err(trash_error)
+    trash.send(paths)
 }
 
 fn trash_context() -> trash::TrashContext {
@@ -556,7 +600,7 @@ fn trash_error(err: trash::Error) -> AppError {
 /// - macOS: この Mac のディスク (`MNT_LOCAL`) なら送れる
 /// - そのほか (Linux など): ホームフォルダーと同じディスクなら送れる。ほかのディスクのごみ箱
 ///   (`.Trash-<uid>`) は、作れるか・デスクトップから見えるかがディスクによって違うため
-pub(super) fn trash_available(path: &Path) -> bool {
+fn trash_available(path: &Path) -> bool {
     platform_trash_available(path)
 }
 
@@ -838,7 +882,12 @@ mod tests {
         std::os::unix::fs::symlink(&target, doomed.join("link")).expect("リンクを作れなかった");
         fs::write(dir.join("a.txt"), b"a").expect("書けなかった");
 
-        delete(&[doomed.clone(), dir.join("a.txt")], true, false).expect("消せるはず");
+        delete(
+            &[doomed.clone(), dir.join("a.txt")],
+            true,
+            &TrashPolicy::Unavailable,
+        )
+        .expect("消せるはず");
         assert!(!doomed.exists());
         assert!(!dir.join("a.txt").exists());
         assert!(target.join("keep.txt").exists());
@@ -850,10 +899,26 @@ mod tests {
         let dir = temp_dir("no-trash");
         fs::write(dir.join("a.txt"), b"a").expect("書けなかった");
         assert!(matches!(
-            delete(&[dir.join("a.txt")], false, false),
+            delete(&[dir.join("a.txt")], false, &TrashPolicy::Unavailable),
             Err(AppError::TrashUnavailable)
         ));
         assert!(dir.join("a.txt").exists());
+    }
+
+    /// テストのごみ箱は、決まったフォルダーへ動かす。
+    #[test]
+    fn a_trash_delete_moves_entries_into_the_test_trash() {
+        let dir = temp_dir("test-trash");
+        fs::create_dir_all(dir.join("doomed")).expect("作れなかった");
+        let trash = dir.join("trash");
+        delete(
+            &[dir.join("doomed")],
+            false,
+            &TrashPolicy::Folder(trash.clone()),
+        )
+        .expect("送れるはず");
+        assert!(!dir.join("doomed").exists());
+        assert_eq!(fs::read_dir(&trash).expect("読めなかった").count(), 1);
     }
 
     #[cfg(all(unix, not(target_os = "macos")))]

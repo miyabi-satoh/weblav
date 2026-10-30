@@ -73,6 +73,10 @@ pub struct AppState {
     pub archive_scans: Arc<ArchiveScans>,
     /// 共有の中のフォルダーごとの、アップロードしたファイルに名前を付けて置く順番 (→ `api::shares`)。
     pub share_dir_locks: Arc<DirLocks>,
+    /// 共有の中のコピー・移動・削除の、裏で続く処理 (→ `api::shares`)。
+    pub share_jobs: Arc<crate::api::ShareJobs>,
+    /// 共有の中で消したものの行き先 (→ `api::TrashPolicy`)。
+    pub share_trash: crate::api::TrashPolicy,
     /// 一覧の表示の、導出済みの全アイテム・印・区切って返す結果の集まり (→ docs/archive.md「大きなアーカイブの一覧」)。
     pub archive_index: Arc<crate::api::archive_index::ArchiveIndexCache>,
     /// admin数の不変条件に関わる書き込み(権限変更・削除)を直列化するための鍵

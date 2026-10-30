@@ -953,3 +953,425 @@ async fn a_share_folder_can_be_listed_on_home(pool: SqlitePool) {
     assert_eq!(body["listedAs"]["contentId"], created["id"]);
     assert_eq!(body["canListOnHome"], false);
 }
+
+/// 処理が終わるまで待ち、最後の進み具合を返す。
+async fn wait_job(app: Router, cookie: &str, body: &str) -> serde_json::Value {
+    let id = parse_json(body)["jobId"]
+        .as_str()
+        .expect("jobId が返るはず")
+        .to_string();
+    let uri = format!("/api/v1/shares/jobs/{id}");
+    for _ in 0..200 {
+        let (status, body) = send_empty(app.clone(), "GET", &uri, cookie).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let job = parse_json(&body);
+        if job["state"] != "running" {
+            return job;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    panic!("処理が終わらなかった");
+}
+
+fn transfer_json(
+    op: &str,
+    from: i64,
+    paths: &[&str],
+    to: i64,
+    path: &str,
+    on_conflict: Option<&str>,
+) -> String {
+    let mut value = serde_json::json!({
+        "op": op,
+        "from": {"shareId": from, "paths": paths},
+        "to": {"shareId": to, "path": path},
+    });
+    if let Some(on_conflict) = on_conflict {
+        value["onConflict"] = serde_json::json!(on_conflict);
+    }
+    value.to_string()
+}
+
+const TRANSFER_URI: &str = "/api/v1/shares/transfer";
+const TRANSFER_CHECK_URI: &str = "/api/v1/shares/transfer/check";
+
+/// コピーの前に、置き先の同じ名前と大きさが分かる。番号を付けて写すと、元も置き先の前のものも残る。
+/// 同じフォルダーの中へのコピーは、同じ名前とみなさずに番号を付けて写す。
+#[sqlx::test]
+async fn copying_reports_conflicts_and_can_add_a_number(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-copy").await;
+    set_editor_access(&share, "add").await;
+    std::fs::create_dir_all(share.dir.join("教材").join("英検")).expect("フォルダーを作れなかった");
+    std::fs::write(share.dir.join("教材").join("英検").join("a.pdf"), b"12345")
+        .expect("書けなかった");
+    std::fs::create_dir_all(share.dir.join("控え").join("英検")).expect("フォルダーを作れなかった");
+    std::fs::write(share.dir.join("memo.txt"), b"memo").expect("書けなかった");
+
+    let check = transfer_json("copy", share.id, &["教材/英検"], share.id, "控え", None);
+    let (status, body) = send_json(
+        share.app.clone(),
+        "POST",
+        TRANSFER_CHECK_URI,
+        &share.taro,
+        &check,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let body = parse_json(&body);
+    assert_eq!(
+        body["conflicts"],
+        serde_json::json!([{"name": "英検", "isDir": true}])
+    );
+    assert_eq!(body["totalBytes"], 5);
+    assert!(body["availableBytes"].as_u64().is_some(), "{body}");
+
+    let start = transfer_json(
+        "copy",
+        share.id,
+        &["教材/英検"],
+        share.id,
+        "控え",
+        Some("rename"),
+    );
+    let (status, body) =
+        send_json(share.app.clone(), "POST", TRANSFER_URI, &share.taro, &start).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    let job = wait_job(share.app.clone(), &share.taro, &body).await;
+    assert_eq!(job["state"], "succeeded", "{job}");
+    assert_eq!(job["op"], "copy");
+    assert_eq!(job["doneBytes"], 5);
+    assert!(
+        share
+            .dir
+            .join("控え")
+            .join("英検 (1)")
+            .join("a.pdf")
+            .is_file()
+    );
+    assert!(share.dir.join("教材").join("英検").join("a.pdf").is_file());
+
+    let (status, body) = send_json(
+        share.app.clone(),
+        "POST",
+        TRANSFER_CHECK_URI,
+        &share.taro,
+        &transfer_json("copy", share.id, &["memo.txt"], share.id, "", None),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body)["conflicts"], serde_json::json!([]));
+    let (status, body) = send_json(
+        share.app.clone(),
+        "POST",
+        TRANSFER_URI,
+        &share.taro,
+        &transfer_json("copy", share.id, &["memo.txt"], share.id, "", Some("skip")),
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    let job = wait_job(share.app.clone(), &share.taro, &body).await;
+    assert_eq!(job["state"], "succeeded", "{job}");
+    assert!(share.dir.join("memo (1).txt").is_file());
+
+    let logged: Vec<(String, String, Option<i64>)> =
+        sqlx::query_as("SELECT op, result, item_count FROM share_operations ORDER BY id")
+            .fetch_all(&pool)
+            .await
+            .expect("記録を読めなかった");
+    assert_eq!(
+        logged,
+        vec![
+            ("copy".to_string(), "succeeded".to_string(), Some(2)),
+            ("copy".to_string(), "succeeded".to_string(), Some(1)),
+        ]
+    );
+}
+
+/// 「追加できる」人は、写して入れられるが、動かせず、上書きもできない。
+#[sqlx::test]
+async fn add_access_allows_copying_in_but_not_moving_or_overwriting(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-add-only").await;
+    set_editor_access(&share, "add").await;
+    std::fs::create_dir_all(share.dir.join("控え")).expect("フォルダーを作れなかった");
+    std::fs::write(share.dir.join("a.pdf"), b"new").expect("書けなかった");
+    std::fs::write(share.dir.join("控え").join("a.pdf"), b"old").expect("書けなかった");
+
+    for json in [
+        transfer_json(
+            "move",
+            share.id,
+            &["a.pdf"],
+            share.id,
+            "控え",
+            Some("rename"),
+        ),
+        transfer_json(
+            "copy",
+            share.id,
+            &["a.pdf"],
+            share.id,
+            "控え",
+            Some("overwrite"),
+        ),
+    ] {
+        let (status, body) =
+            send_json(share.app.clone(), "POST", TRANSFER_URI, &share.taro, &json).await;
+        assert_error_case(status, &body, StatusCode::FORBIDDEN, "forbidden", &json);
+    }
+    assert_eq!(
+        std::fs::read(share.dir.join("控え").join("a.pdf")).expect("読めなかった"),
+        b"old"
+    );
+
+    // 見るだけでは置けない。
+    set_editor_access(&share, "read").await;
+    let json = transfer_json(
+        "copy",
+        share.id,
+        &["a.pdf"],
+        share.id,
+        "控え",
+        Some("rename"),
+    );
+    let (status, body) =
+        send_json(share.app.clone(), "POST", TRANSFER_URI, &share.taro, &json).await;
+    assert_error(status, &body, StatusCode::FORBIDDEN, "forbidden");
+}
+
+/// 別の共有へ動かすと、元の共有を載せたフォルダーの印は外れ、置き先を載せたフォルダーには残っていた印が消える。
+/// 上書きでは、置き先の前のものはごみ箱へ送る。
+#[sqlx::test]
+async fn moving_between_shares_overwrites_and_carries_marks(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-move-from").await;
+    let dest_dir = root_dir("shares-move-to");
+    register_root(&pool, &dest_dir).await;
+    let dest_id = root_id_of(&pool, &canonical_path_as_api_returns_it(&dest_dir)).await;
+    std::fs::create_dir_all(share.dir.join("教材")).expect("フォルダーを作れなかった");
+    std::fs::write(share.dir.join("教材").join("a.pdf"), b"new").expect("書けなかった");
+    std::fs::create_dir_all(dest_dir.join("教材")).expect("フォルダーを作れなかった");
+    std::fs::write(dest_dir.join("教材").join("old.pdf"), b"old").expect("書けなかった");
+    let from_folder = insert_folder_by(&pool, "元", &*share.dir, "public", None, None).await;
+    let to_folder = insert_folder_by(&pool, "先", &*dest_dir, "public", None, None).await;
+    for (content, path) in [(from_folder, "教材/a.pdf"), (to_folder, "教材/old.pdf")] {
+        sqlx::query(
+            "INSERT INTO folder_marks (content_id, path, is_dir, public, created_at) VALUES (?, ?, 0, 0, 0)",
+        )
+        .bind(content)
+        .bind(path)
+        .execute(&pool)
+        .await
+        .expect("印を入れられなかった");
+    }
+
+    let json = transfer_json("move", share.id, &["教材"], dest_id, "", Some("overwrite"));
+    let (status, body) =
+        send_json(share.app.clone(), "POST", TRANSFER_URI, &share.admin, &json).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    let job = wait_job(share.app.clone(), &share.admin, &body).await;
+    assert_eq!(job["state"], "succeeded", "{job}");
+
+    assert!(!share.dir.join("教材").exists());
+    assert_eq!(
+        std::fs::read(dest_dir.join("教材").join("a.pdf")).expect("読めなかった"),
+        b"new"
+    );
+    assert!(!dest_dir.join("教材").join("old.pdf").exists());
+    let marks: Vec<(i64, String)> =
+        sqlx::query_as("SELECT content_id, path FROM folder_marks ORDER BY id")
+            .fetch_all(&pool)
+            .await
+            .expect("印を読めなかった");
+    assert!(marks.is_empty(), "{marks:?}");
+}
+
+/// フォルダーを、自分の中へは動かせない。
+#[sqlx::test]
+async fn a_folder_cannot_be_moved_into_itself(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-move-into").await;
+    std::fs::create_dir_all(share.dir.join("教材").join("英検")).expect("フォルダーを作れなかった");
+    let json = transfer_json(
+        "move",
+        share.id,
+        &["教材"],
+        share.id,
+        "教材/英検",
+        Some("rename"),
+    );
+    let (status, body) =
+        send_json(share.app.clone(), "POST", TRANSFER_URI, &share.admin, &json).await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+    assert_eq!(
+        parse_json(&body)["error"]["detail"]["kind"],
+        "transferIntoItself"
+    );
+}
+
+/// 消す前に、ごみ箱へ送れるかと、消すと開けなくなるコンテンツが分かる。消すとごみ箱へ送る。
+#[sqlx::test]
+async fn deleting_reports_listed_folders_and_sends_entries_to_the_trash(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-delete").await;
+    std::fs::create_dir_all(share.dir.join("教材").join("英検")).expect("フォルダーを作れなかった");
+    std::fs::write(share.dir.join("memo.txt"), b"memo").expect("書けなかった");
+    let listed = insert_folder_by(
+        &pool,
+        "英検",
+        share.dir.join("教材").join("英検"),
+        "public",
+        None,
+        None,
+    )
+    .await;
+    let check_uri = json_uri(share.id, "delete/check");
+    let uri = json_uri(share.id, "delete");
+    let paths = r#"{"paths":["教材","memo.txt"]}"#;
+
+    let (status, body) = send_json(share.app.clone(), "POST", &check_uri, &share.taro, paths).await;
+    assert_error(status, &body, StatusCode::FORBIDDEN, "forbidden");
+
+    set_editor_access(&share, "all").await;
+    let (status, body) = send_json(share.app.clone(), "POST", &check_uri, &share.taro, paths).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let body = parse_json(&body);
+    assert_eq!(body["trash"], true);
+    assert_eq!(
+        body["listed"],
+        serde_json::json!([{"contentId": listed, "title": "英検"}])
+    );
+
+    let (status, body) = send_json(share.app.clone(), "POST", &uri, &share.taro, paths).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    let job = wait_job(share.app.clone(), &share.taro, &body).await;
+    assert_eq!(job["state"], "succeeded", "{job}");
+    assert_eq!(job["doneItems"], 2);
+    assert!(!share.dir.join("教材").exists());
+    assert!(!share.dir.join("memo.txt").exists());
+    // 登録先を消しても、コンテンツは残す (ごみ箱から戻せば開ける)。
+    let left: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM contents WHERE id = ?")
+        .bind(listed)
+        .fetch_one(&pool)
+        .await
+        .expect("数えられなかった");
+    assert_eq!(left, 1);
+
+    // 共有そのものは消せない。
+    let (status, body) = send_json(
+        share.app.clone(),
+        "POST",
+        &uri,
+        &share.taro,
+        r#"{"paths":[""]}"#,
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+    assert_eq!(
+        parse_json(&body)["error"]["detail"]["kind"],
+        "entryProtected"
+    );
+}
+
+/// ごみ箱の無い場所では、ごみ箱へ送る削除を断り、完全に消す削除だけを受ける。
+#[sqlx::test]
+async fn without_a_trash_only_a_permanent_delete_is_accepted(pool: SqlitePool) {
+    register_content_root(&pool).await;
+    let data_dir = next_app_dir();
+    let app = build_app(
+        pool.clone(),
+        Key::generate(),
+        &Config::default(),
+        &AppDirs {
+            config_dir: data_dir.clone(),
+            data_dir,
+        },
+        None,
+        FolderPicker::new(|| Ok(None)),
+        TrashPolicy::Unavailable,
+    )
+    .await
+    .expect("failed to build app");
+    let admin = admin_cookie(app.clone(), &pool).await;
+    let dir = root_dir("shares-no-trash");
+    register_root(&pool, &dir).await;
+    let id = root_id_of(&pool, &canonical_path_as_api_returns_it(&dir)).await;
+    std::fs::write(dir.join("a.pdf"), b"pdf").expect("書けなかった");
+
+    let (status, body) = send_json(
+        app.clone(),
+        "POST",
+        &json_uri(id, "delete/check"),
+        &admin,
+        r#"{"paths":["a.pdf"]}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body)["trash"], false);
+    let (status, body) = send_json(
+        app.clone(),
+        "POST",
+        &json_uri(id, "delete"),
+        &admin,
+        r#"{"paths":["a.pdf"]}"#,
+    )
+    .await;
+    assert_error(status, &body, StatusCode::CONFLICT, "trash_unavailable");
+    assert!(dir.join("a.pdf").exists());
+
+    let (status, body) = send_json(
+        app.clone(),
+        "POST",
+        &json_uri(id, "delete"),
+        &admin,
+        r#"{"paths":["a.pdf"],"permanent":true}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    let job = wait_job(app, &admin, &body).await;
+    assert_eq!(job["state"], "succeeded", "{job}");
+    assert!(!dir.join("a.pdf").exists());
+}
+
+/// 処理は始めた人だけが見られ、中止できる。
+#[sqlx::test]
+async fn a_job_belongs_to_the_user_who_started_it(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-job-owner").await;
+    std::fs::write(share.dir.join("a.pdf"), b"pdf").expect("書けなかった");
+    let json = transfer_json("copy", share.id, &["a.pdf"], share.id, "", Some("rename"));
+    let (status, body) =
+        send_json(share.app.clone(), "POST", TRANSFER_URI, &share.admin, &json).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    let id = parse_json(&body)["jobId"]
+        .as_str()
+        .expect("jobId")
+        .to_string();
+    let uri = format!("/api/v1/shares/jobs/{id}");
+
+    let (status, body) = send_empty(share.app.clone(), "GET", &uri, &share.taro).await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
+    let (status, body) = send_empty(share.app.clone(), "DELETE", &uri, &share.taro).await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
+    let (status, body) =
+        send_empty(share.app.clone(), "GET", "/api/v1/shares/jobs", &share.taro).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body), serde_json::json!([]));
+
+    let (status, body) = send_empty(share.app.clone(), "DELETE", &uri, &share.admin).await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+    let (status, body) = send_empty(
+        share.app.clone(),
+        "GET",
+        "/api/v1/shares/jobs",
+        &share.admin,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body)[0]["id"], id);
+}

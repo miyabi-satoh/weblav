@@ -393,6 +393,7 @@ fn spawn(
                     &dirs,
                     lan_port,
                     folder_picker,
+                    crate::api::TrashPolicy::System,
                 )
                 .await
             }

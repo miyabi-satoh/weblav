@@ -1509,6 +1509,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/shares/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 自分のコピー・移動・削除の処理。走っているものと、終わってから少しの間のもの。 */
+        get: operations["list_jobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/jobs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 処理の進み具合。 */
+        get: operations["get_job"];
+        put?: never;
+        post?: never;
+        /** 処理を中止する。済んだ分はそのまま残り、途中のファイル (写しかけ) は残さない。終わっていれば何もしない。 */
+        delete: operations["cancel_job"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * コピー・移動を始める。進み具合は `GET /shares/jobs/{id}` で読む。
+         * @description 置き先の同じ名前は `onConflict` で扱う。上書きは、今あるものをごみ箱へ送ってから置く
+         *     (ごみ箱を使えない場所では完全に消す)。同じフォルダーの中へのコピーは、番号を付けた名前で写す。
+         */
+        post: operations["start_transfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/transfer/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** コピー・移動を始める前の確かめ。置き先の同じ名前・大きさ・空きを返す。何も変えない。 */
+        post: operations["check_transfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shares/{id}/browse": {
         parameters: {
             query?: never;
@@ -1520,6 +1593,40 @@ export interface paths {
         get: operations["browse_share"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 消し始める。進み具合は `GET /shares/jobs/{id}` で読む。 */
+        post: operations["start_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/delete/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 消す前の確かめ。ごみ箱へ送れるかと、消すと開けなくなるコンテンツを返す。何も変えない。 */
+        post: operations["check_delete"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2094,6 +2201,24 @@ export interface components {
             role?: components["schemas"]["Role"] | null;
             username: string;
         };
+        DeleteCheckRequest: {
+            /** @description 消すものの、共有からの相対パス。 */
+            paths: string[];
+        };
+        DeleteCheckResponse: {
+            /**
+             * @description 消すと開けなくなる、フォルダーのコンテンツ (登録先が、消すものかその中)。
+             *     見ている人の管理画面の一覧に出ないもの (他人の「作成者のみ」) は含めない。
+             */
+            listed: components["schemas"]["ListedAs"][];
+            /** @description 消すものをどれもごみ箱へ送れるか。偽なら、消すと元に戻せない。 */
+            trash: boolean;
+        };
+        DeleteRequest: {
+            paths: string[];
+            /** @description 完全に消す。偽なら、ごみ箱へ送る (使えない場所では 409 `trash_unavailable`)。 */
+            permanent?: boolean;
+        };
         DirEntryItem: {
             name: string;
             /**
@@ -2327,6 +2452,20 @@ export interface components {
             /** @description 取り込むと置き換わる、今の軸か表示タイトルのテンプレートがあるか。 */
             replacesExisting: boolean;
         };
+        /**
+         * @description 処理の種類。
+         * @enum {string}
+         */
+        JobOp: "copy" | "move" | "delete";
+        JobStartedResponse: {
+            /** @description 進み具合を `GET /shares/jobs/{id}` で読む。 */
+            jobId: string;
+        };
+        /**
+         * @description 処理の状態。
+         * @enum {string}
+         */
+        JobState: "running" | "succeeded" | "failed" | "cancelled";
         LinkMetadataRequest: {
             url: string;
         };
@@ -2438,6 +2577,11 @@ export interface components {
             /** @description 軸で絞った後、名前の語と公開の状態で絞る前の数。 */
             totalAll: number;
         };
+        /**
+         * @description 置き先に同じ名前があるときの扱い。
+         * @enum {string}
+         */
+        OnConflict: "overwrite" | "rename" | "skip";
         /**
          * @description 操作の結果。
          * @enum {string}
@@ -2746,6 +2890,38 @@ export interface components {
         ShareEntry: components["schemas"]["FolderEntry"] & {
             listedAs?: components["schemas"]["ListedAs"] | null;
         };
+        /** @description 処理の進み具合。 */
+        ShareJobResponse: {
+            /**
+             * Format: int64
+             * @description 写し終えたバイト数。移動と削除では、済んだものの大きさ。
+             */
+            doneBytes: number;
+            /**
+             * Format: int64
+             * @description 済んだファイル・フォルダーの数。削除では、選んだもののうち消し終えた数。
+             */
+            doneItems: number;
+            error?: components["schemas"]["ErrorCode"] | null;
+            id: string;
+            op: components["schemas"]["JobOp"];
+            /**
+             * Format: int64
+             * @description 置き先に同じ名前があって飛ばした数。
+             */
+            skipped: number;
+            state: components["schemas"]["JobState"];
+            /**
+             * Format: int64
+             * @description 扱うファイルの大きさの合計。削除では 0 (数えない)。
+             */
+            totalBytes: number;
+            /**
+             * Format: int64
+             * @description 扱うファイル・フォルダーの数 (中のものも数える)。削除では、選んだものの数。
+             */
+            totalItems: number;
+        };
         /**
          * @description 操作の種類。
          * @enum {string}
@@ -2845,6 +3021,59 @@ export interface components {
             createdAt: number;
             /** @description 戻すときに指す id。 */
             id: string;
+        };
+        TransferCheckRequest: {
+            from: components["schemas"]["TransferFrom"];
+            op: components["schemas"]["TransferOp"];
+            to: components["schemas"]["TransferTo"];
+        };
+        TransferCheckResponse: {
+            /**
+             * Format: int64
+             * @description 置き先のディスクの空き。
+             */
+            availableBytes: number;
+            /**
+             * @description 置き先に同じ名前があるもの。同じフォルダーの中へのコピー (番号を付けて写す) と、
+             *     同じフォルダーの中への移動 (何もしない) は含めない。
+             */
+            conflicts: components["schemas"]["TransferConflict"][];
+            /**
+             * Format: int64
+             * @description 動かす・写すファイルの大きさの合計。
+             */
+            totalBytes: number;
+        };
+        /** @description 置き先に既にある同じ名前のもの。 */
+        TransferConflict: {
+            /** @description 置き先にあるものがフォルダーか。 */
+            isDir: boolean;
+            name: string;
+        };
+        /** @description 動かす・写すもの。どれも同じ共有の中。 */
+        TransferFrom: {
+            /** @description 共有からの相対パス。 */
+            paths: string[];
+            /** Format: int64 */
+            shareId: number;
+        };
+        /**
+         * @description コピーか移動か。
+         * @enum {string}
+         */
+        TransferOp: "copy" | "move";
+        TransferRequest: {
+            from: components["schemas"]["TransferFrom"];
+            onConflict: components["schemas"]["OnConflict"];
+            op: components["schemas"]["TransferOp"];
+            to: components["schemas"]["TransferTo"];
+        };
+        /** @description 置き先のフォルダー。 */
+        TransferTo: {
+            /** @description 共有からの相対パス。空文字列は共有そのもの。 */
+            path?: string;
+            /** Format: int64 */
+            shareId: number;
         };
         UpdateContentRequest: {
             autoRescan?: components["schemas"]["AutoRefresh"] | null;
@@ -7516,6 +7745,242 @@ export interface operations {
             };
         };
     };
+    list_jobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 処理の一覧 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareJobResponse"][];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 進み具合 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareJobResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 無い (ほかの人の処理、終わってから時間がたったもの) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cancel_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 中止を頼んだ */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 無い */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    start_transfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferRequest"];
+            };
+        };
+        responses: {
+            /** @description 始めた */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStartedResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 元か置き先で、この操作ができない (上書きには置き先で「すべて」が要る) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・ファイル・置き先が無い、見られない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description フォルダーをそれ自身の中へ (`transferIntoItself`)・共有そのものや共有を含むもの (`entryProtected`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 置き先の空きが足りない (コピー) */
+            507: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    check_transfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description 始める前の確かめ */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferCheckResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 元か置き先で、この操作ができない */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・ファイル・置き先が無い、見られない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description フォルダーをそれ自身の中へ (`transferIntoItself`)・共有そのもの (`entryProtected`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     browse_share: {
         parameters: {
             query?: {
@@ -7561,6 +8026,139 @@ export interface operations {
             };
             /** @description 共有のある NAS やディスクにつながらない */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    start_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description 始めた */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStartedResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description この場所で消せない */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・ファイルが無い、見られない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description ごみ箱を使えない場所 (`trash_unavailable`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有そのものや共有を含むもの (`entryProtected`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    check_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description 消す前の確かめ */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteCheckResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description この場所で消せない */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・ファイルが無い、見られない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有そのものや共有を含むもの (`entryProtected`) */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

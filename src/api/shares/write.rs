@@ -19,31 +19,14 @@ use crate::auth::AuthUser;
 use crate::error::{AppError, AppJson, multipart_error_to_app_error, run_blocking};
 use crate::state::AppState;
 
-use super::ShareAccess;
 use super::fsops;
 use super::log::{LoggedPlace, OpRecord, ShareOp, record_or_warn};
 use super::paths::{Resolved, ensure_not_protected, resolve_existing, resolve_parent_for_new};
 use super::repoint;
+use super::{ShareAccess, join_rel, require};
 
 /// 拡張子を直すかを決めるのに読む、ファイルの頭の大きさ (→ `fsops::sniff_image`)。
 const SNIFF_BYTES: usize = 64;
-
-/// その場所で `needed` 以上のことができなければ 403。見られない場所は、解決の時点で 404 になっている。
-fn require(resolved: &Resolved, needed: ShareAccess) -> Result<(), AppError> {
-    if resolved.access < needed {
-        return Err(AppError::Forbidden);
-    }
-    Ok(())
-}
-
-/// 共有からの相対パスに、名前を1つ足す。
-fn join_rel(dir: &str, name: &str) -> String {
-    if dir.is_empty() {
-        name.to_string()
-    } else {
-        format!("{dir}/{name}")
-    }
-}
 
 #[derive(Debug, Deserialize, IntoParams)]
 struct UploadQuery {

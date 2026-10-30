@@ -55,6 +55,7 @@ pub const APP_BUILD: Option<&str> = option_env!("WEBLAV_BUILD");
 /// `config` は動いている値として管理画面に出す (→ `api::server_settings`)。
 ///
 /// `folder_picker` は「公開できるフォルダー」を選ぶ窓を出す手段 (→ `folder_picker`)。
+/// `trash` は共有の中で消したものの行き先 (→ `api::TrashPolicy`)。テストでは本物のごみ箱を使わないものを渡す。
 pub async fn build_app(
     pool: SqlitePool,
     session_key: Key,
@@ -62,6 +63,7 @@ pub async fn build_app(
     dirs: &AppDirs,
     lan_port: Option<u16>,
     folder_picker: folder_picker::FolderPicker,
+    trash: api::TrashPolicy,
 ) -> Result<Router, Box<dyn std::error::Error + Send + Sync>> {
     let session_store = SqliteStore::new(pool.clone());
     session_store.migrate().await?;
@@ -152,6 +154,8 @@ pub async fn build_app(
         contents_write_lock: Arc::new(tokio::sync::Mutex::new(())),
         archive_scans: Arc::new(crate::state::ArchiveScans::default()),
         share_dir_locks: Arc::default(),
+        share_jobs: Arc::default(),
+        share_trash: trash,
         archive_index: Arc::default(),
         users_write_lock: Arc::new(tokio::sync::Mutex::new(())),
         setup_tokens: Arc::new(api::setup::SetupTokens::default()),

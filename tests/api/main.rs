@@ -13,6 +13,7 @@ use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use sqlx::SqlitePool;
 use tower::ServiceExt;
 use tower_sessions::cookie::Key;
+use weblav::api::TrashPolicy;
 use weblav::config::{AppDirs, Config, LogOutput};
 use weblav::folder_picker::FolderPicker;
 use weblav::{auth, build_app};
@@ -205,6 +206,8 @@ async fn app_with_picker(
         },
         None,
         folder_picker,
+        // 利用者のごみ箱へ送らないよう、アプリごとの置き場へ動かす。
+        TrashPolicy::Folder(dir.join("trash")),
     )
     .await
     .expect("failed to build app")

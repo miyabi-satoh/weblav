@@ -111,11 +111,12 @@ async fn browse_share(
     let own_dirs = state.own_dirs.clone();
     let dir = resolved.canonical.clone();
     let rel = resolved.rel.clone();
+    let trash_policy = state.share_trash.clone();
     let (entries, trash) = run_blocking(move || {
         if !dir.is_dir() {
             return Err(AppError::NotFound);
         }
-        let trash = super::fsops::trash_available(&dir);
+        let trash = trash_policy.available(&dir);
         let entries =
             contents::read_entries(&dir, &rel, &OwnDirs::resolve(&own_dirs), None, false, order)?;
         let entries = entries

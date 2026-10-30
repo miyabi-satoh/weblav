@@ -6,22 +6,16 @@
 //! (外側で見られるものは、内側の共有の扱いに関わらず外側から辿れば見られるため)。
 
 mod browse;
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "アップロード・名前の変更・コピー・移動・削除の口を足すときに使う"
-    )
-)]
 mod fsops;
+mod jobs;
 pub(crate) mod log;
 mod paths;
-#[expect(
-    dead_code,
-    reason = "名前の変更・コピー・移動・削除の口を足すときに使う"
-)]
 mod repoint;
+mod transfer;
 mod write;
+
+pub use fsops::TrashPolicy;
+pub use jobs::ShareJobs;
 
 use std::collections::HashMap;
 use std::path::Path as FsPath;
@@ -111,6 +105,23 @@ impl AccessMap {
             .map(|root_id| self.of_root(root_id))
             .max()
             .unwrap_or(ShareAccess::None)
+    }
+}
+
+/// その場所で `needed` 以上のことができなければ 403。見られない場所は、解決の時点で 404 になっている。
+fn require(resolved: &paths::Resolved, needed: ShareAccess) -> Result<(), AppError> {
+    if resolved.access < needed {
+        return Err(AppError::Forbidden);
+    }
+    Ok(())
+}
+
+/// 共有からの相対パスに、名前を1つ足す。
+fn join_rel(dir: &str, name: &str) -> String {
+    if dir.is_empty() {
+        name.to_string()
+    } else {
+        format!("{dir}/{name}")
     }
 }
 
@@ -204,7 +215,8 @@ pub(super) async fn folder_share(
         return Ok(None);
     };
     let path = canonical.to_path_buf();
-    let trash = crate::error::run_blocking(move || fsops::trash_available(&path)).await?;
+    let trash_policy = state.share_trash.clone();
+    let trash = crate::error::run_blocking(move || trash_policy.available(&path)).await?;
     Ok(Some(FolderShare {
         id: root.id,
         name: root.name.clone(),
@@ -220,6 +232,7 @@ pub(crate) fn router(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
         .routes(routes!(list_shares))
         .merge(browse::router())
         .merge(write::router(max_upload_bytes))
+        .merge(transfer::router())
         .merge(log::router())
 }
 

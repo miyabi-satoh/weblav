@@ -190,10 +190,7 @@ pub(super) async fn ensure_not_protected(
     state: &AppState,
     resolved: &Resolved,
 ) -> Result<(), AppError> {
-    let protected = || AppError::ValidationDetailed {
-        message: "the entry is a shared folder or contains one".to_string(),
-        detail: ValidationDetail::EntryProtected,
-    };
+    let protected = protected_error;
     if resolved.rel.is_empty() {
         return Err(protected());
     }
@@ -209,12 +206,28 @@ pub(super) async fn ensure_not_protected(
     {
         return Err(protected());
     }
+    ensure_without_own_dirs(state, &resolved.canonical).await
+}
+
+/// `canonical` の中に WebLAV のデータが無いか。あれば 422 (`entryProtected`)。
+/// コピーで、データ (DB・セッション鍵) を共有の中へ写し出さないため。
+pub(super) async fn ensure_without_own_dirs(
+    state: &AppState,
+    canonical: &FsPath,
+) -> Result<(), AppError> {
     let own_dirs = state.own_dirs.clone();
-    let canonical = resolved.canonical.clone();
+    let canonical = canonical.to_path_buf();
     if run_blocking(move || OwnDirs::resolve(&own_dirs).any_within(&canonical)).await? {
-        return Err(protected());
+        return Err(protected_error());
     }
     Ok(())
+}
+
+fn protected_error() -> AppError {
+    AppError::ValidationDetailed {
+        message: "the entry is a shared folder or contains one".to_string(),
+        detail: ValidationDetail::EntryProtected,
+    }
 }
 
 /// 実体のパス `canonical` で `user` ができること。それを含む共有のうち一番強いもの

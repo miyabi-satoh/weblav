@@ -48,6 +48,7 @@ pub(crate) use archive::spawn_auto_rescan;
 pub(crate) use shares::log::{
     on_startup as share_operations_on_startup, spawn_purge as spawn_share_operations_purge,
 };
+pub use shares::{ShareJobs, TrashPolicy};
 
 pub(crate) fn random_hex<const N: usize>() -> std::io::Result<String> {
     let mut bytes = [0u8; N];
