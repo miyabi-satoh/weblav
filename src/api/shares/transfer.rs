@@ -107,6 +107,8 @@ pub struct TransferCheckResponse {
     total_bytes: u64,
     /// 置き先のディスクの空き。
     available_bytes: u64,
+    /// 上書きで消える置き先のものを、OS のごみ箱へ送れるか。偽なら、上書きすると元に戻せない。
+    trash: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -231,6 +233,7 @@ async fn check_transfer(
 ) -> Result<Json<TransferCheckResponse>, AppError> {
     let prepared = prepare_transfer(&state, &user, payload.op, &payload.from, &payload.to).await?;
     let (_, total_bytes) = prepared.total();
+    let share_trash = state.share_trash.clone();
     let response = run_blocking(move || {
         let dest_dir = &prepared.dest.canonical;
         let conflicts = prepared
@@ -243,6 +246,7 @@ async fn check_transfer(
             conflicts,
             total_bytes,
             available_bytes,
+            trash: share_trash.available(dest_dir),
         })
     })
     .await??;

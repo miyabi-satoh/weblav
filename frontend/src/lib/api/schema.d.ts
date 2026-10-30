@@ -3137,6 +3137,8 @@ export interface components {
              * @description 動かす・写すファイルの大きさの合計。
              */
             totalBytes: number;
+            /** @description 上書きで消える置き先のものを、OS のごみ箱へ送れるか。偽なら、上書きすると元に戻せない。 */
+            trash: boolean;
         };
         /** @description 置き先に既にある同じ名前のもの。 */
         TransferConflict: {

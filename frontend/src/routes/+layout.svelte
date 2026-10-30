@@ -26,6 +26,7 @@
 	import FileViewer from '$lib/components/file-viewer.svelte';
 	import LinkDetailDialog from '$lib/components/link-detail-dialog.svelte';
 	import NavigationProgress from '$lib/components/navigation-progress.svelte';
+	import ShareJobsPanel from '$lib/components/share-ops/share-jobs-panel.svelte';
 	import { Toaster } from '$lib/components/ui/sonner';
 	import { nowPlaying } from '$lib/now-playing.svelte';
 	import { searchHref, searchScopeOf } from '$lib/search-scope';
@@ -184,6 +185,10 @@
 
 <FileViewer />
 <LinkDetailDialog />
+<ShareJobsPanel
+	loggedIn={!!page.data.user}
+	bottomOffset={nowPlaying.current !== null ? playerHeight : 0}
+/>
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />
 

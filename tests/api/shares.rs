@@ -1044,6 +1044,10 @@ async fn copying_reports_conflicts_and_can_add_a_number(pool: SqlitePool) {
     );
     assert_eq!(body["totalBytes"], 5);
     assert!(body["availableBytes"].as_u64().is_some(), "{body}");
+    assert!(
+        body["trash"].is_boolean(),
+        "上書きの確認で、元に戻せるかを出すため: {body}"
+    );
 
     let start = transfer_json(
         "copy",

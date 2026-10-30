@@ -20,6 +20,8 @@
 		 * 2段目の場所の後ろに軸の値を出す。当たったのがファイル名でなく、表示タイトルと軸の値のため。
 		 */
 		listed?: ListedTitle | null;
+		/** 2段目の頭に置く短い印 (共有の中の「掲載中」)。 */
+		badge?: string;
 	};
 
 	/** 行に出す名前。 */
@@ -69,7 +71,11 @@
 	}: {
 		rows: FolderEntryRow[];
 		dirHref: (row: FolderEntryRow) => string;
-		linksHref: (row: FolderEntryRow) => string;
+		/**
+		 * リンクの一覧のファイルを開く画面への href。開く画面が無い行 (共有の中) では `undefined` を返し、
+		 * ほかのテキストのファイルと同じくビューアーで開く。
+		 */
+		linksHref: (row: FolderEntryRow) => string | undefined;
 		/** 行の右端に置くもの (書き換えられる人の ⋮ メニュー)。 */
 		trailing?: Snippet<[FolderEntryRow]>;
 	} = $props();
@@ -142,7 +148,9 @@
 	{@const entry = row.entry}
 	<!-- 非公開の行は、書き換えられる人にだけ並ぶ (→ docs/folders.md「公開と非公開」)。 -->
 	<ListRowSubtitle
-		prefix={entry.public ? undefined : m.marks_private_label()}
+		prefix={[entry.public ? undefined : m.marks_private_label(), row.badge]
+			.filter((part) => part !== undefined)
+			.join(' · ') || undefined}
 		location={row.location}
 		text={row.listed
 			? row.listed.subtitle
@@ -161,6 +169,8 @@
 		{#each rows as row (`${sourceKey(row.source)}:${row.path}`)}
 			{@const image = toViewerImage(row)}
 			{@const viewerFile = toViewerFile(row)}
+			{@const links =
+				!row.entry.isDir && isLinksFileName(row.entry.name) ? linksHref(row) : undefined}
 			<li class={browseItemClass()}>
 				{#if row.entry.isDir}
 					<div class={browseRowClass(true)}>
@@ -172,12 +182,12 @@
 						</span>
 						{@render trailing?.(row)}
 					</div>
-				{:else if isLinksFileName(row.entry.name)}
+				{:else if links !== undefined}
 					<div class={browseRowClass(true)}>
 						<ListRowIcon icon={LinksFileIcon} compact />
 						<span class={browseRowTextClass()}>
 							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
-							<a href={linksHref(row)} class={browseRowPressClass()}>{@render entryTitle(row)}</a>
+							<a href={links} class={browseRowPressClass()}>{@render entryTitle(row)}</a>
 							{@render entrySubtitle(row)}
 						</span>
 						{@render trailing?.(row)}

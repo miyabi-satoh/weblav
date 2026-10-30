@@ -8,7 +8,7 @@
 		browseRowTextClass,
 		browseRowTitleClass
 	} from '$lib/list-row';
-	import { shareHref } from '$lib/share-href';
+	import { resolve } from '$app/paths';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
 	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
 	import * as m from '$lib/paraglide/messages.js';
@@ -36,8 +36,7 @@
 			<div class={browseRowClass()}>
 				<ListRowIcon icon={HardDriveIcon} />
 				<span class={browseRowTextClass()}>
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- shareHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
-					<a href={shareHref(share.id)} class={browseRowPressClass()}>
+					<a href={resolve('/shares/[id]', { id: String(share.id) })} class={browseRowPressClass()}>
 						<span class={browseRowTitleClass()}>{share.name}</span>
 					</a>
 					<ListRowSubtitle text={accessLabel(share.access)} />

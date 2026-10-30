@@ -114,6 +114,14 @@ function detailMessage(detail: ValidationDetail): string | undefined {
 			return m.error_detail_backup_invalid();
 		case 'backupTooNew':
 			return m.error_detail_backup_too_new({ appVersion: detail.appVersion });
+		case 'entryNameInvalid':
+			return m.error_detail_entry_name_invalid();
+		case 'entryNameTaken':
+			return m.error_detail_entry_name_taken({ name: detail.name });
+		case 'transferIntoItself':
+			return m.error_detail_transfer_into_itself();
+		case 'entryProtected':
+			return m.error_detail_entry_protected();
 		default:
 			return undefined;
 	}

@@ -10283,7 +10283,8 @@
         "required": [
           "conflicts",
           "totalBytes",
-          "availableBytes"
+          "availableBytes",
+          "trash"
         ],
         "properties": {
           "availableBytes": {
@@ -10304,6 +10305,10 @@
             "format": "int64",
             "description": "動かす・写すファイルの大きさの合計。",
             "minimum": 0
+          },
+          "trash": {
+            "type": "boolean",
+            "description": "上書きで消える置き先のものを、OS のごみ箱へ送れるか。偽なら、上書きすると元に戻せない。"
           }
         }
       },
