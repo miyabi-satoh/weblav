@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE archive_items SET rel_path = ?3 || substr(rel_path, length(?2) + 1)\n         WHERE archive_id = ?1 AND (rel_path = ?2 OR substr(rel_path, 1, length(?4)) = ?4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "8db392aeabb0f832cc8bae6c29d5ca613d15763a4832f50d69d6bcad80fcf541"
+}

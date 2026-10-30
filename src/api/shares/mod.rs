@@ -16,6 +16,11 @@ mod browse;
 mod fsops;
 pub(crate) mod log;
 mod paths;
+#[expect(
+    dead_code,
+    reason = "名前の変更・コピー・移動・削除の口を足すときに使う"
+)]
+mod repoint;
 
 use std::collections::HashMap;
 use std::path::Path as FsPath;

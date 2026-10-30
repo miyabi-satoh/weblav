@@ -127,6 +127,14 @@ impl ArchiveScans {
             .is_empty()
     }
 
+    /// `id` の排他を誰かが取っているか (走査・更新・削除のどれか)。
+    pub fn is_running(&self, id: i64) -> bool {
+        self.running
+            .lock()
+            .expect("archive_scans lock poisoned")
+            .contains_key(&id)
+    }
+
     /// `id` の走査を開始する。既に走査中なら `Conflict`。
     /// 返り値を保持している間だけ排他が有効で、drop すると解放される。
     pub fn acquire(self: &Arc<Self>, id: i64) -> Result<ArchiveScanGuard, crate::error::AppError> {
