@@ -1,4 +1,5 @@
 import type { components } from '$lib/api/schema';
+import * as m from '$lib/paraglide/messages.js';
 
 type ShareAccess = components['schemas']['ShareAccess'];
 
@@ -79,3 +80,14 @@ export function lastSegment(path: string, fallback: string): string {
 			.at(-1) ?? fallback
 	);
 }
+
+/** 共有の中でできることの名前 (管理画面の権限・操作の記録)。 */
+export function shareAccessLabel(access: ShareAccess): string {
+	if (access === 'read') return m.shares_access_level_read();
+	if (access === 'add') return m.shares_access_level_add();
+	if (access === 'all') return m.shares_access_level_all();
+	return m.shares_access_level_none();
+}
+
+/** 権限のダイアログで選ばせる順。サーバーの順 (弱い順) と同じ。 */
+export const ACCESS_CHOICES: readonly ShareAccess[] = ['none', 'read', 'add', 'all'];

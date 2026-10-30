@@ -23,6 +23,8 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import WarningBand from '$lib/components/warning-band.svelte';
+	import RootAccessDialog from '$lib/components/root-access-dialog.svelte';
+	import { shareAccessLabel } from '$lib/share-ops';
 	import type { PageProps } from './$types';
 	import type { components } from '$lib/api/schema';
 
@@ -44,6 +46,8 @@
 	// 入力中のダイアログを外側クリックやEscで閉じてしまわないようにする
 	// (コンテンツ管理・ユーザー管理のフォームと同じ扱い)。
 	const nameForm = new FormDirtyState(() => ({ name: nameInput }));
+	let accessRoot = $state<Root | null>(null);
+	let repicking = $state(false);
 	let deleting = $state(false);
 	let deletingRoot = $state<Root | null>(null);
 	const errorDialog = new ErrorDialogState();
@@ -79,6 +83,29 @@
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		}
 		return null;
+	}
+
+	// 書き込みの許可が無い共有 (macOS で読むだけの許可のまま登録したもの) を、この PC の窓で選び直して許可を取る。
+	// 選ぶのは同じフォルダー。違えばサーバーが断る (→ docs/distribution.md)。
+	async function repick(root: Root) {
+		if (repicking) return;
+		repicking = true;
+		try {
+			const { error, response } = await client.POST('/api/v1/admin/roots/{id}/repick', {
+				params: { path: { id: root.id } }
+			});
+			if (response.ok) {
+				await refreshAll();
+				return;
+			}
+			errorDialog.show(
+				response.status === 409 ? m.admin_roots_picker_already_open() : errorMessage(error)
+			);
+		} catch {
+			errorDialog.show(GENERIC_ERROR_MESSAGE());
+		} finally {
+			repicking = false;
+		}
 	}
 
 	function openRename(root: Root) {
@@ -152,6 +179,14 @@
 		</WarningBand>
 	</div>
 {/if}
+<!-- 取り直せるのはこの PC の窓からだけなので、ほかの端末では知らせるだけにする。 -->
+{#if data.roots.some((root) => !root.writable)}
+	<div class="px-4 pb-4 md:px-6">
+		<WarningBand class="rounded-md border">
+			<p class="text-sm leading-relaxed">{m.admin_roots_not_writable_warning()}</p>
+		</WarningBand>
+	</div>
+{/if}
 
 {#if data.roots.length === 0}
 	<p class="px-4 text-sm text-muted-foreground md:px-6">{m.admin_roots_empty()}</p>
@@ -166,6 +201,14 @@
 					<span class="mt-0.5 block text-xs text-muted-foreground">
 						{m.admin_roots_content_count({ count: formatNumber(root.contentCount) })}
 					</span>
+					<!-- 一般ユーザーがこの中でできること。例外があれば人数を添える (中身は「権限...」で見る)。 -->
+					<span class="mt-0.5 block text-xs text-muted-foreground">
+						{m.admin_roots_editor_access({ access: shareAccessLabel(root.editorAccess) })}
+						{#if root.userAccess.length > 0}
+							<span aria-hidden="true">·</span>
+							{m.admin_roots_exceptions({ count: root.userAccess.length })}
+						{/if}
+					</span>
 					<!-- 閲覧側では開いたときに初めて分かるので、管理の一覧で先に気づけるようにする (→ docs/folders.md「つながっているかの確かめ」)。 -->
 					{#if root.status !== 'ready'}
 						<span class="mt-1 flex items-start gap-1.5 text-xs text-warning-muted">
@@ -175,11 +218,25 @@
 								: m.admin_roots_status_missing()}
 						</span>
 					{/if}
+					{#if !root.writable}
+						<span class="mt-1 flex items-start gap-1.5 text-xs text-warning-muted">
+							<TriangleAlertIcon class="mt-px size-3.5 shrink-0 text-warning-icon" />
+							{m.admin_roots_not_writable()}
+						</span>
+					{/if}
 				</div>
 				<RowActionsMenu name={root.name}>
 					<DropdownMenu.Item onSelect={() => openRename(root)}>
 						{m.admin_roots_rename_menu()}
 					</DropdownMenu.Item>
+					<DropdownMenu.Item onSelect={() => (accessRoot = root)}>
+						{m.admin_roots_access_menu()}
+					</DropdownMenu.Item>
+					{#if canAdd && !root.writable}
+						<DropdownMenu.Item disabled={repicking} onSelect={() => void repick(root)}>
+							{m.admin_roots_repick_menu()}
+						</DropdownMenu.Item>
+					{/if}
 					<DropdownMenu.Item variant="destructive" onSelect={() => (deletingRoot = root)}>
 						{m.action_delete()}
 					</DropdownMenu.Item>
@@ -247,5 +304,7 @@
 		{m.admin_roots_delete_confirm_local_note()}
 	{/if}
 </ConfirmDialog>
+
+<RootAccessDialog bind:root={accessRoot} users={data.users} onsaved={() => refreshAll()} />
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />
