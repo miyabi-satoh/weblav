@@ -36,6 +36,7 @@
 		truncatingColumnClass
 	} from '$lib/table-columns';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
+	import { tick } from 'svelte';
 
 	type UserListItem = components['schemas']['UserListItem'];
 	type Role = components['schemas']['Role'];
@@ -181,6 +182,14 @@
 	let renameUsername = $state('');
 	let renaming = $state(false);
 	const renameForm = new FormDirtyState(() => ({ username: renameUsername }));
+	let renameInput = $state<HTMLInputElement | null>(null);
+
+	// 共有の中の名前の変更と同じく、今の名前を選んだ状態で開き、打てばそのまま置き換わるようにする。
+	async function selectRenameInput() {
+		await tick();
+		renameInput?.focus();
+		renameInput?.select();
+	}
 
 	function openRenameDialog(target: UserListItem) {
 		renameUsername = target.username;
@@ -237,11 +246,11 @@
 	}
 </script>
 
-<svelte:head><title>{pageTitle(m.admin_users_title())}</title></svelte:head>
+<svelte:head><title>{pageTitle(m.admin_users_nav_title())}</title></svelte:head>
 
 <div class={adminPageClass}>
 	<div class={adminPageHeaderClass}>
-		<h1 class={pageHeadingTextClass}>{m.admin_users_title()}</h1>
+		<h1 class={pageHeadingTextClass}>{m.admin_users_nav_title()}</h1>
 		<Button onclick={openCreateDialog}>{m.admin_users_add_button()}</Button>
 	</div>
 
@@ -376,7 +385,7 @@
 				<Button type="button" variant="outline" onclick={() => (createOpen = false)}
 					>{m.action_cancel()}</Button
 				>
-				<LoadingButton type="submit" loading={creating}>{m.action_save()}</LoadingButton>
+				<LoadingButton type="submit" loading={creating}>{m.action_add()}</LoadingButton>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>
@@ -440,7 +449,13 @@
 				<Button type="button" variant="outline" onclick={() => (resettingUser = null)}
 					>{m.action_cancel()}</Button
 				>
-				<LoadingButton type="submit" loading={resetting}>{m.action_save()}</LoadingButton>
+				<!-- ほかの入力のダイアログと同じく、送れる形になるまで押せなくする。 -->
+				<LoadingButton
+					type="submit"
+					loading={resetting}
+					disabled={resetPassword === '' || resetPasswordConfirm === ''}
+					>{m.action_save()}</LoadingButton
+				>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>
@@ -457,9 +472,17 @@
 	<Dialog.Content
 		interactOutsideBehavior={renameForm.dirty ? 'ignore' : 'close'}
 		escapeKeydownBehavior={renameForm.dirty ? 'ignore' : 'close'}
+		onOpenAutoFocus={(event) => {
+			event.preventDefault();
+			void selectRenameInput();
+		}}
 	>
 		<Dialog.Header>
-			<Dialog.Title>{m.admin_users_rename_dialog_title()}</Dialog.Title>
+			<Dialog.Title
+				>{m.admin_users_rename_dialog_title({
+					username: renamingUser?.username ?? ''
+				})}</Dialog.Title
+			>
 		</Dialog.Header>
 		<form onsubmit={handleRenameSubmit} class={dialogFormClass}>
 			<Dialog.Body>
@@ -469,7 +492,13 @@
 							>{m.admin_users_dialog_username_label()}</Field.FieldLabel
 						>
 						<!-- 作成と同じく、管理者自身の資格情報を自動入力させない。 -->
-						<Input id="rename-username" autocomplete="off" bind:value={renameUsername} required />
+						<Input
+							id="rename-username"
+							autocomplete="off"
+							bind:ref={renameInput}
+							bind:value={renameUsername}
+							required
+						/>
 					</Field.Field>
 				</Field.FieldGroup>
 			</Dialog.Body>
@@ -477,7 +506,12 @@
 				<Button type="button" variant="outline" onclick={() => (renamingUser = null)}
 					>{m.action_cancel()}</Button
 				>
-				<LoadingButton type="submit" loading={renaming}>{m.action_save()}</LoadingButton>
+				<LoadingButton
+					type="submit"
+					loading={renaming}
+					disabled={!renameForm.dirty || renameUsername.trim() === ''}
+					>{m.admin_users_rename_submit_button()}</LoadingButton
+				>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>

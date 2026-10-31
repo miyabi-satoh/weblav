@@ -19,7 +19,6 @@ import {
 	CONTENT_ADD_BUTTON_NAME,
 	DELETE_MENU_ITEM_NAME,
 	DIR_PICKER_NAME,
-	RENAME_MENU_ITEM_NAME,
 	ROOT_ADD_BUTTON_LOADING_NAME,
 	ROOT_ADD_BUTTON_NAME,
 	VISIBILITY_LABEL,
@@ -343,13 +342,13 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// 管理画面: 共有の名前の変更ダイアログ。行の⋮メニューから開く。
-	admin_roots_rename: {
-		viewports: ['desktop'],
+	// 管理画面: 共有の編集ページ (場所・名前・権限の区画)。一覧の行を押して開く。
+	admin_roots_edit: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, '/admin/roots');
-			await clickRowMenuItem(page, page.getByRole('listitem').first(), RENAME_MENU_ITEM_NAME);
-			await waitForDialog(page, { timeout: 5000 });
+			await page.getByTestId('root-name').first().click();
+			await page.waitForURL(/\/admin\/roots\/\d+$/);
+			await page.getByRole('heading', { level: 1 }).waitFor();
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
 		}
 	},

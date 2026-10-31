@@ -3,7 +3,14 @@
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { formatByteSize, formatDateTime } from '$lib/format';
 	import { listClass, listItemClass } from '$lib/list-row';
-	import { adminPageClass, pageHeadingTextClass } from '$lib/page-layout';
+	import {
+		adminEmptyTextClass,
+		adminListBandClass,
+		adminListRowGutterClass,
+		adminPageClass,
+		adminPageHeaderClass,
+		pageHeadingTextClass
+	} from '$lib/page-layout';
 	import { pageTitle } from '$lib/page-title';
 	import * as m from '$lib/paraglide/messages.js';
 	import { shareOpLabel, shareOpPlaces, shareOpResultLabel } from '$lib/share-operations';
@@ -46,54 +53,56 @@
 	}
 </script>
 
-<svelte:head><title>{pageTitle(m.admin_operations_title())}</title></svelte:head>
+<svelte:head><title>{pageTitle(m.admin_operations_nav_title())}</title></svelte:head>
 
 <div class={adminPageClass}>
-	<h1 class={pageHeadingTextClass}>{m.admin_operations_title()}</h1>
-</div>
+	<div class={adminPageHeaderClass}>
+		<h1 class={pageHeadingTextClass}>{m.admin_operations_nav_title()}</h1>
+	</div>
 
-{#if items.length === 0}
-	<p class="px-4 text-sm text-muted-foreground md:px-6">{m.admin_operations_empty()}</p>
-{:else}
-	<ul class={listClass}>
-		{#each items as operation (operation.id)}
-			{@const places = shareOpPlaces(operation)}
-			{@const result = shareOpResultLabel(operation)}
-			<li class={[listItemClass, 'flex flex-col gap-0.5 px-4 py-3 md:px-6']}>
-				<span class="flex flex-wrap items-baseline gap-x-2 text-sm">
-					<span class="font-medium">{shareOpLabel(operation.op)}</span>
-					<span class="text-muted-foreground">{operation.username}</span>
-					{#if result}
-						<span
-							class={operation.result === 'failed' ? 'text-destructive' : 'text-muted-foreground'}
-							>{result}</span
-						>
-					{/if}
-				</span>
-				<span class="text-xs wrap-anywhere"
-					>{places.to === undefined ? places.from : `${places.from} → ${places.to}`}
-				</span>
-				<span class="text-xs text-muted-foreground">
-					{[
-						formatDateTime(operation.at),
-						operation.itemCount == null
-							? ''
-							: m.admin_operations_items({ count: operation.itemCount }),
-						operation.byteCount == null ? '' : formatByteSize(operation.byteCount)
-					]
-						.filter((part) => part !== '')
-						.join(' · ')}
-				</span>
-			</li>
-		{/each}
-	</ul>
-	{#if nextBefore !== null}
-		<div class="px-4 py-4 md:px-6">
-			<LoadingButton type="button" variant="outline" loading={loadingMore} onclick={loadMore}>
-				{m.admin_operations_more()}
-			</LoadingButton>
-		</div>
+	{#if items.length === 0}
+		<p class={adminEmptyTextClass}>{m.admin_operations_empty()}</p>
+	{:else}
+		<ul class={[adminListBandClass, listClass]}>
+			{#each items as operation (operation.id)}
+				{@const places = shareOpPlaces(operation)}
+				{@const result = shareOpResultLabel(operation)}
+				<li class={[listItemClass, adminListRowGutterClass, 'flex flex-col gap-0.5 py-3']}>
+					<span class="flex flex-wrap items-baseline gap-x-2 text-sm">
+						<span class="font-medium">{shareOpLabel(operation.op)}</span>
+						<span class="text-muted-foreground">{operation.username}</span>
+						{#if result}
+							<span
+								class={operation.result === 'failed' ? 'text-destructive' : 'text-muted-foreground'}
+								>{result}</span
+							>
+						{/if}
+					</span>
+					<span class="text-xs wrap-anywhere"
+						>{places.to === undefined ? places.from : `${places.from} → ${places.to}`}
+					</span>
+					<span class="text-xs text-muted-foreground">
+						{[
+							formatDateTime(operation.at),
+							operation.itemCount == null
+								? ''
+								: m.admin_operations_items({ count: operation.itemCount }),
+							operation.byteCount == null ? '' : formatByteSize(operation.byteCount)
+						]
+							.filter((part) => part !== '')
+							.join(' · ')}
+					</span>
+				</li>
+			{/each}
+		</ul>
+		{#if nextBefore !== null}
+			<div class="pt-4">
+				<LoadingButton type="button" variant="outline" loading={loadingMore} onclick={loadMore}>
+					{m.admin_operations_more()}
+				</LoadingButton>
+			</div>
+		{/if}
 	{/if}
-{/if}
+</div>
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

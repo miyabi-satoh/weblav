@@ -23,7 +23,6 @@ import {
 	PASSWORD_HASH_TIMEOUT,
 	PASSWORD_LABEL,
 	REGISTER_BUTTON_NAME,
-	RENAME_MENU_ITEM_NAME,
 	RESET_PASSWORD_MENU_ITEM_NAME,
 	ROW_ACTIONS_BUTTON_NAME,
 	SAVE_BUTTON_NAME,
@@ -677,19 +676,20 @@ const admin: Story = {
 			}
 		},
 		{
-			caption: '行のメニューから「名前を変更...」を押す',
+			caption: '行を押して共有の編集ページを開く',
 			roles: ADMIN_ONLY,
 			async run(page) {
-				await clickRowMenuItem(page, page.getByRole('listitem').first(), RENAME_MENU_ITEM_NAME);
-				await waitForDialog(page);
+				await page.getByTestId('root-name').first().click();
+				await page.waitForURL(/\/admin\/roots\/\d+$/);
+				await waitForPageReady(page);
 			}
 		},
 		{
-			caption: 'キャンセルし、行のメニューから「削除...」を押す (中のコンテンツの件数が出る)',
+			caption: '見出しの⋮から「削除...」を押す (中のコンテンツの件数が出る)',
 			roles: ADMIN_ONLY,
 			async run(page) {
-				await cancelDialog(page);
-				await clickRowMenuItem(page, page.getByRole('listitem').first(), DELETE_MENU_ITEM_NAME);
+				await page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).first().click();
+				await page.getByRole('menuitem', { name: DELETE_MENU_ITEM_NAME }).click();
 				await waitForDialog(page, { role: 'alertdialog', awaitAutofocus: false });
 			}
 		},

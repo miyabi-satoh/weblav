@@ -5,6 +5,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { send, withUserByApi } from './api-helpers';
 import { createLinkContent, openCreateForm, removeContentIfPresent } from './content-helpers';
 import {
+	ADD_SUBMIT_BUTTON_NAME,
 	basicSaveButton,
 	clickRowMenuItem,
 	CLOSE_BUTTON_NAME,
@@ -88,7 +89,7 @@ test.describe('ユーザー', () => {
 			await page.getByLabel(USERNAME_LABEL).fill(username);
 			await page.getByLabel(PASSWORD_LABEL).fill('E2eSmoke!2026Test');
 			await page.getByLabel(PASSWORD_CONFIRM_LABEL).fill('E2eSmoke!2026Other');
-			await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
+			await page.getByRole('button', { name: ADD_SUBMIT_BUTTON_NAME }).click();
 
 			const dialog = page.getByRole('dialog');
 			await expect(dialog.getByText(PASSWORD_MISMATCH_TEXT)).toBeVisible();
@@ -114,7 +115,7 @@ test.describe('ユーザー', () => {
 			await page.getByLabel(USERNAME_LABEL).fill(username);
 			await page.getByLabel(PASSWORD_LABEL).fill('E2eSmoke!2026Test');
 			await page.getByLabel(PASSWORD_CONFIRM_LABEL).fill('E2eSmoke!2026Test');
-			await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
+			await page.getByRole('button', { name: ADD_SUBMIT_BUTTON_NAME }).click();
 
 			// 名前が重複していても、ハッシュ化を済ませてから失敗する (src/auth.rs の create_user)。
 			await expectErrorDialog(

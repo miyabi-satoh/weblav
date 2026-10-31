@@ -90,10 +90,9 @@
 	"admin_users_nav_title": "Users",
 	"admin_settings_nav_title": "Site settings",
 	"admin_roots_nav_title": "Shares",
-	"admin_roots_title": "Shares",
-	"admin_roots_add_local_only": "To add a folder, open the admin pages from “Open in browser” in the WebLAV icon menu on the computer running WebLAV.",
-	"admin_roots_empty": "Nothing registered yet.",
-	"admin_roots_add": "Add a folder...",
+	"admin_roots_add_local_only": "To add a share, open the admin pages from “Open in browser” in the WebLAV icon menu on the computer running WebLAV.",
+	"admin_roots_empty": "No shares yet.",
+	"admin_roots_add": "Add share...",
 	"admin_roots_content_count": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],
@@ -106,26 +105,44 @@
 	],
 	"admin_roots_status_missing": "Folder not found",
 	"admin_roots_status_unreachable": "Not connected",
-	"admin_roots_unreachable_warning": "Some folders are not connected.",
+	"admin_roots_unreachable_warning": "Some shares are not connected.",
 	"admin_roots_fetch_failed": "Failed to load the shares. Please try again later.",
-	"admin_roots_delete_confirm_title": "Remove this folder?",
+	"admin_roots_delete_confirm_title": "Remove this share?",
 	"admin_roots_delete_confirm_description": "“{name}” will no longer be available for content.",
 	"admin_roots_delete_confirm_contents_note": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],
 			"selectors": ["countPlural"],
 			"match": {
-				"countPlural=one": "{count} content item inside it will stop being viewable. Registering the folder again brings it back.",
-				"countPlural=other": "{count} content items inside it will stop being viewable. Registering the folder again brings them back."
+				"countPlural=one": "{count} content item inside it will stop being viewable. Adding the same folder as a share again brings it back.",
+				"countPlural=other": "{count} content items inside it will stop being viewable. Adding the same folder as a share again brings them back."
 			}
 		}
 	],
-	"admin_roots_delete_confirm_local_note": "You can register it again only from the admin pages opened on the computer running WebLAV.",
+	"admin_roots_delete_confirm_local_note": "You can add it again only from the admin pages opened on the computer running WebLAV.",
 	"admin_roots_picker_already_open": "A window for choosing a folder is already open. Check whether it is hidden behind other windows.",
-	"admin_roots_name_dialog_path_label": "Location",
+	"admin_roots_edit_location_title": "Location",
+	"admin_roots_edit_location_description": "If you moved the folder somewhere else, choose its new location. Contents inside will then open the same folders in the new location.",
+	"admin_roots_edit_repick_button": "Choose folder again...",
+	"admin_roots_edit_location_local_only": "To choose the location again, open the admin pages from “Open in browser” in the WebLAV icon menu on the computer running WebLAV.",
+	"admin_roots_edit_not_writable_note": "To grant write access again, choose the same folder with “Choose folder again...”.",
+	"admin_roots_edit_move_confirm_title": "Change the location of this share?",
+	"admin_roots_edit_move_confirm_description": "The location of “{name}” changes to the following folder.",
+	"admin_roots_edit_move_confirm_contents_note": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} content item inside will open the same folder in the new location.",
+				"countPlural=other": "{count} content items inside will open the same folders in the new location."
+			}
+		}
+	],
+	"admin_roots_edit_move_confirm_button": "Change",
+	"admin_roots_edit_path_unchanged_toast": "The same folder was chosen, so the location has not changed.",
 	"admin_roots_name_label": "Name",
-	"admin_roots_rename_menu": "Rename...",
-	"admin_roots_rename_dialog_title": "Rename",
+	"admin_roots_edit_name_description": "Shown instead of the folder location on the pages for registering content.",
+	"admin_roots_edit_access_title": "Permissions",
 	"admin_roots_editor_access": "Users: {access}",
 	"admin_roots_exceptions": [
 		{
@@ -137,8 +154,6 @@
 			}
 		}
 	],
-	"admin_roots_access_menu": "Permissions...",
-	"admin_roots_access_dialog_title": "Permissions for “{name}”",
 	"admin_roots_access_default_label": "Default for users",
 	"admin_roots_access_users_label": "Per-user exceptions",
 	"admin_roots_access_user_select": "Permission for {username}: {access}",
@@ -147,15 +162,13 @@
 	"admin_roots_access_admin_note": "Administrators can do everything in every share.",
 	"admin_roots_not_writable": "No write permission",
 	"admin_roots_not_writable_warning": "Some shares have no write permission.",
-	"admin_roots_repick_menu": "Grant write access again...",
 	"shares_access_level_none": "No access",
 	"shares_access_level_read": "Read only",
 	"shares_access_level_add": "Add only",
 	"shares_access_level_all": "Full access",
 	"admin_operations_nav_title": "Activity",
-	"admin_operations_title": "Activity",
 	"admin_operations_fetch_failed": "Couldn't load the activity. Please try again later.",
-	"admin_operations_empty": "Nothing has been recorded yet.",
+	"admin_operations_empty": "No activity recorded yet.",
 	"admin_operations_more": "Load more",
 	"admin_operations_op_upload": "Upload",
 	"admin_operations_op_mkdir": "New folder",
@@ -177,7 +190,6 @@
 			}
 		}
 	],
-	"admin_settings_title": "Site settings",
 	"admin_settings_saved_toast": "Site name and heading saved.",
 	"admin_settings_home_section_heading": "Home page",
 	"admin_settings_site_name_label": "Site name",
@@ -231,7 +243,6 @@
 	"backup_restored_toast": "Restored from the backup. Please log in again.",
 	"backup_restore_expired": "The uploaded backup has expired. Please choose the file again.",
 	"site_settings_fetch_failed": "Failed to load site settings. Please try again later.",
-	"admin_users_title": "User management",
 	"admin_users_add_button": "Add user...",
 	"admin_users_fetch_failed": "Failed to load the user list. Please try again later.",
 	"admin_users_table_username": "Username",
@@ -250,12 +261,12 @@
 	"admin_users_reset_password_dialog_description": "Reset the password for “{username}”. Their recovery code, if any, also stops working.",
 	"admin_users_reset_password_done_toast": "Password for “{username}” has been reset.",
 	"admin_users_rename_button": "Change username...",
-	"admin_users_rename_dialog_title": "Change username",
+	"admin_users_rename_dialog_title": "Change username of “{username}”",
+	"admin_users_rename_submit_button": "Change",
 	"admin_users_delete_confirm_title": "Delete this user?",
 	"admin_users_delete_confirm_description": "This will delete “{username}”. This action cannot be undone.",
 	"admin_users_delete_confirm_private_note": "Contents set to “Creator only” by this user ({count}) will be kept as “Hidden”.",
-	"admin_contents_title": "Manage contents",
-	"admin_contents_add_button": "Add...",
+	"admin_contents_add_button": "Add content...",
 	"admin_contents_empty": "No contents yet.",
 	"contents_table_type": "Type",
 	"contents_table_title": "Title",
@@ -284,7 +295,6 @@
 	"error_detail_root_name_taken": "A share named “{name}” already exists. Choose a different name.",
 	"error_detail_root_already_registered": "This folder is already registered as “{name}”.",
 	"error_detail_root_inside_own_dirs": "The folder where WebLAV keeps its settings and data can't be a share.",
-	"error_detail_repicked_other_folder": "The folder you chose is not the folder of “{name}”. Choose the same folder.",
 	"error_detail_entry_name_invalid": "This name can't be used. It contains characters that aren't allowed, starts with “.”, or is too long.",
 	"error_detail_entry_name_taken": "An item named “{name}” already exists. Choose a different name.",
 	"error_detail_transfer_into_itself": "A folder can't be moved or copied into itself or one of its subfolders.",
@@ -302,10 +312,10 @@
 	"contents_reparent_loosened_description": "Moving “{title}” into “{group}” changes the effective visibility from “{before}” to “{after}”.",
 	"contents_reparent_to_root_loosened_description": "Moving “{title}” to the root changes the effective visibility from “{before}” to “{after}”.",
 	"contents_reparent_root_zone": "Drop here to move to the root",
-	"contents_edit_discard_title": "Discard changes?",
-	"contents_edit_discard_description": "You have unsaved changes. They will be lost if you leave this page.",
-	"contents_edit_discard_confirm": "Discard and leave",
-	"contents_edit_saved_toast": "“{section}” saved.",
+	"common_leave_discard_title": "Discard changes?",
+	"common_leave_discard_description": "You have unsaved changes. They will be lost if you leave this page.",
+	"action_discard_and_leave": "Discard and leave",
+	"common_section_saved_toast": "“{section}” saved.",
 	"contents_edit_saved_scanned_toast": [
 		{
 			"declarations": ["input section", "input total", "local totalPlural = total: plural"],
@@ -323,7 +333,7 @@
 	"archive_scan_reading_progress": "Reading files... {done} / {total} ({elapsed} elapsed)",
 	"archive_scan_cancel_button": "Stop",
 	"archive_scan_failed_title": "Couldn't scan the files",
-	"contents_menu_edit": "Edit",
+	"action_edit_page": "Edit",
 	"contents_menu_open": "Open",
 	"contents_menu_view": "View on site",
 	"contents_edit_view_only": "This content belongs to {creator}, so you can only view it. Ask an administrator to change it.",

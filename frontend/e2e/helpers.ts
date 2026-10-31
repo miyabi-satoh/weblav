@@ -175,14 +175,17 @@ export const REGISTER_BUTTON_NAME = /^登録する$|^Register$/;
 export const CONFIRM_SAVE_NAME = /^この設定で保存しますか？$|^Save with these settings\?$/;
 
 /** 管理画面の一覧の上にある追加ボタン。表示言語 (ja/en) のどちらでも見つかるようにする。 */
-export const CONTENT_ADD_BUTTON_NAME = /^追加\.\.\.$|^Add\.\.\.$/;
+export const CONTENT_ADD_BUTTON_NAME = /^コンテンツを追加\.\.\.$|^Add content\.\.\.$/;
 export const USER_ADD_BUTTON_NAME = /^ユーザーを追加\.\.\.$|^Add user\.\.\.$/;
-/** 共有の行の⋮メニューにある「名前を変更」。 */
-export const RENAME_MENU_ITEM_NAME = /^名前を変更\.\.\.$|^Rename\.\.\.$/;
-export const ROOT_ADD_BUTTON_NAME = /^フォルダーを追加\.\.\.$|^Add a folder\.\.\.$/;
+/** 追加のダイアログの確定ボタン (ユーザーの追加)。 */
+export const ADD_SUBMIT_BUTTON_NAME = /^追加する$|^Add$/;
+export const ROOT_ADD_BUTTON_NAME = /^共有を追加\.\.\.$|^Add share\.\.\.$/;
 /** 窓が閉じるのを待つ間の追加ボタン。名前の頭にスピナーの「読み込み中」が付く。 */
 export const ROOT_ADD_BUTTON_LOADING_NAME =
-	/^読み込み中 フォルダーを追加\.\.\.$|^Loading Add a folder\.\.\.$/;
+	/^読み込み中 共有を追加\.\.\.$|^Loading Add share\.\.\.$/;
+/** 保存していない変更があるまま離れようとしたときの確認と、その確定ボタン。 */
+export const LEAVE_CONFIRM_NAME = /^変更を破棄しますか？$|^Discard changes\?$/;
+export const DISCARD_AND_LEAVE_BUTTON_NAME = /^破棄して移動する$|^Discard and leave$/;
 
 /** コンテンツの作成ダイアログで選ぶ種別のボタン。名前には説明が続くので前方一致で探す。 */
 export const CONTENT_TYPE_NAME = {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accessExceptions } from './root-access-dialog.svelte';
+import { accessExceptions } from './root-access';
 
 describe('accessExceptions', () => {
 	it('sends only users with a chosen exception', () => {

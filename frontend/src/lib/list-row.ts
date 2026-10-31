@@ -10,8 +10,8 @@ import { browseLayout } from '$lib/browse-layout.svelte';
  * 行の中身は `list-row-icon.svelte` / `list-row-new-tab.svelte`。タイトルのリンク (`<a>` / `<button>`) は
  * 各画面に置く。`resolve()` や `rel="external"` を eslint (svelte/no-navigation-without-resolve) が
  * 静的に見られるようにするため。
- * 管理画面「共有」(`admin/roots`) は `listClass`/`listItemClass` (枠) だけを使い、
- * 行本体はクリック不可・ホバーなしの一覧なので別に持つ。
+ * 管理画面の共有 (`admin/roots`) と操作の記録は `listClass`/`listItemClass` (枠) だけを使い、行の中身は各画面に持つ。
+ * 共有の行は、コンテンツ管理の表と同じく名前のリンクの押せる範囲を行いっぱいに広げる (閲覧側の行より低く、文字も小さい)。
  */
 export const listClass = 'border-y bg-background';
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		adminEmptyTextClass,
 		adminPageClass,
 		adminPageHeaderClass,
 		pageHeadingTextClass,
@@ -291,16 +292,16 @@
 	</span>
 {/snippet}
 
-<svelte:head><title>{pageTitle(m.admin_contents_title())}</title></svelte:head>
+<svelte:head><title>{pageTitle(m.admin_contents_nav_title())}</title></svelte:head>
 
 <div class={adminPageClass}>
 	<div class={adminPageHeaderClass}>
-		<h1 class={pageHeadingTextClass}>{m.admin_contents_title()}</h1>
+		<h1 class={pageHeadingTextClass}>{m.admin_contents_nav_title()}</h1>
 		<Button onclick={() => openCreateDialog()}>{m.admin_contents_add_button()}</Button>
 	</div>
 
 	{#if contents.length === 0}
-		<p class="text-sm text-muted-foreground">{m.admin_contents_empty()}</p>
+		<p class={adminEmptyTextClass}>{m.admin_contents_empty()}</p>
 	{:else}
 		<!-- 列は6つと操作の1つ。狭い幅では優先度の低い列から隠し、横スクロールさせない
 		     (→ docs/ui.md「UI 全般」)。 -->
@@ -459,7 +460,7 @@
 										{#snippet child({ props })}
 											<a
 												href={resolve('/admin/contents/[id]', { id: String(content.id) })}
-												{...props}>{editable ? m.contents_menu_edit() : m.contents_menu_open()}</a
+												{...props}>{editable ? m.action_edit_page() : m.contents_menu_open()}</a
 											>
 										{/snippet}
 									</DropdownMenu.Item>

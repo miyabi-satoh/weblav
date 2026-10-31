@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { leaveConfirmBypassed } from '$lib/leave-confirm';
+	import { LeaveGuard } from '$lib/leave-guard.svelte';
 	import { adminPageClass, sectionCardClass, sectionGridClass } from '$lib/page-layout';
 	import { masonry } from '$lib/masonry';
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { beforeNavigate, goto, refreshAll } from '$app/navigation';
+	import { refreshAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { isAdmin } from '$lib/auth';
 	import { client } from '$lib/api/client';
@@ -41,6 +41,7 @@
 	import DirPicker from '$lib/components/dir-picker.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
+	import LeaveConfirmDialog from '$lib/components/leave-confirm-dialog.svelte';
 	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
 
@@ -278,7 +279,7 @@
 					);
 				}
 			} else {
-				toast.success(m.contents_edit_saved_toast({ section }));
+				toast.success(m.common_section_saved_toast({ section }));
 			}
 			// 見出しのタイトルと、公開範囲の判定に使う一覧を取り直す。
 			await refreshAll();
@@ -293,50 +294,20 @@
 	}
 
 	// 保存していない変更を、別の画面へ移って失わないようにする。
-	let pendingNavigation = $state<URL | null>(null);
-
-	// 保存中に移ろうとした行き先。保存が終わってから、結果に応じて移るか確認を出す。
-	let navigationAfterSave: URL | null = null;
-
-	beforeNavigate((navigation) => {
-		// 保存は、成功して変更が無くなった後の取り直しまで含めて待つ。
-		if (!dirty && !saving) return;
-		if (leaveConfirmBypassed()) return;
-		// タブを閉じる・再読み込みは、ブラウザー標準の確認に任せる。
-		if (navigation.type === 'leave') {
-			navigation.cancel();
-			return;
-		}
-		if (!navigation.to) return;
-		navigation.cancel();
-		if (saving) {
-			navigationAfterSave = navigation.to.url;
-			return;
-		}
-		pendingNavigation = navigation.to.url;
-	});
+	const leaveGuard = new LeaveGuard(
+		() => dirty,
+		() => saving
+	);
 
 	async function resumeNavigationAfterSave() {
-		const target = navigationAfterSave;
-		navigationAfterSave = null;
 		// 保存に失敗して変更が残っていれば移らない。エラーダイアログに確認を重ねないため。
 		// 保存はできてもスキャンだけが失敗したときも、再スキャンの案内を読ませるために留まる。
-		if (target === null || dirty || errorDialog.open) return;
-		// 行き先は SvelteKit のナビゲーションが解決済みの URL。
-		// eslint-disable-next-line svelte/no-navigation-without-resolve
-		await goto(target);
+		await leaveGuard.resumeAfterSave(() => dirty || errorDialog.open);
 	}
 
-	async function discardAndLeave() {
-		const target = pendingNavigation;
-		pendingNavigation = null;
-		if (target === null) return;
-		// 変更を捨てたので、移動をもう一度止めないようにする。
+	function discardChanges() {
 		form.markPristine();
 		creatorDirty.markPristine();
-		// 行き先は SvelteKit のナビゲーションが解決済みの URL。
-		// eslint-disable-next-line svelte/no-navigation-without-resolve
-		await goto(target);
 	}
 </script>
 
@@ -461,26 +432,6 @@
 	</AlertDialog.Content>
 </AlertDialog.Root>
 
-<AlertDialog.Root
-	bind:open={
-		() => pendingNavigation !== null,
-		(open) => {
-			if (!open) pendingNavigation = null;
-		}
-	}
->
-	<AlertDialog.Content>
-		<AlertDialog.Header>
-			<AlertDialog.Title>{m.contents_edit_discard_title()}</AlertDialog.Title>
-			<AlertDialog.Description>{m.contents_edit_discard_description()}</AlertDialog.Description>
-		</AlertDialog.Header>
-		<AlertDialog.Footer>
-			<AlertDialog.Cancel>{m.action_cancel()}</AlertDialog.Cancel>
-			<AlertDialog.Action variant="destructive" onclick={discardAndLeave}
-				>{m.contents_edit_discard_confirm()}</AlertDialog.Action
-			>
-		</AlertDialog.Footer>
-	</AlertDialog.Content>
-</AlertDialog.Root>
+<LeaveConfirmDialog guard={leaveGuard} ondiscard={discardChanges} />
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { client } from '$lib/api/client';
 	import { adminBackupHref, adminLogsHref } from '$lib/api/urls';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
+	import { gotoWithoutLeaveConfirm } from '$lib/leave-confirm';
+	import { LeaveGuard } from '$lib/leave-guard.svelte';
 	import { pageTitle } from '$lib/page-title';
 	import * as m from '$lib/paraglide/messages.js';
 	import * as Field from '$lib/components/ui/field';
@@ -19,6 +20,7 @@
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import IntegerInput from '$lib/components/integer-input.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
+	import LeaveConfirmDialog from '$lib/components/leave-confirm-dialog.svelte';
 	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
 	import {
@@ -46,6 +48,8 @@
 	// 保存後は応答の値で入れ直すので、読み込みは初回だけでよい。
 	let siteName = $state(untrack(() => data.settings.siteName));
 	let homeHeading = $state(untrack(() => data.settings.homeHeading));
+	const siteDirty = new FormDirtyState(() => ({ siteName, homeHeading }));
+	siteDirty.markPristine();
 
 	// 取れなかったとき (null) は、区画に理由だけを出して入力欄を出さない。下の 0 は使われない。
 	let server = $state(untrack(() => data.serverSettings));
@@ -97,6 +101,9 @@
 
 	const errorDialog = new ErrorDialogState();
 
+	// 保存していない変更を、別の画面へ移って失わないようにする (コンテンツの編集ページと同じ)。
+	const leaveGuard = new LeaveGuard(() => siteDirty.dirty || serverDirty.dirty);
+
 	async function handleSiteSubmit(e: SubmitEvent) {
 		e.preventDefault();
 		if (savingSite) return;
@@ -117,6 +124,7 @@
 			// サーバーが前後の空白を落とすので、保存された値で入れ直す。
 			siteName = saved.siteName;
 			homeHeading = saved.homeHeading;
+			siteDirty.markPristine();
 			toast.success(m.admin_settings_saved_toast());
 		} catch {
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
@@ -201,11 +209,12 @@
 	// 戻すと全員のセッションが消える。自分のも消えているので、ログインし直してもらう。
 	async function handleRestored() {
 		toast.success(m.backup_restored_toast());
-		await goto(resolve('/login'));
+		// 戻した後は書きかけの値に意味が無いので、離れるときの確認を出さない。
+		await gotoWithoutLeaveConfirm(resolve('/login'));
 	}
 </script>
 
-<svelte:head><title>{pageTitle(m.admin_settings_title())}</title></svelte:head>
+<svelte:head><title>{pageTitle(m.admin_settings_nav_title())}</title></svelte:head>
 
 <!-- 保存した値が動いている値と違う (次の起動から効く、またはポートをずらして起動した) ときに添える。 -->
 {#snippet runningValue(saved: number | string, running: number | string)}
@@ -232,7 +241,7 @@
 
 <div class={adminPageClass}>
 	<div class={adminPageHeaderClass}>
-		<h1 class={pageHeadingTextClass}>{m.admin_settings_title()}</h1>
+		<h1 class={pageHeadingTextClass}>{m.admin_settings_nav_title()}</h1>
 	</div>
 
 	<!-- 区画はカードにし、広い幅では石垣に並べる (→ docs/ui.md「UI 全般」の「サイト設定の区画」)。
@@ -443,5 +452,13 @@
 		{/if}
 	</div>
 </div>
+
+<LeaveConfirmDialog
+	guard={leaveGuard}
+	ondiscard={() => {
+		siteDirty.markPristine();
+		serverDirty.markPristine();
+	}}
+/>
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />
