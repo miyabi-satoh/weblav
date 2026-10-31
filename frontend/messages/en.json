@@ -222,7 +222,7 @@
 	"admin_settings_about_contact": "Contact",
 	"backup_heading": "Backup",
 	"backup_download": "Download a backup",
-	"backup_download_description": "Packs contents, users, uploaded files, and site settings into one zip file. Files on this computer that are added as folders are not included.",
+	"backup_download_description": "Packs contents, users, and site settings into one zip file. Files in shares are not included, even ones you uploaded.",
 	"backup_restore": "Restore from a backup...",
 	"backup_restore_confirm_title": "Restore from this backup?",
 	"backup_restore_confirm_description": "This backup was made on {createdAt} with WebLAV {appVersion}. All current data will be replaced with it. This cannot be undone.",

@@ -177,7 +177,7 @@
 	"admin_settings_about_contact": "お問い合わせ",
 	"backup_heading": "バックアップ",
 	"backup_download": "バックアップをダウンロード",
-	"backup_download_description": "コンテンツ、ユーザー、アップロードしたファイル、サイト設定を 1 つの zip ファイルにまとめます。フォルダーとして追加したこのコンピューター上のファイルは含まれません。",
+	"backup_download_description": "コンテンツ、ユーザー、サイト設定を 1 つの zip ファイルにまとめます。共有の中のファイルは、アップロードしたものも含めて入りません。",
 	"backup_restore": "バックアップから復元...",
 	"backup_restore_confirm_title": "このバックアップから復元しますか？",
 	"backup_restore_confirm_description": "このバックアップは {createdAt} に WebLAV {appVersion} で作成されました。現在のデータはすべてこのバックアップの内容に置き換えられます。この操作は元に戻せません。",
