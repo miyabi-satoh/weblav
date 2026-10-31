@@ -50,7 +50,7 @@ const ROLES: Record<
 	{ label: string; color: string; account: { username: string; password: string } | null }
 > = {
 	anonymous: { label: '閲覧者 (ログインなし)', color: '#6b7280', account: null },
-	user: { label: '編集者', color: '#2563eb', account: TEST_USER },
+	user: { label: '一般ユーザー', color: '#2563eb', account: TEST_USER },
 	admin: { label: '管理者', color: '#b45309', account: TEST_ADMIN }
 };
 

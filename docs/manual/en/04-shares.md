@@ -44,7 +44,7 @@ Do not add a broad location such as `C:\` or your entire user folder. All files 
 ## Set permissions
 
 Administrators can do everything in every share.
-What users who are not administrators (people whose role is “Editor”; the share screens call them “Users”) can do in a share is set for each share.
+What standard users can do in a share is set for each share.
 
 | Permission | What they can do |
 |---|---|
@@ -58,7 +58,7 @@ What users who are not administrators (people whose role is “Editor”; the sh
 3. If some people need a different permission from the default, choose their permission under “Per-user exceptions”.
 4. Select “Save” in the “Permissions” section.
 
-Each row in the list shows the default for users (such as “Users: Read only”) and the number of exceptions.
+Each row in the list shows the default for standard users (such as “Standard users: Read only”) and the number of exceptions.
 
 A share set to “No access” does not appear for that person when they choose a folder to register content, either.
 

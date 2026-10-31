@@ -192,7 +192,7 @@
 	"admin_users_table_role": "権限",
 	"admin_users_table_created_at": "作成日",
 	"admin_users_role_admin": "管理者",
-	"admin_users_role_user": "編集者",
+	"admin_users_role_user": "一般ユーザー",
 	"admin_users_last_admin_note": "最後の管理者は降格も削除もできません。",
 	"admin_users_reset_password_button": "パスワードを再設定...",
 	"admin_users_dialog_create_title": "ユーザーを追加",
