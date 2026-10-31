@@ -229,11 +229,8 @@
 			<h2 id="location-section-heading" class="text-base font-semibold">
 				{m.admin_roots_edit_location_title()}
 			</h2>
-			<div class="flex flex-col gap-2">
-				<!-- パスは区切り以外に折り返せる場所が無いので、どこでも折り返す。 -->
-				<p class="text-sm wrap-anywhere" data-testid="root-path">{root.path}</p>
-				<p class="text-sm text-muted-foreground">{m.admin_roots_edit_location_description()}</p>
-			</div>
+			<!-- パスは区切り以外に折り返せる場所が無いので、どこでも折り返す。 -->
+			<p class="text-sm wrap-anywhere" data-testid="root-path">{root.path}</p>
 			{#if canPick}
 				<div class="flex flex-col items-start gap-2">
 					<LoadingButton variant="outline" loading={picking} disabled={moving} onclick={handlePick}
@@ -253,14 +250,13 @@
 			aria-labelledby="name-section-heading"
 			class={sectionCardClass}
 		>
-			<h2 id="name-section-heading" class="text-base font-semibold">
-				{m.admin_roots_name_label()}
+			<!-- 区画の欄は名前だけなので、見出しを欄のラベルにして同じ語を2度出さない。 -->
+			<h2 id="name-section-heading">
+				<Field.FieldLabel for="root-name" required class="text-base font-semibold"
+					>{m.admin_roots_name_label()}</Field.FieldLabel
+				>
 			</h2>
-			<Field.Field>
-				<Field.FieldLabel for="root-name" required>{m.admin_roots_name_label()}</Field.FieldLabel>
-				<Input id="root-name" autocomplete="off" bind:value={name} required />
-				<Field.FieldDescription>{m.admin_roots_edit_name_description()}</Field.FieldDescription>
-			</Field.Field>
+			<Input id="root-name" autocomplete="off" bind:value={name} required />
 			<div>
 				<LoadingButton
 					type="submit"
@@ -300,7 +296,6 @@
 						</Select.Content>
 					</Select.Root>
 				</div>
-				<Field.FieldDescription>{m.admin_roots_access_admin_note()}</Field.FieldDescription>
 			</Field.Field>
 			<div class="flex flex-col gap-2">
 				<p class="text-sm font-medium">{m.admin_roots_access_users_label()}</p>

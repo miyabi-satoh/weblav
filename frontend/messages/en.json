@@ -122,7 +122,6 @@
 	"admin_roots_delete_confirm_local_note": "You can add it again only from the admin pages opened on the computer running WebLAV.",
 	"admin_roots_picker_already_open": "A window for choosing a folder is already open. Check whether it is hidden behind other windows.",
 	"admin_roots_edit_location_title": "Location",
-	"admin_roots_edit_location_description": "If you moved the folder somewhere else, choose its new location. Contents inside will then open the same folders in the new location.",
 	"admin_roots_edit_repick_button": "Choose folder again...",
 	"admin_roots_edit_location_local_only": "To choose the location again, open the admin pages from “Open in browser” in the WebLAV icon menu on the computer running WebLAV.",
 	"admin_roots_edit_not_writable_note": "To grant write access again, choose the same folder with “Choose folder again...”.",
@@ -139,9 +138,8 @@
 		}
 	],
 	"admin_roots_edit_move_confirm_button": "Change",
-	"admin_roots_edit_path_unchanged_toast": "The same folder was chosen, so the location has not changed.",
+	"admin_roots_edit_path_unchanged_toast": "The location has not changed.",
 	"admin_roots_name_label": "Name",
-	"admin_roots_edit_name_description": "Shown instead of the folder location on the pages for registering content.",
 	"admin_roots_edit_access_title": "Permissions",
 	"admin_roots_editor_access": "Users: {access}",
 	"admin_roots_exceptions": [
@@ -159,7 +157,6 @@
 	"admin_roots_access_user_select": "Permission for {username}: {access}",
 	"admin_roots_access_user_default": "Use default",
 	"admin_roots_access_no_users": "There are no users other than administrators.",
-	"admin_roots_access_admin_note": "Administrators can do everything in every share.",
 	"admin_roots_not_writable": "No write permission",
 	"admin_roots_not_writable_warning": "Some shares have no write permission.",
 	"shares_access_level_none": "No access",
