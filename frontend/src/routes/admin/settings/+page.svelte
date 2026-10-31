@@ -57,7 +57,18 @@
 	let sessionExpiryDays = $state(untrack(() => server?.saved.sessionExpiryDays ?? 0));
 
 	// 既定の値に戻しただけでは保存されないので、保存していない変更があることを保存ボタンの横に出す。
-	const serverDirty = new FormDirtyState(() => ({ port, uploadCap, sessionExpiryDays }));
+	// 欄を空にしただけでは値が変わらないので、欄の文字が値と違うことも変更に数える。
+	let portInput = $state<IntegerInput>();
+	let uploadInput = $state<IntegerInput>();
+	let sessionInput = $state<IntegerInput>();
+	const serverDirty = new FormDirtyState(() => ({
+		port,
+		uploadCap,
+		sessionExpiryDays,
+		portUnsettled: portInput?.isUnsettled() ?? false,
+		uploadUnsettled: uploadInput?.isUnsettled() ?? false,
+		sessionUnsettled: sessionInput?.isUnsettled() ?? false
+	}));
 
 	function uploadCapText(value: number | null | undefined): string {
 		return value == null
@@ -73,8 +84,8 @@
 	serverDirty.markPristine();
 
 	// 戻すボタンは、戻すと消える。フォーカスが行き場を失わないよう、戻した入力欄へ移す。
-	function resetField(inputId: string, apply: () => void) {
-		apply();
+	function resetField(input: IntegerInput | undefined, inputId: string, value: number) {
+		input?.setValue(value);
 		document.getElementById(inputId)?.focus();
 	}
 
@@ -205,15 +216,10 @@
 	{/if}
 {/snippet}
 
-<!-- 既定の値へ戻すボタン。変えてある項目にだけ、入力欄の右に出す。印や既定の値の文を足さず、ボタンが出ていることで変えてあると分かる形にする。
+<!-- 既定の値へ戻すボタン。変えてある項目 (欄を空にしたときも含む) にだけ、入力欄の右に出す。印や既定の値の文を足さず、ボタンが出ていることで変えてあると分かる形にする。
      戻すのは入力欄の値だけで、保存は区画の保存ボタンで行う。 -->
-{#snippet defaultValue(
-	name: string,
-	value: number | null,
-	initial: number | null,
-	reset: () => void
-)}
-	{#if value !== initial}
+{#snippet defaultValue(name: string, changed: boolean, reset: () => void)}
+	{#if changed}
 		<Button
 			type="button"
 			variant="outline"
@@ -281,10 +287,13 @@
 								min={1}
 								max={MAX_PORT}
 								bind:value={port}
+								bind:this={portInput}
 								required
 							/>
-							{@render defaultValue(m.admin_settings_port_label(), port, server.defaults.port, () =>
-								resetField('server-port', () => (port = server?.defaults.port ?? port))
+							{@render defaultValue(
+								m.admin_settings_port_label(),
+								port !== server.defaults.port || (portInput?.isUnsettled() ?? false),
+								() => resetField(portInput, 'server-port', server?.defaults.port ?? port)
 							)}
 						</div>
 						<Field.FieldDescription>{m.admin_settings_port_description()}</Field.FieldDescription>
@@ -302,17 +311,15 @@
 								max={MAX_UPLOAD_MAX_SIZE_MB}
 								unit={m.admin_settings_upload_unit()}
 								bind:value={uploadMaxSizeMb}
+								bind:this={uploadInput}
 								required
 							/>
 							{@render defaultValue(
 								m.admin_settings_upload_label(),
-								uploadCap,
-								server.defaults.uploadMaxSizeMb ?? null,
+								uploadCap !== (server.defaults.uploadMaxSizeMb ?? null) ||
+									(uploadInput?.isUnsettled() ?? false),
 								() =>
-									resetField(
-										'server-upload',
-										() => (uploadMaxSizeMb = server?.defaults.uploadMaxSizeMb ?? 0)
-									)
+									resetField(uploadInput, 'server-upload', server?.defaults.uploadMaxSizeMb ?? 0)
 							)}
 						</div>
 						<Field.FieldDescription>{m.admin_settings_upload_description()}</Field.FieldDescription>
@@ -333,17 +340,18 @@
 								max={MAX_SESSION_EXPIRY_DAYS}
 								unit={m.admin_settings_session_unit({ count: sessionExpiryDays })}
 								bind:value={sessionExpiryDays}
+								bind:this={sessionInput}
 								required
 							/>
 							{@render defaultValue(
 								m.admin_settings_session_label(),
-								sessionExpiryDays,
-								server.defaults.sessionExpiryDays,
+								sessionExpiryDays !== server.defaults.sessionExpiryDays ||
+									(sessionInput?.isUnsettled() ?? false),
 								() =>
 									resetField(
+										sessionInput,
 										'server-session',
-										() =>
-											(sessionExpiryDays = server?.defaults.sessionExpiryDays ?? sessionExpiryDays)
+										server?.defaults.sessionExpiryDays ?? sessionExpiryDays
 									)
 							)}
 						</div>

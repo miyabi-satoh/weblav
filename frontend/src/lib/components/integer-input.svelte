@@ -40,6 +40,18 @@
 	// 空白だけの欄は `required` が空と見なさないので、読めない値と同じく止める。
 	const invalid = $derived(parsed.kind === 'invalid' || (parsed.kind === 'empty' && text !== ''));
 
+	// 欄の文字が値と違う (空・範囲の外・打ちかけ) か。値が変わらないまま欄を空にしたことを、使う側が知るため。
+	export function isUnsettled() {
+		return text !== String(value);
+	}
+
+	// 外から値を入れ、打ちかけの文字を捨てる。今と同じ値を入れても欄を値に戻すため
+	// (値が変わらないと、`draft` は捨てられない)。
+	export function setValue(next: number) {
+		value = next;
+		draft = null;
+	}
+
 	$effect(() => {
 		ref?.setCustomValidity(invalid ? m.integer_input_range_error({ min, max }) : '');
 	});
