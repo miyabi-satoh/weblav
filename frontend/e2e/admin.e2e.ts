@@ -20,7 +20,10 @@ import {
 	ROW_ACTIONS_BUTTON_NAME,
 	VIEW_ON_SITE_LINK_NAME,
 	TITLE_LABEL,
+	clickHeadingMenuItem,
 	clickRowMenuItem,
+	DISCARD_AND_LEAVE_BUTTON_NAME,
+	LEAVE_CONFIRM_NAME,
 	confirmDelete,
 	CONTENT_ADD_BUTTON_NAME,
 	contentRow,
@@ -294,18 +297,79 @@ test('管理画面: ユーザーのパスワードを再設定できる', async 
 	const newPassword = 'E2eSmoke!2026Reset';
 
 	try {
+		// 追加すると編集ページへ移る。再設定は見出しの⋮から開く。
 		await createUser(page, username, 'E2eSmoke!2026Test');
-		const row = userRow(page, username);
-		await clickRowMenuItem(page, row, RESET_PASSWORD_MENU_ITEM_NAME);
+		await clickHeadingMenuItem(page, RESET_PASSWORD_MENU_ITEM_NAME);
 		// ダイアログの描画を待たずに入力すると、入力値が画面の状態に反映されないことがある。
 		await waitForDialog(page);
 		await page.getByLabel(PASSWORD_LABEL).fill(newPassword);
 		await page.getByLabel(PASSWORD_CONFIRM_LABEL).fill(newPassword);
-		await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
+		// 編集ページの区画にも「保存する」があるので、ダイアログの中のものを押す。
+		await page.getByRole('dialog').getByRole('button', { name: SAVE_BUTTON_NAME }).click();
 		// 成功するとダイアログが閉じる(→ handleResetSubmit)。
 		await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: PASSWORD_HASH_TIMEOUT });
 	} finally {
 		await removeUserIfPresent(page, username);
+	}
+});
+
+// ユーザー名と権限は、行を押して開く編集ページの区画ごとに保存する (→ docs/ui.md「UI 全般」の管理画面のユーザー)。
+test('管理画面: ユーザーの編集ページで、ユーザー名と権限を区画ごとに保存できる', async ({
+	page
+}) => {
+	const username = uniqueId('e2e-edit');
+	const renamed = uniqueId('e2e-renamed');
+	const usernameForm = page.getByRole('form', { name: /^ユーザー名$|^Username$/ });
+	const roleForm = page.getByRole('form', { name: /^権限$|^Role$/ });
+
+	try {
+		await createUser(page, username, 'E2eSmoke!2026Test');
+
+		// 変えるまで保存できない。
+		const usernameSave = usernameForm.getByRole('button', { name: SAVE_BUTTON_NAME });
+		await expect(usernameSave).toBeDisabled();
+		await usernameForm.getByRole('textbox').fill(renamed);
+		await saveForm(page, {
+			button: usernameSave,
+			toastText: /「ユーザー名」を保存しました。|“Username” saved\./
+		});
+		await expect(page.getByRole('heading', { level: 1 })).toHaveText(renamed);
+
+		const roleSave = roleForm.getByRole('button', { name: SAVE_BUTTON_NAME });
+		await expect(roleSave).toBeDisabled();
+		await roleForm.getByRole('radio', { name: /^管理者$|^Admin$/ }).check();
+		await saveForm(page, {
+			button: roleSave,
+			toastText: /「権限」を保存しました。|“Role” saved\./
+		});
+
+		// 保存していない変更があるうちは、一覧へ戻ろうとすると確認が出て留まれる。
+		await usernameForm.getByRole('textbox').fill(uniqueId('書きかけ'));
+		const back = page.getByRole('link', { name: /^ユーザー$|^Users$/ }).first();
+		await back.click();
+		const confirm = page.getByRole('alertdialog', { name: LEAVE_CONFIRM_NAME });
+		await confirm.getByRole('button', { name: CANCEL_BUTTON_NAME }).click();
+		await expect(page).toHaveURL(/\/admin\/users\/\d+$/);
+		await back.click();
+		await confirm.getByRole('button', { name: DISCARD_AND_LEAVE_BUTTON_NAME }).click();
+		await page.waitForURL(/\/admin\/users$/);
+
+		// 一覧の権限は見るだけ。行の真ん中を押すと編集ページが開く (リンクの押せる範囲を行いっぱいに広げてある)。
+		const row = userRow(page, renamed);
+		await expect(row).toContainText(/管理者|Admin/);
+		await expect(row.getByRole('combobox')).toHaveCount(0);
+		await row.click();
+		await page.waitForURL(/\/admin\/users\/\d+$/);
+		await expect(page.getByRole('heading', { level: 1 })).toHaveText(renamed);
+
+		// 見出しの⋮から消すと、一覧へ戻る。
+		await clickHeadingMenuItem(page, DELETE_MENU_ITEM_NAME);
+		await confirmDelete(page);
+		await page.waitForURL(/\/admin\/users$/);
+		await expect(userRow(page, renamed)).toHaveCount(0);
+	} finally {
+		await removeUserIfPresent(page, username);
+		await removeUserIfPresent(page, renamed);
 	}
 });
 

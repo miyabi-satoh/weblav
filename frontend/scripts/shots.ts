@@ -311,6 +311,17 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
+	// 管理画面: ユーザーの編集ページ (ユーザー名・権限の区画)。一覧の一般ユーザーの行を押して開く。
+	admin_users_edit: {
+		async run(page, ctx) {
+			await openAsAdmin(page, ctx.baseURL, '/admin/users');
+			await userRow(page, TEST_USER.username).click();
+			await page.waitForURL(/\/admin\/users\/\d+$/);
+			await page.getByRole('heading', { level: 1 }).waitFor();
+			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
+		}
+	},
+
 	// 管理画面: サイト設定。seed.sql が入れた例の値が入っている。下の「サーバー」の区画まで撮る。
 	admin_settings: {
 		async run(page, ctx) {

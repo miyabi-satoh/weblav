@@ -44,6 +44,17 @@ export function canEditContent(
 }
 
 /**
+ * `target` が最後の1人の admin か。降格・削除の操作を押せなくする判定に使う
+ * (→ docs/access.md「admin の最後の1人」)。サーバーも同じ決まりで断る。
+ */
+export function isSoleAdmin(
+	target: Pick<components['schemas']['UserListItem'], 'role'>,
+	users: readonly Pick<components['schemas']['UserListItem'], 'role'>[]
+): boolean {
+	return target.role === 'admin' && users.filter((user) => user.role === 'admin').length === 1;
+}
+
+/**
  * ログイン後の戻り先を組み立てる。`/login?redirect=...` の形で渡す。
  */
 export function loginPathWithRedirect(loginPath: string, target: string): string {

@@ -302,6 +302,15 @@ export function contentRow(page: Page, title: string): Locator {
 	return rowByCell(page, 'content-title', title);
 }
 
+/**
+ * 編集ページの見出しの段の⋮メニューを開き、名前が `name` に一致する項目を押す。
+ * 見出しの段の⋮は、ページで最初の⋮ (一覧の行の⋮と同じ部品)。
+ */
+export async function clickHeadingMenuItem(page: Page, name: RegExp): Promise<void> {
+	await page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).first().click();
+	await page.getByRole('menu').getByRole('menuitem', { name }).click();
+}
+
 /** 行の⋮メニューを開くボタン。名前には行の名前が入る (→ docs/ui.md「UI 全般」)。 */
 export const ROW_ACTIONS_BUTTON_NAME = /の操作$|^Actions for /;
 

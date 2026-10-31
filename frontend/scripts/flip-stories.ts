@@ -8,6 +8,7 @@ import {
 	AUDIO_PLAYER_REGION_NAME,
 	BROWSE_LAYOUT_LIST_NAME,
 	BROWSE_LAYOUT_TILE_NAME,
+	ADD_SUBMIT_BUTTON_NAME,
 	CANCEL_BUTTON_NAME,
 	CHOOSE_PATH_BUTTON_NAME,
 	CLOSE_BUTTON_NAME,
@@ -32,12 +33,13 @@ import {
 	USER_ADD_BUTTON_NAME,
 	VISIBILITY_LABEL,
 	chooseContentType,
-	clickRowMenuItem,
+	clickHeadingMenuItem,
 	confirmDelete,
 	contentRow,
 	fillLogInForm,
 	openAddDialog,
 	requiredLabel,
+	saveForm,
 	userRow,
 	waitForDialog
 } from '../e2e/helpers.ts';
@@ -615,49 +617,59 @@ const admin: Story = {
 			}
 		},
 		{
-			caption: '保存する (一覧に行が増える)',
+			caption: '追加する (そのユーザーの編集ページへ移る)',
 			roles: ADMIN_ONLY,
 			async run(page) {
-				await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
-				await userRow(page, NEW_USERNAME).waitFor({ timeout: PASSWORD_HASH_TIMEOUT });
+				await page.getByRole('button', { name: ADD_SUBMIT_BUTTON_NAME }).click();
+				await page.waitForURL(/\/admin\/users\/\d+$/, { timeout: PASSWORD_HASH_TIMEOUT });
+				await waitForPageReady(page);
 			}
 		},
 		{
-			caption: '行の操作のメニューを開く',
-			roles: ADMIN_ONLY,
-			async run(page) {
-				await page.getByRole('dialog').waitFor({ state: 'hidden' });
-				await userRow(page, NEW_USERNAME)
-					.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME })
-					.click();
-				await page.getByRole('menu').waitFor();
-			}
-		},
-		{
-			caption: '「パスワード再設定...」を押す',
+			caption: '「権限」で「管理者」を選ぶ',
 			roles: ADMIN_ONLY,
 			async run(page) {
 				await page
-					.getByRole('menu')
-					.getByRole('menuitem', { name: RESET_PASSWORD_MENU_ITEM_NAME })
-					.click();
+					.getByRole('form', { name: /^権限$/ })
+					.getByRole('radio', { name: /^管理者$/ })
+					.check();
+			}
+		},
+		{
+			caption: '「権限」を保存する',
+			roles: ADMIN_ONLY,
+			async run(page) {
+				await saveForm(page, {
+					button: page.getByRole('form', { name: /^権限$/ }).getByRole('button', {
+						name: SAVE_BUTTON_NAME
+					}),
+					toastText: /「権限」を保存しました。/
+				});
+			}
+		},
+		{
+			caption: '見出しの⋮から「パスワードを再設定...」を押す',
+			roles: ADMIN_ONLY,
+			async run(page) {
+				await clickHeadingMenuItem(page, RESET_PASSWORD_MENU_ITEM_NAME);
 				await waitForDialog(page);
 			}
 		},
 		{
-			caption: 'キャンセルし、行のメニューから「削除...」を押す',
+			caption: 'キャンセルし、見出しの⋮から「削除...」を押す',
 			roles: ADMIN_ONLY,
 			async run(page) {
 				await cancelDialog(page);
-				await clickRowMenuItem(page, userRow(page, NEW_USERNAME), DELETE_MENU_ITEM_NAME);
+				await clickHeadingMenuItem(page, DELETE_MENU_ITEM_NAME);
 				await waitForDialog(page, { role: 'alertdialog', awaitAutofocus: false });
 			}
 		},
 		{
-			caption: '削除する',
+			caption: '削除する (一覧へ戻る)',
 			roles: ADMIN_ONLY,
 			async run(page) {
 				await confirmDelete(page);
+				await page.waitForURL(/\/admin\/users$/);
 				await userRow(page, NEW_USERNAME).waitFor({ state: 'detached' });
 			}
 		},

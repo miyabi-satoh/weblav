@@ -60,6 +60,7 @@
 		columnFromSmClass,
 		dragHandleClass,
 		fitColumnClass,
+		rowLinkClass,
 		truncatingColumnClass
 	} from '$lib/table-columns';
 
@@ -124,12 +125,6 @@
 	let needsRegisterConfirm = $derived(isDirectoryContentType(form.type) && form.path !== '');
 
 	const errorDialog = new ErrorDialogState();
-
-	// タイトルのリンクの押せる範囲を ::after で行いっぱいに広げる。つまみのある行は、つまみの右を ::after、
-	// 左を ::before で覆い、つまみの下だけを空ける (→ docs/ui.md「UI 全般」)。
-	// リンクは長押しで iOS のドラッグを始めないよう draggable を外し、メニューも出さない。
-	const rowLinkClass =
-		'truncate font-medium outline-none touch-callout-none after:absolute after:inset-y-0 after:right-0 focus-visible:after:ring-3 focus-visible:after:ring-ring/50 focus-visible:after:ring-inset';
 
 	function openCreateDialog(parent: Content | null = null) {
 		form.resetForCreate(parent === null ? 'root' : String(parent.id));
@@ -383,6 +378,9 @@
 											href={resolve('/admin/contents/[id]', { id: String(content.id) })}
 											class={[
 												rowLinkClass,
+												// つまみのある行は、つまみの右を ::after、左を ::before で覆い、つまみの下だけを空ける。
+												// リンクは長押しで iOS のドラッグを始めないよう draggable を外し、メニューも出さない (→ docs/ui.md「UI 全般」)。
+												'touch-callout-none',
 												editable
 													? 'before:absolute before:inset-y-0 before:left-0 before:row-link-before-handle after:row-link-after-handle'
 													: 'after:left-0'
