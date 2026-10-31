@@ -18,7 +18,7 @@ Titles are assigned automatically. To change one, use the edit page that opens a
 
 ## Start
 
-1. On the “Contents” tab in the admin pages, select “Add...”.
+1. On the “Contents” tab in the admin pages, select “Add content...”.
 
    ![The Contents tab and Add button](images/contents-page.webp)
 
@@ -94,7 +94,7 @@ note = "A description shown under the link (optional)"
 | Creator only | Only the person who registered it |
 | Hidden | No one (you can open it from the admin pages) |
 
-1. In the “Contents” list, select “⋮” on the row, then choose “Edit...”.
+1. In the “Contents” list, select the row (you can also choose “Edit” from “⋮” on the row).
 
    ![The content row menu](images/row-menu.webp)
 
@@ -102,7 +102,7 @@ note = "A description shown under the link (optional)"
 
    ![Parent group and Visibility on the edit page](images/edit-visibility.webp)
 
-You can also change it from the list on Home or in a group. On a row of an item you registered (administrators: any item), select “⋮”, choose “Visibility...”, then choose the visibility. “Edit...” opens the edit page.
+You can also change it from the list on Home or in a group. On a row of an item you registered (administrators: any item), select “⋮”, choose “Visibility...”, then choose the visibility. “Edit” opens the edit page.
 
 Items in a group are visible only to people who also meet the group’s visibility setting.
 
@@ -131,14 +131,14 @@ To add a new item:
 
 To move an existing item:
 
-1. Open its edit page with “⋮” → “Edit...”.
+1. Select its row to open the edit page.
 2. Choose “Parent group”, then select “Save”.
 
    ![Parent group and Visibility on the edit page](images/edit-visibility.webp)
 
 ## Change contents
 
-Open the edit page with “⋮” → “Edit...”, make your changes, then select “Save”.
+Select the row to open the edit page, make your changes, then select “Save”.
 
 To see how it looks to viewers, select “View on site” next to the heading of the edit page (it is also in the row’s “⋮” in the list). For an image, PDF, audio, or video file, this opens the group that contains it.
 

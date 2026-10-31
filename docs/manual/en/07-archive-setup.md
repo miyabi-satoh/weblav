@@ -23,7 +23,7 @@ Recordings
 └─ 2025
 ```
 
-1. In “Contents”, select “Folder” from “Add...”, then select “Choose...”.
+1. In “Contents”, select “Folder” from “Add content...”, then select “Choose...”.
 
    ![The Add folder screen](images/add-folder-form.webp)
 

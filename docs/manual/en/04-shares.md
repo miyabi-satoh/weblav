@@ -9,9 +9,9 @@ To show a folder on the viewer's screen (Home), register a folder in a share as 
 
 > **You can add shares only on the computer running WebLAV, when it is open at a `localhost` address.**
 >
-> - The “Add a folder...” button does not appear when you open the admin pages from a phone or another computer.
+> - The “Add share...” button does not appear when you open the admin pages from a phone or another computer.
 > - It also does not appear on the same computer when you use the QR code address, such as `http://my-pc.local:8370`.
-> - You can rename shares, set permissions, and remove shares from the admin pages on any device.
+> - The same applies to choosing the location again. You can rename shares, set permissions, and remove shares from the admin pages on any device.
 
 ## Open it
 
@@ -29,13 +29,15 @@ To show a folder on the viewer's screen (Home), register a folder in a share as 
 
 ## Add one
 
-1. Select “Add a folder...”.
+1. Select “Add share...”.
 
-   ![The Add a folder button](images/roots-page.webp)
+   ![The Add share button](images/roots-page.webp)
 
 2. In the folder selection window that opens, choose the folder you want to make a share (select “Select Folder” on Windows, “Open” on macOS, or “Select” on Ubuntu).
 
-It is added to the list immediately. Its name is the folder name.
+It is added immediately, and the edit page of that share opens. Its name is the folder name. You can go on to set its name and permissions.
+
+Selecting a row in the list opens the edit page of that share at any time.
 
 Do not add a broad location such as `C:\` or your entire user folder. All files inside it could be registered, and depending on permissions, other people could move or delete them.
 
@@ -51,10 +53,10 @@ What users who are not administrators (people whose role is “Editor”; the sh
 | Add only | Read only, plus upload, create new folders, and copy in. They cannot rename, move, delete, or overwrite existing items |
 | Full access | Add only, plus rename, move, delete, and overwrite |
 
-1. Select “⋮” on the share row, then choose “Permissions...”.
-2. Choose “Default for users”.
+1. Select the share row to open its edit page.
+2. In the “Permissions” section, choose “Default for users”.
 3. If some people need a different permission from the default, choose their permission under “Per-user exceptions”.
-4. Select “Save”.
+4. Select “Save” in the “Permissions” section.
 
 Each row in the list shows the default for users (such as “Users: Read only”) and the number of exceptions.
 
@@ -67,7 +69,7 @@ When a share is inside another share, the stronger of the outer and inner permis
 You can also add a shared folder on a NAS or a folder on an external disk, as long as the computer running WebLAV can open it.
 
 1. On the computer running WebLAV, connect to the NAS shared folder first. If you are asked for a password, save it (check “Remember my credentials” on Windows, or “Remember this password in my keychain” on macOS).
-2. Select “Add a folder...”, then choose a folder in the NAS shared folder in the window that opens.
+2. Select “Add share...”, then choose a folder in the NAS shared folder in the window that opens.
 
 If you do not save the password, WebLAV cannot reconnect to the NAS, for example after the computer restarts.
 
@@ -77,27 +79,31 @@ Only let people you trust write to the NAS shared folder. Files they put there a
 
 NAS and network drives have no trash. Items deleted or overwritten in such a share cannot be restored (→ [Work with files in shares](05-files.md)).
 
+## Choose the location again after moving the folder
+
+If you moved the folder of a share to another disk or a NAS, do not delete the share; choose its new location instead. The name and permissions stay, and contents registered inside it open the same folders in the new location.
+
+1. On the computer running WebLAV, select the share row to open its edit page.
+2. In the “Location” section, select “Choose folder again...”.
+3. In the window that opens, choose the folder at its new location.
+4. Check the new location in the confirmation, then select “Change”.
+
+Keep the folders inside in the same arrangement as before the move. Contents inside open the folders with the same names in the new location.
+
 ## Grant write access again on macOS
 
 On macOS, shares added with an earlier version of WebLAV do not have write permission. Until you grant it, you cannot add or move files in those shares. If the share list in the admin pages shows “No write permission”, grant it again.
 
 1. On this Mac, open “Shares” in the admin pages from “Open in browser” in the task tray menu.
-2. Select “⋮” on the row of that share, then choose “Grant write access again...”.
-3. In the window that opens, choose the same folder.
-
-If you choose a different folder, write access is not granted.
+2. Select the row of that share to open its edit page.
+3. In the “Location” section, select “Choose folder again...”, then choose the same folder in the window that opens.
 
 ## Rename one
 
 The name appears instead of the path when choosing a folder for content, when showing the content location, and in the “Shares” section on Home.
 
-1. Select “⋮” on the row, then choose “Rename...”.
-
-   ![The share row menu](images/roots-menu.webp)
-
-2. Enter a name, then select “Save”.
-
-   ![The Rename screen](images/roots-rename.webp)
+1. Select the share row to open its edit page.
+2. Enter a name in the “Name” section, then select “Save” in that section.
 
 ## Delete one
 
@@ -105,7 +111,7 @@ The name appears instead of the path when choosing a folder for content, when sh
 >
 > It removes only the entry from WebLAV’s “Shares” list. The folder stays where it is.
 
-1. Select “⋮” on the folder row, then choose “Delete...”.
+1. Select “⋮” on the share row, then choose “Delete...” (you can also use “⋮” next to the name on the edit page).
 
    ![The share row menu](images/roots-menu.webp)
 

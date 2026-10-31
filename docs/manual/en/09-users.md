@@ -6,7 +6,7 @@
 
    ![The Users tab and user list](images/users-page.webp)
 
-2. Choose and enter a username and password, then select “Save”.
+2. Choose and enter a username and password, then select “Add”.
 
    ![The Add user screen](images/user-add.webp)
 
@@ -17,7 +17,7 @@ To make the user an administrator, choose “Admin” under “Role” in the li
 - **Editor**: Can register contents. They can change or delete only contents they registered. They can only view contents registered by other people in the admin pages.
 - **Admin**: Can change or delete all contents. They can also manage users, shares, and site settings.
 
-What editors can do in a share (view, add, move, delete) is set for each share. To give a person different permissions, in “Shares” in the admin pages, select “⋮” on the share row, choose “Permissions...”, then choose that person's permission under “Per-user exceptions” (→ [Add shares](04-shares.md)). Administrators can do everything in every share.
+What editors can do in a share (view, add, move, delete) is set for each share. To give a person different permissions, in “Shares” in the admin pages, select the share row to open its edit page, then choose that person's permission under “Per-user exceptions” in the “Permissions” section (→ [Add shares](04-shares.md)). Administrators can do everything in every share.
 
 ## Reset a password
 
@@ -41,7 +41,7 @@ Users with a recovery code can also reset their own password (→ [Sign in and d
 
    ![The user row menu](images/user-menu.webp)
 
-2. Enter a new username, then select “Save”.
+2. Enter a new username, then select “Change”.
 
 Let them know to log in with the new username from now on, including when they use their saved recovery code. Users can also change their own username (→ [Sign in and display](03-account.md)).
 

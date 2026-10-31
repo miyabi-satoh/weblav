@@ -37,7 +37,7 @@ Only contents registered in the admin pages appear for viewers.
 
    ![The Shares page](images/quickstart-roots.webp)
 
-4. In “Contents”, choose “Folder” from “Add...” and register the folder you want to show.
+4. In “Contents”, choose “Folder” from “Add content...” and register the folder you want to show.
 
    ![Choosing a type when adding content](images/quickstart-add-folder.webp)
 
