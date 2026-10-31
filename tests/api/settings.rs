@@ -190,7 +190,7 @@ async fn server_settings_reject_out_of_range_values(pool: SqlitePool) {
         "PUT",
         ADMIN_SERVER_SETTINGS_URI,
         &cookie,
-        r#"{"port":8370,"uploadMaxSizeMb":100,"sessionExpiryDays":0}"#,
+        r#"{"port":8370,"uploadMaxSizeMb":100,"sessionExpiryDays":3651}"#,
     )
     .await;
     assert_error(
