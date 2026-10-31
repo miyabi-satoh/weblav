@@ -97,7 +97,9 @@ test('フォルダーを選ぶとフォルダー名で追加されて編集ペ�
 		await expect(page.getByRole('heading', { level: 1 })).toHaveText(renamed);
 
 		const accessForm = sectionForm(page, ACCESS_SECTION_NAME);
-		await accessForm.getByRole('combobox').first().click();
+		await accessForm
+			.getByRole('button', { name: /^一般ユーザーの既定$|^Default for users$/ })
+			.click();
 		await page.getByRole('option', { name: /^足すだけ$|^Add only$/ }).click();
 		await saveForm(page, {
 			button: accessForm.getByRole('button', { name: SAVE_BUTTON_NAME }),
@@ -113,7 +115,8 @@ test('フォルダーを選ぶとフォルダー名で追加されて編集ペ�
 		const row = page.getByRole('listitem').filter({ hasText: target });
 		await expect(row.getByText(renamed, { exact: true })).toBeVisible();
 		await expect(row).toContainText(/一般ユーザー: 足すだけ|Users: Add only/);
-		await row.getByText(target, { exact: true }).click();
+		// 名前のリンクではなく行の真ん中を押す (リンクの押せる範囲を行いっぱいに広げてある)。
+		await row.click();
 		await page.waitForURL(/\/admin\/roots\/\d+$/);
 		await expect(page.getByRole('heading', { level: 1 })).toHaveText(renamed);
 	} finally {
