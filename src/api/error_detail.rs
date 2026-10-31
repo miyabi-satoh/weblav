@@ -50,9 +50,6 @@ pub enum ValidationDetail {
     /// そのフォルダーは「共有」に登録済み (→ docs/folders.md「共有」)。
     #[serde(rename_all = "camelCase")]
     RootAlreadyRegistered { name: String },
-    /// 共有の書き込みの許可を取り直すとき、窓で別のフォルダーを選んだ。`name` は取り直そうとした共有の名前。
-    #[serde(rename_all = "camelCase")]
-    RepickedOtherFolder { name: String },
     /// WebLAV 自身の置き場 (設定とデータ) の中は、共有にできない (→ docs/folders.md「共有」)。
     RootInsideOwnDirs,
     /// 受け取ったファイルが WebLAV のバックアップではない・壊れている (→ docs/access.md「バックアップとリストア」)。

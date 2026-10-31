@@ -806,11 +806,11 @@
         }
       }
     },
-    "/api/v1/admin/roots/{id}/repick": {
-      "post": {
-        "summary": "登録済みの共有を、サーバーの PC の窓で選び直してもらい、書き込みの許可を取り直す。",
-        "description": "macOS のサンドボックスでは、許可は利用者が窓で選んだときにしか増やせない。読むだけの許可で登録した共有\n(`RootResponse::writable` が偽) を書き換えられるようにするため。選ぶのは同じフォルダーでなければならず、\n別のフォルダーなら 422 にして何も変えない (別の場所の許可で共有を差し替えないため)。",
-        "operationId": "repick_root",
+    "/api/v1/admin/roots/{id}/path": {
+      "put": {
+        "summary": "共有の場所を、窓で選び直したフォルダーに付け替える (→ docs/shares.md「共有の場所の選び直し」)。",
+        "description": "フォルダーを別のディスクへ移した・ドライブの文字が変わったときに、共有を消して登録し直さずに済むようにする。\n権限と名前は共有の id に付いているので、そのまま残る。中のフォルダーのコンテンツの登録先は、\n新しい場所の同じ相対パスへ付け替える。\n\n今と同じフォルダーを選んだときは何も付け替えず、書き込みの許可だけを取り直す。macOS のサンドボックスでは、\n許可は利用者が窓で選んだときにしか増やせないため (`RootResponse::writable` が偽の共有)。",
+        "operationId": "move_root",
         "parameters": [
           {
             "name": "id",
@@ -822,13 +822,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveRootRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
-            "description": "取り直した後の共有。キャンセルなら root が null",
+            "description": "場所を付け替えた共有",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RepickRootResponse"
+                  "$ref": "#/components/schemas/RootResponse"
                 }
               }
             }
@@ -863,8 +873,8 @@
               }
             }
           },
-          "409": {
-            "description": "窓がもう開いている",
+          "422": {
+            "description": "パスが存在しない・ディレクトリでない・weblav 自身の置き場の中・ほかの共有と同じ",
             "content": {
               "application/json": {
                 "schema": {
@@ -873,8 +883,8 @@
               }
             }
           },
-          "422": {
-            "description": "別のフォルダーを選んだ",
+          "503": {
+            "description": "選んだ場所につながらない",
             "content": {
               "application/json": {
                 "schema": {
@@ -9027,6 +9037,18 @@
         ],
         "description": "ログイン中の利用者。ほかの応答の `UserResponse` に、画面の出し分けに使う件数を添える。"
       },
+      "MoveRootRequest": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "新しい場所の絶対パス。フォルダー選択の窓 (`/admin/roots/pick`) が返す値をそのまま渡す。"
+          }
+        }
+      },
       "OnConflict": {
         "type": "string",
         "description": "置き先に同じ名前があるときの扱い。",
@@ -9210,22 +9232,6 @@
         "properties": {
           "username": {
             "type": "string"
-          }
-        }
-      },
-      "RepickRootResponse": {
-        "type": "object",
-        "properties": {
-          "root": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/RootResponse",
-                "description": "取り直した後の共有。窓をキャンセルしたら `null` (何も変えない)。"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         }
       },
@@ -9439,7 +9445,7 @@
           },
           "writable": {
             "type": "boolean",
-            "description": "中を書き換えられる許可があるか。macOS のサンドボックスで、読むだけの許可のまま登録した共有は偽。\n偽なら、この PC で窓から選び直してもらう (`POST /admin/roots/{id}/repick`)。"
+            "description": "中を書き換えられる許可があるか。macOS のサンドボックスで、読むだけの許可のまま登録した共有は偽。\n偽なら、この PC で窓から同じフォルダーを選び直してもらう (`PUT /admin/roots/{id}/path`)。"
           }
         }
       },
@@ -10886,25 +10892,6 @@
                 "type": "string",
                 "enum": [
                   "rootAlreadyRegistered"
-                ]
-              },
-              "name": {
-                "type": "string"
-              }
-            }
-          },
-          {
-            "type": "object",
-            "description": "共有の書き込みの許可を取り直すとき、窓で別のフォルダーを選んだ。`name` は取り直そうとした共有の名前。",
-            "required": [
-              "name",
-              "kind"
-            ],
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "repickedOtherFolder"
                 ]
               },
               "name": {

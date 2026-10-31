@@ -67,8 +67,8 @@ pub(super) async fn moved(
     let mut changed = Vec::new();
     for row in folder_rows(&mut *conn).await? {
         let marks_only = scanning(row.id);
-        if let Ok(rest) = row.path.strip_prefix(&old) {
-            let path = path_to_string(new.join(rest))?;
+        if let Some(path) = crate::api::roots::rebase(&row.path, &old, &new) {
+            let path = path_to_string(path)?;
             sqlx::query!("UPDATE contents SET path = ? WHERE id = ?", path, row.id)
                 .execute(&mut *conn)
                 .await?;
@@ -269,7 +269,7 @@ pub(super) async fn list_views_containing(
 
 /// 一覧の表示を使うコンテンツの中を、裏で読み直させる。共有の中に置いた・動かしたものが、
 /// 次の再スキャンを待たずに一覧に出るようにするため (→ `archive::refresh_changed_dirs`)。
-pub(super) fn refresh_after_change(state: &AppState, ids: impl IntoIterator<Item = i64>) {
+pub(in crate::api) fn refresh_after_change(state: &AppState, ids: impl IntoIterator<Item = i64>) {
     let ids: Vec<i64> = ids.into_iter().collect();
     if ids.is_empty() {
         return;
@@ -457,6 +457,18 @@ mod tests {
             content_path(&pool, sibling).await,
             sep_path(&["srv", "教材2"]).display().to_string()
         );
+    }
+
+    /// 登録先そのものの名前を変えても、登録先の綴りの末尾に区切りが付かない。
+    #[sqlx::test]
+    async fn renaming_a_registered_folder_itself_keeps_the_path_spelling(pool: sqlx::SqlitePool) {
+        let registered = sep_path(&["srv", "教材"]);
+        let id = insert_folder(&pool, &registered, false).await;
+
+        let renamed = sep_path(&["srv", "教材 2026"]);
+        run_moved(&pool, &registered, &renamed).await;
+
+        assert_eq!(content_path(&pool, id).await, renamed.display().to_string());
     }
 
     /// 大文字・小文字だけの名前の変更でも、行が付け替わる。

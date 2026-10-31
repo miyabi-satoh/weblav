@@ -10,7 +10,7 @@ mod fsops;
 mod jobs;
 pub(crate) mod log;
 mod paths;
-mod repoint;
+pub(super) mod repoint;
 mod transfer;
 mod write;
 

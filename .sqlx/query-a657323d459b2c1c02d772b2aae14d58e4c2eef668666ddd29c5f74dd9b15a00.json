@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT name FROM roots WHERE path = ? AND deleted_at IS NULL",
+  "query": "SELECT name FROM roots WHERE path = ? AND deleted_at IS NULL AND id IS NOT ?",
   "describe": {
     "columns": [
       {
@@ -10,11 +10,11 @@
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 2
     },
     "nullable": [
       false
     ]
   },
-  "hash": "7f38a2372bb72918411e54fcb8d158f80f1f2c00830c0ac7345c266f3760edfa"
+  "hash": "a657323d459b2c1c02d772b2aae14d58e4c2eef668666ddd29c5f74dd9b15a00"
 }

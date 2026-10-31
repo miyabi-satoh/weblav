@@ -368,63 +368,87 @@ async fn roots_list_tells_whether_each_root_is_writable(pool: SqlitePool) {
     assert_eq!(writable_of(&writable), true);
 }
 
-/// 書き込みの許可の取り直しでは、同じフォルダーを選べば共有を返し、キャンセルなら `null` を返す。
+/// 場所を選び直すと、中のフォルダーのコンテンツが新しい場所へ移り、名前と権限は残る。
+/// 付け替えの決まり (頭の似た隣・一覧の表示) は `roots::rebase_contents` の単体テストで確かめる。
 #[sqlx::test]
-async fn repicking_the_same_folder_returns_the_root(pool: SqlitePool) {
-    let dir = root_dir("roots-repick-same");
-    let id = registered_root_id(&pool, &dir).await;
-    let picked = dir.to_path_buf();
-    let data = temp_test_dir("roots-repick-same-data");
-    let app = app_with_picker(
-        pool.clone(),
-        &Config::default(),
-        &data,
-        FolderPicker::new(move || Ok(Some(picked.clone()))),
-    )
-    .await;
-    let cookie = admin_cookie(app.clone(), &pool).await;
-    let uri = format!("{ROOTS_URI}/{id}/repick");
-
-    let (status, body) = send(app, roots_request("POST", &uri, &cookie, None)).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    let root = &parse_json(&body)["root"];
-    assert_eq!(root["id"], id, "{body}");
-    assert_eq!(root["writable"], true, "{body}");
-
-    let cancel_data = temp_test_dir("roots-repick-cancel-data");
-    let app = app_with_picker(
-        pool.clone(),
-        &Config::default(),
-        &cancel_data,
-        FolderPicker::new(|| Ok(None)),
-    )
-    .await;
-    let cookie = login(app.clone(), "admin-alice", "correct-password").await;
-    let (status, body) = send(app, roots_request("POST", &uri, &cookie, None)).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body, r#"{"root":null}"#);
-}
-
-/// 別のフォルダーを選んだら 422 にし、ブックマークを書かない。
-#[sqlx::test]
-async fn repicking_a_different_folder_is_rejected(pool: SqlitePool) {
-    let dir = root_dir("roots-repick-target");
-    let other = root_dir("roots-repick-other");
-    let id = registered_root_id(&pool, &dir).await;
-    let picked = other.to_path_buf();
-    let data = temp_test_dir("roots-repick-other-data");
-    let app = app_with_picker(
-        pool.clone(),
-        &Config::default(),
-        &data,
-        FolderPicker::new(move || Ok(Some(picked.clone()))),
-    )
-    .await;
-    let cookie = admin_cookie(app.clone(), &pool).await;
+async fn moving_a_root_carries_its_contents_and_keeps_its_settings(pool: SqlitePool) {
+    let old = root_dir("roots-move-old");
+    let new = root_dir("roots-move-new");
+    let id = registered_root_id(&pool, &old).await;
+    sqlx::query("UPDATE roots SET editor_access = 'add' WHERE id = ?")
+        .bind(id)
+        .execute(&pool)
+        .await
+        .expect("権限を変えられなかった");
+    let content = insert_folder_by(&pool, "英検", old.join("英検"), "public", None, None).await;
+    let (app, cookie) = admin_app(&pool).await;
+    let new_path = canonical_path_as_api_returns_it(&new);
 
     let (status, body) = send(
         app,
-        roots_request("POST", &format!("{ROOTS_URI}/{id}/repick"), &cookie, None),
+        roots_request(
+            "PUT",
+            &format!("{ROOTS_URI}/{id}/path"),
+            &cookie,
+            Some(&json_path(&new_path)),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let root = parse_json(&body);
+    assert_eq!(root["path"], new_path.as_str(), "{body}");
+    assert_eq!(root["editorAccess"], "add", "{body}");
+    assert_eq!(root["contentCount"], 1, "{body}");
+    let content_path: String = sqlx::query_scalar("SELECT path FROM contents WHERE id = ?")
+        .bind(content)
+        .fetch_one(&pool)
+        .await
+        .expect("登録先を読めなかった");
+    assert_eq!(
+        content_path,
+        canonical_path_as_api_returns_it(&new.join("英検"))
+    );
+}
+
+/// 今と同じフォルダーを選ぶのは、書き込みの許可の取り直し (macOS)。何も付け替えずに共有を返す。
+#[sqlx::test]
+async fn picking_the_same_place_again_returns_the_root_unchanged(pool: SqlitePool) {
+    let dir = root_dir("roots-move-same");
+    let id = registered_root_id(&pool, &dir).await;
+    let path = canonical_path_as_api_returns_it(&dir);
+    let (app, cookie) = admin_app(&pool).await;
+
+    let (status, body) = send(
+        app,
+        roots_request(
+            "PUT",
+            &format!("{ROOTS_URI}/{id}/path"),
+            &cookie,
+            Some(&json_path(&path)),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body)["path"], path.as_str(), "{body}");
+}
+
+/// ほかの共有の場所は選べない。登録と同じ内訳で断る。
+#[sqlx::test]
+async fn moving_a_root_onto_another_root_is_rejected(pool: SqlitePool) {
+    let dir = root_dir("roots-move-target");
+    let other = root_dir("roots-move-taken");
+    let id = registered_root_id(&pool, &dir).await;
+    registered_root_id(&pool, &other).await;
+    let (app, cookie) = admin_app(&pool).await;
+
+    let (status, body) = send(
+        app,
+        roots_request(
+            "PUT",
+            &format!("{ROOTS_URI}/{id}/path"),
+            &cookie,
+            Some(&json_path(&canonical_path_as_api_returns_it(&other))),
+        ),
     )
     .await;
     assert_error(
@@ -435,14 +459,9 @@ async fn repicking_a_different_folder_is_rejected(pool: SqlitePool) {
     );
     assert_eq!(
         parse_json(&body)["error"]["detail"]["kind"],
-        "repickedOtherFolder",
+        "rootAlreadyRegistered",
         "{body}"
     );
-    let bookmarks: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM folder_bookmarks")
-        .fetch_one(&pool)
-        .await
-        .expect("ブックマークを数えられなかった");
-    assert_eq!(bookmarks, 0);
 }
 
 /// 窓は同時に1つだけ。開いている間の2つ目は 409 で、閉じたらまた開ける。

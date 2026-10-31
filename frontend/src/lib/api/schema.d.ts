@@ -220,7 +220,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/roots/{id}/repick": {
+    "/api/v1/admin/roots/{id}/path": {
         parameters: {
             query?: never;
             header?: never;
@@ -228,14 +228,17 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
         /**
-         * 登録済みの共有を、サーバーの PC の窓で選び直してもらい、書き込みの許可を取り直す。
-         * @description macOS のサンドボックスでは、許可は利用者が窓で選んだときにしか増やせない。読むだけの許可で登録した共有
-         *     (`RootResponse::writable` が偽) を書き換えられるようにするため。選ぶのは同じフォルダーでなければならず、
-         *     別のフォルダーなら 422 にして何も変えない (別の場所の許可で共有を差し替えないため)。
+         * 共有の場所を、窓で選び直したフォルダーに付け替える (→ docs/shares.md「共有の場所の選び直し」)。
+         * @description フォルダーを別のディスクへ移した・ドライブの文字が変わったときに、共有を消して登録し直さずに済むようにする。
+         *     権限と名前は共有の id に付いているので、そのまま残る。中のフォルダーのコンテンツの登録先は、
+         *     新しい場所の同じ相対パスへ付け替える。
+         *
+         *     今と同じフォルダーを選んだときは何も付け替えず、書き込みの許可だけを取り直す。macOS のサンドボックスでは、
+         *     許可は利用者が窓で選んだときにしか増やせないため (`RootResponse::writable` が偽の共有)。
          */
-        post: operations["repick_root"];
+        put: operations["move_root"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2662,6 +2665,10 @@ export interface components {
              */
             hiddenContentCount: number;
         };
+        MoveRootRequest: {
+            /** @description 新しい場所の絶対パス。フォルダー選択の窓 (`/admin/roots/pick`) が返す値をそのまま渡す。 */
+            path: string;
+        };
         /**
          * @description 置き先に同じ名前があるときの扱い。
          * @enum {string}
@@ -2721,9 +2728,6 @@ export interface components {
         };
         RenameUserRequest: {
             username: string;
-        };
-        RepickRootResponse: {
-            root?: components["schemas"]["RootResponse"] | null;
         };
         ReplaceAxisValuesRequest: {
             values: components["schemas"]["AxisValueInput"][];
@@ -2808,7 +2812,7 @@ export interface components {
             userAccess: components["schemas"]["RootUserAccess"][];
             /**
              * @description 中を書き換えられる許可があるか。macOS のサンドボックスで、読むだけの許可のまま登録した共有は偽。
-             *     偽なら、この PC で窓から選び直してもらう (`POST /admin/roots/{id}/repick`)。
+             *     偽なら、この PC で窓から同じフォルダーを選び直してもらう (`PUT /admin/roots/{id}/path`)。
              */
             writable: boolean;
         };
@@ -3310,10 +3314,6 @@ export interface components {
         } | {
             /** @enum {string} */
             kind: "rootAlreadyRegistered";
-            name: string;
-        } | {
-            /** @enum {string} */
-            kind: "repickedOtherFolder";
             name: string;
         } | {
             /** @enum {string} */
@@ -4087,7 +4087,7 @@ export interface operations {
             };
         };
     };
-    repick_root: {
+    move_root: {
         parameters: {
             query?: never;
             header?: never;
@@ -4096,15 +4096,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveRootRequest"];
+            };
+        };
         responses: {
-            /** @description 取り直した後の共有。キャンセルなら root が null */
+            /** @description 場所を付け替えた共有 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RepickRootResponse"];
+                    "application/json": components["schemas"]["RootResponse"];
                 };
             };
             /** @description 未ログイン */
@@ -4134,8 +4138,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 窓がもう開いている */
-            409: {
+            /** @description パスが存在しない・ディレクトリでない・weblav 自身の置き場の中・ほかの共有と同じ */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4143,8 +4147,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 別のフォルダーを選んだ */
-            422: {
+            /** @description 選んだ場所につながらない */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

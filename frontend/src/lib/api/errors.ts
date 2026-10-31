@@ -104,8 +104,6 @@ function detailMessage(detail: ValidationDetail): string | undefined {
 			return m.error_detail_root_already_registered({ name: detail.name });
 		case 'rootInsideOwnDirs':
 			return m.error_detail_root_inside_own_dirs();
-		case 'repickedOtherFolder':
-			return m.error_detail_repicked_other_folder({ name: detail.name });
 		case 'archiveFolderMissing':
 			return m.error_detail_archive_folder_missing();
 		case 'archiveFolderUnreadable':
