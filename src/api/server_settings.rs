@@ -31,7 +31,7 @@ pub struct ServerSettings {
     pub port: u16,
     /// 共有へのファイルのアップロード1件あたりの上限 (MiB)。`None` なら上限なし。
     pub upload_max_size_mb: Option<u64>,
-    /// 最後に使ってから、ログインが切れるまでの日数。
+    /// 最後に使ってから、ログインが切れるまでの日数。0 なら期限なし。
     pub session_expiry_days: i64,
 }
 
@@ -143,9 +143,9 @@ fn validate(settings: &ServerSettings) -> Result<(), AppError> {
             "uploadMaxSizeMb must be between 1 and {MAX_UPLOAD_MAX_SIZE_MB}"
         )));
     }
-    if !(1..=MAX_SESSION_EXPIRY_DAYS).contains(&settings.session_expiry_days) {
+    if !(0..=MAX_SESSION_EXPIRY_DAYS).contains(&settings.session_expiry_days) {
         return Err(AppError::Validation(format!(
-            "sessionExpiryDays must be between 1 and {MAX_SESSION_EXPIRY_DAYS}"
+            "sessionExpiryDays must be between 0 and {MAX_SESSION_EXPIRY_DAYS}"
         )));
     }
     Ok(())
@@ -293,6 +293,13 @@ mod tests {
     #[test]
     fn validate_rejects_out_of_range() {
         assert!(validate(&SETTINGS).is_ok());
+        assert!(
+            validate(&ServerSettings {
+                session_expiry_days: 0,
+                ..SETTINGS
+            })
+            .is_ok()
+        );
         for bad in [
             ServerSettings {
                 port: 0,
@@ -307,7 +314,7 @@ mod tests {
                 ..SETTINGS
             },
             ServerSettings {
-                session_expiry_days: 0,
+                session_expiry_days: -1,
                 ..SETTINGS
             },
             ServerSettings {

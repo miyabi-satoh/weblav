@@ -14,7 +14,6 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Switch } from '$lib/components/ui/switch';
-	import { Checkbox } from '$lib/components/ui/checkbox';
 	import BackupRestore from '$lib/components/backup-restore.svelte';
 	import AboutSection from '$lib/components/about-section.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
@@ -41,6 +40,8 @@
 	const MAX_SESSION_EXPIRY_DAYS = 3650;
 	// 3つの欄を、いちばん長い上限 (6 桁) と単位が収まる幅に揃える (→ docs/ui.md「見た目の決めごと」)。
 	const serverNumberWidthClass = 'w-36';
+	// 「既定値に戻す」を入力欄の右に並べる。狭い幅で収まらなければ下へ回す。
+	const serverInputRowClass = 'flex flex-wrap items-center gap-2';
 
 	// 保存後は応答の値で入れ直すので、読み込みは初回だけでよい。
 	let siteName = $state(untrack(() => data.settings.siteName));
@@ -49,29 +50,25 @@
 	// 取れなかったとき (null) は、区画に理由だけを出して入力欄を出さない。下の 0 は使われない。
 	let server = $state(untrack(() => data.serverSettings));
 	let port = $state(untrack(() => server?.saved.port ?? 0));
-	// 上限なし (null) のときも、数の欄には前に入れた値か既定の目安を残す。「上限なし」を外したときに打ち直さずに済むため。
-	const UPLOAD_MAX_SIZE_MB_SUGGESTION = 100;
-	let uploadUnlimited = $state(untrack(() => (server?.saved.uploadMaxSizeMb ?? null) === null));
-	let uploadMaxSizeMb = $state(
-		untrack(() => server?.saved.uploadMaxSizeMb ?? UPLOAD_MAX_SIZE_MB_SUGGESTION)
-	);
+	// 上限なし (null) は欄では 0 と見せる (→ docs/ui.md「UI 全般」のサーバーの区画)。
+	let uploadMaxSizeMb = $state(untrack(() => server?.saved.uploadMaxSizeMb ?? 0));
 	// 送る値。上限なしなら null。
-	let uploadCap = $derived(uploadUnlimited ? null : uploadMaxSizeMb);
+	let uploadCap = $derived(uploadMaxSizeMb === 0 ? null : uploadMaxSizeMb);
 	let sessionExpiryDays = $state(untrack(() => server?.saved.sessionExpiryDays ?? 0));
 
 	// 既定の値に戻しただけでは保存されないので、保存していない変更があることを保存ボタンの横に出す。
 	const serverDirty = new FormDirtyState(() => ({ port, uploadCap, sessionExpiryDays }));
 
-	// アップロード上限を、上限なしも含めて入れる。
-	function setUploadCap(value: number | null | undefined) {
-		uploadUnlimited = (value ?? null) === null;
-		if (value != null) uploadMaxSizeMb = value;
-	}
-
 	function uploadCapText(value: number | null | undefined): string {
 		return value == null
 			? m.admin_settings_upload_unlimited()
 			: `${value} ${m.admin_settings_upload_unit()}`;
+	}
+
+	function sessionText(days: number): string {
+		return days === 0
+			? m.admin_settings_session_unlimited()
+			: `${days} ${m.admin_settings_session_unit({ count: days })}`;
 	}
 	serverDirty.markPristine();
 
@@ -135,7 +132,7 @@
 				return;
 			}
 			server = saved;
-			setUploadCap(saved.saved.uploadMaxSizeMb);
+			uploadMaxSizeMb = saved.saved.uploadMaxSizeMb ?? 0;
 			serverDirty.markPristine();
 			toast.success(m.admin_settings_server_saved_toast());
 		} catch {
@@ -208,7 +205,7 @@
 	{/if}
 {/snippet}
 
-<!-- 既定の値へ戻すボタン。変えてある項目にだけ出す。印や既定の値の文を足さず、ボタンが出ていることで変えてあると分かる形にする。
+<!-- 既定の値へ戻すボタン。変えてある項目にだけ、入力欄の右に出す。印や既定の値の文を足さず、ボタンが出ていることで変えてあると分かる形にする。
      戻すのは入力欄の値だけで、保存は区画の保存ボタンで行う。 -->
 {#snippet defaultValue(
 	name: string,
@@ -217,15 +214,13 @@
 	reset: () => void
 )}
 	{#if value !== initial}
-		<div>
-			<Button
-				type="button"
-				variant="outline"
-				size="xs"
-				aria-label={m.admin_settings_reset_button_label({ name })}
-				onclick={reset}>{m.admin_settings_reset_button()}</Button
-			>
-		</div>
+		<Button
+			type="button"
+			variant="outline"
+			size="xs"
+			aria-label={m.admin_settings_reset_button_label({ name })}
+			onclick={reset}>{m.admin_settings_reset_button()}</Button
+		>
 	{/if}
 {/snippet}
 
@@ -279,51 +274,48 @@
 						<Field.FieldLabel for="server-port" required
 							>{m.admin_settings_port_label()}</Field.FieldLabel
 						>
-						<IntegerInput
-							id="server-port"
-							class={serverNumberWidthClass}
-							min={1}
-							max={MAX_PORT}
-							bind:value={port}
-							required
-						/>
+						<div class={serverInputRowClass}>
+							<IntegerInput
+								id="server-port"
+								class={serverNumberWidthClass}
+								min={1}
+								max={MAX_PORT}
+								bind:value={port}
+								required
+							/>
+							{@render defaultValue(m.admin_settings_port_label(), port, server.defaults.port, () =>
+								resetField('server-port', () => (port = server?.defaults.port ?? port))
+							)}
+						</div>
 						<Field.FieldDescription>{m.admin_settings_port_description()}</Field.FieldDescription>
-						{@render defaultValue(m.admin_settings_port_label(), port, server.defaults.port, () =>
-							resetField('server-port', () => (port = server?.defaults.port ?? port))
-						)}
 						{@render runningValue(server.saved.port, server.running.port)}
 					</Field.Field>
 					<Field.Field>
-						<Field.FieldLabel for="server-upload" required={!uploadUnlimited}
+						<Field.FieldLabel for="server-upload" required
 							>{m.admin_settings_upload_label()}</Field.FieldLabel
 						>
-						<Field.FieldDescription>{m.admin_settings_upload_description()}</Field.FieldDescription>
-						<Field.Field orientation="horizontal">
-							<Checkbox id="server-upload-unlimited" bind:checked={uploadUnlimited} />
-							<Field.FieldLabel for="server-upload-unlimited"
-								>{m.admin_settings_upload_unlimited()}</Field.FieldLabel
-							>
-						</Field.Field>
-						{#if !uploadUnlimited}
+						<div class={serverInputRowClass}>
 							<IntegerInput
 								id="server-upload"
 								class={serverNumberWidthClass}
-								min={1}
+								min={0}
 								max={MAX_UPLOAD_MAX_SIZE_MB}
 								unit={m.admin_settings_upload_unit()}
 								bind:value={uploadMaxSizeMb}
 								required
 							/>
-						{/if}
-						{@render defaultValue(
-							m.admin_settings_upload_label(),
-							uploadCap,
-							server.defaults.uploadMaxSizeMb ?? null,
-							() =>
-								resetField('server-upload-unlimited', () =>
-									setUploadCap(server?.defaults.uploadMaxSizeMb)
-								)
-						)}
+							{@render defaultValue(
+								m.admin_settings_upload_label(),
+								uploadCap,
+								server.defaults.uploadMaxSizeMb ?? null,
+								() =>
+									resetField(
+										'server-upload',
+										() => (uploadMaxSizeMb = server?.defaults.uploadMaxSizeMb ?? 0)
+									)
+							)}
+						</div>
+						<Field.FieldDescription>{m.admin_settings_upload_description()}</Field.FieldDescription>
 						{@render runningValue(
 							uploadCapText(server.saved.uploadMaxSizeMb),
 							uploadCapText(server.running.uploadMaxSizeMb)
@@ -333,27 +325,34 @@
 						<Field.FieldLabel for="server-session" required
 							>{m.admin_settings_session_label()}</Field.FieldLabel
 						>
-						<IntegerInput
-							id="server-session"
-							class={serverNumberWidthClass}
-							min={1}
-							max={MAX_SESSION_EXPIRY_DAYS}
-							unit={m.admin_settings_session_unit({ count: sessionExpiryDays })}
-							bind:value={sessionExpiryDays}
-							required
-						/>
-						{@render defaultValue(
-							m.admin_settings_session_label(),
-							sessionExpiryDays,
-							server.defaults.sessionExpiryDays,
-							() =>
-								resetField(
-									'server-session',
-									() =>
-										(sessionExpiryDays = server?.defaults.sessionExpiryDays ?? sessionExpiryDays)
-								)
+						<div class={serverInputRowClass}>
+							<IntegerInput
+								id="server-session"
+								class={serverNumberWidthClass}
+								min={0}
+								max={MAX_SESSION_EXPIRY_DAYS}
+								unit={m.admin_settings_session_unit({ count: sessionExpiryDays })}
+								bind:value={sessionExpiryDays}
+								required
+							/>
+							{@render defaultValue(
+								m.admin_settings_session_label(),
+								sessionExpiryDays,
+								server.defaults.sessionExpiryDays,
+								() =>
+									resetField(
+										'server-session',
+										() =>
+											(sessionExpiryDays = server?.defaults.sessionExpiryDays ?? sessionExpiryDays)
+									)
+							)}
+						</div>
+						<Field.FieldDescription>{m.admin_settings_session_description()}</Field.FieldDescription
+						>
+						{@render runningValue(
+							sessionText(server.saved.sessionExpiryDays),
+							sessionText(server.running.sessionExpiryDays)
 						)}
-						{@render runningValue(server.saved.sessionExpiryDays, server.running.sessionExpiryDays)}
 					</Field.Field>
 				</Field.FieldGroup>
 				<div class="flex flex-wrap items-center gap-x-3 gap-y-1">

@@ -20,7 +20,7 @@ Change these on the “Site settings” tab in the admin pages.
   ![The Home page section in Site settings](images/settings-home.webp)
 
 - Server: The port, upload limit, and how long to stay signed in (days). Changes take effect the next time WebLAV starts.
-  The upload limit is the maximum size of each file uploaded to a share. The default is “No limit”. If you enter a number of MB, larger files cannot be uploaded.
+  The upload limit is the maximum size of each file uploaded to a share. The default is 0 (no limit). If you enter a number of MB, larger files cannot be uploaded. If you set how long to stay signed in to 0, you stay signed in with no time limit.
   A setting you changed shows “Reset to default”. Select it, then save, to go back to the original value.
 
   ![The Server section in Site settings](images/settings-server.webp)

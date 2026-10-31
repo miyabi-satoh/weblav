@@ -2901,7 +2901,7 @@ export interface components {
             port: number;
             /**
              * Format: int64
-             * @description 最後に使ってから、ログインが切れるまでの日数。
+             * @description 最後に使ってから、ログインが切れるまでの日数。0 なら期限なし。
              */
             sessionExpiryDays: number;
             /**

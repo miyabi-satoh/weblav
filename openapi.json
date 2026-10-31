@@ -9690,7 +9690,7 @@
           "sessionExpiryDays": {
             "type": "integer",
             "format": "int64",
-            "description": "最後に使ってから、ログインが切れるまでの日数。"
+            "description": "最後に使ってから、ログインが切れるまでの日数。0 なら期限なし。"
           },
           "uploadMaxSizeMb": {
             "type": [

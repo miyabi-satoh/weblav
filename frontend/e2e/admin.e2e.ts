@@ -343,7 +343,6 @@ test('管理画面: サイト設定を保存するとホームの見出しに出
 
 test('管理画面: サーバーの設定は、既定から変えると印が付き、既定の値に戻せる', async ({ page }) => {
 	// 保存はしない。運用の config.toml を書き換えないため。
-	// 数の欄で見る (アップロード上限は既定が「上限なし」で、数の欄が出ていないため)。
 	const res = await page.request.get('/api/v1/admin/server-settings');
 	const { saved, defaults } = (await res.json()) as Record<
 		'saved' | 'defaults',

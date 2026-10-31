@@ -189,7 +189,9 @@
 	"admin_settings_upload_label": "Upload limit",
 	"admin_settings_upload_unit": "MB",
 	"admin_settings_upload_unlimited": "No limit",
-	"admin_settings_upload_description": "The maximum size of each file uploaded to a share.",
+	"admin_settings_upload_description": "The maximum size of each file uploaded to a share. Enter 0 for no limit.",
+	"admin_settings_session_description": "Enter 0 to stay signed in with no time limit.",
+	"admin_settings_session_unlimited": "No time limit",
 	"admin_settings_session_label": "Stay signed in for",
 	"admin_settings_session_unit": [
 		{
