@@ -10,7 +10,7 @@
 
    ![The Add user screen](images/user-add.webp)
 
-To make the user an administrator, choose “Admin” under “Role” in the list.
+After you add the user, their edit page opens. To make them an administrator, choose “Admin” under “Role”, then select “Save” (→ “Change a username or role” below).
 
 ## Roles
 
@@ -23,11 +23,9 @@ What standard users can do in a share (view, add, move, delete) is set for each 
 
 When someone forgets their password, an administrator chooses a new password and tells them.
 
-1. In the “Users” list, select “⋮” on the row, then choose “Reset password...”.
-
-   ![The user row menu](images/user-menu.webp)
-
-2. Enter a new password, then select “Save”.
+1. In the “Users” list, select the person's row to open their edit page.
+2. Select “⋮” next to the username, then choose “Reset password...”.
+3. Enter a new password, then select “Save”.
 
    ![The Reset password screen](images/user-password.webp)
 
@@ -35,19 +33,18 @@ Resetting the password also makes that user's recovery code stop working. Ask th
 
 Users with a recovery code can also reset their own password (→ [Sign in and display](03-account.md)). If there is only one administrator, that administrator’s password can be reset only with their recovery code.
 
-## Change a username
+## Change a username or role
 
-1. In the “Users” list, select “⋮” on the row, then choose “Change username...”.
+1. In the “Users” list, select the person's row. Their edit page opens.
+2. Change “Username” or “Role”, then select “Save” in that section.
 
-   ![The user row menu](images/user-menu.webp)
+If there is only one administrator, you cannot make them a standard user.
 
-2. Enter a new username, then select “Change”.
-
-Let them know to log in with the new username from now on, including when they use their saved recovery code. Users can also change their own username (→ [Sign in and display](03-account.md)).
+After changing a username, let them know to log in with the new username from now on, including when they use their saved recovery code. Users can also change their own username (→ [Sign in and display](03-account.md)).
 
 ## Delete a user
 
-1. In the “Users” list, select “⋮” on the row, then choose “Delete...”.
+1. In the “Users” list, select “⋮” on the row, then choose “Delete...”. (You can also choose it from “⋮” next to the username on the edit page.)
 
    ![The user row menu](images/user-menu.webp)
 
