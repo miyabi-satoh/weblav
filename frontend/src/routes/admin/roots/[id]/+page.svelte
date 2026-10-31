@@ -147,9 +147,9 @@
 		try {
 			const path = await pickRootFolder(errorDialog);
 			if (path == null) return;
+			// 知らせは出さない。場所は画面のまま変わらず、許可が戻れば書き込めない旨の注記が消える。
 			if (path === root.path) {
-				const done = await move(path);
-				if (done) toast.success(m.admin_roots_edit_path_unchanged_toast());
+				await move(path);
 				return;
 			}
 			movingTo = path;
