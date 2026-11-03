@@ -187,10 +187,7 @@
 <svelte:head><title>{pageTitle(root.name)}</title></svelte:head>
 
 <div class="px-4 pt-4 md:px-6">
-	<a
-		href={resolve('/admin/roots')}
-		class={backLinkClass}
-	>
+	<a href={resolve('/admin/roots')} class={backLinkClass}>
 		<ChevronLeftIcon class="size-4" />
 		<span class="underline underline-offset-4">{m.admin_roots_nav_title()}</span>
 	</a>

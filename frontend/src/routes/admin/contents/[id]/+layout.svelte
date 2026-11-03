@@ -60,10 +60,7 @@
 <svelte:head><title>{pageTitle(content.title)}</title></svelte:head>
 
 <div class="px-4 pt-4 md:px-6">
-	<a
-		href={resolve('/admin/contents')}
-		class={backLinkClass}
-	>
+	<a href={resolve('/admin/contents')} class={backLinkClass}>
 		<ChevronLeftIcon class="size-4" />
 		<span class="underline underline-offset-4">{m.admin_contents_nav_title()}</span>
 	</a>

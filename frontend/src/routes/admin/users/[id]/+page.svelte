@@ -183,10 +183,7 @@
 <svelte:head><title>{pageTitle(target.username)}</title></svelte:head>
 
 <div class="px-4 pt-4 md:px-6">
-	<a
-		href={resolve('/admin/users')}
-		class={backLinkClass}
-	>
+	<a href={resolve('/admin/users')} class={backLinkClass}>
 		<ChevronLeftIcon class="size-4" />
 		<span class="underline underline-offset-4">{m.admin_users_nav_title()}</span>
 	</a>
