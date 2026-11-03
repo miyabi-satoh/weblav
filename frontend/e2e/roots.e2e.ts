@@ -100,7 +100,7 @@ test('フォルダーを選ぶとフォルダー名で追加されて編集ペ�
 		await accessForm
 			.getByRole('button', { name: /^一般ユーザーの既定$|^Default for standard users$/ })
 			.click();
-		await page.getByRole('option', { name: /^足すだけ$|^Add only$/ }).click();
+		await page.getByRole('option', { name: /^追加のみ$|^Add only$/ }).click();
 		await saveForm(page, {
 			button: accessForm.getByRole('button', { name: SAVE_BUTTON_NAME }),
 			toastText: /「権限」を保存しました。|“Permissions” saved\./
@@ -114,7 +114,7 @@ test('フォルダーを選ぶとフォルダー名で追加されて編集ペ�
 		await page.waitForURL(/\/admin\/roots$/);
 		const row = page.getByRole('listitem').filter({ hasText: target });
 		await expect(row.getByText(renamed, { exact: true })).toBeVisible();
-		await expect(row).toContainText(/一般ユーザー: 足すだけ|Standard users: Add only/);
+		await expect(row).toContainText(/一般ユーザー: 追加のみ|Standard users: Add only/);
 		// 名前のリンクではなく行の真ん中を押す (リンクの押せる範囲を行いっぱいに広げてある)。
 		await row.click();
 		await page.waitForURL(/\/admin\/roots\/\d+$/);

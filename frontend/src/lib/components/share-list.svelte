@@ -18,7 +18,7 @@
 	type ShareAccess = components['schemas']['ShareAccess'];
 
 	// ログインした人が使える共有の行。ホームの「共有」の区画と、共有の一覧 (`/shares`) で同じ行にする。
-	// 2段目には、その人が共有の中でできることを出す (読むだけの共有で、追加の口が無い理由が分かるように)。
+	// 2段目には、その人が共有の中でできることを出す (読み取り専用の共有で、追加の口が無い理由が分かるように)。
 	let { shares }: { shares: Share[] } = $props();
 
 	function accessLabel(access: ShareAccess): string | undefined {

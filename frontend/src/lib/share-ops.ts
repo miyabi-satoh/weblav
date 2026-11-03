@@ -40,14 +40,14 @@ export function accessAtLeast(access: ShareAccess, needed: ShareAccess): boolean
 	return ACCESS_ORDER.indexOf(access) >= ACCESS_ORDER.indexOf(needed);
 }
 
-/** アップロード・新しいフォルダーを出すか。足すだけの共有でもできる (→ docs/ui.md「共有の中の画面」)。 */
+/** アップロード・新しいフォルダーを出すか。追加のみの共有でもできる (→ docs/ui.md「共有の中の画面」)。 */
 export function canAddTo(access: ShareAccess): boolean {
 	return accessAtLeast(access, 'add');
 }
 
 /**
  * 行の ⋮ に出す操作。押してから断られるものは出さない (→ docs/ui.md「共有の中の画面」)。
- * - 名前の変更・移動・削除は「すべての操作」の場所だけ。
+ * - 名前の変更・移動・削除は「フルアクセス」の場所だけ。
  * - コピーは読める場所から、足せる共有がどこかにあるときだけ (`copyDestinationExists`)。
  * - ダウンロードはファイルだけ。ホームに載せるのは、まだ載せていないフォルダーだけ。
  */

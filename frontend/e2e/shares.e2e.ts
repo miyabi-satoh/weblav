@@ -111,7 +111,7 @@ test('共有の中で、アップロード・名前の変更・移動・削除�
 	});
 });
 
-test('足すだけの人には、行の ⋮ に名前の変更が出ない', async ({ page, browser }) => {
+test('追加のみの人には、行の ⋮ に名前の変更が出ない', async ({ page, browser }) => {
 	const username = uniqueId('e2e-share-add');
 	const password = 'E2eSmoke!2026Test';
 	await withShare(page, async (share) => {

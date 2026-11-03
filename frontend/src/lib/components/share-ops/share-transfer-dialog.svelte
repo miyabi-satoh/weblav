@@ -204,7 +204,7 @@
 					disabled={busy !== null}
 					onclick={() => begin('rename')}>{m.shares_conflict_rename()}</LoadingButton
 				>
-				<!-- 上書きは置き先で「すべての操作」ができる人にだけ出す (サーバーも同じ判定で断る)。 -->
+				<!-- 上書きは置き先で「フルアクセス」の人にだけ出す (サーバーも同じ判定で断る)。 -->
 				{#if picked !== null && accessAtLeast(picked.access, 'all')}
 					<LoadingButton
 						type="button"
