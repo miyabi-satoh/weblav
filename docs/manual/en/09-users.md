@@ -38,6 +38,8 @@ Users with a recovery code can also reset their own password (→ [Sign in and d
 1. In the “Users” list, select the person's row. Their edit page opens.
 2. Change “Username” or “Role”, then select “Save” in that section.
 
+   ![The user edit page](images/user-edit.webp)
+
 If there is only one administrator, you cannot make them a standard user.
 
 After changing a username, let them know to log in with the new username from now on, including when they use their saved recovery code. Users can also change their own username (→ [Sign in and display](03-account.md)).

@@ -24,7 +24,7 @@ export function requiredLabel(...labels: string[]): RegExp {
 export const TITLE_LABEL = requiredLabel('タイトル', 'Title');
 export const USERNAME_LABEL = requiredLabel('ユーザー名', 'Username');
 export const PASSWORD_LABEL = requiredLabel('パスワード', 'Password');
-export const PASSWORD_CONFIRM_LABEL = requiredLabel('パスワード(確認)', 'Password (confirm)');
+export const PASSWORD_CONFIRM_LABEL = requiredLabel('パスワード (確認)', 'Password (confirm)');
 export const CURRENT_PASSWORD_LABEL = requiredLabel('現在のパスワード', 'Current password');
 
 /** ログイン画面の入力欄とボタン。表示言語 (ja/en) のどちらでも見つかるようにする。 */

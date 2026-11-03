@@ -17,8 +17,12 @@ import {
 	CONTENT_ADD_BUTTON_NAME,
 	DELETE_MENU_ITEM_NAME,
 	DIR_PICKER_NAME,
+	PASSWORD_CONFIRM_LABEL,
+	PASSWORD_LABEL,
 	ROOT_ADD_BUTTON_NAME,
 	ROW_ACTIONS_BUTTON_NAME,
+	USERNAME_LABEL,
+	USER_ADD_BUTTON_NAME,
 	USE_THIS_FOLDER_BUTTON_NAME,
 	chooseContentType,
 	openAddDialog,
@@ -35,6 +39,13 @@ const DIAGRAM_HTML = path.join(import.meta.dirname, 'manual-shots/how-it-works.h
 /** 撮れる画像。WebLAV の画面か図かで分ける。 */
 const ADMIN_SHOTS = [
 	'roots-page',
+	'roots-menu',
+	'users-page',
+	'user-menu',
+	'user-add',
+	'user-edit',
+	'header-user-menu',
+	'setup-admin-menu',
 	'settings-page',
 	'settings-server',
 	'settings-port',
@@ -326,6 +337,71 @@ const dialog = (page: Page) => page.getByRole('dialog').last();
 /** 登録の画面の上に重なって開く、フォルダーを選ぶ画面。 */
 const picker = (page: Page) => page.getByRole('dialog', { name: DIR_PICKER_NAME });
 
+/** ユーザーの章とユーザー名のメニューの画像を撮る。一覧に管理者と一般ユーザーの両方を写すため、先に足す。 */
+async function shootUsers(page: Page) {
+	const SHOT_USER_PASSWORD = 'E2eSmoke!2026Test';
+	let editId = 0;
+	for (const [username, role] of [
+		['sato', 'admin'],
+		['suzuki', 'user'],
+		['tanaka', 'user']
+	]) {
+		const created = await send(page.request, 'POST', '/admin/users', {
+			username,
+			password: SHOT_USER_PASSWORD,
+			role
+		});
+		editId = created!.id;
+	}
+
+	if (want('users-page')) {
+		await goto(page, '/admin/users');
+		await shotBetween(page, 'users-page', adminNav(page), row(page, 'tanaka'), { padBottom: 16 });
+	}
+	if (want('user-menu')) {
+		await goto(page, '/admin/users');
+		await row(page, 'tanaka').getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).click();
+		await page.getByRole('menu').waitFor();
+		await shotBetween(page, 'user-menu', row(page, 'tanaka'), page.getByRole('menu'), {
+			padTop: 8,
+			padBottom: 16
+		});
+		await page.keyboard.press('Escape');
+		await page.getByRole('menu').waitFor({ state: 'hidden' });
+	}
+	if (want('user-add')) {
+		await goto(page, '/admin/users');
+		await openAddDialog(page, USER_ADD_BUTTON_NAME);
+		await page.getByLabel(USERNAME_LABEL).fill('yamada');
+		await page.getByLabel(PASSWORD_LABEL).fill(SHOT_USER_PASSWORD);
+		await page.getByLabel(PASSWORD_CONFIRM_LABEL).fill(SHOT_USER_PASSWORD);
+		await shotElement(page, 'user-add', dialog(page));
+		await page.keyboard.press('Escape');
+	}
+	if (want('user-edit')) {
+		await goto(page, `/admin/users/${editId}`);
+		await shotBetween(
+			page,
+			'user-edit',
+			adminNav(page),
+			page.getByRole('button', { name: /^保存する$/ }).last(),
+			{ padBottom: 24 }
+		);
+	}
+	// どちらもユーザー名のメニューを写す。セットアップの直後と、ふだんのログインの章で同じものを見せる。
+	for (const name of ['header-user-menu', 'setup-admin-menu']) {
+		if (!want(name)) continue;
+		await goto(page, '/');
+		await page.getByRole('banner').getByRole('button', { name: TEST_ADMIN.username }).click();
+		await page.getByRole('menu').waitFor();
+		await shotBetween(page, name, page.getByRole('banner'), page.getByRole('menu'), {
+			padBottom: 16
+		});
+		await page.keyboard.press('Escape');
+		await page.getByRole('menu').waitFor({ state: 'hidden' });
+	}
+}
+
 /** WebLAV の画面を撮る。コンテンツを足しながら、元の画像と同じ件数の時点で撮る。 */
 async function shootAdmin() {
 	const backend = await startWithAdmin();
@@ -344,6 +420,20 @@ async function shootAdmin() {
 				{ padBottom: 16 }
 			);
 		}
+		if (want('roots-menu')) {
+			await goto(page, '/admin/roots');
+			const actions = page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).first();
+			await actions.click();
+			await page.getByRole('menu').waitFor();
+			await shotBetween(page, 'roots-menu', actions, page.getByRole('menu'), {
+				padTop: 24,
+				padBottom: 16
+			});
+			await page.keyboard.press('Escape');
+			await page.getByRole('menu').waitFor({ state: 'hidden' });
+		}
+
+		await shootUsers(page);
 
 		const folderIds = new Map<string, number>();
 		for (const title of ['写真', '音楽', '書類']) {
