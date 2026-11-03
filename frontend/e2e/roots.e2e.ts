@@ -36,13 +36,13 @@ test('登録した共有が並び、画面から削除できる', async ({ page 
 		test.skip(id === null, FIXTURE_UNREACHABLE);
 
 		await page.goto('/admin/roots');
-		const row = page.getByRole('listitem').filter({ hasText: root });
+		const row = page.getByRole('row').filter({ hasText: root });
 		await expect(row).toBeVisible();
 
 		await clickRowMenuItem(page, row, DELETE_MENU_ITEM_NAME);
 		await confirmDelete(page);
 
-		await expect(page.getByRole('listitem').filter({ hasText: root })).toHaveCount(0);
+		await expect(page.getByRole('row').filter({ hasText: root })).toHaveCount(0);
 	} finally {
 		removeFixtureTree(root);
 		// 画面での削除まで届かずに失敗したときのため。既に消えていれば 404 で、そのままでよい。
@@ -112,9 +112,9 @@ test('フォルダーを選ぶとフォルダー名で追加されて編集ペ�
 			.first()
 			.click();
 		await page.waitForURL(/\/admin\/roots$/);
-		const row = page.getByRole('listitem').filter({ hasText: target });
+		const row = page.getByRole('row').filter({ hasText: target });
 		await expect(row.getByText(renamed, { exact: true })).toBeVisible();
-		await expect(row).toContainText(/一般ユーザー: 追加のみ|Standard users: Add only/);
+		await expect(row).toContainText(/追加のみ|Add only/);
 		// 名前のリンクではなく行の真ん中を押す (リンクの押せる範囲を行いっぱいに広げてある)。
 		await row.click();
 		await page.waitForURL(/\/admin\/roots\/\d+$/);
@@ -141,7 +141,7 @@ test('編集ページ: 保存していない変更があると、離れる前に
 		await page.goto('/admin/roots');
 		await clickRowMenuItem(
 			page,
-			page.getByRole('listitem').filter({ hasText: realpathSync(root) }),
+			page.getByRole('row').filter({ hasText: realpathSync(root) }),
 			EDIT_MENU_ITEM_NAME
 		);
 		await page.waitForURL(/\/admin\/roots\/\d+$/);
@@ -221,7 +221,7 @@ test('窓を閉じるまでボタンを押せなくし、キャンセルなら�
 	await page.goto('/admin/roots');
 	// 一覧が出てから数える。
 	await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-	const rows = page.getByRole('listitem');
+	const rows = page.getByRole('row');
 	const before = await rows.count();
 
 	await page.getByRole('button', { name: ROOT_ADD_BUTTON_NAME }).click();

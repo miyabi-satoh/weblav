@@ -140,7 +140,30 @@
 	"admin_roots_edit_move_confirm_button": "Change",
 	"admin_roots_name_label": "Name",
 	"admin_roots_edit_access_title": "Permissions",
-	"admin_roots_editor_access": "Standard users: {access}",
+	"admin_roots_table_access": "Standard users",
+	"admin_roots_table_exceptions": "Exceptions",
+	"admin_roots_table_contents": "Content",
+	"admin_roots_table_exceptions_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} user",
+				"countPlural=other": "{count} users"
+			}
+		}
+	],
+	"admin_roots_table_no_exceptions": "None",
+	"admin_roots_table_content_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} item",
+				"countPlural=other": "{count} items"
+			}
+		}
+	],
 	"admin_roots_exceptions": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],
