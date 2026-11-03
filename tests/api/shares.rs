@@ -1236,7 +1236,7 @@ async fn add_access_allows_copying_in_but_not_moving_or_overwriting(pool: Sqlite
     assert_error(status, &body, StatusCode::FORBIDDEN, "forbidden");
 }
 
-/// 別の共有へ動かすと、元の共有を載せたフォルダーの印は外れ、置き先を載せたフォルダーには残っていた印が消える。
+/// 別の共有へ動かすと、元の共有を載せたフォルダーの印は外れ、置き先を載せたフォルダーの印は残る。
 /// 上書きでは、置き先の前のものはごみ箱へ送る。
 #[sqlx::test]
 async fn moving_between_shares_overwrites_and_carries_marks(pool: SqlitePool) {

@@ -60,7 +60,7 @@ You can move in shares with “Full access”, and copy from any share you can s
 >
 > NAS and network drives, for example, have no trash. In that case, the confirmation screen says so.
 
-If the folder you are overwriting, or a folder inside it, is listed on Home, it appears on the confirmation screen. Overwriting makes that content show different files or stop opening, and clears its publish settings. When you overwrite a file or folder inside a listed folder, same-named items keep their publish setting, so a private file you replace stays private.
+If the folder you are overwriting, or a folder inside it, is listed on Home, it appears on the confirmation screen. Overwriting makes that content show different files or stop opening, and clears its publish settings. When you overwrite a file or folder inside a listed folder, same-named items keep their publish setting, so a private file you replace stays private. If something you move within the same content has its own setting, that setting applies.
 
 A share itself, and folders that contain another share or WebLAV's data, cannot be moved or overwritten. Folders that contain WebLAV's data cannot be copied either.
 
@@ -94,7 +94,7 @@ This shows a folder in a share on Home as folder content. You can do this in any
 
 The title is the folder name. To change it, use the edit page in the admin pages (→ [Register contents](06-register-content.md)).
 
-If a folder has hidden content and its creator or an admin lists it, that content comes back with the visibility chosen instead of a new one being created. Its title and publish settings inside stay the same. When anyone else lists it, or an admin lists it as “Only the creator”, it becomes separate content.
+If a folder has hidden content and its creator or an admin lists it, that content comes back with the visibility chosen instead of a new one being created. Its title and publish settings inside stay the same. When someone who is neither its creator nor an admin lists it, or an admin lists someone else's content as “Creator only”, it becomes separate content.
 
 Folders listed on Home show “Listed”. When you open such a folder, “Listed on Home as “title”” appears below the heading.
 

@@ -987,6 +987,32 @@ mod tests {
     }
 
     #[test]
+    fn a_failed_placement_after_trashing_reports_the_target_removed_but_not_placed() {
+        let root = temp_dir("place-fail-trash");
+        let dir = root.path();
+        let trash_dir = dir.join("trash");
+        fs::create_dir(&trash_dir).expect("ごみ箱を作れなかった");
+        let target = dir.join("old.txt");
+        fs::write(&target, b"old").expect("今あるファイルを作れなかった");
+        let mut outcome = OverwriteOutcome::default();
+
+        let result = replace_target(
+            &dir.join("missing"),
+            &target,
+            &TrashPolicy::Folder(trash_dir.clone()),
+            &mut outcome,
+        );
+
+        assert!(result.is_err());
+        assert!(outcome.target_removed);
+        assert!(!outcome.placed);
+        let trashed = fs::read_dir(&trash_dir)
+            .expect("ごみ箱を読めなかった")
+            .count();
+        assert_eq!(trashed, 1, "ごみ箱に残る");
+    }
+
+    #[test]
     fn a_failed_placement_puts_the_old_target_back_where_there_is_no_trash() {
         let root = temp_dir("place-fail");
         let dir = root.path();

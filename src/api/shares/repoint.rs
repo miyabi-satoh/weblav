@@ -7,7 +7,7 @@
 //!
 //! - 動かしたものがコンテンツの登録先 (かその上) なら、登録先を新しい場所に変える。中の相対パスは変わらない
 //! - コンテンツの中で動かしたなら、相対パスの頭を付け替える。外へ出したなら、その分の行を消す
-//! - 置き先に前からあった行 (上書きで消したものの印など) は、先に消す
+//! - 置き先に前からあった行は、先に消す。上書きでは印を残す (動かしたものに印があれば、その印を採る)
 //! - 上書きで消したものがコンテンツの登録先 (かその中) なら、そのコンテンツの行も消す
 //!
 //! 一覧の表示の索引を走査している最中のコンテンツは、印だけを直す。索引は走査が書き直すため
@@ -78,14 +78,16 @@ pub(super) async fn moved(
         } else if let Ok(rel_old) = rel_under(&row.path, &old) {
             match rel_under(&row.path, &new) {
                 Ok(rel_new) => {
-                    let keep_marks = overwrote && !has_marks(&mut *conn, row.id, &rel_old).await?;
-                    clear_destination(&mut *conn, row.id, &rel_new, marks_only, keep_marks).await?;
+                    if overwrote {
+                        delete_marks_replaced_by(&mut *conn, row.id, &rel_old, &rel_new).await?;
+                    }
+                    clear_destination(&mut *conn, row.id, &rel_new, marks_only, overwrote).await?;
                     rename_under(&mut *conn, row.id, &rel_old, &rel_new, marks_only).await?;
                 }
                 Err(_) => delete_under(&mut *conn, row.id, &rel_old, marks_only).await?,
             }
         } else if let Ok(rel_new) = rel_under(&row.path, &new) {
-            // 外から入れてきたもの。同じ場所に前からあったものの行を消す。
+            // 外から入れてきたもの。同じ場所に前からあったものの行を消す (上書きなら印は残す)。
             clear_destination(&mut *conn, row.id, &rel_new, marks_only, overwrote).await?;
         } else {
             continue;
@@ -136,6 +138,16 @@ pub(super) async fn overwritten(
         let marks_only = scanning(row.id);
         if row.path.starts_with(&path) {
             delete_all(&mut *conn, row.id, marks_only).await?;
+            if row.list_view && !marks_only {
+                // 索引のフォルダーが1つも無いと、まだ走査していないものとして読み直しが何もしない。
+                // 更新日時の分からない根を置いて、置き換わった中身を読ませる。
+                sqlx::query!(
+                    "INSERT INTO archive_dirs (archive_id, rel_path, modified_ns) VALUES (?, '', NULL)",
+                    row.id
+                )
+                .execute(&mut *conn)
+                .await?;
+            }
         } else if let Ok(rel) = rel_under(&row.path, &path) {
             clear_destination(&mut *conn, row.id, &rel, marks_only, true).await?;
         } else {
@@ -179,18 +191,27 @@ async fn clear_destination(
     Ok(())
 }
 
-/// `rel` かその中に印があるか。
-async fn has_marks(conn: &mut SqliteConnection, id: i64, rel: &str) -> Result<bool, AppError> {
-    let prefix = format!("{rel}/");
-    let found = sqlx::query_scalar!(
-        r#"SELECT EXISTS(SELECT 1 FROM folder_marks WHERE content_id = ?1 AND (path = ?2 OR substr(path, 1, length(?3)) = ?3)) as "found!: bool""#,
+/// `old` の中の印と同じ名前になる、`new` の中の印を消す。動かしたものの印を採り、ほかの名前の印は残すため。
+async fn delete_marks_replaced_by(
+    conn: &mut SqliteConnection,
+    id: i64,
+    old: &str,
+    new: &str,
+) -> Result<(), AppError> {
+    let old_prefix = format!("{old}/");
+    sqlx::query!(
+        "DELETE FROM folder_marks WHERE content_id = ?1 AND path IN (
+             SELECT ?3 || substr(path, length(?2) + 1) FROM folder_marks
+             WHERE content_id = ?1 AND (path = ?2 OR substr(path, 1, length(?4)) = ?4)
+         )",
         id,
-        rel,
-        prefix
+        old,
+        new,
+        old_prefix
     )
-    .fetch_one(conn)
+    .execute(conn)
     .await?;
-    Ok(found)
+    Ok(())
 }
 
 /// `rel` とその中の行を消す。
@@ -447,7 +468,6 @@ mod tests {
         }
     }
 
-    /// 印・索引・索引のフォルダーの相対パス。3つの表で同じになるはずなので、違えば落とす。
     async fn mark_rels(pool: &sqlx::SqlitePool, id: i64) -> Vec<String> {
         sqlx::query_scalar("SELECT path FROM folder_marks WHERE content_id = ? ORDER BY path")
             .bind(id)
@@ -466,6 +486,7 @@ mod tests {
         .expect("索引を読めなかった")
     }
 
+    /// 印・索引・索引のフォルダーの相対パス。3つの表で同じになるはずなので、違えば落とす。
     async fn rels(pool: &sqlx::SqlitePool, id: i64) -> Vec<String> {
         let marks: Vec<String> =
             sqlx::query_scalar("SELECT path FROM folder_marks WHERE content_id = ? ORDER BY path")
@@ -662,11 +683,9 @@ mod tests {
         assert_eq!(content_path(&pool, id).await, root.display().to_string());
     }
 
-    /// 外から動かして上書きしても、置き先の印は残す。同じコンテンツの中で印のあるものを動かしたら、その印を採る。
+    /// 外から動かして上書きしても、置き先の印は残す。
     #[sqlx::test]
-    async fn moving_over_a_marked_file_keeps_its_mark_unless_the_source_has_one(
-        pool: sqlx::SqlitePool,
-    ) {
+    async fn moving_in_from_outside_over_a_marked_file_keeps_its_mark(pool: sqlx::SqlitePool) {
         let root = sep_path(&["srv", "教材"]);
         let id = insert_folder(&pool, &root, true).await;
         insert_rows(&pool, id, &["a.pdf"]).await;
@@ -682,23 +701,53 @@ mod tests {
         .await
         .expect("映せなかった");
         drop(conn);
+
         assert_eq!(mark_rels(&pool, id).await, vec!["a.pdf"]);
         assert!(item_rels(&pool, id).await.is_empty(), "索引は読み直させる");
+    }
 
-        insert_rows(&pool, id, &["sub/b.pdf"]).await;
+    /// 同じコンテンツの中で動かして上書きすると、動かしたものに印がある名前だけ、その印を採る。
+    #[sqlx::test]
+    async fn moving_over_a_folder_merges_marks_by_name(pool: sqlx::SqlitePool) {
+        let root = sep_path(&["srv", "教材"]);
+        let id = insert_folder(&pool, &root, true).await;
+        insert_rows(
+            &pool,
+            id,
+            &["dst/secret.pdf", "dst/both.pdf", "src/both.pdf"],
+        )
+        .await;
+        sqlx::query("UPDATE folder_marks SET public = 0 WHERE path LIKE 'dst/%'")
+            .execute(&pool)
+            .await
+            .expect("印を変えられなかった");
+
         let mut conn = pool.acquire().await.expect("つなげなかった");
         moved(
             &mut conn,
-            &root.join("sub/b.pdf"),
-            &root.join("a.pdf"),
+            &root.join("src"),
+            &root.join("dst"),
             true,
             &not_scanning,
         )
         .await
         .expect("映せなかった");
         drop(conn);
-        assert_eq!(mark_rels(&pool, id).await, vec!["a.pdf"]);
-        assert_eq!(item_rels(&pool, id).await, vec!["a.pdf"]);
+
+        let marks: Vec<(String, bool)> = sqlx::query_as(
+            "SELECT path, public FROM folder_marks WHERE content_id = ? ORDER BY path",
+        )
+        .bind(id)
+        .fetch_all(&pool)
+        .await
+        .expect("印を読めなかった");
+        assert_eq!(
+            marks,
+            vec![
+                ("dst/both.pdf".to_string(), true),
+                ("dst/secret.pdf".to_string(), false)
+            ]
+        );
     }
 
     /// 上書きでは、登録先そのものやその中を登録先にするコンテンツの行も消す。上の階層のコンテンツは、
@@ -729,7 +778,19 @@ mod tests {
             vec!["keep.pdf", "教材/a.pdf"]
         );
         assert_eq!(item_rels(&pool, above_id).await, vec!["keep.pdf"]);
-        assert!(rels(&pool, root_id).await.is_empty());
+        assert!(mark_rels(&pool, root_id).await.is_empty());
+        assert!(item_rels(&pool, root_id).await.is_empty());
+        let root_dirs: Vec<String> =
+            sqlx::query_scalar("SELECT rel_path FROM archive_dirs WHERE archive_id = ?")
+                .bind(root_id)
+                .fetch_all(&pool)
+                .await
+                .expect("索引のフォルダーを読めなかった");
+        assert_eq!(
+            root_dirs,
+            vec![""],
+            "読み直しが何もしないまま空にならないように"
+        );
         assert!(rels(&pool, under_id).await.is_empty());
         assert_eq!(
             content_path(&pool, root_id).await,
