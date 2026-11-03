@@ -445,18 +445,44 @@ pub(super) fn copy_tree(
     placed.map(|()| Some(target))
 }
 
-/// 今ある `target` を消し (ごみ箱を使えない場所では完全に消す)、用意できた `ready` をその名前にする。
-/// 消せたら `target_removed` を立てる。
+/// 今ある `target` を除け、用意できた `ready` をその名前にする。除け終えたら `target_removed` を立てる。
+///
+/// ごみ箱へ送れる場所では先に送る (置くのに失敗しても、今あるものはごみ箱に残る)。
+/// 送れない場所では作業用の名前へ除けてから置き、置けなかったら戻す。完全に消すのは置けた後にする。
 fn replace_target(
     ready: &Path,
     target: &Path,
     trash: &TrashPolicy,
     target_removed: &mut bool,
 ) -> Result<(), AppError> {
-    let permanent = !trash.available(target);
-    delete(&[target.to_path_buf()], permanent, trash)?;
+    if trash.available(target) {
+        delete(&[target.to_path_buf()], false, trash)?;
+        *target_removed = true;
+        return fs::rename(ready, target).map_err(map_io_error);
+    }
+    let dest_dir = target.parent().ok_or(AppError::NotFound)?;
+    let aside = temp_in(dest_dir, PLACE_TEMP_PREFIX)?;
+    fs::rename(target, &aside).map_err(map_io_error)?;
+    if let Err(err) = fs::rename(ready, target) {
+        if let Err(restore) = fs::rename(&aside, target) {
+            tracing::error!(
+                error = %restore,
+                kept_at = %aside.display(),
+                "an overwritten entry could not be put back after a failed overwrite"
+            );
+        }
+        return Err(map_io_error(err));
+    }
     *target_removed = true;
-    fs::rename(ready, target).map_err(map_io_error)
+    // 置き終えているので、消せなくても失敗にしない (失敗にすると、動かしたものを元へ戻してしまう)。
+    if let Err(err) = remove_tree(&aside) {
+        tracing::warn!(
+            error = %err,
+            kept_at = %aside.display(),
+            "an overwritten entry could not be removed"
+        );
+    }
+    Ok(())
 }
 
 /// `src` を写して、今ある `target` と置き換える。置いたら真、中止されたら偽を返す。
@@ -946,6 +972,29 @@ mod tests {
         assert_eq!(fs::read_dir(&dest).expect("読めなかった").count(), 1);
 
         assert!(copy_tree(&src, &dest, "src", &progress).is_err());
+    }
+
+    #[test]
+    fn a_failed_placement_puts_the_old_target_back_where_there_is_no_trash() {
+        let root = temp_dir("place-fail");
+        let dir = root.path();
+        let target = dir.join("old.txt");
+        fs::write(&target, b"old").expect("今あるファイルを作れなかった");
+        let mut removed = false;
+
+        let result = replace_target(
+            &dir.join("missing"),
+            &target,
+            &TrashPolicy::Unavailable,
+            &mut removed,
+        );
+
+        assert!(result.is_err());
+        assert!(!removed);
+        assert_eq!(
+            fs::read(&target).expect("今あるファイルが戻っていない"),
+            b"old"
+        );
     }
 
     #[test]
