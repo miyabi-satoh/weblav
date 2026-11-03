@@ -13,7 +13,7 @@ What you can do depends on your permission for each share (→ [Add shares](04-s
 
 Select a file to open it in place, just like in folder content (→ [View files](08-viewing.md)).
 
-When you open a folder listed on Home (→ [Register contents](06-register-content.md)), the same actions appear if it is a place in a share where you can make changes.
+When you open a folder listed on Home (→ [Register contents](06-register-content.md)), the same actions as on the share screen appear if it is a place in a share where you can make changes, except “List on Home”.
 
 ## Upload files
 
@@ -34,7 +34,7 @@ Progress appears for each file. If you select “Stop” partway, files already 
 1. Select “Add” to the right of the heading, then choose “New folder...”.
 2. Enter a name, then select “Create”.
 
-Names that start with a dot or contain characters not allowed on Windows cannot be used.
+Names that start with a dot or contain `/` or `\` cannot be used. When WebLAV runs on Windows, characters and names not allowed on Windows cannot be used either.
 
 ## Rename
 
@@ -43,7 +43,7 @@ You can do this in shares with “Full access”.
 1. Select “⋮” on the row, then choose “Rename...”.
 2. Enter a name, then select “Rename”.
 
-A share itself, and folders that contain another share, cannot be renamed.
+A share itself, and folders that contain another share or WebLAV's data, cannot be renamed.
 
 ## Move or copy
 
@@ -52,13 +52,17 @@ You can move in shares with “Full access”, and copy from any share you can s
 1. Select “⋮” on the row, then choose “Move...” or “Copy...”.
 2. Browse from a share to the destination folder, then select “Move here” or “Copy here”.
 3. If an item with the same name exists at the destination, choose what to do.
-   - “Overwrite”: Moves the existing item to the trash, then puts the new one in its place. Available only when the destination is a share with “Full access”.
+   - “Overwrite”: Once the new item is ready, moves the existing item to the trash and puts the new one in its place. Available only when the destination is a share with “Full access”.
    - “Add a number”: Saves it with a numbered name.
    - “Skip”: Does not put it there.
 
 > **In places with no trash, overwritten items cannot be restored.**
 >
 > NAS and network drives, for example, have no trash. In that case, the confirmation screen says so.
+
+If a folder you are overwriting is listed on Home, it appears on the confirmation screen.
+
+A share itself, and folders that contain another share or WebLAV's data, cannot be moved or overwritten.
 
 ## Delete
 
@@ -73,9 +77,11 @@ You can do this in shares with “Full access”.
 
 If a folder you are deleting is listed on Home, it appears on the confirmation screen. After deleting, that content can no longer be opened (restoring it from the trash makes it open again).
 
+A share itself, and folders that contain another share or WebLAV's data, cannot be deleted.
+
 ## Long-running tasks
 
-When moving, copying, or deleting does not finish right away, its progress appears at the bottom right of the screen. It continues even if you go to another page. Select “Stop” to stop it. What was already done stays as it is.
+When moving, copying, or deleting does not finish right away, its progress appears at the bottom right of the screen. It continues even if you go to another page. Select “Stop” to stop it. What was already done stays as it is. If you stop during an overwrite, the existing item stays until the new one is ready.
 
 Quitting WebLAV stops any task in progress.
 
@@ -93,6 +99,8 @@ Folders listed on Home show “Listed”. When you open such a folder, “Listed
 ## Publish settings and renaming in shares
 
 Items you rename or move on the share screens keep their publish setting in folders listed on Home, and their place in the library list. Items you rename or move in File Explorer or Finder do not (→ [Register contents](06-register-content.md)).
+
+Moving an item out of a folder listed on Home clears its publish setting, and moving it back does not restore it. Copies do not carry the setting.
 
 ## Activity records
 
