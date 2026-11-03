@@ -339,7 +339,6 @@
 	"contents_type_file": "File",
 	"contents_type_group": "Group",
 	"contents_type_link_description": "A shortcut to an external site",
-	"contents_type_file_description": "Upload a single file to share",
 	"contents_type_folder_description": "Show a folder in a share, as it is or organized as a library",
 	"contents_type_group_description": "Gather other content together",
 	"contents_create_type_label": "Type",

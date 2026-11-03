@@ -276,7 +276,6 @@
 	"contents_type_file": "ファイル",
 	"contents_type_group": "グループ",
 	"contents_type_link_description": "外部サイトへのショートカット",
-	"contents_type_file_description": "1 つのファイルをアップロードして共有",
 	"contents_type_folder_description": "共有の中のフォルダーを、そのままか、ライブラリに整理して見せる",
 	"contents_type_group_description": "ほかのコンテンツをまとめる",
 	"contents_create_type_label": "種類",
