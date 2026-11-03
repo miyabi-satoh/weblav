@@ -1143,14 +1143,17 @@ pub(super) async fn list_folder_on_home(
     path: String,
     visibility: Option<Visibility>,
 ) -> Result<AdminContentResponse, AppError> {
-    let is_admin = user.is_admin();
+    // 管理者が他人のものを戻せるのは、作成者のみ以外にするときだけ。他人のものを作成者のみにはできないので、
+    // そのときは管理者自身のコンテンツを新しく作る。
+    let any_creator =
+        user.is_admin() && visibility.is_some_and(|visibility| visibility != Visibility::Private);
     let hidden = sqlx::query_scalar!(
         r#"SELECT id as "id!" FROM contents
            WHERE type = 'folder' AND path = ? AND visibility = ? AND (? OR created_by = ?)
            ORDER BY id LIMIT 1"#,
         path,
         Visibility::Hidden,
-        is_admin,
+        any_creator,
         user.id,
     )
     .fetch_optional(&state.pool)

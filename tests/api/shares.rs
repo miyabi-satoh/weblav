@@ -1279,7 +1279,8 @@ async fn moving_between_shares_overwrites_and_carries_marks(pool: SqlitePool) {
             .fetch_all(&pool)
             .await
             .expect("印を読めなかった");
-    assert!(marks.is_empty(), "{marks:?}");
+    // 動かした元の印は、コンテンツの外へ出たので消える。置き先の印は、上書きでも残す (同じ名前のものに当てるため)。
+    assert_eq!(marks, vec![(to_folder, "教材/old.pdf".to_string())]);
 }
 
 /// 上書きの前に、響くコンテンツが分かる。上書きすると、そのコンテンツの印が消え、消したものが削除として記録に残る。

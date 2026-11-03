@@ -453,7 +453,7 @@ async fn transfer_all(
         // 置くのに失敗しても、消してしまったものは記録に残す。
         if step_changes
             .iter()
-            .any(|change| matches!(change, Change::Overwritten(_)))
+            .any(|change| matches!(change, Change::Overwritten(_) | Change::Deleted(_)))
         {
             log_overwritten(state, user, &prepared.dest, &source.name).await;
         }
@@ -548,7 +548,11 @@ impl Step {
                 let moved = fsops::move_entry(&self.src, &self.dest_dir, &name, &job.progress)?;
                 let placed = moved.is_some();
                 if let Some(to) = moved {
-                    changes.push(Change::Moved { from: self.src, to });
+                    changes.push(Change::Moved {
+                        from: self.src,
+                        to,
+                        overwrote: false,
+                    });
                 }
                 Ok(placed)
             }
@@ -564,35 +568,26 @@ impl Step {
         trash: &TrashPolicy,
         changes: &mut Vec<Change>,
     ) -> Result<bool, AppError> {
-        let mut target_removed = false;
+        let mut outcome = fsops::OverwriteOutcome::default();
         let result = match self.op {
-            TransferOp::Copy => fsops::copy_over(
-                &self.src,
-                &target,
-                &job.progress,
-                trash,
-                &mut target_removed,
-            ),
-            TransferOp::Move => fsops::move_over(
-                &self.src,
-                &target,
-                &job.progress,
-                trash,
-                &mut target_removed,
-            ),
+            TransferOp::Copy => {
+                fsops::copy_over(&self.src, &target, &job.progress, trash, &mut outcome)
+            }
+            TransferOp::Move => {
+                fsops::move_over(&self.src, &target, &job.progress, trash, &mut outcome)
+            }
         };
-        if target_removed {
+        if outcome.placed {
+            changes.push(Change::Overwritten(target.clone()));
+        } else if outcome.target_removed {
             // 置けなかったときは、ふつうの削除と同じ。ごみ箱から戻せば、前の印のまま開けるように。
-            changes.push(if result.is_ok() {
-                Change::Overwritten(target.clone())
-            } else {
-                Change::Deleted(target.clone())
-            });
+            changes.push(Change::Deleted(target.clone()));
         }
         if self.op == TransferOp::Move && matches!(result, Ok(true)) {
             changes.push(Change::Moved {
                 from: self.src,
                 to: target,
+                overwrote: true,
             });
         }
         result
