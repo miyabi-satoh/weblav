@@ -12,6 +12,7 @@
 	} from '$lib/share-jobs.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
+	import { Progress } from '$lib/components/ui/progress';
 
 	/**
 	 * 共有の中のコピー・移動・削除の進み具合 (→ docs/ui.md「共有の中の画面」)。
@@ -74,19 +75,11 @@
 						{m.shares_job_cancel_button()}
 					</LoadingButton>
 				</div>
-				<div
-					class="h-1.5 overflow-hidden rounded-full bg-muted"
-					role="progressbar"
+				<Progress
+					class="h-1.5"
 					aria-label={tracked.label}
-					aria-valuemin={0}
-					aria-valuemax={100}
-					aria-valuenow={Math.round(jobProgressRatio(tracked.job) * 100)}
-				>
-					<div
-						class="h-full bg-primary transition-all"
-						style:width={`${jobProgressRatio(tracked.job) * 100}%`}
-					></div>
-				</div>
+					value={Math.round(jobProgressRatio(tracked.job) * 100)}
+				/>
 				{#if progress !== ''}
 					<p class="text-xs text-muted-foreground">{progress}</p>
 				{/if}

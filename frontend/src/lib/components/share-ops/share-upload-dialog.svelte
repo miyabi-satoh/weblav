@@ -47,6 +47,7 @@
 	import { shareUploadUrl, uploadShareFile } from '$lib/share-upload';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import { Progress } from '$lib/components/ui/progress';
 	import FileDropzone from '$lib/components/file-dropzone.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 
@@ -180,16 +181,11 @@
 							<div class="flex min-w-0 flex-1 flex-col gap-1">
 								<span class="text-sm wrap-anywhere">{item.file.name}</span>
 								{#if item.state === 'uploading'}
-									<div
-										class="h-1.5 overflow-hidden rounded-full bg-muted"
-										role="progressbar"
+									<Progress
+										class="h-1.5"
 										aria-label={item.file.name}
-										aria-valuemin={0}
-										aria-valuemax={100}
-										aria-valuenow={Math.round(item.progress * 100)}
-									>
-										<div class="h-full bg-primary" style:width={`${item.progress * 100}%`}></div>
-									</div>
+										value={Math.round(item.progress * 100)}
+									/>
 								{/if}
 								{#if note}
 									<span

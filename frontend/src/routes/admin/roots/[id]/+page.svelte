@@ -35,6 +35,7 @@
 	import RootDeleteDialog from '$lib/components/root-delete-dialog.svelte';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import { backLinkClass } from '$lib/back-link';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
@@ -188,7 +189,7 @@
 <div class="px-4 pt-4 md:px-6">
 	<a
 		href={resolve('/admin/roots')}
-		class="relative inline-flex items-center gap-1 text-sm text-muted-foreground after:absolute after:inset-x-0 after:-inset-y-3 hover:text-foreground"
+		class={backLinkClass}
 	>
 		<ChevronLeftIcon class="size-4" />
 		<span class="underline underline-offset-4">{m.admin_roots_nav_title()}</span>
