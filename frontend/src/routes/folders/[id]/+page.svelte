@@ -22,6 +22,19 @@
 	import FolderViewSwitch from '$lib/components/folder-view-switch.svelte';
 	import { refreshAll } from '$app/navigation';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
+	import { viewAs } from '$lib/view-as.svelte';
+	import { ShareOpsState } from '$lib/share-ops-state.svelte';
+	import {
+		canAddTo,
+		childSharePath,
+		shareRowActions,
+		type ShareAction,
+		type ShareDir,
+		type ShareTarget
+	} from '$lib/share-ops';
+	import ShareAddMenu from '$lib/components/share-ops/share-add-menu.svelte';
+	import ShareOpsHost from '$lib/components/share-ops/share-ops-host.svelte';
+	import ShareRowMenuItems from '$lib/components/share-ops/share-row-menu-items.svelte';
 
 	let { data }: PageProps = $props();
 
@@ -59,7 +72,11 @@
 	}
 
 	let rows = $derived<FolderEntryRow[]>(
-		browse.entries.map((entry) => ({ contentId, path: childPath(entry.name), entry }))
+		browse.entries.map((entry) => ({
+			source: { kind: 'content', id: contentId },
+			path: childPath(entry.name),
+			entry
+		}))
 	);
 
 	// 書き換えられる人には、非公開のものも印を添えて並ぶ。行ごとに公開・非公開を切り替える
@@ -84,6 +101,49 @@
 		}
 	}
 
+	// この場所が共有の中で操作できるなら、共有の画面と同じ操作を重ねる (→ docs/ui.md「共有の中の画面」)。
+	// 閲覧者として見ている間は出さない。
+	let share = $derived(viewAs.active ? null : (browse.share ?? null));
+	let shareDir = $derived<ShareDir | null>(
+		share === null
+			? null
+			: {
+					shareId: share.id,
+					shareName: share.name,
+					path: share.path,
+					access: share.access,
+					trash: share.trash,
+					// 上限はこの画面の応答に無いので、超えたものはサーバーが断る。
+					uploadMaxBytes: null
+				}
+	);
+	const shareOps = new ShareOpsState(
+		() => shareDir!,
+		() => data.shares,
+		() => refreshAll()
+	);
+	// 中のフォルダーがホームに載っているかはこの画面の応答に無いので、「ホームに載せる」は共有の画面に任せる。
+	const OMITTED_SHARE_ACTIONS: ShareAction[] = ['listOnHome'];
+
+	function shareTarget(row: FolderEntryRow): ShareTarget | null {
+		if (shareDir === null) return null;
+		return {
+			name: row.entry.name,
+			path: childSharePath(shareDir.path, row.entry.name),
+			isDir: row.entry.isDir,
+			listed: false
+		};
+	}
+
+	function hasShareActions(target: ShareTarget | null): boolean {
+		if (target === null || shareDir === null) return false;
+		return shareRowActions(shareDir.access, target, shareOps.copyDestinationExists).some(
+			(action) => !OMITTED_SHARE_ACTIONS.includes(action)
+		);
+	}
+
+	let canMark = $derived(browse.canEdit && !viewAs.active);
+
 	function linksHref(row: FolderEntryRow): string {
 		return linksFileHref(
 			contentId,
@@ -94,19 +154,27 @@
 </script>
 
 {#snippet rowMenu(row: FolderEntryRow)}
-	<span class={rowMenuSlotClass()}>
-		<RowActionsMenu name={row.entry.name}>
-			{#if row.entry.public}
-				<DropdownMenu.Item disabled={busy} onSelect={() => void setPublic(row, false)}>
-					{m.marks_unpublish_button()}
-				</DropdownMenu.Item>
-			{:else}
-				<DropdownMenu.Item disabled={busy} onSelect={() => void setPublic(row, true)}>
-					{m.marks_publish_button()}
-				</DropdownMenu.Item>
-			{/if}
-		</RowActionsMenu>
-	</span>
+	{@const target = shareTarget(row)}
+	{#if canMark || hasShareActions(target)}
+		<span class={rowMenuSlotClass()}>
+			<RowActionsMenu name={row.entry.name}>
+				{#if canMark}
+					{#if row.entry.public}
+						<DropdownMenu.Item disabled={busy} onSelect={() => void setPublic(row, false)}>
+							{m.marks_unpublish_button()}
+						</DropdownMenu.Item>
+					{:else}
+						<DropdownMenu.Item disabled={busy} onSelect={() => void setPublic(row, true)}>
+							{m.marks_publish_button()}
+						</DropdownMenu.Item>
+					{/if}
+				{/if}
+				{#if target !== null}
+					<ShareRowMenuItems ops={shareOps} {target} omit={OMITTED_SHARE_ACTIONS} />
+				{/if}
+			</RowActionsMenu>
+		</span>
+	{/if}
 {/snippet}
 
 <svelte:head><title>{pageTitle(currentName)}</title></svelte:head>
@@ -140,7 +208,13 @@
 			contentId={data.contentId}
 			contentTitle={browse.folderTitle}
 			canEdit={browse.canEdit}
-		/>
+		>
+			{#snippet actions()}
+				{#if shareDir !== null && canAddTo(shareDir.access)}
+					<ShareAddMenu ops={shareOps} />
+				{/if}
+			{/snippet}
+		</BrowseHeading>
 
 		{#if browse.listView}
 			<div class="mb-4"><FolderViewSwitch {contentId} current="folder" /></div>
@@ -162,9 +236,13 @@
 			{rows}
 			dirHref={(row) => browseHref(row.path)}
 			{linksHref}
-			trailing={browse.canEdit ? rowMenu : undefined}
+			trailing={canMark || shareDir !== null ? rowMenu : undefined}
 		/>
 	{/if}
 </div>
+
+{#if shareDir !== null}
+	<ShareOpsHost ops={shareOps} />
+{/if}
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

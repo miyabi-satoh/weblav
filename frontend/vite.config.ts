@@ -56,7 +56,8 @@ export default defineConfig({
 					name: 'client',
 					browser: {
 						enabled: true,
-						provider: playwright(),
+						// 表示言語はブラウザーの言語で決まるので、実行する PC の言語で結果が変わらないよう固定する。
+						provider: playwright({ contextOptions: { locale: 'ja-JP' } }),
 						instances: [{ browser: 'chromium', headless: true }]
 					},
 					include: ['src/**/*.svelte.{test,spec}.{js,ts}'],

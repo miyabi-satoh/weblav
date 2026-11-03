@@ -41,7 +41,7 @@
 		subtitle?: Snippet;
 		/** 行の文字より前に置くもの (管理画面の選択のチェックなど)。行いっぱいのリンクの上に重ねて置く。 */
 		leading?: Snippet;
-		/** 行の文字の後ろに置くもの。 */
+		/** 行の右端に置くもの (「作成者のみ」の印・⋮ のメニュー)。 */
 		trailing?: Snippet;
 	} = $props();
 
@@ -95,12 +95,12 @@
 		</a>
 		{@render subtitle?.()}
 	</span>
-	{@render trailing?.()}
 	{#if opening}
-		<!-- タイルは新規タブの印と同じ右上の隅に置く (画像のタイルには印が無いので重ならない)。 -->
+		<!-- ⋮ のメニューが行の右端・タイルの右上を使うので、その手前・左上の隅に置く。 -->
 		<Spinner
 			class={['shrink-0 text-muted-foreground', browseLayout.tile ? tileCornerClass : 'ml-auto']}
 			aria-label={m.common_loading()}
 		/>
 	{/if}
+	{@render trailing?.()}
 </div>

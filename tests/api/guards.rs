@@ -12,11 +12,13 @@ const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
     ("GET", "/api/v1/admin/contents"),
     ("POST", "/api/v1/contents"),
     ("POST", "/api/v1/contents/link-metadata"),
-    ("POST", "/api/v1/contents/upload"),
     ("PUT", "/api/v1/contents/9999"),
     ("DELETE", "/api/v1/contents/9999"),
     ("PUT", "/api/v1/contents/9999/upload"),
     ("PUT", "/api/v1/contents/9999/creator"),
+    ("PUT", "/api/v1/contents/9999/visibility"),
+    ("POST", "/api/v1/contents/9999/unhide"),
+    ("GET", "/api/v1/contents/hidden"),
     ("POST", "/api/v1/contents/9999/rescan"),
     ("GET", "/api/v1/contents/9999/rescan"),
     ("DELETE", "/api/v1/contents/9999/rescan"),
@@ -63,9 +65,27 @@ const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
     ("GET", "/api/v1/admin/roots"),
     ("PUT", "/api/v1/admin/roots/9999"),
     ("DELETE", "/api/v1/admin/roots/9999"),
+    ("PUT", "/api/v1/admin/roots/9999/access"),
+    ("GET", "/api/v1/admin/share-operations"),
     ("GET", "/api/v1/admin/server-settings"),
     ("PUT", "/api/v1/admin/server-settings"),
     ("PUT", "/api/v1/admin/site-settings"),
+    ("GET", "/api/v1/shares"),
+    ("GET", "/api/v1/shares/9999/browse"),
+    ("GET", "/api/v1/shares/9999/download?path=a.pdf"),
+    ("GET", "/api/v1/shares/9999/thumbnail?path=a.jpg"),
+    ("GET", "/api/v1/shares/9999/dirs"),
+    ("POST", "/api/v1/shares/9999/upload"),
+    ("POST", "/api/v1/shares/9999/folders"),
+    ("POST", "/api/v1/shares/9999/rename"),
+    ("POST", "/api/v1/shares/9999/list-on-home"),
+    ("POST", "/api/v1/shares/transfer/check"),
+    ("POST", "/api/v1/shares/transfer"),
+    ("POST", "/api/v1/shares/9999/delete/check"),
+    ("POST", "/api/v1/shares/9999/delete"),
+    ("GET", "/api/v1/shares/jobs"),
+    ("GET", "/api/v1/shares/jobs/x"),
+    ("DELETE", "/api/v1/shares/jobs/x"),
     ("GET", "/api/v1/admin/users"),
     ("POST", "/api/v1/admin/users"),
     ("DELETE", "/api/v1/admin/users/9999"),
@@ -84,6 +104,8 @@ const ADMIN_ONLY_APIS: &[(&str, &str)] = &[
     ("GET", "/api/v1/admin/roots"),
     ("PUT", "/api/v1/admin/roots/9999"),
     ("DELETE", "/api/v1/admin/roots/9999"),
+    ("PUT", "/api/v1/admin/roots/9999/access"),
+    ("GET", "/api/v1/admin/share-operations"),
     ("GET", "/api/v1/admin/log-settings"),
     ("PUT", "/api/v1/admin/log-settings"),
     ("GET", "/api/v1/admin/logs"),
@@ -98,7 +120,7 @@ const ADMIN_ONLY_APIS: &[(&str, &str)] = &[
     ("PUT", "/api/v1/admin/users/{user}/username"),
 ];
 
-/// この PC の中からだけ使える口 (→ `api::local::LocalRequest`)。「公開できるフォルダー」の追加は管理者だけの口でもある。
+/// この PC の中からだけ使える口 (→ `api::local::LocalRequest`)。「共有」の追加は管理者だけの口でもある。
 const LOCAL_ONLY_APIS: &[(&str, &str)] = &[
     ("GET", "/api/v1/setup/status"),
     ("POST", "/api/v1/setup/token"),
@@ -108,6 +130,7 @@ const LOCAL_ONLY_APIS: &[(&str, &str)] = &[
     ("POST", "/api/v1/setup/restore"),
     ("POST", "/api/v1/admin/roots"),
     ("POST", "/api/v1/admin/roots/pick"),
+    ("PUT", "/api/v1/admin/roots/9999/path"),
 ];
 
 fn is_roots_api(uri: &str) -> bool {
@@ -115,7 +138,7 @@ fn is_roots_api(uri: &str) -> bool {
 }
 
 /// 本文を付けずに送る。本文の検証より先にログインを確かめていなければ、401 でなく 415・422 などになる。
-/// 「公開できるフォルダー」の追加は LAN からだと 404 になるので、この PC の中から送る。
+/// 「共有」の追加は LAN からだと 404 になるので、この PC の中から送る。
 #[sqlx::test]
 async fn login_required_apis_reject_requests_without_a_session(pool: SqlitePool) {
     let app = test_app(pool).await;

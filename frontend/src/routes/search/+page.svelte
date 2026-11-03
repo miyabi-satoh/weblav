@@ -182,7 +182,7 @@
 
 	let fileRows = $derived<FolderEntryRow[]>(
 		fileHits.map((hit) => ({
-			contentId: hit.contentId,
+			source: { kind: 'content', id: hit.contentId },
 			path: hit.path,
 			entry: hit.entry,
 			listed: hit.listed,
@@ -197,12 +197,13 @@
 		}))
 	);
 
+	// 検索の結果は、フォルダーのコンテンツの中だけを探す (共有の中は探さない)。
 	function folderHref(row: FolderEntryRow): string {
-		return withQuery(resolve('/folders/[id]', { id: String(row.contentId) }), { path: row.path });
+		return withQuery(resolve('/folders/[id]', { id: String(row.source.id) }), { path: row.path });
 	}
 
 	function folderLinksHref(row: FolderEntryRow): string {
-		return linksFileHref(row.contentId, { path: row.path });
+		return linksFileHref(row.source.id, { path: row.path });
 	}
 
 	/** リンクの一覧の中の行。どの一覧にあるかと、`note` で当たったときは `note` を2段目に出す。 */

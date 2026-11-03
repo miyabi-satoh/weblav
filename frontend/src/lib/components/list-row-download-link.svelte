@@ -2,8 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import FileIcon from '@lucide/svelte/icons/file';
 	import { browseRowClass, browseRowPressClass, browseRowTextClass } from '$lib/list-row';
-	import ListRowGlyph from '$lib/components/list-row-glyph.svelte';
-	import { browseLayout } from '$lib/browse-layout.svelte';
+	import ListRowNewTab from '$lib/components/list-row-new-tab.svelte';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
 	import * as m from '$lib/paraglide/messages.js';
 
@@ -15,8 +14,7 @@
 		children,
 		subtitle,
 		leading,
-		trailing,
-		tileCornerTaken = false
+		trailing
 	}: {
 		/** API への直リンク (→ $lib/api/urls.ts)。 */
 		href: string;
@@ -30,10 +28,8 @@
 		subtitle?: Snippet;
 		/** 行の文字より前に置くもの (管理画面の選択のチェックなど)。行いっぱいのリンクの上に重ねて置く。 */
 		leading?: Snippet;
-		/** 行の文字と新規タブの印の間に置くもの。 */
+		/** 行の右端に置くもの (「作成者のみ」の印・⋮ のメニュー)。 */
 		trailing?: Snippet;
-		/** タイルの右上の隅をほかのもの (管理画面の公開の切り替え) が使う。新規タブの印をタイルでは出さない。 */
-		tileCornerTaken?: boolean;
 	} = $props();
 </script>
 
@@ -42,13 +38,10 @@
 	<ListRowIcon icon={FileIcon} {compact} {thumbnail} />
 	<span class={browseRowTextClass()}>
 		<a {href} class={browseRowPressClass()} target="_blank" rel="external noopener noreferrer">
-			{@render children()}
+			<ListRowNewTab>{@render children()}</ListRowNewTab>
 			<span class="sr-only">{m.contents_opens_in_new_tab()}</span>
 		</a>
 		{@render subtitle?.()}
 	</span>
 	{@render trailing?.()}
-	{#if !(tileCornerTaken && browseLayout.tile)}
-		<ListRowGlyph newTab />
-	{/if}
 </div>

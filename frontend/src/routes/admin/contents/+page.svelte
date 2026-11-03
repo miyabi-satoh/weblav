@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		adminEmptyTextClass,
 		adminPageClass,
 		adminPageHeaderClass,
 		pageHeadingTextClass,
@@ -59,6 +60,7 @@
 		columnFromSmClass,
 		dragHandleClass,
 		fitColumnClass,
+		rowLinkClass,
 		truncatingColumnClass
 	} from '$lib/table-columns';
 
@@ -68,7 +70,7 @@
 
 	let { data }: PageProps = $props();
 	let contents = $derived(data.contents);
-	// 「公開できるフォルダー」が0件なら、パスを持つ種別は選ばせない (→ docs/folders.md「公開できるフォルダー」)。
+	// 「共有」が0件なら、パスを持つ種別は選ばせない (→ docs/folders.md「共有」)。
 	let unavailableTypes = $derived(
 		data.hasSharedFolders ? [] : (['folder', 'archive'] as ContentType[])
 	);
@@ -101,7 +103,8 @@
 	let canSeeFullPath = $derived(isAdmin(page.data.user));
 
 	// 種別による制限は持たない。ログイン済みなら全部作れる (→ docs/access.md「ロールと操作」)。
-	const creatableTypes: ContentType[] = ['link', 'file', 'folder', 'group'];
+	// ファイルは共有の中に置くので、ここでは作らない。前から登録してある file コンテンツは一覧に残る。
+	const creatableTypes: ContentType[] = ['link', 'folder', 'group'];
 
 	// 作成者のユーザーを削除した行は作成者が空になる (→ docs/access.md「ユーザーの削除と作成者」)。
 	function creatorLabel(content: Content): string {
@@ -123,12 +126,6 @@
 
 	const errorDialog = new ErrorDialogState();
 
-	// タイトルのリンクの押せる範囲を ::after で行いっぱいに広げる。つまみのある行は、つまみの右を ::after、
-	// 左を ::before で覆い、つまみの下だけを空ける (→ docs/ui.md「UI 全般」)。
-	// リンクは長押しで iOS のドラッグを始めないよう draggable を外し、メニューも出さない。
-	const rowLinkClass =
-		'truncate font-medium outline-none touch-callout-none after:absolute after:inset-y-0 after:right-0 focus-visible:after:ring-3 focus-visible:after:ring-ring/50 focus-visible:after:ring-inset';
-
 	function openCreateDialog(parent: Content | null = null) {
 		form.resetForCreate(parent === null ? 'root' : String(parent.id));
 		createParent = parent;
@@ -149,7 +146,7 @@
 	}
 
 	// 入力した値は消さない。種別を選び直しても入力し直さずに済むようにするため。
-	// 送るのは選んだ種別の項目だけなので (`requestFields` / `toFormData`)、前の種別の値は送られない。
+	// 送るのは選んだ種別の項目だけなので (`createRequestFields`)、前の種別の値は送られない。
 	function backToTypes() {
 		createStep = 'type';
 	}
@@ -170,25 +167,9 @@
 		saving = true;
 
 		try {
-			if (form.type === 'file') {
-				// input required属性で通常は防がれるが、念のため明示的にもチェックしておく。
-				if (!form.files?.[0]) {
-					errorDialog.show(GENERIC_ERROR_MESSAGE());
-					return;
-				}
-			}
-			const result =
-				form.type === 'file'
-					? await client.POST('/api/v1/contents/upload', {
-							// openapi-fetch は FormData をそのまま送るが、生成された型はスキーマの形のままなので
-							// キャストする (実行時の挙動とは無関係)。
-							body: form.toFormData(
-								true
-							) as unknown as components['schemas']['UploadContentRequest']
-						})
-					: await client.POST('/api/v1/contents', {
-							body: { type: form.type, ...form.createRequestFields() }
-						});
+			const result = await client.POST('/api/v1/contents', {
+				body: { type: form.type, ...form.createRequestFields() }
+			});
 			if (!result.response.ok || !result.data) {
 				errorDialog.show(errorMessage(result.error));
 				return;
@@ -306,16 +287,16 @@
 	</span>
 {/snippet}
 
-<svelte:head><title>{pageTitle(m.admin_contents_title())}</title></svelte:head>
+<svelte:head><title>{pageTitle(m.admin_contents_nav_title())}</title></svelte:head>
 
 <div class={adminPageClass}>
 	<div class={adminPageHeaderClass}>
-		<h1 class={pageHeadingTextClass}>{m.admin_contents_title()}</h1>
+		<h1 class={pageHeadingTextClass}>{m.admin_contents_nav_title()}</h1>
 		<Button onclick={() => openCreateDialog()}>{m.admin_contents_add_button()}</Button>
 	</div>
 
 	{#if contents.length === 0}
-		<p class="text-sm text-muted-foreground">{m.admin_contents_empty()}</p>
+		<p class={adminEmptyTextClass}>{m.admin_contents_empty()}</p>
 	{:else}
 		<!-- 列は6つと操作の1つ。狭い幅では優先度の低い列から隠し、横スクロールさせない
 		     (→ docs/ui.md「UI 全般」)。 -->
@@ -397,6 +378,9 @@
 											href={resolve('/admin/contents/[id]', { id: String(content.id) })}
 											class={[
 												rowLinkClass,
+												// つまみのある行は、つまみの右を ::after、左を ::before で覆い、つまみの下だけを空ける。
+												// リンクは長押しで iOS のドラッグを始めないよう draggable を外し、メニューも出さない (→ docs/ui.md「UI 全般」)。
+												'touch-callout-none',
 												editable
 													? 'before:absolute before:inset-y-0 before:left-0 before:row-link-before-handle after:row-link-after-handle'
 													: 'after:left-0'
@@ -474,7 +458,7 @@
 										{#snippet child({ props })}
 											<a
 												href={resolve('/admin/contents/[id]', { id: String(content.id) })}
-												{...props}>{editable ? m.contents_menu_edit() : m.contents_menu_open()}</a
+												{...props}>{editable ? m.action_edit_page() : m.contents_menu_open()}</a
 											>
 										{/snippet}
 									</DropdownMenu.Item>

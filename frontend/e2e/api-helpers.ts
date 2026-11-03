@@ -16,35 +16,7 @@ type ContentByApiBody = {
 	extensions?: string;
 };
 
-type UploadFileByApiBody = {
-	title: string;
-	fileName: string;
-	mimeType: string;
-	buffer: Buffer;
-};
-
 type ContentByApi = Record<string, unknown> & { id: number };
-
-type RequestBody = Pick<
-	NonNullable<Parameters<APIRequestContext['post']>[1]>,
-	'data' | 'multipart'
->;
-
-/** `send` の本体。JSON ではなく multipart で送るときはこちらを直接呼ぶ。 */
-async function sendBody(
-	request: APIRequestContext,
-	method: 'get' | 'post' | 'put' | 'delete',
-	apiPath: string,
-	body: RequestBody
-): Promise<unknown> {
-	const res = await request[method](`/api/v1${apiPath}`, body);
-	if (!res.ok()) {
-		throw new Error(
-			`${method.toUpperCase()} ${apiPath} が失敗しました (${res.status()}): ${await res.text()}`
-		);
-	}
-	return res.status() === 204 ? null : res.json();
-}
 
 /** API を呼び、失敗したら例外にする。204 なら `null` を返す。 */
 export async function send(
@@ -53,7 +25,13 @@ export async function send(
 	apiPath: string,
 	data?: unknown
 ): Promise<unknown> {
-	return sendBody(request, method, apiPath, { data });
+	const res = await request[method](`/api/v1${apiPath}`, { data });
+	if (!res.ok()) {
+		throw new Error(
+			`${method.toUpperCase()} ${apiPath} が失敗しました (${res.status()}): ${await res.text()}`
+		);
+	}
+	return res.status() === 204 ? null : res.json();
 }
 
 /**
@@ -82,20 +60,6 @@ async function createContentByApi(
 	})) as ContentByApi;
 }
 
-/** ファイルをアップロードしてコンテンツを作り、id を返す。 */
-async function uploadFileByApi(
-	request: APIRequestContext,
-	body: UploadFileByApiBody
-): Promise<number> {
-	const content = (await sendBody(request, 'post', '/contents/upload', {
-		multipart: {
-			title: body.title,
-			file: { name: body.fileName, mimeType: body.mimeType, buffer: body.buffer }
-		}
-	})) as { id: number };
-	return content.id;
-}
-
 /** 後片付け専用 (→ `removeByApi`)。 */
 export async function removeContentByApi(request: APIRequestContext, id: number): Promise<void> {
 	await removeByApi(request, `/contents/${id}`, 'コンテンツ');
@@ -104,13 +68,10 @@ export async function removeContentByApi(request: APIRequestContext, id: number)
 /** API で作ったコンテンツを、テスト本体の成否にかかわらず削除する。 */
 export async function withContentByApi<T>(
 	request: APIRequestContext,
-	body: ContentByApiBody | UploadFileByApiBody,
+	body: ContentByApiBody,
 	fn: (content: ContentByApi) => Promise<T>
 ): Promise<T> {
-	const content =
-		'type' in body
-			? await createContentByApi(request, body)
-			: { id: await uploadFileByApi(request, body) };
+	const content = await createContentByApi(request, body);
 	try {
 		return await fn(content);
 	} finally {
@@ -119,7 +80,7 @@ export async function withContentByApi<T>(
 }
 
 /**
- * 「公開できるフォルダー」を登録し、id を返す。サーバーからパスが見えないとき (422) は `null`。
+ * 「共有」を登録し、id を返す。サーバーからパスが見えないとき (422) は `null`。
  * 呼べるのは admin のログイン状態で、サーバーと同じ PC からだけ。
  */
 export async function createRootByApi(
@@ -129,16 +90,14 @@ export async function createRootByApi(
 	const res = await request.post('/api/v1/admin/roots', { data: { path } });
 	if (res.status() === 422) return null;
 	if (res.status() !== 201) {
-		throw new Error(
-			`公開できるフォルダーの登録に失敗しました (${res.status()}): ${await res.text()}`
-		);
+		throw new Error(`共有の登録に失敗しました (${res.status()}): ${await res.text()}`);
 	}
 	return ((await res.json()) as { id: number }).id;
 }
 
 /** 後片付け専用 (→ `removeByApi`)。 */
 export async function removeRootByApi(request: APIRequestContext, id: number): Promise<void> {
-	await removeByApi(request, `/admin/roots/${id}`, '公開できるフォルダー');
+	await removeByApi(request, `/admin/roots/${id}`, '共有');
 }
 
 /** 編集者 (`user`) を作り、id を返す。呼べるのは admin のログイン状態だけ。 */

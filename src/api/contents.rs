@@ -7,22 +7,19 @@
 //! `validate_parent`で拒否する。
 //!
 //! `file` の実体は `AppState::blobs_dir` 配下にSHA-256ハッシュ名で保存する
-//! (content-addressed storage、重複排除)。作成・差し替えは専用のmultipartエンドポイント
-//! (`POST /contents/upload` / `PUT /contents/{id}/upload`)で行う。JSONの
-//! `create_content`/`update_content` は`file`以外を扱う(`file`が来たら422にする)。
+//! (content-addressed storage、重複排除)。新しく作る口と実体の差し替えはもう無い (ファイルは共有の中に置く。
+//! → `api::shares`)。前から登録してあるものは、読む・配る・題などを直す (`PUT /contents/{id}/upload`) ・消すができる。
+//! JSONの `create_content`/`update_content` は`file`以外を扱う(`file`が来たら422にする)。
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path as FsPath, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use axum::Json;
-use axum::extract::{DefaultBodyLimit, Multipart, Path, Query, Request, State};
+use axum::extract::{Multipart, Path, Query, Request, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use serde::{Deserialize, Serialize, de::IntoDeserializer};
-use sha2::{Digest, Sha256};
-use tokio::io::AsyncWriteExt;
 use tower::ServiceExt;
 use tower_http::services::ServeFile;
 use utoipa::{IntoParams, ToSchema};
@@ -34,16 +31,8 @@ use super::schedule::{AutoMode, AutoRefresh, parse_auto_refresh};
 use super::search::FieldKind;
 use super::sort::{SortOrder, SortQuery, title_cmp};
 use crate::auth::{AdminUser, AuthUser, Viewer};
-use crate::config::create_owner_only_dir;
 use crate::error::{AppError, AppJson, multipart_error_to_app_error, run_blocking};
 use crate::state::AppState;
-
-/// multipartの受付上限(`DefaultBodyLimit`)は、実際に許可したいファイルサイズ
-/// (`AppState::max_upload_bytes`)に、テキストフィールド・multipartの境界文字列等の
-/// オーバーヘッド分の余裕を追加した値にする。厳密な上限はハンドラ内でストリーミング中に
-/// 別途チェックする(`stream_field_to_temp_blob`)ため、ここはあくまで「話にならないほど
-/// 大きいリクエストを早期に切る」ためのバックストップ。
-const UPLOAD_BODY_OVERHEAD_BYTES: u64 = 1024 * 1024;
 
 /// `contents.type`。管理画面のレスポンスにもそのまま `type` として載せるため、
 /// `Serialize`/`Deserialize`/`ToSchema` も併せて持つ(`auth::Role` と同じ書き方)。
@@ -243,7 +232,11 @@ pub(super) async fn viewable_link_url(
 }
 
 /// 管理画面の一覧に出すか (→ docs/access.md「管理画面の一覧が `user` に見えること」)。他人の `private` は `admin` にだけ出す。
-fn can_see_in_admin_list(user: &AuthUser, visibility: Visibility, created_by: Option<i64>) -> bool {
+pub(super) fn can_see_in_admin_list(
+    user: &AuthUser,
+    visibility: Visibility,
+    created_by: Option<i64>,
+) -> bool {
     visibility != Visibility::Private || user.is_admin() || created_by == Some(user.id)
 }
 
@@ -316,9 +309,15 @@ struct ContentRow {
 ///
 /// 各バリアントの `private` は、公開範囲が `private` なら真。一覧に「作成者のみ」の印を出すため
 /// (→ docs/access.md「フロントエンドのガード反転」)。一覧に並ぶ `private` は必ず閲覧者自身のもの (`can_list`)。
+///
+/// 各バリアントの `can_edit` は、閲覧者がそのコンテンツを書き換えられるか (`admin` か作成者)。一覧の行から
+/// 編集・公開範囲の変更を出すかを画面が決めるのに使う。匿名 (「閲覧者として見る」を含む) には常に偽。
+///
+/// enum に付けた `rename_all` はバリアント名にしか効かないので、フィールドの camelCase はバリアントごとに指定する。
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum ContentResponse {
+    #[serde(rename_all = "camelCase")]
     Link {
         id: i64,
         title: String,
@@ -326,6 +325,7 @@ pub enum ContentResponse {
         url: String,
         description: Option<String>,
         private: bool,
+        can_edit: bool,
         /// カードに出すページの情報で、覚えているもの (→ docs/ui.md「リンクのカード」)。
         /// 一覧 (`list_contents`・`browse_group`) でだけ埋める。新しい情報は画面が取り直しを頼んで得る。
         preview: Option<super::link_preview::LinkPreview>,
@@ -336,17 +336,17 @@ pub enum ContentResponse {
         title: String,
         description: Option<String>,
         private: bool,
+        can_edit: bool,
         /// 一覧の表示 (軸で絞り込む平らな一覧) を使うか。使うなら、閲覧の入口はそちらを開く。
         list_view: bool,
     },
-    // 複数語のフィールドを持つのはこのバリアントだけ。enum に付けた `rename_all` は
-    // バリアント名にしか効かないので、フィールドの camelCase はここで指定する。
     #[serde(rename_all = "camelCase")]
     File {
         id: i64,
         title: String,
         description: Option<String>,
         private: bool,
+        can_edit: bool,
         /// ダウンロード時のファイル名。ダウンロードURL自体は`id`ベース
         /// (`/contents/{id}/download`)なので、これは表示・保存名のヒント用。
         file_name: String,
@@ -361,19 +361,29 @@ pub enum ContentResponse {
         thumbnail: bool,
     },
     /// 仮想フォルダー。子一覧は含めない(別途 `GET /contents/{id}/group` で取得する)。
+    #[serde(rename_all = "camelCase")]
     Group {
         id: i64,
         title: String,
         description: Option<String>,
         private: bool,
+        can_edit: bool,
     },
 }
 
-impl TryFrom<ContentRow> for ContentResponse {
-    type Error = AppError;
+/// 閲覧者が書き換えられるか (`ensure_editable` と同じ判定)。一覧に並ぶものは閲覧者に見えるものだけなので、
+/// 存在を隠す判定 (`ensure_manageable`) は要らない。
+fn can_edit(viewer: &Viewer, created_by: Option<i64>) -> bool {
+    match viewer {
+        Viewer::User(user) => user.is_admin() || created_by == Some(user.id),
+        Viewer::Anonymous => false,
+    }
+}
 
-    fn try_from(row: ContentRow) -> Result<Self, Self::Error> {
+impl ContentResponse {
+    fn from_row(row: ContentRow, viewer: &Viewer) -> Result<Self, AppError> {
         let private = row.visibility == Visibility::Private;
+        let can_edit = can_edit(viewer, row.created_by);
         // 万一必須カラムがNULLだった場合(将来型が増えてマイグレーションミス等)は
         // レスポンスを諦めて500にする方が、フロントに嘘の空文字列を返すより安全。
         match row.content_type {
@@ -387,6 +397,7 @@ impl TryFrom<ContentRow> for ContentResponse {
                     url,
                     description: row.description,
                     private,
+                    can_edit,
                     preview: None,
                 })
             }
@@ -395,6 +406,7 @@ impl TryFrom<ContentRow> for ContentResponse {
                 title: row.title,
                 description: row.description,
                 private,
+                can_edit,
                 list_view: row.list_view,
             }),
             ContentType::File => {
@@ -409,6 +421,7 @@ impl TryFrom<ContentRow> for ContentResponse {
                     title: row.title,
                     description: row.description,
                     private,
+                    can_edit,
                     file_name,
                     file_size,
                     image: None,
@@ -421,14 +434,15 @@ impl TryFrom<ContentRow> for ContentResponse {
                 title: row.title,
                 description: row.description,
                 private,
+                can_edit,
             }),
         }
     }
 }
 
 /// 管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。
-/// `user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「公開できるフォルダー」の配下だけ
-/// なので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「公開できるフォルダー」)。
+/// `user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「共有」の配下だけ
+/// なので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「共有」)。
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AdminContentResponse {
@@ -440,14 +454,14 @@ pub struct AdminContentResponse {
     pub title: String,
     pub url: Option<String>,
     pub path: Option<String>,
-    /// `path` を含む「公開できるフォルダー」の名前。画面では起点のフルパスの代わりに出す
-    /// (→ docs/folders.md「公開できるフォルダー」)。`path` が無いか、どの公開できるフォルダーにも含まれなければ `None`。
+    /// `path` を含む「共有」の名前。画面では起点のフルパスの代わりに出す
+    /// (→ docs/folders.md「共有」)。`path` が無いか、どの共有にも含まれなければ `None`。
     pub root_name: Option<String>,
     /// `root_name` のフォルダーから先の相対パス (`/` 区切り)。フォルダーそのものなら空文字列。
     /// `root_name` が `None` なら `None`。
     pub path_in_root: Option<String>,
-    /// `root_name` の公開できるフォルダーが削除済みか。画面では名前の代わりに
-    /// 「(見つからない公開できるフォルダー)」と出す。`root_name` が `None` なら `false`。
+    /// `root_name` の共有が削除済みか。画面では名前の代わりに
+    /// 「(見つからない共有)」と出す。`root_name` が `None` なら `false`。
     pub root_deleted: bool,
     pub description: Option<String>,
     /// `type = 'file'` の場合のみ`Some`。`blob_hash`(内部実装detail)は含めない。
@@ -648,17 +662,6 @@ fn title_from_path(path: &str) -> String {
     super::roots::default_name(FsPath::new(path))
 }
 
-/// アップロードしたファイル名から付ける自動のタイトル。拡張子を除いた名前で、
-/// 除くと空になるとき (`.hidden` など) はファイル名のまま。
-fn title_from_file_name(file_name: &str) -> String {
-    FsPath::new(file_name)
-        .file_stem()
-        .and_then(|stem| stem.to_str())
-        .filter(|stem| !stem.is_empty())
-        .unwrap_or(file_name)
-        .to_string()
-}
-
 /// リンクの URL を検証する。スキームが省かれている (`example.com` のように貼り付けた) ときは、
 /// 相手を見て `https://` か `http://` を補う (→ `link_title::choose_scheme`)。
 /// 補ったときは、そのとき取ったページの中身も返す (取れなければ空)。もう一度取りに行かないため。
@@ -718,16 +721,28 @@ fn has_no_scheme(url: &str) -> bool {
 /// 一貫した比較ができるようにするため)。
 ///
 /// `std::fs::canonicalize` はブロッキングI/Oのため `spawn_blocking` に載せる。
-async fn validate_folder_path(state: &AppState, path: Option<&str>) -> Result<String, AppError> {
+///
+/// 選べるのは `user` が中を見られる共有の中だけ (→ `api::shares`)。ただし今の登録先 (`current`) の
+/// ままなら、見られなくなった後でも通す。ほかの項目を直すたびに登録先を選び直させないため。
+async fn validate_folder_path(
+    state: &AppState,
+    user: &AuthUser,
+    path: Option<&str>,
+    current: Option<&str>,
+) -> Result<String, AppError> {
     // 入力は選択UIが返した値をそのまま送る想定なので trim しない。Unix系では
     // 前後に空白を含むディレクトリ名が有効で、落とすと別のパスとして扱われる。
     let path = path.unwrap_or_default().to_string();
     super::validate::non_empty(&path, "path is required")?;
 
     // 検証は全てブロッキングI/Oなので1つの `spawn_blocking` にまとめる。
-    // 「公開できるフォルダー」はその前に読む (`run_blocking` の中ではDBに触れない)。
+    // 「共有」はその前に読む (`run_blocking` の中ではDBに触れない)。
     super::roots::ensure_reachable(state, &path).await?;
-    let roots = super::roots::load_roots(state).await?;
+    let roots = if current == Some(path.as_str()) {
+        super::roots::load_roots(state).await?
+    } else {
+        super::roots::load_roots_for(state, user).await?
+    };
     let own_dirs = state.own_dirs.clone();
     let canonical = run_blocking(move || {
         super::fs::canonical_dir_within_roots(
@@ -951,7 +966,7 @@ async fn list_contents(
     let contents = rows
         .into_iter()
         .filter(|row| can_list(&viewer, row.visibility, row.created_by))
-        .map(ContentResponse::try_from)
+        .map(|row| ContentResponse::from_row(row, &viewer))
         .collect::<Result<Vec<_>, _>>()?;
     Ok(Json(with_previews(&state, contents).await?))
 }
@@ -1064,41 +1079,145 @@ async fn create_content(
         (None, None)
     };
 
+    let created = insert_content(
+        &state,
+        &user,
+        NewContent {
+            content_type: payload.content_type,
+            parent_id: payload.parent_id,
+            title: payload.title,
+            link_title,
+            url: link_url,
+            path: payload.path,
+            description: link_description.or(payload.description),
+            visibility: payload.visibility,
+        },
+    )
+    .await?;
+    Ok((StatusCode::CREATED, Json(created)))
+}
+
+/// 作るコンテンツ。リンクの URL とページから取ったタイトルは、取りに行った後のもの。
+struct NewContent {
+    content_type: ContentType,
+    parent_id: Option<i64>,
+    title: Option<String>,
+    /// リンクのページから取ったタイトル。`title` が無いときに使う。
+    link_title: Option<String>,
+    url: Option<String>,
+    /// フォルダーの登録先 (入力のまま。検証はここで行う)。
+    path: Option<String>,
+    description: Option<String>,
+    visibility: Option<Visibility>,
+}
+
+/// フォルダーのコンテンツを、ルート直下に作る。共有の画面の「ホームに載せる」から使う。
+pub(super) async fn create_folder_content(
+    state: &AppState,
+    user: &AuthUser,
+    path: String,
+    visibility: Option<Visibility>,
+) -> Result<AdminContentResponse, AppError> {
+    insert_content(
+        state,
+        user,
+        NewContent {
+            content_type: ContentType::Folder,
+            parent_id: None,
+            title: None,
+            link_title: None,
+            url: None,
+            path: Some(path),
+            description: None,
+            visibility,
+        },
+    )
+    .await
+}
+
+/// 共有の中のフォルダーをホームに載せる。閲覧者が戻せる非表示のコンテンツがそのフォルダーにあれば、それを戻す。
+/// 新しく作ると、中の公開・非公開の印が付いていない2つ目のコンテンツができ、非公開にしたファイルが見えてしまうため。
+pub(super) async fn list_folder_on_home(
+    state: &AppState,
+    user: &AuthUser,
+    path: String,
+    visibility: Option<Visibility>,
+) -> Result<AdminContentResponse, AppError> {
+    // 管理者が他人のものを戻せるのは、作成者のみ以外にするときだけ。他人のものを作成者のみにはできないので、
+    // そのときは管理者自身のコンテンツを新しく作る。
+    let any_creator =
+        user.is_admin() && visibility.is_some_and(|visibility| visibility != Visibility::Private);
+    let hidden = sqlx::query_scalar!(
+        r#"SELECT id as "id!" FROM contents
+           WHERE type = 'folder' AND path = ? AND visibility = ? AND (? OR created_by = ?)
+           ORDER BY id LIMIT 1"#,
+        path,
+        Visibility::Hidden,
+        any_creator,
+        user.id,
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+    let Some(id) = hidden else {
+        return create_folder_content(state, user, path, visibility).await;
+    };
+    {
+        let _write_guard = state.contents_write_lock.lock().await;
+        let existing = fetch_visibility_state(&state.pool, id).await?;
+        let target = visibility.unwrap_or(restore_target(existing.visibility_before_hidden));
+        change_visibility(&state.pool, user, id, &existing, target).await?;
+    }
+    let row = sqlx::query_as!(
+        ContentRow,
+        r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url,
+                  path, description, created_at as "created_at!", file_name, file_size,
+                  visibility as "visibility: Visibility", created_by, extensions, title_template,
+                  list_view as "list_view: bool", new_files_public as "new_files_public: bool",
+                  auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
+           FROM contents WHERE id = ?"#,
+        id,
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    admin_response(&state.pool, row).await
+}
+
+/// 作成の、検証して書き込む部分。時間のかかる取得 (リンクのページ) は、呼び出し側が先に済ませておく。
+async fn insert_content(
+    state: &AppState,
+    user: &AuthUser,
+    new: NewContent,
+) -> Result<AdminContentResponse, AppError> {
     // 親の検証からINSERTまでを直列化する (→ `AppState::contents_write_lock`)。
     let _write_guard = state.contents_write_lock.lock().await;
-    let parent = validate_parent(&state.pool, payload.parent_id, None).await?;
-    let visibility = resolve_visibility_for_create(payload.visibility, parent.as_ref());
+    let parent = validate_parent(&state.pool, new.parent_id, None).await?;
+    let visibility = resolve_visibility_for_create(new.visibility, parent.as_ref());
     ensure_fits_parent(parent.as_ref(), visibility, Some(user.id))?;
     let parent_id = parent.map(|parent| parent.id);
-    let (url, path) = match payload.content_type {
-        ContentType::Link => (link_url, None),
+    let (url, path) = match new.content_type {
+        ContentType::Link => (new.url, None),
         ContentType::Folder => (
             None,
-            Some(validate_folder_path(&state, payload.path.as_deref()).await?),
+            Some(validate_folder_path(state, user, new.path.as_deref(), None).await?),
         ),
-        // fileはJSONではなくmultipart専用エンドポイント(upload_content)で作る。
+        // ファイルは共有の中に置く (→ `api::shares`)。file コンテンツは新しく作らない。
         ContentType::File => {
             return Err(AppError::Validation(
-                "use POST /contents/upload to create a file content".to_string(),
+                "file contents can no longer be created; upload into a share instead".to_string(),
             ));
         }
         ContentType::Group => (None, None),
     };
-    let derived_title = match payload.content_type {
-        ContentType::Link => link_title,
+    let derived_title = match new.content_type {
+        ContentType::Link => new.link_title,
         ContentType::Folder => path.as_deref().map(title_from_path),
         ContentType::File | ContentType::Group => None,
     };
-    let title = resolve_create_title(
-        &state.pool,
-        parent_id,
-        payload.title.as_deref(),
-        derived_title,
-    )
-    .await?;
+    let title =
+        resolve_create_title(&state.pool, parent_id, new.title.as_deref(), derived_title).await?;
 
-    let content_type = payload.content_type;
-    let description = link_description.or(payload.description);
+    let content_type = new.content_type;
+    let description = new.description;
     let row = sqlx::query_as!(
         ContentRow,
         r#"INSERT INTO contents (type, parent_id, title, url, path, description,
@@ -1121,10 +1240,7 @@ async fn create_content(
     .fetch_one(&state.pool)
     .await?;
 
-    Ok((
-        StatusCode::CREATED,
-        Json(admin_response(&state.pool, row).await?),
-    ))
+    admin_response(&state.pool, row).await
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -1256,7 +1372,15 @@ async fn update_content(
         ContentType::Link => (link_url.transpose()?.map(|(url, _)| url), None, None, None),
         ContentType::Folder => (
             None,
-            Some(validate_folder_path(&state, payload.path.as_deref()).await?),
+            Some(
+                validate_folder_path(
+                    &state,
+                    &user,
+                    payload.path.as_deref(),
+                    existing.path.as_deref(),
+                )
+                .await?,
+            ),
             super::archive::normalize_extensions(payload.extensions.as_deref()),
             super::archive::validate_title_template(
                 &state.pool,
@@ -1643,6 +1767,9 @@ struct FolderBrowseResponse {
     can_edit: bool,
     /// 一覧の表示 (軸で絞り込む平らな一覧) も使うか。画面は真のとき、表示の切り替えを出す。
     list_view: bool,
+    /// 見ている場所を、共有の中の場所として見たもの (→ `api::shares`)。ログインしていて、その共有を
+    /// 見られるときだけ。画面は、ここからファイルの操作へつなぐ。
+    share: Option<super::shares::FolderShare>,
 }
 
 /// `id` が指す `type = 'folder'` の行から、フォルダーのタイトルと登録済みルートパス
@@ -1695,16 +1822,12 @@ async fn path_is_file(path: &FsPath) -> Result<bool, AppError> {
     check_path(path, FsPath::is_file).await
 }
 
-async fn path_exists(path: &FsPath) -> Result<bool, AppError> {
-    check_path(path, FsPath::exists).await
-}
-
 /// 相対パスの各コンポーネントが通常の名前(`Component::Normal`)のみであることを確認する
 /// 安価な一次フィルタ。`..`・ルート・(Windowsの)ドライブプレフィックス等を弾く。
 ///
 /// Windows では `:` を含む名前も弾く。`a.mp3:stream` は代替データストリームを指し、
-/// 一覧に出ないものを配信できてしまうため (→ docs/folders.md「公開できるフォルダー」)。
-fn reject_traversal_components(rel: &str) -> Result<(), AppError> {
+/// 一覧に出ないものを配信できてしまうため (→ docs/folders.md「共有」)。
+pub(super) fn reject_traversal_components(rel: &str) -> Result<(), AppError> {
     for component in FsPath::new(rel).components() {
         match component {
             Component::Normal(name) if cfg!(windows) && name.to_string_lossy().contains(':') => {
@@ -1767,10 +1890,10 @@ pub(super) async fn resolve_path(
         let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
         let canonical_root = std::fs::canonicalize(&root).map_err(|_| AppError::NotFound)?;
 
-        // 「公開できるフォルダー」の外は**配信の側でも**拒む。登録時の検証
+        // 「共有」の外は**配信の側でも**拒む。登録時の検証
         // (`validate_folder_path`) は書き込み経路にしか掛からないので、登録を
         // 消したあとや、登録済みのフォルダーを削除したあとも配信され続ける
-        // (→ docs/folders.md「公開できるフォルダー」)。
+        // (→ docs/folders.md「共有」)。
         //
         // **候補パスに触る前に判定する**。触ってから弾くと、候補が実在するかどうかで
         // 応答までの時間が変わり、存在を推し量る手がかりになる。
@@ -1786,8 +1909,8 @@ pub(super) async fn resolve_path(
         }
         // 一覧に出さないもの (ドット始まり・シンボリックリンク・隠し属性) は配信もしない。
         // 一覧に出ないだけでパスを知っていれば落とせる、という食い違いを残さないため。
-        // weblav 自身の置き場 (設定とデータ) の中も同じ (公開できるフォルダーが `C:\` のような祖先でもありうる)。
-        // いずれも存在を伏せるため 404 (→ docs/folders.md「公開できるフォルダー」)。
+        // weblav 自身の置き場 (設定とデータ) の中も同じ (共有が `C:\` のような祖先でもありうる)。
+        // いずれも存在を伏せるため 404 (→ docs/folders.md「共有」)。
         //
         // 名前は、要求の名前と実体の名前の両方で見る。Windows の 8.3 短縮名 (`ENV~1`) は
         // ドットで始まらないまま `.env` に解決されるため。リンクを見分けるには、辿る前の
@@ -1817,7 +1940,7 @@ pub(super) async fn resolve_path(
 }
 
 /// `dir` 直下のエントリを列挙する。ドットファイル(`.DS_Store`等)と weblav 自身の置き場
-/// (`own_dirs`。→ docs/folders.md「公開できるフォルダー」) は除外し、
+/// (`own_dirs`。→ docs/folders.md「共有」) は除外し、
 /// ディレクトリ優先(固定)→`order`で選んだ順(タイトル順か新しい順)でソートする。
 ///
 /// シンボリックリンクは一覧に表示しない(ポリシー)。もし表示してリンク先を
@@ -1829,11 +1952,12 @@ pub(super) async fn resolve_path(
 ///
 /// `dir_rel` は `dir` の登録先からの相対パス。`marks` で公開を見る。`only_public` なら、公開して
 /// いないものを外す (閲覧する人)。書き換えられる人には全部を返し、行ごとの公開を添える。
-fn read_entries(
+/// 共有の中を見るとき (→ `api::shares`) は印が無いので `None` を渡す。どれも公開している行にする。
+pub(super) fn read_entries(
     dir: &FsPath,
     dir_rel: &str,
     own_dirs: &super::roots::OwnDirs,
-    marks: &super::folder_marks::Marks,
+    marks: Option<&super::folder_marks::Marks>,
     only_public: bool,
     order: SortOrder,
 ) -> std::io::Result<Vec<FolderEntry>> {
@@ -1856,10 +1980,12 @@ fn read_entries(
         // 実体(非リンク)のメタデータがそのまま返る。取得自体が失敗した場合
         // (権限エラー等)はそのエントリだけ読み飛ばす。
         if let Some(mut entry) = folder_entry(name, &entry.path()) {
-            entry.public = marks.is_public(&rel);
-            let shown = entry.public || (entry.is_dir && marks.dir_reachable(&rel));
-            if only_public && !shown {
-                continue;
+            if let Some(marks) = marks {
+                entry.public = marks.is_public(&rel);
+                let shown = entry.public || (entry.is_dir && marks.dir_reachable(&rel));
+                if only_public && !shown {
+                    continue;
+                }
             }
             entries.push(entry);
         }
@@ -1928,7 +2054,9 @@ async fn browse_folder(
     let own_dirs = state.own_dirs.clone();
     let order = SortOrder::from_query(query.sort.as_deref());
     let (_, marks) = super::archive_index::marks(&state, id).await?;
+    let dir = target.clone();
     let entries = run_blocking(move || {
+        let target = dir;
         // 登録先は `resolve_path` で読めることを確かめてある。
         let root = std::fs::canonicalize(&root).map_err(|_| AppError::NotFound)?;
         let dir_rel = super::folder_marks::rel_of(&root, &target)?;
@@ -1936,13 +2064,17 @@ async fn browse_folder(
             &target,
             &dir_rel,
             &super::roots::OwnDirs::resolve(&own_dirs),
-            &marks,
+            Some(&marks),
             !can_edit,
             order,
         )?)
     })
     .await??;
 
+    let share = match &viewer {
+        Viewer::User(user) => super::shares::folder_share(&state, user, &target).await?,
+        Viewer::Anonymous => None,
+    };
     Ok(Json(FolderBrowseResponse {
         folder_title,
         ancestors: lineage.breadcrumbs(),
@@ -1950,6 +2082,7 @@ async fn browse_folder(
         list_view: uses_list_view(&state.pool, id).await?,
         path: query.path,
         entries,
+        share,
     }))
 }
 
@@ -2039,7 +2172,7 @@ async fn browse_group(
                 can_list(&viewer, row.visibility, row.created_by)
             }
         })
-        .map(ContentResponse::try_from)
+        .map(|row| ContentResponse::from_row(row, &viewer))
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(Json(GroupBrowseResponse {
@@ -2402,7 +2535,7 @@ pub(super) async fn search_contents(
     let mut contents = Vec::with_capacity(hits.len());
     for (row, found) in hits {
         placements.push((group_lineage(&groups, row.parent_id), found.in_detail));
-        contents.push(ContentResponse::try_from(row)?);
+        contents.push(ContentResponse::from_row(row, viewer)?);
     }
     let contents = with_previews(state, contents).await?;
 
@@ -2693,20 +2826,6 @@ fn blob_path(state: &AppState, id: i64, hash: &str) -> Result<PathBuf, AppError>
     Ok(state.blobs_dir.join(hash))
 }
 
-/// アップロード一時ファイルの名前を作る(プロセスID+単調カウンタ+ナノ秒時刻で
-/// プロセス内外の衝突を避ける)。
-static TEMP_BLOB_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn temp_blob_file_name() -> String {
-    let seq = TEMP_BLOB_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_nanos())
-        .unwrap_or(0);
-    let pid = std::process::id();
-    format!("{pid}-{nanos}-{seq}.tmp")
-}
-
 /// `blob_hash`が想定形式(SHA-256を`hex_encode`した64桁の小文字16進文字列)かどうかを
 /// 検証する。通常のAPI経路(`commit_blob`が書き込む値)では常にこの形式になるはずだが、
 /// DBの値をファイルパスに結合する前の多層防御として、DBから読んだ`blob_hash`を使う
@@ -2720,124 +2839,6 @@ pub(super) fn is_valid_blob_hash(hash: &str) -> bool {
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
-/// multipartの`file`フィールド名から保存用のファイル名を作る。ブラウザーによっては
-/// パス区切りを含む値を送ることがあるため、basenameだけを取り出す。空になった場合は
-/// "download" にフォールバックする。
-fn sanitize_file_name(name: &str) -> String {
-    let base = name.rsplit(['/', '\\']).next().unwrap_or(name).trim();
-    if base.is_empty() {
-        "download".to_string()
-    } else {
-        base.to_string()
-    }
-}
-
-/// 一時ファイル(`blobs_dir/tmp/`配下)へのパスを持ち、`commit_blob`で確定(rename)する前に
-/// エラー等で処理が中断した場合、Dropで削除する。`commit_blob`が成功したら`committed`を
-/// `true`にしてDropでの削除をスキップする。
-struct TempBlobGuard {
-    path: PathBuf,
-    committed: bool,
-}
-
-impl TempBlobGuard {
-    fn new(path: PathBuf) -> Self {
-        Self {
-            path,
-            committed: false,
-        }
-    }
-}
-
-impl Drop for TempBlobGuard {
-    fn drop(&mut self) {
-        // `Drop` は同期関数のため await できない。削除自体の完了を待つ相手もいないので、
-        // `spawn_blocking` に投げて tokio ランタイムを止めないようにするだけで十分
-        // (fire-and-forget、失敗しても一時ファイルが残るだけで実害はない)。
-        if !self.committed {
-            let path = std::mem::take(&mut self.path);
-            tokio::task::spawn_blocking(move || {
-                let _ = std::fs::remove_file(&path);
-            });
-        }
-    }
-}
-
-/// multipartの`file`フィールドを`blobs_dir/tmp/`配下の一時ファイルにストリーミングで
-/// 書き込みながらSHA-256ハッシュとサイズを計算する。`max_bytes`を超えたら
-/// `AppError::FileTooLarge`にする(一時ファイルは`TempBlobGuard`のDropで削除される)。
-/// クライアントが申告するサイズは信用せず、実際に書き込んだバイト数だけを使う。
-async fn stream_field_to_temp_blob(
-    field: &mut axum::extract::multipart::Field<'_>,
-    blobs_dir: &FsPath,
-    max_bytes: u64,
-) -> Result<(TempBlobGuard, String, i64), AppError> {
-    // `create_owner_only_dir`は対象ディレクトリ自体しか0700にしない(`create_dir_all`で
-    // 暗黙に作られる親ディレクトリの権限は変えない)。`db::connect`と同じ理由で、
-    // `blobs_dir`自身にも明示的に呼んでおく(`tmp_dir`だけだと`blobs_dir`がumask依存の
-    // 権限になってしまう)。ブロッキングI/Oなので1つの `spawn_blocking` にまとめる。
-    let blobs_dir_owned = blobs_dir.to_path_buf();
-    let tmp_dir = run_blocking(move || -> std::io::Result<PathBuf> {
-        create_owner_only_dir(&blobs_dir_owned)?;
-        let tmp_dir = blobs_dir_owned.join("tmp");
-        create_owner_only_dir(&tmp_dir)?;
-        Ok(tmp_dir)
-    })
-    .await??;
-
-    let tmp_path = tmp_dir.join(temp_blob_file_name());
-    let mut file = tokio::fs::File::create(&tmp_path).await?;
-    let guard = TempBlobGuard::new(tmp_path);
-
-    let mut hasher = Sha256::new();
-    let mut size: u64 = 0;
-    while let Some(chunk) = field.chunk().await.map_err(multipart_error_to_app_error)? {
-        size += chunk.len() as u64;
-        if size > max_bytes {
-            return Err(AppError::FileTooLarge);
-        }
-        hasher.update(&chunk);
-        file.write_all(&chunk).await?;
-    }
-    file.flush().await?;
-    drop(file);
-
-    let hash = super::hex_encode(&hasher.finalize());
-    let size = i64::try_from(size).unwrap_or(i64::MAX);
-    Ok((guard, hash, size))
-}
-
-/// 一時ファイルを`blobs_dir/<hash>`にリネームしてコミットする(確定後は`guard`のDropで
-/// 削除されないようにする)。Unix/Windowsとも通常`rename`は既存の宛先を上書きするだけで
-/// 完了する(重複排除: 既に同じハッシュ=同じ内容のblobがあっても実害は無い)。
-///
-/// それでも`rename`が失敗した場合(典型的にはWindowsで、宛先blobが別の同時ダウンロード
-/// 配信によって開かれている等の共有違反)、宛先が既に存在するかどうかで判定する:
-/// 存在するなら「重複排除により既に用意されている」とみなし一時ファイル側
-/// (guardのDropで削除される)を諦めるだけにする。存在しないなら本当の失敗としてエラーを
-/// 返す。
-async fn commit_blob(
-    mut guard: TempBlobGuard,
-    blobs_dir: &FsPath,
-    hash: &str,
-) -> Result<(), AppError> {
-    let dest = blobs_dir.join(hash);
-    let rename_err = match tokio::fs::rename(&guard.path, &dest).await {
-        Ok(()) => {
-            guard.committed = true;
-            return Ok(());
-        }
-        Err(err) => err,
-    };
-
-    let dest_exists = path_exists(&dest).await?;
-    if dest_exists {
-        Ok(())
-    } else {
-        Err(AppError::Io(rename_err))
-    }
-}
-
 /// アップロードmultipartから収集したフィールド値。フィールドの到着順はクライアント次第
 /// (`collect_upload_fields`参照)なので、検証は全フィールドを読み終えた後にまとめて行う。
 #[derive(Default)]
@@ -2846,7 +2847,6 @@ struct UploadFields {
     description: Option<String>,
     parent_id: Option<i64>,
     visibility: Option<Visibility>,
-    file: Option<(TempBlobGuard, String, i64, String)>,
 }
 
 /// multipartのテキストフィールド1つあたりの上限(バイト)。title/description等の
@@ -2880,14 +2880,11 @@ async fn read_text_field(
     String::from_utf8(buf).map_err(|_| AppError::Validation("value is not valid UTF-8".to_string()))
 }
 
-/// multipartのフィールドを名前で振り分けて収集する。フィールドの順序に依存しない
-/// (`file`が先に来ても後に来ても正しく扱える)。未知のフィールド名は読み飛ばす
-/// (将来フロント側にフィールドが増えても本APIが壊れないようにするため)。
-async fn collect_upload_fields(
-    multipart: &mut Multipart,
-    blobs_dir: &FsPath,
-    max_bytes: u64,
-) -> Result<UploadFields, AppError> {
+/// multipartのフィールドを名前で振り分けて収集する。フィールドの順序に依存しない。
+/// 未知のフィールド名は読み飛ばす (将来フロント側にフィールドが増えても本APIが壊れないようにするため)。
+/// `file` は 422 にする。ファイルの差し替えはやめたので、送られたら黙って捨てずに知らせる
+/// (→ `replace_content_upload`)。
+async fn collect_upload_fields(multipart: &mut Multipart) -> Result<UploadFields, AppError> {
     let mut fields = UploadFields::default();
     while let Some(mut field) = multipart
         .next_field()
@@ -2928,10 +2925,9 @@ async fn collect_upload_fields(
                 }
             }
             Some("file") => {
-                let file_name = sanitize_file_name(field.file_name().unwrap_or("download"));
-                let (guard, hash, size) =
-                    stream_field_to_temp_blob(&mut field, blobs_dir, max_bytes).await?;
-                fields.file = Some((guard, hash, size, file_name));
+                return Err(AppError::Validation(
+                    "replacing the file of a file content is no longer supported".to_string(),
+                ));
             }
             _ => {
                 while field
@@ -2951,101 +2947,6 @@ async fn collect_upload_fields(
 /// (`multipart/form-data`のスキーマ表現としてutoipaに渡すためだけのもの)。
 #[derive(Debug, Deserialize, ToSchema)]
 #[allow(dead_code)]
-struct UploadContentRequest {
-    /// 省略・空ならファイル名 (拡張子を除く) にする。
-    title: Option<String>,
-    description: Option<String>,
-    /// 親グループのid。省略/空ならルート直下に作成する。
-    #[schema(value_type = Option<i64>)]
-    parent_id: Option<i64>,
-    /// 公開範囲。省略/空なら既定値。
-    visibility: Option<Visibility>,
-    #[schema(value_type = String, format = Binary)]
-    file: Vec<u8>,
-}
-
-/// ファイルコンテンツを新規作成する(multipart)。`file`は必須、`title`/`description`は省略可
-/// (`title`を省くとファイル名から付ける)。
-#[utoipa::path(
-    post,
-    path = "/contents/upload",
-    request_body(content = UploadContentRequest, content_type = "multipart/form-data"),
-    responses(
-        (status = 201, body = AdminContentResponse),
-        (status = 401, body = crate::error::ErrorResponse),
-        (status = 413, body = crate::error::ErrorResponse),
-        (status = 422, body = crate::error::ErrorResponse),
-    )
-)]
-async fn upload_content(
-    user: AuthUser,
-    State(state): State<AppState>,
-    mut multipart: Multipart,
-) -> Result<(StatusCode, Json<AdminContentResponse>), AppError> {
-    let fields =
-        collect_upload_fields(&mut multipart, &state.blobs_dir, state.max_upload_bytes).await?;
-
-    let (guard, hash, size, file_name) = fields
-        .file
-        .ok_or_else(|| AppError::Validation("file field is required".to_string()))?;
-
-    // 親の検証〜commit_blob〜INSERTを直列化する (→ `AppState::contents_write_lock`)。
-    // ストリーミング受信は済んでいるので、ロック区間には含めない。
-    let _write_guard = state.contents_write_lock.lock().await;
-    let parent = validate_parent(&state.pool, fields.parent_id, None).await?;
-    let visibility = resolve_visibility_for_create(fields.visibility, parent.as_ref());
-    ensure_fits_parent(parent.as_ref(), visibility, Some(user.id))?;
-    let parent_id = parent.map(|parent| parent.id);
-    let title = resolve_create_title(
-        &state.pool,
-        parent_id,
-        fields.title.as_deref(),
-        Some(title_from_file_name(&file_name)),
-    )
-    .await?;
-
-    // DBへの書き込みより先にblobを確定させる: 万一この後のINSERTが失敗しても、
-    // 参照する行が無い孤立blobが残るだけで実害が無い(逆順だと、実体を指せない行が
-    // 残ってしまう)。
-    commit_blob(guard, &state.blobs_dir, &hash).await?;
-
-    let content_type = ContentType::File;
-    let description = fields.description;
-
-    let row = sqlx::query_as!(
-        ContentRow,
-        r#"INSERT INTO contents (type, parent_id, title, description, visibility,
-                                  blob_hash, file_name, file_size, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-           RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
-                     path, description, created_at as "created_at!", file_name, file_size,
-                     visibility as "visibility: Visibility", created_by, extensions, title_template,
-                     list_view as "list_view: bool", new_files_public as "new_files_public: bool",
-                     auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
-        content_type,
-        parent_id,
-        title,
-        description,
-        visibility,
-        hash,
-        file_name,
-        size,
-        user.id,
-    )
-    .fetch_one(&state.pool)
-    .await?;
-
-    Ok((
-        StatusCode::CREATED,
-        Json(admin_response(&state.pool, row).await?),
-    ))
-}
-
-/// utoipaのOpenAPIドキュメント用のダミー構造体(`UploadContentRequest`と同様、
-/// 実際のリクエストは`axum::extract::Multipart`で受け取る)。`file`は差し替え時のみ
-/// 指定する(省略時は既存のファイルを維持する)。
-#[derive(Debug, Deserialize, ToSchema)]
-#[allow(dead_code)]
 struct ReplaceContentUploadRequest {
     title: String,
     description: Option<String>,
@@ -3054,15 +2955,11 @@ struct ReplaceContentUploadRequest {
     parent_id: Option<i64>,
     /// 公開範囲。省略/空なら現在値のまま。
     visibility: Option<Visibility>,
-    // `value_type = String`だけだとOpenAPI上`file`が必須になってしまう
-    // (`value_type`指定は元のOptionのnullable/required判定を上書きしてしまうため)。
-    // `Option<String>`を明示して省略可であることをスキーマに正しく反映させる。
-    #[schema(value_type = Option<String>, format = Binary)]
-    file: Option<Vec<u8>>,
 }
 
-/// ファイルコンテンツを更新する(multipart)。`file`を指定した場合のみ実体を差し替える
-/// (指定しなければ既存のblobを維持する)。`type = 'file'` 以外のidに対しては422にする
+/// ファイルコンテンツの題・説明・親・公開範囲を更新する(multipart)。ファイルの差し替えはしない
+/// (`file` を送ると422)。ファイルは共有の中に置いて扱う (→ `api::shares`)。この口が multipart のままなのは、
+/// 前からある画面と送り方を変えないため。`type = 'file'` 以外のidに対しては422にする
 /// (link/folderの更新は既存の`PUT /contents/{id}`(JSON)を使う)。
 #[utoipa::path(
     put,
@@ -3074,7 +2971,6 @@ struct ReplaceContentUploadRequest {
         (status = 401, body = crate::error::ErrorResponse),
         (status = 403, body = crate::error::ErrorResponse),
         (status = 404, body = crate::error::ErrorResponse),
-        (status = 413, body = crate::error::ErrorResponse),
         (status = 422, body = crate::error::ErrorResponse),
     )
 )]
@@ -3084,37 +2980,14 @@ async fn replace_content_upload(
     Path(id): Path<i64>,
     mut multipart: Multipart,
 ) -> Result<Json<AdminContentResponse>, AppError> {
-    // 事前チェック(型のみ。404/422の早期判定用): ロックは取らない。ロックを取ったまま
-    // 大きいファイルのストリーミング受信を待つと、他のblob操作(GC含む)を不必要に
-    // ブロックしてしまうため。
-    let existing = sqlx::query!(
-        r#"SELECT type as "content_type: ContentType", visibility as "visibility: Visibility",
-                  created_by
-           FROM contents WHERE id = ?"#,
-        id
-    )
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or(AppError::NotFound)?;
-    // 他人の `private` なら、アップロードを受け取る前に404にする。
-    ensure_editable(&user, existing.visibility, existing.created_by)?;
-    if existing.content_type != ContentType::File {
-        return Err(AppError::Validation(
-            "this content is not a file".to_string(),
-        ));
-    }
-
-    let fields =
-        collect_upload_fields(&mut multipart, &state.blobs_dir, state.max_upload_bytes).await?;
+    let fields = collect_upload_fields(&mut multipart).await?;
     let description = fields.description;
 
-    // commit_blob〜UPDATE〜GCを直列化する (→ `AppState::contents_write_lock`)。
-    // 受信の間にこの行が削除・変更されうるので、ロック取得後に`existing`を取り直し、
-    // 公開範囲の判定にもその値を使う。
+    // 判定からUPDATEまでを直列化する (→ `AppState::contents_write_lock`)。
     let _write_guard = state.contents_write_lock.lock().await;
 
     let existing = sqlx::query!(
-        r#"SELECT type as "content_type: ContentType", blob_hash, file_name, file_size,
+        r#"SELECT type as "content_type: ContentType",
                   visibility as "visibility: Visibility", created_by
            FROM contents WHERE id = ?"#,
         id
@@ -3123,7 +2996,6 @@ async fn replace_content_upload(
     .await?
     .ok_or(AppError::NotFound)?;
 
-    // 事前チェックの後に公開範囲が変わっている場合に備え、取り直した値で判定し直す。
     // 存在を隠す判定 (404) は、入力の検証 (422) より先に行う。
     ensure_editable(&user, existing.visibility, existing.created_by)?;
     if existing.content_type != ContentType::File {
@@ -3142,33 +3014,11 @@ async fn replace_content_upload(
     ensure_fits_parent(parent.as_ref(), visibility, existing.created_by)?;
     let parent_id = parent.map(|parent| parent.id);
 
-    let old_hash = existing.blob_hash;
-
-    let (hash, file_name, size) = match fields.file {
-        Some((guard, hash, size, file_name)) => {
-            commit_blob(guard, &state.blobs_dir, &hash).await?;
-            (hash, file_name, size)
-        }
-        None => {
-            let hash = old_hash
-                .clone()
-                .ok_or(AppError::DataIntegrity("file content without a blob_hash"))?;
-            let file_name = existing
-                .file_name
-                .ok_or(AppError::DataIntegrity("file content without a file_name"))?;
-            let size = existing
-                .file_size
-                .ok_or(AppError::DataIntegrity("file content without a file_size"))?;
-            (hash, file_name, size)
-        }
-    };
-
     // `updated_at` はSQLiteに`ON UPDATE`相当の機能が無いため、ここで明示的に更新する。
     let row = sqlx::query_as!(
         ContentRow,
         r#"UPDATE contents
-           SET parent_id = ?, title = ?, description = ?, blob_hash = ?,
-               file_name = ?, file_size = ?, visibility = ?,
+           SET parent_id = ?, title = ?, description = ?, visibility = ?,
                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
            WHERE id = ?
            RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
@@ -3179,9 +3029,6 @@ async fn replace_content_upload(
         parent_id,
         title,
         description,
-        hash,
-        file_name,
-        size,
         visibility,
         id,
     )
@@ -3189,36 +3036,267 @@ async fn replace_content_upload(
     .await?
     .ok_or(AppError::NotFound)?;
 
-    // 古いblobを新しいものに差し替えた場合、UPDATEを確定させた**後**に参照が無くなったかを
-    // 確認する(確定前に確認すると、この行自体が持つ古い参照がまだ残っていて「参照あり」に
-    // 誤判定してしまう)。ハッシュが変わらない場合(同一内容の再アップロード、あるいは
-    // `file`未指定で既存を維持)は何もしない。
-    if let Some(old_hash) = old_hash
-        && old_hash != hash
-    {
-        gc_blob_if_unreferenced(&state, &old_hash).await;
-    }
-
     Ok(Json(admin_response(&state.pool, row).await?))
 }
 
-/// `max_upload_bytes`は許可したい実際のファイルサイズ(`AppState::max_upload_bytes`)。
-/// アップロード系エンドポイントにのみ`DefaultBodyLimit`を適用するため、別の
-/// `OpenApiRouter`として組み立ててから`merge`する(`OpenApiRouter::route_layer`は
-/// 呼び出し時点でルーターに登録済みの全ルートに掛かってしまうため、他のcontentsルートを
-/// 巻き込まないようにこの順序にしている)。
-pub(crate) fn router(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
-    let upload_body_limit = max_upload_bytes.saturating_add(UPLOAD_BODY_OVERHEAD_BYTES);
-    let upload_body_limit = usize::try_from(upload_body_limit).unwrap_or(usize::MAX);
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SetVisibilityRequest {
+    pub visibility: Visibility,
+}
 
-    let upload_routes = OpenApiRouter::new()
-        .routes(routes!(upload_content))
-        .routes(routes!(replace_content_upload))
-        .layer(DefaultBodyLimit::max(upload_body_limit));
+/// 公開範囲だけを変える。ホームなどの一覧の行から、編集画面を開かずに変えるため。
+/// 変えてよいかの判定は編集 (`update_content`) と同じ。
+#[utoipa::path(
+    put,
+    path = "/contents/{id}/visibility",
+    params(("id" = i64, Path)),
+    request_body = SetVisibilityRequest,
+    responses(
+        (status = 204),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "作成者・admin以外か、他人の作成者のみにかかわる変更"),
+        (status = 404, body = crate::error::ErrorResponse, description = "存在しないか、他人の作成者のみ"),
+        (status = 422, body = crate::error::ErrorResponse, description = "作成者のみのグループの決まりに合わない"),
+    )
+)]
+async fn set_visibility(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    AppJson(payload): AppJson<SetVisibilityRequest>,
+) -> Result<StatusCode, AppError> {
+    let _write_guard = state.contents_write_lock.lock().await;
+    let existing = fetch_visibility_state(&state.pool, id).await?;
+    change_visibility(&state.pool, &user, id, &existing, payload.visibility).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
 
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UnhideResponse {
+    /// 戻した後の公開範囲。
+    pub visibility: Visibility,
+}
+
+/// 非表示のコンテンツを、非表示にする前の公開範囲に戻す。覚えていなければ (この仕組みより前に非表示に
+/// したもの) `authenticated` に戻す。前が他人の `private` なら、作成者でない人は戻せない (403)。
+/// 非表示でないものはそのままの公開範囲を返す (二度押しを失敗にしないため)。
+#[utoipa::path(
+    post,
+    path = "/contents/{id}/unhide",
+    params(("id" = i64, Path)),
+    responses(
+        (status = OK, body = UnhideResponse),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "作成者・admin以外か、前が他人の作成者のみ"),
+        (status = 404, body = crate::error::ErrorResponse, description = "存在しないか、他人の作成者のみ"),
+        (status = 422, body = crate::error::ErrorResponse, description = "作成者のみのグループの決まりに合わない"),
+    )
+)]
+async fn unhide_content(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<UnhideResponse>, AppError> {
+    let _write_guard = state.contents_write_lock.lock().await;
+    let existing = fetch_visibility_state(&state.pool, id).await?;
+    if existing.visibility != Visibility::Hidden {
+        ensure_editable(&user, existing.visibility, existing.created_by)?;
+        return Ok(Json(UnhideResponse {
+            visibility: existing.visibility,
+        }));
+    }
+    let target = restore_target(existing.visibility_before_hidden);
+    let visibility = change_visibility(&state.pool, &user, id, &existing, target).await?;
+    Ok(Json(UnhideResponse { visibility }))
+}
+
+/// 非表示から戻すときの公開範囲。覚えていなければ、ログインした人に見える `authenticated` にする
+/// (`public` に戻すと、隠していたものを匿名にまで見せてしまうため)。
+fn restore_target(before_hidden: Option<Visibility>) -> Visibility {
+    match before_hidden {
+        Some(Visibility::Hidden) | None => Visibility::Authenticated,
+        Some(visibility) => visibility,
+    }
+}
+
+struct VisibilityState {
+    parent_id: Option<i64>,
+    content_type: ContentType,
+    visibility: Visibility,
+    visibility_before_hidden: Option<Visibility>,
+    created_by: Option<i64>,
+}
+
+async fn fetch_visibility_state(
+    pool: &sqlx::SqlitePool,
+    id: i64,
+) -> Result<VisibilityState, AppError> {
+    sqlx::query_as!(
+        VisibilityState,
+        r#"SELECT parent_id, type as "content_type: ContentType",
+                  visibility as "visibility: Visibility",
+                  visibility_before_hidden as "visibility_before_hidden: Visibility",
+                  created_by
+           FROM contents WHERE id = ?"#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?
+    .ok_or(AppError::NotFound)
+}
+
+/// 公開範囲を `requested` に変える。判定は `update_content` と同じ。
+/// 呼び出し側は `contents_write_lock` を握ったまま `existing` を読んでから呼ぶこと。
+async fn change_visibility(
+    pool: &sqlx::SqlitePool,
+    user: &AuthUser,
+    id: i64,
+    existing: &VisibilityState,
+    requested: Visibility,
+) -> Result<Visibility, AppError> {
+    ensure_editable(user, existing.visibility, existing.created_by)?;
+    let visibility = resolve_visibility_for_update(
+        user,
+        Some(requested),
+        existing.visibility,
+        existing.created_by,
+    )?;
+    if visibility == existing.visibility {
+        return Ok(visibility);
+    }
+    let parent = validate_parent(pool, existing.parent_id, None).await?;
+    ensure_fits_parent(parent.as_ref(), visibility, existing.created_by)?;
+    if existing.content_type == ContentType::Group && visibility == Visibility::Private {
+        ensure_children_fit_private_group(pool, id, existing.created_by).await?;
+    }
+    // 非表示にする前の公開範囲は、マイグレーションのトリガーが覚える
+    // (→ migrations/20261101120000_visibility_before_hidden.sql)。
+    sqlx::query!(
+        r#"UPDATE contents SET visibility = ?,
+               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+           WHERE id = ?"#,
+        visibility,
+        id,
+    )
+    .execute(pool)
+    .await?;
+    Ok(visibility)
+}
+
+/// 非表示のコンテンツの1行。管理画面の一覧と同じ形に、戻すときの公開範囲を添える。
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HiddenContentResponse {
+    #[serde(flatten)]
+    pub content: AdminContentResponse,
+    /// 「表示に戻す」で戻る公開範囲。前が他人の `private` で、閲覧者が戻せないなら `None`。
+    pub restore_visibility: Option<Visibility>,
+}
+
+/// 非表示のコンテンツの一覧。`admin` には全部、ほかの人には自分が作成者のものだけを返す。
+/// 自分が非表示にしたものを、閲覧の場から消えた後に探して戻せるようにするため。新しく非表示にした順。
+#[utoipa::path(
+    get,
+    path = "/contents/hidden",
+    responses(
+        (status = OK, body = Vec<HiddenContentResponse>),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+    )
+)]
+async fn list_hidden_contents(
+    user: AuthUser,
+    State(state): State<AppState>,
+) -> Result<Json<Vec<HiddenContentResponse>>, AppError> {
+    let is_admin = user.is_admin();
+    let rows = sqlx::query!(
+        r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
+                  description, created_at as "created_at!", file_name, file_size,
+                  visibility as "visibility: Visibility", created_by, extensions, title_template,
+                  list_view as "list_view: bool", new_files_public as "new_files_public: bool",
+                  auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time,
+                  visibility_before_hidden as "visibility_before_hidden: Visibility",
+                  (SELECT username FROM users WHERE users.id = contents.created_by) as created_by_username
+           FROM contents
+           WHERE visibility = ?1 AND (?2 OR created_by = ?3)
+           ORDER BY updated_at DESC, id"#,
+        Visibility::Hidden,
+        is_admin,
+        user.id,
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    let root_records = super::roots::load_root_records(&state.pool).await?;
+    let archive_item_counts = super::archive_items::item_counts(&state).await?;
+
+    let items = rows
+        .into_iter()
+        .map(|row| {
+            let before = row.visibility_before_hidden;
+            let restore = restore_target(before);
+            let restorable = restore != Visibility::Private || row.created_by == Some(user.id);
+            let archive_items = row.list_view.then(|| {
+                archive_item_counts
+                    .get(&row.id)
+                    .copied()
+                    .unwrap_or_default()
+            });
+            let content = ContentRow {
+                id: row.id,
+                content_type: row.content_type,
+                parent_id: row.parent_id,
+                title: row.title,
+                url: row.url,
+                path: row.path,
+                description: row.description,
+                created_at: row.created_at,
+                file_name: row.file_name,
+                file_size: row.file_size,
+                visibility: row.visibility,
+                created_by: row.created_by,
+                extensions: row.extensions,
+                title_template: row.title_template,
+                list_view: row.list_view,
+                new_files_public: row.new_files_public,
+                auto_rescan_mode: row.auto_rescan_mode,
+                auto_rescan_hours: row.auto_rescan_hours,
+                auto_rescan_time: row.auto_rescan_time,
+            };
+            HiddenContentResponse {
+                content: AdminContentResponse::from_row(
+                    content,
+                    row.created_by_username,
+                    &root_records,
+                    archive_items,
+                ),
+                restore_visibility: restorable.then_some(restore),
+            }
+        })
+        .collect();
+    Ok(Json(items))
+}
+
+/// `list_hidden_contents` が返す件数。ユーザーメニューに「非表示のコンテンツ (N)」と出すため。
+pub(crate) async fn hidden_content_count(
+    pool: &sqlx::SqlitePool,
+    user: &AuthUser,
+) -> Result<i64, AppError> {
+    let is_admin = user.is_admin();
+    Ok(sqlx::query_scalar!(
+        r#"SELECT COUNT(*) as "count!: i64" FROM contents
+           WHERE visibility = ?1 AND (?2 OR created_by = ?3)"#,
+        Visibility::Hidden,
+        is_admin,
+        user.id,
+    )
+    .fetch_one(pool)
+    .await?)
+}
+
+pub(crate) fn router() -> OpenApiRouter<AppState> {
     // ブラウザーが直接開くルートだけ、エラーを画面へのリダイレクトに変える
-    // (→ `api::browser`)。他のルートを巻き込まないよう、アップロード系と同じく
-    // 別の `OpenApiRouter` に分けてから merge する。
+    // (→ `api::browser`)。他のルートを巻き込まないよう、別の `OpenApiRouter` に分けてから merge する。
     let download_routes = OpenApiRouter::new()
         .routes(routes!(download_content))
         .layer(axum::middleware::from_fn(
@@ -3229,13 +3307,16 @@ pub(crate) fn router(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
         .routes(routes!(list_contents, create_content))
         .routes(routes!(update_content, delete_content))
         .routes(routes!(set_creator))
+        .routes(routes!(set_visibility))
+        .routes(routes!(unhide_content))
+        .routes(routes!(list_hidden_contents))
         .routes(routes!(list_admin_contents))
         .routes(routes!(fetch_link_metadata))
         .routes(routes!(browse_folder))
         .routes(routes!(browse_group))
         .routes(routes!(thumbnail_content))
+        .routes(routes!(replace_content_upload))
         .merge(download_routes)
-        .merge(upload_routes)
 }
 
 #[cfg(test)]
@@ -3463,14 +3544,6 @@ mod tests {
                 "{content_type:?} {path:?}"
             );
         }
-    }
-
-    #[test]
-    fn title_from_file_name_drops_the_extension_unless_nothing_is_left() {
-        assert_eq!(title_from_file_name("問題.pdf"), "問題");
-        assert_eq!(title_from_file_name("a.tar.gz"), "a.tar");
-        assert_eq!(title_from_file_name(".hidden"), ".hidden");
-        assert_eq!(title_from_file_name("README"), "README");
     }
 
     async fn insert_group(pool: &sqlx::SqlitePool, title: &str, parent_id: Option<i64>) -> i64 {

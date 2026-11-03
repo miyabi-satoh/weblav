@@ -62,7 +62,6 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
 	import ArchiveRowPlaceholder from '$lib/components/archive-row-placeholder.svelte';
-	import ListRowGlyph from '$lib/components/list-row-glyph.svelte';
 	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
 	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
@@ -98,9 +97,6 @@
 		isHidden?: (row: ArchiveViewRow<T>) => boolean;
 		hiddenRow?: Snippet<[ArchiveViewRow<T>]>;
 	} = $props();
-
-	// 行の部品の中では `trailing` が同名の口を指すので、外で読んでおく。
-	let hasTrailing = $derived(trailing !== undefined);
 
 	// 見えている所だけを描くので、行を1段ずつに分けて渡す。タイルは1段に何枚も並ぶ。
 	let rowsPerLine = $derived(browseRowsPerLine());
@@ -377,7 +373,6 @@
 				{@render itemSubtitle(row)}
 			</span>
 			{@render trailing?.(row)}
-			<ListRowGlyph />
 		</div>
 	{:else if isAudioFileName(row.item.fileName)}
 		{@const audio = audioQueue(index)}
@@ -402,11 +397,7 @@
 			{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
 		</ListRowFileLink>
 	{:else}
-		<ListRowDownloadLink
-			href={downloadHref(row)}
-			thumbnail={rowThumbnail(row)}
-			tileCornerTaken={hasTrailing}
-		>
+		<ListRowDownloadLink href={downloadHref(row)} thumbnail={rowThumbnail(row)}>
 			{@render itemTitle(row)}
 			{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
 			{#snippet leading()}{@render leadingSlot(row)}{/snippet}

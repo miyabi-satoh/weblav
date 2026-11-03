@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO archive_dirs (archive_id, rel_path, modified_ns) VALUES (?, '', NULL)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "c384d04f74f03572e70b544500e42f45e0dbdc87f92323037ca23e122823bdbf"
+}

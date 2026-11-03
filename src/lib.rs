@@ -49,12 +49,13 @@ pub const APP_BUILD: Option<&str> = option_env!("WEBLAV_BUILD");
 /// `dirs` から、ファイルアップロード型コンテンツの実体 (`blobs_dir`)・画像の縮小画像
 /// (`thumbnails_dir`)・管理画面から書き換える設定ファイル (`config_path`) の置き場を取る。
 /// どれもディレクトリの作成は最初に書くときまで遅らせる (DB・セッション鍵と同じ方針)。
-/// 設定とデータの置き場そのものは、公開できるフォルダーの中でも見せない場所として判定に使う
+/// 設定とデータの置き場そのものは、共有の中でも見せない場所として判定に使う
 /// (→ `api::roots::OwnDirs`)。
 ///
 /// `config` は動いている値として管理画面に出す (→ `api::server_settings`)。
 ///
-/// `folder_picker` は「公開できるフォルダー」を選ぶ窓を出す手段 (→ `folder_picker`)。
+/// `folder_picker` は「共有」を選ぶ窓を出す手段 (→ `folder_picker`)。
+/// `trash` は共有の中で消したものの行き先 (→ `api::TrashPolicy`)。テストでは本物のごみ箱を使わないものを渡す。
 pub async fn build_app(
     pool: SqlitePool,
     session_key: Key,
@@ -62,6 +63,7 @@ pub async fn build_app(
     dirs: &AppDirs,
     lan_port: Option<u16>,
     folder_picker: folder_picker::FolderPicker,
+    trash: api::TrashPolicy,
 ) -> Result<Router, Box<dyn std::error::Error + Send + Sync>> {
     let session_store = SqliteStore::new(pool.clone());
     session_store.migrate().await?;
@@ -86,6 +88,11 @@ pub async fn build_app(
     {
         let dir = backup_work_dir.clone();
         tokio::task::spawn_blocking(move || api::backup::remove_work_root(&dir)).await?;
+    }
+
+    // 前に動いていたときに途中で止まった共有の操作を失敗にし、古い記録を消す。記録の片付けで起動は止めない。
+    if let Err(err) = api::share_operations_on_startup(&pool).await {
+        tracing::warn!(error = %error::error_chain(&err), "cleaning up share operations failed");
     }
 
     let revoked_sessions = Arc::new(session::RevokedSessions::default());
@@ -146,6 +153,9 @@ pub async fn build_app(
         config_write_lock: Arc::new(tokio::sync::Mutex::new(())),
         contents_write_lock: Arc::new(tokio::sync::Mutex::new(())),
         archive_scans: Arc::new(crate::state::ArchiveScans::default()),
+        share_dir_locks: Arc::default(),
+        share_jobs: Arc::default(),
+        share_trash: trash,
         archive_index: Arc::default(),
         users_write_lock: Arc::new(tokio::sync::Mutex::new(())),
         setup_tokens: Arc::new(api::setup::SetupTokens::default()),
@@ -157,6 +167,7 @@ pub async fn build_app(
         folder_picker,
     };
     api::spawn_auto_rescan(state.clone());
+    api::spawn_share_operations_purge(state.pool.clone());
     let app = app.with_state(state);
 
     Ok(app)

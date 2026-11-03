@@ -6,8 +6,12 @@ No. WebLAV works only inside the same network.
 
 ## Can I show folders on a NAS or another computer?
 
-Yes. If the computer running WebLAV can open the shared folder, you can add it as an allowed folder (→ [Add allowed folders](04-roots.md)).
+Yes. If the computer running WebLAV can open the NAS shared folder, you can add it to “Shares” in WebLAV (→ [Add shares](04-shares.md)).
 It can be viewed only while both the computer running WebLAV and the NAS are running.
+
+## Can I restore files deleted in a share?
+
+On a disk of the computer running WebLAV, you can restore them from the computer's trash. In places with no trash, such as a NAS or a network drive, you cannot. In that case, the confirmation before deleting says it “can't be undone” (→ [Work with files in shares](05-files.md)).
 
 ## Some videos or audio files will not play
 
@@ -26,7 +30,7 @@ On Windows, PDF files get thumbnails only when a PDF app that makes thumbnails (
 ## Can I register or manage from a phone?
 
 Yes. Sign in and use it in a browser.
-However, you can add allowed folders and create the first administrator only on the computer running WebLAV.
+However, you can add “Shares” and create the first administrator only on the computer running WebLAV.
 
 ## Does every viewer need an account?
 

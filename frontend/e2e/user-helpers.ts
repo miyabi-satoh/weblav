@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import {
+	ADD_SUBMIT_BUTTON_NAME,
 	clickRowMenuItem,
 	confirmDelete,
 	DELETE_MENU_ITEM_NAME,
@@ -7,7 +8,6 @@ import {
 	PASSWORD_CONFIRM_LABEL,
 	PASSWORD_HASH_TIMEOUT,
 	PASSWORD_LABEL,
-	SAVE_BUTTON_NAME,
 	USER_ADD_BUTTON_NAME,
 	USERNAME_LABEL,
 	userRow
@@ -20,8 +20,10 @@ export async function createUser(page: Page, username: string, password: string)
 	await page.getByLabel(USERNAME_LABEL).fill(username);
 	await page.getByLabel(PASSWORD_LABEL).fill(password);
 	await page.getByLabel(PASSWORD_CONFIRM_LABEL).fill(password);
-	await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
-	await expect(userRow(page, username)).toBeVisible({ timeout: PASSWORD_HASH_TIMEOUT });
+	await page.getByRole('button', { name: ADD_SUBMIT_BUTTON_NAME }).click();
+	// 追加したら、そのユーザーの編集ページへ移る (→ docs/ui.md「UI 全般」の管理画面のユーザー)。
+	await page.waitForURL(/\/admin\/users\/\d+$/, { timeout: PASSWORD_HASH_TIMEOUT });
+	await expect(page.getByRole('heading', { level: 1 })).toHaveText(username);
 }
 
 export async function deleteUserByUsername(page: Page, username: string) {

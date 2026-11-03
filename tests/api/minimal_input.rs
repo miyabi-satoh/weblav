@@ -35,29 +35,7 @@ async fn a_folder_without_a_title_is_named_after_the_folder_and_numbered(pool: S
     );
 }
 
-/// ファイルはタイトルを省くと、拡張子を除いたファイル名になる。
-/// 連番の付け方は `resolve_create_title` の単体テストで見る。
-#[sqlx::test]
-async fn an_upload_without_a_title_is_named_after_the_file(pool: SqlitePool) {
-    let (app, cookie) = admin_app(&pool).await;
-
-    let (status, body) = send(
-        app,
-        multipart_request(
-            "POST",
-            "/api/v1/contents/upload",
-            &cookie,
-            &[],
-            Some(("file", "問題.pdf", b"x")),
-        ),
-    )
-    .await;
-
-    assert_eq!(status, StatusCode::CREATED, "{body}");
-    assert!(body.contains(r#""title":"問題""#), "{body}");
-}
-
-/// 公開できるフォルダーは、名前を省くとフォルダー名になり、重なれば連番を付ける。
+/// 共有は、名前を省くとフォルダー名になり、重なれば連番を付ける。
 #[sqlx::test]
 async fn a_root_without_a_name_gets_a_numbered_folder_name(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;

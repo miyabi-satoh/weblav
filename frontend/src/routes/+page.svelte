@@ -7,10 +7,12 @@
 	import { SORT_OPTIONS, browseSortHref, type BrowseSort } from '$lib/browse-sort';
 	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
 	import ContentList from '$lib/components/content-list.svelte';
+	import ShareList from '$lib/components/share-list.svelte';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
 	import { browseGutterClass } from '$lib/list-row';
 	import { pageEmptyTextClass } from '$lib/page-layout';
+	import { viewAs } from '$lib/view-as.svelte';
 
 	let { data }: PageProps = $props();
 
@@ -19,8 +21,8 @@
 	provideListFilter(listFilter);
 
 	// コンテンツ管理はログイン済みなら `role` を問わず開ける (→ docs/access.md「管理画面の一覧が `user` に見えること」)。
-	// 追加の入り口は、追加できる人にだけ出す。
-	let canAddContents = $derived(page.data.user != null);
+	// 追加の入り口は、追加できる人にだけ出す。閲覧者として見ている間は、ログインしていない人と同じく出さない。
+	let canAddContents = $derived(page.data.user != null && !viewAs.active);
 
 	let siteName = $derived(data.siteSettings.siteName);
 	let homeHeading = $derived(data.siteSettings.homeHeading);
@@ -70,6 +72,15 @@
 				<BrowseSortSelect value={data.sort} options={SORT_OPTIONS} href={sortHref} />
 			{/snippet}
 		</BrowseControls>
-		<ContentList entries={data.contents} />
+		<ContentList entries={data.contents} actions />
+	{/if}
+	{#if data.shares.length > 0}
+		<!-- 共有はコンテンツとは別の区画にして、一覧の下に置く。ホームの主役はコンテンツのため。 -->
+		<section class="mt-12" aria-labelledby="home-shares-heading">
+			<h2 id="home-shares-heading" class={['mb-2 text-base font-semibold', browseGutterClass]}>
+				{m.shares_heading()}
+			</h2>
+			<ShareList shares={data.shares} />
+		</section>
 	{/if}
 </div>

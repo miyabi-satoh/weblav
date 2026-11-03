@@ -110,7 +110,7 @@ API のエラーは共通の envelope で返す。
 - インターネットには公開しない。閉じたネットワーク (LAN) での運用を前提にする。
   HTTPS 終端を前段に置く構成 (上記) を採った運用者は、`session.secure_cookie` を自分で有効にする。
   **トレイがブラウザーで開くのは `http://localhost:<port>`** (`127.0.0.1` ではなく)。
-  `secure_cookie` を有効にすると、Edge・Chrome は HTTP の `127.0.0.1` ではログインの Cookie を受け取らず、`localhost` だけを例外にするため (実測)。PC の前での管理 (→ access.md「初回セットアップ」・folders.md「公開できるフォルダー」) が HTTPS 化の後も続けられる。
+  `secure_cookie` を有効にすると、Edge・Chrome は HTTP の `127.0.0.1` ではログインの Cookie を受け取らず、`localhost` だけを例外にするため (実測)。PC の前での管理 (→ access.md「初回セットアップ」・folders.md「共有」) が HTTPS 化の後も続けられる。
   非ループバックで待ち受けながら無効のままであることは起動時に記録するが、
   **既定の構成で必ず通るので `warn` にはしない** (推奨どおり設置した管理者が毎回警告を見ることになり、ログ全体を無視させるため)。
 - **サーバーのアドレスはタスクトレイのメニューにもツールチップにも出さない**。
@@ -156,7 +156,7 @@ API のエラーは共通の envelope で返す。
 ## データモデルの全体像
 
 コンテンツは4種類 (`link` / `file` / `folder` / `group`) を
-`contents` テーブル1本で表す。type ごとに必要なカラムだけを埋め、
+`contents` テーブル1本で表す。`file` は新しく作れず、前から登録してあるものを読む・配る・題などを直す・消すだけ (ファイルは共有の中に置く。→ shares.md)。type ごとに必要なカラムだけを埋め、
 「type ごとにどれが必須か」はアプリケーション層 (Rust) で検証する
 (既存の `url` / `path` / `blob_hash` と同じ方針)。
 
@@ -175,6 +175,8 @@ API のエラーは共通の envelope で返す。
 | `archive_dirs` | 索引したフォルダーとその更新日時 (開いたときに変わった所だけ読み直す手掛かり) |
 | `archive_axes` | 属性軸の定義 (名前・抽出元・階層番号) |
 | `archive_axis_values` | 軸の値の辞書 (生の値・表示名・並び順) |
+| `roots`・`root_user_access` | 共有と、一般ユーザーがその中でできること (既定とユーザーごとの例外。→ shares.md「できること」) |
+| `share_operations` | 共有の中を書き換えた操作の記録 (→ shares.md「操作の記録」) |
 
 **アイテムごとの軸の値は保存しない**。`archive_items.rel_path` から読み出し時に
 毎回導出する (→ archive.md「軸の値の辞書と導出」)。理由は3つ。
@@ -235,6 +237,8 @@ CREATE TABLE contents (
     -- 作成したユーザー。NULL は作成者なし。private と書き換えの判定に使う (→ access.md「公開範囲」・「ロールと操作」)。
     -- ON DELETE は指定しない。ユーザーの削除は access.md「ユーザーの削除と作成者」の手順を必ず通す
     created_by INTEGER REFERENCES users (id),
+    -- hidden にする前の公開範囲。トリガーが書き、hidden でなくなると消す (→ access.md「非表示のコンテンツ」)
+    visibility_before_hidden TEXT,
     blob_hash TEXT,    -- file のみ。SHA-256(64桁16進)。実体は blobs_dir/<hash>
     file_name TEXT,    -- file のみ
     file_size INTEGER, -- file のみ
@@ -348,22 +352,49 @@ CREATE TABLE site_settings (
     home_heading TEXT NOT NULL DEFAULT ''
 );
 
--- 公開できるフォルダー (→ folders.md「公開できるフォルダー」)。path は canonicalize 済みの絶対パス。
+-- 共有 (→ folders.md「共有」)。path は canonicalize 済みの絶対パス。
 -- 削除しても行は残し deleted_at を付ける (残ったコンテンツの場所を、起点を隠して出すため)。
 CREATE TABLE roots (
     id INTEGER PRIMARY KEY,
     path TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
+    -- 一般ユーザーの既定のできること 'none' | 'read' | 'add' | 'all' (→ shares.md「できること」)
+    editor_access TEXT NOT NULL DEFAULT 'read',
     deleted_at TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 CREATE UNIQUE INDEX roots_name_nocase ON roots (name COLLATE NOCASE) WHERE deleted_at IS NULL;
 
+-- 共有ごとの、ユーザーごとの例外。行があれば roots.editor_access の代わりに使う。
+CREATE TABLE root_user_access (
+    root_id INTEGER NOT NULL REFERENCES roots (id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    access TEXT NOT NULL,
+    PRIMARY KEY (root_id, user_id)
+);
+
+-- 共有の中を書き換えた操作の記録 (→ shares.md「操作の記録」)。ユーザーや共有を消しても残すため、外部キーを張らず名前を写す。
+-- paths は共有からの相対パスの JSON の配列。365 日より古い行は消す。
+CREATE TABLE share_operations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    user_id INTEGER, username TEXT NOT NULL,
+    op TEXT NOT NULL,       -- 'upload' | 'mkdir' | 'rename' | 'move' | 'copy' | 'delete' | 'list_on_home'
+    root_id INTEGER NOT NULL, root_name TEXT NOT NULL, paths TEXT NOT NULL,
+    dest_root_id INTEGER, dest_root_name TEXT, dest_path TEXT,
+    item_count INTEGER, byte_count INTEGER,
+    result TEXT NOT NULL,   -- 'running' | 'succeeded' | 'failed' | 'cancelled'
+    error TEXT              -- 失敗したときの API のエラーの code
+);
+CREATE INDEX idx_share_operations_at ON share_operations (at);
+
 -- macOS のサンドボックスで、窓で選んだフォルダーを次の起動でも読むためのブックマーク (→ distribution.md「ビルド・配布の方法」)。
 -- 窓で選んだ時点 (登録の前) に書くので roots と分ける。path は canonicalize 済みの絶対パス。
 CREATE TABLE folder_bookmarks (
     path TEXT PRIMARY KEY NOT NULL,
-    bookmark BLOB NOT NULL
+    bookmark BLOB NOT NULL,
+    -- 1 なら読み書きの許可、0 なら前の版の読むだけの許可 (→ shares.md「macOS の書き込みの許可」)
+    read_write INTEGER NOT NULL DEFAULT 0
 );
 
 -- リンクのカードに出すページの情報のキャッシュ (→ ui.md「リンクのカード」)。URL ごとに1行。

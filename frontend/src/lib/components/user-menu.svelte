@@ -18,9 +18,25 @@
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import { headerTextActionClass } from '$lib/header-action';
 	import { cn } from '$lib/utils';
+	import { formatNumber } from '$lib/format';
+	import { viewAs } from '$lib/view-as.svelte';
 	import { toast } from 'svelte-sonner';
 
-	let { username, onlogout }: { username: string; onlogout: () => void } = $props();
+	let {
+		username,
+		hiddenCount,
+		onlogout
+	}: {
+		username: string;
+		/** 非表示のコンテンツの一覧に並ぶ件数。0 なら項目を出さない。 */
+		hiddenCount: number;
+		onlogout: () => void;
+	} = $props();
+
+	async function toggleViewAs() {
+		viewAs.set(!viewAs.active);
+		await refreshAll();
+	}
 
 	let recoveryCodeOpen = $state(false);
 
@@ -119,6 +135,19 @@
 				{#snippet child({ props })}
 					<a href={resolve('/admin/contents')} {...props}>{m.admin_nav_label()}</a>
 				{/snippet}
+			</DropdownMenu.Item>
+			{#if hiddenCount > 0}
+				<!-- 非表示のものは閲覧の場のどこにも並ばないので、戻す入口をここに置く。 -->
+				<DropdownMenu.Item>
+					{#snippet child({ props })}
+						<a href={resolve('/hidden')} {...props}
+							>{m.hidden_menu_item({ count: formatNumber(hiddenCount) })}</a
+						>
+					{/snippet}
+				</DropdownMenu.Item>
+			{/if}
+			<DropdownMenu.Item onSelect={() => void toggleViewAs()}>
+				{viewAs.active ? m.view_as_stop_menu_item() : m.view_as_menu_item()}
 			</DropdownMenu.Item>
 			<!-- ログイン後にマニュアルを引き直す導線がここにしかない (ログイン画面・
 			     フォルダー選択・軸の画面のリンクは、いずれも使っている最中にしか出ない)。 -->

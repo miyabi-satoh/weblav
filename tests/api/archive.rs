@@ -162,7 +162,7 @@ async fn directory_contents_by_regular_user_are_confined_to_the_shared_folders(p
     }
 }
 
-/// 存在しないパスとルートの外を、編集者に区別させない (→ docs/folders.md「公開できるフォルダー」)。
+/// 存在しないパスとルートの外を、編集者に区別させない (→ docs/folders.md「共有」)。
 /// 区別が残ると、任意の絶対パスの存在を確かめる道具になる。
 #[sqlx::test]
 async fn fs_dirs_does_not_tell_a_regular_user_whether_a_path_outside_exists(pool: SqlitePool) {
@@ -305,7 +305,7 @@ async fn concurrent_rescans_of_different_archives_do_not_fail_with_database_lock
         .await
         .expect("マイグレーションを適用できなかった");
     insert_admin(&pool, "admin-alice", "correct-password").await;
-    // 登録先をこの実行専用の場所に作るので、そこも「公開できるフォルダー」に入れる。
+    // 登録先をこの実行専用の場所に作るので、そこも「共有」に入れる。
     register_root(&pool, base).await;
 
     let app = test_app(pool.clone()).await;

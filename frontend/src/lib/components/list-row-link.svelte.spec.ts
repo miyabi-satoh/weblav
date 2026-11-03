@@ -1,3 +1,4 @@
+import { createRawSnippet } from 'svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
@@ -43,5 +44,19 @@ describe('ListRowLink', () => {
 		await userEvent.click(link);
 
 		expect(linkDetail.open).toBe(false);
+	});
+
+	it('puts the new-tab mark right after the title and the trailing slot at the right end', async () => {
+		const trailing = createRawSnippet(() => ({
+			render: () => '<span data-testid="menu">⋮</span>'
+		}));
+		await render(ListRowLink, { href: 'http://192.168.1.1/', title: 'Router', trailing });
+		const link = page.getByRole('link', { name: /Router/ }).element();
+		const title = link.querySelector('svg')?.previousElementSibling;
+
+		// 印はリンクの中で、タイトルの文字の直後に置く (行の右端は ⋮ のため)。
+		expect(title?.textContent).toBe('Router');
+		const row = link.closest('div');
+		expect(row?.lastElementChild?.getAttribute('data-testid')).toBe('menu');
 	});
 });

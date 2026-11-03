@@ -28,6 +28,7 @@ mod schedule;
 mod search;
 pub mod server_settings;
 pub mod setup;
+mod shares;
 mod site_settings;
 mod sort;
 mod text_files;
@@ -44,6 +45,10 @@ use crate::state::AppState;
 /// `N` バイトの乱数を16進の文字列にする。トークンや作業用の名前に使う。
 /// 乱数を取れないのは OS 側の異常で、クライアント起因ではないため、呼び出し側では 5xx にする。
 pub(crate) use archive::spawn_auto_rescan;
+pub(crate) use shares::log::{
+    on_startup as share_operations_on_startup, spawn_purge as spawn_share_operations_purge,
+};
+pub use shares::{ShareJobs, TrashPolicy};
 
 pub(crate) fn random_hex<const N: usize>() -> std::io::Result<String> {
     let mut bytes = [0u8; N];
@@ -85,15 +90,15 @@ struct ApiDoc;
 /// fallbackを持つ場合はそれを引き継ぐため、`/api/v1/*` 配下の未知のパスが
 /// SPAの`index.html`にフォールバックしてしまうのを防げる。
 ///
-/// `max_upload_bytes` はファイルアップロード系エンドポイントの`DefaultBodyLimit`用
-/// (`contents::router`参照)。
-fn routes(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
+/// `max_upload_bytes` は共有へのアップロードの`DefaultBodyLimit`用 (`shares::router`参照)。
+/// `None` なら上限なし。
+fn routes(max_upload_bytes: Option<u64>) -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .merge(health::router())
         .merge(auth::router())
         .merge(folder_marks::router())
         .merge(connection_info::router())
-        .merge(contents::router(max_upload_bytes))
+        .merge(contents::router())
         .merge(archive::router())
         .merge(archive_axes::router())
         .merge(archive_axis_hints::router())
@@ -106,6 +111,7 @@ fn routes(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
         .merge(roots::router())
         .merge(search::router())
         .merge(setup::router())
+        .merge(shares::router(max_upload_bytes))
         .merge(logs::router())
         .merge(backup::router())
         .merge(server_settings::router())
@@ -118,7 +124,7 @@ fn routes(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
 /// `Router<AppState>` はまだ`AppState`の実体(DB接続プール)を必要とせず組み立てられる
 /// (実体が要るのは`.with_state()`する時、あるいは実際にリクエストを捌く時)ため、
 /// `--openapi` のようにDBに触れずOpenAPIドキュメントだけ欲しい場合はここで止めてよい。
-pub(crate) fn routed(max_upload_bytes: u64) -> OpenApiRouter<AppState> {
+pub(crate) fn routed(max_upload_bytes: Option<u64>) -> OpenApiRouter<AppState> {
     OpenApiRouter::with_openapi(<ApiDoc as utoipa::OpenApi>::openapi())
         .nest("/api/v1", routes(max_upload_bytes))
 }

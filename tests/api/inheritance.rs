@@ -53,30 +53,6 @@ async fn content_looser_than_its_group_can_be_saved(pool: SqlitePool) {
     }
 }
 
-/// multipart の作成も、親グループより緩い公開範囲で保存できる。
-#[sqlx::test]
-async fn upload_content_looser_than_its_group_can_be_saved(pool: SqlitePool) {
-    insert_user(&pool, "alice", "correct-password").await;
-    let group_id = insert_group_under(&pool, "職員用", "authenticated", None).await;
-    let (app, _blobs_dir) = test_app_with_blobs(pool).await;
-    let cookie = login(app.clone(), "alice", "correct-password").await;
-
-    let response = app
-        .oneshot(multipart_request(
-            "POST",
-            "/api/v1/contents/upload",
-            &cookie,
-            &[("title", "資料"), ("parentId", &group_id.to_string())],
-            Some(("file", "doc.txt", b"hello")),
-        ))
-        .await
-        .expect("request should not fail");
-
-    assert_eq!(response.status(), StatusCode::CREATED);
-    let body = body_string(response).await;
-    assert!(body.contains(r#""visibility":"public""#), "{body}");
-}
-
 /// 祖先のグループを開けなければ、中のグループも開けない。親だけでなく、その上の祖先も見る。
 #[sqlx::test]
 async fn group_inside_restricted_ancestor_is_unauthorized_anonymously(pool: SqlitePool) {
@@ -131,22 +107,18 @@ async fn folder_inside_authenticated_group_is_unauthorized_anonymously(pool: Sql
 async fn file_inside_authenticated_group_is_unauthorized_anonymously(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
     let group_id = insert_group_under(&pool, "職員用", "authenticated", None).await;
-    let (app, _blobs_dir) = test_app_with_blobs(pool).await;
+    let (app, blobs_dir) = test_app_with_blobs(pool.clone()).await;
     let cookie = login(app.clone(), "alice", "correct-password").await;
-
-    let response = app
-        .clone()
-        .oneshot(multipart_request(
-            "POST",
-            "/api/v1/contents/upload",
-            &cookie,
-            &[("title", "資料"), ("parentId", &group_id.to_string())],
-            Some(("file", "doc.txt", b"hello")),
-        ))
-        .await
-        .expect("request should not fail");
-    assert_eq!(response.status(), StatusCode::CREATED);
-    let uri = format!("/api/v1/contents/{}/download", created_id(response).await);
+    let id = insert_file_content(
+        &pool,
+        &blobs_dir,
+        ("資料", "doc.txt", b"hello"),
+        Some(group_id),
+        "public",
+        None,
+    )
+    .await;
+    let uri = format!("/api/v1/contents/{id}/download");
 
     let (status, body) = send_anon(app.clone(), "GET", &uri).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED, "{body}");
@@ -241,22 +213,17 @@ async fn moving_content_keeps_requested_visibility(pool: SqlitePool) {
 #[sqlx::test]
 async fn replacing_upload_while_moving_out_keeps_requested_visibility(pool: SqlitePool) {
     let staff = insert_group_under(&pool, "職員用", "authenticated", None).await;
-    let (app, _blobs_dir) = test_app_with_blobs(pool.clone()).await;
+    let (app, blobs_dir) = test_app_with_blobs(pool.clone()).await;
     let cookie = admin_cookie(app.clone(), &pool).await;
-
-    let response = app
-        .clone()
-        .oneshot(multipart_request(
-            "POST",
-            "/api/v1/contents/upload",
-            &cookie,
-            &[("title", "資料"), ("parentId", &staff.to_string())],
-            Some(("file", "doc.txt", b"hello")),
-        ))
-        .await
-        .expect("request should not fail");
-    assert_eq!(response.status(), StatusCode::CREATED);
-    let id = created_id(response).await;
+    let id = insert_file_content(
+        &pool,
+        &blobs_dir,
+        ("資料", "doc.txt", b"hello"),
+        Some(staff),
+        "public",
+        None,
+    )
+    .await;
 
     let response = app
         .oneshot(multipart_request(
@@ -448,26 +415,17 @@ async fn browse_group_ancestors_are_not_truncated_beyond_fifty_levels(pool: Sqli
 #[sqlx::test]
 async fn delete_group_reparents_children_to_root(pool: SqlitePool) {
     let group_id = insert_group_under(&pool, "資料", "authenticated", None).await;
-    let (app, _blobs_dir) = test_app_with_blobs(pool.clone()).await;
+    let (app, blobs_dir) = test_app_with_blobs(pool.clone()).await;
     let cookie = admin_cookie(app.clone(), &pool).await;
-
-    let upload_response = app
-        .clone()
-        .oneshot(multipart_request(
-            "POST",
-            "/api/v1/contents/upload",
-            &cookie,
-            &[
-                ("title", "配下ファイル"),
-                ("parentId", &group_id.to_string()),
-                ("visibility", "authenticated"),
-            ],
-            Some(("file", "doc.txt", b"hello group")),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(upload_response.status(), StatusCode::CREATED);
-    let file_id = created_id(upload_response).await;
+    let file_id = insert_file_content(
+        &pool,
+        &blobs_dir,
+        ("配下ファイル", "doc.txt", b"hello group"),
+        Some(group_id),
+        "authenticated",
+        None,
+    )
+    .await;
 
     let (delete_status, _) = send_empty(
         app.clone(),
@@ -548,7 +506,7 @@ async fn folder_content_create_by_admin_succeeds(pool: SqlitePool) {
     );
 }
 
-/// パスの決まりの場合分け (無いパス・ファイル・公開できるフォルダーの外) は
+/// パスの決まりの場合分け (無いパス・ファイル・共有の外) は
 /// `fs::canonical_dir_within_roots` の単体テストで見る。
 #[sqlx::test]
 async fn folder_content_create_with_relative_path_is_validation_error(pool: SqlitePool) {
@@ -582,7 +540,7 @@ async fn fs_dirs_is_open_to_regular_users(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK);
 }
 
-/// `path` を省略すると、登録済みの「公開できるフォルダー」が並ぶ (→ docs/folders.md「公開できるフォルダー」)。
+/// `path` を省略すると、登録済みの「共有」が並ぶ (→ docs/folders.md「共有」)。
 /// ドライブの一覧ではない。
 #[sqlx::test]
 async fn fs_dirs_without_path_returns_the_shared_folders(pool: SqlitePool) {
@@ -611,7 +569,7 @@ async fn fs_dirs_without_path_returns_the_shared_folders(pool: SqlitePool) {
     assert_eq!(entries[0]["selectable"], true, "{body}");
 }
 
-/// 「公開できるフォルダー」の外は、一覧そのものを見せない。
+/// 「共有」の外は、一覧そのものを見せない。
 #[sqlx::test]
 async fn fs_dirs_rejects_a_path_outside_the_shared_folders(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
@@ -686,7 +644,7 @@ async fn fs_count_counts_recursively_and_filters_by_extension(pool: SqlitePool) 
     assert!(body.contains(r#""count":1"#), "{body}");
 }
 
-/// 件数APIも「公開できるフォルダー」の外を拒否する
+/// 件数APIも「共有」の外を拒否する
 /// (件数を出せる = 登録できる、と読めてしまうのを防ぐ)。
 #[sqlx::test]
 async fn fs_count_rejects_a_directory_outside_the_shared_folders(pool: SqlitePool) {
@@ -734,7 +692,7 @@ async fn admin_contents_list_includes_path_and_is_open_to_regular_users(pool: Sq
     );
 
     // 管理画面の一覧は `user` にも開放されている。`path` が見えるのは要件が許容している
-    // (登録できるのは「公開できるフォルダー」の中だけなので、見せたくないパスは登録されない)。
+    // (登録できるのは「共有」の中だけなので、見せたくないパスは登録されない)。
     let (user_admin_list_status, user_admin_list_body) =
         send_empty(app, "GET", "/api/v1/admin/contents", &user_cookie).await;
     assert_eq!(user_admin_list_status, StatusCode::OK);

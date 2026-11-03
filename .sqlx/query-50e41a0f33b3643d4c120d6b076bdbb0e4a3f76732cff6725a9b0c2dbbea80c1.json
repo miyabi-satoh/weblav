@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO root_user_access (root_id, user_id, access) VALUES (?, ?, ?)\n             ON CONFLICT (root_id, user_id) DO UPDATE SET access = excluded.access",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "50e41a0f33b3643d4c120d6b076bdbb0e4a3f76732cff6725a9b0c2dbbea80c1"
+}

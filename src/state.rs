@@ -26,10 +26,10 @@ pub struct AppState {
     /// リンクのカードの画像の置き場と、同時に取りに行く数の上限 (→ `api::link_preview`)。
     pub link_previews: Arc<crate::api::link_preview::LinkPreviews>,
     /// weblav 自身の置き場 (`AppDirs` の設定とデータ)。設定ファイル・DB・セッション鍵・blobが入る。
-    /// ここ自身とその中は、公開できるフォルダーの中にあっても登録先・一覧・配信に使わせない
-    /// (→ `api::roots::OwnDirs`、docs/folders.md「公開できるフォルダー」)。
+    /// ここ自身とその中は、共有の中にあっても登録先・一覧・配信に使わせない
+    /// (→ `api::roots::OwnDirs`、docs/folders.md「共有」)。
     pub own_dirs: Vec<PathBuf>,
-    /// 公開できるフォルダーが今読めるか (→ `folder_reach`)。NAS が落ちていても、配下を触る要求を止めないため。
+    /// 共有が今読めるか (→ `folder_reach`)。NAS が落ちていても、配下を触る要求を止めないため。
     pub folder_reach: Arc<crate::folder_reach::FolderReach>,
     /// 管理画面から書き換える設定ファイル (`AppDirs::config_path()`、→ `api::server_settings`)。
     pub config_path: PathBuf,
@@ -40,11 +40,11 @@ pub struct AppState {
     pub log: crate::logging::LogControl,
     /// `config.toml` の読み・書き換えを直列化する。2人が同時に保存すると、片方の書き換えが消えるため。
     pub config_write_lock: Arc<Mutex<()>>,
-    /// アップロード1件あたりの最大バイト数(`config.upload.max_size_mb`から算出)。
+    /// アップロード1件あたりの最大バイト数(`config.upload.max_size_mb`から算出)。`None` なら上限なし。
     /// multipartをストリーミングで受け取る際、この値を超えたら
     /// `AppError::FileTooLarge` にする(サーバー全体の受付上限は`contents::router`側の
     /// `DefaultBodyLimit`が別途担う。両者の役割分担はそちらのコメント参照)。
-    pub max_upload_bytes: u64,
+    pub max_upload_bytes: Option<u64>,
     /// `contents`テーブルへの書き込みを直列化するための鍵。直列化が要る書き込みは次の2つ。
     /// - blobの「実体確定(commit_blob)→DB書き込み→参照無しGC」。これが無いと、
     ///   あるリクエストがGCの参照カウント確認(COUNT)をした直後に、別リクエストが
@@ -71,6 +71,12 @@ pub struct AppState {
     pub contents_write_lock: Arc<Mutex<()>>,
     /// アーカイブごとの走査の排他 (→ docs/archive.md「スキャン」)。
     pub archive_scans: Arc<ArchiveScans>,
+    /// 共有の中のフォルダーごとの、アップロードしたファイルに名前を付けて置く順番 (→ `api::shares`)。
+    pub share_dir_locks: Arc<DirLocks>,
+    /// 共有の中のコピー・移動・削除の、裏で続く処理 (→ `api::shares`)。
+    pub share_jobs: Arc<crate::api::ShareJobs>,
+    /// 共有の中で消したものの行き先 (→ `api::TrashPolicy`)。
+    pub share_trash: crate::api::TrashPolicy,
     /// 一覧の表示の、導出済みの全アイテム・印・区切って返す結果の集まり (→ docs/archive.md「大きなアーカイブの一覧」)。
     pub archive_index: Arc<crate::api::archive_index::ArchiveIndexCache>,
     /// admin数の不変条件に関わる書き込み(権限変更・削除)を直列化するための鍵
@@ -102,6 +108,23 @@ pub struct AppState {
     pub lan_port: Option<u16>,
 }
 
+/// フォルダーごとの鍵。同じフォルダーに同時に置くアップロードが、同じ空きの名前を選ばないよう順に並べる。
+///
+/// `std::sync::Mutex` を使う。鍵を持つのは `spawn_blocking` の中で名前を決めて置く間だけで、await しないため。
+#[derive(Default)]
+pub struct DirLocks {
+    dirs: StdMutex<HashMap<PathBuf, Arc<StdMutex<()>>>>,
+}
+
+impl DirLocks {
+    /// `dir` の鍵。使い終わった (ほかに持つ人のいない) 鍵は、ここで片付ける。
+    pub fn get(&self, dir: &std::path::Path) -> Arc<StdMutex<()>> {
+        let mut dirs = self.dirs.lock().expect("dir locks poisoned");
+        dirs.retain(|_, lock| Arc::strong_count(lock) > 1);
+        Arc::clone(dirs.entry(dir.to_path_buf()).or_default())
+    }
+}
+
 /// 走査中のアーカイブidの集合。
 ///
 /// `contents_write_lock` と分けているのは、走査が数十秒に及びうるためで、
@@ -125,6 +148,14 @@ impl ArchiveScans {
             .lock()
             .expect("archive_scans lock poisoned")
             .is_empty()
+    }
+
+    /// `id` の排他を誰かが取っているか (走査・更新・削除のどれか)。
+    pub fn is_running(&self, id: i64) -> bool {
+        self.running
+            .lock()
+            .expect("archive_scans lock poisoned")
+            .contains_key(&id)
     }
 
     /// `id` の走査を開始する。既に走査中なら `Conflict`。

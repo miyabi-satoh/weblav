@@ -133,8 +133,12 @@ export async function startBackend(tmpPrefix: string): Promise<Backend> {
 		path.join(home, 'config.toml'),
 		`[server]\nbind = "127.0.0.1"\nport = ${port}\n\n[log]\nfilter = "info"\noutput = "stdout"\n\n[session]\nsecret = ""\nsecure_cookie = false\nexpiry_days = 14\n`
 	);
+	// 共有の中で消したものを、使う人のごみ箱 (~/.local/share/Trash) へ送らないよう、Linux などのごみ箱の置き場を
+	// 使い捨てにする。テストのフィクスチャ (target/ の下) と同じディスクに置く。別のディスクだと、ごみ箱へ送るときに
+	// 写し直しになるため。macOS のごみ箱 (Finder と同じもの) は変えられない。
+	const dataHome = mkdtempSync(path.join(REPO_ROOT, 'target', `${tmpPrefix}xdg-`));
 	const proc = spawn(BIN_PATH, [], {
-		env: { ...process.env, WEBLAV_HOME: home },
+		env: { ...process.env, WEBLAV_HOME: home, XDG_DATA_HOME: dataHome },
 		stdio: ['ignore', 'pipe', 'pipe']
 	});
 	let log = '';
@@ -147,6 +151,7 @@ export async function startBackend(tmpPrefix: string): Promise<Backend> {
 		try {
 			// Windows では終了の直後もウイルス対策ソフト等が DB を掴んでいることがあるので、やり直す。
 			rmSync(home, { recursive: true, force: true, maxRetries: 5 });
+			rmSync(dataHome, { recursive: true, force: true, maxRetries: 5 });
 		} catch (err) {
 			// 片付けの失敗で、呼び出し側の結果 (テストの成否など) を覆さない。
 			console.warn(`一時ディレクトリを消せませんでした (${home}):`, err);

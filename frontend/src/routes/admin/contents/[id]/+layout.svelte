@@ -17,6 +17,7 @@
 	import { contentPathLabel } from '$lib/root-location';
 	import * as m from '$lib/paraglide/messages.js';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import { backLinkClass } from '$lib/back-link';
 	import EyeIcon from '@lucide/svelte/icons/eye';
 	import type { LayoutProps } from './$types';
 
@@ -59,10 +60,7 @@
 <svelte:head><title>{pageTitle(content.title)}</title></svelte:head>
 
 <div class="px-4 pt-4 md:px-6">
-	<a
-		href={resolve('/admin/contents')}
-		class="relative inline-flex items-center gap-1 text-sm text-muted-foreground after:absolute after:inset-x-0 after:-inset-y-3 hover:text-foreground"
-	>
+	<a href={resolve('/admin/contents')} class={backLinkClass}>
 		<ChevronLeftIcon class="size-4" />
 		<span class="underline underline-offset-4">{m.admin_contents_nav_title()}</span>
 	</a>

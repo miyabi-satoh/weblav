@@ -1,4 +1,4 @@
-//! 公開できるフォルダー (→ docs/folders.md「公開できるフォルダー」)
+//! 共有 (→ docs/folders.md「共有」)
 
 use super::*;
 
@@ -46,7 +46,7 @@ async fn roots_can_be_registered_listed_and_deleted(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(!body.contains(&json_string(&path)), "{body}");
 
-    // 行は削除済みの印を付けて残る (→ docs/folders.md「公開できるフォルダー」)。
+    // 行は削除済みの印を付けて残る (→ docs/folders.md「共有」)。
     let deleted: bool = sqlx::query_scalar!(
         r#"SELECT deleted_at IS NOT NULL as "deleted!: bool" FROM roots WHERE id = ?"#,
         id
@@ -172,7 +172,7 @@ async fn a_root_can_be_renamed(pool: SqlitePool) {
 }
 
 /// 削除済みのフォルダーは、判定から外れ、中を辿れない
-/// (行は場所の表示のためだけに残す → docs/folders.md「公開できるフォルダー」)。
+/// (行は場所の表示のためだけに残す → docs/folders.md「共有」)。
 #[sqlx::test]
 async fn a_deleted_root_is_left_out_of_every_check(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
@@ -327,6 +327,143 @@ async fn picking_a_root_keeps_a_bookmark_on_macos(pool: SqlitePool) {
     weblav::folder_access::restore(&pool).await;
 }
 
+/// 共有の id。
+async fn registered_root_id(pool: &SqlitePool, dir: &std::path::Path) -> i64 {
+    register_root(pool, dir).await;
+    sqlx::query_scalar("SELECT id FROM roots WHERE path = ?")
+        .bind(canonical_path_as_api_returns_it(dir))
+        .fetch_one(pool)
+        .await
+        .expect("共有の行を引けなかった")
+}
+
+/// 読むだけの許可のブックマークしか無い共有は、一覧で書き込めないと出る。ブックマークの無い共有 (macOS 以外) は書き込める。
+#[sqlx::test]
+async fn roots_list_tells_whether_each_root_is_writable(pool: SqlitePool) {
+    let read_only = root_dir("roots-read-only");
+    let writable = root_dir("roots-writable");
+    registered_root_id(&pool, &read_only).await;
+    registered_root_id(&pool, &writable).await;
+    sqlx::query("INSERT INTO folder_bookmarks (path, bookmark) VALUES (?, x'00')")
+        .bind(canonical_path_as_api_returns_it(&read_only))
+        .execute(&pool)
+        .await
+        .expect("ブックマークを入れられなかった");
+    let (app, cookie) = admin_app(&pool).await;
+
+    let (status, body) = send(app, roots_request("GET", ROOTS_URI, &cookie, None)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let roots = parse_json(&body);
+    let writable_of = |dir: &std::path::Path| {
+        let path = canonical_path_as_api_returns_it(dir);
+        roots
+            .as_array()
+            .expect("配列でない")
+            .iter()
+            .find(|root| root["path"] == path.as_str())
+            .unwrap_or_else(|| panic!("{path} が一覧に無い: {body}"))["writable"]
+            .clone()
+    };
+    assert_eq!(writable_of(&read_only), false);
+    assert_eq!(writable_of(&writable), true);
+}
+
+/// 場所を選び直すと、中のフォルダーのコンテンツが新しい場所へ移り、名前と権限は残る。
+/// 付け替えの決まり (頭の似た隣・一覧の表示) は `roots::rebase_contents` の単体テストで確かめる。
+#[sqlx::test]
+async fn moving_a_root_carries_its_contents_and_keeps_its_settings(pool: SqlitePool) {
+    let old = root_dir("roots-move-old");
+    let new = root_dir("roots-move-new");
+    let id = registered_root_id(&pool, &old).await;
+    sqlx::query("UPDATE roots SET editor_access = 'add' WHERE id = ?")
+        .bind(id)
+        .execute(&pool)
+        .await
+        .expect("権限を変えられなかった");
+    let content = insert_folder_by(&pool, "英検", old.join("英検"), "public", None, None).await;
+    let (app, cookie) = admin_app(&pool).await;
+    let new_path = canonical_path_as_api_returns_it(&new);
+
+    let (status, body) = send(
+        app,
+        roots_request(
+            "PUT",
+            &format!("{ROOTS_URI}/{id}/path"),
+            &cookie,
+            Some(&json_path(&new_path)),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let root = parse_json(&body);
+    assert_eq!(root["path"], new_path.as_str(), "{body}");
+    assert_eq!(root["editorAccess"], "add", "{body}");
+    assert_eq!(root["contentCount"], 1, "{body}");
+    let content_path: String = sqlx::query_scalar("SELECT path FROM contents WHERE id = ?")
+        .bind(content)
+        .fetch_one(&pool)
+        .await
+        .expect("登録先を読めなかった");
+    assert_eq!(
+        content_path,
+        canonical_path_as_api_returns_it(&new.join("英検"))
+    );
+}
+
+/// 今と同じフォルダーを選ぶのは、書き込みの許可の取り直し (macOS)。何も付け替えずに共有を返す。
+#[sqlx::test]
+async fn picking_the_same_place_again_returns_the_root_unchanged(pool: SqlitePool) {
+    let dir = root_dir("roots-move-same");
+    let id = registered_root_id(&pool, &dir).await;
+    let path = canonical_path_as_api_returns_it(&dir);
+    let (app, cookie) = admin_app(&pool).await;
+
+    let (status, body) = send(
+        app,
+        roots_request(
+            "PUT",
+            &format!("{ROOTS_URI}/{id}/path"),
+            &cookie,
+            Some(&json_path(&path)),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body)["path"], path.as_str(), "{body}");
+}
+
+/// ほかの共有の場所は選べない。登録と同じ内訳で断る。
+#[sqlx::test]
+async fn moving_a_root_onto_another_root_is_rejected(pool: SqlitePool) {
+    let dir = root_dir("roots-move-target");
+    let other = root_dir("roots-move-taken");
+    let id = registered_root_id(&pool, &dir).await;
+    registered_root_id(&pool, &other).await;
+    let (app, cookie) = admin_app(&pool).await;
+
+    let (status, body) = send(
+        app,
+        roots_request(
+            "PUT",
+            &format!("{ROOTS_URI}/{id}/path"),
+            &cookie,
+            Some(&json_path(&canonical_path_as_api_returns_it(&other))),
+        ),
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+    assert_eq!(
+        parse_json(&body)["error"]["detail"]["kind"],
+        "rootAlreadyRegistered",
+        "{body}"
+    );
+}
+
 /// 窓は同時に1つだけ。開いている間の2つ目は 409 で、閉じたらまた開ける。
 #[sqlx::test]
 async fn only_one_root_picker_opens_at_a_time(pool: SqlitePool) {
@@ -372,7 +509,7 @@ async fn only_one_root_picker_opens_at_a_time(pool: SqlitePool) {
 }
 
 /// 名前は前後の空白を除いて保存し、同じ名前 (大文字小文字だけの違いも含む) は拒む。
-/// 名前がフルパスの代わりに見分ける手掛かりになるため (→ docs/folders.md「公開できるフォルダー」)。
+/// 名前がフルパスの代わりに見分ける手掛かりになるため (→ docs/folders.md「共有」)。
 #[sqlx::test]
 async fn a_root_name_is_trimmed_and_must_be_unique(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
@@ -493,7 +630,7 @@ async fn admin_contents_locate_a_path_by_its_root_name(pool: SqlitePool) {
     );
 }
 
-/// 入れ子は登録できる。同じフォルダーの二重登録だけを拒み、登録済みの名前を返す (→ docs/folders.md「公開できるフォルダー」)。
+/// 入れ子は登録できる。同じフォルダーの二重登録だけを拒み、登録済みの名前を返す (→ docs/folders.md「共有」)。
 #[sqlx::test]
 async fn a_root_can_be_nested_but_not_registered_twice(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
@@ -520,7 +657,7 @@ async fn a_root_can_be_nested_but_not_registered_twice(pool: SqlitePool) {
     assert!(body.contains(r#""name":"child""#), "{body}");
 }
 
-/// 入れ子では、外側を起点にする。外側から内側へ辿っても、「上へ」で外側へ戻れる (→ docs/folders.md「公開できるフォルダー」)。
+/// 入れ子では、外側を起点にする。外側から内側へ辿っても、「上へ」で外側へ戻れる (→ docs/folders.md「共有」)。
 #[sqlx::test]
 async fn browsing_into_a_nested_root_keeps_the_outer_one_as_the_start(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
@@ -558,7 +695,7 @@ async fn browsing_into_a_nested_root_keeps_the_outer_one_as_the_start(pool: Sqli
 }
 
 /// 登録し直すと、中に残っていたコンテンツの件数が戻る。削除でコンテンツの登録は
-/// 消していないため (→ docs/folders.md「公開できるフォルダー」)。
+/// 消していないため (→ docs/folders.md「共有」)。
 #[sqlx::test]
 async fn re_registering_a_root_reports_the_contents_left_inside(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
@@ -633,7 +770,7 @@ async fn a_root_on_a_disconnected_volume_is_unreachable(pool: SqlitePool) {
         .bind(disconnected)
         .execute(&pool)
         .await
-        .expect("公開できるフォルダーを登録できなかった");
+        .expect("共有を登録できなかった");
     let folder = insert_folder_by(&pool, "NAS", disconnected, "public", None, None).await;
     // ボリュームはあり、フォルダーだけが消えたもの。
     let removed = root_dir("roots-removed");
@@ -672,4 +809,119 @@ async fn a_root_on_a_disconnected_volume_is_unreachable(pool: SqlitePool) {
         StatusCode::SERVICE_UNAVAILABLE,
         "folder_unreachable",
     );
+}
+
+/// 共有の権限を変えると、一覧に既定と例外が出る。例外は送った内容で置き換わる。
+#[sqlx::test]
+async fn a_root_access_can_be_set_and_listed(pool: SqlitePool) {
+    let (app, cookie) = admin_app(&pool).await;
+    insert_user(&pool, "taro", "password").await;
+    insert_user(&pool, "hanako", "password").await;
+    let taro = db_user_id(&pool, "taro").await;
+    let hanako = db_user_id(&pool, "hanako").await;
+    let dir = root_dir("roots-access");
+    let path = canonical_path_as_api_returns_it(&dir);
+    let (status, body) = send(
+        app.clone(),
+        roots_request("POST", ROOTS_URI, &cookie, Some(&json_path(&path))),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let created = parse_json(&body);
+    // 既定は「見る」で、例外は無い。
+    assert_eq!(created["editorAccess"], "read", "{body}");
+    assert_eq!(created["userAccess"], serde_json::json!([]), "{body}");
+    let id = extract_id(&body);
+    let uri = format!("{ROOTS_URI}/{id}/access");
+
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        &uri,
+        &cookie,
+        &format!(
+            r#"{{"editorAccess":"add","users":[{{"userId":{taro},"access":"none"}},{{"userId":{hanako},"access":"all"}}]}}"#
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, body) = send(app.clone(), roots_request("GET", ROOTS_URI, &cookie, None)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let listed = parse_json(&body);
+    let root = listed
+        .as_array()
+        .expect("配列が返るはず")
+        .iter()
+        .find(|root| root["id"] == id)
+        .expect("変えた共有が一覧にあるはず");
+    assert_eq!(root["editorAccess"], "add");
+    // ユーザー名の順。
+    assert_eq!(
+        root["userAccess"],
+        serde_json::json!([
+            {"userId": hanako, "username": "hanako", "access": "all"},
+            {"userId": taro, "username": "taro", "access": "none"},
+        ])
+    );
+
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        &uri,
+        &cookie,
+        r#"{"editorAccess":"read","users":[]}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let updated = parse_json(&body);
+    assert_eq!(updated["editorAccess"], "read");
+    assert_eq!(updated["userAccess"], serde_json::json!([]));
+
+    // 知らないユーザーは拒み、何も変えない。
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        &uri,
+        &cookie,
+        r#"{"editorAccess":"all","users":[{"userId":9999,"access":"all"}]}"#,
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+    let editor_access: String = sqlx::query_scalar("SELECT editor_access FROM roots WHERE id = ?")
+        .bind(id)
+        .fetch_one(&pool)
+        .await
+        .expect("共有の行を引けなかった");
+    assert_eq!(editor_access, "read");
+
+    // 知らない値は JSON の段階で拒む。
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        &uri,
+        &cookie,
+        r#"{"editorAccess":"owner","users":[]}"#,
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+
+    let (status, body) = send_json(
+        app,
+        "PUT",
+        &format!("{ROOTS_URI}/9999/access"),
+        &cookie,
+        r#"{"editorAccess":"read","users":[]}"#,
+    )
+    .await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
 }

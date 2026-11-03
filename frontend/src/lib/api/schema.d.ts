@@ -200,6 +200,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/roots/{id}/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 共有の中で一般ユーザーができることを変える (→ `api::shares`)。管理者は常にすべての操作ができるので、
+         *     管理者の例外を送っても効かない。
+         */
+        put: operations["update_root_access"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/roots/{id}/path": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 共有の場所を、窓で選び直したフォルダーに付け替える (→ docs/shares.md「共有の場所の選び直し」)。
+         * @description フォルダーを別のディスクへ移した・ドライブの文字が変わったときに、共有を消して登録し直さずに済むようにする。
+         *     権限と名前は共有の id に付いているので、そのまま残る。中のフォルダーのコンテンツの登録先は、
+         *     新しい場所の同じ相対パスへ付け替える。
+         *
+         *     今と同じフォルダーを選んだときは何も付け替えず、書き込みの許可だけを取り直す。macOS のサンドボックスでは、
+         *     許可は利用者が窓で選んだときにしか増やせないため (`RootResponse::writable` が偽の共有)。
+         */
+        put: operations["move_root"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/server-settings": {
         parameters: {
             query?: never;
@@ -209,6 +254,23 @@ export interface paths {
         };
         get: operations["get_server_settings"];
         put: operations["update_server_settings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/share-operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 共有の中のファイルを書き換えた操作の記録。新しい順。 */
+        get: operations["list_share_operations"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -480,6 +542,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/hidden": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 非表示のコンテンツの一覧。`admin` には全部、ほかの人には自分が作成者のものだけを返す。
+         *     自分が非表示にしたものを、閲覧の場から消えた後に探して戻せるようにするため。新しく非表示にした順。
+         */
+        get: operations["list_hidden_contents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/link-metadata": {
         parameters: {
             query?: never;
@@ -495,26 +577,6 @@ export interface paths {
          *     問わない。取得するだけで何も書き込まないため)。
          */
         post: operations["fetch_link_metadata"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/contents/upload": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * ファイルコンテンツを新規作成する(multipart)。`file`は必須、`title`/`description`は省略可
-         *     (`title`を省くとファイル名から付ける)。
-         */
-        post: operations["upload_content"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1210,6 +1272,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/{id}/unhide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 非表示のコンテンツを、非表示にする前の公開範囲に戻す。覚えていなければ (この仕組みより前に非表示に
+         *     したもの) `authenticated` に戻す。前が他人の `private` なら、作成者でない人は戻せない (403)。
+         *     非表示でないものはそのままの公開範囲を返す (二度押しを失敗にしないため)。
+         */
+        post: operations["unhide_content"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/{id}/upload": {
         parameters: {
             query?: never;
@@ -1219,11 +1302,32 @@ export interface paths {
         };
         get?: never;
         /**
-         * ファイルコンテンツを更新する(multipart)。`file`を指定した場合のみ実体を差し替える
-         *     (指定しなければ既存のblobを維持する)。`type = 'file'` 以外のidに対しては422にする
+         * ファイルコンテンツの題・説明・親・公開範囲を更新する(multipart)。ファイルの差し替えはしない
+         *     (`file` を送ると422)。ファイルは共有の中に置いて扱う (→ `api::shares`)。この口が multipart のままなのは、
+         *     前からある画面と送り方を変えないため。`type = 'file'` 以外のidに対しては422にする
          *     (link/folderの更新は既存の`PUT /contents/{id}`(JSON)を使う)。
          */
         put: operations["replace_content_upload"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 公開範囲だけを変える。ホームなどの一覧の行から、編集画面を開かずに変えるため。
+         *     変えてよいかの判定は編集 (`update_content`) と同じ。
+         */
+        put: operations["set_visibility"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1451,6 +1555,284 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 見える共有の一覧。名前の順。
+         * @description つながらない NAS の共有も出す (開いたときに、つながらないと伝える)。ファイルシステムには触らず、
+         *     登録したパスの文字列で入れ子を判定する (→ `roots::contains`)。
+         */
+        get: operations["list_shares"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 自分のコピー・移動・削除の処理。走っているものと、終わってから少しの間のもの。 */
+        get: operations["list_jobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/jobs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 処理の進み具合。 */
+        get: operations["get_job"];
+        put?: never;
+        post?: never;
+        /**
+         * 処理を中止する。済んだ分はそのまま残り、途中のファイル (写しかけ) は残さない。上書きの途中なら、今あるものも残る。
+         *     終わっていれば何もしない。
+         */
+        delete: operations["cancel_job"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * コピー・移動を始める。進み具合は `GET /shares/jobs/{id}` で読む。
+         * @description 置き先の同じ名前は `onConflict` で扱う。上書きは、新しいものを用意できてから、今あるものをごみ箱へ送って置く
+         *     (ごみ箱を使えない場所では完全に消す)。同じフォルダーの中へのコピーは、番号を付けた名前で写す。
+         */
+        post: operations["start_transfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/transfer/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** コピー・移動を始める前の確かめ。置き先の同じ名前・大きさ・空きと、上書きで響くコンテンツを返す。何も変えない。 */
+        post: operations["check_transfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/browse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 共有の中の一覧。 */
+        get: operations["browse_share"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 消し始める。進み具合は `GET /shares/jobs/{id}` で読む。 */
+        post: operations["start_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/delete/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 消す前の確かめ。ごみ箱へ送れるかと、消すと開けなくなるコンテンツを返す。何も変えない。 */
+        post: operations["check_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/dirs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 共有の中のフォルダーだけの一覧。移動・コピーの先を選ぶのに使う。 */
+        get: operations["list_share_dirs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 共有の中のファイルのダウンロード。ブラウザーが直接開く。 */
+        get: operations["download_share_file"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 共有の中に新しいフォルダーを作る。 */
+        post: operations["create_share_folder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/list-on-home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 共有の中のフォルダーを、フォルダーのコンテンツとしてホームに載せる。タイトルはフォルダー名から付ける。
+         *     見られる場所なら載せられる (コンテンツの作成と同じ)。そのフォルダーを自分で戻せる非表示のコンテンツがあれば、
+         *     新しく作らずにそれを戻す (→ docs/shares.md「ホームに載せる」)。
+         */
+        post: operations["list_on_home"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 共有の中のファイル・フォルダーの名前を変える。大文字・小文字だけの変更もできる。
+         *     共有そのものと、中に別の共有を含むフォルダーは変えられない。
+         */
+        post: operations["rename_share_entry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/thumbnail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 共有の中の画像の縮小画像 (→ docs/ui.md「画像のプレビュー」)。 */
+        get: operations["share_thumbnail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 共有の中のフォルダーにファイルを置く。同じ名前があれば、番号を付けた名前で置く (上書きしない)。
+         * @description 中身が画像なのに拡張子が合っていなければ直す (→ `fsops::fixed_extension`)。
+         *     いくつか送って途中で失敗したら、それまでに置いたものは残る (画面は1つずつ送る)。
+         */
+        post: operations["upload_to_share"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/site-settings": {
         parameters: {
             query?: never;
@@ -1473,8 +1855,8 @@ export interface components {
     schemas: {
         /**
          * @description 管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。
-         *     `user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「公開できるフォルダー」の配下だけ
-         *     なので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「公開できるフォルダー」)。
+         *     `user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「共有」の配下だけ
+         *     なので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「共有」)。
          */
         AdminContentResponse: {
             archiveItems?: components["schemas"]["ArchiveItemCounts"] | null;
@@ -1515,13 +1897,13 @@ export interface components {
              */
             pathInRoot?: string | null;
             /**
-             * @description `root_name` の公開できるフォルダーが削除済みか。画面では名前の代わりに
-             *     「(見つからない公開できるフォルダー)」と出す。`root_name` が `None` なら `false`。
+             * @description `root_name` の共有が削除済みか。画面では名前の代わりに
+             *     「(見つからない共有)」と出す。`root_name` が `None` なら `false`。
              */
             rootDeleted: boolean;
             /**
-             * @description `path` を含む「公開できるフォルダー」の名前。画面では起点のフルパスの代わりに出す
-             *     (→ docs/folders.md「公開できるフォルダー」)。`path` が無いか、どの公開できるフォルダーにも含まれなければ `None`。
+             * @description `path` を含む「共有」の名前。画面では起点のフルパスの代わりに出す
+             *     (→ docs/folders.md「共有」)。`path` が無いか、どの共有にも含まれなければ `None`。
              */
             rootName?: string | null;
             title: string;
@@ -1768,8 +2150,14 @@ export interface components {
          *
          *     各バリアントの `private` は、公開範囲が `private` なら真。一覧に「作成者のみ」の印を出すため
          *     (→ docs/access.md「フロントエンドのガード反転」)。一覧に並ぶ `private` は必ず閲覧者自身のもの (`can_list`)。
+         *
+         *     各バリアントの `can_edit` は、閲覧者がそのコンテンツを書き換えられるか (`admin` か作成者)。一覧の行から
+         *     編集・公開範囲の変更を出すかを画面が決めるのに使う。匿名 (「閲覧者として見る」を含む) には常に偽。
+         *
+         *     enum に付けた `rename_all` はバリアント名にしか効かないので、フィールドの camelCase はバリアントごとに指定する。
          */
         ContentResponse: {
+            canEdit: boolean;
             description?: string | null;
             /** Format: int64 */
             id: number;
@@ -1781,6 +2169,7 @@ export interface components {
             /** @description `url` の必須チェック(type=linkのみ扱う現状は常にSome)は書き込み側で行う。 */
             url: string;
         } | {
+            canEdit: boolean;
             description?: string | null;
             /** Format: int64 */
             id: number;
@@ -1791,6 +2180,7 @@ export interface components {
             /** @enum {string} */
             type: "folder";
         } | {
+            canEdit: boolean;
             description?: string | null;
             /**
              * @description ダウンロード時のファイル名。ダウンロードURL自体は`id`ベース
@@ -1814,6 +2204,7 @@ export interface components {
             /** @enum {string} */
             type: "file";
         } | {
+            canEdit: boolean;
             description?: string | null;
             /** Format: int64 */
             id: number;
@@ -1880,10 +2271,33 @@ export interface components {
             /** @description 絶対パス。フォルダー選択の窓 (`/admin/roots/pick`) が返す値をそのまま渡す。 */
             path: string;
         };
+        CreateShareFolderRequest: {
+            name: string;
+            /** @description 作る場所 (フォルダー) の、共有からの相対パス。空文字列は共有そのもの。 */
+            path?: string;
+        };
         CreateUserRequest: {
             password: string;
             role?: components["schemas"]["Role"] | null;
             username: string;
+        };
+        DeleteCheckRequest: {
+            /** @description 消すものの、共有からの相対パス。 */
+            paths: string[];
+        };
+        DeleteCheckResponse: {
+            /**
+             * @description 消すと開けなくなる、フォルダーのコンテンツ (登録先が、消すものかその中)。
+             *     見ている人の管理画面の一覧に出ないもの (他人の「作成者のみ」) は含めない。
+             */
+            listed: components["schemas"]["ListedAs"][];
+            /** @description 消すものをどれもごみ箱へ送れるか。偽なら、消すと元に戻せない。 */
+            trash: boolean;
+        };
+        DeleteRequest: {
+            paths: string[];
+            /** @description 完全に消す。偽なら、ごみ箱へ送る (使えない場所では 409 `trash_unavailable`)。 */
+            permanent?: boolean;
         };
         DirEntryItem: {
             name: string;
@@ -1916,18 +2330,18 @@ export interface components {
         DirsResponse: {
             entries: components["schemas"]["DirEntryItem"][];
             /**
-             * @description 1つ上の階層。上位の一覧では `None`。登録済みの「公開できるフォルダー」そのものからは
+             * @description 1つ上の階層。上位の一覧では `None`。登録済みの「共有」そのものからは
              *     空文字列 (= 上位の一覧) へ戻る。
              */
             parent?: string | null;
             /** @description 正規化済みの現在位置。ルートの一覧では空文字列。 */
             path: string;
             /**
-             * @description パンくずの起点。現在位置を含む「公開できるフォルダー」。上位の一覧では `None`。
+             * @description パンくずの起点。現在位置を含む「共有」。上位の一覧では `None`。
              *     パンくずを辿れるところから始めるために使う (→ docs/folders.md「一覧 API」)。
              */
             root?: string | null;
-            /** @description `root` の名前。パンくずの先頭に、フルパスの代わりに出す (→ docs/folders.md「公開できるフォルダー」)。 */
+            /** @description `root` の名前。パンくずの先頭に、フルパスの代わりに出す (→ docs/folders.md「共有」)。 */
             rootName?: string | null;
             /** @description 現在位置そのものを登録先に選べるか。ルートの一覧では `false`。 */
             selectable: boolean;
@@ -1941,7 +2355,7 @@ export interface components {
          * @description API エラーの機械可読なコード。frontend はこの値で表示文言を選ぶ。
          * @enum {string}
          */
-        ErrorCode: "not_found" | "database_unavailable" | "unauthorized" | "forbidden" | "invalid_credentials" | "incorrect_current_password" | "invalid_recovery_code" | "too_many_requests" | "invalid_request_body" | "file_too_large" | "internal_error" | "conflict" | "config_unreadable" | "folder_unreachable";
+        ErrorCode: "not_found" | "database_unavailable" | "unauthorized" | "forbidden" | "invalid_credentials" | "incorrect_current_password" | "invalid_recovery_code" | "too_many_requests" | "invalid_request_body" | "file_too_large" | "internal_error" | "conflict" | "config_unreadable" | "folder_unreachable" | "insufficient_storage" | "trash_unavailable" | "entry_in_use" | "share_read_only";
         /**
          * @description レスポンスボディの共通envelope。`code` が機械可読な契約(frontendはこちらでi18nする)、
          *     `message` は英語のデバッグ用の説明文で、画面には出さない。
@@ -1979,6 +2393,7 @@ export interface components {
             /** @description 一覧の表示 (軸で絞り込む平らな一覧) も使うか。画面は真のとき、表示の切り替えを出す。 */
             listView: boolean;
             path: string;
+            share?: components["schemas"]["FolderShare"] | null;
         };
         FolderEntry: {
             image?: components["schemas"]["ImageSize"] | null;
@@ -2011,6 +2426,24 @@ export interface components {
             /** @description フォルダーの登録先からの相対パス ('/' 区切り)。 */
             path: string;
             public: boolean;
+        };
+        /**
+         * @description フォルダーのコンテンツの中の場所を、共有の中の場所として見たもの。フォルダーの画面から
+         *     共有の操作へつなぐのに使う。
+         */
+        FolderShare: {
+            /** @description この場所で、見ている人ができること。 */
+            access: components["schemas"]["ShareAccess"];
+            /**
+             * Format: int64
+             * @description 共有の id。
+             */
+            id: number;
+            name: string;
+            /** @description 共有からの相対パス。実体の綴りを `/` でつなぐ。 */
+            path: string;
+            /** @description 消したものを OS のごみ箱へ送れる場所か。偽なら、消すと元に戻せない。 */
+            trash: boolean;
         };
         GroupAncestor: {
             /** Format: int64 */
@@ -2051,6 +2484,10 @@ export interface components {
             locale: string;
             slug: string;
             title: string;
+        };
+        /** @description 非表示のコンテンツの1行。管理画面の一覧と同じ形に、戻すときの公開範囲を添える。 */
+        HiddenContentResponse: components["schemas"]["AdminContentResponse"] & {
+            restoreVisibility?: components["schemas"]["Visibility"] | null;
         };
         /** @description 表示するときの画像の縦横 (px)。EXIF の向きを当てた後の値。 */
         ImageSize: {
@@ -2099,6 +2536,20 @@ export interface components {
             /** @description 取り込むと置き換わる、今の軸か表示タイトルのテンプレートがあるか。 */
             replacesExisting: boolean;
         };
+        /**
+         * @description 処理の種類。
+         * @enum {string}
+         */
+        JobOp: "copy" | "move" | "delete";
+        JobStartedResponse: {
+            /** @description 進み具合を `GET /shares/jobs/{id}` で読む。 */
+            jobId: string;
+        };
+        /**
+         * @description 処理の状態。
+         * @enum {string}
+         */
+        JobState: "running" | "succeeded" | "failed" | "cancelled";
         LinkMetadataRequest: {
             url: string;
         };
@@ -2154,6 +2605,17 @@ export interface components {
             /** @description ファイルに書かれた `title`。省かれているか読めなければファイル名。 */
             title: string;
         };
+        ListOnHomeRequest: {
+            /** @description 載せるフォルダーの、共有からの相対パス。空文字列は共有そのもの。 */
+            path?: string;
+            visibility?: components["schemas"]["Visibility"] | null;
+        };
+        /** @description その場所をフォルダーとして載せているコンテンツ (→ docs/ui.md「掲載中」)。 */
+        ListedAs: {
+            /** Format: int64 */
+            contentId: number;
+            title: string;
+        };
         ListedTitle: {
             /** @description 行の2段目に出す軸の値 (→ docs/ui.md「アーカイブの一覧画面」)。出す値が無ければ `None`。 */
             subtitle?: string | null;
@@ -2199,6 +2661,28 @@ export interface components {
             /** @description 軸で絞った後、名前の語と公開の状態で絞る前の数。 */
             totalAll: number;
         };
+        /** @description ログイン中の利用者。ほかの応答の `UserResponse` に、画面の出し分けに使う件数を添える。 */
+        MeResponse: components["schemas"]["UserResponse"] & {
+            /**
+             * Format: int64
+             * @description 非表示のコンテンツの一覧 (`GET /contents/hidden`) に並ぶ件数。ユーザーメニューに出す。
+             */
+            hiddenContentCount: number;
+        };
+        MoveRootRequest: {
+            /** @description 新しい場所の絶対パス。フォルダー選択の窓 (`/admin/roots/pick`) が返す値をそのまま渡す。 */
+            path: string;
+        };
+        /**
+         * @description 置き先に同じ名前があるときの扱い。
+         * @enum {string}
+         */
+        OnConflict: "overwrite" | "rename" | "skip";
+        /**
+         * @description 操作の結果。
+         * @enum {string}
+         */
+        OpResult: "running" | "succeeded" | "failed" | "cancelled";
         PathSamplesResponse: {
             /** @description アイテムの数 (未公開を含む)。 */
             itemCount: number;
@@ -2240,6 +2724,12 @@ export interface components {
             /** @description 新しい名前。前後の空白は除く。空ならフォルダー名にする。 */
             name: string;
         };
+        RenameShareEntryRequest: {
+            /** @description 新しい名前。 */
+            name: string;
+            /** @description 名前を変えるものの、共有からの相対パス。 */
+            path: string;
+        };
         RenameUserRequest: {
             username: string;
         };
@@ -2247,14 +2737,12 @@ export interface components {
             values: components["schemas"]["AxisValueInput"][];
         };
         /**
-         * @description utoipaのOpenAPIドキュメント用のダミー構造体(`UploadContentRequest`と同様、
-         *     実際のリクエストは`axum::extract::Multipart`で受け取る)。`file`は差し替え時のみ
-         *     指定する(省略時は既存のファイルを維持する)。
+         * @description utoipaのOpenAPIドキュメント用のダミー構造体。実際のリクエストは
+         *     `axum::extract::Multipart` で受け取るため、この構造体自体はデシリアライズに使わない
+         *     (`multipart/form-data`のスキーマ表現としてutoipaに渡すためだけのもの)。
          */
         ReplaceContentUploadRequest: {
             description?: string | null;
-            /** Format: binary */
-            file?: string | null;
             /**
              * Format: int64
              * @description 親グループのid。省略/空ならルート直下へ移動する。
@@ -2309,6 +2797,8 @@ export interface components {
         RootResponse: {
             /** @description このフォルダーの中にある登録済みコンテンツの数。 */
             contentCount: number;
+            /** @description 一般ユーザーがこの中でできることの既定 (→ `api::shares`)。 */
+            editorAccess: components["schemas"]["ShareAccess"];
             /** Format: int64 */
             id: number;
             /** @description 登録側の画面でフルパスの代わりに出す名前。同じ名前は無い (大文字小文字も区別しない)。 */
@@ -2316,18 +2806,32 @@ export interface components {
             /** @description canonicalize 済みの絶対パス。 */
             path: string;
             /**
-             * @description このフォルダーを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「公開できるフォルダー」)。
-             *     登録中のほかの公開できるフォルダーにも含まれるもの (入れ子) は数えない。
+             * @description このフォルダーを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「共有」)。
+             *     登録中のほかの共有にも含まれるもの (入れ子) は数えない。
              */
             removedContentCount: number;
             /** @description 今読めるか。一覧でだけ確かめ、登録の応答は読めたものなので `ready`。 */
             status: components["schemas"]["RootStatus"];
+            /** @description ユーザーごとの例外。ユーザー名の順。 */
+            userAccess: components["schemas"]["RootUserAccess"][];
+            /**
+             * @description 中を書き換えられる許可があるか。macOS のサンドボックスで、読むだけの許可のまま登録した共有は偽。
+             *     偽なら、この PC で窓から同じフォルダーを選び直してもらう (`PUT /admin/roots/{id}/path`)。
+             */
+            writable: boolean;
         };
         /**
-         * @description 公開できるフォルダーの今の様子 (→ `folder_reach::Reach`)。
+         * @description 共有の今の様子 (→ `folder_reach::Reach`)。
          * @enum {string}
          */
         RootStatus: "ready" | "missing" | "unreachable";
+        /** @description 共有の、ユーザーごとの例外の1件。 */
+        RootUserAccess: {
+            access: components["schemas"]["ShareAccess"];
+            /** Format: int64 */
+            userId: number;
+            username: string;
+        };
         SearchContentHit: {
             /** @description 上のグループ。ルートに近い順で、最後が親。ルート直下なら空。行の2段目に、どこにあるかとして出す。 */
             ancestors: components["schemas"]["GroupAncestor"][];
@@ -2405,14 +2909,14 @@ export interface components {
             port: number;
             /**
              * Format: int64
-             * @description 最後に使ってから、ログインが切れるまでの日数。
+             * @description 最後に使ってから、ログインが切れるまでの日数。0 なら期限なし。
              */
             sessionExpiryDays: number;
             /**
              * Format: int64
-             * @description ファイルのアップロード1件あたりの上限 (MiB)。
+             * @description 共有へのファイルのアップロード1件あたりの上限 (MiB)。`None` なら上限なし。
              */
-            uploadMaxSizeMb: number;
+            uploadMaxSizeMb?: number | null;
         };
         ServerSettingsResponse: {
             /** @description `config.toml` に書いていないときの値。画面が、変えてある項目に印を付け、戻せるようにするため。 */
@@ -2437,10 +2941,167 @@ export interface components {
         SetPublishedRequest: {
             published: boolean;
         };
+        SetVisibilityRequest: {
+            visibility: components["schemas"]["Visibility"];
+        };
         SetupRestoreRequest: {
             /** @description 受け取ったときに返した id。 */
             id: string;
             token: string;
+        };
+        /**
+         * @description 共有の中でできること。弱い順に並べ、`Ord` で比べる (入れ子では強い方を採る)。
+         * @enum {string}
+         */
+        ShareAccess: "none" | "read" | "add" | "all";
+        ShareBrowseResponse: {
+            /** @description この場所でできること。 */
+            access: components["schemas"]["ShareAccess"];
+            /** @description この場所をホームに載せられるか (まだ載せていない)。 */
+            canListOnHome: boolean;
+            entries: components["schemas"]["ShareEntry"][];
+            listedAs?: components["schemas"]["ListedAs"] | null;
+            /** @description 共有からの相対パス。実体の綴りを `/` でつなぐ。共有そのものなら空。 */
+            path: string;
+            share: components["schemas"]["ShareRef"];
+            /** @description 消したものを OS のごみ箱へ送れる場所か。偽なら、消すと元に戻せない。 */
+            trash: boolean;
+            /**
+             * Format: int64
+             * @description アップロードできる1ファイルの大きさの上限 (バイト)。上限が無ければ `None`。
+             */
+            uploadMaxBytes?: number | null;
+        };
+        /** @description フォルダーの選択に出す1行。 */
+        ShareDirEntry: {
+            name: string;
+            /** @description 共有からの相対パス。次の階層を開くときにそのまま `path` に渡す。 */
+            path: string;
+        };
+        ShareDirsResponse: {
+            /** @description この場所でできること。移動・コピーの先には `add` 以上が要る。 */
+            access: components["schemas"]["ShareAccess"];
+            entries: components["schemas"]["ShareDirEntry"][];
+            /** @description 1つ上の階層。共有そのものでは `None`。 */
+            parent?: string | null;
+            /** @description 共有からの相対パス。共有そのものなら空。 */
+            path: string;
+            share: components["schemas"]["ShareRef"];
+        };
+        /** @description 共有の中の1行。フォルダーの中の行と同じ形に、載せているコンテンツを添える。 */
+        ShareEntry: components["schemas"]["FolderEntry"] & {
+            listedAs?: components["schemas"]["ListedAs"] | null;
+        };
+        /** @description 処理の進み具合。 */
+        ShareJobResponse: {
+            /**
+             * Format: int64
+             * @description 写し終えたバイト数。移動と削除では、済んだものの大きさ。
+             */
+            doneBytes: number;
+            /**
+             * Format: int64
+             * @description 済んだファイル・フォルダーの数。削除では、選んだもののうち消し終えた数。
+             */
+            doneItems: number;
+            error?: components["schemas"]["ErrorCode"] | null;
+            id: string;
+            op: components["schemas"]["JobOp"];
+            /**
+             * Format: int64
+             * @description 置き先に同じ名前があって飛ばした数。
+             */
+            skipped: number;
+            state: components["schemas"]["JobState"];
+            /**
+             * Format: int64
+             * @description 扱うファイルの大きさの合計。削除では 0 (数えない)。
+             */
+            totalBytes: number;
+            /**
+             * Format: int64
+             * @description 扱うファイル・フォルダーの数 (中のものも数える)。削除では、選んだものの数。
+             */
+            totalItems: number;
+        };
+        /**
+         * @description 操作の種類。
+         * @enum {string}
+         */
+        ShareOp: "upload" | "mkdir" | "rename" | "move" | "copy" | "delete" | "list_on_home";
+        /** @description 記録の1行。 */
+        ShareOperationResponse: {
+            /** @description 操作した時刻 (UTC、ISO 8601)。 */
+            at: string;
+            /**
+             * Format: int64
+             * @description 実際に置いたファイルの大きさの合計 (バイト)。
+             */
+            byteCount?: number | null;
+            destPath?: string | null;
+            /**
+             * Format: int64
+             * @description 移動・コピーの置き先のフォルダー、名前の変更の後の場所。
+             */
+            destShareId?: number | null;
+            destShareName?: string | null;
+            /** @description 失敗したときの API のエラーの code。 */
+            error?: string | null;
+            /** Format: int64 */
+            id: number;
+            /**
+             * Format: int64
+             * @description 実際に置いた・消したファイル・フォルダーの数。飛ばしたもの、中止で置かなかったもの、失敗した1つ
+             *     (別のディスクへの移動で、置けたが元を消せなかったものを含む) は数えない。
+             *     終わるまで分からないものは `None`。
+             */
+            itemCount?: number | null;
+            op: components["schemas"]["ShareOp"];
+            /** @description 扱った場所の、共有からの相対パス。 */
+            paths: string[];
+            result: components["schemas"]["OpResult"];
+            /** Format: int64 */
+            shareId: number;
+            /** @description そのときの共有の名前。 */
+            shareName: string;
+            /**
+             * Format: int64
+             * @description 操作したユーザー。消したユーザーでも残る (`username` はそのときの名前)。
+             */
+            userId?: number | null;
+            username: string;
+        };
+        ShareOperationsResponse: {
+            /** @description 新しい順。 */
+            items: components["schemas"]["ShareOperationResponse"][];
+            /**
+             * Format: int64
+             * @description 続きがあれば、次に `before` へ渡す値。
+             */
+            nextBefore?: number | null;
+        };
+        SharePathResponse: {
+            /** @description 作った・名前を変えた後の場所の、共有からの相対パス。 */
+            path: string;
+        };
+        /** @description 共有を指す最小限の情報。 */
+        ShareRef: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+        };
+        /** @description ログインしたユーザーに見える共有の1件。 */
+        ShareResponse: {
+            /** @description このユーザーが、この共有のいちばん上でできること。`none` のものは一覧に出さない。 */
+            access: components["schemas"]["ShareAccess"];
+            /** Format: int64 */
+            id: number;
+            name: string;
+        };
+        /** @description OpenAPI のための形。実際は `Multipart` で受け取る。 */
+        ShareUploadRequest: {
+            /** @description 置くファイル。いくつでも並べられる。 */
+            file: string[];
         };
         SiteSettingsResponse: {
             /** @description ホームの一覧の上に大きく出す見出し。未設定は空文字列。 */
@@ -2464,6 +3125,70 @@ export interface components {
             createdAt: number;
             /** @description 戻すときに指す id。 */
             id: string;
+        };
+        TransferCheckRequest: {
+            from: components["schemas"]["TransferFrom"];
+            op: components["schemas"]["TransferOp"];
+            to: components["schemas"]["TransferTo"];
+        };
+        TransferCheckResponse: {
+            /**
+             * Format: int64
+             * @description 置き先のディスクの空き。
+             */
+            availableBytes: number;
+            /**
+             * @description 置き先に同じ名前があるもの。同じフォルダーの中へのコピー (番号を付けて写す) と、
+             *     同じフォルダーの中への移動 (何もしない) は含めない。
+             */
+            conflicts: components["schemas"]["TransferConflict"][];
+            /**
+             * @description 上書きすると、中身が変わるか開けなくなるフォルダーのコンテンツ (登録先が、`conflicts` のものかその中)。
+             *     見ている人の管理画面の一覧に出ないもの (他人の「作成者のみ」) は含めない。
+             */
+            listed: components["schemas"]["ListedAs"][];
+            /**
+             * Format: int64
+             * @description 動かす・写すファイルの大きさの合計。
+             */
+            totalBytes: number;
+            /** @description 上書きで消える置き先のものを、OS のごみ箱へ送れるか。偽なら、上書きすると元に戻せない。 */
+            trash: boolean;
+        };
+        /** @description 置き先に既にある同じ名前のもの。 */
+        TransferConflict: {
+            /** @description 置き先にあるものがフォルダーか。 */
+            isDir: boolean;
+            name: string;
+        };
+        /** @description 動かす・写すもの。どれも同じ共有の中。 */
+        TransferFrom: {
+            /** @description 共有からの相対パス。 */
+            paths: string[];
+            /** Format: int64 */
+            shareId: number;
+        };
+        /**
+         * @description コピーか移動か。
+         * @enum {string}
+         */
+        TransferOp: "copy" | "move";
+        TransferRequest: {
+            from: components["schemas"]["TransferFrom"];
+            onConflict: components["schemas"]["OnConflict"];
+            op: components["schemas"]["TransferOp"];
+            to: components["schemas"]["TransferTo"];
+        };
+        /** @description 置き先のフォルダー。 */
+        TransferTo: {
+            /** @description 共有からの相対パス。空文字列は共有そのもの。 */
+            path?: string;
+            /** Format: int64 */
+            shareId: number;
+        };
+        UnhideResponse: {
+            /** @description 戻した後の公開範囲。 */
+            visibility: components["schemas"]["Visibility"];
         };
         UpdateContentRequest: {
             autoRescan?: components["schemas"]["AutoRefresh"] | null;
@@ -2499,27 +3224,33 @@ export interface components {
         UpdateRoleRequest: {
             role: components["schemas"]["Role"];
         };
+        UpdateRootAccessRequest: {
+            /** @description 一般ユーザーの既定。 */
+            editorAccess: components["schemas"]["ShareAccess"];
+            /** @description ユーザーごとの例外。ここに無いユーザーの例外は消す (送った内容で置き換える)。 */
+            users: components["schemas"]["UserAccessRequest"][];
+        };
         UpdateSiteSettingsRequest: {
             homeHeading: string;
             siteName: string;
         };
-        /**
-         * @description utoipaのOpenAPIドキュメント用のダミー構造体。実際のリクエストは
-         *     `axum::extract::Multipart` で受け取るため、この構造体自体はデシリアライズに使わない
-         *     (`multipart/form-data`のスキーマ表現としてutoipaに渡すためだけのもの)。
-         */
-        UploadContentRequest: {
-            description?: string | null;
-            /** Format: binary */
-            file: string;
-            /**
-             * Format: int64
-             * @description 親グループのid。省略/空ならルート直下に作成する。
-             */
-            parent_id?: number | null;
-            /** @description 省略・空ならファイル名 (拡張子を除く) にする。 */
-            title?: string | null;
-            visibility?: components["schemas"]["Visibility"] | null;
+        UploadResponse: {
+            /** @description 送った順。 */
+            files: components["schemas"]["UploadedFile"][];
+        };
+        /** @description 置いたファイル。 */
+        UploadedFile: {
+            /** @description 中身が画像なのに拡張子が合っていなかったので、直した。 */
+            extensionFixed: boolean;
+            /** @description 置いた名前。 */
+            name: string;
+            /** @description 同じ名前があったので、番号を付けた。 */
+            renamed: boolean;
+        };
+        UserAccessRequest: {
+            access: components["schemas"]["ShareAccess"];
+            /** Format: int64 */
+            userId: number;
         };
         UserListItem: {
             createdAt: string;
@@ -2612,6 +3343,19 @@ export interface components {
             /** @enum {string} */
             kind: "archiveFolderUnreadable";
             path: string;
+        } | {
+            /** @enum {string} */
+            kind: "entryNameInvalid";
+        } | {
+            /** @enum {string} */
+            kind: "entryNameTaken";
+            name: string;
+        } | {
+            /** @enum {string} */
+            kind: "transferIntoItself";
+        } | {
+            /** @enum {string} */
+            kind: "entryProtected";
         };
         VerifyTokenRequest: {
             token: string;
@@ -2850,7 +3594,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description パスが存在しない・ディレクトリでない・公開できるフォルダーの外 */
+            /** @description パスが存在しない・ディレクトリでない・共有の外 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2864,7 +3608,7 @@ export interface operations {
     list_dirs: {
         parameters: {
             query?: {
-                /** @description 一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「公開できるフォルダー」の一覧。 */
+                /** @description 一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「共有」の一覧。 */
                 path?: string;
             };
             header?: never;
@@ -2891,7 +3635,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description パスが存在しない・ディレクトリでない・公開できるフォルダーの外 */
+            /** @description パスが存在しない・ディレクトリでない・共有の外 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3292,6 +4036,139 @@ export interface operations {
             };
         };
     };
+    update_root_access: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRootAccessRequest"];
+            };
+        };
+        responses: {
+            /** @description 権限を変えた共有 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RootResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 存在しない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 存在しないユーザーを含む */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    move_root: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveRootRequest"];
+            };
+        };
+        responses: {
+            /** @description 場所を付け替えた共有 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RootResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description サーバーのPC以外からの要求か、共有が無い */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description パスが存在しない・ディレクトリでない・weblav 自身の置き場の中・ほかの共有と同じ */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 選んだ場所につながらない */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_server_settings: {
         parameters: {
             query?: never;
@@ -3390,6 +4267,49 @@ export interface operations {
             };
             /** @description 範囲の外の値 */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_share_operations: {
+        parameters: {
+            query?: {
+                /** @description これより前 (id が小さい) の記録を返す。前の応答の `nextBefore` を渡す。省略すると新しいものから。 */
+                before?: number | null;
+                /** @description 返す件数。既定 100、上限 1000。 */
+                limit?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作の記録 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareOperationsResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外 */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3881,7 +4801,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserResponse"];
+                    "application/json": components["schemas"]["MeResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -4210,6 +5130,35 @@ export interface operations {
             };
         };
     };
+    list_hidden_contents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HiddenContentResponse"][];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     fetch_link_metadata: {
         parameters: {
             query?: never;
@@ -4234,57 +5183,6 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    upload_content: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["UploadContentRequest"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminContentResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Payload Too Large */
-            413: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6429,6 +7327,64 @@ export interface operations {
             };
         };
     };
+    unhide_content: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnhideResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 作成者・admin以外か、前が他人の作成者のみ */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 存在しないか、他人の作成者のみ */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 作成者のみのグループの決まりに合わない */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     replace_content_upload: {
         parameters: {
             query?: never;
@@ -6480,8 +7436,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Payload Too Large */
-            413: {
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6489,7 +7445,58 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Unprocessable Entity */
+        };
+    };
+    set_visibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetVisibilityRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 作成者・admin以外か、他人の作成者のみにかかわる変更 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 存在しないか、他人の作成者のみ */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 作成者のみのグループの決まりに合わない */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -6955,6 +7962,877 @@ export interface operations {
             };
             /** @description セットアップ済み・トークンが違う・期限切れ・この PC の外からの要求 */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_shares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 見える共有の一覧 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareResponse"][];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_jobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 処理の一覧 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareJobResponse"][];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 進み具合 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareJobResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 無い (ほかの人の処理、終わってから時間がたったもの) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cancel_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 中止を頼んだ */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 無い */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    start_transfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferRequest"];
+            };
+        };
+        responses: {
+            /** @description 始めた */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStartedResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 元か置き先で、この操作ができない (上書きには置き先で「すべて」が要る) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・ファイル・置き先が無い、見られない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description フォルダーをそれ自身の中へ (`transferIntoItself`)・共有そのものや共有を含むもの (`entryProtected`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 置き先の空きが足りない (コピー) */
+            507: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    check_transfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description 始める前の確かめ */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferCheckResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 元か置き先で、この操作ができない */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・ファイル・置き先が無い、見られない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description フォルダーをそれ自身の中へ (`transferIntoItself`)・共有そのもの (`entryProtected`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    browse_share: {
+        parameters: {
+            query?: {
+                /** @description 共有からの相対パス。区切りは `/`。省略時 (空文字列) は共有そのもの。 */
+                path?: string;
+                /** @description 並び順。`title` (既定、タイトル順) か `new` (新しい順)。知らない値は既定として扱う。 */
+                sort?: string | null;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 共有の中の一覧 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareBrowseResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・場所が無い、見られない、フォルダーでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有のある NAS やディスクにつながらない */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    start_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description 始めた */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStartedResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description この場所で消せない */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・ファイルが無い、見られない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description ごみ箱を使えない場所 (`trash_unavailable`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有そのものや共有を含むもの (`entryProtected`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    check_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description 消す前の確かめ */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteCheckResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description この場所で消せない */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・ファイルが無い、見られない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有そのものや共有を含むもの (`entryProtected`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_share_dirs: {
+        parameters: {
+            query?: {
+                /** @description 共有からの相対パス。区切りは `/`。 */
+                path?: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description フォルダーの一覧 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareDirsResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・場所が無い、見られない、フォルダーでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    download_share_file: {
+        parameters: {
+            query?: {
+                /** @description 共有からの相対パス。区切りは `/`。 */
+                path?: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・ファイルが無い、見られない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_share_folder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateShareFolderRequest"];
+            };
+        };
+        responses: {
+            /** @description 作った */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharePathResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description この場所に足せない */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・フォルダーが無い、見られない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有に書き込めない (`share_read_only`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 名前が使えない (`entryNameInvalid`)・同じ名前がある (`entryNameTaken`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_on_home: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListOnHomeRequest"];
+            };
+        };
+        responses: {
+            /** @description 載せた */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminContentResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・フォルダーが無い、見られない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description フォルダーでない、公開範囲が合わない */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    rename_share_entry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameShareEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description 名前を変えた */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharePathResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description この場所で名前を変えられない */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・ファイルが無い、見られない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有に書き込めない・ほかのアプリが開いている */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 名前が使えない・同じ名前がある・共有そのもの (`entryProtected`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    share_thumbnail: {
+        parameters: {
+            query?: {
+                /** @description 共有からの相対パス。区切りは `/`。 */
+                path?: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 縮小画像 (JPEG か PNG) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description ETag が一致した */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見られない・存在しない、またはプレビューしない画像 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    upload_to_share: {
+        parameters: {
+            query?: {
+                /** @description 置き先のフォルダーの、共有からの相対パス。省略時 (空文字列) は共有そのもの。 */
+                path?: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ShareUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description 置いた */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description この場所に足せない */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・フォルダーが無い、見られない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有に書き込めない (`share_read_only`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 1つのファイルが上限を超えた */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description ファイルが無い、名前が使えない (`entryNameInvalid`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 置き先の空きが足りない */
+            507: {
                 headers: {
                     [name: string]: unknown;
                 };

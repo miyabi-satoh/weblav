@@ -4,6 +4,7 @@ import {
 	isAdmin,
 	isApiTarget,
 	isProtectedRoute,
+	isSoleAdmin,
 	loginPathWithRedirect,
 	safeRedirectTarget
 } from './auth';
@@ -26,6 +27,16 @@ describe('canEditContent', () => {
 		expect(canEditContent(alice, { createdBy: 3 })).toBe(false);
 		expect(canEditContent(alice, { createdBy: null })).toBe(false);
 		expect(canEditContent(null, { createdBy: 2 })).toBe(false);
+	});
+});
+
+describe('isSoleAdmin', () => {
+	it('is true only for the one remaining admin', () => {
+		const admin = { role: 'admin' as const };
+		const user = { role: 'user' as const };
+		expect(isSoleAdmin(admin, [admin, user])).toBe(true);
+		expect(isSoleAdmin(admin, [admin, { role: 'admin' }, user])).toBe(false);
+		expect(isSoleAdmin(user, [admin, user])).toBe(false);
 	});
 });
 

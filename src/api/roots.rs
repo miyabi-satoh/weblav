@@ -1,10 +1,12 @@
-//! 「公開できるフォルダー」(→ docs/folders.md「公開できるフォルダー」) の管理 API。
+//! 「共有」(→ docs/folders.md「共有」) の管理 API。
 //!
 //! コンテンツに使えるパスは、ここに登録したフォルダーの配下だけになる。
 //! 追加できるのは**サーバーの PC の前にいる管理者**だけ (`LocalRequest` + `AdminUser`)。
 //! LAN の端末からは、追加の口があること自体を見せずに 404 にする。
-//! 一覧・名前の変更・削除は、LAN の端末の管理者もできる (`AdminUser`)。
+//! 場所の選び直しも、窓で選ぶので同じく PC の前の管理者だけ。
+//! 一覧・名前の変更・権限・削除は、LAN の端末の管理者もできる (`AdminUser`)。
 
+use std::collections::HashMap;
 use std::path::{Path as FsPath, PathBuf};
 use std::time::Duration;
 
@@ -24,13 +26,15 @@ use crate::state::AppState;
 use super::error_detail::ValidationDetail;
 use super::fs::{canonical_dir, inside_own_dirs, path_to_string};
 use super::local::LocalRequest;
+use super::shares::{AccessMap, ShareAccess};
 
-/// 登録済みの「公開できるフォルダー」1件。
+/// 登録済みの「共有」1件。
 ///
 /// 判定 (`is_within_roots`) には `path` だけを使う。`name` はコンテンツの登録側の画面で
-/// 起点のフルパスの代わりに出す (→ docs/folders.md「公開できるフォルダー」)。
+/// 起点のフルパスの代わりに出す (→ docs/folders.md「共有」)。
 #[derive(Debug, Clone)]
 pub(super) struct Root {
+    pub(super) id: i64,
     pub(super) name: String,
     pub(super) path: PathBuf,
 }
@@ -45,14 +49,30 @@ pub struct RootResponse {
     pub path: String,
     /// このフォルダーの中にある登録済みコンテンツの数。
     pub content_count: usize,
-    /// このフォルダーを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「公開できるフォルダー」)。
-    /// 登録中のほかの公開できるフォルダーにも含まれるもの (入れ子) は数えない。
+    /// このフォルダーを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「共有」)。
+    /// 登録中のほかの共有にも含まれるもの (入れ子) は数えない。
     pub removed_content_count: usize,
     /// 今読めるか。一覧でだけ確かめ、登録の応答は読めたものなので `ready`。
     pub status: RootStatus,
+    /// 一般ユーザーがこの中でできることの既定 (→ `api::shares`)。
+    pub editor_access: ShareAccess,
+    /// ユーザーごとの例外。ユーザー名の順。
+    pub user_access: Vec<RootUserAccess>,
+    /// 中を書き換えられる許可があるか。macOS のサンドボックスで、読むだけの許可のまま登録した共有は偽。
+    /// 偽なら、この PC で窓から同じフォルダーを選び直してもらう (`PUT /admin/roots/{id}/path`)。
+    pub writable: bool,
 }
 
-/// 公開できるフォルダーの今の様子 (→ `folder_reach::Reach`)。
+/// 共有の、ユーザーごとの例外の1件。
+#[derive(Debug, Clone, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RootUserAccess {
+    pub user_id: i64,
+    pub username: String,
+    pub access: ShareAccess,
+}
+
+/// 共有の今の様子 (→ `folder_reach::Reach`)。
 #[derive(Debug, Clone, Copy, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum RootStatus {
@@ -86,11 +106,15 @@ async fn list_roots(
     _admin: AdminUser,
     State(state): State<AppState>,
 ) -> Result<Json<Vec<RootResponse>>, AppError> {
-    let rows =
-        sqlx::query!(r#"SELECT id as "id!", name, path FROM roots WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE"#)
-            .fetch_all(&state.pool)
-            .await?;
+    let rows = sqlx::query!(
+        r#"SELECT id as "id!", name, path, editor_access as "editor_access: ShareAccess"
+           FROM roots WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE"#
+    )
+    .fetch_all(&state.pool)
+    .await?;
     let counts = ContentCounts::load(&state.pool).await?;
+    let mut user_access = load_user_access(&state.pool).await?;
+    let read_only = crate::folder_access::read_only_paths(&state.pool).await?;
     // 管理者が様子を見る画面なので、眠っている NAS が起きるまで待つ。
     let paths = rows.iter().map(|row| row.path.clone()).collect();
     let reaches = check_all(&state, paths, TARGET_WAIT).await;
@@ -101,9 +125,12 @@ async fn list_roots(
             content_count: counts.under(&row.path),
             removed_content_count: counts.removed_with(&row.path),
             status: RootStatus::from(&reach),
+            writable: !read_only.contains(&row.path),
             id: row.id,
             name: row.name,
             path: row.path,
+            editor_access: row.editor_access,
+            user_access: user_access.remove(&row.id).unwrap_or_default(),
         })
         .collect();
     Ok(Json(roots))
@@ -137,40 +164,14 @@ async fn create_root(
     State(state): State<AppState>,
     AppJson(payload): AppJson<CreateRootRequest>,
 ) -> Result<(StatusCode, Json<RootResponse>), AppError> {
-    let own_dirs = state.own_dirs.clone();
-    let requested_path = payload.path;
-    ensure_reachable(&state, &requested_path).await?;
-    let (path, folder_name) = run_blocking(move || {
-        let canonical = canonical_dir(&requested_path)?;
-        if OwnDirs::resolve(&own_dirs).contains(&canonical) {
-            return Err(inside_own_dirs());
-        }
-        let path = path_to_string(canonical)?;
-        // Windows の canonicalize は `\\?\` を付けて返し、その形ではドライブや共有のルートに
-        // フォルダー名が無いと判定されるので、落とした後の形から求める。
-        let folder_name = default_name(FsPath::new(&path));
-        Ok((path, folder_name))
-    })
-    .await??;
+    let path = registrable_path(&state, payload.path).await?;
+    // Windows の canonicalize は `\\?\` を付けて返し、その形ではドライブや共有のルートに
+    // フォルダー名が無いと判定されるので、落とした後の形から求める。
+    let folder_name = default_name(FsPath::new(&path));
     let requested_name = super::validate::trimmed_or_none(payload.name.as_deref());
 
-    // 同じフォルダーの二重登録は拒む。入れ子は許す (→ docs/folders.md「公開できるフォルダー」)。削除済みは数えない。
-    //
-    // 確認と INSERT は同じ書き込みトランザクションで行う。別々にすると、2つの登録が
-    // 同時に来たときに、互いを見ないまま両方が確認を通る。
     let mut tx = crate::db::begin_write(&state.pool).await?;
-    let existing = sqlx::query_scalar!(
-        "SELECT name FROM roots WHERE path = ? AND deleted_at IS NULL",
-        path
-    )
-    .fetch_optional(&mut *tx)
-    .await?;
-    if let Some(name) = existing {
-        return Err(AppError::ValidationDetailed {
-            message: "path is already a root".to_string(),
-            detail: ValidationDetail::RootAlreadyRegistered { name },
-        });
-    }
+    ensure_path_available(&mut tx, &path, None).await?;
     // 名前を指定したときだけ、重なりを拒む。フォルダー名で付ける名前は連番で避ける。
     let name = match requested_name {
         Some(name) => {
@@ -184,7 +185,7 @@ async fn create_root(
     let row = sqlx::query!(
         r#"INSERT INTO roots (name, path) VALUES (?, ?)
            ON CONFLICT (path) DO UPDATE SET name = excluded.name, deleted_at = NULL
-           RETURNING id as "id!", name, path"#,
+           RETURNING id as "id!", name, path, editor_access as "editor_access: ShareAccess""#,
         name,
         path
     )
@@ -194,6 +195,11 @@ async fn create_root(
     // 0件とは限らない。削除したフォルダーを登録し直すと、その中のコンテンツが戻る
     // (コンテンツの登録は削除時に消していない)。
     let counts = ContentCounts::load(&state.pool).await?;
+    // 登録し直した共有では、前の権限の設定が残っている。
+    let user_access = load_user_access(&state.pool)
+        .await?
+        .remove(&row.id)
+        .unwrap_or_default();
     Ok((
         StatusCode::CREATED,
         Json(RootResponse {
@@ -203,9 +209,55 @@ async fn create_root(
             removed_content_count: counts.removed_with(&row.path),
             // 今 canonicalize できたフォルダー。
             status: RootStatus::Ready,
+            writable: !crate::folder_access::read_only_paths(&state.pool)
+                .await?
+                .contains(&row.path),
             path: row.path,
+            editor_access: row.editor_access,
+            user_access,
         }),
     ))
+}
+
+/// 窓で選ばれたパスを、共有として持てる実体のパスにする。登録と場所の選び直しで同じ検証を掛ける
+/// (存在しない・ディレクトリでない・WebLAV 自身の置き場の中は 422)。
+async fn registrable_path(state: &AppState, requested: String) -> Result<String, AppError> {
+    ensure_reachable(state, &requested).await?;
+    let own_dirs = state.own_dirs.clone();
+    run_blocking(move || {
+        let canonical = canonical_dir(&requested)?;
+        if OwnDirs::resolve(&own_dirs).contains(&canonical) {
+            return Err(inside_own_dirs());
+        }
+        path_to_string(canonical)
+    })
+    .await?
+}
+
+/// 同じフォルダーを2つの共有にしない。入れ子は許す (→ docs/folders.md「共有」)。削除済みは数えない。
+/// `except` は場所を選び直す共有自身。
+///
+/// 確かめと書き込みは同じ書き込みトランザクションで行う。別々にすると、2つの要求が
+/// 同時に来たときに、互いを見ないまま両方が確かめを通る。
+async fn ensure_path_available(
+    tx: &mut sqlx::SqliteConnection,
+    path: &str,
+    except: Option<i64>,
+) -> Result<(), AppError> {
+    let existing = sqlx::query_scalar!(
+        "SELECT name FROM roots WHERE path = ? AND deleted_at IS NULL AND id IS NOT ?",
+        path,
+        except
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    if let Some(name) = existing {
+        return Err(AppError::ValidationDetailed {
+            message: "path is already a root".to_string(),
+            detail: ValidationDetail::RootAlreadyRegistered { name },
+        });
+    }
+    Ok(())
 }
 
 /// `base` が他の行と重なるとき、`base (1)` のように連番を付けた最初の空き。
@@ -304,20 +356,147 @@ async fn rename_root(
         .await?;
     tx.commit().await?;
 
+    root_response(&state, id).await.map(Json)
+}
+
+/// 1件ぶんの応答を、DB の今の値から組み立てる。名前や権限を変えた後に返す。
+async fn root_response(state: &AppState, id: i64) -> Result<RootResponse, AppError> {
+    let row = sqlx::query!(
+        r#"SELECT name, path, editor_access as "editor_access: ShareAccess"
+           FROM roots WHERE id = ? AND deleted_at IS NULL"#,
+        id
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(AppError::NotFound)?;
     let counts = ContentCounts::load(&state.pool).await?;
-    // 画面は名前を変えたあと一覧を読み直すので、ここでは待たない。
+    let user_access = load_user_access(&state.pool)
+        .await?
+        .remove(&id)
+        .unwrap_or_default();
+    // 画面は変えたあと一覧を読み直すので、ここでは待たない。
     let reach = state
         .folder_reach
-        .check(&state.pool, &path, OTHERS_WAIT)
+        .check(&state.pool, &row.path, OTHERS_WAIT)
         .await;
-    Ok(Json(RootResponse {
+    Ok(RootResponse {
         id,
-        name,
-        content_count: counts.under(&path),
-        removed_content_count: counts.removed_with(&path),
+        name: row.name,
+        content_count: counts.under(&row.path),
+        removed_content_count: counts.removed_with(&row.path),
         status: RootStatus::from(&reach),
-        path,
-    }))
+        writable: !crate::folder_access::read_only_paths(&state.pool)
+            .await?
+            .contains(&row.path),
+        path: row.path,
+        editor_access: row.editor_access,
+        user_access,
+    })
+}
+
+/// 共有ごとの、ユーザーごとの例外。ユーザー名の順。
+async fn load_user_access(
+    pool: &sqlx::SqlitePool,
+) -> Result<HashMap<i64, Vec<RootUserAccess>>, AppError> {
+    let rows = sqlx::query!(
+        r#"SELECT root_user_access.root_id, root_user_access.user_id,
+                  users.username, root_user_access.access as "access: ShareAccess"
+           FROM root_user_access JOIN users ON users.id = root_user_access.user_id
+           ORDER BY users.username COLLATE NOCASE"#
+    )
+    .fetch_all(pool)
+    .await?;
+    let mut by_root: HashMap<i64, Vec<RootUserAccess>> = HashMap::new();
+    for row in rows {
+        by_root
+            .entry(row.root_id)
+            .or_default()
+            .push(RootUserAccess {
+                user_id: row.user_id,
+                username: row.username,
+                access: row.access,
+            });
+    }
+    Ok(by_root)
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct UpdateRootAccessRequest {
+    /// 一般ユーザーの既定。
+    editor_access: ShareAccess,
+    /// ユーザーごとの例外。ここに無いユーザーの例外は消す (送った内容で置き換える)。
+    users: Vec<UserAccessRequest>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct UserAccessRequest {
+    user_id: i64,
+    access: ShareAccess,
+}
+
+/// 共有の中で一般ユーザーができることを変える (→ `api::shares`)。管理者は常にすべての操作ができるので、
+/// 管理者の例外を送っても効かない。
+#[utoipa::path(
+    put,
+    path = "/admin/roots/{id}/access",
+    params(("id" = i64, Path)),
+    request_body = UpdateRootAccessRequest,
+    responses(
+        (status = OK, body = RootResponse, description = "権限を変えた共有"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 404, body = crate::error::ErrorResponse, description = "存在しない"),
+        (status = 422, body = crate::error::ErrorResponse, description = "存在しないユーザーを含む"),
+    )
+)]
+async fn update_root_access(
+    _admin: AdminUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    AppJson(payload): AppJson<UpdateRootAccessRequest>,
+) -> Result<Json<RootResponse>, AppError> {
+    // ユーザーの削除と行き違うと、消えたユーザーの例外を足そうとして外部キーで落ちるので、同じ鍵で並べる。
+    let _users_guard = state.users_write_lock.lock().await;
+    let mut tx = crate::db::begin_write(&state.pool).await?;
+    let updated = sqlx::query!(
+        "UPDATE roots SET editor_access = ? WHERE id = ? AND deleted_at IS NULL",
+        payload.editor_access,
+        id
+    )
+    .execute(&mut *tx)
+    .await?
+    .rows_affected();
+    if updated == 0 {
+        return Err(AppError::NotFound);
+    }
+    sqlx::query!("DELETE FROM root_user_access WHERE root_id = ?", id)
+        .execute(&mut *tx)
+        .await?;
+    for user in &payload.users {
+        let exists = sqlx::query_scalar!(
+            r#"SELECT EXISTS (SELECT 1 FROM users WHERE id = ?) as "exists!: bool""#,
+            user.user_id
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        if !exists {
+            return Err(AppError::Validation("unknown user".to_string()));
+        }
+        // 同じユーザーが2度来たら、後の方にする。
+        sqlx::query!(
+            "INSERT INTO root_user_access (root_id, user_id, access) VALUES (?, ?, ?)
+             ON CONFLICT (root_id, user_id) DO UPDATE SET access = excluded.access",
+            id,
+            user.user_id,
+            user.access
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+    root_response(&state, id).await.map(Json)
 }
 
 #[utoipa::path(
@@ -337,7 +516,7 @@ async fn delete_root(
     Path(id): Path<i64>,
 ) -> Result<StatusCode, AppError> {
     // 行は消さずに削除済みの印を付ける。残ったコンテンツの場所を、起点を隠したまま出すため
-    // (→ docs/folders.md「公開できるフォルダー」)。
+    // (→ docs/folders.md「共有」)。
     let deleted = sqlx::query!(
         "UPDATE roots SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
          WHERE id = ? AND deleted_at IS NULL",
@@ -352,10 +531,10 @@ async fn delete_root(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// 登録済みの「公開できるフォルダー」を、判定に使える形 (canonicalize 済み) で返す。
+/// 登録済みの「共有」を、判定に使える形 (canonicalize 済み) で返す。
 ///
 /// 判定のたびに読む。件数は多くても数件で、キャッシュを持つと登録・削除の直後に
-/// 古い判定が残る (→ docs/folders.md「公開できるフォルダー」)。
+/// 古い判定が残る (→ docs/folders.md「共有」)。
 ///
 /// **実体を辿れないものは落とす**。登録を消さずにフォルダーだけ消された場合、その中は配らない。
 /// つながらない NAS やディスクのものも落とす。ほかのフォルダーのために待たないよう、
@@ -366,7 +545,7 @@ async fn delete_root(
 /// (→ `fs::simplify_verbatim`)。
 pub(super) async fn load_roots(state: &AppState) -> Result<Vec<Root>, AppError> {
     let rows = sqlx::query!(
-        "SELECT name, path FROM roots WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE"
+        r#"SELECT id as "id!", name, path FROM roots WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE"#
     )
     .fetch_all(&state.pool)
     .await?;
@@ -377,11 +556,29 @@ pub(super) async fn load_roots(state: &AppState) -> Result<Vec<Root>, AppError> 
         .zip(reaches)
         .filter_map(|(row, reach)| match reach {
             Reach::Ready(path) => Some(Root {
+                id: row.id,
                 name: row.name,
                 path,
             }),
             Reach::Gone | Reach::Unreachable => None,
         })
+        .collect())
+}
+
+/// `load_roots` のうち、`user` が中を見られるもの (→ `api::shares`)。登録先を選ぶ口
+/// (ディレクトリの一覧・数え上げ・フォルダーの登録先) に使う。
+///
+/// 見られない共有を外すだけでよい。入れ子で外側が見られれば、内側の場所は外側に含まれるので
+/// 判定 (`is_within_roots`) を通る。これは共有の中でできることを、含む共有のうち一番強いもので決めるのと同じ。
+pub(super) async fn load_roots_for(
+    state: &AppState,
+    user: &crate::auth::AuthUser,
+) -> Result<Vec<Root>, AppError> {
+    let roots = load_roots(state).await?;
+    let access = AccessMap::load(&state.pool, user).await?;
+    Ok(roots
+        .into_iter()
+        .filter(|root| access.of_root(root.id) >= ShareAccess::Read)
         .collect())
 }
 
@@ -398,7 +595,7 @@ async fn check_all(state: &AppState, paths: Vec<String>, wait: Duration) -> Vec<
     reaches.into_iter().map(|(_, reach)| reach).collect()
 }
 
-/// `path` を含む登録中の公開できるフォルダーが、つながらない NAS やディスクにあれば
+/// `path` を含む登録中の共有が、つながらない NAS やディスクにあれば
 /// `FolderUnreachable`。開こうとしているフォルダーなので、眠っている NAS が起きるまで待つ
 /// (`TARGET_WAIT`)。フォルダーが無いときは通す (それぞれの呼び出し側が今までどおり 404 などにする)。
 pub(super) async fn ensure_reachable(state: &AppState, path: &str) -> Result<(), AppError> {
@@ -412,7 +609,7 @@ pub(super) async fn ensure_reachable(state: &AppState, path: &str) -> Result<(),
 /// `ensure_reachable` の、エラーにしない形。検索のように、つながらないフォルダーを飛ばして続けるときに使う。
 /// 並びは `paths` のまま。
 ///
-/// 確かめるのは、それぞれのパスを含む登録中の公開できるフォルダー。どれにも含まれない
+/// 確かめるのは、それぞれのパスを含む登録中の共有。どれにも含まれない
 /// (登録から外した後のコンテンツ・綴りの違う入力など) なら、そのパス自身を確かめる。
 /// 呼び出し側は、この後でそのパスを canonicalize するので、ここを素通りさせると NAS が落ちているときに止まる。
 pub(super) async fn reachable_all(
@@ -454,14 +651,14 @@ pub(super) async fn reachable_all(
         .collect())
 }
 
-/// 登録側の画面に出す場所。起点のフルパスの代わりに、公開できるフォルダーの名前と
-/// そこから先のパスを返す (→ docs/folders.md「公開できるフォルダー」)。
+/// 登録側の画面に出す場所。起点のフルパスの代わりに、共有の名前と
+/// そこから先のパスを返す (→ docs/folders.md「共有」)。
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct RootLocation {
     pub(super) root_name: String,
-    /// 公開できるフォルダーから先の相対パス。区切りは `/` にそろえる。フォルダーそのものなら空。
+    /// 共有から先の相対パス。区切りは `/` にそろえる。フォルダーそのものなら空。
     pub(super) path_in_root: String,
-    /// 含む公開できるフォルダーが削除済みか。
+    /// 含む共有が削除済みか。
     pub(super) root_deleted: bool,
 }
 
@@ -491,7 +688,7 @@ pub(super) async fn load_root_records(
     )
 }
 
-/// `path` (コンテンツに保存された canonicalize 済みの絶対パス) を含む公開できるフォルダーを探し、
+/// `path` (コンテンツに保存された canonicalize 済みの絶対パス) を含む共有を探し、
 /// 画面に出す場所を組み立てる。どれにも含まれなければ `None`。
 ///
 /// 登録中が当たれば、最も外側を採る (入れ子の起点の決まりは `containing_root` と同じ)。
@@ -528,10 +725,10 @@ pub(super) fn default_name(path: &FsPath) -> String {
 
 /// `canonical` が、登録済みのどれかの中にあるか。
 ///
-/// **パスを使う操作はすべてこれを通す** (→ docs/folders.md「公開できるフォルダー」)。登録時の検証だけでは、
+/// **パスを使う操作はすべてこれを通す** (→ docs/folders.md「共有」)。登録時の検証だけでは、
 /// 登録後にフォルダーを削除された場合にそのまま配信され続ける。
 ///
-/// weblav 自身の置き場 (設定とデータ) の中も外す。公開できるフォルダーがその祖先 (`C:\` など) でも、
+/// weblav 自身の置き場 (設定とデータ) の中も外す。共有がその祖先 (`C:\` など) でも、
 /// その中は登録先にも配信にも使わせない。
 pub(super) fn is_within_roots(roots: &[Root], canonical: &FsPath, own_dirs: &OwnDirs) -> bool {
     !own_dirs.contains(canonical) && containing_root(roots, canonical).is_some()
@@ -553,7 +750,7 @@ pub(super) fn containing_root<'a>(roots: &'a [Root], canonical: &FsPath) -> Opti
 /// (中身が無いので、外すものも無い)。
 ///
 /// どこを公開するかは設置者に任せるが、ここだけはアプリが必ず外す
-/// (→ docs/folders.md「公開できるフォルダー」)。守りたいのは選ぶことではなく中身が出ることなので、祖先は選べる。
+/// (→ docs/folders.md「共有」)。守りたいのは選ぶことではなく中身が出ることなので、祖先は選べる。
 ///
 /// 一覧や走査ではエントリごとに比べるので、要求ごとに `resolve` で1回だけ求めて持ち回る。
 #[derive(Debug, Default)]
@@ -574,11 +771,16 @@ impl OwnDirs {
     pub(super) fn contains(&self, path: &FsPath) -> bool {
         self.0.iter().any(|dir| path.starts_with(dir))
     }
+
+    /// 置き場のどれかが、`path` そのものかその中にあるか (`path` を動かすと置き場も動く)。**実体パスを渡すこと**。
+    pub(super) fn any_within(&self, path: &FsPath) -> bool {
+        self.0.iter().any(|dir| dir.starts_with(path))
+    }
 }
 
-/// 公開できるフォルダーごとのコンテンツの件数を数えるための材料。
+/// 共有ごとのコンテンツの件数を数えるための材料。
 ///
-/// パスを持つコンテンツ (`folder`・`archive`) の登録先と、登録中の公開できるフォルダー。
+/// パスを持つコンテンツ (`folder`・`archive`) の登録先と、登録中の共有。
 /// 多くても数百件なので、まとめて読んで数える。SQL で前方一致を書くと、区切り文字の扱いを
 /// `contains` と二重に持つことになる。
 struct ContentCounts {
@@ -633,7 +835,7 @@ impl ContentCounts {
 /// 文字列の前方一致ではなく `Path` の要素で比べる。`C:\教材` が `C:\教材2` を含むと
 /// 判定されず、マルチバイトのパスでも文字の途中で切らない。大文字小文字も区別する
 /// (canonicalize 済みなので、同じ場所なら同じ綴りになる)。
-fn contains(parent: &str, child: &str) -> bool {
+pub(super) fn contains(parent: &str, child: &str) -> bool {
     FsPath::new(child).starts_with(FsPath::new(parent))
 }
 
@@ -680,11 +882,15 @@ async fn pick_root(
     };
     // 画面に出し、そのまま登録に渡す値なので、ほかの口と同じ形に揃える。
     let path = path_to_string(picked)?;
-    // 窓で選んだ今のうちに、次の起動でも読めるようにしておく (→ docs/distribution.md「ビルド・配布の方法」)。
-    // キーは登録と同じく実体のパス。
-    let lookup = path.clone();
+    keep_bookmark(&state, path.clone()).await?;
+    Ok(Json(PickRootResponse { path: Some(path) }))
+}
+
+/// 窓で選んだ今のうちに、次の起動でも読み書きできるようにしておく (→ docs/distribution.md「ビルド・配布の方法」)。
+/// キーは登録と同じく実体のパス。macOS 以外では何もしない。
+async fn keep_bookmark(state: &AppState, path: String) -> Result<(), AppError> {
     let bookmark = run_blocking(move || -> Result<_, AppError> {
-        let Ok(canonical) = canonical_dir(&lookup) else {
+        let Ok(canonical) = canonical_dir(&path) else {
             return Ok(None);
         };
         // 作れないまま登録させると、サンドボックスでは起動し直した後に読めないフォルダーが残る。
@@ -702,14 +908,147 @@ async fn pick_root(
     if let Some((canonical, bookmark)) = bookmark {
         crate::folder_access::save(&state.pool, &canonical, &bookmark).await?;
     }
-    Ok(Json(PickRootResponse { path: Some(path) }))
+    Ok(())
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct MoveRootRequest {
+    /// 新しい場所の絶対パス。フォルダー選択の窓 (`/admin/roots/pick`) が返す値をそのまま渡す。
+    path: String,
+}
+
+/// 共有の場所を、窓で選び直したフォルダーに付け替える (→ docs/shares.md「共有の場所の選び直し」)。
+///
+/// フォルダーを別のディスクへ移した・ドライブの文字が変わったときに、共有を消して登録し直さずに済むようにする。
+/// 権限と名前は共有の id に付いているので、そのまま残る。中のフォルダーのコンテンツの登録先は、
+/// 新しい場所の同じ相対パスへ付け替える。
+///
+/// 今と同じフォルダーを選んだときは何も付け替えず、書き込みの許可だけを取り直す。macOS のサンドボックスでは、
+/// 許可は利用者が窓で選んだときにしか増やせないため (`RootResponse::writable` が偽の共有)。
+#[utoipa::path(
+    put,
+    path = "/admin/roots/{id}/path",
+    params(("id" = i64, Path)),
+    request_body = MoveRootRequest,
+    responses(
+        (status = OK, body = RootResponse, description = "場所を付け替えた共有"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 404, body = crate::error::ErrorResponse, description = "サーバーのPC以外からの要求か、共有が無い"),
+        (status = 422, body = crate::error::ErrorResponse, description = "パスが存在しない・ディレクトリでない・weblav 自身の置き場の中・ほかの共有と同じ"),
+        (status = 503, body = crate::error::ErrorResponse, description = "選んだ場所につながらない"),
+    )
+)]
+async fn move_root(
+    _: LocalRequest,
+    _admin: AdminUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    AppJson(payload): AppJson<MoveRootRequest>,
+) -> Result<Json<RootResponse>, AppError> {
+    sqlx::query_scalar!(
+        "SELECT id FROM roots WHERE id = ? AND deleted_at IS NULL",
+        id
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(AppError::NotFound)?;
+    let path = registrable_path(&state, payload.path).await?;
+
+    let list_views = {
+        // コンテンツの登録先の書き換えと直列化する (→ `AppState::contents_write_lock`)。
+        let _write_guard = state.contents_write_lock.lock().await;
+        let mut tx = crate::db::begin_write(&state.pool).await?;
+        let old = sqlx::query_scalar!(
+            "SELECT path FROM roots WHERE id = ? AND deleted_at IS NULL",
+            id
+        )
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(AppError::NotFound)?;
+        let list_views = if old == path {
+            Vec::new()
+        } else {
+            ensure_path_available(&mut tx, &path, Some(id)).await?;
+            // 削除済みの共有が同じパスを持っていれば、その行を消す (`path` は UNIQUE)。その行は残ったコンテンツの
+            // 場所を出すためだけのもので、そのコンテンツは付け替えた後の共有の中に入る。
+            sqlx::query!(
+                "DELETE FROM roots WHERE path = ? AND deleted_at IS NOT NULL",
+                path
+            )
+            .execute(&mut *tx)
+            .await?;
+            sqlx::query!("UPDATE roots SET path = ? WHERE id = ?", path, id)
+                .execute(&mut *tx)
+                .await?;
+            rebase_contents(&mut tx, FsPath::new(&old), FsPath::new(&path)).await?
+        };
+        tx.commit().await?;
+        list_views
+    };
+
+    // 窓で選んだときに作ったブックマーク (`pick_root`) で、許可を戻し直す。読むだけの許可で戻していても、
+    // 書き込みの許可で戻し直すため。macOS 以外では何もしない。
+    crate::folder_access::forget_restored(&path);
+    crate::folder_access::restore(&state.pool).await;
+    // 中身が変わっていれば、一覧の表示の索引を次の再スキャンを待たずに読み直す (→ docs/archive.md「スキャン」)。
+    super::shares::repoint::refresh_after_change(&state, list_views);
+    root_response(&state, id).await.map(Json)
+}
+
+/// `old` の中に登録先があるフォルダーのコンテンツを、`new` の同じ相対パスへ付け替える。
+/// 一覧の表示を使うコンテンツの id を返す (中を読み直させるため)。
+///
+/// 中の公開・非公開の印と索引は登録先からの相対パスなので、そのまま使える。フォルダーごと動かした先を
+/// 選び直す使い方なので、中の並びは同じとみなす。
+async fn rebase_contents(
+    conn: &mut sqlx::SqliteConnection,
+    old: &FsPath,
+    new: &FsPath,
+) -> Result<Vec<i64>, AppError> {
+    let rows = sqlx::query!(
+        r#"SELECT id as "id!", path as "path!", list_view as "list_view: bool"
+           FROM contents WHERE type = 'folder' AND path IS NOT NULL"#
+    )
+    .fetch_all(&mut *conn)
+    .await?;
+    let mut list_views = Vec::new();
+    for row in rows {
+        let Some(path) = rebase(FsPath::new(&row.path), old, new) else {
+            continue;
+        };
+        let path = path_to_string(path)?;
+        sqlx::query!("UPDATE contents SET path = ? WHERE id = ?", path, row.id)
+            .execute(&mut *conn)
+            .await?;
+        if row.list_view {
+            list_views.push(row.id);
+        }
+    }
+    Ok(list_views)
+}
+
+/// `path` が `old` そのものかその中なら、`new` の同じ相対パス。そうでなければ `None`。
+///
+/// `old` そのものは `new` そのものにする。空の相対パスを `join` すると末尾に区切りが付き、
+/// 保存してあるほかのパスと綴りが合わなくなるため。
+pub(super) fn rebase(path: &FsPath, old: &FsPath, new: &FsPath) -> Option<PathBuf> {
+    let rest = path.strip_prefix(old).ok()?;
+    Some(if rest.as_os_str().is_empty() {
+        new.to_path_buf()
+    } else {
+        new.join(rest)
+    })
 }
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(list_roots, create_root))
         .routes(routes!(pick_root))
+        .routes(routes!(move_root))
         .routes(routes!(rename_root, delete_root))
+        .routes(routes!(update_root_access))
 }
 
 #[cfg(test)]
@@ -841,6 +1180,7 @@ mod tests {
     fn the_containing_root_is_the_outermost() {
         let sep = std::path::MAIN_SEPARATOR;
         let root = |name: &str, path: &str| Root {
+            id: 0,
             name: name.to_string(),
             path: PathBuf::from(path),
         };
@@ -851,6 +1191,136 @@ mod tests {
             |path: &str| containing_root(&roots, FsPath::new(path)).map(|r| r.name.as_str());
         assert_eq!(found(&format!("{inner}{sep}英検")), Some("外"));
         assert_eq!(found(&format!("{outer}{sep}写真")), Some("外"));
+    }
+
+    fn sep_path(parts: &[&str]) -> PathBuf {
+        let mut path = PathBuf::from(std::path::MAIN_SEPARATOR_STR);
+        for part in parts {
+            path.push(part);
+        }
+        path
+    }
+
+    async fn insert_folder(pool: &sqlx::SqlitePool, path: &FsPath, list_view: bool) -> i64 {
+        sqlx::query_scalar(
+            "INSERT INTO contents (type, title, path, visibility, list_view) VALUES ('folder', 'f', ?, 'public', ?) RETURNING id",
+        )
+        .bind(path.display().to_string())
+        .bind(list_view)
+        .fetch_one(pool)
+        .await
+        .expect("フォルダーを作れなかった")
+    }
+
+    async fn content_path(pool: &sqlx::SqlitePool, id: i64) -> String {
+        sqlx::query_scalar("SELECT path FROM contents WHERE id = ?")
+            .bind(id)
+            .fetch_one(pool)
+            .await
+            .expect("登録先を読めなかった")
+    }
+
+    /// 共有の中の登録先は新しい場所の同じ相対パスへ移り、頭の似た隣のフォルダーは動かない。
+    /// 一覧の表示を使うものだけを、読み直す相手として返す。
+    #[sqlx::test]
+    async fn rebasing_moves_contents_inside_the_old_place_only(pool: sqlx::SqlitePool) {
+        let old = sep_path(&["srv", "教材"]);
+        let new = sep_path(&["mnt", "nas", "教材"]);
+        let top = insert_folder(&pool, &old, false).await;
+        let inner = insert_folder(&pool, &old.join("英検"), true).await;
+        let sibling = insert_folder(&pool, &sep_path(&["srv", "教材2"]), true).await;
+
+        let mut conn = pool.acquire().await.expect("つなげなかった");
+        let list_views = rebase_contents(&mut conn, &old, &new)
+            .await
+            .expect("付け替えられなかった");
+        drop(conn);
+
+        assert_eq!(list_views, vec![inner]);
+        assert_eq!(content_path(&pool, top).await, new.display().to_string());
+        assert_eq!(
+            content_path(&pool, inner).await,
+            new.join("英検").display().to_string()
+        );
+        assert_eq!(
+            content_path(&pool, sibling).await,
+            sep_path(&["srv", "教材2"]).display().to_string()
+        );
+    }
+
+    /// 付け替えた登録先が変わると、一覧の表示の索引の版が上がる (配る側の使い回しを捨てさせる)。
+    #[sqlx::test]
+    async fn rebasing_bumps_the_index_version(pool: sqlx::SqlitePool) {
+        let old = sep_path(&["srv", "教材"]);
+        let id = insert_folder(&pool, &old.join("英検"), true).await;
+        let version = |pool: sqlx::SqlitePool| async move {
+            sqlx::query_scalar::<_, i64>(
+                "SELECT COALESCE((SELECT index_version FROM archive_versions WHERE content_id = ?), 0)",
+            )
+            .bind(id)
+            .fetch_one(&pool)
+            .await
+            .expect("版を読めなかった")
+        };
+        let before = version(pool.clone()).await;
+
+        let mut conn = pool.acquire().await.expect("つなげなかった");
+        rebase_contents(&mut conn, &old, &sep_path(&["mnt", "教材"]))
+            .await
+            .expect("付け替えられなかった");
+        drop(conn);
+
+        assert!(version(pool.clone()).await > before);
+    }
+
+    /// ほかの共有と同じ場所は拒み、選び直す共有自身と削除済みの共有は数えない。
+    #[sqlx::test]
+    async fn a_place_another_root_holds_is_not_available(pool: sqlx::SqlitePool) {
+        let insert = |name: &'static str, path: &'static str, deleted: bool| {
+            let pool = pool.clone();
+            async move {
+                sqlx::query_scalar::<_, i64>(
+                    "INSERT INTO roots (name, path, deleted_at) VALUES (?, ?, CASE WHEN ? THEN 'x' END) RETURNING id",
+                )
+                .bind(name)
+                .bind(path)
+                .bind(deleted)
+                .fetch_one(&pool)
+                .await
+                .expect("共有を作れなかった")
+            }
+        };
+        let own = insert("自分", "/srv/a", false).await;
+        insert("ほか", "/srv/b", false).await;
+        insert("消した", "/srv/c", true).await;
+        let mut conn = pool.acquire().await.expect("つなげなかった");
+
+        assert!(
+            ensure_path_available(&mut conn, "/srv/a", Some(own))
+                .await
+                .is_ok()
+        );
+        assert!(
+            ensure_path_available(&mut conn, "/srv/c", Some(own))
+                .await
+                .is_ok()
+        );
+        match ensure_path_available(&mut conn, "/srv/b", Some(own)).await {
+            Err(AppError::ValidationDetailed {
+                detail: ValidationDetail::RootAlreadyRegistered { name },
+                ..
+            }) => assert_eq!(name, "ほか"),
+            other => panic!("ほかの共有の場所を通した: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rebasing_the_place_itself_adds_no_trailing_separator() {
+        let old = sep_path(&["srv", "教材"]);
+        let new = sep_path(&["mnt", "教材"]);
+        assert_eq!(rebase(&old, &old, &new), Some(new.clone()));
+        assert_eq!(rebase(&old.join("a"), &old, &new), Some(new.join("a")));
+        assert_eq!(rebase(&sep_path(&["srv", "教材2"]), &old, &new), None);
     }
 
     /// 自身の置き場 (設定とデータ) そのものと中だけを外し、祖先 (`C:\` など) は外さない。

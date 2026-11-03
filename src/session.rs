@@ -158,16 +158,22 @@ fn generate_and_persist_key(path: &Path) -> Result<Key, Error> {
     Ok(key)
 }
 
+/// `expiry_days = 0` (期限なし) のときの日数。100年。サーバーの記録が実質消えない長さにする。
+/// Cookie はブラウザーが上限 (RFC 6265bis で 400 日) に縮めるが、`with_always_save` で使うたびに延びる。
+const NO_EXPIRY_DAYS: i64 = 36500;
+
 /// axumに載せる`SessionManagerLayer`を組み立てる。
 ///
 /// `with_always_save` が無いと `/me` のような読み取りだけのアクセスではセッションが
 /// 「更新」されず、`OnInactivity` でも実質「ログインからN日」にしかならないため付与する。
 pub fn layer(store: Store, key: Key, config: &SessionConfig) -> SessionLayer {
+    let days = match config.expiry_days {
+        0 => NO_EXPIRY_DAYS,
+        days => days,
+    };
     SessionManagerLayer::new(store)
         .with_secure(config.secure_cookie)
-        .with_expiry(Expiry::OnInactivity(time::Duration::days(
-            config.expiry_days,
-        )))
+        .with_expiry(Expiry::OnInactivity(time::Duration::days(days)))
         .with_always_save(true)
         .with_signed(key)
 }

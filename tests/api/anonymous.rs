@@ -400,7 +400,8 @@ async fn folder_browse_tolerates_dangling_symlink(pool: SqlitePool) {
 
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("\"ok.txt\""), "{body}");
-    assert!(!body.contains("dangling"), "{body}");
+    // 名前で見る。応答の共有の場所 (`share.path`) には、フォルダー名の "dangling" が入る。
+    assert!(!body.contains("\"dangling\""), "{body}");
 }
 
 /// `..` を含む相対パス・絶対パス指定によるパストラバーサルは404になる

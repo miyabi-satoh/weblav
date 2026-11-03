@@ -26,7 +26,11 @@ export const MESSAGES: Record<ErrorCode, () => string> = {
 	internal_error: m.error_internal_error,
 	conflict: m.error_conflict,
 	config_unreadable: m.error_config_unreadable,
-	folder_unreachable: m.error_folder_unreachable
+	folder_unreachable: m.error_folder_unreachable,
+	insufficient_storage: m.error_insufficient_storage,
+	trash_unavailable: m.error_trash_unavailable,
+	entry_in_use: m.error_entry_in_use,
+	share_read_only: m.error_share_read_only
 };
 
 /** 想定外の形のレスポンスや通信エラーに使う汎用文言。 */
@@ -108,6 +112,14 @@ function detailMessage(detail: ValidationDetail): string | undefined {
 			return m.error_detail_backup_invalid();
 		case 'backupTooNew':
 			return m.error_detail_backup_too_new({ appVersion: detail.appVersion });
+		case 'entryNameInvalid':
+			return m.error_detail_entry_name_invalid();
+		case 'entryNameTaken':
+			return m.error_detail_entry_name_taken({ name: detail.name });
+		case 'transferIntoItself':
+			return m.error_detail_transfer_into_itself();
+		case 'entryProtected':
+			return m.error_detail_entry_protected();
 		default:
 			return undefined;
 	}

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT root_user_access.root_id, root_user_access.user_id,\n                  users.username, root_user_access.access as \"access: ShareAccess\"\n           FROM root_user_access JOIN users ON users.id = root_user_access.user_id\n           ORDER BY users.username COLLATE NOCASE",
+  "describe": {
+    "columns": [
+      {
+        "name": "root_id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "user_id",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "username",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "access: ShareAccess",
+        "ordinal": 3,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "dcb96673f10609159cac5cd3981fc1890543075f75ad9d82a2002a3af8924765"
+}

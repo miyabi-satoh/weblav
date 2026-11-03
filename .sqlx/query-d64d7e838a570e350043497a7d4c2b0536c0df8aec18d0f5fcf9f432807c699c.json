@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT roots.id as \"id!\",\n                      COALESCE(root_user_access.access, roots.editor_access) as \"access!: ShareAccess\"\n               FROM roots\n               LEFT JOIN root_user_access\n                 ON root_user_access.root_id = roots.id AND root_user_access.user_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "access!: ShareAccess",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "d64d7e838a570e350043497a7d4c2b0536c0df8aec18d0f5fcf9f432807c699c"
+}

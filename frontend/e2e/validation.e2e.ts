@@ -5,8 +5,9 @@ import { test, expect, type Page } from '@playwright/test';
 import { send, withUserByApi } from './api-helpers';
 import { createLinkContent, openCreateForm, removeContentIfPresent } from './content-helpers';
 import {
+	ADD_SUBMIT_BUTTON_NAME,
 	basicSaveButton,
-	clickRowMenuItem,
+	clickHeadingMenuItem,
 	CLOSE_BUTTON_NAME,
 	CONTENT_SUBMIT_BUTTON_NAME,
 	DELETE_MENU_ITEM_NAME,
@@ -88,7 +89,7 @@ test.describe('ユーザー', () => {
 			await page.getByLabel(USERNAME_LABEL).fill(username);
 			await page.getByLabel(PASSWORD_LABEL).fill('E2eSmoke!2026Test');
 			await page.getByLabel(PASSWORD_CONFIRM_LABEL).fill('E2eSmoke!2026Other');
-			await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
+			await page.getByRole('button', { name: ADD_SUBMIT_BUTTON_NAME }).click();
 
 			const dialog = page.getByRole('dialog');
 			await expect(dialog.getByText(PASSWORD_MISMATCH_TEXT)).toBeVisible();
@@ -114,7 +115,7 @@ test.describe('ユーザー', () => {
 			await page.getByLabel(USERNAME_LABEL).fill(username);
 			await page.getByLabel(PASSWORD_LABEL).fill('E2eSmoke!2026Test');
 			await page.getByLabel(PASSWORD_CONFIRM_LABEL).fill('E2eSmoke!2026Test');
-			await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
+			await page.getByRole('button', { name: ADD_SUBMIT_BUTTON_NAME }).click();
 
 			// 名前が重複していても、ハッシュ化を済ませてから失敗する (src/auth.rs の create_user)。
 			await expectErrorDialog(
@@ -133,13 +134,14 @@ test.describe('ユーザー', () => {
 		const username = uniqueId('e2e-reset-mismatch');
 		try {
 			await createUser(page, username, 'E2eSmoke!2026Test');
-			await clickRowMenuItem(page, userRow(page, username), RESET_PASSWORD_MENU_ITEM_NAME);
+			await clickHeadingMenuItem(page, RESET_PASSWORD_MENU_ITEM_NAME);
 			await waitForDialog(page);
 			await page.getByLabel(PASSWORD_LABEL).fill('E2eSmoke!2026Reset');
 			await page.getByLabel(PASSWORD_CONFIRM_LABEL).fill('E2eSmoke!2026Other');
-			await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
-
+			// 編集ページの区画にも「保存する」があるので、ダイアログの中のものを押す。
 			const dialog = page.getByRole('dialog');
+			await dialog.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
+
 			await expect(dialog.getByText(PASSWORD_MISMATCH_TEXT)).toBeVisible();
 			await expect(dialog).toBeVisible();
 		} finally {
@@ -148,20 +150,34 @@ test.describe('ユーザー', () => {
 	});
 
 	test('最後の管理者は、権限を変えられず削除もできない', async ({ page }) => {
-		const users = (await send(page.request, 'get', '/admin/users')) as { role: string }[];
+		const users = (await send(page.request, 'get', '/admin/users')) as {
+			role: string;
+			username: string;
+		}[];
+		const admins = users.filter((user) => user.role === 'admin');
 		// 起動済みの開発用サーバーに当てるときは、管理者が複数いることがある。
-		test.skip(users.filter((user) => user.role === 'admin').length !== 1, '管理者が1人ではない');
+		test.skip(admins.length !== 1, '管理者が1人ではない');
 
+		// 一覧の⋮でも消せない。
 		await page.goto('/admin/users');
-		const row = page.getByRole('row').filter({
-			hasText: /最後の管理者は降格も削除もできません|The last admin cannot be demoted or deleted/
-		});
-		await expect(row).toHaveCount(1);
-		await expect(
-			row.getByRole('button', { name: /の権限: 管理者$|^Role for .+: Admin$/ })
-		).toBeDisabled();
-
+		const row = userRow(page, admins[0].username);
 		await row.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).click();
+		await expect(
+			page.getByRole('menu').getByRole('menuitem', { name: DELETE_MENU_ITEM_NAME })
+		).toBeDisabled();
+		await page.keyboard.press('Escape');
+
+		// 編集ページでは、権限を選べず、理由を出す。見出しの⋮でも消せない。
+		await row.click();
+		await page.waitForURL(/\/admin\/users\/\d+$/);
+		const roleForm = page.getByRole('form', { name: /^権限$|^Role$/ });
+		await expect(roleForm).toContainText(
+			/最後の管理者は降格も削除もできません|The last admin cannot be demoted or deleted/
+		);
+		await expect(
+			roleForm.getByRole('radio', { name: /^一般ユーザー$|^Standard user$/ })
+		).toBeDisabled();
+		await page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).first().click();
 		await expect(
 			page.getByRole('menu').getByRole('menuitem', { name: DELETE_MENU_ITEM_NAME })
 		).toBeDisabled();

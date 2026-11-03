@@ -50,23 +50,23 @@ Set your computer so that it does not sleep.
 The computer running WebLAV cannot read the NAS or external disk that the folder is on.
 
 1. Check that the NAS or disk is turned on and connected to the same network.
-2. On the computer running WebLAV, check that you can open the share or disk. If you are asked for a password, save it and connect.
+2. On the computer running WebLAV, check that you can open the NAS shared folder or disk. If you are asked for a password, save it and connect.
 3. Open the folder again on the viewer's screen.
 
 A NAS that was asleep takes a moment to wake up. Wait a little, then open it again.
 
 ## WebLAV does not start
 
-Send the logs in the `logs` folder at the data location (→ [Maintain WebLAV](09-maintenance.md)) to the person who prepared WebLAV, and ask them for help.
+Send the logs in the `logs` folder at the data location (→ [Maintain WebLAV](10-maintenance.md)) to the person who prepared WebLAV, and ask them for help.
 
 ## Forgot the administrator password
 
 Reset it with your recovery code (→ “Forgot your password” in [Sign in and display](03-account.md)).
-You can also ask another administrator to reset it (→ [Manage users](08-users.md)).
+You can also ask another administrator to reset it (→ [Manage users](09-users.md)).
 
 If you have also lost the recovery code and there is no other administrator, WebLAV cannot recover it.
 Remove the data and start over from “Create the first administrator” in [Set up](02-setup.md). All users and registered content are removed too.
 
 1. Quit WebLAV.
-2. Move `weblav.db` out of the data location (→ [Maintain WebLAV](09-maintenance.md)).
+2. Move `weblav.db` out of the data location (→ [Maintain WebLAV](10-maintenance.md)).
 3. Start WebLAV and create an administrator again from “Setup”.

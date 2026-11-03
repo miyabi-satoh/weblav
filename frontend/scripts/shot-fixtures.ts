@@ -1,5 +1,5 @@
 // 画面を撮るスクリプト (`just spec` の generate-spec.ts・`just flip-videos` の flip-videos.ts) が共有する、
-// シードとフィクスチャ (公開できるフォルダーの中のファイル・コンテンツ・アーカイブ)。
+// シードとフィクスチャ (共有の中のファイル・コンテンツ・アーカイブ)。
 
 import type { DatabaseSync } from 'node:sqlite';
 import { rmSync, mkdirSync, readFileSync, writeFileSync, readdirSync, utimesSync } from 'node:fs';
@@ -18,11 +18,11 @@ const SEED_SQL_PATH = path.join(import.meta.dirname, 'seed.sql');
 // seed.sql に folder を入れられないのは、実在する絶対パスが要るため。置き場を target/
 // 配下にしてあるのは、片付け漏れが普段見ない場所 (macOS の `/var/folders/...`) に
 // 溜まらないようにするため。この置き場自身を `roots` に入れてから登録する
-// (→ docs/folders.md「公開できるフォルダー」)。
+// (→ docs/folders.md「共有」)。
 const FIXTURE_ROOT_DIR = path.join(REPO_ROOT, 'target/spec-fixtures');
 const FIXTURE_DIR = path.join(FIXTURE_ROOT_DIR, '教材');
 /** `FIXTURE_ROOT_DIR` を登録するときの名前。ピッカーやコンテンツの場所に、フルパスの代わりに出る。 */
-const FIXTURE_ROOT_NAME = '共有';
+const FIXTURE_ROOT_NAME = '学校';
 // ファイル数がそのまま確認ダイアログの表示になるので、桁が揃って読みやすい数にする。
 const FIXTURE_TREE: Record<string, string[]> = {
 	'英検/2024': ['1級_リスニング.mp3', '1級_解答.pdf', '2級_リスニング.mp3'],
@@ -150,7 +150,7 @@ function seedDatabase(dbPath: string): { groupId: number; folderId: number } {
 		// (→ 原稿の 05-groups.md のショット用、shots.ts参照)。
 		const groupId = selectId(db, "SELECT id FROM contents WHERE title = '教材(グループ)'");
 
-		// 公開できるフォルダー (→ docs/folders.md「公開できるフォルダー」)。フィクスチャの木の親を登録する。
+		// 共有 (→ docs/folders.md「共有」)。フィクスチャの木の親を登録する。
 		// folder の行と同じく絶対パスが環境依存なので、seed.sql ではなくここで入れる。
 		db.prepare('INSERT INTO roots (name, path) VALUES (?, ?)').run(
 			FIXTURE_ROOT_NAME,
@@ -191,7 +191,7 @@ function seedDatabase(dbPath: string): { groupId: number; folderId: number } {
 async function setupArchiveFixtures(
 	baseURL: string,
 	groupId: number
-): Promise<{ archiveId: number; fileId: number }> {
+): Promise<{ archiveId: number }> {
 	const loginRes = await fetch(`${baseURL}/api/v1/auth/login`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
@@ -286,33 +286,18 @@ async function setupArchiveFixtures(
 	};
 	await apiJson(`/contents/${archiveId}/items`, 'PUT', { snapshot, published: true });
 
-	// type=file: multipart専用エンドポイント(→ src/api/contents.rs)で作る。
-	const form = new FormData();
-	form.set('title', '行事予定.pdf');
-	form.set('parentId', String(groupId));
-	form.set('visibility', 'authenticated');
-	form.set(
-		'file',
-		new Blob([Buffer.from('%PDF-1.4\n%%EOF\n')], { type: 'application/pdf' }),
-		'行事予定.pdf'
-	);
-	const file = (await (await api('/contents/upload', { method: 'POST', body: form })).json()) as {
-		id: number;
-	};
-
-	return { archiveId, fileId: file.id };
+	return { archiveId };
 }
 
 /** 起動した backend にシードとフィクスチャを入れ、ショットに渡す id を返す。先に `writeFixtureFiles` を呼んでおく。 */
 export async function setUpFixtures(backend: Backend): Promise<ShotFixtures> {
 	// startBackend は migrate の完了 (=DBファイル作成) を待って返すので、すぐシードを入れられる。
 	const { groupId, folderId } = seedDatabase(backend.dbPath);
-	const { archiveId, fileId } = await setupArchiveFixtures(backend.baseURL, groupId);
+	const { archiveId } = await setupArchiveFixtures(backend.baseURL, groupId);
 	return {
 		groupId,
 		folderId,
 		archiveId,
-		fileId,
 		sharedFolder: FIXTURE_ROOT_DIR,
 		sharedFolderName: FIXTURE_ROOT_NAME
 	};

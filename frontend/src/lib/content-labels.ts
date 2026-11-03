@@ -24,7 +24,6 @@ export function contentTypeDescription(type: ContentType): string {
 	if (type === 'link') return m.contents_type_link_description();
 	if (type === 'folder') return m.contents_type_folder_description();
 	if (type === 'group') return m.contents_type_group_description();
-	if (type === 'file') return m.contents_type_file_description();
 	return type;
 }
 

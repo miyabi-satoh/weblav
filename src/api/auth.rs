@@ -41,6 +41,16 @@ impl From<AuthUser> for UserResponse {
     }
 }
 
+/// ログイン中の利用者。ほかの応答の `UserResponse` に、画面の出し分けに使う件数を添える。
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MeResponse {
+    #[serde(flatten)]
+    pub user: UserResponse,
+    /// 非表示のコンテンツの一覧 (`GET /contents/hidden`) に並ぶ件数。ユーザーメニューに出す。
+    pub hidden_content_count: i64,
+}
+
 /// 利用者と、その人に作ったリカバリコード。初回セットアップとリカバリコードでの
 /// 再設定が返す。コードはこの応答でしか返さない。
 #[derive(Debug, Serialize, ToSchema)]
@@ -117,12 +127,16 @@ async fn logout(session: Session) -> Result<StatusCode, AppError> {
     get,
     path = "/auth/me",
     responses(
-        (status = OK, body = UserResponse),
+        (status = OK, body = MeResponse),
         (status = 401, body = crate::error::ErrorResponse),
     )
 )]
-async fn me(user: AuthUser) -> Json<UserResponse> {
-    Json(user.into())
+async fn me(user: AuthUser, State(state): State<AppState>) -> Result<Json<MeResponse>, AppError> {
+    let hidden_content_count = super::contents::hidden_content_count(&state.pool, &user).await?;
+    Ok(Json(MeResponse {
+        user: user.into(),
+        hidden_content_count,
+    }))
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

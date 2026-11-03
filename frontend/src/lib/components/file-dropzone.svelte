@@ -13,11 +13,20 @@
 		id: string;
 		files?: FileList;
 		required?: boolean;
+		/** いくつも選べるようにする。選んだものは呼び出し側が並べるので、名前は出さず案内のままにする。 */
+		multiple?: boolean;
 		hint: string;
 		class?: string;
 	};
 
-	let { id, files = $bindable(), required = false, hint, class: className }: Props = $props();
+	let {
+		id,
+		files = $bindable(),
+		required = false,
+		multiple = false,
+		hint,
+		class: className
+	}: Props = $props();
 
 	let inputRef = $state<HTMLInputElement | null>(null);
 	// dragenter/dragleaveは子要素への出入りでも発火するため、ネスト分を数えて
@@ -67,7 +76,7 @@
 		return () => window.removeEventListener('keydown', handleKeydown);
 	});
 
-	let fileName = $derived(files?.[0]?.name ?? null);
+	let fileName = $derived(multiple ? null : (files?.[0]?.name ?? null));
 </script>
 
 <label
@@ -96,5 +105,6 @@
 		class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
 		bind:files
 		{required}
+		{multiple}
 	/>
 </label>

@@ -8,6 +8,7 @@ import {
 	AUDIO_PLAYER_REGION_NAME,
 	BROWSE_LAYOUT_LIST_NAME,
 	BROWSE_LAYOUT_TILE_NAME,
+	ADD_SUBMIT_BUTTON_NAME,
 	CANCEL_BUTTON_NAME,
 	CHOOSE_PATH_BUTTON_NAME,
 	CLOSE_BUTTON_NAME,
@@ -23,7 +24,6 @@ import {
 	PASSWORD_HASH_TIMEOUT,
 	PASSWORD_LABEL,
 	REGISTER_BUTTON_NAME,
-	RENAME_MENU_ITEM_NAME,
 	RESET_PASSWORD_MENU_ITEM_NAME,
 	ROW_ACTIONS_BUTTON_NAME,
 	SAVE_BUTTON_NAME,
@@ -33,12 +33,13 @@ import {
 	USER_ADD_BUTTON_NAME,
 	VISIBILITY_LABEL,
 	chooseContentType,
-	clickRowMenuItem,
+	clickHeadingMenuItem,
 	confirmDelete,
 	contentRow,
 	fillLogInForm,
 	openAddDialog,
 	requiredLabel,
+	saveForm,
 	userRow,
 	waitForDialog
 } from '../e2e/helpers.ts';
@@ -465,14 +466,14 @@ const contents: Story = {
 			}
 		},
 		{
-			caption: 'パスの「選ぶ...」を押す (公開できるフォルダーが並ぶ)',
+			caption: 'パスの「選ぶ...」を押す (共有が並ぶ)',
 			async run(page) {
 				await page.getByRole('button', { name: CHOOSE_PATH_BUTTON_NAME }).click();
 				await page.getByRole('dialog', { name: DIR_PICKER_NAME }).waitFor();
 			}
 		},
 		{
-			caption: '公開できるフォルダーの中へ進む',
+			caption: '共有の中へ進む',
 			async run(page, ctx) {
 				await page.getByText(ctx.fixtures.sharedFolderName, { exact: true }).click();
 				await page.getByText(/^1\sつ上へ$/).waitFor();
@@ -584,7 +585,7 @@ const archive: Story = {
 };
 
 const admin: Story = {
-	title: '管理: ユーザー・公開できるフォルダー・サイト設定',
+	title: '管理: ユーザー・共有・サイト設定',
 	roles: ['admin', 'user'],
 	steps: [
 		{
@@ -616,59 +617,69 @@ const admin: Story = {
 			}
 		},
 		{
-			caption: '保存する (一覧に行が増える)',
+			caption: '追加する (そのユーザーの編集ページへ移る)',
 			roles: ADMIN_ONLY,
 			async run(page) {
-				await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
-				await userRow(page, NEW_USERNAME).waitFor({ timeout: PASSWORD_HASH_TIMEOUT });
+				await page.getByRole('button', { name: ADD_SUBMIT_BUTTON_NAME }).click();
+				await page.waitForURL(/\/admin\/users\/\d+$/, { timeout: PASSWORD_HASH_TIMEOUT });
+				await waitForPageReady(page);
 			}
 		},
 		{
-			caption: '行の操作のメニューを開く',
-			roles: ADMIN_ONLY,
-			async run(page) {
-				await page.getByRole('dialog').waitFor({ state: 'hidden' });
-				await userRow(page, NEW_USERNAME)
-					.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME })
-					.click();
-				await page.getByRole('menu').waitFor();
-			}
-		},
-		{
-			caption: '「パスワード再設定...」を押す',
+			caption: '「権限」で「管理者」を選ぶ',
 			roles: ADMIN_ONLY,
 			async run(page) {
 				await page
-					.getByRole('menu')
-					.getByRole('menuitem', { name: RESET_PASSWORD_MENU_ITEM_NAME })
-					.click();
+					.getByRole('form', { name: /^権限$/ })
+					.getByRole('radio', { name: /^管理者$/ })
+					.check();
+			}
+		},
+		{
+			caption: '「権限」を保存する',
+			roles: ADMIN_ONLY,
+			async run(page) {
+				await saveForm(page, {
+					button: page.getByRole('form', { name: /^権限$/ }).getByRole('button', {
+						name: SAVE_BUTTON_NAME
+					}),
+					toastText: /「権限」を保存しました。/
+				});
+			}
+		},
+		{
+			caption: '見出しの⋮から「パスワードを再設定...」を押す',
+			roles: ADMIN_ONLY,
+			async run(page) {
+				await clickHeadingMenuItem(page, RESET_PASSWORD_MENU_ITEM_NAME);
 				await waitForDialog(page);
 			}
 		},
 		{
-			caption: 'キャンセルし、行のメニューから「削除...」を押す',
+			caption: 'キャンセルし、見出しの⋮から「削除...」を押す',
 			roles: ADMIN_ONLY,
 			async run(page) {
 				await cancelDialog(page);
-				await clickRowMenuItem(page, userRow(page, NEW_USERNAME), DELETE_MENU_ITEM_NAME);
+				await clickHeadingMenuItem(page, DELETE_MENU_ITEM_NAME);
 				await waitForDialog(page, { role: 'alertdialog', awaitAutofocus: false });
 			}
 		},
 		{
-			caption: '削除する',
+			caption: '削除する (一覧へ戻る)',
 			roles: ADMIN_ONLY,
 			async run(page) {
 				await confirmDelete(page);
+				await page.waitForURL(/\/admin\/users$/);
 				await userRow(page, NEW_USERNAME).waitFor({ state: 'detached' });
 			}
 		},
 		{
-			caption: '公開できるフォルダーを開く',
+			caption: '共有を開く',
 			roles: ADMIN_ONLY,
 			run: (page) => open(page, '/admin/roots')
 		},
 		{
-			caption: '公開できるフォルダーの URL を開く (コンテンツ管理へ戻される)',
+			caption: '共有の URL を開く (コンテンツ管理へ戻される)',
 			roles: USER_ONLY,
 			async run(page) {
 				await page.goto('/admin/roots');
@@ -677,19 +688,20 @@ const admin: Story = {
 			}
 		},
 		{
-			caption: '行のメニューから「名前を変更...」を押す',
+			caption: '行を押して共有の編集ページを開く',
 			roles: ADMIN_ONLY,
 			async run(page) {
-				await clickRowMenuItem(page, page.getByRole('listitem').first(), RENAME_MENU_ITEM_NAME);
-				await waitForDialog(page);
+				await page.getByTestId('root-name').first().click();
+				await page.waitForURL(/\/admin\/roots\/\d+$/);
+				await waitForPageReady(page);
 			}
 		},
 		{
-			caption: 'キャンセルし、行のメニューから「削除...」を押す (中のコンテンツの件数が出る)',
+			caption: '見出しの⋮から「削除...」を押す (中のコンテンツの件数が出る)',
 			roles: ADMIN_ONLY,
 			async run(page) {
-				await cancelDialog(page);
-				await clickRowMenuItem(page, page.getByRole('listitem').first(), DELETE_MENU_ITEM_NAME);
+				await page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).first().click();
+				await page.getByRole('menuitem', { name: DELETE_MENU_ITEM_NAME }).click();
 				await waitForDialog(page, { role: 'alertdialog', awaitAutofocus: false });
 			}
 		},

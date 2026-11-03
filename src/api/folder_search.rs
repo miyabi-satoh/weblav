@@ -171,7 +171,7 @@ pub(super) async fn search(
         let mut truncated = false;
         let mut sources = Vec::new();
         for (index, (folder, marks)) in folders.into_iter().zip(all_marks).enumerate() {
-            // 配信と同じく、公開できるフォルダーの外は辿らない (→ contents::resolve_path)。
+            // 配信と同じく、共有の外は辿らない (→ contents::resolve_path)。
             let Ok(root) = std::fs::canonicalize(&folder.path) else {
                 continue;
             };

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM roots WHERE path = ? AND deleted_at IS NOT NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "75ceed4248eb4179efa4cf113be6916d41f073bfbb11a2ee02c8785d1efaa46f"
+}

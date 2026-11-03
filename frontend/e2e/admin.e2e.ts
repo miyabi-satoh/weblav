@@ -7,12 +7,10 @@
 // 運用DBを汚さないため)。作成の途中で失敗しても片付けが走るよう、作成の前から
 // try/finally で囲む。
 import { test, expect } from '@playwright/test';
-import { withContentByApi } from './api-helpers';
 import { ADMIN_USERNAME } from './auth';
 import {
 	basicSaveButton,
 	anonymousContext,
-	AUDIO_PLAYER_REGION_NAME,
 	BROWSE_LAYOUT_LIST_NAME,
 	BROWSE_LAYOUT_TILE_NAME,
 	CANCEL_BUTTON_NAME,
@@ -22,7 +20,10 @@ import {
 	ROW_ACTIONS_BUTTON_NAME,
 	VIEW_ON_SITE_LINK_NAME,
 	TITLE_LABEL,
+	clickHeadingMenuItem,
 	clickRowMenuItem,
+	DISCARD_AND_LEAVE_BUTTON_NAME,
+	LEAVE_CONFIRM_NAME,
 	confirmDelete,
 	CONTENT_ADD_BUTTON_NAME,
 	contentRow,
@@ -236,30 +237,6 @@ test('ホーム: 公開コンテンツが管理者にも未ログインにも表
 	}
 });
 
-test('ホーム: 音声のファイルは、新規タブではなくページ内のプレイヤーで開く', async ({ page }) => {
-	const title = uniqueId('E2E音声ファイル');
-	await withContentByApi(
-		page.request,
-		{
-			title,
-			fileName: 'e2e.mp3',
-			mimeType: 'audio/mpeg',
-			buffer: Buffer.from('e2e')
-		},
-		async ({ id }) => {
-			// 中身は再生できなくてよい (振り分けは拡張子で決まり、画面の動きだけを見る)。
-			await page.goto('/');
-			await expect(page.getByRole('link', { name: title })).toHaveCount(0);
-			await page.getByRole('button', { name: title }).click();
-			await expect(page.getByRole('region', { name: AUDIO_PLAYER_REGION_NAME })).toBeVisible();
-			await expect(page.locator('audio')).toHaveAttribute(
-				'src',
-				new RegExp(`/api/v1/contents/${id}/download$`)
-			);
-		}
-	);
-});
-
 test('作成者のみ: 作成者の一覧にだけ印付きで並び、作成者を削除すると非表示で残る', async ({
 	page,
 	browser
@@ -320,18 +297,79 @@ test('管理画面: ユーザーのパスワードを再設定できる', async 
 	const newPassword = 'E2eSmoke!2026Reset';
 
 	try {
+		// 追加すると編集ページへ移る。再設定は見出しの⋮から開く。
 		await createUser(page, username, 'E2eSmoke!2026Test');
-		const row = userRow(page, username);
-		await clickRowMenuItem(page, row, RESET_PASSWORD_MENU_ITEM_NAME);
+		await clickHeadingMenuItem(page, RESET_PASSWORD_MENU_ITEM_NAME);
 		// ダイアログの描画を待たずに入力すると、入力値が画面の状態に反映されないことがある。
 		await waitForDialog(page);
 		await page.getByLabel(PASSWORD_LABEL).fill(newPassword);
 		await page.getByLabel(PASSWORD_CONFIRM_LABEL).fill(newPassword);
-		await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
+		// 編集ページの区画にも「保存する」があるので、ダイアログの中のものを押す。
+		await page.getByRole('dialog').getByRole('button', { name: SAVE_BUTTON_NAME }).click();
 		// 成功するとダイアログが閉じる(→ handleResetSubmit)。
 		await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: PASSWORD_HASH_TIMEOUT });
 	} finally {
 		await removeUserIfPresent(page, username);
+	}
+});
+
+// ユーザー名と権限は、行を押して開く編集ページの区画ごとに保存する (→ docs/ui.md「UI 全般」の管理画面のユーザー)。
+test('管理画面: ユーザーの編集ページで、ユーザー名と権限を区画ごとに保存できる', async ({
+	page
+}) => {
+	const username = uniqueId('e2e-edit');
+	const renamed = uniqueId('e2e-renamed');
+	const usernameForm = page.getByRole('form', { name: /^ユーザー名$|^Username$/ });
+	const roleForm = page.getByRole('form', { name: /^権限$|^Role$/ });
+
+	try {
+		await createUser(page, username, 'E2eSmoke!2026Test');
+
+		// 変えるまで保存できない。
+		const usernameSave = usernameForm.getByRole('button', { name: SAVE_BUTTON_NAME });
+		await expect(usernameSave).toBeDisabled();
+		await usernameForm.getByRole('textbox').fill(renamed);
+		await saveForm(page, {
+			button: usernameSave,
+			toastText: /「ユーザー名」を保存しました。|“Username” saved\./
+		});
+		await expect(page.getByRole('heading', { level: 1 })).toHaveText(renamed);
+
+		const roleSave = roleForm.getByRole('button', { name: SAVE_BUTTON_NAME });
+		await expect(roleSave).toBeDisabled();
+		await roleForm.getByRole('radio', { name: /^管理者$|^Admin$/ }).check();
+		await saveForm(page, {
+			button: roleSave,
+			toastText: /「権限」を保存しました。|“Role” saved\./
+		});
+
+		// 保存していない変更があるうちは、一覧へ戻ろうとすると確認が出て留まれる。
+		await usernameForm.getByRole('textbox').fill(uniqueId('書きかけ'));
+		const back = page.getByRole('link', { name: /^ユーザー$|^Users$/ }).first();
+		await back.click();
+		const confirm = page.getByRole('alertdialog', { name: LEAVE_CONFIRM_NAME });
+		await confirm.getByRole('button', { name: CANCEL_BUTTON_NAME }).click();
+		await expect(page).toHaveURL(/\/admin\/users\/\d+$/);
+		await back.click();
+		await confirm.getByRole('button', { name: DISCARD_AND_LEAVE_BUTTON_NAME }).click();
+		await page.waitForURL(/\/admin\/users$/);
+
+		// 一覧の権限は見るだけ。行の真ん中を押すと編集ページが開く (リンクの押せる範囲を行いっぱいに広げてある)。
+		const row = userRow(page, renamed);
+		await expect(row).toContainText(/管理者|Admin/);
+		await expect(row.getByRole('combobox')).toHaveCount(0);
+		await row.click();
+		await page.waitForURL(/\/admin\/users\/\d+$/);
+		await expect(page.getByRole('heading', { level: 1 })).toHaveText(renamed);
+
+		// 見出しの⋮から消すと、一覧へ戻る。
+		await clickHeadingMenuItem(page, DELETE_MENU_ITEM_NAME);
+		await confirmDelete(page);
+		await page.waitForURL(/\/admin\/users$/);
+		await expect(userRow(page, renamed)).toHaveCount(0);
+	} finally {
+		await removeUserIfPresent(page, username);
+		await removeUserIfPresent(page, renamed);
 	}
 });
 
@@ -372,18 +410,20 @@ test('管理画面: サーバーの設定は、既定から変えると印が付
 	const res = await page.request.get('/api/v1/admin/server-settings');
 	const { saved, defaults } = (await res.json()) as Record<
 		'saved' | 'defaults',
-		{ uploadMaxSizeMb: number }
+		{ sessionExpiryDays: number }
 	>;
 	// 既定の値とも保存した値とも違う値にする。
 	const changed = [1, 2]
-		.map((n) => defaults.uploadMaxSizeMb + n)
-		.find((n) => n !== saved.uploadMaxSizeMb)!;
+		.map((n) => defaults.sessionExpiryDays + n)
+		.find((n) => n !== saved.sessionExpiryDays)!;
 
 	await page.goto('/admin/settings');
 	const form = page.getByRole('form', { name: /^サーバー$|^Server$/ });
-	const input = form.getByRole('textbox', { name: /^アップロード上限|^Upload limit/ });
+	const input = form.getByRole('textbox', {
+		name: /^ログインを維持する期間|^Stay signed in for/
+	});
 	const reset = form.getByRole('button', {
-		name: /^既定値に戻す: アップロード上限$|^Reset to default: Upload limit$/
+		name: /^既定値に戻す: ログインを維持する期間$|^Reset to default: Stay signed in for$/
 	});
 
 	await input.fill(String(changed));
@@ -393,7 +433,7 @@ test('管理画面: サーバーの設定は、既定から変えると印が付
 	).toBeVisible();
 
 	await reset.click();
-	await expect(input).toHaveValue(String(defaults.uploadMaxSizeMb));
+	await expect(input).toHaveValue(String(defaults.sessionExpiryDays));
 	await expect(reset).toBeHidden();
 	// 押したボタンは消えるので、フォーカスは戻した入力欄へ移る。
 	await expect(input).toBeFocused();

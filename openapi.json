@@ -248,7 +248,7 @@
             }
           },
           "422": {
-            "description": "パスが存在しない・ディレクトリでない・公開できるフォルダーの外",
+            "description": "パスが存在しない・ディレクトリでない・共有の外",
             "content": {
               "application/json": {
                 "schema": {
@@ -268,7 +268,7 @@
           {
             "name": "path",
             "in": "query",
-            "description": "一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「公開できるフォルダー」の一覧。",
+            "description": "一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「共有」の一覧。",
             "required": false,
             "schema": {
               "type": "string"
@@ -297,7 +297,7 @@
             }
           },
           "422": {
-            "description": "パスが存在しない・ディレクトリでない・公開できるフォルダーの外",
+            "description": "パスが存在しない・ディレクトリでない・共有の外",
             "content": {
               "application/json": {
                 "schema": {
@@ -727,6 +727,175 @@
         }
       }
     },
+    "/api/v1/admin/roots/{id}/access": {
+      "put": {
+        "summary": "共有の中で一般ユーザーができることを変える (→ `api::shares`)。管理者は常にすべての操作ができるので、\n管理者の例外を送っても効かない。",
+        "operationId": "update_root_access",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRootAccessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "権限を変えた共有",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RootResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "存在しない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "存在しないユーザーを含む",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/roots/{id}/path": {
+      "put": {
+        "summary": "共有の場所を、窓で選び直したフォルダーに付け替える (→ docs/shares.md「共有の場所の選び直し」)。",
+        "description": "フォルダーを別のディスクへ移した・ドライブの文字が変わったときに、共有を消して登録し直さずに済むようにする。\n権限と名前は共有の id に付いているので、そのまま残る。中のフォルダーのコンテンツの登録先は、\n新しい場所の同じ相対パスへ付け替える。\n\n今と同じフォルダーを選んだときは何も付け替えず、書き込みの許可だけを取り直す。macOS のサンドボックスでは、\n許可は利用者が窓で選んだときにしか増やせないため (`RootResponse::writable` が偽の共有)。",
+        "operationId": "move_root",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveRootRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "場所を付け替えた共有",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RootResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "サーバーのPC以外からの要求か、共有が無い",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "パスが存在しない・ディレクトリでない・weblav 自身の置き場の中・ほかの共有と同じ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "選んだ場所につながらない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/server-settings": {
       "get": {
         "operationId": "get_server_settings",
@@ -828,6 +997,72 @@
           },
           "422": {
             "description": "範囲の外の値",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/share-operations": {
+      "get": {
+        "summary": "共有の中のファイルを書き換えた操作の記録。新しい順。",
+        "operationId": "list_share_operations",
+        "parameters": [
+          {
+            "name": "before",
+            "in": "query",
+            "description": "これより前 (id が小さい) の記録を返す。前の応答の `nextBefore` を渡す。省略すると新しいものから。",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "返す件数。既定 100、上限 1000。",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "操作の記録",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareOperationsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外",
             "content": {
               "application/json": {
                 "schema": {
@@ -1376,7 +1611,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
+                  "$ref": "#/components/schemas/MeResponse"
                 }
               }
             }
@@ -1739,6 +1974,37 @@
         }
       }
     },
+    "/api/v1/contents/hidden": {
+      "get": {
+        "summary": "非表示のコンテンツの一覧。`admin` には全部、ほかの人には自分が作成者のものだけを返す。\n自分が非表示にしたものを、閲覧の場から消えた後に探して戻せるようにするため。新しく非表示にした順。",
+        "operationId": "list_hidden_contents",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HiddenContentResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contents/link-metadata": {
       "post": {
         "summary": "リンクのタイトル・説明を URL から取り直す。作成・編集どちらのフォームからも使う\n(→ `src/api/link_title.rs`)。ログイン済みなら誰でも呼べる (コンテンツの作成・更新権限は\n問わない。取得するだけで何も書き込まないため)。",
@@ -1766,64 +2032,6 @@
           },
           "401": {
             "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/contents/upload": {
-      "post": {
-        "summary": "ファイルコンテンツを新規作成する(multipart)。`file`は必須、`title`/`description`は省略可\n(`title`を省くとファイル名から付ける)。",
-        "operationId": "upload_content",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/UploadContentRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminContentResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Payload Too Large",
             "content": {
               "application/json": {
                 "schema": {
@@ -4609,9 +4817,78 @@
         }
       }
     },
+    "/api/v1/contents/{id}/unhide": {
+      "post": {
+        "summary": "非表示のコンテンツを、非表示にする前の公開範囲に戻す。覚えていなければ (この仕組みより前に非表示に\nしたもの) `authenticated` に戻す。前が他人の `private` なら、作成者でない人は戻せない (403)。\n非表示でないものはそのままの公開範囲を返す (二度押しを失敗にしないため)。",
+        "operationId": "unhide_content",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnhideResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "作成者・admin以外か、前が他人の作成者のみ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "存在しないか、他人の作成者のみ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "作成者のみのグループの決まりに合わない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contents/{id}/upload": {
       "put": {
-        "summary": "ファイルコンテンツを更新する(multipart)。`file`を指定した場合のみ実体を差し替える\n(指定しなければ既存のblobを維持する)。`type = 'file'` 以外のidに対しては422にする\n(link/folderの更新は既存の`PUT /contents/{id}`(JSON)を使う)。",
+        "summary": "ファイルコンテンツの題・説明・親・公開範囲を更新する(multipart)。ファイルの差し替えはしない\n(`file` を送ると422)。ファイルは共有の中に置いて扱う (→ `api::shares`)。この口が multipart のままなのは、\n前からある画面と送り方を変えないため。`type = 'file'` 以外のidに対しては422にする\n(link/folderの更新は既存の`PUT /contents/{id}`(JSON)を使う)。",
         "operationId": "replace_content_upload",
         "parameters": [
           {
@@ -4675,8 +4952,70 @@
               }
             }
           },
-          "413": {
-            "description": "Payload Too Large",
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/{id}/visibility": {
+      "put": {
+        "summary": "公開範囲だけを変える。ホームなどの一覧の行から、編集画面を開かずに変えるため。\n変えてよいかの判定は編集 (`update_content`) と同じ。",
+        "operationId": "set_visibility",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetVisibilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "作成者・admin以外か、他人の作成者のみにかかわる変更",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "存在しないか、他人の作成者のみ",
             "content": {
               "application/json": {
                 "schema": {
@@ -4686,7 +5025,7 @@
             }
           },
           "422": {
-            "description": "Unprocessable Entity",
+            "description": "作成者のみのグループの決まりに合わない",
             "content": {
               "application/json": {
                 "schema": {
@@ -5243,6 +5582,1080 @@
         }
       }
     },
+    "/api/v1/shares": {
+      "get": {
+        "summary": "見える共有の一覧。名前の順。",
+        "description": "つながらない NAS の共有も出す (開いたときに、つながらないと伝える)。ファイルシステムには触らず、\n登録したパスの文字列で入れ子を判定する (→ `roots::contains`)。",
+        "operationId": "list_shares",
+        "responses": {
+          "200": {
+            "description": "見える共有の一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShareResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/jobs": {
+      "get": {
+        "summary": "自分のコピー・移動・削除の処理。走っているものと、終わってから少しの間のもの。",
+        "operationId": "list_jobs",
+        "responses": {
+          "200": {
+            "description": "処理の一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShareJobResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/jobs/{id}": {
+      "get": {
+        "summary": "処理の進み具合。",
+        "operationId": "get_job",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "進み具合",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareJobResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "無い (ほかの人の処理、終わってから時間がたったもの)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "処理を中止する。済んだ分はそのまま残り、途中のファイル (写しかけ) は残さない。上書きの途中なら、今あるものも残る。\n終わっていれば何もしない。",
+        "operationId": "cancel_job",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "中止を頼んだ"
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "無い",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/transfer": {
+      "post": {
+        "summary": "コピー・移動を始める。進み具合は `GET /shares/jobs/{id}` で読む。",
+        "description": "置き先の同じ名前は `onConflict` で扱う。上書きは、新しいものを用意できてから、今あるものをごみ箱へ送って置く\n(ごみ箱を使えない場所では完全に消す)。同じフォルダーの中へのコピーは、番号を付けた名前で写す。",
+        "operationId": "start_transfer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "始めた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStartedResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "元か置き先で、この操作ができない (上書きには置き先で「すべて」が要る)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・ファイル・置き先が無い、見られない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "フォルダーをそれ自身の中へ (`transferIntoItself`)・共有そのものや共有を含むもの (`entryProtected`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "507": {
+            "description": "置き先の空きが足りない (コピー)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/transfer/check": {
+      "post": {
+        "summary": "コピー・移動を始める前の確かめ。置き先の同じ名前・大きさ・空きと、上書きで響くコンテンツを返す。何も変えない。",
+        "operationId": "check_transfer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "始める前の確かめ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferCheckResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "元か置き先で、この操作ができない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・ファイル・置き先が無い、見られない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "フォルダーをそれ自身の中へ (`transferIntoItself`)・共有そのもの (`entryProtected`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/browse": {
+      "get": {
+        "summary": "共有の中の一覧。",
+        "operationId": "browse_share",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "共有からの相対パス。区切りは `/`。省略時 (空文字列) は共有そのもの。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "並び順。`title` (既定、タイトル順) か `new` (新しい順)。知らない値は既定として扱う。",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "共有の中の一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareBrowseResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・場所が無い、見られない、フォルダーでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "共有のある NAS やディスクにつながらない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/delete": {
+      "post": {
+        "summary": "消し始める。進み具合は `GET /shares/jobs/{id}` で読む。",
+        "operationId": "start_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "始めた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStartedResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "この場所で消せない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・ファイルが無い、見られない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ごみ箱を使えない場所 (`trash_unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "共有そのものや共有を含むもの (`entryProtected`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/delete/check": {
+      "post": {
+        "summary": "消す前の確かめ。ごみ箱へ送れるかと、消すと開けなくなるコンテンツを返す。何も変えない。",
+        "operationId": "check_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "消す前の確かめ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteCheckResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "この場所で消せない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・ファイルが無い、見られない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "共有そのものや共有を含むもの (`entryProtected`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/dirs": {
+      "get": {
+        "summary": "共有の中のフォルダーだけの一覧。移動・コピーの先を選ぶのに使う。",
+        "operationId": "list_share_dirs",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "共有からの相対パス。区切りは `/`。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "フォルダーの一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareDirsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・場所が無い、見られない、フォルダーでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/download": {
+      "get": {
+        "summary": "共有の中のファイルのダウンロード。ブラウザーが直接開く。",
+        "operationId": "download_share_file",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "共有からの相対パス。区切りは `/`。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・ファイルが無い、見られない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/folders": {
+      "post": {
+        "summary": "共有の中に新しいフォルダーを作る。",
+        "operationId": "create_share_folder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShareFolderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "作った",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharePathResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "この場所に足せない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・フォルダーが無い、見られない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "共有に書き込めない (`share_read_only`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "名前が使えない (`entryNameInvalid`)・同じ名前がある (`entryNameTaken`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/list-on-home": {
+      "post": {
+        "summary": "共有の中のフォルダーを、フォルダーのコンテンツとしてホームに載せる。タイトルはフォルダー名から付ける。\n見られる場所なら載せられる (コンテンツの作成と同じ)。そのフォルダーを自分で戻せる非表示のコンテンツがあれば、\n新しく作らずにそれを戻す (→ docs/shares.md「ホームに載せる」)。",
+        "operationId": "list_on_home",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListOnHomeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "載せた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminContentResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・フォルダーが無い、見られない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "フォルダーでない、公開範囲が合わない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/rename": {
+      "post": {
+        "summary": "共有の中のファイル・フォルダーの名前を変える。大文字・小文字だけの変更もできる。\n共有そのものと、中に別の共有を含むフォルダーは変えられない。",
+        "operationId": "rename_share_entry",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameShareEntryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "名前を変えた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharePathResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "この場所で名前を変えられない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・ファイルが無い、見られない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "共有に書き込めない・ほかのアプリが開いている",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "名前が使えない・同じ名前がある・共有そのもの (`entryProtected`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/thumbnail": {
+      "get": {
+        "summary": "共有の中の画像の縮小画像 (→ docs/ui.md「画像のプレビュー」)。",
+        "operationId": "share_thumbnail",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "共有からの相対パス。区切りは `/`。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "縮小画像 (JPEG か PNG)"
+          },
+          "304": {
+            "description": "ETag が一致した"
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "見られない・存在しない、またはプレビューしない画像",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/upload": {
+      "post": {
+        "summary": "共有の中のフォルダーにファイルを置く。同じ名前があれば、番号を付けた名前で置く (上書きしない)。",
+        "description": "中身が画像なのに拡張子が合っていなければ直す (→ `fsops::fixed_extension`)。\nいくつか送って途中で失敗したら、それまでに置いたものは残る (画面は1つずつ送る)。",
+        "operationId": "upload_to_share",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "置き先のフォルダーの、共有からの相対パス。省略時 (空文字列) は共有そのもの。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "置いた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "この場所に足せない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・フォルダーが無い、見られない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "共有に書き込めない (`share_read_only`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "1つのファイルが上限を超えた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "ファイルが無い、名前が使えない (`entryNameInvalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "507": {
+            "description": "置き先の空きが足りない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/site-settings": {
       "get": {
         "operationId": "get_site_settings",
@@ -5265,7 +6678,7 @@
     "schemas": {
       "AdminContentResponse": {
         "type": "object",
-        "description": "管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。\n`user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「公開できるフォルダー」の配下だけ\nなので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「公開できるフォルダー」)。",
+        "description": "管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。\n`user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「共有」の配下だけ\nなので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「共有」)。",
         "required": [
           "id",
           "type",
@@ -5369,14 +6782,14 @@
           },
           "rootDeleted": {
             "type": "boolean",
-            "description": "`root_name` の公開できるフォルダーが削除済みか。画面では名前の代わりに\n「(見つからない公開できるフォルダー)」と出す。`root_name` が `None` なら `false`。"
+            "description": "`root_name` の共有が削除済みか。画面では名前の代わりに\n「(見つからない共有)」と出す。`root_name` が `None` なら `false`。"
           },
           "rootName": {
             "type": [
               "string",
               "null"
             ],
-            "description": "`path` を含む「公開できるフォルダー」の名前。画面では起点のフルパスの代わりに出す\n(→ docs/folders.md「公開できるフォルダー」)。`path` が無いか、どの公開できるフォルダーにも含まれなければ `None`。"
+            "description": "`path` を含む「共有」の名前。画面では起点のフルパスの代わりに出す\n(→ docs/folders.md「共有」)。`path` が無いか、どの共有にも含まれなければ `None`。"
           },
           "title": {
             "type": "string"
@@ -6048,9 +7461,13 @@
               "title",
               "url",
               "private",
+              "canEdit",
               "type"
             ],
             "properties": {
+              "canEdit": {
+                "type": "boolean"
+              },
               "description": {
                 "type": [
                   "string",
@@ -6096,10 +7513,14 @@
               "id",
               "title",
               "private",
+              "canEdit",
               "listView",
               "type"
             ],
             "properties": {
+              "canEdit": {
+                "type": "boolean"
+              },
               "description": {
                 "type": [
                   "string",
@@ -6134,6 +7555,7 @@
               "id",
               "title",
               "private",
+              "canEdit",
               "fileName",
               "fileSize",
               "isText",
@@ -6141,6 +7563,9 @@
               "type"
             ],
             "properties": {
+              "canEdit": {
+                "type": "boolean"
+              },
               "description": {
                 "type": [
                   "string",
@@ -6199,9 +7624,13 @@
               "id",
               "title",
               "private",
+              "canEdit",
               "type"
             ],
             "properties": {
+              "canEdit": {
+                "type": "boolean"
+              },
               "description": {
                 "type": [
                   "string",
@@ -6227,7 +7656,7 @@
             }
           }
         ],
-        "description": "一般の閲覧者(匿名を含む)向けのレスポンス。`path`(サーバー上の絶対パス)は\n一切含めない(一般の閲覧者にファイルシステムのレイアウトを漏らさないため)。type分岐が\nフロントからも自然に扱えるよう、tagged enumにしてある。\n\n各バリアントの `private` は、公開範囲が `private` なら真。一覧に「作成者のみ」の印を出すため\n(→ docs/access.md「フロントエンドのガード反転」)。一覧に並ぶ `private` は必ず閲覧者自身のもの (`can_list`)。"
+        "description": "一般の閲覧者(匿名を含む)向けのレスポンス。`path`(サーバー上の絶対パス)は\n一切含めない(一般の閲覧者にファイルシステムのレイアウトを漏らさないため)。type分岐が\nフロントからも自然に扱えるよう、tagged enumにしてある。\n\n各バリアントの `private` は、公開範囲が `private` なら真。一覧に「作成者のみ」の印を出すため\n(→ docs/access.md「フロントエンドのガード反転」)。一覧に並ぶ `private` は必ず閲覧者自身のもの (`can_list`)。\n\n各バリアントの `can_edit` は、閲覧者がそのコンテンツを書き換えられるか (`admin` か作成者)。一覧の行から\n編集・公開範囲の変更を出すかを画面が決めるのに使う。匿名 (「閲覧者として見る」を含む) には常に偽。\n\nenum に付けた `rename_all` はバリアント名にしか効かないので、フィールドの camelCase はバリアントごとに指定する。"
       },
       "ContentType": {
         "type": "string",
@@ -6369,6 +7798,21 @@
           }
         }
       },
+      "CreateShareFolderRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "作る場所 (フォルダー) の、共有からの相対パス。空文字列は共有そのもの。"
+          }
+        }
+      },
       "CreateUserRequest": {
         "type": "object",
         "required": [
@@ -6392,6 +7836,59 @@
           },
           "username": {
             "type": "string"
+          }
+        }
+      },
+      "DeleteCheckRequest": {
+        "type": "object",
+        "required": [
+          "paths"
+        ],
+        "properties": {
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "消すものの、共有からの相対パス。"
+          }
+        }
+      },
+      "DeleteCheckResponse": {
+        "type": "object",
+        "required": [
+          "trash",
+          "listed"
+        ],
+        "properties": {
+          "listed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListedAs"
+            },
+            "description": "消すと開けなくなる、フォルダーのコンテンツ (登録先が、消すものかその中)。\n見ている人の管理画面の一覧に出ないもの (他人の「作成者のみ」) は含めない。"
+          },
+          "trash": {
+            "type": "boolean",
+            "description": "消すものをどれもごみ箱へ送れるか。偽なら、消すと元に戻せない。"
+          }
+        }
+      },
+      "DeleteRequest": {
+        "type": "object",
+        "required": [
+          "paths"
+        ],
+        "properties": {
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "permanent": {
+            "type": "boolean",
+            "description": "完全に消す。偽なら、ごみ箱へ送る (使えない場所では 409 `trash_unavailable`)。"
           }
         }
       },
@@ -6484,7 +7981,7 @@
               "string",
               "null"
             ],
-            "description": "1つ上の階層。上位の一覧では `None`。登録済みの「公開できるフォルダー」そのものからは\n空文字列 (= 上位の一覧) へ戻る。"
+            "description": "1つ上の階層。上位の一覧では `None`。登録済みの「共有」そのものからは\n空文字列 (= 上位の一覧) へ戻る。"
           },
           "path": {
             "type": "string",
@@ -6495,14 +7992,14 @@
               "string",
               "null"
             ],
-            "description": "パンくずの起点。現在位置を含む「公開できるフォルダー」。上位の一覧では `None`。\nパンくずを辿れるところから始めるために使う (→ docs/folders.md「一覧 API」)。"
+            "description": "パンくずの起点。現在位置を含む「共有」。上位の一覧では `None`。\nパンくずを辿れるところから始めるために使う (→ docs/folders.md「一覧 API」)。"
           },
           "rootName": {
             "type": [
               "string",
               "null"
             ],
-            "description": "`root` の名前。パンくずの先頭に、フルパスの代わりに出す (→ docs/folders.md「公開できるフォルダー」)。"
+            "description": "`root` の名前。パンくずの先頭に、フルパスの代わりに出す (→ docs/folders.md「共有」)。"
           },
           "selectable": {
             "type": "boolean",
@@ -6552,7 +8049,11 @@
           "internal_error",
           "conflict",
           "config_unreadable",
-          "folder_unreachable"
+          "folder_unreachable",
+          "insufficient_storage",
+          "trash_unavailable",
+          "entry_in_use",
+          "share_read_only"
         ]
       },
       "ErrorResponse": {
@@ -6648,6 +8149,17 @@
           },
           "path": {
             "type": "string"
+          },
+          "share": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FolderShare",
+                "description": "見ている場所を、共有の中の場所として見たもの (→ `api::shares`)。ログインしていて、その共有を\n見られるときだけ。画面は、ここからファイルの操作へつなぐ。"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -6731,6 +8243,39 @@
           },
           "public": {
             "type": "boolean"
+          }
+        }
+      },
+      "FolderShare": {
+        "type": "object",
+        "description": "フォルダーのコンテンツの中の場所を、共有の中の場所として見たもの。フォルダーの画面から\n共有の操作へつなぐのに使う。",
+        "required": [
+          "id",
+          "name",
+          "path",
+          "access",
+          "trash"
+        ],
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/ShareAccess",
+            "description": "この場所で、見ている人ができること。"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "共有の id。"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "共有からの相対パス。実体の綴りを `/` でつなぐ。"
+          },
+          "trash": {
+            "type": "boolean",
+            "description": "消したものを OS のごみ箱へ送れる場所か。偽なら、消すと元に戻せない。"
           }
         }
       },
@@ -6847,6 +8392,30 @@
             "type": "string"
           }
         }
+      },
+      "HiddenContentResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AdminContentResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "restoreVisibility": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Visibility",
+                    "description": "「表示に戻す」で戻る公開範囲。前が他人の `private` で、閲覧者が戻せないなら `None`。"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "description": "非表示のコンテンツの1行。管理画面の一覧と同じ形に、戻すときの公開範囲を添える。"
       },
       "ImageSize": {
         "type": "object",
@@ -7005,6 +8574,37 @@
             "description": "取り込むと置き換わる、今の軸か表示タイトルのテンプレートがあるか。"
           }
         }
+      },
+      "JobOp": {
+        "type": "string",
+        "description": "処理の種類。",
+        "enum": [
+          "copy",
+          "move",
+          "delete"
+        ]
+      },
+      "JobStartedResponse": {
+        "type": "object",
+        "required": [
+          "jobId"
+        ],
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "description": "進み具合を `GET /shares/jobs/{id}` で読む。"
+          }
+        }
+      },
+      "JobState": {
+        "type": "string",
+        "description": "処理の状態。",
+        "enum": [
+          "running",
+          "succeeded",
+          "failed",
+          "cancelled"
+        ]
       },
       "LinkMetadataRequest": {
         "type": "object",
@@ -7176,6 +8776,43 @@
           "title": {
             "type": "string",
             "description": "ファイルに書かれた `title`。省かれているか読めなければファイル名。"
+          }
+        }
+      },
+      "ListOnHomeRequest": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "載せるフォルダーの、共有からの相対パス。空文字列は共有そのもの。"
+          },
+          "visibility": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Visibility",
+                "description": "公開範囲。省略時は既定値。"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ListedAs": {
+        "type": "object",
+        "description": "その場所をフォルダーとして載せているコンテンツ (→ docs/ui.md「掲載中」)。",
+        "required": [
+          "contentId",
+          "title"
+        ],
+        "properties": {
+          "contentId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
           }
         }
       },
@@ -7379,6 +9016,58 @@
           }
         }
       },
+      "MeResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UserResponse"
+          },
+          {
+            "type": "object",
+            "required": [
+              "hiddenContentCount"
+            ],
+            "properties": {
+              "hiddenContentCount": {
+                "type": "integer",
+                "format": "int64",
+                "description": "非表示のコンテンツの一覧 (`GET /contents/hidden`) に並ぶ件数。ユーザーメニューに出す。"
+              }
+            }
+          }
+        ],
+        "description": "ログイン中の利用者。ほかの応答の `UserResponse` に、画面の出し分けに使う件数を添える。"
+      },
+      "MoveRootRequest": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "新しい場所の絶対パス。フォルダー選択の窓 (`/admin/roots/pick`) が返す値をそのまま渡す。"
+          }
+        }
+      },
+      "OnConflict": {
+        "type": "string",
+        "description": "置き先に同じ名前があるときの扱い。",
+        "enum": [
+          "overwrite",
+          "rename",
+          "skip"
+        ]
+      },
+      "OpResult": {
+        "type": "string",
+        "description": "操作の結果。",
+        "enum": [
+          "running",
+          "succeeded",
+          "failed",
+          "cancelled"
+        ]
+      },
       "PathSamplesResponse": {
         "type": "object",
         "required": [
@@ -7518,6 +9207,23 @@
           }
         }
       },
+      "RenameShareEntryRequest": {
+        "type": "object",
+        "required": [
+          "path",
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "新しい名前。"
+          },
+          "path": {
+            "type": "string",
+            "description": "名前を変えるものの、共有からの相対パス。"
+          }
+        }
+      },
       "RenameUserRequest": {
         "type": "object",
         "required": [
@@ -7545,7 +9251,7 @@
       },
       "ReplaceContentUploadRequest": {
         "type": "object",
-        "description": "utoipaのOpenAPIドキュメント用のダミー構造体(`UploadContentRequest`と同様、\n実際のリクエストは`axum::extract::Multipart`で受け取る)。`file`は差し替え時のみ\n指定する(省略時は既存のファイルを維持する)。",
+        "description": "utoipaのOpenAPIドキュメント用のダミー構造体。実際のリクエストは\n`axum::extract::Multipart` で受け取るため、この構造体自体はデシリアライズに使わない\n(`multipart/form-data`のスキーマ表現としてutoipaに渡すためだけのもの)。",
         "required": [
           "title"
         ],
@@ -7555,13 +9261,6 @@
               "string",
               "null"
             ]
-          },
-          "file": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "binary"
           },
           "parent_id": {
             "type": [
@@ -7701,13 +9400,20 @@
           "path",
           "contentCount",
           "removedContentCount",
-          "status"
+          "status",
+          "editorAccess",
+          "userAccess",
+          "writable"
         ],
         "properties": {
           "contentCount": {
             "type": "integer",
             "description": "このフォルダーの中にある登録済みコンテンツの数。",
             "minimum": 0
+          },
+          "editorAccess": {
+            "$ref": "#/components/schemas/ShareAccess",
+            "description": "一般ユーザーがこの中でできることの既定 (→ `api::shares`)。"
           },
           "id": {
             "type": "integer",
@@ -7723,23 +9429,55 @@
           },
           "removedContentCount": {
             "type": "integer",
-            "description": "このフォルダーを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「公開できるフォルダー」)。\n登録中のほかの公開できるフォルダーにも含まれるもの (入れ子) は数えない。",
+            "description": "このフォルダーを外すと見られなくなるコンテンツの数。削除の確認に出す (→ docs/folders.md「共有」)。\n登録中のほかの共有にも含まれるもの (入れ子) は数えない。",
             "minimum": 0
           },
           "status": {
             "$ref": "#/components/schemas/RootStatus",
             "description": "今読めるか。一覧でだけ確かめ、登録の応答は読めたものなので `ready`。"
+          },
+          "userAccess": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RootUserAccess"
+            },
+            "description": "ユーザーごとの例外。ユーザー名の順。"
+          },
+          "writable": {
+            "type": "boolean",
+            "description": "中を書き換えられる許可があるか。macOS のサンドボックスで、読むだけの許可のまま登録した共有は偽。\n偽なら、この PC で窓から同じフォルダーを選び直してもらう (`PUT /admin/roots/{id}/path`)。"
           }
         }
       },
       "RootStatus": {
         "type": "string",
-        "description": "公開できるフォルダーの今の様子 (→ `folder_reach::Reach`)。",
+        "description": "共有の今の様子 (→ `folder_reach::Reach`)。",
         "enum": [
           "ready",
           "missing",
           "unreachable"
         ]
+      },
+      "RootUserAccess": {
+        "type": "object",
+        "description": "共有の、ユーザーごとの例外の1件。",
+        "required": [
+          "userId",
+          "username",
+          "access"
+        ],
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/ShareAccess"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
       },
       "SearchContentHit": {
         "type": "object",
@@ -7946,7 +9684,6 @@
         "description": "管理画面で変えられる設定。",
         "required": [
           "port",
-          "uploadMaxSizeMb",
           "sessionExpiryDays"
         ],
         "properties": {
@@ -7959,12 +9696,15 @@
           "sessionExpiryDays": {
             "type": "integer",
             "format": "int64",
-            "description": "最後に使ってから、ログインが切れるまでの日数。"
+            "description": "最後に使ってから、ログインが切れるまでの日数。0 なら期限なし。"
           },
           "uploadMaxSizeMb": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int64",
-            "description": "ファイルのアップロード1件あたりの上限 (MiB)。",
+            "description": "共有へのファイルのアップロード1件あたりの上限 (MiB)。`None` なら上限なし。",
             "minimum": 0
           }
         }
@@ -8031,6 +9771,17 @@
           }
         }
       },
+      "SetVisibilityRequest": {
+        "type": "object",
+        "required": [
+          "visibility"
+        ],
+        "properties": {
+          "visibility": {
+            "$ref": "#/components/schemas/Visibility"
+          }
+        }
+      },
       "SetupRestoreRequest": {
         "type": "object",
         "required": [
@@ -8044,6 +9795,419 @@
           },
           "token": {
             "type": "string"
+          }
+        }
+      },
+      "ShareAccess": {
+        "type": "string",
+        "description": "共有の中でできること。弱い順に並べ、`Ord` で比べる (入れ子では強い方を採る)。",
+        "enum": [
+          "none",
+          "read",
+          "add",
+          "all"
+        ]
+      },
+      "ShareBrowseResponse": {
+        "type": "object",
+        "required": [
+          "share",
+          "access",
+          "path",
+          "entries",
+          "canListOnHome",
+          "trash"
+        ],
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/ShareAccess",
+            "description": "この場所でできること。"
+          },
+          "canListOnHome": {
+            "type": "boolean",
+            "description": "この場所をホームに載せられるか (まだ載せていない)。"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShareEntry"
+            }
+          },
+          "listedAs": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ListedAs",
+                "description": "この場所を載せているコンテンツ。"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "path": {
+            "type": "string",
+            "description": "共有からの相対パス。実体の綴りを `/` でつなぐ。共有そのものなら空。"
+          },
+          "share": {
+            "$ref": "#/components/schemas/ShareRef"
+          },
+          "trash": {
+            "type": "boolean",
+            "description": "消したものを OS のごみ箱へ送れる場所か。偽なら、消すと元に戻せない。"
+          },
+          "uploadMaxBytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "アップロードできる1ファイルの大きさの上限 (バイト)。上限が無ければ `None`。",
+            "minimum": 0
+          }
+        }
+      },
+      "ShareDirEntry": {
+        "type": "object",
+        "description": "フォルダーの選択に出す1行。",
+        "required": [
+          "name",
+          "path"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "共有からの相対パス。次の階層を開くときにそのまま `path` に渡す。"
+          }
+        }
+      },
+      "ShareDirsResponse": {
+        "type": "object",
+        "required": [
+          "share",
+          "path",
+          "access",
+          "entries"
+        ],
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/ShareAccess",
+            "description": "この場所でできること。移動・コピーの先には `add` 以上が要る。"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShareDirEntry"
+            }
+          },
+          "parent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "1つ上の階層。共有そのものでは `None`。"
+          },
+          "path": {
+            "type": "string",
+            "description": "共有からの相対パス。共有そのものなら空。"
+          },
+          "share": {
+            "$ref": "#/components/schemas/ShareRef"
+          }
+        }
+      },
+      "ShareEntry": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FolderEntry"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "listedAs": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ListedAs",
+                    "description": "このフォルダーを載せているコンテンツ。ファイルと、載せていないフォルダーでは `None`。"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "description": "共有の中の1行。フォルダーの中の行と同じ形に、載せているコンテンツを添える。"
+      },
+      "ShareJobResponse": {
+        "type": "object",
+        "description": "処理の進み具合。",
+        "required": [
+          "id",
+          "op",
+          "state",
+          "doneItems",
+          "totalItems",
+          "doneBytes",
+          "totalBytes",
+          "skipped"
+        ],
+        "properties": {
+          "doneBytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "写し終えたバイト数。移動と削除では、済んだものの大きさ。",
+            "minimum": 0
+          },
+          "doneItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "済んだファイル・フォルダーの数。削除では、選んだもののうち消し終えた数。",
+            "minimum": 0
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ErrorCode",
+                "description": "失敗したときの API のエラーの code。"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "op": {
+            "$ref": "#/components/schemas/JobOp"
+          },
+          "skipped": {
+            "type": "integer",
+            "format": "int64",
+            "description": "置き先に同じ名前があって飛ばした数。",
+            "minimum": 0
+          },
+          "state": {
+            "$ref": "#/components/schemas/JobState"
+          },
+          "totalBytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "扱うファイルの大きさの合計。削除では 0 (数えない)。",
+            "minimum": 0
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "扱うファイル・フォルダーの数 (中のものも数える)。削除では、選んだものの数。",
+            "minimum": 0
+          }
+        }
+      },
+      "ShareOp": {
+        "type": "string",
+        "description": "操作の種類。",
+        "enum": [
+          "upload",
+          "mkdir",
+          "rename",
+          "move",
+          "copy",
+          "delete",
+          "list_on_home"
+        ]
+      },
+      "ShareOperationResponse": {
+        "type": "object",
+        "description": "記録の1行。",
+        "required": [
+          "id",
+          "at",
+          "username",
+          "op",
+          "shareId",
+          "shareName",
+          "paths",
+          "result"
+        ],
+        "properties": {
+          "at": {
+            "type": "string",
+            "description": "操作した時刻 (UTC、ISO 8601)。"
+          },
+          "byteCount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "実際に置いたファイルの大きさの合計 (バイト)。"
+          },
+          "destPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "destShareId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "移動・コピーの置き先のフォルダー、名前の変更の後の場所。"
+          },
+          "destShareName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "失敗したときの API のエラーの code。"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "itemCount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "実際に置いた・消したファイル・フォルダーの数。飛ばしたもの、中止で置かなかったもの、失敗した1つ\n(別のディスクへの移動で、置けたが元を消せなかったものを含む) は数えない。\n終わるまで分からないものは `None`。"
+          },
+          "op": {
+            "$ref": "#/components/schemas/ShareOp"
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "扱った場所の、共有からの相対パス。"
+          },
+          "result": {
+            "$ref": "#/components/schemas/OpResult"
+          },
+          "shareId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "shareName": {
+            "type": "string",
+            "description": "そのときの共有の名前。"
+          },
+          "userId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "操作したユーザー。消したユーザーでも残る (`username` はそのときの名前)。"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "ShareOperationsResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShareOperationResponse"
+            },
+            "description": "新しい順。"
+          },
+          "nextBefore": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "続きがあれば、次に `before` へ渡す値。"
+          }
+        }
+      },
+      "SharePathResponse": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "作った・名前を変えた後の場所の、共有からの相対パス。"
+          }
+        }
+      },
+      "ShareRef": {
+        "type": "object",
+        "description": "共有を指す最小限の情報。",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "ShareResponse": {
+        "type": "object",
+        "description": "ログインしたユーザーに見える共有の1件。",
+        "required": [
+          "id",
+          "name",
+          "access"
+        ],
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/ShareAccess",
+            "description": "このユーザーが、この共有のいちばん上でできること。`none` のものは一覧に出さない。"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "ShareUploadRequest": {
+        "type": "object",
+        "description": "OpenAPI のための形。実際は `Multipart` で受け取る。",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "binary"
+            },
+            "description": "置くファイル。いくつでも並べられる。"
           }
         }
       },
@@ -8098,6 +10262,165 @@
           "id": {
             "type": "string",
             "description": "戻すときに指す id。"
+          }
+        }
+      },
+      "TransferCheckRequest": {
+        "type": "object",
+        "required": [
+          "op",
+          "from",
+          "to"
+        ],
+        "properties": {
+          "from": {
+            "$ref": "#/components/schemas/TransferFrom"
+          },
+          "op": {
+            "$ref": "#/components/schemas/TransferOp"
+          },
+          "to": {
+            "$ref": "#/components/schemas/TransferTo"
+          }
+        }
+      },
+      "TransferCheckResponse": {
+        "type": "object",
+        "required": [
+          "conflicts",
+          "totalBytes",
+          "availableBytes",
+          "trash",
+          "listed"
+        ],
+        "properties": {
+          "availableBytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "置き先のディスクの空き。",
+            "minimum": 0
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransferConflict"
+            },
+            "description": "置き先に同じ名前があるもの。同じフォルダーの中へのコピー (番号を付けて写す) と、\n同じフォルダーの中への移動 (何もしない) は含めない。"
+          },
+          "listed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListedAs"
+            },
+            "description": "上書きすると、中身が変わるか開けなくなるフォルダーのコンテンツ (登録先が、`conflicts` のものかその中)。\n見ている人の管理画面の一覧に出ないもの (他人の「作成者のみ」) は含めない。"
+          },
+          "totalBytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "動かす・写すファイルの大きさの合計。",
+            "minimum": 0
+          },
+          "trash": {
+            "type": "boolean",
+            "description": "上書きで消える置き先のものを、OS のごみ箱へ送れるか。偽なら、上書きすると元に戻せない。"
+          }
+        }
+      },
+      "TransferConflict": {
+        "type": "object",
+        "description": "置き先に既にある同じ名前のもの。",
+        "required": [
+          "name",
+          "isDir"
+        ],
+        "properties": {
+          "isDir": {
+            "type": "boolean",
+            "description": "置き先にあるものがフォルダーか。"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "TransferFrom": {
+        "type": "object",
+        "description": "動かす・写すもの。どれも同じ共有の中。",
+        "required": [
+          "shareId",
+          "paths"
+        ],
+        "properties": {
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "共有からの相対パス。"
+          },
+          "shareId": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "TransferOp": {
+        "type": "string",
+        "description": "コピーか移動か。",
+        "enum": [
+          "copy",
+          "move"
+        ]
+      },
+      "TransferRequest": {
+        "type": "object",
+        "required": [
+          "op",
+          "from",
+          "to",
+          "onConflict"
+        ],
+        "properties": {
+          "from": {
+            "$ref": "#/components/schemas/TransferFrom"
+          },
+          "onConflict": {
+            "$ref": "#/components/schemas/OnConflict"
+          },
+          "op": {
+            "$ref": "#/components/schemas/TransferOp"
+          },
+          "to": {
+            "$ref": "#/components/schemas/TransferTo"
+          }
+        }
+      },
+      "TransferTo": {
+        "type": "object",
+        "description": "置き先のフォルダー。",
+        "required": [
+          "shareId"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "共有からの相対パス。空文字列は共有そのもの。"
+          },
+          "shareId": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "UnhideResponse": {
+        "type": "object",
+        "required": [
+          "visibility"
+        ],
+        "properties": {
+          "visibility": {
+            "$ref": "#/components/schemas/Visibility",
+            "description": "戻した後の公開範囲。"
           }
         }
       },
@@ -8210,6 +10533,26 @@
           }
         }
       },
+      "UpdateRootAccessRequest": {
+        "type": "object",
+        "required": [
+          "editorAccess",
+          "users"
+        ],
+        "properties": {
+          "editorAccess": {
+            "$ref": "#/components/schemas/ShareAccess",
+            "description": "一般ユーザーの既定。"
+          },
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserAccessRequest"
+            },
+            "description": "ユーザーごとの例外。ここに無いユーザーの例外は消す (送った内容で置き換える)。"
+          }
+        }
+      },
       "UpdateSiteSettingsRequest": {
         "type": "object",
         "required": [
@@ -8225,48 +10568,57 @@
           }
         }
       },
-      "UploadContentRequest": {
+      "UploadResponse": {
         "type": "object",
-        "description": "utoipaのOpenAPIドキュメント用のダミー構造体。実際のリクエストは\n`axum::extract::Multipart` で受け取るため、この構造体自体はデシリアライズに使わない\n(`multipart/form-data`のスキーマ表現としてutoipaに渡すためだけのもの)。",
         "required": [
-          "file"
+          "files"
         ],
         "properties": {
-          "description": {
-            "type": [
-              "string",
-              "null"
-            ]
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UploadedFile"
+            },
+            "description": "送った順。"
+          }
+        }
+      },
+      "UploadedFile": {
+        "type": "object",
+        "description": "置いたファイル。",
+        "required": [
+          "name",
+          "renamed",
+          "extensionFixed"
+        ],
+        "properties": {
+          "extensionFixed": {
+            "type": "boolean",
+            "description": "中身が画像なのに拡張子が合っていなかったので、直した。"
           },
-          "file": {
+          "name": {
             "type": "string",
-            "format": "binary"
+            "description": "置いた名前。"
           },
-          "parent_id": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64",
-            "description": "親グループのid。省略/空ならルート直下に作成する。"
+          "renamed": {
+            "type": "boolean",
+            "description": "同じ名前があったので、番号を付けた。"
+          }
+        }
+      },
+      "UserAccessRequest": {
+        "type": "object",
+        "required": [
+          "userId",
+          "access"
+        ],
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/ShareAccess"
           },
-          "title": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "省略・空ならファイル名 (拡張子を除く) にする。"
-          },
-          "visibility": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/Visibility",
-                "description": "公開範囲。省略/空なら既定値。"
-              },
-              {
-                "type": "null"
-              }
-            ]
+          "userId": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -8519,7 +10871,7 @@
           },
           {
             "type": "object",
-            "description": "同じ名前の「公開できるフォルダー」が既にある (→ docs/folders.md「公開できるフォルダー」)。",
+            "description": "同じ名前の「共有」が既にある (→ docs/folders.md「共有」)。",
             "required": [
               "name",
               "kind"
@@ -8538,7 +10890,7 @@
           },
           {
             "type": "object",
-            "description": "そのフォルダーは「公開できるフォルダー」に登録済み (→ docs/folders.md「公開できるフォルダー」)。",
+            "description": "そのフォルダーは「共有」に登録済み (→ docs/folders.md「共有」)。",
             "required": [
               "name",
               "kind"
@@ -8557,7 +10909,7 @@
           },
           {
             "type": "object",
-            "description": "WebLAV 自身の置き場 (設定とデータ) の中は、公開できるフォルダーにできない (→ docs/folders.md「公開できるフォルダー」)。",
+            "description": "WebLAV 自身の置き場 (設定とデータ) の中は、共有にできない (→ docs/folders.md「共有」)。",
             "required": [
               "kind"
             ],
@@ -8635,6 +10987,70 @@
               },
               "path": {
                 "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "共有の中に作るファイル・フォルダーの名前に使えない (空・`/` を含む・ドットで始まる・長すぎる・\nWindows で使えない名前など。→ `api::shares::paths::validate_name`)。",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "entryNameInvalid"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "置き先に同じ名前のファイル・フォルダーが既にある。",
+            "required": [
+              "name",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "entryNameTaken"
+                ]
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "フォルダーを、そのフォルダー自身やその中へ移動・コピーしようとした。",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "transferIntoItself"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "共有そのもの・中に別の共有や WebLAV のデータを含むものを、名前の変更・移動・削除・上書きしようとした。\n共有の登録や WebLAV 自身が、その場所を指したまま見失うため。",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "entryProtected"
+                ]
               }
             }
           }

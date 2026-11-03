@@ -1,6 +1,8 @@
 // 未ログイン状態を前提とするスモークテスト。
 // e2eプロジェクトの既定storageStateは管理者ログイン済みのため、このファイルでは
 // 空のstorageStateに上書きして未ログイン状態から始める。
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { test, expect, type Page } from '@playwright/test';
 import { ADMIN_USERNAME, ADMIN_PASSWORD } from './auth';
 import {
@@ -21,6 +23,18 @@ test.use({ storageState: EMPTY_STORAGE_STATE });
  * 表示言語の cookie。`baseURL` は playwright.config.ts が必ず入れるが、型の上では省略できるため
  * 既定のバックエンドの URL を添える。
  */
+/**
+ * マニュアルのページの題 (先頭の見出し)。文言は文書側で変わるので、原稿から引く。
+ * 開発用のビルドの backend は、マニュアルを起動後もディスクから読むので、原稿と食い違わない。
+ */
+function manualTitle(locale: 'ja' | 'en', file: string): string {
+	const source = readFileSync(
+		path.resolve(import.meta.dirname, '../../docs/manual', locale, file),
+		'utf8'
+	);
+	return source.split('\n', 1)[0].replace(/^#\s+/, '');
+}
+
 function localeCookie(name: string, value: string, baseURL: string | undefined) {
 	return { name, value, url: baseURL ?? 'http://127.0.0.1:8370' };
 }
@@ -94,8 +108,8 @@ test('マニュアル: スマートフォン幅の個別ページでは目次を
 	await expect(toc).toBeHidden();
 	await page.getByRole('button', { name: 'Contents' }).click();
 	await expect(toc).toBeVisible();
-	await toc.getByRole('link', { name: 'Add allowed folders' }).click();
-	await expect(page).toHaveURL(/\/help\/roots$/);
+	await toc.getByRole('link', { name: manualTitle('en', '04-shares.md') }).click();
+	await expect(page).toHaveURL(/\/help\/shares$/);
 	await expect(toc).toBeHidden();
 });
 
@@ -105,7 +119,7 @@ test('マニュアル: 画面の表示言語で本文が返る', async ({ page, 
 	await page.goto('/help/setup');
 	await expect(page.locator('.help-body')).toHaveAttribute('lang', 'en');
 	await expect(
-		page.locator('.help-body').getByRole('link', { name: 'Add allowed folders' })
+		page.locator('.help-body').getByRole('link', { name: manualTitle('en', '04-shares.md') })
 	).toBeVisible();
 
 	// 表示言語を日本語にすると、同じ URL のまま本文も目次も日本語になる。
@@ -114,7 +128,7 @@ test('マニュアル: 画面の表示言語で本文が返る', async ({ page, 
 	await page.goto('/help/setup');
 	await expect(page.locator('.help-body')).toHaveAttribute('lang', 'ja');
 	await expect(
-		page.locator('.help-body').getByRole('link', { name: '公開できるフォルダーを追加する' })
+		page.locator('.help-body').getByRole('link', { name: manualTitle('ja', '04-shares.md') })
 	).toBeVisible();
 });
 

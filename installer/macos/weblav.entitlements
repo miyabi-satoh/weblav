@@ -11,8 +11,8 @@
 	<!-- 起動時に自分のサーバーへ問い合わせる (トレイのセットアップ・ブラウザーで開く) など。 -->
 	<key>com.apple.security.network.client</key>
 	<true/>
-	<!-- 公開できるフォルダー。窓で選んだものを読むだけ。 -->
-	<key>com.apple.security.files.user-selected.read-only</key>
+	<!-- 共有。窓で選んだものを読み、共有の中のファイルを置く・動かす・消す (→ src/api/shares)。 -->
+	<key>com.apple.security.files.user-selected.read-write</key>
 	<true/>
 	<!-- 選んだフォルダーを次の起動でも読めるよう、ブックマークを残す (→ src/folder_access.rs)。 -->
 	<key>com.apple.security.files.bookmarks.app-scope</key>

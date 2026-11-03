@@ -65,7 +65,7 @@
 
 - Svelte 5 runes のみを使う (`$props()` / `$state()` / `$derived()` 等)。
 - **複数の画面で共有する Tailwind の class は `$lib/*.ts` に定数として置く**
-  (`list-row.ts`・`breadcrumb.ts`・`header-action.ts`・`table-columns.ts`・`viewer-button.ts`・`dialog-form.ts`)。
+  (`list-row.ts`・`breadcrumb.ts`・`header-action.ts`・`table-columns.ts`・`viewer-button.ts`・`dialog-form.ts`・`back-link.ts`)。
   同じ長い class 文字列を画面ごとに書かない。
 - **Tailwind の任意値クラス (`text-[13px]`・`h-(--x)`・`[mask-type:luminance]` など) は使わない**。
   近い標準の段階に丸める (→ docs/ui.md「UI 全般」)。
@@ -114,6 +114,7 @@
   - `media_` — 音声のプレイヤーと動画のビューアーで共有する再生の操作 (`media_play_button`)
   - `marks_` — フォルダーの中の公開・非公開 (フォルダーの表示・一覧の表示・アイテムのタブで共有する。`marks_publish_button`)
   - `schedule_` — 自動で回す処理の時刻の選択肢 (一覧の表示を使うフォルダーの自動の再スキャンで使う。`schedule_off`)
+  - `shares_` — 共有 (ホームの「共有」の区画・共有の一覧・共有の中の画面で共有する。`shares_heading`)
 - **API エラーの表示文言は `error_<code>` に統一**し、`AppError::status_and_code()` が返す `code` 文字列とそのまま対応させる。
   例: `code: "not_found"` → キー `error_not_found`。
   個々の API 呼び出し側で文言を作り分けない。

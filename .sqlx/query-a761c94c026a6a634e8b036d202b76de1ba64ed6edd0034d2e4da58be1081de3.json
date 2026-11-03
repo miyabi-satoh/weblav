@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE folder_marks SET path = ?3 || substr(path, length(?2) + 1)\n         WHERE content_id = ?1 AND (path = ?2 OR substr(path, 1, length(?4)) = ?4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "a761c94c026a6a634e8b036d202b76de1ba64ed6edd0034d2e4da58be1081de3"
+}

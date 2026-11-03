@@ -7,11 +7,11 @@ import { browseLayout } from '$lib/browse-layout.svelte';
  * 行は枠 (`browseRowClass`) の中に、タイトルを包むリンクかボタン (`browseRowPressClass`) を1つ置き、
  * その押せる範囲を枠いっぱいに広げる。2段目に置く別のボタン (検索の結果の場所) を、リンクの中に入れ子に
  * せずに重ねるため (→ docs/ui.md「UI 全般」)。
- * 行の中身は `list-row-icon.svelte` / `list-row-glyph.svelte`。タイトルのリンク (`<a>` / `<button>`) は
+ * 行の中身は `list-row-icon.svelte` / `list-row-new-tab.svelte`。タイトルのリンク (`<a>` / `<button>`) は
  * 各画面に置く。`resolve()` や `rel="external"` を eslint (svelte/no-navigation-without-resolve) が
  * 静的に見られるようにするため。
- * 管理画面「公開できるフォルダー」(`admin/roots`) は `listClass`/`listItemClass` (枠) だけを使い、
- * 行本体はクリック不可・ホバーなしの一覧なので別に持つ。
+ * 管理画面の共有 (`admin/roots`) と操作の記録は `listClass`/`listItemClass` (枠) だけを使い、行の中身は各画面に持つ。
+ * 共有の行は、コンテンツ管理の表と同じく名前のリンクの押せる範囲を行いっぱいに広げる (閲覧側の行より低く、文字も小さい)。
  */
 export const listClass = 'border-y bg-background';
 
@@ -80,10 +80,10 @@ export function browseVirtualLineStyle(perLine: number): string | undefined {
 }
 
 /**
- * タイルの右上の隅。新規タブの印と、画像を開いている間の印を置く。
+ * タイルの左上の隅。画像を開いている間の印を置く。右上の隅は ⋮ のメニュー (`rowMenuSlotClass`) が使う。
  * 枠いっぱいに広げたタイトルのリンクの上に重なるので、押したときはリンクに届かせる。
  */
-export const tileCornerClass = 'pointer-events-none absolute top-2 right-2';
+export const tileCornerClass = 'pointer-events-none absolute top-2 left-2';
 
 /**
  * タイル1枚。上に 16:9 の帯 (リンクは画像、ほかはアイコンか縮小画像)、下に左寄せの文字を置くカード (→ docs/ui.md「UI 全般」)。
@@ -126,7 +126,7 @@ export const browseRowAboveClass = 'relative z-10';
 
 /**
  * 閲覧の一覧の行の右端に置く ⋮ メニューの入れ物。行いっぱいのリンクの上に重ねる。
- * タイルでは、新規タブの印と同じ右上の隅に置く (印は出さない)。
+ * タイルでは、右上の隅に置く。行の部品の `trailing` の最後に入れ、どの行でも右端に揃える。
  */
 export function rowMenuSlotClass(): string {
 	return browseLayout.tile ? 'absolute top-1 right-1 z-10' : browseRowAboveClass;

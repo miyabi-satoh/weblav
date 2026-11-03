@@ -24,7 +24,7 @@ export function requiredLabel(...labels: string[]): RegExp {
 export const TITLE_LABEL = requiredLabel('タイトル', 'Title');
 export const USERNAME_LABEL = requiredLabel('ユーザー名', 'Username');
 export const PASSWORD_LABEL = requiredLabel('パスワード', 'Password');
-export const PASSWORD_CONFIRM_LABEL = requiredLabel('パスワード(確認)', 'Password (confirm)');
+export const PASSWORD_CONFIRM_LABEL = requiredLabel('パスワード (確認)', 'Password (confirm)');
 export const CURRENT_PASSWORD_LABEL = requiredLabel('現在のパスワード', 'Current password');
 
 /** ログイン画面の入力欄とボタン。表示言語 (ja/en) のどちらでも見つかるようにする。 */
@@ -175,19 +175,21 @@ export const REGISTER_BUTTON_NAME = /^登録する$|^Register$/;
 export const CONFIRM_SAVE_NAME = /^この設定で保存しますか？$|^Save with these settings\?$/;
 
 /** 管理画面の一覧の上にある追加ボタン。表示言語 (ja/en) のどちらでも見つかるようにする。 */
-export const CONTENT_ADD_BUTTON_NAME = /^追加\.\.\.$|^Add\.\.\.$/;
+export const CONTENT_ADD_BUTTON_NAME = /^コンテンツを追加\.\.\.$|^Add content\.\.\.$/;
 export const USER_ADD_BUTTON_NAME = /^ユーザーを追加\.\.\.$|^Add user\.\.\.$/;
-/** 公開できるフォルダーの行の⋮メニューにある「名前を変更」。 */
-export const RENAME_MENU_ITEM_NAME = /^名前を変更\.\.\.$|^Rename\.\.\.$/;
-export const ROOT_ADD_BUTTON_NAME = /^フォルダーを追加\.\.\.$|^Add a folder\.\.\.$/;
+/** 追加のダイアログの確定ボタン (ユーザーの追加)。 */
+export const ADD_SUBMIT_BUTTON_NAME = /^追加する$|^Add$/;
+export const ROOT_ADD_BUTTON_NAME = /^共有を追加\.\.\.$|^Add share\.\.\.$/;
 /** 窓が閉じるのを待つ間の追加ボタン。名前の頭にスピナーの「読み込み中」が付く。 */
 export const ROOT_ADD_BUTTON_LOADING_NAME =
-	/^読み込み中 フォルダーを追加\.\.\.$|^Loading Add a folder\.\.\.$/;
+	/^読み込み中 共有を追加\.\.\.$|^Loading Add share\.\.\.$/;
+/** 保存していない変更があるまま離れようとしたときの確認と、その確定ボタン。 */
+export const LEAVE_CONFIRM_NAME = /^変更を破棄しますか？$|^Discard changes\?$/;
+export const DISCARD_AND_LEAVE_BUTTON_NAME = /^破棄して移動する$|^Discard and leave$/;
 
 /** コンテンツの作成ダイアログで選ぶ種別のボタン。名前には説明が続くので前方一致で探す。 */
 export const CONTENT_TYPE_NAME = {
 	link: /^リンク|^Link/,
-	file: /^ファイル|^File/,
 	folder: /^フォルダー|^Folder/,
 	group: /^グループ|^Group/
 } as const;
@@ -298,6 +300,15 @@ export function userRow(page: Page, username: string): Locator {
 /** コンテンツ管理の一覧で、タイトルが `title` の行。 */
 export function contentRow(page: Page, title: string): Locator {
 	return rowByCell(page, 'content-title', title);
+}
+
+/**
+ * 編集ページの見出しの段の⋮メニューを開き、名前が `name` に一致する項目を押す。
+ * 見出しの段の⋮は、ページで最初の⋮ (一覧の行の⋮と同じ部品)。
+ */
+export async function clickHeadingMenuItem(page: Page, name: RegExp): Promise<void> {
+	await page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).first().click();
+	await page.getByRole('menu').getByRole('menuitem', { name }).click();
 }
 
 /** 行の⋮メニューを開くボタン。名前には行の名前が入る (→ docs/ui.md「UI 全般」)。 */

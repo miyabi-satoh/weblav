@@ -584,7 +584,7 @@ async fn archive_view_follows_files_added_or_removed_since_the_last_scan(pool: S
 
 /// データ置き場の祖先を指す folder でも、データ置き場の中は一覧にも配信にも出さない。
 /// 一覧に出さないもの (ドット始まり・シンボリックリンク) も、パスを知っていても配信しない
-/// (→ docs/archive.md「スキャン」・docs/folders.md「公開できるフォルダー」)。
+/// (→ docs/archive.md「スキャン」・docs/folders.md「共有」)。
 #[sqlx::test]
 async fn a_folder_never_serves_the_data_dir_or_hidden_entries(pool: SqlitePool) {
     let base = temp_test_dir("serve-hidden");
@@ -641,7 +641,7 @@ async fn a_folder_never_serves_the_data_dir_or_hidden_entries(pool: SqlitePool) 
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 }
 
-/// 自身の置き場 (設定とデータ) の祖先は「公開できるフォルダー」に登録できるが、置き場の中は登録できない。
+/// 自身の置き場 (設定とデータ) の祖先は「共有」に登録できるが、置き場の中は登録できない。
 #[sqlx::test]
 async fn a_root_may_contain_own_dirs_but_not_be_inside_them(pool: SqlitePool) {
     let base = root_dir("roots-data-ancestor");
@@ -659,6 +659,7 @@ async fn a_root_may_contain_own_dirs_but_not_be_inside_them(pool: SqlitePool) {
         },
         None,
         FolderPicker::new(|| Ok(None)),
+        weblav::api::TrashPolicy::Unavailable,
     )
     .await
     .expect("failed to build app");
@@ -699,7 +700,7 @@ async fn a_root_may_contain_own_dirs_but_not_be_inside_them(pool: SqlitePool) {
     assert_eq!(entry_names(&body), vec!["other"], "{uri}: {body}");
 }
 
-/// 「公開できるフォルダー」の外を指す既存の行は、**配信の側でも**拒む (→ docs/folders.md「公開できるフォルダー」)。
+/// 「共有」の外を指す既存の行は、**配信の側でも**拒む (→ docs/folders.md「共有」)。
 ///
 /// 登録時の検証は書き込み経路にしか掛からないので、登録を消したあとの行や、データ置き場を
 /// 移したあとの行が残りうる。ここでは「weblav 自身のデータ置き場を指す folder」をDBへ

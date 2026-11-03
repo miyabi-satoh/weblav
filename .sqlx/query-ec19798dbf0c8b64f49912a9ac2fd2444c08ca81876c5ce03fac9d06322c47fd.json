@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM folder_marks WHERE content_id = ?1 AND public = 1\n             AND (path = ?2 OR substr(path, 1, length(?3)) = ?3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "ec19798dbf0c8b64f49912a9ac2fd2444c08ca81876c5ce03fac9d06322c47fd"
+}

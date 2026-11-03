@@ -44,13 +44,13 @@ pub enum ValidationDetail {
     UsernameTaken { name: String },
     /// 最後の管理者は降格・削除できない (→ docs/access.md「admin の最後の1人」)。
     LastAdmin,
-    /// 同じ名前の「公開できるフォルダー」が既にある (→ docs/folders.md「公開できるフォルダー」)。
+    /// 同じ名前の「共有」が既にある (→ docs/folders.md「共有」)。
     #[serde(rename_all = "camelCase")]
     RootNameTaken { name: String },
-    /// そのフォルダーは「公開できるフォルダー」に登録済み (→ docs/folders.md「公開できるフォルダー」)。
+    /// そのフォルダーは「共有」に登録済み (→ docs/folders.md「共有」)。
     #[serde(rename_all = "camelCase")]
     RootAlreadyRegistered { name: String },
-    /// WebLAV 自身の置き場 (設定とデータ) の中は、公開できるフォルダーにできない (→ docs/folders.md「公開できるフォルダー」)。
+    /// WebLAV 自身の置き場 (設定とデータ) の中は、共有にできない (→ docs/folders.md「共有」)。
     RootInsideOwnDirs,
     /// 受け取ったファイルが WebLAV のバックアップではない・壊れている (→ docs/access.md「バックアップとリストア」)。
     BackupInvalid,
@@ -63,4 +63,15 @@ pub enum ValidationDetail {
     /// `path` は最初に読めなかった場所の、登録先からの相対パス。登録先そのものなら空文字。
     #[serde(rename_all = "camelCase")]
     ArchiveFolderUnreadable { path: String },
+    /// 共有の中に作るファイル・フォルダーの名前に使えない (空・`/` を含む・ドットで始まる・長すぎる・
+    /// Windows で使えない名前など。→ `api::shares::paths::validate_name`)。
+    EntryNameInvalid,
+    /// 置き先に同じ名前のファイル・フォルダーが既にある。
+    #[serde(rename_all = "camelCase")]
+    EntryNameTaken { name: String },
+    /// フォルダーを、そのフォルダー自身やその中へ移動・コピーしようとした。
+    TransferIntoItself,
+    /// 共有そのもの・中に別の共有や WebLAV のデータを含むものを、名前の変更・移動・削除・上書きしようとした。
+    /// 共有の登録や WebLAV 自身が、その場所を指したまま見失うため。
+    EntryProtected,
 }

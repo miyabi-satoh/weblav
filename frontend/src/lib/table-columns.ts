@@ -22,6 +22,14 @@ export const actionColumnClass = 'w-12 text-right';
 export const actionMenuTriggerClass =
 	'relative inline-flex size-8 items-center justify-center rounded-md text-muted-foreground after:absolute after:-left-2 after:-right-4 after:-inset-y-1.5 md:after:-right-6 hover:bg-muted hover:text-foreground';
 
+/**
+ * 行のどこを押しても編集ページへ移る表 (コンテンツ・ユーザー) の、名前のリンク。押せる範囲を ::after で行の右端まで広げ、
+ * フォーカスの枠もそこに出す。左端は画面ごとに決める (`after:left-0`。つまみのある行はつまみの下を空ける)。
+ * 行の要素に `relative transform-gpu` を付け、⋮は DOM で後ろに置いて上に重ねる (→ docs/ui.md「UI 全般」)。
+ */
+export const rowLinkClass =
+	'truncate font-medium outline-none after:absolute after:inset-y-0 after:right-0 focus-visible:after:ring-3 focus-visible:after:ring-ring/50 focus-visible:after:ring-inset';
+
 /** 短い値 (大きさ・日付・トグル) の列。中身の幅まで縮め、残りをタイトルに回す。 */
 export const fitColumnClass = 'w-px whitespace-nowrap';
 

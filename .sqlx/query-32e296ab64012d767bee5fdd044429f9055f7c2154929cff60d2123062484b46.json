@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE folder_bookmarks SET bookmark = ? WHERE path = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "32e296ab64012d767bee5fdd044429f9055f7c2154929cff60d2123062484b46"
+}

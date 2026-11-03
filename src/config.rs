@@ -245,20 +245,20 @@ pub struct SessionConfig {
     pub secret: String,
     /// セッションCookieにSecure属性を付与するか。HTTPS終端がある場合にtrueにする。
     pub secure_cookie: bool,
-    /// 最終アクセスからこの日数が経過したセッションを失効させる。1以上の値のみ許可する
-    /// (0や負数だとセッションが即座に、または作成前に失効した扱いになってしまうため)。
-    #[serde(deserialize_with = "deserialize_positive_i64")]
+    /// 最終アクセスからこの日数が経過したセッションを失効させる。0 なら期限なし (`session::layer`)。
+    /// 負数は、セッションが作成前に失効した扱いになってしまうため許可しない。
+    #[serde(deserialize_with = "deserialize_non_negative_i64")]
     pub expiry_days: i64,
 }
 
-fn deserialize_positive_i64<'de, D>(deserializer: D) -> Result<i64, D::Error>
+fn deserialize_non_negative_i64<'de, D>(deserializer: D) -> Result<i64, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     let value = i64::deserialize(deserializer)?;
-    if value <= 0 {
+    if value < 0 {
         return Err(serde::de::Error::custom(format!(
-            "expiry_days must be 1 or greater (got: {value})"
+            "expiry_days must be 0 or greater (got: {value})"
         )));
     }
     Ok(value)
@@ -285,25 +285,30 @@ impl std::fmt::Debug for SessionConfig {
     }
 }
 
-/// ファイルアップロード型コンテンツ(type='file')の設定。
-#[derive(Debug, Clone, Copy, Deserialize)]
+/// 共有へのファイルのアップロードの設定。
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct UploadConfig {
     /// 1ファイルあたりの最大サイズ(MiB)。ストリーミング中に厳密にこの値でチェックする
-    /// (multipartボディ全体に掛けるサーバー側の受付上限は、これに加えてテキストフィールド分の
-    /// 余裕を持たせた値を別途使う。`AppState::max_upload_bytes`・`contents::router`参照)。
-    pub max_size_mb: u64,
+    /// (multipartボディ全体に掛けるサーバー側の受付上限は、これに加えて区切りの分の
+    /// 余裕を持たせた値を別途使う。`AppState::max_upload_bytes`・`shares::write::router`参照)。
+    /// 既定は上限なし (`None`)。書き込むのは共有の中で、ディスクの空きは置く前に確かめるため。
+    /// 0 も上限なしと読む。管理画面が 0 を上限なしとして見せるので、手で書いたときも揃える。
+    #[serde(deserialize_with = "deserialize_zero_as_none")]
+    pub max_size_mb: Option<u64>,
 }
 
-impl Default for UploadConfig {
-    fn default() -> Self {
-        Self { max_size_mb: 100 }
-    }
+fn deserialize_zero_as_none<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(Option::<u64>::deserialize(deserializer)?.filter(|&value| value != 0))
 }
 
 impl UploadConfig {
-    pub fn max_bytes(&self) -> u64 {
-        self.max_size_mb.saturating_mul(1024 * 1024)
+    /// 1ファイルあたりの最大バイト数。上限なしなら `None`。
+    pub fn max_bytes(&self) -> Option<u64> {
+        self.max_size_mb.map(|mb| mb.saturating_mul(1024 * 1024))
     }
 }
 
@@ -360,7 +365,7 @@ mod tests {
         assert_eq!(config.session.secret, "");
         assert!(!config.session.secure_cookie);
         assert_eq!(config.session.expiry_days, 14);
-        assert_eq!(config.upload.max_size_mb, 100);
+        assert_eq!(config.upload.max_size_mb, None);
     }
 
     #[test]
@@ -437,9 +442,17 @@ mod tests {
     }
 
     #[test]
-    fn zero_expiry_days_is_rejected() {
-        let result: Result<Config, _> = toml::from_str("[session]\nexpiry_days = 0\n");
-        assert!(result.is_err());
+    fn zero_expiry_days_is_accepted_as_no_expiry() {
+        let config: Config =
+            toml::from_str("[session]\nexpiry_days = 0\n").expect("0 を読めなかった");
+        assert_eq!(config.session.expiry_days, 0);
+    }
+
+    #[test]
+    fn zero_upload_max_size_mb_means_no_limit() {
+        let config: Config =
+            toml::from_str("[upload]\nmax_size_mb = 0\n").expect("0 を読めなかった");
+        assert_eq!(config.upload.max_size_mb, None);
     }
 
     #[test]

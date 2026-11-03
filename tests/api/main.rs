@@ -13,6 +13,7 @@ use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use sqlx::SqlitePool;
 use tower::ServiceExt;
 use tower_sessions::cookie::Key;
+use weblav::api::TrashPolicy;
 use weblav::config::{AppDirs, Config, LogOutput};
 use weblav::folder_picker::FolderPicker;
 use weblav::{auth, build_app};
@@ -37,6 +38,7 @@ mod roots;
 mod search;
 mod settings;
 mod setup;
+mod shares;
 mod system;
 mod upload;
 mod users;
@@ -204,6 +206,8 @@ async fn app_with_picker(
         },
         None,
         folder_picker,
+        // 利用者のごみ箱へ送らないよう、アプリごとの置き場へ動かす。
+        TrashPolicy::Folder(dir.join("trash")),
     )
     .await
     .expect("failed to build app")
@@ -228,6 +232,41 @@ async fn test_app_with_blobs(pool: SqlitePool) -> (Router, std::path::PathBuf) {
 
 async fn test_app(pool: SqlitePool) -> Router {
     test_app_with_blobs(pool).await.0
+}
+
+/// file コンテンツを直接作り、idを返す。実体は `blobs_dir` に内容のハッシュの名前で置く (アプリと同じ形)。
+/// 画面からはもう作れない (ファイルは共有の中に置く) が、前から登録してあるものは読める・直せるので、
+/// それを確かめるテストで使う。作成者は `created_by`、公開範囲は `visibility`。
+async fn insert_file_content(
+    pool: &SqlitePool,
+    blobs_dir: &std::path::Path,
+    file: (&str, &str, &[u8]),
+    parent_id: Option<i64>,
+    visibility: &str,
+    created_by: Option<i64>,
+) -> i64 {
+    use sha2::Digest;
+    let (title, file_name, content) = file;
+    let hash: String = sha2::Sha256::digest(content)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    std::fs::create_dir_all(blobs_dir).expect("blobs_dir を作れなかった");
+    std::fs::write(blobs_dir.join(&hash), content).expect("blob を書けなかった");
+    sqlx::query_scalar(
+        "INSERT INTO contents (type, parent_id, title, visibility, blob_hash, file_name, file_size, created_by) \
+         VALUES ('file', ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+    )
+    .bind(parent_id)
+    .bind(title)
+    .bind(visibility)
+    .bind(hash)
+    .bind(file_name)
+    .bind(content.len() as i64)
+    .bind(created_by)
+    .fetch_one(pool)
+    .await
+    .expect("fileを挿入できなかった")
 }
 
 /// `blobs_dir`直下(`tmp/`を除く)にあるblobファイルの数を数える。コミット済みの
@@ -354,10 +393,6 @@ fn extract_id(body: &str) -> i64 {
         .expect("idが返らなかった")
 }
 
-async fn created_id(response: Response) -> i64 {
-    extract_id(&body_string(response).await)
-}
-
 /// クッキーのみ付けたボディ無しリクエストを送る(GET/DELETE用)。
 async fn send_empty(app: Router, method: &str, uri: &str, cookie: &str) -> (StatusCode, String) {
     send(app, build_request(method, uri, Some(cookie), None)).await
@@ -420,7 +455,7 @@ async fn setup_archive(
 /// この実行の置き場所 (`test_app_run_dir`) の下に置く。data_dir (`<連番>`) とは
 /// 別のディレクトリの下なので、その祖先にはならない。
 ///
-/// この親そのものが「公開できるフォルダー」として登録される (→ `register_content_root`)。
+/// この親そのものが「共有」として登録される (→ `register_content_root`)。
 fn temp_test_dir(name: &str) -> test_support::TempDir {
     test_support::TempDir::at(temp_test_path(name))
 }
@@ -430,24 +465,24 @@ fn temp_test_path(name: &str) -> std::path::PathBuf {
     content_root().join(format!("{name}-{:?}", std::thread::current().id()))
 }
 
-/// `temp_test_dir` の親。テストの土台として、ここを「公開できるフォルダー」に登録する。
+/// `temp_test_dir` の親。テストの土台として、ここを「共有」に登録する。
 fn content_root() -> std::path::PathBuf {
     let parent = test_app_run_dir().join("folders");
     std::fs::create_dir_all(&parent).expect("一時ディレクトリの親を作れなかった");
     parent
 }
 
-/// パスを使う操作が通るように、`temp_test_dir` の親を「公開できるフォルダー」へ入れておく
-/// (→ docs/folders.md「公開できるフォルダー」)。登録が1件も無いと、`folder`/`archive` は何も登録できない。
+/// パスを使う操作が通るように、`temp_test_dir` の親を「共有」へ入れておく
+/// (→ docs/folders.md「共有」)。登録が1件も無いと、`folder`/`archive` は何も登録できない。
 ///
-/// 「公開できるフォルダー」そのものの登録・削除を試すテストは、この外 (`temp_root_dir`) を
+/// 「共有」そのものの登録・削除を試すテストは、この外 (`temp_root_dir`) を
 /// 使う。件数や起点が、ここの登録に左右されないようにするため。
 async fn register_content_root(pool: &SqlitePool) {
     let canonical = std::fs::canonicalize(content_root()).expect("canonicalize できなかった");
     register_root(pool, &canonical).await;
 }
 
-/// 「公開できるフォルダー」へ直接入れる。登録の口はループバック限定なので、土台を
+/// 「共有」へ直接入れる。登録の口はループバック限定なので、土台を
 /// 用意するだけのテストは API を通さない。**canonicalize 済みのパスを渡すこと**。
 ///
 /// 名前はパスと同じにする。名前は重なりを拒むので、パスごとに違う値にしておく。
@@ -458,10 +493,10 @@ async fn register_root(pool: &SqlitePool, canonical: &std::path::Path) {
         .bind(&path)
         .execute(pool)
         .await
-        .expect("公開できるフォルダーを登録できなかった");
+        .expect("共有を登録できなかった");
 }
 
-/// 「公開できるフォルダー」の登録を試すテスト用の一時ディレクトリ (Drop で消える)。`temp_test_dir` とは別の親に置く。
+/// 「共有」の登録を試すテスト用の一時ディレクトリ (Drop で消える)。`temp_test_dir` とは別の親に置く。
 fn temp_root_dir(name: &str) -> test_support::TempDir {
     test_support::TempDir::at(temp_root_path(name))
 }

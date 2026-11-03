@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT name FROM roots WHERE path = ? AND deleted_at IS NULL AND id IS NOT ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "name",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a657323d459b2c1c02d772b2aae14d58e4c2eef668666ddd29c5f74dd9b15a00"
+}

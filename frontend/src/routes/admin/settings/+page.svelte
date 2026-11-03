@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { client } from '$lib/api/client';
 	import { adminBackupHref, adminLogsHref } from '$lib/api/urls';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
+	import { gotoWithoutLeaveConfirm } from '$lib/leave-confirm';
+	import { LeaveGuard } from '$lib/leave-guard.svelte';
 	import { pageTitle } from '$lib/page-title';
 	import * as m from '$lib/paraglide/messages.js';
 	import * as Field from '$lib/components/ui/field';
@@ -19,6 +20,7 @@
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import IntegerInput from '$lib/components/integer-input.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
+	import LeaveConfirmDialog from '$lib/components/leave-confirm-dialog.svelte';
 	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
 	import {
@@ -40,24 +42,54 @@
 	const MAX_SESSION_EXPIRY_DAYS = 3650;
 	// 3つの欄を、いちばん長い上限 (6 桁) と単位が収まる幅に揃える (→ docs/ui.md「見た目の決めごと」)。
 	const serverNumberWidthClass = 'w-36';
+	// 「既定値に戻す」を入力欄の右に並べる。狭い幅で収まらなければ下へ回す。
+	const serverInputRowClass = 'flex flex-wrap items-center gap-2';
 
 	// 保存後は応答の値で入れ直すので、読み込みは初回だけでよい。
 	let siteName = $state(untrack(() => data.settings.siteName));
 	let homeHeading = $state(untrack(() => data.settings.homeHeading));
+	const siteDirty = new FormDirtyState(() => ({ siteName, homeHeading }));
+	siteDirty.markPristine();
 
 	// 取れなかったとき (null) は、区画に理由だけを出して入力欄を出さない。下の 0 は使われない。
 	let server = $state(untrack(() => data.serverSettings));
 	let port = $state(untrack(() => server?.saved.port ?? 0));
+	// 上限なし (null) は欄では 0 と見せる (→ docs/ui.md「UI 全般」のサーバーの区画)。
 	let uploadMaxSizeMb = $state(untrack(() => server?.saved.uploadMaxSizeMb ?? 0));
+	// 送る値。上限なしなら null。
+	let uploadCap = $derived(uploadMaxSizeMb === 0 ? null : uploadMaxSizeMb);
 	let sessionExpiryDays = $state(untrack(() => server?.saved.sessionExpiryDays ?? 0));
 
 	// 既定の値に戻しただけでは保存されないので、保存していない変更があることを保存ボタンの横に出す。
-	const serverDirty = new FormDirtyState(() => ({ port, uploadMaxSizeMb, sessionExpiryDays }));
+	// 欄を空にしただけでは値が変わらないので、欄の文字が値と違うことも変更に数える。
+	let portInput = $state<IntegerInput>();
+	let uploadInput = $state<IntegerInput>();
+	let sessionInput = $state<IntegerInput>();
+	const serverDirty = new FormDirtyState(() => ({
+		port,
+		uploadCap,
+		sessionExpiryDays,
+		portUnsettled: portInput?.isUnsettled() ?? false,
+		uploadUnsettled: uploadInput?.isUnsettled() ?? false,
+		sessionUnsettled: sessionInput?.isUnsettled() ?? false
+	}));
+
+	function uploadCapText(value: number | null | undefined): string {
+		return value == null
+			? m.admin_settings_upload_unlimited()
+			: `${value} ${m.admin_settings_upload_unit()}`;
+	}
+
+	function sessionText(days: number): string {
+		return days === 0
+			? m.admin_settings_session_unlimited()
+			: `${days} ${m.admin_settings_session_unit({ count: days })}`;
+	}
 	serverDirty.markPristine();
 
 	// 戻すボタンは、戻すと消える。フォーカスが行き場を失わないよう、戻した入力欄へ移す。
-	function resetField(inputId: string, apply: () => void) {
-		apply();
+	function resetField(input: IntegerInput | undefined, inputId: string, value: number) {
+		input?.setValue(value);
 		document.getElementById(inputId)?.focus();
 	}
 
@@ -68,6 +100,9 @@
 	let savingServer = $state(false);
 
 	const errorDialog = new ErrorDialogState();
+
+	// 保存していない変更を、別の画面へ移って失わないようにする (コンテンツの編集ページと同じ)。
+	const leaveGuard = new LeaveGuard(() => siteDirty.dirty || serverDirty.dirty);
 
 	async function handleSiteSubmit(e: SubmitEvent) {
 		e.preventDefault();
@@ -89,6 +124,7 @@
 			// サーバーが前後の空白を落とすので、保存された値で入れ直す。
 			siteName = saved.siteName;
 			homeHeading = saved.homeHeading;
+			siteDirty.markPristine();
 			toast.success(m.admin_settings_saved_toast());
 		} catch {
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
@@ -108,13 +144,14 @@
 				error,
 				response
 			} = await client.PUT('/api/v1/admin/server-settings', {
-				body: { port, uploadMaxSizeMb, sessionExpiryDays }
+				body: { port, uploadMaxSizeMb: uploadCap, sessionExpiryDays }
 			});
 			if (!response.ok || !saved) {
 				errorDialog.show(errorMessage(error));
 				return;
 			}
 			server = saved;
+			uploadMaxSizeMb = saved.saved.uploadMaxSizeMb ?? 0;
 			serverDirty.markPristine();
 			toast.success(m.admin_settings_server_saved_toast());
 		} catch {
@@ -172,14 +209,15 @@
 	// 戻すと全員のセッションが消える。自分のも消えているので、ログインし直してもらう。
 	async function handleRestored() {
 		toast.success(m.backup_restored_toast());
-		await goto(resolve('/login'));
+		// 戻した後は書きかけの値に意味が無いので、離れるときの確認を出さない。
+		await gotoWithoutLeaveConfirm(resolve('/login'));
 	}
 </script>
 
-<svelte:head><title>{pageTitle(m.admin_settings_title())}</title></svelte:head>
+<svelte:head><title>{pageTitle(m.admin_settings_nav_title())}</title></svelte:head>
 
 <!-- 保存した値が動いている値と違う (次の起動から効く、またはポートをずらして起動した) ときに添える。 -->
-{#snippet runningValue(saved: number, running: number)}
+{#snippet runningValue(saved: number | string, running: number | string)}
 	{#if saved !== running}
 		<Field.FieldDescription
 			>{m.admin_settings_running_value({ value: running })}</Field.FieldDescription
@@ -187,25 +225,23 @@
 	{/if}
 {/snippet}
 
-<!-- 既定の値へ戻すボタン。変えてある項目にだけ出す。印や既定の値の文を足さず、ボタンが出ていることで変えてあると分かる形にする。
+<!-- 既定の値へ戻すボタン。変えてある項目 (欄を空にしたときも含む) にだけ、入力欄の右に出す。印や既定の値の文を足さず、ボタンが出ていることで変えてあると分かる形にする。
      戻すのは入力欄の値だけで、保存は区画の保存ボタンで行う。 -->
-{#snippet defaultValue(name: string, value: number, initial: number, reset: () => void)}
-	{#if value !== initial}
-		<div>
-			<Button
-				type="button"
-				variant="outline"
-				size="xs"
-				aria-label={m.admin_settings_reset_button_label({ name })}
-				onclick={reset}>{m.admin_settings_reset_button()}</Button
-			>
-		</div>
+{#snippet defaultValue(name: string, changed: boolean, reset: () => void)}
+	{#if changed}
+		<Button
+			type="button"
+			variant="outline"
+			size="xs"
+			aria-label={m.admin_settings_reset_button_label({ name })}
+			onclick={reset}>{m.admin_settings_reset_button()}</Button
+		>
 	{/if}
 {/snippet}
 
 <div class={adminPageClass}>
 	<div class={adminPageHeaderClass}>
-		<h1 class={pageHeadingTextClass}>{m.admin_settings_title()}</h1>
+		<h1 class={pageHeadingTextClass}>{m.admin_settings_nav_title()}</h1>
 	</div>
 
 	<!-- 区画はカードにし、広い幅では石垣に並べる (→ docs/ui.md「UI 全般」の「サイト設定の区画」)。
@@ -253,70 +289,87 @@
 						<Field.FieldLabel for="server-port" required
 							>{m.admin_settings_port_label()}</Field.FieldLabel
 						>
-						<IntegerInput
-							id="server-port"
-							class={serverNumberWidthClass}
-							min={1}
-							max={MAX_PORT}
-							bind:value={port}
-							required
-						/>
+						<div class={serverInputRowClass}>
+							<IntegerInput
+								id="server-port"
+								class={serverNumberWidthClass}
+								min={1}
+								max={MAX_PORT}
+								bind:value={port}
+								bind:this={portInput}
+								required
+							/>
+							{@render defaultValue(
+								m.admin_settings_port_label(),
+								port !== server.defaults.port || (portInput?.isUnsettled() ?? false),
+								() => resetField(portInput, 'server-port', server?.defaults.port ?? port)
+							)}
+						</div>
 						<Field.FieldDescription>{m.admin_settings_port_description()}</Field.FieldDescription>
-						{@render defaultValue(m.admin_settings_port_label(), port, server.defaults.port, () =>
-							resetField('server-port', () => (port = server?.defaults.port ?? port))
-						)}
 						{@render runningValue(server.saved.port, server.running.port)}
 					</Field.Field>
 					<Field.Field>
 						<Field.FieldLabel for="server-upload" required
 							>{m.admin_settings_upload_label()}</Field.FieldLabel
 						>
-						<IntegerInput
-							id="server-upload"
-							class={serverNumberWidthClass}
-							min={1}
-							max={MAX_UPLOAD_MAX_SIZE_MB}
-							unit={m.admin_settings_upload_unit()}
-							bind:value={uploadMaxSizeMb}
-							required
-						/>
-						{@render defaultValue(
-							m.admin_settings_upload_label(),
-							uploadMaxSizeMb,
-							server.defaults.uploadMaxSizeMb,
-							() =>
-								resetField(
-									'server-upload',
-									() => (uploadMaxSizeMb = server?.defaults.uploadMaxSizeMb ?? uploadMaxSizeMb)
-								)
+						<div class={serverInputRowClass}>
+							<IntegerInput
+								id="server-upload"
+								class={serverNumberWidthClass}
+								min={0}
+								max={MAX_UPLOAD_MAX_SIZE_MB}
+								unit={m.admin_settings_upload_unit()}
+								bind:value={uploadMaxSizeMb}
+								bind:this={uploadInput}
+								required
+							/>
+							{@render defaultValue(
+								m.admin_settings_upload_label(),
+								uploadCap !== (server.defaults.uploadMaxSizeMb ?? null) ||
+									(uploadInput?.isUnsettled() ?? false),
+								() =>
+									resetField(uploadInput, 'server-upload', server?.defaults.uploadMaxSizeMb ?? 0)
+							)}
+						</div>
+						<Field.FieldDescription>{m.admin_settings_upload_description()}</Field.FieldDescription>
+						{@render runningValue(
+							uploadCapText(server.saved.uploadMaxSizeMb),
+							uploadCapText(server.running.uploadMaxSizeMb)
 						)}
-						{@render runningValue(server.saved.uploadMaxSizeMb, server.running.uploadMaxSizeMb)}
 					</Field.Field>
 					<Field.Field>
 						<Field.FieldLabel for="server-session" required
 							>{m.admin_settings_session_label()}</Field.FieldLabel
 						>
-						<IntegerInput
-							id="server-session"
-							class={serverNumberWidthClass}
-							min={1}
-							max={MAX_SESSION_EXPIRY_DAYS}
-							unit={m.admin_settings_session_unit({ count: sessionExpiryDays })}
-							bind:value={sessionExpiryDays}
-							required
-						/>
-						{@render defaultValue(
-							m.admin_settings_session_label(),
-							sessionExpiryDays,
-							server.defaults.sessionExpiryDays,
-							() =>
-								resetField(
-									'server-session',
-									() =>
-										(sessionExpiryDays = server?.defaults.sessionExpiryDays ?? sessionExpiryDays)
-								)
+						<div class={serverInputRowClass}>
+							<IntegerInput
+								id="server-session"
+								class={serverNumberWidthClass}
+								min={0}
+								max={MAX_SESSION_EXPIRY_DAYS}
+								unit={m.admin_settings_session_unit({ count: sessionExpiryDays })}
+								bind:value={sessionExpiryDays}
+								bind:this={sessionInput}
+								required
+							/>
+							{@render defaultValue(
+								m.admin_settings_session_label(),
+								sessionExpiryDays !== server.defaults.sessionExpiryDays ||
+									(sessionInput?.isUnsettled() ?? false),
+								() =>
+									resetField(
+										sessionInput,
+										'server-session',
+										server?.defaults.sessionExpiryDays ?? sessionExpiryDays
+									)
+							)}
+						</div>
+						<Field.FieldDescription>{m.admin_settings_session_description()}</Field.FieldDescription
+						>
+						{@render runningValue(
+							sessionText(server.saved.sessionExpiryDays),
+							sessionText(server.running.sessionExpiryDays)
 						)}
-						{@render runningValue(server.saved.sessionExpiryDays, server.running.sessionExpiryDays)}
 					</Field.Field>
 				</Field.FieldGroup>
 				<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -399,5 +452,13 @@
 		{/if}
 	</div>
 </div>
+
+<LeaveConfirmDialog
+	guard={leaveGuard}
+	ondiscard={() => {
+		siteDirty.markPristine();
+		serverDirty.markPristine();
+	}}
+/>
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

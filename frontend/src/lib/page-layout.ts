@@ -16,7 +16,7 @@ export const pageHeadingClass = `mb-4 ${pageHeadingTextClass}`;
  * 管理画面の見出しの段 (見出しと、横に並べるボタン)。中身との間は組と組の 24px (→ docs/ui.md「UI 全般」)。
  * 中の見出しには `pageHeadingTextClass` を使う。
  */
-export const adminPageHeaderClass = 'mb-6 flex items-center justify-between';
+export const adminPageHeaderClass = 'mb-6 flex flex-wrap items-center justify-between gap-4';
 
 /**
  * 管理画面の本文の外枠。左右の余白はタブ (`nav-tabs.ts`) と揃える。
@@ -24,13 +24,26 @@ export const adminPageHeaderClass = 'mb-6 flex items-center justify-between';
 export const adminPageClass = 'p-4 md:px-6';
 
 /**
- * 管理画面の一覧の表を包む帯。公開できるフォルダーの一覧 (`listClass`) と同じく、本文の余白を越えて端から端まで
+ * 管理画面の一覧の表を包む帯。共有の一覧 (`listClass`) と同じく、本文の余白を越えて端から端まで
  * 面の色で塗り、上下に罫を引く (→ docs/ui.md「UI 全般」)。端の列の文字は本文の余白の線に揃える。
  * `adminPageClass` の中に置く。端の列の余白を変えたら、`layout.css` の `row-link-after-handle`・`row-link-before-handle` と、
  * コンテンツ管理の一覧の掴んだ行の複製の余白も合わせる。
  */
 export const adminTableBandClass =
 	'-mx-4 border-y bg-background md:-mx-6 [&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4 md:[&_td:first-child]:pl-6 md:[&_td:last-child]:pr-6 md:[&_th:first-child]:pl-6 md:[&_th:last-child]:pr-6';
+
+/**
+ * 管理画面の、行を縦に並べる一覧 (`listClass`) を包む。表の帯 (`adminTableBandClass`) と同じく、本文の余白を越えて
+ * 端から端まで置く。行の中の左右の余白は `adminListRowGutterClass` にし、文字を本文の余白の線に揃える。
+ * `adminPageClass` の中に置く。
+ */
+export const adminListBandClass = '-mx-4 md:-mx-6';
+
+/** `adminListBandClass` の中の行の左右の余白。 */
+export const adminListRowGutterClass = 'px-4 md:px-6';
+
+/** 管理画面の一覧が空のときの文言。`adminPageClass` の中に置くので、左右の余白は持たない。 */
+export const adminEmptyTextClass = 'text-sm text-muted-foreground';
 
 /** 一覧が空のときの文言。 */
 export const pageEmptyTextClass = `${browseGutterClass} text-sm text-muted-foreground`;

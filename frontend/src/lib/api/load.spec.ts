@@ -1,6 +1,7 @@
-import { isHttpError } from '@sveltejs/kit';
-import { describe, expect, it, vi } from 'vitest';
+import { isHttpError, isRedirect } from '@sveltejs/kit';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as m from '$lib/paraglide/messages.js';
+import { viewAs } from '$lib/view-as.svelte';
 import { fetchOrError } from './load';
 
 vi.mock('$app/paths', () => ({ resolve: (path: string) => path }));
@@ -33,5 +34,31 @@ describe('fetchOrError', () => {
 		const e = await thrown(fetchOrError(respond(500), 'failed'));
 		expect(isHttpError(e, 500)).toBe(true);
 		expect((e as { body: { message: string } }).body.message).toBe('failed');
+	});
+
+	describe('on 401', () => {
+		afterEach(() => {
+			viewAs.active = false;
+		});
+
+		it('sends the user to the login page with the way back', async () => {
+			const e = await thrown(
+				fetchOrError(respond(401), 'failed', {
+					loginRedirectFrom: new URL('http://localhost/folders/1?path=a')
+				})
+			);
+			expect(isRedirect(e)).toBe(true);
+		});
+
+		it('shows that visitors cannot see it while viewing as a visitor', async () => {
+			viewAs.active = true;
+			const e = await thrown(
+				fetchOrError(respond(401), 'failed', {
+					loginRedirectFrom: new URL('http://localhost/folders/1')
+				})
+			);
+			expect(isHttpError(e, 401)).toBe(true);
+			expect((e as { body: { message: string } }).body.message).toBe(m.view_as_unauthorized());
+		});
 	});
 });

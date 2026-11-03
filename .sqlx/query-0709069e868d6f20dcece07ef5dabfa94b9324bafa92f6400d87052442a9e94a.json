@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE contents SET visibility = ?,\n               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')\n           WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "0709069e868d6f20dcece07ef5dabfa94b9324bafa92f6400d87052442a9e94a"
+}
