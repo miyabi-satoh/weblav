@@ -60,7 +60,7 @@ You can move in shares with “Full access”, and copy from any share you can s
 >
 > NAS and network drives, for example, have no trash. In that case, the confirmation screen says so.
 
-If the folder you are overwriting, or a folder inside it, is listed on Home, it appears on the confirmation screen. Overwriting makes that content show different files or stop opening, and clears its publish settings. When you overwrite a file or folder inside a listed folder, same-named items keep their publish setting, so a private file you replace stays private. If something you move within the same content has its own setting, that setting applies.
+If the folder you are overwriting, or a folder inside it, is listed on Home, it appears on the confirmation screen. Overwriting makes that content show different files or stop opening, and clears its publish settings. When you overwrite a file or folder inside a listed folder, same-named items keep their private setting, so a private file you replace stays private. If something you move within the same content has its own setting, that setting applies.
 
 A share itself, and folders that contain another share or WebLAV's data, cannot be moved or overwritten. Folders that contain WebLAV's data cannot be copied either.
 

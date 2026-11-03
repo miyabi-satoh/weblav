@@ -192,6 +192,8 @@ async fn clear_destination(
 }
 
 /// `old` の中の印と同じ名前になる、`new` の中の印を消す。動かしたものの印を採り、ほかの名前の印は残すため。
+/// `new` の中の公開の印も消す。印は上の階層から受け継ぐので、非公開のフォルダーから受け継いだだけのファイル
+/// (自分の印が無い) に置き先の公開の印が当たり、見えてしまうため。消しても受け継いだ値に戻るだけで済む。
 async fn delete_marks_replaced_by(
     conn: &mut SqliteConnection,
     id: i64,
@@ -208,6 +210,16 @@ async fn delete_marks_replaced_by(
         old,
         new,
         old_prefix
+    )
+    .execute(&mut *conn)
+    .await?;
+    let new_prefix = format!("{new}/");
+    sqlx::query!(
+        "DELETE FROM folder_marks WHERE content_id = ?1 AND public = 1
+             AND (path = ?2 OR substr(path, 1, length(?3)) = ?3)",
+        id,
+        new,
+        new_prefix
     )
     .execute(conn)
     .await?;
@@ -748,6 +760,34 @@ mod tests {
                 ("dst/secret.pdf".to_string(), false)
             ]
         );
+    }
+
+    /// 非公開のフォルダーから受け継いだだけのファイルに、置き先の公開の印を当てない。
+    #[sqlx::test]
+    async fn moving_a_private_folder_over_does_not_publish_files_by_the_old_marks(
+        pool: sqlx::SqlitePool,
+    ) {
+        let root = sep_path(&["srv", "教材"]);
+        let id = insert_folder(&pool, &root, true).await;
+        insert_rows(&pool, id, &["dst", "dst/x.pdf", "src"]).await;
+        sqlx::query("UPDATE folder_marks SET public = 0 WHERE path IN ('dst', 'src')")
+            .execute(&pool)
+            .await
+            .expect("印を変えられなかった");
+
+        let mut conn = pool.acquire().await.expect("つなげなかった");
+        moved(
+            &mut conn,
+            &root.join("src"),
+            &root.join("dst"),
+            true,
+            &not_scanning,
+        )
+        .await
+        .expect("映せなかった");
+        drop(conn);
+
+        assert_eq!(mark_rels(&pool, id).await, vec!["dst"]);
     }
 
     /// 上書きでは、登録先そのものやその中を登録先にするコンテンツの行も消す。上の階層のコンテンツは、
