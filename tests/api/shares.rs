@@ -517,6 +517,42 @@ async fn a_folder_with_only_a_hidden_content_can_be_listed_again(pool: SqlitePoo
     assert_eq!(status, StatusCode::CREATED, "{body}");
 }
 
+/// 自分で戻せる非表示のコンテンツがあるフォルダーを載せると、新しく作らずにそれを戻す。
+#[sqlx::test]
+async fn listing_a_folder_you_hid_brings_that_content_back(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-list-restores").await;
+    std::fs::create_dir_all(share.dir.join("教材")).expect("フォルダーを作れなかった");
+    let taro_id = db_user_id(&pool, "taro").await;
+    let hidden = insert_folder_by(
+        &pool,
+        "隠した教材",
+        std::fs::canonicalize(share.dir.join("教材")).expect("canonicalize できなかった"),
+        "hidden",
+        Some(taro_id),
+        None,
+    )
+    .await;
+
+    let (status, body) = send_json(
+        share.app,
+        "POST",
+        &format!("/api/v1/shares/{}/list-on-home", share.id),
+        &share.taro,
+        r#"{"path":"教材","visibility":"authenticated"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let body = parse_json(&body);
+    assert_eq!(body["id"], hidden);
+    assert_eq!(body["title"], "隠した教材");
+    assert_eq!(body["visibility"], "authenticated");
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM contents")
+        .fetch_one(&pool)
+        .await
+        .expect("数えられなかった");
+    assert_eq!(count, 1, "新しく作らない");
+}
+
 /// フォルダーのコンテンツの画面には、見られる共有の中の場所が付く。匿名と、見られない人には付かない。
 #[sqlx::test]
 async fn a_folder_content_points_to_its_share(pool: SqlitePool) {

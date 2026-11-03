@@ -395,7 +395,8 @@ pub struct ListOnHomeRequest {
 }
 
 /// 共有の中のフォルダーを、フォルダーのコンテンツとしてホームに載せる。タイトルはフォルダー名から付ける。
-/// 見られる場所なら載せられる (コンテンツの作成と同じ)。
+/// 見られる場所なら載せられる (コンテンツの作成と同じ)。そのフォルダーを自分で戻せる非表示のコンテンツがあれば、
+/// 新しく作らずにそれを戻す (→ docs/shares.md「ホームに載せる」)。
 #[utoipa::path(
     post,
     path = "/shares/{id}/list-on-home",
@@ -418,8 +419,7 @@ async fn list_on_home(
     require(&dir, ShareAccess::Read)?;
     let path = crate::api::fs::path_to_string(dir.canonical.clone())?;
     let created =
-        crate::api::contents::create_folder_content(&state, &user, path, payload.visibility)
-            .await?;
+        crate::api::contents::list_folder_on_home(&state, &user, path, payload.visibility).await?;
     record_or_warn(
         &state.pool,
         &OpRecord::new(

@@ -60,9 +60,9 @@ You can move in shares with “Full access”, and copy from any share you can s
 >
 > NAS and network drives, for example, have no trash. In that case, the confirmation screen says so.
 
-If a folder you are overwriting is listed on Home, it appears on the confirmation screen.
+If the folder you are overwriting, or a folder inside it, is listed on Home, it appears on the confirmation screen. Overwriting makes that content show different files or stop opening, and clears its publish settings. Marks on files inside a listed folder stay, so a private file you replace stays private.
 
-A share itself, and folders that contain another share or WebLAV's data, cannot be moved or overwritten.
+A share itself, and folders that contain another share or WebLAV's data, cannot be moved or overwritten. Folders that contain WebLAV's data cannot be copied either.
 
 ## Delete
 
@@ -81,7 +81,7 @@ A share itself, and folders that contain another share or WebLAV's data, cannot 
 
 ## Long-running tasks
 
-When moving, copying, or deleting does not finish right away, its progress appears at the bottom right of the screen. It continues even if you go to another page. Select “Stop” to stop it. What was already done stays as it is. If you stop during an overwrite, the existing item stays until the new one is ready.
+When moving, copying, or deleting does not finish right away, its progress appears at the bottom right of the screen. It continues even if you go to another page. Select “Stop” to stop it. What was already done stays as it is. If you stop during an overwrite before the replacement happens, the existing item stays as it is.
 
 Quitting WebLAV stops any task in progress.
 
@@ -93,6 +93,8 @@ This shows a folder in a share on Home as folder content. You can do this in any
 2. Choose the visibility, then select “List”.
 
 The title is the folder name. To change it, use the edit page in the admin pages (→ [Register contents](06-register-content.md)).
+
+If you list a folder you hid earlier, that content comes back with the visibility you choose. Its title and publish settings inside stay the same.
 
 Folders listed on Home show “Listed”. When you open such a folder, “Listed on Home as “title”” appears below the heading.
 

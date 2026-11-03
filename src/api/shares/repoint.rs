@@ -117,20 +117,24 @@ pub(super) async fn deleted(
     Ok(changed)
 }
 
-/// `path` (実体のパス) を上書きで消したことを映す。`deleted` に加えて、登録先が `path` かその中のコンテンツの
-/// 印と索引も消す。同じ場所に別のものが置かれるので、前の印を新しいものに当てないため。
+/// `path` (実体のパス) を上書きで置き換えたことを映す。
+///
+/// 登録先が `path` かその中のコンテンツは、印と索引を消す。登録先ごと別のものになるので、前の印を当てないため
+/// (確かめの画面で伝えてある)。登録先が `path` の外のコンテンツは、印を残して索引だけ読み直させる。
+/// 消すと、非公開にしていたファイルが上書きで公開になるため。同じ名前のものには同じ印が当たる。
 pub(super) async fn overwritten(
     conn: &mut SqliteConnection,
     path: &Path,
     scanning: &(dyn Fn(i64) -> bool + Sync),
 ) -> Result<Vec<i64>, AppError> {
-    let mut changed = deleted(&mut *conn, path, scanning).await?;
+    let mut changed = Vec::new();
     let path = stored_form(path)?;
     for row in folder_rows(&mut *conn).await? {
-        if !row.path.starts_with(&path) {
+        if row.path.starts_with(&path) {
+            delete_all(&mut *conn, row.id, scanning(row.id)).await?;
+        } else if !path.starts_with(&row.path) {
             continue;
         }
-        delete_all(&mut *conn, row.id, scanning(row.id)).await?;
         if row.list_view {
             changed.push(row.id);
         }
@@ -605,7 +609,8 @@ mod tests {
 
         changed.sort_unstable();
         assert_eq!(changed, vec![above_id, root_id]);
-        assert_eq!(rels(&pool, above_id).await, vec!["keep.pdf"]);
+        // 上のコンテンツの印は残す。置き換わったファイルが公開に変わらないように。
+        assert_eq!(rels(&pool, above_id).await, vec!["keep.pdf", "教材/a.pdf"]);
         assert!(rels(&pool, root_id).await.is_empty());
         assert!(rels(&pool, under_id).await.is_empty());
         assert_eq!(

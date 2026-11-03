@@ -276,7 +276,8 @@ pub struct ShareOperationResponse {
     dest_share_id: Option<i64>,
     dest_share_name: Option<String>,
     dest_path: Option<String>,
-    /// 実際に置いた・消したファイル・フォルダーの数。飛ばしたもの、中止や失敗で置かなかったものは数えない。
+    /// 実際に置いた・消したファイル・フォルダーの数。飛ばしたもの、中止で置かなかったもの、失敗した1つ
+    /// (別のディスクへの移動で、置けたが元を消せなかったものを含む) は数えない。
     /// 終わるまで分からないものは `None`。
     item_count: Option<i64>,
     /// 実際に置いたファイルの大きさの合計 (バイト)。

@@ -20,8 +20,8 @@
 
 	type Visibility = components['schemas']['Visibility'];
 
-	/** 新しく作るコンテンツと同じ選択肢と既定 (コンテンツの作成のフォームと同じ)。 */
-	const OPTIONS: Visibility[] = ['public', 'authenticated', 'private', 'hidden'];
+	/** ホームに出す選択肢だけを並べる。「非表示」で載せると、どこにも出ないものが増えるだけになるため。 */
+	const OPTIONS: Visibility[] = ['public', 'authenticated', 'private'];
 
 	let {
 		target = $bindable(),

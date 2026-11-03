@@ -25,7 +25,7 @@ const COPY_CHUNK_BYTES: usize = 1024 * 1024;
 /// 作業中のコピーの名前の頭。ドットで始めて一覧に出さない (→ `fs::is_visible_entry`)。
 const COPY_TEMP_PREFIX: &str = ".weblav-copy-";
 
-/// 上書きで、今あるものを消した後に置くものの名前の頭。一覧には出ない。
+/// 上書きで、置く用意ができたものと、ごみ箱を使えない場所で除けた今あるものの名前の頭。一覧には出ない。
 /// 古い作業用の残りの片付け (`remove_stale_temps`) の対象にしない。動かしてきたものや写し終えたファイルは
 /// 更新日時が古いので、対象にすると、置くまでの間に同じフォルダーへのアップロードの片付けで消えるため。
 const PLACE_TEMP_PREFIX: &str = ".weblav-place-";

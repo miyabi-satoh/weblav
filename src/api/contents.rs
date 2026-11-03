@@ -1135,6 +1135,50 @@ pub(super) async fn create_folder_content(
     .await
 }
 
+/// 共有の中のフォルダーをホームに載せる。閲覧者が戻せる非表示のコンテンツがそのフォルダーにあれば、それを戻す。
+/// 新しく作ると、中の公開・非公開の印が付いていない2つ目のコンテンツができ、非公開にしたファイルが見えてしまうため。
+pub(super) async fn list_folder_on_home(
+    state: &AppState,
+    user: &AuthUser,
+    path: String,
+    visibility: Option<Visibility>,
+) -> Result<AdminContentResponse, AppError> {
+    let is_admin = user.is_admin();
+    let hidden = sqlx::query_scalar!(
+        r#"SELECT id as "id!" FROM contents
+           WHERE type = 'folder' AND path = ? AND visibility = ? AND (? OR created_by = ?)
+           ORDER BY id LIMIT 1"#,
+        path,
+        Visibility::Hidden,
+        is_admin,
+        user.id,
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+    let Some(id) = hidden else {
+        return create_folder_content(state, user, path, visibility).await;
+    };
+    {
+        let _write_guard = state.contents_write_lock.lock().await;
+        let existing = fetch_visibility_state(&state.pool, id).await?;
+        let target = visibility.unwrap_or(restore_target(existing.visibility_before_hidden));
+        change_visibility(&state.pool, user, id, &existing, target).await?;
+    }
+    let row = sqlx::query_as!(
+        ContentRow,
+        r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url,
+                  path, description, created_at as "created_at!", file_name, file_size,
+                  visibility as "visibility: Visibility", created_by, extensions, title_template,
+                  list_view as "list_view: bool", new_files_public as "new_files_public: bool",
+                  auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
+           FROM contents WHERE id = ?"#,
+        id,
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    admin_response(&state.pool, row).await
+}
+
 /// 作成の、検証して書き込む部分。時間のかかる取得 (リンクのページ) は、呼び出し側が先に済ませておく。
 async fn insert_content(
     state: &AppState,

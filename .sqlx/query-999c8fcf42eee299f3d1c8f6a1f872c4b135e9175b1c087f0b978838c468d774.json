@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id as \"id!\" FROM contents\n           WHERE type = 'folder' AND path = ? AND visibility = ? AND (? OR created_by = ?)\n           ORDER BY id LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "999c8fcf42eee299f3d1c8f6a1f872c4b135e9175b1c087f0b978838c468d774"
+}

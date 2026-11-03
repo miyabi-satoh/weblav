@@ -582,7 +582,12 @@ impl Step {
             ),
         };
         if target_removed {
-            changes.push(Change::Overwritten(target.clone()));
+            // 置けなかったときは、ふつうの削除と同じ。ごみ箱から戻せば、前の印のまま開けるように。
+            changes.push(if result.is_ok() {
+                Change::Overwritten(target.clone())
+            } else {
+                Change::Deleted(target.clone())
+            });
         }
         if self.op == TransferOp::Move && matches!(result, Ok(true)) {
             changes.push(Change::Moved {
