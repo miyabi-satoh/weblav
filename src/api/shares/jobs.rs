@@ -127,16 +127,6 @@ pub struct ShareJobResponse {
     error: Option<ErrorCode>,
 }
 
-impl ShareJobResponse {
-    pub(super) fn done_items(&self) -> u64 {
-        self.done_items
-    }
-
-    pub(super) fn done_bytes(&self) -> u64 {
-        self.done_bytes
-    }
-}
-
 /// 処理の一覧。ユーザーは自分の処理だけを見られる。
 #[derive(Default)]
 pub struct ShareJobs {

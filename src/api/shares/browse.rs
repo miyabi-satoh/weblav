@@ -169,7 +169,8 @@ async fn resolve_readable(
 }
 
 /// フォルダーとして載せている場所と、そのコンテンツ。`user` の管理画面の一覧に出ないもの
-/// (他人の「作成者のみ」) は数えない。同じ場所をいくつも載せていれば、先に作ったものを採る。
+/// (他人の「作成者のみ」) と、ホームに出ない「非表示」は数えない。同じ場所をいくつも載せていれば、
+/// 先に作ったものを採る。「非表示」しか無い場所は、載せ直せる (同じ場所の登録は断らない)。
 struct ListedPaths(HashMap<String, ListedAs>);
 
 impl ListedPaths {
@@ -182,7 +183,9 @@ impl ListedPaths {
         .await?;
         let mut listed = HashMap::new();
         for row in rows {
-            if !contents::can_see_in_admin_list(user, row.visibility, row.created_by) {
+            if row.visibility == Visibility::Hidden
+                || !contents::can_see_in_admin_list(user, row.visibility, row.created_by)
+            {
                 continue;
             }
             listed.entry(row.path).or_insert(ListedAs {
@@ -371,4 +374,44 @@ pub(super) fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(share_thumbnail))
         .routes(routes!(list_share_dirs))
         .merge(download_routes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 「非表示」はホームに出ないので、載せているものに数えない。同じ場所に別の行があれば、そちらを採る。
+    #[sqlx::test]
+    async fn hidden_contents_do_not_count_as_listed(pool: sqlx::SqlitePool) {
+        let insert = |path: &'static str, visibility: &'static str| {
+            let pool = pool.clone();
+            async move {
+                sqlx::query_scalar::<_, i64>(
+                    "INSERT INTO contents (type, title, path, visibility) VALUES ('folder', ?1, ?1, ?2) RETURNING id",
+                )
+                .bind(path)
+                .bind(visibility)
+                .fetch_one(&pool)
+                .await
+                .expect("フォルダーを作れなかった")
+            }
+        };
+        insert("/srv/hidden", "hidden").await;
+        insert("/srv/both", "hidden").await;
+        let shown = insert("/srv/both", "authenticated").await;
+        let user = AuthUser {
+            id: 1,
+            username: "taro".to_string(),
+            role: crate::auth::Role::Admin,
+            has_recovery_code: false,
+        };
+
+        let listed = ListedPaths::load(&pool, &user).await.expect("読めなかった");
+
+        assert!(listed.get("/srv/hidden").is_none());
+        assert_eq!(
+            listed.get("/srv/both").map(|row| row.content_id),
+            Some(shown)
+        );
+    }
 }

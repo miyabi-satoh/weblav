@@ -44,6 +44,7 @@
 	type ShareResponse = components['schemas']['ShareResponse'];
 	type OnConflict = components['schemas']['OnConflict'];
 	type TransferConflict = components['schemas']['TransferConflict'];
+	type ListedAs = components['schemas']['ListedAs'];
 
 	let {
 		open = $bindable(),
@@ -66,7 +67,11 @@
 	} = $props();
 
 	let picked = $state<PickedDir | null>(null);
-	let conflict = $state<{ entry: TransferConflict; trash: boolean } | null>(null);
+	let conflict = $state<{
+		entry: TransferConflict;
+		trash: boolean;
+		listed: ListedAs[];
+	} | null>(null);
 	let busy = $state<OnConflict | 'check' | null>(null);
 	const errorDialog = new ErrorDialogState();
 
@@ -106,7 +111,7 @@
 			}
 			const first = checked.conflicts[0];
 			if (first !== undefined) {
-				conflict = { entry: first, trash: checked.trash };
+				conflict = { entry: first, trash: checked.trash, listed: checked.listed };
 				return;
 			}
 		} finally {
@@ -169,18 +174,29 @@
 			</Dialog.Footer>
 		{:else}
 			<Dialog.Header>
-				<Dialog.Title>{m.shares_conflict_title({ name: conflict.entry.name })}</Dialog.Title>
+				<Dialog.Title>
+					{m.shares_conflict_title({ folder: destName, name: conflict.entry.name })}
+				</Dialog.Title>
 			</Dialog.Header>
-			<Dialog.Body class="flex flex-col gap-2">
-				<p>{m.shares_conflict_description({ folder: destName, name: conflict.entry.name })}</p>
-				{#if picked !== null && accessAtLeast(picked.access, 'all')}
+			{#if picked !== null && accessAtLeast(picked.access, 'all')}
+				<Dialog.Body class="flex flex-col gap-2">
 					<p class="text-muted-foreground">
 						{conflict.trash
 							? m.shares_conflict_overwrite_trash({ name: conflict.entry.name })
 							: m.shares_conflict_overwrite_permanent()}
 					</p>
-				{/if}
-			</Dialog.Body>
+					{#if conflict.listed.length > 0}
+						<div class="flex flex-col gap-2 text-sm">
+							<p>{m.shares_conflict_listed_note()}</p>
+							<ul class="list-disc pl-5">
+								{#each conflict.listed as listed (listed.contentId)}
+									<li class="wrap-anywhere">{listed.title}</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
+				</Dialog.Body>
+			{/if}
 			<Dialog.Footer>
 				<Button
 					type="button"

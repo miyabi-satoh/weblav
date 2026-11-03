@@ -8,6 +8,7 @@
 //! - 動かしたものがコンテンツの登録先 (かその上) なら、登録先を新しい場所に変える。中の相対パスは変わらない
 //! - コンテンツの中で動かしたなら、相対パスの頭を付け替える。外へ出したなら、その分の行を消す
 //! - 置き先に前からあった行 (上書きで消したものの印など) は、先に消す
+//! - 上書きで消したものがコンテンツの登録先 (かその中) なら、そのコンテンツの行も消す
 //!
 //! 一覧の表示の索引を走査している最中のコンテンツは、印だけを直す。索引は走査が書き直すため
 //! (ここで直しても、走査が前に読んだ中身で上書きする)。
@@ -116,6 +117,27 @@ pub(super) async fn deleted(
     Ok(changed)
 }
 
+/// `path` (実体のパス) を上書きで消したことを映す。`deleted` に加えて、登録先が `path` かその中のコンテンツの
+/// 印と索引も消す。同じ場所に別のものが置かれるので、前の印を新しいものに当てないため。
+pub(super) async fn overwritten(
+    conn: &mut SqliteConnection,
+    path: &Path,
+    scanning: &(dyn Fn(i64) -> bool + Sync),
+) -> Result<Vec<i64>, AppError> {
+    let mut changed = deleted(&mut *conn, path, scanning).await?;
+    let path = stored_form(path)?;
+    for row in folder_rows(&mut *conn).await? {
+        if !row.path.starts_with(&path) {
+            continue;
+        }
+        delete_all(&mut *conn, row.id, scanning(row.id)).await?;
+        if row.list_view {
+            changed.push(row.id);
+        }
+    }
+    Ok(changed)
+}
+
 /// `path` が `root` の中 (`root` そのものは除く) なら、`root` からの相対パス ('/' 区切り)。
 fn rel_under(root: &Path, path: &Path) -> Result<String, AppError> {
     if path == root {
@@ -163,6 +185,27 @@ async fn delete_under(
     )
     .execute(&mut *conn)
     .await?;
+    Ok(())
+}
+
+/// コンテンツの印と索引をすべて消す。
+async fn delete_all(
+    conn: &mut SqliteConnection,
+    id: i64,
+    marks_only: bool,
+) -> Result<(), AppError> {
+    sqlx::query!("DELETE FROM folder_marks WHERE content_id = ?", id)
+        .execute(&mut *conn)
+        .await?;
+    if marks_only {
+        return Ok(());
+    }
+    sqlx::query!("DELETE FROM archive_items WHERE archive_id = ?", id)
+        .execute(&mut *conn)
+        .await?;
+    sqlx::query!("DELETE FROM archive_dirs WHERE archive_id = ?", id)
+        .execute(&mut *conn)
+        .await?;
     Ok(())
 }
 
@@ -214,8 +257,13 @@ async fn rename_under(
 /// ファイルシステムの変更のうち、DB に映すもの。
 #[derive(Debug, Clone)]
 pub(super) enum Change {
-    Moved { from: PathBuf, to: PathBuf },
+    Moved {
+        from: PathBuf,
+        to: PathBuf,
+    },
     Deleted(PathBuf),
+    /// 上書きで消した (同じ場所に別のものを置く)。動かしたものの `Moved` より先に映すこと。
+    Overwritten(PathBuf),
 }
 
 /// `changes` を DB に映し、索引を直したコンテンツの中を裏で読み直させる。
@@ -245,6 +293,7 @@ async fn apply_changes(state: &AppState, changes: &[Change]) -> Result<BTreeSet<
         let ids = match change {
             Change::Moved { from, to } => moved(&mut tx, from, to, &scanning).await?,
             Change::Deleted(path) => deleted(&mut tx, path, &scanning).await?,
+            Change::Overwritten(path) => overwritten(&mut tx, path, &scanning).await?,
         };
         changed.extend(ids);
     }
@@ -532,5 +581,36 @@ mod tests {
 
         assert_eq!(rels(&pool, id).await, vec!["ab.pdf"]);
         assert_eq!(content_path(&pool, id).await, root.display().to_string());
+    }
+
+    /// 上書きでは、登録先そのものやその中を登録先にするコンテンツの行も消す。上の階層のコンテンツは、
+    /// 消した場所の中の行だけが消える。
+    #[sqlx::test]
+    async fn overwriting_clears_rows_of_contents_at_or_under_the_path(pool: sqlx::SqlitePool) {
+        let above = sep_path(&["srv"]);
+        let root = above.join("教材");
+        let under = root.join("英検");
+        let above_id = insert_folder(&pool, &above, true).await;
+        let root_id = insert_folder(&pool, &root, true).await;
+        let under_id = insert_folder(&pool, &under, false).await;
+        insert_rows(&pool, above_id, &["keep.pdf", "教材/a.pdf"]).await;
+        insert_rows(&pool, root_id, &["a.pdf"]).await;
+        insert_rows(&pool, under_id, &["b.pdf"]).await;
+
+        let mut conn = pool.acquire().await.expect("つなげなかった");
+        let mut changed = overwritten(&mut conn, &root, &not_scanning)
+            .await
+            .expect("映せなかった");
+        drop(conn);
+
+        changed.sort_unstable();
+        assert_eq!(changed, vec![above_id, root_id]);
+        assert_eq!(rels(&pool, above_id).await, vec!["keep.pdf"]);
+        assert!(rels(&pool, root_id).await.is_empty());
+        assert!(rels(&pool, under_id).await.is_empty());
+        assert_eq!(
+            content_path(&pool, root_id).await,
+            root.display().to_string()
+        );
     }
 }

@@ -1604,7 +1604,10 @@ export interface paths {
         get: operations["get_job"];
         put?: never;
         post?: never;
-        /** 処理を中止する。済んだ分はそのまま残り、途中のファイル (写しかけ) は残さない。終わっていれば何もしない。 */
+        /**
+         * 処理を中止する。済んだ分はそのまま残り、途中のファイル (写しかけ) は残さない。上書きの途中なら、今あるものも残る。
+         *     終わっていれば何もしない。
+         */
         delete: operations["cancel_job"];
         options?: never;
         head?: never;
@@ -1622,7 +1625,7 @@ export interface paths {
         put?: never;
         /**
          * コピー・移動を始める。進み具合は `GET /shares/jobs/{id}` で読む。
-         * @description 置き先の同じ名前は `onConflict` で扱う。上書きは、今あるものをごみ箱へ送ってから置く
+         * @description 置き先の同じ名前は `onConflict` で扱う。上書きは、新しいものを用意できてから、今あるものをごみ箱へ送って置く
          *     (ごみ箱を使えない場所では完全に消す)。同じフォルダーの中へのコピーは、番号を付けた名前で写す。
          */
         post: operations["start_transfer"];
@@ -1641,7 +1644,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** コピー・移動を始める前の確かめ。置き先の同じ名前・大きさ・空きを返す。何も変えない。 */
+        /** コピー・移動を始める前の確かめ。置き先の同じ名前・大きさ・空きと、上書きで響くコンテンツを返す。何も変えない。 */
         post: operations["check_transfer"];
         delete?: never;
         options?: never;
@@ -3031,7 +3034,7 @@ export interface components {
             at: string;
             /**
              * Format: int64
-             * @description 扱ったファイルの大きさの合計 (バイト)。
+             * @description 実際に置いたファイルの大きさの合計 (バイト)。
              */
             byteCount?: number | null;
             destPath?: string | null;
@@ -3047,7 +3050,8 @@ export interface components {
             id: number;
             /**
              * Format: int64
-             * @description 扱ったファイル・フォルダーの数。終わるまで分からないものは `None`。
+             * @description 実際に置いた・消したファイル・フォルダーの数。飛ばしたもの、中止や失敗で置かなかったものは数えない。
+             *     終わるまで分からないものは `None`。
              */
             itemCount?: number | null;
             op: components["schemas"]["ShareOp"];
@@ -3136,6 +3140,11 @@ export interface components {
              *     同じフォルダーの中への移動 (何もしない) は含めない。
              */
             conflicts: components["schemas"]["TransferConflict"][];
+            /**
+             * @description 上書きすると、中身が変わるか開けなくなるフォルダーのコンテンツ (登録先が、`conflicts` のものかその中)。
+             *     見ている人の管理画面の一覧に出ないもの (他人の「作成者のみ」) は含めない。
+             */
+            listed: components["schemas"]["ListedAs"][];
             /**
              * Format: int64
              * @description 動かす・写すファイルの大きさの合計。

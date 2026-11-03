@@ -479,6 +479,44 @@ async fn listed_folders_are_marked_in_a_share(pool: SqlitePool) {
     assert_eq!(parse_json(&body)["listedAs"]["title"], "先生の私物");
 }
 
+/// 「非表示」しか載せていない場所は掲載中にせず、また載せられる。
+#[sqlx::test]
+async fn a_folder_with_only_a_hidden_content_can_be_listed_again(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-listed-hidden").await;
+    std::fs::create_dir_all(share.dir.join("教材")).expect("フォルダーを作れなかった");
+    insert_folder_by(
+        &pool,
+        "隠した教材",
+        std::fs::canonicalize(share.dir.join("教材")).expect("canonicalize できなかった"),
+        "hidden",
+        None,
+        None,
+    )
+    .await;
+
+    let (status, body) = send_empty(
+        share.app.clone(),
+        "GET",
+        &browse_uri(share.id, "教材"),
+        &share.taro,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let body = parse_json(&body);
+    assert_eq!(body["listedAs"], serde_json::Value::Null);
+    assert_eq!(body["canListOnHome"], true);
+
+    let (status, body) = send_json(
+        share.app,
+        "POST",
+        &format!("/api/v1/shares/{}/list-on-home", share.id),
+        &share.taro,
+        r#"{"path":"教材"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+}
+
 /// フォルダーのコンテンツの画面には、見られる共有の中の場所が付く。匿名と、見られない人には付かない。
 #[sqlx::test]
 async fn a_folder_content_points_to_its_share(pool: SqlitePool) {
@@ -1206,6 +1244,106 @@ async fn moving_between_shares_overwrites_and_carries_marks(pool: SqlitePool) {
             .await
             .expect("印を読めなかった");
     assert!(marks.is_empty(), "{marks:?}");
+}
+
+/// 上書きの前に、響くコンテンツが分かる。上書きすると、そのコンテンツの印が消え、消したものが削除として記録に残る。
+#[sqlx::test]
+async fn overwriting_a_listed_folder_warns_clears_marks_and_records_the_deletion(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-overwrite-listed").await;
+    std::fs::create_dir_all(share.dir.join("新").join("教材")).expect("フォルダーを作れなかった");
+    std::fs::write(share.dir.join("新").join("教材").join("a.pdf"), b"new").expect("書けなかった");
+    std::fs::create_dir_all(share.dir.join("教材")).expect("フォルダーを作れなかった");
+    std::fs::write(share.dir.join("教材").join("a.pdf"), b"old").expect("書けなかった");
+    let listed = insert_folder_by(
+        &pool,
+        "英検",
+        std::fs::canonicalize(share.dir.join("教材")).expect("canonicalize できなかった"),
+        "public",
+        None,
+        None,
+    )
+    .await;
+    sqlx::query(
+        "INSERT INTO folder_marks (content_id, path, is_dir, public, created_at) VALUES (?, 'a.pdf', 0, 0, 0)",
+    )
+    .bind(listed)
+    .execute(&pool)
+    .await
+    .expect("印を入れられなかった");
+
+    let (status, body) = send_json(
+        share.app.clone(),
+        "POST",
+        TRANSFER_CHECK_URI,
+        &share.admin,
+        &transfer_json("copy", share.id, &["新/教材"], share.id, "", None),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        parse_json(&body)["listed"],
+        serde_json::json!([{"contentId": listed, "title": "英検"}])
+    );
+
+    let json = transfer_json(
+        "copy",
+        share.id,
+        &["新/教材"],
+        share.id,
+        "",
+        Some("overwrite"),
+    );
+    let (status, body) =
+        send_json(share.app.clone(), "POST", TRANSFER_URI, &share.admin, &json).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    let job = wait_job(share.app.clone(), &share.admin, &body).await;
+    assert_eq!(job["state"], "succeeded", "{job}");
+    assert_eq!(
+        std::fs::read(share.dir.join("教材").join("a.pdf")).expect("読めなかった"),
+        b"new"
+    );
+
+    let marks: Vec<String> = sqlx::query_scalar("SELECT path FROM folder_marks")
+        .fetch_all(&pool)
+        .await
+        .expect("印を読めなかった");
+    assert!(marks.is_empty(), "{marks:?}");
+    let logged: Vec<(String, String, Option<i64>)> =
+        sqlx::query_as("SELECT op, paths, item_count FROM share_operations ORDER BY id")
+            .fetch_all(&pool)
+            .await
+            .expect("記録を読めなかった");
+    assert_eq!(
+        logged,
+        vec![
+            ("copy".to_string(), r#"["新/教材"]"#.to_string(), Some(2)),
+            ("delete".to_string(), r#"["教材"]"#.to_string(), Some(1)),
+        ]
+    );
+}
+
+/// 飛ばしたものは、進み具合では全体まで進むが、記録には数えない。
+#[sqlx::test]
+async fn a_skipped_transfer_reaches_the_total_but_records_nothing_done(pool: SqlitePool) {
+    let share = share_fixture(&pool, "shares-skip-log").await;
+    std::fs::create_dir_all(share.dir.join("控え")).expect("フォルダーを作れなかった");
+    std::fs::write(share.dir.join("a.pdf"), b"new").expect("書けなかった");
+    std::fs::write(share.dir.join("控え").join("a.pdf"), b"old").expect("書けなかった");
+
+    let json = transfer_json("copy", share.id, &["a.pdf"], share.id, "控え", Some("skip"));
+    let (status, body) =
+        send_json(share.app.clone(), "POST", TRANSFER_URI, &share.admin, &json).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    let job = wait_job(share.app.clone(), &share.admin, &body).await;
+    assert_eq!(job["skipped"], 1, "{job}");
+    assert_eq!(job["doneItems"], job["totalItems"], "{job}");
+    assert_eq!(job["doneBytes"], 3, "{job}");
+
+    let logged: (i64, i64) = sqlx::query_as("SELECT item_count, byte_count FROM share_operations")
+        .fetch_one(&pool)
+        .await
+        .expect("記録を読めなかった");
+    assert_eq!(logged, (0, 0));
 }
 
 /// フォルダーを、自分の中へは動かせない。

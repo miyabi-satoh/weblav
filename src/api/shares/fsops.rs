@@ -25,6 +25,11 @@ const COPY_CHUNK_BYTES: usize = 1024 * 1024;
 /// 作業中のコピーの名前の頭。ドットで始めて一覧に出さない (→ `fs::is_visible_entry`)。
 const COPY_TEMP_PREFIX: &str = ".weblav-copy-";
 
+/// 上書きで、今あるものを消した後に置くものの名前の頭。一覧には出ない。
+/// 古い作業用の残りの片付け (`remove_stale_temps`) の対象にしない。動かしてきたものや写し終えたファイルは
+/// 更新日時が古いので、対象にすると、置くまでの間に同じフォルダーへのアップロードの片付けで消えるため。
+const PLACE_TEMP_PREFIX: &str = ".weblav-place-";
+
 /// コピー・移動の進み具合と中止の合図。別のスレッドから読み書きする。
 #[derive(Debug, Default)]
 pub(super) struct TransferProgress {
@@ -382,11 +387,40 @@ pub(super) fn ensure_space(dir: &Path, needed: u64) -> Result<(), AppError> {
     Ok(())
 }
 
+/// `dir` の中の、一覧に出ない作業用の名前。
+fn temp_in(dir: &Path, prefix: &str) -> Result<PathBuf, AppError> {
+    Ok(dir.join(format!("{prefix}{}", crate::api::random_hex::<8>()?)))
+}
+
+/// 作業用のものを片付ける。片付けに失敗しても、元の失敗の方を返せるよう黙って続ける
+/// (一覧には出ない名前なので、利用者の目には触れない)。
+fn discard_temp(temp: &Path) {
+    if exists(temp) {
+        let _ = remove_tree(temp);
+    }
+}
+
+/// `src` を `dest_dir` の中の作業用の名前に写し、そのパスを返す。中止されたら `None`。
+/// 中止と失敗では、写しかけを残さない。
+fn copy_to_temp(
+    src: &Path,
+    dest_dir: &Path,
+    progress: &TransferProgress,
+) -> Result<Option<PathBuf>, AppError> {
+    let temp = temp_in(dest_dir, COPY_TEMP_PREFIX)?;
+    let copied = copy_entry(src, &temp, progress);
+    if copied.is_ok() && !progress.is_cancelled() {
+        return Ok(Some(temp));
+    }
+    discard_temp(&temp);
+    copied.map(|()| None).map_err(map_io_error)
+}
+
 /// `src` (ファイルかフォルダー) を、`dest_dir` の中に `name` として写す。写した先を返す。中止されたら `None`。
 ///
 /// 一覧に出ない作業用の名前に写してから、最後に名前を付ける。途中で止まったり失敗したりしても、
 /// 半端なものが本来の名前で残らないようにするため (作業用のものは消す)。
-/// 同じ名前が既にあれば 422 (`entryNameTaken`)。上書きは呼び出し側が先に消してから行う。
+/// 同じ名前が既にあれば 422 (`entryNameTaken`)。上書きは `copy_over`。
 pub(super) fn copy_tree(
     src: &Path,
     dest_dir: &Path,
@@ -397,24 +431,103 @@ pub(super) fn copy_tree(
     if exists(&target) {
         return Err(name_taken(name));
     }
-    let temp = dest_dir.join(format!(
-        "{COPY_TEMP_PREFIX}{}",
-        crate::api::random_hex::<8>()?
-    ));
-    let copied = copy_entry(src, &temp, progress);
-    let finished = match copied {
-        Ok(()) if progress.is_cancelled() => Ok(None),
-        Ok(()) if exists(&target) => Err(name_taken(name)),
-        Ok(()) => fs::rename(&temp, &target)
-            .map(|()| Some(target))
-            .map_err(map_io_error),
-        Err(err) => Err(map_io_error(err)),
+    let Some(temp) = copy_to_temp(src, dest_dir, progress)? else {
+        return Ok(None);
     };
-    if !matches!(finished, Ok(Some(_))) && exists(&temp) {
-        // 片付けに失敗しても、元の失敗の方を返す (一覧には出ない名前なので、利用者の目には触れない)。
-        let _ = remove_tree(&temp);
+    let placed = if exists(&target) {
+        Err(name_taken(name))
+    } else {
+        fs::rename(&temp, &target).map_err(map_io_error)
+    };
+    if placed.is_err() {
+        discard_temp(&temp);
     }
-    finished
+    placed.map(|()| Some(target))
+}
+
+/// 今ある `target` を消し (ごみ箱を使えない場所では完全に消す)、用意できた `ready` をその名前にする。
+/// 消せたら `target_removed` を立てる。
+fn replace_target(
+    ready: &Path,
+    target: &Path,
+    trash: &TrashPolicy,
+    target_removed: &mut bool,
+) -> Result<(), AppError> {
+    let permanent = !trash.available(target);
+    delete(&[target.to_path_buf()], permanent, trash)?;
+    *target_removed = true;
+    fs::rename(ready, target).map_err(map_io_error)
+}
+
+/// `src` を写して、今ある `target` と置き換える。置いたら真、中止されたら偽を返す。
+///
+/// 写し終えてから `target` を消すので、中止しても写すのに失敗しても `target` は残る。
+/// `target_removed` は、失敗で返るときも、`target` を消し終えていれば立っている (DB に映すため)。
+pub(super) fn copy_over(
+    src: &Path,
+    target: &Path,
+    progress: &TransferProgress,
+    trash: &TrashPolicy,
+    target_removed: &mut bool,
+) -> Result<bool, AppError> {
+    let dest_dir = target.parent().ok_or(AppError::NotFound)?;
+    let ready = temp_in(dest_dir, PLACE_TEMP_PREFIX)?;
+    let Some(temp) = copy_to_temp(src, dest_dir, progress)? else {
+        return Ok(false);
+    };
+    let placed = fs::rename(&temp, &ready)
+        .map_err(map_io_error)
+        .and_then(|()| replace_target(&ready, target, trash, target_removed));
+    if placed.is_err() {
+        discard_temp(&temp);
+        discard_temp(&ready);
+    }
+    placed.map(|()| true)
+}
+
+/// `src` を動かして、今ある `target` と置き換える。動かし終えたら真、中止されたら偽を返す。
+///
+/// 同じディスクの中では、先に `src` を作業用の名前に動かす。ほかのアプリが開いていて動かせないものは、
+/// `target` に触る前に失敗するため。その後で失敗したら、`src` を元の場所へ戻す。
+/// 別のディスクへは、`copy_over` で置き換えてから `src` を消す。
+/// `target_removed` は `copy_over` と同じ。
+pub(super) fn move_over(
+    src: &Path,
+    target: &Path,
+    progress: &TransferProgress,
+    trash: &TrashPolicy,
+    target_removed: &mut bool,
+) -> Result<bool, AppError> {
+    if progress.is_cancelled() {
+        return Ok(false);
+    }
+    let dest_dir = target.parent().ok_or(AppError::NotFound)?;
+    let ready = temp_in(dest_dir, PLACE_TEMP_PREFIX)?;
+    match fs::rename(src, &ready) {
+        Ok(()) => {
+            let placed = replace_target(&ready, target, trash, target_removed);
+            if placed.is_err()
+                && let Err(err) = fs::rename(&ready, src)
+            {
+                tracing::error!(
+                    error = %err,
+                    kept_at = %ready.display(),
+                    "a moved entry could not be put back after a failed overwrite"
+                );
+            }
+            placed?;
+            progress.add_item();
+            Ok(true)
+        }
+        Err(err) if err.kind() == io::ErrorKind::CrossesDevices => {
+            if !copy_over(src, target, progress, trash, target_removed)? {
+                return Ok(false);
+            }
+            remove_tree(src).map_err(map_io_error)?;
+            Ok(true)
+        }
+        Err(err) => Err(map_io_error(err)),
+    }
 }
 
 /// `src` を `dest` に写す。リンクとファイル・フォルダー以外のもの (ソケットなど) は飛ばす。
@@ -692,7 +805,8 @@ mod tests {
         let old = dir.join(format!("{UPLOAD_TEMP_PREFIX}old.part"));
         let fresh = dir.join(format!("{UPLOAD_TEMP_PREFIX}fresh.part"));
         let other = dir.join("memo.txt");
-        for path in [&old, &fresh, &other] {
+        let placing = dir.join(format!("{PLACE_TEMP_PREFIX}x"));
+        for path in [&old, &fresh, &other, &placing] {
             fs::write(path, b"x").expect("書けなかった");
         }
         let two_days_ago =
@@ -703,17 +817,20 @@ mod tests {
             .and_then(|file| file.set_modified(two_days_ago))
             .expect("更新日時を変えられなかった");
         fs::write(&other, b"x").expect("書けなかった");
-        File::options()
-            .write(true)
-            .open(&other)
-            .and_then(|file| file.set_modified(two_days_ago))
-            .expect("更新日時を変えられなかった");
+        for path in [&other, &placing] {
+            File::options()
+                .write(true)
+                .open(path)
+                .and_then(|file| file.set_modified(two_days_ago))
+                .expect("更新日時を変えられなかった");
+        }
 
         remove_stale_temps(&dir);
 
         assert!(!old.exists());
         assert!(fresh.exists());
         assert!(other.exists(), "作業用でないものは消さない");
+        assert!(placing.exists(), "上書きで置く直前のものは消さない");
     }
 
     #[test]
@@ -868,6 +985,165 @@ mod tests {
             .expect("中止していない");
         assert!(moved.join("英検").is_dir());
         assert!(!src.exists());
+    }
+
+    /// 上書きを試す場所。`a.txt` (新) と、置き先に同じ名前の `dest/a.txt` (旧)。
+    fn overwrite_fixture(name: &str) -> (crate::test_support::TempDir, PathBuf, PathBuf) {
+        let dir = temp_dir(name);
+        let src = dir.join("a.txt");
+        fs::write(&src, b"new").expect("書けなかった");
+        fs::create_dir(dir.join("dest")).expect("作れなかった");
+        let target = dir.join("dest").join("a.txt");
+        fs::write(&target, b"old").expect("書けなかった");
+        (dir, src, target)
+    }
+
+    /// 送ろうとすると失敗するごみ箱。置き場になるはずの所がファイルなので作れない。
+    fn broken_trash(dir: &Path) -> TrashPolicy {
+        let blocker = dir.join("blocker");
+        fs::write(&blocker, b"").expect("書けなかった");
+        TrashPolicy::Folder(blocker.join("trash"))
+    }
+
+    /// `dest` の中の名前。作業用のものが残っていないことを見る。
+    fn names_in_dest(target: &Path) -> Vec<String> {
+        fs::read_dir(target.parent().expect("親があるはず"))
+            .expect("読めなかった")
+            .map(|entry| {
+                entry
+                    .expect("読めなかった")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn an_overwriting_copy_replaces_the_target_and_keeps_the_source() {
+        let (_dir, src, target) = overwrite_fixture("copy-over");
+        let mut removed = false;
+        let placed = copy_over(
+            &src,
+            &target,
+            &TransferProgress::default(),
+            &TrashPolicy::Unavailable,
+            &mut removed,
+        )
+        .expect("上書きできるはず");
+        assert!(placed);
+        assert!(removed);
+        assert_eq!(fs::read(&target).expect("読めなかった"), b"new");
+        assert!(src.exists());
+        assert_eq!(names_in_dest(&target), vec!["a.txt"]);
+    }
+
+    #[test]
+    fn a_cancelled_overwriting_copy_keeps_the_old_target() {
+        let (_dir, src, target) = overwrite_fixture("copy-over-cancel");
+        let progress = TransferProgress::default();
+        progress.cancel();
+        let mut removed = false;
+        let placed = copy_over(
+            &src,
+            &target,
+            &progress,
+            &TrashPolicy::Unavailable,
+            &mut removed,
+        )
+        .expect("失敗はしない");
+        assert!(!placed);
+        assert!(!removed);
+        assert_eq!(fs::read(&target).expect("読めなかった"), b"old");
+        assert_eq!(names_in_dest(&target), vec!["a.txt"]);
+    }
+
+    #[test]
+    fn a_failed_overwriting_copy_keeps_the_old_target() {
+        let (dir, _src, target) = overwrite_fixture("copy-over-fail");
+        let mut removed = false;
+        let result = copy_over(
+            &dir.join("無いもの"),
+            &target,
+            &TransferProgress::default(),
+            &TrashPolicy::Unavailable,
+            &mut removed,
+        );
+        assert!(matches!(result, Err(AppError::NotFound)));
+        assert!(!removed);
+        assert_eq!(fs::read(&target).expect("読めなかった"), b"old");
+        assert_eq!(names_in_dest(&target), vec!["a.txt"]);
+    }
+
+    #[test]
+    fn a_failed_delete_on_an_overwriting_copy_removes_the_copy() {
+        let (dir, src, target) = overwrite_fixture("copy-over-delete-fail");
+        let mut removed = false;
+        copy_over(
+            &src,
+            &target,
+            &TransferProgress::default(),
+            &broken_trash(&dir),
+            &mut removed,
+        )
+        .expect_err("消せないはず");
+        assert!(!removed);
+        assert_eq!(fs::read(&target).expect("読めなかった"), b"old");
+        assert_eq!(names_in_dest(&target), vec!["a.txt"]);
+    }
+
+    #[test]
+    fn an_overwriting_move_replaces_the_target() {
+        let (_dir, src, target) = overwrite_fixture("move-over");
+        let mut removed = false;
+        let moved = move_over(
+            &src,
+            &target,
+            &TransferProgress::default(),
+            &TrashPolicy::Unavailable,
+            &mut removed,
+        )
+        .expect("上書きできるはず");
+        assert!(moved);
+        assert!(removed);
+        assert_eq!(fs::read(&target).expect("読めなかった"), b"new");
+        assert!(!src.exists());
+        assert_eq!(names_in_dest(&target), vec!["a.txt"]);
+    }
+
+    #[test]
+    fn a_failed_delete_on_an_overwriting_move_restores_the_source() {
+        let (dir, src, target) = overwrite_fixture("move-over-delete-fail");
+        let mut removed = false;
+        move_over(
+            &src,
+            &target,
+            &TransferProgress::default(),
+            &broken_trash(&dir),
+            &mut removed,
+        )
+        .expect_err("消せないはず");
+        assert!(!removed);
+        assert_eq!(fs::read(&src).expect("読めなかった"), b"new");
+        assert_eq!(fs::read(&target).expect("読めなかった"), b"old");
+        assert_eq!(names_in_dest(&target), vec!["a.txt"]);
+    }
+
+    /// 動かせないものは、置き先に触る前に失敗する。
+    #[test]
+    fn an_overwriting_move_that_cannot_take_the_source_leaves_the_target() {
+        let (dir, _src, target) = overwrite_fixture("move-over-busy");
+        let mut removed = false;
+        move_over(
+            &dir.join("無いもの"),
+            &target,
+            &TransferProgress::default(),
+            &TrashPolicy::Unavailable,
+            &mut removed,
+        )
+        .expect_err("動かせないはず");
+        assert!(!removed);
+        assert_eq!(fs::read(&target).expect("読めなかった"), b"old");
     }
 
     #[test]
