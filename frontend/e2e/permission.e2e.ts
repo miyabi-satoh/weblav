@@ -5,12 +5,11 @@
 import { test, expect, type Page } from '@playwright/test';
 import { ADMIN_PASSWORD, ADMIN_USERNAME } from './auth';
 import { logInByApi, send, withContentByApi, withUserByApi } from './api-helpers';
-import { publishItems, rescanArchive, withDirectoryContent } from './fixture-helpers';
+import { rescanArchive, withDirectoryContent } from './fixture-helpers';
 import {
 	ADD_AXIS_BUTTON_NAME,
 	addAxisValue,
 	axisValuesForm,
-	itemPublishedSwitch,
 	saveAxisValues,
 	selectAxis
 } from './archive-helpers';
@@ -255,7 +254,7 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 					await expect(editorPage.getByRole('button', { name: SAVE_BUTTON_NAME })).toHaveCount(0);
 
 					await editorPage.getByRole('link', { name: ITEMS_TAB_NAME }).click();
-					await expect(itemPublishedSwitch(editorPage, '2024/answer.pdf')).toBeDisabled();
+					await expect(editorPage.getByText('2024/answer.pdf')).toBeVisible();
 					await expect(
 						editorPage.getByRole('button', { name: /再スキャンする|Rescan/ })
 					).toHaveCount(0);
@@ -290,29 +289,13 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 					await saveAxisValues(editorPage, '種類');
 
 					await editorPage.getByRole('link', { name: ITEMS_TAB_NAME }).click();
-					const toggle = itemPublishedSwitch(editorPage, '2024/answer.pdf');
-					await toggle.click();
-					await expect(toggle).toHaveAttribute('aria-checked', 'true');
+					await expect(
+						editorPage.getByRole('button', { name: /再スキャンする|Rescan/ })
+					).toBeVisible();
 				} finally {
 					await editor.close();
 				}
 			});
-		}
-	);
-});
-
-test('アーカイブの閲覧: 非公開のアイテムは並ばない', async ({ page }) => {
-	await withDirectoryContent(
-		page.request,
-		{ type: 'archive', namePrefix: 'e2e-unpublished' },
-		async (archive) => {
-			const items = await rescanArchive(page.request, archive.id);
-			await publishItems(page.request, archive.id, items, ['2024/answer.pdf']);
-
-			await page.goto(`/archives/${archive.id}`);
-			await expect(page.getByText(/^1\s件のアイテム$|^1 item$/)).toBeVisible();
-			await expect(page.getByRole('link', { name: /answer\.pdf/ })).toBeVisible();
-			await expect(page.getByRole('button', { name: /^listening\.mp3/ })).toHaveCount(0);
 		}
 	);
 });

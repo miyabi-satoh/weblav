@@ -59,7 +59,6 @@ type FormSnapshot = {
 	includePatterns: string;
 	excludePatterns: string;
 	listView: boolean;
-	newFilesPublic: boolean;
 	autoRescanMode: AutoMode;
 	autoRescanHours: number;
 	autoRescanTime: string;
@@ -84,8 +83,6 @@ export class ContentFormState {
 	excludePatterns = $state('');
 	/** `folder` 専用。軸で絞り込む一覧の表示を使うか (→ docs/folders.md「2つの表示」)。 */
 	listView = $state(false);
-	/** `folder` 専用。新しく見つかったファイルを公開するか (→ docs/folders.md「公開と非公開」)。 */
-	newFilesPublic = $state(true);
 	/** `folder` の一覧の表示で、自動で再スキャンする間隔。 */
 	autoRescanMode = $state<AutoMode>('off');
 	autoRescanHours = $state(AUTO_RESCAN_DEFAULT_HOURS);
@@ -198,7 +195,6 @@ export class ContentFormState {
 			includePatterns: this.includePatterns,
 			excludePatterns: this.excludePatterns,
 			listView: this.listView,
-			newFilesPublic: this.newFilesPublic,
 			autoRescanMode: this.autoRescanMode,
 			autoRescanHours: this.autoRescanHours,
 			autoRescanTime: this.autoRescanTime
@@ -249,7 +245,6 @@ export class ContentFormState {
 		this.includePatterns = '';
 		this.excludePatterns = '';
 		this.listView = false;
-		this.newFilesPublic = true;
 		this.autoRescanMode = 'off';
 		this.autoRescanHours = AUTO_RESCAN_DEFAULT_HOURS;
 		this.autoRescanTime = AUTO_RESCAN_DEFAULT_TIME;
@@ -307,7 +302,6 @@ export class ContentFormState {
 			excludePatterns: this.normalizedExcludePatterns,
 			titleTemplate: this.titleTemplate,
 			listView: folder ? this.listView : null,
-			newFilesPublic: folder ? this.newFilesPublic : null,
 			autoRescan: folder
 				? {
 						mode: this.autoRescanMode,
@@ -374,7 +368,6 @@ export class ContentFormState {
 			this.includePatterns = source.includePatterns;
 			this.excludePatterns = source.excludePatterns;
 			this.listView = source.listView;
-			this.newFilesPublic = source.newFilesPublic;
 			this.autoRescanMode = source.autoRescanMode;
 			this.autoRescanHours = source.autoRescanHours;
 			this.autoRescanTime = source.autoRescanTime;
@@ -414,7 +407,6 @@ export class ContentFormState {
 		this.includePatterns = content.includePatterns ?? '';
 		this.excludePatterns = content.excludePatterns ?? '';
 		this.listView = content.listView;
-		this.newFilesPublic = content.newFilesPublic;
 		this.autoRescanMode = content.autoRescan.mode;
 		this.autoRescanHours = content.autoRescan.hours ?? AUTO_RESCAN_DEFAULT_HOURS;
 		this.autoRescanTime = content.autoRescan.time ?? AUTO_RESCAN_DEFAULT_TIME;

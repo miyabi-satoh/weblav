@@ -118,7 +118,7 @@ async fn browse_share(
         }
         let trash = trash_policy.available(&dir);
         let entries =
-            contents::read_entries(&dir, &rel, &OwnDirs::resolve(&own_dirs), None, false, order)?;
+            contents::read_entries(&dir, &rel, &OwnDirs::resolve(&own_dirs), None, order)?;
         let entries = entries
             .into_iter()
             .map(|entry| {

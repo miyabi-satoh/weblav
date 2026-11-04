@@ -15,10 +15,6 @@
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
 	import { pageEmptyTextClass } from '$lib/page-layout';
-	import { client } from '$lib/api/client';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import FolderViewSwitch from '$lib/components/folder-view-switch.svelte';
 	import { refreshAll } from '$app/navigation';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
@@ -79,28 +75,6 @@
 		}))
 	);
 
-	// 書き換えられる人には、非公開のものも印を添えて並ぶ。その行から公開できる
-	// (→ docs/folders.md「公開と非公開」)。フォルダーの中で辿れるかが変わるので、一覧を取り直す。
-	let busy = $state(false);
-	const errorDialog = new ErrorDialogState();
-
-	async function publish(row: FolderEntryRow) {
-		if (busy) return;
-		busy = true;
-		try {
-			await errorDialog.attempt(
-				() =>
-					client.PUT('/api/v1/contents/{id}/marks', {
-						params: { path: { id: contentId } },
-						body: { path: row.path, public: true }
-					}),
-				() => refreshAll()
-			);
-		} finally {
-			busy = false;
-		}
-	}
-
 	// この場所が共有の中で操作できるなら、共有の画面と同じ操作を重ねる (→ docs/ui.md「共有の中の画面」)。
 	// 閲覧者として見ている間は出さない。
 	let share = $derived(viewAs.active ? null : (browse.share ?? null));
@@ -142,8 +116,6 @@
 		);
 	}
 
-	let canMark = $derived(browse.canEdit && !viewAs.active);
-
 	function linksHref(row: FolderEntryRow): string {
 		return linksFileHref(
 			contentId,
@@ -155,18 +127,10 @@
 
 {#snippet rowMenu(row: FolderEntryRow)}
 	{@const target = shareTarget(row)}
-	{@const canPublish = canMark && !row.entry.public}
-	{#if canPublish || hasShareActions(target)}
+	{#if target !== null && hasShareActions(target)}
 		<span class={rowMenuSlotClass()}>
 			<RowActionsMenu name={row.entry.name}>
-				{#if canPublish}
-					<DropdownMenu.Item disabled={busy} onSelect={() => void publish(row)}>
-						{m.marks_publish_button()}
-					</DropdownMenu.Item>
-				{/if}
-				{#if target !== null}
-					<ShareRowMenuItems ops={shareOps} {target} omit={OMITTED_SHARE_ACTIONS} />
-				{/if}
+				<ShareRowMenuItems ops={shareOps} {target} omit={OMITTED_SHARE_ACTIONS} />
 			</RowActionsMenu>
 		</span>
 	{/if}
@@ -231,7 +195,7 @@
 			{rows}
 			dirHref={(row) => browseHref(row.path)}
 			{linksHref}
-			trailing={canMark || shareDir !== null ? rowMenu : undefined}
+			trailing={shareDir !== null ? rowMenu : undefined}
 		/>
 	{/if}
 </div>
@@ -239,5 +203,3 @@
 {#if shareDir !== null}
 	<ShareOpsHost ops={shareOps} />
 {/if}
-
-<ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

@@ -650,8 +650,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * 管理画面からの、相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。未公開も渡す。
-         *     管理画面の Markdown のプレビューが、未公開の画像も出すのに使う。
+         * 管理画面からの、相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。絞り込みは当てない。
+         *     管理画面の Markdown のプレビューが使う。
          */
         get: operations["manage_download_item_by_path"];
         put?: never;
@@ -934,52 +934,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/contents/{id}/items": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * 公開フラグの一括切り替え (→ docs/archive.md「アイテムの公開」・「まとめて公開を切り替える」・「エンドポイント一覧」)。
-         * @description `itemIds` で送るときは、所属しない id が1件でもあれば、どの行も更新せず404にする
-         *     (単体切り替えと同じ「所属しない id は404」を一括の場合も全件成立が条件にする)。
-         *
-         *     `snapshot` で送るときは、**画面が見ていた結果の番号そのもの**を対象にし、絞り込みをやり直さない。
-         *     やり直すと、その間に表示名が変わって絞り込みが効かなくなったときや新しいファイルが入ったときに、
-         *     見ていないものまで切り替えてしまうため。結果を作った後に索引から消えた番号は飛ばす
-         *     (消えたファイルに切り替える中身は無く、1件のために全体を断ると押し直しても同じになるため)。
-         */
-        put: operations["bulk_set_published"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/contents/{id}/items/{item_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * 公開フラグの単体切り替え (→ docs/archive.md「アイテムの公開」・「エンドポイント一覧」)。
-         *     DB の行を書き換えるだけなので、フォルダーのある NAS やディスクにつながらなくても切り替えられる。
-         */
-        put: operations["set_published"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/contents/{id}/items/{item_id}/download": {
         parameters: {
             query?: never;
@@ -1009,9 +963,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * 管理画面からのアイテムの配信 (→ docs/archive.md「アイテムの配信」)。未公開も渡す。
-         *     辞書を決めるときに、公開せずに中身を確かめるためのもの。
-         *     閲覧用の `download_item` の判定 (未公開は隠す) とは混ぜず、管理の権限で別に判定する。
+         * 管理画面からのアイテムの配信 (→ docs/archive.md「アイテムの配信」)。絞り込みは当てない。
+         *     閲覧用の `download_item` の判定とは混ぜず、管理の権限で別に判定する。
          */
         get: operations["manage_download_item"];
         put?: never;
@@ -1105,8 +1058,8 @@ export interface paths {
         };
         /**
          * 管理画面のアイテムのタブの一覧の、最初の区切り。閲覧用の一覧 (`view_archive`) と同じ絞り込み・並べ替え・導出で、
-         *     未公開と実体の無いアイテムも含める (→ docs/archive.md「エンドポイント一覧」)。
-         *     閲覧者に見える姿を、管理画面を離れずに確かめるため。名前の語はパスでも照らし、公開の状態 (`status`) でも絞る。
+         *     登録先が見つからないときも索引の行を並べる (→ docs/archive.md「エンドポイント一覧」)。
+         *     閲覧者に見える姿を、管理画面を離れずに確かめるため。名前の語はパスでも照らす。
          */
         get: operations["manage_view_archive"];
         put?: never;
@@ -1146,58 +1099,6 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/contents/{id}/marks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 公開・非公開の印の一覧。編集ページで、新しく見つかったファイルの扱いと違うものを並べて取り消すため。 */
-        get: operations["list_marks"];
-        /** フォルダーの中のファイルかサブフォルダーを、公開か非公開にする。サブフォルダーなら中ごと。 */
-        put: operations["set_mark"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/contents/{id}/marks/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 設定を保存すると、見る人に見えるファイルがどう変わるかを数える。保存の前に知らせるため。 */
-        post: operations["preview_visibility"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/contents/{id}/marks/{mark_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** 印を取り消し、祖先か既定に従わせる。 */
-        delete: operations["delete_mark"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1346,6 +1247,23 @@ export interface paths {
          */
         put: operations["set_visibility"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/visibility-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** パターンを保存すると、見えるファイルがどう変わるかを数える。保存の前に知らせるため。 */
+        post: operations["preview_visibility"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1899,8 +1817,6 @@ export interface components {
             includePatterns?: string | null;
             /** @description `type = 'folder'` で、一覧の表示 (索引して軸で絞り込む) を使うか。ほかの種類は `false`。 */
             listView: boolean;
-            /** @description `type = 'folder'` で、印の無いファイル (新しく見つかったもの) を公開するか (→ docs/folders.md「公開と非公開」)。 */
-            newFilesPublic: boolean;
             /**
              * Format: int64
              * @description 親グループのid。`None`ならルート直下。
@@ -1935,7 +1851,7 @@ export interface components {
         ArchiveAxisOption: {
             /**
              * @description **この選択肢を選んだときに残る件数** (→ docs/archive.md「エンドポイント一覧」)。
-             *     他の軸・名前の語・公開の状態の絞り込みは効かせたまま、この軸だけをこの値に置き換えて数える。
+             *     他の軸と名前の語の絞り込みは効かせたまま、この軸だけをこの値に置き換えて数える。
              *     0件になる組み合わせを選ぶ前に見分けられるようにするためのもので、
              *     選択肢自体は 0 でも消さない (緩める側の選択肢を消さない方針は変えない)。
              */
@@ -1955,37 +1871,27 @@ export interface components {
              */
             options: components["schemas"]["ArchiveAxisOption"][];
         };
-        /**
-         * @description アーカイブのアイテムの数と、そのうち公開しているものの数。
-         *     公開し忘れ・公開しすぎに気づけるよう、管理画面の一覧と編集ページの見出しに出す (→ docs/ui.md「UI 全般」)。
-         */
+        /** @description アーカイブの見せるアイテムの数。管理画面の一覧と編集ページの見出しに出す (→ docs/ui.md「UI 全般」)。 */
         ArchiveItemCounts: {
-            /** Format: int64 */
-            published: number;
             /** Format: int64 */
             total: number;
         };
         ArchivePageResponse: {
-            /** @description 消えた・非公開になった行は `null`。 */
+            /** @description 消えた・絞り込みで外れた行は `null`。 */
             items: (components["schemas"]["ArchiveViewItem"] | null)[];
             /** @description 混ぜた結果 (`/archive/shuffle`) のときだけ、各行の混ぜる前の結果での位置。 */
             positions?: number[] | null;
-            /** @description 結果を作った後に、索引か公開・非公開の印が変わったか。画面は一覧の上に取り直しを出す。 */
+            /** @description 結果を作った後に、索引か絞り込みのパターンが変わったか。画面は一覧の上に取り直しを出す。 */
             stale: boolean;
         };
         ArchiveShuffleResponse: {
-            /** @description 消えた・非公開になった行は `null`。 */
+            /** @description 消えた・絞り込みで外れた行は `null`。 */
             items: (components["schemas"]["ArchiveViewItem"] | null)[];
             /** @description 各行の、混ぜる前の結果での位置。 */
             positions: number[];
             /** @description 混ぜた結果の名前。続きは `/archive/page` で引く。 */
             snapshot: string;
             total: number;
-        };
-        ArchiveStatusCounts: {
-            all: number;
-            published: number;
-            unpublished: number;
         };
         ArchiveViewItem: {
             /** @description `rel_path` の最後の要素。ページ内プレイヤーへの振り分け (→ docs/ui.md「音声のページ内プレイヤー」) に使う。 */
@@ -2018,7 +1924,7 @@ export interface components {
             canEdit: boolean;
             /** @description アーカイブの登録先のフォルダーが見つからない。画面は空の一覧の代わりにそう出す。 */
             folderMissing: boolean;
-            /** @description 先頭の区切り。引いた時点で消えた・非公開になった行は `null` (→ docs/archive.md「一覧の API を区切って返す」)。 */
+            /** @description 先頭の区切り。引いた時点で消えた・絞り込みで外れた行は `null` (→ docs/archive.md「一覧の API を区切って返す」)。 */
             items: (components["schemas"]["ArchiveViewItem"] | null)[];
             /** @description 区切った続き (`/archive/page`) を引くときに渡す、絞って並べた結果の名前。 */
             snapshot: string;
@@ -2121,20 +2027,6 @@ export interface components {
             examples: components["schemas"]["AxisValuesPreviewItem"][];
             /** @description この行で値が決まるアイテム数。ほかの行のほうが長く一致したアイテムは数えない。 */
             matched: number;
-        };
-        /** @description まとめて切り替える対象。`itemIds` か、`snapshot` (と除く番号) のどちらか一方。 */
-        BulkSetPublishedRequest: {
-            /** @description `snapshot` から除く番号 (すべて選択した後に外した行)。 */
-            exceptIds?: number[];
-            /** @description 選んだ行の番号。 */
-            itemIds?: number[] | null;
-            published: boolean;
-            /** @description 「すべて選択」したときの、画面が見ていた結果の名前 (管理用の一覧が返したもの)。 */
-            snapshot?: string | null;
-        };
-        BulkSetPublishedResponse: {
-            /** @description 切り替えた件数。結果を作った後に索引から消えた番号は数えない。 */
-            updated: number;
         };
         ChangePasswordRequest: {
             currentPassword: string;
@@ -2423,25 +2315,12 @@ export interface components {
             modifiedAt?: number | null;
             name: string;
             /**
-             * @description 公開しているか (→ docs/folders.md「公開と非公開」)。閲覧する人には公開しているものしか返さない。
-             *     フォルダーは、それ自身に公開の印が届いているかで、中に公開したものがあって辿れるだけなら偽。
-             */
-            public: boolean;
-            /**
              * Format: int64
              * @description ディレクトリの場合は `None`。
              */
             size?: number | null;
             /** @description 行に縮小画像を出してみるか (→ docs/ui.md「画像のプレビュー」)。 */
             thumbnail: boolean;
-        };
-        FolderMark: {
-            /** Format: int64 */
-            id: number;
-            isDir: boolean;
-            /** @description フォルダーの登録先からの相対パス ('/' 区切り)。 */
-            path: string;
-            public: boolean;
         };
         /**
          * @description フォルダーのコンテンツの中の場所を、共有の中の場所として見たもの。フォルダーの画面から
@@ -2647,34 +2526,14 @@ export interface components {
             password: string;
             username: string;
         };
-        ManageArchivePageResponse: {
-            items: (components["schemas"]["ManageArchiveViewItem"] | null)[];
-            /** @description 混ぜた結果 (`/manage-archive/shuffle`) のときだけ、各行の混ぜる前の結果での位置。 */
-            positions?: number[] | null;
-            stale: boolean;
-        };
-        ManageArchiveShuffleResponse: {
-            /** @description 消えた行は `null`。 */
-            items: (components["schemas"]["ManageArchiveViewItem"] | null)[];
-            /** @description 各行の、混ぜる前の結果での位置。 */
-            positions: number[];
-            /** @description 混ぜた結果の名前。続きは `/manage-archive/page` で引く。 */
-            snapshot: string;
-            total: number;
-        };
-        ManageArchiveViewItem: components["schemas"]["ArchiveViewItem"] & {
-            published: boolean;
-        };
         ManageArchiveViewResponse: {
             axes: components["schemas"]["ArchiveAxisResponse"][];
             folderMissing: boolean;
-            /** @description 消えた行は `null`。 */
-            items: (components["schemas"]["ManageArchiveViewItem"] | null)[];
+            /** @description 消えた・絞り込みで外れた行は `null`。 */
+            items: (components["schemas"]["ArchiveViewItem"] | null)[];
             snapshot: string;
-            /** @description 軸と名前の語で絞ったうえでの、公開の状態ごとの件数。絞り込みの欄に出す。 */
-            statusCounts: components["schemas"]["ArchiveStatusCounts"];
             total: number;
-            /** @description 軸で絞った後、名前の語と公開の状態で絞る前の数。 */
+            /** @description 軸で絞った後、名前の語で絞る前の数。 */
             totalAll: number;
         };
         /** @description ログイン中の利用者。ほかの応答の `UserResponse` に、画面の出し分けに使う件数を添える。 */
@@ -2700,7 +2559,7 @@ export interface components {
          */
         OpResult: "running" | "succeeded" | "failed" | "cancelled";
         PathSamplesResponse: {
-            /** @description アイテムの数 (未公開を含む)。 */
+            /** @description 索引のアイテムの数。 */
             itemCount: number;
             /** @description パスを並べたうえで、間を空けて選んだ例。先頭だけだと最初のフォルダーのファイルに偏るため。 */
             relPaths: string[];
@@ -2785,7 +2644,7 @@ export interface components {
             total: number;
         };
         RescanResponse: {
-            /** @description 新しく索引に加えたアイテム数。非公開から始まる。 */
+            /** @description 新しく索引に加えたアイテム数。 */
             added: number;
             /** @description 途中で中止したか。中止したときは消えたファイルを外さず、読み終えた分だけを索引に書く。 */
             cancelled: boolean;
@@ -2948,14 +2807,6 @@ export interface components {
              * @description 新しい作成者のユーザーid。
              */
             createdBy: number;
-        };
-        SetFolderMarkRequest: {
-            /** @description 閲覧の画面と同じ、フォルダーの登録先からの相対パス。 */
-            path: string;
-            public: boolean;
-        };
-        SetPublishedRequest: {
-            published: boolean;
         };
         SetVisibilityRequest: {
             visibility: components["schemas"]["Visibility"];
@@ -3215,8 +3066,6 @@ export interface components {
             includePatterns?: string | null;
             /** @description `type = 'folder'` のみ。一覧の表示を使うか。省略時は現在値のまま。 */
             listView?: boolean | null;
-            /** @description `type = 'folder'` のみ。印の無いファイル (新しく見つかったもの) を公開するか。省略時は現在値のまま。 */
-            newFilesPublic?: boolean | null;
             /**
              * Format: int64
              * @description 親グループのid。省略/`null`ならルート直下へ移動する (完全上書き型PUTの一部
@@ -3395,8 +3244,6 @@ export interface components {
         VisibilityPreviewRequest: {
             excludePatterns?: string | null;
             includePatterns?: string | null;
-            listView: boolean;
-            newFilesPublic: boolean;
         };
     };
     responses: never;
@@ -5412,7 +5259,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 索引に無い・非公開のアイテム、または実体が無い */
+            /** @description 索引に無い・絞り込みで外れたアイテム、または実体が無い */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -6359,129 +6206,6 @@ export interface operations {
             };
         };
     };
-    bulk_set_published: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BulkSetPublishedRequest"];
-            };
-        };
-        responses: {
-            /** @description 更新した */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BulkSetPublishedResponse"];
-                };
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description `user` から見て他人が作ったもの */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 所属しないitem_idを含む */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 結果が捨てられた・別の人のもの */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description itemIds と snapshot のどちらか一方を送っていない */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    set_published: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-                item_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SetPublishedRequest"];
-            };
-        };
-        responses: {
-            /** @description 更新した */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description `user` から見て他人が作ったもの */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 所属しない・存在しないアイテム */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
     download_item: {
         parameters: {
             query?: never;
@@ -6510,7 +6234,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 所属しない・存在しない・非公開のアイテム、または実体が無い */
+            /** @description 所属しない・存在しない・絞り込みで外れたアイテム、または実体が無い */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -6641,7 +6365,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 所属しない・存在しない・非公開のアイテム、実体が無い、またはプレビューしない画像 */
+            /** @description 所属しない・存在しない・絞り込みで外れたアイテム、実体が無い、またはプレビューしない画像 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -6775,7 +6499,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 未公開を含む、軸の選択肢と絞り込み後のアイテムの先頭の区切り */
+            /** @description 軸の選択肢と絞り込み後のアイテムの先頭の区切り */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -6826,7 +6550,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ManageArchivePageResponse"];
+                    "application/json": components["schemas"]["ArchivePageResponse"];
                 };
             };
             /** @description 未ログイン */
@@ -6879,7 +6603,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ManageArchiveShuffleResponse"];
+                    "application/json": components["schemas"]["ArchiveShuffleResponse"];
                 };
             };
             /** @description 未ログイン */
@@ -6902,198 +6626,6 @@ export interface operations {
             };
             /** @description 元の結果が捨てられた・別の人や口のもの。最初から取り直す */
             409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    list_marks: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 印を付けた順の新しいものから */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FolderMark"][];
-                };
-            };
-            /** @description 書き換えられるのは管理者と作成者だけ */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 見えない・存在しない、またはフォルダーでない */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    set_mark: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SetFolderMarkRequest"];
-            };
-        };
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description 書き換えられるのは管理者と作成者だけ */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 見えない・存在しない、フォルダーでない、またはフォルダーの中に無いパス */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description フォルダーのある NAS やディスクにつながらない */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    preview_visibility: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VisibilityPreviewRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VisibilityPreview"];
-                };
-            };
-            /** @description 書き換えられるのは管理者と作成者だけ */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 見えない・存在しない、またはフォルダーでない */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description パターンが正しくない */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description フォルダーのある NAS やディスクにつながらない */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    delete_mark: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-                mark_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description 書き換えられるのは管理者と作成者だけ */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 見えない・存在しない、またはこのフォルダーの印でない */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7592,6 +7124,68 @@ export interface operations {
             };
             /** @description 作成者のみのグループの決まりに合わない */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    preview_visibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisibilityPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibilityPreview"];
+                };
+            };
+            /** @description 書き換えられるのは管理者と作成者だけ */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見えない・存在しない、またはフォルダーでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description パターンが正しくない */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description フォルダーのある NAS やディスクにつながらない */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

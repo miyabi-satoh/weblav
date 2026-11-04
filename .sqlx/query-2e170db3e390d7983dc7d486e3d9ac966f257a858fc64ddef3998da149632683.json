@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO archive_items\n                 (archive_id, rel_path, file_size, modified_ns, image_width, image_height, is_text,\n                  taken_at, read_version)\n             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 9
+    },
+    "nullable": []
+  },
+  "hash": "2e170db3e390d7983dc7d486e3d9ac966f257a858fc64ddef3998da149632683"
+}

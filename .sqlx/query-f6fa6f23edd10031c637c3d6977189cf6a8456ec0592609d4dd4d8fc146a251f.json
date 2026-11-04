@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "INSERT INTO contents (type, title, path, visibility, list_view, new_files_public) VALUES ('folder', 'f', '/f', 'public', 1, 0) RETURNING id",
+  "query": "INSERT INTO contents (type, title, path, visibility, list_view) VALUES ('folder', 'f', '/f', 'public', 1) RETURNING id",
   "describe": {
     "columns": [
       {
@@ -16,5 +16,5 @@
       false
     ]
   },
-  "hash": "cde078cd1e71e69f7edf48916092bbe30ff445b82e101f67e18153b0ad7148a4"
+  "hash": "f6fa6f23edd10031c637c3d6977189cf6a8456ec0592609d4dd4d8fc146a251f"
 }

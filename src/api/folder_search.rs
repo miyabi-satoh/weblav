@@ -10,6 +10,7 @@ use utoipa::ToSchema;
 
 use super::archive_items;
 use super::contents::{self, FolderEntry, GroupAncestor};
+use super::file_filter::FileFilter;
 use super::link_preview::{self, LinkPreview};
 use super::links_file;
 use super::roots::OwnDirs;
@@ -158,10 +159,10 @@ pub(super) async fn search(
         })
         .collect();
 
-    // 公開していないものは、一覧と同じく検索にも出さない (→ folder_marks)。
-    let mut all_marks = Vec::with_capacity(folders.len());
+    // 絞り込みで外れるものは、一覧と同じく検索にも出さない (→ `file_filter`)。
+    let mut filters = Vec::with_capacity(folders.len());
     for folder in &folders {
-        all_marks.push(super::archive_index::marks(state, folder.id).await?.1);
+        filters.push(FileFilter::load(&state.pool, folder.id).await?);
     }
 
     // 辿るのはディスクの I/O で、フォルダーの大きさに比例して重くなる。
@@ -170,7 +171,7 @@ pub(super) async fn search(
         let mut candidates = Vec::new();
         let mut truncated = false;
         let mut sources = Vec::new();
-        for (index, (folder, marks)) in folders.into_iter().zip(all_marks).enumerate() {
+        for (index, (folder, filter)) in folders.into_iter().zip(filters).enumerate() {
             // 配信と同じく、共有の外は辿らない (→ contents::resolve_path)。
             let Ok(root) = std::fs::canonicalize(&folder.path) else {
                 continue;
@@ -188,9 +189,9 @@ pub(super) async fn search(
                     entry.rel_path = format!("{}/{}", folder.sub_path, entry.rel_path);
                 }
                 let shown = if entry.is_dir {
-                    marks.dir_reachable(&entry.rel_path)
+                    filter.allows_dir(&entry.rel_path)
                 } else {
-                    marks.file_visible(&entry.rel_path)
+                    filter.allows_file(&entry.rel_path)
                 };
                 if !shown {
                     continue;
@@ -287,7 +288,7 @@ pub(super) async fn search(
     })
 }
 
-/// アーカイブの公開アイテムのうち、リンクの一覧のファイル。配信と同じ確かめ (`item_file`) を通ったものだけ。
+/// アーカイブの見せるアイテムのうち、リンクの一覧のファイル。配信と同じ確かめ (`item_file`) を通ったものだけ。
 async fn archive_sources(
     state: &AppState,
     viewer: &Viewer,
@@ -300,7 +301,7 @@ async fn archive_sources(
         ancestors,
     } in archives
     {
-        let (_, marks) = super::archive_index::marks(state, archive_id).await?;
+        let filter = FileFilter::load(&state.pool, archive_id).await?;
         let items = sqlx::query!(
             r#"SELECT id as "id!", rel_path FROM archive_items WHERE archive_id = ?"#,
             archive_id
@@ -309,7 +310,7 @@ async fn archive_sources(
         .await?;
         for item in items {
             if !links_file::is_links_file_name(&item.rel_path)
-                || !marks.file_visible(&item.rel_path)
+                || !filter.allows_file(&item.rel_path)
             {
                 continue;
             }

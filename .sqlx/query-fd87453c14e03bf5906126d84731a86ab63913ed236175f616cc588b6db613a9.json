@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "INSERT INTO contents (type, parent_id, title, url, path, description,\n                                  visibility, created_by)\n           VALUES (?, ?, ?, ?, ?, ?, ?, ?)\n           RETURNING id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url,\n                     path, description, created_at as \"created_at!\", file_name, file_size,\n                     visibility as \"visibility: Visibility\", created_by, include_patterns, exclude_patterns, title_template,\n                     list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                     auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time",
+  "query": "SELECT id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url, path,\n                  description, created_at as \"created_at!\", file_name, file_size,\n                  visibility as \"visibility: Visibility\", created_by, include_patterns, exclude_patterns, title_template,\n                  list_view as \"list_view: bool\",\n                  auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time,\n                  visibility_before_hidden as \"visibility_before_hidden: Visibility\",\n                  (SELECT username FROM users WHERE users.id = contents.created_by) as created_by_username\n           FROM contents\n           WHERE visibility = ?1 AND (?2 OR created_by = ?3)\n           ORDER BY updated_at DESC, id",
   "describe": {
     "columns": [
       {
@@ -84,28 +84,33 @@
         "type_info": "Integer"
       },
       {
-        "name": "new_files_public: bool",
-        "ordinal": 16,
-        "type_info": "Integer"
-      },
-      {
         "name": "auto_rescan_mode: AutoMode",
-        "ordinal": 17,
+        "ordinal": 16,
         "type_info": "Text"
       },
       {
         "name": "auto_rescan_hours",
-        "ordinal": 18,
+        "ordinal": 17,
         "type_info": "Integer"
       },
       {
         "name": "auto_rescan_time",
+        "ordinal": 18,
+        "type_info": "Text"
+      },
+      {
+        "name": "visibility_before_hidden: Visibility",
         "ordinal": 19,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_by_username",
+        "ordinal": 20,
         "type_info": "Text"
       }
     ],
     "parameters": {
-      "Right": 8
+      "Right": 3
     },
     "nullable": [
       false,
@@ -125,10 +130,11 @@
       true,
       false,
       false,
-      false,
+      true,
+      true,
       true,
       true
     ]
   },
-  "hash": "e79c56a6f12aa41475e326426c1b9c97d6d2d7f7f2fbb08cfc9a2a413b792794"
+  "hash": "fd87453c14e03bf5906126d84731a86ab63913ed236175f616cc588b6db613a9"
 }

@@ -386,7 +386,7 @@ async fn management_endpoints_hide_others_private_from_regular_users(pool: Sqlit
     .await
     .expect("failed to insert axis");
     let item_id: i64 = sqlx::query_scalar(
-        "INSERT INTO archive_items (archive_id, rel_path, initial_public) VALUES (?, 'a.pdf', 0) RETURNING id",
+        "INSERT INTO archive_items (archive_id, rel_path) VALUES (?, 'a.pdf') RETURNING id",
     )
     .bind(archive_id)
     .fetch_one(&pool)
@@ -459,27 +459,13 @@ async fn management_endpoints_hide_others_private_from_regular_users(pool: Sqlit
     }
 
     // 書き込み系も、有効な要求に対して404を返し、何も書き込まない。
-    for (path, json) in [
-        (
-            format!("/api/v1/contents/{archive_id}/items"),
-            format!(r#"{{"itemIds":[{item_id}],"published":true}}"#),
-        ),
-        (
-            format!("/api/v1/contents/{archive_id}/items/{item_id}"),
-            r#"{"published":true}"#.to_string(),
-        ),
-        (
-            format!("/api/v1/contents/{archive_id}/axes/{axis_id}/values"),
-            r#"{"values":[{"rawValue":"英語"}]}"#.to_string(),
-        ),
-    ] {
+    for (path, json) in [(
+        format!("/api/v1/contents/{archive_id}/axes/{axis_id}/values"),
+        r#"{"values":[{"rawValue":"英語"}]}"#.to_string(),
+    )] {
         let (status, body) = send_json(app.clone(), "PUT", &path, &cookie, &json).await;
         assert_eq!(status, StatusCode::NOT_FOUND, "PUT {path}: {body}");
     }
-    assert!(
-        published_rel_paths(&db, archive_id).await.is_empty(),
-        "他人の private のアイテムが公開された"
-    );
     let values: Vec<String> =
         sqlx::query_scalar("SELECT raw_value FROM archive_axis_values WHERE axis_id = ?")
             .bind(axis_id)
@@ -518,13 +504,6 @@ async fn archive_endpoints_forbid_writes_to_others_archives(pool: SqlitePool) {
     .fetch_one(&pool)
     .await
     .expect("failed to insert axis");
-    let item_id: i64 = sqlx::query_scalar(
-        "INSERT INTO archive_items (archive_id, rel_path, initial_public) VALUES (?, 'a.pdf', 0) RETURNING id",
-    )
-    .bind(archive_id)
-    .fetch_one(&pool)
-    .await
-    .expect("failed to insert item");
     let db = pool.clone();
     let app = test_app(pool).await;
     let cookie = login(app.clone(), "bob", "correct-password").await;
@@ -556,14 +535,6 @@ async fn archive_endpoints_forbid_writes_to_others_archives(pool: SqlitePool) {
     assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
     for (path, json) in [
         (
-            format!("/api/v1/contents/{archive_id}/items"),
-            format!(r#"{{"itemIds":[{item_id}],"published":true}}"#),
-        ),
-        (
-            format!("/api/v1/contents/{archive_id}/items/{item_id}"),
-            r#"{"published":true}"#.to_string(),
-        ),
-        (
             format!("/api/v1/contents/{archive_id}/axes/{axis_id}"),
             r#"{"name":"教科","source":"filenameWord","position":0}"#.to_string(),
         ),
@@ -576,10 +547,6 @@ async fn archive_endpoints_forbid_writes_to_others_archives(pool: SqlitePool) {
         assert_eq!(status, StatusCode::FORBIDDEN, "PUT {path}: {body}");
     }
 
-    assert!(
-        published_rel_paths(&db, archive_id).await.is_empty(),
-        "他人のアイテムが公開された"
-    );
     let name: String = sqlx::query_scalar("SELECT name FROM archive_axes WHERE id = ?")
         .bind(axis_id)
         .fetch_one(&db)

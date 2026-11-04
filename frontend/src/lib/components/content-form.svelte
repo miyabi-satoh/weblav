@@ -225,7 +225,7 @@
 			{/if}
 		</Field.Field>
 	{/if}
-	<!-- フォルダーの見せ方は作成では聞かず、編集で変える (→ docs/folders.md「2つの表示」・「公開と非公開」)。 -->
+	<!-- フォルダーの見せ方は作成では聞かず、編集で変える (→ docs/folders.md「2つの表示」・「見せるものの絞り込み」)。 -->
 	{#if showsSpecific && editing && form.type === 'folder'}
 		<PatternField
 			label={m.contents_form_include_patterns_label()}
@@ -251,14 +251,6 @@
 			<Switch id="content-list-view" bind:checked={form.listView} {disabled} />
 		</Field.Field>
 		{#if form.listView}
-			<Field.Field orientation="horizontal" data-disabled={disabled}>
-				<Field.FieldContent>
-					<Field.FieldLabel for="content-new-files-public"
-						>{m.contents_form_new_files_public_label()}</Field.FieldLabel
-					>
-				</Field.FieldContent>
-				<Switch id="content-new-files-public" bind:checked={form.newFilesPublic} {disabled} />
-			</Field.Field>
 			<AutoScheduleField
 				id="content-auto-rescan"
 				label={m.contents_form_auto_rescan_label()}

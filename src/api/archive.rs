@@ -315,7 +315,7 @@ pub(super) async fn ensure_manageable_archive(
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RescanResponse {
-    /// 新しく索引に加えたアイテム数。非公開から始まる。
+    /// 新しく索引に加えたアイテム数。
     added: usize,
     /// 索引から取り除いたアイテム数。実体が消えたもの、または拡張子の対象から
     /// 外れたもの。
@@ -590,8 +590,7 @@ async fn sync_items(
 
     let mut removed = 0;
     for rel_path in existing.iter().filter(|rel| !found.contains(rel.as_str())) {
-        // 墓標は残さない。行を消すことが「一度対象から外れたら公開フラグを
-        // 復元しない」の実装になる (→ docs/archive.md「スキャン」)。
+        // 墓標は残さない (→ docs/archive.md「スキャン」)。
         sqlx::query!(
             "DELETE FROM archive_items WHERE archive_id = ? AND rel_path = ?",
             id,
@@ -722,12 +721,11 @@ async fn write_items<'a>(
             }
             continue;
         }
-        // 公開の初期値は、初めて見つけた時点の設定で決める (→ docs/folders.md「公開と非公開」)。
         sqlx::query!(
             "INSERT INTO archive_items
                  (archive_id, rel_path, file_size, modified_ns, image_width, image_height, is_text,
-                  taken_at, read_version, initial_public)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT new_files_public FROM contents WHERE id = ?))",
+                  taken_at, read_version)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             id,
             rel_path,
             size,
@@ -736,8 +734,7 @@ async fn write_items<'a>(
             height,
             is_text,
             taken_at,
-            READ_VERSION,
-            id
+            READ_VERSION
         )
         .execute(&mut **tx)
         .await?;
@@ -1068,12 +1065,11 @@ async fn apply_dir_changes(
     // 大きさなどはまだ読んでいない (`file_size` が NULL) まま足し、裏で読む (`fill_previews`)。
     for rel_path in &added {
         sqlx::query!(
-            "INSERT OR IGNORE INTO archive_items (archive_id, rel_path, read_version, initial_public)
-             VALUES (?, ?, ?, (SELECT new_files_public FROM contents WHERE id = ?))",
+            "INSERT OR IGNORE INTO archive_items (archive_id, rel_path, read_version)
+             VALUES (?, ?, ?)",
             id,
             rel_path,
-            READ_VERSION,
-            id
+            READ_VERSION
         )
         .execute(&mut *tx)
         .await?;
@@ -1787,7 +1783,7 @@ mod tests {
     #[sqlx::test]
     async fn save_read_items_adds_read_files_and_keeps_the_rest(pool: sqlx::SqlitePool) {
         let id = sqlx::query_scalar!(
-            "INSERT INTO contents (type, title, path, visibility, list_view, new_files_public) VALUES ('folder', 'f', '/f', 'public', 1, 0) RETURNING id"
+            "INSERT INTO contents (type, title, path, visibility, list_view) VALUES ('folder', 'f', '/f', 'public', 1) RETURNING id"
         )
         .fetch_one(&pool)
         .await

@@ -89,9 +89,8 @@ API のエラーは共通の envelope で返す。
 - 401 の戻り先は API のパスになる。**SvelteKit のルートではないので `goto` では解決できず**、ログインの成功後は `window.location` でブラウザーに開かせる。
   インライン表示できない型 (docx・zip 等) はダウンロードが始まるだけで文書は遷移しないので、先に `refreshAll()` で画面の状態を更新しておく。
   ログイン済みで `/login?redirect=/api/...` を開いた場合は戻り先を捨ててトップへ送る (ファイルは開き直せるため、ここで凝らない)。
-- **管理画面のアーカイブのアイテム一覧では、未公開のアイテムもタイトルをリンクにし、管理用の配信 (→ archive.md「アイテムの配信」) で開く**。
+- **管理画面のアーカイブのアイテム一覧では、タイトルをリンクにし、管理用の配信 (→ archive.md「アイテムの配信」) で開く**。
   辞書を決めるには、ダウンロードしてきたファイルのように名前だけでは分からないものの中身を確かめる必要がある。
-  確かめるために公開すると、そのあいだ閲覧側にも出てしまう。
 
 ### LAN からの到達性
 
@@ -164,13 +163,12 @@ API のエラーは共通の envelope で返す。
 親になれるのは `group` だけ。
 `folder` を `authenticated` のグループ配下に置いて、中身ごとログインした人だけに見せられるようにするため。
 
-フォルダーの一覧の表示 (→ archive.md) と公開・非公開の印 (→ folders.md「公開と非公開」) は、行数が増えるため別テーブルに分ける。
+フォルダーの一覧の表示 (→ archive.md) は、行数が増えるため別テーブルに分ける。
 テーブル名の `archive` は、一覧の表示が別の種類 (`archive`) だった名残。
 
 | テーブル | 役割 |
 |---|---|
-| `contents` | 4種類のコンテンツ。`folder` は `path` と、一覧の表示の設定 (`list_view`・`extensions`・`title_template`・`auto_rescan`)・`new_files_public` を使う |
-| `folder_marks` | フォルダーの中のパスごとの公開・非公開の印 |
+| `contents` | 4種類のコンテンツ。`folder` は `path` と、一覧の表示の設定 (`list_view`・`title_template`・`auto_rescan`)、見せるものの絞り込み (`include_patterns`・`exclude_patterns`) を使う |
 | `archive_items` | 一覧の表示の索引。ファイル1件の相対パスと、スキャンで読んだプレビューの情報・撮影日 |
 | `archive_dirs` | 索引したフォルダーとその更新日時 (開いたときに変わった所だけ読み直す手掛かり) |
 | `archive_axes` | 属性軸の定義 (名前・抽出元・階層番号) |
@@ -242,14 +240,14 @@ CREATE TABLE contents (
     blob_hash TEXT,    -- file のみ。SHA-256(64桁16進)。実体は blobs_dir/<hash>
     file_name TEXT,    -- file のみ
     file_size INTEGER, -- file のみ
-    -- folder の一覧の表示のみ。索引対象の拡張子をカンマ区切りで保持する。NULL/空なら全ファイル
-    extensions TEXT,
+    -- folder のみ。見せるものの絞り込み (→ folders.md「見せるものの絞り込み」)。1行に1つの glob。NULL なら絞らない
+    include_patterns TEXT,
+    exclude_patterns TEXT,
     -- folder の一覧の表示のみ。表示タイトルのテンプレート (例: '{科目}（{資料種別}）')。
     -- NULL ならファイル名をそのまま表示する
     title_template TEXT,
-    -- folder のみ。一覧の表示を使うか・印の無いファイルを公開するか・自動の再スキャンの間隔と最後のスキャン
+    -- folder のみ。一覧の表示を使うか・自動の再スキャンの間隔と最後のスキャン
     list_view INTEGER NOT NULL DEFAULT 0,
-    new_files_public INTEGER NOT NULL DEFAULT 1,
     auto_rescan TEXT NOT NULL DEFAULT 'manual',
     last_scanned_at INTEGER,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -281,17 +279,6 @@ CREATE TABLE archive_items (
 );
 
 CREATE INDEX idx_archive_items_archive_id ON archive_items (archive_id);
-
--- 公開・非公開の印 (→ folders.md「公開と非公開」)。path は登録先からの相対パス。
-CREATE TABLE folder_marks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    content_id INTEGER NOT NULL REFERENCES contents (id) ON DELETE CASCADE,
-    path TEXT NOT NULL,
-    is_dir INTEGER NOT NULL,
-    public INTEGER NOT NULL,
-    created_at INTEGER NOT NULL,
-    UNIQUE (content_id, path)
-);
 
 -- 索引したフォルダーとその更新日時 (→ archive.md「スキャン」)。
 CREATE TABLE archive_dirs (

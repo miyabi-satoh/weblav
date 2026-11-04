@@ -23,7 +23,7 @@ mod archive;
 mod axes;
 mod backup;
 mod contents;
-mod folder_marks;
+mod file_filter;
 mod guards;
 mod images;
 mod inheritance;
@@ -141,8 +141,8 @@ async fn insert_archive_by(
     parent_id: Option<i64>,
 ) -> i64 {
     sqlx::query_scalar(
-        "INSERT INTO contents (type, parent_id, title, path, visibility, created_by, list_view, new_files_public) \
-         VALUES ('folder', ?, ?, ?, ?, ?, 1, 0) RETURNING id",
+        "INSERT INTO contents (type, parent_id, title, path, visibility, created_by, list_view) \
+         VALUES ('folder', ?, ?, ?, ?, ?, 1) RETURNING id",
     )
     .bind(parent_id)
     .bind(title)
@@ -607,7 +607,7 @@ async fn create_archive(
         &format!("/api/v1/contents/{id}"),
         cookie,
         &format!(
-            r#"{{"title":"英検 過去問","path":{path_json},"listView":true,"newFilesPublic":false{extensions_json}}}"#
+            r#"{{"title":"英検 過去問","path":{path_json},"listView":true{extensions_json}}}"#
         ),
     )
     .await;
@@ -687,7 +687,7 @@ async fn view_archive(
     .await
 }
 
-/// 管理用の一覧の先頭の区切りの行 (未公開を含む)。テストのアーカイブは区切りの大きさより小さいので、全件が入る。
+/// 管理用の一覧の先頭の区切りの行。テストのアーカイブは区切りの大きさより小さいので、全件が入る。
 async fn manage_items(app: Router, cookie: &str, archive_id: i64) -> Vec<serde_json::Value> {
     let (status, body) = send_empty(
         app,
@@ -701,58 +701,6 @@ async fn manage_items(app: Router, cookie: &str, archive_id: i64) -> Vec<serde_j
         .as_array()
         .expect("items が配列でなかった")
         .clone()
-}
-
-/// ファイル `rel_path` に公開の印を付ける (テストの前準備用)。
-async fn mark_published(pool: &SqlitePool, archive_id: i64, rel_path: &str) {
-    sqlx::query!(
-        "INSERT INTO folder_marks (content_id, path, is_dir, public, created_at) VALUES (?, ?, 0, 1, 0)
-         ON CONFLICT (content_id, path) DO UPDATE SET public = 1",
-        archive_id,
-        rel_path
-    )
-    .execute(pool)
-    .await
-    .expect("公開の印を付けられなかった");
-}
-
-/// 索引の行のうち、公開しているものの相対パス (昇順)。印はファイルにだけ付けたテストで使う。
-async fn published_rel_paths(pool: &SqlitePool, archive_id: i64) -> Vec<String> {
-    sqlx::query_scalar!(
-        r#"SELECT i.rel_path FROM archive_items i
-           LEFT JOIN folder_marks m ON m.content_id = i.archive_id AND m.path = i.rel_path
-           WHERE i.archive_id = ? AND COALESCE(m.public, i.initial_public) = 1
-           ORDER BY i.rel_path"#,
-        archive_id
-    )
-    .fetch_all(pool)
-    .await
-    .expect("公開しているものを読めなかった")
-}
-
-/// フォルダーの中を全部公開にする (テストの前準備用)。新しいファイルを公開する設定にし、非公開の印を消す。
-async fn publish_all_items(pool: &SqlitePool, archive_id: i64) {
-    sqlx::query!(
-        "UPDATE contents SET new_files_public = 1 WHERE id = ?",
-        archive_id
-    )
-    .execute(pool)
-    .await
-    .expect("新しいファイルを公開する設定にできなかった");
-    sqlx::query!(
-        "UPDATE archive_items SET initial_public = 1 WHERE archive_id = ?",
-        archive_id
-    )
-    .execute(pool)
-    .await
-    .expect("初期値を公開にできなかった");
-    sqlx::query!(
-        "DELETE FROM folder_marks WHERE content_id = ? AND public = 0",
-        archive_id
-    )
-    .execute(pool)
-    .await
-    .expect("非公開の印を消せなかった");
 }
 
 /// 一覧APIから`username`のidを引く。ユーザー管理APIはid採番をレスポンスで返すが、

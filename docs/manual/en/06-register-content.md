@@ -50,18 +50,9 @@ By default, everything in a folder is visible. To limit what you show, use “In
 - `backup/`: folders with that name at any level
 - `docs/*.pdf`: files directly inside “docs” at the top (a pattern containing `/` starts at the top of the folder)
 
-If “Include patterns” is empty, everything is included. “Exclude patterns” takes priority. Filtered-out items don't appear in the folder view, even for people who can change the folder, and can't be published or unpublished. They still appear on the share screen.
+If “Include patterns” is empty, everything is included. “Exclude patterns” takes priority. Filtered-out items don't appear in the folder view, downloads, or search, for viewers or for people who can change the folder. They still appear on the share screen. When only “Include patterns” is set, subfolders appear even if no file inside them matches.
 
-When saving settings would make more or fewer files visible, the counts appear before the save.
-
-Unpublished items appear only to people who can change the folder, marked “Unpublished” under the name. To show one, select “⋮” on its row and choose “Publish”.
-
-- Publishing a file also makes the folders above it browsable.
-- Publishing a folder applies to everything inside it. Earlier changes to items inside it are cleared.
-- Unpublished files cannot be downloaded or found by search either.
-- Items you rename or move on the share screens keep their publish setting (→ [Work with files in shares](05-files.md)). If you rename or move a file in File Explorer or Finder, your change to it no longer applies, and it is treated like a newly found file.
-
-Your changes are listed under “Publishing changes” on the edit page, and “Undo” reverts one. For a folder organized as a library, only folders are listed there. Publish or unpublish files on the “Items” tab (→ [Set up a library](07-archive-setup.md)).
+When saving patterns would make more or fewer files visible, the counts appear before the save.
 
 ## Link
 
@@ -153,7 +144,7 @@ To see how it looks to viewers, select “View on site” next to the heading of
 - Link: Use “Refetch title” and “Refetch description” to fetch them again from the linked site.
 - File (registered in an earlier version): You can change the title and other details, but you cannot replace the file. To change its contents, put the file in a share again.
 - Folder: “Include patterns”, “Exclude patterns” (→ “Limit what you show” above) and “Organize as a library” (→ [Set up a library](07-archive-setup.md)). Neither is asked when you add a folder, so change them here.
-  - Changing the location with “Change...” under “Path” clears all publish changes and the list.
+  - Changing the location with “Change...” under “Path” clears the list.
 
 ## Delete
 

@@ -37,7 +37,6 @@
 	import ContentForm from '$lib/components/content-form.svelte';
 	import * as Field from '$lib/components/ui/field';
 	import * as Select from '$lib/components/ui/select';
-	import FolderMarksSection from '$lib/components/folder-marks-section.svelte';
 	import DirPicker from '$lib/components/dir-picker.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
@@ -71,17 +70,6 @@
 	const creatorDirty = new FormDirtyState(() => creatorId);
 	creatorDirty.markPristine();
 	let creatorChanged = $derived(canChangeCreator && !creatorLocked && creatorDirty.dirty);
-
-	// 公開・非公開を変えたものが無ければ区画を出さない。印を付けるのは閲覧の画面とアイテムのタブで行う。
-	// 一覧の表示を使うフォルダーでは、ファイルの印はアイテムのタブで見るので、フォルダーの印だけを並べる
-	// (選んで公開するフォルダーでは、公開したファイルの印が数万件になりうるため)。
-	let folderMarks = $derived.by(() => {
-		if (content.type !== 'folder' || !data.folderMarks) return null;
-		const marks = content.listView
-			? data.folderMarks.filter((mark) => mark.isDir)
-			: data.folderMarks;
-		return marks.length > 0 ? marks : null;
-	});
 
 	// 区画ごとに保存する (→ docs/ui.md「編集ページの区画」)。保存ボタンは、その区画の変更だけで決める。
 	let commonDirty = $derived(form.partDirty('common') || creatorChanged);
@@ -227,23 +215,17 @@
 		void confirmVisibilityOrSave();
 	}
 
-	/** 印の無いファイルが見えるか。ライブラリでないフォルダーは、置いたものがそのまま見える。 */
-	function unmarkedFilesPublic(folder: { listView: boolean; newFilesPublic: boolean }): boolean {
-		return !folder.listView || folder.newFilesPublic;
-	}
-
-	/** 保存で印の無いものの扱いや対象の拡張子が変わるか。場所を変えるときは、印を捨てる確認に任せる。 */
+	/** 保存でパターンが変わるか。場所を変えるときは、登録の確認に任せる。 */
 	function changesVisibleFiles(): boolean {
 		if (confirmingPart !== 'specific' || content.type !== 'folder') return false;
 		if (content.path !== form.path) return false;
 		return (
 			(content.includePatterns ?? null) !== form.normalizedIncludePatterns ||
-			(content.excludePatterns ?? null) !== form.normalizedExcludePatterns ||
-			unmarkedFilesPublic(content) !== unmarkedFilesPublic(form)
+			(content.excludePatterns ?? null) !== form.normalizedExcludePatterns
 		);
 	}
 
-	// 見えるファイルが変わるときだけ、保存の前に知らせる (→ docs/folders.md「公開と非公開」)。
+	// 見えるファイルが変わるときだけ、保存の前に知らせる (→ docs/folders.md「見せるものの絞り込み」)。
 	async function confirmVisibilityOrSave() {
 		if (saving) return;
 		if (!changesVisibleFiles()) {
@@ -253,11 +235,9 @@
 		savingPart = confirmingPart;
 		let preview: VisibilityPreview | null = null;
 		try {
-			const result = await client.POST('/api/v1/contents/{id}/marks/preview', {
+			const result = await client.POST('/api/v1/contents/{id}/visibility-preview', {
 				params: { path: { id: content.id } },
 				body: {
-					listView: form.listView,
-					newFilesPublic: form.newFilesPublic,
 					includePatterns: form.normalizedIncludePatterns,
 					excludePatterns: form.normalizedExcludePatterns
 				}
@@ -441,9 +421,6 @@
 		{#if specificTitle !== null}
 			{@render partForm('specific', specificTitle)}
 		{/if}
-		{#if folderMarks != null}
-			<FolderMarksSection contentId={content.id} marks={folderMarks} />
-		{/if}
 	</div>
 </div>
 
@@ -464,8 +441,6 @@
 	excludePatterns={(confirmSpecific ? form.normalizedExcludePatterns : content.excludePatterns) ??
 		undefined}
 	listView={confirmSpecific ? form.listView : content.listView}
-	newFilesPublic={unmarkedFilesPublic(confirmSpecific ? form : content)}
-	clearsMarks={confirmSpecific && content.type === 'folder' && content.path !== form.path}
 	editing
 	{saving}
 	progress={scanProgress}

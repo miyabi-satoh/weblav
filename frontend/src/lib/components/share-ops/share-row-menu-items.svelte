@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
 	 * 共有の中の行の ⋮ に並べる操作 (→ docs/ui.md「共有の中の画面」)。押してから断られるものは出さない (`shareRowActions`)。
-	 * `RowActionsMenu` の中に置く。フォルダーのコンテンツの画面では、公開・非公開の項目の後に続ける。
+	 * `RowActionsMenu` の中に置く。フォルダーのコンテンツの画面でも同じものを出す。
 	 */
 	import { shareDownloadHref } from '$lib/api/urls';
 	import * as m from '$lib/paraglide/messages.js';

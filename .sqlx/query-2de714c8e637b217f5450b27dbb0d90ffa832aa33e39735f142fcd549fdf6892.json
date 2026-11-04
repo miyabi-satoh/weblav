@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT index_version, marks_version FROM archive_versions WHERE content_id = ?",
+  "query": "SELECT index_version, filter_version FROM archive_versions WHERE content_id = ?",
   "describe": {
     "columns": [
       {
@@ -9,7 +9,7 @@
         "type_info": "Integer"
       },
       {
-        "name": "marks_version",
+        "name": "filter_version",
         "ordinal": 1,
         "type_info": "Integer"
       }
@@ -22,5 +22,5 @@
       false
     ]
   },
-  "hash": "1f24e5d6f6e043ea61dc0d8b115400ba98e97f099d170bf5094870454e022d81"
+  "hash": "2de714c8e637b217f5450b27dbb0d90ffa832aa33e39735f142fcd549fdf6892"
 }

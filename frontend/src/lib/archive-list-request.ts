@@ -10,11 +10,10 @@ import { ARCHIVE_CHUNK_SIZE } from '$lib/archive-paged-list.svelte';
 import { LIST_FILTER_QUERY } from '$lib/list-filter';
 
 type ArchiveViewItem = components['schemas']['ArchiveViewItem'];
-type ManageArchiveViewItem = components['schemas']['ManageArchiveViewItem'];
 
 /**
  * 画面の URL の軸の絞り込み (`?科目=国語`)。共有されたリンクの形は変えないので、画面の URL は軸の名前をそのままキーにする。
- * 並び順 (`sort`)・名前の語 (`filter`)・公開の状態 (`status`) は軸でない。
+ * 並び順 (`sort`)・名前の語 (`filter`) は軸でない。
  */
 export function axisFilters(url: URL, reserved: string[] = []): Record<string, string> {
 	const skip = new Set(['sort', LIST_FILTER_QUERY, ...reserved]);
@@ -49,7 +48,7 @@ export function viewChunks(id: number): ChunkFetch<ArchiveViewItem> {
 }
 
 /** 管理用の一覧の、区切りの続きの取り方。 */
-export function manageChunks(id: number): ChunkFetch<ManageArchiveViewItem> {
+export function manageChunks(id: number): ChunkFetch<ArchiveViewItem> {
 	return async (snapshot, offset, signal) => {
 		const { data, response } = await client.GET('/api/v1/contents/{id}/manage-archive/page', {
 			params: { path: { id }, query: { snapshot, offset, limit: ARCHIVE_CHUNK_SIZE } },
@@ -74,7 +73,7 @@ export function viewShuffle(id: number): ShuffleFetch<ArchiveViewItem> {
 }
 
 /** 管理用の一覧の、音声の行を混ぜた結果の作り方。 */
-export function manageShuffle(id: number): ShuffleFetch<ManageArchiveViewItem> {
+export function manageShuffle(id: number): ShuffleFetch<ArchiveViewItem> {
 	return async (snapshot) => {
 		const { data, response } = await client.GET('/api/v1/contents/{id}/manage-archive/shuffle', {
 			params: { path: { id }, query: { snapshot, limit: ARCHIVE_CHUNK_SIZE } }

@@ -18,14 +18,20 @@ async fn search(app: Router, query: &str) -> serde_json::Value {
 }
 
 /// コンテンツはタイトルと説明で、一覧の表示を使うフォルダーのファイルは表示タイトルで当たる。
-/// 非公開のファイルは出さない。
+/// 絞り込みで外れるファイルは出さない。
 #[sqlx::test]
-async fn search_finds_contents_and_published_archive_files(pool: SqlitePool) {
+async fn search_finds_contents_and_visible_archive_files(pool: SqlitePool) {
     let dir = temp_test_dir("search");
     std::fs::write(dir.join("リスニング第1回.mp3"), b"").expect("ファイルを作れなかった");
     std::fs::write(dir.join("リスニング第2回.mp3"), b"").expect("ファイルを作れなかった");
     let (app, _cookie, archive_id) = setup_archive(&pool, &dir, None).await;
-    mark_published(&pool, archive_id, "リスニング第1回.mp3").await;
+    sqlx::query!(
+        "UPDATE contents SET exclude_patterns = 'リスニング第2回.*' WHERE id = ?",
+        archive_id
+    )
+    .execute(&pool)
+    .await
+    .expect("パターンを書けなかった");
     let group_id = insert_group_under(&pool, "教材", "public", None).await;
     let link_id = insert_link_by(&pool, "英語のページ", "public", None, Some(group_id)).await;
     sqlx::query!(

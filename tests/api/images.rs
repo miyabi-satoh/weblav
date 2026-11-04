@@ -258,10 +258,6 @@ async fn archive_image_items_get_sizes_and_thumbnails(pool: SqlitePool) {
     let item_id = items[0]["id"].as_i64().expect("idが返らなかった");
     let thumbnail_uri = format!("/api/v1/contents/{id}/items/{item_id}/thumbnail");
 
-    let response = get_with_headers(app.clone(), &thumbnail_uri, &[]).await;
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
-
-    publish_all_items(&pool, id).await;
     let (status, body) = view_archive(app.clone(), "", id, &[]).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");

@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url,\n                  path, description, created_at as \"created_at!\", file_name, file_size,\n                  visibility as \"visibility: Visibility\", created_by, include_patterns, exclude_patterns, title_template,\n                  list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                  auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time\n           FROM contents WHERE id = ?",
+  "query": "UPDATE contents\n           SET created_by = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')\n           WHERE id = ?\n           RETURNING id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url,\n                     path, description, created_at as \"created_at!\", file_name, file_size,\n                     visibility as \"visibility: Visibility\", created_by, include_patterns, exclude_patterns, title_template,\n                     list_view as \"list_view: bool\",\n                     auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time",
   "describe": {
     "columns": [
       {
@@ -84,33 +84,28 @@
         "type_info": "Integer"
       },
       {
-        "name": "new_files_public: bool",
-        "ordinal": 16,
-        "type_info": "Integer"
-      },
-      {
         "name": "auto_rescan_mode: AutoMode",
-        "ordinal": 17,
+        "ordinal": 16,
         "type_info": "Text"
       },
       {
         "name": "auto_rescan_hours",
-        "ordinal": 18,
+        "ordinal": 17,
         "type_info": "Integer"
       },
       {
         "name": "auto_rescan_time",
-        "ordinal": 19,
+        "ordinal": 18,
         "type_info": "Text"
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 2
     },
     "nullable": [
       false,
       false,
-      true,
+      false,
       false,
       true,
       true,
@@ -123,12 +118,11 @@
       true,
       true,
       true,
-      false,
       false,
       false,
       true,
       true
     ]
   },
-  "hash": "28abfac40132220b76eaa06e9b20baa6f0526bb17e2dec720a7580d32a6f5aaa"
+  "hash": "16462f06832bbafd82097dc83c3fe35210b198524e5d129fc4f7f6dec2b2564f"
 }

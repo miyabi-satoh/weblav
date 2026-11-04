@@ -1,4 +1,4 @@
-//! 一覧の表示の、導出済みの全アイテムと公開・非公開の印をメモリに持つ所と、区切って返すための
+//! 一覧の表示の、導出済みの全アイテムをメモリに持つ所と、区切って返すための
 //! 結果の集まり (→ docs/archive.md「大きなアーカイブの一覧」)。
 //!
 //! 一覧を区切って返すと、1つの一覧を何度にも分けて取る。区切るたびに全件を導出すると数十万件で数秒かかるので、
@@ -13,7 +13,6 @@ use crate::error::{AppError, run_blocking};
 use crate::state::AppState;
 
 use super::archive::{self, AxisIndex, DerivedAxisValue, ValueKey};
-use super::folder_marks::Marks;
 use super::sort::{ArchiveSortOrder, title_cmp};
 use super::thumbnails;
 
@@ -32,7 +31,7 @@ const MAX_SNAPSHOT_BYTES: usize = 64 * 1024 * 1024;
 /// 0件の結果も量に数え、上限で数を縛るため。4KB で、上限まで溜まっても約1.6万個。
 const SNAPSHOT_OVERHEAD_BYTES: usize = 4 * 1024;
 
-/// 索引の1行。`published` はフォルダーの公開・非公開の印から決める (→ docs/folders.md「公開と非公開」)。
+/// 索引の1行。
 #[derive(Default)]
 pub(super) struct ItemRow {
     pub(super) id: i64,
@@ -257,43 +256,14 @@ impl ArchiveIndex {
     }
 }
 
-/// 管理のタブの、公開の状態での絞り込み。
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub(super) enum StatusFilter {
-    #[default]
-    All,
-    Published,
-    Unpublished,
-}
-
-impl StatusFilter {
-    /// クエリの値から決める。知らない値はすべてとして扱う (並び順と同じく、422 にしない)。
-    pub(super) fn from_query(value: Option<&str>) -> Self {
-        match value {
-            Some("published") => Self::Published,
-            Some("unpublished") => Self::Unpublished,
-            _ => Self::All,
-        }
-    }
-
-    fn accepts(self, published: bool) -> bool {
-        match self {
-            Self::All => true,
-            Self::Published => published,
-            Self::Unpublished => !published,
-        }
-    }
-}
-
 /// 一覧の絞り込みと並べ方。
 pub(super) struct ListQuery {
     /// 軸の名前 → 選択肢の表示名 (→ docs/archive.md「エンドポイント一覧」)。
     pub(super) filters: HashMap<String, String>,
     /// 名前の絞り込みの語 (`list_filter::parse_terms`)。
     pub(super) terms: Vec<Vec<char>>,
-    /// 名前の絞り込みでパスも照らすか (管理のタブ。→ docs/archive.md「アイテムの公開」)。
+    /// 名前の絞り込みでパスも照らすか (管理のタブ)。
     pub(super) match_paths: bool,
-    pub(super) status: StatusFilter,
     pub(super) order: ArchiveSortOrder,
 }
 
@@ -303,14 +273,6 @@ pub(super) struct AxisOptions {
     pub(super) options: Vec<(String, usize)>,
 }
 
-/// 公開の状態ごとの件数 (管理のタブの絞り込みの欄に出す)。
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub(super) struct StatusCounts {
-    pub(super) all: usize,
-    pub(super) published: usize,
-    pub(super) unpublished: usize,
-}
-
 /// 絞って並べた結果。
 pub(super) struct ListResult {
     pub(super) axes: Vec<AxisOptions>,
@@ -318,9 +280,8 @@ pub(super) struct ListResult {
     pub(super) active_filters: Vec<Option<String>>,
     /// 絞って並べたアイテムの番号。
     pub(super) ids: Vec<i64>,
-    /// 軸で絞った後、名前の語と公開の状態で絞る前の数。名前で絞り込み中の「N / M 件」の M にする。
+    /// 軸で絞った後、名前の語で絞る前の数。名前で絞り込み中の「N / M 件」の M にする。
     pub(super) total_all: usize,
-    pub(super) status_counts: StatusCounts,
 }
 
 /// 見えるアイテムを絞って並べ、軸の選択肢と件数を数える。数十万件を回すので `run_blocking` の中で呼ぶ。
@@ -328,18 +289,17 @@ pub(super) struct ListResult {
 /// - 選択肢は絞り込む前の、見えるアイテム全体から作る。見えるアイテムに値が1つも無い軸は返さない
 ///   (→ docs/archive.md「軸の値の辞書と導出」)。
 /// - 軸に一致しないキー・どの選択肢にも一致しない値は無視する (→ docs/archive.md「エンドポイント一覧」)。
-/// - 選択肢の件数は、ほかの軸・名前の語・公開の状態の絞り込みを効かせたまま、その軸だけを置き換えて数える。
+/// - 選択肢の件数は、ほかの軸と名前の語の絞り込みを効かせたまま、その軸だけを置き換えて数える。
 pub(super) fn run_query(
     index: &ArchiveIndex,
-    is_published: &dyn Fn(&IndexedItem) -> bool,
-    published_only: bool,
+    is_visible: &dyn Fn(&IndexedItem) -> bool,
     query: &ListQuery,
 ) -> ListResult {
     let visible: Vec<usize> = index
         .order(query.order)
         .iter()
         .copied()
-        .filter(|&i| !published_only || is_published(&index.items[i]))
+        .filter(|&i| is_visible(&index.items[i]))
         .collect();
 
     // 軸ごとの選択肢 (表示名 → 比較キー)。絞り込みに出さない軸と、値の無い軸は `None`。
@@ -390,10 +350,10 @@ pub(super) fn run_query(
     };
 
     // 名前の語は軸の数より重いので、1件につき1回だけ照らしておく。
-    let named: Vec<(usize, bool)> = visible
+    let named: Vec<usize> = visible
         .iter()
-        .filter(|&&i| matches_name(&index.items[i]))
-        .map(|&i| (i, is_published(&index.items[i])))
+        .copied()
+        .filter(|&i| matches_name(&index.items[i]))
         .collect();
 
     let axes = index
@@ -404,10 +364,9 @@ pub(super) fn run_query(
         .filter_map(|(axis, (index_axis, options))| {
             let options = options.as_ref()?;
             let mut counts: HashMap<&str, usize> = HashMap::new();
-            for &(i, published) in &named {
+            for &i in &named {
                 let item = &index.items[i];
-                if query.status.accepts(published)
-                    && matches_axes(item, Some(axis))
+                if matches_axes(item, Some(axis))
                     && let Some(value) = index.value(item, axis)
                 {
                     *counts.entry(value.display.as_str()).or_default() += 1;
@@ -431,34 +390,22 @@ pub(super) fn run_query(
         .iter()
         .filter(|&&i| matches_axes(&index.items[i], None))
         .count();
-    let mut status_counts = StatusCounts::default();
-    let mut ids = Vec::new();
-    for &(i, published) in &named {
-        let item = &index.items[i];
-        if !matches_axes(item, None) {
-            continue;
-        }
-        status_counts.all += 1;
-        if published {
-            status_counts.published += 1;
-        } else {
-            status_counts.unpublished += 1;
-        }
-        if query.status.accepts(published) {
-            ids.push(item.id);
-        }
-    }
+    let ids = named
+        .iter()
+        .map(|&i| &index.items[i])
+        .filter(|item| matches_axes(item, None))
+        .map(|item| item.id)
+        .collect();
 
     ListResult {
         axes,
         active_filters,
         ids,
         total_all,
-        status_counts,
     }
 }
 
-/// 結果の集まりを作った口。管理用の結果には未公開も入っているので、閲覧用の口からは引かせない。
+/// 結果の集まりを作った口。管理用の結果には登録先が見つからないときの行も入っているので、閲覧用の口からは引かせない。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum SnapshotKind {
     View,
@@ -598,24 +545,24 @@ fn snapshot_bytes(snapshot: &Snapshot) -> usize {
             .map_or(0, |positions| positions.len() * std::mem::size_of::<u32>())
 }
 
-/// フォルダーの索引と印の版 (`archive_versions`)。
+/// フォルダーの索引と絞り込みのパターンの版 (`archive_versions`)。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(super) struct Versions {
     pub(super) index: i64,
-    pub(super) marks: i64,
+    pub(super) filter: i64,
 }
 
 /// 今の版を読む。行が無ければ (まだ何も書いていない) 0。
 pub(super) async fn versions(pool: &sqlx::SqlitePool, id: i64) -> Result<Versions, AppError> {
     let row = sqlx::query!(
-        "SELECT index_version, marks_version FROM archive_versions WHERE content_id = ?",
+        "SELECT index_version, filter_version FROM archive_versions WHERE content_id = ?",
         id
     )
     .fetch_optional(pool)
     .await?;
     Ok(row.map_or_else(Versions::default, |row| Versions {
         index: row.index_version,
-        marks: row.marks_version,
+        filter: row.filter_version,
     }))
 }
 
@@ -636,22 +583,13 @@ impl Default for Entry {
     }
 }
 
-/// 導出の結果と印と結果の集まりの置き場。`AppState` が1つ持つ。
+/// 導出の結果と結果の集まりの置き場。`AppState` が1つ持つ。
 ///
 /// `std::sync::Mutex` を使うのは `ArchiveScans` と同じく、保持するのが表を触る一瞬だけで、持ったまま await しないため。
 #[derive(Default)]
 pub struct ArchiveIndexCache {
     entries: StdMutex<HashMap<i64, Entry>>,
-    /// 印は導出の結果と別に持つ。管理画面の件数や検索のように多くのフォルダーの印を引く所が、
-    /// 数を縛った導出の結果 (`MAX_ENTRIES`) を押し出さないため。印はフォルダーの数だけで、使われなくなったら捨てる。
-    marks: StdMutex<HashMap<i64, StoredMarks>>,
     snapshots: StdMutex<Snapshots>,
-}
-
-struct StoredMarks {
-    version: i64,
-    marks: Arc<Marks>,
-    last_used: Instant,
 }
 
 impl ArchiveIndexCache {
@@ -661,7 +599,6 @@ impl ArchiveIndexCache {
             .lock()
             .expect("archive index lock poisoned")
             .clear();
-        self.marks.lock().expect("marks lock poisoned").clear();
         *self.snapshots.lock().expect("snapshot lock poisoned") = Snapshots::default();
     }
 
@@ -691,33 +628,11 @@ impl ArchiveIndexCache {
         (*cached == version).then(|| Arc::clone(index))
     }
 
-    fn cached_marks(&self, id: i64, version: i64) -> Option<Arc<Marks>> {
-        let now = Instant::now();
-        let mut marks = self.marks.lock().expect("marks lock poisoned");
-        marks.retain(|key, stored| *key == id || now.duration_since(stored.last_used) <= IDLE_TTL);
-        let stored = marks
-            .get_mut(&id)
-            .filter(|stored| stored.version == version)?;
-        stored.last_used = now;
-        Some(Arc::clone(&stored.marks))
-    }
-
     fn store_index(&self, id: i64, version: i64, index: &Arc<ArchiveIndex>) {
         let mut entries = self.entries.lock().expect("archive index lock poisoned");
         if let Some(entry) = entries.get_mut(&id) {
             entry.index = Some((version, Arc::clone(index)));
         }
-    }
-
-    fn store_marks(&self, id: i64, version: i64, marks: &Arc<Marks>) {
-        self.marks.lock().expect("marks lock poisoned").insert(
-            id,
-            StoredMarks {
-                version,
-                marks: Arc::clone(marks),
-                last_used: Instant::now(),
-            },
-        );
     }
 
     /// 結果の集まりを持ち、名前を返す。
@@ -796,18 +711,6 @@ pub(super) async fn index_if_cached_or_build(
     Ok(Arc::new(build_index(&state.pool, id).await?))
 }
 
-/// `id` (フォルダー) の公開・非公開の印を、今の版で返す。
-pub(super) async fn marks(state: &AppState, id: i64) -> Result<(i64, Arc<Marks>), AppError> {
-    let cache = &state.archive_index;
-    let version = versions(&state.pool, id).await?.marks;
-    if let Some(marks) = cache.cached_marks(id, version) {
-        return Ok((version, marks));
-    }
-    let marks = Arc::new(Marks::load(&state.pool, id).await?);
-    cache.store_marks(id, version, &marks);
-    Ok((version, marks))
-}
-
 async fn build_index(pool: &sqlx::SqlitePool, id: i64) -> Result<ArchiveIndex, AppError> {
     let template = sqlx::query_scalar!("SELECT title_template FROM contents WHERE id = ?", id)
         .fetch_optional(pool)
@@ -862,64 +765,47 @@ mod tests {
         ArchiveIndex::build(rows, &[subject_axis()], None)
     }
 
-    fn query(filter: &str, status: StatusFilter) -> ListQuery {
+    fn query(filter: &str) -> ListQuery {
         ListQuery {
             filters: HashMap::new(),
             terms: crate::api::list_filter::parse_terms(filter),
             match_paths: true,
-            status,
             order: ArchiveSortOrder::Axis,
         }
     }
 
     const FILES: &[&str] = &["a/kokugo_1.pdf", "a/kokugo_2.pdf", "b/eigo_1.pdf"];
 
-    /// 名前の語と公開の状態で絞り、選択肢の件数と公開の状態ごとの件数もその絞り込みを効かせて数える。
+    /// 名前の語で絞り、選択肢の件数もその絞り込みを効かせて数える。
     /// 選択肢そのものは絞り込む前の全体から作る (→ docs/archive.md「軸の値の辞書と導出」)。
     #[test]
-    fn run_query_counts_options_and_statuses_within_the_name_filter() {
+    fn run_query_counts_options_within_the_name_filter() {
         let index = index(FILES);
-        let published = |item: &IndexedItem| item.rel_path != "a/kokugo_2.pdf";
-
-        let result = run_query(&index, &published, false, &query("_1", StatusFilter::All));
+        let result = run_query(&index, &|_| true, &query("_1"));
         assert_eq!(result.ids, [1, 3]);
         assert_eq!(result.total_all, 3);
         assert_eq!(
             result.axes[0].options,
             [("国語".to_string(), 1), ("英語".to_string(), 1)]
         );
-
-        let result = run_query(
-            &index,
-            &published,
-            false,
-            &query("kokugo", StatusFilter::Unpublished),
-        );
-        assert_eq!(result.ids, [2]);
-        assert_eq!(
-            result.status_counts,
-            StatusCounts {
-                all: 2,
-                published: 1,
-                unpublished: 1
-            }
-        );
     }
 
-    /// 管理用はパスでも照らす (続いた文字列だけ)。閲覧用は公開しているものだけを並べ、選択肢もそこから作る。
+    /// 管理用はパスでも照らす (続いた文字列だけ)。見えないものは並べず、選択肢もそこから作らない。
     #[test]
-    fn run_query_matches_paths_only_for_manage_and_hides_unpublished_for_view() {
+    fn run_query_matches_paths_only_for_manage_and_leaves_out_what_is_not_visible() {
         let index = index(FILES);
-        let published = |item: &IndexedItem| item.rel_path.starts_with("a/");
-
-        let result = run_query(&index, &published, false, &query("b/", StatusFilter::All));
+        let result = run_query(&index, &|_| true, &query("b/"));
         assert_eq!(result.ids, [3]);
 
         let view_query = ListQuery {
             match_paths: false,
-            ..query("", StatusFilter::All)
+            ..query("")
         };
-        let result = run_query(&index, &published, true, &view_query);
+        let result = run_query(
+            &index,
+            &|item: &IndexedItem| item.rel_path.starts_with("a/"),
+            &view_query,
+        );
         assert_eq!(result.ids, [1, 2]);
         assert_eq!(result.total_all, 2);
         assert_eq!(result.axes[0].options, [("国語".to_string(), 2)]);
@@ -929,12 +815,11 @@ mod tests {
     #[test]
     fn run_query_counts_total_all_within_the_axis_filter() {
         let index = index(FILES);
-        let published = |_: &IndexedItem| true;
         let axis_query = ListQuery {
             filters: HashMap::from([("科目".to_string(), "国語".to_string())]),
-            ..query("_1", StatusFilter::All)
+            ..query("_1")
         };
-        let result = run_query(&index, &published, false, &axis_query);
+        let result = run_query(&index, &|_| true, &axis_query);
         assert_eq!(result.ids, [1]);
         assert_eq!(result.total_all, 2);
     }

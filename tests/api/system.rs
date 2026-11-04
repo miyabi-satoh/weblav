@@ -193,11 +193,6 @@ fn openapi_doc_has_prefixed_health_path() {
         "{json}"
     );
     assert!(json.contains("/api/v1/contents/{id}/archive"), "{json}");
-    assert!(json.contains("/api/v1/contents/{id}/items"), "{json}");
-    assert!(
-        json.contains("/api/v1/contents/{id}/items/{item_id}"),
-        "{json}"
-    );
     assert!(
         json.contains("/api/v1/contents/{id}/items/{item_id}/download"),
         "{json}"

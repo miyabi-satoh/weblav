@@ -154,12 +154,7 @@
 			</p>
 		{/if}
 	{:else}
-		<ArchiveViewList
-			bind:this={listView}
-			{list}
-			archiveId={contentId}
-			{linksHref}
-		/>
+		<ArchiveViewList bind:this={listView} {list} archiveId={contentId} {linksHref} />
 	{/if}
 </div>
 

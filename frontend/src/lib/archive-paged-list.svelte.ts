@@ -44,7 +44,7 @@ export type ChunkFetch<T> = (
 export class ArchivePagedList<T> {
 	readonly snapshot: string;
 	readonly total: number;
-	/** 結果を作った後に、索引か公開・非公開が変わった。画面は取り直しを出す。 */
+	/** 結果を作った後に、索引か絞り込みのパターンが変わった。画面は取り直しを出す。 */
 	stale = $state(false);
 	/** 結果が捨てられた (しばらく使わなかった)。画面は最初から取り直す。 */
 	expired = $state(false);
@@ -95,7 +95,7 @@ export class ArchivePagedList<T> {
 		];
 	}
 
-	/** `index` 行目。まだ取っていなければ `undefined`、消えた・非公開になった行は `null`。 */
+	/** `index` 行目。まだ取っていなければ `undefined`、消えた・絞り込みで外れた行は `null`。 */
 	get(index: number): T | null | undefined {
 		return this.#chunks.get(Math.floor(index / ARCHIVE_CHUNK_SIZE))?.[index % ARCHIVE_CHUNK_SIZE];
 	}

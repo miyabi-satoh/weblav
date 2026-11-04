@@ -42,7 +42,7 @@ pub enum ValidationDetail {
     /// 同じ名前のユーザーが既にある。大文字小文字だけの違いも同じ名前とみなす。
     #[serde(rename_all = "camelCase")]
     UsernameTaken { name: String },
-    /// 見せるファイルのパターンが正しくない (→ docs/folders.md「公開と非公開」)。
+    /// 見せるファイルのパターンが正しくない (→ docs/folders.md「見せるものの絞り込み」)。
     #[serde(rename_all = "camelCase")]
     InvalidFilePattern { pattern: String },
     /// 最後の管理者は降格・削除できない (→ docs/access.md「admin の最後の1人」)。

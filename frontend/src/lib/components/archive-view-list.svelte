@@ -14,7 +14,7 @@
 		item: T;
 	};
 
-	/** 行が開く・縮小画像を出す URL。管理画面は、未公開も渡す管理用の口を使う。 */
+	/** 行が開く・縮小画像を出す URL。管理画面は、管理用の口を使う。 */
 	export type ArchiveItemUrls = {
 		download: (archiveId: number, itemId: number) => string;
 		thumbnail: (archiveId: number, itemId: number) => string;
@@ -77,19 +77,13 @@
 		archiveId,
 		linksHref,
 		urls = BROWSE_URLS,
-		leading,
-		trailing,
 		subtitle: subtitleOverride
 	}: {
 		list: ArchivePagedList<T>;
 		archiveId: number;
 		linksHref: (row: ArchiveViewRow<T>) => string;
 		urls?: ArchiveItemUrls;
-		/** 行の前に置くもの (管理画面の選択のチェック)。 */
-		leading?: Snippet<[ArchiveViewRow<T>]>;
-		/** 行の後ろに置くもの (管理画面の公開の切り替え)。 */
-		trailing?: Snippet<[ArchiveViewRow<T>]>;
-		/** 2段目を差し替える (管理画面はパスと状態も出す)。 */
+		/** 2段目を差し替える (管理画面はパスも出す)。 */
 		subtitle?: Snippet<[ArchiveViewRow<T>]>;
 	} = $props();
 
@@ -156,7 +150,7 @@
 		return item ? { archiveId, item } : item;
 	}
 
-	/** `index` 行目の周りの、手元にある行 (消えた・非公開にした行を除く)。 */
+	/** `index` 行目の周りの、手元にある行 (消えた・絞り込みで外れた行を除く)。 */
 	function loadedRowsAround(index: number): ArchiveViewRow<T>[] {
 		const [start, end] = list.loadedRange(index);
 		return rowsBetween(start, end);
@@ -348,53 +342,39 @@
 	{/if}
 {/snippet}
 
-<!-- 行の部品の同名の口へ渡すため、別名で包む。 -->
-{#snippet leadingSlot(row: ArchiveViewRow<T>)}{@render leading?.(row)}{/snippet}
-{#snippet trailingSlot(row: ArchiveViewRow<T>)}{@render trailing?.(row)}{/snippet}
-
 <!-- 1つの行の中身。種類ごとに描き分ける。 -->
 {#snippet itemRow(row: ArchiveViewRow<T>, index: number)}
 	{@const image = toViewerImage(row)}
 	{@const viewerFile = toViewerFile(row)}
 	{#if isLinksFileName(row.item.fileName)}
 		<div class={browseRowClass()}>
-			{@render leading?.(row)}
 			<ListRowIcon icon={LinksFileIcon} />
 			<span class={browseRowTextClass()}>
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
 				<a href={linksHref(row)} class={browseRowPressClass()}>{@render itemTitle(row)}</a>
 				{@render itemSubtitle(row)}
 			</span>
-			{@render trailing?.(row)}
 		</div>
 	{:else if isAudioFileName(row.item.fileName)}
 		{@const audio = audioQueue(index)}
 		<ListRowPlayButton track={toTrack(row, index)} queue={audio.queue} more={audio.more}>
 			{@render itemTitle(row)}
 			{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
-			{#snippet leading()}{@render leadingSlot(row)}{/snippet}
-			{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
 		</ListRowPlayButton>
 	{:else if image}
 		<ListRowImageLink {image} items={() => viewerListAround(index)}>
 			{@render itemTitle(row)}
 			{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
-			{#snippet leading()}{@render leadingSlot(row)}{/snippet}
-			{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
 		</ListRowImageLink>
 	{:else if viewerFile}
 		<ListRowFileLink file={viewerFile} items={() => viewerListAround(index)}>
 			{@render itemTitle(row)}
 			{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
-			{#snippet leading()}{@render leadingSlot(row)}{/snippet}
-			{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
 		</ListRowFileLink>
 	{:else}
 		<ListRowDownloadLink href={downloadHref(row)} thumbnail={rowThumbnail(row)}>
 			{@render itemTitle(row)}
 			{#snippet subtitle()}{@render itemSubtitle(row)}{/snippet}
-			{#snippet leading()}{@render leadingSlot(row)}{/snippet}
-			{#snippet trailing()}{@render trailingSlot(row)}{/snippet}
 		</ListRowDownloadLink>
 	{/if}
 {/snippet}

@@ -1,0 +1,215 @@
+//! フォルダーで見せるものの絞り込み (→ docs/folders.md「見せるものの絞り込み」)。
+//! パターンの決まりは `file_filter` の単体テストで見る。ここは、その決まりが各入口につながっていること。
+
+use super::*;
+
+/// 閲覧の一覧の、行の名前。
+fn browse_names(body: &str) -> Vec<String> {
+    parse_json(body)["entries"]
+        .as_array()
+        .expect("配列のはず")
+        .iter()
+        .filter_map(|entry| entry["name"].as_str().map(str::to_string))
+        .collect()
+}
+
+async fn set_patterns(pool: &SqlitePool, id: i64, include: Option<&str>, exclude: Option<&str>) {
+    sqlx::query!(
+        "UPDATE contents SET include_patterns = ?, exclude_patterns = ? WHERE id = ?",
+        include,
+        exclude,
+        id
+    )
+    .execute(pool)
+    .await
+    .expect("設定を変えられなかった");
+}
+
+/// 外れるファイルは、見る人にも編集できる人にも、一覧・ダウンロード・検索のどれにも出ない。
+/// 対象だけを書いたとき、当てはまるファイルの無いサブフォルダーは並ぶ。
+#[sqlx::test]
+async fn patterns_reach_the_folder_list_download_and_search(pool: SqlitePool) {
+    let dir = temp_test_dir("folder-patterns");
+    std::fs::write(dir.join("a.pdf"), b"a").expect("ファイルを作れなかった");
+    std::fs::write(dir.join("b.txt"), b"b").expect("ファイルを作れなかった");
+    std::fs::create_dir_all(dir.join("notes")).expect("フォルダーを作れなかった");
+    std::fs::write(dir.join("notes").join("c.txt"), b"c").expect("ファイルを作れなかった");
+    let (app, cookie) = admin_app(&pool).await;
+    let id = insert_folder_by(&pool, "資料", &*dir, "public", None, None).await;
+    set_patterns(&pool, id, Some("*.pdf"), None).await;
+
+    let browse = format!("/api/v1/contents/{id}/browse?path=");
+    let (status, body) = send_anon(app.clone(), "GET", &browse).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(browse_names(&body), ["notes", "a.pdf"], "{body}");
+    let (_, body) = send_empty(app.clone(), "GET", &browse, &cookie).await;
+    assert_eq!(browse_names(&body), ["notes", "a.pdf"], "{body}");
+    let (status, body) = send_anon(
+        app.clone(),
+        "GET",
+        &format!("/api/v1/contents/{id}/browse?path=notes"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(browse_names(&body).is_empty(), "{body}");
+
+    let download = |path: &str| format!("/api/v1/contents/{id}/download?path={path}");
+    let (status, _) = send_anon(app.clone(), "GET", &download("a.pdf")).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = send_anon(app.clone(), "GET", &download("b.txt")).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = send_empty(app.clone(), "GET", &download("notes/c.txt"), &cookie).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    // 綴りの大文字小文字を変えても、実体のパスで突き合わせるので外れる (大文字小文字を区別しないディスクだけ)。
+    if cfg!(target_os = "macos") {
+        set_patterns(&pool, id, None, Some("/b.txt")).await;
+        let (status, _) = send_anon(app.clone(), "GET", &download("B.TXT")).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        set_patterns(&pool, id, Some("*.pdf"), None).await;
+    }
+
+    let (_, body) = send_anon(app.clone(), "GET", "/api/v1/search?q=c.txt").await;
+    assert!(!body.contains("c.txt"), "{body}");
+    // 外していないものは当たる (検索がフォルダーの中を見ていることの確かめ)。
+    let (_, body) = send_anon(app, "GET", "/api/v1/search?q=a.pdf").await;
+    assert!(body.contains("a.pdf"), "{body}");
+}
+
+/// 除外したフォルダーは開けない。登録先そのものは、見せるものが無くても開けて、空に見える。
+/// 正しくないパターンは保存しない。
+#[sqlx::test]
+async fn excluded_folder_is_left_out_and_invalid_patterns_are_rejected(pool: SqlitePool) {
+    let dir = temp_test_dir("folder-exclude");
+    std::fs::create_dir_all(dir.join("drafts")).expect("フォルダーを作れなかった");
+    std::fs::write(dir.join("drafts").join("a.txt"), b"a").expect("ファイルを作れなかった");
+    std::fs::write(dir.join("b.txt"), b"b").expect("ファイルを作れなかった");
+    let (app, cookie) = admin_app(&pool).await;
+    let id = insert_folder_by(&pool, "資料", &*dir, "public", None, None).await;
+    let path_json = serde_json::to_string(&dir.display().to_string()).expect("JSON にできるはず");
+    let put = |patterns: &'static str| {
+        format!(r#"{{"title":"資料","path":{path_json},"excludePatterns":"{patterns}"}}"#)
+    };
+
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        &format!("/api/v1/contents/{id}"),
+        &cookie,
+        &put("[a"),
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        &format!("/api/v1/contents/{id}"),
+        &cookie,
+        &put("drafts/"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let browse = format!("/api/v1/contents/{id}/browse?path=");
+    let (_, body) = send_empty(app.clone(), "GET", &browse, &cookie).await;
+    assert_eq!(browse_names(&body), ["b.txt"], "{body}");
+    let (status, _) = send_anon(
+        app.clone(),
+        "GET",
+        &format!("/api/v1/contents/{id}/browse?path=drafts"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    set_patterns(&pool, id, None, Some("*")).await;
+    let (status, body) = send_anon(app, "GET", &browse).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(browse_names(&body).is_empty(), "{body}");
+}
+
+/// ライブラリでは、パターンを変えると再スキャンを待たずに、一覧・配信・検索に効く。
+/// 管理の一覧も同じものを並べ、管理の配信には当てない。
+#[sqlx::test]
+async fn pattern_changes_reach_the_library_without_a_rescan(pool: SqlitePool) {
+    let dir = temp_test_dir("library-patterns");
+    std::fs::write(dir.join("keep.mp3"), b"").expect("ファイルを作れなかった");
+    std::fs::write(dir.join("hidden.mp3"), b"").expect("ファイルを作れなかった");
+    let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
+    let items = manage_items(app.clone(), &cookie, id).await;
+    assert_eq!(items.len(), 2);
+    let hidden_id = items
+        .iter()
+        .find(|item| item["fileName"] == "hidden.mp3")
+        .and_then(|item| item["id"].as_i64())
+        .expect("hidden.mp3 が索引に無かった");
+
+    set_patterns(&pool, id, None, Some("hidden.*")).await;
+
+    let (status, body) = view_archive(app.clone(), "", id, &[]).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let view = parse_json(&body);
+    assert_eq!(view["total"], 1, "{body}");
+    assert_eq!(view["items"][0]["fileName"], "keep.mp3", "{body}");
+    let items = manage_items(app.clone(), &cookie, id).await;
+    assert_eq!(items.len(), 1, "{items:?}");
+    assert_eq!(items[0]["fileName"], "keep.mp3", "{items:?}");
+
+    let (status, _) = send_anon(
+        app.clone(),
+        "GET",
+        &format!("/api/v1/contents/{id}/items/{hidden_id}/download"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = send_empty(
+        app.clone(),
+        "GET",
+        &format!("/api/v1/contents/{id}/items/{hidden_id}/manage-download"),
+        &cookie,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (_, body) = send_anon(app, "GET", "/api/v1/search?q=hidden").await;
+    assert!(!body.contains("hidden.mp3"), "{body}");
+}
+
+/// 保存の前に、見えるファイルの増減を数えられる。正しくないパターンは 422。
+#[sqlx::test]
+async fn visibility_preview_counts_gained_and_lost_files(pool: SqlitePool) {
+    let dir = temp_test_dir("folder-preview");
+    std::fs::write(dir.join("a.pdf"), b"a").expect("ファイルを作れなかった");
+    std::fs::write(dir.join("b.txt"), b"b").expect("ファイルを作れなかった");
+    let (app, cookie) = admin_app(&pool).await;
+    let id = insert_folder_by(&pool, "資料", &*dir, "public", None, None).await;
+    set_patterns(&pool, id, Some("*.pdf"), None).await;
+    let uri = format!("/api/v1/contents/{id}/visibility-preview");
+
+    let (status, body) = send_json(
+        app.clone(),
+        "POST",
+        &uri,
+        &cookie,
+        r#"{"includePatterns":"*.txt"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        parse_json(&body),
+        serde_json::json!({"gained": 1, "lost": 1, "truncated": false}),
+        "{body}"
+    );
+
+    let (status, body) = send_json(app, "POST", &uri, &cookie, r#"{"excludePatterns":"[a"}"#).await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+}

@@ -18,7 +18,6 @@ function savedLink(overrides: Partial<Content> = {}): Content {
 		parentId: null,
 		autoRescan: { mode: 'off', hours: null, time: null },
 		listView: false,
-		newFilesPublic: true,
 		rootDeleted: false,
 		...overrides
 	};

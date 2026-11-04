@@ -27,7 +27,6 @@ async fn folder_turns_on_the_list_view_later_and_normalizes_patterns(pool: Sqlit
         created["listView"], false,
         "作った時点では一覧の表示を使わない"
     );
-    assert_eq!(created["newFilesPublic"], true, "{body}");
     let id = extract_id(&body);
 
     let (status, body) = send_json(
@@ -247,9 +246,8 @@ async fn regular_user_turns_on_the_list_view_of_their_folder(pool: SqlitePool) {
 }
 
 /// 走査は再帰的にファイルを拾い、ドット始まりを除き、拡張子で絞り込む。
-/// 新しく見つかったアイテムは非公開から始まる (→ docs/archive.md「アイテムの公開」)。
 #[sqlx::test]
-async fn archive_rescan_indexes_files_recursively_as_unpublished(pool: SqlitePool) {
+async fn archive_rescan_indexes_files_recursively(pool: SqlitePool) {
     insert_admin(&pool, "admin-alice", "correct-password").await;
     let dir = temp_test_dir("archive-rescan");
     let sub = dir.join("2024").join("第1回");
@@ -282,7 +280,6 @@ async fn archive_rescan_indexes_files_recursively_as_unpublished(pool: SqlitePoo
         rel_paths,
         vec!["2024/第1回/listening.mp3", "2024/第1回/script.pdf"]
     );
-    assert!(published_rel_paths(&pool, id).await.is_empty());
 }
 
 /// 別々のアーカイブの再スキャンが同時に重なっても、データベースのロックで失敗しない。
@@ -337,18 +334,14 @@ async fn concurrent_rescans_of_different_archives_do_not_fail_with_database_lock
     pool.close().await;
 }
 
-/// 再スキャンは既存アイテムの公開フラグを保ち、消えたアイテムの行を削除する。
-/// 行を消すことが「一度対象から外れたら公開フラグを復元しない」の実装
-/// (→ docs/archive.md「スキャン」)。
+/// 再スキャンは消えたアイテムの行を削除する (→ docs/archive.md「スキャン」)。
 #[sqlx::test]
-async fn archive_rescan_keeps_published_flags_and_removes_vanished_items(pool: SqlitePool) {
+async fn archive_rescan_removes_vanished_items(pool: SqlitePool) {
     let dir = temp_test_dir("archive-resync");
     std::fs::write(dir.join("keep.mp3"), b"").expect("ファイルを作れなかった");
     std::fs::write(dir.join("gone.mp3"), b"").expect("ファイルを作れなかった");
 
     let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
-
-    mark_published(&pool, id, "keep.mp3").await;
 
     std::fs::remove_file(dir.join("gone.mp3")).expect("ファイルを消せなかった");
     std::fs::write(dir.join("new.mp3"), b"").expect("ファイルを作れなかった");
@@ -362,7 +355,6 @@ async fn archive_rescan_keeps_published_flags_and_removes_vanished_items(pool: S
     assert_eq!(result["total"], 2, "{body}");
 
     assert_eq!(item_count(&pool, id).await, 2);
-    assert_eq!(published_rel_paths(&pool, id).await, vec!["keep.mp3"]);
 }
 
 /// 再スキャンの中止は、走っていなければ何もしない。押したときに終わっていることがあるため
@@ -389,9 +381,10 @@ async fn cancelling_a_rescan_that_is_not_running_does_nothing(pool: SqlitePool) 
     assert_eq!(result["total"], 1, "{body}");
 }
 
-/// 管理画面の一覧は、アーカイブにアイテムの数と公開している数を添える (→ docs/ui.md「UI 全般」)。
+/// 管理画面の一覧は、アーカイブに見せるアイテムの数を添える (→ docs/ui.md「UI 全般」)。
+/// 絞り込みで外れる行は、次のスキャンまで索引に残っていても数えない。
 #[sqlx::test]
-async fn admin_contents_list_counts_the_items_and_published_items_of_an_archive(pool: SqlitePool) {
+async fn admin_contents_list_counts_the_visible_items_of_an_archive(pool: SqlitePool) {
     let dir = temp_test_dir("archive-counts");
     std::fs::write(dir.join("a.mp3"), b"").expect("ファイルを作れなかった");
     std::fs::write(dir.join("b.mp3"), b"").expect("ファイルを作れなかった");
@@ -399,7 +392,13 @@ async fn admin_contents_list_counts_the_items_and_published_items_of_an_archive(
     let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
     let (status, body) = rescan(app.clone(), &cookie, id).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    mark_published(&pool, id, "a.mp3").await;
+    sqlx::query!(
+        "UPDATE contents SET exclude_patterns = 'b.*' WHERE id = ?",
+        id
+    )
+    .execute(&pool)
+    .await
+    .expect("パターンを書けなかった");
 
     let (status, body) = send_empty(app, "GET", "/api/v1/admin/contents", &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -409,10 +408,7 @@ async fn admin_contents_list_counts_the_items_and_published_items_of_an_archive(
         .iter()
         .find(|content| content["id"] == id)
         .expect("一覧にアーカイブが無い");
-    assert_eq!(
-        archive["archiveItems"],
-        serde_json::json!({ "total": 2, "published": 1 })
-    );
+    assert_eq!(archive["archiveItems"], serde_json::json!({ "total": 1 }));
 }
 
 /// 登録先のフォルダーが無くなっていたら、再スキャンは索引を変えずに、そうと分かる内訳で断る
@@ -442,7 +438,7 @@ async fn archive_rescan_reports_a_missing_folder_and_keeps_the_index(pool: Sqlit
 }
 
 /// 読めない場所があれば、再スキャンは索引を変えずに、最初に読めなかった場所を添えて断る。
-/// 同期すると、読めなかった分が「消えた」と見なされて公開フラグごと消えるため (→ docs/archive.md「スキャン」)。
+/// 同期すると、読めなかった分が「消えた」と見なされて消えるため (→ docs/archive.md「スキャン」)。
 /// 権限で読めなくするので Unix だけ。
 #[cfg(unix)]
 #[sqlx::test]
@@ -481,16 +477,14 @@ async fn item_count(pool: &SqlitePool, id: i64) -> i64 {
     .expect("索引を数えられなかった")
 }
 
-/// 拡張子の変更では索引を消さない。対象であり続けたアイテムは公開フラグを保ち、
-/// 対象から外れた行だけが次の走査で消える (→ docs/archive.md「スキャン」)。
+/// パターンの変更では索引を消さない。対象から外れた行だけが次の走査で消える (→ docs/archive.md「スキャン」)。
 #[sqlx::test]
-async fn archive_extensions_change_keeps_flags_of_still_matching_items(pool: SqlitePool) {
+async fn archive_patterns_change_removes_rows_left_out_at_the_next_scan(pool: SqlitePool) {
     let dir = temp_test_dir("archive-ext-change");
     std::fs::write(dir.join("a.mp3"), b"").expect("ファイルを作れなかった");
     std::fs::write(dir.join("b.pdf"), b"").expect("ファイルを作れなかった");
 
     let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
-    publish_all_items(&pool, id).await;
 
     let path_json = json_string(&dir.display().to_string());
     let (status, body) = send_json(
@@ -510,15 +504,17 @@ async fn archive_extensions_change_keeps_flags_of_still_matching_items(pool: Sql
     assert_eq!(result["added"], 0, "{body}");
     assert_eq!(result["removed"], 1, "{body}");
 
-    assert_eq!(
-        published_rel_paths(&pool, id).await,
-        vec!["a.mp3"],
-        "対象であり続けたアイテムは公開のまま"
-    );
+    let rel_paths = sqlx::query_scalar!(
+        "SELECT rel_path FROM archive_items WHERE archive_id = ?",
+        id
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("索引を読めなかった");
+    assert_eq!(rel_paths, vec!["a.mp3"]);
 }
 
-/// 登録先を変えたら索引を全削除する。`rel_path` の起点が変わるため、行を残すと
-/// 変更前の公開フラグが無関係なファイルへ引き継がれる (→ docs/archive.md「スキャン」)。
+/// 登録先を変えたら索引を全削除する。`rel_path` の起点が変わるため (→ docs/archive.md「スキャン」)。
 #[sqlx::test]
 async fn archive_path_change_clears_indexed_items(pool: SqlitePool) {
     let old_dir = temp_test_dir("archive-path-old");
@@ -531,7 +527,6 @@ async fn archive_path_change_clears_indexed_items(pool: SqlitePool) {
     let id = create_archive(app.clone(), &cookie, &old_dir, None).await;
     let (status, body) = rescan(app.clone(), &cookie, id).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    mark_published(&pool, id, "a.mp3").await;
 
     let path_json = json_string(&new_dir.display().to_string());
     let (status, body) = send_json(
@@ -545,12 +540,6 @@ async fn archive_path_change_clears_indexed_items(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK, "{body}");
 
     assert_eq!(item_count(&pool, id).await, 0);
-    let marks: i64 =
-        sqlx::query_scalar!("SELECT COUNT(*) FROM folder_marks WHERE content_id = ?", id)
-            .fetch_one(&pool)
-            .await
-            .expect("印を数えられなかった");
-    assert_eq!(marks, 0, "登録先を変えたら公開の印も捨てる");
 }
 
 /// 走査はシンボリックリンクを索引しない。`follow_links(false)` はリンク先へ再帰

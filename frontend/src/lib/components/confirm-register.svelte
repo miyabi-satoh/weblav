@@ -34,10 +34,6 @@
 		excludePatterns?: string;
 		/** 一覧の表示を使うか。読めない場所があると索引できないことを伝える。 */
 		listView?: boolean;
-		/** 新しく見つかったファイルを公開するか (→ docs/folders.md「公開と非公開」)。 */
-		newFilesPublic?: boolean;
-		/** 登録済みのフォルダーの場所を変える保存か。変えると公開・非公開の印が消える。 */
-		clearsMarks?: boolean;
 		/** 編集ページの保存か。作るときの「登録」でなく「保存」の言い方にする。 */
 		editing?: boolean;
 		/** 保存処理中か。確認後の送信は呼び出し側が行う。 */
@@ -58,8 +54,6 @@
 		includePatterns,
 		excludePatterns,
 		listView = false,
-		newFilesPublic = true,
-		clearsMarks = false,
 		editing = false,
 		saving = false,
 		progress,
@@ -138,18 +132,10 @@
 
 	/**
 	 * 実効的な閲覧範囲の説明 (→ docs/folders.md「登録前の確認」)。
-	 *
-	 * 新しく見つかったファイルを公開しないフォルダーは、登録した時点では何も見えないので、
-	 * 公開範囲による文言分岐が無く、`visibility` を見ない専用の文言にする。
 	 * 件数が打ち切られたときは、見出しと同じく下限であることを示す。
 	 */
 	let scopeMessage = $derived.by(() => {
 		const params = { count: formattedCount };
-		if (!newFilesPublic) {
-			return truncated
-				? m.confirm_register_scope_chosen_truncated(params)
-				: m.confirm_register_scope_chosen(params);
-		}
 		if (visibility === 'public') {
 			return truncated
 				? m.confirm_register_scope_folder_public_truncated(params)
@@ -159,14 +145,6 @@
 		if (visibility === 'private') return m.confirm_register_scope_folder_private();
 		return m.confirm_register_scope_folder_hidden();
 	});
-
-	let noteMessage = $derived(
-		clearsMarks
-			? m.confirm_register_note_path_changed()
-			: newFilesPublic
-				? m.confirm_register_note_folder()
-				: null
-	);
 </script>
 
 <Dialog.Root bind:open>
@@ -208,23 +186,16 @@
 				{/if}
 
 				<!-- 読めない場所があるアーカイブは、直すまで1件も索引されないので「N 個が索引されます」は出さない。 -->
-				{#if !archiveUnscannable || noteMessage !== null}
-					<WarningBand>
-						{#if !archiveUnscannable}
-							<p class="text-sm leading-relaxed">{scopeMessage}</p>
-						{/if}
-						{#if noteMessage !== null}
-							<p
-								class={[
-									'text-xs leading-relaxed text-warning-muted',
-									!archiveUnscannable && 'mt-1.5'
-								]}
-							>
-								{noteMessage}
-							</p>
-						{/if}
-					</WarningBand>
-				{/if}
+				<WarningBand>
+					{#if !archiveUnscannable}
+						<p class="text-sm leading-relaxed">{scopeMessage}</p>
+					{/if}
+					<p
+						class={['text-xs leading-relaxed text-warning-muted', !archiveUnscannable && 'mt-1.5']}
+					>
+						{m.confirm_register_note_folder()}
+					</p>
+				</WarningBand>
 			{/if}
 			{#if progress && oncancelscan}
 				<ScanProgress message={progress} oncancel={oncancelscan} />

@@ -1,13 +1,25 @@
-//! フォルダーで見せるファイルの絞り込み (→ docs/folders.md「公開と非公開」)。
+//! フォルダーで見せるものの絞り込み (→ docs/folders.md「見せるものの絞り込み」)。
 //!
 //! 対象と除外のパターンを1行に1つ書く。除外が勝ち、対象が無ければ全ファイルが対象。
 //! 順番で結果が変わらないように、`!` で混ぜる形にはしていない。
-//! パスは登録先からの相対で、'/' で区切る。
+//! パスは登録先からの相対で、'/' で区切り、実体の綴りで照らす
+//! (一覧は `read_dir` の名前、配信は canonicalize した実体のパスから求める)。
 
+use axum::Json;
+use axum::extract::{Path, State};
 use globset::{GlobBuilder, GlobSet, GlobSetBuilder};
+use serde::{Deserialize, Serialize};
+use sqlx::SqlitePool;
+use utoipa::ToSchema;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 
+use super::contents::{self, ContentType, Visibility};
 use super::error_detail::ValidationDetail;
-use crate::error::AppError;
+use super::fs::{COUNT_LIMIT, walk_entries};
+use crate::auth::AuthUser;
+use crate::error::{AppError, AppJson, run_blocking};
+use crate::state::AppState;
 
 /// コンパイル済みの絞り込み。
 #[derive(Clone, Default)]
@@ -21,6 +33,22 @@ pub(super) struct FileFilter {
 }
 
 impl FileFilter {
+    /// コンテンツの今の絞り込みを読む。パターンは数行なので、要求のたびに組み立てても軽く、
+    /// メモリに持って古くなる心配をしなくて済む。
+    pub(super) async fn load(pool: &SqlitePool, content_id: i64) -> Result<Self, AppError> {
+        let patterns = sqlx::query!(
+            "SELECT include_patterns, exclude_patterns FROM contents WHERE id = ?",
+            content_id
+        )
+        .fetch_optional(pool)
+        .await?
+        .ok_or(AppError::NotFound)?;
+        Self::parse(
+            patterns.include_patterns.as_deref(),
+            patterns.exclude_patterns.as_deref(),
+        )
+    }
+
     /// 対象と除外の文字列 (1行に1パターン) から作る。正しくないパターンは 422 で、どの行かを返す。
     pub(super) fn parse(include: Option<&str>, exclude: Option<&str>) -> Result<Self, AppError> {
         let mut include_set = GlobSetBuilder::new();
@@ -144,6 +172,102 @@ fn ancestors_and_self(rel: &str) -> impl Iterator<Item = &str> {
         .filter(|dir| !dir.is_empty())
 }
 
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct VisibilityPreviewRequest {
+    include_patterns: Option<String>,
+    exclude_patterns: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct VisibilityPreview {
+    /// 今は見えず、保存すると見えるようになるファイルの数。
+    gained: usize,
+    /// 今は見えて、保存すると見えなくなるファイルの数。
+    lost: usize,
+    /// ファイルが多く、一部だけを数えたか。
+    truncated: bool,
+}
+
+/// 見えるファイルの増減を数える。`files` は登録先からの相対パス。
+fn count_visibility_changes<'a>(
+    files: impl Iterator<Item = &'a str>,
+    before: &FileFilter,
+    after: &FileFilter,
+) -> (usize, usize) {
+    let (mut gained, mut lost) = (0, 0);
+    for rel in files {
+        match (before.allows_file(rel), after.allows_file(rel)) {
+            (false, true) => gained += 1,
+            (true, false) => lost += 1,
+            _ => {}
+        }
+    }
+    (gained, lost)
+}
+
+/// パターンを保存すると、見えるファイルがどう変わるかを数える。保存の前に知らせるため。
+#[utoipa::path(
+    post,
+    path = "/contents/{id}/visibility-preview",
+    params(("id" = i64, Path)),
+    request_body = VisibilityPreviewRequest,
+    responses(
+        (status = OK, body = VisibilityPreview),
+        (status = 403, body = crate::error::ErrorResponse, description = "書き換えられるのは管理者と作成者だけ"),
+        (status = 404, body = crate::error::ErrorResponse, description = "見えない・存在しない、またはフォルダーでない"),
+        (status = 422, body = crate::error::ErrorResponse, description = "パターンが正しくない"),
+        (status = 503, body = crate::error::ErrorResponse, description = "フォルダーのある NAS やディスクにつながらない"),
+    )
+)]
+async fn preview_visibility(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    AppJson(payload): AppJson<VisibilityPreviewRequest>,
+) -> Result<Json<VisibilityPreview>, AppError> {
+    let row = sqlx::query!(
+        r#"SELECT path, visibility as "visibility: Visibility", created_by
+           FROM contents WHERE id = ? AND type = ?"#,
+        id,
+        ContentType::Folder
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(AppError::NotFound)?;
+    contents::ensure_editable(&user, row.visibility, row.created_by)?;
+    let root = contents::folder_path(row.path)?;
+    super::roots::ensure_reachable(&state, &root).await?;
+    let before = FileFilter::load(&state.pool, id).await?;
+    let after = FileFilter::parse(
+        payload.include_patterns.as_deref(),
+        payload.exclude_patterns.as_deref(),
+    )?;
+    let own_dirs = state.own_dirs.clone();
+    let preview = run_blocking(move || {
+        let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
+        let root = std::fs::canonicalize(&root).map_err(|_| AppError::NotFound)?;
+        let (entries, truncated) = walk_entries(&root, COUNT_LIMIT, &own_dirs);
+        let files = entries
+            .iter()
+            .filter(|entry| !entry.is_dir)
+            .map(|entry| entry.rel_path.as_str());
+        let (gained, lost) = count_visibility_changes(files, &before, &after);
+        Ok::<_, AppError>(VisibilityPreview {
+            gained,
+            lost,
+            truncated,
+        })
+    })
+    .await??;
+    Ok(Json(preview))
+}
+
+pub(crate) fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new().routes(routes!(preview_visibility))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -211,6 +335,22 @@ mod tests {
             detail,
             ValidationDetail::InvalidFilePattern { pattern } if pattern == "[a"
         ));
+    }
+
+    #[test]
+    fn visibility_changes_count_files_in_both_directions() {
+        let before = filter("*.pdf", "");
+        let after = filter("", "secret.*");
+        let files = ["a.pdf", "b.txt", "secret.pdf", "secret.txt"];
+        // b.txt は対象を外したので増え、secret.pdf は除外したので減る。secret.txt はどちらでも見えない。
+        assert_eq!(
+            count_visibility_changes(files.into_iter(), &before, &after),
+            (1, 1)
+        );
+        assert_eq!(
+            count_visibility_changes(files.into_iter(), &after, &before),
+            (1, 1)
+        );
     }
 
     #[test]

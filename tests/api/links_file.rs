@@ -127,7 +127,6 @@ async fn links_file_in_an_archive_is_opened_by_its_item(pool: SqlitePool) {
     let dir = temp_test_dir("links-file-archive");
     std::fs::write(dir.join("a.links.toml"), LINKS_TOML).expect("書けるはず");
     let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
-    publish_all_items(&pool, id).await;
     let item_id: i64 = sqlx::query_scalar("SELECT id FROM archive_items WHERE archive_id = ?")
         .bind(id)
         .fetch_one(&pool)

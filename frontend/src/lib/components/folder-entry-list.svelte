@@ -59,7 +59,6 @@
 	import ListRowDownloadLink from '$lib/components/list-row-download-link.svelte';
 	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
 	import FolderIcon from '@lucide/svelte/icons/folder';
-	import * as m from '$lib/paraglide/messages.js';
 
 	// フォルダーの一覧 (`/folders/[id]`)・共有の一覧 (`/shares/[id]`)・検索の結果で使う、フォルダーの中のファイル・ディレクトリの行。
 	// 押したときの動きを両方で揃えるため、種類ごとの描き分けをここに集める。
@@ -146,11 +145,8 @@
 
 {#snippet entrySubtitle(row: FolderEntryRow)}
 	{@const entry = row.entry}
-	<!-- 非公開の行は、書き換えられる人にだけ並ぶ (→ docs/folders.md「公開と非公開」)。 -->
 	<ListRowSubtitle
-		prefix={[entry.public ? undefined : m.marks_private_label(), row.badge]
-			.filter((part) => part !== undefined)
-			.join(' · ') || undefined}
+		prefix={row.badge}
 		location={row.location}
 		text={row.listed
 			? row.listed.subtitle

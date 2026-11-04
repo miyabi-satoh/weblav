@@ -243,7 +243,6 @@ async function setupArchiveFixtures(
 		await apiJson(`/contents/${created.id}`, 'PUT', {
 			...created,
 			listView: true,
-			newFilesPublic: false,
 			includePatterns: '*.mp3\n*.pdf'
 		})
 	).json()) as { id: number };
@@ -280,11 +279,6 @@ async function setupArchiveFixtures(
 	});
 
 	await api(`/contents/${archiveId}/rescan`, { method: 'POST' });
-
-	const { snapshot } = (await (await api(`/contents/${archiveId}/manage-archive`)).json()) as {
-		snapshot: string;
-	};
-	await apiJson(`/contents/${archiveId}/items`, 'PUT', { snapshot, published: true });
 
 	return { archiveId };
 }

@@ -1,4 +1,4 @@
-//! アイテムの一覧・公開切り替え・配信 (→ docs/archive.md「アイテムの公開」・「アイテムの配信」・「エンドポイント一覧」)
+//! アイテムの一覧・配信 (→ docs/archive.md「見せるアイテム」・「アイテムの配信」・「エンドポイント一覧」)
 
 use super::*;
 
@@ -97,25 +97,11 @@ async fn archive_view_on_non_archive_content_is_not_found(pool: SqlitePool) {
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 }
 
-/// 新しく見つかったアイテムは非公開から始まるため (→ docs/archive.md「スキャン」)、再スキャン直後の一覧は
-/// 空になる。見えるアイテムに値が無い軸も返さない (→ docs/archive.md「軸の値の辞書と導出」)。
-#[sqlx::test]
-async fn archive_view_returns_empty_before_publishing(pool: SqlitePool) {
-    let (app, _cookie, id, _dir) = setup_archive_with_filename_word_axis(pool).await;
-
-    let (status, body) = view_archive(app, "", id, &[]).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
-    assert_eq!(parsed["items"], serde_json::json!([]), "{body}");
-    assert_eq!(parsed["axes"], serde_json::json!([]), "{body}");
-}
-
 /// `sort` クエリで並び順を選べる。並べ方の場合分けは `build_archive_view` の単体テストで見る。
 /// ここは、クエリとスキャンで見つかった日時 (`archive_items.created_at`) がつながっていることだけ。
 #[sqlx::test]
 async fn archive_view_accepts_sort_query(pool: SqlitePool) {
     let (app, _cookie, id, _dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
-    publish_all_items(&pool, id).await;
     for (rel_path, created_at) in [
         ("2024_kokugo.pdf", "2026-09-01T00:00:00.000Z"),
         ("2024_eigo.pdf", "2026-09-20T00:00:00.000Z"),
@@ -158,7 +144,6 @@ async fn archive_view_accepts_sort_query(pool: SqlitePool) {
 #[sqlx::test]
 async fn archive_view_sorts_unset_last_and_falls_back_title(pool: SqlitePool) {
     let (app, cookie, id, dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
-    publish_all_items(&pool, id).await;
 
     let (status, body) = send_json(
         app.clone(),
@@ -186,33 +171,13 @@ async fn archive_view_sorts_unset_last_and_falls_back_title(pool: SqlitePool) {
     assert_eq!(titles, vec!["国語", "英語", "2024_unknown.pdf"], "{body}");
 }
 
-/// 非公開アイテムは、ログイン済みの閲覧者に対してもダウンロードで404にする
-/// (→ docs/archive.md「アイテムの公開」、docs/access.md「匿名閲覧の受け口」)。
-#[sqlx::test]
-async fn archive_download_item_hides_unpublished_even_when_logged_in(pool: SqlitePool) {
-    let (app, cookie, id, _dir) = setup_archive_with_filename_word_axis(pool).await;
-
-    let items = manage_items(app.clone(), &cookie, id).await;
-    let item_id = items[0]["id"].as_i64().expect("idが返らなかった");
-
-    let (status, _) = send_empty(
-        app,
-        "GET",
-        &format!("/api/v1/contents/{id}/items/{item_id}/download"),
-        &cookie,
-    )
-    .await;
-    assert_eq!(status, StatusCode::NOT_FOUND);
-}
-
 /// 匿名は`authenticated`なアーカイブのアイテムダウンロードで401になる
-/// (非公開の404とは区別する、→ docs/access.md「匿名閲覧の受け口」)。
+/// (→ docs/access.md「匿名閲覧の受け口」)。
 #[sqlx::test]
 async fn archive_download_item_anonymous_on_authenticated_archive_is_unauthorized(
     pool: SqlitePool,
 ) {
     let (app, cookie, id, dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
-    publish_all_items(&pool, id).await;
 
     let path_json = json_string(&dir.display().to_string());
     let (status, body) = send_json(
@@ -242,7 +207,6 @@ async fn archive_download_item_anonymous_on_authenticated_archive_is_unauthorize
 #[sqlx::test]
 async fn archive_download_item_returns_not_found_when_file_vanished_after_scan(pool: SqlitePool) {
     let (app, cookie, id, dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
-    publish_all_items(&pool, id).await;
 
     let items = manage_items(app.clone(), &cookie, id).await;
     let item_id = items[0]["id"].as_i64().expect("idが返らなかった");
@@ -260,11 +224,10 @@ async fn archive_download_item_returns_not_found_when_file_vanished_after_scan(p
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-/// 公開済みアイテムは配信できる。
+/// アイテムは配信できる。
 #[sqlx::test]
-async fn archive_download_item_serves_published_file(pool: SqlitePool) {
+async fn archive_download_item_serves_the_file(pool: SqlitePool) {
     let (app, cookie, id, _dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
-    publish_all_items(&pool, id).await;
 
     let items = manage_items(app.clone(), &cookie, id).await;
     let item_id = items[0]["id"].as_i64().expect("idが返らなかった");
@@ -282,7 +245,7 @@ async fn archive_download_item_serves_published_file(pool: SqlitePool) {
 /// 相対パスで指したアイテムも、`item_id` で指したときと同じ条件で配信する。索引に無いパスは404
 /// (→ docs/archive.md「アイテムの配信」)。
 #[sqlx::test]
-async fn archive_download_item_by_path_serves_only_published_indexed_file(pool: SqlitePool) {
+async fn archive_download_item_by_path_serves_only_indexed_file(pool: SqlitePool) {
     let (app, cookie, id, _dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
     let download = |path: &'static str| {
         let app = app.clone();
@@ -293,52 +256,30 @@ async fn archive_download_item_by_path_serves_only_published_indexed_file(pool: 
         }
     };
 
-    assert_eq!(download("2024_kokugo.pdf").await, StatusCode::NOT_FOUND);
-    publish_all_items(&pool, id).await;
     assert_eq!(download("2024_kokugo.pdf").await, StatusCode::OK);
     assert_eq!(download("missing.pdf").await, StatusCode::NOT_FOUND);
 }
 
-/// 管理用の一覧は、閲覧用の一覧と同じ導出・絞り込みで、未公開のアイテムも含める
-/// (→ docs/archive.md「エンドポイント一覧」)。
+/// 管理用の一覧は、閲覧用の一覧と同じ導出と並びで返す (→ docs/archive.md「エンドポイント一覧」)。
 #[sqlx::test]
-async fn archive_manage_view_includes_unpublished_items(pool: SqlitePool) {
+async fn archive_manage_view_lists_items_in_the_view_order(pool: SqlitePool) {
     let (app, cookie, id, _dir) = setup_archive_with_filename_word_axis(pool).await;
 
-    let (status, body) = send_empty(
-        app,
-        "GET",
-        &format!("/api/v1/contents/{id}/manage-archive"),
-        &cookie,
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    let view: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
-    let items: Vec<(&str, bool)> = view["items"]
-        .as_array()
-        .expect("itemsが配列でなかった")
+    let items = manage_items(app, &cookie, id).await;
+    let titles: Vec<&str> = items
         .iter()
-        .map(|item| {
-            (
-                item["title"].as_str().expect("titleが無かった"),
-                item["published"].as_bool().expect("publishedが無かった"),
-            )
-        })
+        .map(|item| item["title"].as_str().expect("titleが無かった"))
         .collect();
     assert_eq!(
-        items,
-        vec![
-            ("2024_kokugo.pdf", false),
-            ("2024_eigo.pdf", false),
-            ("2024_unknown.pdf", false)
-        ],
-        "{body}"
+        titles,
+        ["2024_kokugo.pdf", "2024_eigo.pdf", "2024_unknown.pdf"],
+        "{items:?}"
     );
 }
 
-/// 管理用の、相対パスで指した配信は未公開も渡す (→ docs/archive.md「アイテムの配信」)。
+/// 管理用の、相対パスで指した配信は索引にあるものを渡す (→ docs/archive.md「アイテムの配信」)。
 #[sqlx::test]
-async fn archive_manage_download_item_by_path_serves_unpublished_file(pool: SqlitePool) {
+async fn archive_manage_download_item_by_path_serves_indexed_file(pool: SqlitePool) {
     let (app, cookie, id, _dir) = setup_archive_with_filename_word_axis(pool).await;
     let uri = format!("/api/v1/contents/{id}/archive/manage-download?path=2024_kokugo.pdf");
     let (status, body) = send_empty(app.clone(), "GET", &uri, &cookie).await;
@@ -351,13 +292,12 @@ async fn archive_manage_download_item_by_path_serves_unpublished_file(pool: Sqli
     );
 }
 
-/// 管理用の配信は、未公開のアイテムも渡す。匿名には401 (→ docs/archive.md「アイテムの配信」)。
+/// 管理用の配信 (→ docs/archive.md「アイテムの配信」)。
 #[sqlx::test]
-async fn archive_manage_download_item_serves_unpublished_file(pool: SqlitePool) {
+async fn archive_manage_download_item_serves_the_file(pool: SqlitePool) {
     let (app, cookie, id, _dir) = setup_archive_with_filename_word_axis(pool).await;
 
     let items = manage_items(app.clone(), &cookie, id).await;
-    assert_eq!(items[0]["published"], false, "{items:?}");
     let item_id = items[0]["id"].as_i64().expect("idが返らなかった");
     let uri = format!("/api/v1/contents/{id}/items/{item_id}/manage-download");
 
@@ -365,7 +305,7 @@ async fn archive_manage_download_item_serves_unpublished_file(pool: SqlitePool) 
     assert_eq!(status, StatusCode::OK, "{body}");
 }
 
-/// AI に渡す依頼文のためのパスの例は、未公開も含めたアイテムの数と、並べたパスを返す
+/// AI に渡す依頼文のためのパスの例は、アイテムの数と、並べたパスを返す
 /// (→ docs/archive.md「ほかに全件を前提にしているもの」)。間を空けて選ぶ決まりは `spread` の単体テストで見る。
 #[sqlx::test]
 async fn archive_path_samples_return_the_item_count_and_sorted_paths(pool: SqlitePool) {
@@ -389,12 +329,11 @@ async fn archive_path_samples_return_the_item_count_and_sorted_paths(pool: Sqlit
 }
 
 /// 一覧は区切って返し、続きは最初の要求が返した結果の名前 (`snapshot`) と位置で引く
-/// (→ docs/archive.md「一覧の API を区切って返す」)。結果を作った後に非公開になった行は、閲覧用では名前を出さずに `null` にし、
+/// (→ docs/archive.md「一覧の API を区切って返す」)。結果を作った後に絞り込みで外れた行は、名前を出さずに `null` にし、
 /// 一覧が変わったこと (`stale`) を知らせる。区切り方・照らし方の場合分けは `archive_index` の単体テストで見る。
 #[sqlx::test]
 async fn archive_view_pages_through_a_snapshot(pool: SqlitePool) {
     let (app, cookie, id, _dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
-    publish_all_items(&pool, id).await;
 
     let (status, body) = view_archive(app.clone(), "", id, &[("limit", "2")]).await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -409,18 +348,18 @@ async fn archive_view_pages_through_a_snapshot(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     let page = parse_json(&body);
     assert_eq!(page["stale"], false, "{body}");
-    let last = page["items"][0].clone();
-    let last_id = last["id"].as_i64().expect("id が返らなかった");
+    let last_name = page["items"][0]["fileName"]
+        .as_str()
+        .expect("fileName が返らなかった");
 
-    let (status, body) = send_json(
-        app.clone(),
-        "PUT",
-        &format!("/api/v1/contents/{id}/items/{last_id}"),
-        &cookie,
-        r#"{"published":false}"#,
+    sqlx::query!(
+        "UPDATE contents SET exclude_patterns = ? WHERE id = ?",
+        last_name,
+        id
     )
-    .await;
-    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+    .execute(&pool)
+    .await
+    .expect("パターンを書けなかった");
 
     let (status, body) = send(app.clone(), build_request("GET", &page_uri, None, None)).await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -458,7 +397,6 @@ async fn archive_shuffle_returns_only_audio_rows_with_their_positions(pool: Sqli
         std::fs::write(dir.join(name), b"").expect("ファイルを作れなかった");
     }
     let (app, _cookie, id) = setup_archive(&pool, &dir, None).await;
-    publish_all_items(&pool, id).await;
 
     let (status, body) = view_archive(app.clone(), "", id, &[]).await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -510,12 +448,11 @@ async fn archive_shuffle_returns_only_audio_rows_with_their_positions(pool: Sqli
     assert_eq!(status, StatusCode::CONFLICT, "{body}");
 }
 
-/// 名前の語 (`filter`) はサーバーで照らす。管理用はパスでも照らし、公開の状態 (`status`) でも絞る
+/// 名前の語 (`filter`) はサーバーで照らす。管理用はパスでも照らす
 /// (→ docs/archive.md「一覧の API を区切って返す」)。
 #[sqlx::test]
-async fn archive_lists_filter_by_name_and_status_on_the_server(pool: SqlitePool) {
-    let (app, cookie, id, _dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
-    mark_published(&pool, id, "2024_kokugo.pdf").await;
+async fn archive_lists_filter_by_name_on_the_server(pool: SqlitePool) {
+    let (app, cookie, id, _dir) = setup_archive_with_filename_word_axis(pool).await;
 
     let (status, body) = view_archive(app.clone(), "", id, &[("filter", "KOKUGO")]).await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -526,7 +463,7 @@ async fn archive_lists_filter_by_name_and_status_on_the_server(pool: SqlitePool)
     let (status, body) = send_empty(
         app,
         "GET",
-        &format!("/api/v1/contents/{id}/manage-archive?status=unpublished&filter=2024_e"),
+        &format!("/api/v1/contents/{id}/manage-archive?filter=2024_e"),
         &cookie,
     )
     .await;
@@ -534,11 +471,6 @@ async fn archive_lists_filter_by_name_and_status_on_the_server(pool: SqlitePool)
     let parsed = parse_json(&body);
     assert_eq!(parsed["total"], 1, "{body}");
     assert_eq!(parsed["items"][0]["fileName"], "2024_eigo.pdf", "{body}");
-    assert_eq!(
-        parsed["statusCounts"],
-        serde_json::json!({"all": 1, "published": 0, "unpublished": 1}),
-        "{body}"
-    );
 }
 
 /// 閲覧の一覧は、開いたときに中身が変わったフォルダーだけを読み直し、消えたファイルを外し、
@@ -546,7 +478,6 @@ async fn archive_lists_filter_by_name_and_status_on_the_server(pool: SqlitePool)
 #[sqlx::test]
 async fn archive_view_follows_files_added_or_removed_since_the_last_scan(pool: SqlitePool) {
     let (app, _cookie, id, dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
-    publish_all_items(&pool, id).await;
     std::fs::remove_file(dir.join("2024_eigo.pdf")).expect("ファイルを消せなかった");
 
     let file_names = |body: &str| {
@@ -759,7 +690,6 @@ async fn archive_view_groups_options_by_display_name_and_hides_unfilterable_axes
     }
 
     let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
-    publish_all_items(&pool, id).await;
 
     create_axis(
         app.clone(),
@@ -850,104 +780,7 @@ async fn archive_view_groups_options_by_display_name_and_hides_unfilterable_axes
     );
 }
 
-/// 一括切り替えは、所属しない`itemIds`が1件でもあれば全体を404にし、
-/// どの行も更新しない (→ docs/archive.md「エンドポイント一覧」)。
-#[sqlx::test]
-async fn archive_bulk_publish_rejects_when_any_item_id_is_foreign(pool: SqlitePool) {
-    let (app, cookie, id, _dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
-
-    let items = manage_items(app.clone(), &cookie, id).await;
-    let item_id = items[0]["id"].as_i64().expect("idが返らなかった");
-
-    let (status, body) = send_json(
-        app.clone(),
-        "PUT",
-        &format!("/api/v1/contents/{id}/items"),
-        &cookie,
-        &format!(r#"{{"itemIds":[{item_id}, 999999],"published":true}}"#),
-    )
-    .await;
-    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
-
-    let published = published_rel_paths(&pool, id).await.len();
-    assert_eq!(
-        published, 0,
-        "全件が非公開のまま(ロールバックされている)であること"
-    );
-}
-
-/// 一括切り替えの正常系。全件が対象アーカイブに属していれば全て更新する。
-#[sqlx::test]
-async fn archive_bulk_publish_updates_all_items(pool: SqlitePool) {
-    let (app, cookie, id, _dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
-
-    let items = manage_items(app.clone(), &cookie, id).await;
-    let item_ids: Vec<i64> = items
-        .iter()
-        .map(|item| item["id"].as_i64().expect("id が返らなかった"))
-        .collect();
-
-    let (status, body) = send_json(
-        app,
-        "PUT",
-        &format!("/api/v1/contents/{id}/items"),
-        &cookie,
-        &format!(
-            r#"{{"itemIds":{},"published":true}}"#,
-            serde_json::to_string(&item_ids).unwrap()
-        ),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(parse_json(&body)["updated"], 3, "{body}");
-
-    let published = published_rel_paths(&pool, id).await.len();
-    assert_eq!(published, 3);
-}
-
-/// 「すべて選択」は、画面が見ていた結果の集まり (`snapshot`) から外した行 (`exceptIds`) を除いて切り替える
-/// (→ docs/archive.md「まとめて公開を切り替える」)。
-#[sqlx::test]
-async fn archive_bulk_publish_by_snapshot_skips_excepted_items(pool: SqlitePool) {
-    let (app, cookie, id, _dir) = setup_archive_with_filename_word_axis(pool.clone()).await;
-
-    let (status, body) = send_empty(
-        app.clone(),
-        "GET",
-        &format!("/api/v1/contents/{id}/manage-archive"),
-        &cookie,
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    let parsed = parse_json(&body);
-    let snapshot = parsed["snapshot"]
-        .as_str()
-        .expect("snapshot が返らなかった");
-    let except = parsed["items"]
-        .as_array()
-        .expect("items が配列でなかった")
-        .iter()
-        .find(|item| item["fileName"] == "2024_eigo.pdf")
-        .and_then(|item| item["id"].as_i64())
-        .expect("2024_eigo.pdf が無かった");
-
-    let (status, body) = send_json(
-        app,
-        "PUT",
-        &format!("/api/v1/contents/{id}/items"),
-        &cookie,
-        &format!(r#"{{"snapshot":"{snapshot}","exceptIds":[{except}],"published":true}}"#),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(parse_json(&body)["updated"], 2, "{body}");
-
-    let mut published = published_rel_paths(&pool, id).await;
-    published.sort();
-    assert_eq!(published, ["2024_kokugo.pdf", "2024_unknown.pdf"]);
-}
-
-/// 単体切り替え・配信は、所属しないitem_idに対して404を返す
+/// 配信は、所属しないitem_idに対して404を返す
 /// (→ docs/archive.md「エンドポイント一覧」の所属条件)。
 #[sqlx::test]
 async fn archive_item_endpoints_404_for_item_belonging_to_another_archive(pool: SqlitePool) {
@@ -965,16 +798,6 @@ async fn archive_item_endpoints_404_for_item_belonging_to_another_archive(pool: 
 
     let items = manage_items(app.clone(), &cookie, id_a).await;
     let item_id = items[0]["id"].as_i64().expect("idが返らなかった");
-
-    let (status, body) = send_json(
-        app.clone(),
-        "PUT",
-        &format!("/api/v1/contents/{id_b}/items/{item_id}"),
-        &cookie,
-        r#"{"published":true}"#,
-    )
-    .await;
-    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 
     let (status, _) = send_empty(
         app,
