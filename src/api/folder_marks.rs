@@ -190,8 +190,8 @@ impl Marks {
             && !self
                 .initial
                 .range(prefix.clone()..)
-                .take_while(|(rel, _)| rel.starts_with(&prefix))
-                .any(|_| true)
+                .next()
+                .is_some_and(|(rel, _)| rel.starts_with(&prefix))
     }
 
     fn has_ancestor_mark(&self, rel: &str) -> bool {
