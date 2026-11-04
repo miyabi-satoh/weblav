@@ -227,16 +227,18 @@
 		void confirmVisibilityOrSave();
 	}
 
+	/** 印の無いファイルが見えるか。ライブラリでないフォルダーは、置いたものがそのまま見える。 */
+	function unmarkedFilesPublic(folder: { listView: boolean; newFilesPublic: boolean }): boolean {
+		return !folder.listView || folder.newFilesPublic;
+	}
+
 	/** 保存で印の無いものの扱いや対象の拡張子が変わるか。場所を変えるときは、印を捨てる確認に任せる。 */
 	function changesVisibleFiles(): boolean {
 		if (confirmingPart !== 'specific' || content.type !== 'folder') return false;
 		if (content.path !== form.path) return false;
-		const defaultPublic = (listView: boolean, newFilesPublic: boolean) =>
-			!listView || newFilesPublic;
 		return (
 			(content.extensions ?? null) !== form.normalizedExtensions ||
-			defaultPublic(content.listView, content.newFilesPublic) !==
-				defaultPublic(form.listView, form.newFilesPublic)
+			unmarkedFilesPublic(content) !== unmarkedFilesPublic(form)
 		);
 	}
 
@@ -452,9 +454,7 @@
 	visibility={confirmVisibility}
 	extensions={(confirmSpecific ? form.normalizedExtensions : content.extensions) ?? undefined}
 	listView={confirmSpecific ? form.listView : content.listView}
-	newFilesPublic={confirmSpecific
-		? !form.listView || form.newFilesPublic
-		: !content.listView || content.newFilesPublic}
+	newFilesPublic={unmarkedFilesPublic(confirmSpecific ? form : content)}
 	clearsMarks={confirmSpecific && content.type === 'folder' && content.path !== form.path}
 	editing
 	{saving}

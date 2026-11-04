@@ -308,7 +308,10 @@ async fn archive_sources(
         .fetch_all(&state.pool)
         .await?;
         for item in items {
-            if !links_file::is_links_file_name(&item.rel_path) || !marks.is_public(&item.rel_path) {
+            if !links_file::is_links_file_name(&item.rel_path)
+                || !marks.in_scope(&item.rel_path)
+                || !marks.is_public(&item.rel_path)
+            {
                 continue;
             }
             // 消えた・隠しになったものは、一覧と同じく出さない。
