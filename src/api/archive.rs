@@ -912,6 +912,10 @@ fn find_dir_changes(
 ) -> DirChanges {
     let mut changes = DirChanges::default();
     for (rel, modified_ns) in known {
+        // 覚えた後で除外したフォルダーは読まない。行は次の再スキャンで外れる。
+        if !rel.is_empty() && !filter.allows_dir(rel) {
+            continue;
+        }
         let path = if rel.is_empty() {
             root.to_path_buf()
         } else {
