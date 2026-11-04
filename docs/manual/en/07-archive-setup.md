@@ -136,7 +136,7 @@ Added files are published if “Publish new files” is on when a scan finds the
 
 ![Two selected items and the Publish button](images/archive-items-publish.webp)
 
-To stop publishing files, select them, then choose “Unpublish”. You can also select “⋮” on a row in the library and choose “Unpublish”. Both views share the same publish settings, so a change in one applies to the other (→ [Register contents](06-register-content.md)).
+To stop publishing files, select them, then choose “Unpublish”. Both views share the same publish settings, so a change in one applies to the other (→ [Register contents](06-register-content.md)).
 
 ## When files or folders are not found
 

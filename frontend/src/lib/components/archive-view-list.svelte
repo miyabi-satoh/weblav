@@ -79,9 +79,7 @@
 		urls = BROWSE_URLS,
 		leading,
 		trailing,
-		subtitle: subtitleOverride,
-		isHidden,
-		hiddenRow
+		subtitle: subtitleOverride
 	}: {
 		list: ArchivePagedList<T>;
 		archiveId: number;
@@ -93,9 +91,6 @@
 		trailing?: Snippet<[ArchiveViewRow<T>]>;
 		/** 2段目を差し替える (管理画面はパスと状態も出す)。 */
 		subtitle?: Snippet<[ArchiveViewRow<T>]>;
-		/** この画面で非公開にした行か。真なら、行の代わりに `hiddenRow` を出す。 */
-		isHidden?: (row: ArchiveViewRow<T>) => boolean;
-		hiddenRow?: Snippet<[ArchiveViewRow<T>]>;
 	} = $props();
 
 	// 見えている所だけを描くので、行を1段ずつに分けて渡す。タイルは1段に何枚も並ぶ。
@@ -171,7 +166,7 @@
 		const rows: ArchiveViewRow<T>[] = [];
 		for (let i = start; i < end; i++) {
 			const row = rowAt(i);
-			if (row && !isHidden?.(row)) rows.push(row);
+			if (row) rows.push(row);
 		}
 		return rows;
 	}
@@ -202,7 +197,7 @@
 			if (!item) continue;
 			const row = { archiveId, item };
 			const position = positionOf(i);
-			if (position === undefined || isHidden?.(row) || !isAudioFileName(item.fileName)) continue;
+			if (position === undefined || !isAudioFileName(item.fileName)) continue;
 			tracks.push(toTrack(row, position));
 		}
 		return tracks;
@@ -361,9 +356,7 @@
 {#snippet itemRow(row: ArchiveViewRow<T>, index: number)}
 	{@const image = toViewerImage(row)}
 	{@const viewerFile = toViewerFile(row)}
-	{#if isHidden?.(row) && hiddenRow}
-		{@render hiddenRow(row)}
-	{:else if isLinksFileName(row.item.fileName)}
+	{#if isLinksFileName(row.item.fileName)}
 		<div class={browseRowClass()}>
 			{@render leading?.(row)}
 			<ListRowIcon icon={LinksFileIcon} />

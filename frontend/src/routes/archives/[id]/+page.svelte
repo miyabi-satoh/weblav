@@ -5,7 +5,7 @@
 	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
 	import { linksFileHref } from '$lib/links-file';
-	import { browseGutterClass, rowMenuSlotClass } from '$lib/list-row';
+	import { browseGutterClass } from '$lib/list-row';
 	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
 	import ArchiveViewControls from '$lib/components/archive-view-controls.svelte';
 	import ArchiveViewList, { type ArchiveViewRow } from '$lib/components/archive-view-list.svelte';
@@ -20,11 +20,7 @@
 	import { archiveListQuery, viewChunks, viewShuffle } from '$lib/archive-list-request';
 	import { LIST_FILTER_QUERY } from '$lib/list-filter';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import ListRowHidden from '$lib/components/list-row-hidden.svelte';
-	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
-	import { viewAs } from '$lib/view-as.svelte';
 
 	type ArchiveViewResponse = components['schemas']['ArchiveViewResponse'];
 	type ArchiveViewItem = components['schemas']['ArchiveViewItem'];
@@ -103,32 +99,7 @@
 		return linksFileHref(contentId, { item: row.item.id }, data.filters);
 	}
 
-	// 書き換えられる人は、見ている画面から行を非公開にできる (→ docs/archive.md「アイテムの公開」)。
-	// 押した行は、その場で「元に戻す」の行に替える。公開し直すのは、アイテムの管理画面でもできる。
-	let unpublished = $state<number[]>([]);
-	let busy = $state(false);
 	const errorDialog = new ErrorDialogState();
-
-	async function setPublished(row: ArchiveViewRow, published: boolean) {
-		if (busy) return;
-		busy = true;
-		try {
-			await errorDialog.attempt(
-				() =>
-					client.PUT('/api/v1/contents/{id}/items/{item_id}', {
-						params: { path: { id: contentId, item_id: row.item.id } },
-						body: { published }
-					}),
-				() => {
-					unpublished = published
-						? unpublished.filter((id) => id !== row.item.id)
-						: [...unpublished, row.item.id];
-				}
-			);
-		} finally {
-			busy = false;
-		}
-	}
 
 	let nameActive = $derived(appliedName.trim() !== '');
 
@@ -140,24 +111,6 @@
 		}
 	};
 </script>
-
-{#snippet rowMenu(row: ArchiveViewRow)}
-	<span class={rowMenuSlotClass()}>
-		<RowActionsMenu name={row.item.title}>
-			<DropdownMenu.Item onSelect={() => void setPublished(row, false)}>
-				{m.marks_unpublish_button()}
-			</DropdownMenu.Item>
-		</RowActionsMenu>
-	</span>
-{/snippet}
-
-{#snippet hiddenRow(row: ArchiveViewRow)}
-	<ListRowHidden
-		message={m.archive_view_unpublished_row({ title: row.item.title })}
-		{busy}
-		onundo={() => void setPublished(row, true)}
-	/>
-{/snippet}
 
 <svelte:head><title>{pageTitle(view.archiveTitle)}</title></svelte:head>
 
@@ -206,9 +159,6 @@
 			{list}
 			archiveId={contentId}
 			{linksHref}
-			trailing={view.canEdit && !viewAs.active ? rowMenu : undefined}
-			isHidden={(row) => unpublished.includes(row.item.id)}
-			{hiddenRow}
 		/>
 	{/if}
 </div>

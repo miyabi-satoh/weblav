@@ -79,12 +79,12 @@
 		}))
 	);
 
-	// 書き換えられる人には、非公開のものも印を添えて並ぶ。行ごとに公開・非公開を切り替える
+	// 書き換えられる人には、非公開のものも印を添えて並ぶ。その行から公開できる
 	// (→ docs/folders.md「公開と非公開」)。フォルダーの中で辿れるかが変わるので、一覧を取り直す。
 	let busy = $state(false);
 	const errorDialog = new ErrorDialogState();
 
-	async function setPublic(row: FolderEntryRow, isPublic: boolean) {
+	async function publish(row: FolderEntryRow) {
 		if (busy) return;
 		busy = true;
 		try {
@@ -92,7 +92,7 @@
 				() =>
 					client.PUT('/api/v1/contents/{id}/marks', {
 						params: { path: { id: contentId } },
-						body: { path: row.path, public: isPublic }
+						body: { path: row.path, public: true }
 					}),
 				() => refreshAll()
 			);
@@ -155,19 +155,14 @@
 
 {#snippet rowMenu(row: FolderEntryRow)}
 	{@const target = shareTarget(row)}
-	{#if canMark || hasShareActions(target)}
+	{@const canPublish = canMark && !row.entry.public}
+	{#if canPublish || hasShareActions(target)}
 		<span class={rowMenuSlotClass()}>
 			<RowActionsMenu name={row.entry.name}>
-				{#if canMark}
-					{#if row.entry.public}
-						<DropdownMenu.Item disabled={busy} onSelect={() => void setPublic(row, false)}>
-							{m.marks_unpublish_button()}
-						</DropdownMenu.Item>
-					{:else}
-						<DropdownMenu.Item disabled={busy} onSelect={() => void setPublic(row, true)}>
-							{m.marks_publish_button()}
-						</DropdownMenu.Item>
-					{/if}
+				{#if canPublish}
+					<DropdownMenu.Item disabled={busy} onSelect={() => void publish(row)}>
+						{m.marks_publish_button()}
+					</DropdownMenu.Item>
 				{/if}
 				{#if target !== null}
 					<ShareRowMenuItems ops={shareOps} {target} omit={OMITTED_SHARE_ACTIONS} />

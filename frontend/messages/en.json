@@ -616,7 +616,6 @@
 		}
 	],
 	"archive_view_empty": "No items match the current filters.",
-	"archive_view_unpublished_row": "“{title}” is now unpublished.",
 	"archive_view_missing_row": "This file is no longer available.",
 	"archive_view_chunk_failed": "Could not load.",
 	"archive_view_stale": "This list has changed.",

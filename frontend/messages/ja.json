@@ -481,7 +481,6 @@
 	"archive_view_count": "{count} 件のアイテム",
 	"archive_view_count_filtered": "{shown} / {count} 件のアイテム",
 	"archive_view_empty": "現在の絞り込みに一致するアイテムはありません。",
-	"archive_view_unpublished_row": "「{title}」を非公開にしました。",
 	"archive_view_missing_row": "このファイルは見つかりません。",
 	"archive_view_chunk_failed": "読み込めませんでした。",
 	"archive_view_stale": "一覧が更新されました。",
