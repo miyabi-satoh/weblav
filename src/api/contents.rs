@@ -1926,7 +1926,7 @@ pub(super) async fn resolve_path(
             let shown = if canonical_candidate.is_dir() {
                 marks.dir_reachable(&rel)
             } else {
-                marks.in_scope(&rel) && marks.is_public(&rel)
+                marks.file_visible(&rel)
             };
             if !shown {
                 return Err(AppError::NotFound);

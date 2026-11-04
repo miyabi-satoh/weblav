@@ -190,7 +190,7 @@ pub(super) async fn search(
                 let shown = if entry.is_dir {
                     marks.dir_reachable(&entry.rel_path)
                 } else {
-                    marks.in_scope(&entry.rel_path) && marks.is_public(&entry.rel_path)
+                    marks.file_visible(&entry.rel_path)
                 };
                 if !shown {
                     continue;
@@ -309,8 +309,7 @@ async fn archive_sources(
         .await?;
         for item in items {
             if !links_file::is_links_file_name(&item.rel_path)
-                || !marks.in_scope(&item.rel_path)
-                || !marks.is_public(&item.rel_path)
+                || !marks.file_visible(&item.rel_path)
             {
                 continue;
             }

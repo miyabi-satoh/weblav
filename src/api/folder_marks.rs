@@ -100,7 +100,7 @@ impl Marks {
     }
 
     /// 閲覧する人にファイル `rel` が見えるか。
-    fn file_visible(&self, rel: &str) -> bool {
+    pub(super) fn file_visible(&self, rel: &str) -> bool {
         self.in_scope(rel) && self.is_public(rel)
     }
 
