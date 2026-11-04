@@ -24,15 +24,6 @@ use super::contents::ContentType;
 use super::error_detail::ValidationDetail;
 use super::schedule::{AutoMode, AutoRefresh};
 
-/// 保存用に `extensions` を正規化する。`fs::parse_extensions` と同じ規則で解釈し、
-/// カンマ区切りの文字列に戻す。空なら `None` (全ファイルが対象)。
-///
-/// 保存時点で正規化しておくのは、管理画面が入力した見た目のまま (`.MP3, pdf`) を
-/// 持ち回ると、走査のたびに解釈がぶれる余地を残すため。
-pub(super) fn normalize_extensions(raw: Option<&str>) -> Option<String> {
-    Some(super::fs::parse_extensions(raw)?.join(","))
-}
-
 /// `rel_path` の `dir_level` 段目のディレクトリ名を返す (→ docs/archive.md「軸の定義」)。
 /// 最後の要素はファイル名なので対象外。階層が足りなければ `None` (「未設定」)。
 ///
@@ -239,7 +230,8 @@ pub(super) fn check_title_template(
 pub(super) struct ArchiveMeta {
     pub title: String,
     pub path: String,
-    pub extensions: Option<String>,
+    pub include_patterns: Option<String>,
+    pub exclude_patterns: Option<String>,
     pub visibility: super::contents::Visibility,
     pub created_by: Option<i64>,
 }
@@ -251,7 +243,7 @@ pub(super) async fn load_archive(
     id: i64,
 ) -> Result<ArchiveMeta, AppError> {
     let row = sqlx::query!(
-        r#"SELECT type as "content_type: ContentType", title, path, extensions,
+        r#"SELECT type as "content_type: ContentType", title, path, include_patterns, exclude_patterns,
                   visibility as "visibility: super::contents::Visibility", created_by,
                   list_view as "list_view: bool"
            FROM contents WHERE id = ?"#,
@@ -269,7 +261,8 @@ pub(super) async fn load_archive(
     Ok(ArchiveMeta {
         title: row.title,
         path,
-        extensions: row.extensions,
+        include_patterns: row.include_patterns,
+        exclude_patterns: row.exclude_patterns,
         visibility: row.visibility,
         created_by: row.created_by,
     })
@@ -394,7 +387,10 @@ async fn scan_and_sync(
     progress: std::sync::Arc<crate::state::ScanProgress>,
     scan_limit: Option<usize>,
 ) -> Result<Json<RescanResponse>, AppError> {
-    let extensions = super::fs::parse_extensions(archive.extensions.as_deref());
+    let filter = super::file_filter::FileFilter::parse(
+        archive.include_patterns.as_deref(),
+        archive.exclude_patterns.as_deref(),
+    )?;
     // 見つからないと言う前に、NAS やディスクにつながらないのかを見分ける。
     super::roots::ensure_reachable(state, &archive.path).await?;
     let roots = super::roots::load_roots(state).await?;
@@ -417,7 +413,8 @@ async fn scan_and_sync(
         // 索引する件数では断らない (→ docs/archive.md「件数の上限」)。
         let result = super::fs::scan_files_until(
             &root,
-            extensions.as_deref(),
+            "",
+            &filter,
             scan_limit.unwrap_or(usize::MAX),
             usize::MAX,
             &own_dirs,
@@ -725,12 +722,12 @@ async fn write_items<'a>(
             }
             continue;
         }
-        // 公開するかは印で決まるので、索引には中身だけを書く (→ docs/folders.md「公開と非公開」)。
+        // 公開の初期値は、初めて見つけた時点の設定で決める (→ docs/folders.md「公開と非公開」)。
         sqlx::query!(
             "INSERT INTO archive_items
                  (archive_id, rel_path, file_size, modified_ns, image_width, image_height, is_text,
-                  taken_at, read_version)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                  taken_at, read_version, initial_public)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT new_files_public FROM contents WHERE id = ?))",
             id,
             rel_path,
             size,
@@ -739,7 +736,8 @@ async fn write_items<'a>(
             height,
             is_text,
             taken_at,
-            READ_VERSION
+            READ_VERSION,
+            id
         )
         .execute(&mut **tx)
         .await?;
@@ -859,17 +857,15 @@ async fn try_refresh_changed_dirs(
     }
     let roots = super::roots::load_roots(state).await?;
     let own_dirs = state.own_dirs.clone();
-    let extensions = super::fs::parse_extensions(archive.extensions.as_deref());
+    let filter = super::file_filter::FileFilter::parse(
+        archive.include_patterns.as_deref(),
+        archive.exclude_patterns.as_deref(),
+    )?;
     let scan_root = archive.path.clone();
     let changes = run_blocking(move || {
         let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
         let root = super::fs::canonical_dir_within_roots(&scan_root, &roots, &own_dirs)?;
-        Ok::<_, AppError>(find_dir_changes(
-            &root,
-            &known,
-            extensions.as_deref(),
-            &own_dirs,
-        ))
+        Ok::<_, AppError>(find_dir_changes(&root, &known, &filter, &own_dirs))
     })
     .await??;
     if changes.is_empty() {
@@ -911,11 +907,15 @@ impl DirChanges {
 fn find_dir_changes(
     root: &FsPath,
     known: &HashMap<String, Option<i64>>,
-    extensions: Option<&[String]>,
+    filter: &super::file_filter::FileFilter,
     own_dirs: &super::roots::OwnDirs,
 ) -> DirChanges {
     let mut changes = DirChanges::default();
     for (rel, modified_ns) in known {
+        // 覚えた後で除外したフォルダーは読まない。行は次の再スキャンで外れる。
+        if !rel.is_empty() && !filter.allows_dir(rel) {
+            continue;
+        }
         let path = if rel.is_empty() {
             root.to_path_buf()
         } else {
@@ -930,8 +930,7 @@ fn find_dir_changes(
             continue;
         }
         // 読めなければ、次の回か再スキャンに任せる。
-        let Ok((files, subdirs)) = super::fs::list_dir_shallow(root, rel, extensions, own_dirs)
-        else {
+        let Ok((files, subdirs)) = super::fs::list_dir_shallow(root, rel, filter, own_dirs) else {
             continue;
         };
         for (subdir, sub_modified) in subdirs {
@@ -942,7 +941,8 @@ fn find_dir_changes(
             // 走査するエントリの数では打ち切り、その新しいフォルダーは再スキャンに任せる。
             let result = super::fs::scan_files(
                 &root.join(&subdir),
-                extensions,
+                &subdir,
+                filter,
                 super::fs::SCAN_LIMIT,
                 usize::MAX,
                 own_dirs,
@@ -1068,10 +1068,12 @@ async fn apply_dir_changes(
     // 大きさなどはまだ読んでいない (`file_size` が NULL) まま足し、裏で読む (`fill_previews`)。
     for rel_path in &added {
         sqlx::query!(
-            "INSERT OR IGNORE INTO archive_items (archive_id, rel_path, read_version) VALUES (?, ?, ?)",
+            "INSERT OR IGNORE INTO archive_items (archive_id, rel_path, read_version, initial_public)
+             VALUES (?, ?, ?, (SELECT new_files_public FROM contents WHERE id = ?))",
             id,
             rel_path,
-            READ_VERSION
+            READ_VERSION,
+            id
         )
         .execute(&mut *tx)
         .await?;
@@ -1838,16 +1840,6 @@ mod tests {
             last_scanned_at, None,
             "全体を見ていないので、スキャンした時刻は書かないはず"
         );
-    }
-
-    #[test]
-    fn normalize_extensions_returns_a_canonical_list() {
-        assert_eq!(
-            normalize_extensions(Some(".MP3, pdf ,,")),
-            Some("mp3,pdf".to_string())
-        );
-        assert_eq!(normalize_extensions(Some(" , ")), None);
-        assert_eq!(normalize_extensions(None), None);
     }
 
     #[test]

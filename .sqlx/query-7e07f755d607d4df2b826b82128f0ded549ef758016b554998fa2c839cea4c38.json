@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO archive_items\n                 (archive_id, rel_path, file_size, modified_ns, image_width, image_height, is_text,\n                  taken_at, read_version, initial_public)\n             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT new_files_public FROM contents WHERE id = ?))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 10
+    },
+    "nullable": []
+  },
+  "hash": "7e07f755d607d4df2b826b82128f0ded549ef758016b554998fa2c839cea4c38"
+}

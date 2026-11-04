@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT OR IGNORE INTO archive_items (archive_id, rel_path, read_version, initial_public)\n             VALUES (?, ?, ?, (SELECT new_files_public FROM contents WHERE id = ?))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "3fac246abb0c4ca08ab76a2822b5b431ca6c4144be6076fac6e11f8aa330fbfa"
+}

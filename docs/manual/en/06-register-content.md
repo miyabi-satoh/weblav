@@ -56,7 +56,13 @@ By default, everything in a folder is published. Unpublish files or folders you 
 
 Files you add are visible unless you unpublish them. To show only the items you choose, unpublish a subfolder, then choose “Publish” for the items inside it. Publishing a file also makes the folders above it browsable. To choose files at the top level too, turn on “Organize as a library” and turn off “Publish new files” (→ [Set up a library](07-archive-setup.md)).
 
-To show only certain kinds of files, enter them in “File extensions” under “Location and display” (for example, `mp3, pdf`). Other files don't appear in the folder view, even for people who can change the folder, and can't be published or unpublished. They still appear on the share screen.
+To limit what you show, use “Include patterns” and “Exclude patterns” under “Location and display”. Select “Edit...”, write one pattern per line, select “Use these patterns”, then select “Save” in that section.
+
+- `*.pdf`: files with a matching name at any level
+- `backup/`: folders with that name at any level
+- `docs/*.pdf`: files directly inside “docs” at the top (a pattern containing `/` starts at the top of the folder)
+
+If “Include patterns” is empty, everything is included. “Exclude patterns” takes priority. Filtered-out items don't appear in the folder view, even for people who can change the folder, and can't be published or unpublished. They still appear on the share screen.
 
 When saving settings would make more or fewer files visible, the counts appear before the save.
 
@@ -151,7 +157,7 @@ To see how it looks to viewers, select “View on site” next to the heading of
 - Title and description
 - Link: Use “Refetch title” and “Refetch description” to fetch them again from the linked site.
 - File (registered in an earlier version): You can change the title and other details, but you cannot replace the file. To change its contents, put the file in a share again.
-- Folder: “File extensions” (→ “Publish or unpublish” above) and “Organize as a library” (→ [Set up a library](07-archive-setup.md)). Neither is asked when you add a folder, so change them here.
+- Folder: “Include patterns”, “Exclude patterns” (→ “Publish or unpublish” above) and “Organize as a library” (→ [Set up a library](07-archive-setup.md)). Neither is asked when you add a folder, so change them here.
   - Changing the location with “Change...” under “Path” clears all publish changes and the list.
 
 ## Delete

@@ -10,6 +10,7 @@ mod completed_reader;
 mod connection_info;
 mod contents;
 pub mod error_detail;
+mod file_filter;
 mod folder_marks;
 mod folder_search;
 mod fs;

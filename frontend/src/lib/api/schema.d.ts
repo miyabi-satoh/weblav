@@ -1887,17 +1887,16 @@ export interface components {
             /** @description 作成者のユーザー名。管理画面の一覧の「作成者」に出す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。 */
             createdByUsername?: string | null;
             description?: string | null;
-            /**
-             * @description `type = 'folder'` の一覧の表示で、索引する拡張子をカンマ区切りで持つ。
-             *     `None` か空なら全ファイルが対象。
-             */
-            extensions?: string | null;
+            /** @description `type = 'folder'` で隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。 */
+            excludePatterns?: string | null;
             /** @description `type = 'file'` の場合のみ`Some`。`blob_hash`(内部実装detail)は含めない。 */
             fileName?: string | null;
             /** Format: int64 */
             fileSize?: number | null;
             /** Format: int64 */
             id: number;
+            /** @description `type = 'folder'` で見せるファイルのパターン。1行に1つ。`None` なら全ファイルが対象。 */
+            includePatterns?: string | null;
             /** @description `type = 'folder'` で、一覧の表示 (索引して軸で絞り込む) を使うか。ほかの種類は `false`。 */
             listView: boolean;
             /** @description `type = 'folder'` で、印の無いファイル (新しく見つかったもの) を公開するか (→ docs/folders.md「公開と非公開」)。 */
@@ -2243,7 +2242,7 @@ export interface components {
              * @description 上限を超えて走査を打ち切ったか。`true` なら実際のファイル数は `count` 以上ある。
              *
              *     打ち切りの理由は区別しない。件数の上限を超えた場合と、走査したエントリ数の
-             *     上限を超えた場合 (対象拡張子に一致しないファイルやディレクトリばかりのツリー)
+             *     上限を超えた場合 (対象に一致しないファイルやディレクトリばかりのツリー)
              *     があり、後者では `count` が上限より小さいまま `true` になる。
              *     UI側の扱いはどちらも「これ以上ある」で同じなので、理由は分けない。
              */
@@ -3210,11 +3209,10 @@ export interface components {
         UpdateContentRequest: {
             autoRescan?: components["schemas"]["AutoRefresh"] | null;
             description?: string | null;
-            /**
-             * @description `type = 'folder'` のみ。一覧の表示で索引する拡張子をカンマ区切りで指定する。
-             *     省略・空なら全ファイルを索引する。
-             */
-            extensions?: string | null;
+            /** @description `type = 'folder'` のみ。隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。 */
+            excludePatterns?: string | null;
+            /** @description `type = 'folder'` のみ。見せるファイルのパターン。1行に1つ。省略・空なら全ファイルが対象。 */
+            includePatterns?: string | null;
             /** @description `type = 'folder'` のみ。一覧の表示を使うか。省略時は現在値のまま。 */
             listView?: boolean | null;
             /** @description `type = 'folder'` のみ。印の無いファイル (新しく見つかったもの) を公開するか。省略時は現在値のまま。 */
@@ -3334,6 +3332,10 @@ export interface components {
             name: string;
         } | {
             /** @enum {string} */
+            kind: "invalidFilePattern";
+            pattern: string;
+        } | {
+            /** @enum {string} */
             kind: "lastAdmin";
         } | {
             /** @enum {string} */
@@ -3391,7 +3393,8 @@ export interface components {
             truncated: boolean;
         };
         VisibilityPreviewRequest: {
-            extensions?: string | null;
+            excludePatterns?: string | null;
+            includePatterns?: string | null;
             listView: boolean;
             newFilesPublic: boolean;
         };
@@ -3594,11 +3597,10 @@ export interface operations {
             query: {
                 /** @description 数える対象のディレクトリの絶対パス。 */
                 path: string;
-                /**
-                 * @description カンマ区切りの拡張子。指定するとその拡張子のファイルだけを数える。
-                 *     省略時は全ファイル。先頭の `.` の有無・大文字小文字は問わない。
-                 */
-                extensions?: string | null;
+                /** @description 見せるファイルのパターン。1行に1つ (→ `file_filter`)。省略時は全ファイル。 */
+                includePatterns?: string | null;
+                /** @description 隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。 */
+                excludePatterns?: string | null;
             };
             header?: never;
             path?: never;
@@ -7035,6 +7037,15 @@ export interface operations {
             };
             /** @description 見えない・存在しない、またはフォルダーでない */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description パターンが正しくない */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -591,10 +591,14 @@ async fn create_archive(
     assert_eq!(status, StatusCode::CREATED, "{body}");
     let id = extract_id(&body);
     let extensions_json = match extensions {
-        Some(ext) => format!(
-            r#","extensions":{}"#,
-            serde_json::to_string(ext).expect("拡張子をJSON文字列にできなかった")
-        ),
+        Some(ext) => {
+            let patterns: Vec<String> = ext.split(',').map(|ext| format!("*.{ext}")).collect();
+            format!(
+                r#","includePatterns":{}"#,
+                serde_json::to_string(&patterns.join("\n"))
+                    .expect("パターンをJSON文字列にできなかった")
+            )
+        }
         None => String::new(),
     };
     let (status, body) = send_json(
@@ -716,9 +720,8 @@ async fn mark_published(pool: &SqlitePool, archive_id: i64, rel_path: &str) {
 async fn published_rel_paths(pool: &SqlitePool, archive_id: i64) -> Vec<String> {
     sqlx::query_scalar!(
         r#"SELECT i.rel_path FROM archive_items i
-           JOIN contents c ON c.id = i.archive_id
            LEFT JOIN folder_marks m ON m.content_id = i.archive_id AND m.path = i.rel_path
-           WHERE i.archive_id = ? AND COALESCE(m.public, c.new_files_public) = 1
+           WHERE i.archive_id = ? AND COALESCE(m.public, i.initial_public) = 1
            ORDER BY i.rel_path"#,
         archive_id
     )
@@ -736,6 +739,13 @@ async fn publish_all_items(pool: &SqlitePool, archive_id: i64) {
     .execute(pool)
     .await
     .expect("新しいファイルを公開する設定にできなかった");
+    sqlx::query!(
+        "UPDATE archive_items SET initial_public = 1 WHERE archive_id = ?",
+        archive_id
+    )
+    .execute(pool)
+    .await
+    .expect("初期値を公開にできなかった");
     sqlx::query!(
         "DELETE FROM folder_marks WHERE content_id = ? AND public = 0",
         archive_id

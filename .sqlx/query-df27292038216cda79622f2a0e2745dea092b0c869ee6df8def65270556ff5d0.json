@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url, path,\n                  description, created_at as \"created_at!\", file_name, file_size,\n                  visibility as \"visibility: Visibility\", created_by, extensions, title_template,\n                  list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                  auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time\n           FROM contents\n           ORDER BY id",
+  "query": "SELECT id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url, path,\n                  description, created_at as \"created_at!\", file_name, file_size,\n                  visibility as \"visibility: Visibility\", created_by, include_patterns, exclude_patterns, title_template,\n                  list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                  auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time\n           FROM contents\n           WHERE parent_id = ?",
   "describe": {
     "columns": [
       {
@@ -64,56 +64,62 @@
         "type_info": "Integer"
       },
       {
-        "name": "extensions",
+        "name": "include_patterns",
         "ordinal": 12,
         "type_info": "Text"
       },
       {
-        "name": "title_template",
+        "name": "exclude_patterns",
         "ordinal": 13,
         "type_info": "Text"
       },
       {
-        "name": "list_view: bool",
+        "name": "title_template",
         "ordinal": 14,
-        "type_info": "Integer"
+        "type_info": "Text"
       },
       {
-        "name": "new_files_public: bool",
+        "name": "list_view: bool",
         "ordinal": 15,
         "type_info": "Integer"
       },
       {
-        "name": "auto_rescan_mode: AutoMode",
+        "name": "new_files_public: bool",
         "ordinal": 16,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_rescan_mode: AutoMode",
+        "ordinal": 17,
         "type_info": "Text"
       },
       {
         "name": "auto_rescan_hours",
-        "ordinal": 17,
+        "ordinal": 18,
         "type_info": "Integer"
       },
       {
         "name": "auto_rescan_time",
-        "ordinal": 18,
+        "ordinal": 19,
         "type_info": "Text"
       }
     ],
     "parameters": {
-      "Right": 0
+      "Right": 1
     },
     "nullable": [
-      false,
-      false,
       true,
       false,
-      true,
-      true,
       true,
       false,
       true,
       true,
+      true,
       false,
+      true,
+      true,
+      false,
+      true,
       true,
       true,
       true,
@@ -124,5 +130,5 @@
       true
     ]
   },
-  "hash": "573f6861d53811985c6d9a2c39000ef4b6f45489df5e5d896004a2920cb7782f"
+  "hash": "df27292038216cda79622f2a0e2745dea092b0c869ee6df8def65270556ff5d0"
 }

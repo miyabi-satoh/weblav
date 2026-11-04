@@ -244,7 +244,7 @@ async function setupArchiveFixtures(
 			...created,
 			listView: true,
 			newFilesPublic: false,
-			extensions: 'mp3,pdf'
+			includePatterns: '*.mp3\n*.pdf'
 		})
 	).json()) as { id: number };
 	const archiveId = archive.id;

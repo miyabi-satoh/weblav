@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE contents SET include_patterns = '*.pdf' WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "abc7d8bde3908f0af1cca2efe664cca696242ea0b4ab06068794e160c87364b1"
+}

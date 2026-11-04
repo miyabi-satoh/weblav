@@ -601,7 +601,7 @@ async function shootAdmin() {
 			...created,
 			listView: true,
 			newFilesPublic: false,
-			extensions: 'mp3'
+			includePatterns: '*.mp3'
 		});
 		// 階層ごとの値は、索引を作ってから出る。
 		await send(page.request, 'POST', `/contents/${archive!.id}/rescan`);

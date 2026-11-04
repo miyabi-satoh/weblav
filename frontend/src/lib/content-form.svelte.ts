@@ -56,7 +56,8 @@ type FormSnapshot = {
 	path: string;
 	parentId: string;
 	description: string;
-	extensions: string;
+	includePatterns: string;
+	excludePatterns: string;
 	listView: boolean;
 	newFilesPublic: boolean;
 	autoRescanMode: AutoMode;
@@ -79,7 +80,8 @@ export class ContentFormState {
 	parentId = $state('root');
 	description = $state('');
 	/** `folder` の一覧の表示で索引する拡張子 (カンマ区切り、空なら全ファイル)。 */
-	extensions = $state('');
+	includePatterns = $state('');
+	excludePatterns = $state('');
 	/** `folder` 専用。軸で絞り込む一覧の表示を使うか (→ docs/folders.md「2つの表示」)。 */
 	listView = $state(false);
 	/** `folder` 専用。新しく見つかったファイルを公開するか (→ docs/folders.md「公開と非公開」)。 */
@@ -193,7 +195,8 @@ export class ContentFormState {
 			parentId: this.parentId,
 			description: this.description,
 			visibility: this.visibility,
-			extensions: this.extensions,
+			includePatterns: this.includePatterns,
+			excludePatterns: this.excludePatterns,
 			listView: this.listView,
 			newFilesPublic: this.newFilesPublic,
 			autoRescanMode: this.autoRescanMode,
@@ -243,7 +246,8 @@ export class ContentFormState {
 		this.pathLabel = '';
 		this.parentId = parentId;
 		this.description = '';
-		this.extensions = '';
+		this.includePatterns = '';
+		this.excludePatterns = '';
 		this.listView = false;
 		this.newFilesPublic = true;
 		this.autoRescanMode = 'off';
@@ -268,9 +272,18 @@ export class ContentFormState {
 		return this.parentId === 'root' ? null : Number(this.parentId);
 	}
 
-	/** 送信・件数確認の両方で使う拡張子。フォルダー以外と空入力は `null`。 */
-	get normalizedExtensions(): string | null {
-		return this.type === 'folder' && this.extensions.trim() !== '' ? this.extensions.trim() : null;
+	/** 送信・件数確認の両方で使う対象のパターン。フォルダー以外と空入力は `null`。 */
+	get normalizedIncludePatterns(): string | null {
+		return this.normalizedPatterns(this.includePatterns);
+	}
+
+	/** 送信・件数確認の両方で使う除外のパターン。フォルダー以外と空入力は `null`。 */
+	get normalizedExcludePatterns(): string | null {
+		return this.normalizedPatterns(this.excludePatterns);
+	}
+
+	private normalizedPatterns(raw: string): string | null {
+		return this.type === 'folder' && raw.trim() !== '' ? raw.trim() : null;
 	}
 
 	/** JSON で送る作成・更新に共通の項目。`type` は更新で送らないので含めない。 */
@@ -290,7 +303,8 @@ export class ContentFormState {
 		const folder = this.type === 'folder';
 		return {
 			...this.commonFields(),
-			extensions: this.normalizedExtensions,
+			includePatterns: this.normalizedIncludePatterns,
+			excludePatterns: this.normalizedExcludePatterns,
 			titleTemplate: this.titleTemplate,
 			listView: folder ? this.listView : null,
 			newFilesPublic: folder ? this.newFilesPublic : null,
@@ -357,7 +371,8 @@ export class ContentFormState {
 			this.url = source.url;
 			this.path = source.path;
 			this.pathLabel = source.pathLabel;
-			this.extensions = source.extensions;
+			this.includePatterns = source.includePatterns;
+			this.excludePatterns = source.excludePatterns;
 			this.listView = source.listView;
 			this.newFilesPublic = source.newFilesPublic;
 			this.autoRescanMode = source.autoRescanMode;
@@ -396,7 +411,8 @@ export class ContentFormState {
 		this.pathLabel = contentPathLabel(content, canSeeFullPath) ?? '';
 		this.parentId = content.parentId === null ? 'root' : String(content.parentId);
 		this.description = content.description ?? '';
-		this.extensions = content.extensions ?? '';
+		this.includePatterns = content.includePatterns ?? '';
+		this.excludePatterns = content.excludePatterns ?? '';
 		this.listView = content.listView;
 		this.newFilesPublic = content.newFilesPublic;
 		this.autoRescanMode = content.autoRescan.mode;

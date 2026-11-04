@@ -19,6 +19,7 @@
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import * as Select from '$lib/components/ui/select';
 	import { Switch } from '$lib/components/ui/switch';
+	import PatternField from '$lib/components/pattern-field.svelte';
 	import { Textarea } from '$lib/components/ui/textarea';
 
 	type Visibility = components['schemas']['Visibility'];
@@ -226,13 +227,20 @@
 	{/if}
 	<!-- フォルダーの見せ方は作成では聞かず、編集で変える (→ docs/folders.md「2つの表示」・「公開と非公開」)。 -->
 	{#if showsSpecific && editing && form.type === 'folder'}
-		<Field.Field data-disabled={disabled}>
-			<Field.FieldLabel for="content-extensions"
-				>{m.contents_form_extensions_label()}</Field.FieldLabel
-			>
-			<Input id="content-extensions" bind:value={form.extensions} />
-			<Field.FieldDescription>{m.contents_form_extensions_help()}</Field.FieldDescription>
-		</Field.Field>
+		<PatternField
+			label={m.contents_form_include_patterns_label()}
+			help={m.contents_form_include_patterns_help()}
+			emptyText={m.contents_form_include_patterns_empty()}
+			bind:value={form.includePatterns}
+			{disabled}
+		/>
+		<PatternField
+			label={m.contents_form_exclude_patterns_label()}
+			help={m.contents_form_exclude_patterns_help()}
+			emptyText={m.contents_form_exclude_patterns_empty()}
+			bind:value={form.excludePatterns}
+			{disabled}
+		/>
 		<Field.Field orientation="horizontal" data-disabled={disabled}>
 			<Field.FieldContent>
 				<Field.FieldLabel for="content-list-view"

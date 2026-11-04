@@ -237,7 +237,8 @@
 		if (confirmingPart !== 'specific' || content.type !== 'folder') return false;
 		if (content.path !== form.path) return false;
 		return (
-			(content.extensions ?? null) !== form.normalizedExtensions ||
+			(content.includePatterns ?? null) !== form.normalizedIncludePatterns ||
+			(content.excludePatterns ?? null) !== form.normalizedExcludePatterns ||
 			unmarkedFilesPublic(content) !== unmarkedFilesPublic(form)
 		);
 	}
@@ -257,9 +258,15 @@
 				body: {
 					listView: form.listView,
 					newFilesPublic: form.newFilesPublic,
-					extensions: form.normalizedExtensions
+					includePatterns: form.normalizedIncludePatterns,
+					excludePatterns: form.normalizedExcludePatterns
 				}
 			});
+			// 正しくないパターンは保存もできないので、知らせる窓を挟まずに直してもらう。
+			if (result.response.status === 422) {
+				errorDialog.show(errorMessage(result.error));
+				return;
+			}
 			preview = result.data ?? null;
 		} catch {
 			// 数えられなくても保存は止めず、件数なしで知らせる。
@@ -452,7 +459,10 @@
 	path={confirmSpecific ? form.path : (content.path ?? '')}
 	pathLabel={confirmPathLabel}
 	visibility={confirmVisibility}
-	extensions={(confirmSpecific ? form.normalizedExtensions : content.extensions) ?? undefined}
+	includePatterns={(confirmSpecific ? form.normalizedIncludePatterns : content.includePatterns) ??
+		undefined}
+	excludePatterns={(confirmSpecific ? form.normalizedExcludePatterns : content.excludePatterns) ??
+		undefined}
 	listView={confirmSpecific ? form.listView : content.listView}
 	newFilesPublic={unmarkedFilesPublic(confirmSpecific ? form : content)}
 	clearsMarks={confirmSpecific && content.type === 'folder' && content.path !== form.path}

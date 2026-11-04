@@ -125,7 +125,7 @@ async function createDirectoryContentByApi(
 		visibility?: Visibility;
 		parentId?: number;
 	},
-	listView?: { extensions?: string }
+	listView?: { includePatterns?: string }
 ): Promise<DirectoryContent | null> {
 	// 置き場を登録していないので、どのパスもルートの外として断られる。
 	if (SERVER_IS_REMOTE) return null;
@@ -141,7 +141,7 @@ async function createDirectoryContentByApi(
 		...created,
 		listView: true,
 		newFilesPublic: false,
-		extensions: listView.extensions
+		includePatterns: listView.includePatterns
 	})) as DirectoryContent;
 }
 
@@ -221,7 +221,7 @@ export async function withDirectoryContent(
 		const content = await createDirectoryContentByApi(
 			request,
 			{ title: name, path: root, parentId: options.parentId },
-			options.type === 'archive' ? { extensions: 'mp3,pdf' } : undefined
+			options.type === 'archive' ? { includePatterns: '*.mp3\n*.pdf' } : undefined
 		);
 		test.skip(content === null, FIXTURE_UNREACHABLE);
 		contentId = content!.id;

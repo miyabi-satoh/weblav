@@ -82,6 +82,8 @@ function detailMessage(detail: ValidationDetail): string | undefined {
 			return m.contents_form_visibility_private_group_error();
 		case 'groupChildrenNotOwnPrivate':
 			return m.contents_form_visibility_group_children_error();
+		case 'invalidFilePattern':
+			return m.error_detail_invalid_file_pattern({ pattern: detail.pattern });
 		case 'axisNameHasBraces':
 			return m.error_detail_axis_name_braces();
 		case 'axisNameTaken':

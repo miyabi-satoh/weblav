@@ -22,6 +22,7 @@ use crate::auth::AuthUser;
 use crate::error::{AppError, run_blocking};
 use crate::state::AppState;
 
+use super::file_filter::FileFilter;
 use super::roots::{OwnDirs, Root};
 
 /// 登録前の確認で、数え上げを打ち切るファイル数。超えたら「10万個以上」と出す。
@@ -438,12 +439,14 @@ fn listing(requested: &str, roots: &[Root], own_dirs: &OwnDirs) -> Result<DirsRe
 }
 
 #[derive(Debug, Deserialize, IntoParams)]
+#[serde(rename_all = "camelCase")]
 struct CountQuery {
     /// 数える対象のディレクトリの絶対パス。
     path: String,
-    /// カンマ区切りの拡張子。指定するとその拡張子のファイルだけを数える。
-    /// 省略時は全ファイル。先頭の `.` の有無・大文字小文字は問わない。
-    extensions: Option<String>,
+    /// 見せるファイルのパターン。1行に1つ (→ `file_filter`)。省略時は全ファイル。
+    include_patterns: Option<String>,
+    /// 隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。
+    exclude_patterns: Option<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -454,38 +457,13 @@ struct CountResponse {
     /// 上限を超えて走査を打ち切ったか。`true` なら実際のファイル数は `count` 以上ある。
     ///
     /// 打ち切りの理由は区別しない。件数の上限を超えた場合と、走査したエントリ数の
-    /// 上限を超えた場合 (対象拡張子に一致しないファイルやディレクトリばかりのツリー)
+    /// 上限を超えた場合 (対象に一致しないファイルやディレクトリばかりのツリー)
     /// があり、後者では `count` が上限より小さいまま `true` になる。
     /// UI側の扱いはどちらも「これ以上ある」で同じなので、理由は分けない。
     truncated: bool,
     /// 最初に読めなかった場所の相対パス (登録先そのものなら空文字)。`count` はそこを除いた数。
     /// アーカイブは読めない場所があると再スキャンできないので (→ docs/archive.md「スキャン」)、登録の前に知らせる。
     unreadable: Option<String>,
-}
-
-/// カンマ区切りの拡張子指定を比較用の小文字リストに直す。空の要素は無視する。
-///
-/// 選択UIの件数表示とアーカイブの索引 (`scan_files`) の両方から呼ばれる。
-/// 登録前に数えた件数と、実際に索引される件数を一致させるため規則を1箇所にまとめてある。
-pub(super) fn parse_extensions(raw: Option<&str>) -> Option<Vec<String>> {
-    let list: Vec<String> = raw?
-        .split(',')
-        .map(|ext| ext.trim().trim_start_matches('.').to_lowercase())
-        .filter(|ext| !ext.is_empty())
-        .collect();
-    (!list.is_empty()).then_some(list)
-}
-
-pub(super) fn matches_extensions(path: &FsPath, extensions: Option<&[String]>) -> bool {
-    let Some(extensions) = extensions else {
-        return true;
-    };
-    path.extension()
-        .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| {
-            let ext = ext.to_lowercase();
-            extensions.contains(&ext)
-        })
 }
 
 /// アーカイブの相対パス。区切りを `/` に正規化して保存する
@@ -611,21 +589,30 @@ pub(super) fn dir_modified_ns(metadata: &std::fs::Metadata) -> Option<i64> {
 /// (→ docs/folders.md「共有」)。
 pub(super) fn scan_files(
     root: &FsPath,
-    extensions: Option<&[String]>,
+    base_rel: &str,
+    filter: &FileFilter,
     scan_limit: usize,
     item_limit: usize,
     own_dirs: &OwnDirs,
 ) -> ScanResult {
-    scan_files_until(root, extensions, scan_limit, item_limit, own_dirs, &|| {
-        false
-    })
+    scan_files_until(
+        root,
+        base_rel,
+        filter,
+        scan_limit,
+        item_limit,
+        own_dirs,
+        &|| false,
+    )
 }
 
 /// `scan_files` の、`stop` が真を返したら途中で切り上げるもの。再スキャンの中止に使う。
 /// 切り上げた結果は欠けているので、呼び出し側は同期に使わない。
+/// `base_rel` は `root` の登録先からの相対パス。パターンは登録先から見るため。
 pub(super) fn scan_files_until(
     root: &FsPath,
-    extensions: Option<&[String]>,
+    base_rel: &str,
+    filter: &FileFilter,
     scan_limit: usize,
     item_limit: usize,
     own_dirs: &OwnDirs,
@@ -635,11 +622,27 @@ pub(super) fn scan_files_until(
     let mut dirs = Vec::new();
     let mut scanned = 0;
     let mut unreadable = None;
+    let full_rel = |path: &FsPath| -> Option<String> {
+        let rel = normalize_rel_path(path.strip_prefix(root).ok()?.to_str()?);
+        Some(if base_rel.is_empty() {
+            rel
+        } else if rel.is_empty() {
+            base_rel.to_string()
+        } else {
+            format!("{base_rel}/{rel}")
+        })
+    };
 
+    // 除外したフォルダーの中は読まない。NAS で除外した分だけ速くなるため。
     let walker = WalkDir::new(root)
         .follow_links(false)
         .into_iter()
-        .filter_entry(|entry| is_walkable(entry, own_dirs));
+        .filter_entry(|entry| {
+            is_walkable(entry, own_dirs)
+                && (entry.depth() == 0
+                    || !entry.file_type().is_dir()
+                    || full_rel(entry.path()).is_none_or(|rel| filter.allows_dir(&rel)))
+        });
 
     for entry in walker {
         if stop() {
@@ -692,7 +695,7 @@ pub(super) fn scan_files_until(
         if !entry.file_type().is_file() {
             continue;
         }
-        if !matches_extensions(entry.path(), extensions) {
+        if !full_rel(entry.path()).is_some_and(|rel| filter.allows_file(&rel)) {
             continue;
         }
         let Ok(rel) = entry.path().strip_prefix(root) else {
@@ -728,7 +731,7 @@ pub(super) fn scan_files_until(
 pub(super) fn list_dir_shallow(
     root: &FsPath,
     dir_rel: &str,
-    extensions: Option<&[String]>,
+    filter: &FileFilter,
     own_dirs: &OwnDirs,
 ) -> std::io::Result<(Vec<String>, Vec<DirStamp>)> {
     let dir = if dir_rel.is_empty() {
@@ -756,9 +759,12 @@ pub(super) fn list_dir_shallow(
         };
         let rel = normalize_rel_path(rel);
         if entry.file_type().is_dir() {
+            if !filter.allows_dir(&rel) {
+                continue;
+            }
             let modified_ns = entry.metadata().ok().as_ref().and_then(dir_modified_ns);
             subdirs.push((rel, modified_ns));
-        } else if entry.file_type().is_file() && matches_extensions(entry.path(), extensions) {
+        } else if entry.file_type().is_file() && filter.allows_file(&rel) {
             files.push(rel);
         }
     }
@@ -782,7 +788,10 @@ async fn count_target_files(
     Query(query): Query<CountQuery>,
 ) -> Result<Json<CountResponse>, AppError> {
     let requested = query.path;
-    let extensions = parse_extensions(query.extensions.as_deref());
+    let filter = FileFilter::parse(
+        query.include_patterns.as_deref(),
+        query.exclude_patterns.as_deref(),
+    )?;
     let own_dirs = state.own_dirs.clone();
     super::roots::ensure_reachable(&state, &requested).await?;
     let roots = super::roots::load_roots_for(&state, &user).await?;
@@ -790,13 +799,7 @@ async fn count_target_files(
     run_blocking(move || {
         let own_dirs = OwnDirs::resolve(&own_dirs);
         let canonical = canonical_dir_within_roots(&requested, &roots, &own_dirs)?;
-        let result = scan_files(
-            &canonical,
-            extensions.as_deref(),
-            SCAN_LIMIT,
-            COUNT_LIMIT,
-            &own_dirs,
-        );
+        let result = scan_files(&canonical, "", &filter, SCAN_LIMIT, COUNT_LIMIT, &own_dirs);
         Ok(Json(CountResponse {
             count: result.rel_paths.len(),
             truncated: result.truncated,
@@ -986,16 +989,6 @@ mod tests {
     }
 
     #[test]
-    fn parse_extensions_normalizes_dots_and_case() {
-        assert_eq!(
-            parse_extensions(Some(".MP3, pdf ,,")),
-            Some(vec!["mp3".to_string(), "pdf".to_string()])
-        );
-        assert_eq!(parse_extensions(Some(" , ")), None);
-        assert_eq!(parse_extensions(None), None);
-    }
-
-    #[test]
     fn normalize_rel_path_converts_windows_separators() {
         // Windows 経路は実機が無く検証できないため、区切り文字を
         // 手で組み立てた入力で検査する。
@@ -1085,7 +1078,8 @@ mod tests {
 
         let result = scan_files(
             &dir,
-            None,
+            "",
+            &FileFilter::default(),
             SCAN_LIMIT,
             COUNT_LIMIT,
             &OwnDirs::resolve(&[data_dir]),
@@ -1104,7 +1098,14 @@ mod tests {
         std::fs::write(dir.join("ok/a.mp3"), b"").expect("ファイルを作れなかった");
         std::fs::write(dir.join("locked/b.mp3"), b"").expect("ファイルを作れなかった");
         let locked = crate::test_support::Unreadable::new(dir.join("locked"));
-        let result = scan_files(&dir, None, SCAN_LIMIT, COUNT_LIMIT, &OwnDirs::default());
+        let result = scan_files(
+            &dir,
+            "",
+            &FileFilter::default(),
+            SCAN_LIMIT,
+            COUNT_LIMIT,
+            &OwnDirs::default(),
+        );
         drop(locked);
 
         assert_eq!(result.rel_paths, vec!["ok/a.mp3".to_string()]);
@@ -1112,14 +1113,22 @@ mod tests {
     }
 
     #[test]
-    fn scan_files_skips_dotfiles_and_filters_by_extension() {
+    fn scan_files_skips_dotfiles_and_applies_the_filter() {
         fn count(
             dir: &FsPath,
-            extensions: Option<&[String]>,
+            include: Option<&str>,
             scan_limit: usize,
             item_limit: usize,
         ) -> (usize, bool) {
-            let result = scan_files(dir, extensions, scan_limit, item_limit, &OwnDirs::default());
+            let filter = FileFilter::parse(include, None).expect("正しいパターンのはず");
+            let result = scan_files(
+                dir,
+                "",
+                &filter,
+                scan_limit,
+                item_limit,
+                &OwnDirs::default(),
+            );
             (result.rel_paths.len(), result.truncated)
         }
 
@@ -1134,14 +1143,48 @@ mod tests {
 
         assert_eq!(count(dir, None, SCAN_LIMIT, COUNT_LIMIT), (3, false));
         // 対象拡張子が1つも無くても、走査したエントリ数で打ち切られる。
-        let none = vec!["zip".to_string()];
-        assert_eq!(count(dir, Some(&none), 2, COUNT_LIMIT), (0, true));
+        assert_eq!(count(dir, Some("*.zip"), 2, COUNT_LIMIT), (0, true));
         // 走査したエントリ数には、登録先そのものと除外したもの (ドット始まり) を含めない。
         assert_eq!(count(dir, None, 4, COUNT_LIMIT), (3, false));
         // 一致するファイルが上限を超えたら打ち切る。ちょうど上限なら打ち切らない。
         assert_eq!(count(dir, None, SCAN_LIMIT, 2), (3, true));
         assert_eq!(count(dir, None, SCAN_LIMIT, 3), (3, false));
-        let mp3 = vec!["mp3".to_string()];
-        assert_eq!(count(dir, Some(&mp3), SCAN_LIMIT, COUNT_LIMIT), (2, false));
+        assert_eq!(
+            count(dir, Some("*.mp3"), SCAN_LIMIT, COUNT_LIMIT),
+            (2, false)
+        );
+    }
+
+    #[test]
+    fn scan_files_does_not_enter_excluded_folders_and_reads_patterns_from_the_folder_root() {
+        let tmp = temp_dir("scan-exclude");
+        let dir = tmp.path();
+        std::fs::create_dir_all(dir.join("keep/drafts")).expect("ディレクトリを作れなかった");
+        std::fs::write(dir.join("keep/a.mp3"), b"").expect("ファイルを作れなかった");
+        std::fs::write(dir.join("keep/drafts/b.mp3"), b"").expect("ファイルを作れなかった");
+
+        let filter = FileFilter::parse(None, Some("drafts/")).expect("正しいパターンのはず");
+        let result = scan_files(
+            dir,
+            "",
+            &filter,
+            SCAN_LIMIT,
+            COUNT_LIMIT,
+            &OwnDirs::default(),
+        );
+        assert_eq!(result.rel_paths, vec!["keep/a.mp3".to_string()]);
+        assert_eq!(result.dirs.len(), 2, "除外したフォルダーは覚えないはず");
+
+        // 下のフォルダーだけを読むときも、登録先から見たパスで照らす。
+        let filter = FileFilter::parse(Some("keep/*.mp3"), None).expect("正しいパターンのはず");
+        let result = scan_files(
+            &dir.join("keep"),
+            "keep",
+            &filter,
+            SCAN_LIMIT,
+            COUNT_LIMIT,
+            &OwnDirs::default(),
+        );
+        assert_eq!(result.rel_paths, vec!["a.mp3".to_string()]);
     }
 }

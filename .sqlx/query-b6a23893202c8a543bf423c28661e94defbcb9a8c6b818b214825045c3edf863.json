@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "UPDATE contents\n           SET parent_id = ?, title = ?, description = ?, visibility = ?,\n               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')\n           WHERE id = ?\n           RETURNING id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url,\n                     path, description, created_at as \"created_at!\", file_name, file_size,\n                     visibility as \"visibility: Visibility\", created_by, extensions, title_template,\n                     list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                     auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time",
+  "query": "UPDATE contents\n           SET created_by = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')\n           WHERE id = ?\n           RETURNING id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url,\n                     path, description, created_at as \"created_at!\", file_name, file_size,\n                     visibility as \"visibility: Visibility\", created_by, include_patterns, exclude_patterns, title_template,\n                     list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                     auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time",
   "describe": {
     "columns": [
       {
@@ -64,48 +64,53 @@
         "type_info": "Integer"
       },
       {
-        "name": "extensions",
+        "name": "include_patterns",
         "ordinal": 12,
         "type_info": "Text"
       },
       {
-        "name": "title_template",
+        "name": "exclude_patterns",
         "ordinal": 13,
         "type_info": "Text"
       },
       {
-        "name": "list_view: bool",
+        "name": "title_template",
         "ordinal": 14,
-        "type_info": "Integer"
+        "type_info": "Text"
       },
       {
-        "name": "new_files_public: bool",
+        "name": "list_view: bool",
         "ordinal": 15,
         "type_info": "Integer"
       },
       {
-        "name": "auto_rescan_mode: AutoMode",
+        "name": "new_files_public: bool",
         "ordinal": 16,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_rescan_mode: AutoMode",
+        "ordinal": 17,
         "type_info": "Text"
       },
       {
         "name": "auto_rescan_hours",
-        "ordinal": 17,
+        "ordinal": 18,
         "type_info": "Integer"
       },
       {
         "name": "auto_rescan_time",
-        "ordinal": 18,
+        "ordinal": 19,
         "type_info": "Text"
       }
     ],
     "parameters": {
-      "Right": 5
+      "Right": 2
     },
     "nullable": [
       false,
       false,
-      true,
+      false,
       false,
       true,
       true,
@@ -114,6 +119,7 @@
       true,
       true,
       false,
+      true,
       true,
       true,
       true,
@@ -124,5 +130,5 @@
       true
     ]
   },
-  "hash": "5294dfeca9b0eef2bad462b337ad12c07b8234ff5d6a9d9ac5a0cfd03eb7a0cd"
+  "hash": "b6a23893202c8a543bf423c28661e94defbcb9a8c6b818b214825045c3edf863"
 }
