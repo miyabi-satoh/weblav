@@ -37,8 +37,6 @@
 
 	function apply(event: SubmitEvent) {
 		event.preventDefault();
-		// 窓は本体のフォームの外に出るが、Svelte のイベントは DOM の親へ伝わるので止める。
-		event.stopPropagation();
 		value = draft;
 		open = false;
 	}

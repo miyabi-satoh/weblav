@@ -56,7 +56,7 @@ By default, everything in a folder is published. Unpublish files or folders you 
 
 Files you add are visible unless you unpublish them. To show only the items you choose, unpublish a subfolder, then choose “Publish” for the items inside it. Publishing a file also makes the folders above it browsable. To choose files at the top level too, turn on “Organize as a library” and turn off “Publish new files” (→ [Set up a library](07-archive-setup.md)).
 
-To limit what you show, use “Include patterns” and “Exclude patterns” under “Location and display”. Select “Edit...” and write one pattern per line.
+To limit what you show, use “Include patterns” and “Exclude patterns” under “Location and display”. Select “Edit...”, write one pattern per line, select “Use these patterns”, then select “Save” in that section.
 
 - `*.pdf`: files with a matching name at any level
 - `backup/`: folders with that name at any level

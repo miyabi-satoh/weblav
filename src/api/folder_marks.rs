@@ -179,6 +179,26 @@ impl Marks {
         under(&self.marks) || under(&self.initial)
     }
 
+    /// `path` に `public` の印を付けても、付けないのと同じになるか。そうなら印を残さない。
+    /// フォルダーは、中のファイルが違う初期値を持っていれば残す。消すと、中がその初期値に戻るため。
+    fn mark_is_redundant(&self, path: &str, is_dir: bool, public: bool) -> bool {
+        if !is_dir || self.has_ancestor_mark(path) {
+            return self.inherited(path, false) == public;
+        }
+        let prefix = format!("{path}/");
+        public == self.default_public
+            && !self
+                .initial
+                .range(prefix.clone()..)
+                .take_while(|(rel, _)| rel.starts_with(&prefix))
+                .any(|_| true)
+    }
+
+    fn has_ancestor_mark(&self, rel: &str) -> bool {
+        rel.match_indices('/')
+            .any(|(index, _)| self.marks.contains_key(&rel[..index]))
+    }
+
     /// 閲覧する人にファイル `rel` が見えるか。
     pub(super) fn file_visible(&self, rel: &str) -> bool {
         self.in_scope(rel) && self.is_public(rel)
@@ -248,7 +268,7 @@ pub(super) async fn set_marks(
         let mut files: Vec<&str> = Vec::new();
         let mut dirs: Vec<&str> = Vec::new();
         for (path, is_dir) in &targets {
-            if marks.inherited(path, false) == public {
+            if marks.mark_is_redundant(path, *is_dir, public) {
                 removed.push(path);
             } else if *is_dir {
                 dirs.push(path);
@@ -646,6 +666,19 @@ mod tests {
         };
         assert!(marks.dir_reachable("a"));
         assert!(!marks.dir_reachable("b"));
+    }
+
+    #[test]
+    fn folder_mark_is_kept_when_a_file_inside_has_another_initial_value() {
+        let marks = Marks {
+            initial: BTreeMap::from([("a/old.jpg".to_string(), false)]),
+            ..marks(true, &[("x", false)])
+        };
+        // 消すと a/old.jpg が初期値の非公開に戻り、公開にしたのに見えない。
+        assert!(!marks.mark_is_redundant("a", true, true));
+        assert!(marks.mark_is_redundant("b", true, true));
+        assert!(marks.mark_is_redundant("x/y", true, false));
+        assert!(marks.mark_is_redundant("a/old.jpg", false, false));
     }
 
     #[test]
