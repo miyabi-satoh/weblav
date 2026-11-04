@@ -572,7 +572,7 @@ async function shootAdmin() {
 		if (want('quickstart-roots')) {
 			const narrow = await newPage(backend, MOBILE_WIDTH, shared);
 			await goto(narrow, '/admin/roots');
-			const rootRow = narrow.getByText(WINDOWS_SHARED_PATH).locator('xpath=ancestor::li[1]');
+			const rootRow = narrow.getByText(WINDOWS_SHARED_PATH).locator('xpath=ancestor::tr[1]');
 			await shotBetween(narrow, 'quickstart-roots', adminNav(narrow), rootRow);
 			await narrow.context().close();
 		}
@@ -611,7 +611,7 @@ async function shootAdmin() {
 			await shotBetween(
 				page,
 				'folder-list-view',
-				page.getByText('新しく見つかったファイルを公開する'),
+				page.getByText('ライブラリとして整理する', { exact: true }),
 				page.getByText('を過ぎたら', { exact: true }),
 				{ padTop: 16, padBottom: 16 }
 			);

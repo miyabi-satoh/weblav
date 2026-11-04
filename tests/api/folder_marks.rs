@@ -141,13 +141,21 @@ async fn folder_that_publishes_chosen_files_shows_only_marked_ones(pool: SqliteP
     std::fs::write(dir.join("2023").join("c.txt"), b"c").expect("ファイルを作れなかった");
     let (app, cookie) = admin_app(&pool).await;
     let id = insert_folder_by(&pool, "写真", &*dir, "public", None, None).await;
-    sqlx::query!("UPDATE contents SET new_files_public = 0 WHERE id = ?", id)
-        .execute(&pool)
-        .await
-        .expect("設定を変えられなかった");
-    set_mark(app.clone(), &cookie, id, "2024/a.txt", true).await;
+    sqlx::query!(
+        "UPDATE contents SET list_view = 1, new_files_public = 0 WHERE id = ?",
+        id
+    )
+    .execute(&pool)
+    .await
+    .expect("設定を変えられなかった");
 
     let browse = |path: &str| format!("/api/v1/contents/{id}/browse?path={path}");
+    // まだ何も公開していなくても、登録先そのものは開けて、空に見える。
+    let (status, body) = send_anon(app.clone(), "GET", &browse("")).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(browse_names(&body).is_empty(), "{body}");
+
+    set_mark(app.clone(), &cookie, id, "2024/a.txt", true).await;
     let (status, body) = send_anon(app.clone(), "GET", &browse("")).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(browse_names(&body), ["2024"], "{body}");
@@ -158,6 +166,102 @@ async fn folder_that_publishes_chosen_files_shows_only_marked_ones(pool: SqliteP
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
+/// 対象の拡張子に合わないファイルは、見る人にも編集できる人にも出ず、印も付けられない。
+/// 前に付けた印は効かなくなり、その上のフォルダーも辿れなくなる。
+#[sqlx::test]
+async fn files_outside_the_extensions_are_left_out_for_everyone(pool: SqlitePool) {
+    let dir = temp_test_dir("folder-extensions");
+    std::fs::write(dir.join("a.pdf"), b"a").expect("ファイルを作れなかった");
+    std::fs::write(dir.join("b.txt"), b"b").expect("ファイルを作れなかった");
+    std::fs::create_dir_all(dir.join("notes")).expect("フォルダーを作れなかった");
+    std::fs::write(dir.join("notes").join("c.txt"), b"c").expect("ファイルを作れなかった");
+    let (app, cookie) = admin_app(&pool).await;
+    let id = insert_folder_by(&pool, "資料", &*dir, "public", None, None).await;
+    sqlx::query!(
+        "UPDATE contents SET list_view = 1, new_files_public = 0 WHERE id = ?",
+        id
+    )
+    .execute(&pool)
+    .await
+    .expect("設定を変えられなかった");
+    set_mark(app.clone(), &cookie, id, "a.pdf", true).await;
+    set_mark(app.clone(), &cookie, id, "notes/c.txt", true).await;
+
+    let browse = format!("/api/v1/contents/{id}/browse?path=");
+    let (_, body) = send_anon(app.clone(), "GET", &browse).await;
+    assert_eq!(browse_names(&body), ["notes", "a.pdf"], "{body}");
+
+    sqlx::query!("UPDATE contents SET extensions = 'pdf' WHERE id = ?", id)
+        .execute(&pool)
+        .await
+        .expect("設定を変えられなかった");
+
+    let (status, body) = send_anon(app.clone(), "GET", &browse).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(browse_names(&body), ["a.pdf"], "{body}");
+    let (_, body) = send_empty(app.clone(), "GET", &browse, &cookie).await;
+    assert_eq!(browse_names(&body), ["notes", "a.pdf"], "{body}");
+
+    let (status, _) = send_anon(
+        app.clone(),
+        "GET",
+        &format!("/api/v1/contents/{id}/download?path=notes/c.txt"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = send_json(
+        app.clone(),
+        "PUT",
+        &marks_uri(id),
+        &cookie,
+        r#"{"path":"b.txt","public":true}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (_, body) = send_empty(app.clone(), "GET", &marks_uri(id), &cookie).await;
+    assert!(!body.contains("c.txt"), "{body}");
+    let (_, body) = send_anon(app, "GET", "/api/v1/search?q=c.txt").await;
+    assert!(!body.contains("c.txt"), "{body}");
+}
+
+/// ライブラリをやめると、印の無いファイルは見えるようになる。保存の前に増える数を数えられる。
+#[sqlx::test]
+async fn leaving_library_shows_unmarked_files_and_can_be_previewed(pool: SqlitePool) {
+    let dir = temp_test_dir("folder-preview");
+    std::fs::write(dir.join("a.pdf"), b"a").expect("ファイルを作れなかった");
+    std::fs::write(dir.join("b.txt"), b"b").expect("ファイルを作れなかった");
+    let (app, cookie) = admin_app(&pool).await;
+    let id = insert_folder_by(&pool, "資料", &*dir, "public", None, None).await;
+    sqlx::query!(
+        "UPDATE contents SET list_view = 1, new_files_public = 0 WHERE id = ?",
+        id
+    )
+    .execute(&pool)
+    .await
+    .expect("設定を変えられなかった");
+
+    let (status, body) = send_json(
+        app.clone(),
+        "POST",
+        &format!("{}/preview", marks_uri(id)),
+        &cookie,
+        r#"{"listView":false,"newFilesPublic":false,"extensions":"pdf"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let preview: serde_json::Value = serde_json::from_str(&body).expect("JSON のはず");
+    assert_eq!(preview["gained"], 1, "{body}");
+    assert_eq!(preview["lost"], 0, "{body}");
+    assert_eq!(preview["truncated"], false, "{body}");
+
+    sqlx::query!("UPDATE contents SET list_view = 0 WHERE id = ?", id)
+        .execute(&pool)
+        .await
+        .expect("設定を変えられなかった");
+    let (_, body) = send_anon(app, "GET", &format!("/api/v1/contents/{id}/browse?path=")).await;
+    assert_eq!(browse_names(&body), ["a.pdf", "b.txt"], "{body}");
+}
+
 /// フォルダーを非公開にすると、中で前に公開したものの印も消え、中ごと非公開になる。
 #[sqlx::test]
 async fn marking_a_folder_private_clears_marks_inside_it(pool: SqlitePool) {
@@ -166,10 +270,13 @@ async fn marking_a_folder_private_clears_marks_inside_it(pool: SqlitePool) {
     std::fs::write(dir.join("sub").join("a.txt"), b"a").expect("ファイルを作れなかった");
     let (app, cookie) = admin_app(&pool).await;
     let id = insert_folder_by(&pool, "教材", &*dir, "public", None, None).await;
-    sqlx::query!("UPDATE contents SET new_files_public = 0 WHERE id = ?", id)
-        .execute(&pool)
-        .await
-        .expect("設定を変えられなかった");
+    sqlx::query!(
+        "UPDATE contents SET list_view = 1, new_files_public = 0 WHERE id = ?",
+        id
+    )
+    .execute(&pool)
+    .await
+    .expect("設定を変えられなかった");
     set_mark(app.clone(), &cookie, id, "sub/a.txt", true).await;
     set_mark(app.clone(), &cookie, id, "sub", true).await;
     set_mark(app.clone(), &cookie, id, "sub", false).await;

@@ -25,7 +25,8 @@
 	let { heading, contentId, contentTitle, canEdit, actions }: Props = $props();
 </script>
 
-<div class="mb-4 flex items-start gap-2">
+<!-- 高さの違う見出し・「追加」・ペンの中心を揃える。 -->
+<div class="mb-4 flex items-center gap-2">
 	<h1 class={pageHeadingInRowClass}>{heading}</h1>
 	{@render actions?.()}
 	<!-- 閲覧者として見ている間は、ログインしていない人に見える形にするので出さない。 -->

@@ -55,10 +55,10 @@ What standard users can do in a share is set for each share.
 
 1. Select the share row to open its edit page.
 2. In the “Permissions” section, choose “Default for users”.
-3. If some people need a different permission from the default, choose their permission under “Per-user exceptions”.
+3. If some people need a different permission from the default, select “Add exception” under “Per-user exceptions”, choose the person, then choose their permission in the row. Select × in the row to return to the default.
 4. Select “Save” in the “Permissions” section.
 
-Each row in the list shows the default for standard users (such as “Standard users: Read only”) and the number of exceptions.
+The list shows the default for standard users (such as “Read only”) and the number of exceptions.
 
 A share set to “No access” does not appear for that person when they choose a folder to register content, either.
 

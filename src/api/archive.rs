@@ -1785,7 +1785,7 @@ mod tests {
     #[sqlx::test]
     async fn save_read_items_adds_read_files_and_keeps_the_rest(pool: sqlx::SqlitePool) {
         let id = sqlx::query_scalar!(
-            "INSERT INTO contents (type, title, path, visibility, new_files_public) VALUES ('folder', 'f', '/f', 'public', 0) RETURNING id"
+            "INSERT INTO contents (type, title, path, visibility, list_view, new_files_public) VALUES ('folder', 'f', '/f', 'public', 1, 0) RETURNING id"
         )
         .fetch_one(&pool)
         .await

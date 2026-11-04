@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\", extensions\n               FROM contents WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "list_view: bool",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "new_files_public: bool",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "extensions",
+        "ordinal": 2,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "becbb96fe78404fce604d19f057905e9da9ef454c5205df4171ff6daacdd4f9d"
+}

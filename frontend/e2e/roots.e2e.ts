@@ -4,7 +4,13 @@
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import { test, expect, type Page, type Route } from '@playwright/test';
-import { createRootByApi, removeRootByApi, send, withContentByApi } from './api-helpers';
+import {
+	createRootByApi,
+	removeRootByApi,
+	send,
+	withContentByApi,
+	withUserByApi
+} from './api-helpers';
 import {
 	createRootFixtureTree,
 	FIXTURE_UNREACHABLE,
@@ -36,13 +42,13 @@ test('登録した共有が並び、画面から削除できる', async ({ page 
 		test.skip(id === null, FIXTURE_UNREACHABLE);
 
 		await page.goto('/admin/roots');
-		const row = page.getByRole('listitem').filter({ hasText: root });
+		const row = page.getByRole('row').filter({ hasText: root });
 		await expect(row).toBeVisible();
 
 		await clickRowMenuItem(page, row, DELETE_MENU_ITEM_NAME);
 		await confirmDelete(page);
 
-		await expect(page.getByRole('listitem').filter({ hasText: root })).toHaveCount(0);
+		await expect(page.getByRole('row').filter({ hasText: root })).toHaveCount(0);
 	} finally {
 		removeFixtureTree(root);
 		// 画面での削除まで届かずに失敗したときのため。既に消えていれば 404 で、そのままでよい。
@@ -112,9 +118,9 @@ test('フォルダーを選ぶとフォルダー名で追加されて編集ペ�
 			.first()
 			.click();
 		await page.waitForURL(/\/admin\/roots$/);
-		const row = page.getByRole('listitem').filter({ hasText: target });
+		const row = page.getByRole('row').filter({ hasText: target });
 		await expect(row.getByText(renamed, { exact: true })).toBeVisible();
-		await expect(row).toContainText(/一般ユーザー: 追加のみ|Standard users: Add only/);
+		await expect(row).toContainText(/追加のみ|Add only/);
 		// 名前のリンクではなく行の真ん中を押す (リンクの押せる範囲を行いっぱいに広げてある)。
 		await row.click();
 		await page.waitForURL(/\/admin\/roots\/\d+$/);
@@ -132,6 +138,59 @@ test('フォルダーを選ぶとフォルダー名で追加されて編集ペ�
 	}
 });
 
+// 例外は全員を並べず、選んだ人だけを並べる (→ docs/ui.md「UI 全般」の管理画面の共有)。
+test('編集ページ: 例外に一般ユーザーを足して権限を変え、外すと既定に戻る', async ({ page }) => {
+	const root = createRootFixtureTree(uniqueId('roots-exception'));
+	const username = uniqueId('exception-user');
+	let id: number | null = null;
+	try {
+		id = await createRootByApi(page.request, root);
+		test.skip(id === null, FIXTURE_UNREACHABLE);
+		const rootId = id;
+		await withUserByApi(page.request, username, 'E2eSmoke!2026Test', async () => {
+			const readExceptions = async () => {
+				const roots = (await send(page.request, 'get', '/admin/roots')) as {
+					id: number;
+					userAccess: { username: string; access: string }[];
+				}[];
+				return roots.find((entry) => entry.id === rootId)?.userAccess;
+			};
+			await page.goto(`/admin/roots/${rootId}`);
+			const form = sectionForm(page, ACCESS_SECTION_NAME);
+			const save = form.getByRole('button', { name: SAVE_BUTTON_NAME });
+
+			await form.getByRole('button', { name: /^例外を追加$|^Add exception$/ }).click();
+			await page.getByRole('menuitem', { name: username }).click();
+			await form
+				.getByRole('button', { name: new RegExp(`${username}`) })
+				.first()
+				.click();
+			await page.getByRole('option', { name: /^追加のみ$|^Add only$/ }).click();
+			await saveForm(page, {
+				button: save,
+				toastText: /「権限」を保存しました。|“Permissions” saved\./
+			});
+			expect(await readExceptions()).toEqual([
+				expect.objectContaining({ username, access: 'add' })
+			]);
+
+			await form
+				.getByRole('button', {
+					name: new RegExp(`^${username} を例外から外す$|^Remove exception for ${username}$`)
+				})
+				.click();
+			await saveForm(page, {
+				button: save,
+				toastText: /「権限」を保存しました。|“Permissions” saved\./
+			});
+			expect(await readExceptions()).toEqual([]);
+		});
+	} finally {
+		if (id !== null) await removeRootByApi(page.request, id);
+		removeFixtureTree(root);
+	}
+});
+
 test('編集ページ: 保存していない変更があると、離れる前に確かめる', async ({ page }) => {
 	const root = createRootFixtureTree(uniqueId('roots-leave'));
 	let id: number | null = null;
@@ -141,7 +200,7 @@ test('編集ページ: 保存していない変更があると、離れる前に
 		await page.goto('/admin/roots');
 		await clickRowMenuItem(
 			page,
-			page.getByRole('listitem').filter({ hasText: realpathSync(root) }),
+			page.getByRole('row').filter({ hasText: realpathSync(root) }),
 			EDIT_MENU_ITEM_NAME
 		);
 		await page.waitForURL(/\/admin\/roots\/\d+$/);
@@ -221,7 +280,7 @@ test('窓を閉じるまでボタンを押せなくし、キャンセルなら�
 	await page.goto('/admin/roots');
 	// 一覧が出てから数える。
 	await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-	const rows = page.getByRole('listitem');
+	const rows = page.getByRole('row');
 	const before = await rows.count();
 
 	await page.getByRole('button', { name: ROOT_ADD_BUTTON_NAME }).click();

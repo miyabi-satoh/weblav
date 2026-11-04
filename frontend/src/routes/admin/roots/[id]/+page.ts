@@ -13,12 +13,12 @@ export const load: PageLoad = async ({ parent, params, url }) => {
 		fetchOrError(client.GET('/api/v1/admin/roots'), m.admin_roots_fetch_failed(), {
 			loginRedirectFrom: url
 		}),
-		// 権限の区画の例外に並べるユーザー。取れなければ例外を選べないだけにする。
+		// 権限の区画で例外に足す候補。取れなければ、足せないことを区画に出す。
 		fetchOrNull(client.GET('/api/v1/admin/users'))
 	]);
 	const root = roots.find((candidate) => candidate.id === id);
 	if (!root) {
 		error(404, m.error_not_found());
 	}
-	return { root, users: users ?? [] };
+	return { root, users };
 };

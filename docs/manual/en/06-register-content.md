@@ -54,7 +54,11 @@ By default, everything in a folder is published. Unpublish files or folders you 
 - Unpublished files cannot be downloaded or found by search either.
 - Items you rename or move on the share screens keep their publish setting (→ [Work with files in shares](05-files.md)). If you rename or move a file in File Explorer or Finder, your change to it no longer applies, and it is treated like a newly found file.
 
-To publish only the items you choose, turn off “Publish new files” under “Location and display” on the “Settings” tab of the edit page, then select “Save” in that section. New files start unpublished, so choose “Publish” for the ones to show. Publishing a file also makes the folders above it browsable.
+Files you add are visible unless you unpublish them. To show only the items you choose, unpublish a subfolder, then choose “Publish” for the items inside it. Publishing a file also makes the folders above it browsable. To choose files at the top level too, turn on “Organize as a library” and turn off “Publish new files” (→ [Set up a library](07-archive-setup.md)).
+
+To show only certain kinds of files, enter them in “File extensions” under “Location and display” (for example, `mp3, pdf`). Other files don't appear in the folder view, even for people who can change the folder, and can't be published or unpublished. They still appear on the share screen.
+
+When saving settings would make more or fewer files visible, the counts appear before the save.
 
 Your changes are listed under “Publishing changes” on the edit page, and “Undo” reverts one. For a folder organized as a library, only folders are listed there. Publish or unpublish files on the “Items” tab (→ [Set up a library](07-archive-setup.md)).
 
@@ -147,7 +151,7 @@ To see how it looks to viewers, select “View on site” next to the heading of
 - Title and description
 - Link: Use “Refetch title” and “Refetch description” to fetch them again from the linked site.
 - File (registered in an earlier version): You can change the title and other details, but you cannot replace the file. To change its contents, put the file in a share again.
-- Folder: “Publish new files” (→ “Publish or unpublish” above) and “Organize as a library” (→ [Set up a library](07-archive-setup.md)). Neither is asked when you add a folder, so change them here.
+- Folder: “File extensions” (→ “Publish or unpublish” above) and “Organize as a library” (→ [Set up a library](07-archive-setup.md)). Neither is asked when you add a folder, so change them here.
   - Changing the location with “Change...” under “Path” clears all publish changes and the list.
 
 ## Delete

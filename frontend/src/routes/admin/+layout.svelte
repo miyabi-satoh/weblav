@@ -47,7 +47,7 @@
 				aria-current={current ? 'page' : undefined}
 				class={[navTabClass(current), 'min-w-11 justify-center gap-1.5 whitespace-nowrap']}
 			>
-				<tab.icon class="size-4 shrink-0 sm:hidden" aria-hidden="true" />
+				<tab.icon class="size-4 shrink-0" aria-hidden="true" />
 				<span class={current ? undefined : 'max-sm:sr-only'}>{tab.label()}</span>
 			</a>
 		{/each}

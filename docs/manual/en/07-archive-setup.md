@@ -87,7 +87,7 @@ As with folder-level categories, you can change the display names (such as `06` 
 
 ## Limit the files in the list
 
-Use “File extensions” (for example, `mp3, pdf`) on the “Settings” tab to limit the files in the list. Leave it empty for all files. After changing it, select “Rescan” on the “Items” tab.
+Use “File extensions” (for example, `mp3, pdf`) on the “Settings” tab to limit the files you show. Leave it empty for all files. The folder view changes right away. To apply it to the library list, select “Rescan” on the “Items” tab.
 
 ## Ask an AI
 

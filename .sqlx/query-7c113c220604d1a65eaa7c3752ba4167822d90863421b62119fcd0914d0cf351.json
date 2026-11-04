@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\", path, is_dir as \"is_dir: bool\", public as \"public: bool\"\n               FROM folder_marks WHERE content_id = ? ORDER BY created_at DESC, id DESC",
+  "query": "SELECT id as \"id!\", path, is_dir as \"is_dir: bool\", public as \"public: bool\"\n           FROM folder_marks WHERE content_id = ? ORDER BY created_at DESC, id DESC",
   "describe": {
     "columns": [
       {
@@ -34,5 +34,5 @@
       false
     ]
   },
-  "hash": "291e1c4717b026ffe5478abf16d44c33fb4d3d149cb1c71fb37ab8f554151aae"
+  "hash": "7c113c220604d1a65eaa7c3752ba4167822d90863421b62119fcd0914d0cf351"
 }

@@ -1169,6 +1169,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/{id}/marks/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 設定を保存すると、見る人に見えるファイルがどう変わるかを数える。保存の前に知らせるため。 */
+        post: operations["preview_visibility"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/{id}/marks/{mark_id}": {
         parameters: {
             query?: never;
@@ -1179,7 +1196,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** 印を取り消し、祖先か「新しく見つかったファイル」の設定に従わせる。 */
+        /** 印を取り消し、祖先か既定に従わせる。 */
         delete: operations["delete_mark"];
         options?: never;
         head?: never;
@@ -3365,6 +3382,19 @@ export interface components {
          * @enum {string}
          */
         Visibility: "public" | "authenticated" | "private" | "hidden";
+        VisibilityPreview: {
+            /** @description 今は見えず、保存すると見えるようになるファイルの数。 */
+            gained: number;
+            /** @description 今は見えて、保存すると見えなくなるファイルの数。 */
+            lost: number;
+            /** @description ファイルが多く、一部だけを数えたか。 */
+            truncated: boolean;
+        };
+        VisibilityPreviewRequest: {
+            extensions?: string | null;
+            listView: boolean;
+            newFilesPublic: boolean;
+        };
     };
     responses: never;
     parameters: never;
@@ -6951,6 +6981,59 @@ export interface operations {
                 };
             };
             /** @description 見えない・存在しない、フォルダーでない、またはフォルダーの中に無いパス */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description フォルダーのある NAS やディスクにつながらない */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    preview_visibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisibilityPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibilityPreview"];
+                };
+            };
+            /** @description 書き換えられるのは管理者と作成者だけ */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 見えない・存在しない、またはフォルダーでない */
             404: {
                 headers: {
                     [name: string]: unknown;

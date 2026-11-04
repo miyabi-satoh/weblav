@@ -268,11 +268,9 @@ export class ContentFormState {
 		return this.parentId === 'root' ? null : Number(this.parentId);
 	}
 
-	/** 送信・件数確認の両方で使う拡張子。一覧の表示を使うフォルダー以外と空入力は `null`。 */
+	/** 送信・件数確認の両方で使う拡張子。フォルダー以外と空入力は `null`。 */
 	get normalizedExtensions(): string | null {
-		return this.type === 'folder' && this.listView && this.extensions.trim() !== ''
-			? this.extensions.trim()
-			: null;
+		return this.type === 'folder' && this.extensions.trim() !== '' ? this.extensions.trim() : null;
 	}
 
 	/** JSON で送る作成・更新に共通の項目。`type` は更新で送らないので含めない。 */

@@ -129,7 +129,7 @@
 		</BrowseBreadcrumb>
 
 		<div class="mb-4 flex flex-col gap-1">
-			<div class="flex items-start gap-2">
+			<div class="flex items-center gap-2">
 				<h1 class={pageHeadingInRowClass}>{currentName}</h1>
 				<!-- 閲覧者として見ている間は、操作の口を出さない (→ docs/ui.md「UI 全般」)。 -->
 				{#if canAddTo(browse.access) && !viewAs.active}
