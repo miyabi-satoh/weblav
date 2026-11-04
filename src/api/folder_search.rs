@@ -190,7 +190,7 @@ pub(super) async fn search(
                 let shown = if entry.is_dir {
                     marks.dir_reachable(&entry.rel_path)
                 } else {
-                    marks.is_public(&entry.rel_path)
+                    marks.in_scope(&entry.rel_path) && marks.is_public(&entry.rel_path)
                 };
                 if !shown {
                     continue;

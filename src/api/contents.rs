@@ -1926,7 +1926,7 @@ pub(super) async fn resolve_path(
             let shown = if canonical_candidate.is_dir() {
                 marks.dir_reachable(&rel)
             } else {
-                marks.is_public(&rel)
+                marks.in_scope(&rel) && marks.is_public(&rel)
             };
             if !shown {
                 return Err(AppError::NotFound);
@@ -1981,6 +1981,10 @@ pub(super) fn read_entries(
         // (権限エラー等)はそのエントリだけ読み飛ばす。
         if let Some(mut entry) = folder_entry(name, &entry.path()) {
             if let Some(marks) = marks {
+                // 対象の拡張子に合わないファイルは、書き換えられる人にも並べない。公開を決める対象でないため。
+                if !entry.is_dir && !marks.in_scope(&rel) {
+                    continue;
+                }
                 entry.public = marks.is_public(&rel);
                 let shown = entry.public || (entry.is_dir && marks.dir_reachable(&rel));
                 if only_public && !shown {

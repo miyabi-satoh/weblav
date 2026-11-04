@@ -2,7 +2,9 @@
 //!
 //! 見せるかどうかはパスごとに1つだけ持ち、フォルダーの表示と一覧の表示の両方が同じ印を見る。
 //! 実効の公開は、パスとその祖先のうち一番深い印で決まり、印が無ければフォルダーの
-//! 「新しく見つかったファイル」の設定 (`contents.new_files_public`) に従う。
+//! 既定に従う。既定は、ライブラリのときは「新しく見つかったファイル」の設定
+//! (`contents.new_files_public`) で、そうでなければ公開。
+//! 対象の拡張子 (`contents.extensions`) に合わないファイルは、印を付ける対象にもならない。
 //! パスは登録先からの相対で、実体の綴りを '/' でつなぐ。照らす側も実体の綴りで照らす
 //! (一覧は `read_dir` の名前、配信は canonicalize した実体のパスから求める)。
 
@@ -19,6 +21,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use super::contents::{self, ContentType, Visibility};
+use super::fs::{COUNT_LIMIT, matches_extensions, parse_extensions, walk_entries};
 use crate::auth::AuthUser;
 use crate::error::{AppError, AppJson, run_blocking};
 use crate::state::AppState;
@@ -26,41 +29,84 @@ use crate::state::AppState;
 /// 1つのフォルダーの印と、印の無いものの扱い。
 pub(super) struct Marks {
     default_public: bool,
+    extensions: Option<Vec<String>>,
     marks: BTreeMap<String, bool>,
 }
 
 impl Marks {
     pub(super) async fn load(pool: &SqlitePool, content_id: i64) -> Result<Self, AppError> {
-        let default_public = sqlx::query_scalar!(
-            r#"SELECT new_files_public as "new_files_public: bool" FROM contents WHERE id = ?"#,
+        let content = sqlx::query!(
+            r#"SELECT list_view as "list_view: bool", new_files_public as "new_files_public: bool", extensions
+               FROM contents WHERE id = ?"#,
             content_id
         )
         .fetch_optional(pool)
         .await?
         .ok_or(AppError::NotFound)?;
+        Self::load_with(
+            pool,
+            content_id,
+            default_public(content.list_view, content.new_files_public),
+            parse_extensions(content.extensions.as_deref()),
+        )
+        .await
+    }
+
+    /// 今の印を、与えた設定で読む。保存の前に、見える内容の変わり方を数えるため。
+    async fn load_with(
+        pool: &SqlitePool,
+        content_id: i64,
+        default_public: bool,
+        extensions: Option<Vec<String>>,
+    ) -> Result<Self, AppError> {
         let rows = sqlx::query!(
-            r#"SELECT path, public as "public: bool" FROM folder_marks WHERE content_id = ?"#,
+            r#"SELECT path, is_dir as "is_dir: bool", public as "public: bool"
+               FROM folder_marks WHERE content_id = ?"#,
             content_id
         )
         .fetch_all(pool)
         .await?;
         Self::build(
             default_public,
-            rows.into_iter().map(|row| (row.path, row.public)),
+            extensions,
+            rows.into_iter()
+                .map(|row| (row.path, row.is_dir, row.public)),
         )
         .await
     }
 
     /// 印の表を組む。全部を切り替えたフォルダーでは印が件数ぶん (数十万) あるので、非同期のワーカーを塞がない。
+    /// 対象の拡張子に合わないファイルの印は読まない。その上のフォルダーを辿れるようにしないため。
+    /// 消さずに残すので、拡張子を戻すと前の印に戻る。
     async fn build(
         default_public: bool,
-        rows: impl Iterator<Item = (String, bool)> + Send + 'static,
+        extensions: Option<Vec<String>>,
+        rows: impl Iterator<Item = (String, bool, bool)> + Send + 'static,
     ) -> Result<Self, AppError> {
-        run_blocking(move || Self {
-            default_public,
-            marks: rows.collect(),
+        run_blocking(move || {
+            let marks = rows
+                .filter(|(path, is_dir, _)| {
+                    *is_dir || matches_extensions(FsPath::new(path), extensions.as_deref())
+                })
+                .map(|(path, _, public)| (path, public))
+                .collect();
+            Self {
+                default_public,
+                extensions,
+                marks,
+            }
         })
         .await
+    }
+
+    /// 閲覧する人にファイル `rel` が見えるか。
+    fn file_visible(&self, rel: &str) -> bool {
+        self.in_scope(rel) && self.is_public(rel)
+    }
+
+    /// ファイル `rel` が対象の拡張子に合うか。合わないものは編集できる人にも出さず、印も付けない。
+    pub(super) fn in_scope(&self, rel: &str) -> bool {
+        matches_extensions(FsPath::new(rel), self.extensions.as_deref())
     }
 
     /// `rel` ('/' 区切り。空なら登録先そのもの) が公開か。一番深い印で決まる。
@@ -87,20 +133,24 @@ impl Marks {
 
     /// サブフォルダー `rel` を閲覧で辿れるか。それ自身が公開か、中に公開のものがあれば辿れる。
     /// 選んで公開するフォルダーで、公開したファイルの上のフォルダーを辿れるようにするため。
+    /// 登録先そのものは、中に公開したものが無くても開ける。ホームなどの入口に載っていて存在は
+    /// 伏せられないので、開けないエラーにせず、見せるものが無いと伝える。
     pub(super) fn dir_reachable(&self, rel: &str) -> bool {
-        if self.is_public(rel) {
+        if rel.is_empty() || self.is_public(rel) {
             return true;
         }
-        let prefix = if rel.is_empty() {
-            String::new()
-        } else {
-            format!("{rel}/")
-        };
+        let prefix = format!("{rel}/");
         self.marks
             .range(prefix.clone()..)
             .take_while(|(path, _)| path.starts_with(&prefix))
             .any(|(_, &public)| public)
     }
+}
+
+/// 印の無いものの公開。ライブラリでないフォルダーは、置いたものがそのまま見える
+/// (選んで見せる設定を持たない。→ docs/folders.md「公開と非公開」)。
+fn default_public(list_view: bool, new_files_public: bool) -> bool {
+    !list_view || new_files_public
 }
 
 /// `root` (登録先の実体のパス) の下にある実体のパス `path` の、登録先からの相対パス ('/' 区切り)。
@@ -201,21 +251,26 @@ async fn load_in(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     content_id: i64,
 ) -> Result<Marks, AppError> {
-    let default_public = sqlx::query_scalar!(
-        r#"SELECT new_files_public as "new_files_public: bool" FROM contents WHERE id = ?"#,
+    let content = sqlx::query!(
+        r#"SELECT list_view as "list_view: bool", new_files_public as "new_files_public: bool"
+           FROM contents WHERE id = ?"#,
         content_id
     )
     .fetch_one(&mut **tx)
     .await?;
     let rows = sqlx::query!(
-        r#"SELECT path, public as "public: bool" FROM folder_marks WHERE content_id = ?"#,
+        r#"SELECT path, is_dir as "is_dir: bool", public as "public: bool"
+           FROM folder_marks WHERE content_id = ?"#,
         content_id
     )
     .fetch_all(&mut **tx)
     .await?;
+    // ここで見るのは祖先のフォルダーの印だけなので、拡張子では絞らない。
     Marks::build(
-        default_public,
-        rows.into_iter().map(|row| (row.path, row.public)),
+        default_public(content.list_view, content.new_files_public),
+        None,
+        rows.into_iter()
+            .map(|row| (row.path, row.is_dir, row.public)),
     )
     .await
 }
@@ -270,16 +325,17 @@ async fn list_marks(
     Path(id): Path<i64>,
 ) -> Result<Json<Vec<FolderMark>>, AppError> {
     editable_folder(&state.pool, &user, id).await?;
-    Ok(Json(
-        sqlx::query_as!(
-            FolderMark,
-            r#"SELECT id as "id!", path, is_dir as "is_dir: bool", public as "public: bool"
-               FROM folder_marks WHERE content_id = ? ORDER BY created_at DESC, id DESC"#,
-            id
-        )
-        .fetch_all(&state.pool)
-        .await?,
-    ))
+    let (_, marks) = super::archive_index::marks(&state, id).await?;
+    let mut rows = sqlx::query_as!(
+        FolderMark,
+        r#"SELECT id as "id!", path, is_dir as "is_dir: bool", public as "public: bool"
+           FROM folder_marks WHERE content_id = ? ORDER BY created_at DESC, id DESC"#,
+        id
+    )
+    .fetch_all(&state.pool)
+    .await?;
+    rows.retain(|row| row.is_dir || marks.in_scope(&row.path));
+    Ok(Json(rows))
 }
 
 /// フォルダーの中のファイルかサブフォルダーを、公開か非公開にする。サブフォルダーなら中ごと。
@@ -313,11 +369,100 @@ async fn set_mark(
         Ok::<_, AppError>((rel_of(&root, &target)?, target.is_dir()))
     })
     .await??;
+    let (_, marks) = super::archive_index::marks(&state, id).await?;
+    if !is_dir && !marks.in_scope(&path) {
+        return Err(AppError::NotFound);
+    }
     set_marks(&state.pool, id, vec![(path, is_dir)], payload.public).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// 印を取り消し、祖先か「新しく見つかったファイル」の設定に従わせる。
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct VisibilityPreviewRequest {
+    list_view: bool,
+    new_files_public: bool,
+    extensions: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct VisibilityPreview {
+    /// 今は見えず、保存すると見えるようになるファイルの数。
+    gained: usize,
+    /// 今は見えて、保存すると見えなくなるファイルの数。
+    lost: usize,
+    /// ファイルが多く、一部だけを数えたか。
+    truncated: bool,
+}
+
+/// 見る人に見えるファイルの増減を数える。`files` は登録先からの相対パス。
+fn count_visibility_changes<'a>(
+    files: impl Iterator<Item = &'a str>,
+    before: &Marks,
+    after: &Marks,
+) -> (usize, usize) {
+    let (mut gained, mut lost) = (0, 0);
+    for rel in files {
+        match (before.file_visible(rel), after.file_visible(rel)) {
+            (false, true) => gained += 1,
+            (true, false) => lost += 1,
+            _ => {}
+        }
+    }
+    (gained, lost)
+}
+
+/// 設定を保存すると、見る人に見えるファイルがどう変わるかを数える。保存の前に知らせるため。
+#[utoipa::path(
+    post,
+    path = "/contents/{id}/marks/preview",
+    params(("id" = i64, Path)),
+    request_body = VisibilityPreviewRequest,
+    responses(
+        (status = OK, body = VisibilityPreview),
+        (status = 403, body = crate::error::ErrorResponse, description = "書き換えられるのは管理者と作成者だけ"),
+        (status = 404, body = crate::error::ErrorResponse, description = "見えない・存在しない、またはフォルダーでない"),
+        (status = 503, body = crate::error::ErrorResponse, description = "フォルダーのある NAS やディスクにつながらない"),
+    )
+)]
+async fn preview_visibility(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    AppJson(payload): AppJson<VisibilityPreviewRequest>,
+) -> Result<Json<VisibilityPreview>, AppError> {
+    let root = editable_folder(&state.pool, &user, id).await?;
+    super::roots::ensure_reachable(&state, &root).await?;
+    let (_, before) = super::archive_index::marks(&state, id).await?;
+    let after = Marks::load_with(
+        &state.pool,
+        id,
+        default_public(payload.list_view, payload.new_files_public),
+        parse_extensions(payload.extensions.as_deref()),
+    )
+    .await?;
+    let own_dirs = state.own_dirs.clone();
+    let preview = run_blocking(move || {
+        let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
+        let root = std::fs::canonicalize(&root).map_err(|_| AppError::NotFound)?;
+        let (entries, truncated) = walk_entries(&root, COUNT_LIMIT, &own_dirs);
+        let files = entries
+            .iter()
+            .filter(|entry| !entry.is_dir)
+            .map(|entry| entry.rel_path.as_str());
+        let (gained, lost) = count_visibility_changes(files, &before, &after);
+        Ok::<_, AppError>(VisibilityPreview {
+            gained,
+            lost,
+            truncated,
+        })
+    })
+    .await??;
+    Ok(Json(preview))
+}
+
+/// 印を取り消し、祖先か既定に従わせる。
 #[utoipa::path(
     delete,
     path = "/contents/{id}/marks/{mark_id}",
@@ -350,6 +495,7 @@ async fn delete_mark(
 pub(crate) fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(list_marks, set_mark))
+        .routes(routes!(preview_visibility))
         .routes(routes!(delete_mark))
 }
 
@@ -360,6 +506,7 @@ mod tests {
     fn marks(default_public: bool, marks: &[(&str, bool)]) -> Marks {
         Marks {
             default_public,
+            extensions: None,
             marks: marks
                 .iter()
                 .map(|(path, public)| ((*path).to_string(), *public))
@@ -389,6 +536,37 @@ mod tests {
     }
 
     #[test]
+    fn folder_that_is_not_a_library_shows_unmarked_files() {
+        assert!(default_public(false, false));
+        assert!(!default_public(true, false));
+        assert!(default_public(true, true));
+    }
+
+    #[test]
+    fn visibility_changes_count_files_in_both_directions() {
+        let before = Marks {
+            extensions: Some(vec!["pdf".to_string()]),
+            ..marks(false, &[("a.pdf", true)])
+        };
+        let after = marks(true, &[("hidden.pdf", false)]);
+        let files = ["a.pdf", "b.pdf", "c.txt", "hidden.pdf"];
+        // b.pdf (既定で公開) と c.txt (拡張子を外した) が増える。a.pdf の印は after に無いが既定で見える。
+        assert_eq!(
+            count_visibility_changes(files.into_iter(), &before, &after),
+            (2, 0)
+        );
+        assert_eq!(
+            count_visibility_changes(files.into_iter(), &after, &before),
+            (0, 2)
+        );
+    }
+
+    #[test]
+    fn folder_root_is_reachable_when_nothing_is_public() {
+        assert!(marks(false, &[]).dir_reachable(""));
+    }
+
+    #[test]
     fn private_folder_is_reachable_when_something_inside_is_public() {
         let marks = marks(false, &[("2024/運動会/001.jpg", true)]);
         assert!(
@@ -412,7 +590,7 @@ mod tests {
     #[sqlx::test]
     async fn marking_a_folder_keeps_marks_of_a_sibling_spelled_in_other_case(pool: SqlitePool) {
         let content_id = sqlx::query_scalar!(
-            "INSERT INTO contents (type, title, path, visibility, new_files_public) VALUES ('folder', 'f', '/f', 'public', 0) RETURNING id"
+            "INSERT INTO contents (type, title, path, visibility, list_view, new_files_public) VALUES ('folder', 'f', '/f', 'public', 1, 0) RETURNING id"
         )
         .fetch_one(&pool)
         .await

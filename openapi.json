@@ -4406,9 +4406,78 @@
         }
       }
     },
+    "/api/v1/contents/{id}/marks/preview": {
+      "post": {
+        "summary": "設定を保存すると、見る人に見えるファイルがどう変わるかを数える。保存の前に知らせるため。",
+        "operationId": "preview_visibility",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisibilityPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisibilityPreview"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "書き換えられるのは管理者と作成者だけ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "見えない・存在しない、またはフォルダーでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "フォルダーのある NAS やディスクにつながらない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contents/{id}/marks/{mark_id}": {
       "delete": {
-        "summary": "印を取り消し、祖先か「新しく見つかったファイル」の設定に従わせる。",
+        "summary": "印を取り消し、祖先か既定に従わせる。",
         "operationId": "delete_mark",
         "parameters": [
           {
@@ -11077,6 +11146,51 @@
           "private",
           "hidden"
         ]
+      },
+      "VisibilityPreview": {
+        "type": "object",
+        "required": [
+          "gained",
+          "lost",
+          "truncated"
+        ],
+        "properties": {
+          "gained": {
+            "type": "integer",
+            "description": "今は見えず、保存すると見えるようになるファイルの数。",
+            "minimum": 0
+          },
+          "lost": {
+            "type": "integer",
+            "description": "今は見えて、保存すると見えなくなるファイルの数。",
+            "minimum": 0
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "ファイルが多く、一部だけを数えたか。"
+          }
+        }
+      },
+      "VisibilityPreviewRequest": {
+        "type": "object",
+        "required": [
+          "listView",
+          "newFilesPublic"
+        ],
+        "properties": {
+          "extensions": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "listView": {
+            "type": "boolean"
+          },
+          "newFilesPublic": {
+            "type": "boolean"
+          }
+        }
       }
     }
   }

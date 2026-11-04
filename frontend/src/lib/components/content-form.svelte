@@ -226,13 +226,12 @@
 	{/if}
 	<!-- フォルダーの見せ方は作成では聞かず、編集で変える (→ docs/folders.md「2つの表示」・「公開と非公開」)。 -->
 	{#if showsSpecific && editing && form.type === 'folder'}
-		<Field.Field orientation="horizontal" data-disabled={disabled}>
-			<Field.FieldContent>
-				<Field.FieldLabel for="content-new-files-public"
-					>{m.contents_form_new_files_public_label()}</Field.FieldLabel
-				>
-			</Field.FieldContent>
-			<Switch id="content-new-files-public" bind:checked={form.newFilesPublic} {disabled} />
+		<Field.Field data-disabled={disabled}>
+			<Field.FieldLabel for="content-extensions"
+				>{m.contents_form_extensions_label()}</Field.FieldLabel
+			>
+			<Input id="content-extensions" bind:value={form.extensions} />
+			<Field.FieldDescription>{m.contents_form_extensions_help()}</Field.FieldDescription>
 		</Field.Field>
 		<Field.Field orientation="horizontal" data-disabled={disabled}>
 			<Field.FieldContent>
@@ -244,12 +243,13 @@
 			<Switch id="content-list-view" bind:checked={form.listView} {disabled} />
 		</Field.Field>
 		{#if form.listView}
-			<Field.Field data-disabled={disabled}>
-				<Field.FieldLabel for="content-extensions"
-					>{m.contents_form_extensions_label()}</Field.FieldLabel
-				>
-				<Input id="content-extensions" bind:value={form.extensions} />
-				<Field.FieldDescription>{m.contents_form_extensions_help()}</Field.FieldDescription>
+			<Field.Field orientation="horizontal" data-disabled={disabled}>
+				<Field.FieldContent>
+					<Field.FieldLabel for="content-new-files-public"
+						>{m.contents_form_new_files_public_label()}</Field.FieldLabel
+					>
+				</Field.FieldContent>
+				<Switch id="content-new-files-public" bind:checked={form.newFilesPublic} {disabled} />
 			</Field.Field>
 			<AutoScheduleField
 				id="content-auto-rescan"

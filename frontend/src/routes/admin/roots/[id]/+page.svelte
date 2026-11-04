@@ -19,11 +19,17 @@
 	} from '$lib/page-layout';
 	import { pageTitle } from '$lib/page-title';
 	import * as m from '$lib/paraglide/messages.js';
-	import { type UserChoice, accessChoices, accessExceptions } from '$lib/root-access';
+	import {
+		type AccessException,
+		addException,
+		exceptionCandidates,
+		visibleExceptions
+	} from '$lib/root-access';
 	import { canAddRoots } from '$lib/root-location';
 	import { pickRootFolder } from '$lib/root-picker';
 	import { ACCESS_CHOICES, shareAccessLabel } from '$lib/share-ops';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
@@ -35,6 +41,7 @@
 	import RootDeleteDialog from '$lib/components/root-delete-dialog.svelte';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import XIcon from '@lucide/svelte/icons/x';
 	import { backLinkClass } from '$lib/back-link';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import type { components } from '$lib/api/schema';
@@ -48,7 +55,6 @@
 	let { data }: PageProps = $props();
 
 	let root = $derived(data.root);
-	let editors = $derived(data.users.filter((user) => user.role === 'user'));
 	// 場所を選び直すのは OS のフォルダー選択の窓なので、サーバーの PC から開いたときだけ出す (→ docs/folders.md「選び方」)。
 	let canPick = $derived(canAddRoots(page.url.hostname));
 
@@ -58,10 +64,10 @@
 	nameForm.markPristine();
 
 	let editorAccess = $state<ShareAccess>(untrack(() => data.root.editorAccess));
-	let choices = $state<Record<number, UserChoice>>(
-		untrack(() => accessChoices(data.root, data.users))
-	);
-	const accessForm = new FormDirtyState(() => ({ editorAccess, choices: { ...choices } }));
+	let exceptions = $state<AccessException[]>(untrack(() => data.root.userAccess));
+	let exceptionRows = $derived(visibleExceptions(exceptions, data.users));
+	let candidates = $derived(exceptionCandidates(data.users, exceptions));
+	const accessForm = new FormDirtyState(() => ({ editorAccess, exceptions }));
 	accessForm.markPristine();
 
 	let savingPart = $state<Part | null>(null);
@@ -78,8 +84,16 @@
 		() => saving
 	);
 
-	function choiceLabel(choice: UserChoice): string {
-		return choice === 'default' ? m.admin_roots_access_user_default() : shareAccessLabel(choice);
+	function setExceptionAccess(target: AccessException, access: string) {
+		exceptions = exceptions.map((exception) =>
+			exception.userId === target.userId
+				? { ...exception, access: access as ShareAccess }
+				: exception
+		);
+	}
+
+	function removeException(target: AccessException) {
+		exceptions = exceptions.filter((exception) => exception.userId !== target.userId);
 	}
 
 	/** 保存の後に、何を保存したかを知らせ、見出しを取り直す。保存中に止めた移動は、変更が残っていなければ続ける。 */
@@ -125,12 +139,15 @@
 			const result = await errorDialog.attempt(() =>
 				client.PUT('/api/v1/admin/roots/{id}/access', {
 					params: { path: { id: root.id } },
-					body: { editorAccess, users: accessExceptions(choices) }
+					body: {
+						editorAccess,
+						users: exceptions.map(({ userId, access }) => ({ userId, access }))
+					}
 				})
 			);
 			if (result?.data) {
 				editorAccess = result.data.editorAccess;
-				choices = accessChoices(result.data, data.users);
+				exceptions = result.data.userAccess;
 				accessForm.markPristine();
 				saved = true;
 			}
@@ -265,7 +282,7 @@
 			</div>
 		</form>
 
-		<!-- 管理者はどの共有でもすべての操作ができるので、例外に並べるのは一般ユーザーだけ (→ docs/shares.md「できること」)。 -->
+		<!-- 管理者はどの共有でもすべての操作ができるので、選べるのは一般ユーザーの権限だけ (→ docs/shares.md「できること」)。 -->
 		<form
 			onsubmit={handleAccessSubmit}
 			aria-labelledby="access-section-heading"
@@ -297,39 +314,73 @@
 			</Field.Field>
 			<div class="flex flex-col gap-2">
 				<p class="text-sm font-medium">{m.admin_roots_access_users_label()}</p>
-				{#if editors.length === 0}
-					<p class="text-sm text-muted-foreground">{m.admin_roots_access_no_users()}</p>
-				{:else}
+				{#if exceptionRows.length === 0 && candidates.length > 0}
+					<p class="text-sm text-muted-foreground">{m.admin_roots_access_no_exceptions()}</p>
+				{:else if exceptionRows.length > 0}
 					<ul class="flex flex-col">
-						{#each editors as user (user.id)}
-							{@const choice = choices[user.id] ?? 'default'}
+						{#each exceptionRows as exception (exception.userId)}
 							<li
 								class="flex min-h-11 items-center gap-3 border-b border-divider py-1 last:border-b-0"
 							>
-								<span class="min-w-0 flex-1 text-sm wrap-anywhere">{user.username}</span>
+								<span class="min-w-0 flex-1 text-sm wrap-anywhere">{exception.username}</span>
 								<Select.Root
 									type="single"
-									bind:value={() => choice, (value) => (choices[user.id] = value as UserChoice)}
+									bind:value={
+										() => exception.access, (value) => setExceptionAccess(exception, value)
+									}
 								>
 									<Select.Trigger
 										class="w-40 shrink-0"
 										aria-label={m.admin_roots_access_user_select({
-											username: user.username,
-											access: choiceLabel(choice)
+											username: exception.username,
+											access: shareAccessLabel(exception.access)
 										})}
 									>
-										{choiceLabel(choice)}
+										{shareAccessLabel(exception.access)}
 									</Select.Trigger>
 									<Select.Content>
-										<Select.Item value="default">{choiceLabel('default')}</Select.Item>
 										{#each ACCESS_CHOICES as access (access)}
 											<Select.Item value={access}>{shareAccessLabel(access)}</Select.Item>
 										{/each}
 									</Select.Content>
 								</Select.Root>
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon"
+									class="-mx-1.5 size-11 shrink-0 text-muted-foreground"
+									aria-label={m.admin_roots_access_remove({ username: exception.username })}
+									onclick={() => removeException(exception)}
+								>
+									<XIcon class="size-4" />
+								</Button>
 							</li>
 						{/each}
 					</ul>
+				{/if}
+				<!-- 候補を選ぶと行が増え、権限はその行で選ぶ。足せる人がいなければ出さない。 -->
+				{#if candidates.length > 0}
+					<DropdownMenu.Root>
+						<DropdownMenu.Trigger
+							class={[buttonVariants({ variant: 'outline' }), 'mt-2 self-start']}
+						>
+							{m.admin_roots_access_add_button()}
+						</DropdownMenu.Trigger>
+						<DropdownMenu.Content align="start">
+							{#each candidates as user (user.id)}
+								<DropdownMenu.Item
+									onSelect={() => (exceptions = addException(exceptions, user, editorAccess))}
+								>
+									{user.username}
+								</DropdownMenu.Item>
+							{/each}
+						</DropdownMenu.Content>
+					</DropdownMenu.Root>
+				{/if}
+				{#if data.users === null}
+					<p class="text-sm text-muted-foreground">{m.admin_roots_access_users_failed()}</p>
+				{:else if candidates.length === 0 && exceptionRows.length === 0}
+					<p class="text-sm text-muted-foreground">{m.admin_roots_access_no_candidates()}</p>
 				{/if}
 			</div>
 			<div>

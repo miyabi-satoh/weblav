@@ -121,6 +121,11 @@
 	let dirPickerOpen = $state(false);
 	let confirmRegisterOpen = $state(false);
 	let confirmLoosenedOpen = $state(false);
+	let confirmVisibilityOpen = $state(false);
+	/** 保存すると見えるファイルがどう変わるか。数えられなかったときは `null`。 */
+	let visibilityChange = $state<VisibilityPreview | null>(null);
+
+	type VisibilityPreview = components['schemas']['VisibilityPreview'];
 
 	const errorDialog = new ErrorDialogState();
 
@@ -219,7 +224,52 @@
 			confirmRegisterOpen = true;
 			return;
 		}
-		saveContent();
+		void confirmVisibilityOrSave();
+	}
+
+	/** 保存で印の無いものの扱いや対象の拡張子が変わるか。場所を変えるときは、印を捨てる確認に任せる。 */
+	function changesVisibleFiles(): boolean {
+		if (confirmingPart !== 'specific' || content.type !== 'folder') return false;
+		if (content.path !== form.path) return false;
+		const defaultPublic = (listView: boolean, newFilesPublic: boolean) =>
+			!listView || newFilesPublic;
+		return (
+			(content.extensions ?? null) !== form.normalizedExtensions ||
+			defaultPublic(content.listView, content.newFilesPublic) !==
+				defaultPublic(form.listView, form.newFilesPublic)
+		);
+	}
+
+	// 見えるファイルが変わるときだけ、保存の前に知らせる (→ docs/folders.md「公開と非公開」)。
+	async function confirmVisibilityOrSave() {
+		if (saving) return;
+		if (!changesVisibleFiles()) {
+			void saveContent();
+			return;
+		}
+		savingPart = confirmingPart;
+		let preview: VisibilityPreview | null = null;
+		try {
+			const result = await client.POST('/api/v1/contents/{id}/marks/preview', {
+				params: { path: { id: content.id } },
+				body: {
+					listView: form.listView,
+					newFilesPublic: form.newFilesPublic,
+					extensions: form.normalizedExtensions
+				}
+			});
+			preview = result.data ?? null;
+		} catch {
+			// 数えられなくても保存は止めず、件数なしで知らせる。
+		} finally {
+			savingPart = null;
+		}
+		if (preview !== null && preview.gained === 0 && preview.lost === 0) {
+			void saveContent();
+			return;
+		}
+		visibilityChange = preview;
+		confirmVisibilityOpen = true;
 	}
 
 	async function saveContent() {
@@ -402,7 +452,9 @@
 	visibility={confirmVisibility}
 	extensions={(confirmSpecific ? form.normalizedExtensions : content.extensions) ?? undefined}
 	listView={confirmSpecific ? form.listView : content.listView}
-	newFilesPublic={confirmSpecific ? form.newFilesPublic : content.newFilesPublic}
+	newFilesPublic={confirmSpecific
+		? !form.listView || form.newFilesPublic
+		: !content.listView || content.newFilesPublic}
 	clearsMarks={confirmSpecific && content.type === 'folder' && content.path !== form.path}
 	editing
 	{saving}
@@ -428,6 +480,42 @@
 			<AlertDialog.Cancel>{m.action_cancel()}</AlertDialog.Cancel>
 			<!-- 保存の前に閉じるので、保存中の表示は持たない (保存ボタンの側が出す)。 -->
 			<AlertDialog.Action onclick={confirmRegisterOrSave}>{m.action_save()}</AlertDialog.Action>
+		</AlertDialog.Footer>
+	</AlertDialog.Content>
+</AlertDialog.Root>
+
+<AlertDialog.Root bind:open={confirmVisibilityOpen}>
+	<AlertDialog.Content>
+		<AlertDialog.Header>
+			<AlertDialog.Title>{m.contents_edit_visibility_change_title()}</AlertDialog.Title>
+			<AlertDialog.Description>
+				{#if visibilityChange === null}
+					{m.contents_edit_visibility_change_unknown()}
+				{:else}
+					{#if visibilityChange.gained > 0}
+						<span class="block">
+							{m.contents_edit_visibility_change_gained({
+								count: formatNumber(visibilityChange.gained)
+							})}
+						</span>
+					{/if}
+					{#if visibilityChange.lost > 0}
+						<span class="block">
+							{m.contents_edit_visibility_change_lost({
+								count: formatNumber(visibilityChange.lost)
+							})}
+						</span>
+					{/if}
+					{#if visibilityChange.truncated}
+						<span class="mt-2 block">{m.contents_edit_visibility_change_truncated()}</span>
+					{/if}
+				{/if}
+			</AlertDialog.Description>
+		</AlertDialog.Header>
+		<AlertDialog.Footer>
+			<AlertDialog.Cancel>{m.action_cancel()}</AlertDialog.Cancel>
+			<!-- 保存の前に閉じるので、保存中の表示は持たない (保存ボタンの側が出す)。 -->
+			<AlertDialog.Action onclick={saveContent}>{m.action_save()}</AlertDialog.Action>
 		</AlertDialog.Footer>
 	</AlertDialog.Content>
 </AlertDialog.Root>

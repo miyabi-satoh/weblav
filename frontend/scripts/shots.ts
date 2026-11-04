@@ -368,7 +368,7 @@ export const shots: Record<string, ShotEntry> = {
 	admin_roots_delete_confirm: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, '/admin/roots');
-			await clickRowMenuItem(page, page.getByRole('listitem').first(), DELETE_MENU_ITEM_NAME);
+			await clickRowMenuItem(page, page.getByRole('row').nth(1), DELETE_MENU_ITEM_NAME);
 			await waitForDialog(page, { role: 'alertdialog', awaitAutofocus: false });
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
 		}

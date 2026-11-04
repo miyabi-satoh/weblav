@@ -161,6 +161,35 @@ test('一覧の表示: 使い始めたときのスキャンだけが失敗した
 	);
 });
 
+test('対象の拡張子: ライブラリを使わないフォルダーでも設定でき、合わないファイルはフォルダーの画面に出ない', async ({
+	page
+}) => {
+	await withDirectoryContent(
+		page.request,
+		{
+			type: 'folder',
+			namePrefix: 'e2e-register-extensions',
+			files: { 'answer.pdf': '%PDF-1.4\n%%EOF\n', 'listening.mp3': 'ID3' }
+		},
+		async (folder) => {
+			await page.goto(`/admin/contents/${folder.id}`);
+			await page.getByRole('textbox', { name: /^対象の拡張子$|^File extensions$/ }).fill('pdf');
+			await specificSaveButton(page).click();
+			// 見えなくなるファイルがあるので、保存の前に知らせる。
+			const notice = page.getByRole('alertdialog', {
+				name: /^見える内容が変わります$|^What people can see will change$/
+			});
+			await expect(notice.getByText(/見えなくなる: 1|No longer visible: 1/)).toBeVisible();
+			await notice.getByRole('button', { name: /^保存する$|^Save$/ }).click();
+			await expect(specificSaveButton(page)).toBeDisabled();
+
+			await page.goto(`/folders/${folder.id}`);
+			await expect(page.getByText('answer.pdf')).toBeVisible();
+			await expect(page.getByText('listening.mp3')).toHaveCount(0);
+		}
+	);
+});
+
 test('確認で「戻る」を押すと登録せず、フォームに戻る', async ({ page }) => {
 	const shared = await sharedContentRoot(page.request);
 	test.skip(shared === null, FIXTURE_UNREACHABLE);

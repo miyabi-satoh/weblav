@@ -4,7 +4,13 @@
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import { test, expect, type Page, type Route } from '@playwright/test';
-import { createRootByApi, removeRootByApi, send, withContentByApi } from './api-helpers';
+import {
+	createRootByApi,
+	removeRootByApi,
+	send,
+	withContentByApi,
+	withUserByApi
+} from './api-helpers';
 import {
 	createRootFixtureTree,
 	FIXTURE_UNREACHABLE,
@@ -128,6 +134,59 @@ test('フォルダーを選ぶとフォルダー名で追加されて編集ペ�
 			(entry) => entry.name === path.basename(root) || entry.name === renamed
 		);
 		if (added !== undefined) await removeRootByApi(page.request, added.id);
+		removeFixtureTree(root);
+	}
+});
+
+// 例外は全員を並べず、選んだ人だけを並べる (→ docs/ui.md「UI 全般」の管理画面の共有)。
+test('編集ページ: 例外に一般ユーザーを足して権限を変え、外すと既定に戻る', async ({ page }) => {
+	const root = createRootFixtureTree(uniqueId('roots-exception'));
+	const username = uniqueId('exception-user');
+	let id: number | null = null;
+	try {
+		id = await createRootByApi(page.request, root);
+		test.skip(id === null, FIXTURE_UNREACHABLE);
+		const rootId = id;
+		await withUserByApi(page.request, username, 'E2eSmoke!2026Test', async () => {
+			const readExceptions = async () => {
+				const roots = (await send(page.request, 'get', '/admin/roots')) as {
+					id: number;
+					userAccess: { username: string; access: string }[];
+				}[];
+				return roots.find((entry) => entry.id === rootId)?.userAccess;
+			};
+			await page.goto(`/admin/roots/${rootId}`);
+			const form = sectionForm(page, ACCESS_SECTION_NAME);
+			const save = form.getByRole('button', { name: SAVE_BUTTON_NAME });
+
+			await form.getByRole('button', { name: /^例外を追加$|^Add exception$/ }).click();
+			await page.getByRole('menuitem', { name: username }).click();
+			await form
+				.getByRole('button', { name: new RegExp(`${username}`) })
+				.first()
+				.click();
+			await page.getByRole('option', { name: /^追加のみ$|^Add only$/ }).click();
+			await saveForm(page, {
+				button: save,
+				toastText: /「権限」を保存しました。|“Permissions” saved\./
+			});
+			expect(await readExceptions()).toEqual([
+				expect.objectContaining({ username, access: 'add' })
+			]);
+
+			await form
+				.getByRole('button', {
+					name: new RegExp(`^${username} を例外から外す$|^Remove exception for ${username}$`)
+				})
+				.click();
+			await saveForm(page, {
+				button: save,
+				toastText: /「権限」を保存しました。|“Permissions” saved\./
+			});
+			expect(await readExceptions()).toEqual([]);
+		});
+	} finally {
+		if (id !== null) await removeRootByApi(page.request, id);
 		removeFixtureTree(root);
 	}
 });
