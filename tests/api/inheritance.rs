@@ -610,7 +610,7 @@ async fn fs_dirs_returns_only_selectable_directories(pool: SqlitePool) {
     assert_eq!(entries[0]["selectable"], true);
 }
 
-/// 件数APIは再帰的に数え、`extensions` で絞り込める。ドット始まりは数えない。
+/// 件数APIは再帰的に数え、`includePatterns` で絞り込める。ドット始まりは数えない。
 #[sqlx::test]
 async fn fs_count_counts_recursively_and_filters_by_extension(pool: SqlitePool) {
     let dir = temp_test_dir("fs-count");
@@ -636,7 +636,7 @@ async fn fs_count_counts_recursively_and_filters_by_extension(pool: SqlitePool) 
     let (status, body) = send_empty(
         app,
         "GET",
-        &format!("/api/v1/admin/fs/count?path={path}&extensions=.MP3"),
+        &format!("/api/v1/admin/fs/count?path={path}&includePatterns=*.MP3"),
         &cookie,
     )
     .await;

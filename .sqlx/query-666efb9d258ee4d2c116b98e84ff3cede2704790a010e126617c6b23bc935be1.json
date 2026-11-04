@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT type as \"content_type: ContentType\", title, path, extensions,\n                  visibility as \"visibility: super::contents::Visibility\", created_by,\n                  list_view as \"list_view: bool\"\n           FROM contents WHERE id = ?",
+  "query": "SELECT type as \"content_type: ContentType\", title, path, include_patterns, exclude_patterns,\n                  visibility as \"visibility: super::contents::Visibility\", created_by,\n                  list_view as \"list_view: bool\"\n           FROM contents WHERE id = ?",
   "describe": {
     "columns": [
       {
@@ -19,23 +19,28 @@
         "type_info": "Text"
       },
       {
-        "name": "extensions",
+        "name": "include_patterns",
         "ordinal": 3,
         "type_info": "Text"
       },
       {
-        "name": "visibility: super::contents::Visibility",
+        "name": "exclude_patterns",
         "ordinal": 4,
         "type_info": "Text"
       },
       {
-        "name": "created_by",
+        "name": "visibility: super::contents::Visibility",
         "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_by",
+        "ordinal": 6,
         "type_info": "Integer"
       },
       {
         "name": "list_view: bool",
-        "ordinal": 6,
+        "ordinal": 7,
         "type_info": "Integer"
       }
     ],
@@ -47,10 +52,11 @@
       false,
       true,
       true,
+      true,
       false,
       true,
       false
     ]
   },
-  "hash": "23985dc7a823286b37190e66289e03b7761621188f37a3c7ad77da7a627185f2"
+  "hash": "666efb9d258ee4d2c116b98e84ff3cede2704790a010e126617c6b23bc935be1"
 }

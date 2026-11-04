@@ -13,7 +13,7 @@ type ContentByApiBody = {
 	path?: string;
 	visibility?: Visibility;
 	parentId?: number;
-	extensions?: string;
+	includePatterns?: string;
 };
 
 type ContentByApi = Record<string, unknown> & { id: number };

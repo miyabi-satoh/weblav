@@ -30,7 +30,8 @@
 		 */
 		visibility: Visibility;
 		/** 一覧の表示で索引する拡張子 (カンマ区切り)。件数の数え方を絞り込む。 */
-		extensions?: string;
+		includePatterns?: string;
+		excludePatterns?: string;
 		/** 一覧の表示を使うか。読めない場所があると索引できないことを伝える。 */
 		listView?: boolean;
 		/** 新しく見つかったファイルを公開するか (→ docs/folders.md「公開と非公開」)。 */
@@ -54,7 +55,8 @@
 		path,
 		pathLabel,
 		visibility,
-		extensions,
+		includePatterns,
+		excludePatterns,
 		listView = false,
 		newFilesPublic = true,
 		clearsMarks = false,
@@ -87,10 +89,14 @@
 			loading = false;
 			return;
 		}
-		countFiles(path, extensions);
+		countFiles(path, includePatterns, excludePatterns);
 	});
 
-	async function countFiles(target: string, targetExtensions: string | undefined) {
+	async function countFiles(
+		target: string,
+		targetInclude: string | undefined,
+		targetExclude: string | undefined
+	) {
 		const isCurrent = requests.begin();
 		loading = true;
 		loadError = '';
@@ -99,7 +105,9 @@
 		unreadable = null;
 		try {
 			const { data, error, response } = await client.GET('/api/v1/admin/fs/count', {
-				params: { query: { path: target, extensions: targetExtensions } }
+				params: {
+					query: { path: target, includePatterns: targetInclude, excludePatterns: targetExclude }
+				}
 			});
 			if (!isCurrent()) return;
 			if (!response.ok || !data) {

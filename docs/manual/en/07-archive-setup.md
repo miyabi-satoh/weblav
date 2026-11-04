@@ -87,7 +87,7 @@ As with folder-level categories, you can change the display names (such as `06` 
 
 ## Limit the files in the list
 
-Use “File extensions” (for example, `mp3, pdf`) on the “Settings” tab to limit the files you show. Leave it empty for all files. The folder view changes right away. To apply it to the library list, select “Rescan” on the “Items” tab.
+Use “Include patterns” (for example, `*.mp3`) and “Exclude patterns” on the “Settings” tab to limit the files you show (→ [Register content](06-register-content.md)). The folder view changes right away. To apply it to the library list, select “Rescan” on the “Items” tab.
 
 ## Ask an AI
 
@@ -132,7 +132,7 @@ When you change a file's contents (for example, replace a photo with one of the 
 
 To rescan automatically, choose “When … have passed since the last scan” or “Every day after …” in “Automatic rescan” on the “Settings” tab, and enter the hours or the time. A time at night, when few people use the NAS, keeps the scan out of their way.
 
-Added files are published if “Publish new files” is on, and start unpublished if it is off. To show files that started unpublished, select them, then select “Publish”.
+Added files are published if “Publish new files” is on when a scan finds them, and start unpublished if it is off. Changing this setting later doesn't change files that are already there. To show files that started unpublished, select them, then select “Publish”.
 
 ![Two selected items and the Publish button](images/archive-items-publish.webp)
 

@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url, path,\n                  description, created_at as \"created_at!\", file_name, file_size,\n                  visibility as \"visibility: Visibility\", created_by, extensions, title_template,\n                  list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                  auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time,\n                  visibility_before_hidden as \"visibility_before_hidden: Visibility\",\n                  (SELECT username FROM users WHERE users.id = contents.created_by) as created_by_username\n           FROM contents\n           WHERE visibility = ?1 AND (?2 OR created_by = ?3)\n           ORDER BY updated_at DESC, id",
+  "query": "UPDATE contents\n           SET parent_id = ?, title = ?, url = ?, path = ?, description = ?,\n               visibility = ?, include_patterns = ?, exclude_patterns = ?, title_template = ?,\n               list_view = ?, new_files_public = ?,\n               auto_rescan_mode = ?, auto_rescan_hours = ?, auto_rescan_time = ?,\n               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')\n           WHERE id = ?\n           RETURNING id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url,\n                     path, description, created_at as \"created_at!\", file_name, file_size,\n                     visibility as \"visibility: Visibility\", created_by, include_patterns, exclude_patterns, title_template,\n                     list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                     auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time",
   "describe": {
     "columns": [
       {
@@ -64,53 +64,48 @@
         "type_info": "Integer"
       },
       {
-        "name": "extensions",
+        "name": "include_patterns",
         "ordinal": 12,
         "type_info": "Text"
       },
       {
-        "name": "title_template",
+        "name": "exclude_patterns",
         "ordinal": 13,
         "type_info": "Text"
       },
       {
-        "name": "list_view: bool",
+        "name": "title_template",
         "ordinal": 14,
-        "type_info": "Integer"
+        "type_info": "Text"
       },
       {
-        "name": "new_files_public: bool",
+        "name": "list_view: bool",
         "ordinal": 15,
         "type_info": "Integer"
       },
       {
-        "name": "auto_rescan_mode: AutoMode",
+        "name": "new_files_public: bool",
         "ordinal": 16,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_rescan_mode: AutoMode",
+        "ordinal": 17,
         "type_info": "Text"
       },
       {
         "name": "auto_rescan_hours",
-        "ordinal": 17,
+        "ordinal": 18,
         "type_info": "Integer"
       },
       {
         "name": "auto_rescan_time",
-        "ordinal": 18,
-        "type_info": "Text"
-      },
-      {
-        "name": "visibility_before_hidden: Visibility",
         "ordinal": 19,
-        "type_info": "Text"
-      },
-      {
-        "name": "created_by_username",
-        "ordinal": 20,
         "type_info": "Text"
       }
     ],
     "parameters": {
-      "Right": 3
+      "Right": 15
     },
     "nullable": [
       false,
@@ -127,14 +122,13 @@
       true,
       true,
       true,
-      false,
-      false,
-      false,
       true,
-      true,
+      false,
+      false,
+      false,
       true,
       true
     ]
   },
-  "hash": "79c36cce605c67e8a98bcb60b2fbcde229c7503754d9d6dbc6f19de37ece44f4"
+  "hash": "00bcf1c45d2eb993213a114588b5dd8392990e7fac670182887f462c8660b59a"
 }

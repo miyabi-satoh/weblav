@@ -103,9 +103,17 @@
 			<span aria-hidden="true">・</span>
 			<span>{archiveItemsSummary(content.archiveItems)}</span>
 		{/if}
-		{#if content.extensions}
+		{#if content.includePatterns}
 			<span aria-hidden="true">・</span>
-			<span>{m.contents_form_extensions_label()}: {content.extensions}</span>
+			<span>
+				{m.contents_form_include_patterns_label()}: {content.includePatterns.replaceAll('\n', ', ')}
+			</span>
+		{/if}
+		{#if content.excludePatterns}
+			<span aria-hidden="true">・</span>
+			<span>
+				{m.contents_form_exclude_patterns_label()}: {content.excludePatterns.replaceAll('\n', ', ')}
+			</span>
 		{/if}
 	</p>
 	{#if viewOnlyNote}

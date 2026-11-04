@@ -2,9 +2,9 @@
 //!
 //! 見せるかどうかはパスごとに1つだけ持ち、フォルダーの表示と一覧の表示の両方が同じ印を見る。
 //! 実効の公開は、パスとその祖先のうち一番深い印で決まり、印が無ければフォルダーの
-//! 既定に従う。既定は、ライブラリのときは「新しく見つかったファイル」の設定
-//! (`contents.new_files_public`) で、そうでなければ公開。
-//! 対象の拡張子 (`contents.extensions`) に合わないファイルは、印を付ける対象にもならない。
+//! 既定に従う。ライブラリは、スキャンで初めて見つけたときの「新しく見つかったファイル」の設定
+//! (`archive_items.initial_public`) を保ち、まだ見つけていないものは今の設定に従う。ライブラリでなければ公開。
+//! 見せるファイルの絞り込み (→ `file_filter`) で外れるものは、印を付ける対象にもならない。
 //! パスは登録先からの相対で、実体の綴りを '/' でつなぐ。照らす側も実体の綴りで照らす
 //! (一覧は `read_dir` の名前、配信は canonicalize した実体のパスから求める)。
 
@@ -21,7 +21,8 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use super::contents::{self, ContentType, Visibility};
-use super::fs::{COUNT_LIMIT, matches_extensions, parse_extensions, walk_entries};
+use super::file_filter::FileFilter;
+use super::fs::{COUNT_LIMIT, walk_entries};
 use crate::auth::AuthUser;
 use crate::error::{AppError, AppJson, run_blocking};
 use crate::state::AppState;
@@ -29,106 +30,130 @@ use crate::state::AppState;
 /// 1つのフォルダーの印と、印の無いものの扱い。
 pub(super) struct Marks {
     default_public: bool,
-    extensions: Option<Vec<String>>,
+    filter: FileFilter,
     marks: BTreeMap<String, bool>,
+    /// 索引の行のうち、初めて見つけたときの公開が `default_public` と違うもの。
+    /// 違うものだけを持つ。数十万件の索引でも、設定を変えていなければ空で済むため。
+    initial: BTreeMap<String, bool>,
 }
 
 impl Marks {
     pub(super) async fn load(pool: &SqlitePool, content_id: i64) -> Result<Self, AppError> {
         let content = sqlx::query!(
-            r#"SELECT list_view as "list_view: bool", new_files_public as "new_files_public: bool", extensions
+            r#"SELECT list_view as "list_view: bool", new_files_public as "new_files_public: bool",
+                      include_patterns, exclude_patterns
                FROM contents WHERE id = ?"#,
             content_id
         )
         .fetch_optional(pool)
         .await?
         .ok_or(AppError::NotFound)?;
+        let mut conn = pool.acquire().await?;
         Self::load_with(
-            pool,
+            &mut conn,
             content_id,
-            default_public(content.list_view, content.new_files_public),
-            parse_extensions(content.extensions.as_deref()),
+            content.list_view,
+            content.new_files_public,
+            FileFilter::parse(
+                content.include_patterns.as_deref(),
+                content.exclude_patterns.as_deref(),
+            )?,
         )
         .await
     }
 
-    /// 今の印を、与えた設定で読む。保存の前に、見える内容の変わり方を数えるため。
+    /// 今の印と索引を、与えた設定で読む。保存の前に、見える内容の変わり方を数えるためにも使う。
     async fn load_with(
-        pool: &SqlitePool,
+        conn: &mut sqlx::SqliteConnection,
         content_id: i64,
-        default_public: bool,
-        extensions: Option<Vec<String>>,
+        list_view: bool,
+        new_files_public: bool,
+        filter: FileFilter,
     ) -> Result<Self, AppError> {
         let rows = sqlx::query!(
             r#"SELECT path, is_dir as "is_dir: bool", public as "public: bool"
                FROM folder_marks WHERE content_id = ?"#,
             content_id
         )
-        .fetch_all(pool)
+        .fetch_all(&mut *conn)
         .await?;
+        // ライブラリでないフォルダーは初期値を見ない (→ `default_public`)。
+        let initial = if list_view {
+            sqlx::query_scalar!(
+                "SELECT rel_path FROM archive_items WHERE archive_id = ? AND initial_public != ?",
+                content_id,
+                new_files_public
+            )
+            .fetch_all(&mut *conn)
+            .await?
+        } else {
+            Vec::new()
+        };
         Self::build(
-            default_public,
-            extensions,
+            default_public(list_view, new_files_public),
+            filter,
             rows.into_iter()
                 .map(|row| (row.path, row.is_dir, row.public)),
+            initial.into_iter(),
         )
         .await
     }
 
     /// 印の表を組む。全部を切り替えたフォルダーでは印が件数ぶん (数十万) あるので、非同期のワーカーを塞がない。
-    /// 対象の拡張子に合わないファイルの印は読まない。その上のフォルダーを辿れるようにしないため。
-    /// 消さずに残すので、拡張子を戻すと前の印に戻る。
+    /// 絞り込みで外れるものの印は読まない。その上のフォルダーを辿れるようにしないため。
+    /// 消さずに残すので、絞り込みを戻すと前の印に戻る。
     async fn build(
         default_public: bool,
-        extensions: Option<Vec<String>>,
+        filter: FileFilter,
         rows: impl Iterator<Item = (String, bool, bool)> + Send + 'static,
+        initial: impl Iterator<Item = String> + Send + 'static,
     ) -> Result<Self, AppError> {
         run_blocking(move || {
             let marks = rows
                 .filter(|(path, is_dir, _)| {
-                    *is_dir || matches_extensions(FsPath::new(path), extensions.as_deref())
+                    if *is_dir {
+                        filter.allows_dir(path)
+                    } else {
+                        filter.allows_file(path)
+                    }
                 })
                 .map(|(path, _, public)| (path, public))
                 .collect();
+            let initial = initial
+                .filter(|path| filter.allows_file(path))
+                .map(|path| (path, !default_public))
+                .collect();
             Self {
                 default_public,
-                extensions,
+                filter,
                 marks,
+                initial,
             }
         })
         .await
     }
 
-    /// 閲覧する人にファイル `rel` が見えるか。
-    pub(super) fn file_visible(&self, rel: &str) -> bool {
-        self.in_scope(rel) && self.is_public(rel)
-    }
-
-    /// ファイル `rel` が対象の拡張子に合うか。合わないものは編集できる人にも出さず、印も付けない。
-    pub(super) fn in_scope(&self, rel: &str) -> bool {
-        matches_extensions(FsPath::new(rel), self.extensions.as_deref())
-    }
-
-    /// `rel` ('/' 区切り。空なら登録先そのもの) が公開か。一番深い印で決まる。
+    /// `rel` ('/' 区切り。空なら登録先そのもの) が公開か。一番深い印で決まり、印が無ければ初期値に従う。
     pub(super) fn is_public(&self, rel: &str) -> bool {
         self.inherited(rel, true)
     }
 
-    /// `rel` 自身の印を除いて、祖先から受け継ぐ公開か。
+    /// `rel` 自身の印を除いて、印を外したときの公開か。
     fn inherited(&self, rel: &str, include_self: bool) -> bool {
-        let mut public = self.default_public;
         if rel.is_empty() {
-            return public;
+            return self.default_public;
         }
+        let mut mark = None;
         for (index, _) in rel.match_indices('/') {
-            if let Some(&mark) = self.marks.get(&rel[..index]) {
-                public = mark;
+            if let Some(&found) = self.marks.get(&rel[..index]) {
+                mark = Some(found);
             }
         }
-        if include_self && let Some(&mark) = self.marks.get(rel) {
-            public = mark;
+        if include_self && let Some(&found) = self.marks.get(rel) {
+            mark = Some(found);
         }
-        public
+        mark.or_else(|| self.initial.get(rel).copied())
+            .unwrap_or(self.default_public)
     }
 
     /// サブフォルダー `rel` を閲覧で辿れるか。それ自身が公開か、中に公開のものがあれば辿れる。
@@ -136,14 +161,37 @@ impl Marks {
     /// 登録先そのものは、中に公開したものが無くても開ける。ホームなどの入口に載っていて存在は
     /// 伏せられないので、開けないエラーにせず、見せるものが無いと伝える。
     pub(super) fn dir_reachable(&self, rel: &str) -> bool {
-        if rel.is_empty() || self.is_public(rel) {
+        if rel.is_empty() {
+            return true;
+        }
+        if !self.filter.allows_dir(rel) {
+            return false;
+        }
+        if self.is_public(rel) {
             return true;
         }
         let prefix = format!("{rel}/");
-        self.marks
-            .range(prefix.clone()..)
-            .take_while(|(path, _)| path.starts_with(&prefix))
-            .any(|(_, &public)| public)
+        let under = |map: &'_ BTreeMap<String, bool>| {
+            map.range(prefix.clone()..)
+                .take_while(|(path, _)| path.starts_with(&prefix))
+                .any(|(path, &public)| public && self.is_public(path))
+        };
+        under(&self.marks) || under(&self.initial)
+    }
+
+    /// 閲覧する人にファイル `rel` が見えるか。
+    pub(super) fn file_visible(&self, rel: &str) -> bool {
+        self.in_scope(rel) && self.is_public(rel)
+    }
+
+    /// ファイル `rel` が絞り込みの対象か。外れるものは編集できる人にも出さず、印も付けない。
+    pub(super) fn in_scope(&self, rel: &str) -> bool {
+        self.filter.allows_file(rel)
+    }
+
+    /// フォルダー `rel` が絞り込みで除外されていないか。
+    pub(super) fn dir_in_scope(&self, rel: &str) -> bool {
+        self.filter.allows_dir(rel)
     }
 }
 
@@ -166,8 +214,7 @@ pub(super) fn rel_of(root: &FsPath, path: &FsPath) -> Result<String, AppError> {
 
 /// 印を付け直す。`targets` はどれも登録先からの相対パスと、フォルダーか。
 ///
-/// 祖先から受け継ぐのと同じになる印は消す。印を、利用者が決めて変えたものだけにしておくため
-/// (「新しく見つかったファイル」の設定を変えたときに、それに従うものを残す)。
+/// 印を外したときと同じになる印は消す。印を、利用者が決めて変えたものだけにしておくため。
 /// フォルダーに付けるときは、中のものの印も消す。フォルダーを非公開にしたのに、中に前に公開した
 /// ものが残って見える、ということを起こさないため。
 pub(super) async fn set_marks(
@@ -258,19 +305,13 @@ async fn load_in(
     )
     .fetch_one(&mut **tx)
     .await?;
-    let rows = sqlx::query!(
-        r#"SELECT path, is_dir as "is_dir: bool", public as "public: bool"
-           FROM folder_marks WHERE content_id = ?"#,
-        content_id
-    )
-    .fetch_all(&mut **tx)
-    .await?;
-    // ここで見るのは祖先のフォルダーの印だけなので、拡張子では絞らない。
-    Marks::build(
-        default_public(content.list_view, content.new_files_public),
-        None,
-        rows.into_iter()
-            .map(|row| (row.path, row.is_dir, row.public)),
+    // ここで見るのは祖先のフォルダーの印と行の初期値だけなので、絞り込みは当てない。
+    Marks::load_with(
+        tx,
+        content_id,
+        content.list_view,
+        content.new_files_public,
+        FileFilter::default(),
     )
     .await
 }
@@ -334,7 +375,13 @@ async fn list_marks(
     )
     .fetch_all(&state.pool)
     .await?;
-    rows.retain(|row| row.is_dir || marks.in_scope(&row.path));
+    rows.retain(|row| {
+        if row.is_dir {
+            marks.dir_in_scope(&row.path)
+        } else {
+            marks.in_scope(&row.path)
+        }
+    });
     Ok(Json(rows))
 }
 
@@ -370,7 +417,12 @@ async fn set_mark(
     })
     .await??;
     let (_, marks) = super::archive_index::marks(&state, id).await?;
-    if !is_dir && !marks.in_scope(&path) {
+    let in_scope = if is_dir {
+        marks.dir_in_scope(&path)
+    } else {
+        marks.in_scope(&path)
+    };
+    if !in_scope {
         return Err(AppError::NotFound);
     }
     set_marks(&state.pool, id, vec![(path, is_dir)], payload.public).await?;
@@ -382,7 +434,8 @@ async fn set_mark(
 struct VisibilityPreviewRequest {
     list_view: bool,
     new_files_public: bool,
-    extensions: Option<String>,
+    include_patterns: Option<String>,
+    exclude_patterns: Option<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -423,6 +476,7 @@ fn count_visibility_changes<'a>(
         (status = OK, body = VisibilityPreview),
         (status = 403, body = crate::error::ErrorResponse, description = "書き換えられるのは管理者と作成者だけ"),
         (status = 404, body = crate::error::ErrorResponse, description = "見えない・存在しない、またはフォルダーでない"),
+        (status = 422, body = crate::error::ErrorResponse, description = "パターンが正しくない"),
         (status = 503, body = crate::error::ErrorResponse, description = "フォルダーのある NAS やディスクにつながらない"),
     )
 )]
@@ -435,13 +489,20 @@ async fn preview_visibility(
     let root = editable_folder(&state.pool, &user, id).await?;
     super::roots::ensure_reachable(&state, &root).await?;
     let (_, before) = super::archive_index::marks(&state, id).await?;
+    let filter = FileFilter::parse(
+        payload.include_patterns.as_deref(),
+        payload.exclude_patterns.as_deref(),
+    )?;
+    let mut conn = state.pool.acquire().await?;
     let after = Marks::load_with(
-        &state.pool,
+        &mut conn,
         id,
-        default_public(payload.list_view, payload.new_files_public),
-        parse_extensions(payload.extensions.as_deref()),
+        payload.list_view,
+        payload.new_files_public,
+        filter,
     )
     .await?;
+    drop(conn);
     let own_dirs = state.own_dirs.clone();
     let preview = run_blocking(move || {
         let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
@@ -506,7 +567,8 @@ mod tests {
     fn marks(default_public: bool, marks: &[(&str, bool)]) -> Marks {
         Marks {
             default_public,
-            extensions: None,
+            filter: FileFilter::default(),
+            initial: BTreeMap::new(),
             marks: marks
                 .iter()
                 .map(|(path, public)| ((*path).to_string(), *public))
@@ -545,7 +607,7 @@ mod tests {
     #[test]
     fn visibility_changes_count_files_in_both_directions() {
         let before = Marks {
-            extensions: Some(vec!["pdf".to_string()]),
+            filter: FileFilter::parse(Some("*.pdf"), None).expect("正しいパターンのはず"),
             ..marks(false, &[("a.pdf", true)])
         };
         let after = marks(true, &[("hidden.pdf", false)]);
@@ -559,6 +621,31 @@ mod tests {
             count_visibility_changes(files.into_iter(), &after, &before),
             (0, 2)
         );
+    }
+
+    #[test]
+    fn unmarked_file_keeps_the_value_from_when_it_was_found() {
+        // 見つけた後に設定を公開へ変えたフォルダー。old.jpg は非公開で見つけた。
+        let marks = Marks {
+            initial: BTreeMap::from([("dir/old.jpg".to_string(), false)]),
+            ..marks(true, &[("dir/shown.jpg", true)])
+        };
+        assert!(!marks.is_public("dir/old.jpg"));
+        assert!(marks.is_public("dir/not-scanned.jpg"));
+    }
+
+    #[test]
+    fn folder_with_a_file_found_public_is_reachable_unless_marked_private() {
+        // 見つけた後に設定を非公開へ変えたフォルダー。a/old.jpg と b/old.jpg は公開で見つけた。
+        let marks = Marks {
+            initial: BTreeMap::from([
+                ("a/old.jpg".to_string(), true),
+                ("b/old.jpg".to_string(), true),
+            ]),
+            ..marks(false, &[("b", false)])
+        };
+        assert!(marks.dir_reachable("a"));
+        assert!(!marks.dir_reachable("b"));
     }
 
     #[test]

@@ -25,7 +25,8 @@ function content(fields: Partial<Content>): Content {
 		visibility: 'public',
 		createdBy: null,
 		createdByUsername: null,
-		extensions: null,
+		includePatterns: null,
+		excludePatterns: null,
 		titleTemplate: null,
 		...fields
 	} as Content;

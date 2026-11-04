@@ -876,7 +876,8 @@
 			params: { path: { id: data.contentId } },
 			body: {
 				description: currentContent.description ?? null,
-				extensions: currentContent.extensions ?? null,
+				excludePatterns: currentContent.excludePatterns ?? null,
+				includePatterns: currentContent.includePatterns ?? null,
 				parentId: currentContent.parentId ?? null,
 				path: currentContent.path ?? null,
 				title: currentContent.title,

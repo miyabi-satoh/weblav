@@ -166,11 +166,11 @@ async fn folder_that_publishes_chosen_files_shows_only_marked_ones(pool: SqliteP
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-/// 対象の拡張子に合わないファイルは、見る人にも編集できる人にも出ず、印も付けられない。
+/// 絞り込みで外れるファイルは、見る人にも編集できる人にも出ず、印も付けられない。
 /// 前に付けた印は効かなくなり、その上のフォルダーも辿れなくなる。
 #[sqlx::test]
-async fn files_outside_the_extensions_are_left_out_for_everyone(pool: SqlitePool) {
-    let dir = temp_test_dir("folder-extensions");
+async fn files_outside_the_patterns_are_left_out_for_everyone(pool: SqlitePool) {
+    let dir = temp_test_dir("folder-patterns");
     std::fs::write(dir.join("a.pdf"), b"a").expect("ファイルを作れなかった");
     std::fs::write(dir.join("b.txt"), b"b").expect("ファイルを作れなかった");
     std::fs::create_dir_all(dir.join("notes")).expect("フォルダーを作れなかった");
@@ -191,10 +191,13 @@ async fn files_outside_the_extensions_are_left_out_for_everyone(pool: SqlitePool
     let (_, body) = send_anon(app.clone(), "GET", &browse).await;
     assert_eq!(browse_names(&body), ["notes", "a.pdf"], "{body}");
 
-    sqlx::query!("UPDATE contents SET extensions = 'pdf' WHERE id = ?", id)
-        .execute(&pool)
-        .await
-        .expect("設定を変えられなかった");
+    sqlx::query!(
+        "UPDATE contents SET include_patterns = '*.pdf' WHERE id = ?",
+        id
+    )
+    .execute(&pool)
+    .await
+    .expect("設定を変えられなかった");
 
     let (status, body) = send_anon(app.clone(), "GET", &browse).await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -224,6 +227,57 @@ async fn files_outside_the_extensions_are_left_out_for_everyone(pool: SqlitePool
     assert!(!body.contains("c.txt"), "{body}");
 }
 
+/// 除外したフォルダーは、見る人にも編集できる人にも出ない。正しくないパターンは保存しない。
+#[sqlx::test]
+async fn excluded_folder_is_left_out_and_invalid_patterns_are_rejected(pool: SqlitePool) {
+    let dir = temp_test_dir("folder-exclude");
+    std::fs::create_dir_all(dir.join("drafts")).expect("フォルダーを作れなかった");
+    std::fs::write(dir.join("drafts").join("a.txt"), b"a").expect("ファイルを作れなかった");
+    std::fs::write(dir.join("b.txt"), b"b").expect("ファイルを作れなかった");
+    let (app, cookie) = admin_app(&pool).await;
+    let id = insert_folder_by(&pool, "資料", &*dir, "public", None, None).await;
+    let path_json = serde_json::to_string(&dir.display().to_string()).expect("JSON にできるはず");
+    let put = |patterns: &'static str| {
+        format!(r#"{{"title":"資料","path":{path_json},"excludePatterns":"{patterns}"}}"#)
+    };
+
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        &format!("/api/v1/contents/{id}"),
+        &cookie,
+        &put("[a"),
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        &format!("/api/v1/contents/{id}"),
+        &cookie,
+        &put("drafts/"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let browse = format!("/api/v1/contents/{id}/browse?path=");
+    let (_, body) = send_empty(app.clone(), "GET", &browse, &cookie).await;
+    assert_eq!(browse_names(&body), ["b.txt"], "{body}");
+    let (status, _) = send_anon(
+        app,
+        "GET",
+        &format!("/api/v1/contents/{id}/browse?path=drafts"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
 /// ライブラリをやめると、印の無いファイルは見えるようになる。保存の前に増える数を数えられる。
 #[sqlx::test]
 async fn leaving_library_shows_unmarked_files_and_can_be_previewed(pool: SqlitePool) {
@@ -245,7 +299,7 @@ async fn leaving_library_shows_unmarked_files_and_can_be_previewed(pool: SqliteP
         "POST",
         &format!("{}/preview", marks_uri(id)),
         &cookie,
-        r#"{"listView":false,"newFilesPublic":false,"extensions":"pdf"}"#,
+        r#"{"listView":false,"newFilesPublic":false,"includePatterns":"*.pdf"}"#,
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -260,6 +314,54 @@ async fn leaving_library_shows_unmarked_files_and_can_be_previewed(pool: SqliteP
         .expect("設定を変えられなかった");
     let (_, body) = send_anon(app, "GET", &format!("/api/v1/contents/{id}/browse?path=")).await;
     assert_eq!(browse_names(&body), ["a.pdf", "b.txt"], "{body}");
+}
+
+/// 「新しく見つかったファイルを公開する」は、スキャンで初めて見つけたときの初期値だけを決める。
+/// 設定を変えても、見つけ済みのファイルと手で変えたファイルの公開は変わらない。
+#[sqlx::test]
+async fn new_files_setting_applies_only_when_a_scan_first_finds_a_file(pool: SqlitePool) {
+    let dir = temp_test_dir("folder-initial-public");
+    std::fs::write(dir.join("hidden.txt"), b"h").expect("ファイルを作れなかった");
+    std::fs::write(dir.join("chosen.txt"), b"c").expect("ファイルを作れなかった");
+    let (app, cookie) = admin_app(&pool).await;
+    let id = insert_folder_by(&pool, "写真", &*dir, "public", None, None).await;
+    sqlx::query!(
+        "UPDATE contents SET list_view = 1, new_files_public = 0 WHERE id = ?",
+        id
+    )
+    .execute(&pool)
+    .await
+    .expect("設定を変えられなかった");
+    let rescan = format!("/api/v1/contents/{id}/rescan");
+    let (status, body) = send_empty(app.clone(), "POST", &rescan, &cookie).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    set_mark(app.clone(), &cookie, id, "chosen.txt", true).await;
+
+    sqlx::query!("UPDATE contents SET new_files_public = 1 WHERE id = ?", id)
+        .execute(&pool)
+        .await
+        .expect("設定を変えられなかった");
+    let browse = format!("/api/v1/contents/{id}/browse?path=");
+    let (_, body) = send_anon(app.clone(), "GET", &browse).await;
+    assert_eq!(browse_names(&body), ["chosen.txt"], "{body}");
+
+    // 手で非公開にしたものも、設定を変えて戻さない。
+    set_mark(app.clone(), &cookie, id, "chosen.txt", false).await;
+    sqlx::query!("UPDATE contents SET new_files_public = 0 WHERE id = ?", id)
+        .execute(&pool)
+        .await
+        .expect("設定を変えられなかった");
+    sqlx::query!("UPDATE contents SET new_files_public = 1 WHERE id = ?", id)
+        .execute(&pool)
+        .await
+        .expect("設定を変えられなかった");
+
+    // 新しいファイルは、見つけた時点の設定で入る。
+    std::fs::write(dir.join("new.txt"), b"n").expect("ファイルを作れなかった");
+    let (status, body) = send_empty(app.clone(), "POST", &rescan, &cookie).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (_, body) = send_anon(app, "GET", &browse).await;
+    assert_eq!(browse_names(&body), ["new.txt"], "{body}");
 }
 
 /// フォルダーを非公開にすると、中で前に公開したものの印も消え、中ごと非公開になる。

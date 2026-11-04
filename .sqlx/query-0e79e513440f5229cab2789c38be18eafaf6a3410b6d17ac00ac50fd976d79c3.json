@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\", extensions\n               FROM contents WHERE id = ?",
+  "query": "SELECT list_view as \"list_view: bool\", new_files_public as \"new_files_public: bool\",\n                      include_patterns, exclude_patterns\n               FROM contents WHERE id = ?",
   "describe": {
     "columns": [
       {
@@ -14,8 +14,13 @@
         "type_info": "Integer"
       },
       {
-        "name": "extensions",
+        "name": "include_patterns",
         "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "exclude_patterns",
+        "ordinal": 3,
         "type_info": "Text"
       }
     ],
@@ -25,8 +30,9 @@
     "nullable": [
       false,
       false,
+      true,
       true
     ]
   },
-  "hash": "becbb96fe78404fce604d19f057905e9da9ef454c5205df4171ff6daacdd4f9d"
+  "hash": "0e79e513440f5229cab2789c38be18eafaf6a3410b6d17ac00ac50fd976d79c3"
 }

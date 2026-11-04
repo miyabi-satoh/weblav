@@ -27,6 +27,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use super::error_detail::ValidationDetail;
+use super::file_filter::{FileFilter, normalize_patterns};
 use super::schedule::{AutoMode, AutoRefresh, parse_auto_refresh};
 use super::search::FieldKind;
 use super::sort::{SortOrder, SortQuery, title_cmp};
@@ -290,8 +291,10 @@ struct ContentRow {
     file_size: Option<i64>,
     visibility: Visibility,
     created_by: Option<i64>,
-    /// `type = 'folder'` の一覧の表示で、索引する拡張子をカンマ区切りで保持する。
-    extensions: Option<String>,
+    /// `type = 'folder'` で見せるファイルのパターン。1行に1つ (→ `file_filter`)。
+    include_patterns: Option<String>,
+    /// `type = 'folder'` で隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。
+    exclude_patterns: Option<String>,
     /// `type = 'folder'` の一覧の表示の、表示タイトルの組み立てテンプレート (→ docs/archive.md「表示タイトル」)。
     title_template: Option<String>,
     /// `type = 'folder'` で、一覧の表示 (索引して軸で絞り込む) を使うか。
@@ -472,9 +475,10 @@ pub struct AdminContentResponse {
     pub created_by: Option<i64>,
     /// 作成者のユーザー名。管理画面の一覧の「作成者」に出す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。
     pub created_by_username: Option<String>,
-    /// `type = 'folder'` の一覧の表示で、索引する拡張子をカンマ区切りで持つ。
-    /// `None` か空なら全ファイルが対象。
-    pub extensions: Option<String>,
+    /// `type = 'folder'` で見せるファイルのパターン。1行に1つ。`None` なら全ファイルが対象。
+    pub include_patterns: Option<String>,
+    /// `type = 'folder'` で隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。
+    pub exclude_patterns: Option<String>,
     /// `type = 'folder'` の一覧の表示の、表示タイトルの組み立てテンプレート
     /// (→ docs/archive.md「表示タイトル」)。`None`ならファイル名をそのまま表示する。
     pub title_template: Option<String>,
@@ -523,7 +527,8 @@ impl AdminContentResponse {
             visibility: row.visibility,
             created_by: row.created_by,
             created_by_username,
-            extensions: row.extensions,
+            include_patterns: row.include_patterns,
+            exclude_patterns: row.exclude_patterns,
             title_template: row.title_template,
             list_view: row.list_view,
             new_files_public: row.new_files_public,
@@ -603,10 +608,12 @@ pub struct UpdateContentRequest {
     /// (→ docs/access.md「ロールと操作」)。
     #[serde(default)]
     pub visibility: Option<Visibility>,
-    /// `type = 'folder'` のみ。一覧の表示で索引する拡張子をカンマ区切りで指定する。
-    /// 省略・空なら全ファイルを索引する。
+    /// `type = 'folder'` のみ。見せるファイルのパターン。1行に1つ。省略・空なら全ファイルが対象。
     #[serde(default)]
-    pub extensions: Option<String>,
+    pub include_patterns: Option<String>,
+    /// `type = 'folder'` のみ。隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。
+    #[serde(default)]
+    pub exclude_patterns: Option<String>,
     /// `type = 'folder'` のみ。一覧の表示の、表示タイトルの組み立てテンプレート (→ docs/archive.md「表示タイトル」)。
     /// 保存時にプレースホルダーが実在する軸名であることを検証する。
     #[serde(default)]
@@ -952,7 +959,7 @@ async fn list_contents(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
                   description, created_at as "created_at!", file_name, file_size,
-                  visibility as "visibility: Visibility", created_by, extensions, title_template,
+                  visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                   list_view as "list_view: bool", new_files_public as "new_files_public: bool",
                   auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents
@@ -990,7 +997,7 @@ async fn list_admin_contents(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
                   description, created_at as "created_at!", file_name, file_size,
-                  visibility as "visibility: Visibility", created_by, extensions, title_template,
+                  visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                   list_view as "list_view: bool", new_files_public as "new_files_public: bool",
                   auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents
@@ -1171,7 +1178,7 @@ pub(super) async fn list_folder_on_home(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url,
                   path, description, created_at as "created_at!", file_name, file_size,
-                  visibility as "visibility: Visibility", created_by, extensions, title_template,
+                  visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                   list_view as "list_view: bool", new_files_public as "new_files_public: bool",
                   auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents WHERE id = ?"#,
@@ -1225,7 +1232,7 @@ async fn insert_content(
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
                      path, description, created_at as "created_at!", file_name, file_size,
-                     visibility as "visibility: Visibility", created_by, extensions, title_template,
+                     visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                      list_view as "list_view: bool", new_files_public as "new_files_public: bool",
                      auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         content_type,
@@ -1368,8 +1375,21 @@ async fn update_content(
         ensure_children_fit_private_group(&state.pool, id, existing.created_by).await?;
     }
     let parent_id = parent.map(|parent| parent.id);
-    let (url, path, extensions, title_template) = match existing_type {
-        ContentType::Link => (link_url.transpose()?.map(|(url, _)| url), None, None, None),
+    if existing_type == ContentType::Folder {
+        // 正しくないパターンを保存しない。閲覧やスキャンのたびに失敗することになるため。
+        FileFilter::parse(
+            payload.include_patterns.as_deref(),
+            payload.exclude_patterns.as_deref(),
+        )?;
+    }
+    let (url, path, include_patterns, exclude_patterns, title_template) = match existing_type {
+        ContentType::Link => (
+            link_url.transpose()?.map(|(url, _)| url),
+            None,
+            None,
+            None,
+            None,
+        ),
         ContentType::Folder => (
             None,
             Some(
@@ -1381,7 +1401,8 @@ async fn update_content(
                 )
                 .await?,
             ),
-            super::archive::normalize_extensions(payload.extensions.as_deref()),
+            normalize_patterns(payload.include_patterns.as_deref()),
+            normalize_patterns(payload.exclude_patterns.as_deref()),
             super::archive::validate_title_template(
                 &state.pool,
                 Some(id),
@@ -1395,7 +1416,7 @@ async fn update_content(
                 "use PUT /contents/{id}/upload to update a file content".to_string(),
             ));
         }
-        ContentType::Group => (None, None, None, None),
+        ContentType::Group => (None, None, None, None, None),
     };
     let is_folder = existing_type == ContentType::Folder;
     let list_view = is_folder && payload.list_view.unwrap_or(existing.list_view);
@@ -1428,14 +1449,14 @@ async fn update_content(
         ContentRow,
         r#"UPDATE contents
            SET parent_id = ?, title = ?, url = ?, path = ?, description = ?,
-               visibility = ?, extensions = ?, title_template = ?,
+               visibility = ?, include_patterns = ?, exclude_patterns = ?, title_template = ?,
                list_view = ?, new_files_public = ?,
                auto_rescan_mode = ?, auto_rescan_hours = ?, auto_rescan_time = ?,
                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
            WHERE id = ?
            RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
                      path, description, created_at as "created_at!", file_name, file_size,
-                     visibility as "visibility: Visibility", created_by, extensions, title_template,
+                     visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                      list_view as "list_view: bool", new_files_public as "new_files_public: bool",
                      auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         parent_id,
@@ -1444,7 +1465,8 @@ async fn update_content(
         path,
         payload.description,
         visibility,
-        extensions,
+        include_patterns,
+        exclude_patterns,
         title_template,
         list_view,
         new_files_public,
@@ -1541,7 +1563,7 @@ async fn set_creator(
            WHERE id = ?
            RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
                      path, description, created_at as "created_at!", file_name, file_size,
-                     visibility as "visibility: Visibility", created_by, extensions, title_template,
+                     visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                      list_view as "list_view: bool", new_files_public as "new_files_public: bool",
                      auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         payload.created_by,
@@ -1981,8 +2003,13 @@ pub(super) fn read_entries(
         // (権限エラー等)はそのエントリだけ読み飛ばす。
         if let Some(mut entry) = folder_entry(name, &entry.path()) {
             if let Some(marks) = marks {
-                // 対象の拡張子に合わないファイルは、書き換えられる人にも並べない。公開を決める対象でないため。
-                if !entry.is_dir && !marks.in_scope(&rel) {
+                // 絞り込みで外れるものは、書き換えられる人にも並べない。公開を決める対象でないため。
+                let in_scope = if entry.is_dir {
+                    marks.dir_in_scope(&rel)
+                } else {
+                    marks.in_scope(&rel)
+                };
+                if !in_scope {
                     continue;
                 }
                 entry.public = marks.is_public(&rel);
@@ -2151,7 +2178,7 @@ async fn browse_group(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
                   description, created_at as "created_at!", file_name, file_size,
-                  visibility as "visibility: Visibility", created_by, extensions, title_template,
+                  visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                   list_view as "list_view: bool", new_files_public as "new_files_public: bool",
                   auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents
@@ -2429,7 +2456,7 @@ pub(super) async fn search_contents(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
                   description, created_at as "created_at!", file_name, file_size,
-                  visibility as "visibility: Visibility", created_by, extensions, title_template,
+                  visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                   list_view as "list_view: bool", new_files_public as "new_files_public: bool",
                   auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents"#,
@@ -3027,7 +3054,7 @@ async fn replace_content_upload(
            WHERE id = ?
            RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
                      path, description, created_at as "created_at!", file_name, file_size,
-                     visibility as "visibility: Visibility", created_by, extensions, title_template,
+                     visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                      list_view as "list_view: bool", new_files_public as "new_files_public: bool",
                      auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         parent_id,
@@ -3217,7 +3244,7 @@ async fn list_hidden_contents(
     let rows = sqlx::query!(
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
                   description, created_at as "created_at!", file_name, file_size,
-                  visibility as "visibility: Visibility", created_by, extensions, title_template,
+                  visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                   list_view as "list_view: bool", new_files_public as "new_files_public: bool",
                   auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time,
                   visibility_before_hidden as "visibility_before_hidden: Visibility",
@@ -3259,7 +3286,8 @@ async fn list_hidden_contents(
                 file_size: row.file_size,
                 visibility: row.visibility,
                 created_by: row.created_by,
-                extensions: row.extensions,
+                include_patterns: row.include_patterns,
+                exclude_patterns: row.exclude_patterns,
                 title_template: row.title_template,
                 list_view: row.list_view,
                 new_files_public: row.new_files_public,
@@ -3423,7 +3451,8 @@ mod tests {
             file_size: None,
             visibility,
             created_by,
-            extensions: None,
+            include_patterns: None,
+            exclude_patterns: None,
             title_template: None,
             list_view: false,
             new_files_public: true,

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE archive_items SET initial_public = 1 WHERE archive_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "56facf50b0b562bddee70d7016efc08426fe5dec309d61dddae488c443d3129e"
+}

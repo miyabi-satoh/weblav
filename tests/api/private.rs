@@ -386,7 +386,7 @@ async fn management_endpoints_hide_others_private_from_regular_users(pool: Sqlit
     .await
     .expect("failed to insert axis");
     let item_id: i64 = sqlx::query_scalar(
-        "INSERT INTO archive_items (archive_id, rel_path) VALUES (?, 'a.pdf') RETURNING id",
+        "INSERT INTO archive_items (archive_id, rel_path, initial_public) VALUES (?, 'a.pdf', 0) RETURNING id",
     )
     .bind(archive_id)
     .fetch_one(&pool)
@@ -519,7 +519,7 @@ async fn archive_endpoints_forbid_writes_to_others_archives(pool: SqlitePool) {
     .await
     .expect("failed to insert axis");
     let item_id: i64 = sqlx::query_scalar(
-        "INSERT INTO archive_items (archive_id, rel_path) VALUES (?, 'a.pdf') RETURNING id",
+        "INSERT INTO archive_items (archive_id, rel_path, initial_public) VALUES (?, 'a.pdf', 0) RETURNING id",
     )
     .bind(archive_id)
     .fetch_one(&pool)

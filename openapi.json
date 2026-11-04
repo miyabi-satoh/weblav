@@ -214,9 +214,21 @@
             }
           },
           {
-            "name": "extensions",
+            "name": "includePatterns",
             "in": "query",
-            "description": "カンマ区切りの拡張子。指定するとその拡張子のファイルだけを数える。\n省略時は全ファイル。先頭の `.` の有無・大文字小文字は問わない。",
+            "description": "見せるファイルのパターン。1行に1つ (→ `file_filter`)。省略時は全ファイル。",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "excludePatterns",
+            "in": "query",
+            "description": "隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。",
             "required": false,
             "schema": {
               "type": [
@@ -4462,6 +4474,16 @@
               }
             }
           },
+          "422": {
+            "description": "パターンが正しくない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "フォルダーのある NAS やディスクにつながらない",
             "content": {
@@ -6795,12 +6817,12 @@
               "null"
             ]
           },
-          "extensions": {
+          "excludePatterns": {
             "type": [
               "string",
               "null"
             ],
-            "description": "`type = 'folder'` の一覧の表示で、索引する拡張子をカンマ区切りで持つ。\n`None` か空なら全ファイルが対象。"
+            "description": "`type = 'folder'` で隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。"
           },
           "fileName": {
             "type": [
@@ -6819,6 +6841,13 @@
           "id": {
             "type": "integer",
             "format": "int64"
+          },
+          "includePatterns": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`type = 'folder'` で見せるファイルのパターン。1行に1つ。`None` なら全ファイルが対象。"
           },
           "listView": {
             "type": "boolean",
@@ -7751,7 +7780,7 @@
           },
           "truncated": {
             "type": "boolean",
-            "description": "上限を超えて走査を打ち切ったか。`true` なら実際のファイル数は `count` 以上ある。\n\n打ち切りの理由は区別しない。件数の上限を超えた場合と、走査したエントリ数の\n上限を超えた場合 (対象拡張子に一致しないファイルやディレクトリばかりのツリー)\nがあり、後者では `count` が上限より小さいまま `true` になる。\nUI側の扱いはどちらも「これ以上ある」で同じなので、理由は分けない。"
+            "description": "上限を超えて走査を打ち切ったか。`true` なら実際のファイル数は `count` 以上ある。\n\n打ち切りの理由は区別しない。件数の上限を超えた場合と、走査したエントリ数の\n上限を超えた場合 (対象に一致しないファイルやディレクトリばかりのツリー)\nがあり、後者では `count` が上限より小さいまま `true` になる。\nUI側の扱いはどちらも「これ以上ある」で同じなので、理由は分けない。"
           },
           "unreadable": {
             "type": [
@@ -10516,12 +10545,19 @@
               "null"
             ]
           },
-          "extensions": {
+          "excludePatterns": {
             "type": [
               "string",
               "null"
             ],
-            "description": "`type = 'folder'` のみ。一覧の表示で索引する拡張子をカンマ区切りで指定する。\n省略・空なら全ファイルを索引する。"
+            "description": "`type = 'folder'` のみ。隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。"
+          },
+          "includePatterns": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`type = 'folder'` のみ。見せるファイルのパターン。1行に1つ。省略・空なら全ファイルが対象。"
           },
           "listView": {
             "type": [
@@ -10925,6 +10961,25 @@
           },
           {
             "type": "object",
+            "description": "見せるファイルのパターンが正しくない (→ docs/folders.md「公開と非公開」)。",
+            "required": [
+              "pattern",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "invalidFilePattern"
+                ]
+              },
+              "pattern": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
             "description": "最後の管理者は降格・削除できない (→ docs/access.md「admin の最後の1人」)。",
             "required": [
               "kind"
@@ -11178,7 +11233,13 @@
           "newFilesPublic"
         ],
         "properties": {
-          "extensions": {
+          "excludePatterns": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "includePatterns": {
             "type": [
               "string",
               "null"

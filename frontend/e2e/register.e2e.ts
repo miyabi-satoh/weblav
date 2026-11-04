@@ -161,19 +161,24 @@ test('一覧の表示: 使い始めたときのスキャンだけが失敗した
 	);
 });
 
-test('対象の拡張子: ライブラリを使わないフォルダーでも設定でき、合わないファイルはフォルダーの画面に出ない', async ({
+test('対象のパターン: ライブラリを使わないフォルダーでも設定でき、合わないファイルはフォルダーの画面に出ない', async ({
 	page
 }) => {
 	await withDirectoryContent(
 		page.request,
 		{
 			type: 'folder',
-			namePrefix: 'e2e-register-extensions',
+			namePrefix: 'e2e-register-patterns',
 			files: { 'answer.pdf': '%PDF-1.4\n%%EOF\n', 'listening.mp3': 'ID3' }
 		},
 		async (folder) => {
 			await page.goto(`/admin/contents/${folder.id}`);
-			await page.getByRole('textbox', { name: /^対象の拡張子$|^File extensions$/ }).fill('pdf');
+			await page.getByRole('button', { name: /対象のパターン$|Include patterns$/ }).click();
+			const patterns = page.getByRole('dialog', { name: /^対象のパターン$|^Include patterns$/ });
+			await patterns.getByRole('textbox').fill('*.pdf');
+			await patterns
+				.getByRole('button', { name: /^このパターンにする$|^Use these patterns$/ })
+				.click();
 			await specificSaveButton(page).click();
 			// 見えなくなるファイルがあるので、保存の前に知らせる。
 			const notice = page.getByRole('alertdialog', {

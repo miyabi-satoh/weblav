@@ -4,7 +4,7 @@ use super::*;
 
 /// 作ったフォルダーは、後から一覧の表示を使う設定にでき、索引する拡張子は均して残す。
 #[sqlx::test]
-async fn folder_turns_on_the_list_view_later_and_normalizes_extensions(pool: SqlitePool) {
+async fn folder_turns_on_the_list_view_later_and_normalizes_patterns(pool: SqlitePool) {
     let dir = temp_test_dir("archive-create");
     let canonical_dir = dir
         .canonicalize()
@@ -36,7 +36,7 @@ async fn folder_turns_on_the_list_view_later_and_normalizes_extensions(pool: Sql
         &format!("/api/v1/contents/{id}"),
         &cookie,
         &format!(
-            r#"{{"title":"英検 過去問","path":{path_json},"listView":true,"extensions":".MP3, pdf ,,"}}"#
+            r#"{{"title":"英検 過去問","path":{path_json},"listView":true,"includePatterns":" *.mp3 \n\n*.pdf"}}"#
         ),
     )
     .await;
@@ -49,7 +49,7 @@ async fn folder_turns_on_the_list_view_later_and_normalizes_extensions(pool: Sql
         canonical_path_as_api_returns_it(&canonical_dir),
         "{body}"
     );
-    assert_eq!(updated["extensions"], "mp3,pdf", "{body}");
+    assert_eq!(updated["includePatterns"], "*.mp3\n*.pdf", "{body}");
 }
 
 /// 自動の再スキャンの時刻は、グループの自動の更新と同じ形で保存し、決め方に合わない値は断る。
@@ -498,7 +498,7 @@ async fn archive_extensions_change_keeps_flags_of_still_matching_items(pool: Sql
         "PUT",
         &format!("/api/v1/contents/{id}"),
         &cookie,
-        &format!(r#"{{"title":"英検 過去問","path":{path_json},"extensions":"mp3"}}"#),
+        &format!(r#"{{"title":"英検 過去問","path":{path_json},"includePatterns":"*.mp3"}}"#),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
