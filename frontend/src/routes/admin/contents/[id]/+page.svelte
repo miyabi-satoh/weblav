@@ -18,8 +18,10 @@
 		contentFormVisibilityNote
 	} from '$lib/content-form.svelte';
 	import { ancestorPath, byIdMap, selfAndAncestors } from '$lib/content-tree';
-	import { isDirectoryContentType } from '$lib/content-types';
-	import { cancelScan, rescanArchive } from '$lib/archive-scan';
+	import { isDirectoryContentType, isPathContentType } from '$lib/content-types';
+	import { cancelScan } from '$lib/archive-scan';
+	import { archiveRescan } from '$lib/archive-rescan.svelte';
+	import { parentPath } from '$lib/path-trail';
 	import ScanProgress from '$lib/components/scan-progress.svelte';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import {
@@ -80,6 +82,7 @@
 		if (content.type === 'link') return m.contents_edit_link_title();
 		if (content.type === 'file') return m.contents_edit_file_title();
 		if (content.type === 'folder') return m.contents_edit_folder_title();
+		if (content.type === 'shortcut') return m.contents_edit_shortcut_title();
 		return null;
 	});
 
@@ -116,6 +119,7 @@
 	type VisibilityPreview = components['schemas']['VisibilityPreview'];
 
 	const errorDialog = new ErrorDialogState();
+	const rescan = archiveRescan();
 
 	let visibilityOptions = $derived(
 		selectableVisibilities(
@@ -295,19 +299,13 @@
 
 		try {
 			// 場所を変えると索引が空になり、一覧の表示を使い始めたときは索引がまだ無いので、
-			// 保存に続けてスキャンする (→ docs/archive.md「スキャン」)。パターンで見えるファイルが増えるときも、
-			// 増えた分が索引に無いので同じ (→ docs/folders.md「見せるものの絞り込み」)。
+			// 保存に続けてスキャンする (→ docs/archive.md「スキャン」)。パターンの変更は読むときに効くのでスキャンしない。
 			const rescansAfterSave =
 				part === 'specific' &&
 				form.partDirty('specific') &&
 				content.type === 'folder' &&
 				form.listView &&
-				(content.path !== form.path ||
-					!content.listView ||
-					(changesVisibleFiles() &&
-						(visibilityChange === null ||
-							visibilityChange.truncated ||
-							visibilityChange.gained > 0)));
+				(content.path !== form.path || !content.listView);
 			// 「作成者のみ」のグループは中身と作成者が揃っている必要があるので、そこから外すときは公開範囲を先に保存する。
 			const creatorLast = content.visibility === 'private' && form.visibility !== 'private';
 			if (part === 'common' && creatorChanged && !creatorLast && !(await saveCreator())) return;
@@ -330,7 +328,7 @@
 			if (rescansAfterSave) {
 				// 続くスキャンの進み具合と中止は、登録の確認の窓か、区画の中に出す。
 				confirmVisibilityOpen = false;
-				const scan = await rescanArchive(content.id, (message) => (scanProgress = message));
+				const scan = await rescan.runAfterSave(content.id, (message) => (scanProgress = message));
 				closeConfirms();
 				if (scan.ok) {
 					toast.success(
@@ -427,7 +425,7 @@
 					loading={savingPart === part}
 					disabled={saving ||
 						!partDirty(part) ||
-						(part === 'specific' && isDirectoryContentType(form.type) && form.path === '') ||
+						(part === 'specific' && isPathContentType(form.type) && form.path === '') ||
 						(part === 'common' && visibilityError !== null)}>{m.action_save()}</LoadingButton
 				>
 				<!-- 確認の窓を通らずに始めたスキャン (一覧の表示を使い始めたとき) は、ボタンの横に進み具合を出す。 -->
@@ -451,8 +449,9 @@
 
 <DirPicker
 	bind:open={dirPickerOpen}
-	initialPath={form.path}
-	onselect={(path, label) => form.choosePath(path, label)}
+	initialPath={content.type === 'shortcut' ? parentPath(form.path) : form.path}
+	mode={content.type === 'shortcut' ? 'file' : 'dir'}
+	onselect={(path, label, isFile) => form.choosePath(path, label, isFile)}
 />
 
 <ConfirmRegister

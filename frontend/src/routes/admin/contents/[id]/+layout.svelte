@@ -10,6 +10,13 @@
 	import { contentViewHref } from '$lib/content-view-href';
 	import { gotoWithoutLeaveConfirm } from '$lib/leave-confirm';
 	import { Button } from '$lib/components/ui/button';
+	import LoadingButton from '$lib/components/loading-button.svelte';
+	import ScanProgress from '$lib/components/scan-progress.svelte';
+	import ErrorDialog from '$lib/components/error-dialog.svelte';
+	import { ArchiveRescanState, provideArchiveRescan } from '$lib/archive-rescan.svelte';
+	import { cancelScan } from '$lib/archive-scan';
+	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
+	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import ContentDeleteDialog from '$lib/components/content-delete-dialog.svelte';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
@@ -28,7 +35,27 @@
 	let view = $derived(contentViewHref(content, page.data.user?.id));
 	let deletingContent = $state<typeof content | null>(null);
 
+	// 再スキャンは見出しの段で押し、進み具合と結果は見出しの下に出す (→ docs/ui.md「UI 全般」)。
+	// タブを移っても消えないよう、ここで持つ。
+	const rescan = new ArchiveRescanState();
+	provideArchiveRescan(rescan);
+	const errorDialog = new ErrorDialogState();
+	let canRescan = $derived(data.editable && content.listView);
+	let contentId = $derived(data.contentId);
+
+	$effect(() => {
+		const id = contentId;
+		if (!canRescan) return;
+		const controller = new AbortController();
+		void rescan.watch(id, controller.signal);
+		return () => {
+			controller.abort();
+			rescan.reset();
+		};
+	});
+
 	// 一覧の表示を使うフォルダーは「基本情報 / 軸定義 / アイテム」を同列に並べる (→ docs/access.md「ロールと操作」)。
+	// 対象外は、パターンを書き換える人のためのものなので、書き換えられる人にだけ出す。
 	let tabs = $derived.by(() => {
 		const id = String(data.contentId);
 		const basic = {
@@ -39,7 +66,15 @@
 		return [
 			basic,
 			{ href: resolve('/admin/contents/[id]/axes', { id }), label: m.archive_tabs_axes() },
-			{ href: resolve('/admin/contents/[id]/items', { id }), label: m.archive_tabs_items() }
+			{ href: resolve('/admin/contents/[id]/items', { id }), label: m.archive_tabs_items() },
+			...(data.editable
+				? [
+						{
+							href: resolve('/admin/contents/[id]/excluded', { id }),
+							label: m.archive_tabs_excluded()
+						}
+					]
+				: [])
 		];
 	});
 
@@ -48,6 +83,10 @@
 	);
 	let TypeIcon = $derived(contentTypeIcon(content.type));
 	// 見るだけの理由を、どのタブでも見出しの下で示す (→ docs/ui.md「UI 全般」)。
+	function startRescan() {
+		void rescan.run(data.contentId, (message) => errorDialog.show(message));
+	}
+
 	let viewOnlyNote = $derived.by(() => {
 		if (data.editable) return null;
 		const creator = content.createdByUsername;
@@ -68,8 +107,22 @@
 	<div class="mt-2 flex items-start gap-2">
 		<h1 class={pageHeadingInRowClass}>{content.title}</h1>
 		<div class="flex shrink-0 items-center gap-1">
+			<!-- スマートフォンの幅では、タイトルに幅を残すため、どちらも⋮の中に入れる (→ docs/ui.md「UI 全般」)。 -->
+			{#if canRescan}
+				<LoadingButton
+					class="max-sm:hidden"
+					variant="outline"
+					size="sm"
+					loading={rescan.busy}
+					onclick={startRescan}
+				>
+					<RefreshCwIcon class="size-4" />
+					{m.archive_items_rescan_button()}
+				</LoadingButton>
+			{/if}
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- contentViewHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
 			<Button
+				class="max-sm:hidden"
 				variant="outline"
 				size="sm"
 				href={view.href}
@@ -78,21 +131,40 @@
 				>{m.contents_menu_view()}</Button
 			>
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
-			<!-- 見るだけの人には消す操作が無いので、⋮ごと出さない。 -->
-			{#if data.editable}
+			<!-- 見るだけの人には消す操作が無いので、広い幅では⋮ごと出さない。 -->
+			<div class={[!data.editable && 'sm:hidden']}>
 				<RowActionsMenu name={content.title}>
-					<DropdownMenu.Item variant="destructive" onSelect={() => (deletingContent = content)}>
-						{m.action_delete()}
+					{#if canRescan}
+						<DropdownMenu.Item class="sm:hidden" disabled={rescan.busy} onSelect={startRescan}>
+							{m.archive_items_rescan_button()}
+						</DropdownMenu.Item>
+					{/if}
+					<DropdownMenu.Item class="sm:hidden">
+						{#snippet child({ props })}
+							<!-- eslint-disable svelte/no-navigation-without-resolve -- contentViewHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
+							<a
+								href={view.href}
+								target={view.external ? '_blank' : undefined}
+								rel={view.external ? 'external noopener noreferrer' : undefined}
+								{...props}>{m.contents_menu_view()}</a
+							>
+							<!-- eslint-enable svelte/no-navigation-without-resolve -->
+						{/snippet}
 					</DropdownMenu.Item>
+					{#if data.editable}
+						<DropdownMenu.Item variant="destructive" onSelect={() => (deletingContent = content)}>
+							{m.action_delete()}
+						</DropdownMenu.Item>
+					{/if}
 				</RowActionsMenu>
-			{/if}
+			</div>
 		</div>
 	</div>
 	<!-- 種別は後から変えられないので、フォームではなくここに出す。
 	     区切りの「・」は見た目だけのものなので読み上げない。 -->
 	<p class="flex flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
 		<TypeIcon class="size-4 shrink-0" aria-hidden="true" />
-		<span>{contentTypeLabel(content.type)}</span>
+		<span>{contentTypeLabel(content.type, content.listView)}</span>
 		{#if location}
 			<span aria-hidden="true">・</span>
 			<!-- パスは区切り以外に折り返せる場所が無く、そのままだと画面からはみ出す
@@ -118,6 +190,17 @@
 	{/if}
 </div>
 
+{#if rescan.progress || rescan.result}
+	<!-- タブの上に出し、タブを移っても出したままにする。 -->
+	<div class="mt-2 px-4 md:px-6">
+		{#if rescan.progress}
+			<ScanProgress message={rescan.progress} oncancel={() => cancelScan(data.contentId)} />
+		{:else}
+			<p class="text-sm text-muted-foreground">{rescan.result}</p>
+		{/if}
+	</div>
+{/if}
+
 <!-- 切り替え先が無いときはタブの列ごと出さない。 -->
 {#if tabs.length > 1}
 	<nav aria-label={m.contents_edit_tabs_label()} class={[navTabListClass, 'mt-2']}>
@@ -142,3 +225,5 @@
 	{contentById}
 	ondeleted={() => gotoWithoutLeaveConfirm(resolve('/admin/contents'))}
 />
+
+<ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

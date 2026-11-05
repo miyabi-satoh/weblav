@@ -565,7 +565,7 @@ test('絞り込みの解除: 解除のリンクで絞り込みが外れ、全件
 	);
 });
 
-test('対象のパターンを広げて保存すると、続けて再スキャンし、増えたファイルがアイテムに並ぶ', async ({
+test('対象のパターンを広げて保存すると、再スキャンなしで、増えたファイルがアイテムに並ぶ', async ({
 	page
 }) => {
 	await withDirectoryContent(
@@ -586,10 +586,43 @@ test('対象のパターンを広げて保存すると、続けて再スキャ�
 			});
 			await notice.getByRole('button', { name: /^保存する$|^Save$/ }).click();
 			await expect(notice).toBeHidden();
-			await expect(page.getByText(/2 件のファイルが見つかりました|Found 2 files/)).toBeVisible();
 
 			await page.goto(`/admin/contents/${content.id}/items`);
 			await expect(page.getByText('b.txt').first()).toBeVisible();
+		}
+	);
+});
+
+test('対象外のタブで絞り込み、パターンに追加すると、その場で保存して一覧が変わる', async ({
+	page
+}) => {
+	await withDirectoryContent(
+		page.request,
+		{
+			type: 'archive',
+			namePrefix: 'e2e-excluded',
+			files: { 'keep.pdf': 'x', 'old[1].txt': 'x', 'drafts/a.txt': 'x' }
+		},
+		async (content) => {
+			await rescanArchive(page.request, content.id);
+			await page.goto(`/admin/contents/${content.id}/items`);
+			const filter = page.getByLabel(/^名前で絞り込む$|^Filter by name$/);
+			await filter.fill('old[1]');
+			await page
+				.getByRole('button', { name: /^パターンに追加\.\.\.$|^Add to patterns\.\.\.$/ })
+				.click();
+			const dialog = page.getByRole('dialog', { name: /^パターンに追加$|^Add to patterns$/ });
+			await expect(dialog.getByRole('textbox')).toHaveValue('*old[[]1[]]*');
+			await expect(dialog.getByText(/見えなくなる: 1|No longer visible: 1/)).toBeVisible();
+			await dialog.getByRole('button', { name: /^追加する$|^Add$/ }).click();
+			await expect(dialog).toBeHidden();
+			await expect(page.getByText(/^2\s件のアイテム$|^2 items$/)).toBeVisible();
+
+			// 外れたものは対象外のタブにパスで並び、開く操作は無い。語はパスに当たる。
+			await page.getByRole('link', { name: /^対象外$|^Excluded$/ }).click();
+			await expect(page.getByText('old[1].txt')).toBeVisible();
+			await expect(page.getByRole('link', { name: /old\[1\]/ })).toHaveCount(0);
+			await expect(page.getByText('drafts/a.txt')).toHaveCount(0);
 		}
 	);
 });

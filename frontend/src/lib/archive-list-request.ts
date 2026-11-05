@@ -10,6 +10,7 @@ import { ARCHIVE_CHUNK_SIZE } from '$lib/archive-paged-list.svelte';
 import { LIST_FILTER_QUERY } from '$lib/list-filter';
 
 type ArchiveViewItem = components['schemas']['ArchiveViewItem'];
+type ExcludedItem = components['schemas']['ExcludedItem'];
 
 /**
  * 画面の URL の軸の絞り込み (`?科目=国語`)。共有されたリンクの形は変えないので、画面の URL は軸の名前をそのままキーにする。
@@ -56,6 +57,19 @@ export function manageChunks(id: number): ChunkFetch<ArchiveViewItem> {
 		});
 		if (response.status === 409) return { expired: true };
 		if (!data) throw new Error(`manage archive page failed: ${response.status}`);
+		return data;
+	};
+}
+
+/** 対象外のタブの一覧の、区切りの続きの取り方。 */
+export function excludedChunks(id: number): ChunkFetch<ExcludedItem> {
+	return async (snapshot, offset, signal) => {
+		const { data, response } = await client.GET('/api/v1/contents/{id}/excluded-items/page', {
+			params: { path: { id }, query: { snapshot, offset, limit: ARCHIVE_CHUNK_SIZE } },
+			signal
+		});
+		if (response.status === 409) return { expired: true };
+		if (!data) throw new Error(`excluded items page failed: ${response.status}`);
 		return data;
 	};
 }

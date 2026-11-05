@@ -2,7 +2,6 @@
 	import { untrack } from 'svelte';
 	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import { client } from '$lib/api/client';
 	import {
 		archiveItemManageDownloadHref,
@@ -10,10 +9,10 @@
 		archiveManageFileHref
 	} from '$lib/api/urls';
 	import type { components } from '$lib/api/schema';
-	import { cancelScan, rescanArchive, waitForRunningScan } from '$lib/archive-scan';
-	import ScanProgress from '$lib/components/scan-progress.svelte';
+	import { archiveRescan } from '$lib/archive-rescan.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import PatternAddDialog from '$lib/components/pattern-add-dialog.svelte';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { formatNumber } from '$lib/format';
 	import { linksFileHref } from '$lib/links-file';
 	import { LIST_FILTER_QUERY } from '$lib/list-filter';
 	import { ArchivePagedList } from '$lib/archive-paged-list.svelte';
@@ -30,7 +29,6 @@
 	} from '$lib/components/archive-view-list.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
 	import WarningBand from '$lib/components/warning-band.svelte';
 	import type { PageProps } from './$types';
 
@@ -38,7 +36,7 @@
 	type ManageArchiveViewResponse = components['schemas']['ManageArchiveViewResponse'];
 
 	// アーカイブのアイテムのタブ (→ docs/ui.md「アーカイブのアイテムのタブ」)。閲覧の画面と同じ部品で並べ、
-	// 再スキャンとパスの表示を重ねる。見出し (タイトル・件数) とタブは [id]/+layout.svelte が出す。
+	// パスの表示と「パターンに追加...」を重ねる。見出し (タイトル・件数・再スキャン) とタブは [id]/+layout.svelte が出す。
 	let { data }: PageProps = $props();
 
 	const listFilter = new ListFilterState();
@@ -159,49 +157,21 @@
 		return linksFileHref(contentId, { item: row.item.id }, data.filters);
 	}
 
-	let rescanning = $state(false);
-	let rescanMessage = $state<string | null>(null);
-	/** 走っているスキャンの進み具合。押したボタンの横に出す (→ docs/archive.md「スキャン」)。 */
-	let scanProgress = $state<string | undefined>();
-	let scanning = $derived(rescanning || scanProgress !== undefined);
 	let nameActive = $derived(appliedName.trim() !== '');
 
-	// 開いたときにスキャンが走っていれば、終わるまで押させずに進み具合を出し、終わったら一覧を取り直す。
-	// スキャンは画面を閉じても続くので、開き直した画面がそれを知らないと、押し直して 409 になるため。
+	// 再スキャンが終わったら、名前の語で取り直した一覧も取り直す (読み込みの分はレイアウトが取り直している)。
+	const rescan = archiveRescan();
+	let seenFinished = untrack(() => rescan.finished);
 	$effect(() => {
-		if (!editable) return;
-		const controller = new AbortController();
-		waitForRunningScan(contentId, (message) => (scanProgress = message), controller.signal).then(
-			(finished) => {
-				if (finished) void reload();
-			}
-		);
-		return () => controller.abort();
+		const finished = rescan.finished;
+		if (finished === seenFinished) return;
+		seenFinished = finished;
+		untrack(() => {
+			if (!fromData) void refetch(true);
+		});
 	});
 
-	// 再スキャン。結果はボタンの近くに次の再スキャンまで残し、一覧を取り直す (増減があるため)。
-	async function rescan() {
-		if (scanning) return;
-		rescanning = true;
-		// 失敗したときに、前回の成功の件数を今回の結果と読み違えさせない。
-		rescanMessage = null;
-		try {
-			const scan = await rescanArchive(contentId, (message) => (scanProgress = message));
-			if (!scan.ok) {
-				errorDialog.show(scan.message);
-				return;
-			}
-			rescanMessage = scan.result.cancelled
-				? m.archive_items_rescan_cancelled()
-				: m.archive_items_rescan_result({
-						added: formatNumber(scan.result.added),
-						removed: formatNumber(scan.result.removed)
-					});
-			await reload();
-		} finally {
-			rescanning = false;
-		}
-	}
+	let patternDialogOpen = $state(false);
 </script>
 
 <!-- 閲覧の画面と同じ軸の値に、パスを足す。 -->
@@ -213,20 +183,6 @@
 
 <div class={adminPageClass}>
 	<div class="flex flex-col gap-4">
-		{#if editable}
-			<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-				<LoadingButton variant="outline" loading={scanning} disabled={scanning} onclick={rescan}>
-					<RefreshCwIcon class="size-4" />
-					{m.archive_items_rescan_button()}
-				</LoadingButton>
-				{#if scanProgress}
-					<ScanProgress message={scanProgress} oncancel={() => cancelScan(contentId)} />
-				{:else if rescanMessage}
-					<p class="text-sm text-muted-foreground">{rescanMessage}</p>
-				{/if}
-			</div>
-		{/if}
-
 		{#if view.folderMissing && view.totalAll > 0}
 			<WarningBand class="rounded-md border">
 				<p class="text-sm leading-relaxed">{m.error_detail_archive_folder_missing()}</p>
@@ -244,7 +200,21 @@
 				countOnlyWhenFiltered
 				hasItems={view.totalAll > 0}
 				folderMissing={view.folderMissing}
-			/>
+			>
+				{#snippet countAction()}
+					{#if editable && nameActive}
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							class="ml-auto"
+							onclick={() => (patternDialogOpen = true)}
+						>
+							{m.pattern_add_button()}
+						</Button>
+					{/if}
+				{/snippet}
+			</ArchiveViewControls>
 			{#if list.stale}
 				<ArchiveStaleNotice onreload={() => void reload()} />
 			{/if}
@@ -274,5 +244,12 @@
 		{/if}
 	</div>
 </div>
+
+<PatternAddDialog
+	bind:open={patternDialogOpen}
+	content={data.content}
+	filterText={appliedName}
+	onsaved={reload}
+/>
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />
