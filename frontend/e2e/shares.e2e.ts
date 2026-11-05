@@ -2,13 +2,7 @@
 // 画面の口が API につながっていることだけを見る。権限ごとの可否や、名前の重なりの扱いは API のテストで確かめている。
 // 共有の登録はサーバーの PC からしか通らないので、別のマシンのサーバーに当てるときは飛ばす。
 import { test, expect, type Page } from '@playwright/test';
-import {
-	createRootByApi,
-	logInByApi,
-	removeRootByApi,
-	send,
-	withUserByApi
-} from './api-helpers';
+import { createRootByApi, logInByApi, removeRootByApi, send, withUserByApi } from './api-helpers';
 import { createRootFixtureTree, FIXTURE_UNREACHABLE, removeFixtureTree } from './fixture-helpers';
 import {
 	anonymousContext,
