@@ -332,21 +332,23 @@ async fn excluded_items_list_paths_for_writers_only(pool: SqlitePool) {
     assert_error(status, &body, StatusCode::FORBIDDEN, "forbidden");
 }
 
-/// ライブラリの増減は索引から数える。ディスクを読まないので、消えたファイルも次のスキャンまでは数える。
+/// ライブラリの増減は索引から数える。前のスキャンの後に足したファイルも、数える前に索引に入る。
+/// フォルダーが無くなっていても、今の索引で数える。
 #[sqlx::test]
 async fn visibility_preview_of_a_library_counts_from_the_index(pool: SqlitePool) {
     let dir = temp_test_dir("library-preview");
     std::fs::write(dir.join("a.pdf"), b"a").expect("ファイルを作れなかった");
     std::fs::write(dir.join("b.pdf"), b"b").expect("ファイルを作れなかった");
     let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
-    std::fs::remove_file(dir.join("a.pdf")).expect("ファイルを消せなかった");
+    std::fs::write(dir.join("added.pdf"), b"c").expect("ファイルを作れなかった");
+    let uri = format!("/api/v1/contents/{id}/visibility-preview");
 
     let (status, body) = send_json(
-        app,
+        app.clone(),
         "POST",
-        &format!("/api/v1/contents/{id}/visibility-preview"),
+        &uri,
         &cookie,
-        r#"{"excludePatterns":"a.*"}"#,
+        r#"{"excludePatterns":"added.*"}"#,
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -355,6 +357,13 @@ async fn visibility_preview_of_a_library_counts_from_the_index(pool: SqlitePool)
         serde_json::json!({"gained": 0, "lost": 1, "truncated": false}),
         "{body}"
     );
+
+    std::fs::rename(&*dir, dir.with_extension("moved")).expect("フォルダーを動かせなかった");
+    let (status, body) =
+        send_json(app, "POST", &uri, &cookie, r#"{"excludePatterns":"a.*"}"#).await;
+    std::fs::rename(dir.with_extension("moved"), &*dir).expect("フォルダーを戻せなかった");
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body)["truncated"], false, "{body}");
 }
 
 /// 除外した場所が読めなくても再スキャンは止まらず、その中の行を消さない。
@@ -363,8 +372,10 @@ async fn visibility_preview_of_a_library_counts_from_the_index(pool: SqlitePool)
 #[sqlx::test]
 async fn an_unreadable_excluded_folder_does_not_block_a_rescan(pool: SqlitePool) {
     let dir = temp_test_dir("library-unreadable");
-    std::fs::create_dir_all(dir.join("recycle")).expect("フォルダーを作れなかった");
+    std::fs::create_dir_all(dir.join("recycle").join("sub")).expect("フォルダーを作れなかった");
     std::fs::write(dir.join("recycle").join("old.pdf"), b"a").expect("ファイルを作れなかった");
+    std::fs::write(dir.join("recycle").join("sub").join("x.pdf"), b"a")
+        .expect("ファイルを作れなかった");
     std::fs::write(dir.join("keep.pdf"), b"b").expect("ファイルを作れなかった");
     let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
     let rows = || async {
@@ -376,17 +387,37 @@ async fn an_unreadable_excluded_folder_does_not_block_a_rescan(pool: SqlitePool)
         .await
         .expect("索引を読めなかった")
     };
-    assert_eq!(rows().await, ["keep.pdf", "recycle/old.pdf"]);
+    assert_eq!(
+        rows().await,
+        ["keep.pdf", "recycle/old.pdf", "recycle/sub/x.pdf"]
+    );
     std::fs::write(dir.join("new.pdf"), b"c").expect("ファイルを作れなかった");
     let _locked = test_support::Unreadable::new(dir.join("recycle"));
 
     set_patterns(&pool, id, None, Some("recycle/")).await;
+    // 一覧を開いたときの読み直しも、読めないだけのフォルダーを消えたと見なさない。
+    manage_items(app.clone(), &cookie, id).await;
+    assert_eq!(
+        rows().await,
+        [
+            "keep.pdf",
+            "new.pdf",
+            "recycle/old.pdf",
+            "recycle/sub/x.pdf"
+        ]
+    );
+
     let (status, body) = rescan(app.clone(), &cookie, id).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(parse_json(&body)["removed"], 0, "{body}");
     assert_eq!(
         rows().await,
-        ["keep.pdf", "new.pdf", "recycle/old.pdf"],
+        [
+            "keep.pdf",
+            "new.pdf",
+            "recycle/old.pdf",
+            "recycle/sub/x.pdf"
+        ],
         "読めなかった場所の行を残し、ほかは同期するはず"
     );
 

@@ -247,6 +247,9 @@ async fn preview_visibility(
     // ライブラリは、スキャンを終えていれば索引から数える。全ファイルが入っているのでディスクを読まず、打ち切らない。
     // 終えていない (中止した・場所を変えた) 索引は欠けているので、ディスクを読む。
     if row.list_view && row.last_scanned_at.is_some() {
+        // 前のスキャンの後に足したものも数える。つながらないときは何もせず、今の索引で数える。
+        let meta = super::archive::load_archive(&state.pool, id).await?;
+        super::archive::refresh_changed_dirs(&state, id, &meta).await;
         let rel_paths = sqlx::query_scalar!(
             "SELECT rel_path FROM archive_items WHERE archive_id = ?",
             id

@@ -964,9 +964,14 @@ fn find_dir_changes(
         } else {
             root.join(rel)
         };
-        let Ok(metadata) = std::fs::metadata(&path) else {
-            changes.removed_dirs.push(rel.clone());
-            continue;
+        let metadata = match std::fs::metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                changes.removed_dirs.push(rel.clone());
+                continue;
+            }
+            // 読めないだけでは消えたとは言えない (上のフォルダーの権限を落とした NAS など)。行を残す。
+            Err(_) => continue,
         };
         let now = super::fs::dir_modified_ns(&metadata);
         if now == *modified_ns {
