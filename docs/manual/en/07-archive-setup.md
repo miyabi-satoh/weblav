@@ -95,6 +95,8 @@ Use “Include patterns” (for example, `*.mp3`) and “Exclude patterns” on 
 
 The “Excluded” tab lists, by path, the files that patterns leave out of the viewer's screen. “Filter by name” matches the path here. The files don't open from this tab; check their contents on the share screen. Files whose names start with a dot and symbolic links are not listed.
 
+To bring a file back: if an exclude pattern left it out, remove that line from “Exclude patterns” on the “Settings” tab. If it matches no include pattern, add it to “Include patterns”.
+
 ### Add a pattern from the filter
 
 When you type in “Filter by name” on the “Items” or “Excluded” tab, “Add to patterns...” appears.
@@ -104,7 +106,7 @@ When you type in “Filter by name” on the “Items” or “Excluded” tab, 
 3. Edit the pattern made from your words if needed (`jpg` becomes `*jpg*`, and `english 2024` becomes `*english*2024*`).
 4. Check the counts, then select “Add”. It is saved right away.
 
-“Filter by name” also matches titles, while patterns match paths, so a pattern may match nothing. The counts in the dialog show this.
+“Filter by name” also matches titles, while patterns match paths, so a pattern may match nothing. The counts in the dialog show this, and “Add” can't be selected when the visible files would not change.
 
 ## Ask an AI
 

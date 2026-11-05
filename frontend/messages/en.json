@@ -582,6 +582,7 @@
 	"pattern_add_target_label": "Add to",
 	"pattern_add_target_exclude": "Exclude",
 	"pattern_add_target_include": "Include",
+	"pattern_add_excluded_note": "Files left out by an exclude pattern come back when you remove that line on the Settings tab.",
 	"pattern_add_pattern_label": "Pattern",
 	"pattern_add_pattern_help": "* matches any text. A pattern with / starts at the top of the folder.",
 	"pattern_add_counting": "Counting...",

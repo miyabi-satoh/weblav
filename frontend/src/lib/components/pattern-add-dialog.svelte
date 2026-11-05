@@ -34,6 +34,7 @@
 		content,
 		filterText,
 		initialTarget = 'exclude',
+		note,
 		onsaved
 	}: {
 		open: boolean;
@@ -42,6 +43,8 @@
 		filterText: string;
 		/** 開いたときの追加先。 */
 		initialTarget?: Target;
+		/** 窓の中に添える案内。 */
+		note?: string;
 		/** 保存した後の画面の更新。 */
 		onsaved: () => void | Promise<void>;
 	} = $props();
@@ -179,6 +182,9 @@
 								</Field.Field>
 							{/each}
 						</RadioGroup.Root>
+						{#if note}
+							<Field.FieldDescription>{note}</Field.FieldDescription>
+						{/if}
 					</div>
 					<Field.Field data-invalid={invalid !== null}>
 						<Field.FieldLabel for="pattern-add-pattern" required>

@@ -128,6 +128,7 @@
 	content={data.content}
 	filterText={named.applied}
 	initialTarget={data.content.includePatterns ? 'include' : 'exclude'}
+	note={m.pattern_add_excluded_note()}
 	onsaved={() => named.refresh()}
 />
 

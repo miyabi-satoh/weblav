@@ -474,6 +474,7 @@
 	"pattern_add_target_label": "追加先",
 	"pattern_add_target_exclude": "除外",
 	"pattern_add_target_include": "対象",
+	"pattern_add_excluded_note": "除外のパターンで外れたものは、設定のタブで除外から消すと戻ります。",
 	"pattern_add_pattern_label": "パターン",
 	"pattern_add_pattern_help": "* はどの文字列にも当たります。/ を含むものは、フォルダーの一番上から見ます。",
 	"pattern_add_counting": "数えています...",
