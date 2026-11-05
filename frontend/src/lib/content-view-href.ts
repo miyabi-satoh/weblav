@@ -51,7 +51,7 @@ function contentSelfHref(content: Content): ContentViewHref {
 			if (content.fileName && isLinksFileName(content.fileName)) {
 				return { href: linksFileHref(content.id), external: false };
 			}
-			// 専用のページが無いファイル (画像・PDF・音声・動画) は、入っているグループで見る。
+			// 専用のページが無いファイル (画像・PDF・音声・動画) は、「非表示」などでも、入っているグループを開く。
 			return { href: parentHref(content), external: false };
 	}
 }

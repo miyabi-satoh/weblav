@@ -138,7 +138,7 @@ To move an existing item:
 
 Select the row to open the edit page, make your changes, then select “Save”.
 
-To see how it looks to viewers, select “View on site” next to the heading of the edit page (it is also in the row’s “⋮” in the list). This opens the group the item is in (Home if it isn't in a group), where it's listed. Items set to “Hidden” and other people's “Creator only” items aren't listed there, so the item itself opens.
+To see how it looks to viewers, select “View on site” next to the heading of the edit page (it is also in the row’s “⋮” in the list). This opens the group the item is in (Home if it isn't in a group), where it's listed. Items set to “Hidden” and other people's “Creator only” items aren't listed there, so the item itself opens (files registered in an earlier version, such as images, still open the group).
 
 ![The Link edit page. Below the title and description are buttons to refetch each one.](images/edit-link.webp)
 

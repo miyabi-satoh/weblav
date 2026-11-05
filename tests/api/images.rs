@@ -244,7 +244,7 @@ async fn uploaded_image_gets_size_in_group_list(pool: SqlitePool) {
 }
 
 /// アーカイブのアイテムも、閲覧用の一覧に大きさが載り、縮小画像を返す。
-/// 非公開のアイテムの縮小画像は、ダウンロードと同じく 404。
+/// パターンで外れたアイテムの縮小画像は、ダウンロードと同じく 404。
 #[sqlx::test]
 async fn archive_image_items_get_sizes_and_thumbnails(pool: SqlitePool) {
     let dir = temp_test_dir("thumbnail-archive");

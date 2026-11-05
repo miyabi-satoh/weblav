@@ -454,7 +454,7 @@
 	],
 	"confirm_register_scope_folder_public_truncated": "Anyone on the LAN can view all of these {count} or more files.",
 	"confirm_register_scope_folder_authenticated": "Only signed-in people can view them.",
-	"confirm_register_scope_folder_private": "Only you can view them.",
+	"confirm_register_scope_folder_private": "Only the creator can view them.",
 	"confirm_register_scope_folder_hidden": "It will not appear where people browse. No one can view it until you change its visibility.",
 	"confirm_register_back": "Back",
 	"confirm_register_action": "Register",

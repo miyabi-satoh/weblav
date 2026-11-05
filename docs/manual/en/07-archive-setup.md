@@ -85,7 +85,7 @@ As with folder-level categories, you can change the display names (such as `06` 
 
 ## Limit the files in the list
 
-Use “Include patterns” (for example, `*.mp3`) and “Exclude patterns” on the “Settings” tab to limit the files you show (→ [Register content](06-register-content.md)). The folder view changes right away. To apply it to the library list, select “Rescan” on the “Items” tab.
+Use “Include patterns” (for example, `*.mp3`) and “Exclude patterns” on the “Settings” tab to limit the files you show (→ [Register content](06-register-content.md)). Changes apply as soon as you save. If more files become visible in the library list, a rescan runs right after saving.
 
 ## Ask an AI
 

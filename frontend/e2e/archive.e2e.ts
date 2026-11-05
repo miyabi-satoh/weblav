@@ -17,6 +17,7 @@ import {
 	SAVE_BUTTON_NAME,
 	SHUFFLE_BUTTON_NAME,
 	saveForm,
+	specificSaveButton,
 	waitForDialog
 } from './helpers';
 import { send } from './api-helpers';
@@ -560,6 +561,35 @@ test('絞り込みの解除: 解除のリンクで絞り込みが外れ、全件
 			await expect(page.getByText(/^3\s件のアイテム$|^3 items$/)).toBeVisible();
 			await expect(trigger).toContainText(/すべて|All/);
 			await expect(resetLink).toHaveCount(0);
+		}
+	);
+});
+
+test('対象のパターンを広げて保存すると、続けて再スキャンし、増えたファイルがアイテムに並ぶ', async ({
+	page
+}) => {
+	await withDirectoryContent(
+		page.request,
+		{ type: 'archive', namePrefix: 'e2e-widen', files: { 'a.pdf': 'x', 'b.txt': 'x' } },
+		async (content) => {
+			await rescanArchive(page.request, content.id);
+			await page.goto(`/admin/contents/${content.id}`);
+			await page.getByRole('button', { name: /対象のパターン$|Include patterns$/ }).click();
+			const patterns = page.getByRole('dialog', { name: /^対象のパターン$|^Include patterns$/ });
+			await patterns.getByRole('textbox').fill('');
+			await patterns
+				.getByRole('button', { name: /^このパターンにする$|^Use these patterns$/ })
+				.click();
+			await specificSaveButton(page).click();
+			const notice = page.getByRole('alertdialog', {
+				name: /^見える内容が変わります$|^What people can see will change$/
+			});
+			await notice.getByRole('button', { name: /^保存する$|^Save$/ }).click();
+			await expect(notice).toBeHidden();
+			await expect(page.getByText(/2 件のファイルが見つかりました|Found 2 files/)).toBeVisible();
+
+			await page.goto(`/admin/contents/${content.id}/items`);
+			await expect(page.getByText('b.txt').first()).toBeVisible();
 		}
 	);
 });

@@ -150,6 +150,7 @@
 <Dialog.Root bind:open>
 	<Dialog.Content
 		class="sm:max-w-lg"
+		showCloseButton={!saving}
 		escapeKeydownBehavior={saving ? 'ignore' : 'close'}
 		interactOutsideBehavior={saving ? 'ignore' : 'close'}
 	>

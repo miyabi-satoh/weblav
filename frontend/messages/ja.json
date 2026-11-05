@@ -364,7 +364,7 @@
 	"confirm_register_scope_folder_public": "LAN 内の誰でも、この {count} 個のファイルすべてを閲覧できます。",
 	"confirm_register_scope_folder_public_truncated": "LAN 内の誰でも、この {count} 個以上のファイルすべてを閲覧できます。",
 	"confirm_register_scope_folder_authenticated": "ログインした人だけが閲覧できます。",
-	"confirm_register_scope_folder_private": "あなただけが閲覧できます。",
+	"confirm_register_scope_folder_private": "作成者だけが閲覧できます。",
 	"confirm_register_scope_folder_hidden": "閲覧する画面には表示されません。公開範囲を変更するまで、誰も閲覧できません。",
 	"confirm_register_back": "戻る",
 	"confirm_register_action": "登録する",

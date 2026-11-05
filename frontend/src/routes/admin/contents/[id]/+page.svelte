@@ -245,6 +245,7 @@
 			// 正しくないパターンは保存もできないので、知らせる窓を挟まずに直してもらう。
 			if (result.response.status === 422) {
 				errorDialog.show(errorMessage(result.error));
+				await resumeNavigationAfterSave();
 				return;
 			}
 			preview = result.data ?? null;
@@ -253,11 +254,11 @@
 		} finally {
 			savingPart = null;
 		}
+		visibilityChange = preview;
 		if (preview !== null && preview.gained === 0 && preview.lost === 0) {
 			void saveContent();
 			return;
 		}
-		visibilityChange = preview;
 		confirmVisibilityOpen = true;
 	}
 
@@ -266,6 +267,20 @@
 		confirmLoosenedOpen = false;
 		confirmVisibilityOpen = false;
 		confirmRegisterOpen = false;
+	}
+
+	async function saveCreator(): Promise<boolean> {
+		const result = await client.PUT('/api/v1/contents/{id}/creator', {
+			params: { path: { id: content.id } },
+			body: { createdBy: Number(creatorId) }
+		});
+		if (!result.response.ok) {
+			closeConfirms();
+			errorDialog.show(errorMessage(result.error));
+			return false;
+		}
+		creatorDirty.markPristine();
+		return true;
 	}
 
 	async function saveContent() {
@@ -277,25 +292,19 @@
 
 		try {
 			// 場所を変えると索引が空になり、一覧の表示を使い始めたときは索引がまだ無いので、
-			// 保存に続けてスキャンする (→ docs/archive.md「スキャン」)。
+			// 保存に続けてスキャンする (→ docs/archive.md「スキャン」)。パターンで見えるファイルが増えるときも、
+			// 増えた分が索引に無いので同じ (→ docs/folders.md「見せるものの絞り込み」)。
 			const rescansAfterSave =
 				part === 'specific' &&
 				form.partDirty('specific') &&
 				content.type === 'folder' &&
 				form.listView &&
-				(content.path !== form.path || !content.listView);
-			if (part === 'common' && creatorChanged) {
-				const result = await client.PUT('/api/v1/contents/{id}/creator', {
-					params: { path: { id: content.id } },
-					body: { createdBy: Number(creatorId) }
-				});
-				if (!result.response.ok) {
-					closeConfirms();
-					errorDialog.show(errorMessage(result.error));
-					return;
-				}
-				creatorDirty.markPristine();
-			}
+				(content.path !== form.path ||
+					!content.listView ||
+					(changesVisibleFiles() && (visibilityChange === null || visibilityChange.gained > 0)));
+			// 「作成者のみ」のグループは中身と作成者が揃っている必要があるので、そこから外すときは公開範囲を先に保存する。
+			const creatorLast = content.visibility === 'private' && form.visibility !== 'private';
+			if (part === 'common' && creatorChanged && !creatorLast && !(await saveCreator())) return;
 			if (form.partDirty(part)) {
 				const result = await form.replacePart(content.id, part, content);
 				if (!result.response.ok || !result.data) {
@@ -306,6 +315,11 @@
 					return;
 				}
 				form.loadPart(result.data, canSeeFullPath, part);
+			}
+			if (part === 'common' && creatorChanged && creatorLast && !(await saveCreator())) {
+				// 公開範囲は保存できているので、見出しと一覧は取り直す。
+				await refreshAll();
+				return;
 			}
 			if (rescansAfterSave) {
 				// 続くスキャンの進み具合と中止は、登録の確認の窓か、区画の中に出す。
@@ -341,8 +355,8 @@
 		} finally {
 			savingPart = null;
 			closeConfirms();
+			await resumeNavigationAfterSave();
 		}
-		await resumeNavigationAfterSave();
 	}
 
 	// 保存していない変更を、別の画面へ移って失わないようにする。
