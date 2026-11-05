@@ -10,7 +10,7 @@
 import { client } from '$lib/api/client';
 import type { components } from '$lib/api/schema';
 import { visibilityLabel } from '$lib/content-labels';
-import { isDirectoryContentType } from '$lib/content-types';
+import { isPathContentType } from '$lib/content-types';
 import { FormDirtyState } from '$lib/form-dirty.svelte';
 import { contentPathLabel } from '$lib/root-location';
 import { childrenFitPrivateGroup, effectiveVisibilityUnder } from '$lib/visibility';
@@ -72,6 +72,8 @@ export class ContentFormState {
 	path = $state('');
 	/** `path` の画面での出し方 (→ `$lib/root-location`)。`path` と一緒に変える。 */
 	pathLabel = $state('');
+	/** 選んだ場所がファイルか。種類を選び直しても、選んだ場所に合う種類で作るために持つ。 */
+	pathIsFile = $state(false);
 	/**
 	 * 親グループ。`Select.Root` の制約で値は文字列にする。
 	 * `"root"` はルート直下、それ以外は親 group の id を文字列にしたもの。
@@ -240,6 +242,7 @@ export class ContentFormState {
 		this.url = '';
 		this.path = '';
 		this.pathLabel = '';
+		this.pathIsFile = false;
 		this.parentId = parentId;
 		this.description = '';
 		this.includePatterns = '';
@@ -256,10 +259,17 @@ export class ContentFormState {
 		this.markPristine();
 	}
 
-	/** ピッカーで選んだ場所を入れる。 */
-	choosePath(path: string, label: string): void {
+	/** ピッカーで選んだ場所を入れる。フォルダーかファイルかで種類が決まる (→ docs/folders.md「呼び分け」)。 */
+	choosePath(path: string, label: string, isFile: boolean): void {
 		this.path = path;
 		this.pathLabel = label;
+		this.pathIsFile = isFile;
+		this.type = isFile ? 'shortcut' : 'folder';
+	}
+
+	/** 追加の窓で種類を選ぶ。ショートカットは、選んだ場所がファイルならファイルを指す種類にする。 */
+	chooseType(type: ContentType): void {
+		this.type = type === 'folder' && this.pathIsFile ? 'shortcut' : type;
 	}
 
 	/** 選んだ親グループの id。ルート直下は `null`。 */
@@ -287,7 +297,7 @@ export class ContentFormState {
 			parentId: this.parentIdValue,
 			title: this.title,
 			url: this.type === 'link' ? this.url : null,
-			path: isDirectoryContentType(this.type) ? this.path : null,
+			path: isPathContentType(this.type) ? this.path : null,
 			description: this.description.trim() === '' ? null : this.description,
 			visibility: this.visibility
 		};

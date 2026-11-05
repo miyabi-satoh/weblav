@@ -20,7 +20,7 @@
 		contentFormVisibilityNote
 	} from '$lib/content-form.svelte';
 	import { ancestorPath, byIdMap, flattenTree, selfAndAncestors } from '$lib/content-tree';
-	import { contentTypeIcon, isDirectoryContentType } from '$lib/content-types';
+	import { contentTypeIcon, isDirectoryContentType, isPathContentType } from '$lib/content-types';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import {
 		canHoldContentOf,
@@ -50,6 +50,7 @@
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
+	import { parentPath } from '$lib/path-trail';
 	import { contentViewHref } from '$lib/content-view-href';
 	import {
 		actionColumnClass,
@@ -104,6 +105,7 @@
 
 	// 種別による制限は持たない。ログイン済みなら全部作れる (→ docs/access.md「ロールと操作」)。
 	// ファイルは共有の中に置くので、ここでは作らない。前から登録してある file コンテンツは一覧に残る。
+	// `folder` の行はショートカットとして出す。ピッカーでファイルを選ぶと `shortcut` になる。ライブラリはここに出さない。
 	const creatableTypes: ContentType[] = ['link', 'folder', 'group'];
 
 	// 作成者のユーザーを削除した行は作成者が空になる (→ docs/access.md「ユーザーの削除と作成者」)。
@@ -121,7 +123,8 @@
 	let visibilityNote = $derived(contentFormVisibilityNote(form, contentById));
 	let effectiveFormVisibility = $derived(contentFormEffectiveVisibility(form, contentById));
 
-	// `folder`/`archive` の新規作成では、登録前の確認を常に出す。
+	// フォルダーを指すものの新規作成では、登録前の確認を常に出す。ファイルを指すものは、数えるものが無いので出さない
+	// (見える範囲は追加の窓の公開範囲の欄で分かる)。
 	let needsRegisterConfirm = $derived(isDirectoryContentType(form.type) && form.path !== '');
 
 	const errorDialog = new ErrorDialogState();
@@ -136,8 +139,8 @@
 	function chooseType(type: ContentType) {
 		// 種別を選んだだけでは入力途中として扱わない。外側のクリックで閉じられるようにするため。
 		const wasDirty = form.dirty;
-		form.type = type;
-		// 公開範囲はフォルダーの2段目にしか出ない。戻って別の種別を選んだときに、見えない値を残さない。
+		form.chooseType(type);
+		// 公開範囲は場所を選ぶ種類の2段目にしか出ない。戻って別の種別を選んだときに、見えない値を残さない。
 		if (type !== 'folder') form.visibility = 'public';
 		// 「作成者のみ」のグループの中には「作成者のみ」しか置けない (選択肢もそれだけ)。
 		if (createParent?.visibility === 'private') form.visibility = 'private';
@@ -427,7 +430,7 @@
 								</span>
 							</Table.Cell>
 							<Table.Cell class={[columnFromSmClass, fitColumnClass, 'text-muted-foreground']}>
-								{contentTypeLabel(content.type)}
+								{contentTypeLabel(content.type, content.listView)}
 							</Table.Cell>
 							<Table.Cell class={[columnFromMdClass, cappedColumnClass, 'text-muted-foreground']}>
 								<span class={cappedValueClass}>{parentBreadcrumb(content)}</span>
@@ -563,7 +566,7 @@
 					<LoadingButton
 						type="submit"
 						loading={saving}
-						disabled={isDirectoryContentType(form.type) && form.path === ''}
+						disabled={isPathContentType(form.type) && form.path === ''}
 						>{m.action_add()}</LoadingButton
 					>
 				</Dialog.Footer>
@@ -574,8 +577,9 @@
 
 <DirPicker
 	bind:open={dirPickerOpen}
-	initialPath={form.path}
-	onselect={(path, label) => form.choosePath(path, label)}
+	initialPath={form.pathIsFile ? parentPath(form.path) : form.path}
+	mode="any"
+	onselect={(path, label, isFile) => form.choosePath(path, label, isFile)}
 />
 
 <ConfirmRegister

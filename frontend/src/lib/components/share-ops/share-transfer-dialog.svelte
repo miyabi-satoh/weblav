@@ -72,6 +72,10 @@
 		trash: boolean;
 		listed: ListedAs[];
 	} | null>(null);
+	/** 動かすと開けなくなるショートカット (→ docs/shares.md「場所の付け替え」)。 */
+	let unlinked = $state<ListedAs[]>([]);
+	/** 同じ名前が無くても、開けなくなるものがあれば確かめてから動かす。 */
+	let confirmingMove = $state(false);
 	let busy = $state<OnConflict | 'check' | null>(null);
 	const errorDialog = new ErrorDialogState();
 
@@ -86,7 +90,10 @@
 	let destName = $derived(picked === null ? '' : lastSegment(picked.path, picked.shareName));
 
 	$effect.pre(() => {
-		if (open) conflict = null;
+		if (open) {
+			conflict = null;
+			confirmingMove = false;
+		}
 	});
 
 	function body(onConflict?: OnConflict) {
@@ -109,9 +116,14 @@
 				errorDialog.show(MESSAGES.insufficient_storage());
 				return;
 			}
+			unlinked = checked.unlinked;
 			const first = checked.conflicts[0];
 			if (first !== undefined) {
 				conflict = { entry: first, trash: checked.trash, listed: checked.listed };
+				return;
+			}
+			if (unlinked.length > 0) {
+				confirmingMove = true;
 				return;
 			}
 		} finally {
@@ -138,13 +150,49 @@
 	}
 </script>
 
+{#snippet unlinkedList()}
+	<div class="flex flex-col gap-2 text-sm">
+		<p>{m.shares_move_unlinked_note()}</p>
+		<ul class="list-disc pl-5">
+			{#each unlinked as listed (listed.contentId)}
+				<li class="wrap-anywhere">{listed.title}</li>
+			{/each}
+		</ul>
+	</div>
+{/snippet}
+
 <Dialog.Root bind:open>
 	<Dialog.Content
-		class={conflict === null ? 'flex max-h-4/5 flex-col gap-0 p-0 sm:max-w-lg' : 'sm:max-w-lg'}
+		class={conflict === null && !confirmingMove
+			? 'flex max-h-4/5 flex-col gap-0 p-0 sm:max-w-lg'
+			: 'sm:max-w-lg'}
 		escapeKeydownBehavior={busy !== null ? 'ignore' : 'close'}
 		interactOutsideBehavior={busy !== null ? 'ignore' : 'close'}
 	>
-		{#if conflict === null}
+		{#if confirmingMove}
+			<Dialog.Header>
+				<Dialog.Title>{m.shares_move_unlinked_title({ name: target.name })}</Dialog.Title>
+			</Dialog.Header>
+			<Dialog.Body class="flex flex-col gap-2">
+				{@render unlinkedList()}
+			</Dialog.Body>
+			<Dialog.Footer>
+				<Button
+					type="button"
+					variant="outline"
+					disabled={busy !== null}
+					onclick={() => (open = false)}
+				>
+					{m.action_cancel()}
+				</Button>
+				<LoadingButton
+					type="button"
+					loading={busy === 'rename'}
+					disabled={busy !== null}
+					onclick={() => begin('rename')}>{m.shares_move_submit()}</LoadingButton
+				>
+			</Dialog.Footer>
+		{:else if conflict === null}
 			<Dialog.Header class="border-b p-4 text-left">
 				<Dialog.Title>
 					{op === 'move'
@@ -178,8 +226,16 @@
 					{m.shares_conflict_title({ folder: destName, name: conflict.entry.name })}
 				</Dialog.Title>
 			</Dialog.Header>
+			{#if unlinked.length > 0 && !(picked !== null && accessAtLeast(picked.access, 'all'))}
+				<Dialog.Body class="flex flex-col gap-2">
+					{@render unlinkedList()}
+				</Dialog.Body>
+			{/if}
 			{#if picked !== null && accessAtLeast(picked.access, 'all')}
 				<Dialog.Body class="flex flex-col gap-2">
+					{#if unlinked.length > 0}
+						{@render unlinkedList()}
+					{/if}
 					<p class="text-muted-foreground">
 						{conflict.trash
 							? m.shares_conflict_overwrite_trash({ name: conflict.entry.name })

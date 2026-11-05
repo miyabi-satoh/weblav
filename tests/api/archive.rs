@@ -269,6 +269,7 @@ async fn archive_rescan_indexes_files_recursively(pool: SqlitePool) {
     assert_eq!(result["removed"], 0, "{body}");
     assert_eq!(result["total"], 2, "{body}");
 
+    // 索引はパターンによらない。結果の件数は、見えるものだけを数える。
     let rel_paths = sqlx::query_scalar!(
         "SELECT rel_path FROM archive_items WHERE archive_id = ? ORDER BY rel_path",
         id
@@ -278,7 +279,11 @@ async fn archive_rescan_indexes_files_recursively(pool: SqlitePool) {
     .expect("索引を読めなかった");
     assert_eq!(
         rel_paths,
-        vec!["2024/第1回/listening.mp3", "2024/第1回/script.pdf"]
+        vec![
+            "2024/第1回/listening.mp3",
+            "2024/第1回/script.pdf",
+            "readme.txt"
+        ]
     );
 }
 
@@ -477,9 +482,9 @@ async fn item_count(pool: &SqlitePool, id: i64) -> i64 {
     .expect("索引を数えられなかった")
 }
 
-/// パターンの変更では索引を消さない。対象から外れた行だけが次の走査で消える (→ docs/archive.md「スキャン」)。
+/// 外れたファイルは次の走査でも索引に残す。対象外のタブに並べるため (→ docs/archive.md「スキャン」)。
 #[sqlx::test]
-async fn archive_patterns_change_removes_rows_left_out_at_the_next_scan(pool: SqlitePool) {
+async fn archive_patterns_change_keeps_rows_left_out_at_the_next_scan(pool: SqlitePool) {
     let dir = temp_test_dir("archive-ext-change");
     std::fs::write(dir.join("a.mp3"), b"").expect("ファイルを作れなかった");
     std::fs::write(dir.join("b.pdf"), b"").expect("ファイルを作れなかった");
@@ -502,16 +507,17 @@ async fn archive_patterns_change_removes_rows_left_out_at_the_next_scan(pool: Sq
     let result: serde_json::Value =
         serde_json::from_str(&body).expect("結果をJSONとして読めなかった");
     assert_eq!(result["added"], 0, "{body}");
-    assert_eq!(result["removed"], 1, "{body}");
+    assert_eq!(result["removed"], 0, "{body}");
+    assert_eq!(result["total"], 1, "{body}");
 
     let rel_paths = sqlx::query_scalar!(
-        "SELECT rel_path FROM archive_items WHERE archive_id = ?",
+        "SELECT rel_path FROM archive_items WHERE archive_id = ? ORDER BY rel_path",
         id
     )
     .fetch_all(&pool)
     .await
     .expect("索引を読めなかった");
-    assert_eq!(rel_paths, vec!["a.mp3"]);
+    assert_eq!(rel_paths, vec!["a.mp3", "b.pdf"]);
 }
 
 /// 登録先を変えたら索引を全削除する。`rel_path` の起点が変わるため (→ docs/archive.md「スキャン」)。

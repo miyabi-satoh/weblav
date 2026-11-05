@@ -26,7 +26,7 @@ export type ShareTarget = {
 	/** 共有からの相対パス。 */
 	path: string;
 	isDir: boolean;
-	/** フォルダーのコンテンツとしてホームに載っているか。 */
+	/** ホームに載っているか。 */
 	listed: boolean;
 };
 
@@ -49,7 +49,7 @@ export function canAddTo(access: ShareAccess): boolean {
  * 行の ⋮ に出す操作。押してから断られるものは出さない (→ docs/ui.md「共有の中の画面」)。
  * - 名前の変更・移動・削除は「フルアクセス」の場所だけ。
  * - コピーは読める場所から、足せる共有がどこかにあるときだけ (`copyDestinationExists`)。
- * - ダウンロードはファイルだけ。ホームに載せるのは、まだ載せていないフォルダーだけ。
+ * - ダウンロードはファイルだけ。ホームに載せるのは、まだ載せていないものだけ。
  */
 export function shareRowActions(
 	access: ShareAccess,
@@ -61,7 +61,7 @@ export function shareRowActions(
 	if (all) actions.push('rename', 'move');
 	if (accessAtLeast(access, 'read') && copyDestinationExists) actions.push('copy');
 	if (!target.isDir) actions.push('download');
-	if (target.isDir && !target.listed) actions.push('listOnHome');
+	if (!target.listed) actions.push('listOnHome');
 	if (all) actions.push('delete');
 	return actions;
 }

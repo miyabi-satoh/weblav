@@ -19,6 +19,7 @@ use crate::auth::AuthUser;
 use crate::error::{AppError, AppJson, multipart_error_to_app_error, run_blocking};
 use crate::state::AppState;
 
+use super::browse::ListedAs;
 use super::fsops;
 use super::log::{LoggedPlace, OpRecord, ShareOp, record_or_warn};
 use super::paths::{Resolved, ensure_not_protected, resolve_existing, resolve_parent_for_new};
@@ -386,7 +387,7 @@ async fn rename_share_entry(
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ListOnHomeRequest {
-    /// 載せるフォルダーの、共有からの相対パス。空文字列は共有そのもの。
+    /// 載せるフォルダーかファイルの、共有からの相対パス。空文字列は共有そのもの。
     #[serde(default)]
     path: String,
     /// 公開範囲。省略時は既定値。
@@ -394,8 +395,8 @@ pub struct ListOnHomeRequest {
     visibility: Option<Visibility>,
 }
 
-/// 共有の中のフォルダーを、フォルダーのコンテンツとしてホームに載せる。タイトルはフォルダー名から付ける。
-/// 見られる場所なら載せられる (コンテンツの作成と同じ)。そのフォルダーを自分で戻せる非表示のコンテンツがあれば、
+/// 共有の中のフォルダーかファイルを、それを指すショートカットとしてホームに載せる。タイトルは名前から付ける。
+/// 見られる場所なら載せられる (コンテンツの作成と同じ)。その場所を自分で戻せる非表示のコンテンツがあれば、
 /// 新しく作らずにそれを戻す (→ docs/shares.md「ホームに載せる」)。
 #[utoipa::path(
     post,
@@ -405,8 +406,8 @@ pub struct ListOnHomeRequest {
     responses(
         (status = CREATED, body = AdminContentResponse, description = "載せた"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 404, body = crate::error::ErrorResponse, description = "共有・フォルダーが無い、見られない"),
-        (status = 422, body = crate::error::ErrorResponse, description = "フォルダーでない、公開範囲が合わない"),
+        (status = 404, body = crate::error::ErrorResponse, description = "共有・フォルダー・ファイルが無い、見られない"),
+        (status = 422, body = crate::error::ErrorResponse, description = "公開範囲が合わない"),
     )
 )]
 async fn list_on_home(
@@ -419,7 +420,7 @@ async fn list_on_home(
     require(&dir, ShareAccess::Read)?;
     let path = crate::api::fs::path_to_string(dir.canonical.clone())?;
     let created =
-        crate::api::contents::list_folder_on_home(&state, &user, path, payload.visibility).await?;
+        crate::api::contents::list_path_on_home(&state, &user, path, payload.visibility).await?;
     record_or_warn(
         &state.pool,
         &OpRecord::new(
@@ -432,6 +433,48 @@ async fn list_on_home(
     )
     .await;
     Ok((StatusCode::CREATED, Json(created)))
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RenameCheckRequest {
+    /// 名前を変えるものの、共有からの相対パス。
+    path: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RenameCheckResponse {
+    /// 名前を変えると開けなくなる、ファイルを指すショートカット。追いかけないので、変える前に伝える
+    /// (→ docs/shares.md「場所の付け替え」)。
+    unlinked: Vec<ListedAs>,
+}
+
+/// 名前を変える前の確かめ。何も変えない。
+#[utoipa::path(
+    post,
+    path = "/shares/{id}/rename/check",
+    params(("id" = i64, Path)),
+    request_body = RenameCheckRequest,
+    responses(
+        (status = OK, body = RenameCheckResponse, description = "名前を変える前の確かめ"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "この場所で名前を変えられない"),
+        (status = 404, body = crate::error::ErrorResponse, description = "共有・ファイルが無い、見られない"),
+    )
+)]
+async fn check_rename(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    AppJson(payload): AppJson<RenameCheckRequest>,
+) -> Result<Json<RenameCheckResponse>, AppError> {
+    let entry = resolve_existing(&state, &user, id, &payload.path).await?;
+    require(&entry, ShareAccess::All)?;
+    let unlinked =
+        super::transfer::shortcuts_under(&state, &user, std::slice::from_ref(&entry.canonical))
+            .await?;
+    Ok(Json(RenameCheckResponse { unlinked }))
 }
 
 /// `max_upload_bytes` は1つのファイルの上限。要求の大きさの上限は、それに multipart の区切りの分を足す。
@@ -450,6 +493,7 @@ pub(super) fn router(max_upload_bytes: Option<u64>) -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(create_share_folder))
         .routes(routes!(rename_share_entry))
+        .routes(routes!(check_rename))
         .routes(routes!(list_on_home))
         .merge(upload_routes)
 }

@@ -4,15 +4,16 @@
 
 | What you want to show | Type |
 |---|---|
-| A folder on your computer. You can also organize it as a library filterable by year or session | Folder (for the library → [Set up a library](07-archive-setup.md)) |
-| An external website | Link |
+| A folder or file on your computer | Shortcut |
+| A list filterable by year or session | Library (create a shortcut, then switch it → [Set up a library](07-archive-setup.md)) |
+| The URL of an external site | Link |
 | A collection of items | Group |
 
-You can choose folders only from “Shares” (→ [Add shares](04-shares.md)).
-To show files, upload them into a share, then register the folder that holds them (→ [Work with files in shares](05-files.md)).
+Shortcuts can only point inside “Shares” (→ [Add shares](04-shares.md)).
+They also let you organize things differently in groups without moving the actual files. To show files you have at hand, upload them into a share first (→ [Work with files in shares](05-files.md)).
 Only items registered here appear for viewers.
 
-![How folders on the computer relate to the viewer's screen: add "学校" (School) as a share, then register "教材" (Teaching materials) and "英検" (EIKEN) inside it as folders. Only those two appear for viewers. Unregistered "下書き" (Drafts) and "家計簿" (Household accounts) outside the share do not appear.](images/how-it-works.webp)
+![How folders on the computer relate to the viewer's screen: add "学校" (School) as a share, then register "教材" (Teaching materials) and "英検" (EIKEN) inside it as shortcuts. Only those two appear for viewers. Unregistered "下書き" (Drafts) and "家計簿" (Household accounts) outside the share do not appear.](images/how-it-works.webp)
 
 Titles are assigned automatically. To change one, use the edit page that opens after registration.
 
@@ -28,23 +29,33 @@ Titles are assigned automatically. To change one, use the edit page that opens a
 
 The remaining steps differ by type.
 
-## Folder
+## Shortcut
 
 1. Select “Choose...”.
 
-   ![The Add folder screen](images/add-folder-form.webp)
+   ![The Add shortcut screen](images/add-folder-form.webp)
 
-2. Browse from a share to the folder you want to show, then select “Use this folder”.
+2. Browse from a share. For a folder, open it and select “Use this folder”. For a file, select it and then select “Use this file”.
 
-   ![The folder selection screen](images/add-folder-picker.webp)
+   ![The screen for choosing a folder or file](images/add-folder-picker.webp)
 
-3. Select “Register”.
+3. Select “Add”. If you chose a folder, select “Register” in the confirmation.
 
-   ![The Add screen after choosing a folder](images/add-folder-ready.webp)
+   ![The Add screen after choosing a location](images/add-folder-ready.webp)
+
+You can also create one with “List on Home...” in the “⋮” menu of a folder or file row on the share screen (→ [Work with files in shares](05-files.md)).
+
+### Shortcuts to a file
+
+These open the same way as files in a list (→ [View files](08-viewing.md)). Images, PDFs, videos, text, and Office documents open in the viewer on the page, audio plays in the row's player, and files whose names end with `.links.toml` open as a list of links. Other kinds of files download. You can step between the files in the same list, and audio can play continuously.
+
+A shortcut does not follow its file. If the file is moved, renamed, or deleted, the row stays, and opening it shows “The file was not found.” Choose the file again with “Change...” under “Path” on the edit page.
+
+Shortcuts to a file have no pattern fields and cannot become libraries.
 
 ### Limit what you show
 
-By default, everything in a folder is visible. To limit what you show, use “Include patterns” and “Exclude patterns” under “Location and display”. Select “Edit...”, write one pattern per line, select “Use these patterns”, then select “Save” in that section.
+By default, everything in a folder that a shortcut points to is visible. To limit what you show, use “Include patterns” and “Exclude patterns” under “Location and display”. Select “Edit...”, write one pattern per line, select “Use these patterns”, then select “Save” in that section.
 
 - `*.pdf`: files with a matching name at any level
 - `backup/`: folders with that name at any level
@@ -56,7 +67,7 @@ When saving patterns would make more or fewer files visible, the counts appear b
 
 ## Link
 
-1. Enter the URL, then select “Register”.
+1. Enter the URL, then select “Add”.
 
    ![The Add link screen](images/add-link.webp)
 
@@ -77,7 +88,7 @@ note = "A description shown under the link (optional)"
 
 ## Group
 
-1. Enter a title, then select “Register”.
+1. Enter a title, then select “Add”.
 
    ![The Add group screen](images/add-group.webp)
 
@@ -145,7 +156,7 @@ To see how it looks to viewers, select “View on site” next to the heading of
 - Title and description
 - Link: Use “Refetch title” and “Refetch description” to fetch them again from the linked site.
 - File (registered in an earlier version): You can change the title and other details, but you cannot replace the file. To change its contents, put the file in a share again.
-- Folder: “Include patterns”, “Exclude patterns” (→ “Limit what you show” above) and “Organize as a library” (→ [Set up a library](07-archive-setup.md)). Neither is asked when you add a folder, so change them here.
+- Shortcut to a folder: “Include patterns”, “Exclude patterns” (→ “Limit what you show” above) and “Organize as a library” (→ [Set up a library](07-archive-setup.md)). Neither is asked when you add a folder, so change them here.
   - Changing the location with “Change...” under “Path” clears the list.
 
 ## Delete
@@ -160,5 +171,5 @@ To see how it looks to viewers, select “View on site” next to the heading of
 
 You can also delete from the edit page: select “⋮” next to the heading, then choose “Delete...”. After deleting, you return to the list.
 
-- Deleting a folder does not delete files on your computer.
+- Deleting a shortcut or library does not delete files on your computer.
 - Deleting a group moves its contents out of the group, to the top level.

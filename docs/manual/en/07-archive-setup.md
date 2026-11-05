@@ -1,5 +1,9 @@
 # Set up a library
 
+A library shows the files in a folder in one list that people can filter by “Year”, “Session”, or similar categories.
+
+Libraries are not offered in the Add dialog. Create a shortcut to a folder, then switch it on its edit page. Switching does not change what is visible, and you can switch back.
+
 A folder can be viewed in two ways.
 
 - Folder: Browse the folders on the computer as they are. This is always available.
@@ -23,16 +27,16 @@ Recordings
 └─ 2025
 ```
 
-1. In “Contents”, select “Folder” from “Add content...”, then select “Choose...”.
+1. In “Contents”, select “Shortcut” from “Add content...”, then select “Choose...”.
 
-   ![The Add folder screen](images/add-folder-form.webp)
+   ![The Add shortcut screen](images/add-folder-form.webp)
 
 2. Open the `Recordings` folder, then select “Use this folder”.
 
    ![The folder picker with Recordings open](images/add-archive-picker.webp)
 
-3. Select “Register”. The folder's edit page opens.
-4. On the “Settings” tab, turn on “Organize as a library” under “Location and display”, then select “Save” in that section. The folder is scanned right away, and the progress appears next to the button.
+3. Select “Add”, then select “Register” in the confirmation. The shortcut's edit page opens.
+4. On the “Settings” tab, turn on “Organize as a library” under “Location and display”, then select “Save” in that section. The folder is scanned right away, and the progress appears next to the button. The type changes to “Library”.
 
    ![The Organize as a library switch](images/folder-list-view.webp)
 5. Select the “Categories” tab, then select “Add category...”.
@@ -54,7 +58,7 @@ Recordings
 
 To narrow down what appears, write include or exclude patterns on the “Settings” tab, or put only the files to show in a separate folder and register that (→ [Register contents](06-register-content.md)).
 
-The “Categories” and “Items” tabs appear only when the folder is organized as a library.
+The “Categories” and “Items” tabs appear only for a library. People who can change it also see the “Excluded” tab.
 
 ## Separate by words in file names
 
@@ -85,7 +89,24 @@ As with folder-level categories, you can change the display names (such as `06` 
 
 ## Limit the files in the list
 
-Use “Include patterns” (for example, `*.mp3`) and “Exclude patterns” on the “Settings” tab to limit the files you show (→ [Register content](06-register-content.md)). Changes apply as soon as you save. If more files become visible in the library list, a rescan runs right after saving.
+Use “Include patterns” (for example, `*.mp3`) and “Exclude patterns” on the “Settings” tab to limit the files you show (→ [Register content](06-register-content.md)). Changes apply as soon as you save. You don't need to rescan, even after removing an exclude pattern.
+
+### Check the files left out
+
+The “Excluded” tab lists, by path, the files that patterns leave out of the viewer's screen. “Filter by name” matches the path here. The files don't open from this tab; check their contents on the share screen. Files whose names start with a dot and symbolic links are not listed.
+
+A file left out by an exclude pattern comes back when you remove that line on the “Settings” tab. A file that matches no include pattern comes back when you add it to the include patterns.
+
+### Add a pattern from the filter
+
+When you type in “Filter by name” on the “Items” or “Excluded” tab, “Add to patterns...” appears.
+
+1. Select “Add to patterns...”.
+2. Choose where to add it (“Exclude” or “Include”).
+3. Edit the pattern made from your words if needed (`jpg` becomes `*jpg*`, and `english 2024` becomes `*english*2024*`).
+4. Check the counts, then select “Add”. It is saved right away.
+
+“Filter by name” also matches titles, while patterns match paths, so a pattern may match nothing. The counts in the dialog show this, and “Add” can't be selected when the visible files would not change.
 
 ## Ask an AI
 
@@ -122,11 +143,9 @@ When the list is opened, only the folders whose contents changed since the last 
 
 When you change a file's contents (for example, replace a photo with one of the same name), a rescan picks it up.
 
-1. On the folder's edit page, select “Rescan” on the “Items” tab.
+1. On the library's edit page, select “Rescan” to the right of the heading (on a phone, it is in the “⋮” menu to the right of the heading).
 
-   ![The Rescan button on the Items tab](images/archive-items-tab.webp)
-
-   With many files this takes a while, and the progress and the elapsed time appear next to the button. The scan finishes even if you close the page. To stop it, select “Stop”. Once reading has started, the files read so far are added to the list, and the next scan picks up where it left off.
+   With many files this takes a while, and the progress and the elapsed time appear below the heading. The scan finishes even if you close the page. To stop it, select “Stop”. Once reading has started, the files read so far are added to the list, and the next scan picks up where it left off.
 
 To rescan automatically, choose “When … have passed since the last scan” or “Every day after …” in “Automatic rescan” on the “Settings” tab, and enter the hours or the time. A time at night, when few people use the NAS, keeps the scan out of their way.
 

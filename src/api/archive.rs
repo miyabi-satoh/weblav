@@ -47,35 +47,47 @@ pub(super) fn file_stem(rel_path: &str) -> &str {
         .unwrap_or_default()
 }
 
-/// アーカイブの全アイテムの `rel_path`。並びは保証しない。
+/// アーカイブの見えるアイテムの `rel_path`。並びは保証しない。
+/// 索引にはパターンで外れるファイルも入っているので、読むときに外す (→ docs/archive.md「見せるアイテム」)。
 pub(super) async fn load_item_rel_paths(
     pool: &sqlx::SqlitePool,
     archive_id: i64,
 ) -> Result<Vec<String>, AppError> {
+    let filter = super::file_filter::FileFilter::load(pool, archive_id).await?;
     let rel_paths = sqlx::query_scalar!(
         "SELECT rel_path FROM archive_items WHERE archive_id = ?",
         archive_id
     )
     .fetch_all(pool)
     .await?;
-    Ok(rel_paths)
+    run_blocking(move || {
+        rel_paths
+            .into_iter()
+            .filter(|rel| filter.allows_file(rel))
+            .collect()
+    })
+    .await
 }
 
-/// アイテムの相対パスと、日付の軸が使う日付 (`dated_at`)。
+/// 見えるアイテムの相対パスと、日付の軸が使う日付 (`dated_at`)。
 pub(super) async fn load_item_facts(
     pool: &sqlx::SqlitePool,
     archive_id: i64,
 ) -> Result<Vec<(String, Option<i64>)>, AppError> {
+    let filter = super::file_filter::FileFilter::load(pool, archive_id).await?;
     let rows = sqlx::query!(
         "SELECT rel_path, taken_at, modified_ns FROM archive_items WHERE archive_id = ?",
         archive_id
     )
     .fetch_all(pool)
     .await?;
-    Ok(rows
-        .into_iter()
-        .map(|row| (row.rel_path, dated_at(row.taken_at, row.modified_ns)))
-        .collect())
+    run_blocking(move || {
+        rows.into_iter()
+            .filter(|row| filter.allows_file(&row.rel_path))
+            .map(|row| (row.rel_path, dated_at(row.taken_at, row.modified_ns)))
+            .collect()
+    })
+    .await
 }
 
 /// 軸の値を導くのに使う、アイテム1件の手掛かり。
@@ -397,6 +409,7 @@ async fn scan_and_sync(
     let known = load_known_files(&state.pool, id).await?;
     let scan_root = archive.path.clone();
     let own_dirs = state.own_dirs.clone();
+    let scan_filter = filter.clone();
     let reader_progress = std::sync::Arc::clone(&progress);
     let items = run_blocking(move || {
         let progress = reader_progress;
@@ -411,10 +424,11 @@ async fn scan_and_sync(
         // 「共有」の外は再走査でも拒む (理由は `contents::resolve_path` と同じ)。
         let root = super::fs::canonical_dir_within_roots(&scan_root, &roots, &own_dirs)?;
         // 索引する件数では断らない (→ docs/archive.md「件数の上限」)。
+        // パターンでは絞らない。見せるかは読むときに決める (→ docs/archive.md「スキャン」)。
         let result = super::fs::scan_files_until(
             &root,
             "",
-            &filter,
+            &super::file_filter::FileFilter::default(),
             scan_limit.unwrap_or(usize::MAX),
             usize::MAX,
             &own_dirs,
@@ -430,28 +444,48 @@ async fn scan_and_sync(
                 "too many entries to scan automatically".to_string(),
             ));
         }
-        // 読めなかった分は同期しない (→ docs/archive.md「スキャン」)。
-        if let Some(path) = result.unreadable {
+        // 見せる場所が読めなければ同期しない (→ docs/archive.md「スキャン」)。除外した場所は読めなくても続け、行はそのまま残す。
+        if let Some(path) = result
+            .unreadable
+            .iter()
+            .find(|rel| scan_filter.allows_dir(rel))
+        {
             return Err(AppError::ValidationDetailed {
                 message: "some folders could not be read".to_string(),
-                detail: ValidationDetail::ArchiveFolderUnreadable { path },
+                detail: ValidationDetail::ArchiveFolderUnreadable { path: path.clone() },
             });
         }
         let (items, complete) = read_items(&root, result.rel_paths, &known, &progress);
-        Ok(Some((items, complete, result.dirs)))
+        Ok(Some((items, complete, result.dirs, result.unreadable)))
     })
     .await??;
-    let Some((items, complete, dirs)) = items else {
-        return cancelled_before_reading(&state.pool, id).await;
+    let Some((items, complete, dirs, kept_dirs)) = items else {
+        return cancelled_before_reading(&state.pool, id, &filter).await;
     };
 
     // 読み終える前の中止では、読まなかったファイルを「消えた」と見なさないよう同期しない。
     // 読んだ分は残し、次のスキャンが読み直さずに済むようにする (→ docs/archive.md「スキャンの中止」)。
     // 読み終えた後に届いた中止は無視する。全部読めているので、同期した方が正しい索引になるため。
     if !complete {
-        return save_read_items(&state.pool, id, &archive.path, &items).await;
+        return save_read_items(&state.pool, id, &archive.path, &items, &filter).await;
     }
-    sync_items(state, id, &archive.path, &items, &dirs).await
+    sync_items(state, id, &archive.path, &items, &dirs, &kept_dirs, &filter).await
+}
+
+/// `rel` が `dirs` のどれかの中か。
+fn is_inside_any(rel: &str, dirs: &[String]) -> bool {
+    dirs.iter().any(|dir| {
+        rel.strip_prefix(dir.as_str())
+            .is_some_and(|rest| rest.starts_with('/'))
+    })
+}
+
+/// `rel_paths` のうち、絞り込みで見えるものの数。再スキャンの結果の件数は、見出しの件数と同じく見えるものだけを数える。
+fn visible_count<'a>(
+    rel_paths: impl Iterator<Item = &'a str>,
+    filter: &super::file_filter::FileFilter,
+) -> usize {
+    rel_paths.filter(|rel| filter.allows_file(rel)).count()
 }
 
 /// 索引の読み方の版。読み方を変えたら上げ、古い版で読んだ行を、変わっていなくても読み直す。
@@ -563,6 +597,8 @@ async fn sync_items(
     scanned_path: &str,
     items: &[ScannedItem],
     dirs: &[(String, Option<i64>)],
+    kept_dirs: &[String],
+    filter: &super::file_filter::FileFilter,
 ) -> Result<Json<RescanResponse>, AppError> {
     let mut tx = crate::db::begin_write(&state.pool).await?;
 
@@ -586,10 +622,19 @@ async fn sync_items(
     .collect();
     let found: HashSet<&str> = items.iter().map(|item| item.rel_path.as_str()).collect();
 
-    let added = write_items(&mut tx, id, items, &existing).await?;
+    write_items(&mut tx, id, items, &existing).await?;
 
-    let mut removed = 0;
-    for rel_path in existing.iter().filter(|rel| !found.contains(rel.as_str())) {
+    let added = visible_count(
+        found.iter().copied().filter(|rel| !existing.contains(*rel)),
+        filter,
+    );
+    // 読めなかった除外の場所の行は、見つからなくても消えたとは言えないので残す。
+    let gone: Vec<&String> = existing
+        .iter()
+        .filter(|rel| !found.contains(rel.as_str()) && !is_inside_any(rel, kept_dirs))
+        .collect();
+    let removed = visible_count(gone.iter().map(|rel| rel.as_str()), filter);
+    for rel_path in gone {
         // 墓標は残さない (→ docs/archive.md「スキャン」)。
         sqlx::query!(
             "DELETE FROM archive_items WHERE archive_id = ? AND rel_path = ?",
@@ -598,7 +643,6 @@ async fn sync_items(
         )
         .execute(&mut *tx)
         .await?;
-        removed += 1;
     }
 
     replace_dirs(&mut tx, id, dirs).await?;
@@ -614,7 +658,7 @@ async fn sync_items(
     Ok(Json(RescanResponse {
         added,
         removed,
-        total: items.len(),
+        total: visible_count(found.iter().copied(), filter),
         cancelled: false,
     }))
 }
@@ -623,17 +667,18 @@ async fn sync_items(
 async fn cancelled_before_reading(
     pool: &sqlx::SqlitePool,
     id: i64,
+    filter: &super::file_filter::FileFilter,
 ) -> Result<Json<RescanResponse>, AppError> {
-    let total = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) as "count!: i64" FROM archive_items WHERE archive_id = ?"#,
+    let rel_paths = sqlx::query_scalar!(
+        "SELECT rel_path FROM archive_items WHERE archive_id = ?",
         id
     )
-    .fetch_one(pool)
+    .fetch_all(pool)
     .await?;
     Ok(Json(RescanResponse {
         added: 0,
         removed: 0,
-        total: usize::try_from(total).unwrap_or_default(),
+        total: visible_count(rel_paths.iter().map(String::as_str), filter),
         cancelled: true,
     }))
 }
@@ -645,6 +690,7 @@ async fn save_read_items(
     id: i64,
     scanned_path: &str,
     items: &[ScannedItem],
+    filter: &super::file_filter::FileFilter,
 ) -> Result<Json<RescanResponse>, AppError> {
     let mut tx = crate::db::begin_write(pool).await?;
     let current_path = sqlx::query_scalar!("SELECT path FROM contents WHERE id = ?", id)
@@ -669,24 +715,29 @@ async fn save_read_items(
         .iter()
         .filter(|item| item.file.is_some() || existing.contains(&item.rel_path))
         .collect();
-    let added = write_items(&mut tx, id, read, &existing).await?;
+    let added = visible_count(
+        read.iter()
+            .map(|item| item.rel_path.as_str())
+            .filter(|rel| !existing.contains(*rel)),
+        filter,
+    );
+    write_items(&mut tx, id, read, &existing).await?;
     tx.commit().await?;
     Ok(Json(RescanResponse {
         added,
         removed: 0,
-        total: existing.len() + added,
+        total: visible_count(existing.iter().map(String::as_str), filter) + added,
         cancelled: true,
     }))
 }
 
-/// 読んだファイルを索引に書く。新しいものは足し、既にあるものは読み直した値で書き換える。足した件数を返す。
+/// 読んだファイルを索引に書く。新しいものは足し、既にあるものは読み直した値で書き換える。
 async fn write_items<'a>(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     id: i64,
     items: impl IntoIterator<Item = &'a ScannedItem>,
     existing: &HashSet<String>,
-) -> Result<usize, AppError> {
-    let mut added = 0;
+) -> Result<(), AppError> {
     for item in items {
         let rel_path = item.rel_path.as_str();
         let file = item.file.as_ref();
@@ -738,9 +789,8 @@ async fn write_items<'a>(
         )
         .execute(&mut **tx)
         .await?;
-        added += 1;
     }
-    Ok(added)
+    Ok(())
 }
 
 /// 自動の再スキャンの時刻を見回る間隔。選べる間隔の最短 (1時間) と時刻の刻み (1分) に合わせ、遅れを小さくする。
@@ -909,25 +959,26 @@ fn find_dir_changes(
 ) -> DirChanges {
     let mut changes = DirChanges::default();
     for (rel, modified_ns) in known {
-        // 覚えた後で除外したフォルダーは読まない。行は次の再スキャンで外れる。
-        if !rel.is_empty() && !filter.allows_dir(rel) {
-            continue;
-        }
         let path = if rel.is_empty() {
             root.to_path_buf()
         } else {
             root.join(rel)
         };
-        let Ok(metadata) = std::fs::metadata(&path) else {
-            changes.removed_dirs.push(rel.clone());
-            continue;
+        let metadata = match std::fs::metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                changes.removed_dirs.push(rel.clone());
+                continue;
+            }
+            // 読めないだけでは消えたとは言えない (上のフォルダーの権限を落とした NAS など)。行を残す。
+            Err(_) => continue,
         };
         let now = super::fs::dir_modified_ns(&metadata);
         if now == *modified_ns {
             continue;
         }
         // 読めなければ、次の回か再スキャンに任せる。
-        let Ok((files, subdirs)) = super::fs::list_dir_shallow(root, rel, filter, own_dirs) else {
+        let Ok((files, subdirs)) = super::fs::list_dir_shallow(root, rel, own_dirs) else {
             continue;
         };
         for (subdir, sub_modified) in subdirs {
@@ -939,12 +990,20 @@ fn find_dir_changes(
             let result = super::fs::scan_files(
                 &root.join(&subdir),
                 &subdir,
-                filter,
+                &super::file_filter::FileFilter::default(),
                 super::fs::SCAN_LIMIT,
                 usize::MAX,
                 own_dirs,
             );
-            if result.truncated || result.unreadable.is_some() {
+            // 読めない場所が除外の中だけなら、再スキャンと同じく続ける。
+            let unreadable_shown = result.unreadable.iter().any(|inner| {
+                if inner.is_empty() {
+                    filter.allows_dir(&subdir)
+                } else {
+                    filter.allows_dir(&format!("{subdir}/{inner}"))
+                }
+            });
+            if result.truncated || unreadable_shown {
                 continue;
             }
             changes.new_dirs.push((subdir.clone(), sub_modified));
@@ -1812,9 +1871,15 @@ mod tests {
             },
         ];
 
-        let Json(result) = save_read_items(&pool, id, "/f", &items)
-            .await
-            .expect("読んだ分を書けるはず");
+        let Json(result) = save_read_items(
+            &pool,
+            id,
+            "/f",
+            &items,
+            &crate::api::file_filter::FileFilter::default(),
+        )
+        .await
+        .expect("読んだ分を書けるはず");
         assert!(result.cancelled);
         assert_eq!((result.added, result.removed, result.total), (1, 0, 3));
 

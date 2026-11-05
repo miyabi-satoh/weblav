@@ -811,12 +811,14 @@
 	// 表示タイトルのテンプレート。書き込み可能な$derivedにし、bind:valueでの編集はローカルに
 	// 保持しつつ、currentContentが更新された(軸のリネームやテンプレート保存の成功)
 	// タイミングでは自動的にサーバー値へ再同期される。
-	let titleTemplateInput = $derived(currentContent.titleTemplate ?? '');
+	// 保存済みの文字列が変わったときだけ同期する。見出しの段の再スキャンが一覧を取り直しても、打っている値を消さないため。
+	let savedTitleTemplate = $derived(currentContent.titleTemplate ?? '');
+	let titleTemplateInput = $derived(savedTitleTemplate);
 	// dirty判定は他のフォームと同じくFormDirtyStateに揃える(→ AGENTS.md「コードの規約」)。
 	// currentContentの更新 (再同期) のたびに基準値を引き直す。
 	const templateForm = new FormDirtyState(() => ({ titleTemplate: titleTemplateInput }));
 	$effect(() => {
-		void currentContent;
+		void savedTitleTemplate;
 		// markPristine() 内で titleTemplateInput を読むため、untrack しないと
 		// 入力するたびに effect が再実行され、常に pristine 扱いになってしまう。
 		untrack(() => templateForm.markPristine());
@@ -906,19 +908,6 @@
 	>
 		<GripVerticalIcon class="size-4" />
 	</span>
-{/snippet}
-
-<!-- アイテムが無いときの案内と、再スキャンできる「アイテム」タブへのリンク (軸のダイアログと値の辞書で共通)。 -->
-{#snippet noItemsNotice(message: string)}
-	<div class="flex flex-col">
-		<p class="text-sm text-muted-foreground">{message}</p>
-		<a
-			href={resolve('/admin/contents/[id]/items', { id: String(data.contentId) })}
-			class="inline-flex h-11 w-fit items-center text-sm text-primary underline underline-offset-4"
-		>
-			{m.archive_axes_items_link()}
-		</a>
-	</div>
 {/snippet}
 
 {#snippet matchPositionSelect(row: AxisValueRow, index: number)}
@@ -1168,7 +1157,7 @@
 					</div>
 
 					{#if archiveHasNoItems}
-						{@render noItemsNotice(m.archive_axes_values_no_items())}
+						<p class="text-sm text-muted-foreground">{m.archive_axes_values_no_items()}</p>
 					{:else if axis.source === 'filenameWord' && editable}
 						<!-- 表を埋める手がかりなので、枠で囲って表と見分ける (→ docs/ui.md「UI 全般」の「余白と区切り」)。 -->
 						<section
@@ -1601,7 +1590,9 @@
 									{m.archive_axes_dialog_dir_level_fetch_failed()}
 								</p>
 							{:else}
-								{@render noItemsNotice(m.archive_axes_dialog_dir_level_no_items())}
+								<p class="text-sm text-muted-foreground">
+									{m.archive_axes_dialog_dir_level_no_items()}
+								</p>
 							{/if}
 							<Field.Field>
 								<Field.FieldLabel for="axis-dir-level" required>

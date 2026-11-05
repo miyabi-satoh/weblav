@@ -6,12 +6,12 @@ const dir = { isDir: true, listed: false };
 
 describe('shareRowActions', () => {
 	it('offers only reading actions where the viewer can only read', () => {
-		expect(shareRowActions('read', file, true)).toEqual(['copy', 'download']);
+		expect(shareRowActions('read', file, true)).toEqual(['copy', 'download', 'listOnHome']);
 		expect(shareRowActions('read', dir, true)).toEqual(['copy', 'listOnHome']);
 	});
 
 	it('does not offer rename, move or delete where the viewer can only add', () => {
-		expect(shareRowActions('add', file, true)).toEqual(['copy', 'download']);
+		expect(shareRowActions('add', file, true)).toEqual(['copy', 'download', 'listOnHome']);
 	});
 
 	it('offers every action where the viewer can do everything', () => {
@@ -20,6 +20,7 @@ describe('shareRowActions', () => {
 			'move',
 			'copy',
 			'download',
+			'listOnHome',
 			'delete'
 		]);
 		expect(shareRowActions('all', dir, true)).toEqual([
@@ -37,6 +38,10 @@ describe('shareRowActions', () => {
 
 	it('does not offer listing a folder that is already listed', () => {
 		expect(shareRowActions('read', { isDir: true, listed: true }, true)).toEqual(['copy']);
+		expect(shareRowActions('read', { isDir: false, listed: true }, true)).toEqual([
+			'copy',
+			'download'
+		]);
 	});
 });
 

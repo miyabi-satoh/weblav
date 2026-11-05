@@ -133,7 +133,7 @@ id は連番なので、匿名に何かがあると分かること自体の害�
 | コンテンツの編集・削除 | `AuthUser` + `ensure_editable` (下記) |
 | 一覧の行からの公開範囲の変更・非表示から戻す | `AuthUser` + `ensure_editable` (→ 「非表示のコンテンツ」) |
 | 非表示のコンテンツの一覧 | `AuthUser` (`admin` には全部、ほかの人には自分が作成者のもの) |
-| 再スキャン・見せるものの絞り込みの変更の確認 | `AuthUser` + `ensure_editable` |
+| 再スキャン・見せるものの絞り込みの変更の確認・対象外のタブの一覧 | `AuthUser` + `ensure_editable` |
 | 軸 (追加・削除・抽出元・並び順・値の辞書)・表示タイトルのテンプレート (`title_template`) | `AuthUser` + `ensure_editable` |
 | コンテンツの `visibility` の変更 | `AuthUser` + ハンドラ内で判定 (下記) |
 | 作成者 (`created_by`) の付け替え | `AdminUser` (下記) |

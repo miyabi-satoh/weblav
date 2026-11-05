@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\", title, path as \"path!\", visibility as \"visibility: Visibility\", created_by\n           FROM contents WHERE type = 'folder' AND path IS NOT NULL ORDER BY id",
+  "query": "SELECT id as \"id!\", title, path as \"path!\", visibility as \"visibility: Visibility\", created_by\n               FROM contents WHERE type IN ('folder', 'shortcut') AND path IS NOT NULL ORDER BY id",
   "describe": {
     "columns": [
       {
@@ -40,5 +40,5 @@
       true
     ]
   },
-  "hash": "ba32f103c494a9a68529e899000be7d67dd478e267557b26ca66b9f3ca209d6a"
+  "hash": "01c3fa9620606aa7340b4a234ac97ae629b7233a0ea19ed61912cb61e7afc08d"
 }

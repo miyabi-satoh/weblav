@@ -650,7 +650,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * 管理画面からの、相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。絞り込みは当てない。
+         * 管理画面からの、相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。絞り込みは当てる。
          *     管理画面の Markdown のプレビューが使う。
          */
         get: operations["manage_download_item_by_path"];
@@ -893,6 +893,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contents/{id}/excluded-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 対象外のタブの一覧の、最初の区切り。パターンで外れるファイルを、パスの順に返す (→ docs/ui.md「対象外のタブ」)。
+         *     書き換えられる人にだけ見せる。パターンを直す人のためのもので、見る人には存在を伏せるため。
+         */
+        get: operations["excluded_items"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/{id}/excluded-items/page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 対象外のタブの一覧の、区切りの続き。 */
+        get: operations["excluded_items_page"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contents/{id}/filename-words": {
         parameters: {
             query?: never;
@@ -962,7 +999,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * 管理画面からのアイテムの配信 (→ docs/archive.md「アイテムの配信」)。絞り込みは当てない。
+         * 管理画面からのアイテムの配信 (→ docs/archive.md「アイテムの配信」)。絞り込みは閲覧の口と同じく当てる。
          *     閲覧用の `download_item` の判定とは混ぜず、管理の権限で別に判定する。
          */
         get: operations["manage_download_item"];
@@ -1698,8 +1735,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * 共有の中のフォルダーを、フォルダーのコンテンツとしてホームに載せる。タイトルはフォルダー名から付ける。
-         *     見られる場所なら載せられる (コンテンツの作成と同じ)。そのフォルダーを自分で戻せる非表示のコンテンツがあれば、
+         * 共有の中のフォルダーかファイルを、それを指すショートカットとしてホームに載せる。タイトルは名前から付ける。
+         *     見られる場所なら載せられる (コンテンツの作成と同じ)。その場所を自分で戻せる非表示のコンテンツがあれば、
          *     新しく作らずにそれを戻す (→ docs/shares.md「ホームに載せる」)。
          */
         post: operations["list_on_home"];
@@ -1723,6 +1760,23 @@ export interface paths {
          *     共有そのものと、中に別の共有を含むフォルダーは変えられない。
          */
         post: operations["rename_share_entry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{id}/rename/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 名前を変える前の確かめ。何も変えない。 */
+        post: operations["check_rename"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1806,7 +1860,7 @@ export interface components {
             description?: string | null;
             /** @description `type = 'folder'` で隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。 */
             excludePatterns?: string | null;
-            /** @description `type = 'file'` の場合のみ`Some`。`blob_hash`(内部実装detail)は含めない。 */
+            /** @description `type = 'file'` と `type = 'shortcut'` の場合のみ`Some`。`blob_hash`(内部実装detail)は含めない。 */
             fileName?: string | null;
             /** Format: int64 */
             fileSize?: number | null;
@@ -2104,6 +2158,11 @@ export interface components {
              *     `image` と同じく、一覧でだけ埋める。
              */
             isText: boolean;
+            /**
+             * @description ショートカットの先のファイルが無い。行は残し、開くと「見つかりません」になる。
+             *     つながらない NAS は無いと決められないので、偽のまま。一覧でだけ埋める。
+             */
+            missing: boolean;
             private: boolean;
             /** @description 行に縮小画像を出してみるか (→ docs/ui.md「画像のプレビュー」)。一覧でだけ埋める。 */
             thumbnail: boolean;
@@ -2125,7 +2184,7 @@ export interface components {
          *     `Serialize`/`Deserialize`/`ToSchema` も併せて持つ(`auth::Role` と同じ書き方)。
          * @enum {string}
          */
-        ContentType: "link" | "folder" | "file" | "group";
+        ContentType: "link" | "folder" | "file" | "group" | "shortcut";
         CountResponse: {
             /** @description 数え上げたファイル数。`truncated` が `true` なら下限値。 */
             count: number;
@@ -2194,7 +2253,7 @@ export interface components {
         };
         DeleteCheckResponse: {
             /**
-             * @description 消すと開けなくなる、フォルダーのコンテンツ (登録先が、消すものかその中)。
+             * @description 消すと開けなくなるコンテンツ (フォルダーの登録先かショートカットの先が、消すものかその中)。
              *     見ている人の管理画面の一覧に出ないもの (他人の「作成者のみ」) は含めない。
              */
             listed: components["schemas"]["ListedAs"][];
@@ -2236,6 +2295,8 @@ export interface components {
         };
         DirsResponse: {
             entries: components["schemas"]["DirEntryItem"][];
+            /** @description 直下のファイル。`files` を頼んだときだけ。フォルダーの `entries` とは分けて返す。 */
+            files: components["schemas"]["DirEntryItem"][];
             /**
              * @description 1つ上の階層。上位の一覧では `None`。登録済みの「共有」そのものからは
              *     空文字列 (= 上位の一覧) へ戻る。
@@ -2272,6 +2333,28 @@ export interface components {
          */
         ErrorResponse: {
             error: components["schemas"]["ErrorBody"];
+        };
+        /** @description 対象外のタブの1行。パスだけを見せる。開く口は無く、中身は共有の画面で確かめる (→ docs/ui.md「対象外のタブ」)。 */
+        ExcludedItem: {
+            /** Format: int64 */
+            id: number;
+            /** @description 登録先からの相対パス。 */
+            relPath: string;
+        };
+        ExcludedItemsPageResponse: {
+            items: (components["schemas"]["ExcludedItem"] | null)[];
+            /** @description 結果を作った後に、索引か絞り込みのパターンが変わったか。 */
+            stale: boolean;
+        };
+        ExcludedItemsResponse: {
+            /** @description 先頭の区切り。引いた時点で消えた・見えるようになった行は `null`。 */
+            items: (components["schemas"]["ExcludedItem"] | null)[];
+            /** @description 区切った続き (`/excluded-items/page`) を引くときに渡す結果の名前。 */
+            snapshot: string;
+            /** @description 名前の語で絞った後の件数。 */
+            total: number;
+            /** @description 名前の語で絞る前の、パターンで外れているファイルの数。 */
+            totalAll: number;
         };
         FilenameWord: {
             /** @description この語を含むアイテム数。 */
@@ -2500,11 +2583,11 @@ export interface components {
             title: string;
         };
         ListOnHomeRequest: {
-            /** @description 載せるフォルダーの、共有からの相対パス。空文字列は共有そのもの。 */
+            /** @description 載せるフォルダーかファイルの、共有からの相対パス。空文字列は共有そのもの。 */
             path?: string;
             visibility?: components["schemas"]["Visibility"] | null;
         };
-        /** @description その場所をフォルダーとして載せているコンテンツ (→ docs/ui.md「掲載中」)。 */
+        /** @description その場所を載せているコンテンツ (→ docs/ui.md「掲載中」)。 */
         ListedAs: {
             /** Format: int64 */
             contentId: number;
@@ -2558,7 +2641,7 @@ export interface components {
          */
         OpResult: "running" | "succeeded" | "failed" | "cancelled";
         PathSamplesResponse: {
-            /** @description 索引のアイテムの数。 */
+            /** @description 見えるアイテムの数。 */
             itemCount: number;
             /** @description パスを並べたうえで、間を空けて選んだ例。先頭だけだと最初のフォルダーのファイルに偏るため。 */
             relPaths: string[];
@@ -2593,6 +2676,17 @@ export interface components {
         RefreshedLinkPreview: {
             preview: components["schemas"]["LinkPreview"];
             url: string;
+        };
+        RenameCheckRequest: {
+            /** @description 名前を変えるものの、共有からの相対パス。 */
+            path: string;
+        };
+        RenameCheckResponse: {
+            /**
+             * @description 名前を変えると開けなくなる、ファイルを指すショートカット。追いかけないので、変える前に伝える
+             *     (→ docs/shares.md「場所の付け替え」)。
+             */
+            unlinked: components["schemas"]["ListedAs"][];
         };
         RenameRootRequest: {
             /** @description 新しい名前。前後の空白は除く。空ならフォルダー名にする。 */
@@ -3009,7 +3103,7 @@ export interface components {
              */
             conflicts: components["schemas"]["TransferConflict"][];
             /**
-             * @description 上書きすると、中身が変わるか開けなくなるフォルダーのコンテンツ (登録先が、`conflicts` のものかその中)。
+             * @description 上書きすると、中身が変わるか開けなくなるコンテンツ (フォルダーの登録先かショートカットの先が、`conflicts` のものかその中)。
              *     見ている人の管理画面の一覧に出ないもの (他人の「作成者のみ」) は含めない。
              */
             listed: components["schemas"]["ListedAs"][];
@@ -3020,6 +3114,11 @@ export interface components {
             totalBytes: number;
             /** @description 上書きで消える置き先のものを、OS のごみ箱へ送れるか。偽なら、上書きすると元に戻せない。 */
             trash: boolean;
+            /**
+             * @description 動かすと開けなくなる、ファイルを指すショートカット (先が、動かすものかその中)。追いかけないので、移動でだけ返す
+             *     (→ docs/shares.md「場所の付け替え」)。除くものは `listed` と同じ。
+             */
+            unlinked: components["schemas"]["ListedAs"][];
         };
         /** @description 置き先に既にある同じ名前のもの。 */
         TransferConflict: {
@@ -3488,6 +3587,8 @@ export interface operations {
             query?: {
                 /** @description 一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「共有」の一覧。 */
                 path?: string;
+                /** @description 真なら、フォルダーに加えて直下のファイルも返す (`files`)。ショートカットの先を選ぶときに使う。 */
+                files?: boolean;
             };
             header?: never;
             path?: never;
@@ -5299,7 +5400,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 管理できない・索引に無いアイテム、または実体が無い */
+            /** @description 管理できない・索引に無い・絞り込みで外れたアイテム、または実体が無い */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -6119,6 +6220,122 @@ export interface operations {
             };
         };
     };
+    excluded_items: {
+        parameters: {
+            query?: {
+                /** @description パスに当てる語 (空白で区切る)。省略時は全部。 */
+                filter?: string;
+                limit?: number | null;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description パターンで外れるファイルの先頭の区切り */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExcludedItemsResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 書き換えられるのは管理者と作成者だけ */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 管理できない・存在しない・アーカイブでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    excluded_items_page: {
+        parameters: {
+            query: {
+                /** @description 最初の要求が返した結果の名前。 */
+                snapshot: string;
+                offset: number;
+                limit?: number | null;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 区切った行 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExcludedItemsPageResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 書き換えられるのは管理者と作成者だけ */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 管理できない・存在しない・アーカイブでない */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 結果が捨てられた・別の人や口のもの。最初から取り直す */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_filename_words: {
         parameters: {
             query?: never;
@@ -6272,7 +6489,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 管理できない・所属しない・存在しないアイテム、または実体が無い */
+            /** @description 管理できない・所属しない・存在しない・絞り込みで外れたアイテム、または実体が無い */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -6318,7 +6535,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 管理できない・所属しない・存在しないアイテム、実体が無い、またはプレビューしない画像 */
+            /** @description 管理できない・所属しない・存在しない・絞り込みで外れたアイテム、実体が無い、またはプレビューしない画像 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -8298,7 +8515,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 共有・フォルダーが無い、見られない */
+            /** @description 共有・フォルダー・ファイルが無い、見られない */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -8307,7 +8524,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description フォルダーでない、公開範囲が合わない */
+            /** @description 公開範囲が合わない */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -8380,6 +8597,59 @@ export interface operations {
             };
             /** @description 名前が使えない・同じ名前がある・共有そのもの (`entryProtected`) */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    check_rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description 名前を変える前の確かめ */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenameCheckResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description この場所で名前を変えられない */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 共有・ファイルが無い、見られない */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -43,7 +43,7 @@
 
 	// 管理者には他人のものも並ぶので、誰のものかを添える。
 	function subtitle(content: HiddenContent): string[] {
-		const parts = [contentTypeLabel(content.type)];
+		const parts = [contentTypeLabel(content.type, content.listView)];
 		if (content.createdBy !== page.data.user?.id && content.createdByUsername) {
 			parts.push(content.createdByUsername);
 		}

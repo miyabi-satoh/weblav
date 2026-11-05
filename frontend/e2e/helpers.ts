@@ -163,7 +163,8 @@ export const CONTENT_SUBMIT_BUTTON_NAME = /^追加する$|^Add$/;
 
 /** フォルダー・アーカイブのパスを選ぶ。ボタン・ダイアログ・確定の順。 */
 export const CHOOSE_PATH_BUTTON_NAME = /^選択\.\.\.$|^Choose\.\.\.$/;
-export const DIR_PICKER_NAME = /^フォルダーを選択$|^Choose a folder$/;
+export const DIR_PICKER_NAME =
+	/^フォルダーを選択$|^Choose a folder$|^フォルダーかファイルを選択$|^Choose a folder or file$/;
 export const USE_THIS_FOLDER_BUTTON_NAME = /^このフォルダーを使用$|^Use this folder$/;
 /** 登録の画面で、選んだパスを選び直すボタン。 */
 export const CHANGE_PATH_BUTTON_NAME = /^変更\.\.\.$|^Change\.\.\.$/;
@@ -190,7 +191,7 @@ export const DISCARD_AND_LEAVE_BUTTON_NAME = /^破棄して移動する$|^Discar
 /** コンテンツの作成ダイアログで選ぶ種別のボタン。名前には説明が続くので前方一致で探す。 */
 export const CONTENT_TYPE_NAME = {
 	link: /^リンク|^Link/,
-	folder: /^フォルダー|^Folder/,
+	folder: /^ショートカット|^Shortcut/,
 	group: /^グループ|^Group/
 } as const;
 

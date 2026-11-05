@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT path, visibility as \"visibility: Visibility\", created_by,\n                  list_view as \"list_view: bool\", last_scanned_at\n           FROM contents WHERE id = ? AND type = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "path",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "visibility: Visibility",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_by",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "list_view: bool",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "last_scanned_at",
+        "ordinal": 4,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      true,
+      false,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "e68e8ee6b24e7cd51aa5d64873f170b21cc7dea52ad283d2573e788c407633f8"
+}

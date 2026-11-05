@@ -997,7 +997,9 @@ async fn move_root(
     root_response(&state, id).await.map(Json)
 }
 
-/// `old` の中に登録先があるフォルダーのコンテンツを、`new` の同じ相対パスへ付け替える。
+/// `old` の中に登録先があるフォルダーのコンテンツとショートカットを、`new` の同じ相対パスへ付け替える。
+/// ショートカットは共有の中で動かしたものを追わないが (→ docs/shares.md「場所の付け替え」)、これは共有ごと
+/// 動かした先を選び直す操作で、中の並びは同じなので一緒に付け替える。
 /// 一覧の表示を使うコンテンツの id を返す (中を読み直させるため)。
 ///
 /// 中の索引は登録先からの相対パスなので、そのまま使える。フォルダーごと動かした先を
@@ -1009,7 +1011,7 @@ async fn rebase_contents(
 ) -> Result<Vec<i64>, AppError> {
     let rows = sqlx::query!(
         r#"SELECT id as "id!", path as "path!", list_view as "list_view: bool"
-           FROM contents WHERE type = 'folder' AND path IS NOT NULL"#
+           FROM contents WHERE type IN ('folder', 'shortcut') AND path IS NOT NULL"#
     )
     .fetch_all(&mut *conn)
     .await?;

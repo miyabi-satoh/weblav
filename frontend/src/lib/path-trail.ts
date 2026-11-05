@@ -22,6 +22,12 @@ function isWindowsPath(full: string): boolean {
 	return /^[A-Za-z]:[\\/]/.test(full) || full.startsWith('\\\\');
 }
 
+/** 1つ上の階層。ピッカーを、選んであるファイルの入っているフォルダーから開くのに使う。 */
+export function parentPath(full: string): string {
+	const separators = isWindowsPath(full) ? /[\\/][^\\/]*$/ : /\/[^/]*$/;
+	return full.replace(separators, '');
+}
+
 /**
  * `\\` の直後 (`start`) から、サーバー名と共有名を1つのまとまりとして数える。
  * UNC は共有名まで揃って初めてパスとして成立する。

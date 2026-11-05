@@ -11,6 +11,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import FileIcon from '@lucide/svelte/icons/file';
 	import FolderIcon from '@lucide/svelte/icons/folder';
 
 	type DirsResponse = components['schemas']['DirsResponse'];
@@ -20,14 +21,19 @@
 		open: boolean;
 		/** ダイアログを開いたときの初期位置。空ならルートの一覧から始める。 */
 		initialPath?: string;
+		/** 選べるもの。作るときはどちらも選べる (`any`)。作った後は種類が変わらないので、同じものだけを選ばせる。 */
+		mode?: 'dir' | 'file' | 'any';
 		/**
-		 * 「このフォルダーにする」で選ばれた絶対パスと、画面に出す場所。
+		 * 「このフォルダーを使用」などで選ばれた絶対パスと、画面に出す場所、ファイルか。
 		 * 場所は、共有の中なら「名前 / その先」。
 		 */
-		onselect: (path: string, label: string) => void;
+		onselect: (path: string, label: string, isFile: boolean) => void;
 	};
 
-	let { open = $bindable(), initialPath = '', onselect }: Props = $props();
+	let { open = $bindable(), initialPath = '', mode = 'dir', onselect }: Props = $props();
+
+	/** 押して選んでいるファイル。ほかの階層へ移ると外れる。 */
+	let selectedFile = $state<DirEntryItem | null>(null);
 
 	/** 一覧の入れ物。開いたときの初期フォーカス先 (下の `onOpenAutoFocus`)。 */
 	let listElement = $state<HTMLDivElement | null>(null);
@@ -51,12 +57,16 @@
 	let trail = $derived(
 		rootName === null ? crumbs : [{ ...crumbs[0], label: rootName }, ...crumbs.slice(1)]
 	);
-	let selectedLabel = $derived(
-		listing === null || listing.path === ''
-			? ''
-			: rootName === null
-				? listing.path
-				: joinLocationLabels(trail.map((crumb) => crumb.label))
+	let selectedLabel = $derived.by(() => {
+		if (listing === null || listing.path === '') return '';
+		if (rootName === null) return selectedFile?.path ?? (mode === 'file' ? '' : listing.path);
+		const labels = trail.map((crumb) => crumb.label);
+		if (selectedFile !== null) return joinLocationLabels([...labels, selectedFile.name]);
+		return mode === 'file' ? '' : joinLocationLabels(labels);
+	});
+	// ファイルだけを選ぶ窓では、ファイルを押すまで確定できない。
+	let canConfirm = $derived(
+		listing !== null && listing.selectable && (mode !== 'file' || selectedFile !== null)
 	);
 
 	// 階層を続けて辿ると前の応答が後から届くことがあり、そのまま書き込むと表示が
@@ -67,9 +77,10 @@
 		const isCurrent = requests.begin();
 		loading = true;
 		loadError = '';
+		selectedFile = null;
 		try {
 			const { data, error, response } = await client.GET('/api/v1/admin/fs/dirs', {
-				params: { query: { path } }
+				params: { query: { path, files: mode !== 'dir' } }
 			});
 			if (!isCurrent()) return;
 			if (!response.ok || !data) {
@@ -106,8 +117,8 @@
 	});
 
 	function confirmSelection() {
-		if (listing === null || !listing.selectable) return;
-		onselect(listing.path, selectedLabel);
+		if (listing === null || !canConfirm) return;
+		onselect(selectedFile?.path ?? listing.path, selectedLabel, selectedFile !== null);
 		open = false;
 	}
 
@@ -135,6 +146,19 @@
 	</button>
 {/snippet}
 
+{#snippet fileRow(file: DirEntryItem)}
+	<!-- 押して選ぶ。もう一度押すと外れる (フォルダーのほうを選び直せるように)。 -->
+	<button
+		type="button"
+		class={[rowClass, selectedFile?.path === file.path && 'bg-primary/10 hover:bg-primary/10']}
+		aria-pressed={selectedFile?.path === file.path}
+		onclick={() => (selectedFile = selectedFile?.path === file.path ? null : file)}
+	>
+		<FileIcon class="size-5 shrink-0 text-sub-foreground" />
+		<span class="flex-1 truncate text-sm">{file.name}</span>
+	</button>
+{/snippet}
+
 <Dialog.Root bind:open>
 	<!-- 既定では最初のフォーカス可能な要素 (ヘッダーのヘルプへのリンク) に当たってしまう。
 	     開いた直後は一覧に合わせ、そのままキーで送れるようにする。 -->
@@ -146,7 +170,13 @@
 		}}
 	>
 		<Dialog.Header class="border-b p-4 text-left">
-			<Dialog.Title>{m.dir_picker_title()}</Dialog.Title>
+			<Dialog.Title>
+				{mode === 'any'
+					? m.dir_picker_title_any()
+					: mode === 'file'
+						? m.dir_picker_title_file()
+						: m.dir_picker_title()}
+			</Dialog.Title>
 		</Dialog.Header>
 
 		{#if listing !== null && trail.length > 0}
@@ -190,8 +220,13 @@
 				{#each listing.entries as entry (entry.path)}
 					{@render entryRow(entry)}
 				{/each}
-				{#if listing.entries.length === 0}
-					<p class="px-4 py-4 text-sm text-muted-foreground">{m.dir_picker_empty()}</p>
+				{#each listing.files as file (file.path)}
+					{@render fileRow(file)}
+				{/each}
+				{#if listing.entries.length === 0 && listing.files.length === 0}
+					<p class="px-4 py-4 text-sm text-muted-foreground">
+						{mode === 'dir' ? m.dir_picker_empty() : m.dir_picker_empty_any()}
+					</p>
 				{/if}
 			{/if}
 		</div>
@@ -205,7 +240,13 @@
 				{#if selectedLabel !== ''}
 					{selectedLabel}
 				{:else}
-					<span class="text-muted-foreground">{m.dir_picker_selected_none()}</span>
+					<span class="text-muted-foreground">
+						{mode === 'any'
+							? m.dir_picker_selected_none_any()
+							: mode === 'file'
+								? m.dir_picker_selected_none_file()
+								: m.dir_picker_selected_none()}
+					</span>
 				{/if}
 			</span>
 		</div>
@@ -219,11 +260,11 @@
 			<Button type="button" variant="outline" onclick={() => (open = false)}
 				>{m.action_cancel()}</Button
 			>
-			<Button
-				type="button"
-				disabled={listing === null || !listing.selectable}
-				onclick={confirmSelection}>{m.dir_picker_confirm()}</Button
-			>
+			<Button type="button" disabled={!canConfirm} onclick={confirmSelection}>
+				{selectedFile !== null || mode === 'file'
+					? m.dir_picker_confirm_file()
+					: m.dir_picker_confirm()}
+			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

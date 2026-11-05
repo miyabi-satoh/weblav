@@ -51,7 +51,7 @@ pub struct ShareRef {
     pub name: String,
 }
 
-/// その場所をフォルダーとして載せているコンテンツ (→ docs/ui.md「掲載中」)。
+/// その場所を載せているコンテンツ (→ docs/ui.md「掲載中」)。
 #[derive(Debug, Clone, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ListedAs {
@@ -65,7 +65,7 @@ pub struct ListedAs {
 pub struct ShareEntry {
     #[serde(flatten)]
     entry: FolderEntry,
-    /// このフォルダーを載せているコンテンツ。ファイルと、載せていないフォルダーでは `None`。
+    /// このフォルダーかファイルを載せているコンテンツ。載せていなければ `None`。
     listed_as: Option<ListedAs>,
 }
 
@@ -122,7 +122,7 @@ async fn browse_share(
         let entries = entries
             .into_iter()
             .map(|entry| {
-                let path = entry.is_dir.then(|| path_to_string(dir.join(&entry.name)));
+                let path = path_to_string(dir.join(&entry.name));
                 (entry, path)
             })
             .collect::<Vec<_>>();
@@ -135,7 +135,7 @@ async fn browse_share(
     let entries = entries
         .into_iter()
         .map(|(entry, path)| ShareEntry {
-            listed_as: path.and_then(Result::ok).and_then(|path| listed.get(&path)),
+            listed_as: path.ok().and_then(|path| listed.get(&path)),
             entry,
         })
         .collect();
@@ -168,7 +168,7 @@ async fn resolve_readable(
     Ok(resolved)
 }
 
-/// フォルダーとして載せている場所と、そのコンテンツ。`user` の管理画面の一覧に出ないもの
+/// フォルダーやファイルを指して載せている場所と、そのコンテンツ。`user` の管理画面の一覧に出ないもの
 /// (他人の「作成者のみ」) と、ホームに出ない「非表示」は数えない。同じ場所をいくつも載せていれば、
 /// 先に作ったものを採る。「非表示」しか無い場所は、載せ直せる (同じ場所の登録は断らない)。
 struct ListedPaths(HashMap<String, ListedAs>);
@@ -177,7 +177,7 @@ impl ListedPaths {
     async fn load(pool: &sqlx::SqlitePool, user: &AuthUser) -> Result<Self, AppError> {
         let rows = sqlx::query!(
             r#"SELECT id as "id!", title, path as "path!", visibility as "visibility: Visibility", created_by
-               FROM contents WHERE type = 'folder' AND path IS NOT NULL ORDER BY id"#
+               FROM contents WHERE type IN ('folder', 'shortcut') AND path IS NOT NULL ORDER BY id"#
         )
         .fetch_all(pool)
         .await?;

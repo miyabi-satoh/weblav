@@ -740,22 +740,26 @@ async fn preview_axis_values(
     };
     let dict = super::archive::AxisDict::new(axis.source, axis.dir_level, rows)?;
 
-    let mut items: Vec<(AxisValuesPreviewItem, Option<i64>)> = sqlx::query!(
+    let filter = super::file_filter::FileFilter::load(&state.pool, id).await?;
+    let rows = sqlx::query!(
         r#"SELECT id as "id!", rel_path, taken_at, modified_ns FROM archive_items WHERE archive_id = ?"#,
         id
     )
     .fetch_all(&state.pool)
-    .await?
-    .into_iter()
-    .map(|row| {
-        let dated_at = super::archive::dated_at(row.taken_at, row.modified_ns);
-        let item = AxisValuesPreviewItem {
-            id: row.id,
-            rel_path: row.rel_path,
-        };
-        (item, dated_at)
-    })
-    .collect();
+    .await?;
+    // 導出の例に、パターンで外れるファイルを出さない (→ docs/archive.md「見せるアイテム」)。
+    let mut items: Vec<(AxisValuesPreviewItem, Option<i64>)> = rows
+        .into_iter()
+        .filter(|row| filter.allows_file(&row.rel_path))
+        .map(|row| {
+            let dated_at = super::archive::dated_at(row.taken_at, row.modified_ns);
+            let item = AxisValuesPreviewItem {
+                id: row.id,
+                rel_path: row.rel_path,
+            };
+            (item, dated_at)
+        })
+        .collect();
     // 例を `rel_path` の昇順で取るため、先に並べておく。
     items.sort_unstable_by(|a, b| a.0.rel_path.cmp(&b.0.rel_path));
     // 非同期のワーカーを塞がない (→ docs/archive.md「軸の設定を助ける表示」)。

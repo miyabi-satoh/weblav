@@ -405,11 +405,31 @@ pub(super) fn run_query(
     }
 }
 
+/// パターンで外れるアイテムの番号を、パスの順に返す (対象外のタブ)。語はパスに、続いた文字列で当てる。
+/// 2つ目は語で絞る前の数。数十万件を回すので `run_blocking` の中で呼ぶ。
+pub(super) fn excluded_ids(
+    index: &ArchiveIndex,
+    filter: &super::file_filter::FileFilter,
+    terms: &[Vec<char>],
+) -> (Vec<i64>, usize) {
+    let mut excluded: Vec<&IndexedItem> = index
+        .items
+        .iter()
+        .filter(|item| !filter.allows_file(&item.rel_path))
+        .collect();
+    let total_all = excluded.len();
+    excluded.retain(|item| terms.is_empty() || super::list_filter::contains(&item.rel_path, terms));
+    excluded.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
+    (excluded.iter().map(|item| item.id).collect(), total_all)
+}
+
 /// 結果の集まりを作った口。管理用の結果には登録先が見つからないときの行も入っているので、閲覧用の口からは引かせない。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum SnapshotKind {
     View,
     Manage,
+    /// 対象外のタブ。外れたファイルのパスだけを返すので、ほかの口からは引かせない。
+    Excluded,
 }
 
 /// 区切って引く、絞って並べた結果 (→ docs/archive.md「一覧の API を区切って返す」)。
@@ -775,6 +795,18 @@ mod tests {
     }
 
     const FILES: &[&str] = &["a/kokugo_1.pdf", "a/kokugo_2.pdf", "b/eigo_1.pdf"];
+
+    /// 外れるものだけを、パスの順に返す。語はパスに当てる。
+    #[test]
+    fn excluded_ids_lists_only_what_the_filter_leaves_out() {
+        let index = index(FILES);
+        let filter = crate::api::file_filter::FileFilter::parse(None, Some("kokugo_*"))
+            .expect("正しいパターンのはず");
+
+        assert_eq!(excluded_ids(&index, &filter, &[]), (vec![1, 2], 2));
+        let terms = crate::api::list_filter::parse_terms("_2");
+        assert_eq!(excluded_ids(&index, &filter, &terms), (vec![2], 2));
+    }
 
     /// 名前の語で絞り、選択肢の件数もその絞り込みを効かせて数える。
     /// 選択肢そのものは絞り込む前の全体から作る (→ docs/archive.md「軸の値の辞書と導出」)。

@@ -10,6 +10,9 @@
 //! (content-addressed storage、重複排除)。新しく作る口と実体の差し替えはもう無い (ファイルは共有の中に置く。
 //! → `api::shares`)。前から登録してあるものは、読む・配る・題などを直す (`PUT /contents/{id}/upload`) ・消すができる。
 //! JSONの `create_content`/`update_content` は`file`以外を扱う(`file`が来たら422にする)。
+//!
+//! `shortcut` は、共有の中の1つのファイルを `path` で指す (→ docs/folders.md「ショートカット」)。
+//! 閲覧の場には `file` と同じ形で返すので、一覧の開き方は画面で分かれない。
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path as FsPath, PathBuf};
@@ -45,6 +48,9 @@ pub enum ContentType {
     Folder,
     File,
     Group,
+    /// 共有の中のファイルを指すショートカット。フォルダーを指すものは `Folder` のまま
+    /// (ライブラリに切り替えられるのはフォルダーだけなので、一覧の表示の読み手を増やさないため)。
+    Shortcut,
 }
 
 /// `contents.visibility`。公開範囲を表す (→ docs/access.md「公開範囲」)。
@@ -360,6 +366,9 @@ pub enum ContentResponse {
         is_text: bool,
         /// 行に縮小画像を出してみるか (→ docs/ui.md「画像のプレビュー」)。一覧でだけ埋める。
         thumbnail: bool,
+        /// ショートカットの先のファイルが無い。行は残し、開くと「見つかりません」になる。
+        /// つながらない NAS は無いと決められないので、偽のまま。一覧でだけ埋める。
+        missing: bool,
     },
     /// 仮想フォルダー。子一覧は含めない(別途 `GET /contents/{id}/group` で取得する)。
     #[serde(rename_all = "camelCase")]
@@ -428,6 +437,26 @@ impl ContentResponse {
                     image: None,
                     is_text: false,
                     thumbnail: false,
+                    missing: false,
+                })
+            }
+            // 閲覧の場ではファイルと同じに扱う。大きさとプレビューは `with_previews` で埋める。
+            ContentType::Shortcut => {
+                let path = row
+                    .path
+                    .ok_or(AppError::DataIntegrity("shortcut content without a path"))?;
+                Ok(ContentResponse::File {
+                    id: row.id,
+                    title: row.title,
+                    description: row.description,
+                    private,
+                    can_edit,
+                    file_name: shortcut_file_name(&path),
+                    file_size: 0,
+                    image: None,
+                    is_text: false,
+                    thumbnail: false,
+                    missing: false,
                 })
             }
             ContentType::Group => Ok(ContentResponse::Group {
@@ -439,6 +468,14 @@ impl ContentResponse {
             }),
         }
     }
+}
+
+/// ショートカットの先のファイル名。パスの最後の要素。
+fn shortcut_file_name(path: &str) -> String {
+    FsPath::new(path)
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default()
 }
 
 /// 管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。
@@ -465,7 +502,7 @@ pub struct AdminContentResponse {
     /// 「(見つからない共有)」と出す。`root_name` が `None` なら `false`。
     pub root_deleted: bool,
     pub description: Option<String>,
-    /// `type = 'file'` の場合のみ`Some`。`blob_hash`(内部実装detail)は含めない。
+    /// `type = 'file'` と `type = 'shortcut'` の場合のみ`Some`。`blob_hash`(内部実装detail)は含めない。
     pub file_name: Option<String>,
     pub file_size: Option<i64>,
     pub visibility: Visibility,
@@ -507,6 +544,10 @@ impl AdminContentResponse {
             ),
             None => (None, None, false),
         };
+        let file_name = match (row.content_type, row.path.as_deref()) {
+            (ContentType::Shortcut, Some(path)) => Some(shortcut_file_name(path)),
+            _ => row.file_name,
+        };
         Self {
             id: row.id,
             content_type: row.content_type,
@@ -518,7 +559,7 @@ impl AdminContentResponse {
             path_in_root,
             root_deleted,
             description: row.description,
-            file_name: row.file_name,
+            file_name,
             file_size: row.file_size,
             visibility: row.visibility,
             created_by: row.created_by,
@@ -752,6 +793,33 @@ async fn validate_folder_path(
     })
     .await??;
 
+    super::fs::path_to_string(canonical)
+}
+
+/// ショートカットの先のファイルを検証し、実体のパスを返す。見られる共有の扱いは `validate_folder_path` と同じ。
+/// 今の先 (`current`) のままなら、ファイルが無くなった後でも通す。場所を選び直すまで、題などを直せるように。
+async fn validate_shortcut_path(
+    state: &AppState,
+    user: &AuthUser,
+    path: Option<&str>,
+    current: Option<&str>,
+) -> Result<String, AppError> {
+    let path = path.unwrap_or_default().to_string();
+    super::validate::non_empty(&path, "path is required")?;
+    if current == Some(path.as_str()) {
+        return Ok(path);
+    }
+    super::roots::ensure_reachable(state, &path).await?;
+    let roots = super::roots::load_roots_for(state, user).await?;
+    let own_dirs = state.own_dirs.clone();
+    let canonical = run_blocking(move || {
+        super::fs::canonical_file_within_roots(
+            &path,
+            &roots,
+            &super::roots::OwnDirs::resolve(&own_dirs),
+        )
+    })
+    .await??;
     super::fs::path_to_string(canonical)
 }
 
@@ -1093,16 +1161,17 @@ struct NewContent {
     /// リンクのページから取ったタイトル。`title` が無いときに使う。
     link_title: Option<String>,
     url: Option<String>,
-    /// フォルダーの登録先 (入力のまま。検証はここで行う)。
+    /// フォルダーの登録先かショートカットの先 (入力のまま。検証はここで行う)。
     path: Option<String>,
     description: Option<String>,
     visibility: Option<Visibility>,
 }
 
-/// フォルダーのコンテンツを、ルート直下に作る。共有の画面の「ホームに載せる」から使う。
-pub(super) async fn create_folder_content(
+/// フォルダーを指すコンテンツか、ファイルを指すショートカットを、ルート直下に作る。共有の画面の「ホームに載せる」から使う。
+pub(super) async fn create_path_content(
     state: &AppState,
     user: &AuthUser,
+    content_type: ContentType,
     path: String,
     visibility: Option<Visibility>,
 ) -> Result<AdminContentResponse, AppError> {
@@ -1110,7 +1179,7 @@ pub(super) async fn create_folder_content(
         state,
         user,
         NewContent {
-            content_type: ContentType::Folder,
+            content_type,
             parent_id: None,
             title: None,
             link_title: None,
@@ -1123,22 +1192,28 @@ pub(super) async fn create_folder_content(
     .await
 }
 
-/// 共有の中のフォルダーをホームに載せる。閲覧者が戻せる非表示のコンテンツがそのフォルダーにあれば、それを戻す。
+/// 共有の中のフォルダーかファイルをホームに載せる。閲覧者が戻せる非表示のコンテンツがその場所にあれば、それを戻す。
 /// 新しく作ると、対象と除外のパターンが空の2つ目のコンテンツができ、外していたファイルが見えてしまうため。
-pub(super) async fn list_folder_on_home(
+pub(super) async fn list_path_on_home(
     state: &AppState,
     user: &AuthUser,
     path: String,
     visibility: Option<Visibility>,
 ) -> Result<AdminContentResponse, AppError> {
+    let content_type = if path_is_file(FsPath::new(&path)).await? {
+        ContentType::Shortcut
+    } else {
+        ContentType::Folder
+    };
     // 管理者が「作成者のみ」で載せるときは、自分のコンテンツを新しく作る。他人のものを戻すと、
     // 管理者の閲覧の場の一覧に並ばず、載せたことにならないため。
     let any_creator =
         user.is_admin() && visibility.is_some_and(|visibility| visibility != Visibility::Private);
     let hidden = sqlx::query_scalar!(
         r#"SELECT id as "id!" FROM contents
-           WHERE type = 'folder' AND path = ? AND visibility = ? AND (? OR created_by = ?)
+           WHERE type = ? AND path = ? AND visibility = ? AND (? OR created_by = ?)
            ORDER BY id LIMIT 1"#,
+        content_type,
         path,
         Visibility::Hidden,
         any_creator,
@@ -1147,7 +1222,7 @@ pub(super) async fn list_folder_on_home(
     .fetch_optional(&state.pool)
     .await?;
     let Some(id) = hidden else {
-        return create_folder_content(state, user, path, visibility).await;
+        return create_path_content(state, user, content_type, path, visibility).await;
     };
     {
         let _write_guard = state.contents_write_lock.lock().await;
@@ -1188,6 +1263,10 @@ async fn insert_content(
             None,
             Some(validate_folder_path(state, user, new.path.as_deref(), None).await?),
         ),
+        ContentType::Shortcut => (
+            None,
+            Some(validate_shortcut_path(state, user, new.path.as_deref(), None).await?),
+        ),
         // ファイルは共有の中に置く (→ `api::shares`)。file コンテンツは新しく作らない。
         ContentType::File => {
             return Err(AppError::Validation(
@@ -1198,7 +1277,7 @@ async fn insert_content(
     };
     let derived_title = match new.content_type {
         ContentType::Link => new.link_title,
-        ContentType::Folder => path.as_deref().map(title_from_path),
+        ContentType::Folder | ContentType::Shortcut => path.as_deref().map(title_from_path),
         ContentType::File | ContentType::Group => None,
     };
     let title =
@@ -1390,6 +1469,21 @@ async fn update_content(
             )
             .await?,
         ),
+        ContentType::Shortcut => (
+            None,
+            Some(
+                validate_shortcut_path(
+                    &state,
+                    &user,
+                    payload.path.as_deref(),
+                    existing.path.as_deref(),
+                )
+                .await?,
+            ),
+            None,
+            None,
+            None,
+        ),
         // fileはJSONではなくmultipart専用エンドポイント(replace_content_upload)で更新する。
         ContentType::File => {
             return Err(AppError::Validation(
@@ -1412,7 +1506,7 @@ async fn update_content(
 
     // `path` を変えたら、索引を捨てる (→ docs/archive.md「スキャン」)。
     // 登録先を起点とする相対パスなので、起点が変われば同じパスが別のファイルを指す。
-    // パターンの変更では消さない (対象から外れた行は読むときに外し、次の走査で消える)。
+    // パターンの変更では消さない (外れた行も索引に残し、読むときに外す)。
     let path_changed = is_folder && existing.path != path;
 
     // `path` の更新と索引の削除は同じトランザクションに入れる (→ docs/archive.md「スキャン」)。
@@ -1857,7 +1951,7 @@ pub(super) fn reject_traversal_components(rel: &str) -> Result<(), AppError> {
 /// `filter_of` はフォルダーのコンテンツの id で、そのフォルダーの絞り込みで外れるもの
 /// (→ `file_filter`) も、一覧に出さないものと同じく 404 にする。登録先そのものは開ける。
 /// ホームなどの入口に載っていて存在は伏せられないので、開けないエラーにせず、見せるものが無いと伝えるため。
-/// 管理の口は、絞り込みを当てないので `None` を渡す。
+/// 絞り込みを先に確かめた口と、パターンを持たないショートカットは `None` を渡す。
 pub(super) async fn resolve_path(
     state: &AppState,
     root: &str,
@@ -2172,8 +2266,8 @@ async fn browse_group(
     }))
 }
 
-/// 一覧に並ぶ file コンテンツに、ページ内で見せるための情報 (画像の大きさ・テキストか) を埋める。
-/// `ContentRow` は `blob_hash` を持たないので、並んだ file コンテンツの分をまとめて引き直す。
+/// 一覧に並ぶ file コンテンツとショートカットに、ページ内で見せるための情報 (画像の大きさ・テキストか) を埋める。
+/// `ContentRow` は `blob_hash` を持たないので、並んだ分をまとめて引き直す。
 async fn with_previews(
     state: &AppState,
     mut contents: Vec<ContentResponse>,
@@ -2200,19 +2294,34 @@ async fn with_previews(
         })
         .collect();
     let file_ids_json = serde_json::to_string(&file_ids).expect("数の並びは JSON にできる");
-    let hashes: HashMap<i64, Option<String>> = sqlx::query!(
-        r#"SELECT id as "id!", blob_hash FROM contents
-           WHERE id IN (SELECT value FROM json_each(?)) AND type = ?"#,
+    let sources: HashMap<i64, (Option<String>, Option<String>)> = sqlx::query!(
+        r#"SELECT id as "id!", blob_hash, path FROM contents
+           WHERE id IN (SELECT value FROM json_each(?)) AND type IN ('file', 'shortcut')"#,
         file_ids_json,
-        ContentType::File
     )
     .fetch_all(&state.pool)
     .await?
     .into_iter()
-    .map(|row| (row.id, row.blob_hash))
+    .map(|row| (row.id, (row.blob_hash, row.path)))
     .collect();
 
+    // つながらない NAS のショートカットは、一覧全体を待たせずに飛ばす (検索と同じ)。
+    let shortcut_paths: Vec<&str> = sources
+        .values()
+        .filter_map(|(_, path)| path.as_deref())
+        .collect();
+    let reachable: HashMap<String, bool> = shortcut_paths
+        .iter()
+        .map(|path| path.to_string())
+        .zip(
+            super::roots::reachable_all(state, &shortcut_paths, crate::folder_reach::OTHERS_WAIT)
+                .await?,
+        )
+        .collect();
+
+    // 実体と大きさ (`None` は読みに行く)。先が無いショートカットは、読むものが無いので別に持つ。
     let mut targets = Vec::new();
+    let mut missing_rows = Vec::new();
     for (index, content) in contents.iter().enumerate() {
         let ContentResponse::File {
             id,
@@ -2223,17 +2332,30 @@ async fn with_previews(
         else {
             continue;
         };
-        let hash = hashes
-            .get(id)
-            .cloned()
-            .flatten()
-            .ok_or(AppError::DataIntegrity("file content without a blob_hash"))?;
+        let (hash, path) = sources.get(id).cloned().unwrap_or_default();
+        if let Some(path) = path {
+            if !reachable.get(&path).copied().unwrap_or(false) {
+                continue;
+            }
+            match resolve_shortcut_file(state, &path).await {
+                Ok(file) => targets.push((index, file.path, file_name.clone(), None)),
+                Err(AppError::NotFound) => missing_rows.push(index),
+                Err(err) => return Err(err),
+            }
+            continue;
+        }
+        let hash = hash.ok_or(AppError::DataIntegrity("file content without a blob_hash"))?;
         targets.push((
             index,
             blob_path(state, *id, &hash)?,
             file_name.clone(),
-            u64::try_from(*file_size).unwrap_or(u64::MAX),
+            Some(u64::try_from(*file_size).unwrap_or(u64::MAX)),
         ));
+    }
+    for index in missing_rows {
+        if let ContentResponse::File { missing, .. } = &mut contents[index] {
+            *missing = true;
+        }
     }
     if targets.is_empty() {
         return Ok(contents);
@@ -2243,28 +2365,44 @@ async fn with_previews(
         targets
             .into_iter()
             .map(|(index, path, file_name, size)| {
-                (
-                    index,
-                    super::thumbnails::file_preview(&file_name, &path, size),
-                )
+                let size = size
+                    .or_else(|| std::fs::metadata(&path).ok().map(|metadata| metadata.len()))
+                    .unwrap_or_default();
+                let preview = super::thumbnails::file_preview(&file_name, &path, size);
+                (index, size, preview)
             })
             .collect::<Vec<_>>()
     })
     .await?;
-    for (index, preview) in previews {
+    for (index, size, preview) in previews {
         if let ContentResponse::File {
+            file_size,
             image,
             is_text,
             thumbnail,
             ..
         } = &mut contents[index]
         {
+            *file_size = i64::try_from(size).unwrap_or(i64::MAX);
             *image = preview.image;
             *is_text = preview.is_text;
             *thumbnail = preview.thumbnail;
         }
     }
     Ok(contents)
+}
+
+/// ショートカットの先のファイルを、フォルダーの中のファイルと同じ判定で解決する
+/// (共有の外・一覧に出さないもの・シンボリックリンクは 404)。先が消えても 404。
+async fn resolve_shortcut_file(state: &AppState, path: &str) -> Result<ServedFile, AppError> {
+    let path = FsPath::new(path);
+    let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
+        return Err(AppError::NotFound);
+    };
+    let (Some(parent), Some(name)) = (parent.to_str(), name.to_str()) else {
+        return Err(AppError::NotFound);
+    };
+    resolve_file_under(state, parent, name, None).await
 }
 
 /// 閲覧者がホームからたどって一覧で見られる行の id (→ docs/search.md「見える範囲」)。
@@ -2479,6 +2617,18 @@ pub(super) async fn search_contents(
                 ContentType::File
                     if row
                         .file_name
+                        .as_deref()
+                        .is_some_and(super::links_file::is_links_file_name) =>
+                {
+                    links_files.push(super::folder_search::LinksFileContent {
+                        id: row.id,
+                        title: row.title.clone(),
+                        ancestors: group_lineage(&groups, row.parent_id),
+                    });
+                }
+                ContentType::Shortcut
+                    if row
+                        .path
                         .as_deref()
                         .is_some_and(super::links_file::is_links_file_name) =>
                 {
@@ -2743,7 +2893,7 @@ async fn thumbnail_content(
     file.thumbnail(&state, &headers).await
 }
 
-/// `id` のコンテンツが指す実体。folder は `rel` で配下のファイルを、file は blob を指す。
+/// `id` のコンテンツが指す実体。folder は `rel` で配下のファイルを、file は blob を、shortcut は先のファイルを指す。
 pub(super) async fn content_file(
     state: &AppState,
     viewer: &Viewer,
@@ -2767,6 +2917,12 @@ pub(super) async fn content_file(
         ContentType::Folder => {
             let root = folder_path(row.path)?;
             resolve_file_under(state, &root, rel, Some(id)).await
+        }
+        ContentType::Shortcut => {
+            let path = row
+                .path
+                .ok_or(AppError::DataIntegrity("shortcut content without a path"))?;
+            resolve_shortcut_file(state, &path).await
         }
         ContentType::File => {
             let hash = row

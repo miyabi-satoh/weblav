@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import BrowseControls from '$lib/components/browse-controls.svelte';
 	import { goto } from '$app/navigation';
 	import { withQuery } from '$lib/href';
@@ -24,7 +25,8 @@
 		shown,
 		hasItems,
 		folderMissing,
-		countOnlyWhenFiltered = false
+		countOnlyWhenFiltered = false,
+		countAction
 	}: {
 		axes: ArchiveAxis[];
 		/** クエリの軸の絞り込み (軸名 → 選択肢の表示名)。 */
@@ -40,6 +42,8 @@
 		folderMissing: boolean;
 		/** 絞り込んでいないときは件数を出さない (管理画面は、見出しに同じ件数がある)。 */
 		countOnlyWhenFiltered?: boolean;
+		/** 件数の行の右に置く操作 (管理画面の「パターンに追加...」)。 */
+		countAction?: Snippet;
 	} = $props();
 
 	const list = listFilter();
@@ -157,5 +161,6 @@
 			</a>
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{/if}
+		{@render countAction?.()}
 	</div>
 {/if}

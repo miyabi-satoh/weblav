@@ -285,6 +285,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "files",
+            "in": "query",
+            "description": "真なら、フォルダーに加えて直下のファイルも返す (`files`)。ショートカットの先を選ぶときに使う。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -2295,7 +2304,7 @@
     },
     "/api/v1/contents/{id}/archive/manage-download": {
       "get": {
-        "summary": "管理画面からの、相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。絞り込みは当てない。\n管理画面の Markdown のプレビューが使う。",
+        "summary": "管理画面からの、相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。絞り込みは当てる。\n管理画面の Markdown のプレビューが使う。",
         "operationId": "manage_download_item_by_path",
         "parameters": [
           {
@@ -2332,7 +2341,7 @@
             }
           },
           "404": {
-            "description": "管理できない・索引に無いアイテム、または実体が無い",
+            "description": "管理できない・索引に無い・絞り込みで外れたアイテム、または実体が無い",
             "content": {
               "application/json": {
                 "schema": {
@@ -3454,6 +3463,185 @@
         }
       }
     },
+    "/api/v1/contents/{id}/excluded-items": {
+      "get": {
+        "summary": "対象外のタブの一覧の、最初の区切り。パターンで外れるファイルを、パスの順に返す (→ docs/ui.md「対象外のタブ」)。\n書き換えられる人にだけ見せる。パターンを直す人のためのもので、見る人には存在を伏せるため。",
+        "operationId": "excluded_items",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "description": "パスに当てる語 (空白で区切る)。省略時は全部。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "パターンで外れるファイルの先頭の区切り",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExcludedItemsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "書き換えられるのは管理者と作成者だけ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "管理できない・存在しない・アーカイブでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/{id}/excluded-items/page": {
+      "get": {
+        "summary": "対象外のタブの一覧の、区切りの続き。",
+        "operationId": "excluded_items_page",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "snapshot",
+            "in": "query",
+            "description": "最初の要求が返した結果の名前。",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "区切った行",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExcludedItemsPageResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "書き換えられるのは管理者と作成者だけ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "管理できない・存在しない・アーカイブでない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "結果が捨てられた・別の人や口のもの。最初から取り直す",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contents/{id}/filename-words": {
       "get": {
         "summary": "ファイル名によく出る語。ファイル名に含まれる語の軸で、照合語の候補として出す。",
@@ -3617,7 +3805,7 @@
     },
     "/api/v1/contents/{id}/items/{item_id}/manage-download": {
       "get": {
-        "summary": "管理画面からのアイテムの配信 (→ docs/archive.md「アイテムの配信」)。絞り込みは当てない。\n閲覧用の `download_item` の判定とは混ぜず、管理の権限で別に判定する。",
+        "summary": "管理画面からのアイテムの配信 (→ docs/archive.md「アイテムの配信」)。絞り込みは閲覧の口と同じく当てる。\n閲覧用の `download_item` の判定とは混ぜず、管理の権限で別に判定する。",
         "operationId": "manage_download_item",
         "parameters": [
           {
@@ -3654,7 +3842,7 @@
             }
           },
           "404": {
-            "description": "管理できない・所属しない・存在しないアイテム、または実体が無い",
+            "description": "管理できない・所属しない・存在しない・絞り込みで外れたアイテム、または実体が無い",
             "content": {
               "application/json": {
                 "schema": {
@@ -3708,7 +3896,7 @@
             }
           },
           "404": {
-            "description": "管理できない・所属しない・存在しないアイテム、実体が無い、またはプレビューしない画像",
+            "description": "管理できない・所属しない・存在しない・絞り込みで外れたアイテム、実体が無い、またはプレビューしない画像",
             "content": {
               "application/json": {
                 "schema": {
@@ -6094,7 +6282,7 @@
     },
     "/api/v1/shares/{id}/list-on-home": {
       "post": {
-        "summary": "共有の中のフォルダーを、フォルダーのコンテンツとしてホームに載せる。タイトルはフォルダー名から付ける。\n見られる場所なら載せられる (コンテンツの作成と同じ)。そのフォルダーを自分で戻せる非表示のコンテンツがあれば、\n新しく作らずにそれを戻す (→ docs/shares.md「ホームに載せる」)。",
+        "summary": "共有の中のフォルダーかファイルを、それを指すショートカットとしてホームに載せる。タイトルは名前から付ける。\n見られる場所なら載せられる (コンテンツの作成と同じ)。その場所を自分で戻せる非表示のコンテンツがあれば、\n新しく作らずにそれを戻す (→ docs/shares.md「ホームに載せる」)。",
         "operationId": "list_on_home",
         "parameters": [
           {
@@ -6139,7 +6327,7 @@
             }
           },
           "404": {
-            "description": "共有・フォルダーが無い、見られない",
+            "description": "共有・フォルダー・ファイルが無い、見られない",
             "content": {
               "application/json": {
                 "schema": {
@@ -6149,7 +6337,7 @@
             }
           },
           "422": {
-            "description": "フォルダーでない、公開範囲が合わない",
+            "description": "公開範囲が合わない",
             "content": {
               "application/json": {
                 "schema": {
@@ -6239,6 +6427,75 @@
           },
           "422": {
             "description": "名前が使えない・同じ名前がある・共有そのもの (`entryProtected`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{id}/rename/check": {
+      "post": {
+        "summary": "名前を変える前の確かめ。何も変えない。",
+        "operationId": "check_rename",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "名前を変える前の確かめ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenameCheckResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "この場所で名前を変えられない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "共有・ファイルが無い、見られない",
             "content": {
               "application/json": {
                 "schema": {
@@ -6504,7 +6761,7 @@
               "string",
               "null"
             ],
-            "description": "`type = 'file'` の場合のみ`Some`。`blob_hash`(内部実装detail)は含めない。"
+            "description": "`type = 'file'` と `type = 'shortcut'` の場合のみ`Some`。`blob_hash`(内部実装detail)は含めない。"
           },
           "fileSize": {
             "type": [
@@ -7251,6 +7508,7 @@
               "fileSize",
               "isText",
               "thumbnail",
+              "missing",
               "type"
             ],
             "properties": {
@@ -7289,6 +7547,10 @@
               "isText": {
                 "type": "boolean",
                 "description": "テキストのビューアーで見せるファイルか (→ docs/ui.md「PDF・動画・テキストのビューアー」)。\n`image` と同じく、一覧でだけ埋める。"
+              },
+              "missing": {
+                "type": "boolean",
+                "description": "ショートカットの先のファイルが無い。行は残し、開くと「見つかりません」になる。\nつながらない NAS は無いと決められないので、偽のまま。一覧でだけ埋める。"
               },
               "private": {
                 "type": "boolean"
@@ -7356,7 +7618,8 @@
           "link",
           "folder",
           "file",
-          "group"
+          "group",
+          "shortcut"
         ]
       },
       "CountResponse": {
@@ -7557,7 +7820,7 @@
             "items": {
               "$ref": "#/components/schemas/ListedAs"
             },
-            "description": "消すと開けなくなる、フォルダーのコンテンツ (登録先が、消すものかその中)。\n見ている人の管理画面の一覧に出ないもの (他人の「作成者のみ」) は含めない。"
+            "description": "消すと開けなくなるコンテンツ (フォルダーの登録先かショートカットの先が、消すものかその中)。\n見ている人の管理画面の一覧に出ないもの (他人の「作成者のみ」) は含めない。"
           },
           "trash": {
             "type": "boolean",
@@ -7658,7 +7921,8 @@
         "required": [
           "path",
           "selectable",
-          "entries"
+          "entries",
+          "files"
         ],
         "properties": {
           "entries": {
@@ -7666,6 +7930,13 @@
             "items": {
               "$ref": "#/components/schemas/DirEntryItem"
             }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirEntryItem"
+            },
+            "description": "直下のファイル。`files` を頼んだときだけ。フォルダーの `entries` とは分けて返す。"
           },
           "parent": {
             "type": [
@@ -7756,6 +8027,89 @@
         "properties": {
           "error": {
             "$ref": "#/components/schemas/ErrorBody"
+          }
+        }
+      },
+      "ExcludedItem": {
+        "type": "object",
+        "description": "対象外のタブの1行。パスだけを見せる。開く口は無く、中身は共有の画面で確かめる (→ docs/ui.md「対象外のタブ」)。",
+        "required": [
+          "id",
+          "relPath"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "relPath": {
+            "type": "string",
+            "description": "登録先からの相対パス。"
+          }
+        }
+      },
+      "ExcludedItemsPageResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "stale"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ExcludedItem"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "結果を作った後に、索引か絞り込みのパターンが変わったか。"
+          }
+        }
+      },
+      "ExcludedItemsResponse": {
+        "type": "object",
+        "required": [
+          "snapshot",
+          "total",
+          "totalAll",
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ExcludedItem"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "先頭の区切り。引いた時点で消えた・見えるようになった行は `null`。"
+          },
+          "snapshot": {
+            "type": "string",
+            "description": "区切った続き (`/excluded-items/page`) を引くときに渡す結果の名前。"
+          },
+          "total": {
+            "type": "integer",
+            "description": "名前の語で絞った後の件数。",
+            "minimum": 0
+          },
+          "totalAll": {
+            "type": "integer",
+            "description": "名前の語で絞る前の、パターンで外れているファイルの数。",
+            "minimum": 0
           }
         }
       },
@@ -8445,7 +8799,7 @@
         "properties": {
           "path": {
             "type": "string",
-            "description": "載せるフォルダーの、共有からの相対パス。空文字列は共有そのもの。"
+            "description": "載せるフォルダーかファイルの、共有からの相対パス。空文字列は共有そのもの。"
           },
           "visibility": {
             "oneOf": [
@@ -8462,7 +8816,7 @@
       },
       "ListedAs": {
         "type": "object",
-        "description": "その場所をフォルダーとして載せているコンテンツ (→ docs/ui.md「掲載中」)。",
+        "description": "その場所を載せているコンテンツ (→ docs/ui.md「掲載中」)。",
         "required": [
           "contentId",
           "title"
@@ -8636,7 +8990,7 @@
         "properties": {
           "itemCount": {
             "type": "integer",
-            "description": "索引のアイテムの数。",
+            "description": "見えるアイテムの数。",
             "minimum": 0
           },
           "relPaths": {
@@ -8751,6 +9105,33 @@
           },
           "url": {
             "type": "string"
+          }
+        }
+      },
+      "RenameCheckRequest": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "名前を変えるものの、共有からの相対パス。"
+          }
+        }
+      },
+      "RenameCheckResponse": {
+        "type": "object",
+        "required": [
+          "unlinked"
+        ],
+        "properties": {
+          "unlinked": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListedAs"
+            },
+            "description": "名前を変えると開けなくなる、ファイルを指すショートカット。追いかけないので、変える前に伝える\n(→ docs/shares.md「場所の付け替え」)。"
           }
         }
       },
@@ -9462,7 +9843,7 @@
                 "oneOf": [
                   {
                     "$ref": "#/components/schemas/ListedAs",
-                    "description": "このフォルダーを載せているコンテンツ。ファイルと、載せていないフォルダーでは `None`。"
+                    "description": "このフォルダーかファイルを載せているコンテンツ。載せていなければ `None`。"
                   },
                   {
                     "type": "null"
@@ -9823,7 +10204,8 @@
           "totalBytes",
           "availableBytes",
           "trash",
-          "listed"
+          "listed",
+          "unlinked"
         ],
         "properties": {
           "availableBytes": {
@@ -9844,7 +10226,7 @@
             "items": {
               "$ref": "#/components/schemas/ListedAs"
             },
-            "description": "上書きすると、中身が変わるか開けなくなるフォルダーのコンテンツ (登録先が、`conflicts` のものかその中)。\n見ている人の管理画面の一覧に出ないもの (他人の「作成者のみ」) は含めない。"
+            "description": "上書きすると、中身が変わるか開けなくなるコンテンツ (フォルダーの登録先かショートカットの先が、`conflicts` のものかその中)。\n見ている人の管理画面の一覧に出ないもの (他人の「作成者のみ」) は含めない。"
           },
           "totalBytes": {
             "type": "integer",
@@ -9855,6 +10237,13 @@
           "trash": {
             "type": "boolean",
             "description": "上書きで消える置き先のものを、OS のごみ箱へ送れるか。偽なら、上書きすると元に戻せない。"
+          },
+          "unlinked": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListedAs"
+            },
+            "description": "動かすと開けなくなる、ファイルを指すショートカット (先が、動かすものかその中)。追いかけないので、移動でだけ返す\n(→ docs/shares.md「場所の付け替え」)。除くものは `listed` と同じ。"
           }
         }
       },

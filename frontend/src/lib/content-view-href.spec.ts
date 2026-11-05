@@ -20,6 +20,17 @@ const folder = {
 } as const;
 
 describe('contentViewHref', () => {
+	it('opens a shortcut to a file like a file', () => {
+		const shortcut = {
+			...folder,
+			type: 'shortcut',
+			fileName: 'a.links.toml',
+			visibility: 'hidden'
+		} as const;
+		expect(contentViewHref(shortcut, me).href).toBe('/links/10');
+		expect(contentViewHref({ ...shortcut, fileName: 'a.pdf' }, me).href).toBe('/');
+	});
+
 	it('opens the list the content is in, so the result can be seen among its neighbors', () => {
 		expect(contentViewHref(folder, me).href).toBe('/');
 		expect(contentViewHref({ ...folder, parentId: 5 }, me).href).toBe('/groups/5');
