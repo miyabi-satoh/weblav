@@ -312,7 +312,7 @@ struct ContentRow {
 /// (→ docs/access.md「フロントエンドのガード反転」)。一覧に並ぶ `private` は必ず閲覧者自身のもの (`can_list`)。
 ///
 /// 各バリアントの `can_edit` は、閲覧者がそのコンテンツを書き換えられるか (`admin` か作成者)。一覧の行から
-/// 編集・公開範囲の変更を出すかを画面が決めるのに使う。匿名 (「閲覧者として見る」を含む) には常に偽。
+/// 編集・公開範囲の変更を出すかを画面が決めるのに使う。匿名には常に偽。
 ///
 /// enum に付けた `rename_all` はバリアント名にしか効かないので、フィールドの camelCase はバリアントごとに指定する。
 #[derive(Debug, Serialize, ToSchema)]
@@ -888,27 +888,16 @@ fn resolve_visibility_for_create(
 /// 更新時に書き込む公開範囲を決める (→ docs/access.md「ロールと操作」)。
 ///
 /// 値が変わらない更新は常に通す。完全上書き型のPUTでは、編集していない公開範囲も
-/// そのまま送り返されてくるため (例: `admin` が他人の `private` のアーカイブの
-/// 表示タイトルを保存する)。
+/// そのまま送り返されてくるため (例: 作成者のいない `private` が残っていても表示タイトルを保存できる)。
+/// 書き換えてよい人かは、呼び出し側が `ensure_editable` で確かめている。
 fn resolve_visibility_for_update(
-    user: &AuthUser,
     requested: Option<Visibility>,
     current: Visibility,
     created_by: Option<i64>,
 ) -> Result<Visibility, AppError> {
     let next = requested.unwrap_or(current);
-    if next == current {
-        return Ok(current);
-    }
-    let is_creator = created_by == Some(user.id);
-    if current == Visibility::Private && !is_creator {
-        return if user.is_admin() && next == Visibility::Hidden {
-            Ok(next)
-        } else {
-            Err(AppError::Forbidden)
-        };
-    }
-    if next == Visibility::Private && !is_creator {
+    // 作成者のいない `private` は、閲覧の場の一覧に並ぶ相手がいなくなるので作らない。
+    if next != current && next == Visibility::Private && created_by.is_none() {
         return Err(AppError::Forbidden);
     }
     Ok(next)
@@ -1142,8 +1131,8 @@ pub(super) async fn list_folder_on_home(
     path: String,
     visibility: Option<Visibility>,
 ) -> Result<AdminContentResponse, AppError> {
-    // 管理者が他人のものを戻せるのは、作成者のみ以外にするときだけ。他人のものを作成者のみにはできないので、
-    // そのときは管理者自身のコンテンツを新しく作る。
+    // 管理者が「作成者のみ」で載せるときは、自分のコンテンツを新しく作る。他人のものを戻すと、
+    // 管理者の閲覧の場の一覧に並ばず、載せたことにならないため。
     let any_creator =
         user.is_admin() && visibility.is_some_and(|visibility| visibility != Visibility::Private);
     let hidden = sqlx::query_scalar!(
@@ -1346,7 +1335,6 @@ async fn update_content(
     // 入力の検証は、存在を隠す判定 (404) と権限の判定の後に行う。
     let title = validate_title(&payload.title)?;
     let visibility = resolve_visibility_for_update(
-        &user,
         payload.visibility,
         existing.visibility,
         existing.created_by,
@@ -1498,7 +1486,6 @@ pub struct SetCreatorRequest {
 /// 作成者の付け替え (→ docs/access.md「ロールと操作」)。`admin` だけ。
 ///
 /// 作成者のいないものや、辞めた人のものを、引き継ぐ人が書き換えられるようにするため。
-/// `private` は付け替えない (403)。本人しか見られないはずのものが、付け替えた先に見えてしまうため。
 #[utoipa::path(
     put,
     path = "/contents/{id}/creator",
@@ -1507,9 +1494,9 @@ pub struct SetCreatorRequest {
     responses(
         (status = OK, body = AdminContentResponse),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・private"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
         (status = 404, body = crate::error::ErrorResponse, description = "存在しない"),
-        (status = 422, body = crate::error::ErrorResponse, description = "存在しないユーザー"),
+        (status = 422, body = crate::error::ErrorResponse, description = "存在しないユーザーか、作成者のみのグループの決まりに合わない"),
     )
 )]
 async fn set_creator(
@@ -1518,18 +1505,9 @@ async fn set_creator(
     Path(id): Path<i64>,
     AppJson(payload): AppJson<SetCreatorRequest>,
 ) -> Result<Json<AdminContentResponse>, AppError> {
-    // 公開範囲の判定から書き込みまでを直列化する。判定の後に `private` へ変わっても書き込まないため。
+    // 「作成者のみ」のグループの決まりの判定から書き込みまでを直列化する。
     let _write_guard = state.contents_write_lock.lock().await;
-    let visibility = sqlx::query_scalar!(
-        r#"SELECT visibility as "visibility: Visibility" FROM contents WHERE id = ?"#,
-        id
-    )
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or(AppError::NotFound)?;
-    if visibility == Visibility::Private {
-        return Err(AppError::Forbidden);
-    }
+    let existing = fetch_visibility_state(&state.pool, id).await?;
     let user_exists = sqlx::query_scalar!("SELECT 1 FROM users WHERE id = ?", payload.created_by)
         .fetch_optional(&state.pool)
         .await?
@@ -1538,6 +1516,17 @@ async fn set_creator(
         return Err(AppError::Validation(
             "createdBy user does not exist".to_string(),
         ));
+    }
+    if existing.visibility == Visibility::Private {
+        let parent = validate_parent(&state.pool, existing.parent_id, None).await?;
+        ensure_fits_parent(
+            parent.as_ref(),
+            Visibility::Private,
+            Some(payload.created_by),
+        )?;
+        if existing.content_type == ContentType::Group {
+            ensure_children_fit_private_group(&state.pool, id, Some(payload.created_by)).await?;
+        }
     }
 
     let row = sqlx::query_as!(
@@ -3002,12 +2991,8 @@ async fn replace_content_upload(
         ));
     }
     let title = validate_title(fields.title.as_deref().unwrap_or_default())?;
-    let visibility = resolve_visibility_for_update(
-        &user,
-        fields.visibility,
-        existing.visibility,
-        existing.created_by,
-    )?;
+    let visibility =
+        resolve_visibility_for_update(fields.visibility, existing.visibility, existing.created_by)?;
     let parent = validate_parent(&state.pool, fields.parent_id, Some(id)).await?;
     ensure_fits_parent(parent.as_ref(), visibility, existing.created_by)?;
     let parent_id = parent.map(|parent| parent.id);
@@ -3053,7 +3038,7 @@ pub struct SetVisibilityRequest {
     responses(
         (status = 204),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "作成者・admin以外か、他人の作成者のみにかかわる変更"),
+        (status = 403, body = crate::error::ErrorResponse, description = "作成者・admin以外か、作成者のいないものを作成者のみにする変更"),
         (status = 404, body = crate::error::ErrorResponse, description = "存在しないか、他人の作成者のみ"),
         (status = 422, body = crate::error::ErrorResponse, description = "作成者のみのグループの決まりに合わない"),
     )
@@ -3078,7 +3063,7 @@ pub struct UnhideResponse {
 }
 
 /// 非表示のコンテンツを、非表示にする前の公開範囲に戻す。覚えていなければ (この仕組みより前に非表示に
-/// したもの) `authenticated` に戻す。前が他人の `private` なら、作成者でない人は戻せない (403)。
+/// したもの) `authenticated` に戻す。前が `private` で作成者がいなければ、誰も戻せない (403)。
 /// 非表示でないものはそのままの公開範囲を返す (二度押しを失敗にしないため)。
 #[utoipa::path(
     post,
@@ -3087,7 +3072,7 @@ pub struct UnhideResponse {
     responses(
         (status = OK, body = UnhideResponse),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "作成者・admin以外か、前が他人の作成者のみ"),
+        (status = 403, body = crate::error::ErrorResponse, description = "作成者・admin以外か、前が作成者のみで作成者がいない"),
         (status = 404, body = crate::error::ErrorResponse, description = "存在しないか、他人の作成者のみ"),
         (status = 422, body = crate::error::ErrorResponse, description = "作成者のみのグループの決まりに合わない"),
     )
@@ -3155,12 +3140,8 @@ async fn change_visibility(
     requested: Visibility,
 ) -> Result<Visibility, AppError> {
     ensure_editable(user, existing.visibility, existing.created_by)?;
-    let visibility = resolve_visibility_for_update(
-        user,
-        Some(requested),
-        existing.visibility,
-        existing.created_by,
-    )?;
+    let visibility =
+        resolve_visibility_for_update(Some(requested), existing.visibility, existing.created_by)?;
     if visibility == existing.visibility {
         return Ok(visibility);
     }
@@ -3189,7 +3170,7 @@ async fn change_visibility(
 pub struct HiddenContentResponse {
     #[serde(flatten)]
     pub content: AdminContentResponse,
-    /// 「表示に戻す」で戻る公開範囲。前が他人の `private` で、閲覧者が戻せないなら `None`。
+    /// 「表示に戻す」で戻る公開範囲。前が `private` で作成者がいなければ、戻せないので `None`。
     pub restore_visibility: Option<Visibility>,
 }
 
@@ -3233,7 +3214,7 @@ async fn list_hidden_contents(
         .map(|row| {
             let before = row.visibility_before_hidden;
             let restore = restore_target(before);
-            let restorable = restore != Visibility::Private || row.created_by == Some(user.id);
+            let restorable = restore != Visibility::Private || row.created_by.is_some();
             let archive_items = row.list_view.then(|| {
                 archive_item_counts
                     .get(&row.id)

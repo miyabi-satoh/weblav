@@ -31,12 +31,10 @@
 		try {
 			await errorDialog.attempt(
 				() => client.DELETE('/api/v1/admin/users/{id}', { params: { path: { id: target.id } } }),
-				async () => {
-					user = null;
-					await ondeleted(target);
-				}
+				() => ondeleted(target)
 			);
 		} finally {
+			user = null;
 			deleting = false;
 		}
 	}

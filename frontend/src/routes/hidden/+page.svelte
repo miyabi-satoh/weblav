@@ -2,7 +2,6 @@
 	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { toast } from 'svelte-sonner';
 	import { client } from '$lib/api/client';
 	import { canEditContent } from '$lib/auth';
 	import { contentTypeLabel, visibilityLabel } from '$lib/content-labels';
@@ -61,17 +60,7 @@
 		try {
 			await errorDialog.attempt(
 				() => client.POST('/api/v1/contents/{id}/unhide', { params: { path: { id: content.id } } }),
-				async ({ data: restored }) => {
-					await refreshAll();
-					if (restored) {
-						toast.success(
-							m.hidden_unhidden_toast({
-								title: content.title,
-								visibility: visibilityLabel(restored.visibility)
-							})
-						);
-					}
-				}
+				() => refreshAll()
 			);
 		} finally {
 			busy = false;
@@ -91,7 +80,7 @@
 	{:else}
 		<ul class={browseListClass()}>
 			{#each data.hidden as content (content.id)}
-				{@const view = contentViewHref(content)}
+				{@const view = contentViewHref(content, page.data.user?.id)}
 				<li class={browseItemClass()}>
 					<div class={browseRowClass()}>
 						<ListRowIcon icon={contentTypeIcon(content.type)} />

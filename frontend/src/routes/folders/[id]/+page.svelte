@@ -18,7 +18,6 @@
 	import FolderViewSwitch from '$lib/components/folder-view-switch.svelte';
 	import { refreshAll } from '$app/navigation';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
-	import { viewAs } from '$lib/view-as.svelte';
 	import { ShareOpsState } from '$lib/share-ops-state.svelte';
 	import {
 		canAddTo,
@@ -76,8 +75,7 @@
 	);
 
 	// この場所が共有の中で操作できるなら、共有の画面と同じ操作を重ねる (→ docs/ui.md「共有の中の画面」)。
-	// 閲覧者として見ている間は出さない。
-	let share = $derived(viewAs.active ? null : (browse.share ?? null));
+	let share = $derived(browse.share ?? null);
 	let shareDir = $derived<ShareDir | null>(
 		share === null
 			? null

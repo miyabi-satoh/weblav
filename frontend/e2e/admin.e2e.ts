@@ -8,6 +8,7 @@
 // try/finally で囲む。
 import { test, expect } from '@playwright/test';
 import { ADMIN_USERNAME } from './auth';
+import { withContentByApi } from './api-helpers';
 import {
 	basicSaveButton,
 	anonymousContext,
@@ -153,8 +154,8 @@ test('編集ページ: 閲覧画面で開けて、保存していない変更が
 		const editUrl = page.url();
 
 		await page.getByRole('link', { name: VIEW_ON_SITE_LINK_NAME }).click();
-		await page.waitForURL(/\/groups\/\d+$/);
-		await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+		await page.waitForURL('/');
+		await expect(page.getByRole('link', { name: title })).toBeVisible();
 
 		await page.goto(editUrl);
 		await page.getByLabel(TITLE_LABEL).fill(`${title}-変更`);
@@ -598,4 +599,43 @@ test('コンテンツ一覧: 見出しの行へドラッグするとルートへ
 		await removeContentIfPresent(page, linkTitle);
 		await removeContentIfPresent(page, restrictedGroupTitle);
 	}
+});
+
+test('確認ダイアログ: 処理中は Esc でも閉じず、失敗したら閉じてエラーを出す', async ({ page }) => {
+	const title = uniqueId('E2E削除の失敗');
+	await withContentByApi(
+		page.request,
+		{ type: 'link', title, url: 'https://example.com' },
+		async (content) => {
+			let release = () => {};
+			const held = new Promise<void>((resolve) => (release = resolve));
+			const uri = `**/api/v1/contents/${content.id}`;
+			await page.route(uri, async (route) => {
+				if (route.request().method() !== 'DELETE') return route.fallback();
+				await held;
+				await route.fulfill({
+					status: 500,
+					json: { error: { code: 'internal', message: 'failed' } }
+				});
+			});
+
+			await page.goto('/admin/contents');
+			await clickRowMenuItem(page, contentRow(page, title), DELETE_MENU_ITEM_NAME);
+			const confirm = page.getByRole('alertdialog');
+			await confirm.getByRole('button', { name: /^削除する$|^Delete$/ }).click();
+
+			await page.keyboard.press('Escape');
+			await expect(confirm.getByRole('button', { name: /^キャンセル$|^Cancel$/ })).toBeDisabled();
+
+			release();
+			const failed = page.getByRole('alertdialog', {
+				name: /^操作に失敗しました$|^Operation failed$/
+			});
+			await expect(failed).toBeVisible();
+			await expect(page.getByRole('alertdialog')).toHaveCount(1);
+			await failed.getByRole('button', { name: /^閉じる$|^Close$/ }).click();
+			await expect(page.getByRole('alertdialog')).toHaveCount(0);
+			await page.unroute(uri);
+		}
+	);
 });

@@ -360,7 +360,6 @@
 	"contents_edit_view_only_no_creator": "This content has no creator, so you can only view it. Ask an administrator to change it.",
 	"contents_form_creator_label": "Creator",
 	"contents_form_creator_none": "None",
-	"contents_form_creator_private_note": "The creator of “Creator only” content cannot be changed.",
 	"contents_type_link": "Link",
 	"contents_type_folder": "Folder",
 	"contents_type_file": "File",
@@ -724,7 +723,6 @@
 	"archive_axes_ai_preview_examples": "Examples of display titles",
 	"archive_axes_ai_replace_warning": "Importing replaces the current categories and display title template.",
 	"archive_axes_ai_import_button": "Import",
-	"archive_axes_ai_imported_toast": "Imported the categories.",
 	"error_detail_import_axis_invalid": "The category “{name}” does not follow the rules (level number, empty or duplicate values, and so on). Ask the AI to fix it.",
 	"archive_axes_ai_preview_unset": "Not set",
 	"search_nav_label": "Search",
@@ -788,9 +786,6 @@
 	"contents_visibility_dialog_title": "Visibility of “{title}”",
 	"shares_heading": "Shares",
 	"shares_empty": "There are no shares you can use.",
-	"shares_access_read": "You: read only",
-	"shares_access_add": "You: add only",
-	"shares_access_all": "You: full access",
 	"shares_fetch_failed": "Couldn't load the shares. Please try again later.",
 	"shares_browse_fetch_failed": "Couldn't load the share. Please try again later.",
 	"shares_listed_badge": "Listed",
@@ -864,16 +859,10 @@
 			}
 		}
 	],
-	"view_as_menu_item": "View as a visitor",
-	"view_as_stop_menu_item": "Stop viewing as a visitor",
-	"view_as_banner": "You're viewing as a visitor. This is how people who aren't logged in see it.",
-	"view_as_back_button": "Back",
-	"view_as_unauthorized": "People who aren't logged in can't see this.",
 	"hidden_menu_item": "Hidden content ({count})",
 	"hidden_title": "Hidden content",
 	"hidden_empty": "There is no hidden content.",
 	"hidden_fetch_failed": "Couldn't load the hidden content. Please try again later.",
 	"hidden_unhide_menu": "Show again",
-	"hidden_restore_to": "Shows to: {visibility}",
-	"hidden_unhidden_toast": "Set “{title}” back to “{visibility}”."
+	"hidden_restore_to": "Shows to: {visibility}"
 }

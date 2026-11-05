@@ -7,7 +7,7 @@ What you can do depends on your permission for each share (→ [Add shares](04-s
 
 1. Sign in, then select a share in the “Shares” section below the list on Home.
 
-   The second line of each row shows what you can do in that share (“You: read only”, “You: add only”, or “You: full access”).
+   The second line of each row shows what you can do in that share (“Read only”, “Add only”, or “Full access”).
 
 2. Select a folder to go into it. Select an item in “Home / Shares / share name / …” at the top to go back.
 

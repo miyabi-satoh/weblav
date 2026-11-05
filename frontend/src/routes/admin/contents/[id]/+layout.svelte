@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { pageHeadingInRowClass } from '$lib/page-layout';
+	import { pageHeadingInRowClass, sectionGridClass } from '$lib/page-layout';
 	import { page } from '$app/state';
 	import { isAdmin } from '$lib/auth';
 	import { resolve } from '$app/paths';
@@ -25,7 +25,7 @@
 
 	let content = $derived(data.content);
 	let contentById = $derived(byIdMap(data.contents));
-	let view = $derived(contentViewHref(content));
+	let view = $derived(contentViewHref(content, page.data.user?.id));
 	let deletingContent = $state<typeof content | null>(null);
 
 	// 一覧の表示を使うフォルダーは「基本情報 / 軸定義 / アイテム」を同列に並べる (→ docs/access.md「ロールと操作」)。
@@ -103,27 +103,18 @@
 			<span aria-hidden="true">・</span>
 			<span>{archiveItemsSummary(content.archiveItems)}</span>
 		{/if}
-		{#if content.includePatterns}
-			<span aria-hidden="true">・</span>
-			<span>
-				{m.contents_form_include_patterns_label()}: {content.includePatterns.replaceAll('\n', ', ')}
-			</span>
-		{/if}
-		{#if content.excludePatterns}
-			<span aria-hidden="true">・</span>
-			<span>
-				{m.contents_form_exclude_patterns_label()}: {content.excludePatterns.replaceAll('\n', ', ')}
-			</span>
-		{/if}
 	</p>
 	{#if viewOnlyNote}
-		<p
-			class="mt-3 flex max-w-xl items-start gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm"
-			data-testid="view-only-note"
-		>
-			<EyeIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-			<span>{viewOnlyNote}</span>
-		</p>
+		<!-- 下の区画の1列目と同じ幅にする。どの画面幅でも端が揃うよう、同じ格子に置く。 -->
+		<div class={[sectionGridClass, 'mt-3']}>
+			<p
+				class="flex items-start gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm"
+				data-testid="view-only-note"
+			>
+				<EyeIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+				<span>{viewOnlyNote}</span>
+			</p>
+		</div>
 	{/if}
 </div>
 

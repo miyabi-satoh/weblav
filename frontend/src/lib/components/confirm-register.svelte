@@ -148,7 +148,11 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-lg">
+	<Dialog.Content
+		class="sm:max-w-lg"
+		escapeKeydownBehavior={saving ? 'ignore' : 'close'}
+		interactOutsideBehavior={saving ? 'ignore' : 'close'}
+	>
 		<Dialog.Header class="text-left">
 			<Dialog.Title
 				>{editing ? m.confirm_register_save_title() : m.confirm_register_title()}</Dialog.Title

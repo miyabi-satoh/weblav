@@ -4,12 +4,10 @@
 	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
 	import { resolve } from '$app/paths';
 	import { refreshAll } from '$app/navigation';
-	import { page } from '$app/state';
 	import { toast } from 'svelte-sonner';
 	import { client } from '$lib/api/client';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { selectableVisibilities } from '$lib/visibility';
-	import { viewAs } from '$lib/view-as.svelte';
 	import { contentDownloadHref, contentRemoteHref, contentThumbnailHref } from '$lib/api/urls';
 	import { contentTypeIcon } from '$lib/content-types';
 	import {
@@ -209,7 +207,7 @@
 						id: found.id,
 						title: found.title,
 						visibility: found.visibility,
-						options: selectableVisibilities(found, page.data.user?.id, parent)
+						options: selectableVisibilities(found, parent)
 					};
 				}
 			);
@@ -250,8 +248,7 @@
 </script>
 
 {#snippet rowMenu(content: ContentEntry)}
-	<!-- 閲覧者として見ている間は、ログインしていない人に見える形にするので出さない。 -->
-	{#if actions && content.canEdit && !viewAs.active}
+	{#if actions && content.canEdit}
 		<span class={rowMenuSlotClass()}>
 			<RowActionsMenu name={content.title}>
 				<DropdownMenu.Item>

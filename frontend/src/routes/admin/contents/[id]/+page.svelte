@@ -33,6 +33,7 @@
 	import { formatNumber } from '$lib/format';
 	import * as m from '$lib/paraglide/messages.js';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
+	import LoadingLabel from '$lib/components/loading-label.svelte';
 	import ConfirmRegister from '$lib/components/confirm-register.svelte';
 	import ContentForm from '$lib/components/content-form.svelte';
 	import * as Field from '$lib/components/ui/field';
@@ -50,7 +51,6 @@
 
 	let content = $derived(data.content);
 	let contentById = $derived(byIdMap(data.contents));
-	let currentUserId = $derived(page.data.user?.id);
 	let canSeeFullPath = $derived(isAdmin(page.data.user));
 	let editable = $derived(data.editable);
 
@@ -61,15 +61,13 @@
 		untrack(() => canSeeFullPath)
 	);
 
-	// 作成者の付け替えは admin だけ。`private` は付け替えられない (→ docs/access.md「ロールと操作」)。
+	// 作成者の付け替えは admin だけ (→ docs/access.md「ロールと操作」)。
 	// 基本情報の区画の保存ボタンで一緒に保存する。
 	let canChangeCreator = $derived(isAdmin(page.data.user));
-	let creatorLocked = $derived(content.visibility === 'private' || form.visibility === 'private');
-	let savedCreatorId = $derived(String(content.createdBy ?? ''));
 	let creatorId = $state(untrack(() => String(data.content.createdBy ?? '')));
 	const creatorDirty = new FormDirtyState(() => creatorId);
 	creatorDirty.markPristine();
-	let creatorChanged = $derived(canChangeCreator && !creatorLocked && creatorDirty.dirty);
+	let creatorChanged = $derived(canChangeCreator && creatorDirty.dirty);
 
 	// 区画ごとに保存する (→ docs/ui.md「編集ページの区画」)。保存ボタンは、その区画の変更だけで決める。
 	let commonDirty = $derived(form.partDirty('common') || creatorChanged);
@@ -109,6 +107,8 @@
 	let dirPickerOpen = $state(false);
 	let confirmRegisterOpen = $state(false);
 	let confirmLoosenedOpen = $state(false);
+	/** 確認の窓に見せる、広がる見え方。保存すると `loosened` は消えるので、閉じ終わるまで出せるよう開いたときの値を持つ。 */
+	let loosenedNotice = $state<typeof loosened>(null);
 	let confirmVisibilityOpen = $state(false);
 	/** 保存すると見えるファイルがどう変わるか。数えられなかったときは `null`。 */
 	let visibilityChange = $state<VisibilityPreview | null>(null);
@@ -120,7 +120,6 @@
 	let visibilityOptions = $derived(
 		selectableVisibilities(
 			content,
-			currentUserId,
 			form.parentIdValue == null ? null : contentById.get(form.parentIdValue)
 		)
 	);
@@ -198,6 +197,7 @@
 		if (part === 'common') {
 			if (visibilityError !== null) return;
 			if (loosened !== null) {
+				loosenedNotice = loosened;
 				confirmLoosenedOpen = true;
 				return;
 			}
@@ -206,9 +206,9 @@
 	}
 
 	function confirmRegisterOrSave() {
-		confirmLoosenedOpen = false;
 		// 対象ファイル数と実効的な閲覧範囲を見せてから送る (→ docs/folders.md「登録前の確認」)。
 		if (needsRegisterConfirm(confirmingPart)) {
+			confirmLoosenedOpen = false;
 			confirmRegisterOpen = true;
 			return;
 		}
@@ -261,6 +261,13 @@
 		confirmVisibilityOpen = true;
 	}
 
+	/** 確認の窓を閉じる。処理中は開いたままにし、応答を受けて成否によらず閉じる (→ docs/ui.md「UI 全般」)。 */
+	function closeConfirms() {
+		confirmLoosenedOpen = false;
+		confirmVisibilityOpen = false;
+		confirmRegisterOpen = false;
+	}
+
 	async function saveContent() {
 		if (saving) return;
 		const part = confirmingPart;
@@ -283,6 +290,7 @@
 					body: { createdBy: Number(creatorId) }
 				});
 				if (!result.response.ok) {
+					closeConfirms();
 					errorDialog.show(errorMessage(result.error));
 					return;
 				}
@@ -291,6 +299,7 @@
 			if (form.partDirty(part)) {
 				const result = await form.replacePart(content.id, part, content);
 				if (!result.response.ok || !result.data) {
+					closeConfirms();
 					errorDialog.show(errorMessage(result.error));
 					// 作成者だけ保存できていることがあるので、見出しと一覧は取り直す。
 					await refreshAll();
@@ -299,7 +308,10 @@
 				form.loadPart(result.data, canSeeFullPath, part);
 			}
 			if (rescansAfterSave) {
+				// 続くスキャンの進み具合と中止は、登録の確認の窓か、区画の中に出す。
+				confirmVisibilityOpen = false;
 				const scan = await rescanArchive(content.id, (message) => (scanProgress = message));
+				closeConfirms();
 				if (scan.ok) {
 					toast.success(
 						scan.result.cancelled
@@ -318,16 +330,17 @@
 					);
 				}
 			} else {
+				closeConfirms();
 				toast.success(m.common_section_saved_toast({ section }));
 			}
 			// 見出しのタイトルと、公開範囲の判定に使う一覧を取り直す。
 			await refreshAll();
 		} catch {
+			closeConfirms();
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			savingPart = null;
-			// 成否によらず確認ダイアログは閉じる。失敗時はフォームが残るので、直して保存し直せる。
-			confirmRegisterOpen = false;
+			closeConfirms();
 		}
 		await resumeNavigationAfterSave();
 	}
@@ -372,16 +385,11 @@
 			/>
 		</fieldset>
 		{#if part === 'common' && canChangeCreator}
-			<Field.Field data-disabled={creatorLocked}>
+			<Field.Field>
 				<Field.FieldLabel for="content-creator">{m.contents_form_creator_label()}</Field.FieldLabel>
-				<!-- 付け替えられない間は、選んでいた値でなく保存済みの作成者を見せる。送らない値を出さないため。 -->
-				<Select.Root
-					type="single"
-					bind:value={() => (creatorLocked ? savedCreatorId : creatorId), (v) => (creatorId = v)}
-					disabled={creatorLocked}
-				>
+				<Select.Root type="single" bind:value={creatorId}>
 					<Select.Trigger id="content-creator" class="w-full">
-						{creatorSelectLabel(creatorLocked ? savedCreatorId : creatorId)}
+						{creatorSelectLabel(creatorId)}
 					</Select.Trigger>
 					<Select.Content>
 						{#each data.users as user (user.id)}
@@ -389,9 +397,6 @@
 						{/each}
 					</Select.Content>
 				</Select.Root>
-				{#if creatorLocked}
-					<Field.FieldDescription>{m.contents_form_creator_private_note()}</Field.FieldDescription>
-				{/if}
 			</Field.Field>
 		{/if}
 		{#if editable}
@@ -449,28 +454,29 @@
 />
 
 <AlertDialog.Root bind:open={confirmLoosenedOpen}>
-	<AlertDialog.Content>
+	<AlertDialog.Content escapeKeydownBehavior={saving ? 'ignore' : 'close'}>
 		<AlertDialog.Header>
 			<AlertDialog.Title>{m.contents_edit_loosened_title()}</AlertDialog.Title>
 			<AlertDialog.Description>
-				{#if loosened !== null}
+				{#if loosenedNotice !== null}
 					{m.contents_edit_loosened_description({
-						before: visibilityLabel(loosened.before),
-						after: visibilityLabel(loosened.after)
+						before: visibilityLabel(loosenedNotice.before),
+						after: visibilityLabel(loosenedNotice.after)
 					})}
 				{/if}
 			</AlertDialog.Description>
 		</AlertDialog.Header>
 		<AlertDialog.Footer>
-			<AlertDialog.Cancel>{m.action_cancel()}</AlertDialog.Cancel>
-			<!-- 保存の前に閉じるので、保存中の表示は持たない (保存ボタンの側が出す)。 -->
-			<AlertDialog.Action onclick={confirmRegisterOrSave}>{m.action_save()}</AlertDialog.Action>
+			<AlertDialog.Cancel disabled={saving}>{m.action_cancel()}</AlertDialog.Cancel>
+			<AlertDialog.Action class="relative" disabled={saving} onclick={confirmRegisterOrSave}>
+				<LoadingLabel loading={saving}>{m.action_save()}</LoadingLabel>
+			</AlertDialog.Action>
 		</AlertDialog.Footer>
 	</AlertDialog.Content>
 </AlertDialog.Root>
 
 <AlertDialog.Root bind:open={confirmVisibilityOpen}>
-	<AlertDialog.Content>
+	<AlertDialog.Content escapeKeydownBehavior={saving ? 'ignore' : 'close'}>
 		<AlertDialog.Header>
 			<AlertDialog.Title>{m.contents_edit_visibility_change_title()}</AlertDialog.Title>
 			<AlertDialog.Description>
@@ -498,9 +504,10 @@
 			</AlertDialog.Description>
 		</AlertDialog.Header>
 		<AlertDialog.Footer>
-			<AlertDialog.Cancel>{m.action_cancel()}</AlertDialog.Cancel>
-			<!-- 保存の前に閉じるので、保存中の表示は持たない (保存ボタンの側が出す)。 -->
-			<AlertDialog.Action onclick={saveContent}>{m.action_save()}</AlertDialog.Action>
+			<AlertDialog.Cancel disabled={saving}>{m.action_cancel()}</AlertDialog.Cancel>
+			<AlertDialog.Action class="relative" disabled={saving} onclick={saveContent}>
+				<LoadingLabel loading={saving}>{m.action_save()}</LoadingLabel>
+			</AlertDialog.Action>
 		</AlertDialog.Footer>
 	</AlertDialog.Content>
 </AlertDialog.Root>

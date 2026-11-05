@@ -87,8 +87,8 @@ note = "A description shown under the link (optional)"
 |---|---|
 | Everyone | Everyone, including people who aren't logged in (default) |
 | Logged-in users | Only logged-in users |
-| Creator only | Only the person who registered it |
-| Hidden | No one (you can open it from the admin pages) |
+| Creator only | Listed only for the person who registered it (administrators can open it from the admin pages) |
+| Hidden | Not listed (logged-in users can open it from the admin pages) |
 
 1. In the “Contents” list, select the row (you can also choose “Edit” from “⋮” on the row).
 
@@ -102,6 +102,8 @@ You can also change it from the list on Home or in a group. On a row of an item 
 
 Items in a group are visible only to people who also meet the group’s visibility setting.
 
+Visibility controls how an item appears as content. Files inside a folder can still be seen on the share screen by anyone who can view that share, whatever the visibility.
+
 ## Hide and show again
 
 In the list on Home or in a group, select “⋮” on a row, then choose “Hide” to remove it from the list right away. To bring it back right away, select “Undo” in the notice that appears.
@@ -111,7 +113,7 @@ Hidden items are listed under “Hidden content” in the username menu at the t
 1. Select your username at the top right, then choose “Hidden content (count)”.
 2. Select “⋮” on the row, then choose “Show again”.
 
-It returns to the visibility it had before it was hidden. An item that was “Creator only” for someone else can be shown again only by that person, so “Show again” does not appear for it. You can also edit or delete items from “⋮”.
+It returns to the visibility it had before it was hidden. If an item was “Creator only” and its creator's user has been deleted, there is nothing to return it to, so “Show again” does not appear. Choose its visibility on the edit page instead. You can also edit or delete items from “⋮”.
 
 Set a group to “Creator only” to make it a space just for you. It can hold only your own “Creator only” content, and anything you add inside it becomes “Creator only”. A group that holds someone else’s content, or content that isn’t “Creator only”, can’t be set to “Creator only”.
 
@@ -136,7 +138,7 @@ To move an existing item:
 
 Select the row to open the edit page, make your changes, then select “Save”.
 
-To see how it looks to viewers, select “View on site” next to the heading of the edit page (it is also in the row’s “⋮” in the list). For an image, PDF, audio, or video file, this opens the group that contains it.
+To see how it looks to viewers, select “View on site” next to the heading of the edit page (it is also in the row’s “⋮” in the list). This opens the group the item is in (Home if it isn't in a group), where it's listed. Items set to “Hidden” and other people's “Creator only” items aren't listed there, so the item itself opens.
 
 ![The Link edit page. Below the title and description are buttons to refetch each one.](images/edit-link.webp)
 

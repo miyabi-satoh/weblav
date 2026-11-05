@@ -191,7 +191,6 @@
 		// 保存はできているので、読み直しに失敗しても取り込みは失敗と見せない。
 		// 待つ間に閉じて開き直していたら、開き直した方は閉じない。
 		if (current === session) open = false;
-		toast.success(m.archive_axes_ai_imported_toast());
 		await onimported().catch(() => errorDialog.show(GENERIC_ERROR_MESSAGE()));
 	}
 </script>

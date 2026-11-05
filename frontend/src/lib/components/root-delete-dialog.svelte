@@ -35,12 +35,10 @@
 		try {
 			await errorDialog.attempt(
 				() => client.DELETE('/api/v1/admin/roots/{id}', { params: { path: { id: target.id } } }),
-				async () => {
-					root = null;
-					await ondeleted();
-				}
+				() => ondeleted()
 			);
 		} finally {
+			root = null;
 			deleting = false;
 		}
 	}

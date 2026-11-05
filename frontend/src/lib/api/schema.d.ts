@@ -846,7 +846,6 @@ export interface paths {
         /**
          * 作成者の付け替え (→ docs/access.md「ロールと操作」)。`admin` だけ。
          * @description 作成者のいないものや、辞めた人のものを、引き継ぐ人が書き換えられるようにするため。
-         *     `private` は付け替えない (403)。本人しか見られないはずのものが、付け替えた先に見えてしまうため。
          */
         put: operations["set_creator"];
         post?: never;
@@ -1201,7 +1200,7 @@ export interface paths {
         put?: never;
         /**
          * 非表示のコンテンツを、非表示にする前の公開範囲に戻す。覚えていなければ (この仕組みより前に非表示に
-         *     したもの) `authenticated` に戻す。前が他人の `private` なら、作成者でない人は戻せない (403)。
+         *     したもの) `authenticated` に戻す。前が `private` で作成者がいなければ、誰も戻せない (403)。
          *     非表示でないものはそのままの公開範囲を返す (二度押しを失敗にしないため)。
          */
         post: operations["unhide_content"];
@@ -2060,7 +2059,7 @@ export interface components {
          *     (→ docs/access.md「フロントエンドのガード反転」)。一覧に並ぶ `private` は必ず閲覧者自身のもの (`can_list`)。
          *
          *     各バリアントの `can_edit` は、閲覧者がそのコンテンツを書き換えられるか (`admin` か作成者)。一覧の行から
-         *     編集・公開範囲の変更を出すかを画面が決めるのに使う。匿名 (「閲覧者として見る」を含む) には常に偽。
+         *     編集・公開範囲の変更を出すかを画面が決めるのに使う。匿名には常に偽。
          *
          *     enum に付けた `rename_all` はバリアント名にしか効かないので、フィールドの camelCase はバリアントごとに指定する。
          */
@@ -6004,7 +6003,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外・private */
+            /** @description admin以外 */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6022,7 +6021,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 存在しないユーザー */
+            /** @description 存在しないユーザーか、作成者のみのグループの決まりに合わない */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -6982,7 +6981,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 作成者・admin以外か、前が他人の作成者のみ */
+            /** @description 作成者・admin以外か、前が作成者のみで作成者がいない */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7104,7 +7103,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 作成者・admin以外か、他人の作成者のみにかかわる変更 */
+            /** @description 作成者・admin以外か、作成者のいないものを作成者のみにする変更 */
             403: {
                 headers: {
                     [name: string]: unknown;

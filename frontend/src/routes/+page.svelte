@@ -12,7 +12,6 @@
 	import { pageTitle } from '$lib/page-title';
 	import { browseGutterClass } from '$lib/list-row';
 	import { pageEmptyTextClass } from '$lib/page-layout';
-	import { viewAs } from '$lib/view-as.svelte';
 
 	let { data }: PageProps = $props();
 
@@ -21,8 +20,8 @@
 	provideListFilter(listFilter);
 
 	// コンテンツ管理はログイン済みなら `role` を問わず開ける (→ docs/access.md「管理画面の一覧が `user` に見えること」)。
-	// 追加の入り口は、追加できる人にだけ出す。閲覧者として見ている間は、ログインしていない人と同じく出さない。
-	let canAddContents = $derived(page.data.user != null && !viewAs.active);
+	// 追加の入り口は、追加できる人にだけ出す。
+	let canAddContents = $derived(page.data.user != null);
 
 	let siteName = $derived(data.siteSettings.siteName);
 	let homeHeading = $derived(data.siteSettings.homeHeading);

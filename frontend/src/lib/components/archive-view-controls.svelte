@@ -131,6 +131,7 @@
 		layoutToggle={hasItems}
 		sort={sortSelect}
 		filters={axes.length > 0 ? axisSelects : undefined}
+		class={hideCount ? 'mb-4' : undefined}
 	/>
 {/if}
 

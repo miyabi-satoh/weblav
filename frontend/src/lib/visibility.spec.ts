@@ -135,39 +135,25 @@ describe('loosenedByReparent', () => {
 
 describe('selectableVisibilities', () => {
 	const me = 1;
-	const other = 2;
 	const all = ['public', 'authenticated', 'private', 'hidden'];
 	const withoutPrivate = ['public', 'authenticated', 'hidden'];
 
-	it('offers private when creating content, groups included', () => {
-		expect(selectableVisibilities(null, me, null)).toEqual(all);
+	it('offers every visibility when creating or when the content has a creator', () => {
+		expect(selectableVisibilities(null, null)).toEqual(all);
+		expect(selectableVisibilities({ visibility: 'public', createdBy: me }, null)).toEqual(all);
+		expect(selectableVisibilities({ visibility: 'private', createdBy: me }, null)).toEqual(all);
 	});
 
-	it('offers private when editing content the user created', () => {
-		expect(selectableVisibilities({ visibility: 'public', createdBy: me }, me, null)).toEqual(all);
-		expect(selectableVisibilities({ visibility: 'private', createdBy: me }, me, null)).toEqual(all);
-	});
-
-	it('does not offer private when editing content someone else or nobody created', () => {
-		expect(selectableVisibilities({ visibility: 'public', createdBy: other }, me, null)).toEqual(
+	it('does not offer private when the content has no creator', () => {
+		expect(selectableVisibilities({ visibility: 'public', createdBy: null }, null)).toEqual(
 			withoutPrivate
 		);
-		expect(selectableVisibilities({ visibility: 'public', createdBy: null }, me, null)).toEqual(
-			withoutPrivate
-		);
-	});
-
-	it('offers only private and hidden when editing private content someone else created', () => {
-		expect(selectableVisibilities({ visibility: 'private', createdBy: other }, me, null)).toEqual([
-			'private',
-			'hidden'
-		]);
 	});
 
 	it('offers only private inside a private group', () => {
 		const parent = { visibility: 'private', createdBy: me } as const;
-		expect(selectableVisibilities(null, me, parent)).toEqual(['private']);
-		expect(selectableVisibilities({ visibility: 'public', createdBy: me }, me, parent)).toEqual([
+		expect(selectableVisibilities(null, parent)).toEqual(['private']);
+		expect(selectableVisibilities({ visibility: 'public', createdBy: me }, parent)).toEqual([
 			'private'
 		]);
 	});
