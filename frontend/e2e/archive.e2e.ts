@@ -132,6 +132,21 @@ test('アイテム: 再スキャンで索引し、件数が見出しに出る', 
 	);
 });
 
+test('再スキャンしても、分類のタブの打っているテンプレートは消えない', async ({ page }) => {
+	await withDirectoryContent(
+		page.request,
+		{ type: 'archive', namePrefix: 'e2e-rescan-keeps' },
+		async (archive) => {
+			await page.goto(`/admin/contents/${archive.id}/axes`);
+			const template = page.getByRole('textbox', { name: TITLE_TEMPLATE_LABEL });
+			await template.fill('{fileName} 書きかけ');
+			await page.getByRole('button', { name: /^再スキャンする$|^Rescan$/ }).click();
+			await expect(page.getByText(/新規\s3\s件・削除\s0\s件|3 added, 0 removed/)).toBeVisible();
+			await expect(template).toHaveValue('{fileName} 書きかけ');
+		}
+	);
+});
+
 test('アーカイブの閲覧: 軸で絞り込み、音声を押すとページ内のプレイヤーで開く', async ({ page }) => {
 	await withDirectoryContent(
 		page.request,

@@ -811,12 +811,14 @@
 	// 表示タイトルのテンプレート。書き込み可能な$derivedにし、bind:valueでの編集はローカルに
 	// 保持しつつ、currentContentが更新された(軸のリネームやテンプレート保存の成功)
 	// タイミングでは自動的にサーバー値へ再同期される。
-	let titleTemplateInput = $derived(currentContent.titleTemplate ?? '');
+	// 保存済みの文字列が変わったときだけ同期する。見出しの段の再スキャンが一覧を取り直しても、打っている値を消さないため。
+	let savedTitleTemplate = $derived(currentContent.titleTemplate ?? '');
+	let titleTemplateInput = $derived(savedTitleTemplate);
 	// dirty判定は他のフォームと同じくFormDirtyStateに揃える(→ AGENTS.md「コードの規約」)。
 	// currentContentの更新 (再同期) のたびに基準値を引き直す。
 	const templateForm = new FormDirtyState(() => ({ titleTemplate: titleTemplateInput }));
 	$effect(() => {
-		void currentContent;
+		void savedTitleTemplate;
 		// markPristine() 内で titleTemplateInput を読むため、untrack しないと
 		// 入力するたびに effect が再実行され、常に pristine 扱いになってしまう。
 		untrack(() => templateForm.markPristine());
