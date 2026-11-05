@@ -156,7 +156,7 @@ test('ファイルを指すショートカット: 追加の窓で選んで作り
 		await expect(page.getByRole('switch', { name: LIST_VIEW_SWITCH_NAME })).toHaveCount(0);
 
 		await page.goto('/');
-		await page.getByRole('button', { name: 'memo.txt', exact: true }).click();
+		await page.getByRole('link', { name: 'memo.txt', exact: true }).click();
 		await expect(page.getByText('hello')).toBeVisible();
 		await page.keyboard.press('Escape');
 

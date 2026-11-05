@@ -601,12 +601,12 @@ test('対象外のタブで絞り込み、パターンに追加すると、そ�
 		{
 			type: 'archive',
 			namePrefix: 'e2e-excluded',
-			files: { 'keep.pdf': 'x', 'old[1].txt': 'x', 'drafts/a.txt': 'x' }
+			files: { 'keep.pdf': 'x', 'old[1].pdf': 'x', 'drafts/a.pdf': 'x' }
 		},
 		async (content) => {
 			await rescanArchive(page.request, content.id);
 			await page.goto(`/admin/contents/${content.id}/items`);
-			const filter = page.getByLabel(/^名前で絞り込む$|^Filter by name$/);
+			const filter = page.getByRole('textbox', { name: /^(名前で絞り込む|Filter by name)$/ });
 			await filter.fill('old[1]');
 			await page
 				.getByRole('button', { name: /^パターンに追加\.\.\.$|^Add to patterns\.\.\.$/ })
@@ -620,9 +620,9 @@ test('対象外のタブで絞り込み、パターンに追加すると、そ�
 
 			// 外れたものは対象外のタブにパスで並び、開く操作は無い。語はパスに当たる。
 			await page.getByRole('link', { name: /^対象外$|^Excluded$/ }).click();
-			await expect(page.getByText('old[1].txt')).toBeVisible();
+			await expect(page.getByText('old[1].pdf')).toBeVisible();
 			await expect(page.getByRole('link', { name: /old\[1\]/ })).toHaveCount(0);
-			await expect(page.getByText('drafts/a.txt')).toHaveCount(0);
+			await expect(page.getByText('drafts/a.pdf')).toHaveCount(0);
 		}
 	);
 });
