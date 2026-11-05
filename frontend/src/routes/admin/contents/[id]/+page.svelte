@@ -255,10 +255,13 @@
 			savingPart = null;
 		}
 		visibilityChange = preview;
-		if (preview !== null && preview.gained === 0 && preview.lost === 0) {
+		// 一部だけを数えたときは、増減が0でも、数えていない所で変わるかもしれない。
+		if (preview !== null && !preview.truncated && preview.gained === 0 && preview.lost === 0) {
 			void saveContent();
 			return;
 		}
+		// 数える間に止めた移動は持ち越さない。確認で取り消した後の保存で、急に移ってしまうため。
+		await resumeNavigationAfterSave();
 		confirmVisibilityOpen = true;
 	}
 
@@ -301,7 +304,10 @@
 				form.listView &&
 				(content.path !== form.path ||
 					!content.listView ||
-					(changesVisibleFiles() && (visibilityChange === null || visibilityChange.gained > 0)));
+					(changesVisibleFiles() &&
+						(visibilityChange === null ||
+							visibilityChange.truncated ||
+							visibilityChange.gained > 0)));
 			// 「作成者のみ」のグループは中身と作成者が揃っている必要があるので、そこから外すときは公開範囲を先に保存する。
 			const creatorLast = content.visibility === 'private' && form.visibility !== 'private';
 			if (part === 'common' && creatorChanged && !creatorLast && !(await saveCreator())) return;
