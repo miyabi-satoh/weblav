@@ -1046,25 +1046,6 @@ async fn a_share_folder_can_be_listed_on_home(pool: SqlitePool) {
     assert_eq!(body["canListOnHome"], false);
 }
 
-/// 処理が終わるまで待ち、最後の進み具合を返す。
-async fn wait_job(app: Router, cookie: &str, body: &str) -> serde_json::Value {
-    let id = parse_json(body)["jobId"]
-        .as_str()
-        .expect("jobId が返るはず")
-        .to_string();
-    let uri = format!("/api/v1/shares/jobs/{id}");
-    for _ in 0..200 {
-        let (status, body) = send_empty(app.clone(), "GET", &uri, cookie).await;
-        assert_eq!(status, StatusCode::OK, "{body}");
-        let job = parse_json(&body);
-        if job["state"] != "running" {
-            return job;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-    }
-    panic!("処理が終わらなかった");
-}
-
 fn transfer_json(
     op: &str,
     from: i64,

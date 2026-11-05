@@ -79,7 +79,6 @@ const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
     ("POST", "/api/v1/shares/9999/upload"),
     ("POST", "/api/v1/shares/9999/folders"),
     ("POST", "/api/v1/shares/9999/rename"),
-    ("POST", "/api/v1/shares/9999/rename/check"),
     ("POST", "/api/v1/shares/9999/list-on-home"),
     ("POST", "/api/v1/shares/transfer/check"),
     ("POST", "/api/v1/shares/transfer"),

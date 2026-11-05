@@ -1766,23 +1766,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/shares/{id}/rename/check": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 名前を変える前の確かめ。何も変えない。 */
-        post: operations["check_rename"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/shares/{id}/thumbnail": {
         parameters: {
             query?: never;
@@ -2677,17 +2660,6 @@ export interface components {
             preview: components["schemas"]["LinkPreview"];
             url: string;
         };
-        RenameCheckRequest: {
-            /** @description 名前を変えるものの、共有からの相対パス。 */
-            path: string;
-        };
-        RenameCheckResponse: {
-            /**
-             * @description 名前を変えると開けなくなる、ファイルを指すショートカット。追いかけないので、変える前に伝える
-             *     (→ docs/shares.md「場所の付け替え」)。
-             */
-            unlinked: components["schemas"]["ListedAs"][];
-        };
         RenameRootRequest: {
             /** @description 新しい名前。前後の空白は除く。空ならフォルダー名にする。 */
             name: string;
@@ -3114,11 +3086,6 @@ export interface components {
             totalBytes: number;
             /** @description 上書きで消える置き先のものを、OS のごみ箱へ送れるか。偽なら、上書きすると元に戻せない。 */
             trash: boolean;
-            /**
-             * @description 動かすと開けなくなる、ファイルを指すショートカット (先が、動かすものかその中)。追いかけないので、移動でだけ返す
-             *     (→ docs/shares.md「場所の付け替え」)。除くものは `listed` と同じ。
-             */
-            unlinked: components["schemas"]["ListedAs"][];
         };
         /** @description 置き先に既にある同じ名前のもの。 */
         TransferConflict: {
@@ -8597,59 +8564,6 @@ export interface operations {
             };
             /** @description 名前が使えない・同じ名前がある・共有そのもの (`entryProtected`) */
             422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    check_rename: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RenameCheckRequest"];
-            };
-        };
-        responses: {
-            /** @description 名前を変える前の確かめ */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RenameCheckResponse"];
-                };
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description この場所で名前を変えられない */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 共有・ファイルが無い、見られない */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };

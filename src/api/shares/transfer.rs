@@ -112,9 +112,6 @@ pub struct TransferCheckResponse {
     /// 上書きすると、中身が変わるか開けなくなるコンテンツ (フォルダーの登録先かショートカットの先が、`conflicts` のものかその中)。
     /// 見ている人の管理画面の一覧に出ないもの (他人の「作成者のみ」) は含めない。
     listed: Vec<ListedAs>,
-    /// 動かすと開けなくなる、ファイルを指すショートカット (先が、動かすものかその中)。追いかけないので、移動でだけ返す
-    /// (→ docs/shares.md「場所の付け替え」)。除くものは `listed` と同じ。
-    unlinked: Vec<ListedAs>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -241,11 +238,6 @@ async fn check_transfer(
     let (_, total_bytes) = prepared.total();
     let share_trash = state.share_trash.clone();
     let dest_dir = prepared.dest.canonical.clone();
-    let moved: Vec<PathBuf> = prepared
-        .sources
-        .iter()
-        .map(|source| source.resolved.canonical.clone())
-        .collect();
     let (conflicts, available_bytes, trash) = run_blocking(move || {
         let dest_dir = &prepared.dest.canonical;
         let conflicts: Vec<TransferConflict> = prepared
@@ -262,17 +254,12 @@ async fn check_transfer(
         .map(|conflict| dest_dir.join(&conflict.name))
         .collect();
     let listed = listed_under(&state, &user, &doomed).await?;
-    let unlinked = match payload.op {
-        TransferOp::Move => shortcuts_under(&state, &user, &moved).await?,
-        TransferOp::Copy => Vec::new(),
-    };
     Ok(Json(TransferCheckResponse {
         conflicts,
         total_bytes,
         available_bytes,
         trash,
         listed,
-        unlinked,
     }))
 }
 
@@ -687,35 +674,15 @@ async fn listed_under(
     user: &AuthUser,
     doomed: &[PathBuf],
 ) -> Result<Vec<ListedAs>, AppError> {
-    contents_under(state, user, doomed, false).await
-}
-
-/// 先が `places` (実体のパス) のどれかかその中である、ファイルを指すショートカット。
-/// 名前を変える・動かすと開けなくなるので、確かめの画面で伝える。除くものは `listed_under` と同じ。
-pub(super) async fn shortcuts_under(
-    state: &AppState,
-    user: &AuthUser,
-    places: &[PathBuf],
-) -> Result<Vec<ListedAs>, AppError> {
-    contents_under(state, user, places, true).await
-}
-
-async fn contents_under(
-    state: &AppState,
-    user: &AuthUser,
-    places: &[PathBuf],
-    shortcuts_only: bool,
-) -> Result<Vec<ListedAs>, AppError> {
-    let places = places
+    let doomed = doomed
         .iter()
         .map(|path| crate::api::fs::path_to_string(path.clone()).map(PathBuf::from))
         .collect::<Result<Vec<_>, _>>()?;
     let rows = sqlx::query!(
         r#"SELECT id as "id!", title, path as "path!", visibility as "visibility: Visibility", created_by
            FROM contents
-           WHERE (type = 'shortcut' OR (type = 'folder' AND NOT ?)) AND path IS NOT NULL
-           ORDER BY id"#,
-        shortcuts_only
+           WHERE type IN ('shortcut', 'folder') AND path IS NOT NULL
+           ORDER BY id"#
     )
     .fetch_all(&state.pool)
     .await?;
@@ -723,7 +690,7 @@ async fn contents_under(
         .into_iter()
         .filter(|row| {
             crate::api::contents::can_see_in_admin_list(user, row.visibility, row.created_by)
-                && places
+                && doomed
                     .iter()
                     .any(|path| FsPath::new(&row.path).starts_with(path))
         })

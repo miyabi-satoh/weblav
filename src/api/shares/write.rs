@@ -19,7 +19,6 @@ use crate::auth::AuthUser;
 use crate::error::{AppError, AppJson, multipart_error_to_app_error, run_blocking};
 use crate::state::AppState;
 
-use super::browse::ListedAs;
 use super::fsops;
 use super::log::{LoggedPlace, OpRecord, ShareOp, record_or_warn};
 use super::paths::{Resolved, ensure_not_protected, resolve_existing, resolve_parent_for_new};
@@ -435,48 +434,6 @@ async fn list_on_home(
     Ok((StatusCode::CREATED, Json(created)))
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct RenameCheckRequest {
-    /// 名前を変えるものの、共有からの相対パス。
-    path: String,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct RenameCheckResponse {
-    /// 名前を変えると開けなくなる、ファイルを指すショートカット。追いかけないので、変える前に伝える
-    /// (→ docs/shares.md「場所の付け替え」)。
-    unlinked: Vec<ListedAs>,
-}
-
-/// 名前を変える前の確かめ。何も変えない。
-#[utoipa::path(
-    post,
-    path = "/shares/{id}/rename/check",
-    params(("id" = i64, Path)),
-    request_body = RenameCheckRequest,
-    responses(
-        (status = OK, body = RenameCheckResponse, description = "名前を変える前の確かめ"),
-        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "この場所で名前を変えられない"),
-        (status = 404, body = crate::error::ErrorResponse, description = "共有・ファイルが無い、見られない"),
-    )
-)]
-async fn check_rename(
-    user: AuthUser,
-    State(state): State<AppState>,
-    Path(id): Path<i64>,
-    AppJson(payload): AppJson<RenameCheckRequest>,
-) -> Result<Json<RenameCheckResponse>, AppError> {
-    let entry = resolve_existing(&state, &user, id, &payload.path).await?;
-    require(&entry, ShareAccess::All)?;
-    let unlinked =
-        super::transfer::shortcuts_under(&state, &user, std::slice::from_ref(&entry.canonical))
-            .await?;
-    Ok(Json(RenameCheckResponse { unlinked }))
-}
-
 /// `max_upload_bytes` は1つのファイルの上限。要求の大きさの上限は、それに multipart の区切りの分を足す。
 /// 上限なし (`None`) なら、要求の大きさの上限 (axum の既定は 2MB) をこの口でだけ外す。
 /// ほかの口に掛からないよう、別の `OpenApiRouter` に分けてから merge する。
@@ -493,7 +450,6 @@ pub(super) fn router(max_upload_bytes: Option<u64>) -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(create_share_folder))
         .routes(routes!(rename_share_entry))
-        .routes(routes!(check_rename))
         .routes(routes!(list_on_home))
         .merge(upload_routes)
 }

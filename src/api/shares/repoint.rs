@@ -3,8 +3,9 @@
 //! フォルダーのコンテンツは、登録先を実体のパスで (`contents.path`)、一覧の表示の索引を
 //! 登録先からの相対パスで (`archive_items.rel_path`・`archive_dirs.rel_path`) 持つ。どれも綴りで
 //! 照らすので、画面から動かしたものを追いかけないと、登録先が見つからなくなったり、索引の行が残ったりする。
+//! ファイルを指すショートカットも先を `contents.path` で持つ。索引は持たない。
 //!
-//! - 動かしたものがコンテンツの登録先 (かその上) なら、登録先を新しい場所に変える。中の相対パスは変わらない
+//! - 動かしたものがコンテンツの登録先やショートカットの先 (かその上) なら、それを新しい場所に変える。中の相対パスは変わらない
 //! - コンテンツの中で動かしたなら、相対パスの頭を付け替える。外へ出したなら、その分の行を消す
 //! - 置き先に前からあった行は、先に消す
 //! - 上書きで消したものがコンテンツの登録先 (かその中) なら、そのコンテンツの行も消す
@@ -42,6 +43,20 @@ async fn folder_rows(conn: &mut SqliteConnection) -> Result<Vec<FolderRow>, AppE
             path: PathBuf::from(row.path),
             list_view: row.list_view,
         })
+        .collect())
+}
+
+/// ファイルを指すショートカットの id と先。
+async fn shortcut_rows(conn: &mut SqliteConnection) -> Result<Vec<(i64, PathBuf)>, AppError> {
+    let rows = sqlx::query!(
+        r#"SELECT id as "id!", path as "path!"
+           FROM contents WHERE type = 'shortcut' AND path IS NOT NULL"#
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| (row.id, PathBuf::from(row.path)))
         .collect())
 }
 
@@ -92,6 +107,14 @@ pub(super) async fn moved(
         }
         if row.list_view {
             changed.push(row.id);
+        }
+    }
+    for (id, path) in shortcut_rows(&mut *conn).await? {
+        if let Some(path) = crate::api::roots::rebase(&path, &old, &new) {
+            let path = path_to_string(path)?;
+            sqlx::query!("UPDATE contents SET path = ? WHERE id = ?", path, id)
+                .execute(&mut *conn)
+                .await?;
         }
     }
     Ok(changed)
@@ -346,6 +369,16 @@ mod tests {
         .expect("フォルダーを作れなかった")
     }
 
+    async fn insert_shortcut(pool: &sqlx::SqlitePool, path: &Path) -> i64 {
+        sqlx::query_scalar(
+            "INSERT INTO contents (type, title, path, visibility) VALUES ('shortcut', 's', ?, 'public') RETURNING id",
+        )
+        .bind(path.display().to_string())
+        .fetch_one(pool)
+        .await
+        .expect("ショートカットを作れなかった")
+    }
+
     async fn insert_rows(pool: &sqlx::SqlitePool, id: i64, rels: &[&str]) {
         for rel in rels {
             sqlx::query("INSERT INTO archive_items (archive_id, rel_path) VALUES (?, ?)")
@@ -520,6 +553,102 @@ mod tests {
         drop(conn);
 
         assert_eq!(rels(&pool, id).await, vec!["a/x.pdf"]);
+    }
+
+    /// 先のファイルの名前を変えると、先が付いていく。読み直させる索引は無い。
+    #[sqlx::test]
+    async fn renaming_a_file_repoints_its_shortcut(pool: sqlx::SqlitePool) {
+        let root = sep_path(&["srv", "教材"]);
+        let id = insert_shortcut(&pool, &root.join("a.pdf")).await;
+
+        let changed = run_moved(&pool, &root.join("a.pdf"), &root.join("b.pdf")).await;
+
+        assert!(changed.is_empty());
+        assert_eq!(
+            content_path(&pool, id).await,
+            root.join("b.pdf").display().to_string()
+        );
+    }
+
+    /// 大文字・小文字だけの名前の変更でも、先が付いていく。
+    #[sqlx::test]
+    async fn a_case_only_rename_repoints_a_shortcut(pool: sqlx::SqlitePool) {
+        let root = sep_path(&["srv", "教材"]);
+        let id = insert_shortcut(&pool, &root.join("a.pdf")).await;
+
+        run_moved(&pool, &root.join("a.pdf"), &root.join("A.pdf")).await;
+
+        assert_eq!(
+            content_path(&pool, id).await,
+            root.join("A.pdf").display().to_string()
+        );
+    }
+
+    /// 先が入っているフォルダーを動かすと、中の相対パスを保って先が付いていく。
+    #[sqlx::test]
+    async fn moving_a_parent_folder_repoints_shortcuts_inside(pool: sqlx::SqlitePool) {
+        let root = sep_path(&["srv", "教材"]);
+        let id = insert_shortcut(&pool, &root.join("過去問").join("2026").join("a.pdf")).await;
+
+        run_moved(
+            &pool,
+            &root.join("過去問"),
+            &root.join("控え").join("過去問"),
+        )
+        .await;
+
+        assert_eq!(
+            content_path(&pool, id).await,
+            root.join("控え")
+                .join("過去問")
+                .join("2026")
+                .join("a.pdf")
+                .display()
+                .to_string()
+        );
+    }
+
+    /// 頭の似た別のファイルや、頭の似たフォルダーの中のものは動かさない。
+    #[sqlx::test]
+    async fn a_shortcut_to_a_similar_sibling_is_left_alone(pool: sqlx::SqlitePool) {
+        let root = sep_path(&["srv", "教材"]);
+        let similar_file = root.join("a.pdf.bak");
+        let similar_dir = root.join("ab").join("x.pdf");
+        let file_id = insert_shortcut(&pool, &similar_file).await;
+        let dir_id = insert_shortcut(&pool, &similar_dir).await;
+
+        run_moved(&pool, &root.join("a.pdf"), &root.join("b.pdf")).await;
+        run_moved(&pool, &root.join("a"), &root.join("c")).await;
+
+        assert_eq!(
+            content_path(&pool, file_id).await,
+            similar_file.display().to_string()
+        );
+        assert_eq!(
+            content_path(&pool, dir_id).await,
+            similar_dir.display().to_string()
+        );
+    }
+
+    /// 外へ動かしても、フォルダーの登録先と同じく新しい場所を持つ。開けるかは配信の側の判定で決まる。
+    #[sqlx::test]
+    async fn moving_a_file_out_repoints_its_shortcut_like_a_folder(pool: sqlx::SqlitePool) {
+        let root = sep_path(&["srv", "教材"]);
+        let outside = sep_path(&["srv", "写真"]);
+        let folder = insert_folder(&pool, &root.join("d"), false).await;
+        let shortcut = insert_shortcut(&pool, &root.join("a.pdf")).await;
+
+        run_moved(&pool, &root.join("d"), &outside.join("d")).await;
+        run_moved(&pool, &root.join("a.pdf"), &outside.join("a.pdf")).await;
+
+        assert_eq!(
+            content_path(&pool, folder).await,
+            outside.join("d").display().to_string()
+        );
+        assert_eq!(
+            content_path(&pool, shortcut).await,
+            outside.join("a.pdf").display().to_string()
+        );
     }
 
     /// 消すと中の行が消える。登録先そのものを消しても、コンテンツは残す。

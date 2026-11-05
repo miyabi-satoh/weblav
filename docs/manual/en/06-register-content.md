@@ -49,7 +49,7 @@ You can also create one with “List on Home...” in the “⋮” menu of a fo
 
 These open the same way as files in a list (→ [View files](08-viewing.md)). Images, PDFs, videos, text, and Office documents open in the viewer on the page, audio plays in the row's player, and files whose names end with `.links.toml` open as a list of links. Other kinds of files download. You can step between the files in the same list, and audio can play continuously.
 
-A shortcut does not follow its file. If the file is moved, renamed, or deleted, the row stays, and opening it shows “The file was not found.” Choose the file again with “Change...” under “Path” on the edit page.
+A shortcut follows its file when you rename or move the file on the share screens. If the file is renamed or moved in File Explorer or Finder, or deleted, the row stays, and opening it shows “The file was not found.” Choose the file again with “Change...” under “Path” on the edit page.
 
 Shortcuts to a file have no pattern fields and cannot become libraries.
 

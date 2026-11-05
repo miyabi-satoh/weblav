@@ -6438,75 +6438,6 @@
         }
       }
     },
-    "/api/v1/shares/{id}/rename/check": {
-      "post": {
-        "summary": "名前を変える前の確かめ。何も変えない。",
-        "operationId": "check_rename",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RenameCheckRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "名前を変える前の確かめ",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RenameCheckResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "未ログイン",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "この場所で名前を変えられない",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "共有・ファイルが無い、見られない",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/shares/{id}/thumbnail": {
       "get": {
         "summary": "共有の中の画像の縮小画像 (→ docs/ui.md「画像のプレビュー」)。",
@@ -9108,33 +9039,6 @@
           }
         }
       },
-      "RenameCheckRequest": {
-        "type": "object",
-        "required": [
-          "path"
-        ],
-        "properties": {
-          "path": {
-            "type": "string",
-            "description": "名前を変えるものの、共有からの相対パス。"
-          }
-        }
-      },
-      "RenameCheckResponse": {
-        "type": "object",
-        "required": [
-          "unlinked"
-        ],
-        "properties": {
-          "unlinked": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ListedAs"
-            },
-            "description": "名前を変えると開けなくなる、ファイルを指すショートカット。追いかけないので、変える前に伝える\n(→ docs/shares.md「場所の付け替え」)。"
-          }
-        }
-      },
       "RenameRootRequest": {
         "type": "object",
         "required": [
@@ -10204,8 +10108,7 @@
           "totalBytes",
           "availableBytes",
           "trash",
-          "listed",
-          "unlinked"
+          "listed"
         ],
         "properties": {
           "availableBytes": {
@@ -10237,13 +10140,6 @@
           "trash": {
             "type": "boolean",
             "description": "上書きで消える置き先のものを、OS のごみ箱へ送れるか。偽なら、上書きすると元に戻せない。"
-          },
-          "unlinked": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ListedAs"
-            },
-            "description": "動かすと開けなくなる、ファイルを指すショートカット (先が、動かすものかその中)。追いかけないので、移動でだけ返す\n(→ docs/shares.md「場所の付け替え」)。除くものは `listed` と同じ。"
           }
         }
       },
