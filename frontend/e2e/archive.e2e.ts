@@ -127,7 +127,7 @@ test('アイテム: 再スキャンで索引し、件数が見出しに出る', 
 			await page.goto(`/admin/contents/${archive.id}/items`);
 			await page.getByRole('button', { name: /^再スキャンする$|^Rescan$/ }).click();
 			await expect(page.getByText(/新規\s3\s件・削除\s0\s件|3 added, 0 removed/)).toBeVisible();
-			await expect(page.getByText(/^3\s件のアイテム$|^3 items$/)).toBeVisible();
+			await expect(page.getByText(/^3\s件のファイル$|^3 files$/)).toBeVisible();
 		}
 	);
 });
@@ -156,7 +156,7 @@ test('アーカイブの閲覧: 軸で絞り込み、音声を押すとページ
 
 			await page.goto(`/archives/${archive.id}`);
 			await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
-			await expect(page.getByText(/^3\s件のアイテム$|^3 items$/)).toBeVisible();
+			await expect(page.getByText(/^3\s件のファイル$|^3 files$/)).toBeVisible();
 			// 音声はページ内で再生するボタン、PDF は新規タブで開くリンク。
 			await expect(page.getByRole('button', { name: /^2024 リスニング/ })).toBeVisible();
 			await expect(page.getByRole('link', { name: /2024 解答/ })).toHaveAttribute(
@@ -168,7 +168,7 @@ test('アーカイブの閲覧: 軸で絞り込み、音声を押すとページ
 			await page.getByRole('button', { name: '年度', exact: true }).click();
 			await page.getByRole('option', { name: /^2023/ }).click();
 			await page.waitForURL((url) => url.searchParams.get('年度') === '2023');
-			await expect(page.getByText(/^1\s件のアイテム$|^1 item$/)).toBeVisible();
+			await expect(page.getByText(/^1\s件のファイル$|^1 file$/)).toBeVisible();
 			await expect(page.getByRole('button', { name: /^2024 リスニング/ })).toHaveCount(0);
 
 			await page.getByRole('button', { name: /^2023 リスニング/ }).click();
@@ -560,7 +560,7 @@ test('絞り込みの解除: 解除のリンクで絞り込みが外れ、全件
 			await setUpArchiveForBrowsing(page.request, archive);
 
 			await page.goto(`/archives/${archive.id}`);
-			await expect(page.getByText(/^3\s件のアイテム$|^3 items$/)).toBeVisible();
+			await expect(page.getByText(/^3\s件のファイル$|^3 files$/)).toBeVisible();
 			const resetLink = page.getByRole('link', { name: /^絞り込みを解除$|^Clear filters$/ });
 			// 絞り込んでいないときは出ない。
 			await expect(resetLink).toHaveCount(0);
@@ -569,11 +569,11 @@ test('絞り込みの解除: 解除のリンクで絞り込みが外れ、全件
 			await trigger.click();
 			await page.getByRole('option', { name: /^2023/ }).click();
 			await page.waitForURL((url) => url.searchParams.get('年度') === '2023');
-			await expect(page.getByText(/^1\s件のアイテム$|^1 item$/)).toBeVisible();
+			await expect(page.getByText(/^1\s件のファイル$|^1 file$/)).toBeVisible();
 
 			await resetLink.click();
 			await page.waitForURL((url) => !url.searchParams.has('年度'));
-			await expect(page.getByText(/^3\s件のアイテム$|^3 items$/)).toBeVisible();
+			await expect(page.getByText(/^3\s件のファイル$|^3 files$/)).toBeVisible();
 			await expect(trigger).toContainText(/すべて|All/);
 			await expect(resetLink).toHaveCount(0);
 		}
@@ -631,7 +631,7 @@ test('対象外のタブで絞り込み、パターンに追加すると、そ�
 			await expect(dialog.getByText(/見えなくなる: 1|No longer visible: 1/)).toBeVisible();
 			await dialog.getByRole('button', { name: /^追加する$|^Add$/ }).click();
 			await expect(dialog).toBeHidden();
-			await expect(page.getByText(/^2\s件のアイテム$|^2 items$/)).toBeVisible();
+			await expect(page.getByText(/^2\s件のファイル$|^2 files$/)).toBeVisible();
 
 			// 外れたものは対象外のタブにパスで並び、開く操作は無い。語はパスに当たる。
 			await page.getByRole('link', { name: /^対象外$|^Excluded$/ }).click();

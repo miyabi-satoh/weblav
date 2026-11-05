@@ -20,7 +20,7 @@ Some contents are visible only to signed-in users (→ [Sign in and display](03-
 
 - Select “Home” or another item at the top to go back.
 - If “Folder” and “Library” appear under the heading of a folder, select one to switch views. “Folder” lets you browse its subfolders, and “Library” shows all its files together.
-- Select a choice such as “Year”, then choose a value to keep only matching items.
+- Select a choice such as “Year”, then choose a value to keep only matching files.
 
   ![The Year choices open](images/viewing-filter.webp)
 

@@ -34,7 +34,7 @@
 	type ManageItem = components['schemas']['ArchiveViewItem'];
 	type ManageArchiveViewResponse = components['schemas']['ManageArchiveViewResponse'];
 
-	// アーカイブのアイテムのタブ (→ docs/ui.md「アーカイブのアイテムのタブ」)。閲覧の画面と同じ部品で並べ、
+	// アーカイブのファイルのタブ (→ docs/ui.md「アーカイブのファイルのタブ」)。閲覧の画面と同じ部品で並べ、
 	// パスの表示と「パターンに追加...」を重ねる。見出し (タイトル・件数・再スキャン) とタブは [id]/+layout.svelte が出す。
 	let { data }: PageProps = $props();
 

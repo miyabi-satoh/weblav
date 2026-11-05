@@ -274,7 +274,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// コンテンツの編集ページ。アーカイブなので「基本情報」「軸定義」「アイテム」のタブが出る。
+	// コンテンツの編集ページ。アーカイブなので「基本情報」「軸定義」「ファイル」のタブが出る。
 	admin_contents_edit: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.archiveId}`);
@@ -527,7 +527,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// 管理画面: アーカイブのアイテム一覧タブ。公開済みアイテムが並ぶ状態。
+	// 管理画面: アーカイブのファイルのタブ。公開済みのファイルが並ぶ状態。
 	admin_archive_items: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.archiveId}/items`);

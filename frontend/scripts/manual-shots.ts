@@ -68,7 +68,9 @@ const ADMIN_SHOTS = [
 	'axis-row-actions',
 	'archive-items-tab',
 	'share-qr',
-	'viewing-player'
+	'viewing-player',
+	'viewing-filter',
+	'viewing-sort'
 ];
 const DIAGRAM_SHOTS = ['how-it-works'];
 const ALL_SHOTS = [...ADMIN_SHOTS, ...DIAGRAM_SHOTS];
@@ -704,6 +706,29 @@ async function shootAdmin() {
 			await goto(page, `/admin/contents/${archive!.id}/items`);
 			const thirdRow = page.getByRole('listitem').filter({ hasText: '.mp3' }).nth(2);
 			await shotBetween(page, 'archive-items-tab', tabs, thirdRow, { padTop: 8, padBottom: 8 });
+		}
+
+		if (want('viewing-filter') || want('viewing-sort')) {
+			const phone = await newPage(backend, PLAYER_WIDTH);
+			await goto(phone, `/archives/${archive!.id}`);
+			if (want('viewing-filter')) {
+				await phone.getByRole('button', { name: /^年度/ }).click();
+				const options = phone.getByRole('listbox');
+				await options.waitFor();
+				await shotBetween(phone, 'viewing-filter', phone.getByRole('navigation').first(), options, {
+					padTop: 8,
+					padBottom: 16
+				});
+				await phone.keyboard.press('Escape');
+			}
+			if (want('viewing-sort')) {
+				const sort = phone.getByRole('button', { name: /^並べ替え/ });
+				await sort.click();
+				const options = phone.getByRole('listbox');
+				await options.waitFor();
+				await shotBetween(phone, 'viewing-sort', sort, options, { padTop: 16, padBottom: 16 });
+			}
+			await phone.context().close();
 		}
 
 		if (want('share-qr')) {

@@ -561,10 +561,10 @@ const archive: Story = {
 			}
 		},
 		{
-			caption: '「アイテム」のタブを開く',
+			caption: '「ファイル」のタブを開く',
 			async run(page, ctx) {
 				if (ctx.role === 'admin') await cancelDialog(page);
-				await page.getByRole('link', { name: /^アイテム$/ }).click();
+				await page.getByRole('link', { name: /^ファイル$/ }).click();
 				await page.waitForURL(/\/items$/);
 				await page.getByRole('table').waitFor();
 			}

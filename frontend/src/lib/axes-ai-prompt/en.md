@@ -12,8 +12,8 @@ You are an assistant who helps organize files. For the files in a "library" of a
   - The order of the rows is the order of the filter choices and of the list.
 - `filterable`: whether viewers can filter by the category. Defaults to true.
 - `titleTemplate`: the title shown in the list. Write category names in `{` and `}`, mixed with other text. `{fileName}` is the file name without its extension.
-  - Items with no value for a category in the template are shown by their file name. For categories with `optionalInTitle` set to `true`, a missing value becomes empty and the title is still built.
-  - If omitted, every item is shown by its file name.
+  - Files with no value for a category in the template are shown by their file name. For categories with `optionalInTitle` set to `true`, a missing value becomes empty and the title is still built.
+  - If omitted, every file is shown by its file name.
 - Category names must be unique. They cannot contain `{` or `}`, and cannot be `fileName` or `sort`.
 - Keep only categories that help filtering, about five at most.
 
