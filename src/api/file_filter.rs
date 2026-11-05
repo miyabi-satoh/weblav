@@ -228,7 +228,8 @@ async fn preview_visibility(
     AppJson(payload): AppJson<VisibilityPreviewRequest>,
 ) -> Result<Json<VisibilityPreview>, AppError> {
     let row = sqlx::query!(
-        r#"SELECT path, visibility as "visibility: Visibility", created_by
+        r#"SELECT path, visibility as "visibility: Visibility", created_by,
+                  list_view as "list_view: bool", last_scanned_at
            FROM contents WHERE id = ? AND type = ?"#,
         id,
         ContentType::Folder
@@ -238,12 +239,33 @@ async fn preview_visibility(
     .ok_or(AppError::NotFound)?;
     contents::ensure_editable(&user, row.visibility, row.created_by)?;
     let root = contents::folder_path(row.path)?;
-    super::roots::ensure_reachable(&state, &root).await?;
     let before = FileFilter::load(&state.pool, id).await?;
     let after = FileFilter::parse(
         payload.include_patterns.as_deref(),
         payload.exclude_patterns.as_deref(),
     )?;
+    // ライブラリは、スキャンを終えていれば索引から数える。全ファイルが入っているのでディスクを読まず、打ち切らない。
+    // 終えていない (中止した・場所を変えた) 索引は欠けているので、ディスクを読む。
+    if row.list_view && row.last_scanned_at.is_some() {
+        let rel_paths = sqlx::query_scalar!(
+            "SELECT rel_path FROM archive_items WHERE archive_id = ?",
+            id
+        )
+        .fetch_all(&state.pool)
+        .await?;
+        let preview = run_blocking(move || {
+            let files = rel_paths.iter().map(String::as_str);
+            let (gained, lost) = count_visibility_changes(files, &before, &after);
+            VisibilityPreview {
+                gained,
+                lost,
+                truncated: false,
+            }
+        })
+        .await?;
+        return Ok(Json(preview));
+    }
+    super::roots::ensure_reachable(&state, &root).await?;
     let own_dirs = state.own_dirs.clone();
     let preview = run_blocking(move || {
         let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
@@ -324,11 +346,23 @@ mod tests {
         assert!(filter.allows_file("x/tmp/cache/a.pdf"));
     }
 
+    /// 「パターンに追加...」は、`/` を含む語の候補の頭に `**/` を付ける (`$lib/pattern-candidate.ts`)。
+    /// `/` を含むパターンは登録先の一番上から見るので、付けないと下の階層のパスに当たらない。
+    #[test]
+    fn a_candidate_with_a_slash_matches_at_any_depth() {
+        let filter = filter("", "**/*2024/eng*");
+        assert!(!filter.allows_file("2024/english.pdf"));
+        assert!(!filter.allows_file("x/y/2024/english.pdf"));
+        assert!(filter.allows_file("x/2023/english.pdf"));
+        assert!(filter.allows_file("x/2024/math.pdf"));
+    }
+
     /// 「パターンに追加...」は、絞り込みの語の中の記号を `[ ]` で包んで候補にする (`$lib/pattern-candidate.ts`)。
     /// ファイル名に記号があっても、その文字として当たること。
     #[test]
     fn symbols_wrapped_in_brackets_match_literally() {
-        let filter = filter("", "*[[]mix[]]*\n*[{]a,b[}]*\n*[*]*\n*[?]*");
+        let filter = filter("", "*[[]mix[]]*\n*[{]a,b[}]*\n*[*]*\n*[?]*\n*[\\]*");
+        assert!(!filter.allows_file("back\\slash.mp3"));
         assert!(!filter.allows_file("x/song[mix].mp3"));
         assert!(!filter.allows_file("{a,b}.mp3"));
         assert!(!filter.allows_file("a*b.mp3"));

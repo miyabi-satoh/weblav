@@ -77,7 +77,7 @@ pub(super) async fn item_counts(
     Ok(counts)
 }
 
-/// 1つのフォルダーのアイテムの数。絞り込みで外れる行は、次のスキャンまで索引に残っていても数えない。
+/// 1つのフォルダーのアイテムの数。絞り込みで外れる行は、索引にあっても数えない。
 pub(super) async fn item_counts_of(
     pool: &sqlx::SqlitePool,
     archive_id: i64,

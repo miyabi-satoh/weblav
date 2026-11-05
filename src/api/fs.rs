@@ -625,10 +625,10 @@ pub(super) struct ScanResult {
     /// (途中までの結果で同期すると、走査できなかった分が「消えた」と見なされて
     /// 次に見つけたときに新しいファイル扱いになる)。
     pub(super) truncated: bool,
-    /// 最初に読めなかった場所の相対パス (`/` 区切り。登録先そのものなら空文字)。
-    /// 読めなかった分は `rel_paths` から欠けるので、再スキャンはこれがあれば同期しない
+    /// 読めなかった場所の相対パス (`/` 区切り。登録先そのものなら空文字)。見つけた順。
+    /// 読めなかった分は `rel_paths` から欠けるので、再スキャンは、見せる場所が読めなければ同期しない
     /// (欠けた分が「消えた」と見なされ、軸の材料や見つけた日時ごと消えるため)。
-    pub(super) unreadable: Option<String>,
+    pub(super) unreadable: Vec<String>,
     /// 辿ったフォルダーの相対パス (登録先そのものは空文字) と更新日時 (Unix ナノ秒)。
     /// 一覧の表示を開いたときに、変わったフォルダーだけを読み直す手掛かりにする (→ docs/archive.md「スキャン」)。
     pub(super) dirs: Vec<DirStamp>,
@@ -657,7 +657,7 @@ pub(super) fn dir_modified_ns(metadata: &std::fs::Metadata) -> Option<i64> {
 /// 再帰しない」だけで、リンクをエントリとして拾わない意味ではないため、
 /// リンク自体の除外は明示的に行う。
 ///
-/// 読み取れないディレクトリは読み飛ばし、最初の1か所を `unreadable` に残す。
+/// 読み取れないディレクトリは読み飛ばし、`unreadable` に残す。
 /// 登録前の確認は欠けたまま数え、再スキャンは同期をやめる (→ docs/archive.md「スキャン」)。
 ///
 /// `own_dirs` (→ `roots::OwnDirs`) の中は索引しない
@@ -696,7 +696,7 @@ pub(super) fn scan_files_until(
     let mut rel_paths = Vec::new();
     let mut dirs = Vec::new();
     let mut scanned = 0;
-    let mut unreadable = None;
+    let mut unreadable = Vec::new();
     let full_rel = |path: &FsPath| -> Option<String> {
         let rel = normalize_rel_path(path.strip_prefix(root).ok()?.to_str()?);
         Some(if base_rel.is_empty() {
@@ -736,14 +736,12 @@ pub(super) fn scan_files_until(
                 continue;
             }
             Err(err) => {
-                if unreadable.is_none() {
-                    let rel = err
-                        .path()
-                        .and_then(|path| path.strip_prefix(root).ok())
-                        .map(|rel| normalize_rel_path(&rel.to_string_lossy()))
-                        .unwrap_or_default();
-                    unreadable = Some(rel);
-                }
+                let rel = err
+                    .path()
+                    .and_then(|path| path.strip_prefix(root).ok())
+                    .map(|rel| normalize_rel_path(&rel.to_string_lossy()))
+                    .unwrap_or_default();
+                unreadable.push(rel);
                 continue;
             }
         };
@@ -875,7 +873,7 @@ async fn count_target_files(
         Ok(Json(CountResponse {
             count: result.rel_paths.len(),
             truncated: result.truncated,
-            unreadable: result.unreadable,
+            unreadable: result.unreadable.into_iter().next(),
         }))
     })
     .await?
@@ -1248,7 +1246,7 @@ mod tests {
         drop(locked);
 
         assert_eq!(result.rel_paths, vec!["ok/a.mp3".to_string()]);
-        assert_eq!(result.unreadable.as_deref(), Some("locked"));
+        assert_eq!(result.unreadable, vec!["locked".to_string()]);
     }
 
     #[test]

@@ -332,6 +332,69 @@ async fn excluded_items_list_paths_for_writers_only(pool: SqlitePool) {
     assert_error(status, &body, StatusCode::FORBIDDEN, "forbidden");
 }
 
+/// ライブラリの増減は索引から数える。ディスクを読まないので、消えたファイルも次のスキャンまでは数える。
+#[sqlx::test]
+async fn visibility_preview_of_a_library_counts_from_the_index(pool: SqlitePool) {
+    let dir = temp_test_dir("library-preview");
+    std::fs::write(dir.join("a.pdf"), b"a").expect("ファイルを作れなかった");
+    std::fs::write(dir.join("b.pdf"), b"b").expect("ファイルを作れなかった");
+    let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
+    std::fs::remove_file(dir.join("a.pdf")).expect("ファイルを消せなかった");
+
+    let (status, body) = send_json(
+        app,
+        "POST",
+        &format!("/api/v1/contents/{id}/visibility-preview"),
+        &cookie,
+        r#"{"excludePatterns":"a.*"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        parse_json(&body),
+        serde_json::json!({"gained": 0, "lost": 1, "truncated": false}),
+        "{body}"
+    );
+}
+
+/// 除外した場所が読めなくても再スキャンは止まらず、その中の行を消さない。
+/// 見せる場所が読めなければ、今までどおり断る。
+#[cfg(unix)]
+#[sqlx::test]
+async fn an_unreadable_excluded_folder_does_not_block_a_rescan(pool: SqlitePool) {
+    let dir = temp_test_dir("library-unreadable");
+    std::fs::create_dir_all(dir.join("recycle")).expect("フォルダーを作れなかった");
+    std::fs::write(dir.join("recycle").join("old.pdf"), b"a").expect("ファイルを作れなかった");
+    std::fs::write(dir.join("keep.pdf"), b"b").expect("ファイルを作れなかった");
+    let (app, cookie, id) = setup_archive(&pool, &dir, None).await;
+    let rows = || async {
+        sqlx::query_scalar::<_, String>(
+            "SELECT rel_path FROM archive_items WHERE archive_id = ? ORDER BY rel_path",
+        )
+        .bind(id)
+        .fetch_all(&pool)
+        .await
+        .expect("索引を読めなかった")
+    };
+    assert_eq!(rows().await, ["keep.pdf", "recycle/old.pdf"]);
+    std::fs::write(dir.join("new.pdf"), b"c").expect("ファイルを作れなかった");
+    let _locked = test_support::Unreadable::new(dir.join("recycle"));
+
+    set_patterns(&pool, id, None, Some("recycle/")).await;
+    let (status, body) = rescan(app.clone(), &cookie, id).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body)["removed"], 0, "{body}");
+    assert_eq!(
+        rows().await,
+        ["keep.pdf", "new.pdf", "recycle/old.pdf"],
+        "読めなかった場所の行を残し、ほかは同期するはず"
+    );
+
+    set_patterns(&pool, id, None, None).await;
+    let (status, body) = rescan(app, &cookie, id).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+}
+
 /// 保存の前に、見えるファイルの増減を数えられる。正しくないパターンは 422。
 #[sqlx::test]
 async fn visibility_preview_counts_gained_and_lost_files(pool: SqlitePool) {

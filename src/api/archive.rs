@@ -409,6 +409,7 @@ async fn scan_and_sync(
     let known = load_known_files(&state.pool, id).await?;
     let scan_root = archive.path.clone();
     let own_dirs = state.own_dirs.clone();
+    let scan_filter = filter.clone();
     let reader_progress = std::sync::Arc::clone(&progress);
     let items = run_blocking(move || {
         let progress = reader_progress;
@@ -443,18 +444,22 @@ async fn scan_and_sync(
                 "too many entries to scan automatically".to_string(),
             ));
         }
-        // 読めなかった分は同期しない (→ docs/archive.md「スキャン」)。
-        if let Some(path) = result.unreadable {
+        // 見せる場所が読めなければ同期しない (→ docs/archive.md「スキャン」)。除外した場所は読めなくても続け、行はそのまま残す。
+        if let Some(path) = result
+            .unreadable
+            .iter()
+            .find(|rel| scan_filter.allows_dir(rel))
+        {
             return Err(AppError::ValidationDetailed {
                 message: "some folders could not be read".to_string(),
-                detail: ValidationDetail::ArchiveFolderUnreadable { path },
+                detail: ValidationDetail::ArchiveFolderUnreadable { path: path.clone() },
             });
         }
         let (items, complete) = read_items(&root, result.rel_paths, &known, &progress);
-        Ok(Some((items, complete, result.dirs)))
+        Ok(Some((items, complete, result.dirs, result.unreadable)))
     })
     .await??;
-    let Some((items, complete, dirs)) = items else {
+    let Some((items, complete, dirs, kept_dirs)) = items else {
         return cancelled_before_reading(&state.pool, id, &filter).await;
     };
 
@@ -464,7 +469,15 @@ async fn scan_and_sync(
     if !complete {
         return save_read_items(&state.pool, id, &archive.path, &items, &filter).await;
     }
-    sync_items(state, id, &archive.path, &items, &dirs, &filter).await
+    sync_items(state, id, &archive.path, &items, &dirs, &kept_dirs, &filter).await
+}
+
+/// `rel` が `dirs` のどれかの中か。
+fn is_inside_any(rel: &str, dirs: &[String]) -> bool {
+    dirs.iter().any(|dir| {
+        rel.strip_prefix(dir.as_str())
+            .is_some_and(|rest| rest.starts_with('/'))
+    })
 }
 
 /// `rel_paths` のうち、絞り込みで見えるものの数。再スキャンの結果の件数は、見出しの件数と同じく見えるものだけを数える。
@@ -584,6 +597,7 @@ async fn sync_items(
     scanned_path: &str,
     items: &[ScannedItem],
     dirs: &[(String, Option<i64>)],
+    kept_dirs: &[String],
     filter: &super::file_filter::FileFilter,
 ) -> Result<Json<RescanResponse>, AppError> {
     let mut tx = crate::db::begin_write(&state.pool).await?;
@@ -614,14 +628,13 @@ async fn sync_items(
         found.iter().copied().filter(|rel| !existing.contains(*rel)),
         filter,
     );
-    let removed = visible_count(
-        existing
-            .iter()
-            .map(String::as_str)
-            .filter(|rel| !found.contains(rel)),
-        filter,
-    );
-    for rel_path in existing.iter().filter(|rel| !found.contains(rel.as_str())) {
+    // 読めなかった除外の場所の行は、見つからなくても消えたとは言えないので残す。
+    let gone: Vec<&String> = existing
+        .iter()
+        .filter(|rel| !found.contains(rel.as_str()) && !is_inside_any(rel, kept_dirs))
+        .collect();
+    let removed = visible_count(gone.iter().map(|rel| rel.as_str()), filter);
+    for rel_path in gone {
         // 墓標は残さない (→ docs/archive.md「スキャン」)。
         sqlx::query!(
             "DELETE FROM archive_items WHERE archive_id = ? AND rel_path = ?",
@@ -891,11 +904,15 @@ async fn try_refresh_changed_dirs(
     }
     let roots = super::roots::load_roots(state).await?;
     let own_dirs = state.own_dirs.clone();
+    let filter = super::file_filter::FileFilter::parse(
+        archive.include_patterns.as_deref(),
+        archive.exclude_patterns.as_deref(),
+    )?;
     let scan_root = archive.path.clone();
     let changes = run_blocking(move || {
         let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
         let root = super::fs::canonical_dir_within_roots(&scan_root, &roots, &own_dirs)?;
-        Ok::<_, AppError>(find_dir_changes(&root, &known, &own_dirs))
+        Ok::<_, AppError>(find_dir_changes(&root, &known, &filter, &own_dirs))
     })
     .await??;
     if changes.is_empty() {
@@ -937,6 +954,7 @@ impl DirChanges {
 fn find_dir_changes(
     root: &FsPath,
     known: &HashMap<String, Option<i64>>,
+    filter: &super::file_filter::FileFilter,
     own_dirs: &super::roots::OwnDirs,
 ) -> DirChanges {
     let mut changes = DirChanges::default();
@@ -972,7 +990,15 @@ fn find_dir_changes(
                 usize::MAX,
                 own_dirs,
             );
-            if result.truncated || result.unreadable.is_some() {
+            // 読めない場所が除外の中だけなら、再スキャンと同じく続ける。
+            let unreadable_shown = result.unreadable.iter().any(|inner| {
+                if inner.is_empty() {
+                    filter.allows_dir(&subdir)
+                } else {
+                    filter.allows_dir(&format!("{subdir}/{inner}"))
+                }
+            });
+            if result.truncated || unreadable_shown {
                 continue;
             }
             changes.new_dirs.push((subdir.clone(), sub_modified));
