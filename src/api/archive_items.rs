@@ -510,7 +510,7 @@ struct ManageArchiveViewResponse {
     folder_missing: bool,
 }
 
-/// 管理画面のアイテムのタブの一覧の、最初の区切り。閲覧用の一覧 (`view_archive`) と同じ絞り込み・並べ替え・導出で、
+/// 管理画面のファイルのタブの一覧の、最初の区切り。閲覧用の一覧 (`view_archive`) と同じ絞り込み・並べ替え・導出で、
 /// 登録先が見つからないときも索引の行を並べる (→ docs/archive.md「エンドポイント一覧」)。
 /// 閲覧者に見える姿を、管理画面を離れずに確かめるため。名前の語はパスでも照らす。
 #[utoipa::path(
@@ -571,7 +571,7 @@ async fn manage_view_archive(
     }))
 }
 
-/// 管理画面のアイテムのタブの一覧の、区切りの続き。
+/// 管理画面のファイルのタブの一覧の、区切りの続き。
 #[utoipa::path(
     get,
     path = "/contents/{id}/manage-archive/page",
@@ -605,7 +605,7 @@ async fn manage_view_archive_page(
     }))
 }
 
-/// 管理画面のアイテムのタブの一覧の、音声の行を混ぜた結果 (→ `view_archive_shuffle`)。
+/// 管理画面のファイルのタブの一覧の、音声の行を混ぜた結果 (→ `view_archive_shuffle`)。
 #[utoipa::path(
     get,
     path = "/contents/{id}/manage-archive/shuffle",

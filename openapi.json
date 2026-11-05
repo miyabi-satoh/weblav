@@ -4117,7 +4117,7 @@
     },
     "/api/v1/contents/{id}/manage-archive": {
       "get": {
-        "summary": "管理画面のアイテムのタブの一覧の、最初の区切り。閲覧用の一覧 (`view_archive`) と同じ絞り込み・並べ替え・導出で、\n登録先が見つからないときも索引の行を並べる (→ docs/archive.md「エンドポイント一覧」)。\n閲覧者に見える姿を、管理画面を離れずに確かめるため。名前の語はパスでも照らす。",
+        "summary": "管理画面のファイルのタブの一覧の、最初の区切り。閲覧用の一覧 (`view_archive`) と同じ絞り込み・並べ替え・導出で、\n登録先が見つからないときも索引の行を並べる (→ docs/archive.md「エンドポイント一覧」)。\n閲覧者に見える姿を、管理画面を離れずに確かめるため。名前の語はパスでも照らす。",
         "operationId": "manage_view_archive",
         "parameters": [
           {
@@ -4166,7 +4166,7 @@
     },
     "/api/v1/contents/{id}/manage-archive/page": {
       "get": {
-        "summary": "管理画面のアイテムのタブの一覧の、区切りの続き。",
+        "summary": "管理画面のファイルのタブの一覧の、区切りの続き。",
         "operationId": "manage_view_archive_page",
         "parameters": [
           {
@@ -4255,7 +4255,7 @@
     },
     "/api/v1/contents/{id}/manage-archive/shuffle": {
       "get": {
-        "summary": "管理画面のアイテムのタブの一覧の、音声の行を混ぜた結果 (→ `view_archive_shuffle`)。",
+        "summary": "管理画面のファイルのタブの一覧の、音声の行を混ぜた結果 (→ `view_archive_shuffle`)。",
         "operationId": "manage_view_archive_shuffle",
         "parameters": [
           {

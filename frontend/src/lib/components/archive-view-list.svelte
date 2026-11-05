@@ -69,7 +69,7 @@
 	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
 	import ListRowDownloadLink from '$lib/components/list-row-download-link.svelte';
 
-	// 一覧の表示 (`/archives/[id]`)・管理画面のアイテムのタブで使う、アーカイブのファイルの行。
+	// 一覧の表示 (`/archives/[id]`)・管理画面のファイルのタブで使う、アーカイブのファイルの行。
 	// 押したときの動きと見え方を揃えるため、種類ごとの描き分けをここに集める。
 	// 行はサーバーから区切って取る (→ docs/archive.md「画面が見える辺りを取りに行く」)。名前の絞り込みもサーバーで済んでいる。
 	let {

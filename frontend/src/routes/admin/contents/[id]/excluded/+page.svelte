@@ -65,7 +65,7 @@
 	<div class="flex flex-col">
 		<BrowseControls layoutToggle={false} />
 		{#if view.totalAll > 0 || nameActive}
-			<!-- この一覧の数。見出しの「○件のアイテム」は見えるものの数なので、別に出す。 -->
+			<!-- この一覧の数。見出しの「○件のファイル」は見えるものの数なので、別に出す。 -->
 			<div class="mt-2 flex min-h-11 items-center justify-between gap-3 text-sm">
 				<p class="text-muted-foreground">
 					{nameActive

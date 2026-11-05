@@ -85,8 +85,8 @@ export const RECOVERY_CODE_SAVE_BUTTON_NAME = /^ファイルに保存$|^Save to 
 export const RECOVERY_CODE_KEPT_BUTTON_NAME = /^保管しました$|^I've kept it$/;
 export const RECOVERY_CODE_CREATE_BUTTON_NAME = /^作成する$|^Create$/;
 
-/** アーカイブの編集ページのタブ「アイテム」。 */
-export const ITEMS_TAB_NAME = /^アイテム$|^Items$/;
+/** アーカイブの編集ページのタブ「ファイル」。 */
+export const ITEMS_TAB_NAME = /^ファイル$|^Files$/;
 
 /** 処理に失敗したことを知らせるダイアログの見出し (`error-dialog.svelte` の既定)。 */
 export const ERROR_DIALOG_NAME = /^操作に失敗しました$|^Operation failed$/;

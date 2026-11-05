@@ -497,8 +497,8 @@
 	"archive_axes_dialog_dir_level_option": "Level {level}",
 	"archive_axes_dialog_dir_level_option_samples": "{samples} (distinct values: {count})",
 	"archive_axes_dialog_dir_level_option_samples_more": "{samples}... (distinct values: {count})",
-	"archive_axes_dialog_dir_level_option_no_items": "(No items at this level)",
-	"archive_axes_dialog_dir_level_no_items": "No items are inside subfolders. Put files in subfolders and rescan to choose from the values at each level.",
+	"archive_axes_dialog_dir_level_option_no_items": "(No files at this level)",
+	"archive_axes_dialog_dir_level_no_items": "No files are inside subfolders. Put files in subfolders and rescan to choose from the values at each level.",
 	"archive_axes_dialog_dir_level_fetch_failed": "Could not load the values at each level. Enter a level number instead.",
 	"archive_axes_dialog_filterable_label": "Show as a filter",
 	"archive_axes_dialog_values_cleared_warning": "Saving with a different source or level clears this category's value dictionary.",
@@ -552,13 +552,13 @@
 	"archive_axes_preview_failed": "Could not count the matches.",
 	"archive_axes_preview_incomplete": "Counts are not shown while a row is empty or duplicated.",
 	"archive_axes_preview_unset_examples": "Examples of unset files",
-	"archive_axes_values_no_items": "There are no scanned items.",
+	"archive_axes_values_no_items": "There are no scanned files.",
 	"archive_axes_template_title": "Title template",
 	"archive_axes_template_saved_toast": "Title template saved.",
 	"archive_axes_template_help": "Files without a value for a category are shown by their file name.",
 	"archive_axes_template_available_axes_label": "Click a name below to insert it at the cursor in the template.",
 	"archive_tabs_axes": "Categories",
-	"archive_tabs_items": "Items",
+	"archive_tabs_items": "Files",
 	"archive_tabs_excluded": "Excluded",
 	"archive_items_rescan_button": "Rescan",
 	"archive_items_rescan_cancelled": "Rescan stopped",
@@ -568,12 +568,12 @@
 			"declarations": ["input count", "local countPlural = count: plural"],
 			"selectors": ["countPlural"],
 			"match": {
-				"countPlural=one": "{count} item",
-				"countPlural=other": "{count} items"
+				"countPlural=one": "{count} file",
+				"countPlural=other": "{count} files"
 			}
 		}
 	],
-	"archive_items_empty": "No items yet. Try rescanning.",
+	"archive_items_empty": "No files yet. Try rescanning.",
 	"archive_excluded_count": "Excluded files: {count}",
 	"archive_excluded_count_filtered": "Excluded files: {shown} of {count}",
 	"archive_excluded_empty": "No files are left out by the patterns.",
@@ -595,8 +595,8 @@
 			"declarations": ["input count", "local countPlural = count: plural"],
 			"selectors": ["countPlural"],
 			"match": {
-				"countPlural=one": "{count} item",
-				"countPlural=other": "{count} items"
+				"countPlural=one": "{count} file",
+				"countPlural=other": "{count} files"
 			}
 		}
 	],
@@ -605,12 +605,12 @@
 			"declarations": ["input shown", "input count", "local countPlural = count: plural"],
 			"selectors": ["countPlural"],
 			"match": {
-				"countPlural=one": "{shown} / {count} item",
-				"countPlural=other": "{shown} / {count} items"
+				"countPlural=one": "{shown} / {count} file",
+				"countPlural=other": "{shown} / {count} files"
 			}
 		}
 	],
-	"archive_view_empty": "No items match the current filters.",
+	"archive_view_empty": "No files match the current filters.",
 	"archive_view_missing_row": "This file is no longer available.",
 	"archive_view_chunk_failed": "Could not load.",
 	"archive_view_stale": "This list has changed.",

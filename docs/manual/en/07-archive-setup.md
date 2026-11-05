@@ -52,13 +52,13 @@ Recordings
 
    ![Title template on the Categories tab](images/archive-axes-template.webp)
 
-9. Select the “Items” tab and check the listed files.
+9. Select the “Files” tab and check the listed files.
 
-   ![The Items tab](images/archive-items-tab.webp)
+   ![The Files tab](images/archive-items-tab.webp)
 
 To narrow down what appears, write include or exclude patterns on the “Settings” tab, or put only the files to show in a separate folder and register that (→ [Register contents](06-register-content.md)).
 
-The “Categories” and “Items” tabs appear only for a library. People who can change it also see the “Excluded” tab.
+The “Categories” and “Files” tabs appear only for a library. People who can change it also see the “Excluded” tab.
 
 ## Separate by words in file names
 
@@ -99,7 +99,7 @@ A file left out by an exclude pattern comes back when you remove that line on th
 
 ### Add a pattern from the filter
 
-When you type in “Filter by name” on the “Items” or “Excluded” tab, “Add to patterns...” appears.
+When you type in “Filter by name” on the “Files” or “Excluded” tab, “Add to patterns...” appears.
 
 1. Select “Add to patterns...”.
 2. Choose where to add it (“Exclude” or “Include”).
@@ -151,7 +151,7 @@ To rescan automatically, choose “When … have passed since the last scan” o
 
 ## When files or folders are not found
 
-If rescanning shows one of the following, the item list stays as it was.
+If rescanning shows one of the following, the file list stays as it was.
 
 - **“The folder was not found.”**: The registered folder was deleted, moved, or renamed, or an external drive was disconnected.
   - If you moved or renamed it, select “Change...” under “Path” on the “Settings” tab and choose it. The list is cleared and read again.
