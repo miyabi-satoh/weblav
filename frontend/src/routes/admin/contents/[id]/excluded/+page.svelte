@@ -1,12 +1,9 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
-	import { refreshAll } from '$app/navigation';
 	import { WindowVirtualizer } from 'virtua/svelte';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/schema';
 	import { excludedChunks } from '$lib/archive-list-request';
 	import { ArchivePagedList } from '$lib/archive-paged-list.svelte';
-	import { archiveRescan } from '$lib/archive-rescan.svelte';
 	import ArchiveRowPlaceholder from '$lib/components/archive-row-placeholder.svelte';
 	import ArchiveStaleNotice from '$lib/components/archive-stale-notice.svelte';
 	import BrowseControls from '$lib/components/browse-controls.svelte';
@@ -18,6 +15,7 @@
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { formatNumber } from '$lib/format';
 	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
+	import { NameFilteredView } from '$lib/name-filtered-view.svelte';
 	import { adminListBandClass, adminPageClass, pageEmptyTextClass } from '$lib/page-layout';
 	import * as m from '$lib/paraglide/messages.js';
 	import type { PageProps } from './$types';
@@ -26,27 +24,28 @@
 	type ExcludedItemsResponse = components['schemas']['ExcludedItemsResponse'];
 
 	// パターンで外れて閲覧画面に出ないファイルを、パスで並べる (→ docs/ui.md「対象外のタブ」)。
-	// ファイルは開かない。中身は共有の画面で確かめる。語の取り直しはアイテムのタブと同じ形。
+	// ファイルは開かない。中身は共有の画面で確かめる。
 	let { data }: PageProps = $props();
 
 	const listFilter = new ListFilterState();
 	provideListFilter(listFilter);
 	const errorDialog = new ErrorDialogState();
 
-	/** 一覧に効いている語。打ち止めて 0.3 秒後に送る (→ docs/ui.md「一覧の絞り込み」)。 */
-	let appliedName = $derived(data.nameFilter);
-	let refetched = $state.raw<{
-		data: typeof data;
-		name: string;
-		view: ExcludedItemsResponse;
-	} | null>(null);
-	let fromData = $derived(appliedName === data.nameFilter);
-	let view = $derived(
-		!fromData && refetched?.data === data && refetched.name === appliedName
-			? refetched.view
-			: data.view
-	);
-	let nameActive = $derived(appliedName.trim() !== '');
+	const named = new NameFilteredView<typeof data, ExcludedItemsResponse>({
+		data: () => data,
+		viewOf: (current) => current.view,
+		typed: () => listFilter.value,
+		fetch: async (current, name) => {
+			const result = await errorDialog.attempt(() =>
+				client.GET('/api/v1/contents/{id}/excluded-items', {
+					params: { path: { id: current.contentId }, query: { filter: name } }
+				})
+			);
+			return result?.data;
+		}
+	});
+	let view = $derived(named.view);
+	let nameActive = $derived(named.applied.trim() !== '');
 
 	let list = $derived(new ArchivePagedList<ExcludedItem>(view, excludedChunks(data.contentId)));
 	$effect(() => {
@@ -55,48 +54,8 @@
 	});
 	let indexes = $derived(Array.from({ length: list.total }, (_, index) => index));
 
-	async function refetch() {
-		const requestedFor = data;
-		const name = appliedName;
-		const result = await errorDialog.attempt(() =>
-			client.GET('/api/v1/contents/{id}/excluded-items', {
-				params: { path: { id: data.contentId }, query: { filter: name } }
-			})
-		);
-		const next = result?.data;
-		if (!next || requestedFor !== data || name !== appliedName) return;
-		refetched = { data, name, view: next };
-	}
-
 	$effect(() => {
-		const typed = listFilter.value.trim();
-		if (typed === appliedName.trim()) return;
-		const timer = setTimeout(() => {
-			appliedName = typed;
-			if (!fromData) void refetch();
-		}, 300);
-		return () => clearTimeout(timer);
-	});
-
-	async function reload() {
-		await refreshAll();
-		if (!fromData) await refetch();
-	}
-
-	$effect(() => {
-		if (list.expired) void reload();
-	});
-
-	// 再スキャンが終わったら、語で取り直した一覧も取り直す (読み込みの分はレイアウトが取り直している)。
-	const rescan = archiveRescan();
-	let seenFinished = untrack(() => rescan.finished);
-	$effect(() => {
-		const finished = rescan.finished;
-		if (finished === seenFinished) return;
-		seenFinished = finished;
-		untrack(() => {
-			if (!fromData) void refetch();
-		});
+		if (list.expired) void named.refresh();
 	});
 
 	let patternDialogOpen = $state(false);
@@ -105,26 +64,31 @@
 <div class={adminPageClass}>
 	<div class="flex flex-col">
 		<BrowseControls layoutToggle={false} />
-		{#if nameActive}
+		{#if view.totalAll > 0 || nameActive}
+			<!-- この一覧の数。見出しの「○件のアイテム」は見えるものの数なので、別に出す。 -->
 			<div class="mt-2 flex min-h-11 items-center justify-between gap-3 text-sm">
 				<p class="text-muted-foreground">
-					{m.archive_excluded_count_filtered({
-						shown: formatNumber(view.total),
-						count: formatNumber(view.totalAll)
-					})}
+					{nameActive
+						? m.archive_excluded_count_filtered({
+								shown: formatNumber(view.total),
+								count: formatNumber(view.totalAll)
+							})
+						: m.archive_excluded_count({ count: formatNumber(view.totalAll) })}
 				</p>
-				<Button
-					type="button"
-					variant="outline"
-					size="sm"
-					onclick={() => (patternDialogOpen = true)}
-				>
-					{m.pattern_add_button()}
-				</Button>
+				{#if nameActive}
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						onclick={() => (patternDialogOpen = true)}
+					>
+						{m.pattern_add_button()}
+					</Button>
+				{/if}
 			</div>
 		{/if}
 		{#if list.stale}
-			<ArchiveStaleNotice onreload={() => void reload()} />
+			<ArchiveStaleNotice onreload={() => void named.refresh()} />
 		{/if}
 	</div>
 
@@ -162,8 +126,9 @@
 <PatternAddDialog
 	bind:open={patternDialogOpen}
 	content={data.content}
-	filterText={appliedName}
-	onsaved={reload}
+	filterText={named.applied}
+	initialTarget={data.content.includePatterns ? 'include' : 'exclude'}
+	onsaved={() => named.refresh()}
 />
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

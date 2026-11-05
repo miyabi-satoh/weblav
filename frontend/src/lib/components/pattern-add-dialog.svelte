@@ -33,12 +33,15 @@
 		open = $bindable(),
 		content,
 		filterText,
+		initialTarget = 'exclude',
 		onsaved
 	}: {
 		open: boolean;
 		content: Content;
 		/** 名前の絞り込みの語。候補の元にする。 */
 		filterText: string;
+		/** 開いたときの追加先。 */
+		initialTarget?: Target;
 		/** 保存した後の画面の更新。 */
 		onsaved: () => void | Promise<void>;
 	} = $props();
@@ -54,12 +57,17 @@
 	const requests = new LatestRequest();
 
 	let trimmed = $derived(pattern.trim());
+	/** 見えるものが変わらない。足しても意味が無いので、追加できない。 */
+	let noChange = $derived(
+		preview !== null && preview.gained === 0 && preview.lost === 0 && !preview.truncated
+	);
 
 	$effect.pre(() => {
 		if (!open) return;
 		const text = filterText;
+		const firstTarget = initialTarget;
 		untrack(() => {
-			target = 'exclude';
+			target = firstTarget;
 			pattern = patternCandidate(text);
 		});
 	});
@@ -90,11 +98,14 @@
 			return;
 		}
 		counting = true;
+		// 打ち直したら前の問い合わせをやめる。結果を使わないものが重ならないように。
+		const controller = new AbortController();
 		const timer = setTimeout(async () => {
 			try {
 				const result = await client.POST('/api/v1/contents/{id}/visibility-preview', {
 					params: { path: { id: source.id } },
-					body: patternsWith(source, candidate, to)
+					body: patternsWith(source, candidate, to),
+					signal: controller.signal
 				});
 				if (!isCurrent()) return;
 				if (result.response.status === 422) invalid = errorMessage(result.error);
@@ -105,12 +116,15 @@
 				if (isCurrent()) counting = false;
 			}
 		}, COUNT_DELAY_MS);
-		return () => clearTimeout(timer);
+		return () => {
+			clearTimeout(timer);
+			controller.abort();
+		};
 	});
 
 	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		if (saving || trimmed === '' || invalid !== null) return;
+		if (saving || trimmed === '' || invalid !== null || noChange) return;
 		saving = true;
 		try {
 			// 更新の API は全項目の置き換えなので、一覧を読み込んだ後に別の人が変えた項目を古い値で戻さない。
@@ -192,7 +206,7 @@
 							<!-- 数えるものが無い。 -->
 						{:else if preview === null}
 							<p>{m.contents_edit_visibility_change_unknown()}</p>
-						{:else if preview.gained === 0 && preview.lost === 0 && !preview.truncated}
+						{:else if noChange}
 							<p>{m.pattern_add_no_change()}</p>
 						{:else}
 							{#if preview.gained > 0}
@@ -221,7 +235,7 @@
 				<LoadingButton
 					type="submit"
 					loading={saving}
-					disabled={trimmed === '' || counting || invalid !== null}
+					disabled={trimmed === '' || counting || invalid !== null || noChange}
 				>
 					{m.action_add()}
 				</LoadingButton>

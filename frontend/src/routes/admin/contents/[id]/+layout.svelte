@@ -82,11 +82,11 @@
 		content.url ?? contentPathLabel(content, isAdmin(page.data.user)) ?? content.fileName
 	);
 	let TypeIcon = $derived(contentTypeIcon(content.type));
-	// 見るだけの理由を、どのタブでも見出しの下で示す (→ docs/ui.md「UI 全般」)。
 	function startRescan() {
 		void rescan.run(data.contentId, (message) => errorDialog.show(message));
 	}
 
+	// 見るだけの理由を、どのタブでも見出しの下で示す (→ docs/ui.md「UI 全般」)。
 	let viewOnlyNote = $derived.by(() => {
 		if (data.editable) return null;
 		const creator = content.createdByUsername;
@@ -160,7 +160,7 @@
 			</div>
 		</div>
 	</div>
-	<!-- 種別は後から変えられないので、フォームではなくここに出す。
+	<!-- 種類の呼び名はどのタブでも見えるよう、ここに出す。
 	     区切りの「・」は見た目だけのものなので読み上げない。 -->
 	<p class="flex flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
 		<TypeIcon class="size-4 shrink-0" aria-hidden="true" />

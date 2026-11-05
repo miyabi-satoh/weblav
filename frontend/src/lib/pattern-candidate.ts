@@ -10,10 +10,15 @@ function escapeGlob(term: string): string {
 	return term.replace(GLOB_SYMBOLS, (symbol) => `[${symbol}]`);
 }
 
-/** 語の前後と間に `*` を置く。`jpg` なら `*jpg*`、`英語 2024` なら `*英語*2024*`。語が無ければ空。 */
+/**
+ * 語の前後と間に `*` を置く。`jpg` なら `*jpg*`、`英語 2024` なら `*英語*2024*`。語が無ければ空。
+ * `/` を含むパターンは登録先の一番上から見るので、語に `/` があれば頭に `**\/` を付けてどの階層にも当てる。
+ */
 export function patternCandidate(filterText: string): string {
 	const terms = filterText.split(/\s+/).filter((term) => term !== '');
-	return terms.length === 0 ? '' : `*${terms.map(escapeGlob).join('*')}*`;
+	if (terms.length === 0) return '';
+	const anyDepth = terms.some((term) => term.includes('/')) ? '**/' : '';
+	return `${anyDepth}*${terms.map(escapeGlob).join('*')}*`;
 }
 
 /** 今のパターン (1行に1つ) の末尾に足す。同じものがあれば足さない。 */

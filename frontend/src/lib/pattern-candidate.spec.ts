@@ -8,6 +8,10 @@ describe('patternCandidate', () => {
 		expect(patternCandidate('  ')).toBe('');
 	});
 
+	it('matches at any depth when a word has a slash', () => {
+		expect(patternCandidate('2024/eng')).toBe('**/*2024/eng*');
+	});
+
 	it('keeps symbols in the words literal', () => {
 		expect(patternCandidate('[mix]')).toBe('*[[]mix[]]*');
 		expect(patternCandidate('a*b?')).toBe('*a[*]b[?]*');

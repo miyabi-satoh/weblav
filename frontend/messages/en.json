@@ -499,7 +499,6 @@
 	"archive_axes_dialog_dir_level_option_samples_more": "{samples}... (distinct values: {count})",
 	"archive_axes_dialog_dir_level_option_no_items": "(No items at this level)",
 	"archive_axes_dialog_dir_level_no_items": "No items are inside subfolders. Put files in subfolders and rescan to choose from the values at each level.",
-	"archive_axes_items_link": "Items tab",
 	"archive_axes_dialog_dir_level_fetch_failed": "Could not load the values at each level. Enter a level number instead.",
 	"archive_axes_dialog_filterable_label": "Show as a filter",
 	"archive_axes_dialog_values_cleared_warning": "Saving with a different source or level clears this category's value dictionary.",
@@ -575,7 +574,8 @@
 		}
 	],
 	"archive_items_empty": "No items yet. Try rescanning.",
-	"archive_excluded_count_filtered": "{shown} of {count}",
+	"archive_excluded_count": "Excluded files: {count}",
+	"archive_excluded_count_filtered": "Excluded files: {shown} of {count}",
 	"archive_excluded_empty": "No files are left out by the patterns.",
 	"pattern_add_button": "Add to patterns...",
 	"pattern_add_title": "Add to patterns",

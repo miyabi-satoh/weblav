@@ -910,19 +910,6 @@
 	</span>
 {/snippet}
 
-<!-- アイテムが無いときの案内と、再スキャンできる「アイテム」タブへのリンク (軸のダイアログと値の辞書で共通)。 -->
-{#snippet noItemsNotice(message: string)}
-	<div class="flex flex-col">
-		<p class="text-sm text-muted-foreground">{message}</p>
-		<a
-			href={resolve('/admin/contents/[id]/items', { id: String(data.contentId) })}
-			class="inline-flex h-11 w-fit items-center text-sm text-primary underline underline-offset-4"
-		>
-			{m.archive_axes_items_link()}
-		</a>
-	</div>
-{/snippet}
-
 {#snippet matchPositionSelect(row: AxisValueRow, index: number)}
 	<!-- 同じ行の入力欄と高さを揃えて 44px にする (→ docs/ui.md「UI 全般」)。 -->
 	<Select.Root
@@ -1170,7 +1157,7 @@
 					</div>
 
 					{#if archiveHasNoItems}
-						{@render noItemsNotice(m.archive_axes_values_no_items())}
+						<p class="text-sm text-muted-foreground">{m.archive_axes_values_no_items()}</p>
 					{:else if axis.source === 'filenameWord' && editable}
 						<!-- 表を埋める手がかりなので、枠で囲って表と見分ける (→ docs/ui.md「UI 全般」の「余白と区切り」)。 -->
 						<section
@@ -1603,7 +1590,9 @@
 									{m.archive_axes_dialog_dir_level_fetch_failed()}
 								</p>
 							{:else}
-								{@render noItemsNotice(m.archive_axes_dialog_dir_level_no_items())}
+								<p class="text-sm text-muted-foreground">
+									{m.archive_axes_dialog_dir_level_no_items()}
+								</p>
 							{/if}
 							<Field.Field>
 								<Field.FieldLabel for="axis-dir-level" required>

@@ -17,8 +17,6 @@ export class ArchiveRescanState {
 	result = $state<string | null>(null);
 	/** ボタンから押せないか。保存に続くスキャンの間も押させない (押すと 409 になるため)。 */
 	busy = $state(false);
-	/** スキャンが終わって画面の読み込みをやり直すたびに増える。名前の語で取り直した一覧は、これを見て取り直す。 */
-	finished = $state(0);
 
 	/** ボタンからの再スキャン。結果は見出しの下に出す。失敗は `onerror` に渡す。 */
 	async run(id: number, onerror: (message: string) => void): Promise<void> {
@@ -82,7 +80,6 @@ export class ArchiveRescanState {
 
 	async #reload() {
 		await refreshAll();
-		this.finished += 1;
 	}
 }
 
