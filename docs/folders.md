@@ -240,7 +240,7 @@ NAS が落ちていると、その共有を触った所でファイル操作が�
 
 ### 登録前の確認
 
-`GET /api/v1/admin/fs/count?path=<絶対パス>&extensions=<カンマ区切り>` (`AuthUser`。→ access.md「ロールと操作」)
+`GET /api/v1/admin/fs/count?path=<絶対パス>` (`AuthUser`。→ access.md「ロールと操作」)
 
 - 対象になるファイル数を数えて返す。
   件数の提示は誤指定に気づかせるため。パスの指定を間違えれば、巨大なツリーを見せたり索引したりしてしまう。

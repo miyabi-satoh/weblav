@@ -196,7 +196,7 @@ type ごとの必須カラムの検証 (`url` / `path` / `blob_hash`) は結局
 **WebLAV はまだ配布していないため、移行すべき既存データが存在しない**。
 そのため `CHECK` 制約は最初の `create_contents` マイグレーションから外し、
 テーブルを作り直すマイグレーションは書かない。
-`archive` 用の2カラム (`extensions` / `title_template`) は
+一覧の表示用のカラム (`include_patterns` / `title_template`) は
 `ALTER TABLE ADD COLUMN` で足りる。
 
 `private` のための `created_by` は、`ALTER TABLE ADD COLUMN` の新しいマイグレーションで足す。
