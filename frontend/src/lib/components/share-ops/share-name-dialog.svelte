@@ -93,7 +93,7 @@
 			<Dialog.Title>{title}</Dialog.Title>
 		</Dialog.Header>
 		<form onsubmit={handleSubmit} class={dialogFormClass}>
-			<Dialog.Body class="flex flex-col gap-4">
+			<Dialog.Body>
 				<Field.Field>
 					<Field.FieldLabel for="share-entry-name" required
 						>{m.shares_name_label()}</Field.FieldLabel
