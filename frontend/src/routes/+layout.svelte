@@ -14,9 +14,6 @@
 	import { headerIconActionClass, headerTextActionClass } from '$lib/header-action';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import LogInIcon from '@lucide/svelte/icons/log-in';
-	import EyeIcon from '@lucide/svelte/icons/eye';
-	import { Button } from '$lib/components/ui/button';
-	import { viewAs } from '$lib/view-as.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import ModeToggle from '$lib/components/mode-toggle.svelte';
 	import LanguageToggle from '$lib/components/language-toggle.svelte';
@@ -93,8 +90,6 @@
 			errorDialog.show(GENERIC_ERROR_MESSAGE(), m.logout_error_title());
 			return;
 		}
-		// 閲覧者として見ていたなら、次にログインした人へ持ち越さない。
-		if (viewAs.active) viewAs.set(false);
 		// 認証が必要なarchive/folderの音声が、ログアウト後や共有端末で次の利用者に
 		// 画面を渡した後も再生・表示され続けないよう停止する。
 		nowPlaying.stop();
@@ -152,26 +147,6 @@
 			{/if}
 		</div>
 	</header>
-	{#if viewAs.active && page.data.user}
-		<!-- 閲覧者として見ている間は、どの画面でもそのことと戻る口を出す (→ docs/ui.md「UI 全般」)。
-		     注意ではなく今の見え方の印なので、警告色でなく淡い差し色で塗る。 -->
-		<div
-			class="flex items-center gap-3 border-b bg-primary/10 px-4 py-2 text-sm md:px-6"
-			role="status"
-		>
-			<EyeIcon class="size-5 shrink-0 text-primary" />
-			<p class="min-w-0 flex-1">{m.view_as_banner()}</p>
-			<Button
-				type="button"
-				variant="outline"
-				class="shrink-0"
-				onclick={async () => {
-					viewAs.set(false);
-					await refreshAll();
-				}}>{m.view_as_back_button()}</Button
-			>
-		</div>
-	{/if}
 	<!-- 画面下部固定のプレイヤーがコンテンツの最後を隠さないよう、表示中だけ
 	     バーの高さ分のpaddingを足す (幅や曲名で高さが変わるので測った値を使う)。 -->
 	<div

@@ -17,6 +17,7 @@ import {
 	SAVE_BUTTON_NAME,
 	SHUFFLE_BUTTON_NAME,
 	saveForm,
+	specificSaveButton,
 	waitForDialog
 } from './helpers';
 import { send } from './api-helpers';
@@ -28,7 +29,6 @@ import {
 	dirLevelRadioLabel,
 	axisValuesForm,
 	axisValuesPreviewSummary,
-	itemPublishedSwitch,
 	saveAxisValues,
 	selectAxis,
 	wordCandidate,
@@ -119,7 +119,7 @@ test('軸の追加: フォルダーの階層は、階層ごとの値の例を見
 	);
 });
 
-test('アイテム: 再スキャンで索引し、公開を切り替えられる', async ({ page }) => {
+test('アイテム: 再スキャンで索引し、件数が見出しに出る', async ({ page }) => {
 	await withDirectoryContent(
 		page.request,
 		{ type: 'archive', namePrefix: 'e2e-items' },
@@ -127,18 +127,7 @@ test('アイテム: 再スキャンで索引し、公開を切り替えられる
 			await page.goto(`/admin/contents/${archive.id}/items`);
 			await page.getByRole('button', { name: /^再スキャンする$|^Rescan$/ }).click();
 			await expect(page.getByText(/新規\s3\s件・削除\s0\s件|3 added, 0 removed/)).toBeVisible();
-			// 新しく索引したアイテムは非公開から始まる。
-			await expect(
-				page.getByText(/3\s件のアイテム \(0\s件公開\)|3 items \(0 published\)/)
-			).toBeVisible();
-
-			const toggle = itemPublishedSwitch(page, '2024/listening.mp3');
-			await expect(toggle).toHaveAttribute('aria-checked', 'false');
-			await toggle.click();
-			await expect(toggle).toHaveAttribute('aria-checked', 'true');
-			await expect(
-				page.getByText(/3\s件のアイテム \(1\s件公開\)|3 items \(1 published\)/)
-			).toBeVisible();
+			await expect(page.getByText(/^3\s件のアイテム$|^3 items$/)).toBeVisible();
 		}
 	);
 });
@@ -548,72 +537,6 @@ test('軸の削除: 確認して消せる。表示タイトルで使っている
 	);
 });
 
-test('一括公開: 絞り込んで全選択すると見えている行だけを公開し、全選択で非公開に戻せる', async ({
-	page
-}) => {
-	await withDirectoryContent(
-		page.request,
-		{ type: 'archive', namePrefix: 'e2e-bulk-publish' },
-		async (archive) => {
-			await rescanArchive(page.request, archive.id);
-
-			await page.goto(`/admin/contents/${archive.id}/items`);
-			await expect(
-				page.getByText(/3\s件のアイテム \(0\s件公開\)|3 items \(0 published\)/)
-			).toBeVisible();
-
-			const filter = page.getByRole('textbox', { name: /^(名前で絞り込む|Filter by name)$/ });
-			const selectAll = page.getByRole('checkbox', { name: /^すべて選択$|^Select all$/ });
-			await filter.fill('2024/');
-			await expect(page.getByText(/^2\s\/\s3\s件のアイテム$|^2 \/ 3 items$/)).toBeVisible();
-			// 語が URL (と page.state) に写ってから切り替える。写る前だと、取り直しで消える場合を確かめられない。
-			await expect(page).toHaveURL(/[?&]filter=2024/);
-			await selectAll.click();
-			await expect(page.getByText(/^2\s件選択中$|^2 selected$/)).toBeVisible();
-			await page.getByRole('button', { name: /^公開する$|^Publish$/ }).click();
-			await expect(
-				page.getByText(/3\s件のアイテム \(2\s件公開\)|3 items \(2 published\)/)
-			).toBeVisible();
-			// 切り替えた後に一覧を取り直しても、名前の絞り込みは外れない。
-			await expect(filter).toHaveValue('2024/');
-			await expect(page.getByText(/^2\s\/\s3\s件のアイテム$|^2 \/ 3 items$/)).toBeVisible();
-
-			// 読み直しても保たれ、絞り込みで隠れていた行は公開していない。
-			await page.reload();
-			await expect(
-				page.getByText(/3\s件のアイテム \(2\s件公開\)|3 items \(2 published\)/)
-			).toBeVisible();
-			// 名前の絞り込みは URL に残るので、消してから隠れていた行を見る。
-			await filter.fill('');
-			await expect(itemPublishedSwitch(page, '2024/listening.mp3')).toHaveAttribute(
-				'aria-checked',
-				'true'
-			);
-			await expect(itemPublishedSwitch(page, '2023/listening.mp3')).toHaveAttribute(
-				'aria-checked',
-				'false'
-			);
-
-			await selectAll.click();
-			await expect(page.getByText(/^3\s件選択中$|^3 selected$/)).toBeVisible();
-			await page.getByRole('button', { name: /^非公開にする$|^Unpublish$/ }).click();
-			await expect(
-				page.getByText(/3\s件のアイテム \(0\s件公開\)|3 items \(0 published\)/)
-			).toBeVisible();
-
-			// 非公開に戻したことも、読み直して確かめる。
-			await page.reload();
-			await expect(
-				page.getByText(/3\s件のアイテム \(0\s件公開\)|3 items \(0 published\)/)
-			).toBeVisible();
-			await expect(itemPublishedSwitch(page, '2024/listening.mp3')).toHaveAttribute(
-				'aria-checked',
-				'false'
-			);
-		}
-	);
-});
-
 test('絞り込みの解除: 解除のリンクで絞り込みが外れ、全件に戻る', async ({ page }) => {
 	await withDirectoryContent(
 		page.request,
@@ -638,6 +561,35 @@ test('絞り込みの解除: 解除のリンクで絞り込みが外れ、全件
 			await expect(page.getByText(/^3\s件のアイテム$|^3 items$/)).toBeVisible();
 			await expect(trigger).toContainText(/すべて|All/);
 			await expect(resetLink).toHaveCount(0);
+		}
+	);
+});
+
+test('対象のパターンを広げて保存すると、続けて再スキャンし、増えたファイルがアイテムに並ぶ', async ({
+	page
+}) => {
+	await withDirectoryContent(
+		page.request,
+		{ type: 'archive', namePrefix: 'e2e-widen', files: { 'a.pdf': 'x', 'b.txt': 'x' } },
+		async (content) => {
+			await rescanArchive(page.request, content.id);
+			await page.goto(`/admin/contents/${content.id}`);
+			await page.getByRole('button', { name: /対象のパターン$|Include patterns$/ }).click();
+			const patterns = page.getByRole('dialog', { name: /^対象のパターン$|^Include patterns$/ });
+			await patterns.getByRole('textbox').fill('');
+			await patterns
+				.getByRole('button', { name: /^このパターンにする$|^Use these patterns$/ })
+				.click();
+			await specificSaveButton(page).click();
+			const notice = page.getByRole('alertdialog', {
+				name: /^見える内容が変わります$|^What people can see will change$/
+			});
+			await notice.getByRole('button', { name: /^保存する$|^Save$/ }).click();
+			await expect(notice).toBeHidden();
+			await expect(page.getByText(/2 件のファイルが見つかりました|Found 2 files/)).toBeVisible();
+
+			await page.goto(`/admin/contents/${content.id}/items`);
+			await expect(page.getByText('b.txt').first()).toBeVisible();
 		}
 	);
 });

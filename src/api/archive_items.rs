@@ -1,4 +1,4 @@
-//! アーカイブのアイテム一覧・公開切り替え・配信 (→ docs/archive.md「アイテムの公開」・「アイテムの配信」・「エンドポイント一覧」)。
+//! アーカイブのアイテム一覧・配信 (→ docs/archive.md「アイテムの配信」・「エンドポイント一覧」)。
 //!
 //! 属性値・表示タイトルの導出そのものは `archive` モジュールに、導出済みの全アイテムを持つ所と
 //! 絞り込み・並べ替えは `archive_index` に置き、ここでは区切った結果をレスポンスの形に組み立てる
@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use axum::Json;
 use axum::extract::{Path, Query, Request, State};
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::HeaderMap;
 use axum::response::Response;
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
@@ -18,18 +18,17 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use crate::auth::{AuthUser, Viewer};
-use crate::error::{AppError, AppJson, run_blocking};
+use crate::error::{AppError, run_blocking};
 use crate::folder_reach::OTHERS_WAIT;
 use crate::state::AppState;
 
 use super::archive::{self, ArchiveMeta, ValueKey};
 use super::archive_index::{
-    self, ArchiveIndex, IndexedItem, ListQuery, Snapshot, SnapshotKind, StatusCounts, StatusFilter,
-    StoredPreview,
+    self, ArchiveIndex, IndexedItem, ListQuery, Snapshot, SnapshotKind, StoredPreview,
 };
 use super::contents;
 use super::contents::FolderEntry;
-use super::folder_marks::Marks;
+use super::file_filter::FileFilter;
 use super::folder_search::{ListedTitle, SearchFileHit};
 use super::search::FieldKind;
 use super::sort::title_cmp;
@@ -40,7 +39,7 @@ use super::thumbnails;
 const PAGE_LIMIT: usize = 500;
 
 /// 区切りの引数と画面の中の絞り込みのほかに、軸の絞り込みに付ける頭。軸の名前をそのままキーにすると、
-/// `offset`・`status` などの名前の軸と取り違えるため (→ docs/archive.md「一覧の API を区切って返す」)。
+/// `offset`・`filter` などの名前の軸と取り違えるため (→ docs/archive.md「一覧の API を区切って返す」)。
 const AXIS_QUERY_PREFIX: &str = "axis.";
 
 /// 閲覧用エンドポイント向けに、公開範囲の判定込みでアーカイブを取得する。
@@ -56,17 +55,14 @@ pub(super) async fn load_viewable_archive(
     Ok((meta, lineage))
 }
 
-/// アーカイブのアイテムの数と、そのうち公開しているものの数。
-/// 公開し忘れ・公開しすぎに気づけるよう、管理画面の一覧と編集ページの見出しに出す (→ docs/ui.md「UI 全般」)。
+/// アーカイブの見せるアイテムの数。管理画面の一覧と編集ページの見出しに出す (→ docs/ui.md「UI 全般」)。
 #[derive(Debug, Clone, Copy, Default, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ArchiveItemCounts {
     pub total: i64,
-    pub published: i64,
 }
 
 /// 一覧の表示を使うフォルダーごとのアイテムの数。アイテムが1件も無いものは入らない。
-/// 印はメモリに持ったものを使う。全部を公開に切り替えたフォルダーでは印が件数ぶんあり、開くたびに読み直すと重いため。
 pub(super) async fn item_counts(
     state: &AppState,
 ) -> Result<HashMap<i64, ArchiveItemCounts>, AppError> {
@@ -76,26 +72,17 @@ pub(super) async fn item_counts(
             .await?;
     let mut counts = HashMap::with_capacity(ids.len());
     for id in ids {
-        let (_, marks) = archive_index::marks(state, id).await?;
-        counts.insert(id, count_items(&state.pool, id, marks).await?);
+        counts.insert(id, item_counts_of(&state.pool, id).await?);
     }
     Ok(counts)
 }
 
-/// 1つのフォルダーのアイテムの数。書き込みの応答に添えるもので、呼ばれるのは1件ずつなので印は読み直す。
+/// 1つのフォルダーのアイテムの数。絞り込みで外れる行は、次のスキャンまで索引に残っていても数えない。
 pub(super) async fn item_counts_of(
     pool: &sqlx::SqlitePool,
     archive_id: i64,
 ) -> Result<ArchiveItemCounts, AppError> {
-    let marks = Arc::new(Marks::load(pool, archive_id).await?);
-    count_items(pool, archive_id, marks).await
-}
-
-async fn count_items(
-    pool: &sqlx::SqlitePool,
-    archive_id: i64,
-    marks: Arc<Marks>,
-) -> Result<ArchiveItemCounts, AppError> {
+    let filter = FileFilter::load(pool, archive_id).await?;
     let rel_paths = sqlx::query_scalar!(
         "SELECT rel_path FROM archive_items WHERE archive_id = ?",
         archive_id
@@ -103,10 +90,12 @@ async fn count_items(
     .fetch_all(pool)
     .await?;
     run_blocking(move || {
-        let published = rel_paths.iter().filter(|rel| marks.is_public(rel)).count();
+        let total = rel_paths
+            .iter()
+            .filter(|rel| filter.allows_file(rel))
+            .count();
         ArchiveItemCounts {
-            total: i64::try_from(rel_paths.len()).unwrap_or(i64::MAX),
-            published: i64::try_from(published).unwrap_or(i64::MAX),
+            total: i64::try_from(total).unwrap_or(i64::MAX),
         }
     })
     .await
@@ -121,7 +110,7 @@ struct ArchiveAxisOption {
     /// 絞り込みのクエリにもこの値をそのまま載せる (→ docs/archive.md「エンドポイント一覧」)。
     value: String,
     /// **この選択肢を選んだときに残る件数** (→ docs/archive.md「エンドポイント一覧」)。
-    /// 他の軸・名前の語・公開の状態の絞り込みは効かせたまま、この軸だけをこの値に置き換えて数える。
+    /// 他の軸と名前の語の絞り込みは効かせたまま、この軸だけをこの値に置き換えて数える。
     /// 0件になる組み合わせを選ぶ前に見分けられるようにするためのもので、
     /// 選択肢自体は 0 でも消さない (緩める側の選択肢を消さない方針は変えない)。
     count: usize,
@@ -216,7 +205,7 @@ struct ArchiveViewResponse {
     total: usize,
     /// 軸で絞った後、名前の語で絞る前の数。
     total_all: usize,
-    /// 先頭の区切り。引いた時点で消えた・非公開になった行は `null` (→ docs/archive.md「一覧の API を区切って返す」)。
+    /// 先頭の区切り。引いた時点で消えた・絞り込みで外れた行は `null` (→ docs/archive.md「一覧の API を区切って返す」)。
     items: Vec<Option<ArchiveViewItem>>,
     /// アーカイブの登録先のフォルダーが見つからない。画面は空の一覧の代わりにそう出す。
     folder_missing: bool,
@@ -225,7 +214,7 @@ struct ArchiveViewResponse {
 }
 
 /// 一覧の最初の要求のクエリ (→ docs/archive.md「一覧の API を区切って返す」)。
-/// 軸の絞り込みは `axis.<軸名>=<表示名>`、ほかは `sort`・`filter` (名前の語)・`status` (管理用)・`limit`。
+/// 軸の絞り込みは `axis.<軸名>=<表示名>`、ほかは `sort`・`filter` (名前の語)・`limit`。
 fn parse_list_query(params: &HashMap<String, String>, match_paths: bool) -> (ListQuery, usize) {
     let filters = params
         .iter()
@@ -240,11 +229,6 @@ fn parse_list_query(params: &HashMap<String, String>, match_paths: bool) -> (Lis
         filters,
         terms: super::list_filter::parse_terms(params.get("filter").map_or("", String::as_str)),
         match_paths,
-        status: if match_paths {
-            StatusFilter::from_query(params.get("status").map(String::as_str))
-        } else {
-            StatusFilter::All
-        },
         order: super::sort::ArchiveSortOrder::from_query(params.get("sort").map(String::as_str)),
     };
     (
@@ -294,18 +278,17 @@ async fn view_archive(
     let (query, limit) = parse_list_query(&params, false);
 
     let (versions, index) = archive_index::index(&state, id).await?;
-    let (_, marks) = archive_index::marks(&state, id).await?;
+    let filter = FileFilter::load(&state.pool, id).await?;
     let root = PathBuf::from(&meta.path);
-    let (folder_missing, result, index, marks) = run_blocking(move || {
+    let (folder_missing, result, index, filter) = run_blocking(move || {
         let folder_missing = folder_missing(&root);
         // 登録先ごと無ければ、どの行も開けないので並べない。行ごとの有無は確かめない (→ docs/archive.md「アイテムの配信」)。
         let result = archive_index::run_query(
             &index,
-            &|item: &IndexedItem| !folder_missing && marks.is_public(&item.rel_path),
-            true,
+            &|item: &IndexedItem| !folder_missing && filter.allows_file(&item.rel_path),
             &query,
         );
-        (folder_missing, result, index, marks)
+        (folder_missing, result, index, filter)
     })
     .await?;
 
@@ -318,7 +301,7 @@ async fn view_archive(
         active_filters: result.active_filters.into(),
         versions,
     };
-    let items = view_page(&index, &marks, &snapshot, 0, limit);
+    let items = page_items(&index, &filter, &snapshot, 0, limit);
     let total = snapshot.ids.len();
     let token = state.archive_index.create_snapshot(snapshot)?;
 
@@ -335,11 +318,11 @@ async fn view_archive(
     }))
 }
 
-/// 閲覧用の区切りの行。**引くときの公開の状態でもう一度確かめる**。結果を作った後に非公開になった行の
-/// 名前を出さないため。消えた行と非公開になった行は `None` (→ docs/archive.md「一覧の API を区切って返す」)。
-fn view_page(
+/// 区切りの行。**引くときの絞り込みでもう一度確かめる**。結果を作った後に絞り込みで外れた行の
+/// 名前を出さないため。消えた行と外れた行は `None` (→ docs/archive.md「一覧の API を区切って返す」)。
+fn page_items(
     index: &ArchiveIndex,
-    marks: &Marks,
+    filter: &FileFilter,
     snapshot: &Snapshot,
     offset: usize,
     limit: usize,
@@ -348,8 +331,8 @@ fn view_page(
         .iter()
         .map(|&id| {
             let item = index.get(id)?;
-            marks
-                .is_public(&item.rel_path)
+            filter
+                .allows_file(&item.rel_path)
                 .then(|| ArchiveViewItem::new(item, index.subtitle(item, &snapshot.active_filters)))
         })
         .collect()
@@ -373,9 +356,9 @@ struct PageQuery {
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct ArchivePageResponse {
-    /// 消えた・非公開になった行は `null`。
+    /// 消えた・絞り込みで外れた行は `null`。
     items: Vec<Option<ArchiveViewItem>>,
-    /// 結果を作った後に、索引か公開・非公開の印が変わったか。画面は一覧の上に取り直しを出す。
+    /// 結果を作った後に、索引か絞り込みのパターンが変わったか。画面は一覧の上に取り直しを出す。
     stale: bool,
     /// 混ぜた結果 (`/archive/shuffle`) のときだけ、各行の混ぜる前の結果での位置。
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -411,9 +394,9 @@ async fn view_archive_page(
         )
         .ok_or_else(snapshot_gone)?;
     let (versions, index) = archive_index::index(&state, id).await?;
-    let (_, marks) = archive_index::marks(&state, id).await?;
+    let filter = FileFilter::load(&state.pool, id).await?;
     let limit = page_limit(query.limit);
-    let items = view_page(&index, &marks, &snapshot, query.offset, limit);
+    let items = page_items(&index, &filter, &snapshot, query.offset, limit);
     Ok(Json(ArchivePageResponse {
         items,
         stale: versions != snapshot.versions,
@@ -435,7 +418,7 @@ struct ArchiveShuffleResponse {
     /// 混ぜた結果の名前。続きは `/archive/page` で引く。
     snapshot: String,
     total: usize,
-    /// 消えた・非公開になった行は `null`。
+    /// 消えた・絞り込みで外れた行は `null`。
     items: Vec<Option<ArchiveViewItem>>,
     /// 各行の、混ぜる前の結果での位置。
     positions: Vec<u32>,
@@ -470,9 +453,9 @@ async fn view_archive_shuffle(
             snapshot_owner(&viewer),
         )
         .ok_or_else(snapshot_gone)?;
-    let (shuffled, index, marks) = shuffle_snapshot(&state, id, source).await?;
+    let (shuffled, index, filter) = shuffle_snapshot(&state, id, source).await?;
     let limit = page_limit(query.limit);
-    let items = view_page(&index, &marks, &shuffled, 0, limit);
+    let items = page_items(&index, &filter, &shuffled, 0, limit);
     let positions = page_positions(&shuffled, 0, limit).unwrap_or_default();
     let total = shuffled.ids.len();
     let snapshot = state.archive_index.create_snapshot(shuffled)?;
@@ -484,18 +467,18 @@ async fn view_archive_shuffle(
     }))
 }
 
-/// `source` の音声の行を混ぜた結果と、区切りを組み立てるのに使う今の索引と印。
+/// `source` の音声の行を混ぜた結果と、区切りを組み立てるのに使う今の索引と絞り込み。
 async fn shuffle_snapshot(
     state: &AppState,
     id: i64,
     source: Arc<Snapshot>,
-) -> Result<(Snapshot, Arc<ArchiveIndex>, Arc<Marks>), AppError> {
+) -> Result<(Snapshot, Arc<ArchiveIndex>, FileFilter), AppError> {
     let (_, index) = archive_index::index(state, id).await?;
-    let (_, marks) = archive_index::marks(state, id).await?;
+    let filter = FileFilter::load(&state.pool, id).await?;
     let seed = super::random_u64()?;
     run_blocking(move || {
         let shuffled = source.shuffled_audio(&index, seed);
-        (shuffled, index, marks)
+        (shuffled, index, filter)
     })
     .await
 }
@@ -516,54 +499,26 @@ fn snapshot_gone() -> AppError {
 
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-struct ManageArchiveViewItem {
-    #[serde(flatten)]
-    item: ArchiveViewItem,
-    published: bool,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-struct ArchiveStatusCounts {
-    all: usize,
-    published: usize,
-    unpublished: usize,
-}
-
-impl From<StatusCounts> for ArchiveStatusCounts {
-    fn from(counts: StatusCounts) -> Self {
-        Self {
-            all: counts.all,
-            published: counts.published,
-            unpublished: counts.unpublished,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
 struct ManageArchiveViewResponse {
     axes: Vec<ArchiveAxisResponse>,
     snapshot: String,
     total: usize,
-    /// 軸で絞った後、名前の語と公開の状態で絞る前の数。
+    /// 軸で絞った後、名前の語で絞る前の数。
     total_all: usize,
-    /// 軸と名前の語で絞ったうえでの、公開の状態ごとの件数。絞り込みの欄に出す。
-    status_counts: ArchiveStatusCounts,
-    /// 消えた行は `null`。
-    items: Vec<Option<ManageArchiveViewItem>>,
+    /// 消えた・絞り込みで外れた行は `null`。
+    items: Vec<Option<ArchiveViewItem>>,
     folder_missing: bool,
 }
 
 /// 管理画面のアイテムのタブの一覧の、最初の区切り。閲覧用の一覧 (`view_archive`) と同じ絞り込み・並べ替え・導出で、
-/// 未公開と実体の無いアイテムも含める (→ docs/archive.md「エンドポイント一覧」)。
-/// 閲覧者に見える姿を、管理画面を離れずに確かめるため。名前の語はパスでも照らし、公開の状態 (`status`) でも絞る。
+/// 登録先が見つからないときも索引の行を並べる (→ docs/archive.md「エンドポイント一覧」)。
+/// 閲覧者に見える姿を、管理画面を離れずに確かめるため。名前の語はパスでも照らす。
 #[utoipa::path(
     get,
     path = "/contents/{id}/manage-archive",
     params(("id" = i64, Path)),
     responses(
-        (status = OK, body = ManageArchiveViewResponse, description = "未公開を含む、軸の選択肢と絞り込み後のアイテムの先頭の区切り"),
+        (status = OK, body = ManageArchiveViewResponse, description = "軸の選択肢と絞り込み後のアイテムの先頭の区切り"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 404, body = crate::error::ErrorResponse, description = "管理できない・存在しない・アーカイブでない"),
     )
@@ -580,17 +535,16 @@ async fn manage_view_archive(
     let (query, limit) = parse_list_query(&params, true);
 
     let (versions, index) = archive_index::index(&state, id).await?;
-    let (_, marks) = archive_index::marks(&state, id).await?;
+    let filter = FileFilter::load(&state.pool, id).await?;
     let root = PathBuf::from(&meta.path);
-    let (folder_missing, result, index, marks) = run_blocking(move || {
+    let (folder_missing, result, index, filter) = run_blocking(move || {
         let folder_missing = folder_missing(&root);
         let result = archive_index::run_query(
             &index,
-            &|item: &IndexedItem| marks.is_public(&item.rel_path),
-            false,
+            &|item: &IndexedItem| filter.allows_file(&item.rel_path),
             &query,
         );
-        (folder_missing, result, index, marks)
+        (folder_missing, result, index, filter)
     })
     .await?;
 
@@ -603,7 +557,7 @@ async fn manage_view_archive(
         active_filters: result.active_filters.into(),
         versions,
     };
-    let items = manage_page(&index, &marks, &snapshot, 0, limit);
+    let items = page_items(&index, &filter, &snapshot, 0, limit);
     let total = snapshot.ids.len();
     let token = state.archive_index.create_snapshot(snapshot)?;
 
@@ -612,39 +566,9 @@ async fn manage_view_archive(
         snapshot: token,
         total,
         total_all: result.total_all,
-        status_counts: result.status_counts.into(),
         items,
         folder_missing,
     }))
-}
-
-fn manage_page(
-    index: &ArchiveIndex,
-    marks: &Marks,
-    snapshot: &Snapshot,
-    offset: usize,
-    limit: usize,
-) -> Vec<Option<ManageArchiveViewItem>> {
-    page_ids(snapshot, offset, limit)
-        .iter()
-        .map(|&id| {
-            let item = index.get(id)?;
-            Some(ManageArchiveViewItem {
-                published: marks.is_public(&item.rel_path),
-                item: ArchiveViewItem::new(item, index.subtitle(item, &snapshot.active_filters)),
-            })
-        })
-        .collect()
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-struct ManageArchivePageResponse {
-    items: Vec<Option<ManageArchiveViewItem>>,
-    stale: bool,
-    /// 混ぜた結果 (`/manage-archive/shuffle`) のときだけ、各行の混ぜる前の結果での位置。
-    #[serde(skip_serializing_if = "Option::is_none")]
-    positions: Option<Vec<u32>>,
 }
 
 /// 管理画面のアイテムのタブの一覧の、区切りの続き。
@@ -653,7 +577,7 @@ struct ManageArchivePageResponse {
     path = "/contents/{id}/manage-archive/page",
     params(("id" = i64, Path), PageQuery),
     responses(
-        (status = OK, body = ManageArchivePageResponse, description = "区切った行"),
+        (status = OK, body = ArchivePageResponse, description = "区切った行"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 404, body = crate::error::ErrorResponse, description = "管理できない・存在しない・アーカイブでない"),
         (status = 409, body = crate::error::ErrorResponse, description = "結果が捨てられた・別の人や口のもの。最初から取り直す"),
@@ -664,33 +588,21 @@ async fn manage_view_archive_page(
     State(state): State<AppState>,
     Path(id): Path<i64>,
     Query(query): Query<PageQuery>,
-) -> Result<Json<ManageArchivePageResponse>, AppError> {
+) -> Result<Json<ArchivePageResponse>, AppError> {
     archive::load_manageable_archive(&state.pool, &user, id).await?;
     let snapshot = state
         .archive_index
         .snapshot(&query.snapshot, id, SnapshotKind::Manage, Some(user.id))
         .ok_or_else(snapshot_gone)?;
     let (versions, index) = archive_index::index(&state, id).await?;
-    let (_, marks) = archive_index::marks(&state, id).await?;
+    let filter = FileFilter::load(&state.pool, id).await?;
     let limit = page_limit(query.limit);
-    let items = manage_page(&index, &marks, &snapshot, query.offset, limit);
-    Ok(Json(ManageArchivePageResponse {
+    let items = page_items(&index, &filter, &snapshot, query.offset, limit);
+    Ok(Json(ArchivePageResponse {
         items,
         stale: versions != snapshot.versions,
         positions: page_positions(&snapshot, query.offset, limit),
     }))
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-struct ManageArchiveShuffleResponse {
-    /// 混ぜた結果の名前。続きは `/manage-archive/page` で引く。
-    snapshot: String,
-    total: usize,
-    /// 消えた行は `null`。
-    items: Vec<Option<ManageArchiveViewItem>>,
-    /// 各行の、混ぜる前の結果での位置。
-    positions: Vec<u32>,
 }
 
 /// 管理画面のアイテムのタブの一覧の、音声の行を混ぜた結果 (→ `view_archive_shuffle`)。
@@ -699,7 +611,7 @@ struct ManageArchiveShuffleResponse {
     path = "/contents/{id}/manage-archive/shuffle",
     params(("id" = i64, Path), ShuffleQuery),
     responses(
-        (status = OK, body = ManageArchiveShuffleResponse, description = "混ぜた結果の先頭の区切り"),
+        (status = OK, body = ArchiveShuffleResponse, description = "混ぜた結果の先頭の区切り"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 404, body = crate::error::ErrorResponse, description = "管理できない・存在しない・アーカイブでない"),
         (status = 409, body = crate::error::ErrorResponse, description = "元の結果が捨てられた・別の人や口のもの。最初から取り直す"),
@@ -710,19 +622,19 @@ async fn manage_view_archive_shuffle(
     State(state): State<AppState>,
     Path(id): Path<i64>,
     Query(query): Query<ShuffleQuery>,
-) -> Result<Json<ManageArchiveShuffleResponse>, AppError> {
+) -> Result<Json<ArchiveShuffleResponse>, AppError> {
     archive::load_manageable_archive(&state.pool, &user, id).await?;
     let source = state
         .archive_index
         .snapshot(&query.snapshot, id, SnapshotKind::Manage, Some(user.id))
         .ok_or_else(snapshot_gone)?;
-    let (shuffled, index, marks) = shuffle_snapshot(&state, id, source).await?;
+    let (shuffled, index, filter) = shuffle_snapshot(&state, id, source).await?;
     let limit = page_limit(query.limit);
-    let items = manage_page(&index, &marks, &shuffled, 0, limit);
+    let items = page_items(&index, &filter, &shuffled, 0, limit);
     let positions = page_positions(&shuffled, 0, limit).unwrap_or_default();
     let total = shuffled.ids.len();
     let snapshot = state.archive_index.create_snapshot(shuffled)?;
-    Ok(Json(ManageArchiveShuffleResponse {
+    Ok(Json(ArchiveShuffleResponse {
         snapshot,
         total,
         items,
@@ -768,7 +680,7 @@ fn item_hit_cmp(a: &ItemHit, b: &ItemHit) -> std::cmp::Ordering {
         .then_with(|| a.rel_path.cmp(&b.rel_path))
 }
 
-/// アーカイブの公開アイテムを、表示タイトルと軸の値で探す。表示タイトル順に並べ、
+/// アーカイブの見せるアイテムを、表示タイトルと軸の値で探す。表示タイトル順に並べ、
 /// `search::RESULT_LIMIT` 件で打ち切って、打ち切ったかを添えて返す。
 /// 導出の結果はメモリに持ったものを使い、持っていないフォルダーは作るが持たない (`index_if_cached_or_build`)。
 /// 検索は多くのフォルダーを一度に見るので、持つと開いている一覧の分を追い出すため。
@@ -777,7 +689,7 @@ pub(super) async fn search_items(
     archives: Vec<SearchableArchive>,
     mut terms: super::search::Terms,
 ) -> Result<(Vec<(super::search::Score, SearchFileHit)>, bool), AppError> {
-    let mut sources: Vec<(SearchableArchive, Arc<ArchiveIndex>, Arc<Marks>)> =
+    let mut sources: Vec<(SearchableArchive, Arc<ArchiveIndex>, FileFilter)> =
         Vec::with_capacity(archives.len());
     // つながらない NAS やディスクのアーカイブは、検索全体を待たせずに飛ばす。
     let paths: Vec<&str> = archives
@@ -791,8 +703,8 @@ pub(super) async fn search_items(
         .filter(|(_, reachable)| *reachable)
     {
         let index = archive_index::index_if_cached_or_build(state, archive.id).await?;
-        let (_, marks) = archive_index::marks(state, archive.id).await?;
-        sources.push((archive, index, marks));
+        let filter = FileFilter::load(&state.pool, archive.id).await?;
+        sources.push((archive, index, filter));
     }
 
     run_blocking(move || {
@@ -802,14 +714,14 @@ pub(super) async fn search_items(
             .filter(|(archive, _, _)| !folder_missing(std::path::Path::new(&archive.path)))
             .collect();
         let mut hits: Vec<ItemHit> = Vec::new();
-        for (source, (archive, index, marks)) in sources.iter().enumerate() {
+        for (source, (archive, index, filter)) in sources.iter().enumerate() {
             let places = super::search::container_places(&archive.title, &archive.ancestors);
             let no_filters: Vec<Option<String>> = vec![None; index.axes.len()];
-            // 公開判定は一覧と配信と同じ印を見る (→ docs/archive.md「アイテムの公開」)。
+            // 一覧と配信と同じ絞り込みを見る (→ docs/folders.md「見せるものの絞り込み」)。
             for item in index
                 .items
                 .iter()
-                .filter(|item| marks.is_public(&item.rel_path))
+                .filter(|item| filter.allows_file(&item.rel_path))
             {
                 let title = super::search::normalize(&item.title);
                 let values: Vec<String> = (0..index.axes.len())
@@ -849,7 +761,7 @@ pub(super) async fn search_items(
             .map(|hit| {
                 let (archive, _, _) = &sources[hit.source];
                 let item = hit.item;
-                // フォルダーの中のファイルの当たりと同じ行にする。配信はフォルダーの口が同じ印で確かめる (→ docs/folders.md「公開と非公開」)。
+                // フォルダーの中のファイルの当たりと同じ行にする。配信はフォルダーの口が同じ絞り込みで確かめる (→ docs/folders.md「見せるものの絞り込み」)。
                 let hit_row = SearchFileHit {
                     content_id: archive.id,
                     folder_title: archive.title.clone(),
@@ -874,7 +786,7 @@ pub(super) async fn search_items(
     .await
 }
 
-// --- 管理用: パスの例・公開切り替え ---
+// --- 管理用: パスの例 ---
 
 /// AI に渡す依頼文に載せるパスの数。フォルダーの構造とファイル名の付け方が分かれば足りる
 /// (画面の `axes-ai-prompt` の `PATH_LIMIT` と同じ数)。
@@ -883,7 +795,7 @@ const PATH_SAMPLE_LIMIT: usize = 150;
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct PathSamplesResponse {
-    /// アイテムの数 (未公開を含む)。
+    /// 索引のアイテムの数。
     item_count: usize,
     /// パスを並べたうえで、間を空けて選んだ例。先頭だけだと最初のフォルダーのファイルに偏るため。
     rel_paths: Vec<String>,
@@ -934,145 +846,6 @@ async fn path_samples(
     Ok(Json(response))
 }
 
-/// まとめて切り替える対象。`itemIds` か、`snapshot` (と除く番号) のどちらか一方。
-#[derive(Debug, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-struct BulkSetPublishedRequest {
-    /// 選んだ行の番号。
-    item_ids: Option<Vec<i64>>,
-    /// 「すべて選択」したときの、画面が見ていた結果の名前 (管理用の一覧が返したもの)。
-    snapshot: Option<String>,
-    /// `snapshot` から除く番号 (すべて選択した後に外した行)。
-    #[serde(default)]
-    except_ids: Vec<i64>,
-    published: bool,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-struct BulkSetPublishedResponse {
-    /// 切り替えた件数。結果を作った後に索引から消えた番号は数えない。
-    updated: usize,
-}
-
-/// 公開フラグの一括切り替え (→ docs/archive.md「アイテムの公開」・「まとめて公開を切り替える」・「エンドポイント一覧」)。
-///
-/// `itemIds` で送るときは、所属しない id が1件でもあれば、どの行も更新せず404にする
-/// (単体切り替えと同じ「所属しない id は404」を一括の場合も全件成立が条件にする)。
-///
-/// `snapshot` で送るときは、**画面が見ていた結果の番号そのもの**を対象にし、絞り込みをやり直さない。
-/// やり直すと、その間に表示名が変わって絞り込みが効かなくなったときや新しいファイルが入ったときに、
-/// 見ていないものまで切り替えてしまうため。結果を作った後に索引から消えた番号は飛ばす
-/// (消えたファイルに切り替える中身は無く、1件のために全体を断ると押し直しても同じになるため)。
-#[utoipa::path(
-    put,
-    path = "/contents/{id}/items",
-    params(("id" = i64, Path)),
-    request_body = BulkSetPublishedRequest,
-    responses(
-        (status = OK, body = BulkSetPublishedResponse, description = "更新した"),
-        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの"),
-        (status = 404, body = crate::error::ErrorResponse, description = "所属しないitem_idを含む"),
-        (status = 409, body = crate::error::ErrorResponse, description = "結果が捨てられた・別の人のもの"),
-        (status = 422, body = crate::error::ErrorResponse, description = "itemIds と snapshot のどちらか一方を送っていない"),
-    )
-)]
-async fn bulk_set_published(
-    user: AuthUser,
-    State(state): State<AppState>,
-    Path(id): Path<i64>,
-    AppJson(payload): AppJson<BulkSetPublishedRequest>,
-) -> Result<Json<BulkSetPublishedResponse>, AppError> {
-    // 全選択の対象は、鍵を取る前に索引から引く。索引を作り直すと数秒かかり、その間ほかの書き込みを塞ぐため。
-    // 鍵を取った後に索引が変わっても、画面が見ていた結果の番号を切り替えるのは同じ (下の `snapshot` の説明)。
-    let snapshot_targets = match (&payload.item_ids, payload.snapshot) {
-        (Some(_), None) => None,
-        (None, Some(token)) => {
-            // 書き換えられない人に索引を作らせないよう、先に一度確かめる (書く前に鍵の中でもう一度確かめる)。
-            archive::ensure_editable_archive(&state.pool, &user, id).await?;
-            let snapshot = state
-                .archive_index
-                .snapshot(&token, id, SnapshotKind::Manage, Some(user.id))
-                .ok_or_else(snapshot_gone)?;
-            let (_, index) = archive_index::index(&state, id).await?;
-            let except_ids = payload.except_ids;
-            Some(
-                run_blocking(move || {
-                    let except: std::collections::HashSet<i64> = except_ids.into_iter().collect();
-                    snapshot
-                        .ids
-                        .iter()
-                        .filter(|id| !except.contains(id))
-                        .filter_map(|&id| Some((index.get(id)?.rel_path.clone(), false)))
-                        .collect::<Vec<_>>()
-                })
-                .await?,
-            )
-        }
-        _ => {
-            return Err(AppError::Validation(
-                "send either itemIds or snapshot".to_string(),
-            ));
-        }
-    };
-
-    // 公開範囲の判定から書き込みまでを`contents_write_lock`で直列化する。判定の後に
-    // 他人の`private`へ変わっても書き込まないため (公開範囲の更新は同じ鍵を取る)。
-    let _write_guard = state.contents_write_lock.lock().await;
-    archive::ensure_editable_archive(&state.pool, &user, id).await?;
-
-    let targets: Vec<(String, bool)> = if let Some(targets) = snapshot_targets {
-        targets
-    } else {
-        let item_ids = payload.item_ids.unwrap_or_default();
-        let mut targets = Vec::with_capacity(item_ids.len());
-        for item_id in &item_ids {
-            targets.push((item_rel_path(&state.pool, id, *item_id).await?, false));
-        }
-        targets
-    };
-    let updated = targets.len();
-    super::folder_marks::set_marks(&state.pool, id, targets, payload.published).await?;
-
-    Ok(Json(BulkSetPublishedResponse { updated }))
-}
-
-#[derive(Debug, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-struct SetPublishedRequest {
-    published: bool,
-}
-
-/// 公開フラグの単体切り替え (→ docs/archive.md「アイテムの公開」・「エンドポイント一覧」)。
-/// DB の行を書き換えるだけなので、フォルダーのある NAS やディスクにつながらなくても切り替えられる。
-#[utoipa::path(
-    put,
-    path = "/contents/{id}/items/{item_id}",
-    params(("id" = i64, Path), ("item_id" = i64, Path)),
-    request_body = SetPublishedRequest,
-    responses(
-        (status = 204, description = "更新した"),
-        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの"),
-        (status = 404, body = crate::error::ErrorResponse, description = "所属しない・存在しないアイテム"),
-    )
-)]
-async fn set_published(
-    user: AuthUser,
-    State(state): State<AppState>,
-    Path((id, item_id)): Path<(i64, i64)>,
-    AppJson(payload): AppJson<SetPublishedRequest>,
-) -> Result<StatusCode, AppError> {
-    // 鍵を取る理由は`bulk_set_published`と同じ。
-    let _write_guard = state.contents_write_lock.lock().await;
-    archive::ensure_editable_archive(&state.pool, &user, id).await?;
-    let rel_path = item_rel_path(&state.pool, id, item_id).await?;
-    super::folder_marks::set_marks(&state.pool, id, vec![(rel_path, false)], payload.published)
-        .await?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
 /// アイテムの、登録先からの相対パス。このフォルダーのアイテムでなければ404。
 async fn item_rel_path(
     pool: &sqlx::SqlitePool,
@@ -1101,7 +874,7 @@ async fn item_rel_path(
     responses(
         (status = OK, description = "ファイルの内容"),
         (status = 401, body = crate::error::ErrorResponse, description = "閲覧にログインが必要"),
-        (status = 404, body = crate::error::ErrorResponse, description = "所属しない・存在しない・非公開のアイテム、または実体が無い"),
+        (status = 404, body = crate::error::ErrorResponse, description = "所属しない・存在しない・絞り込みで外れたアイテム、または実体が無い"),
     )
 )]
 async fn download_item(
@@ -1129,7 +902,7 @@ struct ItemPathQuery {
     responses(
         (status = OK, description = "ファイルの内容"),
         (status = 401, body = crate::error::ErrorResponse, description = "閲覧にログインが必要"),
-        (status = 404, body = crate::error::ErrorResponse, description = "索引に無い・非公開のアイテム、または実体が無い"),
+        (status = 404, body = crate::error::ErrorResponse, description = "索引に無い・絞り込みで外れたアイテム、または実体が無い"),
     )
 )]
 async fn download_item_by_path(
@@ -1155,9 +928,8 @@ async fn download_item_by_path(
     Ok(file.download(request).await)
 }
 
-/// 管理画面からのアイテムの配信 (→ docs/archive.md「アイテムの配信」)。未公開も渡す。
-/// 辞書を決めるときに、公開せずに中身を確かめるためのもの。
-/// 閲覧用の `download_item` の判定 (未公開は隠す) とは混ぜず、管理の権限で別に判定する。
+/// 管理画面からのアイテムの配信 (→ docs/archive.md「アイテムの配信」)。絞り込みは当てない。
+/// 閲覧用の `download_item` の判定とは混ぜず、管理の権限で別に判定する。
 #[utoipa::path(
     get,
     path = "/contents/{id}/items/{item_id}/manage-download",
@@ -1178,8 +950,8 @@ async fn manage_download_item(
     Ok(file.download(request).await)
 }
 
-/// 管理画面からの、相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。未公開も渡す。
-/// 管理画面の Markdown のプレビューが、未公開の画像も出すのに使う。
+/// 管理画面からの、相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。絞り込みは当てない。
+/// 管理画面の Markdown のプレビューが使う。
 #[utoipa::path(
     get,
     path = "/contents/{id}/archive/manage-download",
@@ -1234,7 +1006,7 @@ async fn manage_thumbnail_item(
     file.thumbnail(&state, &headers).await
 }
 
-/// 管理の権限で、未公開も含めてアイテムの実体を引く。閲覧用の `item_file` とは判定を混ぜない
+/// 管理の権限でアイテムの実体を引く。閲覧用の `item_file` とは判定を混ぜない
 /// (→ docs/archive.md「アイテムの配信」)。
 async fn manage_item_file(
     state: &AppState,
@@ -1263,7 +1035,7 @@ async fn manage_item_file(
         (status = OK, description = "縮小画像 (JPEG か PNG)"),
         (status = 304, description = "ETag が一致した"),
         (status = 401, body = crate::error::ErrorResponse, description = "閲覧にログインが必要"),
-        (status = 404, body = crate::error::ErrorResponse, description = "所属しない・存在しない・非公開のアイテム、実体が無い、またはプレビューしない画像"),
+        (status = 404, body = crate::error::ErrorResponse, description = "所属しない・存在しない・絞り込みで外れたアイテム、実体が無い、またはプレビューしない画像"),
     )
 )]
 async fn thumbnail_item(
@@ -1286,12 +1058,10 @@ pub(super) async fn item_file(
 
     let rel_path = item_rel_path(&state.pool, id, item_id).await?;
 
-    // 非公開はログイン済みの閲覧者にも隠す (→ docs/archive.md「アイテムの公開」、docs/access.md「匿名閲覧の受け口」)。
-    // 一覧と検索 (`view_page`・`search_items`) も同じ条件を見るので、片方を変えるときはもう片方も直す。
-    if !archive_index::marks(state, id)
+    // 一覧と検索 (`page_items`・`search_items`) も同じ条件を見るので、片方を変えるときはもう片方も直す。
+    if !FileFilter::load(&state.pool, id)
         .await?
-        .1
-        .is_public(&rel_path)
+        .allows_file(&rel_path)
     {
         return Err(AppError::NotFound);
     }
@@ -1319,8 +1089,6 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(manage_view_archive_page))
         .routes(routes!(manage_view_archive_shuffle))
         .routes(routes!(path_samples))
-        .routes(routes!(bulk_set_published))
-        .routes(routes!(set_published))
         .routes(routes!(thumbnail_item))
         .routes(routes!(manage_thumbnail_item))
         .merge(download_routes)
@@ -1491,7 +1259,7 @@ mod tests {
         }
     }
 
-    /// 全部公開しているとして、閲覧用の一覧と同じく絞って並べる。
+    /// 全部見えるとして、閲覧用の一覧と同じく絞って並べる。
     fn view(
         axes: &[AxisIndex],
         rows: Vec<ItemRow>,
@@ -1506,11 +1274,10 @@ mod tests {
                 .collect(),
             terms: Vec::new(),
             match_paths: false,
-            status: StatusFilter::All,
             order,
         };
         let index = ArchiveIndex::build(rows, axes, template);
-        let result = archive_index::run_query(&index, &|_| true, true, &query);
+        let result = archive_index::run_query(&index, &|_| true, &query);
         let items = result
             .ids
             .iter()

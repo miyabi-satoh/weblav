@@ -117,7 +117,7 @@
 	let dirPickerOpen = $state(false);
 	let confirmRegisterOpen = $state(false);
 
-	let visibilityOptions = $derived(selectableVisibilities(null, currentUserId, createParent));
+	let visibilityOptions = $derived(selectableVisibilities(null, createParent));
 	let visibilityNote = $derived(contentFormVisibilityNote(form, contentById));
 	let effectiveFormVisibility = $derived(contentFormEffectiveVisibility(form, contentById));
 
@@ -464,7 +464,7 @@
 									</DropdownMenu.Item>
 									<DropdownMenu.Item>
 										{#snippet child({ props })}
-											{@const view = contentViewHref(content)}
+											{@const view = contentViewHref(content, currentUserId)}
 											<!-- eslint-disable svelte/no-navigation-without-resolve -- contentViewHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
 											<a
 												href={view.href}
@@ -604,7 +604,7 @@
 		}
 	}
 >
-	<AlertDialog.Content>
+	<AlertDialog.Content escapeKeydownBehavior={reparenting ? 'ignore' : 'close'}>
 		<AlertDialog.Header>
 			<AlertDialog.Title>{m.contents_edit_loosened_title()}</AlertDialog.Title>
 			<AlertDialog.Description>

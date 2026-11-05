@@ -152,7 +152,7 @@ fn resolve_under(
     {
         return Err(AppError::NotFound);
     }
-    let rel = crate::api::folder_marks::rel_of(canonical_root, &canonical)?;
+    let rel = crate::api::fs::rel_of(canonical_root, &canonical)?;
     Ok((canonical, rel))
 }
 

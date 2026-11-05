@@ -13,7 +13,6 @@
 		compact = false,
 		children,
 		subtitle,
-		leading,
 		trailing
 	}: {
 		/** API への直リンク (→ $lib/api/urls.ts)。 */
@@ -26,15 +25,12 @@
 		children: Snippet;
 		/** タイトルの下に置く2段目。 */
 		subtitle?: Snippet;
-		/** 行の文字より前に置くもの (管理画面の選択のチェックなど)。行いっぱいのリンクの上に重ねて置く。 */
-		leading?: Snippet;
 		/** 行の右端に置くもの (「作成者のみ」の印・⋮ のメニュー)。 */
 		trailing?: Snippet;
 	} = $props();
 </script>
 
 <div class={browseRowClass(compact)}>
-	{@render leading?.()}
 	<ListRowIcon icon={FileIcon} {compact} {thumbnail} />
 	<span class={browseRowTextClass()}>
 		<a {href} class={browseRowPressClass()} target="_blank" rel="external noopener noreferrer">

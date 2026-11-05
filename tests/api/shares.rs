@@ -932,21 +932,19 @@ async fn a_folder_can_be_created_in_a_share(pool: SqlitePool) {
     );
 }
 
-/// 名前の変更は「すべて」の人だけ。変えると、中のものの公開・非公開の印が付いていく。
+/// 名前の変更は「すべて」の人だけ。変えると、中のものの索引の行が付いていく。
 /// 共有そのものは変えられない。
 #[sqlx::test]
-async fn renaming_needs_full_access_and_carries_marks_along(pool: SqlitePool) {
+async fn renaming_needs_full_access_and_carries_the_index_along(pool: SqlitePool) {
     let share = share_fixture(&pool, "shares-rename").await;
     std::fs::create_dir_all(share.dir.join("教材")).expect("フォルダーを作れなかった");
     std::fs::write(share.dir.join("教材").join("a.pdf"), b"pdf").expect("書けなかった");
     let folder = insert_folder_by(&pool, "共有", &*share.dir, "public", None, None).await;
-    sqlx::query(
-        "INSERT INTO folder_marks (content_id, path, is_dir, public, created_at) VALUES (?, '教材/a.pdf', 0, 0, 0)",
-    )
-    .bind(folder)
-    .execute(&pool)
-    .await
-    .expect("印を入れられなかった");
+    sqlx::query("INSERT INTO archive_items (archive_id, rel_path) VALUES (?, '教材/a.pdf')")
+        .bind(folder)
+        .execute(&pool)
+        .await
+        .expect("索引を入れられなかった");
     let uri = json_uri(share.id, "rename");
     let request = r#"{"path":"教材","name":"教材 2026"}"#;
 
@@ -959,13 +957,13 @@ async fn renaming_needs_full_access_and_carries_marks_along(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(parse_json(&body)["path"], "教材 2026");
     assert!(share.dir.join("教材 2026").join("a.pdf").is_file());
-    let marks: Vec<String> =
-        sqlx::query_scalar("SELECT path FROM folder_marks WHERE content_id = ?")
+    let rels: Vec<String> =
+        sqlx::query_scalar("SELECT rel_path FROM archive_items WHERE archive_id = ?")
             .bind(folder)
             .fetch_all(&pool)
             .await
-            .expect("印を読めなかった");
-    assert_eq!(marks, vec!["教材 2026/a.pdf"]);
+            .expect("索引を読めなかった");
+    assert_eq!(rels, vec!["教材 2026/a.pdf"]);
 
     let (status, body) = send_json(
         share.app.clone(),
@@ -1239,7 +1237,7 @@ async fn add_access_allows_copying_in_but_not_moving_or_overwriting(pool: Sqlite
 /// 別の共有へ動かすと、元の共有を載せたフォルダーの印は外れ、置き先を載せたフォルダーの印は残る。
 /// 上書きでは、置き先の前のものはごみ箱へ送る。
 #[sqlx::test]
-async fn moving_between_shares_overwrites_and_carries_marks(pool: SqlitePool) {
+async fn moving_between_shares_overwrites_and_clears_the_index(pool: SqlitePool) {
     let share = share_fixture(&pool, "shares-move-from").await;
     let dest_dir = root_dir("shares-move-to");
     register_root(&pool, &dest_dir).await;
@@ -1251,14 +1249,12 @@ async fn moving_between_shares_overwrites_and_carries_marks(pool: SqlitePool) {
     let from_folder = insert_folder_by(&pool, "元", &*share.dir, "public", None, None).await;
     let to_folder = insert_folder_by(&pool, "先", &*dest_dir, "public", None, None).await;
     for (content, path) in [(from_folder, "教材/a.pdf"), (to_folder, "教材/old.pdf")] {
-        sqlx::query(
-            "INSERT INTO folder_marks (content_id, path, is_dir, public, created_at) VALUES (?, ?, 0, 0, 0)",
-        )
-        .bind(content)
-        .bind(path)
-        .execute(&pool)
-        .await
-        .expect("印を入れられなかった");
+        sqlx::query("INSERT INTO archive_items (archive_id, rel_path) VALUES (?, ?)")
+            .bind(content)
+            .bind(path)
+            .execute(&pool)
+            .await
+            .expect("索引を入れられなかった");
     }
 
     let json = transfer_json("move", share.id, &["教材"], dest_id, "", Some("overwrite"));
@@ -1274,18 +1270,19 @@ async fn moving_between_shares_overwrites_and_carries_marks(pool: SqlitePool) {
         b"new"
     );
     assert!(!dest_dir.join("教材").join("old.pdf").exists());
-    let marks: Vec<(i64, String)> =
-        sqlx::query_as("SELECT content_id, path FROM folder_marks ORDER BY id")
-            .fetch_all(&pool)
-            .await
-            .expect("印を読めなかった");
-    // 動かした元の印は、コンテンツの外へ出たので消える。置き先の印は、上書きでも残す (同じ名前のものに当てるため)。
-    assert_eq!(marks, vec![(to_folder, "教材/old.pdf".to_string())]);
+    // 動かした元の行はコンテンツの外へ出たので消え、置き先の行は読み直させるので消える。
+    let rels: Vec<String> = sqlx::query_scalar("SELECT rel_path FROM archive_items")
+        .fetch_all(&pool)
+        .await
+        .expect("索引を読めなかった");
+    assert!(rels.is_empty(), "{rels:?}");
 }
 
-/// 上書きの前に、響くコンテンツが分かる。上書きすると、そのコンテンツの印が消え、消したものが削除として記録に残る。
+/// 上書きの前に、響くコンテンツが分かる。上書きすると、そのコンテンツの索引が消え、消したものが削除として記録に残る。
 #[sqlx::test]
-async fn overwriting_a_listed_folder_warns_clears_marks_and_records_the_deletion(pool: SqlitePool) {
+async fn overwriting_a_listed_folder_warns_clears_the_index_and_records_the_deletion(
+    pool: SqlitePool,
+) {
     let share = share_fixture(&pool, "shares-overwrite-listed").await;
     std::fs::create_dir_all(share.dir.join("新").join("教材")).expect("フォルダーを作れなかった");
     std::fs::write(share.dir.join("新").join("教材").join("a.pdf"), b"new").expect("書けなかった");
@@ -1300,13 +1297,11 @@ async fn overwriting_a_listed_folder_warns_clears_marks_and_records_the_deletion
         None,
     )
     .await;
-    sqlx::query(
-        "INSERT INTO folder_marks (content_id, path, is_dir, public, created_at) VALUES (?, 'a.pdf', 0, 0, 0)",
-    )
-    .bind(listed)
-    .execute(&pool)
-    .await
-    .expect("印を入れられなかった");
+    sqlx::query("INSERT INTO archive_items (archive_id, rel_path) VALUES (?, 'a.pdf')")
+        .bind(listed)
+        .execute(&pool)
+        .await
+        .expect("索引を入れられなかった");
 
     let (status, body) = send_json(
         share.app.clone(),
@@ -1340,11 +1335,11 @@ async fn overwriting_a_listed_folder_warns_clears_marks_and_records_the_deletion
         b"new"
     );
 
-    let marks: Vec<String> = sqlx::query_scalar("SELECT path FROM folder_marks")
+    let rels: Vec<String> = sqlx::query_scalar("SELECT rel_path FROM archive_items")
         .fetch_all(&pool)
         .await
-        .expect("印を読めなかった");
-    assert!(marks.is_empty(), "{marks:?}");
+        .expect("索引を読めなかった");
+    assert!(rels.is_empty(), "{rels:?}");
     let logged: Vec<(String, String, Option<i64>)> =
         sqlx::query_as("SELECT op, paths, item_count FROM share_operations ORDER BY id")
             .fetch_all(&pool)

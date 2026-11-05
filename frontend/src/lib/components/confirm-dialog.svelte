@@ -3,6 +3,7 @@
 	 * 元に戻せない操作 (削除・アカウントから外す・バックアップから戻す) の確認ダイアログ。
 	 * 画面ごとに違うのは見出しと説明 (と確定ボタンの文言) だけなので、枠とボタンをここに持つ。
 	 * 閉じたとき (キャンセル・外側のクリック・Esc) の後始末は、呼び出し側が `open` の setter で行う。
+	 * 処理中は閉じさせない。応答を受けて、成否によらず呼び出し側が閉じる (→ docs/ui.md「UI 全般」)。
 	 */
 	import type { Snippet } from 'svelte';
 	import * as m from '$lib/paraglide/messages.js';
@@ -38,7 +39,7 @@
 </script>
 
 <AlertDialog.Root bind:open>
-	<AlertDialog.Content>
+	<AlertDialog.Content escapeKeydownBehavior={busy ? 'ignore' : 'close'}>
 		<AlertDialog.Header>
 			<AlertDialog.Title>{title}</AlertDialog.Title>
 			<AlertDialog.Description>

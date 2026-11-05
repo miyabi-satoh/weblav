@@ -67,7 +67,6 @@ const ADMIN_SHOTS = [
 	'roots-delete',
 	'axis-row-actions',
 	'archive-items-tab',
-	'archive-items-publish',
 	'share-qr',
 	'viewing-player'
 ];
@@ -600,7 +599,6 @@ async function shootAdmin() {
 		const archive = await send(page.request, 'PUT', `/contents/${created!.id}`, {
 			...created,
 			listView: true,
-			newFilesPublic: false,
 			includePatterns: '*.mp3'
 		});
 		// 階層ごとの値は、索引を作ってから出る。
@@ -702,23 +700,10 @@ async function shootAdmin() {
 		}
 
 		const tabs = page.getByRole('navigation', { name: 'コンテンツの設定' });
-		const rowCheck = (index: number) => page.getByRole('checkbox', { name: /を選択$/ }).nth(index);
-		const rowOf = (index: number) =>
-			rowCheck(index).locator('xpath=ancestor::*[@role="listitem"][1]');
 		if (want('archive-items-tab')) {
 			await goto(page, `/admin/contents/${archive!.id}/items`);
-			await shotBetween(page, 'archive-items-tab', tabs, rowOf(2), { padTop: 8, padBottom: 8 });
-		}
-
-		if (want('archive-items-publish')) {
-			await goto(page, `/admin/contents/${archive!.id}/items`);
-			await rowCheck(0).click();
-			await rowCheck(1).click();
-			await page.mouse.move(1, 1);
-			await shotBetween(page, 'archive-items-publish', page.getByText('2 件選択中'), rowOf(2), {
-				padTop: 16,
-				padBottom: 8
-			});
+			const thirdRow = page.getByRole('listitem').filter({ hasText: '.mp3' }).nth(2);
+			await shotBetween(page, 'archive-items-tab', tabs, thirdRow, { padTop: 8, padBottom: 8 });
 		}
 
 		if (want('share-qr')) {

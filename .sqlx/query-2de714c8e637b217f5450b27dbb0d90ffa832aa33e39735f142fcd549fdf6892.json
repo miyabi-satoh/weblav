@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT index_version, filter_version FROM archive_versions WHERE content_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "index_version",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "filter_version",
+        "ordinal": 1,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "2de714c8e637b217f5450b27dbb0d90ffa832aa33e39735f142fcd549fdf6892"
+}

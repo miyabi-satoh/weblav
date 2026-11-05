@@ -360,7 +360,6 @@
 	"contents_edit_view_only_no_creator": "This content has no creator, so you can only view it. Ask an administrator to change it.",
 	"contents_form_creator_label": "Creator",
 	"contents_form_creator_none": "None",
-	"contents_form_creator_private_note": "The creator of “Creator only” content cannot be changed.",
 	"contents_type_link": "Link",
 	"contents_type_folder": "Folder",
 	"contents_type_file": "File",
@@ -386,7 +385,6 @@
 	"contents_form_path_change": "Change...",
 	"contents_form_path_unset": "Not selected",
 	"contents_form_file_label": "File",
-	"contents_form_new_files_public_label": "Publish new files",
 	"contents_form_list_view_label": "Organize as a library",
 	"contents_form_list_view_description": "Lists all the files together so you can filter them by categories.",
 	"contents_form_auto_rescan_label": "Automatic rescan",
@@ -415,10 +413,6 @@
 	"home_empty": "Nothing to show here.",
 	"home_empty_add_link": "Add from content management",
 	"contents_fetch_failed": "Failed to load the content list. Please try again later.",
-	"marks_publish_button": "Publish",
-	"marks_unpublish_button": "Unpublish",
-	"marks_public_label": "Published",
-	"marks_private_label": "Unpublished",
 	"folder_view_label": "View",
 	"folder_view_folder": "Folder",
 	"folder_view_list": "Library",
@@ -447,19 +441,7 @@
 	"confirm_register_counting": "Counting files...",
 	"confirm_register_count": "files will be included",
 	"confirm_register_count_truncated": "or more files will be included",
-	"confirm_register_scope_chosen": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "There is 1 file. New files start unpublished, and you choose which ones to publish.",
-				"countPlural=other": "There are {count} files. New files start unpublished, and you choose which ones to publish."
-			}
-		}
-	],
-	"confirm_register_scope_chosen_truncated": "There are {count} or more files. New files start unpublished, and you choose which ones to publish.",
-	"confirm_register_note_folder": "Check that nothing you want kept private is mixed in. You can also unpublish individual files and folders.",
-	"confirm_register_note_path_changed": "Changing the location clears every publishing change.",
+	"confirm_register_note_folder": "Check that nothing you want kept private is mixed in. You can leave things out with exclude patterns.",
 	"confirm_register_scope_folder_public": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],
@@ -472,7 +454,7 @@
 	],
 	"confirm_register_scope_folder_public_truncated": "Anyone on the LAN can view all of these {count} or more files.",
 	"confirm_register_scope_folder_authenticated": "Only signed-in people can view them.",
-	"confirm_register_scope_folder_private": "Only you can view them.",
+	"confirm_register_scope_folder_private": "Only the creator can view them.",
 	"confirm_register_scope_folder_hidden": "It will not appear where people browse. No one can view it until you change its visibility.",
 	"confirm_register_back": "Back",
 	"confirm_register_action": "Register",
@@ -576,22 +558,15 @@
 	"archive_items_rescan_result": "Rescan result: {added} added, {removed} removed",
 	"archive_items_summary": [
 		{
-			"declarations": ["input count", "input published", "local countPlural = count: plural"],
+			"declarations": ["input count", "local countPlural = count: plural"],
 			"selectors": ["countPlural"],
 			"match": {
-				"countPlural=one": "{count} item ({published} published)",
-				"countPlural=other": "{count} items ({published} published)"
+				"countPlural=one": "{count} item",
+				"countPlural=other": "{count} items"
 			}
 		}
 	],
 	"archive_items_empty": "No items yet. Try rescanning.",
-	"archive_items_selected_count": "{count} selected",
-	"archive_items_select_all_label": "Select all",
-	"archive_items_select_row_label": "Select {path}",
-	"archive_items_publish_row_label": "Publish {path}",
-	"archive_items_status_label": "Status",
-	"archive_items_status_published": "Published",
-	"archive_items_status_unpublished": "Unpublished",
 	"archive_view_fetch_failed": "Failed to load the library. Please try again later.",
 	"archive_view_filter_all": "All",
 	"archive_view_reset_filters": "Clear filters",
@@ -616,7 +591,6 @@
 		}
 	],
 	"archive_view_empty": "No items match the current filters.",
-	"archive_view_unpublished_row": "“{title}” is now unpublished.",
 	"archive_view_missing_row": "This file is no longer available.",
 	"archive_view_chunk_failed": "Could not load.",
 	"archive_view_stale": "This list has changed.",
@@ -749,7 +723,6 @@
 	"archive_axes_ai_preview_examples": "Examples of display titles",
 	"archive_axes_ai_replace_warning": "Importing replaces the current categories and display title template.",
 	"archive_axes_ai_import_button": "Import",
-	"archive_axes_ai_imported_toast": "Imported the categories.",
 	"error_detail_import_axis_invalid": "The category “{name}” does not follow the rules (level number, empty or duplicate values, and so on). Ask the AI to fix it.",
 	"archive_axes_ai_preview_unset": "Not set",
 	"search_nav_label": "Search",
@@ -803,9 +776,6 @@
 	"schedule_daily_before": "Every day after",
 	"schedule_daily_after": "",
 	"schedule_time_label": "Time",
-	"contents_marks_title": "Publishing changes",
-	"contents_marks_clear_button": "Undo",
-	"contents_marks_clear_label": "Undo the publishing change of “{name}”",
 	"contents_edit_basic_title": "Details",
 	"contents_edit_link_title": "Link",
 	"contents_edit_file_title": "File",
@@ -816,9 +786,6 @@
 	"contents_visibility_dialog_title": "Visibility of “{title}”",
 	"shares_heading": "Shares",
 	"shares_empty": "There are no shares you can use.",
-	"shares_access_read": "You: read only",
-	"shares_access_add": "You: add only",
-	"shares_access_all": "You: full access",
 	"shares_fetch_failed": "Couldn't load the shares. Please try again later.",
 	"shares_browse_fetch_failed": "Couldn't load the share. Please try again later.",
 	"shares_listed_badge": "Listed",
@@ -853,7 +820,7 @@
 	"shares_conflict_title": "“{folder}” already contains “{name}”",
 	"shares_conflict_overwrite_trash": "If you overwrite it, the existing “{name}” will be moved to the trash.",
 	"shares_conflict_overwrite_permanent": "This location has no trash, so overwriting can't be undone.",
-	"shares_conflict_listed_note": "These contents will change or stop opening, and their publish settings will be cleared:",
+	"shares_conflict_listed_note": "These contents will change or stop opening:",
 	"shares_conflict_overwrite": "Overwrite",
 	"shares_conflict_rename": "Add a number",
 	"shares_conflict_skip": "Skip",
@@ -892,16 +859,10 @@
 			}
 		}
 	],
-	"view_as_menu_item": "View as a visitor",
-	"view_as_stop_menu_item": "Stop viewing as a visitor",
-	"view_as_banner": "You're viewing as a visitor. This is how people who aren't logged in see it.",
-	"view_as_back_button": "Back",
-	"view_as_unauthorized": "People who aren't logged in can't see this.",
 	"hidden_menu_item": "Hidden content ({count})",
 	"hidden_title": "Hidden content",
 	"hidden_empty": "There is no hidden content.",
 	"hidden_fetch_failed": "Couldn't load the hidden content. Please try again later.",
 	"hidden_unhide_menu": "Show again",
-	"hidden_restore_to": "Shows to: {visibility}",
-	"hidden_unhidden_toast": "Set “{title}” back to “{visibility}”."
+	"hidden_restore_to": "Shows to: {visibility}"
 }

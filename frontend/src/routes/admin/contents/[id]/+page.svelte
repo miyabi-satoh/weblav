@@ -33,11 +33,11 @@
 	import { formatNumber } from '$lib/format';
 	import * as m from '$lib/paraglide/messages.js';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
+	import LoadingLabel from '$lib/components/loading-label.svelte';
 	import ConfirmRegister from '$lib/components/confirm-register.svelte';
 	import ContentForm from '$lib/components/content-form.svelte';
 	import * as Field from '$lib/components/ui/field';
 	import * as Select from '$lib/components/ui/select';
-	import FolderMarksSection from '$lib/components/folder-marks-section.svelte';
 	import DirPicker from '$lib/components/dir-picker.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
@@ -51,7 +51,6 @@
 
 	let content = $derived(data.content);
 	let contentById = $derived(byIdMap(data.contents));
-	let currentUserId = $derived(page.data.user?.id);
 	let canSeeFullPath = $derived(isAdmin(page.data.user));
 	let editable = $derived(data.editable);
 
@@ -62,26 +61,13 @@
 		untrack(() => canSeeFullPath)
 	);
 
-	// 作成者の付け替えは admin だけ。`private` は付け替えられない (→ docs/access.md「ロールと操作」)。
+	// 作成者の付け替えは admin だけ (→ docs/access.md「ロールと操作」)。
 	// 基本情報の区画の保存ボタンで一緒に保存する。
 	let canChangeCreator = $derived(isAdmin(page.data.user));
-	let creatorLocked = $derived(content.visibility === 'private' || form.visibility === 'private');
-	let savedCreatorId = $derived(String(content.createdBy ?? ''));
 	let creatorId = $state(untrack(() => String(data.content.createdBy ?? '')));
 	const creatorDirty = new FormDirtyState(() => creatorId);
 	creatorDirty.markPristine();
-	let creatorChanged = $derived(canChangeCreator && !creatorLocked && creatorDirty.dirty);
-
-	// 公開・非公開を変えたものが無ければ区画を出さない。印を付けるのは閲覧の画面とアイテムのタブで行う。
-	// 一覧の表示を使うフォルダーでは、ファイルの印はアイテムのタブで見るので、フォルダーの印だけを並べる
-	// (選んで公開するフォルダーでは、公開したファイルの印が数万件になりうるため)。
-	let folderMarks = $derived.by(() => {
-		if (content.type !== 'folder' || !data.folderMarks) return null;
-		const marks = content.listView
-			? data.folderMarks.filter((mark) => mark.isDir)
-			: data.folderMarks;
-		return marks.length > 0 ? marks : null;
-	});
+	let creatorChanged = $derived(canChangeCreator && creatorDirty.dirty);
 
 	// 区画ごとに保存する (→ docs/ui.md「編集ページの区画」)。保存ボタンは、その区画の変更だけで決める。
 	let commonDirty = $derived(form.partDirty('common') || creatorChanged);
@@ -121,6 +107,8 @@
 	let dirPickerOpen = $state(false);
 	let confirmRegisterOpen = $state(false);
 	let confirmLoosenedOpen = $state(false);
+	/** 確認の窓に見せる、広がる見え方。保存すると `loosened` は消えるので、閉じ終わるまで出せるよう開いたときの値を持つ。 */
+	let loosenedNotice = $state<typeof loosened>(null);
 	let confirmVisibilityOpen = $state(false);
 	/** 保存すると見えるファイルがどう変わるか。数えられなかったときは `null`。 */
 	let visibilityChange = $state<VisibilityPreview | null>(null);
@@ -132,7 +120,6 @@
 	let visibilityOptions = $derived(
 		selectableVisibilities(
 			content,
-			currentUserId,
 			form.parentIdValue == null ? null : contentById.get(form.parentIdValue)
 		)
 	);
@@ -210,6 +197,7 @@
 		if (part === 'common') {
 			if (visibilityError !== null) return;
 			if (loosened !== null) {
+				loosenedNotice = loosened;
 				confirmLoosenedOpen = true;
 				return;
 			}
@@ -218,32 +206,26 @@
 	}
 
 	function confirmRegisterOrSave() {
-		confirmLoosenedOpen = false;
 		// 対象ファイル数と実効的な閲覧範囲を見せてから送る (→ docs/folders.md「登録前の確認」)。
 		if (needsRegisterConfirm(confirmingPart)) {
+			confirmLoosenedOpen = false;
 			confirmRegisterOpen = true;
 			return;
 		}
 		void confirmVisibilityOrSave();
 	}
 
-	/** 印の無いファイルが見えるか。ライブラリでないフォルダーは、置いたものがそのまま見える。 */
-	function unmarkedFilesPublic(folder: { listView: boolean; newFilesPublic: boolean }): boolean {
-		return !folder.listView || folder.newFilesPublic;
-	}
-
-	/** 保存で印の無いものの扱いや対象の拡張子が変わるか。場所を変えるときは、印を捨てる確認に任せる。 */
+	/** 保存でパターンが変わるか。場所を変えるときは、登録の確認に任せる。 */
 	function changesVisibleFiles(): boolean {
 		if (confirmingPart !== 'specific' || content.type !== 'folder') return false;
 		if (content.path !== form.path) return false;
 		return (
 			(content.includePatterns ?? null) !== form.normalizedIncludePatterns ||
-			(content.excludePatterns ?? null) !== form.normalizedExcludePatterns ||
-			unmarkedFilesPublic(content) !== unmarkedFilesPublic(form)
+			(content.excludePatterns ?? null) !== form.normalizedExcludePatterns
 		);
 	}
 
-	// 見えるファイルが変わるときだけ、保存の前に知らせる (→ docs/folders.md「公開と非公開」)。
+	// 見えるファイルが変わるときだけ、保存の前に知らせる (→ docs/folders.md「見せるものの絞り込み」)。
 	async function confirmVisibilityOrSave() {
 		if (saving) return;
 		if (!changesVisibleFiles()) {
@@ -253,11 +235,9 @@
 		savingPart = confirmingPart;
 		let preview: VisibilityPreview | null = null;
 		try {
-			const result = await client.POST('/api/v1/contents/{id}/marks/preview', {
+			const result = await client.POST('/api/v1/contents/{id}/visibility-preview', {
 				params: { path: { id: content.id } },
 				body: {
-					listView: form.listView,
-					newFilesPublic: form.newFilesPublic,
 					includePatterns: form.normalizedIncludePatterns,
 					excludePatterns: form.normalizedExcludePatterns
 				}
@@ -265,6 +245,7 @@
 			// 正しくないパターンは保存もできないので、知らせる窓を挟まずに直してもらう。
 			if (result.response.status === 422) {
 				errorDialog.show(errorMessage(result.error));
+				await resumeNavigationAfterSave();
 				return;
 			}
 			preview = result.data ?? null;
@@ -273,12 +254,36 @@
 		} finally {
 			savingPart = null;
 		}
-		if (preview !== null && preview.gained === 0 && preview.lost === 0) {
+		visibilityChange = preview;
+		// 一部だけを数えたときは、増減が0でも、数えていない所で変わるかもしれない。
+		if (preview !== null && !preview.truncated && preview.gained === 0 && preview.lost === 0) {
 			void saveContent();
 			return;
 		}
-		visibilityChange = preview;
+		// 数える間に止めた移動は持ち越さない。確認で取り消した後の保存で、急に移ってしまうため。
+		await resumeNavigationAfterSave();
 		confirmVisibilityOpen = true;
+	}
+
+	/** 確認の窓を閉じる。処理中は開いたままにし、応答を受けて成否によらず閉じる (→ docs/ui.md「UI 全般」)。 */
+	function closeConfirms() {
+		confirmLoosenedOpen = false;
+		confirmVisibilityOpen = false;
+		confirmRegisterOpen = false;
+	}
+
+	async function saveCreator(): Promise<boolean> {
+		const result = await client.PUT('/api/v1/contents/{id}/creator', {
+			params: { path: { id: content.id } },
+			body: { createdBy: Number(creatorId) }
+		});
+		if (!result.response.ok) {
+			closeConfirms();
+			errorDialog.show(errorMessage(result.error));
+			return false;
+		}
+		creatorDirty.markPristine();
+		return true;
 	}
 
 	async function saveContent() {
@@ -290,27 +295,26 @@
 
 		try {
 			// 場所を変えると索引が空になり、一覧の表示を使い始めたときは索引がまだ無いので、
-			// 保存に続けてスキャンする (→ docs/archive.md「スキャン」)。
+			// 保存に続けてスキャンする (→ docs/archive.md「スキャン」)。パターンで見えるファイルが増えるときも、
+			// 増えた分が索引に無いので同じ (→ docs/folders.md「見せるものの絞り込み」)。
 			const rescansAfterSave =
 				part === 'specific' &&
 				form.partDirty('specific') &&
 				content.type === 'folder' &&
 				form.listView &&
-				(content.path !== form.path || !content.listView);
-			if (part === 'common' && creatorChanged) {
-				const result = await client.PUT('/api/v1/contents/{id}/creator', {
-					params: { path: { id: content.id } },
-					body: { createdBy: Number(creatorId) }
-				});
-				if (!result.response.ok) {
-					errorDialog.show(errorMessage(result.error));
-					return;
-				}
-				creatorDirty.markPristine();
-			}
+				(content.path !== form.path ||
+					!content.listView ||
+					(changesVisibleFiles() &&
+						(visibilityChange === null ||
+							visibilityChange.truncated ||
+							visibilityChange.gained > 0)));
+			// 「作成者のみ」のグループは中身と作成者が揃っている必要があるので、そこから外すときは公開範囲を先に保存する。
+			const creatorLast = content.visibility === 'private' && form.visibility !== 'private';
+			if (part === 'common' && creatorChanged && !creatorLast && !(await saveCreator())) return;
 			if (form.partDirty(part)) {
 				const result = await form.replacePart(content.id, part, content);
 				if (!result.response.ok || !result.data) {
+					closeConfirms();
 					errorDialog.show(errorMessage(result.error));
 					// 作成者だけ保存できていることがあるので、見出しと一覧は取り直す。
 					await refreshAll();
@@ -318,8 +322,16 @@
 				}
 				form.loadPart(result.data, canSeeFullPath, part);
 			}
+			if (part === 'common' && creatorChanged && creatorLast && !(await saveCreator())) {
+				// 公開範囲は保存できているので、見出しと一覧は取り直す。
+				await refreshAll();
+				return;
+			}
 			if (rescansAfterSave) {
+				// 続くスキャンの進み具合と中止は、登録の確認の窓か、区画の中に出す。
+				confirmVisibilityOpen = false;
 				const scan = await rescanArchive(content.id, (message) => (scanProgress = message));
+				closeConfirms();
 				if (scan.ok) {
 					toast.success(
 						scan.result.cancelled
@@ -338,18 +350,19 @@
 					);
 				}
 			} else {
+				closeConfirms();
 				toast.success(m.common_section_saved_toast({ section }));
 			}
 			// 見出しのタイトルと、公開範囲の判定に使う一覧を取り直す。
 			await refreshAll();
 		} catch {
+			closeConfirms();
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			savingPart = null;
-			// 成否によらず確認ダイアログは閉じる。失敗時はフォームが残るので、直して保存し直せる。
-			confirmRegisterOpen = false;
+			closeConfirms();
+			await resumeNavigationAfterSave();
 		}
-		await resumeNavigationAfterSave();
 	}
 
 	// 保存していない変更を、別の画面へ移って失わないようにする。
@@ -392,16 +405,11 @@
 			/>
 		</fieldset>
 		{#if part === 'common' && canChangeCreator}
-			<Field.Field data-disabled={creatorLocked}>
+			<Field.Field>
 				<Field.FieldLabel for="content-creator">{m.contents_form_creator_label()}</Field.FieldLabel>
-				<!-- 付け替えられない間は、選んでいた値でなく保存済みの作成者を見せる。送らない値を出さないため。 -->
-				<Select.Root
-					type="single"
-					bind:value={() => (creatorLocked ? savedCreatorId : creatorId), (v) => (creatorId = v)}
-					disabled={creatorLocked}
-				>
+				<Select.Root type="single" bind:value={creatorId}>
 					<Select.Trigger id="content-creator" class="w-full">
-						{creatorSelectLabel(creatorLocked ? savedCreatorId : creatorId)}
+						{creatorSelectLabel(creatorId)}
 					</Select.Trigger>
 					<Select.Content>
 						{#each data.users as user (user.id)}
@@ -409,9 +417,6 @@
 						{/each}
 					</Select.Content>
 				</Select.Root>
-				{#if creatorLocked}
-					<Field.FieldDescription>{m.contents_form_creator_private_note()}</Field.FieldDescription>
-				{/if}
 			</Field.Field>
 		{/if}
 		{#if editable}
@@ -441,9 +446,6 @@
 		{#if specificTitle !== null}
 			{@render partForm('specific', specificTitle)}
 		{/if}
-		{#if folderMarks != null}
-			<FolderMarksSection contentId={content.id} marks={folderMarks} />
-		{/if}
 	</div>
 </div>
 
@@ -464,8 +466,6 @@
 	excludePatterns={(confirmSpecific ? form.normalizedExcludePatterns : content.excludePatterns) ??
 		undefined}
 	listView={confirmSpecific ? form.listView : content.listView}
-	newFilesPublic={unmarkedFilesPublic(confirmSpecific ? form : content)}
-	clearsMarks={confirmSpecific && content.type === 'folder' && content.path !== form.path}
 	editing
 	{saving}
 	progress={scanProgress}
@@ -474,28 +474,29 @@
 />
 
 <AlertDialog.Root bind:open={confirmLoosenedOpen}>
-	<AlertDialog.Content>
+	<AlertDialog.Content escapeKeydownBehavior={saving ? 'ignore' : 'close'}>
 		<AlertDialog.Header>
 			<AlertDialog.Title>{m.contents_edit_loosened_title()}</AlertDialog.Title>
 			<AlertDialog.Description>
-				{#if loosened !== null}
+				{#if loosenedNotice !== null}
 					{m.contents_edit_loosened_description({
-						before: visibilityLabel(loosened.before),
-						after: visibilityLabel(loosened.after)
+						before: visibilityLabel(loosenedNotice.before),
+						after: visibilityLabel(loosenedNotice.after)
 					})}
 				{/if}
 			</AlertDialog.Description>
 		</AlertDialog.Header>
 		<AlertDialog.Footer>
-			<AlertDialog.Cancel>{m.action_cancel()}</AlertDialog.Cancel>
-			<!-- 保存の前に閉じるので、保存中の表示は持たない (保存ボタンの側が出す)。 -->
-			<AlertDialog.Action onclick={confirmRegisterOrSave}>{m.action_save()}</AlertDialog.Action>
+			<AlertDialog.Cancel disabled={saving}>{m.action_cancel()}</AlertDialog.Cancel>
+			<AlertDialog.Action class="relative" disabled={saving} onclick={confirmRegisterOrSave}>
+				<LoadingLabel loading={saving}>{m.action_save()}</LoadingLabel>
+			</AlertDialog.Action>
 		</AlertDialog.Footer>
 	</AlertDialog.Content>
 </AlertDialog.Root>
 
 <AlertDialog.Root bind:open={confirmVisibilityOpen}>
-	<AlertDialog.Content>
+	<AlertDialog.Content escapeKeydownBehavior={saving ? 'ignore' : 'close'}>
 		<AlertDialog.Header>
 			<AlertDialog.Title>{m.contents_edit_visibility_change_title()}</AlertDialog.Title>
 			<AlertDialog.Description>
@@ -523,9 +524,10 @@
 			</AlertDialog.Description>
 		</AlertDialog.Header>
 		<AlertDialog.Footer>
-			<AlertDialog.Cancel>{m.action_cancel()}</AlertDialog.Cancel>
-			<!-- 保存の前に閉じるので、保存中の表示は持たない (保存ボタンの側が出す)。 -->
-			<AlertDialog.Action onclick={saveContent}>{m.action_save()}</AlertDialog.Action>
+			<AlertDialog.Cancel disabled={saving}>{m.action_cancel()}</AlertDialog.Cancel>
+			<AlertDialog.Action class="relative" disabled={saving} onclick={saveContent}>
+				<LoadingLabel loading={saving}>{m.action_save()}</LoadingLabel>
+			</AlertDialog.Action>
 		</AlertDialog.Footer>
 	</AlertDialog.Content>
 </AlertDialog.Root>

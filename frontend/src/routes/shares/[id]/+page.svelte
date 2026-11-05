@@ -19,7 +19,6 @@
 	import ShareAddMenu from '$lib/components/share-ops/share-add-menu.svelte';
 	import ShareOpsHost from '$lib/components/share-ops/share-ops-host.svelte';
 	import ShareRowMenuItems from '$lib/components/share-ops/share-row-menu-items.svelte';
-	import { viewAs } from '$lib/view-as.svelte';
 	import type { PageProps } from './$types';
 
 	// 共有の中の画面 (→ docs/ui.md「共有の中の画面」)。フォルダーのコンテンツの画面と同じ一覧に、
@@ -131,8 +130,7 @@
 		<div class="mb-4 flex flex-col gap-1">
 			<div class="flex items-center gap-2">
 				<h1 class={pageHeadingInRowClass}>{currentName}</h1>
-				<!-- 閲覧者として見ている間は、操作の口を出さない (→ docs/ui.md「UI 全般」)。 -->
-				{#if canAddTo(browse.access) && !viewAs.active}
+				{#if canAddTo(browse.access)}
 					<ShareAddMenu {ops} />
 				{/if}
 			</div>
@@ -163,7 +161,7 @@
 			{rows}
 			dirHref={(row) => browseHref(row.path)}
 			linksHref={() => undefined}
-			trailing={viewAs.active ? undefined : rowMenu}
+			trailing={rowMenu}
 		/>
 	{/if}
 </div>

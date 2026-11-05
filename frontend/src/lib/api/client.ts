@@ -4,7 +4,6 @@ import { navigating } from '$app/state';
 import { resolve } from '$app/paths';
 import { loginPathWithRedirect } from '$lib/auth';
 import { errorCode } from '$lib/api/errors';
-import { viewAs } from '$lib/view-as.svelte';
 import type { paths } from '$lib/api/schema';
 
 // openapi.json のパスは `/api/v1/...` を含む (backend 側で nest した prefix がそのまま
@@ -37,8 +36,6 @@ client.use({
 			.catch(() => undefined);
 		if (errorCode(body) !== 'unauthorized') return;
 		if (navigating.to !== null) return;
-		// 閲覧者として見ている間の 401 は、ログインしていない人には開けないことの表れで、ログインは切れていない。
-		if (viewAs.active) return;
 		const target = window.location.pathname + window.location.search;
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」)
 		goto(loginPathWithRedirect(resolve('/login'), target));

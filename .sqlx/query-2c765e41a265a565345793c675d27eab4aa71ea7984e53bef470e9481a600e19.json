@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT include_patterns, exclude_patterns FROM contents WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "include_patterns",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "exclude_patterns",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "2c765e41a265a565345793c675d27eab4aa71ea7984e53bef470e9481a600e19"
+}

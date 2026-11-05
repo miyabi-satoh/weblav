@@ -361,7 +361,6 @@ async fn rename_share_entry(
         &[repoint::Change::Moved {
             from: entry.canonical.clone(),
             to,
-            overwrote: false,
         }],
     )
     .await;

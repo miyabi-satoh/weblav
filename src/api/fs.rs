@@ -549,11 +549,11 @@ pub(super) struct ScanResult {
     pub(super) rel_paths: Vec<String>,
     /// 上限を超えて打ち切ったか。打ち切った場合、DBの同期は行わない
     /// (途中までの結果で同期すると、走査できなかった分が「消えた」と見なされて
-    /// 公開フラグごと消える)。
+    /// 次に見つけたときに新しいファイル扱いになる)。
     pub(super) truncated: bool,
     /// 最初に読めなかった場所の相対パス (`/` 区切り。登録先そのものなら空文字)。
     /// 読めなかった分は `rel_paths` から欠けるので、再スキャンはこれがあれば同期しない
-    /// (欠けた分が「消えた」と見なされて公開フラグごと消えるため)。
+    /// (欠けた分が「消えた」と見なされ、軸の材料や見つけた日時ごと消えるため)。
     pub(super) unreadable: Option<String>,
     /// 辿ったフォルダーの相対パス (登録先そのものは空文字) と更新日時 (Unix ナノ秒)。
     /// 一覧の表示を開いたときに、変わったフォルダーだけを読み直す手掛かりにする (→ docs/archive.md「スキャン」)。
@@ -813,6 +813,17 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(list_dirs))
         .routes(routes!(count_target_files))
+}
+
+/// `root` (登録先の実体のパス) の下にある実体のパス `path` の、登録先からの相対パス ('/' 区切り)。
+pub(super) fn rel_of(root: &FsPath, path: &FsPath) -> Result<String, AppError> {
+    let rel = path.strip_prefix(root).map_err(|_| AppError::NotFound)?;
+    Ok(rel
+        .components()
+        .map(|component| component.as_os_str().to_str().map(str::to_string))
+        .collect::<Option<Vec<_>>>()
+        .ok_or_else(|| AppError::Validation("path is not valid UTF-8".to_string()))?
+        .join("/"))
 }
 
 #[cfg(test)]

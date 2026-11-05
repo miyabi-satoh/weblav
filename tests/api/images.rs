@@ -244,7 +244,7 @@ async fn uploaded_image_gets_size_in_group_list(pool: SqlitePool) {
 }
 
 /// アーカイブのアイテムも、閲覧用の一覧に大きさが載り、縮小画像を返す。
-/// 非公開のアイテムの縮小画像は、ダウンロードと同じく 404。
+/// パターンで外れたアイテムの縮小画像は、ダウンロードと同じく 404。
 #[sqlx::test]
 async fn archive_image_items_get_sizes_and_thumbnails(pool: SqlitePool) {
     let dir = temp_test_dir("thumbnail-archive");
@@ -258,10 +258,6 @@ async fn archive_image_items_get_sizes_and_thumbnails(pool: SqlitePool) {
     let item_id = items[0]["id"].as_i64().expect("idが返らなかった");
     let thumbnail_uri = format!("/api/v1/contents/{id}/items/{item_id}/thumbnail");
 
-    let response = get_with_headers(app.clone(), &thumbnail_uri, &[]).await;
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
-
-    publish_all_items(&pool, id).await;
     let (status, body) = view_archive(app.clone(), "", id, &[]).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");

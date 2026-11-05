@@ -32,9 +32,9 @@ Recordings
    ![The folder picker with Recordings open](images/add-archive-picker.webp)
 
 3. Select “Register”. The folder's edit page opens.
-4. On the “Settings” tab, turn on “Organize as a library” under “Location and display”, then select “Save” in that section. The folder is scanned right away, and the progress appears next to the button. To publish only the files you choose, turn off “Publish new files” before saving.
+4. On the “Settings” tab, turn on “Organize as a library” under “Location and display”, then select “Save” in that section. The folder is scanned right away, and the progress appears next to the button.
 
-   ![The Publish new files and Organize as a library switches](images/folder-list-view.webp)
+   ![The Organize as a library switch](images/folder-list-view.webp)
 5. Select the “Categories” tab, then select “Add category...”.
 
    ![The Categories tab and Add category button](images/archive-axes-tab.webp)
@@ -48,13 +48,11 @@ Recordings
 
    ![Title template on the Categories tab](images/archive-axes-template.webp)
 
-9. If you turned off “Publish new files”, select the “Items” tab, select the files to show, then select “Publish”.
+9. Select the “Items” tab and check the listed files.
 
    ![The Items tab](images/archive-items-tab.webp)
 
-   ![Two selected items and the Publish button](images/archive-items-publish.webp)
-
-**If you turned it off, nothing appears until you do step 9.**
+To narrow down what appears, write include or exclude patterns on the “Settings” tab, or put only the files to show in a separate folder and register that (→ [Register contents](06-register-content.md)).
 
 The “Categories” and “Items” tabs appear only when the folder is organized as a library.
 
@@ -87,7 +85,7 @@ As with folder-level categories, you can change the display names (such as `06` 
 
 ## Limit the files in the list
 
-Use “Include patterns” (for example, `*.mp3`) and “Exclude patterns” on the “Settings” tab to limit the files you show (→ [Register content](06-register-content.md)). The folder view changes right away. To apply it to the library list, select “Rescan” on the “Items” tab.
+Use “Include patterns” (for example, `*.mp3`) and “Exclude patterns” on the “Settings” tab to limit the files you show (→ [Register content](06-register-content.md)). Changes apply as soon as you save. If more files become visible in the library list, a rescan runs right after saving.
 
 ## Ask an AI
 
@@ -108,7 +106,7 @@ On the “Categories” tab, select “Edit...” or “Delete...” on the cate
 
 On the page opened by “Edit...”, you can also choose these settings:
 
-- Show as a filter: Turn this off to hide it from viewer filters. It is still used for the title and sort order. Even when it is on, the filter is hidden while no published file has a value for this category.
+- Show as a filter: Turn this off to hide it from viewer filters. It is still used for the title and sort order. Even when it is on, the filter is hidden while no visible file has a value for this category.
 - Show the file name when this category has no value: Turn this off to leave that part blank when building a title for a file without a value.
 
 Changing the source or level and saving clears that category’s values table.
@@ -132,20 +130,12 @@ When you change a file's contents (for example, replace a photo with one of the 
 
 To rescan automatically, choose “When … have passed since the last scan” or “Every day after …” in “Automatic rescan” on the “Settings” tab, and enter the hours or the time. A time at night, when few people use the NAS, keeps the scan out of their way.
 
-Added files are published if “Publish new files” is on when a scan finds them, and start unpublished if it is off. Changing this setting later doesn't change files that are already there. To show files that started unpublished, select them, then select “Publish”.
-
-![Two selected items and the Publish button](images/archive-items-publish.webp)
-
-To stop publishing files, select them, then choose “Unpublish”. You can also select “⋮” on a row in the library and choose “Unpublish”. Both views share the same publish settings, so a change in one applies to the other (→ [Register contents](06-register-content.md)).
-
 ## When files or folders are not found
 
-- If you move or rename a file inside the folder, it is added as a new file. If “Publish new files” is off, it starts unpublished again. Publish it again.
-
-If rescanning shows one of the following, the item list and the publish settings stay as they were.
+If rescanning shows one of the following, the item list stays as it was.
 
 - **“The folder was not found.”**: The registered folder was deleted, moved, or renamed, or an external drive was disconnected.
-  - If you moved or renamed it, select “Change...” under “Path” on the “Settings” tab and choose it. The publish changes and the list are cleared, so set them up again.
+  - If you moved or renamed it, select “Change...” under “Path” on the “Settings” tab and choose it. The list is cleared and read again.
   - If you disconnected a drive, connect it and rescan.
   - Viewers also see “The folder was not found.”
 - **“Could not read "(folder)".” / “The folder could not be read.”**: WebLAV cannot read that folder (in the latter case, the registered folder itself). Check the folder’s permissions on the computer, make it readable, then rescan. For a NAS shared folder, check that it is connected.

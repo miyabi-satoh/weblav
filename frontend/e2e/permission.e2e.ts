@@ -5,12 +5,11 @@
 import { test, expect, type Page } from '@playwright/test';
 import { ADMIN_PASSWORD, ADMIN_USERNAME } from './auth';
 import { logInByApi, send, withContentByApi, withUserByApi } from './api-helpers';
-import { publishItems, rescanArchive, withDirectoryContent } from './fixture-helpers';
+import { rescanArchive, withDirectoryContent } from './fixture-helpers';
 import {
 	ADD_AXIS_BUTTON_NAME,
 	addAxisValue,
 	axisValuesForm,
-	itemPublishedSwitch,
 	saveAxisValues,
 	selectAxis
 } from './archive-helpers';
@@ -170,6 +169,37 @@ test('公開範囲の選択肢: 「作成者のみ」のグループの中のも
 	);
 });
 
+test('管理者: 他人の「作成者のみ」でも、公開範囲をすべて選べて作成者も選び直せる', async ({
+	page,
+	browser
+}) => {
+	const username = uniqueId('e2e-private-owner');
+	await withUserByApi(page.request, username, EDITOR_PASSWORD, async () => {
+		const owner = await anonymousContext(browser);
+		try {
+			await logInByApi(owner.request, username, EDITOR_PASSWORD);
+			await withContentByApi(
+				owner.request,
+				{
+					type: 'link',
+					title: uniqueId('e2e-others-private'),
+					url: 'https://example.com',
+					visibility: 'private'
+				},
+				async (link) => {
+					await page.goto(`/admin/contents/${link.id}`);
+					await page.getByLabel(VISIBILITY_LABEL).click();
+					await expect(page.getByRole('option')).toHaveCount(4);
+					await page.keyboard.press('Escape');
+					await expect(page.getByRole('button', { name: /^作成者$|^Creator$/ })).toBeEnabled();
+				}
+			);
+		} finally {
+			await owner.close();
+		}
+	});
+});
+
 test('編集者: 管理のタブが出ず、ユーザー管理とサイト設定はコンテンツ管理へ戻されるが、追加の種類は全部出る', async ({
 	page,
 	browser
@@ -255,7 +285,7 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 					await expect(editorPage.getByRole('button', { name: SAVE_BUTTON_NAME })).toHaveCount(0);
 
 					await editorPage.getByRole('link', { name: ITEMS_TAB_NAME }).click();
-					await expect(itemPublishedSwitch(editorPage, '2024/answer.pdf')).toBeDisabled();
+					await expect(editorPage.getByText('2024/answer.pdf')).toBeVisible();
 					await expect(
 						editorPage.getByRole('button', { name: /再スキャンする|Rescan/ })
 					).toHaveCount(0);
@@ -290,29 +320,13 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 					await saveAxisValues(editorPage, '種類');
 
 					await editorPage.getByRole('link', { name: ITEMS_TAB_NAME }).click();
-					const toggle = itemPublishedSwitch(editorPage, '2024/answer.pdf');
-					await toggle.click();
-					await expect(toggle).toHaveAttribute('aria-checked', 'true');
+					await expect(
+						editorPage.getByRole('button', { name: /再スキャンする|Rescan/ })
+					).toBeVisible();
 				} finally {
 					await editor.close();
 				}
 			});
-		}
-	);
-});
-
-test('アーカイブの閲覧: 非公開のアイテムは並ばない', async ({ page }) => {
-	await withDirectoryContent(
-		page.request,
-		{ type: 'archive', namePrefix: 'e2e-unpublished' },
-		async (archive) => {
-			const items = await rescanArchive(page.request, archive.id);
-			await publishItems(page.request, archive.id, items, ['2024/answer.pdf']);
-
-			await page.goto(`/archives/${archive.id}`);
-			await expect(page.getByText(/^1\s件のアイテム$|^1 item$/)).toBeVisible();
-			await expect(page.getByRole('link', { name: /answer\.pdf/ })).toBeVisible();
-			await expect(page.getByRole('button', { name: /^listening\.mp3/ })).toHaveCount(0);
 		}
 	);
 });

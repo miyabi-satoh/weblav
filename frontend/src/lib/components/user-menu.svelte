@@ -19,7 +19,6 @@
 	import { headerTextActionClass } from '$lib/header-action';
 	import { cn } from '$lib/utils';
 	import { formatNumber } from '$lib/format';
-	import { viewAs } from '$lib/view-as.svelte';
 	import { toast } from 'svelte-sonner';
 
 	let {
@@ -32,11 +31,6 @@
 		hiddenCount: number;
 		onlogout: () => void;
 	} = $props();
-
-	async function toggleViewAs() {
-		viewAs.set(!viewAs.active);
-		await refreshAll();
-	}
 
 	let recoveryCodeOpen = $state(false);
 
@@ -146,9 +140,6 @@
 					{/snippet}
 				</DropdownMenu.Item>
 			{/if}
-			<DropdownMenu.Item onSelect={() => void toggleViewAs()}>
-				{viewAs.active ? m.view_as_stop_menu_item() : m.view_as_menu_item()}
-			</DropdownMenu.Item>
 			<!-- ログイン後にマニュアルを引き直す導線がここにしかない (ログイン画面・
 			     フォルダー選択・軸の画面のリンクは、いずれも使っている最中にしか出ない)。 -->
 			<DropdownMenu.Item>

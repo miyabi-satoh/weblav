@@ -122,17 +122,13 @@ export function childrenFitPrivateGroup<T extends Owned & { parentId?: number | 
  * フォームで選べる公開範囲。並びは画面に出す順。
  *
  * @param editing 編集中のコンテンツ。新規作成なら `null` (作成者は操作した本人になる)。
- * @param userId 操作しているユーザー。
  * @param parent 置く先のグループ。「作成者のみ」なら、中に置けるのは「作成者のみ」だけ。
  */
 export function selectableVisibilities(
 	editing: Owned | null,
-	userId: number | undefined,
 	parent: Owned | null | undefined
 ): Visibility[] {
 	if (parent?.visibility === 'private') return ['private'];
-	const isCreator = editing === null || (editing.createdBy != null && editing.createdBy === userId);
-	if (editing?.visibility === 'private' && !isCreator) return ['private', 'hidden'];
-	if (!isCreator) return ['public', 'authenticated', 'hidden'];
+	if (editing !== null && editing.createdBy == null) return ['public', 'authenticated', 'hidden'];
 	return ['public', 'authenticated', 'private', 'hidden'];
 }

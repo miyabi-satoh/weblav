@@ -72,8 +72,8 @@
 			);
 			if (started?.data == null) return;
 			shareJobs.track(started.data.jobId, 'delete', jobLabel('delete', doomed.name), ondone);
-			close();
 		} finally {
+			close();
 			busy = false;
 		}
 	}

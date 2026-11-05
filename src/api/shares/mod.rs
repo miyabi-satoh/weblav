@@ -220,7 +220,7 @@ pub(super) async fn folder_share(
     Ok(Some(FolderShare {
         id: root.id,
         name: root.name.clone(),
-        path: super::folder_marks::rel_of(&root.path, canonical)?,
+        path: super::fs::rel_of(&root.path, canonical)?,
         access: at,
         trash,
     }))

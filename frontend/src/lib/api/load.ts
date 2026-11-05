@@ -2,7 +2,6 @@ import { error, redirect } from '@sveltejs/kit';
 import { resolve } from '$app/paths';
 import { GENERIC_ERROR_MESSAGE, errorCode } from '$lib/api/errors';
 import { loginPathWithRedirect } from '$lib/auth';
-import { viewAs } from '$lib/view-as.svelte';
 import * as m from '$lib/paraglide/messages.js';
 
 type Options = {
@@ -36,11 +35,6 @@ export async function fetchOrError<T>(
 		({ data, error: body, response } = await request);
 	} catch {
 		error(503, GENERIC_ERROR_MESSAGE());
-	}
-	// 閲覧者として見ている間は、ログインしていない人と同じく開けないことを見せる。
-	// ログインへ送ると、ログインしているのに入り直しを求めることになるため。
-	if (response.status === 401 && viewAs.active) {
-		error(401, m.view_as_unauthorized());
 	}
 	if (loginRedirectFrom && response.status === 401) {
 		redirect(

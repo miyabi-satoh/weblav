@@ -11,7 +11,6 @@ mod connection_info;
 mod contents;
 pub mod error_detail;
 mod file_filter;
-mod folder_marks;
 mod folder_search;
 mod fs;
 mod health;
@@ -97,7 +96,7 @@ fn routes(max_upload_bytes: Option<u64>) -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .merge(health::router())
         .merge(auth::router())
-        .merge(folder_marks::router())
+        .merge(file_filter::router())
         .merge(connection_info::router())
         .merge(contents::router())
         .merge(archive::router())

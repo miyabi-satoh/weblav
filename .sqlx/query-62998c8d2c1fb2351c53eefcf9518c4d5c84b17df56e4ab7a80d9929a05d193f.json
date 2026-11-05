@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE contents SET exclude_patterns = 'b.*' WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "62998c8d2c1fb2351c53eefcf9518c4d5c84b17df56e4ab7a80d9929a05d193f"
+}

@@ -15,7 +15,6 @@
 		compact = false,
 		children,
 		subtitle,
-		leading,
 		trailing
 	}: {
 		/** キューと同じ組み立て方で作る (押した行をキューの中から `src` で探すため)。 */
@@ -33,8 +32,6 @@
 		children: Snippet;
 		/** タイトルの下に置く2段目。 */
 		subtitle?: Snippet;
-		/** 行の文字より前に置くもの (管理画面の選択のチェックなど)。行いっぱいのリンクの上に重ねて置く。 */
-		leading?: Snippet;
 		/** 行の右端に置くもの (「作成者のみ」の印・⋮ のメニュー)。「再生中」の印より右に置く。 */
 		trailing?: Snippet;
 	} = $props();
@@ -55,7 +52,6 @@
 				: 'before:absolute before:inset-y-0 before:left-0 before:w-0.75 before:bg-primary')
 	)}
 >
-	{@render leading?.()}
 	<ListRowIcon play {current} {compact} />
 	<span class={browseRowTextClass()}>
 		<!-- ボタンは文字が中央に寄るので、行の寄せ (左) に合わせる。 -->

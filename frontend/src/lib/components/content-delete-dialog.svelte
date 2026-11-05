@@ -49,6 +49,7 @@
 				params: { path: { id: target.id } }
 			});
 			if (!response.ok) {
+				content = null;
 				errorDialog.show(errorMessage(error));
 				return;
 			}
@@ -60,6 +61,7 @@
 				content = null;
 			}
 		} catch {
+			content = null;
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			deleting = false;

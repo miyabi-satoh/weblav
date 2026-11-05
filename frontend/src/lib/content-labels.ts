@@ -35,10 +35,7 @@ export function visibilityLabel(visibility: Visibility): string {
 	return visibility;
 }
 
-/** 一覧の表示を使うフォルダーのアイテムの数と、そのうち公開している数。一覧・編集ページの見出し・アイテムのタブで同じ言い方にする。 */
-export function archiveItemsSummary(counts: { total: number; published: number }): string {
-	return m.archive_items_summary({
-		count: formatNumber(counts.total),
-		published: formatNumber(counts.published)
-	});
+/** 一覧の表示を使うフォルダーのアイテムの数。一覧・編集ページの見出しで同じ言い方にする。 */
+export function archiveItemsSummary(counts: { total: number }): string {
+	return m.archive_items_summary({ count: formatNumber(counts.total) });
 }

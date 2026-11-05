@@ -1,16 +1,15 @@
 //! 共有の中で動かした・名前を変えた・消したものを、DB の中の場所に映す。
 //!
-//! フォルダーのコンテンツは、登録先を実体のパスで (`contents.path`)、その中の公開・非公開の印と
-//! 一覧の表示の索引を登録先からの相対パスで (`folder_marks.path`・`archive_items.rel_path`・
-//! `archive_dirs.rel_path`) 持つ。どれも綴りで照らすので、画面から動かしたものを追いかけないと、
-//! 登録先が見つからなくなったり、印が別のものに付いたり外れたりする。
+//! フォルダーのコンテンツは、登録先を実体のパスで (`contents.path`)、一覧の表示の索引を
+//! 登録先からの相対パスで (`archive_items.rel_path`・`archive_dirs.rel_path`) 持つ。どれも綴りで
+//! 照らすので、画面から動かしたものを追いかけないと、登録先が見つからなくなったり、索引の行が残ったりする。
 //!
 //! - 動かしたものがコンテンツの登録先 (かその上) なら、登録先を新しい場所に変える。中の相対パスは変わらない
 //! - コンテンツの中で動かしたなら、相対パスの頭を付け替える。外へ出したなら、その分の行を消す
-//! - 置き先に前からあった行は、先に消す。上書きでは印を残す (同じコンテンツの中で動かしたときは、動かしたものの印を採り、置き先の公開の印も消す)
+//! - 置き先に前からあった行は、先に消す
 //! - 上書きで消したものがコンテンツの登録先 (かその中) なら、そのコンテンツの行も消す
 //!
-//! 一覧の表示の索引を走査している最中のコンテンツは、印だけを直す。索引は走査が書き直すため
+//! 一覧の表示の索引を走査している最中のコンテンツは、索引に触らない。索引は走査が書き直すため
 //! (ここで直しても、走査が前に読んだ中身で上書きする)。
 
 use std::collections::BTreeSet;
@@ -54,12 +53,10 @@ fn stored_form(path: &Path) -> Result<PathBuf, AppError> {
 
 /// `old` (実体のパス) を `new` に動かした (名前を変えた) ことを映す。索引を直した、一覧の表示を使う
 /// コンテンツを返す (中を読み直させるため)。`scanning` は、そのコンテンツの索引を走査中か。
-/// `overwrote` は、`new` にあったものを上書きしたか。置き先の印を残すかを決める (→ `clear_destination`)。
 pub(super) async fn moved(
     conn: &mut SqliteConnection,
     old: &Path,
     new: &Path,
-    overwrote: bool,
     scanning: &(dyn Fn(i64) -> bool + Sync),
 ) -> Result<Vec<i64>, AppError> {
     let old = stored_form(old)?;
@@ -69,26 +66,27 @@ pub(super) async fn moved(
     }
     let mut changed = Vec::new();
     for row in folder_rows(&mut *conn).await? {
-        let marks_only = scanning(row.id);
+        let index_kept = scanning(row.id);
         if let Some(path) = crate::api::roots::rebase(&row.path, &old, &new) {
             let path = path_to_string(path)?;
             sqlx::query!("UPDATE contents SET path = ? WHERE id = ?", path, row.id)
                 .execute(&mut *conn)
                 .await?;
         } else if let Ok(rel_old) = rel_under(&row.path, &old) {
-            match rel_under(&row.path, &new) {
-                Ok(rel_new) => {
-                    if overwrote {
-                        delete_marks_replaced_by(&mut *conn, row.id, &rel_old, &rel_new).await?;
+            if !index_kept {
+                match rel_under(&row.path, &new) {
+                    Ok(rel_new) => {
+                        delete_under(&mut *conn, row.id, &rel_new).await?;
+                        rename_under(&mut *conn, row.id, &rel_old, &rel_new).await?;
                     }
-                    clear_destination(&mut *conn, row.id, &rel_new, marks_only, overwrote).await?;
-                    rename_under(&mut *conn, row.id, &rel_old, &rel_new, marks_only).await?;
+                    Err(_) => delete_under(&mut *conn, row.id, &rel_old).await?,
                 }
-                Err(_) => delete_under(&mut *conn, row.id, &rel_old, marks_only).await?,
             }
         } else if let Ok(rel_new) = rel_under(&row.path, &new) {
-            // 外から入れてきたもの。同じ場所に前からあったものの行を消す (上書きなら印は残す)。
-            clear_destination(&mut *conn, row.id, &rel_new, marks_only, overwrote).await?;
+            // 外から入れてきたもの。同じ場所に前からあったものの行を消す。
+            if !index_kept {
+                delete_under(&mut *conn, row.id, &rel_new).await?;
+            }
         } else {
             continue;
         }
@@ -99,7 +97,7 @@ pub(super) async fn moved(
     Ok(changed)
 }
 
-/// `path` (実体のパス) を消したことを映す。中の印と索引を消す。
+/// `path` (実体のパス) を消したことを映す。中の索引を消す。
 ///
 /// 消したものがコンテンツの登録先 (かその上) なら、コンテンツはそのまま残す。ごみ箱から戻せば
 /// また開けるようにするため (消す前に、消すと開けなくなるコンテンツを画面で伝える)。
@@ -114,7 +112,9 @@ pub(super) async fn deleted(
         let Ok(rel) = rel_under(&row.path, &path) else {
             continue;
         };
-        delete_under(&mut *conn, row.id, &rel, scanning(row.id)).await?;
+        if !scanning(row.id) {
+            delete_under(&mut *conn, row.id, &rel).await?;
+        }
         if row.list_view {
             changed.push(row.id);
         }
@@ -124,9 +124,8 @@ pub(super) async fn deleted(
 
 /// `path` (実体のパス) を上書きで置き換えたことを映す。
 ///
-/// 登録先が `path` かその中のコンテンツは、印と索引を消す。登録先ごと別のものになるので、前の印を当てないため
-/// (確かめの画面で伝えてある)。登録先が `path` の外のコンテンツは、印を残して索引だけ読み直させる。
-/// 消すと、非公開にしていたファイルが上書きで公開になるため。同じ名前のものには同じ印が当たる。
+/// 登録先が `path` かその中のコンテンツは、索引を消す。登録先ごと別のものになるため。
+/// 登録先が `path` の外のコンテンツは、`path` の分の索引だけを消して読み直させる。
 pub(super) async fn overwritten(
     conn: &mut SqliteConnection,
     path: &Path,
@@ -135,21 +134,25 @@ pub(super) async fn overwritten(
     let mut changed = Vec::new();
     let path = stored_form(path)?;
     for row in folder_rows(&mut *conn).await? {
-        let marks_only = scanning(row.id);
+        let index_kept = scanning(row.id);
         if row.path.starts_with(&path) {
-            delete_all(&mut *conn, row.id, marks_only).await?;
-            if row.list_view && !marks_only {
-                // 索引のフォルダーが1つも無いと、まだ走査していないものとして読み直しが何もしない。
-                // 更新日時の分からない根を置いて、置き換わった中身を読ませる。
-                sqlx::query!(
-                    "INSERT INTO archive_dirs (archive_id, rel_path, modified_ns) VALUES (?, '', NULL)",
-                    row.id
-                )
-                .execute(&mut *conn)
-                .await?;
+            if !index_kept {
+                delete_all(&mut *conn, row.id).await?;
+                if row.list_view {
+                    // 索引のフォルダーが1つも無いと、まだ走査していないものとして読み直しが何もしない。
+                    // 更新日時の分からない根を置いて、置き換わった中身を読ませる。
+                    sqlx::query!(
+                        "INSERT INTO archive_dirs (archive_id, rel_path, modified_ns) VALUES (?, '', NULL)",
+                        row.id
+                    )
+                    .execute(&mut *conn)
+                    .await?;
+                }
             }
         } else if let Ok(rel) = rel_under(&row.path, &path) {
-            clear_destination(&mut *conn, row.id, &rel, marks_only, true).await?;
+            if !index_kept {
+                delete_under(&mut *conn, row.id, &rel).await?;
+            }
         } else {
             continue;
         }
@@ -165,95 +168,15 @@ fn rel_under(root: &Path, path: &Path) -> Result<String, AppError> {
     if path == root {
         return Err(AppError::NotFound);
     }
-    crate::api::folder_marks::rel_of(root, path)
+    crate::api::fs::rel_of(root, path)
 }
 
 // 頭の一致は LIKE でなく substr で照らす。LIKE は ASCII の大文字・小文字を区別しないので、
-// 大文字・小文字を区別するファイルシステムで、綴りの違う隣のものまで巻き込まないため
-// (→ `folder_marks::set_marks`)。`a` と `ab` を取り違えないよう、頭は `a/` で照らす。
+// 大文字・小文字を区別するファイルシステムで、綴りの違う隣のものまで巻き込まないため。
+// `a` と `ab` を取り違えないよう、頭は `a/` で照らす。
 
-/// 置き先 `rel` に前からあったものの行を消す。`keep_marks` なら印は残し、索引だけを消す。
-/// 上書きで印まで消すと、非公開にしていたファイルが置き換えで公開になるため (→ docs/shares.md「場所の付け替え」)。
-/// 索引を消すのは、残すと読み直しが既知のファイルとして飛ばし、前の大きさや日付が残るため。
-async fn clear_destination(
-    conn: &mut SqliteConnection,
-    id: i64,
-    rel: &str,
-    marks_only: bool,
-    keep_marks: bool,
-) -> Result<(), AppError> {
-    if !keep_marks {
-        return delete_under(conn, id, rel, marks_only).await;
-    }
-    if !marks_only {
-        delete_index_under(conn, id, rel).await?;
-    }
-    Ok(())
-}
-
-/// `old` の中の印と同じ名前になる、`new` の中の印を消す。動かしたものの印を採り、ほかの名前の印は残すため。
-/// `new` の中の公開の印も消す。印は上の階層から受け継ぐので、非公開のフォルダーから受け継いだだけのファイル
-/// (自分の印が無い) に置き先の公開の印が当たり、見えてしまうため。消しても受け継いだ値に戻るだけで済む。
-async fn delete_marks_replaced_by(
-    conn: &mut SqliteConnection,
-    id: i64,
-    old: &str,
-    new: &str,
-) -> Result<(), AppError> {
-    let old_prefix = format!("{old}/");
-    sqlx::query!(
-        "DELETE FROM folder_marks WHERE content_id = ?1 AND path IN (
-             SELECT ?3 || substr(path, length(?2) + 1) FROM folder_marks
-             WHERE content_id = ?1 AND (path = ?2 OR substr(path, 1, length(?4)) = ?4)
-         )",
-        id,
-        old,
-        new,
-        old_prefix
-    )
-    .execute(&mut *conn)
-    .await?;
-    let new_prefix = format!("{new}/");
-    sqlx::query!(
-        "DELETE FROM folder_marks WHERE content_id = ?1 AND public = 1
-             AND (path = ?2 OR substr(path, 1, length(?3)) = ?3)",
-        id,
-        new,
-        new_prefix
-    )
-    .execute(conn)
-    .await?;
-    Ok(())
-}
-
-/// `rel` とその中の行を消す。
-async fn delete_under(
-    conn: &mut SqliteConnection,
-    id: i64,
-    rel: &str,
-    marks_only: bool,
-) -> Result<(), AppError> {
-    let prefix = format!("{rel}/");
-    sqlx::query!(
-        "DELETE FROM folder_marks WHERE content_id = ?1 AND (path = ?2 OR substr(path, 1, length(?3)) = ?3)",
-        id,
-        rel,
-        prefix
-    )
-    .execute(&mut *conn)
-    .await?;
-    if marks_only {
-        return Ok(());
-    }
-    delete_index_under(conn, id, rel).await
-}
-
-/// `rel` とその中の索引の行を消す。
-async fn delete_index_under(
-    conn: &mut SqliteConnection,
-    id: i64,
-    rel: &str,
-) -> Result<(), AppError> {
+/// `rel` とその中の索引の行を消す。消すのは、残すと読み直しが既知のファイルとして飛ばし、前の大きさや日付が残るため。
+async fn delete_under(conn: &mut SqliteConnection, id: i64, rel: &str) -> Result<(), AppError> {
     let prefix = format!("{rel}/");
     sqlx::query!(
         "DELETE FROM archive_items WHERE archive_id = ?1 AND (rel_path = ?2 OR substr(rel_path, 1, length(?3)) = ?3)",
@@ -274,18 +197,8 @@ async fn delete_index_under(
     Ok(())
 }
 
-/// コンテンツの印と索引をすべて消す。
-async fn delete_all(
-    conn: &mut SqliteConnection,
-    id: i64,
-    marks_only: bool,
-) -> Result<(), AppError> {
-    sqlx::query!("DELETE FROM folder_marks WHERE content_id = ?", id)
-        .execute(&mut *conn)
-        .await?;
-    if marks_only {
-        return Ok(());
-    }
+/// コンテンツの索引をすべて消す。
+async fn delete_all(conn: &mut SqliteConnection, id: i64) -> Result<(), AppError> {
     sqlx::query!("DELETE FROM archive_items WHERE archive_id = ?", id)
         .execute(&mut *conn)
         .await?;
@@ -301,22 +214,8 @@ async fn rename_under(
     id: i64,
     old: &str,
     new: &str,
-    marks_only: bool,
 ) -> Result<(), AppError> {
     let old_prefix = format!("{old}/");
-    sqlx::query!(
-        "UPDATE folder_marks SET path = ?3 || substr(path, length(?2) + 1)
-         WHERE content_id = ?1 AND (path = ?2 OR substr(path, 1, length(?4)) = ?4)",
-        id,
-        old,
-        new,
-        old_prefix
-    )
-    .execute(&mut *conn)
-    .await?;
-    if marks_only {
-        return Ok(());
-    }
     sqlx::query!(
         "UPDATE archive_items SET rel_path = ?3 || substr(rel_path, length(?2) + 1)
          WHERE archive_id = ?1 AND (rel_path = ?2 OR substr(rel_path, 1, length(?4)) = ?4)",
@@ -346,8 +245,6 @@ pub(super) enum Change {
     Moved {
         from: PathBuf,
         to: PathBuf,
-        /// `to` にあったものを上書きしたか。
-        overwrote: bool,
     },
     Deleted(PathBuf),
     /// 上書きで消した (同じ場所に別のものを置く)。動かしたものの `Moved` より先に映すこと。
@@ -357,7 +254,7 @@ pub(super) enum Change {
 /// `changes` を DB に映し、索引を直したコンテンツの中を裏で読み直させる。
 ///
 /// ファイルはもう動かしてあるので、映すのに失敗してもログに残すだけにする (操作を失敗に見せると、
-/// 済んだ操作をもう一度させることになるため)。印がずれたままになったものは、利用者が付け直せる。
+/// 済んだ操作をもう一度させることになるため)。索引のずれは次の再スキャンで直る。
 pub(super) async fn apply(state: &AppState, changes: &[Change]) {
     if changes.is_empty() {
         return;
@@ -379,11 +276,7 @@ async fn apply_changes(state: &AppState, changes: &[Change]) -> Result<BTreeSet<
     let mut changed = BTreeSet::new();
     for change in changes {
         let ids = match change {
-            Change::Moved {
-                from,
-                to,
-                overwrote,
-            } => moved(&mut tx, from, to, *overwrote, &scanning).await?,
+            Change::Moved { from, to } => moved(&mut tx, from, to, &scanning).await?,
             Change::Deleted(path) => deleted(&mut tx, path, &scanning).await?,
             Change::Overwritten(path) => overwritten(&mut tx, path, &scanning).await?,
         };
@@ -455,14 +348,6 @@ mod tests {
 
     async fn insert_rows(pool: &sqlx::SqlitePool, id: i64, rels: &[&str]) {
         for rel in rels {
-            sqlx::query(
-                "INSERT INTO folder_marks (content_id, path, is_dir, public, created_at) VALUES (?, ?, 0, 1, 0)",
-            )
-            .bind(id)
-            .bind(rel)
-            .execute(pool)
-            .await
-            .expect("印を入れられなかった");
             sqlx::query("INSERT INTO archive_items (archive_id, rel_path) VALUES (?, ?)")
                 .bind(id)
                 .bind(rel)
@@ -480,14 +365,6 @@ mod tests {
         }
     }
 
-    async fn mark_rels(pool: &sqlx::SqlitePool, id: i64) -> Vec<String> {
-        sqlx::query_scalar("SELECT path FROM folder_marks WHERE content_id = ? ORDER BY path")
-            .bind(id)
-            .fetch_all(pool)
-            .await
-            .expect("印を読めなかった")
-    }
-
     async fn item_rels(pool: &sqlx::SqlitePool, id: i64) -> Vec<String> {
         sqlx::query_scalar(
             "SELECT rel_path FROM archive_items WHERE archive_id = ? ORDER BY rel_path",
@@ -498,21 +375,9 @@ mod tests {
         .expect("索引を読めなかった")
     }
 
-    /// 印・索引・索引のフォルダーの相対パス。3つの表で同じになるはずなので、違えば落とす。
+    /// 索引と索引のフォルダーの相対パス。2つの表で同じになるはずなので、違えば落とす。
     async fn rels(pool: &sqlx::SqlitePool, id: i64) -> Vec<String> {
-        let marks: Vec<String> =
-            sqlx::query_scalar("SELECT path FROM folder_marks WHERE content_id = ? ORDER BY path")
-                .bind(id)
-                .fetch_all(pool)
-                .await
-                .expect("印を読めなかった");
-        let items: Vec<String> = sqlx::query_scalar(
-            "SELECT rel_path FROM archive_items WHERE archive_id = ? ORDER BY rel_path",
-        )
-        .bind(id)
-        .fetch_all(pool)
-        .await
-        .expect("索引を読めなかった");
+        let items = item_rels(pool, id).await;
         let dirs: Vec<String> = sqlx::query_scalar(
             "SELECT rel_path FROM archive_dirs WHERE archive_id = ? ORDER BY rel_path",
         )
@@ -520,9 +385,8 @@ mod tests {
         .fetch_all(pool)
         .await
         .expect("索引のフォルダーを読めなかった");
-        assert_eq!(marks, items, "印と索引がずれた");
-        assert_eq!(marks, dirs, "印と索引のフォルダーがずれた");
-        marks
+        assert_eq!(items, dirs, "索引と索引のフォルダーがずれた");
+        items
     }
 
     async fn content_path(pool: &sqlx::SqlitePool, id: i64) -> String {
@@ -539,7 +403,7 @@ mod tests {
 
     async fn run_moved(pool: &sqlx::SqlitePool, old: &Path, new: &Path) -> Vec<i64> {
         let mut conn = pool.acquire().await.expect("つなげなかった");
-        moved(&mut conn, old, new, false, &not_scanning)
+        moved(&mut conn, old, new, &not_scanning)
             .await
             .expect("映せなかった")
     }
@@ -642,35 +506,20 @@ mod tests {
         assert_eq!(rels(&pool, id).await, vec!["Photos/a.jpg"]);
     }
 
-    /// 走査中のコンテンツは印だけを直す。
+    /// 走査中のコンテンツの索引には触らない。
     #[sqlx::test]
-    async fn a_folder_being_scanned_gets_only_its_marks_rewritten(pool: sqlx::SqlitePool) {
+    async fn a_folder_being_scanned_keeps_its_index(pool: sqlx::SqlitePool) {
         let root = sep_path(&["srv", "教材"]);
         let id = insert_folder(&pool, &root, true).await;
         insert_rows(&pool, id, &["a/x.pdf"]).await;
 
         let mut conn = pool.acquire().await.expect("つなげなかった");
-        moved(&mut conn, &root.join("a"), &root.join("c"), false, &|_| {
-            true
-        })
-        .await
-        .expect("映せなかった");
+        moved(&mut conn, &root.join("a"), &root.join("c"), &|_| true)
+            .await
+            .expect("映せなかった");
         drop(conn);
 
-        let marks: Vec<String> =
-            sqlx::query_scalar("SELECT path FROM folder_marks WHERE content_id = ?")
-                .bind(id)
-                .fetch_all(&pool)
-                .await
-                .expect("印を読めなかった");
-        let items: Vec<String> =
-            sqlx::query_scalar("SELECT rel_path FROM archive_items WHERE archive_id = ?")
-                .bind(id)
-                .fetch_all(&pool)
-                .await
-                .expect("索引を読めなかった");
-        assert_eq!(marks, vec!["c/x.pdf"]);
-        assert_eq!(items, vec!["a/x.pdf"]);
+        assert_eq!(rels(&pool, id).await, vec!["a/x.pdf"]);
     }
 
     /// 消すと中の行が消える。登録先そのものを消しても、コンテンツは残す。
@@ -695,103 +544,8 @@ mod tests {
         assert_eq!(content_path(&pool, id).await, root.display().to_string());
     }
 
-    /// 外から動かして上書きしても、置き先の印は残す。
-    #[sqlx::test]
-    async fn moving_in_from_outside_over_a_marked_file_keeps_its_mark(pool: sqlx::SqlitePool) {
-        let root = sep_path(&["srv", "教材"]);
-        let id = insert_folder(&pool, &root, true).await;
-        insert_rows(&pool, id, &["a.pdf"]).await;
-
-        let mut conn = pool.acquire().await.expect("つなげなかった");
-        moved(
-            &mut conn,
-            &sep_path(&["other", "a.pdf"]),
-            &root.join("a.pdf"),
-            true,
-            &not_scanning,
-        )
-        .await
-        .expect("映せなかった");
-        drop(conn);
-
-        assert_eq!(mark_rels(&pool, id).await, vec!["a.pdf"]);
-        assert!(item_rels(&pool, id).await.is_empty(), "索引は読み直させる");
-    }
-
-    /// 同じコンテンツの中で動かして上書きすると、動かしたものに印がある名前だけ、その印を採る。
-    #[sqlx::test]
-    async fn moving_over_a_folder_merges_marks_by_name(pool: sqlx::SqlitePool) {
-        let root = sep_path(&["srv", "教材"]);
-        let id = insert_folder(&pool, &root, true).await;
-        insert_rows(
-            &pool,
-            id,
-            &["dst/secret.pdf", "dst/both.pdf", "src/both.pdf"],
-        )
-        .await;
-        sqlx::query("UPDATE folder_marks SET public = 0 WHERE path LIKE 'dst/%'")
-            .execute(&pool)
-            .await
-            .expect("印を変えられなかった");
-
-        let mut conn = pool.acquire().await.expect("つなげなかった");
-        moved(
-            &mut conn,
-            &root.join("src"),
-            &root.join("dst"),
-            true,
-            &not_scanning,
-        )
-        .await
-        .expect("映せなかった");
-        drop(conn);
-
-        let marks: Vec<(String, bool)> = sqlx::query_as(
-            "SELECT path, public FROM folder_marks WHERE content_id = ? ORDER BY path",
-        )
-        .bind(id)
-        .fetch_all(&pool)
-        .await
-        .expect("印を読めなかった");
-        assert_eq!(
-            marks,
-            vec![
-                ("dst/both.pdf".to_string(), true),
-                ("dst/secret.pdf".to_string(), false)
-            ]
-        );
-    }
-
-    /// 非公開のフォルダーから受け継いだだけのファイルに、置き先の公開の印を当てない。
-    #[sqlx::test]
-    async fn moving_a_private_folder_over_does_not_publish_files_by_the_old_marks(
-        pool: sqlx::SqlitePool,
-    ) {
-        let root = sep_path(&["srv", "教材"]);
-        let id = insert_folder(&pool, &root, true).await;
-        insert_rows(&pool, id, &["dst", "dst/x.pdf", "src"]).await;
-        sqlx::query("UPDATE folder_marks SET public = 0 WHERE path IN ('dst', 'src')")
-            .execute(&pool)
-            .await
-            .expect("印を変えられなかった");
-
-        let mut conn = pool.acquire().await.expect("つなげなかった");
-        moved(
-            &mut conn,
-            &root.join("src"),
-            &root.join("dst"),
-            true,
-            &not_scanning,
-        )
-        .await
-        .expect("映せなかった");
-        drop(conn);
-
-        assert_eq!(mark_rels(&pool, id).await, vec!["dst"]);
-    }
-
     /// 上書きでは、登録先そのものやその中を登録先にするコンテンツの行も消す。上の階層のコンテンツは、
-    /// 印を残して索引だけを消す。
+    /// 上書きした分の行だけを消す。
     #[sqlx::test]
     async fn overwriting_clears_rows_of_contents_at_or_under_the_path(pool: sqlx::SqlitePool) {
         let above = sep_path(&["srv"]);
@@ -812,13 +566,7 @@ mod tests {
 
         changed.sort_unstable();
         assert_eq!(changed, vec![above_id, root_id]);
-        // 上のコンテンツの印は残す。置き換わったファイルが公開に変わらないように。索引は読み直させる。
-        assert_eq!(
-            mark_rels(&pool, above_id).await,
-            vec!["keep.pdf", "教材/a.pdf"]
-        );
         assert_eq!(item_rels(&pool, above_id).await, vec!["keep.pdf"]);
-        assert!(mark_rels(&pool, root_id).await.is_empty());
         assert!(item_rels(&pool, root_id).await.is_empty());
         let root_dirs: Vec<String> =
             sqlx::query_scalar("SELECT rel_path FROM archive_dirs WHERE archive_id = ?")

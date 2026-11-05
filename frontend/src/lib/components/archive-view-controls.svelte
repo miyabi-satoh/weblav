@@ -1,6 +1,5 @@
 <script lang="ts">
 	import BrowseControls from '$lib/components/browse-controls.svelte';
-	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { withQuery } from '$lib/href';
 	import * as m from '$lib/paraglide/messages.js';
@@ -25,8 +24,7 @@
 		shown,
 		hasItems,
 		folderMissing,
-		countOnlyWhenFiltered = false,
-		extra
+		countOnlyWhenFiltered = false
 	}: {
 		axes: ArchiveAxis[];
 		/** クエリの軸の絞り込み (軸名 → 選択肢の表示名)。 */
@@ -42,8 +40,6 @@
 		folderMissing: boolean;
 		/** 絞り込んでいないときは件数を出さない (管理画面は、見出しに同じ件数がある)。 */
 		countOnlyWhenFiltered?: boolean;
-		/** 軸の後ろに足す絞り込み (管理画面の公開の状態)。 */
-		extra?: Snippet;
 	} = $props();
 
 	const list = listFilter();
@@ -127,7 +123,6 @@
 			</Select.Content>
 		</Select.Root>
 	{/each}
-	{@render extra?.()}
 {/snippet}
 
 {#if hasItems || axes.length > 0}
@@ -135,7 +130,8 @@
 	<BrowseControls
 		layoutToggle={hasItems}
 		sort={sortSelect}
-		filters={axes.length > 0 || extra ? axisSelects : undefined}
+		filters={axes.length > 0 ? axisSelects : undefined}
+		class={hideCount ? 'mb-4' : undefined}
 	/>
 {/if}
 

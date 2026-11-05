@@ -114,7 +114,7 @@ export async function registerContentRoot(request: APIRequestContext): Promise<v
  * フォルダーを登録する。サーバーからパスが見えないときだけ `null` を返す
  * (呼び出し側でテストを飛ばす)。登録できない場所などほかの 422 は、判定が壊れたのを
  * 見逃さないよう例外にする。
- * `listView` を渡すと、登録の後に一覧の表示を使い、新しく見つかったファイルを公開しない設定にする
+ * `listView` を渡すと、登録の後に一覧の表示を使う設定にする
  * (前のアーカイブにあたる。→ docs/folders.md「2つの表示」)。
  */
 async function createDirectoryContentByApi(
@@ -140,7 +140,6 @@ async function createDirectoryContentByApi(
 	return (await send(request, 'put', `/contents/${created.id}`, {
 		...created,
 		listView: true,
-		newFilesPublic: false,
 		includePatterns: listView.includePatterns
 	})) as DirectoryContent;
 }
@@ -232,7 +231,7 @@ export async function withDirectoryContent(
 	}
 }
 
-type ArchiveItem = { id: number; relPath: string; published: boolean; title: string };
+type ArchiveItem = { id: number; relPath: string; title: string };
 
 /** アーカイブを再スキャンし、索引したアイテムの一覧を返す。フィクスチャーは最初の区切りに収まる件数しか置かない。 */
 export async function rescanArchive(
@@ -254,22 +253,9 @@ export async function listArchiveItems(
 	return body.items.filter((item): item is ArchiveItem => item !== null);
 }
 
-/** `relPaths` のアイテムだけを公開する。 */
-export async function publishItems(
-	request: APIRequestContext,
-	archiveId: number,
-	items: ArchiveItem[],
-	relPaths: string[]
-): Promise<void> {
-	await send(request, 'put', `/contents/${archiveId}/items`, {
-		itemIds: items.filter((item) => relPaths.includes(item.relPath)).map((item) => item.id),
-		published: true
-	});
-}
-
 /**
  * 閲覧画面のテスト用に、年度 (第1階層)・種類 (ファイル名の語) の2軸とテンプレートを設定し、
- * 全アイテムを公開する。表示タイトルは「2024 リスニング」の形になる。
+ * 索引する。表示タイトルは「2024 リスニング」の形になる。
  * 種類は、`kindFilterable` を渡さなければ絞り込みに出さない。
  */
 export async function setUpArchiveForBrowsing(
@@ -298,11 +284,5 @@ export async function setUpArchiveForBrowsing(
 	});
 	// 完全上書き型の PUT なので、作成時の応答をそのまま送り直す。
 	await send(request, 'put', `/contents/${id}`, { ...archive, titleTemplate: '{年度} {種類}' });
-	const items = await rescanArchive(request, id);
-	await publishItems(
-		request,
-		id,
-		items,
-		items.map((item) => item.relPath)
-	);
+	await rescanArchive(request, id);
 }

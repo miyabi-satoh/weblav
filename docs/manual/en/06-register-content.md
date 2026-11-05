@@ -42,31 +42,17 @@ The remaining steps differ by type.
 
    ![The Add screen after choosing a folder](images/add-folder-ready.webp)
 
-### Publish or unpublish
+### Limit what you show
 
-By default, everything in a folder is published. Unpublish files or folders you do not want to show.
-
-1. Open the folder, then select “⋮” on the row of a file or folder.
-2. Choose “Unpublish”. To publish it again, choose “Publish”.
-
-- Only people who can change the folder see “⋮”. They also see unpublished items, marked “Unpublished” under the name.
-- Publishing or unpublishing a folder applies to everything inside it. Earlier changes to items inside it are cleared.
-- Unpublished files cannot be downloaded or found by search either.
-- Items you rename or move on the share screens keep their publish setting (→ [Work with files in shares](05-files.md)). If you rename or move a file in File Explorer or Finder, your change to it no longer applies, and it is treated like a newly found file.
-
-Files you add are visible unless you unpublish them. To show only the items you choose, unpublish a subfolder, then choose “Publish” for the items inside it. Publishing a file also makes the folders above it browsable. To choose files at the top level too, turn on “Organize as a library” and turn off “Publish new files” (→ [Set up a library](07-archive-setup.md)).
-
-To limit what you show, use “Include patterns” and “Exclude patterns” under “Location and display”. Select “Edit...”, write one pattern per line, select “Use these patterns”, then select “Save” in that section.
+By default, everything in a folder is visible. To limit what you show, use “Include patterns” and “Exclude patterns” under “Location and display”. Select “Edit...”, write one pattern per line, select “Use these patterns”, then select “Save” in that section.
 
 - `*.pdf`: files with a matching name at any level
 - `backup/`: folders with that name at any level
 - `docs/*.pdf`: files directly inside “docs” at the top (a pattern containing `/` starts at the top of the folder)
 
-If “Include patterns” is empty, everything is included. “Exclude patterns” takes priority. Filtered-out items don't appear in the folder view, even for people who can change the folder, and can't be published or unpublished. They still appear on the share screen.
+If “Include patterns” is empty, everything is included. “Exclude patterns” takes priority. Filtered-out items don't appear in the folder view, downloads, or search, for viewers or for people who can change the folder. They still appear on the share screen. When only “Include patterns” is set, subfolders appear even if no file inside them matches.
 
-When saving settings would make more or fewer files visible, the counts appear before the save.
-
-Your changes are listed under “Publishing changes” on the edit page, and “Undo” reverts one. For a folder organized as a library, only folders are listed there. Publish or unpublish files on the “Items” tab (→ [Set up a library](07-archive-setup.md)).
+When saving patterns would make more or fewer files visible, the counts appear before the save.
 
 ## Link
 
@@ -101,8 +87,8 @@ note = "A description shown under the link (optional)"
 |---|---|
 | Everyone | Everyone, including people who aren't logged in (default) |
 | Logged-in users | Only logged-in users |
-| Creator only | Only the person who registered it |
-| Hidden | No one (you can open it from the admin pages) |
+| Creator only | Listed only for the person who registered it (administrators can open it from the admin pages) |
+| Hidden | Not listed (logged-in users can open it from the admin pages) |
 
 1. In the “Contents” list, select the row (you can also choose “Edit” from “⋮” on the row).
 
@@ -116,6 +102,8 @@ You can also change it from the list on Home or in a group. On a row of an item 
 
 Items in a group are visible only to people who also meet the group’s visibility setting.
 
+Visibility controls how an item appears as content. Files inside a folder can still be seen on the share screen by anyone who can view that share, whatever the visibility.
+
 ## Hide and show again
 
 In the list on Home or in a group, select “⋮” on a row, then choose “Hide” to remove it from the list right away. To bring it back right away, select “Undo” in the notice that appears.
@@ -125,7 +113,7 @@ Hidden items are listed under “Hidden content” in the username menu at the t
 1. Select your username at the top right, then choose “Hidden content (count)”.
 2. Select “⋮” on the row, then choose “Show again”.
 
-It returns to the visibility it had before it was hidden. An item that was “Creator only” for someone else can be shown again only by that person, so “Show again” does not appear for it. You can also edit or delete items from “⋮”.
+It returns to the visibility it had before it was hidden. If an item was “Creator only” and its creator's user has been deleted, there is nothing to return it to, so “Show again” does not appear. Choose its visibility on the edit page instead. You can also edit or delete items from “⋮”.
 
 Set a group to “Creator only” to make it a space just for you. It can hold only your own “Creator only” content, and anything you add inside it becomes “Creator only”. A group that holds someone else’s content, or content that isn’t “Creator only”, can’t be set to “Creator only”.
 
@@ -150,15 +138,15 @@ To move an existing item:
 
 Select the row to open the edit page, make your changes, then select “Save”.
 
-To see how it looks to viewers, select “View on site” next to the heading of the edit page (it is also in the row’s “⋮” in the list). For an image, PDF, audio, or video file, this opens the group that contains it.
+To see how it looks to viewers, select “View on site” next to the heading of the edit page (it is also in the row’s “⋮” in the list). This opens the group the item is in (Home if it isn't in a group), where it's listed. Items set to “Hidden” and other people's “Creator only” items aren't listed there, so the item itself opens (files registered in an earlier version, such as images, still open the group).
 
 ![The Link edit page. Below the title and description are buttons to refetch each one.](images/edit-link.webp)
 
 - Title and description
 - Link: Use “Refetch title” and “Refetch description” to fetch them again from the linked site.
 - File (registered in an earlier version): You can change the title and other details, but you cannot replace the file. To change its contents, put the file in a share again.
-- Folder: “Include patterns”, “Exclude patterns” (→ “Publish or unpublish” above) and “Organize as a library” (→ [Set up a library](07-archive-setup.md)). Neither is asked when you add a folder, so change them here.
-  - Changing the location with “Change...” under “Path” clears all publish changes and the list.
+- Folder: “Include patterns”, “Exclude patterns” (→ “Limit what you show” above) and “Organize as a library” (→ [Set up a library](07-archive-setup.md)). Neither is asked when you add a folder, so change them here.
+  - Changing the location with “Change...” under “Path” clears the list.
 
 ## Delete
 

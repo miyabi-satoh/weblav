@@ -302,10 +302,10 @@ async fn deleting_user_turns_their_private_contents_hidden(pool: SqlitePool) {
     assert_eq!(public_row, ("public".to_string(), None));
 }
 
-/// `private` にできるのは作成者本人だけ。`admin` も他人のものは `private` にできない
+/// `private` にできるのは作成者と `admin`。作成者のいないものは `admin` でも `private` にできない
 /// (→ docs/access.md「ロールと操作」)。
 #[sqlx::test]
-async fn only_the_creator_can_make_content_private(pool: SqlitePool) {
+async fn creator_and_admin_can_make_content_private(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
     insert_user(&pool, "bob", "correct-password").await;
     let alice_id = db_user_id(&pool, "alice").await;
@@ -319,20 +319,40 @@ async fn only_the_creator_can_make_content_private(pool: SqlitePool) {
     let (status, body) = send_json(app.clone(), "PUT", &uri, &bob_cookie, to_private).await;
     assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
 
-    let admin_cookie = admin_cookie(app.clone(), &pool).await;
-    let (status, body) = send_json(app.clone(), "PUT", &uri, &admin_cookie, to_private).await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
-
     let alice_cookie = login(app.clone(), "alice", "correct-password").await;
-    let (status, body) = send_json(app, "PUT", &uri, &alice_cookie, to_private).await;
+    let (status, body) = send_json(app.clone(), "PUT", &uri, &alice_cookie, to_private).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(body.contains(r#""visibility":"private""#), "{body}");
+
+    let other_link =
+        insert_link_by(&pool, "アリスの別のリンク", "public", Some(alice_id), None).await;
+    let admin_cookie = admin_cookie(app.clone(), &pool).await;
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        &format!("/api/v1/contents/{other_link}"),
+        &admin_cookie,
+        to_private,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(r#""visibility":"private""#), "{body}");
+
+    let no_creator = insert_link_by(&pool, "作成者なし", "public", None, None).await;
+    let (status, body) = send_json(
+        app,
+        "PUT",
+        &format!("/api/v1/contents/{no_creator}"),
+        &admin_cookie,
+        to_private,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
 }
 
-/// `admin` は他人の `private` を `hidden` にだけ変えられる。値を変えない更新は通る
-/// (→ docs/access.md「ロールと操作」)。
+/// `admin` は他人の `private` の公開範囲を自由に変えられる (→ docs/access.md「ロールと操作」)。
 #[sqlx::test]
-async fn admin_can_change_others_private_only_to_hidden(pool: SqlitePool) {
+async fn admin_can_change_others_private_to_any_visibility(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
     let alice_id = db_user_id(&pool, "alice").await;
     let link_id = insert_link_by(&pool, "アリスのメモ", "private", Some(alice_id), None).await;
@@ -346,15 +366,33 @@ async fn admin_can_change_others_private_only_to_hidden(pool: SqlitePool) {
     };
 
     let (status, body) = send_json(app.clone(), "PUT", &uri, &cookie, &update("public")).await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(r#""visibility":"public""#), "{body}");
 
     let (status, body) = send_json(app.clone(), "PUT", &uri, &cookie, &update("private")).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(body.contains(r#""visibility":"private""#), "{body}");
 
-    let (status, body) = send_json(app, "PUT", &uri, &cookie, &update("hidden")).await;
+    let (status, body) = send_json(app.clone(), "PUT", &uri, &cookie, &update("hidden")).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(body.contains(r#""visibility":"hidden""#), "{body}");
+
+    // 他人の `private` を非表示にしたものも、`admin` が元に戻せる。
+    let (_, body) = send_empty(app.clone(), "GET", "/api/v1/contents/hidden", &cookie).await;
+    assert_eq!(
+        parse_json(&body)[0]["restoreVisibility"],
+        "private",
+        "{body}"
+    );
+    let (status, body) = send_empty(
+        app,
+        "POST",
+        &format!("/api/v1/contents/{link_id}/unhide"),
+        &cookie,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body)["visibility"], "private", "{body}");
 }
 
 /// 管理用の操作で、他人の `private` は `user` には存在しないものとして404になる
@@ -386,7 +424,7 @@ async fn management_endpoints_hide_others_private_from_regular_users(pool: Sqlit
     .await
     .expect("failed to insert axis");
     let item_id: i64 = sqlx::query_scalar(
-        "INSERT INTO archive_items (archive_id, rel_path, initial_public) VALUES (?, 'a.pdf', 0) RETURNING id",
+        "INSERT INTO archive_items (archive_id, rel_path) VALUES (?, 'a.pdf') RETURNING id",
     )
     .bind(archive_id)
     .fetch_one(&pool)
@@ -459,27 +497,13 @@ async fn management_endpoints_hide_others_private_from_regular_users(pool: Sqlit
     }
 
     // 書き込み系も、有効な要求に対して404を返し、何も書き込まない。
-    for (path, json) in [
-        (
-            format!("/api/v1/contents/{archive_id}/items"),
-            format!(r#"{{"itemIds":[{item_id}],"published":true}}"#),
-        ),
-        (
-            format!("/api/v1/contents/{archive_id}/items/{item_id}"),
-            r#"{"published":true}"#.to_string(),
-        ),
-        (
-            format!("/api/v1/contents/{archive_id}/axes/{axis_id}/values"),
-            r#"{"values":[{"rawValue":"英語"}]}"#.to_string(),
-        ),
-    ] {
+    for (path, json) in [(
+        format!("/api/v1/contents/{archive_id}/axes/{axis_id}/values"),
+        r#"{"values":[{"rawValue":"英語"}]}"#.to_string(),
+    )] {
         let (status, body) = send_json(app.clone(), "PUT", &path, &cookie, &json).await;
         assert_eq!(status, StatusCode::NOT_FOUND, "PUT {path}: {body}");
     }
-    assert!(
-        published_rel_paths(&db, archive_id).await.is_empty(),
-        "他人の private のアイテムが公開された"
-    );
     let values: Vec<String> =
         sqlx::query_scalar("SELECT raw_value FROM archive_axis_values WHERE axis_id = ?")
             .bind(axis_id)
@@ -518,13 +542,6 @@ async fn archive_endpoints_forbid_writes_to_others_archives(pool: SqlitePool) {
     .fetch_one(&pool)
     .await
     .expect("failed to insert axis");
-    let item_id: i64 = sqlx::query_scalar(
-        "INSERT INTO archive_items (archive_id, rel_path, initial_public) VALUES (?, 'a.pdf', 0) RETURNING id",
-    )
-    .bind(archive_id)
-    .fetch_one(&pool)
-    .await
-    .expect("failed to insert item");
     let db = pool.clone();
     let app = test_app(pool).await;
     let cookie = login(app.clone(), "bob", "correct-password").await;
@@ -556,14 +573,6 @@ async fn archive_endpoints_forbid_writes_to_others_archives(pool: SqlitePool) {
     assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
     for (path, json) in [
         (
-            format!("/api/v1/contents/{archive_id}/items"),
-            format!(r#"{{"itemIds":[{item_id}],"published":true}}"#),
-        ),
-        (
-            format!("/api/v1/contents/{archive_id}/items/{item_id}"),
-            r#"{"published":true}"#.to_string(),
-        ),
-        (
             format!("/api/v1/contents/{archive_id}/axes/{axis_id}"),
             r#"{"name":"教科","source":"filenameWord","position":0}"#.to_string(),
         ),
@@ -576,10 +585,6 @@ async fn archive_endpoints_forbid_writes_to_others_archives(pool: SqlitePool) {
         assert_eq!(status, StatusCode::FORBIDDEN, "PUT {path}: {body}");
     }
 
-    assert!(
-        published_rel_paths(&db, archive_id).await.is_empty(),
-        "他人のアイテムが公開された"
-    );
     let name: String = sqlx::query_scalar("SELECT name FROM archive_axes WHERE id = ?")
         .bind(axis_id)
         .fetch_one(&db)
@@ -669,10 +674,44 @@ async fn created_by_can_be_changed_only_by_an_admin(pool: SqlitePool) {
     assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
 
     let (status, body) = put(admin_cookie.clone(), private_id, bob_id).await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(r#""createdByUsername":"bob""#), "{body}");
 
     let (status, body) = put(admin_cookie, link_id, 9999).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+}
+
+/// 「作成者のみ」のグループとその中身は作成者が揃っているので、片方だけは付け替えられない
+/// (→ docs/access.md「作成者のみのグループ」)。
+#[sqlx::test]
+async fn created_by_change_keeps_private_group_rule(pool: SqlitePool) {
+    insert_user(&pool, "alice", "correct-password").await;
+    insert_user(&pool, "bob", "correct-password").await;
+    let alice_id = db_user_id(&pool, "alice").await;
+    let bob_id = db_user_id(&pool, "bob").await;
+    let group_id = insert_group_under(&pool, "アリスの置き場", "private", None).await;
+    sqlx::query("UPDATE contents SET created_by = ? WHERE id = ?")
+        .bind(alice_id)
+        .bind(group_id)
+        .execute(&pool)
+        .await
+        .expect("グループの作成者を設定できること");
+    let child_id =
+        insert_link_by(&pool, "中のメモ", "private", Some(alice_id), Some(group_id)).await;
+    let (app, admin) = admin_app(&pool).await;
+    let body = format!(r#"{{"createdBy":{bob_id}}}"#);
+
+    for id in [group_id, child_id] {
+        let (status, response) = send_json(
+            app.clone(),
+            "PUT",
+            &format!("/api/v1/contents/{id}/creator"),
+            &admin,
+            &body,
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{response}");
+    }
 }
 
 /// 一般ユーザーも、作成時に `private` を選べる (作成者は本人のため → docs/access.md「ロールと操作」)。
@@ -900,31 +939,4 @@ async fn content_list_tells_whether_the_viewer_can_edit_each_row(pool: SqlitePoo
     assert_eq!(parse_json(&body)[0]["canEdit"], false, "{body}");
     let (_, body) = send_anon(app, "GET", "/api/v1/contents").await;
     assert_eq!(parse_json(&body)[0]["canEdit"], false, "{body}");
-}
-
-/// 「閲覧者として見る」の cookie があると、閲覧の口はログインしていても匿名として答える。
-/// ログインが要る口 (`/auth/me`) はそのまま。
-#[sqlx::test]
-async fn view_as_cookie_makes_browsing_anonymous(pool: SqlitePool) {
-    insert_user(&pool, "alice", "correct-password").await;
-    let alice_id = db_user_id(&pool, "alice").await;
-    insert_link_by(
-        &pool,
-        "ログインした人向け",
-        "authenticated",
-        Some(alice_id),
-        None,
-    )
-    .await;
-    let app = test_app(pool).await;
-    let cookie = login(app.clone(), "alice", "correct-password").await;
-    let viewing_as = format!("{cookie}; WEBLAV_VIEW_AS=anonymous");
-
-    let (_, body) = send_empty(app.clone(), "GET", "/api/v1/contents", &cookie).await;
-    assert!(body.contains("ログインした人向け"), "{body}");
-    let (_, body) = send_empty(app.clone(), "GET", "/api/v1/contents", &viewing_as).await;
-    assert!(!body.contains("ログインした人向け"), "{body}");
-
-    let (status, body) = send_empty(app, "GET", "/api/v1/auth/me", &viewing_as).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
 }

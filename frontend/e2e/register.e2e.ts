@@ -186,6 +186,7 @@ test('対象のパターン: ライブラリを使わないフォルダーでも
 			});
 			await expect(notice.getByText(/見えなくなる: 1|No longer visible: 1/)).toBeVisible();
 			await notice.getByRole('button', { name: /^保存する$|^Save$/ }).click();
+			await expect(notice).toBeHidden();
 			await expect(specificSaveButton(page)).toBeDisabled();
 
 			await page.goto(`/folders/${folder.id}`);

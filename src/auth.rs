@@ -525,33 +525,12 @@ impl FromRequestParts<AppState> for Viewer {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        // 「閲覧者として見る」の間は、ログインしていても匿名として扱う (→ `VIEW_AS_COOKIE`)。
-        if viewing_as_anonymous(&parts.headers) {
-            return Ok(Viewer::Anonymous);
-        }
         match AuthUser::from_request_parts(parts, state).await {
             Ok(user) => Ok(Viewer::User(user)),
             Err(AppError::Unauthorized) => Ok(Viewer::Anonymous),
             Err(err) => Err(err),
         }
     }
-}
-
-/// 「閲覧者として見る」を表す cookie の名前。値が [`VIEW_AS_ANONYMOUS`] なら、閲覧の口 (`Viewer` を受けるもの) は
-/// ログインしていても匿名として答える。自分の作ったものが、ログインしていない人にどう見えるかを確かめるため。
-/// 管理の口 (`AuthUser` を受けるもの) には効かせない。画面の切り替えは画面側が cookie を書いて行い、
-/// サーバーは読むだけ。
-pub const VIEW_AS_COOKIE: &str = "WEBLAV_VIEW_AS";
-pub const VIEW_AS_ANONYMOUS: &str = "anonymous";
-
-fn viewing_as_anonymous(headers: &axum::http::HeaderMap) -> bool {
-    headers
-        .get_all(axum::http::header::COOKIE)
-        .iter()
-        .filter_map(|value| value.to_str().ok())
-        .flat_map(|value| value.split(';'))
-        .filter_map(|pair| pair.trim().split_once('='))
-        .any(|(name, value)| name == VIEW_AS_COOKIE && value == VIEW_AS_ANONYMOUS)
 }
 
 /// 管理者ロールを持つログイン済みユーザーを表すextractor。ハンドラの引数に
@@ -585,26 +564,6 @@ impl FromRequestParts<AppState> for AdminUser {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn view_as_cookie_is_found_among_other_cookies() {
-        let mut headers = axum::http::HeaderMap::new();
-        headers.append(
-            axum::http::header::COOKIE,
-            "id=abc; WEBLAV_VIEW_AS=anonymous"
-                .parse()
-                .expect("ヘッダーの値として正しい"),
-        );
-        assert!(viewing_as_anonymous(&headers));
-        let mut other = axum::http::HeaderMap::new();
-        other.append(
-            axum::http::header::COOKIE,
-            "WEBLAV_VIEW_AS=someone; X_WEBLAV_VIEW_AS=anonymous"
-                .parse()
-                .expect("ヘッダーの値として正しい"),
-        );
-        assert!(!viewing_as_anonymous(&other));
-    }
 
     #[test]
     fn hash_then_verify_roundtrip() {

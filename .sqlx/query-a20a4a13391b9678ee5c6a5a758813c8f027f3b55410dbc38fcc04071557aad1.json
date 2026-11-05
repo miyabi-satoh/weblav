@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE contents SET exclude_patterns = 'リスニング第2回.*' WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "a20a4a13391b9678ee5c6a5a758813c8f027f3b55410dbc38fcc04071557aad1"
+}

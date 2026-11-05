@@ -22,9 +22,9 @@
 	let { shares }: { shares: Share[] } = $props();
 
 	function accessLabel(access: ShareAccess): string | undefined {
-		if (access === 'read') return m.shares_access_read();
-		if (access === 'add') return m.shares_access_add();
-		if (access === 'all') return m.shares_access_all();
+		if (access === 'read') return m.shares_access_level_read();
+		if (access === 'add') return m.shares_access_level_add();
+		if (access === 'all') return m.shares_access_level_all();
 		// `none` は一覧に来ない。
 		return undefined;
 	}
