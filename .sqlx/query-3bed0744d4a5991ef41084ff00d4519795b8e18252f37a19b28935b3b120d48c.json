@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\", title, path as \"path!\", visibility as \"visibility: Visibility\", created_by\n           FROM contents\n           WHERE (type = 'shortcut' OR (type = 'folder' AND NOT ?)) AND path IS NOT NULL\n           ORDER BY id",
+  "query": "SELECT id as \"id!\", title, path as \"path!\", visibility as \"visibility: Visibility\", created_by\n           FROM contents\n           WHERE type IN ('shortcut', 'folder') AND path IS NOT NULL\n           ORDER BY id",
   "describe": {
     "columns": [
       {
@@ -30,7 +30,7 @@
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 0
     },
     "nullable": [
       false,
@@ -40,5 +40,5 @@
       true
     ]
   },
-  "hash": "b00d60c36186674d3921ad5c306fe57deb1e8bb6379e56679c33c02518dd7160"
+  "hash": "3bed0744d4a5991ef41084ff00d4519795b8e18252f37a19b28935b3b120d48c"
 }

@@ -62,8 +62,6 @@ You can move in shares with “Full access”, and copy from any share you can s
 
 If what you are overwriting, or something inside it, is listed on Home, it appears on the confirmation screen. Overwriting makes that content show different files or stop opening.
 
-When you move a file listed on Home (or a folder that holds one), it also appears on the confirmation screen. After moving, that shortcut can no longer be opened. The rename dialog lists it the same way.
-
 A share itself, and folders that contain another share or WebLAV's data, cannot be moved or overwritten. Folders that contain WebLAV's data cannot be copied either.
 
 ## Delete
@@ -106,7 +104,7 @@ Items you rename or move on the share screens keep their place in the library li
 
 What a folder listed on Home shows depends on matching names and locations against its patterns, so renaming or moving an item matches it again (→ [Register contents](06-register-content.md)).
 
-A shortcut to a file does not follow a file that you rename or move. It can no longer be opened, so choose the location again on its edit page.
+Shortcuts listed on Home follow what they point to when you rename or move it on the share screens. They do not follow items you rename or move in File Explorer or Finder, and can no longer be opened. Choose the location again on the edit page.
 
 ## Activity records
 

@@ -5,7 +5,6 @@
 	 */
 	import { untrack } from 'svelte';
 	import { client } from '$lib/api/client';
-	import type { components } from '$lib/api/schema';
 	import * as m from '$lib/paraglide/messages.js';
 	import type { ShareOpsState } from '$lib/share-ops-state.svelte';
 	import { lastSegment, type ShareTarget } from '$lib/share-ops';
@@ -15,8 +14,6 @@
 	import ShareTransferDialog from './share-transfer-dialog.svelte';
 	import ShareUploadDialog from './share-upload-dialog.svelte';
 
-	type ListedAs = components['schemas']['ListedAs'];
-
 	let { ops }: { ops: ShareOpsState } = $props();
 
 	let dir = $derived(ops.dir());
@@ -24,29 +21,17 @@
 
 	// 閉じるアニメーションの間も中身を出し続けるよう、対象は閉じても残す。
 	let renameTarget = $state<ShareTarget | null>(null);
-	/** 名前を変えると開けなくなるショートカット。確かめられなくても名前は変えられるので、そのときは空のまま。 */
-	let renameUnlinked = $state<ListedAs[]>([]);
 	// 移動・コピーは開くたびに作り直し、置き先の一覧を今いる場所から始める。
 	let transfer = $state<{ op: 'move' | 'copy'; target: ShareTarget; key: number } | null>(null);
 	$effect.pre(() => {
 		if (dialog?.kind === 'rename') {
 			renameTarget = dialog.target;
-			renameUnlinked = [];
-			void checkRename(dir.shareId, dialog.target.path);
 		}
 		if (dialog?.kind === 'transfer') {
 			const key = untrack(() => (transfer?.key ?? 0) + 1);
 			transfer = { op: dialog.op, target: dialog.target, key };
 		}
 	});
-
-	async function checkRename(shareId: number, path: string) {
-		const { data } = await client.POST('/api/v1/shares/{id}/rename/check', {
-			params: { path: { id: shareId } },
-			body: { path }
-		});
-		if (data && renameTarget?.path === path) renameUnlinked = data.unlinked;
-	}
 
 	type Kind = NonNullable<typeof dialog>['kind'];
 
@@ -98,20 +83,7 @@
 			body: { path: renameTarget?.path ?? '', name }
 		})}
 	ondone={ops.onchanged}
->
-	{#snippet notice()}
-		{#if renameUnlinked.length > 0}
-			<div class="flex flex-col gap-2 text-sm">
-				<p>{m.shares_rename_unlinked_note()}</p>
-				<ul class="list-disc pl-5">
-					{#each renameUnlinked as listed (listed.contentId)}
-						<li class="wrap-anywhere">{listed.title}</li>
-					{/each}
-				</ul>
-			</div>
-		{/if}
-	{/snippet}
-</ShareNameDialog>
+/>
 
 {#if transfer !== null}
 	{#key transfer.key}

@@ -235,25 +235,62 @@ async fn a_share_file_can_be_listed_on_home(pool: SqlitePool) {
     assert_eq!(entry["listedAs"]["contentId"], created["id"], "{body}");
 }
 
-/// 動かす・名前を変える・消す・上書きする前の確かめに、開けなくなるショートカットが入る。
-/// 動かしても先は追わない (→ docs/shares.md「場所の付け替え」)。
+fn transfer_body(op: &str, share: i64, from: &str, to: &str, on_conflict: Option<&str>) -> String {
+    let mut value = serde_json::json!({
+        "op": op,
+        "from": {"shareId": share, "paths": [from]},
+        "to": {"shareId": share, "path": to},
+    });
+    if let Some(on_conflict) = on_conflict {
+        value["onConflict"] = serde_json::json!(on_conflict);
+    }
+    value.to_string()
+}
+
+/// 移動を終わるまで流す。
+async fn run_move(app: Router, cookie: &str, share: i64, from: &str, to: &str, on_conflict: &str) {
+    let (status, body) = send_json(
+        app.clone(),
+        "POST",
+        "/api/v1/shares/transfer",
+        cookie,
+        &transfer_body("move", share, from, to, Some(on_conflict)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+    let job = wait_job(app, cookie, &body).await;
+    assert_eq!(job["state"], "succeeded", "{job}");
+}
+
+async fn download(app: Router, id: i64) -> (StatusCode, String) {
+    send_anon(app, "GET", &format!("/api/v1/contents/{id}/download")).await
+}
+
+fn listed_ids(list: &serde_json::Value) -> Vec<i64> {
+    list.as_array()
+        .expect("配列のはず")
+        .iter()
+        .map(|row| row["contentId"].as_i64().expect("id のはず"))
+        .collect()
+}
+
+/// 消す前と上書きする前の確かめに、響くショートカットが入る。
 #[sqlx::test]
-async fn share_checks_name_affected_shortcuts_and_moves_do_not_follow(pool: SqlitePool) {
+async fn delete_and_overwrite_checks_name_affected_shortcuts(pool: SqlitePool) {
     let dir = temp_test_dir("shortcut-impact");
     std::fs::create_dir_all(dir.join("to")).expect("フォルダーを作れなかった");
-    let file = dir.join("a.txt");
-    std::fs::write(&file, b"a").expect("ファイルを作れなかった");
+    std::fs::write(dir.join("a.txt"), b"a").expect("ファイルを作れなかった");
     std::fs::write(dir.join("to").join("a.txt"), b"other").expect("ファイルを作れなかった");
     let (app, cookie) = admin_app(&pool).await;
     let share = root_id_for(&pool, &dir).await;
-    let id = create_shortcut(app.clone(), &cookie, &file, "public").await;
-    let title_of = |list: &serde_json::Value| {
-        list.as_array().map(|rows| {
-            rows.iter()
-                .map(|row| row["contentId"].as_i64())
-                .collect::<Vec<_>>()
-        })
-    };
+    let id = create_shortcut(app.clone(), &cookie, &dir.join("a.txt"), "public").await;
+    let target_id = create_shortcut(
+        app.clone(),
+        &cookie,
+        &dir.join("to").join("a.txt"),
+        "public",
+    )
+    .await;
     let rel = rel_in_share(&pool, &dir, "a.txt").await;
     let rel_to = rel_in_share(&pool, &dir, "to").await;
 
@@ -266,85 +303,145 @@ async fn share_checks_name_affected_shortcuts_and_moves_do_not_follow(pool: Sqli
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(
-        title_of(&parse_json(&body)["listed"]),
-        Some(vec![Some(id)]),
-        "{body}"
-    );
+    assert_eq!(listed_ids(&parse_json(&body)["listed"]), vec![id], "{body}");
 
     let (status, body) = send_json(
-        app.clone(),
-        "POST",
-        &format!("/api/v1/shares/{share}/rename/check"),
-        &cookie,
-        &format!(r#"{{"path":{}}}"#, json_string(&rel)),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(
-        title_of(&parse_json(&body)["unlinked"]),
-        Some(vec![Some(id)]),
-        "{body}"
-    );
-
-    let transfer = |op: &str, from: &str, to: &str| {
-        format!(
-            r#"{{"op":"{op}","from":{{"shareId":{share},"paths":[{}]}},"to":{{"shareId":{share},"path":{}}}}}"#,
-            json_string(from),
-            json_string(to)
-        )
-    };
-    let (status, body) = send_json(
-        app.clone(),
+        app,
         "POST",
         "/api/v1/shares/transfer/check",
         &cookie,
-        &transfer("move", &rel, &rel_to),
+        &transfer_body("copy", share, &rel, &rel_to, None),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let checked = parse_json(&body);
     assert_eq!(
-        title_of(&checked["unlinked"]),
-        Some(vec![Some(id)]),
+        listed_ids(&parse_json(&body)["listed"]),
+        vec![target_id],
         "{body}"
     );
+}
 
-    // コピーでは元は残るので、開けなくなるものは無い。置き先の同じ名前を上書きするものだけが入る。
-    let target_id = create_shortcut(
+/// 共有の画面で名前を変えても動かしても、ショートカットは開ける (→ docs/shares.md「場所の付け替え」)。
+#[sqlx::test]
+async fn a_shortcut_still_opens_after_a_rename_and_a_move(pool: SqlitePool) {
+    let dir = temp_test_dir("shortcut-follows");
+    std::fs::create_dir_all(dir.join("to")).expect("フォルダーを作れなかった");
+    std::fs::write(dir.join("a.txt"), b"a").expect("ファイルを作れなかった");
+    let (app, cookie) = admin_app(&pool).await;
+    let share = root_id_for(&pool, &dir).await;
+    let id = create_shortcut(app.clone(), &cookie, &dir.join("a.txt"), "public").await;
+
+    let (status, body) = send_json(
+        app.clone(),
+        "POST",
+        &format!("/api/v1/shares/{share}/rename"),
+        &cookie,
+        &format!(
+            r#"{{"path":{},"name":"b.txt"}}"#,
+            json_string(&rel_in_share(&pool, &dir, "a.txt").await)
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(download(app.clone(), id).await.1, "a");
+    let row = home_row(app.clone(), &cookie, id).await;
+    assert_eq!(row["fileName"], "b.txt", "{row}");
+    assert_eq!(row["missing"], false, "{row}");
+
+    run_move(
+        app.clone(),
+        &cookie,
+        share,
+        &rel_in_share(&pool, &dir, "b.txt").await,
+        &rel_in_share(&pool, &dir, "to").await,
+        "rename",
+    )
+    .await;
+    let (status, body) = download(app, id).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, "a");
+}
+
+/// 別のショートカットの先に上書きで動かすと、どちらも動かしたファイルを開く。
+#[sqlx::test]
+async fn moving_over_another_shortcut_target_opens_the_moved_file_from_both(pool: SqlitePool) {
+    let dir = temp_test_dir("shortcut-overwrite");
+    std::fs::create_dir_all(dir.join("to")).expect("フォルダーを作れなかった");
+    std::fs::write(dir.join("a.txt"), b"moved").expect("ファイルを作れなかった");
+    std::fs::write(dir.join("to").join("a.txt"), b"old").expect("ファイルを作れなかった");
+    let (app, cookie) = admin_app(&pool).await;
+    let share = root_id_for(&pool, &dir).await;
+    let moved = create_shortcut(app.clone(), &cookie, &dir.join("a.txt"), "public").await;
+    let target = create_shortcut(
         app.clone(),
         &cookie,
         &dir.join("to").join("a.txt"),
         "public",
     )
     .await;
-    let (status, body) = send_json(
-        app.clone(),
-        "POST",
-        "/api/v1/shares/transfer/check",
-        &cookie,
-        &transfer("copy", &rel, &rel_to),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    let checked = parse_json(&body);
-    assert_eq!(title_of(&checked["unlinked"]), Some(vec![]), "{body}");
-    assert_eq!(
-        title_of(&checked["listed"]),
-        Some(vec![Some(target_id)]),
-        "{body}"
-    );
 
-    // 名前を変えても、先は追わない。
-    let (status, body) = send_json(
+    run_move(
         app.clone(),
-        "POST",
-        &format!("/api/v1/shares/{share}/rename"),
         &cookie,
-        &format!(r#"{{"path":{},"name":"b.txt"}}"#, json_string(&rel)),
+        share,
+        &rel_in_share(&pool, &dir, "a.txt").await,
+        &rel_in_share(&pool, &dir, "to").await,
+        "overwrite",
     )
     .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
+
+    assert_eq!(download(app.clone(), moved).await.1, "moved");
+    assert_eq!(download(app, target).await.1, "moved");
+}
+
+/// 先がフォルダーに置き換わったら、行を残して開けなくなる。
+#[sqlx::test]
+async fn a_shortcut_target_replaced_by_a_folder_shows_as_missing(pool: SqlitePool) {
+    let dir = temp_test_dir("shortcut-replaced");
+    std::fs::create_dir_all(dir.join("from").join("a")).expect("フォルダーを作れなかった");
+    std::fs::write(dir.join("a"), b"old").expect("ファイルを作れなかった");
+    let (app, cookie) = admin_app(&pool).await;
+    let share = root_id_for(&pool, &dir).await;
+    let id = create_shortcut(app.clone(), &cookie, &dir.join("a"), "public").await;
+
+    run_move(
+        app.clone(),
+        &cookie,
+        share,
+        &rel_in_share(&pool, &dir.join("from"), "a").await,
+        &rel_in_share(&pool, &dir, "").await,
+        "overwrite",
+    )
+    .await;
+
+    assert_eq!(download(app.clone(), id).await.0, StatusCode::NOT_FOUND);
+    let row = home_row(app, &cookie, id).await;
+    assert_eq!(row["missing"], true, "{row}");
+}
+
+/// 先がどの共有の中でもなければ、ファイルがあっても開かない。付け替えた先も配信の判定を通る。
+#[sqlx::test]
+async fn a_shortcut_pointing_outside_every_share_does_not_open(pool: SqlitePool) {
+    let dir = temp_test_dir("shortcut-outside");
+    std::fs::write(dir.join("a.txt"), b"a").expect("ファイルを作れなかった");
+    // `temp_test_dir` は共有の中に作るので、共有の外には直接作る。
+    let outside_dir = test_support::TempDir::at(test_app_run_dir().join(format!(
+        "shortcut-outside-{:?}",
+        std::thread::current().id()
+    )));
+    let outside = outside_dir.join("outside.txt");
+    std::fs::write(&outside, b"secret").expect("ファイルを作れなかった");
+    let (app, cookie) = admin_app(&pool).await;
+    let id = create_shortcut(app.clone(), &cookie, &dir.join("a.txt"), "public").await;
+
+    sqlx::query("UPDATE contents SET path = ? WHERE id = ?")
+        .bind(outside.display().to_string())
+        .bind(id)
+        .execute(&pool)
+        .await
+        .expect("先を書き換えられなかった");
+
+    assert_eq!(download(app.clone(), id).await.0, StatusCode::NOT_FOUND);
     let row = home_row(app, &cookie, id).await;
     assert_eq!(row["missing"], true, "{row}");
 }
