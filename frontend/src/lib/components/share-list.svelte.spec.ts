@@ -16,8 +16,8 @@ describe('ShareList', () => {
 		await expect
 			.element(page.getByRole('link', { name: 'Music' }))
 			.toHaveAttribute('href', '/shares/1');
-		await expect.element(page.getByText('あなた: 読み取り専用')).toBeVisible();
-		await expect.element(page.getByText('あなた: 追加のみ')).toBeVisible();
-		await expect.element(page.getByText('あなた: フルアクセス')).toBeVisible();
+		await expect.element(page.getByText('読み取り専用')).toBeVisible();
+		await expect.element(page.getByText('追加のみ')).toBeVisible();
+		await expect.element(page.getByText('フルアクセス')).toBeVisible();
 	});
 });
