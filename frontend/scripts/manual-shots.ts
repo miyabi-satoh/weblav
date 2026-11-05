@@ -559,7 +559,7 @@ async function shootAdmin() {
 			await picker(page).waitFor();
 			await dialog(page).getByRole('button', { name: '学校' }).click();
 			await dialog(page).getByRole('button', { name: '教材' }).click();
-			await dialog(page).getByText('このフォルダーにはサブフォルダーがありません。').waitFor();
+			await dialog(page).getByText('学校 / 教材', { exact: true }).last().waitFor();
 			if (want('add-folder-picker')) await shotElement(page, 'add-folder-picker', dialog(page));
 			await dialog(page).getByRole('button', { name: USE_THIS_FOLDER_BUTTON_NAME }).click();
 			await picker(page).waitFor({ state: 'hidden' });

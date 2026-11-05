@@ -3,7 +3,7 @@
 	 * 共有の中で名前を1つ入れるダイアログ。新しいフォルダーと名前の変更で使う。
 	 * 送るのは呼び出し側の `request`。失敗したら閉じずに理由を出し、入れ直せるようにする (同じ名前があるときなど)。
 	 */
-	import { tick, untrack } from 'svelte';
+	import { tick, untrack, type Snippet } from 'svelte';
 	import type { ApiResult } from '$lib/api/client';
 	import { dialogFormClass } from '$lib/dialog-form';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
@@ -23,7 +23,8 @@
 		initialName = '',
 		selectStem = false,
 		request,
-		ondone
+		ondone,
+		notice
 	}: {
 		open: boolean;
 		title: string;
@@ -35,6 +36,8 @@
 		request: (name: string) => Promise<ApiResult>;
 		/** 済んだ後の画面の更新。 */
 		ondone: () => void | Promise<void>;
+		/** 確定すると起きることの知らせ。本体の先頭に出す (→ docs/ui.md「UI 全般」)。 */
+		notice?: Snippet;
 	} = $props();
 
 	let name = $state('');
@@ -93,7 +96,8 @@
 			<Dialog.Title>{title}</Dialog.Title>
 		</Dialog.Header>
 		<form onsubmit={handleSubmit} class={dialogFormClass}>
-			<Dialog.Body>
+			<Dialog.Body class="flex flex-col gap-4">
+				{@render notice?.()}
 				<Field.Field>
 					<Field.FieldLabel for="share-entry-name" required
 						>{m.shares_name_label()}</Field.FieldLabel

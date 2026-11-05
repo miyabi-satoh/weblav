@@ -18,6 +18,11 @@ export function isDirectoryContentType(type: ContentType): boolean {
 	return type === 'folder';
 }
 
+/** 共有の中の場所を指す種類か。場所を選ぶ欄を持つ。ファイルを指すもの (`shortcut`) は、数える確認とパターンを持たない。 */
+export function isPathContentType(type: ContentType): boolean {
+	return type === 'folder' || type === 'shortcut';
+}
+
 /** 種類を表すアイコン。大きさや色は呼び出し側で決める。 */
 export function contentTypeIcon(type: ContentType): typeof FileIcon {
 	if (type === 'link') return LinkIcon;

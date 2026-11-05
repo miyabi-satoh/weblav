@@ -11,9 +11,14 @@ import type { components } from '$lib/api/schema';
 type ContentType = components['schemas']['ContentType'];
 type Visibility = components['schemas']['Visibility'];
 
-export function contentTypeLabel(type: ContentType): string {
+/**
+ * 種類の呼び名。フォルダーを指すものは、一覧の表示を使うならライブラリ、使わないならショートカットと呼ぶ
+ * (`listView`。→ docs/folders.md「呼び分け」)。ファイルを指すものもショートカット。
+ */
+export function contentTypeLabel(type: ContentType, listView = false): string {
 	if (type === 'link') return m.contents_type_link();
-	if (type === 'folder') return m.contents_type_folder();
+	if (type === 'folder') return listView ? m.contents_type_library() : m.contents_type_shortcut();
+	if (type === 'shortcut') return m.contents_type_shortcut();
 	if (type === 'group') return m.contents_type_group();
 	if (type === 'file') return m.contents_type_file();
 	return type;
@@ -22,7 +27,7 @@ export function contentTypeLabel(type: ContentType): string {
 /** 作成ダイアログで種別を選ぶときに添える、一行の説明。 */
 export function contentTypeDescription(type: ContentType): string {
 	if (type === 'link') return m.contents_type_link_description();
-	if (type === 'folder') return m.contents_type_folder_description();
+	if (type === 'folder' || type === 'shortcut') return m.contents_type_shortcut_description();
 	if (type === 'group') return m.contents_type_group_description();
 	return type;
 }
@@ -35,7 +40,7 @@ export function visibilityLabel(visibility: Visibility): string {
 	return visibility;
 }
 
-/** 一覧の表示を使うフォルダーのアイテムの数。一覧・編集ページの見出しで同じ言い方にする。 */
+/** ライブラリのアイテムの数。一覧・編集ページの見出しで同じ言い方にする。 */
 export function archiveItemsSummary(counts: { total: number }): string {
 	return m.archive_items_summary({ count: formatNumber(counts.total) });
 }

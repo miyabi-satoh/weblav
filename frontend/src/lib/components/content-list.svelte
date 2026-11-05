@@ -3,6 +3,7 @@
 	import { listFilter } from '$lib/list-filter.svelte';
 	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
 	import { resolve } from '$app/paths';
+	import FileIcon from '@lucide/svelte/icons/file';
 	import { refreshAll } from '$app/navigation';
 	import { toast } from 'svelte-sonner';
 	import { client } from '$lib/api/client';
@@ -83,7 +84,7 @@
 
 	function isAudioContent(content: ContentEntry): boolean {
 		return (
-			(content.type === 'file' && isAudioFileName(content.fileName)) ||
+			(content.type === 'file' && !content.missing && isAudioFileName(content.fileName)) ||
 			remoteKind(content) === 'audio'
 		);
 	}
@@ -99,7 +100,7 @@
 
 	/** 画像の file コンテンツなら、ビューアーに渡す形。大きさが分からない (読めない) 画像は普通のファイルの行にする。 */
 	function toViewerImage(content: ContentEntry): ViewerImage | undefined {
-		if (content.type !== 'file' || !content.image) return undefined;
+		if (content.type !== 'file' || content.missing || !content.image) return undefined;
 		return {
 			src: contentDownloadHref(content.id),
 			thumbnailSrc: contentThumbnailHref(content.id),
@@ -129,7 +130,8 @@
 				originalUrl: content.url
 			};
 		}
-		if (content.type !== 'file') return undefined;
+		// 先が無いショートカットはビューアーに渡さず、開いて「見つかりません」を出す (→ docs/folders.md「ショートカット」)。
+		if (content.type !== 'file' || content.missing) return undefined;
 		const kind = viewerFileKind(content.fileName, content.isText);
 		if (!kind) return undefined;
 		return {
@@ -311,6 +313,22 @@
 					>
 						{#snippet trailing()}{@render rowMenu(content)}{/snippet}
 					</ListRowLink>
+				{:else if content.type === 'file' && content.missing}
+					<!-- 先が無いショートカット。行は残し、押すとその場で「見つかりません」と伝える (→ docs/folders.md「ショートカット」)。 -->
+					<div class={browseRowClass()}>
+						<ListRowIcon icon={FileIcon} />
+						<span class={browseRowTextClass()}>
+							<button
+								type="button"
+								class={[browseRowPressClass(), 'block w-full text-left']}
+								onclick={() => errorDialog.show(m.contents_shortcut_missing())}
+							>
+								{@render rowTitle(content)}
+							</button>
+							{@render rowSubtitle(content)}
+						</span>
+						{@render rowTrailing(content)}
+					</div>
 				{:else if content.type === 'folder' || content.type === 'group' || (content.type === 'file' && isLinksFileName(content.fileName))}
 					<div class={browseRowClass()}>
 						{#if content.type === 'file'}
@@ -380,9 +398,5 @@
 
 {#if actions}
 	<VisibilityDialog bind:target={visibilityTarget} onsaved={() => refreshAll()} />
-	<ErrorDialog
-		bind:open={errorDialog.open}
-		message={errorDialog.message}
-		title={errorDialog.title}
-	/>
 {/if}
+<ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

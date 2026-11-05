@@ -8,7 +8,7 @@
 	 */
 	import { visibilityLabel } from '$lib/content-labels';
 	import type { ContentFormPart, ContentFormState } from '$lib/content-form.svelte';
-	import { isDirectoryContentType } from '$lib/content-types';
+	import { isPathContentType } from '$lib/content-types';
 	import { formatByteSize } from '$lib/format';
 	import * as m from '$lib/paraglide/messages.js';
 	import type { components } from '$lib/api/schema';
@@ -69,7 +69,7 @@
 	let editing = $derived(variant === 'edit');
 	let showsCommon = $derived(part !== 'specific');
 	let showsSpecific = $derived(part !== 'common');
-	let showsVisibility = $derived(showsCommon && (editing || form.type === 'folder'));
+	let showsVisibility = $derived(showsCommon && (editing || isPathContentType(form.type)));
 	// 作成では、group 以外はタイトルを自動で付ける。編集ページで直す。
 	let showsTitle = $derived(showsCommon && (editing || form.type === 'group'));
 	let showsEditOnlyCommon = $derived(showsCommon && editing);
@@ -95,12 +95,12 @@
 				required
 			/>
 		</Field.Field>
-	{:else if showsSpecific && isDirectoryContentType(form.type)}
+	{:else if showsSpecific && isPathContentType(form.type)}
 		<Field.Field data-disabled={disabled}>
 			<!-- 編集では選び直せても空にはできないので、ファイルの欄と同じく作成のときだけ印を付ける。 -->
 			<!-- 入力欄ではないので label にしない。 -->
 			<Field.FieldTitle required={!editing}>{m.contents_form_path_label()}</Field.FieldTitle>
-			<!-- 絶対パスはテキスト入力させず、サーバー上のディレクトリを辿って選ばせる
+			<!-- 絶対パスはテキスト入力させず、サーバー上の階層を辿って選ばせる
 			     (→ docs/folders.md「登録前の確認」)。 -->
 			<div class="flex items-center gap-3">
 				<!-- 省略すると末尾 (選んだフォルダー名) が隠れる。折り返して全部見せる。 -->

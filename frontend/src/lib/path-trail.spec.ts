@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { isSamePath, pathTrail } from './path-trail';
+import { isSamePath, parentPath, pathTrail } from './path-trail';
+
+describe('parentPath', () => {
+	it('drops the last name', () => {
+		expect(parentPath('/srv/教材/a.pdf')).toBe('/srv/教材');
+		expect(parentPath('C:\\教材\\a.pdf')).toBe('C:\\教材');
+	});
+});
 
 describe('pathTrail', () => {
 	it('returns nothing for the root listing', () => {

@@ -3,6 +3,7 @@
 //
 // フォルダーとアーカイブは、パスをテキストで入れさせずに選ばせ、登録の前に対象の件数を見せる
 // (→ docs/folders.md「一覧 API」・「登録前の確認」)。そこまでを画面で辿る。
+import { rmSync } from 'node:fs';
 import path from 'node:path';
 import { test, expect, type Page } from '@playwright/test';
 import { send } from './api-helpers';
@@ -130,6 +131,47 @@ test('一覧の表示: 登録したフォルダーで使い始めると、保存
 	);
 });
 
+test('ファイルを指すショートカット: 追加の窓で選んで作り、ホームから開ける。先が無いと開いて伝える', async ({
+	page
+}) => {
+	const shared = await sharedContentRoot(page.request);
+	test.skip(shared === null, FIXTURE_UNREACHABLE);
+
+	const name = uniqueId('e2e-shortcut');
+	const tree = createFixtureTree(name, { 'memo.txt': 'hello' });
+	try {
+		await openCreateForm(page, 'folder');
+		await page.getByRole('button', { name: CHOOSE_PATH_BUTTON_NAME }).click();
+		const picker = page.getByRole('dialog', { name: DIR_PICKER_NAME });
+		await picker.getByRole('button', { name: shared!.rootName, exact: true }).click();
+		for (const segment of path.relative(shared!.root, tree).split(path.sep)) {
+			await picker.getByRole('button', { name: segment, exact: true }).click();
+		}
+		await picker.getByRole('button', { name: 'memo.txt', exact: true }).click();
+		await picker.getByRole('button', { name: /^このファイルを使用$|^Use this file$/ }).click();
+		await page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
+		await expect(page).toHaveURL(/\/admin\/contents\/\d+$/);
+		await expect(page.getByRole('heading', { name: 'memo.txt', level: 1 })).toBeVisible();
+		// ファイルを指すものにはパターンもライブラリの切り替えも無い。
+		await expect(page.getByRole('switch', { name: LIST_VIEW_SWITCH_NAME })).toHaveCount(0);
+
+		await page.goto('/');
+		await page.getByRole('button', { name: 'memo.txt', exact: true }).click();
+		await expect(page.getByText('hello')).toBeVisible();
+		await page.keyboard.press('Escape');
+
+		rmSync(path.join(tree, 'memo.txt'));
+		await page.goto('/');
+		await page.getByRole('button', { name: 'memo.txt', exact: true }).click();
+		await expect(
+			page.getByText(/^ファイルが見つかりません。$|^The file was not found\.$/)
+		).toBeVisible();
+	} finally {
+		await removeContentIfPresent(page, 'memo.txt');
+		removeFixtureTree(tree);
+	}
+});
+
 test('一覧の表示: 使い始めたときのスキャンだけが失敗したら、保存は残し、再スキャンを案内する', async ({
 	page
 }) => {
@@ -211,7 +253,7 @@ test('確認で「戻る」を押すと登録せず、フォームに戻る', as
 		await confirm.getByRole('button', { name: /^戻る$|^Back$/ }).click();
 		await expect(confirm).toHaveCount(0);
 		// 作成ダイアログの2段目に、入力と選んだパスが残っている。
-		const form = page.getByRole('dialog', { name: /^フォルダーを追加$|^Add Folder$/ });
+		const form = page.getByRole('dialog', { name: /^ショートカットを追加$|^Add Shortcut$/ });
 		// タイトルは入力させない (選んだフォルダーの名前で付く)。
 		await expect(form.getByLabel(TITLE_LABEL)).toHaveCount(0);
 		await expect(form.getByText(sharedLocationLabel(shared!, name), { exact: true })).toBeVisible();

@@ -165,7 +165,7 @@
 					<dt class="w-16 shrink-0 text-xs text-muted-foreground">
 						{m.confirm_register_type_label()}
 					</dt>
-					<dd class="flex-1">{contentTypeLabel(contentType)}</dd>
+					<dd class="flex-1">{contentTypeLabel(contentType, listView)}</dd>
 				</div>
 				<div class="flex min-w-0 gap-4 border-b border-divider py-4">
 					<dt class="w-16 shrink-0 text-xs text-muted-foreground">

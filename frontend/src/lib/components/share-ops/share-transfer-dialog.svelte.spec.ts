@@ -30,7 +30,8 @@ async function openConflict(access: ShareAccess) {
 			totalBytes: 1,
 			availableBytes: 2,
 			trash: false,
-			listed: [{ contentId: 7, title: '英検の音声' }]
+			listed: [{ contentId: 7, title: '英検の音声' }],
+			unlinked: []
 		})
 	);
 	await render(ShareTransferDialog, {

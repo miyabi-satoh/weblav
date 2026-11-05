@@ -48,6 +48,7 @@ function contentSelfHref(content: Content): ContentViewHref {
 		case 'link':
 			return { href: content.url ?? resolve('/'), external: content.url != null };
 		case 'file':
+		case 'shortcut':
 			if (content.fileName && isLinksFileName(content.fileName)) {
 				return { href: linksFileHref(content.id), external: false };
 			}
