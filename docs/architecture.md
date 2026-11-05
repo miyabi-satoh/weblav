@@ -221,7 +221,7 @@ type ごとの必須カラムの検証 (`url` / `path` / `blob_hash`) は結局
 -- contents (CHECK制約なし。一覧の表示の列と created_by は ALTER TABLE で追加する)
 CREATE TABLE contents (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    -- 'link' | 'file' | 'folder' | 'group'
+    -- 'link' | 'file' | 'folder' | 'group' | 'shortcut'
     -- 値の検証はアプリケーション層で行う (→ 「既存テーブルの変更」)
     type TEXT NOT NULL,
     parent_id INTEGER REFERENCES contents (id) ON DELETE CASCADE,

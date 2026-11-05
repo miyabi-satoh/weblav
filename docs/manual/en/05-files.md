@@ -60,7 +60,9 @@ You can move in shares with “Full access”, and copy from any share you can s
 >
 > NAS and network drives, for example, have no trash. In that case, the confirmation screen says so.
 
-If the folder you are overwriting, or a folder inside it, is listed on Home, it appears on the confirmation screen. Overwriting makes that content show different files or stop opening.
+If what you are overwriting, or something inside it, is listed on Home, it appears on the confirmation screen. Overwriting makes that content show different files or stop opening.
+
+When you move a file listed on Home (or a folder that holds one), it also appears on the confirmation screen. After moving, that shortcut can no longer be opened. The rename dialog lists it the same way.
 
 A share itself, and folders that contain another share or WebLAV's data, cannot be moved or overwritten. Folders that contain WebLAV's data cannot be copied either.
 
@@ -75,7 +77,7 @@ You can do this in shares with “Full access”.
 >
 > Usually they are moved to the computer's trash, so you can restore them from there. In places with no trash, such as a NAS or a network drive, they are deleted permanently and cannot be restored. When the confirmation screen says it “can't be undone”, check carefully before you select it.
 
-If a folder you are deleting is listed on Home, it appears on the confirmation screen. After deleting, that content can no longer be opened (restoring it from the trash makes it open again).
+If something you are deleting is listed on Home, it appears on the confirmation screen. After deleting, that content can no longer be opened (restoring it from the trash makes it open again).
 
 A share itself, and folders that contain another share or WebLAV's data, cannot be deleted.
 
@@ -87,22 +89,24 @@ Quitting WebLAV stops any task in progress.
 
 ## List on Home
 
-This shows a folder in a share on Home as folder content. You can do this in any share you can see.
+This shows a folder or file in a share on Home as a shortcut. You can do this in any share you can see.
 
-1. Select “⋮” on the folder row, then choose “List on Home...”.
+1. Select “⋮” on the folder or file row, then choose “List on Home...”.
 2. Choose the visibility, then select “List”.
 
-The title is the folder name. To change it, use the edit page in the admin pages (→ [Register contents](06-register-content.md)).
+The title is the folder or file name. To change it, use the edit page in the admin pages (→ [Register contents](06-register-content.md)).
 
-If a folder has hidden content and its creator or an admin lists it, that content comes back with the visibility chosen instead of a new one being created. Its title and its patterns for what to show stay the same. When someone who is neither its creator nor an admin lists it, or an admin lists someone else's content as “Creator only”, it becomes separate content.
+If a place has hidden content and its creator or an admin lists it, that content comes back with the visibility chosen instead of a new one being created. Its title and its patterns for what to show stay the same. When someone who is neither its creator nor an admin lists it, or an admin lists someone else's content as “Creator only”, it becomes separate content.
 
-Folders listed on Home show “Listed”. When you open such a folder, “Listed on Home as “title”” appears below the heading.
+Items listed on Home show “Listed”. When you open a listed folder, “Listed on Home as “title”” appears below the heading.
 
 ## Renaming in shares
 
 Items you rename or move on the share screens keep their place in the library list. Items you rename or move in File Explorer or Finder join the list as new files the next time the folder is read.
 
 What a folder listed on Home shows depends on matching names and locations against its patterns, so renaming or moving an item matches it again (→ [Register contents](06-register-content.md)).
+
+A shortcut to a file does not follow a file that you rename or move. It can no longer be opened, so choose the location again on its edit page.
 
 ## Activity records
 
