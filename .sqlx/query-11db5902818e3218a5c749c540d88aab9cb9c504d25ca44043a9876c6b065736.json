@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id as \"id!\" FROM contents\n           WHERE type = ? AND path = ? AND visibility = ? AND (? OR created_by = ?)\n           ORDER BY id LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "11db5902818e3218a5c749c540d88aab9cb9c504d25ca44043a9876c6b065736"
+}

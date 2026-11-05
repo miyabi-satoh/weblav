@@ -105,7 +105,7 @@ async fn open(
                 content_title: None,
             }
         }
-        (ContentType::File, None) => {
+        (ContentType::File | ContentType::Shortcut, None) => {
             let lineage = contents::ensure_viewable(&state.pool, viewer, id).await?;
             let file = contents::content_file(state, viewer, id, "").await?;
             let content_title = lineage.own_title();

@@ -642,6 +642,153 @@ async fn manage_view_archive_shuffle(
     }))
 }
 
+// --- GET /contents/{id}/excluded-items (管理用: 対象外のタブ) ---
+
+/// 対象外のタブの1行。パスだけを見せる。開く口は無く、中身は共有の画面で確かめる (→ docs/ui.md「対象外のタブ」)。
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct ExcludedItem {
+    id: i64,
+    /// 登録先からの相対パス。
+    rel_path: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct ExcludedItemsResponse {
+    /// 区切った続き (`/excluded-items/page`) を引くときに渡す結果の名前。
+    snapshot: String,
+    /// 名前の語で絞った後の件数。
+    total: usize,
+    /// 名前の語で絞る前の、パターンで外れているファイルの数。
+    total_all: usize,
+    /// 先頭の区切り。引いた時点で消えた・見えるようになった行は `null`。
+    items: Vec<Option<ExcludedItem>>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct ExcludedItemsPageResponse {
+    items: Vec<Option<ExcludedItem>>,
+    /// 結果を作った後に、索引か絞り込みのパターンが変わったか。
+    stale: bool,
+}
+
+/// 対象外の区切りの行。引くときの絞り込みでもう一度確かめる (`page_items` と同じ理由)。
+fn excluded_page_items(
+    index: &ArchiveIndex,
+    filter: &FileFilter,
+    snapshot: &Snapshot,
+    offset: usize,
+    limit: usize,
+) -> Vec<Option<ExcludedItem>> {
+    page_ids(snapshot, offset, limit)
+        .iter()
+        .map(|&id| {
+            let item = index.get(id)?;
+            (!filter.allows_file(&item.rel_path)).then(|| ExcludedItem {
+                id: item.id,
+                rel_path: item.rel_path.clone(),
+            })
+        })
+        .collect()
+}
+
+/// 対象外のタブの一覧の、最初の区切り。パターンで外れるファイルを、パスの順に返す (→ docs/ui.md「対象外のタブ」)。
+/// 書き換えられる人にだけ見せる。パターンを直す人のためのもので、見る人には存在を伏せるため。
+#[utoipa::path(
+    get,
+    path = "/contents/{id}/excluded-items",
+    params(("id" = i64, Path), ExcludedQuery),
+    responses(
+        (status = OK, body = ExcludedItemsResponse, description = "パターンで外れるファイルの先頭の区切り"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "書き換えられるのは管理者と作成者だけ"),
+        (status = 404, body = crate::error::ErrorResponse, description = "管理できない・存在しない・アーカイブでない"),
+    )
+)]
+async fn excluded_items(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Query(query): Query<ExcludedQuery>,
+) -> Result<Json<ExcludedItemsResponse>, AppError> {
+    let meta = archive::load_editable_archive(&state.pool, &user, id).await?;
+    super::roots::ensure_reachable(&state, &meta.path).await?;
+    archive::refresh_changed_dirs(&state, id, &meta).await;
+    let terms = super::list_filter::parse_terms(&query.filter);
+    let limit = page_limit(query.limit);
+
+    let (versions, index) = archive_index::index(&state, id).await?;
+    let filter = FileFilter::load(&state.pool, id).await?;
+    let (ids, total_all, index, filter) = run_blocking(move || {
+        let (ids, total_all) = archive_index::excluded_ids(&index, &filter, &terms);
+        (ids, total_all, index, filter)
+    })
+    .await?;
+
+    let snapshot = Snapshot {
+        archive_id: id,
+        kind: SnapshotKind::Excluded,
+        owner: Some(user.id),
+        ids: ids.into(),
+        positions: None,
+        active_filters: Vec::new().into(),
+        versions,
+    };
+    let items = excluded_page_items(&index, &filter, &snapshot, 0, limit);
+    let total = snapshot.ids.len();
+    let token = state.archive_index.create_snapshot(snapshot)?;
+    Ok(Json(ExcludedItemsResponse {
+        snapshot: token,
+        total,
+        total_all,
+        items,
+    }))
+}
+
+/// 対象外のタブの一覧の、区切りの続き。
+#[utoipa::path(
+    get,
+    path = "/contents/{id}/excluded-items/page",
+    params(("id" = i64, Path), PageQuery),
+    responses(
+        (status = OK, body = ExcludedItemsPageResponse, description = "区切った行"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "書き換えられるのは管理者と作成者だけ"),
+        (status = 404, body = crate::error::ErrorResponse, description = "管理できない・存在しない・アーカイブでない"),
+        (status = 409, body = crate::error::ErrorResponse, description = "結果が捨てられた・別の人や口のもの。最初から取り直す"),
+    )
+)]
+async fn excluded_items_page(
+    user: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Query(query): Query<PageQuery>,
+) -> Result<Json<ExcludedItemsPageResponse>, AppError> {
+    archive::load_editable_archive(&state.pool, &user, id).await?;
+    let snapshot = state
+        .archive_index
+        .snapshot(&query.snapshot, id, SnapshotKind::Excluded, Some(user.id))
+        .ok_or_else(snapshot_gone)?;
+    let (versions, index) = archive_index::index(&state, id).await?;
+    let filter = FileFilter::load(&state.pool, id).await?;
+    let limit = page_limit(query.limit);
+    Ok(Json(ExcludedItemsPageResponse {
+        items: excluded_page_items(&index, &filter, &snapshot, query.offset, limit),
+        stale: versions != snapshot.versions,
+    }))
+}
+
+#[derive(Debug, Deserialize, IntoParams)]
+#[serde(rename_all = "camelCase")]
+struct ExcludedQuery {
+    /// パスに当てる語 (空白で区切る)。省略時は全部。
+    #[serde(default)]
+    filter: String,
+    limit: Option<usize>,
+}
+
 /// 登録先のフォルダーごと無いか。読めないだけのものは含めない。ファイルシステムを見るので、非同期のワーカーの外で呼ぶ。
 pub(super) fn folder_missing(path: &std::path::Path) -> bool {
     std::fs::metadata(path).is_err_and(|err| err.kind() == std::io::ErrorKind::NotFound)
@@ -795,7 +942,7 @@ const PATH_SAMPLE_LIMIT: usize = 150;
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct PathSamplesResponse {
-    /// 索引のアイテムの数。
+    /// 見えるアイテムの数。
     item_count: usize,
     /// パスを並べたうえで、間を空けて選んだ例。先頭だけだと最初のフォルダーのファイルに偏るため。
     rel_paths: Vec<String>,
@@ -829,12 +976,7 @@ async fn path_samples(
     Path(id): Path<i64>,
 ) -> Result<Json<PathSamplesResponse>, AppError> {
     archive::load_manageable_archive(&state.pool, &user, id).await?;
-    let mut rel_paths = sqlx::query_scalar!(
-        "SELECT rel_path FROM archive_items WHERE archive_id = ?",
-        id
-    )
-    .fetch_all(&state.pool)
-    .await?;
+    let mut rel_paths = archive::load_item_rel_paths(&state.pool, id).await?;
     let response = run_blocking(move || {
         rel_paths.sort();
         PathSamplesResponse {
@@ -928,7 +1070,7 @@ async fn download_item_by_path(
     Ok(file.download(request).await)
 }
 
-/// 管理画面からのアイテムの配信 (→ docs/archive.md「アイテムの配信」)。絞り込みは当てない。
+/// 管理画面からのアイテムの配信 (→ docs/archive.md「アイテムの配信」)。絞り込みは閲覧の口と同じく当てる。
 /// 閲覧用の `download_item` の判定とは混ぜず、管理の権限で別に判定する。
 #[utoipa::path(
     get,
@@ -937,7 +1079,7 @@ async fn download_item_by_path(
     responses(
         (status = OK, description = "ファイルの内容"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 404, body = crate::error::ErrorResponse, description = "管理できない・所属しない・存在しないアイテム、または実体が無い"),
+        (status = 404, body = crate::error::ErrorResponse, description = "管理できない・所属しない・存在しない・絞り込みで外れたアイテム、または実体が無い"),
     )
 )]
 async fn manage_download_item(
@@ -950,7 +1092,7 @@ async fn manage_download_item(
     Ok(file.download(request).await)
 }
 
-/// 管理画面からの、相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。絞り込みは当てない。
+/// 管理画面からの、相対パスで指したアイテムの配信 (→ docs/archive.md「アイテムの配信」)。絞り込みは当てる。
 /// 管理画面の Markdown のプレビューが使う。
 #[utoipa::path(
     get,
@@ -959,7 +1101,7 @@ async fn manage_download_item(
     responses(
         (status = OK, description = "ファイルの内容"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 404, body = crate::error::ErrorResponse, description = "管理できない・索引に無いアイテム、または実体が無い"),
+        (status = 404, body = crate::error::ErrorResponse, description = "管理できない・索引に無い・絞り込みで外れたアイテム、または実体が無い"),
     )
 )]
 async fn manage_download_item_by_path(
@@ -980,7 +1122,7 @@ async fn manage_download_item_by_path(
     if exists.is_none() {
         return Err(AppError::NotFound);
     }
-    let file = contents::resolve_file_under(&state, &meta.path, &query.path, None).await?;
+    let file = contents::resolve_file_under(&state, &meta.path, &query.path, Some(id)).await?;
     Ok(file.download(request).await)
 }
 
@@ -993,7 +1135,7 @@ async fn manage_download_item_by_path(
         (status = OK, description = "縮小画像 (JPEG か PNG)"),
         (status = 304, description = "ETag が一致した"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 404, body = crate::error::ErrorResponse, description = "管理できない・所属しない・存在しないアイテム、実体が無い、またはプレビューしない画像"),
+        (status = 404, body = crate::error::ErrorResponse, description = "管理できない・所属しない・存在しない・絞り込みで外れたアイテム、実体が無い、またはプレビューしない画像"),
     )
 )]
 async fn manage_thumbnail_item(
@@ -1023,7 +1165,7 @@ async fn manage_item_file(
     .fetch_optional(&state.pool)
     .await?
     .ok_or(AppError::NotFound)?;
-    contents::resolve_file_under(state, &meta.path, &rel_path, None).await
+    contents::resolve_file_under(state, &meta.path, &rel_path, Some(id)).await
 }
 
 /// アイテムの縮小画像 (→ docs/ui.md「画像のプレビュー」)。見える条件は `download_item` と同じ。
@@ -1088,6 +1230,8 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(manage_view_archive))
         .routes(routes!(manage_view_archive_page))
         .routes(routes!(manage_view_archive_shuffle))
+        .routes(routes!(excluded_items))
+        .routes(routes!(excluded_items_page))
         .routes(routes!(path_samples))
         .routes(routes!(thumbnail_item))
         .routes(routes!(manage_thumbnail_item))

@@ -39,6 +39,7 @@ mod search;
 mod settings;
 mod setup;
 mod shares;
+mod shortcuts;
 mod system;
 mod upload;
 mod users;

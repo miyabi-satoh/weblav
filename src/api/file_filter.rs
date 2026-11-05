@@ -324,6 +324,19 @@ mod tests {
         assert!(filter.allows_file("x/tmp/cache/a.pdf"));
     }
 
+    /// 「パターンに追加...」は、絞り込みの語の中の記号を `[ ]` で包んで候補にする (`$lib/pattern-candidate.ts`)。
+    /// ファイル名に記号があっても、その文字として当たること。
+    #[test]
+    fn symbols_wrapped_in_brackets_match_literally() {
+        let filter = filter("", "*[[]mix[]]*\n*[{]a,b[}]*\n*[*]*\n*[?]*");
+        assert!(!filter.allows_file("x/song[mix].mp3"));
+        assert!(!filter.allows_file("{a,b}.mp3"));
+        assert!(!filter.allows_file("a*b.mp3"));
+        assert!(!filter.allows_file("what?.mp3"));
+        assert!(filter.allows_file("songmix.mp3"));
+        assert!(filter.allows_file("a.mp3"));
+    }
+
     #[test]
     fn invalid_pattern_reports_the_line() {
         let Err(AppError::ValidationDetailed { detail, .. }) =

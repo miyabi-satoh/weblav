@@ -142,6 +142,9 @@ pub(super) struct DirsQuery {
     /// 一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「共有」の一覧。
     #[serde(default)]
     pub path: String,
+    /// 真なら、フォルダーに加えて直下のファイルも返す (`files`)。ショートカットの先を選ぶときに使う。
+    #[serde(default)]
+    pub files: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -171,6 +174,8 @@ pub(super) struct DirsResponse {
     /// 現在位置そのものを登録先に選べるか。ルートの一覧では `false`。
     selectable: bool,
     entries: Vec<DirEntryItem>,
+    /// 直下のファイル。`files` を頼んだときだけ。フォルダーの `entries` とは分けて返す。
+    files: Vec<DirEntryItem>,
 }
 
 /// `path` が空のときの一覧。登録済みの「共有」を、登録した名前で並べる (→ docs/folders.md「共有」)。
@@ -235,6 +240,30 @@ fn read_dirs(
     Ok(entries)
 }
 
+/// `dir` 直下のファイルを列挙する。除外の規則は `read_dirs` と同じ。
+fn read_files(dir: &FsPath, own_dirs: &OwnDirs) -> std::io::Result<Vec<DirEntryItem>> {
+    let mut entries = Vec::new();
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let Some((name, file_type)) = visible_entry(&entry) else {
+            continue;
+        };
+        if !file_type.is_file() || own_dirs.contains(&entry.path()) {
+            continue;
+        }
+        let Ok(path) = path_to_string(entry.path()) else {
+            continue;
+        };
+        entries.push(DirEntryItem {
+            name,
+            path,
+            selectable: true,
+        });
+    }
+    entries.sort_by_key(|entry| entry.name.to_lowercase());
+    Ok(entries)
+}
+
 /// 入力された絶対パスを canonicalize する。存在しない・アクセスできない・
 /// ディレクトリでない・UTF-8として扱えない場合は422にする (存在を隠すための404にはしない)。
 ///
@@ -278,6 +307,37 @@ pub(super) fn canonical_dir_within_roots(
         return Err(outside_roots());
     }
     require_dir(&canonical)?;
+    Ok(canonical)
+}
+
+/// ショートカットの先のファイルを検証し、実体のパスを返す。判定の順と理由を寄せる決まりは
+/// `canonical_dir_within_roots` と同じ。一覧に出さないもの (ドット始まり・隠し属性) は、選べないので断る。
+///
+/// ブロッキングI/Oを行うため、呼び出し側は `spawn_blocking` の中で呼ぶこと。
+pub(super) fn canonical_file_within_roots(
+    path: &str,
+    roots: &[Root],
+    own_dirs: &OwnDirs,
+) -> Result<PathBuf, AppError> {
+    let input = require_absolute(path)?;
+    let Ok(canonical) = std::fs::canonicalize(&input) else {
+        return Err(outside_roots());
+    };
+    let Some(root) = super::roots::containing_root(roots, &canonical) else {
+        return Err(outside_roots());
+    };
+    if own_dirs.contains(&canonical) || has_dot_component(&root.path, &canonical) {
+        return Err(outside_roots());
+    }
+    let rel = canonical
+        .strip_prefix(&root.path)
+        .map_err(|_| outside_roots())?;
+    if has_hidden_component(&root.path, rel) {
+        return Err(outside_roots());
+    }
+    if !canonical.is_file() {
+        return Err(AppError::Validation("path is not a file".to_string()));
+    }
     Ok(canonical)
 }
 
@@ -387,6 +447,7 @@ async fn list_dirs(
     run_blocking(move || {
         Ok(Json(listing(
             &requested,
+            query.files,
             &roots,
             &OwnDirs::resolve(&own_dirs),
         )?))
@@ -398,7 +459,12 @@ async fn list_dirs(
 /// (外は一覧そのものを見せない)。`roots` は canonicalize 済み (→ `roots::load_roots`)。
 ///
 /// ブロッキングI/Oを行うため、呼び出し側は `spawn_blocking` の中で呼ぶこと。
-fn listing(requested: &str, roots: &[Root], own_dirs: &OwnDirs) -> Result<DirsResponse, AppError> {
+fn listing(
+    requested: &str,
+    with_files: bool,
+    roots: &[Root],
+    own_dirs: &OwnDirs,
+) -> Result<DirsResponse, AppError> {
     if requested.is_empty() {
         return Ok(DirsResponse {
             path: String::new(),
@@ -407,12 +473,19 @@ fn listing(requested: &str, roots: &[Root], own_dirs: &OwnDirs) -> Result<DirsRe
             root_name: None,
             selectable: false,
             entries: top_entries(roots, own_dirs),
+            files: Vec::new(),
         });
     }
 
     let canonical = canonical_dir_within_roots(requested, roots, own_dirs)?;
     let entries = read_dirs(&canonical, roots, own_dirs)
         .map_err(|_| AppError::Validation("cannot read this directory".to_string()))?;
+    let files = if with_files {
+        read_files(&canonical, own_dirs)
+            .map_err(|_| AppError::Validation("cannot read this directory".to_string()))?
+    } else {
+        Vec::new()
+    };
     let anchor = super::roots::containing_root(roots, &canonical);
     // 上位の一覧に並ぶ位置 (共有そのもの) からは、上位の一覧 (`path: ""`) へ戻す。
     let parent = if anchor.map(|anchor| anchor.path.as_path()) == Some(canonical.as_path()) {
@@ -435,6 +508,7 @@ fn listing(requested: &str, roots: &[Root], own_dirs: &OwnDirs) -> Result<DirsRe
             .map(|anchor| path_to_string(anchor.path.clone()))
             .transpose()?,
         entries,
+        files,
     })
 }
 
@@ -576,6 +650,7 @@ pub(super) fn dir_modified_ns(metadata: &std::fs::Metadata) -> Option<i64> {
 ///
 /// 再スキャン (`archive::rescan`) と登録前の確認 (`count_target_files`) の両方がこれを使う。
 /// 数え方を分けて持つと、確認では打ち切られなかった件数で再スキャンだけが 422 になる。
+/// 索引はパターンによらないので (→ docs/archive.md「スキャン」)、再スキャンは空の `filter` を渡す。
 ///
 /// ドット始まり・シンボリックリンクの除外は `is_visible_entry` と揃える
 /// (→ docs/archive.md「スキャン」)。`follow_links(false)` は「リンク先のディレクトリへ
@@ -726,12 +801,12 @@ pub(super) fn scan_files_until(
 }
 
 /// `root` の下のフォルダー `dir_rel` の直下にある、索引対象のファイル (`root` からの相対パス) と
-/// サブフォルダー (相対パスと更新日時)。除外の規則は `scan_files` と同じ。
+/// サブフォルダー (相対パスと更新日時)。除外の規則は `scan_files` と同じで、パターンは見ない
+/// (索引はパターンによらない。→ docs/archive.md「スキャン」)。
 /// 一覧の表示を開いたときに、変わったフォルダーだけを読み直すのに使う (→ `archive::refresh_changed_dirs`)。
 pub(super) fn list_dir_shallow(
     root: &FsPath,
     dir_rel: &str,
-    filter: &FileFilter,
     own_dirs: &OwnDirs,
 ) -> std::io::Result<(Vec<String>, Vec<DirStamp>)> {
     let dir = if dir_rel.is_empty() {
@@ -759,12 +834,9 @@ pub(super) fn list_dir_shallow(
         };
         let rel = normalize_rel_path(rel);
         if entry.file_type().is_dir() {
-            if !filter.allows_dir(&rel) {
-                continue;
-            }
             let modified_ns = entry.metadata().ok().as_ref().and_then(dir_modified_ns);
             subdirs.push((rel, modified_ns));
-        } else if entry.file_type().is_file() && filter.allows_file(&rel) {
+        } else if entry.file_type().is_file() {
             files.push(rel);
         }
     }
@@ -928,6 +1000,57 @@ mod tests {
         );
     }
 
+    /// ファイルは頼んだときだけ返し、一覧に出さないものは並べない。
+    #[test]
+    fn listing_returns_files_only_on_request_and_without_hidden_ones() {
+        let data = unrelated_data_dir("listing-files");
+        let own_dirs = OwnDirs::resolve(&[data.path().to_path_buf()]);
+        let base = temp_dir("listing-files");
+        let root = base.path().join("materials");
+        std::fs::create_dir_all(&root).expect("ディレクトリを作れなかった");
+        std::fs::write(root.join("a.pdf"), b"x").expect("ファイルを作れなかった");
+        std::fs::write(root.join(".secret"), b"x").expect("ファイルを作れなかった");
+        let roots = vec![test_root(&root)];
+
+        let without =
+            listing(&root.to_string_lossy(), false, &roots, &own_dirs).expect("一覧を取れなかった");
+        assert!(without.files.is_empty());
+        let with =
+            listing(&root.to_string_lossy(), true, &roots, &own_dirs).expect("一覧を取れなかった");
+        let names: Vec<&str> = with.files.iter().map(|file| file.name.as_str()).collect();
+        assert_eq!(names, ["a.pdf"]);
+    }
+
+    /// ショートカットの先に選べるのは、共有の中の、一覧に出すファイルだけ。
+    #[test]
+    fn canonical_file_within_roots_accepts_only_listed_files_inside_a_root() {
+        let data = unrelated_data_dir("shortcut-file");
+        let own_dirs = OwnDirs::resolve(&[data.path().to_path_buf()]);
+        let base = temp_dir("shortcut-file");
+        let root = base.path().join("materials");
+        std::fs::create_dir_all(root.join(".private")).expect("ディレクトリを作れなかった");
+        std::fs::write(root.join("a.pdf"), b"x").expect("ファイルを作れなかった");
+        std::fs::write(root.join(".private").join("b.pdf"), b"x").expect("ファイルを作れなかった");
+        std::fs::write(base.path().join("outside.pdf"), b"x").expect("ファイルを作れなかった");
+        let roots = vec![test_root(&root)];
+        let check = |path: &std::path::Path| {
+            canonical_file_within_roots(&path.to_string_lossy(), &roots, &own_dirs)
+        };
+
+        assert!(check(&root.join("a.pdf")).is_ok());
+        for rejected in [
+            root.clone(),
+            root.join(".private").join("b.pdf"),
+            root.join("missing.pdf"),
+            base.path().join("outside.pdf"),
+        ] {
+            assert!(
+                matches!(check(&rejected), Err(AppError::Validation(_))),
+                "{rejected:?} は断るはず"
+            );
+        }
+    }
+
     /// 登録済みのフォルダーそのものからは、上位の一覧へ戻す (`parent` が空文字列)。
     #[test]
     fn listing_within_roots_returns_the_roots_at_the_top() {
@@ -938,7 +1061,7 @@ mod tests {
         std::fs::create_dir_all(root.join("2026")).expect("ディレクトリを作れなかった");
         let roots = vec![test_root(&root)];
 
-        let top = listing("", &roots, &own_dirs).expect("上位の一覧を取れなかった");
+        let top = listing("", false, &roots, &own_dirs).expect("上位の一覧を取れなかった");
         assert_eq!(top.parent, None);
         assert_eq!(top.entries.len(), 1);
         assert!(top.entries[0].selectable);
@@ -946,14 +1069,19 @@ mod tests {
         assert_eq!(top.entries[0].name, "materials");
 
         let at_root =
-            listing(&root.to_string_lossy(), &roots, &own_dirs).expect("一覧を取れなかった");
+            listing(&root.to_string_lossy(), false, &roots, &own_dirs).expect("一覧を取れなかった");
         assert_eq!(at_root.parent.as_deref(), Some(""));
         assert!(at_root.selectable);
         assert_eq!(at_root.root, path_to_string(root.clone()).ok());
 
         // 配下では、パンくずを始める位置として登録済みのフォルダーを返す。
-        let inside = listing(&root.join("2026").to_string_lossy(), &roots, &own_dirs)
-            .expect("一覧を取れなかった");
+        let inside = listing(
+            &root.join("2026").to_string_lossy(),
+            false,
+            &roots,
+            &own_dirs,
+        )
+        .expect("一覧を取れなかった");
         assert_eq!(inside.root, path_to_string(root.clone()).ok());
         assert_eq!(inside.root_name.as_deref(), Some("materials"));
     }
@@ -969,7 +1097,7 @@ mod tests {
         let roots = vec![test_root(&root)];
 
         assert!(matches!(
-            listing(&base.path().to_string_lossy(), &roots, &own_dirs),
+            listing(&base.path().to_string_lossy(), false, &roots, &own_dirs),
             Err(AppError::Validation(_))
         ));
     }
