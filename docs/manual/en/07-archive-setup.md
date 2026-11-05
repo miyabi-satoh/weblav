@@ -1,5 +1,7 @@
 # Set up a library
 
+A library shows the files in a folder in one list that people can filter by “Year”, “Session”, or similar categories.
+
 Libraries are not offered in the Add dialog. Create a shortcut to a folder, then switch it on its edit page. Switching does not change what is visible, and you can switch back.
 
 A folder can be viewed in two ways.
@@ -33,7 +35,7 @@ Recordings
 
    ![The folder picker with Recordings open](images/add-archive-picker.webp)
 
-3. Select “Register”. The shortcut's edit page opens.
+3. Select “Add”, then select “Register” in the confirmation. The shortcut's edit page opens.
 4. On the “Settings” tab, turn on “Organize as a library” under “Location and display”, then select “Save” in that section. The folder is scanned right away, and the progress appears next to the button. The type changes to “Library”.
 
    ![The Organize as a library switch](images/folder-list-view.webp)
@@ -93,8 +95,6 @@ Use “Include patterns” (for example, `*.mp3`) and “Exclude patterns” on 
 
 The “Excluded” tab lists, by path, the files that patterns leave out of the viewer's screen. “Filter by name” matches the path here. The files don't open from this tab; check their contents on the share screen. Files whose names start with a dot and symbolic links are not listed.
 
-In a library created with an earlier version, the insides of excluded folders are not listed until you rescan.
-
 ### Add a pattern from the filter
 
 When you type in “Filter by name” on the “Items” or “Excluded” tab, “Add to patterns...” appears.
@@ -143,7 +143,7 @@ When you change a file's contents (for example, replace a photo with one of the 
 
 1. On the library's edit page, select “Rescan” to the right of the heading (on a phone, it is in the “⋮” menu to the right of the heading).
 
-   With many files this takes a while, and the progress and the elapsed time appear next to the button. The scan finishes even if you close the page. To stop it, select “Stop”. Once reading has started, the files read so far are added to the list, and the next scan picks up where it left off.
+   With many files this takes a while, and the progress and the elapsed time appear below the heading. The scan finishes even if you close the page. To stop it, select “Stop”. Once reading has started, the files read so far are added to the list, and the next scan picks up where it left off.
 
 To rescan automatically, choose “When … have passed since the last scan” or “Every day after …” in “Automatic rescan” on the “Settings” tab, and enter the hours or the time. A time at night, when few people use the NAS, keeps the scan out of their way.
 

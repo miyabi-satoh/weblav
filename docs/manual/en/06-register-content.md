@@ -39,7 +39,7 @@ The remaining steps differ by type.
 
    ![The screen for choosing a folder or file](images/add-folder-picker.webp)
 
-3. Select “Register”.
+3. Select “Add”. If you chose a folder, select “Register” in the confirmation.
 
    ![The Add screen after choosing a location](images/add-folder-ready.webp)
 
@@ -67,7 +67,7 @@ When saving patterns would make more or fewer files visible, the counts appear b
 
 ## Link
 
-1. Enter the URL, then select “Register”.
+1. Enter the URL, then select “Add”.
 
    ![The Add link screen](images/add-link.webp)
 
@@ -88,7 +88,7 @@ note = "A description shown under the link (optional)"
 
 ## Group
 
-1. Enter a title, then select “Register”.
+1. Enter a title, then select “Add”.
 
    ![The Add group screen](images/add-group.webp)
 

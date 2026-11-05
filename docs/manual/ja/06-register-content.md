@@ -39,7 +39,7 @@
 
    ![フォルダーかファイルを選ぶ画面](images/add-folder-picker.webp)
 
-3. 「追加する」を押す
+3. 「追加する」を押す。フォルダーを選んだときは、確認の窓で「登録する」を押す
 
    ![場所を選んだ後の追加の画面](images/add-folder-ready.webp)
 
