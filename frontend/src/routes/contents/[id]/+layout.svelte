@@ -114,8 +114,8 @@
 				>{m.contents_menu_view()}</Button
 			>
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
-			<!-- スマートフォンの幅では、タイトルに幅を残すため、どちらも⋮の中に入れる。ライブラリでないものも、
-			     見出しの段の形を種類で変えないよう⋮にする (→ docs/ui.md「UI 全般」)。 -->
+			<!-- スマートフォンの幅では、タイトルに幅を残すため、どちらも⋮の中に入れる。種類で項目の数が変わるので、
+			     ライブラリでなく1つになるものも⋮にする (→ docs/ui.md「UI 全般」)。 -->
 			<div class="sm:hidden">
 				<RowActionsMenu name={content.title}>
 					{#if canRescan}
