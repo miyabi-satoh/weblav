@@ -41,7 +41,8 @@ import {
 	VISIBILITY_PRIVATE_OPTION_NAME,
 	waitForDialog,
 	PASSWORD_HASH_TIMEOUT,
-	deleteSectionButton
+	deleteSectionButton,
+	browseLink
 } from './helpers';
 import {
 	createGroupContent,
@@ -153,9 +154,9 @@ test('編集ページ: 閲覧画面で開けて、保存していない変更が
 		await createGroupContent(page, title);
 		const editUrl = page.url();
 
-		await page.getByRole('link', { name: VIEW_ON_SITE_LINK_NAME }).click();
+		await browseLink(page, VIEW_ON_SITE_LINK_NAME).click();
 		await page.waitForURL('/');
-		await expect(page.getByRole('link', { name: title })).toBeVisible();
+		await expect(browseLink(page, title)).toBeVisible();
 
 		await page.goto(editUrl);
 		await page.getByLabel(TITLE_LABEL).fill(`${title}-変更`);
@@ -181,8 +182,8 @@ test('グループ配下のコンテンツが一覧できる', async ({ page }) 
 		await createLinkContent(page, childTitle, { parentTitle: groupTitle });
 		// グループのidを取得せず、ホームの一覧から辿ることで結合を減らす。
 		await page.goto('/');
-		await page.getByRole('link', { name: groupTitle }).click();
-		await expect(page.getByRole('link', { name: childTitle })).toBeVisible();
+		await browseLink(page, groupTitle).click();
+		await expect(browseLink(page, childTitle)).toBeVisible();
 	} finally {
 		await removeContentIfPresent(page, childTitle);
 		await removeContentIfPresent(page, groupTitle);
@@ -198,7 +199,7 @@ test('グループの画面の「追加」から作ると、そのグループ�
 	try {
 		await createGroupContent(page, groupTitle);
 		await page.goto('/');
-		await page.getByRole('link', { name: groupTitle }).click();
+		await browseLink(page, groupTitle).click();
 		// ホームの見出しにも「追加」があるので、グループの画面に移ってから押す。
 		await expect(page.getByRole('heading', { level: 1, name: groupTitle })).toBeVisible();
 		await page.getByRole('button', { name: /^追加$|^Add$/ }).click();
@@ -209,8 +210,8 @@ test('グループの画面の「追加」から作ると、そのグループ�
 		await page.getByLabel(TITLE_LABEL).fill(childTitle);
 		await submitCreateForm(page, childTitle);
 		await page.goto('/');
-		await page.getByRole('link', { name: groupTitle }).click();
-		await expect(page.getByRole('link', { name: childTitle })).toBeVisible();
+		await browseLink(page, groupTitle).click();
+		await expect(browseLink(page, childTitle)).toBeVisible();
 	} finally {
 		await removeContentIfPresent(page, childTitle);
 		await removeContentIfPresent(page, groupTitle);
@@ -230,8 +231,8 @@ test('一覧: タイルに切り替えると、読み込み直してもほかの
 
 		await page.reload();
 		await expect(page.getByRole('radio', { name: BROWSE_LAYOUT_TILE_NAME })).toBeChecked();
-		await page.getByRole('link', { name: groupTitle }).click();
-		await expect(page.getByRole('link', { name: childTitle })).toBeVisible();
+		await browseLink(page, groupTitle).click();
+		await expect(browseLink(page, childTitle)).toBeVisible();
 		await expect(page.getByRole('radio', { name: BROWSE_LAYOUT_TILE_NAME })).toBeChecked();
 
 		// 選んでいる側をもう一度押しても、選択は外れない。
@@ -250,13 +251,13 @@ test('ホーム: 公開コンテンツが管理者にも未ログインにも表
 	try {
 		await createLinkContent(page, title);
 		await page.goto('/');
-		await expect(page.getByRole('link', { name: title })).toBeVisible();
+		await expect(browseLink(page, title)).toBeVisible();
 
 		const anonContext = await anonymousContext(browser);
 		try {
 			const anonPage = await anonContext.newPage();
 			await anonPage.goto('/');
-			await expect(anonPage.getByRole('link', { name: title })).toBeVisible();
+			await expect(browseLink(anonPage, title)).toBeVisible();
 		} finally {
 			await anonContext.close();
 		}
@@ -285,15 +286,13 @@ test('作成者のみ: 作成者の一覧にだけ印付きで並び、作成者
 		});
 
 		await ownerPage.goto('/');
-		await expect(ownerPage.getByRole('link', { name: title })).toContainText(
-			/作成者のみ|Creator only/
-		);
+		await expect(browseLink(ownerPage, title)).toContainText(/作成者のみ|Creator only/);
 
 		// 管理者でも、他人の「作成者のみ」は閲覧の一覧に並ばない。見出しの描画を待ってから数える
 		// (一覧は load の完了後に見出しと一緒に描画される。DB が空だと一覧そのものが出ないので、一覧は待たない)。
 		await page.goto('/');
 		await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
-		await expect(page.getByRole('link', { name: title })).toHaveCount(0);
+		await expect(browseLink(page, title)).toHaveCount(0);
 
 		await page.goto('/admin/users');
 		await clickRowMenuItem(page, userRow(page, username), DELETE_MENU_ITEM_NAME);

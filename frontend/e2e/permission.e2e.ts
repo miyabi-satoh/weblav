@@ -25,7 +25,8 @@ import {
 	TITLE_LABEL,
 	uniqueId,
 	VISIBILITY_LABEL,
-	VISIBILITY_PRIVATE_OPTION_NAME
+	VISIBILITY_PRIVATE_OPTION_NAME,
+	browseLink
 } from './helpers';
 
 // 待ち続けて制限時間を使い切ると、後片付けまで時間切れになる (→ archive.e2e.ts)。
@@ -84,12 +85,12 @@ test('非表示: 閲覧の一覧には出ず、非表示の一覧から開け、
 				try {
 					// 「出ない」の確かめが掴み方の誤りで通らないよう、同じ掴み方で「誰でも」は出ることも見る。
 					await page.goto('/');
-					await expect(page.getByRole('link', { name: publicTitle })).toBeVisible();
-					await expect(page.getByRole('link', { name: title })).toHaveCount(0);
+					await expect(browseLink(page, publicTitle)).toBeVisible();
+					await expect(browseLink(page, title)).toHaveCount(0);
 
 					// 非表示の一覧は閲覧の一覧と同じ部品なので、行を押すとその閲覧画面が開く。
 					await page.goto('/hidden');
-					await page.getByRole('link', { name: title }).click();
+					await browseLink(page, title).click();
 					await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
 
 					const anonPage = await anon.newPage();
@@ -281,7 +282,7 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 					await expect(editorPage.getByRole('listbox')).toHaveCount(0);
 					await expect(editorPage.getByRole('button', { name: SAVE_BUTTON_NAME })).toHaveCount(0);
 
-					await editorPage.getByRole('link', { name: ITEMS_TAB_NAME }).click();
+					await browseLink(editorPage, ITEMS_TAB_NAME).click();
 					await expect(editorPage.getByText('2024/answer.pdf')).toBeVisible();
 					await expect(
 						editorPage.getByRole('button', { name: /再スキャンする|Rescan/ })
@@ -316,7 +317,7 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 					await addAxisValue(editorPage, 'listening', 'リスニング');
 					await saveAxisValues(editorPage, '種類');
 
-					await editorPage.getByRole('link', { name: ITEMS_TAB_NAME }).click();
+					await browseLink(editorPage, ITEMS_TAB_NAME).click();
 					await expect(
 						editorPage.getByRole('button', { name: /再スキャンする|Rescan/ })
 					).toBeVisible();

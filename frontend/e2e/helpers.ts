@@ -303,6 +303,14 @@ export function contentRow(page: Page, title: string): Locator {
 	return rowByCell(page, 'content-title', title);
 }
 
+/**
+ * 閲覧の一覧の行のリンク。書き換えられる行には「〈タイトル〉を編集」のペンも並び、名前の一部一致で両方に当たるので、
+ * 文字を持つ方 (タイトルのリンク) に絞る。ペンは名前を `aria-label` で持ち、文字を持たない。
+ */
+export function browseLink(page: Page, title: string): Locator {
+	return page.getByRole('link', { name: title }).filter({ hasText: title });
+}
+
 /** 編集ページの最後の「削除」の区画の「削除...」 (→ docs/ui.md「編集ページの区画」)。 */
 export function deleteSectionButton(page: Page): Locator {
 	return page
