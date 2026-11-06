@@ -91,7 +91,7 @@
 
 	async function handleNameSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		if (sections.saving || name.trim() === '') return;
+		if (name.trim() === '') return;
 		await sections.save('name', m.admin_roots_name_label(), async () => {
 			// 失敗したら値を残す。名前が重なったときに、入れ直せるようにする。
 			const result = await errorDialog.attempt(() =>
@@ -112,7 +112,6 @@
 
 	async function handleAccessSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		if (sections.saving) return;
 		await sections.save('access', m.admin_roots_edit_access_title(), async () => {
 			const result = await errorDialog.attempt(() =>
 				client.PUT('/api/v1/admin/roots/{id}/access', {

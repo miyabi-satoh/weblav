@@ -66,7 +66,7 @@
 
 	async function handleUsernameSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		if (sections.saving || username.trim() === '') return;
+		if (username.trim() === '') return;
 		await sections.save('username', m.admin_users_dialog_username_label(), async () => {
 			// 失敗したら値を残す。名前が重なったときに、入れ直せるようにする。
 			const result = await errorDialog.attempt(() =>
@@ -87,7 +87,6 @@
 
 	async function handleRoleSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		if (sections.saving) return;
 		await sections.save('role', m.admin_users_role_label(), async () => {
 			const result = await errorDialog.attempt(() =>
 				client.PUT('/api/v1/admin/users/{id}/role', {

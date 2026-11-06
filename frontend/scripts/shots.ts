@@ -116,7 +116,6 @@ async function openPhotoFolder(page: Page, ctx: ShotContext): Promise<void> {
 	await waitForThumbnails(page, { timeout: SHOT_THUMBNAIL_TIMEOUT_MS });
 }
 
-/** 一覧の縮小画像が読み込まれるまで待つ。 */
 /** 画面撮りで縮小画像を待つ長さ。撮影用の小さな画像なので、これで出なければ壊れている。 */
 const SHOT_THUMBNAIL_TIMEOUT_MS = 5000;
 

@@ -92,7 +92,6 @@ async function chooseFromBrowseAddMenu(page: Page, item: RegExp) {
 	await page.getByRole('dialog').waitFor();
 }
 
-/** 一覧の縮小画像が読み込まれるまで待つ。 */
 /** 開いているダイアログを「キャンセル」で閉じ、消えるまで待つ。 */
 async function cancelDialog(page: Page, role: 'dialog' | 'alertdialog' = 'dialog') {
 	const dialog = page.getByRole(role);

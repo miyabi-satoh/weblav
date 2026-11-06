@@ -78,9 +78,8 @@ pub(super) async fn moved(
     let mut changed = Vec::new();
     for row in folder_rows(&mut *conn).await? {
         let index_kept = scanning(row.id);
-        // 登録先ごと動いたものは、登録先を付け替えるだけで中の索引はそのまま使える。
-        let rebased = rebase_content_path(&mut *conn, row.id, &row.path, &old, &new).await?;
-        if rebased {
+        if rebase_content_path(&mut *conn, row.id, &row.path, &old, &new).await? {
+            // 登録先ごと動いたものは、登録先を付け替えるだけで中の索引はそのまま使える。
         } else if let Ok(rel_old) = rel_under(&row.path, &old) {
             if !index_kept {
                 match rel_under(&row.path, &new) {
