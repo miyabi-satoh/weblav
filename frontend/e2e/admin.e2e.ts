@@ -201,6 +201,8 @@ test('グループの画面の「追加」から作ると、そのグループ�
 		await createGroupContent(page, groupTitle);
 		await page.goto('/');
 		await page.getByRole('link', { name: groupTitle }).click();
+		// ホームの見出しにも「追加」があるので、グループの画面に移ってから押す。
+		await expect(page.getByRole('heading', { level: 1, name: groupTitle })).toBeVisible();
 		await page.getByRole('button', { name: /^追加$|^Add$/ }).click();
 		await page.getByRole('menuitem', { name: /^グループ\.\.\.$|^Group\.\.\.$/ }).click();
 		await waitForDialog(page);
