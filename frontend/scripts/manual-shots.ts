@@ -607,7 +607,7 @@ async function shootAdmin() {
 		await send(page.request, 'POST', `/contents/${archive!.id}/rescan`);
 
 		if (want('folder-list-view')) {
-			await goto(page, `/admin/contents/${archive!.id}`);
+			await goto(page, `/contents/${archive!.id}`);
 			await shotBetween(
 				page,
 				'folder-list-view',
@@ -618,7 +618,7 @@ async function shootAdmin() {
 		}
 
 		if (want('axis-add-dir')) {
-			await goto(page, `/admin/contents/${archive!.id}/axes`);
+			await goto(page, `/contents/${archive!.id}/axes`);
 			await page.getByRole('button', { name: '分類を追加...' }).click();
 			await waitForDialog(page);
 			const d = dialog(page);
@@ -631,7 +631,7 @@ async function shootAdmin() {
 		}
 
 		if (want('archive-axes-tab')) {
-			await goto(page, `/admin/contents/${archive!.id}/axes`);
+			await goto(page, `/contents/${archive!.id}/axes`);
 			await shotBetween(
 				page,
 				'archive-axes-tab',
@@ -642,7 +642,7 @@ async function shootAdmin() {
 		}
 
 		if (want('axis-add-word')) {
-			await goto(page, `/admin/contents/${archive!.id}/axes`);
+			await goto(page, `/contents/${archive!.id}/axes`);
 			await page.getByRole('button', { name: '分類を追加...' }).click();
 			await waitForDialog(page);
 			const d = dialog(page);
@@ -677,7 +677,7 @@ async function shootAdmin() {
 		});
 
 		if (want('axis-row-actions')) {
-			await goto(page, `/admin/contents/${archive!.id}/axes`);
+			await goto(page, `/contents/${archive!.id}/axes`);
 			await shotBetween(
 				page,
 				'axis-row-actions',
@@ -691,7 +691,7 @@ async function shootAdmin() {
 		}
 
 		if (want('archive-axes-template')) {
-			await goto(page, `/admin/contents/${archive!.id}/axes`);
+			await goto(page, `/contents/${archive!.id}/axes`);
 			await shotBetween(
 				page,
 				'archive-axes-template',
@@ -703,7 +703,7 @@ async function shootAdmin() {
 
 		const tabs = page.getByRole('navigation', { name: 'コンテンツの設定' });
 		if (want('archive-items-tab')) {
-			await goto(page, `/admin/contents/${archive!.id}/items`);
+			await goto(page, `/contents/${archive!.id}/items`);
 			const thirdRow = page.getByRole('listitem').filter({ hasText: '.mp3' }).nth(2);
 			await shotBetween(page, 'archive-items-tab', tabs, thirdRow, { padTop: 8, padBottom: 8 });
 		}

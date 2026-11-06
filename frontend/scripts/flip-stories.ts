@@ -80,6 +80,13 @@ async function open(page: Page, url: string) {
 	await waitForPageReady(page);
 }
 
+/** ホームとグループの画面の見出しの「追加」から種類を選び、追加の窓が開くのを待つ。 */
+async function chooseFromBrowseAddMenu(page: Page, item: RegExp) {
+	await page.getByRole('button', { name: /^追加$/ }).click();
+	await page.getByRole('menuitem', { name: item }).click();
+	await page.getByRole('dialog').waitFor();
+}
+
 /** 一覧の縮小画像が読み込まれるまで待つ。 */
 async function waitForThumbnails(page: Page) {
 	await page.waitForFunction(() => {
@@ -391,13 +398,29 @@ const contents: Story = {
 	title: '管理: コンテンツ',
 	roles: LOGGED_IN,
 	steps: [
-		{ caption: 'コンテンツ管理を開く', run: (page) => open(page, '/admin/contents') },
+		// 管理画面は admin 専用なので、user はホームの「追加」から作る (→ docs/access.md「ロールと操作」)。
+		{
+			caption: 'コンテンツ管理を開く',
+			roles: ADMIN_ONLY,
+			run: (page) => open(page, '/admin/contents')
+		},
+		{ caption: 'ホームを開く', roles: USER_ONLY, run: (page) => open(page, '/') },
 		{
 			caption: '「追加...」を押す',
+			roles: ADMIN_ONLY,
 			run: (page) => openAddDialog(page, CONTENT_ADD_BUTTON_NAME)
 		},
 		{
+			caption: '見出しの「追加」から「リンク...」を選ぶ',
+			roles: USER_ONLY,
+			async run(page) {
+				await chooseFromBrowseAddMenu(page, /^リンク\.\.\.$/);
+				await page.getByLabel(requiredLabel('URL')).waitFor();
+			}
+		},
+		{
 			caption: '種類で「リンク」を選ぶ',
+			roles: ADMIN_ONLY,
 			async run(page) {
 				await chooseContentType(page, 'link');
 				await page.getByLabel(requiredLabel('URL')).waitFor();
@@ -413,7 +436,7 @@ const contents: Story = {
 			caption: '「追加する」を押す (編集のページへ移る)',
 			async run(page) {
 				await page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
-				await page.waitForURL(/\/admin\/contents\/\d+$/);
+				await page.waitForURL(/\/contents\/\d+$/);
 				await page.getByRole('button', { name: SAVE_BUTTON_NAME }).waitFor();
 			}
 		},
@@ -435,11 +458,20 @@ const contents: Story = {
 		},
 		{
 			caption: '一覧に戻り、作った行の操作のメニューを開く',
+			roles: ADMIN_ONLY,
 			async run(page, ctx) {
 				await open(page, '/admin/contents');
 				const row = contentRow(page, ownTitle(ctx));
 				await row.scrollIntoViewIfNeeded();
 				await row.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).click();
+				await page.getByRole('menu').waitFor();
+			}
+		},
+		{
+			caption: '見出しの⋮を開く',
+			roles: USER_ONLY,
+			async run(page) {
+				await page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).first().click();
 				await page.getByRole('menu').waitFor();
 			}
 		},
@@ -452,13 +484,32 @@ const contents: Story = {
 		},
 		{
 			caption: '削除する',
+			roles: ADMIN_ONLY,
 			async run(page, ctx) {
 				await confirmDelete(page);
 				await contentRow(page, ownTitle(ctx)).waitFor({ state: 'detached' });
 			}
 		},
 		{
+			caption: '削除する (ホームへ戻る)',
+			roles: USER_ONLY,
+			async run(page) {
+				await confirmDelete(page);
+				await page.waitForURL((url) => url.pathname === '/');
+				await waitForPageReady(page);
+			}
+		},
+		{
+			caption: '見出しの「追加」から「ショートカット...」を選ぶ',
+			roles: USER_ONLY,
+			async run(page) {
+				await chooseFromBrowseAddMenu(page, /^ショートカット\.\.\.$/);
+				await page.getByRole('button', { name: CHOOSE_PATH_BUTTON_NAME }).waitFor();
+			}
+		},
+		{
 			caption: '「追加...」から「フォルダー」を選ぶ',
+			roles: ADMIN_ONLY,
 			async run(page) {
 				await openAddDialog(page, CONTENT_ADD_BUTTON_NAME);
 				await chooseContentType(page, 'folder');
@@ -501,14 +552,14 @@ const contents: Story = {
 			caption: '「登録する」を押す (編集のページへ移る)',
 			async run(page) {
 				await page.getByRole('button', { name: REGISTER_BUTTON_NAME }).click();
-				await page.waitForURL(/\/admin\/contents\/\d+$/);
+				await page.waitForURL(/\/contents\/\d+$/);
 				await page.getByRole('button', { name: SAVE_BUTTON_NAME }).waitFor();
 			}
 		},
 		{
 			caption: '管理者が作ったフォルダーの編集のページを開く',
 			async run(page, ctx) {
-				await open(page, `/admin/contents/${ctx.fixtures.folderId}`);
+				await open(page, `/contents/${ctx.fixtures.folderId}`);
 				await page.getByRole('heading', { level: 1 }).waitFor();
 			}
 		}
@@ -522,7 +573,7 @@ const archive: Story = {
 		{
 			caption: 'アーカイブの編集のページを開く (基本情報)',
 			async run(page, ctx) {
-				await open(page, `/admin/contents/${ctx.fixtures.archiveId}`);
+				await open(page, `/contents/${ctx.fixtures.archiveId}`);
 				await page.getByRole('heading', { level: 1 }).waitFor();
 			}
 		},
@@ -594,11 +645,11 @@ const admin: Story = {
 			run: (page) => open(page, '/admin/users')
 		},
 		{
-			caption: 'ユーザー管理の URL を開く (コンテンツ管理へ戻される)',
+			caption: 'ユーザー管理の URL を開く (ホームへ戻される)',
 			roles: USER_ONLY,
 			async run(page) {
 				await page.goto('/admin/users');
-				await page.waitForURL(/\/admin\/contents$/);
+				await page.waitForURL((url) => url.pathname === '/');
 				await waitForPageReady(page);
 			}
 		},
@@ -679,11 +730,11 @@ const admin: Story = {
 			run: (page) => open(page, '/admin/roots')
 		},
 		{
-			caption: '共有の URL を開く (コンテンツ管理へ戻される)',
+			caption: '共有の URL を開く (ホームへ戻される)',
 			roles: USER_ONLY,
 			async run(page) {
 				await page.goto('/admin/roots');
-				await page.waitForURL(/\/admin\/contents$/);
+				await page.waitForURL((url) => url.pathname === '/');
 				await waitForPageReady(page);
 			}
 		},
@@ -714,11 +765,11 @@ const admin: Story = {
 			}
 		},
 		{
-			caption: 'サイト設定の URL を開く (コンテンツ管理へ戻される)',
+			caption: 'サイト設定の URL を開く (ホームへ戻される)',
 			roles: USER_ONLY,
 			async run(page) {
 				await page.goto('/admin/settings');
-				await page.waitForURL(/\/admin\/contents$/);
+				await page.waitForURL((url) => url.pathname === '/');
 				await waitForPageReady(page);
 			}
 		},

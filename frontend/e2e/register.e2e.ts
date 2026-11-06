@@ -150,7 +150,7 @@ test('ファイルを指すショートカット: 追加の窓で選んで作り
 		await picker.getByRole('button', { name: 'memo.txt', exact: true }).click();
 		await picker.getByRole('button', { name: /^このファイルを使用$|^Use this file$/ }).click();
 		await page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
-		await expect(page).toHaveURL(/\/admin\/contents\/\d+$/);
+		await expect(page).toHaveURL(/\/contents\/\d+$/);
 		await expect(page.getByRole('heading', { name: 'memo.txt', level: 1 })).toBeVisible();
 		// ファイルを指すものにはパターンもライブラリの切り替えも無い。
 		await expect(page.getByRole('switch', { name: LIST_VIEW_SWITCH_NAME })).toHaveCount(0);

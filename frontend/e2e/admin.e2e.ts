@@ -124,13 +124,13 @@ test('管理画面: コンテンツを編集できる', async ({ page }) => {
 		await createLinkContent(page, title);
 		await page.goto('/admin/contents');
 		await clickRowMenuItem(page, contentRow(page, title), /^編集$|^Edit$/);
-		await page.waitForURL(/\/admin\/contents\/\d+$/);
+		await page.waitForURL(/\/contents\/\d+$/);
 		await page.getByLabel(TITLE_LABEL).fill(editedTitle);
 
 		// 保存していない変更があるうちは、一覧へ戻ろうとすると確認が出て留まれる。
 		await page.getByRole('link', { name: CONTENTS_NAV_LINK_NAME }).first().click();
 		await page.getByRole('alertdialog').getByRole('button', { name: CANCEL_BUTTON_NAME }).click();
-		await expect(page).toHaveURL(/\/admin\/contents\/\d+$/);
+		await expect(page).toHaveURL(/\/contents\/\d+$/);
 
 		await saveForm(page, { button: basicSaveButton(page) });
 		await expect(page.getByRole('heading', { level: 1, name: editedTitle })).toBeVisible();
@@ -279,7 +279,10 @@ test('作成者のみ: 作成者の一覧にだけ印付きで並び、作成者
 		const ownerPage = await ownerContext.newPage();
 		await logIn(ownerPage, username, password);
 		await ownerPage.waitForURL('/');
-		await createLinkContent(ownerPage, title, { visibility: VISIBILITY_PRIVATE_OPTION_NAME });
+		await createLinkContent(ownerPage, title, {
+			visibility: VISIBILITY_PRIVATE_OPTION_NAME,
+			fromHome: true
+		});
 
 		await ownerPage.goto('/');
 		await expect(ownerPage.getByRole('link', { name: title })).toContainText(
@@ -480,7 +483,7 @@ test('管理画面: コンテンツ一覧の行を押すと編集ページへ移
 		const box = await cell.boundingBox();
 		if (box === null) throw new Error('公開範囲のセルが見つからない');
 		await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-		await page.waitForURL(/\/admin\/contents\/\d+$/);
+		await page.waitForURL(/\/contents\/\d+$/);
 		await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
 	} finally {
 		await removeContentIfPresent(page, title);
@@ -551,7 +554,7 @@ test('コンテンツ一覧: ドラッグで見える範囲が広がるときは
 		await createGroupContent(page, restrictedGroupTitle);
 		await page.goto('/admin/contents');
 		await clickRowMenuItem(page, contentRow(page, restrictedGroupTitle), /^編集$|^Edit$/);
-		await page.waitForURL(/\/admin\/contents\/\d+$/);
+		await page.waitForURL(/\/contents\/\d+$/);
 		await page.getByLabel(VISIBILITY_LABEL).click();
 		await page.getByRole('option', { name: /ログインした人|Logged-in users/ }).click();
 		await saveForm(page, { button: basicSaveButton(page) });
@@ -607,7 +610,7 @@ test('コンテンツ一覧: 見出しの行へドラッグするとルートへ
 		await page.mouse.up();
 
 		await clickRowMenuItem(page, contentRow(page, restrictedGroupTitle), /^編集$|^Edit$/);
-		await page.waitForURL(/\/admin\/contents\/\d+$/);
+		await page.waitForURL(/\/contents\/\d+$/);
 		await page.getByLabel(VISIBILITY_LABEL).click();
 		await page.getByRole('option', { name: /ログインした人|Logged-in users/ }).click();
 		await saveForm(page, { button: basicSaveButton(page) });

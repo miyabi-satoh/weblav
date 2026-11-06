@@ -214,18 +214,6 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// userで管理画面を開いた状態。画面を切り替えるタブが出ない。タブの有無だけを
-	// 示すショットなので1サイズでよい。
-	admin_contents_list_as_user: {
-		viewports: ['desktop'],
-		async run(page, ctx) {
-			await login(page, TEST_USER.username, TEST_USER.password);
-			await page.goto(`${ctx.baseURL}/admin/contents`);
-			await waitForPageReady(page);
-			await page.screenshot({ path: ctx.outFile });
-		}
-	},
-
 	// 管理画面: コンテンツ一覧。作成者の列に他人 (testuser) と削除されたユーザーも出て、非表示の行も並ぶ。
 	admin_contents_list: {
 		async run(page, ctx) {
@@ -277,7 +265,7 @@ export const shots: Record<string, ShotEntry> = {
 	// コンテンツの編集ページ。アーカイブなので「基本情報」「軸定義」「ファイル」のタブが出る。
 	admin_contents_edit: {
 		async run(page, ctx) {
-			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.archiveId}`);
+			await openAsAdmin(page, ctx.baseURL, `/contents/${ctx.fixtures.archiveId}`);
 			await basicSaveButton(page).waitFor({ timeout: 5000 });
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
 		}
@@ -288,7 +276,7 @@ export const shots: Record<string, ShotEntry> = {
 	admin_contents_confirm_register: {
 		viewports: ['desktop'],
 		async run(page, ctx) {
-			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.folderId}`);
+			await openAsAdmin(page, ctx.baseURL, `/contents/${ctx.fixtures.folderId}`);
 			// パスを変えずに公開範囲だけ変えても確認が出ることを示す。
 			await page.getByLabel(VISIBILITY_LABEL).click();
 			await page.getByRole('option', { name: /ログインした人|Logged-in users/ }).click();
@@ -485,7 +473,7 @@ export const shots: Record<string, ShotEntry> = {
 	// 値の辞書(照合語リスト)も併せて表示する。
 	admin_archive_axes: {
 		async run(page, ctx) {
-			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.archiveId}/axes`);
+			await openAsAdmin(page, ctx.baseURL, `/contents/${ctx.fixtures.archiveId}/axes`);
 			// ボタンの accessible name は軸名+抽出元バッジの2行分になるため前方一致で探す。
 			// 上下ボタンの読み上げ名も軸名で始まるので、行の先頭にある軸を選ぶボタンを取る。
 			await page.getByRole('button', { name: /^級/ }).first().click();
@@ -499,7 +487,7 @@ export const shots: Record<string, ShotEntry> = {
 	// 今の表での一致・未設定の件数が出る。未設定のファイルの例も開いておく。
 	admin_archive_axes_word_suggestions: {
 		async run(page, ctx) {
-			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.archiveId}/axes`);
+			await openAsAdmin(page, ctx.baseURL, `/contents/${ctx.fixtures.archiveId}/axes`);
 			await page.getByRole('button', { name: /^級/ }).first().click();
 			// 候補と件数は軸を選んでから取るので、どちらも出るまで待つ。
 			const words = page.getByRole('region', {
@@ -519,7 +507,7 @@ export const shots: Record<string, ShotEntry> = {
 	// 管理画面: アーカイブの軸の追加ダイアログ。フォルダーの階層を、階層ごとの値の例を見て選ぶ。
 	admin_archive_axes_add_dialog: {
 		async run(page, ctx) {
-			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.archiveId}/axes`);
+			await openAsAdmin(page, ctx.baseURL, `/contents/${ctx.fixtures.archiveId}/axes`);
 			await openAddDialog(page, /^分類を追加\.\.\.$|^Add category\.\.\.$/, { timeout: 5000 });
 			// 階層ごとの値はダイアログを開いてから取るので、選択肢が出るまで待つ。
 			await page.getByRole('dialog').getByRole('radio').first().waitFor({ timeout: 5000 });
@@ -530,7 +518,7 @@ export const shots: Record<string, ShotEntry> = {
 	// 管理画面: アーカイブのファイルのタブ。公開済みのファイルが並ぶ状態。
 	admin_archive_items: {
 		async run(page, ctx) {
-			await openAsAdmin(page, ctx.baseURL, `/admin/contents/${ctx.fixtures.archiveId}/items`);
+			await openAsAdmin(page, ctx.baseURL, `/contents/${ctx.fixtures.archiveId}/items`);
 			// 一覧の行が出るまで待つ。
 			await page.getByRole('listitem').first().waitFor({ timeout: 5000 });
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
