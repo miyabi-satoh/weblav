@@ -32,6 +32,7 @@ import {
 	USERNAME_LABEL,
 	USER_ADD_BUTTON_NAME,
 	VISIBILITY_LABEL,
+	basicSaveButton,
 	chooseContentType,
 	confirmDelete,
 	contentRow,
@@ -437,7 +438,7 @@ const contents: Story = {
 			async run(page) {
 				await page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
 				await page.waitForURL(/\/contents\/\d+$/);
-				await page.getByRole('button', { name: SAVE_BUTTON_NAME }).waitFor();
+				await basicSaveButton(page).waitFor();
 			}
 		},
 		{
@@ -452,7 +453,7 @@ const contents: Story = {
 			caption: '「ログインした人」を選んで保存する',
 			async run(page) {
 				await page.getByRole('option', { name: /^ログインした人|^Logged-in users/ }).click();
-				await page.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
+				await basicSaveButton(page).click();
 				await page.getByText(/を保存しました。\s*$/).waitFor();
 			}
 		},
@@ -527,8 +528,10 @@ const contents: Story = {
 		{
 			caption: '共有の中へ進む',
 			async run(page, ctx) {
-				await page.getByText(ctx.fixtures.sharedFolderName, { exact: true }).click();
-				await page.getByText(/^1\sつ上へ$/).waitFor();
+				// ホームの「共有」の区画にも同じ名前が出るので、窓の中に絞る。
+				const picker = page.getByRole('dialog', { name: DIR_PICKER_NAME });
+				await picker.getByText(ctx.fixtures.sharedFolderName, { exact: true }).click();
+				await picker.getByText(/^1\sつ上へ$/).waitFor();
 			}
 		},
 		{
@@ -554,7 +557,7 @@ const contents: Story = {
 			async run(page) {
 				await page.getByRole('button', { name: REGISTER_BUTTON_NAME }).click();
 				await page.waitForURL(/\/contents\/\d+$/);
-				await page.getByRole('button', { name: SAVE_BUTTON_NAME }).waitFor();
+				await basicSaveButton(page).waitFor();
 			}
 		},
 		{
@@ -569,7 +572,8 @@ const contents: Story = {
 
 const archive: Story = {
 	title: '管理: アーカイブ',
-	roles: ['admin', 'user'],
+	// 一般ユーザーは他人のアーカイブの編集ページを開くと閲覧の画面へ移るので、撮るのは管理者だけ (→ docs/ui.md「UI 全般」)。
+	roles: ['admin'],
 	steps: [
 		{
 			caption: 'アーカイブの編集のページを開く (基本情報)',
@@ -614,19 +618,30 @@ const archive: Story = {
 		},
 		{
 			caption: '「ファイル」のタブを開く',
-			async run(page, ctx) {
-				if (ctx.role === 'admin') await cancelDialog(page);
+			async run(page) {
+				await cancelDialog(page);
 				await page.getByRole('link', { name: /^ファイル$/ }).click();
 				await page.waitForURL(/\/items$/);
-				await page.getByRole('table').waitFor();
+				await page.getByRole('listitem').first().waitFor();
 			}
 		},
 		{
 			caption: '「再スキャンする」を押す',
 			roles: ADMIN_ONLY,
 			async run(page) {
-				await page.getByRole('button', { name: /^再スキャンする$/ }).click();
-				await page.getByRole('table').waitFor();
+				// スマートフォンの幅では、見出しの段の ⋮ の中にある (→ docs/ui.md「UI 全般」)。
+				const button = page.getByRole('button', { name: /^再スキャンする$/ });
+				if (await button.isVisible()) {
+					await button.click();
+				} else {
+					await page
+						.getByRole('heading', { level: 1 })
+						.locator('xpath=..')
+						.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME })
+						.click();
+					await page.getByRole('menuitem', { name: /^再スキャンする$/ }).click();
+				}
+				await page.getByRole('listitem').first().waitFor();
 			}
 		},
 		{
