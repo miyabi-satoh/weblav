@@ -561,7 +561,7 @@ const contents: Story = {
 			}
 		},
 		{
-			caption: '管理者が作ったフォルダーの編集のページを開く',
+			caption: '管理者が作ったフォルダーの編集のページを開く (一般ユーザーは閲覧の画面へ移る)',
 			async run(page, ctx) {
 				await open(page, `/contents/${ctx.fixtures.folderId}`);
 				await page.getByRole('heading', { level: 1 }).waitFor();

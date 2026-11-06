@@ -8,6 +8,7 @@ import { crc32, deflateSync } from 'node:zlib';
 import { withDatabase, type Backend } from './backend-process.ts';
 import type { ShotFixtures } from './shots.ts';
 import { TEST_ADMIN } from './test-account.ts';
+import { silentWav } from './silent-wav.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
 const SEED_SQL_PATH = path.join(import.meta.dirname, 'seed.sql');
@@ -24,6 +25,8 @@ const FIXTURE_DIR = path.join(FIXTURE_ROOT_DIR, '教材');
 /** `FIXTURE_ROOT_DIR` を登録するときの名前。ピッカーやコンテンツの場所に、フルパスの代わりに出る。 */
 const FIXTURE_ROOT_NAME = '学校';
 // ファイル数がそのまま確認ダイアログの表示になるので、桁が揃って読みやすい数にする。
+/** 音声の長さ (秒)。プレイヤーの時間の表示が 0:00 にならず、ファイルが重くならない長さ。 */
+const FIXTURE_TRACK_SECONDS = 60;
 const FIXTURE_TREE: Record<string, string[]> = {
 	'英検/2024': ['1級_リスニング.mp3', '1級_解答.pdf', '2級_リスニング.mp3'],
 	'英検/2023': ['1級_リスニング.mp3', '1級_解答.pdf'],
@@ -122,7 +125,13 @@ export function writeFixtureFiles(): void {
 	for (const [dir, files] of Object.entries(FIXTURE_TREE)) {
 		const target = path.join(FIXTURE_DIR, dir);
 		mkdirSync(target, { recursive: true });
-		for (const file of files) writeFileSync(path.join(target, file), '');
+		// 音声は、行を押すとプレイヤーで鳴らすので、鳴らせる中身を入れる (空だと再生できないという知らせが写る)。
+		// 中身は無音の WAV にする (ブラウザーは拡張子でなく中身で形式を見て鳴らす)。
+		for (const file of files)
+			writeFileSync(
+				path.join(target, file),
+				file.endsWith('.mp3') ? silentWav(FIXTURE_TRACK_SECONDS) : ''
+			);
 	}
 	for (const [file, { width, height, from, to }] of Object.entries(FIXTURE_IMAGES)) {
 		const target = path.join(FIXTURE_DIR, file);
