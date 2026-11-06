@@ -191,7 +191,9 @@ test('グループ配下のコンテンツが一覧できる', async ({ page }) 
 	}
 });
 
-test('グループの画面の「追加」から作ると、そのグループの中に入り、編集ページへ移る', async ({ page }) => {
+test('グループの画面の「追加」から作ると、そのグループの中に入り、編集ページへ移る', async ({
+	page
+}) => {
 	const groupTitle = uniqueId('E2Eグループ');
 	const childTitle = uniqueId('E2E子グループ');
 
