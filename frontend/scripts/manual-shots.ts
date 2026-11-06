@@ -30,6 +30,7 @@ import {
 } from '../e2e/helpers.ts';
 import { insertTestAdmin, startBackend, type Backend } from './backend-process.ts';
 import { waitForPageReady } from './shots.ts';
+import { silentWav } from './silent-wav.ts';
 import { TEST_ADMIN } from './test-account.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -148,25 +149,6 @@ function makeSharedDir(): string {
 	mkdirSync(path.join(shared, '教材'));
 	// サーバーは実パスで返す (macOS の一時フォルダーは /private/var/...)。置き換えはこちらに合わせる。
 	return realpathSync(shared);
-}
-
-/** 無音の WAV (8kHz・8bit・モノラル)。 */
-function silentWav(seconds: number): Buffer {
-	const samples = 8000 * seconds;
-	const buffer = Buffer.alloc(44 + samples, 128);
-	buffer.write('RIFF', 0);
-	buffer.writeUInt32LE(36 + samples, 4);
-	buffer.write('WAVEfmt ', 8);
-	buffer.writeUInt32LE(16, 16);
-	buffer.writeUInt16LE(1, 20);
-	buffer.writeUInt16LE(1, 22);
-	buffer.writeUInt32LE(8000, 24);
-	buffer.writeUInt32LE(8000, 28);
-	buffer.writeUInt16LE(1, 32);
-	buffer.writeUInt16LE(8, 34);
-	buffer.write('data', 36);
-	buffer.writeUInt32LE(samples, 40);
-	return buffer;
 }
 
 async function send(request: APIRequestContext, method: string, apiPath: string, data?: unknown) {
