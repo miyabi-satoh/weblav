@@ -24,9 +24,12 @@
 	let {
 		username,
 		hiddenCount,
+		isAdmin,
 		onlogout
 	}: {
 		username: string;
+		/** 管理画面の入口を出すか。管理画面は admin 専用 (→ docs/access.md「ロールと操作」)。 */
+		isAdmin: boolean;
 		/** 非表示のコンテンツの一覧に並ぶ件数。0 なら項目を出さない。 */
 		hiddenCount: number;
 		onlogout: () => void;
@@ -124,12 +127,13 @@
 		<DropdownMenu.Group>
 			<DropdownMenu.Label class="wrap-anywhere">{username}</DropdownMenu.Label>
 			<DropdownMenu.Separator />
-			<!-- コンテンツ管理は `user` にも開放されている (→ docs/access.md「ロールと操作」)。 -->
-			<DropdownMenu.Item>
-				{#snippet child({ props })}
-					<a href={resolve('/admin/contents')} {...props}>{m.admin_nav_label()}</a>
-				{/snippet}
-			</DropdownMenu.Item>
+			{#if isAdmin}
+				<DropdownMenu.Item>
+					{#snippet child({ props })}
+						<a href={resolve('/admin/contents')} {...props}>{m.admin_nav_label()}</a>
+					{/snippet}
+				</DropdownMenu.Item>
+			{/if}
 			{#if hiddenCount > 0}
 				<!-- 非表示のものは閲覧の場のどこにも並ばないので、戻す入口をここに置く。 -->
 				<DropdownMenu.Item>

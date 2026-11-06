@@ -11,7 +11,6 @@
 	import { page } from '$app/state';
 	import { client } from '$lib/api/client';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
-	import { canEditContent, isAdmin } from '$lib/auth';
 	import { archiveItemsSummary, contentTypeLabel, visibilityLabel } from '$lib/content-labels';
 	import { ContentFormState } from '$lib/content-form.svelte';
 	import { ancestorPath, byIdMap, flattenTree, selfAndAncestors } from '$lib/content-tree';
@@ -68,8 +67,8 @@
 	// 追加の窓。「コンテンツを追加...」と、グループの行の「中に追加...」で開く。
 	let createDialog = $state<ReturnType<typeof ContentCreateDialog>>();
 
+	// この画面は admin 専用 (→ `routes/admin/+layout.ts`) なので、行はどれも書き換えられ、フルパスも見せる。
 	let currentUserId = $derived(page.data.user?.id);
-	let canSeeFullPath = $derived(isAdmin(page.data.user));
 
 	// 作成者のユーザーを削除した行は作成者が空になる (→ docs/access.md「ユーザーの削除と作成者」)。
 	function creatorLabel(content: Content): string {
@@ -149,14 +148,14 @@
 		try {
 			// 更新 API は全項目の置き換えなので、一覧を読み込んだ後に別の人が変えた項目を
 			// 古い値で戻さないよう、送る直前に取り直した値を使う。
-			const latest = await client.GET('/api/v1/admin/contents');
+			const latest = await client.GET('/api/v1/contents/manage');
 			const fresh = latest.data?.find((c) => c.id === content.id);
 			if (!latest.response.ok || !fresh) {
 				errorDialog.show(errorMessage(latest.error));
 				await refreshAll();
 				return;
 			}
-			reparentForm.loadFrom(fresh, canSeeFullPath);
+			reparentForm.loadFrom(fresh, true);
 			reparentForm.parentId = parentId === null ? 'root' : String(parentId);
 			const result = await reparentForm.replace(content.id);
 			if (!result.response.ok || !result.data) {
@@ -246,8 +245,6 @@
 				<Table.Body>
 					{#each rows as { content, depth } (content.id)}
 						{@const TypeIcon = contentTypeIcon(content.type)}
-						<!-- 書き換えられない行は見るだけにする (→ docs/ui.md「UI 全般」)。 -->
-						{@const editable = canEditContent(page.data.user, content)}
 						<!-- 行のどこを押しても編集ページへ移る。押せる範囲はタイトルのリンクの ::after で行いっぱいに広げる
 					     (つまみのある行は、つまみの下だけを空ける)。
 					     ⋮メニューは DOM で後ろにあるので、その上に重なって押せる (→ docs/ui.md「UI 全般」)。
@@ -273,15 +270,13 @@
 										<!-- e2e が行を特定するための目印。「親」列にもグループ名がそのまま出るため、
 									     行全体の名前ではなくタイトルそのものを持つ要素で探す。 -->
 										<a
-											href={resolve('/admin/contents/[id]', { id: String(content.id) })}
+											href={resolve('/contents/[id]', { id: String(content.id) })}
 											class={[
 												rowLinkClass,
 												// つまみのある行は、つまみの右を ::after、左を ::before で覆い、つまみの下だけを空ける。
 												// リンクは長押しで iOS のドラッグを始めないよう draggable を外し、メニューも出さない (→ docs/ui.md「UI 全般」)。
 												'touch-callout-none',
-												editable
-													? 'before:absolute before:inset-y-0 before:left-0 before:row-link-before-handle after:row-link-after-handle'
-													: 'after:left-0'
+												'before:absolute before:inset-y-0 before:left-0 before:row-link-before-handle after:row-link-after-handle'
 											]}
 											draggable="false"
 											data-testid="content-title">{content.title}</a
@@ -304,24 +299,19 @@
 									<!-- 親を付け替えるつまみ。タイトルのリンクの ::after はつまみの右から始まるが、
 								     つまみの押せる範囲の広がりと重ならないよう DOM ではリンクの後ろに置いて上に重ね、
 								     見た目だけ order-first で先頭に戻す。読み上げ・キーボードには乗せない (→ docs/ui.md「UI 全般」)。 -->
-									{#if editable}
-										<span
-											{@attach reparentDrag.handle(content)}
-											data-testid="reparent-handle"
-											aria-hidden="true"
-											class={[
-												dragHandleClass,
-												'z-10 order-first',
-												reparenting ? 'opacity-50' : 'cursor-grab'
-											]}
-											oncontextmenu={(event) => event.preventDefault()}
-										>
-											<GripVerticalIcon class="size-4" />
-										</span>
-									{:else}
-										<!-- つまみの幅を空けて、タイトルの頭を書き換えられる行とそろえる。 -->
-										<span class="order-first size-8 shrink-0" aria-hidden="true"></span>
-									{/if}
+									<span
+										{@attach reparentDrag.handle(content)}
+										data-testid="reparent-handle"
+										aria-hidden="true"
+										class={[
+											dragHandleClass,
+											'z-10 order-first',
+											reparenting ? 'opacity-50' : 'cursor-grab'
+										]}
+										oncontextmenu={(event) => event.preventDefault()}
+									>
+										<GripVerticalIcon class="size-4" />
+									</span>
 								</span>
 							</Table.Cell>
 							<Table.Cell class={[columnFromSmClass, fitColumnClass, 'text-muted-foreground']}>
@@ -332,9 +322,7 @@
 							</Table.Cell>
 							<Table.Cell class={[columnFromLgClass, cappedColumnClass, 'text-muted-foreground']}>
 								<span class={cappedValueClass}
-									>{content.url ??
-										contentPathLabel(content, canSeeFullPath) ??
-										content.fileName}</span
+									>{content.url ?? contentPathLabel(content, true) ?? content.fileName}</span
 								>
 							</Table.Cell>
 							<Table.Cell class={[columnFromSmClass, fitColumnClass]}>
@@ -354,9 +342,8 @@
 									{/if}
 									<DropdownMenu.Item>
 										{#snippet child({ props })}
-											<a
-												href={resolve('/admin/contents/[id]', { id: String(content.id) })}
-												{...props}>{editable ? m.action_edit_page() : m.contents_menu_open()}</a
+											<a href={resolve('/contents/[id]', { id: String(content.id) })} {...props}
+												>{m.action_edit_page()}</a
 											>
 										{/snippet}
 									</DropdownMenu.Item>
@@ -373,14 +360,12 @@
 											<!-- eslint-enable svelte/no-navigation-without-resolve -->
 										{/snippet}
 									</DropdownMenu.Item>
-									{#if editable}
-										<DropdownMenu.Item
-											variant="destructive"
-											onSelect={() => (deletingContent = content)}
-										>
-											{m.action_delete()}
-										</DropdownMenu.Item>
-									{/if}
+									<DropdownMenu.Item
+										variant="destructive"
+										onSelect={() => (deletingContent = content)}
+									>
+										{m.action_delete()}
+									</DropdownMenu.Item>
 								</RowActionsMenu>
 							</Table.Cell>
 						</Table.Row>

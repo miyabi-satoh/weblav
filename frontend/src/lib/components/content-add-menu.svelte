@@ -39,7 +39,7 @@
 		loading = true;
 		try {
 			const [list, shared] = await Promise.all([
-				client.GET('/api/v1/admin/contents'),
+				client.GET('/api/v1/contents/manage'),
 				fetchSharedFolderPresence()
 			]);
 			if (!list.response.ok || !list.data) {

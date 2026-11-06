@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { goto, refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { isAdmin } from '$lib/auth';
 	import { client } from '$lib/api/client';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
@@ -57,7 +59,8 @@
 	// 再設定と同時にログイン済みになっている。ヘッダーの表示を取り直してから移る。
 	async function handleKept() {
 		await refreshAll();
-		await goto(resolve('/admin/contents'));
+		// 管理画面は admin 専用 (→ docs/access.md「ロールと操作」)。
+		await goto(isAdmin(page.data.user) ? resolve('/admin/contents') : resolve('/'));
 	}
 </script>
 

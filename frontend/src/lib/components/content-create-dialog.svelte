@@ -139,7 +139,7 @@
 			}
 			open = false;
 			// 任意の項目は、作った直後に編集ページで続けて入力する。
-			await goto(resolve('/admin/contents/[id]', { id: String(result.data.id) }));
+			await goto(resolve('/contents/[id]', { id: String(result.data.id) }));
 		} catch {
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {

@@ -131,7 +131,7 @@
 		saving = true;
 		try {
 			// 更新の API は全項目の置き換えなので、一覧を読み込んだ後に別の人が変えた項目を古い値で戻さない。
-			const latest = await client.GET('/api/v1/admin/contents');
+			const latest = await client.GET('/api/v1/contents/manage');
 			const fresh = latest.data?.find((item) => item.id === content.id);
 			if (!latest.response.ok || !fresh) {
 				errorDialog.show(errorMessage(latest.error));

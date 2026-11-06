@@ -12,7 +12,7 @@ export const load: PageLoad = async ({ parent, url }) => {
 		fetchOrError(client.GET('/api/v1/contents/hidden'), m.hidden_fetch_failed(), {
 			loginRedirectFrom: url
 		}),
-		fetchOrError(client.GET('/api/v1/admin/contents'), m.contents_fetch_failed(), {
+		fetchOrError(client.GET('/api/v1/contents/manage'), m.contents_fetch_failed(), {
 			loginRedirectFrom: url
 		})
 	]);

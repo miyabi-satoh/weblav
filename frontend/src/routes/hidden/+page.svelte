@@ -114,7 +114,7 @@
 								{/if}
 								<DropdownMenu.Item>
 									{#snippet child({ props })}
-										<a href={resolve('/admin/contents/[id]', { id: String(content.id) })} {...props}
+										<a href={resolve('/contents/[id]', { id: String(content.id) })} {...props}
 											>{m.action_edit_page()}</a
 										>
 									{/snippet}

@@ -168,168 +168,6 @@
         }
       }
     },
-    "/api/v1/admin/contents": {
-      "get": {
-        "summary": "管理画面向けの一覧。`path`・公開範囲・作成者を含む。\nログイン済みなら `user` も呼べるが、他人の `private` は `admin` にだけ返す\n(→ docs/access.md「管理画面の一覧が `user` に見えること」)。",
-        "operationId": "list_admin_contents",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AdminContentResponse"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/fs/count": {
-      "get": {
-        "summary": "登録前の確認用に、対象になるファイル数を数える。",
-        "operationId": "count_target_files",
-        "parameters": [
-          {
-            "name": "path",
-            "in": "query",
-            "description": "数える対象のディレクトリの絶対パス。",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "includePatterns",
-            "in": "query",
-            "description": "見せるファイルのパターン。1行に1つ (→ `file_filter`)。省略時は全ファイル。",
-            "required": false,
-            "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          },
-          {
-            "name": "excludePatterns",
-            "in": "query",
-            "description": "隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。",
-            "required": false,
-            "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "対象ファイル数",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CountResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "未ログイン",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "パスが存在しない・ディレクトリでない・共有の外",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/fs/dirs": {
-      "get": {
-        "summary": "サーバー上のディレクトリ一覧。",
-        "operationId": "list_dirs",
-        "parameters": [
-          {
-            "name": "path",
-            "in": "query",
-            "description": "一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「共有」の一覧。",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "files",
-            "in": "query",
-            "description": "真なら、フォルダーに加えて直下のファイルも返す (`files`)。ショートカットの先を選ぶときに使う。",
-            "required": false,
-            "schema": {
-              "type": "boolean"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "ディレクトリの一覧",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DirsResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "未ログイン",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "パスが存在しない・ディレクトリでない・共有の外",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/admin/log-settings": {
       "get": {
         "operationId": "get_log_settings",
@@ -2063,6 +1901,37 @@
           },
           "422": {
             "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contents/manage": {
+      "get": {
+        "summary": "管理画面向けの一覧。`path`・公開範囲・作成者を含む。\nログイン済みなら `user` も呼べるが、他人の `private` は `admin` にだけ返す\n(→ docs/access.md「管理用の一覧が `user` に見えること」)。",
+        "operationId": "list_admin_contents",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminContentResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
             "content": {
               "application/json": {
                 "schema": {
@@ -4992,6 +4861,137 @@
         }
       }
     },
+    "/api/v1/fs/count": {
+      "get": {
+        "summary": "登録前の確認用に、対象になるファイル数を数える。",
+        "operationId": "count_target_files",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "description": "数える対象のディレクトリの絶対パス。",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includePatterns",
+            "in": "query",
+            "description": "見せるファイルのパターン。1行に1つ (→ `file_filter`)。省略時は全ファイル。",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "excludePatterns",
+            "in": "query",
+            "description": "隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "対象ファイル数",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "パスが存在しない・ディレクトリでない・共有の外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/fs/dirs": {
+      "get": {
+        "summary": "サーバー上のディレクトリ一覧。",
+        "operationId": "list_dirs",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "description": "一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「共有」の一覧。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "files",
+            "in": "query",
+            "description": "真なら、フォルダーに加えて直下のファイルも返す (`files`)。ショートカットの先を選ぶときに使う。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ディレクトリの一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "パスが存在しない・ディレクトリでない・共有の外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/health": {
       "get": {
         "operationId": "health",
@@ -6633,7 +6633,7 @@
     "schemas": {
       "AdminContentResponse": {
         "type": "object",
-        "description": "管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。\n`user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「共有」の配下だけ\nなので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「共有」)。",
+        "description": "管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。\n`user` にも返す (→ docs/access.md「管理用の一覧が `user` に見えること」)。見えるのは「共有」の配下だけ\nなので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「共有」)。",
         "required": [
           "id",
           "type",
@@ -6672,7 +6672,7 @@
               "string",
               "null"
             ],
-            "description": "作成者のユーザー名。管理画面の一覧の「作成者」に出す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。"
+            "description": "作成者のユーザー名。管理画面の一覧の「作成者」に出す (→ docs/access.md「管理用の一覧が `user` に見えること」)。"
           },
           "description": {
             "type": [

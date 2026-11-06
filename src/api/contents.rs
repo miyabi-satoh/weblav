@@ -238,7 +238,7 @@ pub(super) async fn viewable_link_url(
     }
 }
 
-/// 管理画面の一覧に出すか (→ docs/access.md「管理画面の一覧が `user` に見えること」)。他人の `private` は `admin` にだけ出す。
+/// 管理画面の一覧に出すか (→ docs/access.md「管理用の一覧が `user` に見えること」)。他人の `private` は `admin` にだけ出す。
 pub(super) fn can_see_in_admin_list(
     user: &AuthUser,
     visibility: Visibility,
@@ -479,7 +479,7 @@ fn shortcut_file_name(path: &str) -> String {
 }
 
 /// 管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。
-/// `user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「共有」の配下だけ
+/// `user` にも返す (→ docs/access.md「管理用の一覧が `user` に見えること」)。見えるのは「共有」の配下だけ
 /// なので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「共有」)。
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -508,7 +508,7 @@ pub struct AdminContentResponse {
     pub visibility: Visibility,
     /// 作成者のユーザーid。`None`なら作成者なし (→ docs/access.md「公開範囲」)。
     pub created_by: Option<i64>,
-    /// 作成者のユーザー名。管理画面の一覧の「作成者」に出す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。
+    /// 作成者のユーザー名。管理画面の一覧の「作成者」に出す (→ docs/access.md「管理用の一覧が `user` に見えること」)。
     pub created_by_username: Option<String>,
     /// `type = 'folder'` で見せるファイルのパターン。1行に1つ。`None` なら全ファイルが対象。
     pub include_patterns: Option<String>,
@@ -1029,10 +1029,10 @@ async fn list_contents(
 
 /// 管理画面向けの一覧。`path`・公開範囲・作成者を含む。
 /// ログイン済みなら `user` も呼べるが、他人の `private` は `admin` にだけ返す
-/// (→ docs/access.md「管理画面の一覧が `user` に見えること」)。
+/// (→ docs/access.md「管理用の一覧が `user` に見えること」)。
 #[utoipa::path(
     get,
-    path = "/admin/contents",
+    path = "/contents/manage",
     responses(
         (status = OK, body = Vec<AdminContentResponse>),
         (status = 401, body = crate::error::ErrorResponse),

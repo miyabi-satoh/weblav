@@ -179,7 +179,7 @@ fn openapi_doc_has_prefixed_health_path() {
     assert!(json.contains("/api/v1/auth/logout"), "{json}");
     assert!(json.contains("/api/v1/auth/me"), "{json}");
     assert!(json.contains("/api/v1/contents"), "{json}");
-    assert!(json.contains("/api/v1/admin/contents"), "{json}");
+    assert!(json.contains("/api/v1/contents/manage"), "{json}");
     assert!(json.contains("/api/v1/contents/{id}/browse"), "{json}");
     assert!(json.contains("/api/v1/contents/{id}/download"), "{json}");
     assert!(json.contains("/api/v1/contents/{id}/rescan"), "{json}");

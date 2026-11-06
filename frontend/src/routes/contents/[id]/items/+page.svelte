@@ -131,7 +131,7 @@
 				axes={view.axes}
 				filters={data.filters}
 				sort={data.sort}
-				path={resolve('/admin/contents/[id]/items', { id: String(contentId) })}
+				path={resolve('/contents/[id]/items', { id: String(contentId) })}
 				total={nameActive ? view.totalAll : view.total}
 				shown={nameActive ? view.total : undefined}
 				countOnlyWhenFiltered

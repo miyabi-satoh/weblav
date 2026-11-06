@@ -12,7 +12,7 @@ import { client } from '$lib/api/client';
  */
 export async function fetchSharedFolderPresence(): Promise<boolean> {
 	try {
-		const { data } = await client.GET('/api/v1/admin/fs/dirs', {
+		const { data } = await client.GET('/api/v1/fs/dirs', {
 			params: { query: { path: '' } }
 		});
 		return (data?.entries.length ?? 0) > 0;

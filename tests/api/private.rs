@@ -20,7 +20,7 @@ async fn content_created_via_api_records_its_creator(pool: SqlitePool) {
     assert_eq!(status, StatusCode::CREATED, "{body}");
     assert!(body.contains(r#""createdByUsername":"alice""#), "{body}");
 
-    let (status, body) = send_empty(app, "GET", "/api/v1/admin/contents", &cookie).await;
+    let (status, body) = send_empty(app, "GET", "/api/v1/contents/manage", &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(body.contains(r#""createdByUsername":"alice""#), "{body}");
 }
@@ -166,7 +166,7 @@ async fn private_group_holds_only_its_creators_private_contents(pool: SqlitePool
     )
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
-    let (status, body) = send_empty(app.clone(), "GET", "/api/v1/admin/contents", &bob).await;
+    let (status, body) = send_empty(app.clone(), "GET", "/api/v1/contents/manage", &bob).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(
         !body.contains("私の関心") && !body.contains("記事"),
@@ -211,7 +211,7 @@ async fn private_group_holds_only_its_creators_private_contents(pool: SqlitePool
 }
 
 /// 管理画面の一覧で、他人の `private` は `user` には出ず、`admin` には作成者名付きで出る。
-/// `hidden` は全員に出る (→ docs/access.md「管理画面の一覧が `user` に見えること」)。
+/// `hidden` は全員に出る (→ docs/access.md「管理用の一覧が `user` に見えること」)。
 #[sqlx::test]
 async fn admin_contents_list_shows_others_private_only_to_admins(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
@@ -223,17 +223,17 @@ async fn admin_contents_list_shows_others_private_only_to_admins(pool: SqlitePoo
 
     let bob_cookie = login(app.clone(), "bob", "correct-password").await;
     let (status, body) =
-        send_empty(app.clone(), "GET", "/api/v1/admin/contents", &bob_cookie).await;
+        send_empty(app.clone(), "GET", "/api/v1/contents/manage", &bob_cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(!body.contains("アリスのメモ"), "{body}");
     assert!(body.contains("準備中の資料"), "{body}");
 
     let alice_cookie = login(app.clone(), "alice", "correct-password").await;
-    let (_, body) = send_empty(app.clone(), "GET", "/api/v1/admin/contents", &alice_cookie).await;
+    let (_, body) = send_empty(app.clone(), "GET", "/api/v1/contents/manage", &alice_cookie).await;
     assert!(body.contains("アリスのメモ"), "{body}");
 
     let admin_cookie = admin_cookie(app.clone(), &pool).await;
-    let (_, body) = send_empty(app, "GET", "/api/v1/admin/contents", &admin_cookie).await;
+    let (_, body) = send_empty(app, "GET", "/api/v1/contents/manage", &admin_cookie).await;
     assert!(body.contains("アリスのメモ"), "{body}");
     assert!(body.contains(r#""createdByUsername":"alice""#), "{body}");
 }

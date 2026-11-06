@@ -35,6 +35,23 @@
 	let view = $derived(contentViewHref(content, page.data.user?.id));
 	let deletingContent = $state<typeof content | null>(null);
 
+	// 戻り先は、admin はコンテンツの管理の一覧、user は閲覧の場でこのコンテンツが並ぶ所
+	// (親のグループかホーム)。管理画面は admin 専用で、user は閲覧の画面の ⋮ から来るため
+	// (→ docs/access.md「ロールと操作」)。
+	let back = $derived.by(() => {
+		if (isAdmin(page.data.user)) {
+			return { href: resolve('/admin/contents'), label: m.admin_contents_nav_title() };
+		}
+		const parent = content.parentId == null ? undefined : contentById.get(content.parentId);
+		if (parent) {
+			return {
+				href: resolve('/groups/[id]', { id: String(parent.id) }),
+				label: parent.title
+			};
+		}
+		return { href: resolve('/'), label: m.breadcrumb_home() };
+	});
+
 	// 再スキャンは見出しの段で押し、進み具合と結果は見出しの下に出す (→ docs/ui.md「UI 全般」)。
 	// タブを移っても消えないよう、ここで持つ。
 	const rescan = new ArchiveRescanState();
@@ -59,18 +76,18 @@
 	let tabs = $derived.by(() => {
 		const id = String(data.contentId);
 		const basic = {
-			href: resolve('/admin/contents/[id]', { id }),
+			href: resolve('/contents/[id]', { id }),
 			label: m.contents_edit_tabs_basic()
 		};
 		if (!content.listView) return [basic];
 		return [
 			basic,
-			{ href: resolve('/admin/contents/[id]/axes', { id }), label: m.archive_tabs_axes() },
-			{ href: resolve('/admin/contents/[id]/items', { id }), label: m.archive_tabs_items() },
+			{ href: resolve('/contents/[id]/axes', { id }), label: m.archive_tabs_axes() },
+			{ href: resolve('/contents/[id]/items', { id }), label: m.archive_tabs_items() },
 			...(data.editable
 				? [
 						{
-							href: resolve('/admin/contents/[id]/excluded', { id }),
+							href: resolve('/contents/[id]/excluded', { id }),
 							label: m.archive_tabs_excluded()
 						}
 					]
@@ -99,9 +116,9 @@
 <svelte:head><title>{pageTitle(content.title)}</title></svelte:head>
 
 <div class="px-4 pt-4 md:px-6">
-	<a href={resolve('/admin/contents')} class={backLinkClass}>
+	<a href={back.href} class={backLinkClass}>
 		<ChevronLeftIcon class="size-4" />
-		<span class="underline underline-offset-4">{m.admin_contents_nav_title()}</span>
+		<span class="underline underline-offset-4">{back.label}</span>
 	</a>
 	<!-- 閲覧画面へのリンクと⋮は、どのタブでも同じ所に出すので見出しの段に置く (→ docs/ui.md「UI 全般」)。 -->
 	<div class="mt-2 flex items-start gap-2">
@@ -218,12 +235,12 @@
 	{@render children()}
 {/key}
 
-<!-- 消したものの編集ページには戻れないので、一覧へ移る。 -->
+<!-- 消したものの編集ページには戻れないので、戻り先へ移る。 -->
 <ContentDeleteDialog
 	bind:content={deletingContent}
 	contents={data.contents}
 	{contentById}
-	ondeleted={() => gotoWithoutLeaveConfirm(resolve('/admin/contents'))}
+	ondeleted={() => gotoWithoutLeaveConfirm(back.href)}
 />
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

@@ -144,12 +144,12 @@ async fn a_hidden_share_cannot_be_chosen_as_a_folder_location(pool: SqlitePool) 
     let taro = login(app.clone(), "taro", "password").await;
     let encoded = utf8_percent_encode(&path, NON_ALPHANUMERIC).to_string();
 
-    let (status, body) = send_empty(app.clone(), "GET", "/api/v1/admin/fs/dirs?path=", &taro).await;
+    let (status, body) = send_empty(app.clone(), "GET", "/api/v1/fs/dirs?path=", &taro).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(!body.contains(&json_string(&root)), "{body}");
     for uri in [
-        format!("/api/v1/admin/fs/dirs?path={encoded}"),
-        format!("/api/v1/admin/fs/count?path={encoded}"),
+        format!("/api/v1/fs/dirs?path={encoded}"),
+        format!("/api/v1/fs/count?path={encoded}"),
     ] {
         let (status, body) = send_empty(app.clone(), "GET", &uri, &taro).await;
         assert_error_case(

@@ -52,7 +52,7 @@ test('軸: 軸を足して値の辞書と表示タイトルを保存すると、
 		async (archive) => {
 			await rescanArchive(page.request, archive.id);
 
-			await page.goto(`/admin/contents/${archive.id}/axes`);
+			await page.goto(`/contents/${archive.id}/axes`);
 			await addAxis(page, '年度', { dirLevel: 1 });
 			await addAxis(page, '種類', { filenameWord: true });
 
@@ -92,7 +92,7 @@ test('軸の追加: フォルダーの階層は、階層ごとの値の例を見
 		async (archive) => {
 			await rescanArchive(page.request, archive.id);
 
-			await page.goto(`/admin/contents/${archive.id}/axes`);
+			await page.goto(`/contents/${archive.id}/axes`);
 			await page.getByRole('button', { name: ADD_AXIS_BUTTON_NAME }).click();
 			await waitForDialog(page);
 			const dialog = page.getByRole('dialog');
@@ -124,7 +124,7 @@ test('アイテム: 再スキャンで索引し、件数が見出しに出る', 
 		page.request,
 		{ type: 'archive', namePrefix: 'e2e-items' },
 		async (archive) => {
-			await page.goto(`/admin/contents/${archive.id}/items`);
+			await page.goto(`/contents/${archive.id}/items`);
 			await page.getByRole('button', { name: /^再スキャンする$|^Rescan$/ }).click();
 			await expect(page.getByText(/新規\s3\s件・削除\s0\s件|3 added, 0 removed/)).toBeVisible();
 			await expect(page.getByText(/^3\s件のファイル$|^3 files$/)).toBeVisible();
@@ -137,7 +137,7 @@ test('再スキャンしても、分類のタブの打っているテンプレ�
 		page.request,
 		{ type: 'archive', namePrefix: 'e2e-rescan-keeps' },
 		async (archive) => {
-			await page.goto(`/admin/contents/${archive.id}/axes`);
+			await page.goto(`/contents/${archive.id}/axes`);
 			const template = page.getByRole('textbox', { name: TITLE_TEMPLATE_LABEL });
 			await template.fill('{fileName} 書きかけ');
 			await page.getByRole('button', { name: /^再スキャンする$|^Rescan$/ }).click();
@@ -346,7 +346,7 @@ test('軸の並べ替え: 上下ボタンで動かした順が保存され、閲
 			await expect(triggers).toHaveCount(2);
 			await expect(triggers.nth(0)).toHaveAttribute('aria-label', '年度');
 
-			await page.goto(`/admin/contents/${archive.id}/axes`);
+			await page.goto(`/contents/${archive.id}/axes`);
 			await axisRow(page, '種類')
 				.getByRole('button', { name: /^種類 を上へ移動$|^Move 種類 up$/ })
 				.click();
@@ -377,7 +377,7 @@ test('値の辞書: 行を上へ動かして保存するとアイテムの並び
 			const items = page.getByRole('listitem');
 			await expect(items).toHaveText([/2023 リスニング/, /2024 リスニング/, /2024 解答/]);
 
-			await page.goto(`/admin/contents/${archive.id}/axes`);
+			await page.goto(`/contents/${archive.id}/axes`);
 			await selectAxis(page, '種類');
 			const rows = axisValuesForm(page).locator('tbody tr');
 			await expect(rows).toHaveCount(2);
@@ -389,7 +389,7 @@ test('値の辞書: 行を上へ動かして保存するとアイテムの並び
 			await page.goto(`/archives/${archive.id}`);
 			await expect(items).toHaveText([/2023 リスニング/, /2024 解答/, /2024 リスニング/]);
 
-			await page.goto(`/admin/contents/${archive.id}/axes`);
+			await page.goto(`/contents/${archive.id}/axes`);
 			await selectAxis(page, '種類');
 			// 入力欄の値は属性に出ないので行を値で絞れない。保存した順 (answer→listening) の2行目を取る。
 			await expect(rows).toHaveCount(2);
@@ -418,7 +418,7 @@ test('値の辞書: ファイル名の語の候補を押すと表に行が足さ
 		async (archive) => {
 			await rescanArchive(page.request, archive.id);
 
-			await page.goto(`/admin/contents/${archive.id}/axes`);
+			await page.goto(`/contents/${archive.id}/axes`);
 			await addAxis(page, '種類', { filenameWord: true });
 			const rows = axisValuesForm(page).locator('tbody tr');
 			await expect(rows).toHaveCount(0);
@@ -471,7 +471,7 @@ test('値の辞書: 照合する位置を行ごとに選ぶと一致する件数
 		async (archive) => {
 			await rescanArchive(page.request, archive.id);
 
-			await page.goto(`/admin/contents/${archive.id}/axes`);
+			await page.goto(`/contents/${archive.id}/axes`);
 			await addAxis(page, '種類', { filenameWord: true });
 			// ing は listening の末尾にだけ現れる。
 			await addAxisValue(page, 'ing', '音声');
@@ -513,7 +513,7 @@ test('軸の削除: 確認して消せる。表示タイトルで使っている
 				position: 2
 			});
 
-			await page.goto(`/admin/contents/${archive.id}/axes`);
+			await page.goto(`/contents/${archive.id}/axes`);
 			await axisRow(page, '種類')
 				.getByRole('button', { name: /^種類 を削除\.\.\.$|^Delete 種類\.\.\.$/ })
 				.click();
@@ -588,7 +588,7 @@ test('対象のパターンを広げて保存すると、再スキャンなし�
 		{ type: 'archive', namePrefix: 'e2e-widen', files: { 'a.pdf': 'x', 'b.txt': 'x' } },
 		async (content) => {
 			await rescanArchive(page.request, content.id);
-			await page.goto(`/admin/contents/${content.id}`);
+			await page.goto(`/contents/${content.id}`);
 			await page.getByRole('button', { name: /対象のパターン$|Include patterns$/ }).click();
 			const patterns = page.getByRole('dialog', { name: /^対象のパターン$|^Include patterns$/ });
 			await patterns.getByRole('textbox').fill('');
@@ -602,7 +602,7 @@ test('対象のパターンを広げて保存すると、再スキャンなし�
 			await notice.getByRole('button', { name: /^保存する$|^Save$/ }).click();
 			await expect(notice).toBeHidden();
 
-			await page.goto(`/admin/contents/${content.id}/items`);
+			await page.goto(`/contents/${content.id}/items`);
 			await expect(page.getByText('b.txt').first()).toBeVisible();
 		}
 	);
@@ -620,7 +620,7 @@ test('対象外のタブで絞り込み、パターンに追加すると、そ�
 		},
 		async (content) => {
 			await rescanArchive(page.request, content.id);
-			await page.goto(`/admin/contents/${content.id}/items`);
+			await page.goto(`/contents/${content.id}/items`);
 			const filter = page.getByRole('textbox', { name: /^(名前で絞り込む|Filter by name)$/ });
 			await filter.fill('old[1]');
 			await page

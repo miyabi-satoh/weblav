@@ -127,11 +127,7 @@ test('編集者も、ユーザーメニューから作ったリカバリコー�
 		await fillLogInForm(own, username, 'old-password');
 		await own.waitForURL('/', { timeout: PASSWORD_HASH_TIMEOUT });
 
-		// 編集者には作るよう促す帯を出さない。管理者に再設定してもらう道もあるため。
-		await own.goto('/admin/contents');
-		await expect(own.getByRole('heading', { level: 1 })).toBeVisible();
-		await expect(own.getByText(MISSING_NOTICE_TEXT)).toHaveCount(0);
-
+		// 作るよう促す帯は管理画面にだけ出し、管理画面は編集者に開かない。編集者はメニューから作る。
 		await own.getByRole('button', { name: username, exact: true }).click();
 		await own.getByRole('menuitem', { name: RECOVERY_CODE_MENU_ITEM_NAME }).click();
 		const dialog = own.getByRole('dialog');
@@ -147,7 +143,8 @@ test('編集者も、ユーザーメニューから作ったリカバリコー�
 		await own.getByLabel(NEW_PASSWORD_CONFIRM_LABEL).fill('new-password');
 		await own.getByRole('button', { name: RESET_BUTTON_NAME }).click();
 		await keepRecoveryCode(own);
-		await own.waitForURL('/admin/contents');
+		// 管理画面は admin 専用なので、編集者はホームへ移る。
+		await own.waitForURL('/');
 	} finally {
 		await context.close();
 		await removeUserIfPresent(page, username);

@@ -149,7 +149,7 @@ async fn a_shortcut_survives_a_missing_target_and_can_be_repointed(pool: SqliteP
     std::fs::write(&next, b"b").expect("ファイルを作れなかった");
     let (app, cookie) = admin_app(&pool).await;
     let id = create_shortcut(app.clone(), &cookie, &file, "public").await;
-    let (_, body) = send_empty(app.clone(), "GET", "/api/v1/admin/contents", &cookie).await;
+    let (_, body) = send_empty(app.clone(), "GET", "/api/v1/contents/manage", &cookie).await;
     let stored = parse_json(&body)
         .as_array()
         .and_then(|rows| rows.iter().find(|row| row["id"] == id).cloned())

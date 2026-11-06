@@ -422,7 +422,7 @@ pub(super) fn path_to_string(path: PathBuf) -> Result<String, AppError> {
 /// サーバー上のディレクトリ一覧。
 #[utoipa::path(
     get,
-    path = "/admin/fs/dirs",
+    path = "/fs/dirs",
     params(DirsQuery),
     responses(
         (status = OK, body = DirsResponse, description = "ディレクトリの一覧"),
@@ -844,7 +844,7 @@ pub(super) fn list_dir_shallow(
 /// 登録前の確認用に、対象になるファイル数を数える。
 #[utoipa::path(
     get,
-    path = "/admin/fs/count",
+    path = "/fs/count",
     params(CountQuery),
     responses(
         (status = OK, body = CountResponse, description = "対象ファイル数"),

@@ -67,7 +67,7 @@ test.describe('コンテンツ', () => {
 			// サーバー側も元のタイトルのまま。
 			// 画面を読み込み直して確かめると、未保存の変更の確認に止められるので API で見る。
 			const id = Number(new URL(page.url()).pathname.split('/').pop());
-			const contents = (await send(page.request, 'get', '/admin/contents')) as {
+			const contents = (await send(page.request, 'get', '/contents/manage')) as {
 				id: number;
 				title: string;
 			}[];

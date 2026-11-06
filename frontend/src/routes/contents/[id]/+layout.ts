@@ -13,7 +13,7 @@ export const load: LayoutLoad = async ({ parent, params, url }) => {
 	const id = Number(params.id);
 
 	const contents = await fetchOrError(
-		client.GET('/api/v1/admin/contents'),
+		client.GET('/api/v1/contents/manage'),
 		m.contents_fetch_failed(),
 		{ loginRedirectFrom: url }
 	);

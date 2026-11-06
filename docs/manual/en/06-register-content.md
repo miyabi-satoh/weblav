@@ -19,6 +19,10 @@ Titles are assigned automatically. To change one, use the edit page that opens a
 
 ## Start
 
+On Home or on a group's page, select “Add” to the right of the heading and choose a type. On a group's page, the new item goes inside that group.
+
+Administrators can also add from the admin pages.
+
 1. On the “Contents” tab in the admin pages, select “Add content...”.
 
    ![The Contents tab and Add button](images/contents-page.webp)
@@ -28,8 +32,6 @@ Titles are assigned automatically. To change one, use the edit page that opens a
    ![Choosing a type when adding content](images/quickstart-add-folder.webp)
 
 The remaining steps differ by type.
-
-You can also add from “Add” on Home or on a group's page. Choose a type to open the window. On a group's page, the new item goes inside that group.
 
 ## Shortcut
 
@@ -101,7 +103,7 @@ note = "A description shown under the link (optional)"
 | Everyone | Everyone, including people who aren't logged in (default) |
 | Logged-in users | Only logged-in users |
 | Creator only | Listed only for the person who registered it (administrators can open it from the admin pages) |
-| Hidden | Not listed (logged-in users can open it from the admin pages) |
+| Hidden | Not listed (the person who registered it and administrators can open it from “Hidden content” in the user name menu) |
 
 1. In the “Contents” list, select the row (you can also choose “Edit” from “⋮” on the row).
 

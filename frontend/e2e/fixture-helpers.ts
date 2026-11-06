@@ -172,7 +172,7 @@ export async function sharedContentRoot(
 	if (SERVER_IS_REMOTE) return null;
 	if (!existsSync(CONTENT_ROOT)) return null;
 	const contentRoot = realpathSync(CONTENT_ROOT);
-	const res = await request.get('/api/v1/admin/fs/dirs', { params: { path: '' } });
+	const res = await request.get('/api/v1/fs/dirs', { params: { path: '' } });
 	if (!res.ok()) return null;
 	const { entries } = (await res.json()) as { entries: { name: string; path: string }[] };
 	const root = entries.find((entry) => {

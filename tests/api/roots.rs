@@ -194,7 +194,7 @@ async fn a_deleted_root_is_left_out_of_every_check(pool: SqlitePool) {
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
 
     // ピッカーの最初の一覧に出ず、中も辿れない。
-    let dirs_uri = |query: &str| format!("/api/v1/admin/fs/dirs?path={query}");
+    let dirs_uri = |query: &str| format!("/api/v1/fs/dirs?path={query}");
     let (status, body) = send_empty(app.clone(), "GET", &dirs_uri(""), &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(!body.contains(&json_string(&path)), "{body}");
@@ -570,7 +570,7 @@ async fn a_root_name_is_trimmed_and_must_be_unique(pool: SqlitePool) {
 
 /// 管理画面のコンテンツ一覧から、`id` の行を取り出す。
 async fn admin_content_by_id(app: Router, cookie: &str, id: i64) -> serde_json::Value {
-    let (status, body) = send_empty(app, "GET", "/api/v1/admin/contents", cookie).await;
+    let (status, body) = send_empty(app, "GET", "/api/v1/contents/manage", cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let body: serde_json::Value = serde_json::from_str(&body).expect("応答が JSON でない");
     body.as_array()
@@ -676,7 +676,7 @@ async fn browsing_into_a_nested_root_keeps_the_outer_one_as_the_start(pool: Sqli
     }
 
     let uri = format!(
-        "/api/v1/admin/fs/dirs?path={}",
+        "/api/v1/fs/dirs?path={}",
         utf8_percent_encode(&inner_path, NON_ALPHANUMERIC)
     );
     let (status, body) = send_empty(app, "GET", &uri, &cookie).await;

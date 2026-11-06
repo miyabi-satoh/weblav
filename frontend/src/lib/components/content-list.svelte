@@ -194,13 +194,13 @@
 	let busy = $state(false);
 
 	// 閲覧側の一覧は公開範囲・作成者・親を持たないので、選べる値を決めるために管理画面の一覧から引く
-	// (単一のコンテンツを取る API が無いため。→ routes/admin/contents/[id]/+layout.ts)。
+	// (単一のコンテンツを取る API が無いため。→ routes/contents/[id]/+layout.ts)。
 	async function openVisibility(content: ContentEntry) {
 		if (busy) return;
 		busy = true;
 		try {
 			await errorDialog.attempt(
-				() => client.GET('/api/v1/admin/contents'),
+				() => client.GET('/api/v1/contents/manage'),
 				({ data }) => {
 					const found = data?.find((item) => item.id === content.id);
 					if (!found) return;
@@ -255,7 +255,7 @@
 			<RowActionsMenu name={content.title}>
 				<DropdownMenu.Item>
 					{#snippet child({ props })}
-						<a href={resolve('/admin/contents/[id]', { id: String(content.id) })} {...props}
+						<a href={resolve('/contents/[id]', { id: String(content.id) })} {...props}
 							>{m.action_edit_page()}</a
 						>
 					{/snippet}
