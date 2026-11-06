@@ -41,7 +41,8 @@ export async function openCreateForm(
  * タイトルは group 以外が自動で付くので、分かっているときだけ `title` を渡す。
  */
 export async function submitCreateForm(page: Page, title?: string) {
-	await page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
+	// 閲覧の画面の見出しにも「追加」があり、英語では同じ名前になるので、窓の中のボタンに限る。
+	await page.getByRole('dialog').getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
 	await expectContentEditPage(page, title);
 }
 
