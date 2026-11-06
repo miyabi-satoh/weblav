@@ -20,8 +20,12 @@
 
 <!-- 上の石垣 (`masonry`) は最後の区画の下にも区画の間と同じ隙間を残すので、ここでは上に間を足さない。 -->
 <div class={sectionGridClass}>
-	<section aria-labelledby="delete-section-heading" class={sectionCardClass}>
-		<h2 id="delete-section-heading" class="text-base font-semibold">
+	<!-- 消す操作だと区画を見ただけで分かるよう、枠と見出しを危険の色にする (→ docs/ui.md「UI 全般」)。 -->
+	<section
+		aria-labelledby="delete-section-heading"
+		class={[sectionCardClass, 'border-destructive/40']}
+	>
+		<h2 id="delete-section-heading" class="text-base font-semibold text-destructive">
 			{m.common_delete_section_title()}
 		</h2>
 		<div class="flex flex-col gap-2 text-sm text-muted-foreground">
@@ -33,8 +37,8 @@
 			{/if}
 		</div>
 		<div>
-			<!-- 確定は確認の窓の赤いボタンで行うので、ここでは窓を開くだけの普通のボタンにする。 -->
-			<Button variant="outline" disabled={disabledReason !== null} {onclick}>
+			<!-- 押しても確認の窓が開くだけなので、見えるところに置いても誤って消すことはない。 -->
+			<Button variant="destructive" disabled={disabledReason !== null} {onclick}>
 				{m.action_delete()}
 			</Button>
 		</div>
