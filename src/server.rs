@@ -510,7 +510,7 @@ mod tests {
         // 親ディレクトリになるべき場所が既に(ディレクトリではなく)ファイルだと、
         // create_dir_all が失敗する。DB接続失敗を再現するための手軽な方法。
         let blocker = tmp.path().join("blocker");
-        std::fs::write(&blocker, b"").unwrap();
+        std::fs::write(&blocker, b"").expect("ファイルを書けなかった");
 
         let (ready_tx, ready_rx) = mpsc::channel();
         let (exited_tx, _exited_rx) = mpsc::channel();
@@ -634,7 +634,7 @@ mod tests {
 
         // シャットダウン通知後、pool.close()まで含めてスレッドが終了することを確認する。
         // ここでハングするなら with_graceful_shutdown の配線が壊れている。
-        shutdown_tx.send(()).unwrap();
+        shutdown_tx.send(()).expect("停止を送れるはず");
         join_with_timeout(handle, Duration::from_secs(10));
     }
 }

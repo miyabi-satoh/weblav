@@ -1030,10 +1030,16 @@ mod tests {
             "192.0.0.8",
             "198.18.0.1",
         ] {
-            assert!(!is_public(private.parse().unwrap()), "{private}");
+            assert!(
+                !is_public(private.parse().expect("アドレスを読めるはず")),
+                "{private}"
+            );
         }
         for public in ["8.8.8.8", "93.184.216.34", "2606:2800:220:1::1"] {
-            assert!(is_public(public.parse().unwrap()), "{public}");
+            assert!(
+                is_public(public.parse().expect("アドレスを読めるはず")),
+                "{public}"
+            );
         }
     }
 }

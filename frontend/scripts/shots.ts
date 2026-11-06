@@ -113,11 +113,20 @@ async function openPhotoFolder(page: Page, ctx: ShotContext): Promise<void> {
 	const url = new URL(`/folders/${ctx.fixtures.folderId}`, ctx.baseURL);
 	url.searchParams.set('path', '写真');
 	await openAsAdmin(page, ctx.baseURL, url);
-	await waitForThumbnails(page);
+	await waitForThumbnails(page, { timeout: SHOT_THUMBNAIL_TIMEOUT_MS });
 }
 
-/** 一覧の縮小画像が読み込まれるまで待つ。 */
-async function waitForThumbnails(page: Page): Promise<void> {
+/** 画面撮りで縮小画像を待つ長さ。撮影用の小さな画像なので、これで出なければ壊れている。 */
+const SHOT_THUMBNAIL_TIMEOUT_MS = 5000;
+
+/**
+ * 一覧の縮小画像が出そろうのを待つ。紹介の動画の筋書きと共有する。
+ * 動画は `timeout` を渡さず、筋書きの1手の待ちに任せる。
+ */
+export async function waitForThumbnails(
+	page: Page,
+	{ timeout }: { timeout?: number } = {}
+): Promise<void> {
 	await page.waitForFunction(
 		() => {
 			const thumbnails = [
@@ -128,7 +137,7 @@ async function waitForThumbnails(page: Page): Promise<void> {
 			);
 		},
 		null,
-		{ timeout: 5000 }
+		{ timeout }
 	);
 }
 
@@ -407,7 +416,7 @@ export const shots: Record<string, ShotEntry> = {
 		async run(page, ctx) {
 			await openPhotoFolder(page, ctx);
 			await page.getByRole('radio', { name: BROWSE_LAYOUT_TILE_NAME }).click();
-			await waitForThumbnails(page);
+			await waitForThumbnails(page, { timeout: SHOT_THUMBNAIL_TIMEOUT_MS });
 			// 切り替えの塗りは色の遷移で変わるので、終わってから撮る (途中だと前の側が塗られて写る)。
 			await page.waitForFunction(() => document.getAnimations().length === 0, null, {
 				timeout: 5000

@@ -265,9 +265,9 @@ async fn download_anonymous_on_missing_id_is_not_found(pool: SqlitePool) {
 async fn folder_browse_lists_entries_and_excludes_dotfiles(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
     let dir = temp_test_dir("browse-list");
-    std::fs::create_dir_all(dir.join("sub")).unwrap();
-    std::fs::write(dir.join("sub").join("file.txt"), b"hello").unwrap();
-    std::fs::write(dir.join(".DS_Store"), b"junk").unwrap();
+    std::fs::create_dir_all(dir.join("sub")).expect("フォルダーを作れなかった");
+    std::fs::write(dir.join("sub").join("file.txt"), b"hello").expect("ファイルを書けなかった");
+    std::fs::write(dir.join(".DS_Store"), b"junk").expect("ファイルを書けなかった");
 
     let content_id = insert_folder_by(
         &pool,
@@ -374,8 +374,9 @@ async fn folder_browse_accepts_sort_query(pool: SqlitePool) {
 async fn folder_browse_tolerates_dangling_symlink(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
     let dir = temp_test_dir("browse-dangling-symlink");
-    std::fs::write(dir.join("ok.txt"), b"hello").unwrap();
-    std::os::unix::fs::symlink("/nonexistent-target-for-test", dir.join("dangling")).unwrap();
+    std::fs::write(dir.join("ok.txt"), b"hello").expect("ファイルを書けなかった");
+    std::os::unix::fs::symlink("/nonexistent-target-for-test", dir.join("dangling"))
+        .expect("シンボリックリンクを作れなかった");
 
     let content_id = insert_folder_by(
         &pool,
@@ -447,11 +448,12 @@ async fn folder_browse_rejects_symlink_escape(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
     let root = temp_test_dir("symlink-root");
     let outside = temp_test_dir("symlink-outside");
-    std::fs::create_dir_all(&root).unwrap();
-    std::fs::create_dir_all(&outside).unwrap();
-    std::fs::write(outside.join("secret.txt"), b"secret").unwrap();
-    std::fs::write(root.join("ok.txt"), b"hello").unwrap();
-    std::os::unix::fs::symlink(&outside, root.join("escape")).unwrap();
+    std::fs::create_dir_all(&root).expect("フォルダーを作れなかった");
+    std::fs::create_dir_all(&outside).expect("フォルダーを作れなかった");
+    std::fs::write(outside.join("secret.txt"), b"secret").expect("ファイルを書けなかった");
+    std::fs::write(root.join("ok.txt"), b"hello").expect("ファイルを書けなかった");
+    std::os::unix::fs::symlink(&outside, root.join("escape"))
+        .expect("シンボリックリンクを作れなかった");
 
     let content_id = insert_folder_by(
         &pool,
@@ -493,7 +495,8 @@ async fn folder_browse_rejects_symlink_escape(pool: SqlitePool) {
 async fn folder_download_forces_attachment_for_html(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
     let dir = temp_test_dir("download-html");
-    std::fs::write(dir.join("page.html"), b"<script>alert(1)</script>").unwrap();
+    std::fs::write(dir.join("page.html"), b"<script>alert(1)</script>")
+        .expect("ファイルを書けなかった");
 
     let content_id = insert_folder_by(
         &pool,
@@ -524,7 +527,7 @@ async fn folder_download_forces_attachment_for_html(pool: SqlitePool) {
         .headers()
         .get(header::CONTENT_DISPOSITION)
         .and_then(|v| v.to_str().ok())
-        .unwrap()
+        .expect("Content-Dispositionがあるはず")
         .to_string();
     assert!(disposition.starts_with("attachment"), "{disposition}");
     assert_eq!(
@@ -541,7 +544,8 @@ async fn folder_download_forces_attachment_for_html(pool: SqlitePool) {
 async fn folder_download_allows_inline_for_pdf(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
     let dir = temp_test_dir("download-pdf");
-    std::fs::write(dir.join("doc.pdf"), b"%PDF-1.4 fake pdf content").unwrap();
+    std::fs::write(dir.join("doc.pdf"), b"%PDF-1.4 fake pdf content")
+        .expect("ファイルを書けなかった");
 
     let content_id = insert_folder_by(
         &pool,
@@ -572,7 +576,7 @@ async fn folder_download_allows_inline_for_pdf(pool: SqlitePool) {
         .headers()
         .get(header::CONTENT_DISPOSITION)
         .and_then(|v| v.to_str().ok())
-        .unwrap()
+        .expect("Content-Dispositionがあるはず")
         .to_string();
     assert!(disposition.starts_with("inline"), "{disposition}");
 }
@@ -582,7 +586,7 @@ async fn folder_download_allows_inline_for_pdf(pool: SqlitePool) {
 async fn folder_download_asks_browser_to_revalidate(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
     let dir = temp_test_dir("download-revalidate");
-    std::fs::write(dir.join("clip.mp4"), b"fake video").unwrap();
+    std::fs::write(dir.join("clip.mp4"), b"fake video").expect("ファイルを書けなかった");
 
     let content_id = insert_folder_by(
         &pool,
@@ -625,7 +629,7 @@ async fn folder_download_asks_browser_to_revalidate(pool: SqlitePool) {
 async fn folder_download_of_audio_is_not_gzip_compressed(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
     let dir = temp_test_dir("download-audio");
-    std::fs::write(dir.join("track.mp3"), vec![0u8; 64]).unwrap();
+    std::fs::write(dir.join("track.mp3"), vec![0u8; 64]).expect("ファイルを書けなかった");
 
     let content_id = insert_folder_by(
         &pool,
@@ -648,7 +652,7 @@ async fn folder_download_of_audio_is_not_gzip_compressed(pool: SqlitePool) {
         .header(header::COOKIE, &cookie)
         .header(header::ACCEPT_ENCODING, "gzip")
         .body(Body::empty())
-        .unwrap(),
+        .expect("リクエストを組み立てられるはず"),
     )
     .await;
 
@@ -666,7 +670,7 @@ async fn folder_download_of_audio_is_not_gzip_compressed(pool: SqlitePool) {
 async fn folder_download_of_image_is_not_gzip_compressed(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
     let dir = temp_test_dir("download-image");
-    std::fs::write(dir.join("photo.png"), vec![0u8; 64]).unwrap();
+    std::fs::write(dir.join("photo.png"), vec![0u8; 64]).expect("ファイルを書けなかった");
 
     let content_id = insert_folder_by(
         &pool,
@@ -689,7 +693,7 @@ async fn folder_download_of_image_is_not_gzip_compressed(pool: SqlitePool) {
         .header(header::COOKIE, &cookie)
         .header(header::ACCEPT_ENCODING, "gzip")
         .body(Body::empty())
-        .unwrap(),
+        .expect("リクエストを組み立てられるはず"),
     )
     .await;
 

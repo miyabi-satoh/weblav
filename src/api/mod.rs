@@ -181,10 +181,13 @@ mod tests {
 
     #[test]
     fn every_response_has_a_description() {
-        let json = serde_json::to_value(openapi()).unwrap();
-        for (path, item) in json["paths"].as_object().unwrap() {
-            for (method, operation) in item.as_object().unwrap() {
-                for (status, response) in operation["responses"].as_object().unwrap() {
+        let json = serde_json::to_value(openapi()).expect("JSONにできるはず");
+        for (path, item) in json["paths"].as_object().expect("オブジェクトのはず") {
+            for (method, operation) in item.as_object().expect("オブジェクトのはず") {
+                for (status, response) in operation["responses"]
+                    .as_object()
+                    .expect("オブジェクトのはず")
+                {
                     assert!(
                         response["description"]
                             .as_str()

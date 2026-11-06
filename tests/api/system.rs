@@ -173,7 +173,7 @@ async fn unknown_non_api_path_with_session_cookie_does_not_touch_session(pool: S
 #[test]
 fn openapi_doc_has_prefixed_health_path() {
     let openapi = weblav::api::openapi();
-    let json = openapi.to_json().unwrap();
+    let json = openapi.to_json().expect("JSONにできるはず");
     assert!(json.contains("/api/v1/health"), "{json}");
     assert!(json.contains("/api/v1/auth/login"), "{json}");
     assert!(json.contains("/api/v1/auth/logout"), "{json}");

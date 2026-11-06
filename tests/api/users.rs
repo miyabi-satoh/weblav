@@ -9,7 +9,7 @@ async fn users_list_includes_role_and_omits_password_hash(pool: SqlitePool) {
 
     let (status, body) = send_empty(app, "GET", "/api/v1/admin/users", &cookie).await;
     assert_eq!(status, StatusCode::OK);
-    let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&body).expect("JSONを読めなかった");
     let users = json.as_array().expect("配列でない");
     assert_eq!(users.len(), 2, "{json}");
     let bob = users
@@ -34,7 +34,7 @@ async fn users_create_by_admin_succeeds_and_new_user_can_login(pool: SqlitePool)
     )
     .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
-    let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&body).expect("JSONを読めなかった");
     assert_eq!(json["username"], "newbie");
     assert_eq!(json["role"], "user");
 
@@ -96,7 +96,7 @@ async fn users_create_trims_surrounding_whitespace_from_username(pool: SqlitePoo
     )
     .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
-    let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&body).expect("JSONを読めなかった");
     assert_eq!(json["username"], "newbie");
 
     login(app, "newbie", "new-password").await;
@@ -142,7 +142,7 @@ async fn users_role_update_promotes_and_demotes(pool: SqlitePool) {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&body).expect("JSONを読めなかった");
     assert_eq!(json["role"], "admin");
     // 権限変更の応答も一覧と同じ形で、「作成者のみ」の件数を含む (→ docs/access.md「ユーザーの削除と作成者」)。
     assert_eq!(json["privateContentCount"], 1, "{json}");
@@ -157,7 +157,7 @@ async fn users_role_update_promotes_and_demotes(pool: SqlitePool) {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&body).expect("JSONを読めなかった");
     assert_eq!(json["role"], "user");
 }
 
@@ -286,10 +286,10 @@ async fn users_delete_removes_a_non_admin_user(pool: SqlitePool) {
     assert_eq!(status, StatusCode::NO_CONTENT);
 
     let (_, body) = send_empty(app, "GET", "/api/v1/admin/users", &cookie).await;
-    let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&body).expect("JSONを読めなかった");
     assert!(
         json.as_array()
-            .unwrap()
+            .expect("配列のはず")
             .iter()
             .all(|u| u["username"] != "bob"),
         "{json}"

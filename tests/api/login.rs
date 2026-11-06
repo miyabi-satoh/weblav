@@ -61,7 +61,7 @@ async fn login_with_wrong_content_type_returns_envelope(pool: SqlitePool) {
         Request::post("/api/v1/auth/login")
             .header(header::CONTENT_TYPE, "text/plain")
             .body(Body::from(r#"{"username":"alice","password":"whatever"}"#))
-            .unwrap(),
+            .expect("リクエストを組み立てられるはず"),
     )
     .await;
 

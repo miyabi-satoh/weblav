@@ -230,9 +230,7 @@ pub(super) fn create_dir_new(path: &Path) -> Result<(), AppError> {
 }
 
 pub(super) fn file_name(path: &Path) -> String {
-    path.file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_default()
+    crate::api::fs::file_name_lossy(path).unwrap_or_default()
 }
 
 /// アップロードの途中のファイルの名前の頭。ドットで始めて一覧に出さない (→ `fs::is_visible_entry`)。

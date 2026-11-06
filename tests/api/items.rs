@@ -165,7 +165,7 @@ async fn archive_view_sorts_unset_last_and_falls_back_title(pool: SqlitePool) {
         .as_array()
         .expect("itemsが配列でなかった")
         .iter()
-        .map(|item| item["title"].as_str().unwrap())
+        .map(|item| item["title"].as_str().expect("文字列のはず"))
         .collect();
     // 辞書のposition順(kokugo=0, eigo=1)、「未設定」(2024_unknown.pdf)は最後。
     assert_eq!(titles, vec!["国語", "英語", "2024_unknown.pdf"], "{body}");

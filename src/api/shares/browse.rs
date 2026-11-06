@@ -253,16 +253,7 @@ async fn share_file(
     rel: &str,
 ) -> Result<ServedFile, AppError> {
     let resolved = resolve_readable(state, user, id, rel).await?;
-    let path = resolved.canonical;
-    let path = run_blocking(move || path.is_file().then_some(path))
-        .await?
-        .ok_or(AppError::NotFound)?;
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("download")
-        .to_string();
-    Ok(ServedFile { path, file_name })
+    ServedFile::from_file(resolved.canonical).await
 }
 
 /// フォルダーの選択に出す1行。

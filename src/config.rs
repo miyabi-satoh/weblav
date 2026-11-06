@@ -377,7 +377,7 @@ mod tests {
 
     #[test]
     fn partial_server_keeps_bind_default() {
-        let config: Config = toml::from_str("[server]\nport = 1\n").unwrap();
+        let config: Config = toml::from_str("[server]\nport = 1\n").expect("設定を読めるはず");
         assert_eq!(config.server.bind, IpAddr::V4(Ipv4Addr::UNSPECIFIED));
         assert_eq!(config.server.port, 1);
     }
@@ -396,7 +396,8 @@ mod tests {
 
     #[test]
     fn missing_file_falls_back_to_default() {
-        let config = Config::load_from(Path::new("does/not/exist/config.toml")).unwrap();
+        let config =
+            Config::load_from(Path::new("does/not/exist/config.toml")).expect("設定を読めるはず");
         assert_eq!(config.server.port, 8370);
     }
 
@@ -404,7 +405,7 @@ mod tests {
     fn parse_error_keeps_line_number_detail() {
         let tmp = TempDir::new("parse_error_keeps_line_number_detail");
         let path = tmp.path().join("config.toml");
-        std::fs::write(&path, "[server]\nport = \"abc\"\n").unwrap();
+        std::fs::write(&path, "[server]\nport = \"abc\"\n").expect("ファイルを書けなかった");
 
         let err = Config::load_from(&path).expect_err("invalid port should fail to parse");
         match &err {

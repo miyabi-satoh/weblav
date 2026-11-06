@@ -477,10 +477,7 @@ impl ContentResponse {
 
 /// ショートカットの先のファイル名。パスの最後の要素。
 fn shortcut_file_name(path: &str) -> String {
-    FsPath::new(path)
-        .file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_default()
+    super::fs::file_name_lossy(FsPath::new(path)).unwrap_or_default()
 }
 
 /// 管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。
@@ -2791,6 +2788,19 @@ pub(super) struct ServedFile {
 }
 
 impl ServedFile {
+    /// ファイル `path` を配信するもの。ファイルでなければ 404。名前が UTF-8 でなければ `download` と名乗る。
+    pub(super) async fn from_file(path: PathBuf) -> Result<Self, AppError> {
+        if !path_is_file(&path).await? {
+            return Err(AppError::NotFound);
+        }
+        let file_name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("download")
+            .to_string();
+        Ok(Self { path, file_name })
+    }
+
     pub(super) async fn download(self, request: Request) -> Response {
         let mime = mime_guess::from_path(&self.file_name).first_or_octet_stream();
         serve_file_response(&self.path, &self.file_name, mime, request).await
@@ -2822,19 +2832,7 @@ pub(super) async fn resolve_file_under(
     filter_of: Option<i64>,
 ) -> Result<ServedFile, AppError> {
     let target = resolve_path(state, root, rel, filter_of).await?;
-    if !path_is_file(&target).await? {
-        return Err(AppError::NotFound);
-    }
-
-    let file_name = target
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("download")
-        .to_string();
-    Ok(ServedFile {
-        path: target,
-        file_name,
-    })
+    ServedFile::from_file(target).await
 }
 
 /// folder配下のファイル、またはfileコンテンツの実体(blob)を配信する。

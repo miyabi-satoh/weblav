@@ -1733,9 +1733,7 @@ pub(super) fn derive_item<'a>(
 
     // 拡張子を除いたファイル名。軸が全て埋まっていても同じタイトルに潰れる
     // (同じフォルダーに複数のファイルがある) ケースを、テンプレート側で区別できるようにする。
-    let file_stem = file_name
-        .rsplit_once('.')
-        .map_or(file_name.as_str(), |(stem, _)| stem);
+    let file_stem = file_stem(&file_name);
 
     let mut display_by_name: HashMap<&str, &str> = axes
         .iter()
@@ -1998,11 +1996,11 @@ mod tests {
     #[test]
     fn parse_placeholders_extracts_names_and_rejects_malformed_templates() {
         assert_eq!(
-            parse_placeholders("固定文字のみ").unwrap(),
+            parse_placeholders("固定文字のみ").expect("書式を読めるはず"),
             Vec::<&str>::new()
         );
         assert_eq!(
-            parse_placeholders("{科目}（{資料種別}）").unwrap(),
+            parse_placeholders("{科目}（{資料種別}）").expect("書式を読めるはず"),
             vec!["科目", "資料種別"]
         );
         assert!(parse_placeholders("{未閉鎖").is_err());

@@ -6,7 +6,6 @@
 	import { tick } from 'svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { client } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { fetchSharedFolderPresence } from '$lib/shared-folders';
 	import * as m from '$lib/paraglide/messages.js';
@@ -38,14 +37,12 @@
 		if (loading) return;
 		loading = true;
 		try {
+			// 共有の有無は、取れなければ無いものとして扱う (`fetchSharedFolderPresence` は投げない)。
 			const [list, shared] = await Promise.all([
-				client.GET('/api/v1/contents/manage'),
+				errorDialog.attempt(() => client.GET('/api/v1/contents/manage')),
 				fetchSharedFolderPresence()
 			]);
-			if (!list.response.ok || !list.data) {
-				errorDialog.show(errorMessage(list.error));
-				return;
-			}
+			if (!list?.data) return;
 			contents = list.data;
 			hasSharedFolders = shared;
 			const parent =
@@ -53,8 +50,6 @@
 			// 窓が新しい一覧と共有の有無を受け取ってから開く。
 			await tick();
 			createDialog?.start(parent, type);
-		} catch {
-			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			loading = false;
 		}

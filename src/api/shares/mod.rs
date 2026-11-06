@@ -251,26 +251,42 @@ mod tests {
         assert!(ShareAccess::Add < ShareAccess::All);
     }
 
-    fn map(entries: &[(i64, ShareAccess)]) -> AccessMap {
-        AccessMap {
-            admin: false,
-            by_root: entries.iter().copied().collect(),
-        }
-    }
-
     /// 入れ子では、含む共有のうち一番強いものを採る。外側で見えれば、内側が見えない設定でも見える。
     #[test]
     fn the_effective_access_is_the_strongest_containing_share() {
-        let access = map(&[(1, ShareAccess::Read), (2, ShareAccess::None)]);
+        let access = AccessMap::for_test(&[(1, ShareAccess::Read), (2, ShareAccess::None)]);
         assert_eq!(access.effective([1, 2]), ShareAccess::Read);
         assert_eq!(access.effective([2]), ShareAccess::None);
-        let access = map(&[(1, ShareAccess::Read), (2, ShareAccess::All)]);
+        let access = AccessMap::for_test(&[(1, ShareAccess::Read), (2, ShareAccess::All)]);
         assert_eq!(access.effective([1, 2]), ShareAccess::All);
+    }
+
+    /// 共有の先頭でできることは、それを含む共有 (自身と外側) のうち一番強いもの。隣の共有は数えない。
+    #[test]
+    fn a_share_takes_the_strongest_of_the_shares_containing_it() {
+        let sep = std::path::MAIN_SEPARATOR;
+        let outer = format!("{sep}srv");
+        let inner = format!("{sep}srv{sep}inner");
+        let other = format!("{sep}other");
+        let shares = [
+            (1, outer.as_str()),
+            (2, inner.as_str()),
+            (3, other.as_str()),
+        ];
+        let access = AccessMap::for_test(&[
+            (1, ShareAccess::None),
+            (2, ShareAccess::Add),
+            (3, ShareAccess::All),
+        ]);
+        assert_eq!(access.at_share(shares, &inner), ShareAccess::Add);
+        assert_eq!(access.at_share(shares, &outer), ShareAccess::None);
+        let access = AccessMap::for_test(&[(1, ShareAccess::All), (2, ShareAccess::None)]);
+        assert_eq!(access.at_share(shares, &inner), ShareAccess::All);
     }
 
     #[test]
     fn a_place_outside_every_share_has_no_access() {
-        let access = map(&[(1, ShareAccess::All)]);
+        let access = AccessMap::for_test(&[(1, ShareAccess::All)]);
         assert_eq!(access.effective([]), ShareAccess::None);
         // 知らない共有 (読んだ後に足された) も見えない扱い。
         assert_eq!(access.effective([9]), ShareAccess::None);

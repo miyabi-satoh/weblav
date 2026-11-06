@@ -920,6 +920,12 @@ pub(super) fn stored_path(path: &FsPath) -> Result<PathBuf, AppError> {
     path_to_string(path.to_path_buf()).map(PathBuf::from)
 }
 
+/// パスの最後の名前。UTF-8 でない文字は置き換える。ドライブのルートのように名前が無ければ `None`。
+pub(super) fn file_name_lossy(path: &FsPath) -> Option<String> {
+    path.file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+}
+
 /// 相対パス (`/` 区切り) に、名前を1つ足す。`dir` が空なら名前だけ。
 pub(super) fn join_rel(dir: &str, name: &str) -> String {
     if dir.is_empty() {

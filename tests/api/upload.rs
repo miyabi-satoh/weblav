@@ -463,7 +463,7 @@ async fn replace_content_upload_on_non_file_row_is_validation_error(pool: Sqlite
             None,
         ))
         .await
-        .unwrap();
+        .expect("リクエストを送れるはず");
 
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }

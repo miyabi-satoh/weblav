@@ -383,13 +383,16 @@ mod tests {
 
     #[test]
     fn unspecified_addr_becomes_loopback() {
-        let addr: SocketAddr = "0.0.0.0:8370".parse().unwrap();
-        assert_eq!(open_addr(addr), "127.0.0.1:8370".parse().unwrap());
+        let addr: SocketAddr = "0.0.0.0:8370".parse().expect("アドレスを読めるはず");
+        assert_eq!(
+            open_addr(addr),
+            "127.0.0.1:8370".parse().expect("アドレスを読めるはず")
+        );
     }
 
     #[test]
     fn loopback_addr_is_unchanged() {
-        let addr: SocketAddr = "127.0.0.1:8370".parse().unwrap();
+        let addr: SocketAddr = "127.0.0.1:8370".parse().expect("アドレスを読めるはず");
         assert_eq!(open_addr(addr), addr);
     }
 

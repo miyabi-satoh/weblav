@@ -252,11 +252,16 @@ mod tests {
         let tmp = TempDir::new("generates_and_persists_key_on_first_call");
         let config = SessionConfig::default();
 
-        let key1 = resolve_key(&config, &key_path(&tmp)).unwrap();
+        let key1 = resolve_key(&config, &key_path(&tmp)).expect("鍵を用意できるはず");
         assert!(key_path(&tmp).exists());
-        assert_eq!(std::fs::read(key_path(&tmp)).unwrap().len(), KEY_LEN);
+        assert_eq!(
+            std::fs::read(key_path(&tmp))
+                .expect("鍵ファイルを読めるはず")
+                .len(),
+            KEY_LEN
+        );
 
-        let key2 = resolve_key(&config, &key_path(&tmp)).unwrap();
+        let key2 = resolve_key(&config, &key_path(&tmp)).expect("鍵を用意できるはず");
         assert_eq!(key1.master(), key2.master(), "2回目は同じ鍵を返すべき");
     }
 
@@ -268,10 +273,10 @@ mod tests {
         let tmp = TempDir::new("generated_key_file_has_owner_only_permissions");
         let config = SessionConfig::default();
 
-        resolve_key(&config, &key_path(&tmp)).unwrap();
+        resolve_key(&config, &key_path(&tmp)).expect("鍵を用意できるはず");
 
         let mode = std::fs::metadata(key_path(&tmp))
-            .unwrap()
+            .expect("属性を読めるはず")
             .permissions()
             .mode();
         // owner権限は `mode(0o600)` 指定時点のumask次第で厳密に0o600と一致しない環境も
@@ -296,7 +301,7 @@ mod tests {
         let encoded = STANDARD.encode([7u8; KEY_LEN]);
         let config = config_with_secret(&encoded);
 
-        let key = resolve_key(&config, &key_path(&tmp)).unwrap();
+        let key = resolve_key(&config, &key_path(&tmp)).expect("鍵を用意できるはず");
         assert_eq!(key.master(), [7u8; KEY_LEN]);
         assert!(!key_path(&tmp).exists(), "明示指定時は鍵ファイルを作らない");
     }

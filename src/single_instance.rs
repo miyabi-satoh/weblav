@@ -51,17 +51,17 @@ mod tests {
         let tmp = TempDir::new("first_caller_acquires_and_second_is_rejected");
         let path = tmp.path().join("test.lock");
 
-        let first = acquire(&path).unwrap();
+        let first = acquire(&path).expect("ロックを取れるはず");
         assert!(first.is_some(), "最初の取得はロックを保持できるはず");
 
-        let second = acquire(&path).unwrap();
+        let second = acquire(&path).expect("ロックを取れるはず");
         assert!(
             second.is_none(),
             "ロック保持中の別ハンドルからの取得は None になるはず"
         );
 
         drop(first);
-        let third = acquire(&path).unwrap();
+        let third = acquire(&path).expect("ロックを取れるはず");
         assert!(third.is_some(), "解放後は再度取得できるはず");
     }
 
@@ -76,9 +76,12 @@ mod tests {
         std::fs::remove_dir_all(tmp.path()).expect("TempDir::newが作った直後のはず");
         let path = tmp.path().join("test.lock");
 
-        let _lock = acquire(&path).unwrap();
+        let _lock = acquire(&path).expect("ロックを取れるはず");
 
-        let mode = std::fs::metadata(tmp.path()).unwrap().permissions().mode();
+        let mode = std::fs::metadata(tmp.path())
+            .expect("属性を読めるはず")
+            .permissions()
+            .mode();
         assert_eq!(
             mode & 0o777,
             0o700,
