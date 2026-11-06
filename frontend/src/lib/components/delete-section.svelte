@@ -18,7 +18,8 @@
 	let { notes, disabledReason = null, onclick }: Props = $props();
 </script>
 
-<div class={[sectionGridClass, 'mt-6']}>
+<!-- 上の石垣 (`masonry`) は最後の区画の下にも区画の間と同じ隙間を残すので、ここでは上に間を足さない。 -->
+<div class={sectionGridClass}>
 	<section aria-labelledby="delete-section-heading" class={sectionCardClass}>
 		<h2 id="delete-section-heading" class="text-base font-semibold">
 			{m.common_delete_section_title()}
