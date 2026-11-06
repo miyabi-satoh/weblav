@@ -447,5 +447,8 @@ async fn browse_group_can_add_only_when_signed_in_and_not_others_private_group(p
     assert!(can_add(body), "自分の作成者のみのグループには足せる");
     let (status, body) = send_empty(app, "GET", &private_uri, &admin).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert!(!can_add(body), "管理者でも他人の作成者のみのグループには足せない");
+    assert!(
+        !can_add(body),
+        "管理者でも他人の作成者のみのグループには足せない"
+    );
 }
