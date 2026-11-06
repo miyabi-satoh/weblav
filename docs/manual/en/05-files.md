@@ -92,7 +92,7 @@ This shows a folder or file in a share on Home as a shortcut. You can do this in
 1. Select “⋮” on the folder or file row, then choose “List on Home...”.
 2. Choose the visibility, then select “List”.
 
-The title is the folder or file name. To change it, open the edit page from “Edit” in the row's “⋮” menu on Home (→ [Register contents](06-register-content.md)).
+The title is the folder or file name. To change it, open the edit page with the pen at the right end of the row on Home (→ [Register contents](06-register-content.md)).
 
 If a place has hidden content and its creator or an admin lists it, that content comes back with the visibility chosen instead of a new one being created. Its title and its patterns for what to show stay the same. When someone who is neither its creator nor an admin lists it, or an admin lists someone else's content as “Creator only”, it becomes separate content.
 

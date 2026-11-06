@@ -33,7 +33,6 @@ import {
 	USER_ADD_BUTTON_NAME,
 	VISIBILITY_LABEL,
 	chooseContentType,
-	clickHeadingMenuItem,
 	confirmDelete,
 	contentRow,
 	fillLogInForm,
@@ -701,10 +700,10 @@ const admin: Story = {
 			}
 		},
 		{
-			caption: '見出しの⋮から「パスワードを再設定...」を押す',
+			caption: '「パスワードを再設定...」を押す',
 			roles: ADMIN_ONLY,
 			async run(page) {
-				await clickHeadingMenuItem(page, RESET_PASSWORD_MENU_ITEM_NAME);
+				await page.getByRole('button', { name: RESET_PASSWORD_MENU_ITEM_NAME }).click();
 				await waitForDialog(page);
 			}
 		},

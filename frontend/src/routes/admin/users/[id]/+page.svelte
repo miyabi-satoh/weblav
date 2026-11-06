@@ -23,7 +23,6 @@
 	import { roleLabel } from '$lib/role-labels';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
@@ -31,7 +30,6 @@
 	import LeaveConfirmDialog from '$lib/components/leave-confirm-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import PasswordInput from '$lib/components/password-input.svelte';
-	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 	import DeleteSection from '$lib/components/delete-section.svelte';
 	import UserDeleteDialog from '$lib/components/user-delete-dialog.svelte';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
@@ -188,14 +186,12 @@
 		<ChevronLeftIcon class="size-4" />
 		<span class="underline underline-offset-4">{m.admin_users_nav_title()}</span>
 	</a>
-	<!-- パスワードの再設定は見出しの段の⋮に、削除は最後の「削除」の区画に置く (→ docs/ui.md「編集ページの区画」)。 -->
+	<!-- パスワードの再設定は見出しの段のボタンに、削除は最後の「削除」の区画に置く (→ docs/ui.md「UI 全般」)。 -->
 	<div class="mt-2 flex items-start gap-2">
 		<h1 class={pageHeadingInRowClass}>{target.username}</h1>
-		<RowActionsMenu name={target.username}>
-			<DropdownMenu.Item onSelect={openResetDialog}>
-				{m.admin_users_reset_password_button()}
-			</DropdownMenu.Item>
-		</RowActionsMenu>
+		<Button class="shrink-0" variant="outline" size="sm" onclick={openResetDialog}>
+			{m.admin_users_reset_password_button()}
+		</Button>
 	</div>
 	<!-- 一覧で狭い幅のときに隠す作成日を、ここで確かめられるようにする (→ docs/ui.md「UI 全般」)。 -->
 	<p class="text-sm text-muted-foreground">

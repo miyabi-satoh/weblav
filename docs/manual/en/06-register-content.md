@@ -105,7 +105,7 @@ note = "A description shown under the link (optional)"
 | Creator only | Listed only for the person who registered it (administrators can open it from the admin pages) |
 | Hidden | Not listed (the person who registered it and administrators can open it from “Hidden content” in the user name menu) |
 
-1. In the list on Home or in a group, select “⋮” on a row of an item you registered (administrators: any item), then choose “Edit” (administrators can also select the row in the “Contents” list in the admin pages).
+1. In the list on Home or in a group, select the pen at the right end of a row of an item you registered (administrators: any item) (administrators can also select the row in the “Contents” list in the admin pages).
 
    ![The content row menu](images/row-menu.webp)
 
@@ -121,7 +121,7 @@ Visibility controls how an item appears as content. Files inside a folder can st
 
 Set the visibility to “Hidden” on the edit page to remove an item from the lists on Home and in groups.
 
-Hidden items are listed under “Hidden content” in the username menu at the top right (items you registered; administrators see all). To show one again, select “Edit” in its row's “⋮” menu there to open the edit page, then choose another visibility.
+Hidden items are listed under “Hidden content” in the username menu at the top right (items you registered; administrators see all). To show one again, select the pen at the right end of its row there to open the edit page, then choose another visibility.
 
 Set a group to “Creator only” to make it a space just for you. It can hold only your own “Creator only” content, and anything you add inside it becomes “Creator only”. A group that holds someone else’s content, or content that isn’t “Creator only”, can’t be set to “Creator only”.
 
@@ -146,7 +146,7 @@ To move an existing item:
 
 ## Change contents
 
-Open the edit page, make your changes, then select “Save”. To open the edit page, choose “Edit” from a row's “⋮” in the list on Home or in a group, or select the pen next to the heading of a group or other page. Administrators can also select the row in the list in the admin pages.
+Open the edit page, make your changes, then select “Save”. To open the edit page, select the pen at the right end of a row in the list on Home or in a group, or the pen next to the heading of a group or other page. Administrators can also select the row in the list in the admin pages.
 
 To see how it looks to viewers, select “View on site” next to the heading of the edit page (it is also in the row’s “⋮” in the list in the admin pages). This opens the group the item is in (Home if it isn't in a group), where it's listed. Items set to “Hidden” and other people's “Creator only” items aren't listed there, so the item itself opens (files registered in an earlier version, such as images, still open the group).
 

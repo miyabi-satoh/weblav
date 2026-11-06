@@ -4,6 +4,8 @@
 	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
 	import { resolve } from '$app/paths';
 	import FileIcon from '@lucide/svelte/icons/file';
+	import PencilIcon from '@lucide/svelte/icons/pencil';
+	import { actionMenuTriggerClass } from '$lib/table-columns';
 	import { contentDownloadHref, contentRemoteHref, contentThumbnailHref } from '$lib/api/urls';
 	import { contentTypeIcon } from '$lib/content-types';
 	import {
@@ -31,10 +33,8 @@
 		browseRowTitleClass,
 		rowMenuSlotClass
 	} from '$lib/list-row';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
 	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
 	import ListRowImageLink from '$lib/components/list-row-image-link.svelte';
@@ -62,7 +62,7 @@
 		subtitle?: (content: ContentEntry) => string | null | undefined;
 		/** 検索の結果の、どこにあるか。2段目の、説明の前に出す。 */
 		location?: (content: ContentEntry) => RowLocation | undefined;
-		/** 書き換えられる行 (`canEdit`) に ⋮ のメニューを出す。ホームとグループの一覧で使う。 */
+		/** 書き換えられる行 (`canEdit`) に編集ページへのペンを出す。ホームとグループの一覧で使う。 */
 		actions?: boolean;
 	} = $props();
 
@@ -186,16 +186,15 @@
 
 {#snippet rowMenu(content: ContentEntry)}
 	{#if actions && content.canEdit}
+		<!-- 操作は編集だけなので、⋮ のメニューにせず、見出しと同じペンを ⋮ と同じ所・大きさで置く (→ docs/ui.md「UI 全般」)。 -->
 		<span class={rowMenuSlotClass()}>
-			<RowActionsMenu name={content.title}>
-				<DropdownMenu.Item>
-					{#snippet child({ props })}
-						<a href={resolve('/contents/[id]', { id: String(content.id) })} {...props}
-							>{m.action_edit_page()}</a
-						>
-					{/snippet}
-				</DropdownMenu.Item>
-			</RowActionsMenu>
+			<a
+				href={resolve('/contents/[id]', { id: String(content.id) })}
+				class={actionMenuTriggerClass}
+				aria-label={m.browse_heading_edit_label({ title: content.title })}
+			>
+				<PencilIcon class="size-4" />
+			</a>
 		</span>
 	{/if}
 {/snippet}

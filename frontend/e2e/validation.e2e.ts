@@ -7,7 +7,6 @@ import { createLinkContent, openCreateForm, removeContentIfPresent } from './con
 import {
 	ADD_SUBMIT_BUTTON_NAME,
 	basicSaveButton,
-	clickHeadingMenuItem,
 	CLOSE_BUTTON_NAME,
 	CONTENT_SUBMIT_BUTTON_NAME,
 	DELETE_MENU_ITEM_NAME,
@@ -135,7 +134,7 @@ test.describe('ユーザー', () => {
 		const username = uniqueId('e2e-reset-mismatch');
 		try {
 			await createUser(page, username, 'E2eSmoke!2026Test');
-			await clickHeadingMenuItem(page, RESET_PASSWORD_MENU_ITEM_NAME);
+			await page.getByRole('button', { name: RESET_PASSWORD_MENU_ITEM_NAME }).click();
 			await waitForDialog(page);
 			await page.getByLabel(PASSWORD_LABEL).fill('E2eSmoke!2026Reset');
 			await page.getByLabel(PASSWORD_CONFIRM_LABEL).fill('E2eSmoke!2026Other');

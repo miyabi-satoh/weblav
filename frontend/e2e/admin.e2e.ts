@@ -20,7 +20,6 @@ import {
 	RESET_PASSWORD_MENU_ITEM_NAME,
 	VIEW_ON_SITE_LINK_NAME,
 	TITLE_LABEL,
-	clickHeadingMenuItem,
 	clickRowMenuItem,
 	DISCARD_AND_LEAVE_BUTTON_NAME,
 	LEAVE_CONFIRM_NAME,
@@ -331,7 +330,7 @@ test('管理画面: ユーザーのパスワードを再設定できる', async 
 	try {
 		// 追加すると編集ページへ移る。再設定は見出しの⋮から開く。
 		await createUser(page, username, 'E2eSmoke!2026Test');
-		await clickHeadingMenuItem(page, RESET_PASSWORD_MENU_ITEM_NAME);
+		await page.getByRole('button', { name: RESET_PASSWORD_MENU_ITEM_NAME }).click();
 		// ダイアログの描画を待たずに入力すると、入力値が画面の状態に反映されないことがある。
 		await waitForDialog(page);
 		await page.getByLabel(PASSWORD_LABEL).fill(newPassword);
