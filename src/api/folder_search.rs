@@ -185,9 +185,7 @@ pub(super) async fn search(
             truncated |= cut;
             for mut entry in entries {
                 // 結果のパスは、階層の中からでなく、フォルダーの登録パスからの相対にする。
-                if !folder.sub_path.is_empty() {
-                    entry.rel_path = super::fs::join_rel(&folder.sub_path, &entry.rel_path);
-                }
+                entry.rel_path = super::fs::join_rel(&folder.sub_path, &entry.rel_path);
                 let shown = if entry.is_dir {
                     filter.allows_dir(&entry.rel_path)
                 } else {

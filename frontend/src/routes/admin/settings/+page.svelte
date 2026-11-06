@@ -133,7 +133,8 @@
 		} finally {
 			savingSite = false;
 		}
-		await leaveGuard.resumeAfterSave(() => dirty() || errorDialog.open);
+		// もう一方の保存が続いていれば、止めた移動はその保存の後に任せる。
+		if (!savingServer) await leaveGuard.resumeAfterSave(() => dirty() || errorDialog.open);
 	}
 
 	async function handleServerSubmit(e: SubmitEvent) {
@@ -162,7 +163,7 @@
 		} finally {
 			savingServer = false;
 		}
-		await leaveGuard.resumeAfterSave(() => dirty() || errorDialog.open);
+		if (!savingSite) await leaveGuard.resumeAfterSave(() => dirty() || errorDialog.open);
 	}
 
 	// 保存ボタンを置かず、切り替えたらすぐ送る。起動し直さずに効く設定なので。
