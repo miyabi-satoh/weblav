@@ -46,7 +46,7 @@ After changing a username, let them know to log in with the new username from no
 
 ## Delete a user
 
-1. In the “Users” list, select “⋮” on the row, then choose “Delete...”. (You can also choose it from “⋮” next to the username on the edit page.)
+1. In the “Users” list, select “⋮” on the row, then choose “Delete...”. (You can also use the “Delete” section at the bottom of the edit page.)
 
    ![The user row menu](images/user-menu.webp)
 

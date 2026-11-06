@@ -13,7 +13,7 @@
 	import { masonry } from '$lib/masonry';
 	import {
 		adminPageClass,
-		pageHeadingInRowClass,
+		pageHeadingTextClass,
 		sectionCardClass,
 		sectionGridClass
 	} from '$lib/page-layout';
@@ -39,7 +39,7 @@
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import LoadingLabel from '$lib/components/loading-label.svelte';
 	import RootDeleteDialog from '$lib/components/root-delete-dialog.svelte';
-	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
+	import DeleteSection from '$lib/components/delete-section.svelte';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { backLinkClass } from '$lib/back-link';
@@ -208,15 +208,8 @@
 		<ChevronLeftIcon class="size-4" />
 		<span class="underline underline-offset-4">{m.admin_roots_nav_title()}</span>
 	</a>
-	<!-- 削除はコンテンツの編集ページと同じく、見出しの段の⋮に入れる (→ docs/ui.md「UI 全般」)。 -->
-	<div class="mt-2 flex items-start gap-2">
-		<h1 class={pageHeadingInRowClass}>{root.name}</h1>
-		<RowActionsMenu name={root.name}>
-			<DropdownMenu.Item variant="destructive" onSelect={() => (deletingRoot = root)}>
-				{m.action_delete()}
-			</DropdownMenu.Item>
-		</RowActionsMenu>
-	</div>
+	<!-- 削除は、ほかの編集ページと同じく最後の「削除」の区画に置く (→ docs/ui.md「編集ページの区画」)。 -->
+	<h1 class={['mt-2 wrap-anywhere', pageHeadingTextClass]}>{root.name}</h1>
 	<p class="text-sm text-muted-foreground">
 		{m.admin_roots_content_count({ count: formatNumber(root.contentCount) })}
 	</p>
@@ -392,6 +385,10 @@
 			</div>
 		</form>
 	</div>
+	<DeleteSection
+		notes={[m.admin_roots_delete_section_note()]}
+		onclick={() => (deletingRoot = root)}
+	/>
 </div>
 
 <!-- 場所を変えると、中のコンテンツの登録先も移る。窓で選んだ後に、移る先と件数を見せてから変える。 -->

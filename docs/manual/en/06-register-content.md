@@ -160,7 +160,7 @@ To see how it looks to viewers, select “View on site” next to the heading of
 
 ## Delete
 
-1. On the edit page, select “⋮” next to the heading, then choose “Delete...” (administrators can also choose it from a row's “⋮” in the list in the admin pages).
+1. In the “Delete” section at the bottom of the edit page, select “Delete...” (administrators can also choose it from a row's “⋮” in the list in the admin pages).
 
    ![The content row menu](images/row-menu.webp)
 

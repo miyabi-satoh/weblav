@@ -704,5 +704,10 @@
 	"hidden_menu_item": "非表示のコンテンツ ({count})",
 	"hidden_title": "非表示のコンテンツ",
 	"hidden_empty": "非表示のコンテンツはありません。",
-	"hidden_fetch_failed": "非表示のコンテンツを読み込めませんでした。しばらくしてからもう一度お試しください。"
+	"hidden_fetch_failed": "非表示のコンテンツを読み込めませんでした。しばらくしてからもう一度お試しください。",
+	"common_delete_section_title": "削除",
+	"common_delete_section_irreversible": "削除すると元に戻せません。",
+	"contents_delete_section_files_note": "コンピューターの中のフォルダーやファイルは消えません。",
+	"admin_users_delete_section_note": "このユーザーが作成したコンテンツは残ります。「作成者のみ」のものは「非表示」になります。",
+	"admin_roots_delete_section_note": "コンピューターの中のフォルダーは消えません。この中のコンテンツは、同じフォルダーを共有に追加し直すまで表示できなくなります。"
 }

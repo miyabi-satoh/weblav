@@ -44,6 +44,10 @@
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import LeaveConfirmDialog from '$lib/components/leave-confirm-dialog.svelte';
+	import ContentDeleteDialog from '$lib/components/content-delete-dialog.svelte';
+	import DeleteSection from '$lib/components/delete-section.svelte';
+	import { contentEditBack } from '$lib/content-edit-back';
+	import { gotoWithoutLeaveConfirm } from '$lib/leave-confirm';
 	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
 
@@ -55,6 +59,14 @@
 	let contentById = $derived(byIdMap(data.contents));
 	let canSeeFullPath = $derived(isAdmin(page.data.user));
 	let editable = $derived(data.editable);
+
+	// 削除は「削除」の区画から開く (→ docs/ui.md「編集ページの区画」)。消したら戻り先へ移る。
+	let deletingContent = $state<typeof content | null>(null);
+	let deleteNotes = $derived([
+		m.common_delete_section_irreversible(),
+		...(content.type === 'group' ? [m.contents_delete_confirm_group_note()] : []),
+		...(isPathContentType(content.type) ? [m.contents_delete_section_files_note()] : [])
+	]);
 
 	// 別のコンテンツへ移るとレイアウトの `{#key}` でページごと作り直すので、読み込みは初回だけでよい。
 	const form = new ContentFormState();
@@ -445,7 +457,19 @@
 			{@render partForm('specific', specificTitle)}
 		{/if}
 	</div>
+	{#if editable}
+		<DeleteSection notes={deleteNotes} onclick={() => (deletingContent = content)} />
+	{/if}
 </div>
+
+<!-- 消したものの編集ページには戻れないので、戻り先へ移る。 -->
+<ContentDeleteDialog
+	bind:content={deletingContent}
+	contents={data.contents}
+	{contentById}
+	ondeleted={() =>
+		gotoWithoutLeaveConfirm(contentEditBack(page.data.user, content, contentById).href)}
+/>
 
 <DirPicker
 	bind:open={dirPickerOpen}

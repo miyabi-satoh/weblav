@@ -880,5 +880,10 @@
 	"hidden_menu_item": "Hidden content ({count})",
 	"hidden_title": "Hidden content",
 	"hidden_empty": "There is no hidden content.",
-	"hidden_fetch_failed": "Couldn't load the hidden content. Please try again later."
+	"hidden_fetch_failed": "Couldn't load the hidden content. Please try again later.",
+	"common_delete_section_title": "Delete",
+	"common_delete_section_irreversible": "Deleting can't be undone.",
+	"contents_delete_section_files_note": "Folders and files on your computer are not deleted.",
+	"admin_users_delete_section_note": "Contents created by this user are kept. Their “Creator only” contents become “Hidden”.",
+	"admin_roots_delete_section_note": "The folder on your computer is not deleted. Contents inside it can't be shown until you add the same folder as a share again."
 }

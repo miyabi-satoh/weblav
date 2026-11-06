@@ -32,6 +32,7 @@
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import PasswordInput from '$lib/components/password-input.svelte';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
+	import DeleteSection from '$lib/components/delete-section.svelte';
 	import UserDeleteDialog from '$lib/components/user-delete-dialog.svelte';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import { backLinkClass } from '$lib/back-link';
@@ -187,20 +188,12 @@
 		<ChevronLeftIcon class="size-4" />
 		<span class="underline underline-offset-4">{m.admin_users_nav_title()}</span>
 	</a>
-	<!-- パスワードの再設定と削除は、共有の編集ページと同じく見出しの段の⋮に入れる (→ docs/ui.md「UI 全般」)。 -->
+	<!-- パスワードの再設定は見出しの段の⋮に、削除は最後の「削除」の区画に置く (→ docs/ui.md「編集ページの区画」)。 -->
 	<div class="mt-2 flex items-start gap-2">
 		<h1 class={pageHeadingInRowClass}>{target.username}</h1>
 		<RowActionsMenu name={target.username}>
 			<DropdownMenu.Item onSelect={openResetDialog}>
 				{m.admin_users_reset_password_button()}
-			</DropdownMenu.Item>
-			<!-- 最後の管理者は消せない。理由は「権限」の区画に出す。 -->
-			<DropdownMenu.Item
-				variant="destructive"
-				disabled={soleAdmin}
-				onSelect={() => (deletingUser = target)}
-			>
-				{m.action_delete()}
 			</DropdownMenu.Item>
 		</RowActionsMenu>
 	</div>
@@ -273,6 +266,12 @@
 			</div>
 		</form>
 	</div>
+	<!-- 最後の管理者は消せない。理由は区画の中にも書く。 -->
+	<DeleteSection
+		notes={[m.common_delete_section_irreversible(), m.admin_users_delete_section_note()]}
+		disabledReason={soleAdmin ? m.admin_users_last_admin_note() : null}
+		onclick={() => (deletingUser = target)}
+	/>
 </div>
 
 <Dialog.Root bind:open={resetOpen}>

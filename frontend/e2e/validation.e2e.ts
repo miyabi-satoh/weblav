@@ -26,7 +26,8 @@ import {
 	USER_ADD_BUTTON_NAME,
 	USERNAME_LABEL,
 	userRow,
-	waitForDialog
+	waitForDialog,
+	deleteSectionButton
 } from './helpers';
 import { createUser, removeUserIfPresent } from './user-helpers';
 
@@ -177,9 +178,6 @@ test.describe('ユーザー', () => {
 		await expect(
 			roleForm.getByRole('radio', { name: /^一般ユーザー$|^Standard user$/ })
 		).toBeDisabled();
-		await page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).first().click();
-		await expect(
-			page.getByRole('menu').getByRole('menuitem', { name: DELETE_MENU_ITEM_NAME })
-		).toBeDisabled();
+		await expect(deleteSectionButton(page)).toBeDisabled();
 	});
 });

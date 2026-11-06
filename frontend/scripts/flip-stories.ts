@@ -41,7 +41,8 @@ import {
 	requiredLabel,
 	saveForm,
 	userRow,
-	waitForDialog
+	waitForDialog,
+	deleteSectionButton
 } from '../e2e/helpers.ts';
 import { waitForPageReady, type ShotFixtures, type ViewportName } from './shots.ts';
 
@@ -468,15 +469,16 @@ const contents: Story = {
 			}
 		},
 		{
-			caption: '見出しの⋮を開く',
+			caption: '「削除」の区画の「削除...」を押す',
 			roles: USER_ONLY,
 			async run(page) {
-				await page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).first().click();
-				await page.getByRole('menu').waitFor();
+				await deleteSectionButton(page).click();
+				await waitForDialog(page, { role: 'alertdialog', awaitAutofocus: false });
 			}
 		},
 		{
 			caption: '「削除...」を押す',
+			roles: ADMIN_ONLY,
 			async run(page) {
 				await page.getByRole('menu').getByRole('menuitem', { name: DELETE_MENU_ITEM_NAME }).click();
 				await waitForDialog(page, { role: 'alertdialog', awaitAutofocus: false });
@@ -707,11 +709,11 @@ const admin: Story = {
 			}
 		},
 		{
-			caption: 'キャンセルし、見出しの⋮から「削除...」を押す',
+			caption: 'キャンセルし、「削除」の区画の「削除...」を押す',
 			roles: ADMIN_ONLY,
 			async run(page) {
 				await cancelDialog(page);
-				await clickHeadingMenuItem(page, DELETE_MENU_ITEM_NAME);
+				await deleteSectionButton(page).click();
 				await waitForDialog(page, { role: 'alertdialog', awaitAutofocus: false });
 			}
 		},
@@ -748,11 +750,10 @@ const admin: Story = {
 			}
 		},
 		{
-			caption: '見出しの⋮から「削除...」を押す (中のコンテンツの件数が出る)',
+			caption: '「削除」の区画の「削除...」を押す (中のコンテンツの件数が出る)',
 			roles: ADMIN_ONLY,
 			async run(page) {
-				await page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).first().click();
-				await page.getByRole('menuitem', { name: DELETE_MENU_ITEM_NAME }).click();
+				await deleteSectionButton(page).click();
 				await waitForDialog(page, { role: 'alertdialog', awaitAutofocus: false });
 			}
 		},

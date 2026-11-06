@@ -312,6 +312,13 @@ export async function clickHeadingMenuItem(page: Page, name: RegExp): Promise<vo
 	await page.getByRole('menu').getByRole('menuitem', { name }).click();
 }
 
+/** 編集ページの最後の「削除」の区画の「削除...」 (→ docs/ui.md「編集ページの区画」)。 */
+export function deleteSectionButton(page: Page): Locator {
+	return page
+		.getByRole('region', { name: /^削除$|^Delete$/ })
+		.getByRole('button', { name: DELETE_MENU_ITEM_NAME });
+}
+
 /** 行の⋮メニューを開くボタン。名前には行の名前が入る (→ docs/ui.md「UI 全般」)。 */
 export const ROW_ACTIONS_BUTTON_NAME = /の操作$|^Actions for /;
 

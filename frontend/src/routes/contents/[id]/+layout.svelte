@@ -8,7 +8,7 @@
 	import { archiveItemsSummary, contentTypeLabel } from '$lib/content-labels';
 	import { byIdMap } from '$lib/content-tree';
 	import { contentViewHref } from '$lib/content-view-href';
-	import { gotoWithoutLeaveConfirm } from '$lib/leave-confirm';
+	import { contentEditBack } from '$lib/content-edit-back';
 	import { Button } from '$lib/components/ui/button';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import ScanProgress from '$lib/components/scan-progress.svelte';
@@ -18,7 +18,6 @@
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import ContentDeleteDialog from '$lib/components/content-delete-dialog.svelte';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 	import { contentTypeIcon } from '$lib/content-types';
 	import { contentPathLabel } from '$lib/root-location';
@@ -33,24 +32,8 @@
 	let content = $derived(data.content);
 	let contentById = $derived(byIdMap(data.contents));
 	let view = $derived(contentViewHref(content, page.data.user?.id));
-	let deletingContent = $state<typeof content | null>(null);
 
-	// 戻り先は、admin はコンテンツの管理の一覧、user は閲覧の場でこのコンテンツが並ぶ所
-	// (親のグループかホーム)。管理画面は admin 専用で、user は閲覧の画面の ⋮ から来るため
-	// (→ docs/access.md「ロールと操作」)。
-	let back = $derived.by(() => {
-		if (isAdmin(page.data.user)) {
-			return { href: resolve('/admin/contents'), label: m.admin_contents_nav_title() };
-		}
-		const parent = content.parentId == null ? undefined : contentById.get(content.parentId);
-		if (parent) {
-			return {
-				href: resolve('/groups/[id]', { id: String(parent.id) }),
-				label: parent.title
-			};
-		}
-		return { href: resolve('/'), label: m.breadcrumb_home() };
-	});
+	let back = $derived(contentEditBack(page.data.user, content, contentById));
 
 	// 再スキャンは見出しの段で押し、進み具合と結果は見出しの下に出す (→ docs/ui.md「UI 全般」)。
 	// タブを移っても消えないよう、ここで持つ。
@@ -116,10 +99,12 @@
 <svelte:head><title>{pageTitle(content.title)}</title></svelte:head>
 
 <div class="px-4 pt-4 md:px-6">
+	<!-- eslint-disable svelte/no-navigation-without-resolve -- contentEditBack() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
 	<a href={back.href} class={backLinkClass}>
 		<ChevronLeftIcon class="size-4" />
 		<span class="underline underline-offset-4">{back.label}</span>
 	</a>
+	<!-- eslint-enable svelte/no-navigation-without-resolve -->
 	<!-- 閲覧画面へのリンクと⋮は、どのタブでも同じ所に出すので見出しの段に置く (→ docs/ui.md「UI 全般」)。 -->
 	<div class="mt-2 flex items-start gap-2">
 		<h1 class={pageHeadingInRowClass}>{content.title}</h1>
@@ -148,8 +133,9 @@
 				>{m.contents_menu_view()}</Button
 			>
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
-			<!-- 見るだけの人には消す操作が無いので、広い幅では⋮ごと出さない。 -->
-			<div class={[!data.editable && 'sm:hidden']}>
+			<!-- 削除は設定のタブの「削除」の区画に置く (→ docs/ui.md「編集ページの区画」)。⋮ には、スマートフォンの幅で
+			     見出しの段から外したボタンだけを入れるので、広い幅では⋮ごと出さない。 -->
+			<div class="sm:hidden">
 				<RowActionsMenu name={content.title}>
 					{#if canRescan}
 						<DropdownMenu.Item class="sm:hidden" disabled={rescan.busy} onSelect={startRescan}>
@@ -168,11 +154,6 @@
 							<!-- eslint-enable svelte/no-navigation-without-resolve -->
 						{/snippet}
 					</DropdownMenu.Item>
-					{#if data.editable}
-						<DropdownMenu.Item variant="destructive" onSelect={() => (deletingContent = content)}>
-							{m.action_delete()}
-						</DropdownMenu.Item>
-					{/if}
 				</RowActionsMenu>
 			</div>
 		</div>
@@ -234,13 +215,5 @@
 {#key data.contentId}
 	{@render children()}
 {/key}
-
-<!-- 消したものの編集ページには戻れないので、戻り先へ移る。 -->
-<ContentDeleteDialog
-	bind:content={deletingContent}
-	contents={data.contents}
-	{contentById}
-	ondeleted={() => gotoWithoutLeaveConfirm(back.href)}
-/>
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

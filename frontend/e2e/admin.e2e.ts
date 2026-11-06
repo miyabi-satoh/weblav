@@ -18,7 +18,6 @@ import {
 	PASSWORD_CONFIRM_LABEL,
 	PASSWORD_LABEL,
 	RESET_PASSWORD_MENU_ITEM_NAME,
-	ROW_ACTIONS_BUTTON_NAME,
 	VIEW_ON_SITE_LINK_NAME,
 	TITLE_LABEL,
 	clickHeadingMenuItem,
@@ -42,7 +41,8 @@ import {
 	VISIBILITY_LABEL,
 	VISIBILITY_PRIVATE_OPTION_NAME,
 	waitForDialog,
-	PASSWORD_HASH_TIMEOUT
+	PASSWORD_HASH_TIMEOUT,
+	deleteSectionButton
 } from './helpers';
 import {
 	createGroupContent,
@@ -160,8 +160,7 @@ test('編集ページ: 閲覧画面で開けて、保存していない変更が
 
 		await page.goto(editUrl);
 		await page.getByLabel(TITLE_LABEL).fill(`${title}-変更`);
-		await page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).click();
-		await page.getByRole('menu').getByRole('menuitem', { name: DELETE_MENU_ITEM_NAME }).click();
+		await deleteSectionButton(page).click();
 		await confirmDelete(page);
 		await page.waitForURL(/\/admin\/contents$/);
 		await expect(contentRow(page, title)).toHaveCount(0);
@@ -395,8 +394,8 @@ test('管理画面: ユーザーの編集ページで、ユーザー名と権限
 		await page.waitForURL(/\/admin\/users\/\d+$/);
 		await expect(page.getByRole('heading', { level: 1 })).toHaveText(renamed);
 
-		// 見出しの⋮から消すと、一覧へ戻る。
-		await clickHeadingMenuItem(page, DELETE_MENU_ITEM_NAME);
+		// 「削除」の区画から消すと、一覧へ戻る。
+		await deleteSectionButton(page).click();
 		await confirmDelete(page);
 		await page.waitForURL(/\/admin\/users$/);
 		await expect(userRow(page, renamed)).toHaveCount(0);

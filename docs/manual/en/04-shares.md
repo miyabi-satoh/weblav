@@ -111,7 +111,7 @@ The name appears instead of the path when choosing a folder for content, when sh
 >
 > It removes only the entry from WebLAV’s “Shares” list. The folder stays where it is.
 
-1. Select “⋮” on the share row, then choose “Delete...” (you can also use “⋮” next to the name on the edit page).
+1. Select “⋮” on the share row, then choose “Delete...” (you can also use the “Delete” section at the bottom of the edit page).
 
    ![The share row menu](images/roots-menu.webp)
 
