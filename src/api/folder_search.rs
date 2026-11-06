@@ -196,12 +196,7 @@ pub(super) async fn search(
                 if !shown {
                     continue;
                 }
-                let name = entry
-                    .rel_path
-                    .rsplit('/')
-                    .next()
-                    .unwrap_or(&entry.rel_path)
-                    .to_string();
+                let name = super::fs::rel_file_name(&entry.rel_path).to_string();
                 let absolute = root.join(&entry.rel_path);
                 if !entry.is_dir && links_file::is_links_file_name(&name) {
                     sources.push(LinksSource {

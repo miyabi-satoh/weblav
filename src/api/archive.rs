@@ -11,6 +11,7 @@ use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use serde::Serialize;
+use sqlx::SqliteConnection;
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -267,9 +268,7 @@ pub(super) async fn load_archive(
     if row.content_type != ContentType::Folder || !row.list_view {
         return Err(AppError::NotFound);
     }
-    let path = row
-        .path
-        .ok_or(AppError::DataIntegrity("archive content without a path"))?;
+    let path = super::contents::folder_path(row.path)?;
     Ok(ArchiveMeta {
         title: row.title,
         path,
@@ -329,8 +328,7 @@ pub(super) async fn ensure_manageable_archive(
 pub struct RescanResponse {
     /// 新しく索引に加えたアイテム数。
     added: usize,
-    /// 索引から取り除いたアイテム数。実体が消えたもの、または拡張子の対象から
-    /// 外れたもの。
+    /// 索引から取り除いたアイテム数。実体が消えたもの。
     removed: usize,
     /// 同期後の索引の総数。
     total: usize,
@@ -511,9 +509,7 @@ async fn load_known_files(pool: &sqlx::SqlitePool, id: i64) -> Result<KnownFiles
         .into_iter()
         .filter(|row| {
             row.image_width.is_some()
-                || !super::thumbnails::is_image_file_name(
-                    row.rel_path.rsplit('/').next().unwrap_or(&row.rel_path),
-                )
+                || !super::thumbnails::is_image_file_name(super::fs::rel_file_name(&row.rel_path))
         })
         .map(|row| (row.rel_path, (row.file_size, row.modified_ns)))
         .collect())
@@ -562,7 +558,7 @@ fn read_items(
                 if known.get(&rel_path) == Some(&(size, modified_ns)) {
                     None
                 } else {
-                    let name = rel_path.rsplit('/').next().unwrap_or(&rel_path);
+                    let name = super::fs::rel_file_name(&rel_path);
                     let (preview, taken_at) =
                         super::thumbnails::scan_preview(name, &path, metadata.len());
                     Some(ScannedFile {
@@ -1026,11 +1022,6 @@ fn find_dir_changes(
     changes
 }
 
-/// 親のフォルダーの相対パス。登録先の直下なら空文字。
-fn parent_rel(rel_path: &str) -> &str {
-    rel_path.rsplit_once('/').map_or("", |(parent, _)| parent)
-}
-
 /// フォルダーの変わり方を索引へ書く。新しく足したファイルを返す。
 async fn apply_dir_changes(
     pool: &sqlx::SqlitePool,
@@ -1056,22 +1047,7 @@ async fn apply_dir_changes(
     .collect();
 
     for dir in &changes.removed_dirs {
-        let pattern = format!("{}/%", like_escape(dir));
-        sqlx::query!(
-            r"DELETE FROM archive_items WHERE archive_id = ? AND rel_path LIKE ? ESCAPE '\'",
-            id,
-            pattern
-        )
-        .execute(&mut *tx)
-        .await?;
-        sqlx::query!(
-            r"DELETE FROM archive_dirs WHERE archive_id = ? AND (rel_path = ? OR rel_path LIKE ? ESCAPE '\')",
-            id,
-            dir,
-            pattern
-        )
-        .execute(&mut *tx)
-        .await?;
+        delete_index_under(&mut tx, id, dir).await?;
     }
 
     let mut added = Vec::new();
@@ -1079,7 +1055,7 @@ async fn apply_dir_changes(
         let found: HashSet<&str> = files.iter().map(String::as_str).collect();
         for gone in existing
             .iter()
-            .filter(|rel| parent_rel(rel) == dir && !found.contains(rel.as_str()))
+            .filter(|rel| super::fs::parent_rel(rel) == dir && !found.contains(rel.as_str()))
         {
             sqlx::query!(
                 "DELETE FROM archive_items WHERE archive_id = ? AND rel_path = ?",
@@ -1178,16 +1154,34 @@ async fn fill_previews(
     Ok(())
 }
 
-/// LIKE の `%`・`_`・`\` を、そのままの文字として照らすよう逃がす。
-fn like_escape(value: &str) -> String {
-    let mut escaped = String::with_capacity(value.len());
-    for ch in value.chars() {
-        if matches!(ch, '%' | '_' | '\\') {
-            escaped.push('\\');
-        }
-        escaped.push(ch);
-    }
-    escaped
+/// `rel` とその中の索引の行を消す。消したフォルダー・動かしたものに使う。残すと読み直しが既知のファイルとして飛ばし、前の大きさや日付が残るため。
+///
+/// 頭の一致は LIKE でなく substr で照らす。LIKE は ASCII の大文字・小文字を区別しないので、
+/// 大文字・小文字を区別するファイルシステムで、綴りの違う隣のものまで巻き込まないため。
+/// `a` と `ab` を取り違えないよう、頭は `a/` で照らす。
+pub(super) async fn delete_index_under(
+    conn: &mut SqliteConnection,
+    id: i64,
+    rel: &str,
+) -> Result<(), AppError> {
+    let prefix = format!("{rel}/");
+    sqlx::query!(
+        "DELETE FROM archive_items WHERE archive_id = ?1 AND (rel_path = ?2 OR substr(rel_path, 1, length(?3)) = ?3)",
+        id,
+        rel,
+        prefix
+    )
+    .execute(&mut *conn)
+    .await?;
+    sqlx::query!(
+        "DELETE FROM archive_dirs WHERE archive_id = ?1 AND (rel_path = ?2 OR substr(rel_path, 1, length(?3)) = ?3)",
+        id,
+        rel,
+        prefix
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
 }
 
 /// 辿ったフォルダーとその更新日時を、今回の走査の結果で置き換える。
@@ -1732,7 +1726,7 @@ pub(super) fn derive_item<'a>(
 ) -> DerivedItem {
     let item = item.into();
     let rel_path = item.rel_path;
-    let file_name = rel_path.rsplit('/').next().unwrap_or(rel_path).to_string();
+    let file_name = super::fs::rel_file_name(rel_path).to_string();
 
     let axis_values: Vec<Option<DerivedAxisValue>> = axes
         .iter()
@@ -1836,6 +1830,41 @@ mod tests {
         );
         assert_eq!(items.len(), 1);
         assert!(complete, "読み終えたと返すはず");
+    }
+
+    /// 消したフォルダーの索引を消すとき、大文字・小文字だけが違う隣のフォルダーや、頭が同じ名前のフォルダーは残す。
+    #[sqlx::test]
+    async fn delete_index_under_keeps_differently_cased_and_longer_siblings(
+        pool: sqlx::SqlitePool,
+    ) {
+        let id = sqlx::query_scalar!(
+            "INSERT INTO contents (type, title, path, visibility, list_view) VALUES ('folder', 'f', '/f', 'public', 1) RETURNING id"
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("フォルダーを作れるはず");
+        for rel_path in ["Foo/a.mp3", "Foo/sub/b.mp3", "foo/c.mp3", "Foo2/d.mp3"] {
+            sqlx::query("INSERT INTO archive_items (archive_id, rel_path) VALUES (?, ?)")
+                .bind(id)
+                .bind(rel_path)
+                .execute(&pool)
+                .await
+                .expect("アイテムを足せるはず");
+        }
+
+        let mut conn = pool.acquire().await.expect("接続を取れるはず");
+        delete_index_under(&mut conn, id, "Foo")
+            .await
+            .expect("消せるはず");
+
+        let mut rel_paths: Vec<String> =
+            sqlx::query_scalar("SELECT rel_path FROM archive_items WHERE archive_id = ?")
+                .bind(id)
+                .fetch_all(&pool)
+                .await
+                .expect("アイテムを読めるはず");
+        rel_paths.sort();
+        assert_eq!(rel_paths, ["Foo2/d.mp3", "foo/c.mp3"]);
     }
 
     /// 中止したスキャンは、読んだ分だけを足し、読まなかったファイルを消さない (→ docs/archive.md「スキャンの中止」)。

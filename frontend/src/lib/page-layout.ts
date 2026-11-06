@@ -112,3 +112,6 @@ export const sectionGridClass = 'grid max-w-xl gap-6 lg:max-w-none lg:grid-cols-
 
 /** `sectionGridClass` に並べる区画のカード。 */
 export const sectionCardClass = 'flex flex-col gap-6 rounded-lg border bg-card p-4 sm:p-6';
+
+/** 一覧の上の、件数と操作を並べる段。一覧の表示の絞り込みの下と、対象外のタブで同じ高さにする。 */
+export const listCountRowClass = 'mt-2 flex min-h-11 items-center justify-between gap-3 text-sm';

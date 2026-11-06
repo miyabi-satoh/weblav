@@ -132,7 +132,7 @@ async fn insert_folder_by(
     .expect("folderを挿入できなかった")
 }
 
-/// 一覧の表示を使い、新しいファイルを公開しないフォルダー (前のアーカイブにあたる) を直接INSERTし、idを返す。
+/// 一覧の表示を使うフォルダー (前のアーカイブにあたる) を直接INSERTし、idを返す。
 async fn insert_archive_by(
     pool: &SqlitePool,
     title: &str,
@@ -591,8 +591,8 @@ async fn db_user_id(pool: &SqlitePool, username: &str) -> i64 {
         .expect("ユーザーのidを取得できなかった")
 }
 
-/// 一覧の表示を使い、新しいファイルを公開しないフォルダー (前のアーカイブにあたる) を1件作り、
-/// そのidを返す。`dir` は登録先の絶対パス。
+/// 一覧の表示を使うフォルダー (前のアーカイブにあたる) を1件作り、そのidを返す。
+/// `dir` は登録先の絶対パス。`extensions` (`mp3,pdf` の形) は、`*.mp3` のような対象のパターンにして入れる。
 async fn create_archive(
     app: Router,
     cookie: &str,

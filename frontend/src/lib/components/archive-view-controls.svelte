@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { listCountRowClass } from '$lib/page-layout';
 	import type { Snippet } from 'svelte';
 	import BrowseControls from '$lib/components/browse-controls.svelte';
 	import { goto } from '$app/navigation';
@@ -141,7 +142,7 @@
 
 <!-- フォルダーが無いときは、件数を数える物が無い (下に「フォルダーが見つかりません。」だけを出す)。 -->
 {#if !folderMissing && !hideCount}
-	<div class="mt-2 flex min-h-11 items-center justify-between gap-3 text-sm">
+	<div class={listCountRowClass}>
 		<p class="text-muted-foreground">
 			{shown !== undefined
 				? m.archive_view_count_filtered({

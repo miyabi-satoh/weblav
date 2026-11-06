@@ -32,8 +32,7 @@
 	import PasswordInput from '$lib/components/password-input.svelte';
 	import DeleteSection from '$lib/components/delete-section.svelte';
 	import UserDeleteDialog from '$lib/components/user-delete-dialog.svelte';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
-	import { backLinkClass } from '$lib/back-link';
+	import BackLink from '$lib/components/back-link.svelte';
 	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
 
@@ -182,10 +181,7 @@
 <svelte:head><title>{pageTitle(target.username)}</title></svelte:head>
 
 <div class="px-4 pt-4 md:px-6">
-	<a href={resolve('/admin/users')} class={backLinkClass}>
-		<ChevronLeftIcon class="size-4" />
-		<span class="underline underline-offset-4">{m.admin_users_nav_title()}</span>
-	</a>
+	<BackLink href={resolve('/admin/users')} label={m.admin_users_nav_title()} />
 	<!-- パスワードの再設定は見出しの段のボタンに、削除は最後の「削除」の区画に置く (→ docs/ui.md「UI 全般」)。 -->
 	<div class="mt-2 flex items-start gap-2">
 		<h1 class={pageHeadingInRowClass}>{target.username}</h1>

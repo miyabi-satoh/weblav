@@ -30,7 +30,8 @@ use super::jobs::{Job, JobOp, ShareJobResponse};
 use super::log::{self, LoggedPlace, OpRecord, OpResult, ShareOp, record_or_warn};
 use super::paths::{Resolved, ensure_not_protected, ensure_without_own_dirs, resolve_existing};
 use super::repoint::{self, Change};
-use super::{ShareAccess, join_rel, require};
+use super::{ShareAccess, require};
+use crate::api::fs::join_rel;
 
 /// コピーか移動か。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, ToSchema)]
@@ -676,7 +677,7 @@ async fn listed_under(
 ) -> Result<Vec<ListedAs>, AppError> {
     let doomed = doomed
         .iter()
-        .map(|path| crate::api::fs::path_to_string(path.clone()).map(PathBuf::from))
+        .map(|path| crate::api::fs::stored_path(path))
         .collect::<Result<Vec<_>, _>>()?;
     let rows = sqlx::query!(
         r#"SELECT id as "id!", title, path as "path!", visibility as "visibility: Visibility", created_by
@@ -727,7 +728,7 @@ async fn prepare_delete(
 }
 
 /// 消すものがどれもごみ箱へ送れるか。
-async fn trash_available(state: &AppState, entries: &[Resolved]) -> Result<bool, AppError> {
+async fn all_trashable(state: &AppState, entries: &[Resolved]) -> Result<bool, AppError> {
     let trash = state.share_trash.clone();
     let paths: Vec<PathBuf> = entries
         .iter()
@@ -757,7 +758,7 @@ async fn check_delete(
     AppJson(payload): AppJson<DeleteCheckRequest>,
 ) -> Result<Json<DeleteCheckResponse>, AppError> {
     let entries = prepare_delete(&state, &user, id, &payload.paths).await?;
-    let trash = trash_available(&state, &entries).await?;
+    let trash = all_trashable(&state, &entries).await?;
     let doomed: Vec<PathBuf> = entries
         .iter()
         .map(|entry| entry.canonical.clone())
@@ -788,7 +789,7 @@ async fn start_delete(
     AppJson(payload): AppJson<DeleteRequest>,
 ) -> Result<(StatusCode, Json<JobStartedResponse>), AppError> {
     let entries = prepare_delete(&state, &user, id, &payload.paths).await?;
-    if !payload.permanent && !trash_available(&state, &entries).await? {
+    if !payload.permanent && !all_trashable(&state, &entries).await? {
         return Err(AppError::TrashUnavailable);
     }
     let job = state.share_jobs.start(

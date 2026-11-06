@@ -2674,10 +2674,7 @@ export interface components {
             added: number;
             /** @description 途中で中止したか。中止したときは消えたファイルを外さず、読み終えた分だけを索引に書く。 */
             cancelled: boolean;
-            /**
-             * @description 索引から取り除いたアイテム数。実体が消えたもの、または拡張子の対象から
-             *     外れたもの。
-             */
+            /** @description 索引から取り除いたアイテム数。実体が消えたもの。 */
             removed: number;
             /** @description 同期後の索引の総数。 */
             total: number;
@@ -7092,6 +7089,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VisibilityPreview"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description 書き換えられるのは管理者と作成者だけ */

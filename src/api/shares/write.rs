@@ -23,7 +23,8 @@ use super::fsops;
 use super::log::{LoggedPlace, OpRecord, ShareOp, record_or_warn};
 use super::paths::{Resolved, ensure_not_protected, resolve_existing, resolve_parent_for_new};
 use super::repoint;
-use super::{ShareAccess, join_rel, require};
+use super::{ShareAccess, require};
+use crate::api::fs::{join_rel, parent_rel};
 
 /// 拡張子を直すかを決めるのに読む、ファイルの頭の大きさ (→ `fsops::sniff_image`)。
 const SNIFF_BYTES: usize = 64;
@@ -346,16 +347,12 @@ async fn rename_share_entry(
     let name = super::paths::validate_name(&payload.name)?;
     let from = entry.canonical.clone();
     let to = run_blocking(move || fsops::rename_entry(&from, &name)).await??;
-    let parent_rel = entry
-        .rel
-        .rsplit_once('/')
-        .map(|(parent, _)| parent)
-        .unwrap_or_default();
+    let parent = parent_rel(&entry.rel);
     let new_name = to
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or_default();
-    let path = join_rel(parent_rel, new_name);
+    let path = join_rel(parent, new_name);
     repoint::apply(
         &state,
         &[repoint::Change::Moved {

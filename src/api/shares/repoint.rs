@@ -18,7 +18,8 @@ use std::path::{Path, PathBuf};
 
 use sqlx::SqliteConnection;
 
-use crate::api::fs::path_to_string;
+use crate::api::archive::delete_index_under;
+use crate::api::fs::{path_to_string, stored_path};
 use crate::error::AppError;
 use crate::state::AppState;
 
@@ -60,12 +61,6 @@ async fn shortcut_rows(conn: &mut SqliteConnection) -> Result<Vec<(i64, PathBuf)
         .collect())
 }
 
-/// `contents.path` と同じ書き方にそろえる。Windows の canonicalize が付ける `\\?\` を落とす
-/// (落とさないと、保存してあるパスと頭が合わない)。
-fn stored_form(path: &Path) -> Result<PathBuf, AppError> {
-    path_to_string(path.to_path_buf()).map(PathBuf::from)
-}
-
 /// `old` (実体のパス) を `new` に動かした (名前を変えた) ことを映す。索引を直した、一覧の表示を使う
 /// コンテンツを返す (中を読み直させるため)。`scanning` は、そのコンテンツの索引を走査中か。
 pub(super) async fn moved(
@@ -74,8 +69,8 @@ pub(super) async fn moved(
     new: &Path,
     scanning: &(dyn Fn(i64) -> bool + Sync),
 ) -> Result<Vec<i64>, AppError> {
-    let old = stored_form(old)?;
-    let new = stored_form(new)?;
+    let old = stored_path(old)?;
+    let new = stored_path(new)?;
     if old == new {
         return Ok(Vec::new());
     }
@@ -91,16 +86,16 @@ pub(super) async fn moved(
             if !index_kept {
                 match rel_under(&row.path, &new) {
                     Ok(rel_new) => {
-                        delete_under(&mut *conn, row.id, &rel_new).await?;
+                        delete_index_under(&mut *conn, row.id, &rel_new).await?;
                         rename_under(&mut *conn, row.id, &rel_old, &rel_new).await?;
                     }
-                    Err(_) => delete_under(&mut *conn, row.id, &rel_old).await?,
+                    Err(_) => delete_index_under(&mut *conn, row.id, &rel_old).await?,
                 }
             }
         } else if let Ok(rel_new) = rel_under(&row.path, &new) {
             // 外から入れてきたもの。同じ場所に前からあったものの行を消す。
             if !index_kept {
-                delete_under(&mut *conn, row.id, &rel_new).await?;
+                delete_index_under(&mut *conn, row.id, &rel_new).await?;
             }
         } else {
             continue;
@@ -129,14 +124,14 @@ pub(super) async fn deleted(
     path: &Path,
     scanning: &(dyn Fn(i64) -> bool + Sync),
 ) -> Result<Vec<i64>, AppError> {
-    let path = stored_form(path)?;
+    let path = stored_path(path)?;
     let mut changed = Vec::new();
     for row in folder_rows(&mut *conn).await? {
         let Ok(rel) = rel_under(&row.path, &path) else {
             continue;
         };
         if !scanning(row.id) {
-            delete_under(&mut *conn, row.id, &rel).await?;
+            delete_index_under(&mut *conn, row.id, &rel).await?;
         }
         if row.list_view {
             changed.push(row.id);
@@ -155,7 +150,7 @@ pub(super) async fn overwritten(
     scanning: &(dyn Fn(i64) -> bool + Sync),
 ) -> Result<Vec<i64>, AppError> {
     let mut changed = Vec::new();
-    let path = stored_form(path)?;
+    let path = stored_path(path)?;
     for row in folder_rows(&mut *conn).await? {
         let index_kept = scanning(row.id);
         if row.path.starts_with(&path) {
@@ -174,7 +169,7 @@ pub(super) async fn overwritten(
             }
         } else if let Ok(rel) = rel_under(&row.path, &path) {
             if !index_kept {
-                delete_under(&mut *conn, row.id, &rel).await?;
+                delete_index_under(&mut *conn, row.id, &rel).await?;
             }
         } else {
             continue;
@@ -192,32 +187,6 @@ fn rel_under(root: &Path, path: &Path) -> Result<String, AppError> {
         return Err(AppError::NotFound);
     }
     crate::api::fs::rel_of(root, path)
-}
-
-// 頭の一致は LIKE でなく substr で照らす。LIKE は ASCII の大文字・小文字を区別しないので、
-// 大文字・小文字を区別するファイルシステムで、綴りの違う隣のものまで巻き込まないため。
-// `a` と `ab` を取り違えないよう、頭は `a/` で照らす。
-
-/// `rel` とその中の索引の行を消す。消すのは、残すと読み直しが既知のファイルとして飛ばし、前の大きさや日付が残るため。
-async fn delete_under(conn: &mut SqliteConnection, id: i64, rel: &str) -> Result<(), AppError> {
-    let prefix = format!("{rel}/");
-    sqlx::query!(
-        "DELETE FROM archive_items WHERE archive_id = ?1 AND (rel_path = ?2 OR substr(rel_path, 1, length(?3)) = ?3)",
-        id,
-        rel,
-        prefix
-    )
-    .execute(&mut *conn)
-    .await?;
-    sqlx::query!(
-        "DELETE FROM archive_dirs WHERE archive_id = ?1 AND (rel_path = ?2 OR substr(rel_path, 1, length(?3)) = ?3)",
-        id,
-        rel,
-        prefix
-    )
-    .execute(&mut *conn)
-    .await?;
-    Ok(())
 }
 
 /// コンテンツの索引をすべて消す。
@@ -314,7 +283,7 @@ pub(super) async fn list_views_containing(
     pool: &sqlx::SqlitePool,
     dir: &Path,
 ) -> Result<Vec<i64>, AppError> {
-    let dir = stored_form(dir)?;
+    let dir = stored_path(dir)?;
     let mut conn = pool.acquire().await?;
     Ok(folder_rows(&mut conn)
         .await?
@@ -347,10 +316,11 @@ pub(in crate::api) fn refresh_after_change(state: &AppState, ids: impl IntoItera
 }
 
 #[cfg(test)]
-mod tests {
+pub(in crate::api) mod tests {
     use super::*;
 
-    fn sep_path(parts: &[&str]) -> PathBuf {
+    /// 区切り文字で始まる絶対パスを組む。OS の区切りで比べるテストに使う。
+    pub(in crate::api) fn sep_path(parts: &[&str]) -> PathBuf {
         let mut path = PathBuf::from(std::path::MAIN_SEPARATOR_STR);
         for part in parts {
             path.push(part);
@@ -358,7 +328,11 @@ mod tests {
         path
     }
 
-    async fn insert_folder(pool: &sqlx::SqlitePool, path: &Path, list_view: bool) -> i64 {
+    pub(in crate::api) async fn insert_folder(
+        pool: &sqlx::SqlitePool,
+        path: &Path,
+        list_view: bool,
+    ) -> i64 {
         sqlx::query_scalar(
             "INSERT INTO contents (type, title, path, visibility, list_view) VALUES ('folder', 'f', ?, 'public', ?) RETURNING id",
         )
@@ -422,7 +396,7 @@ mod tests {
         items
     }
 
-    async fn content_path(pool: &sqlx::SqlitePool, id: i64) -> String {
+    pub(in crate::api) async fn content_path(pool: &sqlx::SqlitePool, id: i64) -> String {
         sqlx::query_scalar("SELECT path FROM contents WHERE id = ?")
             .bind(id)
             .fetch_one(pool)

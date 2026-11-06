@@ -22,8 +22,7 @@
 	import { contentTypeIcon } from '$lib/content-types';
 	import { contentPathLabel } from '$lib/root-location';
 	import * as m from '$lib/paraglide/messages.js';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
-	import { backLinkClass } from '$lib/back-link';
+	import BackLink from '$lib/components/back-link.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -81,12 +80,7 @@
 <svelte:head><title>{pageTitle(content.title)}</title></svelte:head>
 
 <div class="px-4 pt-4 md:px-6">
-	<!-- eslint-disable svelte/no-navigation-without-resolve -- contentEditBack() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
-	<a href={back.href} class={backLinkClass}>
-		<ChevronLeftIcon class="size-4" />
-		<span class="underline underline-offset-4">{back.label}</span>
-	</a>
-	<!-- eslint-enable svelte/no-navigation-without-resolve -->
+	<BackLink href={back.href} label={back.label} />
 	<!-- 再スキャンと閲覧画面へのリンクは、どのタブでも同じ所に出すので見出しの段に置く (→ docs/ui.md「UI 全般」)。 -->
 	<div class="mt-2 flex items-start gap-2">
 		<h1 class={pageHeadingInRowClass}>{content.title}</h1>

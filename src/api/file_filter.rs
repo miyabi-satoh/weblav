@@ -215,6 +215,7 @@ fn count_visibility_changes<'a>(
     request_body = VisibilityPreviewRequest,
     responses(
         (status = OK, body = VisibilityPreview),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 403, body = crate::error::ErrorResponse, description = "書き換えられるのは管理者と作成者だけ"),
         (status = 404, body = crate::error::ErrorResponse, description = "見えない・存在しない、またはフォルダーでない"),
         (status = 422, body = crate::error::ErrorResponse, description = "パターンが正しくない"),

@@ -102,7 +102,9 @@
 	const errorDialog = new ErrorDialogState();
 
 	// 保存していない変更を、別の画面へ移って失わないようにする (コンテンツの編集ページと同じ)。
-	const leaveGuard = new LeaveGuard(() => siteDirty.dirty || serverDirty.dirty);
+	// 保存中に押した移動は、保存が済んでから続ける。
+	const dirty = () => siteDirty.dirty || serverDirty.dirty;
+	const leaveGuard = new LeaveGuard(dirty, () => savingSite || savingServer);
 
 	async function handleSiteSubmit(e: SubmitEvent) {
 		e.preventDefault();
@@ -131,6 +133,7 @@
 		} finally {
 			savingSite = false;
 		}
+		await leaveGuard.resumeAfterSave(() => dirty() || errorDialog.open);
 	}
 
 	async function handleServerSubmit(e: SubmitEvent) {
@@ -159,6 +162,7 @@
 		} finally {
 			savingServer = false;
 		}
+		await leaveGuard.resumeAfterSave(() => dirty() || errorDialog.open);
 	}
 
 	// 保存ボタンを置かず、切り替えたらすぐ送る。起動し直さずに効く設定なので。

@@ -106,6 +106,20 @@ impl AccessMap {
             .max()
             .unwrap_or(ShareAccess::None)
     }
+
+    /// 共有 `share_path` の先頭でできること。入れ子なら、それを含む共有 (`shares` の `(id, 場所)`) のうち一番強いもの。
+    pub(super) fn at_share<'a>(
+        &self,
+        shares: impl IntoIterator<Item = (i64, &'a str)>,
+        share_path: &str,
+    ) -> ShareAccess {
+        self.effective(
+            shares
+                .into_iter()
+                .filter(|(_, path)| super::roots::contains(path, share_path))
+                .map(|(id, _)| id),
+        )
+    }
 }
 
 /// その場所で `needed` 以上のことができなければ 403。見られない場所は、解決の時点で 404 になっている。
@@ -114,15 +128,6 @@ fn require(resolved: &paths::Resolved, needed: ShareAccess) -> Result<(), AppErr
         return Err(AppError::Forbidden);
     }
     Ok(())
-}
-
-/// 共有からの相対パスに、名前を1つ足す。
-fn join_rel(dir: &str, name: &str) -> String {
-    if dir.is_empty() {
-        name.to_string()
-    } else {
-        format!("{dir}/{name}")
-    }
 }
 
 /// ログインしたユーザーに見える共有の1件。
@@ -160,11 +165,10 @@ async fn list_shares(
     let shares = rows
         .iter()
         .filter_map(|row| {
-            let containing = rows
-                .iter()
-                .filter(|other| super::roots::contains(&other.path, &row.path))
-                .map(|other| other.id);
-            let access = access.effective(containing);
+            let access = access.at_share(
+                rows.iter().map(|other| (other.id, other.path.as_str())),
+                &row.path,
+            );
             (access > ShareAccess::None).then(|| ShareResponse {
                 id: row.id,
                 name: row.name.clone(),

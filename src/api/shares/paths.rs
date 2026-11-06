@@ -93,11 +93,9 @@ pub(super) async fn resolve_existing(
         .find(|row| row.id == root_id)
         .map(|row| row.path.clone())
         .ok_or(AppError::NotFound)?;
-    let at_root = access.effective(
-        registered
-            .iter()
-            .filter(|row| roots::contains(&row.path, &root_path))
-            .map(|row| row.id),
+    let at_root = access.at_share(
+        registered.iter().map(|row| (row.id, row.path.as_str())),
+        &root_path,
     );
     if at_root < ShareAccess::Read {
         return Err(AppError::NotFound);
@@ -139,19 +137,7 @@ fn resolve_under(
     if own_dirs.contains(canonical_root) {
         return Err(AppError::NotFound);
     }
-    let canonical =
-        std::fs::canonicalize(canonical_root.join(rel)).map_err(|_| AppError::NotFound)?;
-    // `..` は先に弾いてあるが、中のシンボリックリンクで外へ出るものはここで弾く。
-    if !canonical.starts_with(canonical_root) {
-        return Err(AppError::NotFound);
-    }
-    // 名前は要求の綴りと実体の綴りの両方で見る (→ `contents::resolve_path`)。
-    if crate::api::fs::has_hidden_component(canonical_root, FsPath::new(rel))
-        || crate::api::fs::has_dot_component(canonical_root, &canonical)
-        || own_dirs.contains(&canonical)
-    {
-        return Err(AppError::NotFound);
-    }
+    let canonical = crate::api::fs::resolve_within(canonical_root, rel, own_dirs)?;
     let rel = crate::api::fs::rel_of(canonical_root, &canonical)?;
     Ok((canonical, rel))
 }
@@ -196,7 +182,7 @@ pub(super) async fn ensure_not_protected(
     }
     // 共有は登録したときの実体のパスで照らす。つながらない NAS の共有も見落とさないよう、
     // ファイルシステムには聞かない。
-    let stored = PathBuf::from(crate::api::fs::path_to_string(resolved.canonical.clone())?);
+    let stored = crate::api::fs::stored_path(&resolved.canonical)?;
     let roots = sqlx::query_scalar!("SELECT path FROM roots WHERE deleted_at IS NULL")
         .fetch_all(&state.pool)
         .await?;
