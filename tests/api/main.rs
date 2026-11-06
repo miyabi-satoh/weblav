@@ -132,29 +132,6 @@ async fn insert_folder_by(
     .expect("folderを挿入できなかった")
 }
 
-/// 一覧の表示を使うフォルダー (前のアーカイブにあたる) を直接INSERTし、idを返す。
-async fn insert_archive_by(
-    pool: &SqlitePool,
-    title: &str,
-    path: impl AsRef<std::path::Path>,
-    visibility: &str,
-    created_by: Option<i64>,
-    parent_id: Option<i64>,
-) -> i64 {
-    sqlx::query_scalar(
-        "INSERT INTO contents (type, parent_id, title, path, visibility, created_by, list_view) \
-         VALUES ('folder', ?, ?, ?, ?, ?, 1) RETURNING id",
-    )
-    .bind(parent_id)
-    .bind(title)
-    .bind(path.as_ref().display().to_string())
-    .bind(visibility)
-    .bind(created_by)
-    .fetch_one(pool)
-    .await
-    .expect("archiveを挿入できなかった")
-}
-
 /// `test_app` の呼び出しごとに増える連番。テスト間で blobs_dir が衝突しないよう、
 /// data_dir の名前に使う (スレッドIDは再利用され得るので使わない)。
 static TEST_APP_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);

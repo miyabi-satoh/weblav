@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { client } from '$lib/api/client';
 	import { isSoleAdmin } from '$lib/auth';
@@ -10,7 +9,7 @@
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
 	import { formatDate } from '$lib/format';
 	import { gotoWithoutLeaveConfirm } from '$lib/leave-confirm';
-	import { LeaveGuard } from '$lib/leave-guard.svelte';
+	import { SectionSaveState } from '$lib/section-save.svelte';
 	import { masonry } from '$lib/masonry';
 	import {
 		adminPageClass,
@@ -58,35 +57,17 @@
 	const roleForm = new FormDirtyState(() => ({ role }));
 	roleForm.markPristine();
 
-	let savingPart = $state<Part | null>(null);
-	let saving = $derived(savingPart !== null);
 	let deletingUser = $state<UserListItem | null>(null);
 	const errorDialog = new ErrorDialogState();
 
-	const leaveGuard = new LeaveGuard(
-		() => usernameForm.dirty || roleForm.dirty,
-		() => saving
-	);
-
-	/** 保存の後に、何を保存したかを知らせ、見出しを取り直す。保存中に止めた移動は、変更が残っていなければ続ける。 */
-	async function afterSave(saved: boolean, section: string) {
-		if (saved) {
-			toast.success(m.common_section_saved_toast({ section }));
-			// 自分の名前を変えたときのヘッダーの名前も、ここで引き直す。自分を一般ユーザーにしたときは、
-			// この画面をもう開けないので、`admin/+layout.ts` のガードがホームへ移す。
-			await refreshAll();
-		}
-		await leaveGuard.resumeAfterSave(
-			() => usernameForm.dirty || roleForm.dirty || errorDialog.open
-		);
-	}
+	// 保存の後に見出しを取り直すので、自分の名前を変えたときのヘッダーの名前も引き直される。
+	// 自分を一般ユーザーにしたときは、この画面をもう開けないので、`admin/+layout.ts` のガードがホームへ移す。
+	const sections = new SectionSaveState<Part>([usernameForm, roleForm], errorDialog);
 
 	async function handleUsernameSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		if (saving || username.trim() === '') return;
-		savingPart = 'username';
-		let saved = false;
-		try {
+		if (sections.saving || username.trim() === '') return;
+		await sections.save('username', m.admin_users_dialog_username_label(), async () => {
 			// 失敗したら値を残す。名前が重なったときに、入れ直せるようにする。
 			const result = await errorDialog.attempt(() =>
 				client.PUT('/api/v1/admin/users/{id}/username', {
@@ -98,20 +79,16 @@
 				// サーバーが前後の空白を落とすので、保存された値で入れ直す。
 				username = result.data.username;
 				usernameForm.markPristine();
-				saved = true;
+				return true;
 			}
-		} finally {
-			savingPart = null;
-		}
-		await afterSave(saved, m.admin_users_dialog_username_label());
+			return false;
+		});
 	}
 
 	async function handleRoleSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		if (saving) return;
-		savingPart = 'role';
-		let saved = false;
-		try {
+		if (sections.saving) return;
+		await sections.save('role', m.admin_users_role_label(), async () => {
 			const result = await errorDialog.attempt(() =>
 				client.PUT('/api/v1/admin/users/{id}/role', {
 					params: { path: { id: target.id } },
@@ -121,12 +98,10 @@
 			if (result?.data) {
 				role = result.data.role;
 				roleForm.markPristine();
-				saved = true;
+				return true;
 			}
-		} finally {
-			savingPart = null;
-		}
-		await afterSave(saved, m.admin_users_role_label());
+			return false;
+		});
 	}
 
 	// パスワードの再設定ダイアログ。
@@ -214,8 +189,8 @@
 			<div>
 				<LoadingButton
 					type="submit"
-					loading={savingPart === 'username'}
-					disabled={saving || !usernameForm.dirty || username.trim() === ''}
+					loading={sections.savingPart === 'username'}
+					disabled={sections.saving || !usernameForm.dirty || username.trim() === ''}
 					>{m.action_save()}</LoadingButton
 				>
 			</div>
@@ -252,8 +227,8 @@
 			<div>
 				<LoadingButton
 					type="submit"
-					loading={savingPart === 'role'}
-					disabled={saving || !roleForm.dirty}>{m.action_save()}</LoadingButton
+					loading={sections.savingPart === 'role'}
+					disabled={sections.saving || !roleForm.dirty}>{m.action_save()}</LoadingButton
 				>
 			</div>
 		</form>
@@ -329,12 +304,6 @@
 
 <UserDeleteDialog bind:user={deletingUser} ondeleted={handleDeleted} />
 
-<LeaveConfirmDialog
-	guard={leaveGuard}
-	ondiscard={() => {
-		usernameForm.markPristine();
-		roleForm.markPristine();
-	}}
-/>
+<LeaveConfirmDialog guard={sections.leaveGuard} ondiscard={() => sections.discard()} />
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

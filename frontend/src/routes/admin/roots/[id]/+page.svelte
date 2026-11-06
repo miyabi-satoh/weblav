@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { toast } from 'svelte-sonner';
 	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -9,7 +8,7 @@
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
 	import { formatNumber } from '$lib/format';
 	import { gotoWithoutLeaveConfirm } from '$lib/leave-confirm';
-	import { LeaveGuard } from '$lib/leave-guard.svelte';
+	import { SectionSaveState } from '$lib/section-save.svelte';
 	import { masonry } from '$lib/masonry';
 	import {
 		adminPageClass,
@@ -69,8 +68,6 @@
 	const accessForm = new FormDirtyState(() => ({ editorAccess, exceptions }));
 	accessForm.markPristine();
 
-	let savingPart = $state<Part | null>(null);
-	let saving = $derived(savingPart !== null);
 	let picking = $state(false);
 	let deletingRoot = $state<Root | null>(null);
 	/** 確認を出している、選び直した先のパス。 */
@@ -78,10 +75,7 @@
 	let moving = $state(false);
 	const errorDialog = new ErrorDialogState();
 
-	const leaveGuard = new LeaveGuard(
-		() => nameForm.dirty || accessForm.dirty,
-		() => saving
-	);
+	const sections = new SectionSaveState<Part>([nameForm, accessForm], errorDialog);
 
 	function setExceptionAccess(target: AccessException, access: string) {
 		exceptions = exceptions.map((exception) =>
@@ -95,21 +89,10 @@
 		exceptions = exceptions.filter((exception) => exception.userId !== target.userId);
 	}
 
-	/** 保存の後に、何を保存したかを知らせ、見出しを取り直す。保存中に止めた移動は、変更が残っていなければ続ける。 */
-	async function afterSave(saved: boolean, section: string) {
-		if (saved) {
-			toast.success(m.common_section_saved_toast({ section }));
-			await refreshAll();
-		}
-		await leaveGuard.resumeAfterSave(() => nameForm.dirty || accessForm.dirty || errorDialog.open);
-	}
-
 	async function handleNameSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		if (saving || name.trim() === '') return;
-		savingPart = 'name';
-		let saved = false;
-		try {
+		if (sections.saving || name.trim() === '') return;
+		await sections.save('name', m.admin_roots_name_label(), async () => {
 			// 失敗したら値を残す。名前が重なったときに、入れ直せるようにする。
 			const result = await errorDialog.attempt(() =>
 				client.PUT('/api/v1/admin/roots/{id}', {
@@ -121,20 +104,16 @@
 				// サーバーが前後の空白を落とすので、保存された値で入れ直す。
 				name = result.data.name;
 				nameForm.markPristine();
-				saved = true;
+				return true;
 			}
-		} finally {
-			savingPart = null;
-		}
-		await afterSave(saved, m.admin_roots_name_label());
+			return false;
+		});
 	}
 
 	async function handleAccessSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		if (saving) return;
-		savingPart = 'access';
-		let saved = false;
-		try {
+		if (sections.saving) return;
+		await sections.save('access', m.admin_roots_edit_access_title(), async () => {
 			const result = await errorDialog.attempt(() =>
 				client.PUT('/api/v1/admin/roots/{id}/access', {
 					params: { path: { id: root.id } },
@@ -148,12 +127,10 @@
 				editorAccess = result.data.editorAccess;
 				exceptions = result.data.userAccess;
 				accessForm.markPristine();
-				saved = true;
+				return true;
 			}
-		} finally {
-			savingPart = null;
-		}
-		await afterSave(saved, m.admin_roots_edit_access_title());
+			return false;
+		});
 	}
 
 	// 追加と同じ OS の窓で選び直す。違うフォルダーなら、中のコンテンツも移るので確かめてから変える。
@@ -251,8 +228,8 @@
 			<div>
 				<LoadingButton
 					type="submit"
-					loading={savingPart === 'name'}
-					disabled={saving || !nameForm.dirty || name.trim() === ''}
+					loading={sections.savingPart === 'name'}
+					disabled={sections.saving || !nameForm.dirty || name.trim() === ''}
 					>{m.action_save()}</LoadingButton
 				>
 			</div>
@@ -362,8 +339,8 @@
 			<div>
 				<LoadingButton
 					type="submit"
-					loading={savingPart === 'access'}
-					disabled={saving || !accessForm.dirty}>{m.action_save()}</LoadingButton
+					loading={sections.savingPart === 'access'}
+					disabled={sections.saving || !accessForm.dirty}>{m.action_save()}</LoadingButton
 				>
 			</div>
 		</form>
@@ -411,12 +388,6 @@
 	ondeleted={() => gotoWithoutLeaveConfirm(resolve('/admin/roots'))}
 />
 
-<LeaveConfirmDialog
-	guard={leaveGuard}
-	ondiscard={() => {
-		nameForm.markPristine();
-		accessForm.markPristine();
-	}}
-/>
+<LeaveConfirmDialog guard={sections.leaveGuard} ondiscard={() => sections.discard()} />
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

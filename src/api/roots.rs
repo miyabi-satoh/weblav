@@ -718,9 +718,7 @@ pub(super) fn locate(records: &[RootRecord], path: &str) -> Option<RootLocation>
 ///
 /// **`path_to_string` を通した後のパスを渡すこと** (`\\?\` 付きの形では、ルートの判定が変わる)。
 pub(super) fn default_name(path: &FsPath) -> String {
-    path.file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_else(|| path.to_string_lossy().into_owned())
+    super::fs::file_name_lossy(path).unwrap_or_else(|| path.to_string_lossy().into_owned())
 }
 
 /// `canonical` が、登録済みのどれかの中にあるか。
@@ -1016,18 +1014,31 @@ async fn rebase_contents(
     .await?;
     let mut list_views = Vec::new();
     for row in rows {
-        let Some(path) = rebase(FsPath::new(&row.path), old, new) else {
-            continue;
-        };
-        let path = path_to_string(path)?;
-        sqlx::query!("UPDATE contents SET path = ? WHERE id = ?", path, row.id)
-            .execute(&mut *conn)
-            .await?;
-        if row.list_view {
+        if rebase_content_path(&mut *conn, row.id, FsPath::new(&row.path), old, new).await?
+            && row.list_view
+        {
             list_views.push(row.id);
         }
     }
     Ok(list_views)
+}
+
+/// コンテンツ `id` の登録先 `path` が `old` そのものかその中なら、`new` の同じ相対パスへ書き換える。書き換えたら `true`。
+pub(in crate::api) async fn rebase_content_path(
+    conn: &mut sqlx::SqliteConnection,
+    id: i64,
+    path: &FsPath,
+    old: &FsPath,
+    new: &FsPath,
+) -> Result<bool, AppError> {
+    let Some(path) = rebase(path, old, new) else {
+        return Ok(false);
+    };
+    let path = path_to_string(path)?;
+    sqlx::query!("UPDATE contents SET path = ? WHERE id = ?", path, id)
+        .execute(&mut *conn)
+        .await?;
+    Ok(true)
 }
 
 /// `path` が `old` そのものかその中なら、`new` の同じ相対パス。そうでなければ `None`。

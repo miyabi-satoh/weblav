@@ -4,7 +4,6 @@
 	import { resolve } from '$app/paths';
 	import { client } from '$lib/api/client';
 	import { adminBackupHref, adminLogsHref } from '$lib/api/urls';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
 	import { gotoWithoutLeaveConfirm } from '$lib/leave-confirm';
@@ -112,24 +111,17 @@
 		savingSite = true;
 
 		try {
-			const {
-				data: saved,
-				error,
-				response
-			} = await client.PUT('/api/v1/admin/site-settings', {
-				body: { siteName, homeHeading }
-			});
-			if (!response.ok || !saved) {
-				errorDialog.show(errorMessage(error));
-				return;
+			const result = await errorDialog.attempt(() =>
+				client.PUT('/api/v1/admin/site-settings', { body: { siteName, homeHeading } })
+			);
+			const saved = result?.data;
+			if (saved) {
+				// サーバーが前後の空白を落とすので、保存された値で入れ直す。
+				siteName = saved.siteName;
+				homeHeading = saved.homeHeading;
+				siteDirty.markPristine();
+				toast.success(m.admin_settings_saved_toast());
 			}
-			// サーバーが前後の空白を落とすので、保存された値で入れ直す。
-			siteName = saved.siteName;
-			homeHeading = saved.homeHeading;
-			siteDirty.markPristine();
-			toast.success(m.admin_settings_saved_toast());
-		} catch {
-			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			savingSite = false;
 		}
@@ -143,23 +135,18 @@
 		savingServer = true;
 
 		try {
-			const {
-				data: saved,
-				error,
-				response
-			} = await client.PUT('/api/v1/admin/server-settings', {
-				body: { port, uploadMaxSizeMb: uploadCap, sessionExpiryDays }
-			});
-			if (!response.ok || !saved) {
-				errorDialog.show(errorMessage(error));
-				return;
+			const result = await errorDialog.attempt(() =>
+				client.PUT('/api/v1/admin/server-settings', {
+					body: { port, uploadMaxSizeMb: uploadCap, sessionExpiryDays }
+				})
+			);
+			const saved = result?.data;
+			if (saved) {
+				server = saved;
+				uploadMaxSizeMb = saved.saved.uploadMaxSizeMb ?? 0;
+				serverDirty.markPristine();
+				toast.success(m.admin_settings_server_saved_toast());
 			}
-			server = saved;
-			uploadMaxSizeMb = saved.saved.uploadMaxSizeMb ?? 0;
-			serverDirty.markPristine();
-			toast.success(m.admin_settings_server_saved_toast());
-		} catch {
-			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			savingServer = false;
 		}
@@ -172,18 +159,13 @@
 		switchingLog = true;
 
 		try {
-			const {
-				data: saved,
-				error,
-				response
-			} = await client.PUT('/api/v1/admin/log-settings', { body: { verbose } });
-			if (!response.ok || !saved) {
-				errorDialog.show(errorMessage(error));
-				return;
+			const result = await errorDialog.attempt(() =>
+				client.PUT('/api/v1/admin/log-settings', { body: { verbose } })
+			);
+			const saved = result?.data;
+			if (saved) {
+				logSettings = saved;
 			}
-			logSettings = saved;
-		} catch {
-			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			switchingLog = false;
 		}

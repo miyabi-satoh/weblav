@@ -2,6 +2,29 @@
 
 use super::*;
 
+/// 一覧の表示を使うフォルダー (前のアーカイブにあたる) を直接INSERTし、idを返す。
+async fn insert_archive_by(
+    pool: &SqlitePool,
+    title: &str,
+    path: impl AsRef<std::path::Path>,
+    visibility: &str,
+    created_by: Option<i64>,
+    parent_id: Option<i64>,
+) -> i64 {
+    sqlx::query_scalar(
+        "INSERT INTO contents (type, parent_id, title, path, visibility, created_by, list_view) \
+         VALUES ('folder', ?, ?, ?, ?, ?, 1) RETURNING id",
+    )
+    .bind(parent_id)
+    .bind(title)
+    .bind(path.as_ref().display().to_string())
+    .bind(visibility)
+    .bind(created_by)
+    .fetch_one(pool)
+    .await
+    .expect("archiveを挿入できなかった")
+}
+
 /// APIで作ったコンテンツには作成者が記録され、応答と管理画面の一覧に作成者名が出る。
 #[sqlx::test]
 async fn content_created_via_api_records_its_creator(pool: SqlitePool) {

@@ -19,7 +19,8 @@ use std::path::{Path, PathBuf};
 use sqlx::SqliteConnection;
 
 use crate::api::archive::delete_index_under;
-use crate::api::fs::{path_to_string, stored_path};
+use crate::api::fs::stored_path;
+use crate::api::roots::rebase_content_path;
 use crate::error::AppError;
 use crate::state::AppState;
 
@@ -77,11 +78,9 @@ pub(super) async fn moved(
     let mut changed = Vec::new();
     for row in folder_rows(&mut *conn).await? {
         let index_kept = scanning(row.id);
-        if let Some(path) = crate::api::roots::rebase(&row.path, &old, &new) {
-            let path = path_to_string(path)?;
-            sqlx::query!("UPDATE contents SET path = ? WHERE id = ?", path, row.id)
-                .execute(&mut *conn)
-                .await?;
+        // 登録先ごと動いたものは、登録先を付け替えるだけで中の索引はそのまま使える。
+        let rebased = rebase_content_path(&mut *conn, row.id, &row.path, &old, &new).await?;
+        if rebased {
         } else if let Ok(rel_old) = rel_under(&row.path, &old) {
             if !index_kept {
                 match rel_under(&row.path, &new) {
@@ -105,12 +104,7 @@ pub(super) async fn moved(
         }
     }
     for (id, path) in shortcut_rows(&mut *conn).await? {
-        if let Some(path) = crate::api::roots::rebase(&path, &old, &new) {
-            let path = path_to_string(path)?;
-            sqlx::query!("UPDATE contents SET path = ? WHERE id = ?", path, id)
-                .execute(&mut *conn)
-                .await?;
-        }
+        rebase_content_path(&mut *conn, id, &path, &old, &new).await?;
     }
     Ok(changed)
 }

@@ -43,7 +43,12 @@ import {
 	waitForDialog,
 	deleteSectionButton
 } from '../e2e/helpers.ts';
-import { waitForPageReady, type ShotFixtures, type ViewportName } from './shots.ts';
+import {
+	waitForPageReady,
+	waitForThumbnails,
+	type ShotFixtures,
+	type ViewportName
+} from './shots.ts';
 
 export type Role = 'anonymous' | 'user' | 'admin';
 
@@ -88,13 +93,6 @@ async function chooseFromBrowseAddMenu(page: Page, item: RegExp) {
 }
 
 /** 一覧の縮小画像が読み込まれるまで待つ。 */
-async function waitForThumbnails(page: Page) {
-	await page.waitForFunction(() => {
-		const thumbnails = [...document.querySelectorAll<HTMLImageElement>('img[data-thumbnail-for]')];
-		return thumbnails.length > 0 && thumbnails.every((img) => img.complete && img.naturalWidth > 0);
-	});
-}
-
 /** 開いているダイアログを「キャンセル」で閉じ、消えるまで待つ。 */
 async function cancelDialog(page: Page, role: 'dialog' | 'alertdialog' = 'dialog') {
 	const dialog = page.getByRole(role);

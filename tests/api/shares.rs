@@ -45,12 +45,11 @@ fn accesses(body: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-/// 見えない共有は一覧に出さない。入れ子では、含む共有のうち一番強いものになる。
+/// 見えない共有は一覧に出さない。入れ子の決め方 (含む共有のうち一番強いもの) は `AccessMap::at_share` の単体テストで確かめる。
 #[sqlx::test]
 async fn shares_list_the_strongest_access_and_leave_out_hidden_ones(pool: SqlitePool) {
     let (app, admin) = admin_app(&pool).await;
     insert_user(&pool, "taro", "password").await;
-    let taro_id = db_user_id(&pool, "taro").await;
     let outer = root_dir("shares-nested");
     let inner = outer.join("inner");
     std::fs::create_dir_all(&inner).expect("フォルダーを作れなかった");
@@ -90,25 +89,6 @@ async fn shares_list_the_strongest_access_and_leave_out_hidden_ones(pool: Sqlite
         accesses(&body),
         vec![(inner_path.clone(), "add".to_string())]
     );
-
-    // 外側をこのユーザーだけ「すべて」にすると、内側も「すべて」になる。
-    set_access(
-        app.clone(),
-        &admin,
-        outer_id,
-        &format!(r#"{{"editorAccess":"none","users":[{{"userId":{taro_id},"access":"all"}}]}}"#),
-    )
-    .await;
-    let (status, body) = send_empty(app.clone(), "GET", SHARES_URI, &taro).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    let mut expected = vec![
-        (inner_path.clone(), "all".to_string()),
-        (outer_path.clone(), "all".to_string()),
-    ];
-    expected.sort();
-    let mut actual = accesses(&body);
-    actual.sort();
-    assert_eq!(actual, expected);
 
     // 管理者は、設定に関わらずすべての共有ですべての操作ができる。
     let (status, body) = send_empty(app, "GET", SHARES_URI, &admin).await;
@@ -314,20 +294,10 @@ async fn escapes_and_hidden_places_in_a_share_are_not_found(pool: SqlitePool) {
     std::fs::write(share.dir.join("memo.txt"), b"memo").expect("書けなかった");
     let outside = temp_root_dir("shares-escapes-outside");
     std::fs::create_dir_all(&outside).expect("フォルダーを作れなかった");
-    #[cfg(unix)]
-    std::os::unix::fs::symlink(&outside, share.dir.join("link")).expect("リンクを作れなかった");
 
-    let mut paths = vec![
-        "..",
-        "../shares-escapes-outside",
-        ".secret",
-        "missing",
-        "memo.txt",
-    ];
-    if cfg!(unix) {
-        paths.push("link");
-    }
-    for path in paths {
+    // 無いもの・リンクで外へ出るものは、解決の単体テスト (`shares::paths`) で場合ごとに確かめる。
+    // ここでは、`..` (解決の前に弾く)・一覧に出さないもの・ファイルが同じ 404 につながることを見る。
+    for path in ["..", "../shares-escapes-outside", ".secret", "memo.txt"] {
         let uri = browse_uri(share.id, path);
         let (status, body) = send_empty(share.app.clone(), "GET", &uri, &share.taro).await;
         assert_error_case(status, &body, StatusCode::NOT_FOUND, "not_found", &uri);

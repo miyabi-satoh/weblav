@@ -1733,9 +1733,7 @@ pub(super) fn derive_item<'a>(
 
     // 拡張子を除いたファイル名。軸が全て埋まっていても同じタイトルに潰れる
     // (同じフォルダーに複数のファイルがある) ケースを、テンプレート側で区別できるようにする。
-    let file_stem = file_name
-        .rsplit_once('.')
-        .map_or(file_name.as_str(), |(stem, _)| stem);
+    let file_stem = file_stem(&file_name);
 
     let mut display_by_name: HashMap<&str, &str> = axes
         .iter()

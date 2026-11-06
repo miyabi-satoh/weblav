@@ -9,7 +9,6 @@
 	import { page } from '$app/state';
 	import { dialogFormClass } from '$lib/dialog-form';
 	import { client } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { isAdmin } from '$lib/auth';
 	import { contentTypeLabel } from '$lib/content-labels';
 	import {
@@ -130,18 +129,16 @@
 		saving = true;
 
 		try {
-			const result = await client.POST('/api/v1/contents', {
-				body: { type: form.type, ...form.createRequestFields() }
-			});
-			if (!result.response.ok || !result.data) {
-				errorDialog.show(errorMessage(result.error));
-				return;
+			const result = await errorDialog.attempt(() =>
+				client.POST('/api/v1/contents', {
+					body: { type: form.type, ...form.createRequestFields() }
+				})
+			);
+			if (result?.data) {
+				open = false;
+				// 任意の項目は、作った直後に編集ページで続けて入力する。
+				await goto(resolve('/contents/[id]', { id: String(result.data.id) }));
 			}
-			open = false;
-			// 任意の項目は、作った直後に編集ページで続けて入力する。
-			await goto(resolve('/contents/[id]', { id: String(result.data.id) }));
-		} catch {
-			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			saving = false;
 			// 成否によらず確認ダイアログは閉じる。失敗時はフォームが残るので、
