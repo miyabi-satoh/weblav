@@ -4,10 +4,6 @@
 	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
 	import { resolve } from '$app/paths';
 	import FileIcon from '@lucide/svelte/icons/file';
-	import { refreshAll } from '$app/navigation';
-	import { client } from '$lib/api/client';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { selectableVisibilities } from '$lib/visibility';
 	import { contentDownloadHref, contentRemoteHref, contentThumbnailHref } from '$lib/api/urls';
 	import { contentTypeIcon } from '$lib/content-types';
 	import {
@@ -37,10 +33,8 @@
 	} from '$lib/list-row';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
+	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
-	import VisibilityDialog, {
-		type VisibilityTarget
-	} from '$lib/components/visibility-dialog.svelte';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
 	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
 	import ListRowImageLink from '$lib/components/list-row-image-link.svelte';
@@ -187,35 +181,7 @@
 		new Map(linkDetailEntries.map((content, index) => [content.id, index]))
 	);
 
-	// 行の ⋮ のメニュー (→ docs/ui.md「UI 全般」)。編集ページを開かずに、公開範囲を変える。
 	const errorDialog = new ErrorDialogState();
-	let visibilityTarget = $state<VisibilityTarget | null>(null);
-	let busy = $state(false);
-
-	// 閲覧側の一覧は公開範囲・作成者・親を持たないので、選べる値を決めるために管理画面の一覧から引く
-	// (単一のコンテンツを取る API が無いため。→ routes/contents/[id]/+layout.ts)。
-	async function openVisibility(content: ContentEntry) {
-		if (busy) return;
-		busy = true;
-		try {
-			await errorDialog.attempt(
-				() => client.GET('/api/v1/contents/manage'),
-				({ data }) => {
-					const found = data?.find((item) => item.id === content.id);
-					if (!found) return;
-					const parent = data?.find((item) => item.id === found.parentId);
-					visibilityTarget = {
-						id: found.id,
-						title: found.title,
-						visibility: found.visibility,
-						options: selectableVisibilities(found, parent)
-					};
-				}
-			);
-		} finally {
-			busy = false;
-		}
-	}
 </script>
 
 {#snippet rowMenu(content: ContentEntry)}
@@ -228,9 +194,6 @@
 							>{m.action_edit_page()}</a
 						>
 					{/snippet}
-				</DropdownMenu.Item>
-				<DropdownMenu.Item disabled={busy} onSelect={() => void openVisibility(content)}>
-					{m.contents_row_visibility_menu()}
 				</DropdownMenu.Item>
 			</RowActionsMenu>
 		</span>
@@ -363,6 +326,6 @@
 {/if}
 
 {#if actions}
-	<VisibilityDialog bind:target={visibilityTarget} onsaved={() => refreshAll()} />
+
 {/if}
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

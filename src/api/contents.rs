@@ -3186,39 +3186,6 @@ async fn replace_content_upload(
     Ok(Json(admin_response(&state.pool, row).await?))
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct SetVisibilityRequest {
-    pub visibility: Visibility,
-}
-
-/// 公開範囲だけを変える。ホームなどの一覧の行から、編集画面を開かずに変えるため。
-/// 変えてよいかの判定は編集 (`update_content`) と同じ。
-#[utoipa::path(
-    put,
-    path = "/contents/{id}/visibility",
-    params(("id" = i64, Path)),
-    request_body = SetVisibilityRequest,
-    responses(
-        (status = 204),
-        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "作成者・admin以外か、作成者のいないものを作成者のみにする変更"),
-        (status = 404, body = crate::error::ErrorResponse, description = "存在しないか、他人の作成者のみ"),
-        (status = 422, body = crate::error::ErrorResponse, description = "作成者のみのグループの決まりに合わない"),
-    )
-)]
-async fn set_visibility(
-    user: AuthUser,
-    State(state): State<AppState>,
-    Path(id): Path<i64>,
-    AppJson(payload): AppJson<SetVisibilityRequest>,
-) -> Result<StatusCode, AppError> {
-    let _write_guard = state.contents_write_lock.lock().await;
-    let existing = fetch_visibility_state(&state.pool, id).await?;
-    change_visibility(&state.pool, &user, id, &existing, payload.visibility).await?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
 /// 非表示から戻すときの公開範囲。覚えていなければ、ログインした人に見える `authenticated` にする
 /// (`public` に戻すと、隠していたものを匿名にまで見せてしまうため)。
 fn restore_target(before_hidden: Option<Visibility>) -> Visibility {
@@ -3361,7 +3328,6 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(list_contents, create_content))
         .routes(routes!(update_content, delete_content))
         .routes(routes!(set_creator))
-        .routes(routes!(set_visibility))
         .routes(routes!(list_hidden_contents))
         .routes(routes!(list_admin_contents))
         .routes(routes!(fetch_link_metadata))

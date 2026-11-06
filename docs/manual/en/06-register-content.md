@@ -105,7 +105,7 @@ note = "A description shown under the link (optional)"
 | Creator only | Listed only for the person who registered it (administrators can open it from the admin pages) |
 | Hidden | Not listed (the person who registered it and administrators can open it from “Hidden content” in the user name menu) |
 
-1. In the “Contents” list, select the row (you can also choose “Edit” from “⋮” on the row).
+1. In the list on Home or in a group, select “⋮” on a row of an item you registered (administrators: any item), then choose “Edit” (administrators can also select the row in the “Contents” list in the admin pages).
 
    ![The content row menu](images/row-menu.webp)
 
@@ -113,42 +113,42 @@ note = "A description shown under the link (optional)"
 
    ![Parent group and Visibility on the edit page](images/edit-visibility.webp)
 
-You can also change it from the list on Home or in a group. On a row of an item you registered (administrators: any item), select “⋮”, choose “Visibility...”, then choose the visibility. “Edit” opens the edit page.
-
 Items in a group are visible only to people who also meet the group’s visibility setting.
 
 Visibility controls how an item appears as content. Files inside a folder can still be seen on the share screen by anyone who can view that share, whatever the visibility.
 
 ## Hide and show again
 
-Set the visibility to “Hidden” to remove an item from the lists on Home and in groups. You can change the visibility on the edit page, or from “Visibility...” in a row's “⋮” menu on Home or in a group.
+Set the visibility to “Hidden” on the edit page to remove an item from the lists on Home and in groups.
 
-Hidden items are listed under “Hidden content” in the username menu at the top right (items you registered; administrators see all). To show one again, select “Visibility...” in its row's “⋮” menu there and choose another visibility.
+Hidden items are listed under “Hidden content” in the username menu at the top right (items you registered; administrators see all). To show one again, select “Edit” in its row's “⋮” menu there to open the edit page, then choose another visibility.
 
 Set a group to “Creator only” to make it a space just for you. It can hold only your own “Creator only” content, and anything you add inside it becomes “Creator only”. A group that holds someone else’s content, or content that isn’t “Creator only”, can’t be set to “Creator only”.
 
 ## Put items in a group
 
-To add a new item:
+To add a new item, use “Add” to the right of the heading on the group's page (→ “Start”).
+
+Administrators can also add from the list in the admin pages.
 
 1. Select “⋮” on the group row, then choose “Add inside...”.
 
    ![The group row menu](images/register-group-menu.webp)
 
-2. Continue from step 2 in “Start”.
+2. Continue from step 2 of the admin pages steps in “Start”.
 
 To move an existing item:
 
-1. Select its row to open the edit page.
+1. Open the edit page (→ “Change contents” below).
 2. Choose “Parent group”, then select “Save”.
 
    ![Parent group and Visibility on the edit page](images/edit-visibility.webp)
 
 ## Change contents
 
-Select the row to open the edit page, make your changes, then select “Save”.
+Open the edit page, make your changes, then select “Save”. To open the edit page, choose “Edit” from a row's “⋮” in the list on Home or in a group, or select the pen next to the heading of a group or other page. Administrators can also select the row in the list in the admin pages.
 
-To see how it looks to viewers, select “View on site” next to the heading of the edit page (it is also in the row’s “⋮” in the list). This opens the group the item is in (Home if it isn't in a group), where it's listed. Items set to “Hidden” and other people's “Creator only” items aren't listed there, so the item itself opens (files registered in an earlier version, such as images, still open the group).
+To see how it looks to viewers, select “View on site” next to the heading of the edit page (it is also in the row’s “⋮” in the list in the admin pages). This opens the group the item is in (Home if it isn't in a group), where it's listed. Items set to “Hidden” and other people's “Creator only” items aren't listed there, so the item itself opens (files registered in an earlier version, such as images, still open the group).
 
 ![The Link edit page. Below the title and description are buttons to refetch each one.](images/edit-link.webp)
 
@@ -160,7 +160,7 @@ To see how it looks to viewers, select “View on site” next to the heading of
 
 ## Delete
 
-1. Select “⋮” on the row, then choose “Delete...”.
+1. On the edit page, select “⋮” next to the heading, then choose “Delete...” (administrators can also choose it from a row's “⋮” in the list in the admin pages).
 
    ![The content row menu](images/row-menu.webp)
 
@@ -168,7 +168,7 @@ To see how it looks to viewers, select “View on site” next to the heading of
 
    ![The Delete content confirmation](images/content-delete.webp)
 
-You can also delete from the edit page: select “⋮” next to the heading, then choose “Delete...”. After deleting, you return to the list.
+After deleting, administrators return to the list in the admin pages. Others return to the group the item was in (Home if it wasn't in a group).
 
 - Deleting a shortcut or library does not delete files on your computer.
 - Deleting a group moves its contents out of the group, to the top level.

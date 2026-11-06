@@ -803,8 +803,6 @@
 	"contents_edit_folder_title": "Location and display",
 	"contents_shortcut_missing": "The file was not found.",
 	"contents_edit_shortcut_title": "Location",
-	"contents_row_visibility_menu": "Visibility...",
-	"contents_visibility_dialog_title": "Visibility of “{title}”",
 	"shares_heading": "Shares",
 	"shares_empty": "There are no shares you can use.",
 	"shares_fetch_failed": "Couldn't load the shares. Please try again later.",

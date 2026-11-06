@@ -1215,26 +1215,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/contents/{id}/visibility": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * 公開範囲だけを変える。ホームなどの一覧の行から、編集画面を開かずに変えるため。
-         *     変えてよいかの判定は編集 (`update_content`) と同じ。
-         */
-        put: operations["set_visibility"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/contents/{id}/visibility-preview": {
         parameters: {
             query?: never;
@@ -2853,9 +2833,6 @@ export interface components {
              * @description 新しい作成者のユーザーid。
              */
             createdBy: number;
-        };
-        SetVisibilityRequest: {
-            visibility: components["schemas"]["Visibility"];
         };
         SetupRestoreRequest: {
             /** @description 受け取ったときに返した id。 */
@@ -7083,66 +7060,6 @@ export interface operations {
                 };
             };
             /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    set_visibility: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SetVisibilityRequest"];
-            };
-        };
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 作成者・admin以外か、作成者のいないものを作成者のみにする変更 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 存在しないか、他人の作成者のみ */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 作成者のみのグループの決まりに合わない */
             422: {
                 headers: {
                     [name: string]: unknown;

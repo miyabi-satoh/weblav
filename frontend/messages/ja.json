@@ -645,8 +645,6 @@
 	"contents_edit_folder_title": "場所と見せ方",
 	"contents_shortcut_missing": "ファイルが見つかりません。",
 	"contents_edit_shortcut_title": "場所",
-	"contents_row_visibility_menu": "公開範囲...",
-	"contents_visibility_dialog_title": "「{title}」の公開範囲",
 	"shares_heading": "共有",
 	"shares_empty": "使える共有はありません。",
 	"shares_fetch_failed": "共有の一覧を読み込めませんでした。しばらくしてからもう一度お試しください。",

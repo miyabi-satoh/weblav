@@ -4655,78 +4655,6 @@
         }
       }
     },
-    "/api/v1/contents/{id}/visibility": {
-      "put": {
-        "summary": "公開範囲だけを変える。ホームなどの一覧の行から、編集画面を開かずに変えるため。\n変えてよいかの判定は編集 (`update_content`) と同じ。",
-        "operationId": "set_visibility",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetVisibilityRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "401": {
-            "description": "未ログイン",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "作成者・admin以外か、作成者のいないものを作成者のみにする変更",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "存在しないか、他人の作成者のみ",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "作成者のみのグループの決まりに合わない",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/contents/{id}/visibility-preview": {
       "post": {
         "summary": "パターンを保存すると、見えるファイルがどう変わるかを数える。保存の前に知らせるため。",
@@ -9511,17 +9439,6 @@
             "type": "integer",
             "format": "int64",
             "description": "新しい作成者のユーザーid。"
-          }
-        }
-      },
-      "SetVisibilityRequest": {
-        "type": "object",
-        "required": [
-          "visibility"
-        ],
-        "properties": {
-          "visibility": {
-            "$ref": "#/components/schemas/Visibility"
           }
         }
       },

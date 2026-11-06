@@ -794,7 +794,7 @@ async fn browse_responses_tell_whether_the_viewer_can_edit(pool: SqlitePool) {
     }
 }
 
-/// 公開範囲だけを変える口で非表示にすると、非表示の一覧に閲覧の一覧と同じ形で並び、件数が `/auth/me` に出る。
+/// 非表示にすると、非表示の一覧に閲覧の一覧と同じ形で並び、件数が `/auth/me` に出る。
 /// 公開範囲を戻すと一覧から消える。
 #[sqlx::test]
 async fn hidden_content_is_listed_and_counted_until_its_visibility_changes(pool: SqlitePool) {
@@ -810,16 +810,18 @@ async fn hidden_content_is_listed_and_counted_until_its_visibility_changes(pool:
             send_json(
                 app,
                 "PUT",
-                &format!("/api/v1/contents/{id}/visibility"),
+                &format!("/api/v1/contents/{id}"),
                 &cookie,
-                &format!(r#"{{"visibility":"{visibility}"}}"#),
+                &format!(
+                    r#"{{"title":"社内Wiki","url":"https://example.com","visibility":"{visibility}"}}"#
+                ),
             )
             .await
         }
     };
 
     let (status, body) = set_visibility("hidden").await;
-    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+    assert_eq!(status, StatusCode::OK, "{body}");
     let (_, body) = send_empty(app.clone(), "GET", "/api/v1/auth/me", &cookie).await;
     assert_eq!(parse_json(&body)["hiddenContentCount"], 1, "{body}");
     let (status, body) = send_empty(
@@ -835,7 +837,7 @@ async fn hidden_content_is_listed_and_counted_until_its_visibility_changes(pool:
     assert_eq!(hidden[0]["canEdit"], true, "{body}");
 
     let (status, body) = set_visibility("public").await;
-    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+    assert_eq!(status, StatusCode::OK, "{body}");
     let (_, body) = send_empty(app, "GET", "/api/v1/auth/me", &cookie).await;
     assert_eq!(parse_json(&body)["hiddenContentCount"], 0, "{body}");
 }
@@ -864,9 +866,9 @@ async fn hidden_private_of_deleted_user_cannot_be_restored(pool: SqlitePool) {
     let (status, body) = send_json(
         app,
         "PUT",
-        &format!("/api/v1/contents/{id}/visibility"),
+        &format!("/api/v1/contents/{id}"),
         &admin,
-        r#"{"visibility":"private"}"#,
+        r#"{"title":"ボブのメモ","url":"https://example.com","visibility":"private"}"#,
     )
     .await;
     assert_error(status, &body, StatusCode::FORBIDDEN, "forbidden");
