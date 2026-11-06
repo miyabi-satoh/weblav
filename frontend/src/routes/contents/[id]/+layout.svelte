@@ -17,13 +17,13 @@
 	import { cancelScan } from '$lib/archive-scan';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 	import { contentTypeIcon } from '$lib/content-types';
 	import { contentPathLabel } from '$lib/root-location';
 	import * as m from '$lib/paraglide/messages.js';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import { backLinkClass } from '$lib/back-link';
-	import { headerIconActionClass } from '$lib/header-action';
-	import EyeIcon from '@lucide/svelte/icons/eye';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -114,30 +114,29 @@
 				>{m.contents_menu_view()}</Button
 			>
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
-			<!-- スマートフォンの幅では、タイトルに幅を残すため、同じ操作を絵だけのボタンにする。名前は読み上げに渡す
-			     (→ docs/ui.md「UI 全般」)。 -->
-			{#if canRescan}
-				<button
-					type="button"
-					class={[headerIconActionClass, 'sm:hidden']}
-					disabled={rescan.busy}
-					onclick={startRescan}
-				>
-					<RefreshCwIcon class={[rescan.busy && 'animate-spin']} />
-					<span class="sr-only">{m.archive_items_rescan_button()}</span>
-				</button>
-			{/if}
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- contentViewHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
-			<a
-				class={[headerIconActionClass, 'sm:hidden']}
-				href={view.href}
-				target={view.external ? '_blank' : undefined}
-				rel={view.external ? 'external noopener noreferrer' : undefined}
-			>
-				<EyeIcon />
-				<span class="sr-only">{m.contents_menu_view()}</span>
-			</a>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			<!-- スマートフォンの幅では、タイトルに幅を残すため、どちらも⋮の中に入れる。ライブラリでないものも、
+			     見出しの段の形を種類で変えないよう⋮にする (→ docs/ui.md「UI 全般」)。 -->
+			<div class="sm:hidden">
+				<RowActionsMenu name={content.title}>
+					{#if canRescan}
+						<DropdownMenu.Item disabled={rescan.busy} onSelect={startRescan}>
+							{m.archive_items_rescan_button()}
+						</DropdownMenu.Item>
+					{/if}
+					<DropdownMenu.Item>
+						{#snippet child({ props })}
+							<!-- eslint-disable svelte/no-navigation-without-resolve -- contentViewHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
+							<a
+								href={view.href}
+								target={view.external ? '_blank' : undefined}
+								rel={view.external ? 'external noopener noreferrer' : undefined}
+								{...props}>{m.contents_menu_view()}</a
+							>
+							<!-- eslint-enable svelte/no-navigation-without-resolve -->
+						{/snippet}
+					</DropdownMenu.Item>
+				</RowActionsMenu>
+			</div>
 		</div>
 	</div>
 	<!-- 種類の呼び名はどのタブでも見えるよう、ここに出す。
