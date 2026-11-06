@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT title, visibility as \"visibility: Visibility\", created_by\n           FROM contents WHERE id = ? AND type = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "title",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "visibility: Visibility",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_by",
+        "ordinal": 2,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "21726111c9eabf1803abe601e252bbfb8a282ec87cb0174afc124ab3accf434f"
+}

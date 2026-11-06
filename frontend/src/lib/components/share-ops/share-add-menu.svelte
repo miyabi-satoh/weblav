@@ -15,7 +15,7 @@
 <DropdownMenu.Root>
 	<DropdownMenu.Trigger class={[buttonVariants({ variant: 'outline' }), 'shrink-0']}>
 		<PlusIcon data-icon="inline-start" />
-		{m.shares_add_button()}
+		{m.action_add_menu()}
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content align="end">
 		<DropdownMenu.Item onSelect={() => ops.open({ kind: 'upload' })}>

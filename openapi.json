@@ -8247,7 +8247,8 @@
           "groupTitle",
           "ancestors",
           "entries",
-          "canEdit"
+          "canEdit",
+          "canAdd"
         ],
         "properties": {
           "ancestors": {
@@ -8256,6 +8257,10 @@
               "$ref": "#/components/schemas/GroupAncestor"
             },
             "description": "ルートに近い順(祖先→自分の直前の親まで)。自分自身は含まない。\nパンくず表示にそのまま使える。"
+          },
+          "canAdd": {
+            "type": "boolean",
+            "description": "見ている人がこの中にコンテンツを足せるか。画面は真のとき、見出しの段に「追加」を出す。\nログインしていて、グループが他人の「作成者のみ」でないとき (→ docs/access.md「作成者のみのグループ」)。"
           },
           "canEdit": {
             "type": "boolean",

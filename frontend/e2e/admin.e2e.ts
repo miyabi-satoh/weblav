@@ -46,6 +46,7 @@ import {
 } from './helpers';
 import {
 	createGroupContent,
+	submitCreateForm,
 	createLinkContent,
 	deleteContentByTitle,
 	removeContentIfPresent
@@ -181,6 +182,30 @@ test('グループ配下のコンテンツが一覧できる', async ({ page }) 
 		await createGroupContent(page, groupTitle);
 		await createLinkContent(page, childTitle, { parentTitle: groupTitle });
 		// グループのidを取得せず、ホームの一覧から辿ることで結合を減らす。
+		await page.goto('/');
+		await page.getByRole('link', { name: groupTitle }).click();
+		await expect(page.getByRole('link', { name: childTitle })).toBeVisible();
+	} finally {
+		await removeContentIfPresent(page, childTitle);
+		await removeContentIfPresent(page, groupTitle);
+	}
+});
+
+test('グループの画面の「追加」から作ると、そのグループの中に入り、編集ページへ移る', async ({ page }) => {
+	const groupTitle = uniqueId('E2Eグループ');
+	const childTitle = uniqueId('E2E子グループ');
+
+	try {
+		await createGroupContent(page, groupTitle);
+		await page.goto('/');
+		await page.getByRole('link', { name: groupTitle }).click();
+		await page.getByRole('button', { name: /^追加$|^Add$/ }).click();
+		await page.getByRole('menuitem', { name: /^グループ\.\.\.$|^Group\.\.\.$/ }).click();
+		await waitForDialog(page);
+		// 種別はメニューで選んだので、窓は入力の段から始まり、どこに入るかを添える。
+		await expect(page.getByRole('dialog').getByText(groupTitle, { exact: false })).toBeVisible();
+		await page.getByLabel(TITLE_LABEL).fill(childTitle);
+		await submitCreateForm(page, childTitle);
 		await page.goto('/');
 		await page.getByRole('link', { name: groupTitle }).click();
 		await expect(page.getByRole('link', { name: childTitle })).toBeVisible();

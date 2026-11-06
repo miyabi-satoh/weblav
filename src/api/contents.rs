@@ -2188,6 +2188,9 @@ struct GroupBrowseResponse {
     entries: Vec<ContentResponse>,
     /// 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。
     can_edit: bool,
+    /// 見ている人がこの中にコンテンツを足せるか。画面は真のとき、見出しの段に「追加」を出す。
+    /// ログインしていて、グループが他人の「作成者のみ」でないとき (→ docs/access.md「作成者のみのグループ」)。
+    can_add: bool,
 }
 
 /// `id`が指す`type = 'group'`のコンテンツについて、タイトル・祖先パス・直下の子一覧を
@@ -2212,7 +2215,8 @@ async fn browse_group(
     Query(query): Query<SortQuery>,
 ) -> Result<Json<GroupBrowseResponse>, AppError> {
     let group = sqlx::query!(
-        r#"SELECT title FROM contents WHERE id = ? AND type = ?"#,
+        r#"SELECT title, visibility as "visibility: Visibility", created_by
+           FROM contents WHERE id = ? AND type = ?"#,
         id,
         ContentType::Group
     )
@@ -2224,6 +2228,9 @@ async fn browse_group(
     let group_title = group.title;
     let ancestors = lineage.breadcrumbs();
     let can_edit = lineage.editable_by(&viewer);
+    let can_add = viewer_id(&viewer).is_some_and(|user_id| {
+        group.visibility != Visibility::Private || group.created_by == Some(user_id)
+    });
 
     // 絞り込みと並べ替えを取得後に行う理由は `list_contents` と同じ。
     let mut rows = sqlx::query_as!(
@@ -2262,6 +2269,7 @@ async fn browse_group(
         group_title,
         ancestors,
         can_edit,
+        can_add,
         entries: with_previews(&state, entries).await?,
     }))
 }

@@ -6,6 +6,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import { SORT_OPTIONS, browseSortHref, type BrowseSort } from '$lib/browse-sort';
 	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
+	import ContentAddMenu from '$lib/components/content-add-menu.svelte';
 	import ContentList from '$lib/components/content-list.svelte';
 	import ShareList from '$lib/components/share-list.svelte';
 	import type { PageProps } from './$types';
@@ -19,7 +20,7 @@
 	const listFilter = new ListFilterState();
 	provideListFilter(listFilter);
 
-	// コンテンツ管理はログイン済みなら `role` を問わず開ける (→ docs/access.md「管理画面の一覧が `user` に見えること」)。
+	// コンテンツはログイン済みなら `role` を問わず作れる (→ docs/access.md「ロールと操作」)。
 	// 追加の入り口は、追加できる人にだけ出す。
 	let canAddContents = $derived(page.data.user != null);
 
@@ -36,16 +37,21 @@
 
 <div class="py-6">
 	<!-- サイト名と見出しは管理画面で設定する。未設定の行は出さず、見出しが無ければ
-	     読み上げ用の h1 だけを置く (→ docs/ui.md「UI 全般」)。 -->
-	{#if siteName !== '' || homeHeading !== ''}
-		<div class={['mb-5', browseGutterClass]}>
-			{#if siteName !== ''}
-				<p class="text-sm tracking-wider text-muted-foreground">{siteName}</p>
-			{/if}
-			{#if homeHeading !== ''}
-				<h1 class={['text-2xl font-bold sm:text-3xl', siteName !== '' && 'mt-1.5']}>
-					{homeHeading}
-				</h1>
+	     読み上げ用の h1 だけを置く (→ docs/ui.md「UI 全般」)。追加できる人には、見出しの右に「追加」を置く。 -->
+	{#if siteName !== '' || homeHeading !== '' || canAddContents}
+		<div class={['mb-5 flex items-start gap-2', browseGutterClass]}>
+			<div class="min-w-0 flex-1">
+				{#if siteName !== ''}
+					<p class="text-sm tracking-wider text-muted-foreground">{siteName}</p>
+				{/if}
+				{#if homeHeading !== ''}
+					<h1 class={['text-2xl font-bold sm:text-3xl', siteName !== '' && 'mt-1.5']}>
+						{homeHeading}
+					</h1>
+				{/if}
+			</div>
+			{#if canAddContents}
+				<ContentAddMenu parentId={null} />
 			{/if}
 		</div>
 	{/if}
@@ -53,18 +59,7 @@
 		<h1 class="sr-only">{m.breadcrumb_home()}</h1>
 	{/if}
 	{#if data.contents.length === 0}
-		{#if canAddContents}
-			<div class={browseGutterClass}>
-				<p class="text-sm text-muted-foreground">{m.home_empty()}</p>
-				<a
-					href={resolve('/admin/contents')}
-					class="relative mt-1 inline-flex h-11 items-center text-sm text-primary underline underline-offset-4"
-					>{m.home_empty_add_link()}</a
-				>
-			</div>
-		{:else}
-			<p class={pageEmptyTextClass}>{m.home_empty()}</p>
-		{/if}
+		<p class={pageEmptyTextClass}>{m.home_empty()}</p>
 	{:else}
 		<BrowseControls class={['mb-4', browseGutterClass]}>
 			{#snippet sort()}

@@ -29,6 +29,8 @@ Titles are assigned automatically. To change one, use the edit page that opens a
 
 The remaining steps differ by type.
 
+You can also add from “Add” on Home or on a group's page. Choose a type to open the window. On a group's page, the new item goes inside that group.
+
 ## Shortcut
 
 1. Select “Choose...”.

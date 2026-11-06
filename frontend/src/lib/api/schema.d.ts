@@ -2416,6 +2416,11 @@ export interface components {
              *     パンくず表示にそのまま使える。
              */
             ancestors: components["schemas"]["GroupAncestor"][];
+            /**
+             * @description 見ている人がこの中にコンテンツを足せるか。画面は真のとき、見出しの段に「追加」を出す。
+             *     ログインしていて、グループが他人の「作成者のみ」でないとき (→ docs/access.md「作成者のみのグループ」)。
+             */
+            canAdd: boolean;
             /** @description 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。 */
             canEdit: boolean;
             entries: components["schemas"]["ContentResponse"][];
