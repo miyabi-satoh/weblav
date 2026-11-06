@@ -3,11 +3,10 @@
 	import BrowseHeading from '$lib/components/browse-heading.svelte';
 	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { resolve } from '$app/paths';
-	import { withQuery } from '$lib/href';
 	import * as m from '$lib/paraglide/messages.js';
 	import { linksFileHref } from '$lib/links-file';
 	import { breadcrumbLinkClass, pathCrumbs } from '$lib/breadcrumb';
-	import { SORT_OPTIONS, DEFAULT_BROWSE_SORT, type BrowseSort } from '$lib/browse-sort';
+	import { SORT_OPTIONS, browseSortHref, sortQuery, type BrowseSort } from '$lib/browse-sort';
 	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
 	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
 	import FolderEntryList, { type FolderEntryRow } from '$lib/components/folder-entry-list.svelte';
@@ -46,30 +45,25 @@
 
 	// 並び順はパスを移動しても保つ (フォルダーの中を辿る操作であり、選び直す理由が無いため)。
 	function browseHref(path: string): string {
-		return withQuery(resolve('/folders/[id]', { id: String(contentId) }), {
-			...(path === '' ? {} : { path }),
-			...(data.sort === DEFAULT_BROWSE_SORT ? {} : { sort: data.sort })
-		});
+		return browseSortHref(
+			resolve('/folders/[id]', { id: String(contentId) }),
+			data.sort,
+			path === '' ? {} : { path }
+		);
 	}
 
 	function sortHref(sort: BrowseSort): string {
-		return withQuery(resolve('/folders/[id]', { id: String(contentId) }), {
+		// 並び順を変えても、打った絞り込みは残す。階層を移るとき (browseHref) は、別の一覧なので引き継がない。
+		return browseSortHref(resolve('/folders/[id]', { id: String(contentId) }), sort, {
 			...(browse.path === '' ? {} : { path: browse.path }),
-			...(sort === DEFAULT_BROWSE_SORT ? {} : { sort }),
-			// 並び順を変えても、打った絞り込みは残す。階層を移るとき (browseHref) は、別の一覧なので引き継がない。
 			...listFilter.query
 		});
-	}
-
-	/** 表示中のパス直下にある `name` の、フォルダー内の相対パス。 */
-	function childPath(name: string): string {
-		return browse.path === '' ? name : `${browse.path}/${name}`;
 	}
 
 	let rows = $derived<FolderEntryRow[]>(
 		browse.entries.map((entry) => ({
 			source: { kind: 'content', id: contentId },
-			path: childPath(entry.name),
+			path: childSharePath(browse.path, entry.name),
 			entry
 		}))
 	);
@@ -115,11 +109,7 @@
 	}
 
 	function linksHref(row: FolderEntryRow): string {
-		return linksFileHref(
-			contentId,
-			{ path: row.path },
-			data.sort === DEFAULT_BROWSE_SORT ? {} : { sort: data.sort }
-		);
+		return linksFileHref(contentId, { path: row.path }, sortQuery(data.sort));
 	}
 </script>
 

@@ -262,7 +262,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// コンテンツの編集ページ。アーカイブなので「基本情報」「軸定義」「ファイル」のタブが出る。
+	// コンテンツの編集ページ。一覧の表示を使うフォルダーなので「設定」「分類」「ファイル」「対象外」のタブが出る。
 	admin_contents_edit: {
 		async run(page, ctx) {
 			await openAsAdmin(page, ctx.baseURL, `/contents/${ctx.fixtures.archiveId}`);
@@ -469,7 +469,7 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// 管理画面: アーカイブの軸定義タブ。「級」軸(filenameWord)を選択し、
+	// 編集ページの「分類」のタブ。「級」軸(filenameWord)を選択し、
 	// 値の辞書(照合語リスト)も併せて表示する。
 	admin_archive_axes: {
 		async run(page, ctx) {

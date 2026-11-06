@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { withQuery } from '$lib/href';
 	import * as m from '$lib/paraglide/messages.js';
 	import { breadcrumbLinkClass, pathCrumbs } from '$lib/breadcrumb';
-	import { SORT_OPTIONS, DEFAULT_BROWSE_SORT, type BrowseSort } from '$lib/browse-sort';
+	import { SORT_OPTIONS, browseSortHref, type BrowseSort } from '$lib/browse-sort';
 	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { browseGutterClass, rowMenuSlotClass } from '$lib/list-row';
 	import { pageEmptyTextClass, pageHeadingInRowClass } from '$lib/page-layout';
@@ -49,16 +48,16 @@
 
 	// 並び順は階層を移っても保つ (フォルダーの画面と同じ)。
 	function browseHref(path: string): string {
-		return withQuery(resolve('/shares/[id]', { id: String(shareId) }), {
-			...(path === '' ? {} : { path }),
-			...(data.sort === DEFAULT_BROWSE_SORT ? {} : { sort: data.sort })
-		});
+		return browseSortHref(
+			resolve('/shares/[id]', { id: String(shareId) }),
+			data.sort,
+			path === '' ? {} : { path }
+		);
 	}
 
 	function sortHref(sort: BrowseSort): string {
-		return withQuery(resolve('/shares/[id]', { id: String(shareId) }), {
+		return browseSortHref(resolve('/shares/[id]', { id: String(shareId) }), sort, {
 			...(browse.path === '' ? {} : { path: browse.path }),
-			...(sort === DEFAULT_BROWSE_SORT ? {} : { sort }),
 			...listFilter.query
 		});
 	}

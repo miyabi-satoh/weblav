@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { listCountRowClass } from '$lib/page-layout';
 	import type { Snippet } from 'svelte';
 	import BrowseControls from '$lib/components/browse-controls.svelte';
 	import { goto } from '$app/navigation';
@@ -15,7 +16,7 @@
 	type ArchiveAxis = components['schemas']['ArchiveAxisResponse'];
 
 	// アーカイブの一覧の上の段 (並べ替え・名前の絞り込み・軸の絞り込み・リストとタイルの切り替え) と件数の行。
-	// 閲覧の画面と管理画面のファイルのタブで、閲覧者に見える姿を同じに保つため1つにする。
+	// 閲覧の画面と編集ページのファイルのタブで、閲覧者に見える姿を同じに保つため1つにする。
 	let {
 		axes,
 		filters,
@@ -40,9 +41,9 @@
 		shown?: number;
 		hasItems: boolean;
 		folderMissing: boolean;
-		/** 絞り込んでいないときは件数を出さない (管理画面は、見出しに同じ件数がある)。 */
+		/** 絞り込んでいないときは件数を出さない (編集ページは、見出しに同じ件数がある)。 */
 		countOnlyWhenFiltered?: boolean;
-		/** 件数の行の右に置く操作 (管理画面の「パターンに追加...」)。 */
+		/** 件数の行の右に置く操作 (編集ページの「パターンに追加...」)。 */
 		countAction?: Snippet;
 	} = $props();
 
@@ -141,7 +142,7 @@
 
 <!-- フォルダーが無いときは、件数を数える物が無い (下に「フォルダーが見つかりません。」だけを出す)。 -->
 {#if !folderMissing && !hideCount}
-	<div class="mt-2 flex min-h-11 items-center justify-between gap-3 text-sm">
+	<div class={listCountRowClass}>
 		<p class="text-muted-foreground">
 			{shown !== undefined
 				? m.archive_view_count_filtered({

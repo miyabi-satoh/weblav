@@ -77,7 +77,7 @@ pub struct AppState {
     pub share_jobs: Arc<crate::api::ShareJobs>,
     /// 共有の中で消したものの行き先 (→ `api::TrashPolicy`)。
     pub share_trash: crate::api::TrashPolicy,
-    /// 一覧の表示の、導出済みの全アイテム・印・区切って返す結果の集まり (→ docs/archive.md「大きなアーカイブの一覧」)。
+    /// 一覧の表示の、導出済みの全アイテム・区切って返す結果の集まり (→ docs/archive.md「大きなアーカイブの一覧」)。
     pub archive_index: Arc<crate::api::archive_index::ArchiveIndexCache>,
     /// admin数の不変条件に関わる書き込み(権限変更・削除)を直列化するための鍵
     /// (→ docs/access.md「admin の最後の1人」)。`users`テーブルへの書き込み全般ではなく、この

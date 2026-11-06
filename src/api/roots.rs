@@ -780,7 +780,7 @@ impl OwnDirs {
 
 /// 共有ごとのコンテンツの件数を数えるための材料。
 ///
-/// パスを持つコンテンツ (`folder`・`archive`) の登録先と、登録中の共有。
+/// パスを持つコンテンツ (`folder`・`shortcut`) の登録先と、登録中の共有。
 /// 多くても数百件なので、まとめて読んで数える。SQL で前方一致を書くと、区切り文字の扱いを
 /// `contains` と二重に持つことになる。
 struct ContentCounts {
@@ -1055,6 +1055,7 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::shares::repoint::tests::{content_path, insert_folder, sep_path};
 
     #[test]
     fn a_root_contains_its_descendants() {
@@ -1192,33 +1193,6 @@ mod tests {
             |path: &str| containing_root(&roots, FsPath::new(path)).map(|r| r.name.as_str());
         assert_eq!(found(&format!("{inner}{sep}英検")), Some("外"));
         assert_eq!(found(&format!("{outer}{sep}写真")), Some("外"));
-    }
-
-    fn sep_path(parts: &[&str]) -> PathBuf {
-        let mut path = PathBuf::from(std::path::MAIN_SEPARATOR_STR);
-        for part in parts {
-            path.push(part);
-        }
-        path
-    }
-
-    async fn insert_folder(pool: &sqlx::SqlitePool, path: &FsPath, list_view: bool) -> i64 {
-        sqlx::query_scalar(
-            "INSERT INTO contents (type, title, path, visibility, list_view) VALUES ('folder', 'f', ?, 'public', ?) RETURNING id",
-        )
-        .bind(path.display().to_string())
-        .bind(list_view)
-        .fetch_one(pool)
-        .await
-        .expect("フォルダーを作れなかった")
-    }
-
-    async fn content_path(pool: &sqlx::SqlitePool, id: i64) -> String {
-        sqlx::query_scalar("SELECT path FROM contents WHERE id = ?")
-            .bind(id)
-            .fetch_one(pool)
-            .await
-            .expect("登録先を読めなかった")
     }
 
     /// 共有の中の登録先は新しい場所の同じ相対パスへ移り、頭の似た隣のフォルダーは動かない。

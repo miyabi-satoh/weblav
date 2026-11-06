@@ -1,4 +1,5 @@
 <script lang="ts" module>
+	import { pickerCrumbButtonClass, pickerNavClass, pickerRowClass } from '$lib/dir-picker';
 	import type { components } from '$lib/api/schema';
 
 	type ShareAccess = components['schemas']['ShareAccess'];
@@ -99,33 +100,23 @@
 	function isDisabled(shareId: number, path: string): boolean {
 		return disabledPath !== null && disabledPath.shareId === shareId && disabledPath.path === path;
 	}
-
-	const rowClass =
-		'flex h-11 w-full items-center gap-3 border-b border-divider px-4 text-left hover:bg-muted/60 disabled:pointer-events-none disabled:text-muted-foreground';
 </script>
 
 <!-- パンくずは実際の高さを 44px にする (→ docs/ui.md「UI 全般」)。 -->
-<nav
-	aria-label={m.dir_picker_breadcrumb_label()}
-	class="flex min-h-11 flex-wrap items-center gap-x-2 border-b border-divider bg-muted/40 px-4"
->
+<nav aria-label={m.dir_picker_breadcrumb_label()} class={pickerNavClass}>
 	{#if listing === null}
 		<span class="text-xs text-muted-foreground">{m.shares_heading()}</span>
 	{:else}
 		{@const share = listing.share}
-		<button
-			type="button"
-			class="inline-flex h-11 items-center text-xs text-primary underline underline-offset-4"
-			onclick={showShares}>{m.shares_heading()}</button
+		<button type="button" class={pickerCrumbButtonClass} onclick={showShares}
+			>{m.shares_heading()}</button
 		>
 		<span aria-hidden="true" class="text-muted-foreground">›</span>
 		{#if crumbs.length === 0}
 			<span class="text-xs text-muted-foreground">{share.name}</span>
 		{:else}
-			<button
-				type="button"
-				class="inline-flex h-11 items-center text-xs text-primary underline underline-offset-4"
-				onclick={() => load(share.id, '')}>{share.name}</button
+			<button type="button" class={pickerCrumbButtonClass} onclick={() => load(share.id, '')}
+				>{share.name}</button
 			>
 		{/if}
 		{#each crumbs as crumb, index (crumb.path)}
@@ -135,7 +126,7 @@
 			{:else}
 				<button
 					type="button"
-					class="inline-flex h-11 items-center text-xs text-primary underline underline-offset-4"
+					class={pickerCrumbButtonClass}
 					onclick={() => load(share.id, crumb.path)}>{crumb.name}</button
 				>
 			{/if}
@@ -150,7 +141,7 @@
 		<div class="px-4 py-4"><Spinner aria-label={m.dir_picker_loading()} /></div>
 	{:else if listing === null}
 		{#each addable as share (share.id)}
-			<button type="button" class={rowClass} onclick={() => load(share.id, '')}>
+			<button type="button" class={pickerRowClass} onclick={() => load(share.id, '')}>
 				<HardDriveIcon class="size-5 shrink-0 text-sub-foreground" />
 				<span class="flex-1 truncate text-sm">{share.name}</span>
 				<ChevronRightIcon class="size-4 shrink-0 text-muted-foreground" />
@@ -163,7 +154,7 @@
 		{@const current = listing}
 		<button
 			type="button"
-			class={rowClass}
+			class={pickerRowClass}
 			onclick={() =>
 				current.parent == null ? showShares() : load(current.share.id, current.parent)}
 		>
@@ -174,7 +165,7 @@
 			{@const disabled = isDisabled(current.share.id, entry.path)}
 			<button
 				type="button"
-				class={rowClass}
+				class={pickerRowClass}
 				{disabled}
 				onclick={() => load(current.share.id, entry.path)}
 			>

@@ -22,8 +22,7 @@
 	import { contentTypeIcon } from '$lib/content-types';
 	import { contentPathLabel } from '$lib/root-location';
 	import * as m from '$lib/paraglide/messages.js';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
-	import { backLinkClass } from '$lib/back-link';
+	import BackLink from '$lib/components/back-link.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -53,7 +52,7 @@
 		};
 	});
 
-	// 一覧の表示を使うフォルダーは「基本情報 / 軸定義 / ファイル」を同列に並べる (→ docs/access.md「ロールと操作」)。
+	// 一覧の表示を使うフォルダーは「設定 / 分類 / ファイル / 対象外」を同列に並べる (→ docs/access.md「ロールと操作」)。
 	let tabs = $derived.by(() => {
 		const id = String(data.contentId);
 		const basic = {
@@ -81,12 +80,7 @@
 <svelte:head><title>{pageTitle(content.title)}</title></svelte:head>
 
 <div class="px-4 pt-4 md:px-6">
-	<!-- eslint-disable svelte/no-navigation-without-resolve -- contentEditBack() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
-	<a href={back.href} class={backLinkClass}>
-		<ChevronLeftIcon class="size-4" />
-		<span class="underline underline-offset-4">{back.label}</span>
-	</a>
-	<!-- eslint-enable svelte/no-navigation-without-resolve -->
+	<BackLink href={back.href} label={back.label} />
 	<!-- 再スキャンと閲覧画面へのリンクは、どのタブでも同じ所に出すので見出しの段に置く (→ docs/ui.md「UI 全般」)。 -->
 	<div class="mt-2 flex items-start gap-2">
 		<h1 class={pageHeadingInRowClass}>{content.title}</h1>
@@ -140,18 +134,18 @@
 		</div>
 	</div>
 	<!-- 種類の呼び名はどのタブでも見えるよう、ここに出す。
-	     区切りの「・」は見た目だけのものなので読み上げない。 -->
+	     区切りの「·」は見た目だけのものなので読み上げない。 -->
 	<p class="flex flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
 		<TypeIcon class="size-4 shrink-0" aria-hidden="true" />
 		<span>{contentTypeLabel(content.type, content.listView)}</span>
 		{#if location}
-			<span aria-hidden="true">・</span>
+			<span aria-hidden="true">·</span>
 			<!-- パスは区切り以外に折り返せる場所が無く、そのままだと画面からはみ出す
 			     (スマートフォン幅)。どこでも折り返してよい扱いにする。 -->
 			<span class="min-w-0 wrap-anywhere">{location}</span>
 		{/if}
 		{#if content.archiveItems}
-			<span aria-hidden="true">・</span>
+			<span aria-hidden="true">·</span>
 			<span>{archiveItemsSummary(content.archiveItems)}</span>
 		{/if}
 	</p>

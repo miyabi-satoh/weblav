@@ -1,9 +1,7 @@
 <script lang="ts">
 	/**
 	 * ファイル選択のドロップゾーン。`<input type=file>` を透明化して `label` 全体に
-	 * 重ね、クリック・キーボードでの選択・必須バリデーションは input の標準動作に
-	 * 任せる (visibility:hidden/sr-only にすると required のバブルが input の実位置
-	 * に出て見た目とずれるため、透明のまま同じ大きさで重ねている)。
+	 * 重ね、クリック・キーボードでの選択は input の標準動作に任せる。
 	 * ドラッグ&ドロップだけを label に足す。
 	 */
 	import { cn } from '$lib/utils';
@@ -12,21 +10,13 @@
 	type Props = {
 		id: string;
 		files?: FileList;
-		required?: boolean;
 		/** いくつも選べるようにする。選んだものは呼び出し側が並べるので、名前は出さず案内のままにする。 */
 		multiple?: boolean;
 		hint: string;
 		class?: string;
 	};
 
-	let {
-		id,
-		files = $bindable(),
-		required = false,
-		multiple = false,
-		hint,
-		class: className
-	}: Props = $props();
+	let { id, files = $bindable(), multiple = false, hint, class: className }: Props = $props();
 
 	let inputRef = $state<HTMLInputElement | null>(null);
 	// dragenter/dragleaveは子要素への出入りでも発火するため、ネスト分を数えて
@@ -104,7 +94,6 @@
 		type="file"
 		class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
 		bind:files
-		{required}
 		{multiple}
 	/>
 </label>

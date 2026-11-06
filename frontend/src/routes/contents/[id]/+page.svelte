@@ -34,6 +34,7 @@
 	import { visibilityLabel } from '$lib/content-labels';
 	import { formatNumber } from '$lib/format';
 	import * as m from '$lib/paraglide/messages.js';
+	import { visibilityChangeCounts } from '$lib/visibility-preview';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import LoadingLabel from '$lib/components/loading-label.svelte';
 	import ConfirmRegister from '$lib/components/confirm-register.svelte';
@@ -517,20 +518,9 @@
 				{#if visibilityChange === null}
 					{m.contents_edit_visibility_change_unknown()}
 				{:else}
-					{#if visibilityChange.gained > 0}
-						<span class="block">
-							{m.contents_edit_visibility_change_gained({
-								count: formatNumber(visibilityChange.gained)
-							})}
-						</span>
-					{/if}
-					{#if visibilityChange.lost > 0}
-						<span class="block">
-							{m.contents_edit_visibility_change_lost({
-								count: formatNumber(visibilityChange.lost)
-							})}
-						</span>
-					{/if}
+					{#each visibilityChangeCounts(visibilityChange) as line (line)}
+						<span class="block">{line}</span>
+					{/each}
 					{#if visibilityChange.truncated}
 						<span class="mt-2 block">{m.contents_edit_visibility_change_truncated()}</span>
 					{/if}

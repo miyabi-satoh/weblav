@@ -33,11 +33,9 @@ export type ShareTarget = {
 /** 行の ⋮ に出す操作。並べる順でもある。 */
 export type ShareAction = 'rename' | 'move' | 'copy' | 'download' | 'listOnHome' | 'delete';
 
-const ACCESS_ORDER: readonly ShareAccess[] = ['none', 'read', 'add', 'all'];
-
-/** `access` が `needed` 以上か (サーバーの `ShareAccess` の順と同じ)。 */
+/** `access` が `needed` 以上か。 */
 export function accessAtLeast(access: ShareAccess, needed: ShareAccess): boolean {
-	return ACCESS_ORDER.indexOf(access) >= ACCESS_ORDER.indexOf(needed);
+	return ACCESS_CHOICES.indexOf(access) >= ACCESS_CHOICES.indexOf(needed);
 }
 
 /** アップロード・新しいフォルダーを出すか。追加のみの共有でもできる (→ docs/ui.md「共有の中の画面」)。 */
@@ -89,5 +87,5 @@ export function shareAccessLabel(access: ShareAccess): string {
 	return m.shares_access_level_none();
 }
 
-/** 権限のダイアログで選ばせる順。サーバーの順 (弱い順) と同じ。 */
+/** 権限の弱い順 (サーバーの `ShareAccess` の順と同じ)。権限のダイアログで選ばせる順でもある。 */
 export const ACCESS_CHOICES: readonly ShareAccess[] = ['none', 'read', 'add', 'all'];

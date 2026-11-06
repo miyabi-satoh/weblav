@@ -141,10 +141,12 @@
 						<Table.Cell class={actionColumnClass}>
 							<RowActionsMenu name={target.username}>
 								<!-- ユーザー名・権限・パスワードの再設定は、どれも編集ページで行う。 -->
-								<DropdownMenu.Item
-									onSelect={() => goto(resolve('/admin/users/[id]', { id: String(target.id) }))}
-								>
-									{m.action_edit_page()}
+								<DropdownMenu.Item>
+									{#snippet child({ props })}
+										<a href={resolve('/admin/users/[id]', { id: String(target.id) })} {...props}
+											>{m.action_edit_page()}</a
+										>
+									{/snippet}
 								</DropdownMenu.Item>
 								<!-- 最後の管理者は消せない (→ docs/access.md「ユーザーの削除と作成者」)。理由は編集ページに出す。 -->
 								<DropdownMenu.Item

@@ -16,19 +16,16 @@
 		intervalAfter,
 		mode = $bindable(),
 		hours = $bindable(),
-		time = $bindable(),
-		description
+		time = $bindable()
 	}: {
-		/** 欄の id の頭。同じページに2つ置いても重ならないようにする。 */
+		/** 欄の id の頭。丸ボタンと数の欄の id をここから作る。 */
 		id: string;
 		label: string;
-		/** 「前回から N 時間」に続く言葉。何の前回かは画面ごとに違う。 */
+		/** 「前回から N 時間」に続く言葉 (何の前回か)。 */
 		intervalAfter: string;
 		mode: AutoMode;
 		hours: number;
 		time: string;
-		/** 丸ボタンの下に出す説明。 */
-		description?: string;
 	} = $props();
 
 	/** 時間の上限。サーバーが受ける数 (`u32`) の上限で、利用者に選ばせる値の目安ではない。 */
@@ -82,7 +79,4 @@
 			{/if}
 		</Field.Field>
 	</RadioGroup.Root>
-	{#if description}
-		<Field.FieldDescription>{description}</Field.FieldDescription>
-	{/if}
 </Field.FieldSet>

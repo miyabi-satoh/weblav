@@ -1,6 +1,6 @@
 /**
  * アーカイブの一覧の要求のクエリと、区切りの続きの取り方 (→ docs/archive.md「一覧の API を区切って返す」)。
- * 閲覧の画面と管理画面のファイルのタブで同じ形にする。
+ * 閲覧の画面と編集ページのファイルのタブで同じ形にする。
  */
 
 import { client } from '$lib/api/client';
@@ -33,6 +33,25 @@ export function archiveListQuery(
 	for (const [name, value] of Object.entries(filters)) query[`axis.${name}`] = value;
 	for (const [key, value] of Object.entries(extra)) if (value.trim() !== '') query[key] = value;
 	return query;
+}
+
+/**
+ * 一覧の最初の区切りを求める `client.GET` の引数。閲覧用と管理用で同じ形。
+ * utoipa が軸の名前をキーにしたクエリを型にできず、生成された型ではこの API の `query` が `never` になる (→ schema.d.ts のコメント)。
+ * 実行時は openapi-fetch がオブジェクトをそのまま URL に載せるので、型だけキャストする。
+ */
+export function archiveListInit(
+	id: number,
+	filters: Record<string, string>,
+	sort: string,
+	nameFilter: string
+): { params: { path: { id: number } } } {
+	return {
+		params: {
+			path: { id },
+			query: archiveListQuery(filters, { sort, [LIST_FILTER_QUERY]: nameFilter })
+		}
+	} as unknown as { params: { path: { id: number } } };
 }
 
 /** 閲覧用の一覧の、区切りの続きの取り方。 */

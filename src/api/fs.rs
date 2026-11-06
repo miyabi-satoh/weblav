@@ -1,6 +1,6 @@
 //! サーバー側ディレクトリの選択と、登録前の確認のためのAPI (→ docs/folders.md「サーバー側ディレクトリの選択 UI」)。
 //!
-//! いずれもログイン済みなら `role` を問わない (→ docs/access.md「ロールと操作」)。`folder`/`archive` の
+//! いずれもログイン済みなら `role` を問わない (→ docs/access.md「ロールと操作」)。`folder`/`shortcut` の
 //! 登録先を選ばせるためだけの読み取り専用エンドポイント。
 //!
 //! 登録先に選べるのは「共有」(→ `api::roots`) の配下のうち、そのユーザーが中を
@@ -31,9 +31,9 @@ use super::roots::{OwnDirs, Root};
 pub(super) const COUNT_LIMIT: usize = 100_000;
 
 /// 走査するエントリ数の上限。登録前の確認と、人が見ていない走査 (自動の再スキャン・一覧を開いたときの読み直し)
-/// に掛ける。対象の拡張子に一致しないファイルやディレクトリばかりの巨大なツリーで、`spawn_blocking` の
+/// に掛ける。除外したディレクトリばかりの巨大なツリーで、`spawn_blocking` の
 /// ワーカーを長く塞いでも止める人がいないため。手で始めたスキャンは中止できるので掛けない。
-/// `COUNT_LIMIT` より大きくしてあるのは、拡張子を絞った場合でも数え上げの上限までは数え切れる余地を残すため。
+/// `COUNT_LIMIT` より大きくしてあるのは、パターンで絞った場合でも数え上げの上限までは数え切れる余地を残すため。
 pub(super) const SCAN_LIMIT: usize = 500_000;
 
 /// 一覧・数え上げ・索引の対象にするかの判定 (名前と種別だけで決まる部分)。
@@ -236,7 +236,7 @@ fn read_dirs(
             selectable: entry_selectable,
         });
     }
-    entries.sort_by_key(|entry| entry.name.to_lowercase());
+    entries.sort_by(|a, b| super::sort::title_cmp(&a.name, &b.name));
     Ok(entries)
 }
 
@@ -260,7 +260,7 @@ fn read_files(dir: &FsPath, own_dirs: &OwnDirs) -> std::io::Result<Vec<DirEntryI
             selectable: true,
         });
     }
-    entries.sort_by_key(|entry| entry.name.to_lowercase());
+    entries.sort_by(|a, b| super::sort::title_cmp(&a.name, &b.name));
     Ok(entries)
 }
 
@@ -883,6 +883,60 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(list_dirs))
         .routes(routes!(count_target_files))
+}
+
+/// 起点 `canonical_root` (canonicalize 済み) の中の `rel` を実体のパスにする。外へ出るもの・一覧に出さないものは 404。
+///
+/// 一覧に出さないもの (ドット始まり・シンボリックリンク・隠し属性) は配信も操作もしない。
+/// 一覧に出ないだけでパスを知っていれば落とせる、という食い違いを残さないため。
+/// weblav 自身の置き場 (設定とデータ) の中も同じ (共有が `C:\` のような祖先でもありうる)。
+/// いずれも存在を伏せるため 404 (→ docs/folders.md「共有」)。
+///
+/// 名前は、要求の名前と実体の名前の両方で見る。Windows の 8.3 短縮名 (`ENV~1`) は
+/// ドットで始まらないまま `.env` に解決されるため。リンクを見分けるには、辿る前の
+/// 要求のパスが要る。`..` は呼び出し側が先に弾く。中のシンボリックリンクで外へ出るものはここで弾く。
+///
+/// ブロッキングI/Oを行うため、呼び出し側は `spawn_blocking` の中で呼ぶこと。
+pub(super) fn resolve_within(
+    canonical_root: &FsPath,
+    rel: &str,
+    own_dirs: &OwnDirs,
+) -> Result<PathBuf, AppError> {
+    let canonical =
+        std::fs::canonicalize(canonical_root.join(rel)).map_err(|_| AppError::NotFound)?;
+    if !canonical.starts_with(canonical_root)
+        || has_hidden_component(canonical_root, FsPath::new(rel))
+        || has_dot_component(canonical_root, &canonical)
+        || own_dirs.contains(&canonical)
+    {
+        return Err(AppError::NotFound);
+    }
+    Ok(canonical)
+}
+
+/// `contents.path` と同じ書き方にそろえる。Windows の canonicalize が付ける `\\?\` を落とす
+/// (落とさないと、保存してあるパスと頭が合わない)。
+pub(super) fn stored_path(path: &FsPath) -> Result<PathBuf, AppError> {
+    path_to_string(path.to_path_buf()).map(PathBuf::from)
+}
+
+/// 相対パス (`/` 区切り) に、名前を1つ足す。`dir` が空なら名前だけ。
+pub(super) fn join_rel(dir: &str, name: &str) -> String {
+    if dir.is_empty() {
+        name.to_string()
+    } else {
+        format!("{dir}/{name}")
+    }
+}
+
+/// 相対パスの親。起点の直下なら空文字。
+pub(super) fn parent_rel(rel: &str) -> &str {
+    rel.rsplit_once('/').map_or("", |(parent, _)| parent)
+}
+
+/// 相対パスの最後の名前。
+pub(super) fn rel_file_name(rel: &str) -> &str {
+    rel.rsplit_once('/').map_or(rel, |(_, name)| name)
 }
 
 /// `root` (登録先の実体のパス) の下にある実体のパス `path` の、登録先からの相対パス ('/' 区切り)。

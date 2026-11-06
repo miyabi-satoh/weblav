@@ -4691,6 +4691,16 @@
               }
             }
           },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "403": {
             "description": "書き換えられるのは管理者と作成者だけ",
             "content": {
@@ -9049,7 +9059,7 @@
           },
           "removed": {
             "type": "integer",
-            "description": "索引から取り除いたアイテム数。実体が消えたもの、または拡張子の対象から\n外れたもの。",
+            "description": "索引から取り除いたアイテム数。実体が消えたもの。",
             "minimum": 0
           },
           "total": {

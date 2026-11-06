@@ -5,7 +5,7 @@ import {
 	clickRowMenuItem,
 	confirmDelete,
 	CONTENT_ADD_BUTTON_NAME,
-	CONTENT_SUBMIT_BUTTON_NAME,
+	ADD_SUBMIT_BUTTON_NAME,
 	CONTENT_TYPE_NAME,
 	contentRow,
 	DELETE_MENU_ITEM_NAME,
@@ -39,7 +39,7 @@ export async function openCreateForm(
 /**
  * ホームの見出しの「追加」から、リンクの作成の窓を開く。管理画面は admin 専用なので、一般ユーザーはここから作る。
  */
-export async function openLinkFormFromHome(page: Page) {
+async function openLinkFormFromHome(page: Page) {
 	await page.goto('/');
 	await page.getByRole('button', { name: /^追加$|^Add$/ }).click();
 	await page.getByRole('menuitem', { name: /^リンク\.\.\.$|^Link\.\.\.$/ }).click();
@@ -52,7 +52,7 @@ export async function openLinkFormFromHome(page: Page) {
  */
 export async function submitCreateForm(page: Page, title?: string) {
 	// 閲覧の画面の見出しにも「追加」があり、英語では同じ名前になるので、窓の中のボタンに限る。
-	await page.getByRole('dialog').getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
+	await page.getByRole('dialog').getByRole('button', { name: ADD_SUBMIT_BUTTON_NAME }).click();
 	await expectContentEditPage(page, title);
 }
 

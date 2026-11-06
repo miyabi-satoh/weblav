@@ -21,7 +21,7 @@ const MAX_CHUNKS = 20;
  * 区切りの続きの応答。結果が捨てられていたら `expired`。
  * 混ぜた結果 (`shuffled`) の区切りは、各行の混ぜる前の位置 (`positions`) を添える。
  */
-export type ChunkResult<T> =
+type ChunkResult<T> =
 	{ items: (T | null)[]; stale: boolean; positions?: number[] | null } | { expired: true };
 
 /** 最初の区切り。 */

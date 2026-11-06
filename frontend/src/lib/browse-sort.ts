@@ -30,5 +30,10 @@ export function browseSortHref(
 	sort: BrowseSort,
 	rest: Record<string, string> = {}
 ): string {
-	return withQuery(base, { ...(sort === DEFAULT_BROWSE_SORT ? {} : { sort }), ...rest });
+	return withQuery(base, { ...sortQuery(sort), ...rest });
+}
+
+/** URL に載せる並び順のクエリ。既定のときは載せない。 */
+export function sortQuery(sort: BrowseSort): Record<string, string> {
+	return sort === DEFAULT_BROWSE_SORT ? {} : { sort };
 }

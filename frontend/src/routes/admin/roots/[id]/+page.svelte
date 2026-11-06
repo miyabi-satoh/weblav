@@ -40,10 +40,9 @@
 	import LoadingLabel from '$lib/components/loading-label.svelte';
 	import RootDeleteDialog from '$lib/components/root-delete-dialog.svelte';
 	import DeleteSection from '$lib/components/delete-section.svelte';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { backLinkClass } from '$lib/back-link';
-	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
+	import BackLink from '$lib/components/back-link.svelte';
+	import RootWarnings from '$lib/components/root-warnings.svelte';
 	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
 
@@ -204,30 +203,14 @@
 <svelte:head><title>{pageTitle(root.name)}</title></svelte:head>
 
 <div class="px-4 pt-4 md:px-6">
-	<a href={resolve('/admin/roots')} class={backLinkClass}>
-		<ChevronLeftIcon class="size-4" />
-		<span class="underline underline-offset-4">{m.admin_roots_nav_title()}</span>
-	</a>
+	<BackLink href={resolve('/admin/roots')} label={m.admin_roots_nav_title()} />
 	<!-- 削除は、ほかの編集ページと同じく最後の「削除」の区画に置く (→ docs/ui.md「編集ページの区画」)。 -->
 	<h1 class={['mt-2 wrap-anywhere', pageHeadingTextClass]}>{root.name}</h1>
 	<p class="text-sm text-muted-foreground">
 		{m.admin_roots_content_count({ count: formatNumber(root.contentCount) })}
 	</p>
 	<!-- 一覧の行と同じ知らせを、ここでも見出しの下に出す。 -->
-	{#if root.status !== 'ready'}
-		<p class="mt-1 flex items-start gap-1.5 text-sm text-warning-muted">
-			<TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-warning-icon" />
-			{root.status === 'unreachable'
-				? m.admin_roots_status_unreachable()
-				: m.admin_roots_status_missing()}
-		</p>
-	{/if}
-	{#if !root.writable}
-		<p class="mt-1 flex items-start gap-1.5 text-sm text-warning-muted">
-			<TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-warning-icon" />
-			{m.admin_roots_not_writable()}
-		</p>
-	{/if}
+	<RootWarnings status={root.status} writable={root.writable} size="sm" />
 </div>
 
 <div class={adminPageClass}>

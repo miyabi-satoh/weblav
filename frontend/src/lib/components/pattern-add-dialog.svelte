@@ -7,12 +7,12 @@
 	import { client } from '$lib/api/client';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import type { components } from '$lib/api/schema';
-	import { ContentFormState } from '$lib/content-form.svelte';
+	import { ContentFormState, fetchFreshContent } from '$lib/content-form.svelte';
 	import { dialogFormClass } from '$lib/dialog-form';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { formatNumber } from '$lib/format';
 	import { LatestRequest } from '$lib/latest-request';
 	import * as m from '$lib/paraglide/messages.js';
+	import { visibilityChangeCounts } from '$lib/visibility-preview';
 	import { appendPattern, patternCandidate } from '$lib/pattern-candidate';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
@@ -130,13 +130,12 @@
 		if (saving || trimmed === '' || invalid !== null || noChange) return;
 		saving = true;
 		try {
-			// 更新の API は全項目の置き換えなので、一覧を読み込んだ後に別の人が変えた項目を古い値で戻さない。
-			const latest = await client.GET('/api/v1/contents/manage');
-			const fresh = latest.data?.find((item) => item.id === content.id);
-			if (!latest.response.ok || !fresh) {
+			const latest = await fetchFreshContent(content.id);
+			if ('error' in latest) {
 				errorDialog.show(errorMessage(latest.error));
 				return;
 			}
+			const fresh = latest.content;
 			const form = new ContentFormState();
 			form.loadFrom(fresh, false);
 			const next = patternsWith(fresh, trimmed, target);
@@ -215,18 +214,9 @@
 						{:else if noChange}
 							<p>{m.pattern_add_no_change()}</p>
 						{:else}
-							{#if preview.gained > 0}
-								<p>
-									{m.contents_edit_visibility_change_gained({
-										count: formatNumber(preview.gained)
-									})}
-								</p>
-							{/if}
-							{#if preview.lost > 0}
-								<p>
-									{m.contents_edit_visibility_change_lost({ count: formatNumber(preview.lost) })}
-								</p>
-							{/if}
+							{#each visibilityChangeCounts(preview) as line (line)}
+								<p>{line}</p>
+							{/each}
 							{#if preview.truncated}
 								<p class="text-muted-foreground">{m.contents_edit_visibility_change_truncated()}</p>
 							{/if}

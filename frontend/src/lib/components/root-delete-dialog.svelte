@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-	 * 共有の削除の確認。共有の一覧の⋮と、共有の編集ページの⋮で同じものを出す。
+	 * 共有の削除の確認。共有の一覧の⋮と、共有の編集ページの「削除」の区画で同じものを出す。
 	 */
 	import { page } from '$app/state';
 	import { client } from '$lib/api/client';

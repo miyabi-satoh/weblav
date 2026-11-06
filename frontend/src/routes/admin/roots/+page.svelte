@@ -28,7 +28,7 @@
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Table from '$lib/components/ui/table';
-	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
+	import RootWarnings from '$lib/components/root-warnings.svelte';
 	import WarningBand from '$lib/components/warning-band.svelte';
 	import { shareAccessLabel } from '$lib/share-ops';
 	import type { PageProps } from './$types';
@@ -73,7 +73,9 @@
 	<div class={adminPageHeaderClass}>
 		<h1 class={pageHeadingTextClass}>{m.admin_roots_nav_title()}</h1>
 		{#if canAdd}
-			<LoadingButton loading={adding} onclick={handleAdd}>{m.admin_roots_add()}</LoadingButton>
+			<LoadingButton loading={adding} onclick={handleAdd}
+				>{m.admin_roots_add_button()}</LoadingButton
+			>
 		{/if}
 	</div>
 	{#if !canAdd}
@@ -148,21 +150,7 @@
 									<span aria-hidden="true">·</span>
 									{contentCount}
 								</span>
-								<!-- 閲覧側では開いたときに初めて分かるので、管理の一覧で先に気づけるようにする (→ docs/folders.md「つながっているかの確かめ」)。 -->
-								{#if root.status !== 'ready'}
-									<span class="mt-1 flex items-start gap-1.5 text-xs text-warning-muted">
-										<TriangleAlertIcon class="mt-px size-3.5 shrink-0 text-warning-icon" />
-										{root.status === 'unreachable'
-											? m.admin_roots_status_unreachable()
-											: m.admin_roots_status_missing()}
-									</span>
-								{/if}
-								{#if !root.writable}
-									<span class="mt-1 flex items-start gap-1.5 text-xs text-warning-muted">
-										<TriangleAlertIcon class="mt-px size-3.5 shrink-0 text-warning-icon" />
-										{m.admin_roots_not_writable()}
-									</span>
-								{/if}
+								<RootWarnings status={root.status} writable={root.writable} size="xs" />
 							</Table.Cell>
 							<!-- 一般ユーザーがこの中でできること。例外は人数だけを出す (中身は編集ページで見る)。 -->
 							<Table.Cell class={[columnFromSmClass, fitColumnClass]}>{access}</Table.Cell>
@@ -177,10 +165,12 @@
 							<Table.Cell class={actionColumnClass}>
 								<RowActionsMenu name={root.name}>
 									<!-- 名前の変更・権限・場所の選び直しは、どれも編集ページで行う。 -->
-									<DropdownMenu.Item
-										onSelect={() => goto(resolve('/admin/roots/[id]', { id: String(root.id) }))}
-									>
-										{m.action_edit_page()}
+									<DropdownMenu.Item>
+										{#snippet child({ props })}
+											<a href={resolve('/admin/roots/[id]', { id: String(root.id) })} {...props}
+												>{m.action_edit_page()}</a
+											>
+										{/snippet}
 									</DropdownMenu.Item>
 									<DropdownMenu.Item variant="destructive" onSelect={() => (deletingRoot = root)}>
 										{m.action_delete()}

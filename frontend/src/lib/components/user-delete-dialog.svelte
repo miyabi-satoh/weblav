@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-	 * ユーザーの削除の確認。ユーザーの一覧の⋮と、ユーザーの編集ページの⋮で同じものを出す。
+	 * ユーザーの削除の確認。ユーザーの一覧の⋮と、ユーザーの編集ページの「削除」の区画で同じものを出す。
 	 */
 	import { client } from '$lib/api/client';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';

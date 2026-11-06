@@ -40,7 +40,7 @@ export function visibilityLabel(visibility: Visibility): string {
 	return visibility;
 }
 
-/** ライブラリのアイテムの数。一覧・編集ページの見出しで同じ言い方にする。 */
+/** ライブラリのファイルの数。一覧・編集ページの見出しで同じ言い方にする。 */
 export function archiveItemsSummary(counts: { total: number }): string {
 	return m.archive_items_summary({ count: formatNumber(counts.total) });
 }

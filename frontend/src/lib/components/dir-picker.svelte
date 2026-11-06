@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { pickerCrumbButtonClass, pickerNavClass, pickerRowClass } from '$lib/dir-picker';
 	import { client } from '$lib/api/client';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import * as m from '$lib/paraglide/messages.js';
@@ -123,14 +124,12 @@
 	}
 
 	/** ディレクトリの行 (親へ戻る・子へ入る)。 */
-	const rowClass =
-		'flex h-11 w-full items-center gap-3 border-b border-divider px-4 text-left hover:bg-muted/60';
 </script>
 
 {#snippet entryRow(entry: DirEntryItem)}
 	<!-- 選べないディレクトリも辿れる (→ docs/folders.md「共有」)。
 	     選択の可否だけを落とし、中を見ることは妨げない。 -->
-	<button type="button" class={rowClass} onclick={() => load(entry.path)}>
+	<button type="button" class={pickerRowClass} onclick={() => load(entry.path)}>
 		<FolderIcon
 			class="size-5 shrink-0 {entry.selectable
 				? 'text-sub-foreground'
@@ -150,7 +149,10 @@
 	<!-- 押して選ぶ。もう一度押すと外れる (フォルダーのほうを選び直せるように)。 -->
 	<button
 		type="button"
-		class={[rowClass, selectedFile?.path === file.path && 'bg-primary/10 hover:bg-primary/10']}
+		class={[
+			pickerRowClass,
+			selectedFile?.path === file.path && 'bg-primary/10 hover:bg-primary/10'
+		]}
 		aria-pressed={selectedFile?.path === file.path}
 		onclick={() => (selectedFile = selectedFile?.path === file.path ? null : file)}
 	>
@@ -181,10 +183,7 @@
 
 		{#if listing !== null && trail.length > 0}
 			<!-- パンくずは実際の高さを 44px にする (→ docs/ui.md「UI 全般」)。 -->
-			<nav
-				aria-label={m.dir_picker_breadcrumb_label()}
-				class="flex min-h-11 flex-wrap items-center gap-x-2 border-b border-divider bg-muted/40 px-4"
-			>
+			<nav aria-label={m.dir_picker_breadcrumb_label()} class={pickerNavClass}>
 				{#each trail as crumb, index (crumb.path)}
 					{#if index > 0}
 						<span aria-hidden="true" class="text-muted-foreground">›</span>
@@ -192,10 +191,8 @@
 					{#if index === trail.length - 1}
 						<span class="text-xs text-muted-foreground">{crumb.label}</span>
 					{:else}
-						<button
-							type="button"
-							class="inline-flex h-11 min-w-11 items-center justify-center text-xs text-primary underline underline-offset-4"
-							onclick={() => load(crumb.path)}>{crumb.label}</button
+						<button type="button" class={pickerCrumbButtonClass} onclick={() => load(crumb.path)}
+							>{crumb.label}</button
 						>
 					{/if}
 				{/each}
@@ -212,7 +209,7 @@
 			{:else if listing !== null}
 				{#if listing.parent !== null && listing.parent !== undefined}
 					{@const parent = listing.parent}
-					<button type="button" class={rowClass} onclick={() => load(parent)}>
+					<button type="button" class={pickerRowClass} onclick={() => load(parent)}>
 						<ChevronLeftIcon class="size-5 shrink-0 text-muted-foreground" />
 						<span class="flex-1 text-sm text-muted-foreground">{m.dir_picker_up()}</span>
 					</button>

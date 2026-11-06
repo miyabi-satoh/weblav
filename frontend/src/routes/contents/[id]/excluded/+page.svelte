@@ -16,7 +16,12 @@
 	import { formatNumber } from '$lib/format';
 	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { NameFilteredView } from '$lib/name-filtered-view.svelte';
-	import { adminListBandClass, adminPageClass, pageEmptyTextClass } from '$lib/page-layout';
+	import {
+		adminListBandClass,
+		adminPageClass,
+		listCountRowClass,
+		pageEmptyTextClass
+	} from '$lib/page-layout';
 	import * as m from '$lib/paraglide/messages.js';
 	import type { PageProps } from './$types';
 
@@ -66,7 +71,7 @@
 		<BrowseControls layoutToggle={false} />
 		{#if view.totalAll > 0 || nameActive}
 			<!-- この一覧の数。見出しの「○件のファイル」は見えるものの数なので、別に出す。 -->
-			<div class="mt-2 flex min-h-11 items-center justify-between gap-3 text-sm">
+			<div class={listCountRowClass}>
 				<p class="text-muted-foreground">
 					{nameActive
 						? m.archive_excluded_count_filtered({

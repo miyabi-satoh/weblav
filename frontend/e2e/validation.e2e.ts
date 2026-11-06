@@ -8,7 +8,6 @@ import {
 	ADD_SUBMIT_BUTTON_NAME,
 	basicSaveButton,
 	CLOSE_BUTTON_NAME,
-	CONTENT_SUBMIT_BUTTON_NAME,
 	DELETE_MENU_ITEM_NAME,
 	ERROR_DIALOG_NAME,
 	INVALID_INPUT_TEXT,
@@ -49,7 +48,7 @@ test.describe('コンテンツ', () => {
 		await openCreateForm(page, 'group');
 		// 空白だけは `required` を通るので、サーバーまで届いて断られる。
 		await page.getByLabel(TITLE_LABEL).fill('   ');
-		await page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
+		await page.getByRole('button', { name: ADD_SUBMIT_BUTTON_NAME }).click();
 
 		await expectErrorDialog(page, INVALID_INPUT_TEXT);
 		await expect(page).toHaveURL(/\/admin\/contents$/);

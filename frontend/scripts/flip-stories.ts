@@ -14,7 +14,6 @@ import {
 	CLOSE_BUTTON_NAME,
 	CONFIRM_REGISTER_NAME,
 	CONTENT_ADD_BUTTON_NAME,
-	CONTENT_SUBMIT_BUTTON_NAME,
 	DELETE_MENU_ITEM_NAME,
 	DIR_PICKER_NAME,
 	FORGOT_PASSWORD_LINK_NAME,
@@ -436,7 +435,7 @@ const contents: Story = {
 		{
 			caption: '「追加する」を押す (編集のページへ移る)',
 			async run(page) {
-				await page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
+				await page.getByRole('button', { name: ADD_SUBMIT_BUTTON_NAME }).click();
 				await page.waitForURL(/\/contents\/\d+$/);
 				await basicSaveButton(page).waitFor();
 			}
@@ -547,7 +546,7 @@ const contents: Story = {
 		{
 			caption: '「追加する」を押す (登録の前の確認が出る)',
 			async run(page) {
-				await page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
+				await page.getByRole('button', { name: ADD_SUBMIT_BUTTON_NAME }).click();
 				await page.getByRole('dialog', { name: CONFIRM_REGISTER_NAME }).waitFor();
 				await page.waitForFunction(() => !/ファイルを数えています/.test(document.body.innerText));
 			}

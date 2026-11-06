@@ -18,7 +18,8 @@ const base: ShareOperation = {
 describe('shareOpPlaces', () => {
 	it('joins every path and names the destination', () => {
 		expect(shareOpPlaces({ ...base, destShareName: '控え', destPath: '' })).toEqual({
-			from: '教材 / 教材/a.pdf、教材 / 教材/b.pdf',
+			// テストの表示言語は既定の英語。
+			from: '教材 / 教材 / a.pdf, 教材 / 教材 / b.pdf',
 			to: '控え'
 		});
 	});

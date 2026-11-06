@@ -315,13 +315,8 @@ async fn list_share_dirs(
         read_subdirs(&dir, &rel, &OwnDirs::resolve(&own_dirs)).map_err(AppError::from)
     })
     .await??;
-    let parent = (!resolved.rel.is_empty()).then(|| {
-        resolved
-            .rel
-            .rsplit_once('/')
-            .map(|(parent, _)| parent.to_string())
-            .unwrap_or_default()
-    });
+    let parent =
+        (!resolved.rel.is_empty()).then(|| crate::api::fs::parent_rel(&resolved.rel).to_string());
     Ok(Json(ShareDirsResponse {
         share: ShareRef {
             id: resolved.root_id,
@@ -351,11 +346,7 @@ fn read_subdirs(
         if !file_type.is_dir() || own_dirs.contains(&entry.path()) {
             continue;
         }
-        let path = if dir_rel.is_empty() {
-            name.clone()
-        } else {
-            format!("{dir_rel}/{name}")
-        };
+        let path = crate::api::fs::join_rel(dir_rel, &name);
         entries.push(ShareDirEntry { name, path });
     }
     entries.sort_by(|a, b| crate::api::sort::title_cmp(&a.name, &b.name));

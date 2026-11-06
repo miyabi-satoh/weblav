@@ -17,8 +17,7 @@
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/schema';
 	import { ArchivePagedList } from '$lib/archive-paged-list.svelte';
-	import { archiveListQuery, viewChunks, viewShuffle } from '$lib/archive-list-request';
-	import { LIST_FILTER_QUERY } from '$lib/list-filter';
+	import { archiveListInit, viewChunks, viewShuffle } from '$lib/archive-list-request';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 
@@ -35,6 +34,8 @@
 	let contentId = $derived(data.contentId);
 
 	/** 名前の語を打ち直した・一覧が古くなって取り直した結果。ページを移ったら (軸・並び順を選び直したら) 捨てる。 */
+	// 編集ページのファイルのタブの `NameFilteredView` を使わないのは、結果が捨てられたときに、語で絞っていなくても見ていた行から取り直すため。
+	// `NameFilteredView` は絞っていない間は読み込みの結果を出すので、取り直しが `refreshAll` になり、見ていた行へ戻れない。
 	// `$state` だと中の `data` が包み直され、下の `refetched.data === data` が成り立たないので raw にする。
 	let refetched = $state.raw<{ data: typeof data; view: ArchiveViewResponse } | null>(null);
 	let view = $derived(refetched?.data === data ? refetched.view : data.view);
@@ -57,16 +58,7 @@
 	async function refetch(nameFilter: string, keepPosition: boolean) {
 		const position = keepPosition ? (listView?.firstVisibleIndex() ?? 0) : 0;
 		const requestedFor = data;
-		// 軸名がキーのクエリは生成された型に載らない (→ +page.ts)。
-		const requestInit = {
-			params: {
-				path: { id: contentId },
-				query: archiveListQuery(data.filters, {
-					sort: data.sort,
-					[LIST_FILTER_QUERY]: nameFilter
-				})
-			}
-		} as unknown as { params: { path: { id: number } } };
+		const requestInit = archiveListInit(contentId, data.filters, data.sort, nameFilter);
 		// 取れなかったら理由を出す。黙ると、空の行が出たまま再読み込みのボタンも効かないように見えるため。
 		const result = await errorDialog.attempt(() =>
 			client.GET('/api/v1/contents/{id}/archive', requestInit)

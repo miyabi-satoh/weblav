@@ -185,9 +185,7 @@ pub(super) async fn search(
             truncated |= cut;
             for mut entry in entries {
                 // 結果のパスは、階層の中からでなく、フォルダーの登録パスからの相対にする。
-                if !folder.sub_path.is_empty() {
-                    entry.rel_path = format!("{}/{}", folder.sub_path, entry.rel_path);
-                }
+                entry.rel_path = super::fs::join_rel(&folder.sub_path, &entry.rel_path);
                 let shown = if entry.is_dir {
                     filter.allows_dir(&entry.rel_path)
                 } else {
@@ -196,12 +194,7 @@ pub(super) async fn search(
                 if !shown {
                     continue;
                 }
-                let name = entry
-                    .rel_path
-                    .rsplit('/')
-                    .next()
-                    .unwrap_or(&entry.rel_path)
-                    .to_string();
+                let name = super::fs::rel_file_name(&entry.rel_path).to_string();
                 let absolute = root.join(&entry.rel_path);
                 if !entry.is_dir && links_file::is_links_file_name(&name) {
                     sources.push(LinksSource {

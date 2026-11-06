@@ -9,6 +9,7 @@
 	"action_edit": "Edit...",
 	"action_open_in_new_tab": "Open in new tab",
 	"action_save": "Save",
+	"action_stop": "Stop",
 	"common_delete_confirm_description": "This action cannot be undone.",
 	"common_error_title": "Operation failed",
 	"common_loading": "Loading",
@@ -93,7 +94,7 @@
 	"admin_roots_nav_title": "Shares",
 	"admin_roots_add_local_only": "To add a share, open the admin pages from “Open in browser” in the WebLAV icon menu on the computer running WebLAV.",
 	"admin_roots_empty": "No shares yet.",
-	"admin_roots_add": "Add share...",
+	"admin_roots_add_button": "Add share...",
 	"admin_roots_content_count": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],
@@ -352,7 +353,6 @@
 	"contents_edit_scan_blocked": "“{section}” was saved. {reason}",
 	"archive_scan_listing_progress": "Finding files... ({elapsed} elapsed)",
 	"archive_scan_reading_progress": "Reading files... {done} / {total} ({elapsed} elapsed)",
-	"archive_scan_cancel_button": "Stop",
 	"archive_scan_failed_title": "Couldn't scan the files",
 	"action_edit_page": "Edit",
 	"contents_menu_view": "View on site",
@@ -823,7 +823,6 @@
 	"shares_upload_hint": "Choose files or drop them here",
 	"shares_upload_list_label": "Files to upload",
 	"shares_upload_submit": "Upload",
-	"shares_upload_stop_button": "Stop",
 	"shares_upload_too_large": "Can't upload: larger than the {size} limit.",
 	"shares_upload_renamed": "A file with the same name exists, so it was saved as “{name}”.",
 	"shares_upload_extension_fixed": "The extension didn't match the contents, so it was saved as “{name}”.",
@@ -863,7 +862,6 @@
 			}
 		}
 	],
-	"shares_job_cancel_button": "Stop",
 	"shares_job_failed_title": "The operation stopped partway",
 	"shares_job_skipped": [
 		{

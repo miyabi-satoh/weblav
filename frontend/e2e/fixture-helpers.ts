@@ -233,7 +233,7 @@ export async function withDirectoryContent(
 
 type ArchiveItem = { id: number; relPath: string; title: string };
 
-/** アーカイブを再スキャンし、索引したアイテムの一覧を返す。フィクスチャーは最初の区切りに収まる件数しか置かない。 */
+/** アーカイブを再スキャンし、索引したファイルの一覧を返す。フィクスチャーは最初の区切りに収まる件数しか置かない。 */
 export async function rescanArchive(
 	request: APIRequestContext,
 	archiveId: number
@@ -242,7 +242,7 @@ export async function rescanArchive(
 	return await listArchiveItems(request, archiveId);
 }
 
-/** 管理用の一覧の最初の区切りの、アイテムの一覧を返す。 */
+/** 管理用の一覧の最初の区切りの、ファイルの一覧を返す。 */
 export async function listArchiveItems(
 	request: APIRequestContext,
 	archiveId: number

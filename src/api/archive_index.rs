@@ -107,7 +107,7 @@ pub(super) struct IndexedItem {
 impl IndexedItem {
     /// `rel_path` の最後の要素。
     pub(super) fn file_name(&self) -> &str {
-        self.rel_path.rsplit('/').next().unwrap_or(&self.rel_path)
+        super::fs::rel_file_name(&self.rel_path)
     }
 }
 
@@ -489,11 +489,7 @@ const AUDIO_EXTENSIONS: [&str; 9] = [
 ];
 
 fn is_audio_file_name(name: &str) -> bool {
-    name.rsplit_once('.').is_some_and(|(_, extension)| {
-        AUDIO_EXTENSIONS
-            .iter()
-            .any(|audio| extension.eq_ignore_ascii_case(audio))
-    })
+    crate::file_ext::has_extension_in(name, &AUDIO_EXTENSIONS)
 }
 
 /// Fisher–Yates で混ぜる。乱数は splitmix64。混ぜ方に暗号の強さは要らず、この用途だけのために

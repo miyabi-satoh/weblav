@@ -269,11 +269,16 @@ pub(super) fn ensure_editable(
     created_by: Option<i64>,
 ) -> Result<(), AppError> {
     ensure_manageable(user, visibility, created_by)?;
-    if user.is_admin() || created_by == Some(user.id) {
+    if is_creator_or_admin(user, created_by) {
         Ok(())
     } else {
         Err(AppError::Forbidden)
     }
+}
+
+/// 書き換えられる人か。作成者と admin (→ docs/access.md「ロールと操作」)。
+fn is_creator_or_admin(user: &AuthUser, created_by: Option<i64>) -> bool {
+    user.is_admin() || created_by == Some(user.id)
 }
 
 /// folderコンテンツの `path` を取り出す。folderの行には書き込み時に必ず入れている。
@@ -385,7 +390,7 @@ pub enum ContentResponse {
 /// 存在を隠す判定 (`ensure_manageable`) は要らない。
 fn can_edit(viewer: &Viewer, created_by: Option<i64>) -> bool {
     match viewer {
-        Viewer::User(user) => user.is_admin() || created_by == Some(user.id),
+        Viewer::User(user) => is_creator_or_admin(user, created_by),
         Viewer::Anonymous => false,
     }
 }
@@ -1966,7 +1971,6 @@ pub(super) async fn resolve_path(
 
     super::roots::ensure_reachable(state, root).await?;
     let root = PathBuf::from(root);
-    let candidate = root.join(rel);
     let own_dirs = state.own_dirs.clone();
     let roots = super::roots::load_roots(state).await?;
 
@@ -1988,24 +1992,7 @@ pub(super) async fn resolve_path(
         }
 
         let canonical_candidate =
-            std::fs::canonicalize(&candidate).map_err(|_| AppError::NotFound)?;
-        if !canonical_candidate.starts_with(&canonical_root) {
-            return Err(AppError::NotFound);
-        }
-        // 一覧に出さないもの (ドット始まり・シンボリックリンク・隠し属性) は配信もしない。
-        // 一覧に出ないだけでパスを知っていれば落とせる、という食い違いを残さないため。
-        // weblav 自身の置き場 (設定とデータ) の中も同じ (共有が `C:\` のような祖先でもありうる)。
-        // いずれも存在を伏せるため 404 (→ docs/folders.md「共有」)。
-        //
-        // 名前は、要求の名前と実体の名前の両方で見る。Windows の 8.3 短縮名 (`ENV~1`) は
-        // ドットで始まらないまま `.env` に解決されるため。リンクを見分けるには、辿る前の
-        // 要求のパスが要る。
-        if super::fs::has_hidden_component(&canonical_root, FsPath::new(&rel_owned))
-            || super::fs::has_dot_component(&canonical_root, &canonical_candidate)
-            || own_dirs.contains(&canonical_candidate)
-        {
-            return Err(AppError::NotFound);
-        }
+            super::fs::resolve_within(&canonical_root, &rel_owned, &own_dirs)?;
         if let Some(filter) = &filter {
             let rel = super::fs::rel_of(&canonical_root, &canonical_candidate)?;
             let shown = if canonical_candidate.is_dir() {
@@ -2055,11 +2042,7 @@ pub(super) fn read_entries(
         if own_dirs.contains(&entry.path()) {
             continue;
         }
-        let rel = if dir_rel.is_empty() {
-            name.clone()
-        } else {
-            format!("{dir_rel}/{name}")
-        };
+        let rel = super::fs::join_rel(dir_rel, &name);
         // ここまで来ればシンボリックリンクではないので、`std::fs::metadata` を呼んでも
         // 実体(非リンク)のメタデータがそのまま返る。取得自体が失敗した場合
         // (権限エラー等)はそのエントリだけ読み飛ばす。
