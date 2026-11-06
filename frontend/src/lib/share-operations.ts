@@ -1,4 +1,6 @@
 import * as m from '$lib/paraglide/messages.js';
+import { formatList } from '$lib/format';
+import { rootLocationLabel } from '$lib/root-location';
 import type { components } from '$lib/api/schema';
 
 type ShareOperation = components['schemas']['ShareOperationResponse'];
@@ -32,14 +34,11 @@ export function shareOpResultLabel(operation: ShareOperation): string | undefine
 	return undefined;
 }
 
-/** 共有の中の場所を「共有の名前 / パス」で書く。共有そのものは名前だけ。 */
-export function sharePlace(shareName: string, path: string): string {
-	return path === '' ? shareName : `${shareName} / ${path}`;
-}
-
-/** 扱った場所。いくつもあれば「、」でつなぐ。置き先があれば「→」の後に書く。 */
+/** 扱った場所。いくつもあれば並べる。置き先があれば「→」の後に書く。 */
 export function shareOpPlaces(operation: ShareOperation): { from: string; to?: string } {
-	const from = operation.paths.map((path) => sharePlace(operation.shareName, path)).join('、');
+	const from = formatList(
+		operation.paths.map((path) => rootLocationLabel(operation.shareName, path))
+	);
 	if (operation.destShareName == null) return { from };
-	return { from, to: sharePlace(operation.destShareName, operation.destPath ?? '') };
+	return { from, to: rootLocationLabel(operation.destShareName, operation.destPath ?? '') };
 }

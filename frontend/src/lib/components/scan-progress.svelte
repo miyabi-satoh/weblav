@@ -28,6 +28,6 @@
 <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
 	<p role="status" class="text-sm text-muted-foreground">{message}</p>
 	<LoadingButton type="button" variant="outline" size="sm" loading={cancelling} onclick={cancel}>
-		{m.archive_scan_cancel_button()}
+		{m.action_stop()}
 	</LoadingButton>
 </div>

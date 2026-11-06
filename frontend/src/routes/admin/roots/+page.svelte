@@ -73,7 +73,9 @@
 	<div class={adminPageHeaderClass}>
 		<h1 class={pageHeadingTextClass}>{m.admin_roots_nav_title()}</h1>
 		{#if canAdd}
-			<LoadingButton loading={adding} onclick={handleAdd}>{m.admin_roots_add()}</LoadingButton>
+			<LoadingButton loading={adding} onclick={handleAdd}
+				>{m.admin_roots_add_button()}</LoadingButton
+			>
 		{/if}
 	</div>
 	{#if !canAdd}
@@ -177,10 +179,12 @@
 							<Table.Cell class={actionColumnClass}>
 								<RowActionsMenu name={root.name}>
 									<!-- 名前の変更・権限・場所の選び直しは、どれも編集ページで行う。 -->
-									<DropdownMenu.Item
-										onSelect={() => goto(resolve('/admin/roots/[id]', { id: String(root.id) }))}
-									>
-										{m.action_edit_page()}
+									<DropdownMenu.Item>
+										{#snippet child({ props })}
+											<a href={resolve('/admin/roots/[id]', { id: String(root.id) })} {...props}
+												>{m.action_edit_page()}</a
+											>
+										{/snippet}
 									</DropdownMenu.Item>
 									<DropdownMenu.Item variant="destructive" onSelect={() => (deletingRoot = root)}>
 										{m.action_delete()}

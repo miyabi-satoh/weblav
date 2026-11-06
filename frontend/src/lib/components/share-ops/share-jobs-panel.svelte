@@ -72,7 +72,7 @@
 						loading={tracked.cancelling}
 						onclick={() => shareJobs.cancel(tracked.job.id)}
 					>
-						{m.shares_job_cancel_button()}
+						{m.action_stop()}
 					</LoadingButton>
 				</div>
 				<Progress

@@ -43,7 +43,7 @@ test.use({ actionTimeout: 10_000, navigationTimeout: 10_000 });
 // ラベルは文言の前後で改行しているので、前後の空白を許す。
 const TITLE_TEMPLATE_LABEL = /^\s*(表示タイトルのテンプレート|Title template)\s*$/;
 
-test('軸: 軸を足して値の辞書と表示タイトルを保存すると、アイテムのタイトルが組み立つ', async ({
+test('軸: 軸を足して値の辞書と表示タイトルを保存すると、ファイルのタイトルが組み立つ', async ({
 	page
 }) => {
 	await withDirectoryContent(
@@ -119,7 +119,7 @@ test('軸の追加: フォルダーの階層は、階層ごとの値の例を見
 	);
 });
 
-test('アイテム: 再スキャンで索引し、件数が見出しに出る', async ({ page }) => {
+test('ファイル: 再スキャンで索引し、件数が見出しに出る', async ({ page }) => {
 	await withDirectoryContent(
 		page.request,
 		{ type: 'archive', namePrefix: 'e2e-items' },
@@ -363,7 +363,7 @@ test('軸の並べ替え: 上下ボタンで動かした順が保存され、閲
 	);
 });
 
-test('値の辞書: 行を上へ動かして保存するとアイテムの並びが変わり、行を削除して保存すると値が外れる', async ({
+test('値の辞書: 行を上へ動かして保存するとファイルの並びが変わり、行を削除して保存すると値が外れる', async ({
 	page
 }) => {
 	await withDirectoryContent(
@@ -580,7 +580,7 @@ test('絞り込みの解除: 解除のリンクで絞り込みが外れ、全件
 	);
 });
 
-test('対象のパターンを広げて保存すると、再スキャンなしで、増えたファイルがアイテムに並ぶ', async ({
+test('対象のパターンを広げて保存すると、再スキャンなしで、増えたファイルが一覧に並ぶ', async ({
 	page
 }) => {
 	await withDirectoryContent(

@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { client } from '$lib/api/client';
 import { fetchOrError } from '$lib/api/load';
-import { archiveListQuery, axisFilters } from '$lib/archive-list-request';
+import { archiveListInit, axisFilters } from '$lib/archive-list-request';
 import { parseArchiveSort } from '$lib/archive-sort';
 import { LIST_FILTER_QUERY } from '$lib/list-filter';
 import * as m from '$lib/paraglide/messages.js';
@@ -19,13 +19,7 @@ export const load: PageLoad = async ({ parent, url }) => {
 	const sort = parseArchiveSort(url.searchParams.get('sort'));
 	const nameFilter = url.searchParams.get(LIST_FILTER_QUERY) ?? '';
 
-	// 軸名がキーのクエリは生成された型に載らない (→ archives/[id]/+page.ts)。
-	const requestInit = {
-		params: {
-			path: { id: contentId },
-			query: archiveListQuery(filters, { sort, [LIST_FILTER_QUERY]: nameFilter })
-		}
-	} as unknown as { params: { path: { id: number } } };
+	const requestInit = archiveListInit(contentId, filters, sort, nameFilter);
 	const view = await fetchOrError(
 		client.GET('/api/v1/contents/{id}/manage-archive', requestInit),
 		m.archive_view_fetch_failed(),

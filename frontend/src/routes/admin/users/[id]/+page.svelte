@@ -74,7 +74,7 @@
 		if (saved) {
 			toast.success(m.common_section_saved_toast({ section }));
 			// 自分の名前を変えたときのヘッダーの名前も、ここで引き直す。自分を一般ユーザーにしたときは、
-			// この画面をもう開けないので、`+layout.ts` のガードがコンテンツ管理へ移す。
+			// この画面をもう開けないので、`admin/+layout.ts` のガードがホームへ移す。
 			await refreshAll();
 		}
 		await leaveGuard.resumeAfterSave(

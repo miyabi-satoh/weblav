@@ -110,7 +110,7 @@ const SAVED_TEXT = /を保存しました。\s*$| saved\.\s*$/;
 /** 行の⋮メニューの削除。表示言語 (ja/en) のどちらでも見つかるようにする。 */
 export const DELETE_MENU_ITEM_NAME = /削除|Delete/;
 
-/** 管理画面のコンテンツの編集ページと一覧の⋮にある「閲覧画面で開く」。 */
+/** コンテンツの編集ページと、管理画面の一覧の⋮にある「閲覧画面で開く」。 */
 export const VIEW_ON_SITE_LINK_NAME = /^閲覧画面で開く$|^View on site$/;
 
 /** 管理画面のタブの「コンテンツ」。 */
@@ -158,9 +158,6 @@ export async function saveForm(
 		.waitFor();
 }
 
-/** コンテンツの作成ダイアログの2段目の確定ボタン。 */
-export const CONTENT_SUBMIT_BUTTON_NAME = /^追加する$|^Add$/;
-
 /** フォルダー・アーカイブのパスを選ぶ。ボタン・ダイアログ・確定の順。 */
 export const CHOOSE_PATH_BUTTON_NAME = /^選択\.\.\.$|^Choose\.\.\.$/;
 export const DIR_PICKER_NAME =
@@ -178,7 +175,7 @@ export const CONFIRM_SAVE_NAME = /^この設定で保存しますか？$|^Save w
 /** 管理画面の一覧の上にある追加ボタン。表示言語 (ja/en) のどちらでも見つかるようにする。 */
 export const CONTENT_ADD_BUTTON_NAME = /^コンテンツを追加\.\.\.$|^Add content\.\.\.$/;
 export const USER_ADD_BUTTON_NAME = /^ユーザーを追加\.\.\.$|^Add user\.\.\.$/;
-/** 追加のダイアログの確定ボタン (ユーザーの追加)。 */
+/** 追加のダイアログの確定ボタン (コンテンツの作成の2段目・ユーザーの追加)。 */
 export const ADD_SUBMIT_BUTTON_NAME = /^追加する$|^Add$/;
 export const ROOT_ADD_BUTTON_NAME = /^共有を追加\.\.\.$|^Add share\.\.\.$/;
 /** 窓が閉じるのを待つ間の追加ボタン。名前の頭にスピナーの「読み込み中」が付く。 */

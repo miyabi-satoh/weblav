@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { client } from '$lib/api/client';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { formatByteSize, formatDateTime } from '$lib/format';
+	import { formatByteSize, formatDateTime, formatNumber } from '$lib/format';
 	import { listClass, listItemClass } from '$lib/list-row';
 	import {
 		adminEmptyTextClass,
@@ -16,6 +16,7 @@
 	import { shareOpLabel, shareOpPlaces, shareOpResultLabel } from '$lib/share-operations';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
+	import SeparatedText from '$lib/components/separated-text.svelte';
 	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
 
@@ -82,15 +83,15 @@
 						>{places.to === undefined ? places.from : `${places.from} → ${places.to}`}
 					</span>
 					<span class="text-xs text-muted-foreground">
-						{[
-							formatDateTime(operation.at),
-							operation.itemCount == null
-								? ''
-								: m.admin_operations_items({ count: operation.itemCount }),
-							operation.byteCount == null ? '' : formatByteSize(operation.byteCount)
-						]
-							.filter((part) => part !== '')
-							.join(' · ')}
+						<SeparatedText
+							text={[
+								formatDateTime(operation.at),
+								operation.itemCount == null
+									? ''
+									: m.admin_operations_items({ count: formatNumber(operation.itemCount) }),
+								operation.byteCount == null ? '' : formatByteSize(operation.byteCount)
+							].filter((part) => part !== '')}
+						/>
 					</span>
 				</li>
 			{/each}

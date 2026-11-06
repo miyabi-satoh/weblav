@@ -479,3 +479,15 @@ export function contentFormEffectiveVisibility(
 ): Visibility {
 	return effectiveVisibilityUnder(form.visibility, form.parentIdValue, byId);
 }
+
+/**
+ * 送る直前に、そのコンテンツの今の値を取り直す。更新の API は全項目の置き換えなので、
+ * 一覧を読み込んだ後に別の人が変えた項目を古い値で戻さないため。取れなければ API のエラーを返す。
+ */
+export async function fetchFreshContent(
+	id: number
+): Promise<{ content: Content } | { error: unknown }> {
+	const latest = await client.GET('/api/v1/contents/manage');
+	const content = latest.data?.find((item) => item.id === id);
+	return latest.response.ok && content ? { content } : { error: latest.error };
+}

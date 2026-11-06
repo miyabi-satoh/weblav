@@ -207,7 +207,7 @@
 		<Dialog.Footer>
 			{#if uploading}
 				<Button type="button" variant="outline" onclick={stop}>
-					{m.shares_upload_stop_button()}
+					{m.action_stop()}
 				</Button>
 				<LoadingButton type="button" loading>{m.shares_upload_submit()}</LoadingButton>
 			{:else if finished}

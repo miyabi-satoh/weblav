@@ -23,7 +23,7 @@ import {
 	CHOOSE_PATH_BUTTON_NAME,
 	CONFIRM_REGISTER_NAME,
 	CONTENT_ADD_BUTTON_NAME,
-	CONTENT_SUBMIT_BUTTON_NAME,
+	ADD_SUBMIT_BUTTON_NAME,
 	CONTENT_TYPE_NAME,
 	DIR_PICKER_NAME,
 	openAddDialog,
@@ -77,7 +77,7 @@ async function pickDirectory(page: Page, shared: SharedContentRoot, dirName: str
  * 登録前の確認で件数と閲覧範囲の説明を確かめ、登録して、移った先の編集ページの見出しを見る。
  */
 async function confirmRegister(page: Page, title: string, scopeText: RegExp) {
-	await page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
+	await page.getByRole('button', { name: ADD_SUBMIT_BUTTON_NAME }).click();
 	const confirm = page.getByRole('dialog', { name: CONFIRM_REGISTER_NAME });
 	// フィクスチャの木には3ファイルある (→ fixture-helpers.ts)。
 	await expect(confirm.getByText(scopeText)).toBeVisible();
@@ -94,7 +94,7 @@ test('フォルダー: パスを辿って選び、件数と閲覧範囲を確か
 	try {
 		await openCreateForm(page, 'folder');
 		// パスを選ぶまでは追加できない。
-		await expect(page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME })).toBeDisabled();
+		await expect(page.getByRole('button', { name: ADD_SUBMIT_BUTTON_NAME })).toBeDisabled();
 
 		await pickDirectory(page, shared!, name);
 		// 選んだ場所は、フルパスではなく「共有の名前 / その先」で出る。
@@ -113,7 +113,7 @@ test('フォルダー: パスを辿って選び、件数と閲覧範囲を確か
 	}
 });
 
-test('一覧の表示: 登録したフォルダーで使い始めると、保存に続けてスキャンし、アイテムが並ぶ', async ({
+test('一覧の表示: 登録したフォルダーで使い始めると、保存に続けてスキャンし、ファイルが並ぶ', async ({
 	page
 }) => {
 	await withDirectoryContent(
@@ -149,7 +149,7 @@ test('ファイルを指すショートカット: 追加の窓で選んで作り
 		}
 		await picker.getByRole('button', { name: 'memo.txt', exact: true }).click();
 		await picker.getByRole('button', { name: /^このファイルを使用$|^Use this file$/ }).click();
-		await page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
+		await page.getByRole('button', { name: ADD_SUBMIT_BUTTON_NAME }).click();
 		await expect(page).toHaveURL(/\/contents\/\d+$/);
 		await expect(page.getByRole('heading', { name: 'memo.txt', level: 1 })).toBeVisible();
 		// ファイルを指すものにはパターンもライブラリの切り替えも無い。
@@ -247,7 +247,7 @@ test('確認で「戻る」を押すと登録せず、フォームに戻る', as
 	try {
 		await openCreateForm(page, 'folder');
 		await pickDirectory(page, shared!, name);
-		await page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
+		await page.getByRole('button', { name: ADD_SUBMIT_BUTTON_NAME }).click();
 
 		const confirm = page.getByRole('dialog', { name: CONFIRM_REGISTER_NAME });
 		await confirm.getByRole('button', { name: /^戻る$|^Back$/ }).click();
@@ -257,7 +257,7 @@ test('確認で「戻る」を押すと登録せず、フォームに戻る', as
 		// タイトルは入力させない (選んだフォルダーの名前で付く)。
 		await expect(form.getByLabel(TITLE_LABEL)).toHaveCount(0);
 		await expect(form.getByText(sharedLocationLabel(shared!, name), { exact: true })).toBeVisible();
-		await expect(form.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME })).toBeEnabled();
+		await expect(form.getByRole('button', { name: ADD_SUBMIT_BUTTON_NAME })).toBeEnabled();
 		await expect(page).toHaveURL(/\/admin\/contents$/);
 		// 登録されていない。
 		const contents = (await send(page.request, 'get', '/contents/manage')) as { title: string }[];

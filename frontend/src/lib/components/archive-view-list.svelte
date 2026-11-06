@@ -14,11 +14,11 @@
 		item: T;
 	};
 
-	/** 行が開く・縮小画像を出す URL。管理画面は、管理用の口を使う。 */
+	/** 行が開く・縮小画像を出す URL。編集ページは、管理用の口を使う。 */
 	export type ArchiveItemUrls = {
 		download: (archiveId: number, itemId: number) => string;
 		thumbnail: (archiveId: number, itemId: number) => string;
-		/** 登録先からの相対パスで指したアイテム。Markdown のプレビューの相対パスに使う。 */
+		/** 登録先からの相対パスで指したファイル。Markdown のプレビューの相対パスに使う。 */
 		file: (archiveId: number, path: string) => string;
 	};
 
@@ -69,7 +69,7 @@
 	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
 	import ListRowDownloadLink from '$lib/components/list-row-download-link.svelte';
 
-	// 一覧の表示 (`/archives/[id]`)・管理画面のファイルのタブで使う、アーカイブのファイルの行。
+	// 一覧の表示 (`/archives/[id]`)・編集ページのファイルのタブで使う、ファイルの行。
 	// 押したときの動きと見え方を揃えるため、種類ごとの描き分けをここに集める。
 	// 行はサーバーから区切って取る (→ docs/archive.md「画面が見える辺りを取りに行く」)。名前の絞り込みもサーバーで済んでいる。
 	let {
@@ -83,7 +83,7 @@
 		archiveId: number;
 		linksHref: (row: ArchiveViewRow<T>) => string;
 		urls?: ArchiveItemUrls;
-		/** 2段目を差し替える (管理画面はパスも出す)。 */
+		/** 2段目を差し替える (編集ページはパスも出す)。 */
 		subtitle?: Snippet<[ArchiveViewRow<T>]>;
 	} = $props();
 
@@ -169,7 +169,7 @@
 		return urls.download(row.archiveId, row.item.id);
 	}
 
-	/** Markdown のプレビューが相対パスを解決する場所。相対パスの先は、アイテムの番号でなくパスで引く。 */
+	/** Markdown のプレビューが相対パスを解決する場所。相対パスの先は、ファイルの番号でなくパスで引く。 */
 	function location(row: ArchiveViewRow<T>): ContentLocation {
 		return { path: row.item.relPath, src: (path) => urls.file(row.archiveId, path) };
 	}

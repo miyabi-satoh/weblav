@@ -9,10 +9,9 @@
 	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { client } from '$lib/api/client';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { archiveItemsSummary, contentTypeLabel, visibilityLabel } from '$lib/content-labels';
-	import { ContentFormState } from '$lib/content-form.svelte';
+	import { ContentFormState, fetchFreshContent } from '$lib/content-form.svelte';
 	import { ancestorPath, byIdMap, flattenTree, selfAndAncestors } from '$lib/content-tree';
 	import { contentTypeIcon } from '$lib/content-types';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
@@ -146,16 +145,13 @@
 		reparenting = true;
 
 		try {
-			// 更新 API は全項目の置き換えなので、一覧を読み込んだ後に別の人が変えた項目を
-			// 古い値で戻さないよう、送る直前に取り直した値を使う。
-			const latest = await client.GET('/api/v1/contents/manage');
-			const fresh = latest.data?.find((c) => c.id === content.id);
-			if (!latest.response.ok || !fresh) {
+			const latest = await fetchFreshContent(content.id);
+			if ('error' in latest) {
 				errorDialog.show(errorMessage(latest.error));
 				await refreshAll();
 				return;
 			}
-			reparentForm.loadFrom(fresh, true);
+			reparentForm.loadFrom(latest.content, true);
 			reparentForm.parentId = parentId === null ? 'root' : String(parentId);
 			const result = await reparentForm.replace(content.id);
 			if (!result.response.ok || !result.data) {

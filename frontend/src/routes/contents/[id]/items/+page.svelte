@@ -13,13 +13,12 @@
 	import PatternAddDialog from '$lib/components/pattern-add-dialog.svelte';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { linksFileHref } from '$lib/links-file';
-	import { LIST_FILTER_QUERY } from '$lib/list-filter';
 	import { ArchivePagedList } from '$lib/archive-paged-list.svelte';
-	import { archiveListQuery, manageChunks, manageShuffle } from '$lib/archive-list-request';
+	import { archiveListInit, manageChunks, manageShuffle } from '$lib/archive-list-request';
 	import ArchiveStaleNotice from '$lib/components/archive-stale-notice.svelte';
 	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
 	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
-	import { adminPageClass, pageEmptyTextClass } from '$lib/page-layout';
+	import { adminListBandClass, adminPageClass, pageEmptyTextClass } from '$lib/page-layout';
 	import * as m from '$lib/paraglide/messages.js';
 	import ArchiveViewControls from '$lib/components/archive-view-controls.svelte';
 	import ArchiveViewList, {
@@ -62,16 +61,7 @@
 		position: () => listView?.firstVisibleIndex() ?? 0,
 		restore: (position) => void listView?.scrollToIndex(position),
 		fetch: async (current, name) => {
-			// 軸名がキーのクエリは生成された型に載らない (→ archives/[id]/+page.ts)。
-			const requestInit = {
-				params: {
-					path: { id: current.contentId },
-					query: archiveListQuery(current.filters, {
-						sort: current.sort,
-						[LIST_FILTER_QUERY]: name
-					})
-				}
-			} as unknown as { params: { path: { id: number } } };
+			const requestInit = archiveListInit(current.contentId, current.filters, current.sort, name);
 			// 取れなかったら理由を出す。黙ると、空の行が出たまま再読み込みのボタンも効かないように見えるため。
 			const result = await errorDialog.attempt(() =>
 				client.GET('/api/v1/contents/{id}/manage-archive', requestInit)
@@ -157,7 +147,7 @@
 		</div>
 	</div>
 
-	<div class="-mx-4 md:-mx-6">
+	<div class={adminListBandClass}>
 		{#if view.totalAll === 0}
 			<p class={pageEmptyTextClass}>
 				{view.folderMissing ? m.error_detail_archive_folder_missing() : m.archive_items_empty()}

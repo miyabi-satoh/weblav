@@ -61,15 +61,10 @@
 		});
 	}
 
-	/** 表示中のパス直下にある `name` の、フォルダー内の相対パス。 */
-	function childPath(name: string): string {
-		return browse.path === '' ? name : `${browse.path}/${name}`;
-	}
-
 	let rows = $derived<FolderEntryRow[]>(
 		browse.entries.map((entry) => ({
 			source: { kind: 'content', id: contentId },
-			path: childPath(entry.name),
+			path: childSharePath(browse.path, entry.name),
 			entry
 		}))
 	);

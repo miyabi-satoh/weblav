@@ -53,7 +53,7 @@
 		};
 	});
 
-	// 一覧の表示を使うフォルダーは「基本情報 / 軸定義 / ファイル」を同列に並べる (→ docs/access.md「ロールと操作」)。
+	// 一覧の表示を使うフォルダーは「設定 / 分類 / ファイル / 対象外」を同列に並べる (→ docs/access.md「ロールと操作」)。
 	let tabs = $derived.by(() => {
 		const id = String(data.contentId);
 		const basic = {
@@ -140,18 +140,18 @@
 		</div>
 	</div>
 	<!-- 種類の呼び名はどのタブでも見えるよう、ここに出す。
-	     区切りの「・」は見た目だけのものなので読み上げない。 -->
+	     区切りの「·」は見た目だけのものなので読み上げない。 -->
 	<p class="flex flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
 		<TypeIcon class="size-4 shrink-0" aria-hidden="true" />
 		<span>{contentTypeLabel(content.type, content.listView)}</span>
 		{#if location}
-			<span aria-hidden="true">・</span>
+			<span aria-hidden="true">·</span>
 			<!-- パスは区切り以外に折り返せる場所が無く、そのままだと画面からはみ出す
 			     (スマートフォン幅)。どこでも折り返してよい扱いにする。 -->
 			<span class="min-w-0 wrap-anywhere">{location}</span>
 		{/if}
 		{#if content.archiveItems}
-			<span aria-hidden="true">・</span>
+			<span aria-hidden="true">·</span>
 			<span>{archiveItemsSummary(content.archiveItems)}</span>
 		{/if}
 	</p>
