@@ -327,7 +327,7 @@
 	"contents_form_description_label": "説明",
 	"contents_delete_confirm_title": "このコンテンツを削除しますか？",
 	"contents_delete_confirm_description": "「{title}」を削除します。この操作は元に戻せません。",
-	"contents_delete_confirm_group_note": "中のコンテンツはルート直下に移動します。",
+	"contents_delete_confirm_group_note": "中のコンテンツは、グループから出てホームに移ります。",
 	"contents_delete_confirm_loosened_note": "次の {count} 件は、より多くの人に表示されるようになります。",
 	"contents_delete_confirm_loosened_item": "「{title}」({before} → {after})",
 	"contents_delete_confirm_loosened_more": "ほか {count} 件",

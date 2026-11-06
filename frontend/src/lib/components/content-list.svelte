@@ -324,7 +324,4 @@
 	</ul>
 {/if}
 
-{#if actions}
-
-{/if}
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

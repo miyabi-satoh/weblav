@@ -21,6 +21,8 @@ Titles are assigned automatically. To change one, use the edit page that opens a
 
 On Home or on a group's page, select “Add” to the right of the heading and choose a type. On a group's page, the new item goes inside that group.
 
+![“Add” to the right of the Home heading, and the type menu](images/add-menu.webp)
+
 Administrators can also add from the admin pages.
 
 1. On the “Contents” tab in the admin pages, select “Add content...”.
@@ -107,7 +109,7 @@ note = "A description shown under the link (optional)"
 
 1. In the list on Home or in a group, select the pen at the right end of a row of an item you registered (administrators: any item) (administrators can also select the row in the “Contents” list in the admin pages).
 
-   ![The content row menu](images/row-menu.webp)
+   ![A row in the Home list, with the pen at the right end](images/row-edit-pen.webp)
 
 2. Choose “Visibility”, then select “Save”.
 
@@ -162,7 +164,7 @@ To see how it looks to viewers, select “View on site” next to the heading of
 
 1. In the “Delete” section at the bottom of the edit page, select “Delete...” (administrators can also choose it from a row's “⋮” in the list in the admin pages).
 
-   ![The content row menu](images/row-menu.webp)
+   ![The “Delete” section of the edit page](images/delete-section.webp)
 
 2. Select “Delete”.
 
