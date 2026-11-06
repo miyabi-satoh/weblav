@@ -15,7 +15,11 @@ const contentById = new Map([[group.id, group]]);
 
 describe('contentEditBack', () => {
 	it('sends an admin back to the content list', () => {
-		const back = contentEditBack({ role: 'admin' }, { parentId: 5, visibility: 'hidden' }, contentById);
+		const back = contentEditBack(
+			{ role: 'admin' },
+			{ parentId: 5, visibility: 'hidden' },
+			contentById
+		);
 		expect(back.href).toBe('/admin/contents');
 	});
 
@@ -25,7 +29,9 @@ describe('contentEditBack', () => {
 	});
 
 	it('sends a user back to Home for content at the top level', () => {
-		expect(contentEditBack(user, { parentId: null, visibility: 'public' }, contentById).href).toBe('/');
+		expect(contentEditBack(user, { parentId: null, visibility: 'public' }, contentById).href).toBe(
+			'/'
+		);
 	});
 
 	it('sends a user back to the hidden list for hidden content, which no group lists', () => {
