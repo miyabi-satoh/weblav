@@ -24,9 +24,9 @@ const FIXTURE_ROOT_DIR = path.join(REPO_ROOT, 'target/spec-fixtures');
 const FIXTURE_DIR = path.join(FIXTURE_ROOT_DIR, '教材');
 /** `FIXTURE_ROOT_DIR` を登録するときの名前。ピッカーやコンテンツの場所に、フルパスの代わりに出る。 */
 const FIXTURE_ROOT_NAME = '学校';
-// ファイル数がそのまま確認ダイアログの表示になるので、桁が揃って読みやすい数にする。
 /** 音声の長さ (秒)。プレイヤーの時間の表示が 0:00 にならず、ファイルが重くならない長さ。 */
 const FIXTURE_TRACK_SECONDS = 60;
+// ファイル数がそのまま確認ダイアログの表示になるので、桁が揃って読みやすい数にする。
 const FIXTURE_TREE: Record<string, string[]> = {
 	'英検/2024': ['1級_リスニング.mp3', '1級_解答.pdf', '2級_リスニング.mp3'],
 	'英検/2023': ['1級_リスニング.mp3', '1級_解答.pdf'],
