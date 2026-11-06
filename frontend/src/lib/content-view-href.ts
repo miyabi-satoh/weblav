@@ -32,7 +32,7 @@ export function contentViewHref(content: Content, userId: number | undefined): C
 }
 
 /** そのコンテンツ自体の開き先。閲覧画面の一覧が行ごとに開く先と揃える (→ content-list.svelte)。 */
-function contentSelfHref(content: Content): ContentViewHref {
+export function contentSelfHref(content: Content): ContentViewHref {
 	const id = String(content.id);
 	switch (content.type) {
 		case 'group':

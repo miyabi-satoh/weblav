@@ -12,7 +12,7 @@ A folder can be viewed in two ways.
 When a folder is organized as a library, “Folder” and “Library” appear under the heading on the viewer's screen to switch between the two. Opening the folder from the home page or a group opens the library.
 
 The person who registered a folder and administrators can configure it on this page.
-You can only view folders registered by someone else. Ask an administrator to change one.
+You cannot change the settings of folders registered by someone else. Ask an administrator to change one.
 
 ## Example: filter by year and session
 

@@ -58,7 +58,6 @@
 	let content = $derived(data.content);
 	let contentById = $derived(byIdMap(data.contents));
 	let canSeeFullPath = $derived(isAdmin(page.data.user));
-	let editable = $derived(data.editable);
 
 	// 削除は「削除」の区画から開く (→ docs/ui.md「編集ページの区画」)。消したら戻り先へ移る。
 	let deletingContent = $state<typeof content | null>(null);
@@ -400,20 +399,16 @@
 		class={sectionCardClass}
 	>
 		<h2 id="{part}-section-heading" class="text-base font-semibold">{title}</h2>
-		<!-- 見るだけのときは、入力欄を押せない状態で値を見せる (→ docs/ui.md「UI 全般」)。 -->
-		<fieldset disabled={!editable} class="contents">
-			<ContentForm
-				{form}
-				variant="edit"
-				{part}
-				{parentCandidates}
-				{visibilityOptions}
-				{visibilityError}
-				{visibilityNote}
-				onchoosepath={() => (dirPickerOpen = true)}
-				disabled={!editable}
-			/>
-		</fieldset>
+		<ContentForm
+			{form}
+			variant="edit"
+			{part}
+			{parentCandidates}
+			{visibilityOptions}
+			{visibilityError}
+			{visibilityNote}
+			onchoosepath={() => (dirPickerOpen = true)}
+		/>
 		{#if part === 'common' && canChangeCreator}
 			<Field.Field>
 				<Field.FieldLabel for="content-creator">{m.contents_form_creator_label()}</Field.FieldLabel>
@@ -429,23 +424,21 @@
 				</Select.Root>
 			</Field.Field>
 		{/if}
-		{#if editable}
-			<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-				<!-- パスはテキスト入力ではないため、required では未選択を防げない。 -->
-				<LoadingButton
-					type="submit"
-					loading={savingPart === part}
-					disabled={saving ||
-						!partDirty(part) ||
-						(part === 'specific' && isPathContentType(form.type) && form.path === '') ||
-						(part === 'common' && visibilityError !== null)}>{m.action_save()}</LoadingButton
-				>
-				<!-- 確認の窓を通らずに始めたスキャン (一覧の表示を使い始めたとき) は、ボタンの横に進み具合を出す。 -->
-				{#if part === 'specific' && scanProgress && !confirmRegisterOpen}
-					<ScanProgress message={scanProgress} oncancel={() => cancelScan(content.id)} />
-				{/if}
-			</div>
-		{/if}
+		<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+			<!-- パスはテキスト入力ではないため、required では未選択を防げない。 -->
+			<LoadingButton
+				type="submit"
+				loading={savingPart === part}
+				disabled={saving ||
+					!partDirty(part) ||
+					(part === 'specific' && isPathContentType(form.type) && form.path === '') ||
+					(part === 'common' && visibilityError !== null)}>{m.action_save()}</LoadingButton
+			>
+			<!-- 確認の窓を通らずに始めたスキャン (一覧の表示を使い始めたとき) は、ボタンの横に進み具合を出す。 -->
+			{#if part === 'specific' && scanProgress && !confirmRegisterOpen}
+				<ScanProgress message={scanProgress} oncancel={() => cancelScan(content.id)} />
+			{/if}
+		</div>
 	</form>
 {/snippet}
 
@@ -457,9 +450,7 @@
 			{@render partForm('specific', specificTitle)}
 		{/if}
 	</div>
-	{#if editable}
-		<DeleteSection notes={deleteNotes} onclick={() => (deletingContent = content)} />
-	{/if}
+	<DeleteSection notes={deleteNotes} onclick={() => (deletingContent = content)} />
 </div>
 
 <!-- 消したものの編集ページには戻れないので、戻り先へ移る。 -->

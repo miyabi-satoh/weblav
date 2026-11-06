@@ -5,10 +5,10 @@ import { LIST_FILTER_QUERY } from '$lib/list-filter';
 import * as m from '$lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
-// ライブラリの対象外のタブ (→ docs/ui.md「対象外のタブ」)。書き換えられる人にだけ出す。
+// ライブラリの対象外のタブ (→ docs/ui.md「対象外のタブ」)。
 export const load: PageLoad = async ({ parent, url }) => {
-	const { content, contentId, editable } = await parent();
-	if (!content.listView || !editable) {
+	const { content, contentId } = await parent();
+	if (!content.listView) {
 		error(404, m.error_not_found());
 	}
 	const nameFilter = url.searchParams.get(LIST_FILTER_QUERY) ?? '';

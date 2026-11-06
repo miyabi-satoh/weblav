@@ -44,7 +44,6 @@
 	const errorDialog = new ErrorDialogState();
 
 	let contentId = $derived(data.contentId);
-	let editable = $derived(data.editable);
 
 	/** 管理の権限で開く口。 */
 	const MANAGE_URLS: ArchiveItemUrls = {
@@ -139,7 +138,7 @@
 				folderMissing={view.folderMissing}
 			>
 				{#snippet countAction()}
-					{#if editable && nameActive}
+					{#if nameActive}
 						<Button
 							type="button"
 							variant="outline"

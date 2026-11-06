@@ -6,13 +6,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { ADMIN_PASSWORD, ADMIN_USERNAME } from './auth';
 import { logInByApi, send, withContentByApi, withUserByApi } from './api-helpers';
 import { rescanArchive, withDirectoryContent } from './fixture-helpers';
-import {
-	ADD_AXIS_BUTTON_NAME,
-	addAxisValue,
-	axisValuesForm,
-	saveAxisValues,
-	selectAxis
-} from './archive-helpers';
+import { ADD_AXIS_BUTTON_NAME, addAxisValue, saveAxisValues, selectAxis } from './archive-helpers';
 import {
 	anonymousContext,
 	basicSaveButton,
@@ -20,9 +14,7 @@ import {
 	fillLogInForm,
 	ITEMS_TAB_NAME,
 	RECOVERY_CODE_MENU_ITEM_NAME,
-	SAVE_BUTTON_NAME,
 	saveForm,
-	TITLE_LABEL,
 	uniqueId,
 	VISIBILITY_LABEL,
 	VISIBILITY_PRIVATE_OPTION_NAME,
@@ -245,7 +237,7 @@ test('編集者: 管理画面はどれもホームへ戻され、メニューに
 	});
 });
 
-test('編集者: 他人のアーカイブは見るだけで、管理者が作成者を付け替えると軸まで設定できる', async ({
+test('編集者: 他人のアーカイブの編集ページは閲覧画面へ送られ、管理者が作成者を付け替えると軸まで設定できる', async ({
 	page,
 	browser
 }) => {
@@ -261,46 +253,15 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 			});
 			await rescanArchive(page.request, archive.id);
 
-			// 管理者には「軸を追加...」が出る。編集者で「出ない」ことを見る掴み方の対照。
-			await page.goto(`/contents/${archive.id}/axes`);
-			await expect(page.getByRole('button', { name: ADD_AXIS_BUTTON_NAME })).toBeVisible();
-
 			await withUserByApi(page.request, username, EDITOR_PASSWORD, async () => {
 				const editor = await anonymousContext(browser);
 				try {
 					await logInByApi(editor.request, username, EDITOR_PASSWORD);
 					const editorPage = await editor.newPage();
 
-					// 基本情報は見るだけ。理由を見出しの下に出し、保存ボタンを出さない (→ docs/ui.md「UI 全般」)。
-					await editorPage.goto(`/contents/${archive.id}`);
-					await expect(editorPage.getByTestId('view-only-note')).toBeVisible();
-					await expect(editorPage.getByLabel(TITLE_LABEL)).toBeDisabled();
-					// 選択 (bits-ui) は fieldset では止まらないので、開かないことも見る。
-					await editorPage
-						.getByRole('button', { name: /^親のグループ$|^Parent group$/ })
-						.click({ force: true });
-					await expect(editorPage.getByRole('listbox')).toHaveCount(0);
-					await expect(editorPage.getByRole('button', { name: SAVE_BUTTON_NAME })).toHaveCount(0);
-
-					await browseLink(editorPage, ITEMS_TAB_NAME).click();
-					await expect(editorPage.getByText('2024/answer.pdf')).toBeVisible();
-					await expect(
-						editorPage.getByRole('button', { name: /再スキャンする|Rescan/ })
-					).toHaveCount(0);
-
-					// 値の辞書は見えるが、保存ボタンは出ない (selectAxis は保存ボタンで読み込みを待つので使わない)。
-					await editorPage.getByRole('link', { name: /^分類$|^Categories$/ }).click();
-					// ファイルのタブにも同じ名前の軸の絞り込みがあるので、移り終えてから押す。
-					await editorPage.waitForURL(/\/axes$/);
-					await editorPage
-						.getByRole('button')
-						.filter({ has: editorPage.getByText('種類', { exact: true }) })
-						.click();
-					await expect(axisValuesForm(editorPage)).toBeVisible();
-					await expect(editorPage.getByRole('button', { name: ADD_AXIS_BUTTON_NAME })).toHaveCount(
-						0
-					);
-					await expect(editorPage.getByRole('button', { name: SAVE_BUTTON_NAME })).toHaveCount(0);
+					// 書き換えられない編集ページは、そのライブラリの閲覧画面へ送る (→ docs/ui.md「UI 全般」)。
+					await editorPage.goto(`/contents/${archive.id}/axes`);
+					await editorPage.waitForURL(new RegExp(`/archives/${archive.id}$`));
 
 					// 管理者が作成者を編集者に付け替える。
 					await page.goto(`/contents/${archive.id}`);
@@ -308,8 +269,7 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 					await page.getByRole('option', { name: username }).click();
 					await saveForm(page, { button: basicSaveButton(page) });
 
-					await editorPage.reload();
-					await expect(editorPage.getByTestId('view-only-note')).toHaveCount(0);
+					await editorPage.goto(`/contents/${archive.id}/axes`);
 					await expect(
 						editorPage.getByRole('button', { name: ADD_AXIS_BUTTON_NAME })
 					).toBeVisible();

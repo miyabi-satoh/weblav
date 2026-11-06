@@ -17,8 +17,7 @@
 		mode = $bindable(),
 		hours = $bindable(),
 		time = $bindable(),
-		description,
-		disabled = false
+		description
 	}: {
 		/** 欄の id の頭。同じページに2つ置いても重ならないようにする。 */
 		id: string;
@@ -30,8 +29,6 @@
 		time: string;
 		/** 丸ボタンの下に出す説明。 */
 		description?: string;
-		/** 押せなくする。入力欄は、呼び出し側の `<fieldset disabled>` で押せなくする。 */
-		disabled?: boolean;
 	} = $props();
 
 	/** 時間の上限。サーバーが受ける数 (`u32`) の上限で、利用者に選ばせる値の目安ではない。 */
@@ -40,15 +37,15 @@
 	const sentenceRowClass = 'min-h-9 flex-wrap [&>[data-slot=field-label]]:flex-none';
 </script>
 
-<Field.FieldSet data-disabled={disabled}>
+<Field.FieldSet>
 	<Field.FieldLegend variant="label" id="{id}-legend">{label}</Field.FieldLegend>
-	<RadioGroup.Root bind:value={mode} {disabled} aria-labelledby="{id}-legend">
-		<Field.Field orientation="horizontal" data-disabled={disabled} class="min-h-9">
+	<RadioGroup.Root bind:value={mode} aria-labelledby="{id}-legend">
+		<Field.Field orientation="horizontal" class="min-h-9">
 			<RadioGroup.Item value="off" id="{id}-off" />
 			<Field.FieldLabel for="{id}-off" class="font-normal">{m.schedule_off()}</Field.FieldLabel>
 		</Field.Field>
 		<!-- 数の欄を文の途中に置く。押せる範囲を丸だけでなく文の言葉にも広げる。 -->
-		<Field.Field orientation="horizontal" data-disabled={disabled} class={sentenceRowClass}>
+		<Field.Field orientation="horizontal" class={sentenceRowClass}>
 			<RadioGroup.Item value="interval" id="{id}-interval" />
 			<Field.FieldLabel for="{id}-interval" class="font-normal"
 				>{m.schedule_interval_before()}</Field.FieldLabel
@@ -65,7 +62,7 @@
 			/>
 			<Field.FieldLabel for="{id}-interval" class="font-normal">{intervalAfter}</Field.FieldLabel>
 		</Field.Field>
-		<Field.Field orientation="horizontal" data-disabled={disabled} class={sentenceRowClass}>
+		<Field.Field orientation="horizontal" class={sentenceRowClass}>
 			<RadioGroup.Item value="daily" id="{id}-daily" />
 			<Field.FieldLabel for="{id}-daily" class="font-normal"
 				>{m.schedule_daily_before()}</Field.FieldLabel

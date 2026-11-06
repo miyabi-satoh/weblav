@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { pageHeadingInRowClass, sectionGridClass } from '$lib/page-layout';
+	import { pageHeadingInRowClass } from '$lib/page-layout';
 	import { page } from '$app/state';
 	import { isAdmin } from '$lib/auth';
 	import { resolve } from '$app/paths';
@@ -39,7 +39,7 @@
 	const rescan = new ArchiveRescanState();
 	provideArchiveRescan(rescan);
 	const errorDialog = new ErrorDialogState();
-	let canRescan = $derived(data.editable && content.listView);
+	let canRescan = $derived(content.listView);
 	let contentId = $derived(data.contentId);
 
 	$effect(() => {
@@ -54,7 +54,6 @@
 	});
 
 	// 一覧の表示を使うフォルダーは「基本情報 / 軸定義 / ファイル」を同列に並べる (→ docs/access.md「ロールと操作」)。
-	// 対象外は、パターンを書き換える人のためのものなので、書き換えられる人にだけ出す。
 	let tabs = $derived.by(() => {
 		const id = String(data.contentId);
 		const basic = {
@@ -66,14 +65,7 @@
 			basic,
 			{ href: resolve('/contents/[id]/axes', { id }), label: m.archive_tabs_axes() },
 			{ href: resolve('/contents/[id]/items', { id }), label: m.archive_tabs_items() },
-			...(data.editable
-				? [
-						{
-							href: resolve('/contents/[id]/excluded', { id }),
-							label: m.archive_tabs_excluded()
-						}
-					]
-				: [])
+			{ href: resolve('/contents/[id]/excluded', { id }), label: m.archive_tabs_excluded() }
 		];
 	});
 
@@ -84,15 +76,6 @@
 	function startRescan() {
 		void rescan.run(data.contentId, (message) => errorDialog.show(message));
 	}
-
-	// 見るだけの理由を、どのタブでも見出しの下で示す (→ docs/ui.md「UI 全般」)。
-	let viewOnlyNote = $derived.by(() => {
-		if (data.editable) return null;
-		const creator = content.createdByUsername;
-		return creator
-			? m.contents_edit_view_only({ creator })
-			: m.contents_edit_view_only_no_creator();
-	});
 </script>
 
 <svelte:head><title>{pageTitle(content.title)}</title></svelte:head>
@@ -173,18 +156,6 @@
 			<span>{archiveItemsSummary(content.archiveItems)}</span>
 		{/if}
 	</p>
-	{#if viewOnlyNote}
-		<!-- 下の区画の1列目と同じ幅にする。どの画面幅でも端が揃うよう、同じ格子に置く。 -->
-		<div class={[sectionGridClass, 'mt-3']}>
-			<p
-				class="flex items-start gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm"
-				data-testid="view-only-note"
-			>
-				<EyeIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-				<span>{viewOnlyNote}</span>
-			</p>
-		</div>
-	{/if}
 </div>
 
 {#if rescan.progress || rescan.result}
