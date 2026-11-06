@@ -45,6 +45,8 @@ export class LeaveGuard {
 	 * @param stay 移らずに留まるか (保存に失敗して変更が残った・エラーを読ませたいなど)。
 	 */
 	async resumeAfterSave(stay: () => boolean = () => this.#dirty()): Promise<void> {
+		// ほかの区画の保存がまだ続いていれば、止めた移動はその保存の後に任せる。
+		if (this.#saving()) return;
 		const target = this.#afterSave;
 		this.#afterSave = null;
 		if (target === null || stay()) return;

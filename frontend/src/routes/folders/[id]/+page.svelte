@@ -6,12 +6,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import { linksFileHref } from '$lib/links-file';
 	import { breadcrumbLinkClass, pathCrumbs } from '$lib/breadcrumb';
-	import {
-		SORT_OPTIONS,
-		DEFAULT_BROWSE_SORT,
-		browseSortHref,
-		type BrowseSort
-	} from '$lib/browse-sort';
+	import { SORT_OPTIONS, browseSortHref, sortQuery, type BrowseSort } from '$lib/browse-sort';
 	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
 	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
 	import FolderEntryList, { type FolderEntryRow } from '$lib/components/folder-entry-list.svelte';
@@ -114,11 +109,7 @@
 	}
 
 	function linksHref(row: FolderEntryRow): string {
-		return linksFileHref(
-			contentId,
-			{ path: row.path },
-			data.sort === DEFAULT_BROWSE_SORT ? {} : { sort: data.sort }
-		);
+		return linksFileHref(contentId, { path: row.path }, sortQuery(data.sort));
 	}
 </script>
 

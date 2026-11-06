@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { formatList } from './format';
 import { shareOpPlaces, shareOpResultLabel } from './share-operations';
 import type { components } from '$lib/api/schema';
 
@@ -19,7 +18,8 @@ const base: ShareOperation = {
 describe('shareOpPlaces', () => {
 	it('joins every path and names the destination', () => {
 		expect(shareOpPlaces({ ...base, destShareName: '控え', destPath: '' })).toEqual({
-			from: formatList(['教材 / 教材 / a.pdf', '教材 / 教材 / b.pdf']),
+			// テストの表示言語は既定の英語。
+			from: '教材 / 教材 / a.pdf, 教材 / 教材 / b.pdf',
 			to: '控え'
 		});
 	});

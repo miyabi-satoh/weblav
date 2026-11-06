@@ -1154,7 +1154,8 @@ async fn fill_previews(
     Ok(())
 }
 
-/// `rel` とその中の索引の行を消す。消したフォルダー・動かしたものに使う。残すと読み直しが既知のファイルとして飛ばし、前の大きさや日付が残るため。
+/// `rel` とその中の索引の行を消す。消したフォルダー・動かしたものに使う。`rel` は空にしない
+/// (頭が `/` になり何も消さない。登録先そのものの索引は、行ごと消す側で消す)。残すと読み直しが既知のファイルとして飛ばし、前の大きさや日付が残るため。
 ///
 /// 頭の一致は LIKE でなく substr で照らす。LIKE は ASCII の大文字・小文字を区別しないので、
 /// 大文字・小文字を区別するファイルシステムで、綴りの違う隣のものまで巻き込まないため。
@@ -1619,11 +1620,7 @@ fn match_filename_word<'a>(
     entries: &'a [FilenameWordEntry],
     rel_path: &str,
 ) -> Option<(usize, &'a FilenameWordEntry)> {
-    let name = rel_path
-        .rsplit('/')
-        .next()
-        .unwrap_or(rel_path)
-        .to_lowercase();
+    let name = super::fs::rel_file_name(rel_path).to_lowercase();
     let stem = file_stem(rel_path).to_lowercase();
     // 位置で候補を絞ってから最長一致。`min_by_key` は同値なら先の要素を返すので、
     // 同じ長さはリストの上が残る。
@@ -1852,6 +1849,17 @@ mod tests {
                 .expect("アイテムを足せるはず");
         }
 
+        for rel_path in ["Foo", "Foo/sub", "foo", "Foo2"] {
+            sqlx::query(
+                "INSERT INTO archive_dirs (archive_id, rel_path, modified_ns) VALUES (?, ?, 0)",
+            )
+            .bind(id)
+            .bind(rel_path)
+            .execute(&pool)
+            .await
+            .expect("フォルダーを足せるはず");
+        }
+
         let mut conn = pool.acquire().await.expect("接続を取れるはず");
         delete_index_under(&mut conn, id, "Foo")
             .await
@@ -1865,6 +1873,14 @@ mod tests {
                 .expect("アイテムを読めるはず");
         rel_paths.sort();
         assert_eq!(rel_paths, ["Foo2/d.mp3", "foo/c.mp3"]);
+        let mut dirs: Vec<String> =
+            sqlx::query_scalar("SELECT rel_path FROM archive_dirs WHERE archive_id = ?")
+                .bind(id)
+                .fetch_all(&pool)
+                .await
+                .expect("フォルダーを読めるはず");
+        dirs.sort();
+        assert_eq!(dirs, ["Foo2", "foo"]);
     }
 
     /// 中止したスキャンは、読んだ分だけを足し、読まなかったファイルを消さない (→ docs/archive.md「スキャンの中止」)。
