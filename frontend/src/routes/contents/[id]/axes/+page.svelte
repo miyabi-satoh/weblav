@@ -242,51 +242,46 @@
 		// 保存後に値の辞書を取り直すか。応答で axes が置き換わる前に控えておく。
 		const valuesCleared = axisValuesWillBeCleared;
 
+		// 要求を組み立てる関数の中では絞り込みが効かないので、値で控える。
+		const axisId = editingAxisId;
 		try {
-			if (editingAxisId === null) {
-				const {
-					data: created,
-					error,
-					response
-				} = await client.POST('/api/v1/contents/{id}/axes', {
-					params: { path: { id: data.contentId } },
-					body: axisRequestBody({ ...fields, position: axes.length })
-				});
-				if (!response.ok || !created) {
-					errorDialog.show(errorMessage(error));
-					return;
-				}
+			if (axisId === null) {
+				const result = await errorDialog.attempt(() =>
+					client.POST('/api/v1/contents/{id}/axes', {
+						params: { path: { id: data.contentId } },
+						body: axisRequestBody({ ...fields, position: axes.length })
+					})
+				);
+				const created = result?.data;
+				if (!created) return;
 				axes = [...axes, created];
 				selectedAxisId = created.id;
 			} else {
-				const {
-					data: updated,
-					error,
-					response
-				} = await client.PUT('/api/v1/contents/{id}/axes/{axis_id}', {
-					params: { path: { id: data.contentId, axis_id: editingAxisId } },
-					body: axisRequestBody({ ...fields, position: editingAxis?.position ?? 0 })
-				});
-				if (!response.ok || !updated) {
-					errorDialog.show(errorMessage(error));
-					return;
-				}
-				axes = axes.map((axis) => (axis.id === updated.id ? updated : axis));
-				// 抽出元・階層番号が変わった場合、選択中の値の辞書は古い抽出元のもとで
-				// 取得した行のままなので、新しいsourceに対して取り直す(古い内容のまま
-				// 保存すると意図せず全置換されてしまうため)。
-				// 下の取り直しを待つ前に行を空にする。古い行のまま新しいsourceで予告が走らないように。
-				if (selectedAxisId === updated.id && valuesCleared) {
-					reloadAxisValues(updated.id);
-				}
-				// 軸名の変更はサーバー側でtitle_templateも書き換えるため、直後に取り直す。
-				// 取り直しに失敗すると画面ごとエラーになるが、それはサーバーに届かないときで、
-				// 画面を残しても保存できないため受け入れる。
-				await refreshAll();
+				const result = await errorDialog.attempt(
+					() =>
+						client.PUT('/api/v1/contents/{id}/axes/{axis_id}', {
+							params: { path: { id: data.contentId, axis_id: axisId } },
+							body: axisRequestBody({ ...fields, position: editingAxis?.position ?? 0 })
+						}),
+					async ({ data: updated }) => {
+						if (!updated) return;
+						axes = axes.map((axis) => (axis.id === updated.id ? updated : axis));
+						// 抽出元・階層番号が変わった場合、選択中の値の辞書は古い抽出元のもとで
+						// 取得した行のままなので、新しいsourceに対して取り直す(古い内容のまま
+						// 保存すると意図せず全置換されてしまうため)。
+						// 下の取り直しを待つ前に行を空にする。古い行のまま新しいsourceで予告が走らないように。
+						if (selectedAxisId === updated.id && valuesCleared) {
+							reloadAxisValues(updated.id);
+						}
+						// 軸名の変更はサーバー側でtitle_templateも書き換えるため、直後に取り直す。
+						// 取り直しに失敗すると画面ごとエラーになるが、それはサーバーに届かないときで、
+						// 画面を残しても保存できないため受け入れる。
+						await refreshAll();
+					}
+				);
+				if (!result?.data) return;
 			}
 			axisDialogOpen = false;
-		} catch {
-			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			axisSaving = false;
 		}
@@ -609,25 +604,19 @@
 		axisValuesSavingId = axisId;
 
 		try {
-			const {
-				data: values,
-				error,
-				response
-			} = await client.PUT('/api/v1/contents/{id}/axes/{axis_id}/values', {
-				params: { path: { id: data.contentId, axis_id: axisId } },
-				body: axisValuesRequestBody()
-			});
+			const result = await errorDialog.attempt(() =>
+				client.PUT('/api/v1/contents/{id}/axes/{axis_id}/values', {
+					params: { path: { id: data.contentId, axis_id: axisId } },
+					body: axisValuesRequestBody()
+				})
+			);
 			// 成否は、保存中に別の軸へ切り替えられていても知らせる (成功のトーストには軸名が入る)。
-			if (!response.ok || !values) {
-				errorDialog.show(errorMessage(error));
-				return;
-			}
+			const values = result?.data;
+			if (!values) return;
 			toast.success(m.archive_axes_values_saved_toast({ name: axis.name }));
 			// 保存中に別の軸へ切り替えられていたら、その軸の表に古い応答を書き込まない。
 			if (selectedAxisId !== axisId) return;
 			axisValueRows = toAxisValueRows(values);
-		} catch {
-			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			axisValuesSavingId = null;
 		}

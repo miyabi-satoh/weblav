@@ -4,7 +4,6 @@
 	import { page } from '$app/state';
 	import { isAdmin } from '$lib/auth';
 	import { client } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import * as m from '$lib/paraglide/messages.js';
 	import * as Card from '$lib/components/ui/card';
@@ -40,17 +39,16 @@
 		if (loading || passwordMismatch) return;
 		loading = true;
 		try {
-			const { data, error, response } = await client.POST('/api/v1/auth/recover', {
-				body: { username, recoveryCode, newPassword: password }
-			});
-			if (!response.ok || !data) {
-				errorDialog.show(errorMessage(error));
-				return;
+			const result = await errorDialog.attempt(() =>
+				client.POST('/api/v1/auth/recover', {
+					body: { username, recoveryCode, newPassword: password }
+				})
+			);
+			const recovered = result?.data;
+			if (recovered) {
+				accountName = recovered.user.username;
+				newCode = recovered.recoveryCode;
 			}
-			accountName = data.user.username;
-			newCode = data.recoveryCode;
-		} catch {
-			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			loading = false;
 		}

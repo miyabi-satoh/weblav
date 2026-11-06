@@ -353,18 +353,18 @@ async fn browse_group_returns_children_and_ancestors(pool: SqlitePool) {
     assert_eq!(body["groupTitle"], "C");
     let ancestor_ids: Vec<i64> = body["ancestors"]
         .as_array()
-        .unwrap()
+        .expect("配列のはず")
         .iter()
-        .map(|a| a["id"].as_i64().unwrap())
+        .map(|a| a["id"].as_i64().expect("数値のはず"))
         .collect();
     // ルートに近い順: A -> B。
     assert_eq!(ancestor_ids, vec![group_a, group_b]);
-    let entries = body["entries"].as_array().unwrap();
+    let entries = body["entries"].as_array().expect("配列のはず");
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0]["title"], "Cの子リンク");
 
     // group以外(link)のidを指定すると404。
-    let child_link_id = entries[0]["id"].as_i64().unwrap();
+    let child_link_id = entries[0]["id"].as_i64().expect("数値のはず");
     let (status, _) = send_empty(
         app,
         "GET",
@@ -382,7 +382,7 @@ async fn browse_group_ancestors_are_not_truncated_beyond_fifty_levels(pool: Sqli
     insert_user(&pool, "alice", "correct-password").await;
     const N: usize = 60;
     let chain = insert_group_chain(&pool, N).await;
-    let leaf = *chain.last().unwrap();
+    let leaf = *chain.last().expect("空でないはず");
     let app = test_app(pool).await;
     let cookie = login(app.clone(), "alice", "correct-password").await;
 
@@ -401,9 +401,9 @@ async fn browse_group_ancestors_are_not_truncated_beyond_fifty_levels(pool: Sqli
         serde_json::from_str(&body_string(response).await).expect("valid json");
     let ancestor_ids: Vec<i64> = body["ancestors"]
         .as_array()
-        .unwrap()
+        .expect("配列のはず")
         .iter()
-        .map(|a| a["id"].as_i64().unwrap())
+        .map(|a| a["id"].as_i64().expect("数値のはず"))
         .collect();
     // leaf自身を除くN-1件全て(chain[0..N-1])がルートに近い順で揃っているはず。
     assert_eq!(ancestor_ids, chain[..N - 1]);
@@ -446,7 +446,7 @@ async fn delete_group_reparents_children_to_root(pool: SqlitePool) {
         serde_json::from_str(&body_string(admin_list_response).await).expect("valid json");
     let file_entry = admin_body
         .as_array()
-        .unwrap()
+        .expect("配列のはず")
         .iter()
         .find(|c| c["id"].as_i64() == Some(file_id))
         .expect("file content should still exist");
@@ -466,7 +466,7 @@ async fn delete_group_reparents_children_to_root(pool: SqlitePool) {
     assert_eq!(download_response.status(), StatusCode::OK);
     let bytes = to_bytes(download_response.into_body(), usize::MAX)
         .await
-        .unwrap();
+        .expect("本文を読めるはず");
     assert_eq!(&bytes[..], b"hello group");
 }
 
@@ -481,7 +481,7 @@ async fn delete_group_reparents_children_to_root(pool: SqlitePool) {
 #[sqlx::test]
 async fn folder_content_create_by_admin_succeeds(pool: SqlitePool) {
     let dir = temp_test_dir("create-ok");
-    let canonical_dir = dir.canonicalize().unwrap();
+    let canonical_dir = dir.canonicalize().expect("パスを解決できるはず");
 
     let (app, cookie) = admin_app(&pool).await;
 
@@ -498,9 +498,9 @@ async fn folder_content_create_by_admin_succeeds(pool: SqlitePool) {
     assert_eq!(status, StatusCode::CREATED);
     assert!(body.contains(r#""type":"folder""#), "{body}");
     assert!(body.contains(r#""title":"教材""#), "{body}");
-    let created: serde_json::Value = serde_json::from_str(&body).unwrap();
+    let created: serde_json::Value = serde_json::from_str(&body).expect("JSONを読めなかった");
     assert_eq!(
-        created["path"].as_str().unwrap(),
+        created["path"].as_str().expect("文字列のはず"),
         canonical_path_as_api_returns_it(&canonical_dir),
         "{body}"
     );
@@ -553,7 +553,8 @@ async fn fs_dirs_without_path_returns_the_shared_folders(pool: SqlitePool) {
     .await;
 
     assert_eq!(response.status(), StatusCode::OK);
-    let body: serde_json::Value = serde_json::from_str(&body_string(response).await).unwrap();
+    let body: serde_json::Value =
+        serde_json::from_str(&body_string(response).await).expect("JSONを読めなかった");
     assert_eq!(body["path"], "");
     assert!(body["parent"].is_null(), "{body}");
     assert_eq!(body["selectable"], false);
@@ -584,9 +585,9 @@ async fn fs_dirs_rejects_a_path_outside_the_shared_folders(pool: SqlitePool) {
 #[sqlx::test]
 async fn fs_dirs_returns_only_selectable_directories(pool: SqlitePool) {
     let dir = temp_test_dir("fs-dirs");
-    std::fs::create_dir_all(dir.join("sub")).unwrap();
-    std::fs::create_dir_all(dir.join(".hidden")).unwrap();
-    std::fs::write(dir.join("file.txt"), b"hello").unwrap();
+    std::fs::create_dir_all(dir.join("sub")).expect("フォルダーを作れなかった");
+    std::fs::create_dir_all(dir.join(".hidden")).expect("フォルダーを作れなかった");
+    std::fs::write(dir.join("file.txt"), b"hello").expect("ファイルを書けなかった");
 
     let (app, cookie) = admin_app(&pool).await;
 
@@ -602,7 +603,8 @@ async fn fs_dirs_returns_only_selectable_directories(pool: SqlitePool) {
     .await;
 
     assert_eq!(response.status(), StatusCode::OK);
-    let body: serde_json::Value = serde_json::from_str(&body_string(response).await).unwrap();
+    let body: serde_json::Value =
+        serde_json::from_str(&body_string(response).await).expect("JSONを読めなかった");
     assert_eq!(body["selectable"], true);
     let entries = body["entries"].as_array().expect("entriesが配列でない");
     assert_eq!(entries.len(), 1, "{body}");
@@ -614,10 +616,10 @@ async fn fs_dirs_returns_only_selectable_directories(pool: SqlitePool) {
 #[sqlx::test]
 async fn fs_count_counts_recursively_and_filters_by_extension(pool: SqlitePool) {
     let dir = temp_test_dir("fs-count");
-    std::fs::create_dir_all(dir.join("sub")).unwrap();
-    std::fs::write(dir.join("a.mp3"), b"").unwrap();
-    std::fs::write(dir.join(".hidden.mp3"), b"").unwrap();
-    std::fs::write(dir.join("sub").join("b.pdf"), b"").unwrap();
+    std::fs::create_dir_all(dir.join("sub")).expect("フォルダーを作れなかった");
+    std::fs::write(dir.join("a.mp3"), b"").expect("ファイルを書けなかった");
+    std::fs::write(dir.join(".hidden.mp3"), b"").expect("ファイルを書けなかった");
+    std::fs::write(dir.join("sub").join("b.pdf"), b"").expect("ファイルを書けなかった");
 
     let (app, cookie) = admin_app(&pool).await;
     let path = dir.display().to_string();

@@ -1996,11 +1996,11 @@ mod tests {
     #[test]
     fn parse_placeholders_extracts_names_and_rejects_malformed_templates() {
         assert_eq!(
-            parse_placeholders("固定文字のみ").unwrap(),
+            parse_placeholders("固定文字のみ").expect("書式を読めるはず"),
             Vec::<&str>::new()
         );
         assert_eq!(
-            parse_placeholders("{科目}（{資料種別}）").unwrap(),
+            parse_placeholders("{科目}（{資料種別}）").expect("書式を読めるはず"),
             vec!["科目", "資料種別"]
         );
         assert!(parse_placeholders("{未閉鎖").is_err());

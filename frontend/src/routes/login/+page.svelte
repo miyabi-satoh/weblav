@@ -4,7 +4,6 @@
 	import { page } from '$app/state';
 	import { client } from '$lib/api/client';
 	import { isApiTarget, safeRedirectTarget } from '$lib/auth';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import * as m from '$lib/paraglide/messages.js';
 	import * as Card from '$lib/components/ui/card';
@@ -34,39 +33,33 @@
 		loading = true;
 
 		try {
-			const { error, response } = await client.POST('/api/v1/auth/login', {
-				body: { username, password }
-			});
-
-			// サーバーの `message` は表示せず、`code` から表示文言を引く
+			// 失敗したときはサーバーの `message` は表示せず、`code` から表示文言を引く
 			// (本文なしの 5xx や text/plain 応答でも errorMessage() が汎用文言に落とす)。
-			if (!response.ok) {
-				errorDialog.show(errorMessage(error));
-				return;
-			}
-
-			// 保護ページから飛ばされてきた場合はそこへ戻す。値は自サイト内の絶対パスに
-			// 限定する(オープンリダイレクト対策。→ `safeRedirectTarget`)。
-			const target = safeRedirectTarget(page.url.searchParams.get('redirect'));
-			if (target === null) {
-				await goto(resolve('/'));
-			} else if (isApiTarget(target)) {
-				// ファイルを直接開こうとして 401 になった場合の戻り先。SvelteKit の
-				// ルートではないので `goto` では解決できず、ブラウザーに開かせる。
-				//
-				// インライン表示できない型 (docx・zip 等) はダウンロードが始まるだけで
-				// この文書は遷移しない。ヘッダーが未ログインのまま残ると「ログインに
-				// 失敗した」ように見えるので、先に画面の状態を更新しておく。
-				await refreshAll();
-				window.location.assign(target);
-			} else {
-				// `target` はブラウザーのURLから取った実パスであり、route id ではないため
-				// `resolve()` は通さない。
-				// eslint-disable-next-line svelte/no-navigation-without-resolve -- route id ではない実パスへの遷移 (上のコメント参照)
-				await goto(target);
-			}
-		} catch {
-			errorDialog.show(GENERIC_ERROR_MESSAGE());
+			await errorDialog.attempt(
+				() => client.POST('/api/v1/auth/login', { body: { username, password } }),
+				async () => {
+					// 保護ページから飛ばされてきた場合はそこへ戻す。値は自サイト内の絶対パスに
+					// 限定する(オープンリダイレクト対策。→ `safeRedirectTarget`)。
+					const target = safeRedirectTarget(page.url.searchParams.get('redirect'));
+					if (target === null) {
+						await goto(resolve('/'));
+					} else if (isApiTarget(target)) {
+						// ファイルを直接開こうとして 401 になった場合の戻り先。SvelteKit の
+						// ルートではないので `goto` では解決できず、ブラウザーに開かせる。
+						//
+						// インライン表示できない型 (docx・zip 等) はダウンロードが始まるだけで
+						// この文書は遷移しない。ヘッダーが未ログインのまま残ると「ログインに
+						// 失敗した」ように見えるので、先に画面の状態を更新しておく。
+						await refreshAll();
+						window.location.assign(target);
+					} else {
+						// `target` はブラウザーのURLから取った実パスであり、route id ではないため
+						// `resolve()` は通さない。
+						// eslint-disable-next-line svelte/no-navigation-without-resolve -- route id ではない実パスへの遷移 (上のコメント参照)
+						await goto(target);
+					}
+				}
+			);
 		} finally {
 			loading = false;
 		}

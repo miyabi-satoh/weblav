@@ -567,10 +567,10 @@ mod tests {
 
     #[test]
     fn hash_then_verify_roundtrip() {
-        let hash = hash_password("correct horse battery staple").unwrap();
+        let hash = hash_password("correct horse battery staple").expect("ハッシュを作れるはず");
         assert!(hash.starts_with("$argon2id$"));
-        assert!(verify_password("correct horse battery staple", &hash).unwrap());
-        assert!(!verify_password("wrong password", &hash).unwrap());
+        assert!(verify_password("correct horse battery staple", &hash).expect("照合できるはず"));
+        assert!(!verify_password("wrong password", &hash).expect("照合できるはず"));
     }
 
     #[test]
@@ -611,8 +611,8 @@ mod tests {
     fn dummy_hash_never_verifies() {
         // DUMMY_HASH に対応する平文は存在しないはず、というテスト
         // (誤って本物のハッシュに書き換えてしまった場合の回帰防止)。
-        assert!(!verify_password("password", &DUMMY_HASH).unwrap());
-        assert!(!verify_password("", &DUMMY_HASH).unwrap());
+        assert!(!verify_password("password", &DUMMY_HASH).expect("照合できるはず"));
+        assert!(!verify_password("", &DUMMY_HASH).expect("照合できるはず"));
     }
 
     #[sqlx::test]
@@ -754,7 +754,7 @@ mod tests {
     }
 
     async fn insert_user(pool: &SqlitePool, username: &str, password: &str) {
-        let hash = hash_password(password).unwrap();
+        let hash = hash_password(password).expect("ハッシュを作れるはず");
         sqlx::query!(
             "INSERT INTO users (username, password_hash) VALUES (?, ?)",
             username,

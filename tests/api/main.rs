@@ -705,7 +705,7 @@ async fn manage_items(app: Router, cookie: &str, archive_id: i64) -> Vec<serde_j
 async fn user_id(app: Router, cookie: &str, username: &str) -> i64 {
     let (status, body) = send_empty(app, "GET", "/api/v1/admin/users", cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&body).expect("JSONを読めなかった");
     json.as_array()
         .expect("配列でない")
         .iter()

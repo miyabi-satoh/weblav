@@ -92,7 +92,7 @@ mod tests {
         )
         .fetch_one(&pool)
         .await
-        .unwrap();
+        .expect("件数を数えられるはず");
         assert_eq!(count, 1);
     }
 
@@ -126,13 +126,16 @@ mod tests {
         let pool = connect(&path).await.expect("connect should succeed");
         pool.close().await;
 
-        let dir_mode = std::fs::metadata(path.parent().unwrap())
-            .unwrap()
+        let dir_mode = std::fs::metadata(path.parent().expect("親フォルダーがあるはず"))
+            .expect("属性を読めるはず")
             .permissions()
             .mode();
         assert_eq!(dir_mode & 0o777, 0o700, "{:o}", dir_mode);
 
-        let file_mode = std::fs::metadata(&path).unwrap().permissions().mode();
+        let file_mode = std::fs::metadata(&path)
+            .expect("属性を読めるはず")
+            .permissions()
+            .mode();
         assert_eq!(file_mode & 0o777, 0o600, "{:o}", file_mode);
     }
 }
