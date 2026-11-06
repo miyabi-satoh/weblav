@@ -632,7 +632,6 @@
 	"error_share_read_only": "この共有には書き込めません。管理者に書き込みの許可を確かめてもらってください。",
 	"archive_axes_ai_prompt_show": "プロンプトを表示",
 	"archive_axes_ai_back_button": "戻る",
-	"action_undo": "元に戻す",
 	"action_retry": "再試行",
 	"schedule_off": "しない",
 	"schedule_interval_before": "前回から",
@@ -647,8 +646,6 @@
 	"contents_shortcut_missing": "ファイルが見つかりません。",
 	"contents_edit_shortcut_title": "場所",
 	"contents_row_visibility_menu": "公開範囲...",
-	"contents_row_hide_menu": "非表示にする",
-	"contents_hidden_toast": "「{title}」を非表示にしました。",
 	"contents_visibility_dialog_title": "「{title}」の公開範囲",
 	"shares_heading": "共有",
 	"shares_empty": "使える共有はありません。",
@@ -709,7 +706,5 @@
 	"hidden_menu_item": "非表示のコンテンツ ({count})",
 	"hidden_title": "非表示のコンテンツ",
 	"hidden_empty": "非表示のコンテンツはありません。",
-	"hidden_fetch_failed": "非表示のコンテンツを読み込めませんでした。しばらくしてからもう一度お試しください。",
-	"hidden_unhide_menu": "表示に戻す",
-	"hidden_restore_to": "戻すと「{visibility}」"
+	"hidden_fetch_failed": "非表示のコンテンツを読み込めませんでした。しばらくしてからもう一度お試しください。"
 }

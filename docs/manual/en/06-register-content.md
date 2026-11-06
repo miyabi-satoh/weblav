@@ -121,14 +121,9 @@ Visibility controls how an item appears as content. Files inside a folder can st
 
 ## Hide and show again
 
-In the list on Home or in a group, select “⋮” on a row, then choose “Hide” to remove it from the list right away. To bring it back right away, select “Undo” in the notice that appears.
+Set the visibility to “Hidden” to remove an item from the lists on Home and in groups. You can change the visibility on the edit page, or from “Visibility...” in a row's “⋮” menu on Home or in a group.
 
-Hidden items are listed under “Hidden content” in the username menu at the top right (items you registered; administrators see all).
-
-1. Select your username at the top right, then choose “Hidden content (count)”.
-2. Select “⋮” on the row, then choose “Show again”.
-
-It returns to the visibility it had before it was hidden. If an item was “Creator only” and its creator's user has been deleted, there is nothing to return it to, so “Show again” does not appear. Choose its visibility on the edit page instead. You can also edit or delete items from “⋮”.
+Hidden items are listed under “Hidden content” in the username menu at the top right (items you registered; administrators see all). To show one again, select “Visibility...” in its row's “⋮” menu there and choose another visibility.
 
 Set a group to “Creator only” to make it a space just for you. It can hold only your own “Creator only” content, and anything you add inside it becomes “Creator only”. A group that holds someone else’s content, or content that isn’t “Creator only”, can’t be set to “Creator only”.
 

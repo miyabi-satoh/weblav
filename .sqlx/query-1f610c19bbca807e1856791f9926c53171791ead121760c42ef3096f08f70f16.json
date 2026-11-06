@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url, path,\n                  description, created_at as \"created_at!\", file_name, file_size,\n                  visibility as \"visibility: Visibility\", created_by, include_patterns, exclude_patterns, title_template,\n                  list_view as \"list_view: bool\",\n                  auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time,\n                  visibility_before_hidden as \"visibility_before_hidden: Visibility\",\n                  (SELECT username FROM users WHERE users.id = contents.created_by) as created_by_username\n           FROM contents\n           WHERE visibility = ?1 AND (?2 OR created_by = ?3)\n           ORDER BY updated_at DESC, id",
+  "query": "SELECT id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url, path,\n                  description, created_at as \"created_at!\", file_name, file_size,\n                  visibility as \"visibility: Visibility\", created_by, include_patterns, exclude_patterns, title_template,\n                  list_view as \"list_view: bool\",\n                  auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time\n           FROM contents\n           WHERE visibility = ?1 AND (?2 OR created_by = ?3)",
   "describe": {
     "columns": [
       {
@@ -97,16 +97,6 @@
         "name": "auto_rescan_time",
         "ordinal": 18,
         "type_info": "Text"
-      },
-      {
-        "name": "visibility_before_hidden: Visibility",
-        "ordinal": 19,
-        "type_info": "Text"
-      },
-      {
-        "name": "created_by_username",
-        "ordinal": 20,
-        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -131,10 +121,8 @@
       false,
       false,
       true,
-      true,
-      true,
       true
     ]
   },
-  "hash": "fd87453c14e03bf5906126d84731a86ab63913ed236175f616cc588b6db613a9"
+  "hash": "1f610c19bbca807e1856791f9926c53171791ead121760c42ef3096f08f70f16"
 }

@@ -69,7 +69,7 @@ test('未ログイン: 「ログインした人」のグループを開くとロ
 	);
 });
 
-test('非表示: 一覧には出ないが、ログインした人は URL で開け、未ログインはログインへ送られる', async ({
+test('非表示: 閲覧の一覧には出ず、非表示の一覧から開け、未ログインはログインへ送られる', async ({
 	page,
 	browser
 }) => {
@@ -87,7 +87,9 @@ test('非表示: 一覧には出ないが、ログインした人は URL で開�
 					await expect(page.getByRole('link', { name: publicTitle })).toBeVisible();
 					await expect(page.getByRole('link', { name: title })).toHaveCount(0);
 
-					await page.goto(`/groups/${group.id}`);
+					// 非表示の一覧は閲覧の一覧と同じ部品なので、行を押すとその閲覧画面が開く。
+					await page.goto('/hidden');
+					await page.getByRole('link', { name: title }).click();
 					await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
 
 					const anonPage = await anon.newPage();

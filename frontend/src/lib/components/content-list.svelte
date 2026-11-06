@@ -5,7 +5,6 @@
 	import { resolve } from '$app/paths';
 	import FileIcon from '@lucide/svelte/icons/file';
 	import { refreshAll } from '$app/navigation';
-	import { toast } from 'svelte-sonner';
 	import { client } from '$lib/api/client';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { selectableVisibilities } from '$lib/visibility';
@@ -188,7 +187,7 @@
 		new Map(linkDetailEntries.map((content, index) => [content.id, index]))
 	);
 
-	// 行の ⋮ のメニュー (→ docs/ui.md「UI 全般」)。編集ページを開かずに、公開範囲を変える・非表示にする。
+	// 行の ⋮ のメニュー (→ docs/ui.md「UI 全般」)。編集ページを開かずに、公開範囲を変える。
 	const errorDialog = new ErrorDialogState();
 	let visibilityTarget = $state<VisibilityTarget | null>(null);
 	let busy = $state(false);
@@ -217,36 +216,6 @@
 			busy = false;
 		}
 	}
-
-	async function hide(content: ContentEntry) {
-		if (busy) return;
-		busy = true;
-		try {
-			await errorDialog.attempt(
-				() =>
-					client.PUT('/api/v1/contents/{id}/visibility', {
-						params: { path: { id: content.id } },
-						body: { visibility: 'hidden' }
-					}),
-				async () => {
-					await refreshAll();
-					// 行が一覧から消えるので、何が起きたかと戻す口を知らせる。
-					toast.success(m.contents_hidden_toast({ title: content.title }), {
-						action: { label: m.action_undo(), onClick: () => void unhide(content) }
-					});
-				}
-			);
-		} finally {
-			busy = false;
-		}
-	}
-
-	async function unhide(content: ContentEntry) {
-		await errorDialog.attempt(
-			() => client.POST('/api/v1/contents/{id}/unhide', { params: { path: { id: content.id } } }),
-			() => refreshAll()
-		);
-	}
 </script>
 
 {#snippet rowMenu(content: ContentEntry)}
@@ -262,9 +231,6 @@
 				</DropdownMenu.Item>
 				<DropdownMenu.Item disabled={busy} onSelect={() => void openVisibility(content)}>
 					{m.contents_row_visibility_menu()}
-				</DropdownMenu.Item>
-				<DropdownMenu.Item disabled={busy} onSelect={() => void hide(content)}>
-					{m.contents_row_hide_menu()}
 				</DropdownMenu.Item>
 			</RowActionsMenu>
 		</span>

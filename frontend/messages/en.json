@@ -781,7 +781,6 @@
 	"error_share_read_only": "This share cannot be written to. Ask an administrator to check the write permission.",
 	"archive_axes_ai_prompt_show": "Show the prompt",
 	"archive_axes_ai_back_button": "Back",
-	"action_undo": "Undo",
 	"action_retry": "Retry",
 	"schedule_off": "Off",
 	"schedule_interval_before": "When",
@@ -805,8 +804,6 @@
 	"contents_shortcut_missing": "The file was not found.",
 	"contents_edit_shortcut_title": "Location",
 	"contents_row_visibility_menu": "Visibility...",
-	"contents_row_hide_menu": "Hide",
-	"contents_hidden_toast": "Hid “{title}”.",
 	"contents_visibility_dialog_title": "Visibility of “{title}”",
 	"shares_heading": "Shares",
 	"shares_empty": "There are no shares you can use.",
@@ -885,7 +882,5 @@
 	"hidden_menu_item": "Hidden content ({count})",
 	"hidden_title": "Hidden content",
 	"hidden_empty": "There is no hidden content.",
-	"hidden_fetch_failed": "Couldn't load the hidden content. Please try again later.",
-	"hidden_unhide_menu": "Show again",
-	"hidden_restore_to": "Shows to: {visibility}"
+	"hidden_fetch_failed": "Couldn't load the hidden content. Please try again later."
 }

@@ -496,7 +496,8 @@ export interface paths {
         };
         /**
          * 非表示のコンテンツの一覧。`admin` には全部、ほかの人には自分が作成者のものだけを返す。
-         *     自分が非表示にしたものを、閲覧の場から消えた後に探して戻せるようにするため。新しく非表示にした順。
+         *     閲覧の場のどこにも並ばないので、後から探して開けるようにするため。
+         *     行の形と並び順はホームやグループの一覧と同じにし、画面も同じ一覧の部品で出す (→ docs/ui.md「UI 全般」)。
          */
         get: operations["list_hidden_contents"];
         put?: never;
@@ -1186,27 +1187,6 @@ export interface paths {
         get: operations["thumbnail_content"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/contents/{id}/unhide": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 非表示のコンテンツを、非表示にする前の公開範囲に戻す。覚えていなければ (この仕組みより前に非表示に
-         *     したもの) `authenticated` に戻す。前が `private` で作成者がいなければ、誰も戻せない (403)。
-         *     非表示でないものはそのままの公開範囲を返す (二度押しを失敗にしないため)。
-         */
-        post: operations["unhide_content"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2450,10 +2430,6 @@ export interface components {
             slug: string;
             title: string;
         };
-        /** @description 非表示のコンテンツの1行。管理画面の一覧と同じ形に、戻すときの公開範囲を添える。 */
-        HiddenContentResponse: components["schemas"]["AdminContentResponse"] & {
-            restoreVisibility?: components["schemas"]["Visibility"] | null;
-        };
         /** @description 表示するときの画像の縦横 (px)。EXIF の向きを当てた後の値。 */
         ImageSize: {
             /** Format: int32 */
@@ -3122,10 +3098,6 @@ export interface components {
             path?: string;
             /** Format: int64 */
             shareId: number;
-        };
-        UnhideResponse: {
-            /** @description 戻した後の公開範囲。 */
-            visibility: components["schemas"]["Visibility"];
         };
         UpdateContentRequest: {
             autoRescan?: components["schemas"]["AutoRefresh"] | null;
@@ -4966,7 +4938,13 @@ export interface operations {
     };
     list_hidden_contents: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description 並び順。`title` (既定、タイトル順) か `new` (新しい順)。
+                 *     知らない値は既定として扱う (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
+                 */
+                sort?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4979,7 +4957,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HiddenContentResponse"][];
+                    "application/json": components["schemas"]["ContentResponse"][];
                 };
             };
             /** @description 未ログイン */
@@ -7044,64 +7022,6 @@ export interface operations {
             };
             /** @description 見えない・存在しない、またはプレビューしない画像 */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    unhide_content: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UnhideResponse"];
-                };
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 作成者・admin以外か、前が作成者のみで作成者がいない */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 存在しないか、他人の作成者のみ */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 作成者のみのグループの決まりに合わない */
-            422: {
                 headers: {
                     [name: string]: unknown;
                 };

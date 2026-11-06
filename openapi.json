@@ -1835,8 +1835,22 @@
     },
     "/api/v1/contents/hidden": {
       "get": {
-        "summary": "非表示のコンテンツの一覧。`admin` には全部、ほかの人には自分が作成者のものだけを返す。\n自分が非表示にしたものを、閲覧の場から消えた後に探して戻せるようにするため。新しく非表示にした順。",
+        "summary": "非表示のコンテンツの一覧。`admin` には全部、ほかの人には自分が作成者のものだけを返す。\n閲覧の場のどこにも並ばないので、後から探して開けるようにするため。\n行の形と並び順はホームやグループの一覧と同じにし、画面も同じ一覧の部品で出す (→ docs/ui.md「UI 全般」)。",
         "operationId": "list_hidden_contents",
+        "parameters": [
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "並び順。`title` (既定、タイトル順) か `new` (新しい順)。\n知らない値は既定として扱う (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -1845,7 +1859,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/HiddenContentResponse"
+                    "$ref": "#/components/schemas/ContentResponse"
                   }
                 }
               }
@@ -4551,75 +4565,6 @@
           },
           "404": {
             "description": "見えない・存在しない、またはプレビューしない画像",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/contents/{id}/unhide": {
-      "post": {
-        "summary": "非表示のコンテンツを、非表示にする前の公開範囲に戻す。覚えていなければ (この仕組みより前に非表示に\nしたもの) `authenticated` に戻す。前が `private` で作成者がいなければ、誰も戻せない (403)。\n非表示でないものはそのままの公開範囲を返す (二度押しを失敗にしないため)。",
-        "operationId": "unhide_content",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UnhideResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "未ログイン",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "作成者・admin以外か、前が作成者のみで作成者がいない",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "存在しないか、他人の作成者のみ",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "作成者のみのグループの決まりに合わない",
             "content": {
               "application/json": {
                 "schema": {
@@ -8344,30 +8289,6 @@
           }
         }
       },
-      "HiddenContentResponse": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/AdminContentResponse"
-          },
-          {
-            "type": "object",
-            "properties": {
-              "restoreVisibility": {
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/Visibility",
-                    "description": "「表示に戻す」で戻る公開範囲。前が `private` で作成者がいなければ、戻せないので `None`。"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            }
-          }
-        ],
-        "description": "非表示のコンテンツの1行。管理画面の一覧と同じ形に、戻すときの公開範囲を添える。"
-      },
       "ImageSize": {
         "type": "object",
         "description": "表示するときの画像の縦横 (px)。EXIF の向きを当てた後の値。",
@@ -10231,18 +10152,6 @@
           "shareId": {
             "type": "integer",
             "format": "int64"
-          }
-        }
-      },
-      "UnhideResponse": {
-        "type": "object",
-        "required": [
-          "visibility"
-        ],
-        "properties": {
-          "visibility": {
-            "$ref": "#/components/schemas/Visibility",
-            "description": "戻した後の公開範囲。"
           }
         }
       },
