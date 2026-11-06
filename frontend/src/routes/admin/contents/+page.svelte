@@ -6,28 +6,17 @@
 		pageHeadingTextClass,
 		adminTableBandClass
 	} from '$lib/page-layout';
-	import { goto, refreshAll } from '$app/navigation';
+	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { dialogFormClass } from '$lib/dialog-form';
 	import { client } from '$lib/api/client';
 	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
-	import { canEditContent, isAdmin } from '$lib/auth';
 	import { archiveItemsSummary, contentTypeLabel, visibilityLabel } from '$lib/content-labels';
-	import {
-		ContentFormState,
-		contentFormEffectiveVisibility,
-		contentFormVisibilityNote
-	} from '$lib/content-form.svelte';
+	import { ContentFormState } from '$lib/content-form.svelte';
 	import { ancestorPath, byIdMap, flattenTree, selfAndAncestors } from '$lib/content-tree';
-	import { contentTypeIcon, isDirectoryContentType, isPathContentType } from '$lib/content-types';
+	import { contentTypeIcon } from '$lib/content-types';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import {
-		canHoldContentOf,
-		fitsParent,
-		loosenedByReparent,
-		selectableVisibilities
-	} from '$lib/visibility';
+	import { canHoldContentOf, fitsParent, loosenedByReparent } from '$lib/visibility';
 	import { ReparentDrag } from '$lib/reparent-drag.svelte';
 	import * as m from '$lib/paraglide/messages.js';
 	import type { components } from '$lib/api/schema';
@@ -35,22 +24,16 @@
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
 	import { Button } from '$lib/components/ui/button';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
-	import * as Dialog from '$lib/components/ui/dialog';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Table from '$lib/components/ui/table';
 	import { contentPathLabel } from '$lib/root-location';
-	import ConfirmRegister from '$lib/components/confirm-register.svelte';
-	import ContentForm from '$lib/components/content-form.svelte';
-	import ContentTypeChooser from '$lib/components/content-type-chooser.svelte';
-	import DirPicker from '$lib/components/dir-picker.svelte';
+	import ContentCreateDialog from '$lib/components/content-create-dialog.svelte';
 	import ContentDeleteDialog from '$lib/components/content-delete-dialog.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
 	import LoadingLabel from '$lib/components/loading-label.svelte';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 	import type { PageProps } from './$types';
 	import { pageTitle } from '$lib/page-title';
-	import { parentPath } from '$lib/path-trail';
 	import { contentViewHref } from '$lib/content-view-href';
 	import {
 		actionColumnClass,
@@ -66,21 +49,10 @@
 	} from '$lib/table-columns';
 
 	type Content = components['schemas']['AdminContentResponse'];
-	type ContentType = components['schemas']['ContentType'];
 	type Visibility = components['schemas']['Visibility'];
 
 	let { data }: PageProps = $props();
 	let contents = $derived(data.contents);
-	// 「共有」が0件なら、パスを持つ種別は選ばせない (→ docs/folders.md「共有」)。
-	let unavailableTypes = $derived(
-		data.hasSharedFolders ? [] : (['folder', 'archive'] as ContentType[])
-	);
-	// 登録できるのはサーバーのパソコンの前にいる管理者だけなので、編集者には頼み先を示す。
-	let unavailableNote = $derived(
-		isAdmin(page.data.user)
-			? m.contents_create_type_needs_shared_folder_note()
-			: m.contents_create_type_needs_shared_folder_note_user()
-	);
 	// 親カラム(パンくず)と実際の見え方の計算で、idから行を引くために使う。
 	let contentById = $derived(byIdMap(contents));
 	// グループの子は親の下に字下げして並べる (→ docs/ui.md「UI 全般」)。
@@ -92,21 +64,11 @@
 		return ancestorPath(content.parentId, contentById);
 	}
 
-	// 作成ダイアログの状態。種別を選ぶ段と、必須項目を入力する段の二段階。
-	let formOpen = $state(false);
-	let createStep = $state<'type' | 'form'>('type');
-	// 「この中に追加...」で開いたときの親グループ。
-	let createParent = $state<Content | null>(null);
-	const form = new ContentFormState();
-	let saving = $state(false);
+	// 追加の窓。「コンテンツを追加...」と、グループの行の「中に追加...」で開く。
+	let createDialog = $state<ReturnType<typeof ContentCreateDialog>>();
 
+	// この画面は admin 専用 (→ `routes/admin/+layout.ts`) なので、行はどれも書き換えられ、フルパスも見せる。
 	let currentUserId = $derived(page.data.user?.id);
-	let canSeeFullPath = $derived(isAdmin(page.data.user));
-
-	// 種別による制限は持たない。ログイン済みなら全部作れる (→ docs/access.md「ロールと操作」)。
-	// ファイルは共有の中に置くので、ここでは作らない。前から登録してある file コンテンツは一覧に残る。
-	// `folder` の行はショートカットとして出す。ピッカーでファイルを選ぶと `shortcut` になる。ライブラリはここに出さない。
-	const creatableTypes: ContentType[] = ['link', 'folder', 'group'];
 
 	// 作成者のユーザーを削除した行は作成者が空になる (→ docs/access.md「ユーザーの削除と作成者」)。
 	function creatorLabel(content: Content): string {
@@ -116,78 +78,10 @@
 	// 削除確認ダイアログの対象。
 	let deletingContent = $state<Content | null>(null);
 
-	let dirPickerOpen = $state(false);
-	let confirmRegisterOpen = $state(false);
-
-	let visibilityOptions = $derived(selectableVisibilities(null, createParent));
-	let visibilityNote = $derived(contentFormVisibilityNote(form, contentById));
-	let effectiveFormVisibility = $derived(contentFormEffectiveVisibility(form, contentById));
-
-	// フォルダーを指すものの新規作成では、登録前の確認を常に出す。ファイルを指すものは、数えるものが無いので出さない
-	// (見える範囲は追加の窓の公開範囲の欄で分かる)。
-	let needsRegisterConfirm = $derived(isDirectoryContentType(form.type) && form.path !== '');
-
 	const errorDialog = new ErrorDialogState();
 
 	function openCreateDialog(parent: Content | null = null) {
-		form.resetForCreate(parent === null ? 'root' : String(parent.id));
-		createParent = parent;
-		createStep = 'type';
-		formOpen = true;
-	}
-
-	function chooseType(type: ContentType) {
-		// 種別を選んだだけでは入力途中として扱わない。外側のクリックで閉じられるようにするため。
-		const wasDirty = form.dirty;
-		form.chooseType(type);
-		// 公開範囲は場所を選ぶ種類の2段目にしか出ない。戻って別の種別を選んだときに、見えない値を残さない。
-		if (type !== 'folder') form.visibility = 'public';
-		// 「作成者のみ」のグループの中には「作成者のみ」しか置けない (選択肢もそれだけ)。
-		if (createParent?.visibility === 'private') form.visibility = 'private';
-		if (!wasDirty) form.markPristine();
-		createStep = 'form';
-	}
-
-	// 入力した値は消さない。種別を選び直しても入力し直さずに済むようにするため。
-	// 送るのは選んだ種別の項目だけなので (`createRequestFields`)、前の種別の値は送られない。
-	function backToTypes() {
-		createStep = 'type';
-	}
-
-	function handleSubmit(e: SubmitEvent) {
-		e.preventDefault();
-		if (saving) return;
-		// 対象ファイル数と実効的な閲覧範囲を見せてから送る (→ docs/folders.md「登録前の確認」)。
-		if (needsRegisterConfirm) {
-			confirmRegisterOpen = true;
-			return;
-		}
-		saveContent();
-	}
-
-	async function saveContent() {
-		if (saving) return;
-		saving = true;
-
-		try {
-			const result = await client.POST('/api/v1/contents', {
-				body: { type: form.type, ...form.createRequestFields() }
-			});
-			if (!result.response.ok || !result.data) {
-				errorDialog.show(errorMessage(result.error));
-				return;
-			}
-			formOpen = false;
-			// 任意の項目は、作った直後に編集ページで続けて入力する。
-			await goto(resolve('/admin/contents/[id]', { id: String(result.data.id) }));
-		} catch {
-			errorDialog.show(GENERIC_ERROR_MESSAGE());
-		} finally {
-			saving = false;
-			// 成否によらず確認ダイアログは閉じる。失敗時はフォームが残るので、
-			// エラー内容 (選べないパス等) を直して選び直せる。
-			confirmRegisterOpen = false;
-		}
+		createDialog?.start(parent);
 	}
 
 	// 行をグループ、または見出しの行のルートへの落とし先へドラッグして親を付け替える (→ docs/ui.md「UI 全般」)。
@@ -254,14 +148,14 @@
 		try {
 			// 更新 API は全項目の置き換えなので、一覧を読み込んだ後に別の人が変えた項目を
 			// 古い値で戻さないよう、送る直前に取り直した値を使う。
-			const latest = await client.GET('/api/v1/admin/contents');
+			const latest = await client.GET('/api/v1/contents/manage');
 			const fresh = latest.data?.find((c) => c.id === content.id);
 			if (!latest.response.ok || !fresh) {
 				errorDialog.show(errorMessage(latest.error));
 				await refreshAll();
 				return;
 			}
-			reparentForm.loadFrom(fresh, canSeeFullPath);
+			reparentForm.loadFrom(fresh, true);
 			reparentForm.parentId = parentId === null ? 'root' : String(parentId);
 			const result = await reparentForm.replace(content.id);
 			if (!result.response.ok || !result.data) {
@@ -351,8 +245,6 @@
 				<Table.Body>
 					{#each rows as { content, depth } (content.id)}
 						{@const TypeIcon = contentTypeIcon(content.type)}
-						<!-- 書き換えられない行は見るだけにする (→ docs/ui.md「UI 全般」)。 -->
-						{@const editable = canEditContent(page.data.user, content)}
 						<!-- 行のどこを押しても編集ページへ移る。押せる範囲はタイトルのリンクの ::after で行いっぱいに広げる
 					     (つまみのある行は、つまみの下だけを空ける)。
 					     ⋮メニューは DOM で後ろにあるので、その上に重なって押せる (→ docs/ui.md「UI 全般」)。
@@ -378,15 +270,13 @@
 										<!-- e2e が行を特定するための目印。「親」列にもグループ名がそのまま出るため、
 									     行全体の名前ではなくタイトルそのものを持つ要素で探す。 -->
 										<a
-											href={resolve('/admin/contents/[id]', { id: String(content.id) })}
+											href={resolve('/contents/[id]', { id: String(content.id) })}
 											class={[
 												rowLinkClass,
 												// つまみのある行は、つまみの右を ::after、左を ::before で覆い、つまみの下だけを空ける。
 												// リンクは長押しで iOS のドラッグを始めないよう draggable を外し、メニューも出さない (→ docs/ui.md「UI 全般」)。
 												'touch-callout-none',
-												editable
-													? 'before:absolute before:inset-y-0 before:left-0 before:row-link-before-handle after:row-link-after-handle'
-													: 'after:left-0'
+												'before:absolute before:inset-y-0 before:left-0 before:row-link-before-handle after:row-link-after-handle'
 											]}
 											draggable="false"
 											data-testid="content-title">{content.title}</a
@@ -409,24 +299,19 @@
 									<!-- 親を付け替えるつまみ。タイトルのリンクの ::after はつまみの右から始まるが、
 								     つまみの押せる範囲の広がりと重ならないよう DOM ではリンクの後ろに置いて上に重ね、
 								     見た目だけ order-first で先頭に戻す。読み上げ・キーボードには乗せない (→ docs/ui.md「UI 全般」)。 -->
-									{#if editable}
-										<span
-											{@attach reparentDrag.handle(content)}
-											data-testid="reparent-handle"
-											aria-hidden="true"
-											class={[
-												dragHandleClass,
-												'z-10 order-first',
-												reparenting ? 'opacity-50' : 'cursor-grab'
-											]}
-											oncontextmenu={(event) => event.preventDefault()}
-										>
-											<GripVerticalIcon class="size-4" />
-										</span>
-									{:else}
-										<!-- つまみの幅を空けて、タイトルの頭を書き換えられる行とそろえる。 -->
-										<span class="order-first size-8 shrink-0" aria-hidden="true"></span>
-									{/if}
+									<span
+										{@attach reparentDrag.handle(content)}
+										data-testid="reparent-handle"
+										aria-hidden="true"
+										class={[
+											dragHandleClass,
+											'z-10 order-first',
+											reparenting ? 'opacity-50' : 'cursor-grab'
+										]}
+										oncontextmenu={(event) => event.preventDefault()}
+									>
+										<GripVerticalIcon class="size-4" />
+									</span>
 								</span>
 							</Table.Cell>
 							<Table.Cell class={[columnFromSmClass, fitColumnClass, 'text-muted-foreground']}>
@@ -437,9 +322,7 @@
 							</Table.Cell>
 							<Table.Cell class={[columnFromLgClass, cappedColumnClass, 'text-muted-foreground']}>
 								<span class={cappedValueClass}
-									>{content.url ??
-										contentPathLabel(content, canSeeFullPath) ??
-										content.fileName}</span
+									>{content.url ?? contentPathLabel(content, true) ?? content.fileName}</span
 								>
 							</Table.Cell>
 							<Table.Cell class={[columnFromSmClass, fitColumnClass]}>
@@ -459,9 +342,8 @@
 									{/if}
 									<DropdownMenu.Item>
 										{#snippet child({ props })}
-											<a
-												href={resolve('/admin/contents/[id]', { id: String(content.id) })}
-												{...props}>{editable ? m.action_edit_page() : m.contents_menu_open()}</a
+											<a href={resolve('/contents/[id]', { id: String(content.id) })} {...props}
+												>{m.action_edit_page()}</a
 											>
 										{/snippet}
 									</DropdownMenu.Item>
@@ -478,14 +360,12 @@
 											<!-- eslint-enable svelte/no-navigation-without-resolve -->
 										{/snippet}
 									</DropdownMenu.Item>
-									{#if editable}
-										<DropdownMenu.Item
-											variant="destructive"
-											onSelect={() => (deletingContent = content)}
-										>
-											{m.action_delete()}
-										</DropdownMenu.Item>
-									{/if}
+									<DropdownMenu.Item
+										variant="destructive"
+										onSelect={() => (deletingContent = content)}
+									>
+										{m.action_delete()}
+									</DropdownMenu.Item>
 								</RowActionsMenu>
 							</Table.Cell>
 						</Table.Row>
@@ -519,78 +399,7 @@
 	{/if}
 </div>
 
-<Dialog.Root bind:open={formOpen}>
-	<Dialog.Content
-		interactOutsideBehavior={form.dirty ? 'ignore' : 'close'}
-		escapeKeydownBehavior={form.dirty ? 'ignore' : 'close'}
-	>
-		<Dialog.Header>
-			<Dialog.Title>
-				{createStep === 'type'
-					? m.contents_form_create_title()
-					: m.contents_create_form_title({ type: contentTypeLabel(form.type) })}
-			</Dialog.Title>
-			{#if createParent !== null}
-				<Dialog.Description>
-					{m.contents_create_parent_note({ group: createParent.title })}
-				</Dialog.Description>
-			{/if}
-		</Dialog.Header>
-		{#if createStep === 'type'}
-			<Dialog.Body>
-				<ContentTypeChooser
-					types={creatableTypes}
-					label={m.contents_create_type_label()}
-					disabledTypes={unavailableTypes}
-					disabledReason={m.contents_create_type_needs_shared_folder()}
-					disabledNote={unavailableNote}
-					onselect={chooseType}
-				/>
-			</Dialog.Body>
-		{:else}
-			<form onsubmit={handleSubmit} class={dialogFormClass}>
-				<Dialog.Body>
-					<ContentForm
-						{form}
-						variant="create"
-						{visibilityOptions}
-						{visibilityNote}
-						onchoosepath={() => (dirPickerOpen = true)}
-					/>
-				</Dialog.Body>
-				<Dialog.Footer>
-					<Button type="button" variant="outline" onclick={backToTypes}
-						>{m.contents_create_back_button()}</Button
-					>
-					<!-- パスはテキスト入力ではないため、required では未選択を防げない。 -->
-					<LoadingButton
-						type="submit"
-						loading={saving}
-						disabled={isPathContentType(form.type) && form.path === ''}
-						>{m.action_add()}</LoadingButton
-					>
-				</Dialog.Footer>
-			</form>
-		{/if}
-	</Dialog.Content>
-</Dialog.Root>
-
-<DirPicker
-	bind:open={dirPickerOpen}
-	initialPath={form.pathIsFile ? parentPath(form.path) : form.path}
-	mode="any"
-	onselect={(path, label, isFile) => form.choosePath(path, label, isFile)}
-/>
-
-<ConfirmRegister
-	bind:open={confirmRegisterOpen}
-	contentType={form.type}
-	path={form.path}
-	pathLabel={form.pathLabel}
-	visibility={effectiveFormVisibility}
-	{saving}
-	onconfirm={saveContent}
-/>
+<ContentCreateDialog bind:this={createDialog} {contents} hasSharedFolders={data.hasSharedFolders} />
 
 <!-- グループを消すと子がルート直下へ移るので、一覧を取り直して並びを作り直す。 -->
 <ContentDeleteDialog

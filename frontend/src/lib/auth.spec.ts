@@ -46,6 +46,11 @@ describe('isProtectedRoute', () => {
 		expect(isProtectedRoute('/admin/contents')).toBe(true);
 	});
 
+	it('protects the content edit pages', () => {
+		expect(isProtectedRoute('/contents/[id]')).toBe(true);
+		expect(isProtectedRoute('/contents/[id]/axes')).toBe(true);
+	});
+
 	it('leaves viewing routes open to anonymous visitors', () => {
 		expect(isProtectedRoute('/')).toBe(false);
 		expect(isProtectedRoute('/login')).toBe(false);
@@ -56,6 +61,7 @@ describe('isProtectedRoute', () => {
 
 	it('does not treat a route that merely starts with the same letters as protected', () => {
 		expect(isProtectedRoute('/administrators')).toBe(false);
+		expect(isProtectedRoute('/contentsx')).toBe(false);
 	});
 });
 

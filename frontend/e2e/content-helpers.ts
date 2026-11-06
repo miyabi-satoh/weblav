@@ -37,17 +37,28 @@ export async function openCreateForm(
 }
 
 /**
+ * ホームの見出しの「追加」から、リンクの作成の窓を開く。管理画面は admin 専用なので、一般ユーザーはここから作る。
+ */
+export async function openLinkFormFromHome(page: Page) {
+	await page.goto('/');
+	await page.getByRole('button', { name: /^追加$|^Add$/ }).click();
+	await page.getByRole('menuitem', { name: /^リンク\.\.\.$|^Link\.\.\.$/ }).click();
+	await waitForDialog(page);
+}
+
+/**
  * 作成を確定し、移った先の編集ページで作成できたことを確かめる。
  * タイトルは group 以外が自動で付くので、分かっているときだけ `title` を渡す。
  */
 export async function submitCreateForm(page: Page, title?: string) {
-	await page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
+	// 閲覧の画面の見出しにも「追加」があり、英語では同じ名前になるので、窓の中のボタンに限る。
+	await page.getByRole('dialog').getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
 	await expectContentEditPage(page, title);
 }
 
 /** 作成できて、そのコンテンツの編集ページへ移ったこと。 */
 export async function expectContentEditPage(page: Page, title?: string) {
-	await page.waitForURL(/\/admin\/contents\/\d+$/);
+	await page.waitForURL(/\/contents\/\d+$/);
 	if (title === undefined) {
 		await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 	} else {
@@ -58,9 +69,13 @@ export async function expectContentEditPage(page: Page, title?: string) {
 export async function createLinkContent(
 	page: Page,
 	title: string,
-	options: { url?: string; parentTitle?: string; visibility?: RegExp } = {}
+	options: { url?: string; parentTitle?: string; visibility?: RegExp; fromHome?: boolean } = {}
 ) {
-	await openCreateForm(page, 'link', options.parentTitle);
+	if (options.fromHome) {
+		await openLinkFormFromHome(page);
+	} else {
+		await openCreateForm(page, 'link', options.parentTitle);
+	}
 	// 既定は、サーバーが取りに行かない (公開アドレスではない) URL。タイトルの取得で待たされず、
 	// 結果も環境の通信に左右されない。
 	await page

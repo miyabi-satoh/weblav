@@ -4,11 +4,8 @@
 	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
 	import { resolve } from '$app/paths';
 	import FileIcon from '@lucide/svelte/icons/file';
-	import { refreshAll } from '$app/navigation';
-	import { toast } from 'svelte-sonner';
-	import { client } from '$lib/api/client';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { selectableVisibilities } from '$lib/visibility';
+	import PencilIcon from '@lucide/svelte/icons/pencil';
+	import { actionMenuTriggerClass } from '$lib/table-columns';
 	import { contentDownloadHref, contentRemoteHref, contentThumbnailHref } from '$lib/api/urls';
 	import { contentTypeIcon } from '$lib/content-types';
 	import {
@@ -36,12 +33,8 @@
 		browseRowTitleClass,
 		rowMenuSlotClass
 	} from '$lib/list-row';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
-	import VisibilityDialog, {
-		type VisibilityTarget
-	} from '$lib/components/visibility-dialog.svelte';
+	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import ListRowIcon from '$lib/components/list-row-icon.svelte';
 	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
 	import ListRowImageLink from '$lib/components/list-row-image-link.svelte';
@@ -69,7 +62,7 @@
 		subtitle?: (content: ContentEntry) => string | null | undefined;
 		/** 検索の結果の、どこにあるか。2段目の、説明の前に出す。 */
 		location?: (content: ContentEntry) => RowLocation | undefined;
-		/** 書き換えられる行 (`canEdit`) に ⋮ のメニューを出す。ホームとグループの一覧で使う。 */
+		/** 書き換えられる行 (`canEdit`) に編集ページへのペンを出す。ホームとグループの一覧で使う。 */
 		actions?: boolean;
 	} = $props();
 
@@ -188,85 +181,20 @@
 		new Map(linkDetailEntries.map((content, index) => [content.id, index]))
 	);
 
-	// 行の ⋮ のメニュー (→ docs/ui.md「UI 全般」)。編集ページを開かずに、公開範囲を変える・非表示にする。
 	const errorDialog = new ErrorDialogState();
-	let visibilityTarget = $state<VisibilityTarget | null>(null);
-	let busy = $state(false);
-
-	// 閲覧側の一覧は公開範囲・作成者・親を持たないので、選べる値を決めるために管理画面の一覧から引く
-	// (単一のコンテンツを取る API が無いため。→ routes/admin/contents/[id]/+layout.ts)。
-	async function openVisibility(content: ContentEntry) {
-		if (busy) return;
-		busy = true;
-		try {
-			await errorDialog.attempt(
-				() => client.GET('/api/v1/admin/contents'),
-				({ data }) => {
-					const found = data?.find((item) => item.id === content.id);
-					if (!found) return;
-					const parent = data?.find((item) => item.id === found.parentId);
-					visibilityTarget = {
-						id: found.id,
-						title: found.title,
-						visibility: found.visibility,
-						options: selectableVisibilities(found, parent)
-					};
-				}
-			);
-		} finally {
-			busy = false;
-		}
-	}
-
-	async function hide(content: ContentEntry) {
-		if (busy) return;
-		busy = true;
-		try {
-			await errorDialog.attempt(
-				() =>
-					client.PUT('/api/v1/contents/{id}/visibility', {
-						params: { path: { id: content.id } },
-						body: { visibility: 'hidden' }
-					}),
-				async () => {
-					await refreshAll();
-					// 行が一覧から消えるので、何が起きたかと戻す口を知らせる。
-					toast.success(m.contents_hidden_toast({ title: content.title }), {
-						action: { label: m.action_undo(), onClick: () => void unhide(content) }
-					});
-				}
-			);
-		} finally {
-			busy = false;
-		}
-	}
-
-	async function unhide(content: ContentEntry) {
-		await errorDialog.attempt(
-			() => client.POST('/api/v1/contents/{id}/unhide', { params: { path: { id: content.id } } }),
-			() => refreshAll()
-		);
-	}
 </script>
 
 {#snippet rowMenu(content: ContentEntry)}
 	{#if actions && content.canEdit}
+		<!-- 操作は編集だけなので、⋮ のメニューにせず、見出しと同じペンを ⋮ と同じ所・大きさで置く (→ docs/ui.md「UI 全般」)。 -->
 		<span class={rowMenuSlotClass()}>
-			<RowActionsMenu name={content.title}>
-				<DropdownMenu.Item>
-					{#snippet child({ props })}
-						<a href={resolve('/admin/contents/[id]', { id: String(content.id) })} {...props}
-							>{m.action_edit_page()}</a
-						>
-					{/snippet}
-				</DropdownMenu.Item>
-				<DropdownMenu.Item disabled={busy} onSelect={() => void openVisibility(content)}>
-					{m.contents_row_visibility_menu()}
-				</DropdownMenu.Item>
-				<DropdownMenu.Item disabled={busy} onSelect={() => void hide(content)}>
-					{m.contents_row_hide_menu()}
-				</DropdownMenu.Item>
-			</RowActionsMenu>
+			<a
+				href={resolve('/contents/[id]', { id: String(content.id) })}
+				class={actionMenuTriggerClass}
+				aria-label={m.browse_heading_edit_label({ title: content.title })}
+			>
+				<PencilIcon class="size-4" />
+			</a>
 		</span>
 	{/if}
 {/snippet}
@@ -396,7 +324,4 @@
 	</ul>
 {/if}
 
-{#if actions}
-	<VisibilityDialog bind:target={visibilityTarget} onsaved={() => refreshAll()} />
-{/if}
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

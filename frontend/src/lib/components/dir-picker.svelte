@@ -79,7 +79,7 @@
 		loadError = '';
 		selectedFile = null;
 		try {
-			const { data, error, response } = await client.GET('/api/v1/admin/fs/dirs', {
+			const { data, error, response } = await client.GET('/api/v1/fs/dirs', {
 				params: { query: { path, files: mode !== 'dir' } }
 			});
 			if (!isCurrent()) return;

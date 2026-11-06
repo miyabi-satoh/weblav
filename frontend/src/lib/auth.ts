@@ -4,17 +4,18 @@ import type { components } from '$lib/api/schema';
 /**
  * ログインが必要なページの route id 判定。`+layout.ts` で使う。
  *
- * ログインを要求するのは `/admin` 配下だけ (→ docs/access.md「フロントエンドのガード反転」)。
+ * ログインを要求するのは `/admin` 配下と、コンテンツの編集ページ (`/contents/[id]` 配下) だけ
+ * (→ docs/access.md「フロントエンドのガード反転」)。
  *
  * `url.pathname` ではなく `route.id` で判定する: base path を設定してもroute idは
  * 変わらないため。
  */
-const PROTECTED_ROUTE_PREFIX = '/admin';
+const PROTECTED_ROUTE_PREFIXES = ['/admin', '/contents'];
 
 export function isProtectedRoute(routeId: string | null): boolean {
-	return (
-		routeId === PROTECTED_ROUTE_PREFIX ||
-		(routeId?.startsWith(`${PROTECTED_ROUTE_PREFIX}/`) ?? false)
+	if (routeId === null) return false;
+	return PROTECTED_ROUTE_PREFIXES.some(
+		(prefix) => routeId === prefix || routeId.startsWith(`${prefix}/`)
 	);
 }
 

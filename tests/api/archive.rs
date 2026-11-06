@@ -153,8 +153,8 @@ async fn directory_contents_by_regular_user_are_confined_to_the_shared_folders(p
 
     // ディレクトリ選択APIも、編集者から見て外は同じ 422 になる。
     for uri in [
-        format!("/api/v1/admin/fs/dirs?path={}", outside.display()),
-        format!("/api/v1/admin/fs/count?path={}", outside.display()),
+        format!("/api/v1/fs/dirs?path={}", outside.display()),
+        format!("/api/v1/fs/count?path={}", outside.display()),
     ] {
         let (status, _) = send_empty(app.clone(), "GET", &uri, &cookie).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{uri}");
@@ -178,7 +178,7 @@ async fn fs_dirs_does_not_tell_a_regular_user_whether_a_path_outside_exists(pool
             app.clone(),
             build_request(
                 "GET",
-                &format!("/api/v1/admin/fs/dirs?path={}", dir.display()),
+                &format!("/api/v1/fs/dirs?path={}", dir.display()),
                 Some(&cookie),
                 None,
             ),
@@ -405,7 +405,7 @@ async fn admin_contents_list_counts_the_visible_items_of_an_archive(pool: Sqlite
     .await
     .expect("パターンを書けなかった");
 
-    let (status, body) = send_empty(app, "GET", "/api/v1/admin/contents", &cookie).await;
+    let (status, body) = send_empty(app, "GET", "/api/v1/contents/manage", &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let listed: Vec<serde_json::Value> =
         serde_json::from_str(&body).expect("一覧をJSONとして読めなかった");

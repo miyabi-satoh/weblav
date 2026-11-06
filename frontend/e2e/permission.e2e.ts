@@ -6,36 +6,28 @@ import { test, expect, type Page } from '@playwright/test';
 import { ADMIN_PASSWORD, ADMIN_USERNAME } from './auth';
 import { logInByApi, send, withContentByApi, withUserByApi } from './api-helpers';
 import { rescanArchive, withDirectoryContent } from './fixture-helpers';
-import {
-	ADD_AXIS_BUTTON_NAME,
-	addAxisValue,
-	axisValuesForm,
-	saveAxisValues,
-	selectAxis
-} from './archive-helpers';
+import { ADD_AXIS_BUTTON_NAME, addAxisValue, saveAxisValues, selectAxis } from './archive-helpers';
 import {
 	anonymousContext,
 	basicSaveButton,
-	CONTENT_ADD_BUTTON_NAME,
-	CONTENT_TYPE_NAME,
 	contentRow,
-	DELETE_MENU_ITEM_NAME,
 	fillLogInForm,
 	ITEMS_TAB_NAME,
-	ROW_ACTIONS_BUTTON_NAME,
-	SAVE_BUTTON_NAME,
+	RECOVERY_CODE_MENU_ITEM_NAME,
 	saveForm,
-	TITLE_LABEL,
 	uniqueId,
 	VISIBILITY_LABEL,
 	VISIBILITY_PRIVATE_OPTION_NAME,
-	waitForDialog
+	browseLink
 } from './helpers';
 
 // 待ち続けて制限時間を使い切ると、後片付けまで時間切れになる (→ archive.e2e.ts)。
 test.use({ actionTimeout: 10_000, navigationTimeout: 10_000 });
 
 const EDITOR_PASSWORD = 'E2eEditor!2026Test';
+
+/** ユーザーメニューの管理画面の入口 (admin にだけ出る)。 */
+const ADMIN_MENU_ITEM_NAME = /^管理ページ$|^Admin$/;
 
 /** 管理画面のタブ (admin にだけ出る)。 */
 function adminTabs(page: Page) {
@@ -70,7 +62,7 @@ test('未ログイン: 「ログインした人」のグループを開くとロ
 	);
 });
 
-test('非表示: 一覧には出ないが、ログインした人は URL で開け、未ログインはログインへ送られる', async ({
+test('非表示: 閲覧の一覧には出ず、非表示の一覧から開け、未ログインはログインへ送られる', async ({
 	page,
 	browser
 }) => {
@@ -85,10 +77,12 @@ test('非表示: 一覧には出ないが、ログインした人は URL で開�
 				try {
 					// 「出ない」の確かめが掴み方の誤りで通らないよう、同じ掴み方で「誰でも」は出ることも見る。
 					await page.goto('/');
-					await expect(page.getByRole('link', { name: publicTitle })).toBeVisible();
-					await expect(page.getByRole('link', { name: title })).toHaveCount(0);
+					await expect(browseLink(page, publicTitle)).toBeVisible();
+					await expect(browseLink(page, title)).toHaveCount(0);
 
-					await page.goto(`/groups/${group.id}`);
+					// 非表示の一覧は閲覧の一覧と同じ部品なので、行を押すとその閲覧画面が開く。
+					await page.goto('/hidden');
+					await browseLink(page, title).click();
 					await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
 
 					const anonPage = await anon.newPage();
@@ -131,7 +125,7 @@ test('親グループ: 「ログインした人」のグループの中の「誰
 					await expect(row).not.toContainText(/ログインした人|Logged-in users/);
 
 					// 編集ページでは、親グループによる実際の見え方 (「ログインした人」) を公開範囲の下に書く。
-					await page.goto(`/admin/contents/${link.id}`);
+					await page.goto(`/contents/${link.id}`);
 					await expect(
 						page.getByText(
 							/親のグループの公開範囲により、実際には「ログインした人」になります。|Because of the parent group's visibility, this is actually “Logged-in users”\./
@@ -156,7 +150,7 @@ test('公開範囲の選択肢: 「作成者のみ」のグループの中のも
 				page.request,
 				{ type: 'link', title: linkTitle, url: 'https://example.com', parentId: group.id },
 				async (link) => {
-					await page.goto(`/admin/contents/${link.id}`);
+					await page.goto(`/contents/${link.id}`);
 					await page.getByLabel(VISIBILITY_LABEL).click();
 					await expect(page.getByRole('option')).toHaveCount(1);
 					await expect(
@@ -187,7 +181,7 @@ test('管理者: 他人の「作成者のみ」でも、公開範囲をすべて
 					visibility: 'private'
 				},
 				async (link) => {
-					await page.goto(`/admin/contents/${link.id}`);
+					await page.goto(`/contents/${link.id}`);
 					await page.getByLabel(VISIBILITY_LABEL).click();
 					await expect(page.getByRole('option')).toHaveCount(4);
 					await page.keyboard.press('Escape');
@@ -200,7 +194,7 @@ test('管理者: 他人の「作成者のみ」でも、公開範囲をすべて
 	});
 });
 
-test('編集者: 管理のタブが出ず、ユーザー管理とサイト設定はコンテンツ管理へ戻されるが、追加の種類は全部出る', async ({
+test('編集者: 管理画面はどれもホームへ戻され、メニューに入口が出ず、ホームの「追加」から種類を全部選べる', async ({
 	page,
 	browser
 }) => {
@@ -214,21 +208,28 @@ test('編集者: 管理のタブが出ず、ユーザー管理とサイト設定
 			await logInByApi(editor.request, username, EDITOR_PASSWORD);
 			const editorPage = await editor.newPage();
 
-			await editorPage.goto('/admin/contents');
-			await expect(editorPage.getByRole('button', { name: CONTENT_ADD_BUTTON_NAME })).toBeVisible();
+			// `/admin` の下は admin 専用 (→ docs/access.md「ロールと操作」)。
+			for (const path of ['/admin/contents', '/admin/users', '/admin/roots', '/admin/settings']) {
+				await editorPage.goto(path);
+				await editorPage.waitForURL((url) => url.pathname === '/');
+			}
 			await expect(adminTabs(editorPage)).toHaveCount(0);
 
-			for (const path of ['/admin/users', '/admin/roots', '/admin/settings']) {
-				await editorPage.goto(path);
-				await editorPage.waitForURL((url) => url.pathname === '/admin/contents');
-			}
+			await editorPage.getByRole('button', { name: username, exact: true }).click();
+			await expect(
+				editorPage.getByRole('menuitem', { name: RECOVERY_CODE_MENU_ITEM_NAME })
+			).toBeVisible();
+			await expect(editorPage.getByRole('menuitem', { name: ADMIN_MENU_ITEM_NAME })).toHaveCount(0);
+			await editorPage.keyboard.press('Escape');
 
-			// フォルダーも編集者に開いている (→ docs/access.md「ロールと操作」)。
-			await editorPage.getByRole('button', { name: CONTENT_ADD_BUTTON_NAME }).click();
-			await waitForDialog(editorPage);
-			const dialog = editorPage.getByRole('dialog');
-			for (const name of [CONTENT_TYPE_NAME.link, CONTENT_TYPE_NAME.folder]) {
-				await expect(dialog.getByRole('button', { name })).toBeEnabled();
+			// フォルダー (ショートカット) も編集者に開いている (→ docs/access.md「ロールと操作」)。
+			await editorPage.getByRole('button', { name: /^追加$|^Add$/ }).click();
+			for (const name of [
+				/^リンク\.\.\.$|^Link\.\.\.$/,
+				/^ショートカット\.\.\.$|^Shortcut\.\.\.$/,
+				/^グループ\.\.\.$|^Group\.\.\.$/
+			]) {
+				await expect(editorPage.getByRole('menuitem', { name })).toBeVisible();
 			}
 		} finally {
 			await editor.close();
@@ -236,7 +237,7 @@ test('編集者: 管理のタブが出ず、ユーザー管理とサイト設定
 	});
 });
 
-test('編集者: 他人のアーカイブは見るだけで、管理者が作成者を付け替えると軸まで設定できる', async ({
+test('編集者: 他人のアーカイブの編集ページは閲覧画面へ送られ、管理者が作成者を付け替えると軸まで設定できる', async ({
 	page,
 	browser
 }) => {
@@ -244,7 +245,7 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 	await withDirectoryContent(
 		page.request,
 		{ type: 'archive', namePrefix: 'e2e-editor-archive' },
-		async (archive, title) => {
+		async (archive) => {
 			await send(page.request, 'post', `/contents/${archive.id}/axes`, {
 				name: '種類',
 				source: 'filenameWord',
@@ -252,66 +253,23 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 			});
 			await rescanArchive(page.request, archive.id);
 
-			// 管理者には「軸を追加...」が出る。編集者で「出ない」ことを見る掴み方の対照。
-			await page.goto(`/admin/contents/${archive.id}/axes`);
-			await expect(page.getByRole('button', { name: ADD_AXIS_BUTTON_NAME })).toBeVisible();
-
 			await withUserByApi(page.request, username, EDITOR_PASSWORD, async () => {
 				const editor = await anonymousContext(browser);
 				try {
 					await logInByApi(editor.request, username, EDITOR_PASSWORD);
 					const editorPage = await editor.newPage();
 
-					// 一覧の⋮メニューは「開く」だけになり、削除は出ない。
-					await editorPage.goto('/admin/contents');
-					await contentRow(editorPage, title)
-						.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME })
-						.click();
-					await expect(editorPage.getByRole('menuitem', { name: /^開く$|^Open$/ })).toBeVisible();
-					await expect(
-						editorPage.getByRole('menuitem', { name: DELETE_MENU_ITEM_NAME })
-					).toHaveCount(0);
-					await editorPage.keyboard.press('Escape');
-
-					// 基本情報は見るだけ。理由を見出しの下に出し、保存ボタンを出さない (→ docs/ui.md「UI 全般」)。
-					await editorPage.goto(`/admin/contents/${archive.id}`);
-					await expect(editorPage.getByTestId('view-only-note')).toBeVisible();
-					await expect(editorPage.getByLabel(TITLE_LABEL)).toBeDisabled();
-					// 選択 (bits-ui) は fieldset では止まらないので、開かないことも見る。
-					await editorPage
-						.getByRole('button', { name: /^親のグループ$|^Parent group$/ })
-						.click({ force: true });
-					await expect(editorPage.getByRole('listbox')).toHaveCount(0);
-					await expect(editorPage.getByRole('button', { name: SAVE_BUTTON_NAME })).toHaveCount(0);
-
-					await editorPage.getByRole('link', { name: ITEMS_TAB_NAME }).click();
-					await expect(editorPage.getByText('2024/answer.pdf')).toBeVisible();
-					await expect(
-						editorPage.getByRole('button', { name: /再スキャンする|Rescan/ })
-					).toHaveCount(0);
-
-					// 値の辞書は見えるが、保存ボタンは出ない (selectAxis は保存ボタンで読み込みを待つので使わない)。
-					await editorPage.getByRole('link', { name: /^分類$|^Categories$/ }).click();
-					// ファイルのタブにも同じ名前の軸の絞り込みがあるので、移り終えてから押す。
-					await editorPage.waitForURL(/\/axes$/);
-					await editorPage
-						.getByRole('button')
-						.filter({ has: editorPage.getByText('種類', { exact: true }) })
-						.click();
-					await expect(axisValuesForm(editorPage)).toBeVisible();
-					await expect(editorPage.getByRole('button', { name: ADD_AXIS_BUTTON_NAME })).toHaveCount(
-						0
-					);
-					await expect(editorPage.getByRole('button', { name: SAVE_BUTTON_NAME })).toHaveCount(0);
+					// 書き換えられない編集ページは、そのライブラリの閲覧画面へ送る (→ docs/ui.md「UI 全般」)。
+					await editorPage.goto(`/contents/${archive.id}/axes`);
+					await editorPage.waitForURL(new RegExp(`/archives/${archive.id}$`));
 
 					// 管理者が作成者を編集者に付け替える。
-					await page.goto(`/admin/contents/${archive.id}`);
+					await page.goto(`/contents/${archive.id}`);
 					await page.getByRole('button', { name: /^作成者$|^Creator$/ }).click();
 					await page.getByRole('option', { name: username }).click();
 					await saveForm(page, { button: basicSaveButton(page) });
 
-					await editorPage.reload();
-					await expect(editorPage.getByTestId('view-only-note')).toHaveCount(0);
+					await editorPage.goto(`/contents/${archive.id}/axes`);
 					await expect(
 						editorPage.getByRole('button', { name: ADD_AXIS_BUTTON_NAME })
 					).toBeVisible();
@@ -319,7 +277,7 @@ test('編集者: 他人のアーカイブは見るだけで、管理者が作成
 					await addAxisValue(editorPage, 'listening', 'リスニング');
 					await saveAxisValues(editorPage, '種類');
 
-					await editorPage.getByRole('link', { name: ITEMS_TAB_NAME }).click();
+					await browseLink(editorPage, ITEMS_TAB_NAME).click();
 					await expect(
 						editorPage.getByRole('button', { name: /再スキャンする|Rescan/ })
 					).toBeVisible();

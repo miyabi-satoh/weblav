@@ -44,7 +44,6 @@
 	const errorDialog = new ErrorDialogState();
 
 	let contentId = $derived(data.contentId);
-	let editable = $derived(data.editable);
 
 	/** 管理の権限で開く口。 */
 	const MANAGE_URLS: ArchiveItemUrls = {
@@ -131,7 +130,7 @@
 				axes={view.axes}
 				filters={data.filters}
 				sort={data.sort}
-				path={resolve('/admin/contents/[id]/items', { id: String(contentId) })}
+				path={resolve('/contents/[id]/items', { id: String(contentId) })}
 				total={nameActive ? view.totalAll : view.total}
 				shown={nameActive ? view.total : undefined}
 				countOnlyWhenFiltered
@@ -139,7 +138,7 @@
 				folderMissing={view.folderMissing}
 			>
 				{#snippet countAction()}
-					{#if editable && nameActive}
+					{#if nameActive}
 						<Button
 							type="button"
 							variant="outline"

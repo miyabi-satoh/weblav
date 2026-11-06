@@ -19,6 +19,12 @@ Titles are assigned automatically. To change one, use the edit page that opens a
 
 ## Start
 
+On Home or on a group's page, select “Add” to the right of the heading and choose a type. On a group's page, the new item goes inside that group.
+
+![“Add” to the right of the Home heading, and the type menu](images/add-menu.webp)
+
+Administrators can also add from the admin pages.
+
 1. On the “Contents” tab in the admin pages, select “Add content...”.
 
    ![The Contents tab and Add button](images/contents-page.webp)
@@ -99,17 +105,15 @@ note = "A description shown under the link (optional)"
 | Everyone | Everyone, including people who aren't logged in (default) |
 | Logged-in users | Only logged-in users |
 | Creator only | Listed only for the person who registered it (administrators can open it from the admin pages) |
-| Hidden | Not listed (logged-in users can open it from the admin pages) |
+| Hidden | Not listed (the person who registered it and administrators can open it from “Hidden content” in the user name menu) |
 
-1. In the “Contents” list, select the row (you can also choose “Edit” from “⋮” on the row).
+1. In the list on Home or in a group, select the pen at the right end of a row of an item you registered (administrators: any item) (administrators can also select the row in the “Contents” list in the admin pages).
 
-   ![The content row menu](images/row-menu.webp)
+   ![A row in the Home list, with the pen at the right end](images/row-edit-pen.webp)
 
 2. Choose “Visibility”, then select “Save”.
 
    ![Parent group and Visibility on the edit page](images/edit-visibility.webp)
-
-You can also change it from the list on Home or in a group. On a row of an item you registered (administrators: any item), select “⋮”, choose “Visibility...”, then choose the visibility. “Edit” opens the edit page.
 
 Items in a group are visible only to people who also meet the group’s visibility setting.
 
@@ -117,39 +121,36 @@ Visibility controls how an item appears as content. Files inside a folder can st
 
 ## Hide and show again
 
-In the list on Home or in a group, select “⋮” on a row, then choose “Hide” to remove it from the list right away. To bring it back right away, select “Undo” in the notice that appears.
+Set the visibility to “Hidden” on the edit page to remove an item from the lists on Home and in groups.
 
-Hidden items are listed under “Hidden content” in the username menu at the top right (items you registered; administrators see all).
-
-1. Select your username at the top right, then choose “Hidden content (count)”.
-2. Select “⋮” on the row, then choose “Show again”.
-
-It returns to the visibility it had before it was hidden. If an item was “Creator only” and its creator's user has been deleted, there is nothing to return it to, so “Show again” does not appear. Choose its visibility on the edit page instead. You can also edit or delete items from “⋮”.
+Hidden items are listed under “Hidden content” in the username menu at the top right (items you registered; administrators see all). To show one again, select the pen at the right end of its row there to open the edit page, then choose another visibility.
 
 Set a group to “Creator only” to make it a space just for you. It can hold only your own “Creator only” content, and anything you add inside it becomes “Creator only”. A group that holds someone else’s content, or content that isn’t “Creator only”, can’t be set to “Creator only”.
 
 ## Put items in a group
 
-To add a new item:
+To add a new item, use “Add” to the right of the heading on the group's page (→ “Start”).
+
+Administrators can also add from the list in the admin pages.
 
 1. Select “⋮” on the group row, then choose “Add inside...”.
 
    ![The group row menu](images/register-group-menu.webp)
 
-2. Continue from step 2 in “Start”.
+2. Continue from step 2 of the admin pages steps in “Start”.
 
 To move an existing item:
 
-1. Select its row to open the edit page.
+1. Open the edit page (→ “Change contents” below).
 2. Choose “Parent group”, then select “Save”.
 
    ![Parent group and Visibility on the edit page](images/edit-visibility.webp)
 
 ## Change contents
 
-Select the row to open the edit page, make your changes, then select “Save”.
+Open the edit page, make your changes, then select “Save”. To open the edit page, select the pen at the right end of a row in the list on Home or in a group, or the pen next to the heading of a group or other page. Administrators can also select the row in the list in the admin pages.
 
-To see how it looks to viewers, select “View on site” next to the heading of the edit page (it is also in the row’s “⋮” in the list). This opens the group the item is in (Home if it isn't in a group), where it's listed. Items set to “Hidden” and other people's “Creator only” items aren't listed there, so the item itself opens (files registered in an earlier version, such as images, still open the group).
+To see how it looks to viewers, select “View on site” next to the heading of the edit page (it is also in the row’s “⋮” in the list in the admin pages). This opens the group the item is in (Home if it isn't in a group), where it's listed. Items set to “Hidden” and other people's “Creator only” items aren't listed there, so the item itself opens (files registered in an earlier version, such as images, still open the group).
 
 ![The Link edit page. Below the title and description are buttons to refetch each one.](images/edit-link.webp)
 
@@ -161,15 +162,15 @@ To see how it looks to viewers, select “View on site” next to the heading of
 
 ## Delete
 
-1. Select “⋮” on the row, then choose “Delete...”.
+1. In the “Delete” section at the bottom of the edit page, select “Delete...” (administrators can also choose it from a row's “⋮” in the list in the admin pages).
 
-   ![The content row menu](images/row-menu.webp)
+   ![The “Delete” section of the edit page](images/delete-section.webp)
 
 2. Select “Delete”.
 
    ![The Delete content confirmation](images/content-delete.webp)
 
-You can also delete from the edit page: select “⋮” next to the heading, then choose “Delete...”. After deleting, you return to the list.
+After deleting, administrators return to the list in the admin pages. Others return to the group the item was in (Home if it wasn't in a group).
 
 - Deleting a shortcut or library does not delete files on your computer.
 - Deleting a group moves its contents out of the group, to the top level.

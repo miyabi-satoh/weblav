@@ -304,12 +304,18 @@ export function contentRow(page: Page, title: string): Locator {
 }
 
 /**
- * 編集ページの見出しの段の⋮メニューを開き、名前が `name` に一致する項目を押す。
- * 見出しの段の⋮は、ページで最初の⋮ (一覧の行の⋮と同じ部品)。
+ * 閲覧の一覧の行のリンク。書き換えられる行には「〈タイトル〉を編集」のペンも並び、名前の一部一致で両方に当たるので、
+ * 文字を持つ方 (タイトルのリンク) に絞る。ペンは名前を `aria-label` で持ち、文字を持たない。
  */
-export async function clickHeadingMenuItem(page: Page, name: RegExp): Promise<void> {
-	await page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).first().click();
-	await page.getByRole('menu').getByRole('menuitem', { name }).click();
+export function browseLink(page: Page, title: string): Locator {
+	return page.getByRole('link', { name: title }).filter({ hasText: title });
+}
+
+/** 編集ページの最後の「削除」の区画の「削除...」 (→ docs/ui.md「編集ページの区画」)。 */
+export function deleteSectionButton(page: Page): Locator {
+	return page
+		.getByRole('region', { name: /^削除$|^Delete$/ })
+		.getByRole('button', { name: DELETE_MENU_ITEM_NAME });
 }
 
 /** 行の⋮メニューを開くボタン。名前には行の名前が入る (→ docs/ui.md「UI 全般」)。 */

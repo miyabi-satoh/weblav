@@ -31,7 +31,7 @@
 	{#if canEdit}
 		<!-- 見出しの行の高さを変えないよう上下を打ち消し、アイコンの右の端を余白の線に揃える。 -->
 		<a
-			href={resolve('/admin/contents/[id]', { id: String(contentId) })}
+			href={resolve('/contents/[id]', { id: String(contentId) })}
 			class={cn(headerIconActionClass, '-my-0.5 -mr-2 shrink-0')}
 		>
 			<PencilIcon />

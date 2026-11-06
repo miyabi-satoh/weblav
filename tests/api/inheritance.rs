@@ -439,7 +439,7 @@ async fn delete_group_reparents_children_to_root(pool: SqlitePool) {
     // reparentされたfile行のparentIdがnullになっていることを確認。
     let admin_list_response = send_raw(
         app.clone(),
-        build_request("GET", "/api/v1/admin/contents", Some(&cookie), None),
+        build_request("GET", "/api/v1/contents/manage", Some(&cookie), None),
     )
     .await;
     let admin_body: serde_json::Value =
@@ -536,7 +536,7 @@ async fn fs_dirs_is_open_to_regular_users(pool: SqlitePool) {
     let app = test_app(pool).await;
 
     let cookie = login(app.clone(), "alice", "correct-password").await;
-    let (status, _) = send_empty(app, "GET", "/api/v1/admin/fs/dirs", &cookie).await;
+    let (status, _) = send_empty(app, "GET", "/api/v1/fs/dirs", &cookie).await;
     assert_eq!(status, StatusCode::OK);
 }
 
@@ -548,7 +548,7 @@ async fn fs_dirs_without_path_returns_the_shared_folders(pool: SqlitePool) {
 
     let response = send_raw(
         app,
-        build_request("GET", "/api/v1/admin/fs/dirs", Some(&cookie), None),
+        build_request("GET", "/api/v1/fs/dirs", Some(&cookie), None),
     )
     .await;
 
@@ -574,7 +574,7 @@ async fn fs_dirs_without_path_returns_the_shared_folders(pool: SqlitePool) {
 async fn fs_dirs_rejects_a_path_outside_the_shared_folders(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
 
-    let (status, _) = send_empty(app, "GET", "/api/v1/admin/fs/dirs?path=/", &cookie).await;
+    let (status, _) = send_empty(app, "GET", "/api/v1/fs/dirs?path=/", &cookie).await;
 
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
@@ -594,7 +594,7 @@ async fn fs_dirs_returns_only_selectable_directories(pool: SqlitePool) {
         app,
         build_request(
             "GET",
-            &format!("/api/v1/admin/fs/dirs?path={}", dir.display()),
+            &format!("/api/v1/fs/dirs?path={}", dir.display()),
             Some(&cookie),
             None,
         ),
@@ -625,7 +625,7 @@ async fn fs_count_counts_recursively_and_filters_by_extension(pool: SqlitePool) 
     let (status, body) = send_empty(
         app.clone(),
         "GET",
-        &format!("/api/v1/admin/fs/count?path={path}"),
+        &format!("/api/v1/fs/count?path={path}"),
         &cookie,
     )
     .await;
@@ -636,7 +636,7 @@ async fn fs_count_counts_recursively_and_filters_by_extension(pool: SqlitePool) 
     let (status, body) = send_empty(
         app,
         "GET",
-        &format!("/api/v1/admin/fs/count?path={path}&includePatterns=*.MP3"),
+        &format!("/api/v1/fs/count?path={path}&includePatterns=*.MP3"),
         &cookie,
     )
     .await;
@@ -650,14 +650,14 @@ async fn fs_count_counts_recursively_and_filters_by_extension(pool: SqlitePool) 
 async fn fs_count_rejects_a_directory_outside_the_shared_folders(pool: SqlitePool) {
     let (app, cookie) = admin_app(&pool).await;
 
-    let (status, _) = send_empty(app, "GET", "/api/v1/admin/fs/count?path=/", &cookie).await;
+    let (status, _) = send_empty(app, "GET", "/api/v1/fs/count?path=/", &cookie).await;
 
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
 
-/// 管理画面専用一覧(`GET /admin/contents`)にはpathが含まれるが、一般公開の
+/// 管理用の一覧(`GET /contents/manage`)にはpathが含まれるが、一般公開の
 /// `GET /contents`には含まれない(匿名を含む一般閲覧者にファイルシステムのレイアウトを
-/// 漏らさない)。一般ユーザーは `/admin/contents` を見られる (→ docs/access.md「管理画面の一覧が `user` に見えること」)。
+/// 漏らさない)。一般ユーザーも管理用の一覧を見られる (→ docs/access.md「管理用の一覧が `user` に見えること」)。
 #[sqlx::test]
 async fn admin_contents_list_includes_path_and_is_open_to_regular_users(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
@@ -677,7 +677,7 @@ async fn admin_contents_list_includes_path_and_is_open_to_regular_users(pool: Sq
     .await;
 
     let (admin_list_status, admin_list_body) =
-        send_empty(app.clone(), "GET", "/api/v1/admin/contents", &admin_cookie).await;
+        send_empty(app.clone(), "GET", "/api/v1/contents/manage", &admin_cookie).await;
     assert_eq!(admin_list_status, StatusCode::OK);
     assert!(admin_list_body.contains(r#""path":"#), "{admin_list_body}");
 
@@ -694,7 +694,7 @@ async fn admin_contents_list_includes_path_and_is_open_to_regular_users(pool: Sq
     // 管理画面の一覧は `user` にも開放されている。`path` が見えるのは要件が許容している
     // (登録できるのは「共有」の中だけなので、見せたくないパスは登録されない)。
     let (user_admin_list_status, user_admin_list_body) =
-        send_empty(app, "GET", "/api/v1/admin/contents", &user_cookie).await;
+        send_empty(app, "GET", "/api/v1/contents/manage", &user_cookie).await;
     assert_eq!(user_admin_list_status, StatusCode::OK);
     assert!(
         user_admin_list_body.contains(r#""path":"#),

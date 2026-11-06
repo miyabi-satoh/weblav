@@ -13,7 +13,7 @@ export const ssr = false;
 
 // ssr = false のため、これはブラウザーでのみ実行される。
 // アプリ起動時・全ページ遷移時に `/auth/me` を呼び、ログイン状態を `user` として配る。
-// 未ログイン(401)はエラーにせず `user: null` として扱い、`/admin` 配下だけログインへ
+// 未ログイン(401)はエラーにせず `user: null` として扱い、`/admin` 配下と編集ページだけログインへ
 // 誘導する (→ docs/access.md「フロントエンドのガード反転」)。
 export const load: LayoutLoad = async ({ route, url }) => {
 	// **fetch より先に `route.id` と `url` を読む**。SvelteKit は load が実際に触れた

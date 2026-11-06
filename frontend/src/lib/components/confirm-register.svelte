@@ -98,7 +98,7 @@
 		truncated = false;
 		unreadable = null;
 		try {
-			const { data, error, response } = await client.GET('/api/v1/admin/fs/count', {
+			const { data, error, response } = await client.GET('/api/v1/fs/count', {
 				params: {
 					query: { path: target, includePatterns: targetInclude, excludePatterns: targetExclude }
 				}

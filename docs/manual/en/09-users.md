@@ -14,7 +14,7 @@ After you add the user, their edit page opens. To make them an administrator, ch
 
 ## Roles
 
-- **Standard user**: Can register contents. They can change or delete only contents they registered. They can only view contents registered by other people in the admin pages.
+- **Standard user**: Can register contents. They can change or delete only contents they registered. They cannot change contents registered by other people. They cannot open the admin pages.
 - **Admin**: Can change or delete all contents. They can also manage users, shares, and site settings.
 
 What standard users can do in a share (view, add, move, delete) is set for each share. To give a person different permissions, in “Shares” in the admin pages, select the share row to open its edit page, then add that person under “Per-user exceptions” and choose their permission in the “Permissions” section (→ [Add shares](04-shares.md)). Administrators can do everything in every share.
@@ -46,7 +46,7 @@ After changing a username, let them know to log in with the new username from no
 
 ## Delete a user
 
-1. In the “Users” list, select “⋮” on the row, then choose “Delete...”. (You can also choose it from “⋮” next to the username on the edit page.)
+1. In the “Users” list, select “⋮” on the row, then choose “Delete...”. (You can also use the “Delete” section at the bottom of the edit page.)
 
    ![The user row menu](images/user-menu.webp)
 

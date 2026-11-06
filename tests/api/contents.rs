@@ -407,3 +407,48 @@ async fn contents_delete_by_regular_user_allows_link_and_folder(pool: SqlitePool
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
 }
+
+/// グループの中に足せるかは、ログインしていて、他人の「作成者のみ」のグループでないときだけ真
+/// (→ docs/access.md「作成者のみのグループ」)。画面はこれで見出しの「追加」を出し分ける。
+#[sqlx::test]
+async fn browse_group_can_add_only_when_signed_in_and_not_others_private_group(pool: SqlitePool) {
+    insert_user(&pool, "alice", "correct-password").await;
+    insert_admin(&pool, "root", "correct-password").await;
+    let public_group = insert_group_under(&pool, "公開グループ", "public", None).await;
+    let alice_id: i64 = sqlx::query_scalar("SELECT id FROM users WHERE username = 'alice'")
+        .fetch_one(&pool)
+        .await
+        .expect("alice の id を引けるはず");
+    let private_group: i64 = sqlx::query_scalar(
+        "INSERT INTO contents (type, title, visibility, created_by) \
+         VALUES ('group', 'alice のグループ', 'private', ?) RETURNING id",
+    )
+    .bind(alice_id)
+    .fetch_one(&pool)
+    .await
+    .expect("作成者のみのグループを入れられるはず");
+    let app = test_app(pool).await;
+    let alice = login(app.clone(), "alice", "correct-password").await;
+    let admin = login(app.clone(), "root", "correct-password").await;
+
+    let can_add = |body: String| -> bool {
+        let json: serde_json::Value = serde_json::from_str(&body).expect("JSON のはず");
+        json["canAdd"].as_bool().expect("canAdd があるはず")
+    };
+    let public_uri = format!("/api/v1/contents/{public_group}/group");
+    let private_uri = format!("/api/v1/contents/{private_group}/group");
+
+    let (status, body) = send_anon(app.clone(), "GET", &public_uri).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(!can_add(body), "ログインしていなければ足せない");
+    let (_, body) = send_empty(app.clone(), "GET", &public_uri, &alice).await;
+    assert!(can_add(body), "公開のグループには足せる");
+    let (_, body) = send_empty(app.clone(), "GET", &private_uri, &alice).await;
+    assert!(can_add(body), "自分の作成者のみのグループには足せる");
+    let (status, body) = send_empty(app, "GET", &private_uri, &admin).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(
+        !can_add(body),
+        "管理者でも他人の作成者のみのグループには足せない"
+    );
+}

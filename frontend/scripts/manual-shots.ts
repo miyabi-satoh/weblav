@@ -51,7 +51,9 @@ const ADMIN_SHOTS = [
 	'settings-port',
 	'maintenance-backup',
 	'contents-page',
-	'row-menu',
+	'add-menu',
+	'row-edit-pen',
+	'delete-section',
 	'register-group-menu',
 	'quickstart-add-folder',
 	'add-folder-form',
@@ -525,24 +527,39 @@ async function shootAdmin() {
 		await goto(page, '/admin/contents');
 		if (want('contents-page'))
 			await shotBetween(page, 'contents-page', adminNav(page), row(page, '書類'));
-		if (want('row-menu')) {
-			await row(page, '写真').getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).click();
+		// 閲覧の画面から足す・直す・消す道 (→ 06-register-content.md)。管理者でなくても同じ所に出る。
+		if (want('add-menu')) {
+			await goto(page, '/');
+			await page.getByRole('button', { name: /^追加$/ }).click();
 			await page.getByRole('menu').waitFor();
-			// 下端はメニューに合わせる。行に合わせると、項目の数しだいで下の項目が切れるため。
-			await shotBetween(page, 'row-menu', row(page, '写真'), page.getByRole('menu'), {
-				padTop: 8,
+			await shotBetween(page, 'add-menu', page.getByRole('banner'), page.getByRole('menu'), {
 				padBottom: 16
 			});
 			await page.keyboard.press('Escape');
-			// 閉じるのを待つ。次のメニューを待つときに、閉じかけのこのメニューを拾わないため。
 			await page.getByRole('menu').waitFor({ state: 'hidden' });
+		}
+		const editPen = (page: Page) => page.getByRole('link', { name: '写真を編集' });
+		if (want('row-edit-pen')) {
+			await goto(page, '/');
+			const rowLink = page.getByRole('link', { name: '写真' }).filter({ hasText: '写真' });
+			await shotBetween(page, 'row-edit-pen', rowLink, editPen(page), {
+				padTop: 16,
+				padBottom: 16
+			});
+		}
+		if (want('delete-section')) {
+			await goto(page, '/');
+			await editPen(page).click();
+			await page.waitForURL(/\/contents\/\d+$/);
+			await waitForPageReady(page);
+			await shotSection(page, 'delete-section', page.getByRole('heading', { name: /^削除$/ }));
 		}
 		if (want('register-group-menu')) {
 			await row(page, '旅行の思い出')
 				.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME })
 				.click();
 			await page.getByRole('menu').waitFor();
-			// 下端はメニューに合わせる (row-menu と同じ理由)。
+			// 下端はメニューに合わせる。行に合わせると、項目の数しだいで下の項目が切れるため。
 			await shotBetween(page, 'register-group-menu', row(page, '書類'), page.getByRole('menu'), {
 				padBottom: 16
 			});
@@ -607,7 +624,7 @@ async function shootAdmin() {
 		await send(page.request, 'POST', `/contents/${archive!.id}/rescan`);
 
 		if (want('folder-list-view')) {
-			await goto(page, `/admin/contents/${archive!.id}`);
+			await goto(page, `/contents/${archive!.id}`);
 			await shotBetween(
 				page,
 				'folder-list-view',
@@ -618,7 +635,7 @@ async function shootAdmin() {
 		}
 
 		if (want('axis-add-dir')) {
-			await goto(page, `/admin/contents/${archive!.id}/axes`);
+			await goto(page, `/contents/${archive!.id}/axes`);
 			await page.getByRole('button', { name: '分類を追加...' }).click();
 			await waitForDialog(page);
 			const d = dialog(page);
@@ -631,7 +648,7 @@ async function shootAdmin() {
 		}
 
 		if (want('archive-axes-tab')) {
-			await goto(page, `/admin/contents/${archive!.id}/axes`);
+			await goto(page, `/contents/${archive!.id}/axes`);
 			await shotBetween(
 				page,
 				'archive-axes-tab',
@@ -642,7 +659,7 @@ async function shootAdmin() {
 		}
 
 		if (want('axis-add-word')) {
-			await goto(page, `/admin/contents/${archive!.id}/axes`);
+			await goto(page, `/contents/${archive!.id}/axes`);
 			await page.getByRole('button', { name: '分類を追加...' }).click();
 			await waitForDialog(page);
 			const d = dialog(page);
@@ -677,7 +694,7 @@ async function shootAdmin() {
 		});
 
 		if (want('axis-row-actions')) {
-			await goto(page, `/admin/contents/${archive!.id}/axes`);
+			await goto(page, `/contents/${archive!.id}/axes`);
 			await shotBetween(
 				page,
 				'axis-row-actions',
@@ -691,7 +708,7 @@ async function shootAdmin() {
 		}
 
 		if (want('archive-axes-template')) {
-			await goto(page, `/admin/contents/${archive!.id}/axes`);
+			await goto(page, `/contents/${archive!.id}/axes`);
 			await shotBetween(
 				page,
 				'archive-axes-template',
@@ -703,7 +720,7 @@ async function shootAdmin() {
 
 		const tabs = page.getByRole('navigation', { name: 'コンテンツの設定' });
 		if (want('archive-items-tab')) {
-			await goto(page, `/admin/contents/${archive!.id}/items`);
+			await goto(page, `/contents/${archive!.id}/items`);
 			const thirdRow = page.getByRole('listitem').filter({ hasText: '.mp3' }).nth(2);
 			await shotBetween(page, 'archive-items-tab', tabs, thirdRow, { padTop: 8, padBottom: 8 });
 		}

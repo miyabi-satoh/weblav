@@ -13,10 +13,9 @@
 		emptyText: string;
 		/** 1行に1パターン。 */
 		value: string;
-		disabled?: boolean;
 	};
 
-	let { label, help, emptyText, value = $bindable(), disabled = false }: Props = $props();
+	let { label, help, emptyText, value = $bindable() }: Props = $props();
 
 	let open = $state(false);
 	let draft = $state('');
@@ -42,7 +41,7 @@
 	}
 </script>
 
-<Field.Field data-disabled={disabled}>
+<Field.Field>
 	<!-- 入力欄ではないので label にしない。 -->
 	<Field.FieldTitle>{label}</Field.FieldTitle>
 	<div class="flex items-center gap-3">
@@ -58,7 +57,6 @@
 			variant="outline"
 			size="sm"
 			aria-label={`${m.action_edit()} ${label}`}
-			{disabled}
 			onclick={startEditing}
 		>
 			{m.action_edit()}

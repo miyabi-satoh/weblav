@@ -47,11 +47,6 @@
 		visibilityNote?: string | null;
 		/** パスを選ぶダイアログを開く。 */
 		onchoosepath: () => void;
-		/**
-		 * 見るだけにする (→ docs/ui.md「UI 全般」)。ネイティブの入力欄は呼び出し側の `<fieldset disabled>` で
-		 * 止まるが、選択 (bits-ui) とファイルのドロップは止まらないので、ここで止める。
-		 */
-		disabled?: boolean;
 	};
 
 	let {
@@ -62,8 +57,7 @@
 		visibilityOptions = [],
 		visibilityError = null,
 		visibilityNote = null,
-		onchoosepath,
-		disabled = false
+		onchoosepath
 	}: Props = $props();
 
 	let editing = $derived(variant === 'edit');
@@ -82,7 +76,7 @@
 
 <Field.FieldGroup>
 	{#if showsSpecific && form.type === 'link'}
-		<Field.Field data-disabled={disabled}>
+		<Field.Field>
 			<Field.FieldLabel for="content-url" required>{m.contents_form_url_label()}</Field.FieldLabel>
 			<!-- type="url" だとブラウザーが `example.com` のようにプロトコルを省いた値を弾くので、text にする。
 			     スキームはサーバーが補う (→ docs/ui.md「UI 全般」)。inputmode でスマートフォンの URL 用キーボードは残す。 -->
@@ -96,7 +90,7 @@
 			/>
 		</Field.Field>
 	{:else if showsSpecific && isPathContentType(form.type)}
-		<Field.Field data-disabled={disabled}>
+		<Field.Field>
 			<!-- 編集では選び直せても空にはできないので、ファイルの欄と同じく作成のときだけ印を付ける。 -->
 			<!-- 入力欄ではないので label にしない。 -->
 			<Field.FieldTitle required={!editing}>{m.contents_form_path_label()}</Field.FieldTitle>
@@ -118,7 +112,7 @@
 		</Field.Field>
 	{:else if showsSpecific && form.type === 'file'}
 		<!-- ファイルは差し替えない (ファイルは共有の中に置く)。前から登録してあるものは、今のファイルを見せるだけ。 -->
-		<Field.Field data-disabled={disabled}>
+		<Field.Field>
 			<Field.FieldLabel>{m.contents_form_file_label()}</Field.FieldLabel>
 			{#if form.existingFileName !== null}
 				<p class="text-sm text-muted-foreground">
@@ -131,7 +125,7 @@
 		</Field.Field>
 	{/if}
 	{#if showsTitle}
-		<Field.Field data-disabled={disabled}>
+		<Field.Field>
 			<Field.FieldLabel for="content-title" required
 				>{m.contents_form_title_label()}</Field.FieldLabel
 			>
@@ -157,10 +151,10 @@
 		</Field.Field>
 	{/if}
 	{#if showsEditOnlyCommon}
-		<Field.Field data-disabled={disabled}>
+		<Field.Field>
 			<Field.FieldLabel for="content-parent">{m.contents_form_parent_label()}</Field.FieldLabel>
 			<!-- 親に指定できるのはgroupのみ(folderはFS実体でありDB階層とは別物)。 -->
-			<Select.Root type="single" bind:value={form.parentId} {disabled}>
+			<Select.Root type="single" bind:value={form.parentId}>
 				<Select.Trigger id="content-parent" class="w-full">
 					{parentSelectLabel(form.parentId)}
 				</Select.Trigger>
@@ -174,11 +168,11 @@
 		</Field.Field>
 	{/if}
 	{#if showsVisibility}
-		<Field.Field data-invalid={visibilityError !== null} data-disabled={disabled}>
+		<Field.Field data-invalid={visibilityError !== null}>
 			<Field.FieldLabel for="content-visibility"
 				>{m.contents_form_visibility_label()}</Field.FieldLabel
 			>
-			<Select.Root type="single" bind:value={form.visibility} {disabled}>
+			<Select.Root type="single" bind:value={form.visibility}>
 				<Select.Trigger
 					id="content-visibility"
 					class="w-full"
@@ -201,7 +195,7 @@
 		</Field.Field>
 	{/if}
 	{#if showsEditOnlyCommon}
-		<Field.Field data-disabled={disabled}>
+		<Field.Field>
 			<Field.FieldLabel for="content-description"
 				>{m.contents_form_description_label()}</Field.FieldLabel
 			>
@@ -232,23 +226,21 @@
 			help={m.contents_form_include_patterns_help()}
 			emptyText={m.contents_form_include_patterns_empty()}
 			bind:value={form.includePatterns}
-			{disabled}
 		/>
 		<PatternField
 			label={m.contents_form_exclude_patterns_label()}
 			help={m.contents_form_exclude_patterns_help()}
 			emptyText={m.contents_form_exclude_patterns_empty()}
 			bind:value={form.excludePatterns}
-			{disabled}
 		/>
-		<Field.Field orientation="horizontal" data-disabled={disabled}>
+		<Field.Field orientation="horizontal">
 			<Field.FieldContent>
 				<Field.FieldLabel for="content-list-view"
 					>{m.contents_form_list_view_label()}</Field.FieldLabel
 				>
 				<Field.FieldDescription>{m.contents_form_list_view_description()}</Field.FieldDescription>
 			</Field.FieldContent>
-			<Switch id="content-list-view" bind:checked={form.listView} {disabled} />
+			<Switch id="content-list-view" bind:checked={form.listView} />
 		</Field.Field>
 		{#if form.listView}
 			<AutoScheduleField
@@ -258,7 +250,6 @@
 				bind:mode={form.autoRescanMode}
 				bind:hours={form.autoRescanHours}
 				bind:time={form.autoRescanTime}
-				{disabled}
 			/>
 		{/if}
 	{/if}

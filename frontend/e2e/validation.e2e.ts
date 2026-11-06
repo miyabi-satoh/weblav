@@ -7,7 +7,6 @@ import { createLinkContent, openCreateForm, removeContentIfPresent } from './con
 import {
 	ADD_SUBMIT_BUTTON_NAME,
 	basicSaveButton,
-	clickHeadingMenuItem,
 	CLOSE_BUTTON_NAME,
 	CONTENT_SUBMIT_BUTTON_NAME,
 	DELETE_MENU_ITEM_NAME,
@@ -26,7 +25,8 @@ import {
 	USER_ADD_BUTTON_NAME,
 	USERNAME_LABEL,
 	userRow,
-	waitForDialog
+	waitForDialog,
+	deleteSectionButton
 } from './helpers';
 import { createUser, removeUserIfPresent } from './user-helpers';
 
@@ -67,7 +67,7 @@ test.describe('コンテンツ', () => {
 			// サーバー側も元のタイトルのまま。
 			// 画面を読み込み直して確かめると、未保存の変更の確認に止められるので API で見る。
 			const id = Number(new URL(page.url()).pathname.split('/').pop());
-			const contents = (await send(page.request, 'get', '/admin/contents')) as {
+			const contents = (await send(page.request, 'get', '/contents/manage')) as {
 				id: number;
 				title: string;
 			}[];
@@ -134,7 +134,7 @@ test.describe('ユーザー', () => {
 		const username = uniqueId('e2e-reset-mismatch');
 		try {
 			await createUser(page, username, 'E2eSmoke!2026Test');
-			await clickHeadingMenuItem(page, RESET_PASSWORD_MENU_ITEM_NAME);
+			await page.getByRole('button', { name: RESET_PASSWORD_MENU_ITEM_NAME }).click();
 			await waitForDialog(page);
 			await page.getByLabel(PASSWORD_LABEL).fill('E2eSmoke!2026Reset');
 			await page.getByLabel(PASSWORD_CONFIRM_LABEL).fill('E2eSmoke!2026Other');
@@ -177,9 +177,6 @@ test.describe('ユーザー', () => {
 		await expect(
 			roleForm.getByRole('radio', { name: /^一般ユーザー$|^Standard user$/ })
 		).toBeDisabled();
-		await page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).first().click();
-		await expect(
-			page.getByRole('menu').getByRole('menuitem', { name: DELETE_MENU_ITEM_NAME })
-		).toBeDisabled();
+		await expect(deleteSectionButton(page)).toBeDisabled();
 	});
 });

@@ -18,10 +18,8 @@ import {
 	PASSWORD_CONFIRM_LABEL,
 	PASSWORD_LABEL,
 	RESET_PASSWORD_MENU_ITEM_NAME,
-	ROW_ACTIONS_BUTTON_NAME,
 	VIEW_ON_SITE_LINK_NAME,
 	TITLE_LABEL,
-	clickHeadingMenuItem,
 	clickRowMenuItem,
 	DISCARD_AND_LEAVE_BUTTON_NAME,
 	LEAVE_CONFIRM_NAME,
@@ -42,10 +40,13 @@ import {
 	VISIBILITY_LABEL,
 	VISIBILITY_PRIVATE_OPTION_NAME,
 	waitForDialog,
-	PASSWORD_HASH_TIMEOUT
+	PASSWORD_HASH_TIMEOUT,
+	deleteSectionButton,
+	browseLink
 } from './helpers';
 import {
 	createGroupContent,
+	submitCreateForm,
 	createLinkContent,
 	deleteContentByTitle,
 	removeContentIfPresent
@@ -123,13 +124,13 @@ test('管理画面: コンテンツを編集できる', async ({ page }) => {
 		await createLinkContent(page, title);
 		await page.goto('/admin/contents');
 		await clickRowMenuItem(page, contentRow(page, title), /^編集$|^Edit$/);
-		await page.waitForURL(/\/admin\/contents\/\d+$/);
+		await page.waitForURL(/\/contents\/\d+$/);
 		await page.getByLabel(TITLE_LABEL).fill(editedTitle);
 
 		// 保存していない変更があるうちは、一覧へ戻ろうとすると確認が出て留まれる。
 		await page.getByRole('link', { name: CONTENTS_NAV_LINK_NAME }).first().click();
 		await page.getByRole('alertdialog').getByRole('button', { name: CANCEL_BUTTON_NAME }).click();
-		await expect(page).toHaveURL(/\/admin\/contents\/\d+$/);
+		await expect(page).toHaveURL(/\/contents\/\d+$/);
 
 		await saveForm(page, { button: basicSaveButton(page) });
 		await expect(page.getByRole('heading', { level: 1, name: editedTitle })).toBeVisible();
@@ -153,14 +154,13 @@ test('編集ページ: 閲覧画面で開けて、保存していない変更が
 		await createGroupContent(page, title);
 		const editUrl = page.url();
 
-		await page.getByRole('link', { name: VIEW_ON_SITE_LINK_NAME }).click();
+		await browseLink(page, VIEW_ON_SITE_LINK_NAME).click();
 		await page.waitForURL('/');
-		await expect(page.getByRole('link', { name: title })).toBeVisible();
+		await expect(browseLink(page, title)).toBeVisible();
 
 		await page.goto(editUrl);
 		await page.getByLabel(TITLE_LABEL).fill(`${title}-変更`);
-		await page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).click();
-		await page.getByRole('menu').getByRole('menuitem', { name: DELETE_MENU_ITEM_NAME }).click();
+		await deleteSectionButton(page).click();
 		await confirmDelete(page);
 		await page.waitForURL(/\/admin\/contents$/);
 		await expect(contentRow(page, title)).toHaveCount(0);
@@ -182,8 +182,36 @@ test('グループ配下のコンテンツが一覧できる', async ({ page }) 
 		await createLinkContent(page, childTitle, { parentTitle: groupTitle });
 		// グループのidを取得せず、ホームの一覧から辿ることで結合を減らす。
 		await page.goto('/');
-		await page.getByRole('link', { name: groupTitle }).click();
-		await expect(page.getByRole('link', { name: childTitle })).toBeVisible();
+		await browseLink(page, groupTitle).click();
+		await expect(browseLink(page, childTitle)).toBeVisible();
+	} finally {
+		await removeContentIfPresent(page, childTitle);
+		await removeContentIfPresent(page, groupTitle);
+	}
+});
+
+test('グループの画面の「追加」から作ると、そのグループの中に入り、編集ページへ移る', async ({
+	page
+}) => {
+	const groupTitle = uniqueId('E2Eグループ');
+	const childTitle = uniqueId('E2E子グループ');
+
+	try {
+		await createGroupContent(page, groupTitle);
+		await page.goto('/');
+		await browseLink(page, groupTitle).click();
+		// ホームの見出しにも「追加」があるので、グループの画面に移ってから押す。
+		await expect(page.getByRole('heading', { level: 1, name: groupTitle })).toBeVisible();
+		await page.getByRole('button', { name: /^追加$|^Add$/ }).click();
+		await page.getByRole('menuitem', { name: /^グループ\.\.\.$|^Group\.\.\.$/ }).click();
+		await waitForDialog(page);
+		// 種別はメニューで選んだので、窓は入力の段から始まり、どこに入るかを添える。
+		await expect(page.getByRole('dialog').getByText(groupTitle, { exact: false })).toBeVisible();
+		await page.getByLabel(TITLE_LABEL).fill(childTitle);
+		await submitCreateForm(page, childTitle);
+		await page.goto('/');
+		await browseLink(page, groupTitle).click();
+		await expect(browseLink(page, childTitle)).toBeVisible();
 	} finally {
 		await removeContentIfPresent(page, childTitle);
 		await removeContentIfPresent(page, groupTitle);
@@ -203,8 +231,8 @@ test('一覧: タイルに切り替えると、読み込み直してもほかの
 
 		await page.reload();
 		await expect(page.getByRole('radio', { name: BROWSE_LAYOUT_TILE_NAME })).toBeChecked();
-		await page.getByRole('link', { name: groupTitle }).click();
-		await expect(page.getByRole('link', { name: childTitle })).toBeVisible();
+		await browseLink(page, groupTitle).click();
+		await expect(browseLink(page, childTitle)).toBeVisible();
 		await expect(page.getByRole('radio', { name: BROWSE_LAYOUT_TILE_NAME })).toBeChecked();
 
 		// 選んでいる側をもう一度押しても、選択は外れない。
@@ -223,13 +251,13 @@ test('ホーム: 公開コンテンツが管理者にも未ログインにも表
 	try {
 		await createLinkContent(page, title);
 		await page.goto('/');
-		await expect(page.getByRole('link', { name: title })).toBeVisible();
+		await expect(browseLink(page, title)).toBeVisible();
 
 		const anonContext = await anonymousContext(browser);
 		try {
 			const anonPage = await anonContext.newPage();
 			await anonPage.goto('/');
-			await expect(anonPage.getByRole('link', { name: title })).toBeVisible();
+			await expect(browseLink(anonPage, title)).toBeVisible();
 		} finally {
 			await anonContext.close();
 		}
@@ -252,18 +280,19 @@ test('作成者のみ: 作成者の一覧にだけ印付きで並び、作成者
 		const ownerPage = await ownerContext.newPage();
 		await logIn(ownerPage, username, password);
 		await ownerPage.waitForURL('/');
-		await createLinkContent(ownerPage, title, { visibility: VISIBILITY_PRIVATE_OPTION_NAME });
+		await createLinkContent(ownerPage, title, {
+			visibility: VISIBILITY_PRIVATE_OPTION_NAME,
+			fromHome: true
+		});
 
 		await ownerPage.goto('/');
-		await expect(ownerPage.getByRole('link', { name: title })).toContainText(
-			/作成者のみ|Creator only/
-		);
+		await expect(browseLink(ownerPage, title)).toContainText(/作成者のみ|Creator only/);
 
 		// 管理者でも、他人の「作成者のみ」は閲覧の一覧に並ばない。見出しの描画を待ってから数える
 		// (一覧は load の完了後に見出しと一緒に描画される。DB が空だと一覧そのものが出ないので、一覧は待たない)。
 		await page.goto('/');
 		await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
-		await expect(page.getByRole('link', { name: title })).toHaveCount(0);
+		await expect(browseLink(page, title)).toHaveCount(0);
 
 		await page.goto('/admin/users');
 		await clickRowMenuItem(page, userRow(page, username), DELETE_MENU_ITEM_NAME);
@@ -300,7 +329,7 @@ test('管理画面: ユーザーのパスワードを再設定できる', async 
 	try {
 		// 追加すると編集ページへ移る。再設定は見出しの⋮から開く。
 		await createUser(page, username, 'E2eSmoke!2026Test');
-		await clickHeadingMenuItem(page, RESET_PASSWORD_MENU_ITEM_NAME);
+		await page.getByRole('button', { name: RESET_PASSWORD_MENU_ITEM_NAME }).click();
 		// ダイアログの描画を待たずに入力すると、入力値が画面の状態に反映されないことがある。
 		await waitForDialog(page);
 		await page.getByLabel(PASSWORD_LABEL).fill(newPassword);
@@ -363,8 +392,8 @@ test('管理画面: ユーザーの編集ページで、ユーザー名と権限
 		await page.waitForURL(/\/admin\/users\/\d+$/);
 		await expect(page.getByRole('heading', { level: 1 })).toHaveText(renamed);
 
-		// 見出しの⋮から消すと、一覧へ戻る。
-		await clickHeadingMenuItem(page, DELETE_MENU_ITEM_NAME);
+		// 「削除」の区画から消すと、一覧へ戻る。
+		await deleteSectionButton(page).click();
 		await confirmDelete(page);
 		await page.waitForURL(/\/admin\/users$/);
 		await expect(userRow(page, renamed)).toHaveCount(0);
@@ -453,7 +482,7 @@ test('管理画面: コンテンツ一覧の行を押すと編集ページへ移
 		const box = await cell.boundingBox();
 		if (box === null) throw new Error('公開範囲のセルが見つからない');
 		await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-		await page.waitForURL(/\/admin\/contents\/\d+$/);
+		await page.waitForURL(/\/contents\/\d+$/);
 		await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
 	} finally {
 		await removeContentIfPresent(page, title);
@@ -524,7 +553,7 @@ test('コンテンツ一覧: ドラッグで見える範囲が広がるときは
 		await createGroupContent(page, restrictedGroupTitle);
 		await page.goto('/admin/contents');
 		await clickRowMenuItem(page, contentRow(page, restrictedGroupTitle), /^編集$|^Edit$/);
-		await page.waitForURL(/\/admin\/contents\/\d+$/);
+		await page.waitForURL(/\/contents\/\d+$/);
 		await page.getByLabel(VISIBILITY_LABEL).click();
 		await page.getByRole('option', { name: /ログインした人|Logged-in users/ }).click();
 		await saveForm(page, { button: basicSaveButton(page) });
@@ -580,7 +609,7 @@ test('コンテンツ一覧: 見出しの行へドラッグするとルートへ
 		await page.mouse.up();
 
 		await clickRowMenuItem(page, contentRow(page, restrictedGroupTitle), /^編集$|^Edit$/);
-		await page.waitForURL(/\/admin\/contents\/\d+$/);
+		await page.waitForURL(/\/contents\/\d+$/);
 		await page.getByLabel(VISIBILITY_LABEL).click();
 		await page.getByRole('option', { name: /ログインした人|Logged-in users/ }).click();
 		await saveForm(page, { button: basicSaveButton(page) });

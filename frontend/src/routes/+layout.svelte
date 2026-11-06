@@ -9,6 +9,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { ModeWatcher } from 'mode-watcher';
 	import { client } from '$lib/api/client';
+	import { isAdmin } from '$lib/auth';
 	import { GENERIC_ERROR_MESSAGE, errorMessage, messageForCode } from '$lib/api/errors';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { headerIconActionClass, headerTextActionClass } from '$lib/header-action';
@@ -136,6 +137,7 @@
 				<UserMenu
 					username={page.data.user.username}
 					hiddenCount={page.data.user.hiddenContentCount}
+					isAdmin={isAdmin(page.data.user)}
 					onlogout={handleLogout}
 				/>
 			{:else}

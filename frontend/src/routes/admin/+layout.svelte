@@ -6,7 +6,6 @@
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { isAdmin } from '$lib/auth';
 	import { adminNavTabListClass, navTabClass } from '$lib/nav-tabs';
 	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
@@ -15,12 +14,9 @@
 
 	let { children } = $props();
 
-	// タブの列は admin にだけ出す (→ docs/ui.md「UI 全般」)。
-	let currentUserIsAdmin = $derived(isAdmin(page.data.user));
 	// リカバリコードをまだ作っていない管理者には、作るよう促す (→ docs/access.md「リカバリコード」)。
-	let recoveryCodeMissing = $derived(
-		currentUserIsAdmin && page.data.user?.hasRecoveryCode === false
-	);
+	// `/admin` の下は admin にしか開けないので (→ `+layout.ts`)、ここでは role を見ない。
+	let recoveryCodeMissing = $derived(page.data.user?.hasRecoveryCode === false);
 	let recoveryCodeOpen = $state(false);
 
 	let tabs = $derived([
@@ -36,23 +32,20 @@
 	]);
 </script>
 
-{#if currentUserIsAdmin}
-	<nav aria-label={m.admin_nav_label()} class={adminNavTabListClass}>
-		{#each tabs as tab (tab.href)}
-			<!-- コンテンツの編集ページ (/admin/contents/[id]/...) もコンテンツのタブを選択中にする。 -->
-			{@const current = page.url.pathname.startsWith(tab.href)}
-			<!-- スマートフォン幅では、選んでいないタブを絵だけにする。名前は読み上げ用に残す (→ docs/ui.md「UI 全般」)。 -->
-			<a
-				href={tab.href}
-				aria-current={current ? 'page' : undefined}
-				class={[navTabClass(current), 'min-w-11 justify-center gap-1.5 whitespace-nowrap']}
-			>
-				<tab.icon class="size-4 shrink-0" aria-hidden="true" />
-				<span class={current ? undefined : 'max-sm:sr-only'}>{tab.label()}</span>
-			</a>
-		{/each}
-	</nav>
-{/if}
+<nav aria-label={m.admin_nav_label()} class={adminNavTabListClass}>
+	{#each tabs as tab (tab.href)}
+		{@const current = page.url.pathname.startsWith(tab.href)}
+		<!-- スマートフォン幅では、選んでいないタブを絵だけにする。名前は読み上げ用に残す (→ docs/ui.md「UI 全般」)。 -->
+		<a
+			href={tab.href}
+			aria-current={current ? 'page' : undefined}
+			class={[navTabClass(current), 'min-w-11 justify-center gap-1.5 whitespace-nowrap']}
+		>
+			<tab.icon class="size-4 shrink-0" aria-hidden="true" />
+			<span class={current ? undefined : 'max-sm:sr-only'}>{tab.label()}</span>
+		</a>
+	{/each}
+</nav>
 {#if recoveryCodeMissing && page.data.user}
 	<WarningBand class="md:px-6">
 		<div class="flex flex-wrap items-center gap-x-4 gap-y-2">

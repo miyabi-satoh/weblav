@@ -623,7 +623,7 @@ async fn a_root_may_contain_own_dirs_but_not_be_inside_them(pool: SqlitePool) {
     // 登録先を選ぶ一覧に、設定とデータの置き場そのものが並ばない。
     std::fs::create_dir_all(base.join("other")).expect("フォルダーを作れなかった");
     let uri = format!(
-        "/api/v1/admin/fs/dirs?path={}",
+        "/api/v1/fs/dirs?path={}",
         canonical_path_as_api_returns_it(&base)
     );
     let (status, body) = send(app.clone(), roots_request("GET", &uri, &cookie, None)).await;

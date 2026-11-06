@@ -1,7 +1,9 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
+import { resolve } from '$app/paths';
 import { client } from '$lib/api/client';
 import { fetchOrError } from '$lib/api/load';
 import { canEditContent } from '$lib/auth';
+import { contentSelfHref } from '$lib/content-view-href';
 import * as m from '$lib/paraglide/messages.js';
 import type { LayoutLoad } from './$types';
 
@@ -13,7 +15,7 @@ export const load: LayoutLoad = async ({ parent, params, url }) => {
 	const id = Number(params.id);
 
 	const contents = await fetchOrError(
-		client.GET('/api/v1/admin/contents'),
+		client.GET('/api/v1/contents/manage'),
 		m.contents_fetch_failed(),
 		{ loginRedirectFrom: url }
 	);
@@ -22,6 +24,11 @@ export const load: LayoutLoad = async ({ parent, params, url }) => {
 		error(404, m.error_not_found());
 	}
 
-	// 他人のものを開いた `user` には見るだけにする (→ docs/ui.md「UI 全般」)。タブのどのページも使う。
-	return { contents, content, contentId: id, editable: canEditContent(user, content) };
+	// 書き換えられない人は、そのコンテンツの閲覧画面へ送る (→ docs/ui.md「UI 全般」)。外へのリンクはホームへ。
+	if (!canEditContent(user, content)) {
+		const view = contentSelfHref(content);
+		redirect(303, view.external ? resolve('/') : view.href);
+	}
+
+	return { contents, content, contentId: id };
 };

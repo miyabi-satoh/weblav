@@ -120,7 +120,7 @@ test('一覧の表示: 登録したフォルダーで使い始めると、保存
 		page.request,
 		{ type: 'folder', namePrefix: 'e2e-register-list-view' },
 		async (folder) => {
-			await page.goto(`/admin/contents/${folder.id}`);
+			await page.goto(`/contents/${folder.id}`);
 			await page.getByRole('switch', { name: LIST_VIEW_SWITCH_NAME }).click();
 			await specificSaveButton(page).click();
 			await expect(page.getByText(/3\s件のファイルが見つかりました|Found 3 files/)).toBeVisible();
@@ -150,7 +150,7 @@ test('ファイルを指すショートカット: 追加の窓で選んで作り
 		await picker.getByRole('button', { name: 'memo.txt', exact: true }).click();
 		await picker.getByRole('button', { name: /^このファイルを使用$|^Use this file$/ }).click();
 		await page.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME }).click();
-		await expect(page).toHaveURL(/\/admin\/contents\/\d+$/);
+		await expect(page).toHaveURL(/\/contents\/\d+$/);
 		await expect(page.getByRole('heading', { name: 'memo.txt', level: 1 })).toBeVisible();
 		// ファイルを指すものにはパターンもライブラリの切り替えも無い。
 		await expect(page.getByRole('switch', { name: LIST_VIEW_SWITCH_NAME })).toHaveCount(0);
@@ -184,7 +184,7 @@ test('一覧の表示: 使い始めたときのスキャンだけが失敗した
 		page.request,
 		{ type: 'folder', namePrefix: 'e2e-register-list-view-failed' },
 		async (folder) => {
-			await page.goto(`/admin/contents/${folder.id}`);
+			await page.goto(`/contents/${folder.id}`);
 			await page.getByRole('switch', { name: LIST_VIEW_SWITCH_NAME }).click();
 			await specificSaveButton(page).click();
 
@@ -194,7 +194,7 @@ test('一覧の表示: 使い始めたときのスキャンだけが失敗した
 			await expect(
 				failed.getByText(/「場所と見せ方」を保存しました|“Location and display” was saved/)
 			).toBeVisible();
-			const contents = (await send(page.request, 'get', '/admin/contents')) as {
+			const contents = (await send(page.request, 'get', '/contents/manage')) as {
 				id: number;
 				listView: boolean;
 			}[];
@@ -214,7 +214,7 @@ test('対象のパターン: ライブラリを使わないフォルダーでも
 			files: { 'answer.pdf': '%PDF-1.4\n%%EOF\n', 'listening.mp3': 'ID3' }
 		},
 		async (folder) => {
-			await page.goto(`/admin/contents/${folder.id}`);
+			await page.goto(`/contents/${folder.id}`);
 			await page.getByRole('button', { name: /対象のパターン$|Include patterns$/ }).click();
 			const patterns = page.getByRole('dialog', { name: /^対象のパターン$|^Include patterns$/ });
 			await patterns.getByRole('textbox').fill('*.pdf');
@@ -260,7 +260,7 @@ test('確認で「戻る」を押すと登録せず、フォームに戻る', as
 		await expect(form.getByRole('button', { name: CONTENT_SUBMIT_BUTTON_NAME })).toBeEnabled();
 		await expect(page).toHaveURL(/\/admin\/contents$/);
 		// 登録されていない。
-		const contents = (await send(page.request, 'get', '/admin/contents')) as { title: string }[];
+		const contents = (await send(page.request, 'get', '/contents/manage')) as { title: string }[];
 		expect(contents.some((content) => content.title === name)).toBe(false);
 	} finally {
 		await removeContentIfPresent(page, name);
@@ -272,7 +272,7 @@ test('共有が0件なら、フォルダーは選べず、理由が出る', asyn
 	// 登録済みのフォルダーは他のテストと共有しているので消さない。
 	// 0件かどうかを確かめる問い合わせ (上位の一覧) だけを空にして、画面の出し分けを見る。
 	await page.route(
-		(url) => url.pathname === '/api/v1/admin/fs/dirs' && url.searchParams.get('path') === '',
+		(url) => url.pathname === '/api/v1/fs/dirs' && url.searchParams.get('path') === '',
 		(route) =>
 			route.fulfill({
 				json: { path: '', parent: null, root: null, selectable: false, entries: [] }

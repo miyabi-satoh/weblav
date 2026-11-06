@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BrowseControls from '$lib/components/browse-controls.svelte';
 	import BrowseHeading from '$lib/components/browse-heading.svelte';
+	import ContentAddMenu from '$lib/components/content-add-menu.svelte';
 	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
 	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
@@ -51,7 +52,13 @@
 			contentId={data.contentId}
 			contentTitle={browse.groupTitle}
 			canEdit={browse.canEdit}
-		/>
+		>
+			{#snippet actions()}
+				{#if browse.canAdd}
+					<ContentAddMenu parentId={data.contentId} />
+				{/if}
+			{/snippet}
+		</BrowseHeading>
 
 		{#if browse.entries.length > 0}
 			<BrowseControls class="mb-4" sort={sortSelect} />

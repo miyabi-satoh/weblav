@@ -44,6 +44,10 @@
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import LeaveConfirmDialog from '$lib/components/leave-confirm-dialog.svelte';
+	import ContentDeleteDialog from '$lib/components/content-delete-dialog.svelte';
+	import DeleteSection from '$lib/components/delete-section.svelte';
+	import { contentEditBack } from '$lib/content-edit-back';
+	import { gotoWithoutLeaveConfirm } from '$lib/leave-confirm';
 	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
 
@@ -54,7 +58,14 @@
 	let content = $derived(data.content);
 	let contentById = $derived(byIdMap(data.contents));
 	let canSeeFullPath = $derived(isAdmin(page.data.user));
-	let editable = $derived(data.editable);
+
+	// 削除は「削除」の区画から開く (→ docs/ui.md「編集ページの区画」)。消したら戻り先へ移る。
+	let deletingContent = $state<typeof content | null>(null);
+	let deleteNotes = $derived([
+		m.common_delete_section_irreversible(),
+		...(content.type === 'group' ? [m.contents_delete_confirm_group_note()] : []),
+		...(isPathContentType(content.type) ? [m.contents_delete_section_files_note()] : [])
+	]);
 
 	// 別のコンテンツへ移るとレイアウトの `{#key}` でページごと作り直すので、読み込みは初回だけでよい。
 	const form = new ContentFormState();
@@ -388,20 +399,16 @@
 		class={sectionCardClass}
 	>
 		<h2 id="{part}-section-heading" class="text-base font-semibold">{title}</h2>
-		<!-- 見るだけのときは、入力欄を押せない状態で値を見せる (→ docs/ui.md「UI 全般」)。 -->
-		<fieldset disabled={!editable} class="contents">
-			<ContentForm
-				{form}
-				variant="edit"
-				{part}
-				{parentCandidates}
-				{visibilityOptions}
-				{visibilityError}
-				{visibilityNote}
-				onchoosepath={() => (dirPickerOpen = true)}
-				disabled={!editable}
-			/>
-		</fieldset>
+		<ContentForm
+			{form}
+			variant="edit"
+			{part}
+			{parentCandidates}
+			{visibilityOptions}
+			{visibilityError}
+			{visibilityNote}
+			onchoosepath={() => (dirPickerOpen = true)}
+		/>
 		{#if part === 'common' && canChangeCreator}
 			<Field.Field>
 				<Field.FieldLabel for="content-creator">{m.contents_form_creator_label()}</Field.FieldLabel>
@@ -417,23 +424,21 @@
 				</Select.Root>
 			</Field.Field>
 		{/if}
-		{#if editable}
-			<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-				<!-- パスはテキスト入力ではないため、required では未選択を防げない。 -->
-				<LoadingButton
-					type="submit"
-					loading={savingPart === part}
-					disabled={saving ||
-						!partDirty(part) ||
-						(part === 'specific' && isPathContentType(form.type) && form.path === '') ||
-						(part === 'common' && visibilityError !== null)}>{m.action_save()}</LoadingButton
-				>
-				<!-- 確認の窓を通らずに始めたスキャン (一覧の表示を使い始めたとき) は、ボタンの横に進み具合を出す。 -->
-				{#if part === 'specific' && scanProgress && !confirmRegisterOpen}
-					<ScanProgress message={scanProgress} oncancel={() => cancelScan(content.id)} />
-				{/if}
-			</div>
-		{/if}
+		<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+			<!-- パスはテキスト入力ではないため、required では未選択を防げない。 -->
+			<LoadingButton
+				type="submit"
+				loading={savingPart === part}
+				disabled={saving ||
+					!partDirty(part) ||
+					(part === 'specific' && isPathContentType(form.type) && form.path === '') ||
+					(part === 'common' && visibilityError !== null)}>{m.action_save()}</LoadingButton
+			>
+			<!-- 確認の窓を通らずに始めたスキャン (一覧の表示を使い始めたとき) は、ボタンの横に進み具合を出す。 -->
+			{#if part === 'specific' && scanProgress && !confirmRegisterOpen}
+				<ScanProgress message={scanProgress} oncancel={() => cancelScan(content.id)} />
+			{/if}
+		</div>
 	</form>
 {/snippet}
 
@@ -445,7 +450,17 @@
 			{@render partForm('specific', specificTitle)}
 		{/if}
 	</div>
+	<DeleteSection notes={deleteNotes} onclick={() => (deletingContent = content)} />
 </div>
+
+<!-- 消したものの編集ページには戻れないので、戻り先へ移る。 -->
+<ContentDeleteDialog
+	bind:content={deletingContent}
+	contents={data.contents}
+	{contentById}
+	ondeleted={() =>
+		gotoWithoutLeaveConfirm(contentEditBack(page.data.user, content, contentById).href)}
+/>
 
 <DirPicker
 	bind:open={dirPickerOpen}

@@ -59,9 +59,6 @@
 
 	let { data }: PageProps = $props();
 
-	// 書き換えられない人 (他人のアーカイブを開いた `user`) には見るだけにする (→ docs/ui.md「UI 全般」)。
-	let editable = $derived(data.editable);
-
 	// サーバー応答をローカルへ反映できるよう再代入可能な $derived で持つ
 	// (再代入のみで更新し、in-place mutate はしない)。
 	let axes = $derived(data.axes);
@@ -380,7 +377,7 @@
 	const axisZone = new SortableZone<Axis>({
 		items: () => sortedAxes,
 		key: (axis) => axis.id,
-		locked: () => axisBusy || !editable,
+		locked: () => axisBusy,
 		onReorder: (ordered) => {
 			saveAxisOrder(ordered);
 		}
@@ -562,7 +559,7 @@
 
 	const valueZone = new SortableZone<AxisValueRow>({
 		items: () => axisValueRows,
-		locked: () => axisBusy || !editable,
+		locked: () => axisBusy,
 		onReorder: (ordered) => {
 			axisValueRows = ordered;
 		}
@@ -912,11 +909,7 @@
 
 {#snippet matchPositionSelect(row: AxisValueRow, index: number)}
 	<!-- 同じ行の入力欄と高さを揃えて 44px にする (→ docs/ui.md「UI 全般」)。 -->
-	<Select.Root
-		type="single"
-		bind:value={row.matchPosition}
-		disabled={axisStructureBusy || !editable}
-	>
+	<Select.Root type="single" bind:value={row.matchPosition} disabled={axisStructureBusy}>
 		<Select.Trigger
 			class="w-full"
 			aria-label={m.archive_axes_values_match_position_label({
@@ -1038,16 +1031,14 @@
 		>
 			<div class="flex items-center justify-between">
 				<h2 class="text-base font-semibold">{m.archive_axes_section_title()}</h2>
-				{#if editable}
-					<div class="flex flex-wrap justify-end gap-2">
-						<Button variant="outline" disabled={axisBusy} onclick={() => (aiDialogOpen = true)}>
-							{m.archive_axes_ai_button()}
-						</Button>
-						<Button variant="outline" disabled={axisBusy} onclick={openCreateAxisDialog}>
-							{m.archive_axes_add_button()}
-						</Button>
-					</div>
-				{/if}
+				<div class="flex flex-wrap justify-end gap-2">
+					<Button variant="outline" disabled={axisBusy} onclick={() => (aiDialogOpen = true)}>
+						{m.archive_axes_ai_button()}
+					</Button>
+					<Button variant="outline" disabled={axisBusy} onclick={openCreateAxisDialog}>
+						{m.archive_axes_add_button()}
+					</Button>
+				</div>
 			</div>
 			<a
 				href={resolve('/help/[slug]', { slug: 'archive-setup' })}
@@ -1075,9 +1066,7 @@
 								axisZone.isPressed(entry) && 'opacity-60 ring-2 ring-primary'
 							]}
 						>
-							{#if editable}
-								{@render dragHandle(axisZone.handle(entry.id), 'shrink-0')}
-							{/if}
+							{@render dragHandle(axisZone.handle(entry.id), 'shrink-0')}
 							<button
 								type="button"
 								class="relative min-w-0 flex-1 text-left after:absolute after:inset-x-0 after:-inset-y-1"
@@ -1090,49 +1079,47 @@
 									<p class="text-xs text-muted-foreground">{m.archive_axes_not_filterable()}</p>
 								{/if}
 							</button>
-							{#if editable}
-								<!-- 上下ボタンは lg 以上だけ。狭い幅はつまみに譲る (→ docs/ui.md「UI 全般」)。 -->
-								<Button
-									variant="ghost"
-									size="icon"
-									class="hidden lg:inline-flex"
-									data-move="up"
-									disabled={index === 0 || axisBusy}
-									aria-label={m.archive_axes_move_up({ name: axis.name })}
-									onclick={() => moveAxis(index, -1)}
-								>
-									<ChevronUpIcon class="size-4" />
-								</Button>
-								<Button
-									variant="ghost"
-									size="icon"
-									class="hidden lg:inline-flex"
-									data-move="down"
-									disabled={index === sortedAxes.length - 1 || axisBusy}
-									aria-label={m.archive_axes_move_down({ name: axis.name })}
-									onclick={() => moveAxis(index, 1)}
-								>
-									<ChevronDownIcon class="size-4" />
-								</Button>
-								<Button
-									variant="outline"
-									size="sm"
-									disabled={axisBusy}
-									aria-label={m.archive_axes_edit_label({ name: axis.name })}
-									onclick={() => openEditAxisDialog(axis)}
-								>
-									{m.action_edit()}
-								</Button>
-								<Button
-									variant="destructive"
-									size="sm"
-									disabled={axisBusy}
-									aria-label={m.archive_axes_delete_label({ name: axis.name })}
-									onclick={() => startDeleteAxis(axis)}
-								>
-									{m.action_delete()}
-								</Button>
-							{/if}
+							<!-- 上下ボタンは lg 以上だけ。狭い幅はつまみに譲る (→ docs/ui.md「UI 全般」)。 -->
+							<Button
+								variant="ghost"
+								size="icon"
+								class="hidden lg:inline-flex"
+								data-move="up"
+								disabled={index === 0 || axisBusy}
+								aria-label={m.archive_axes_move_up({ name: axis.name })}
+								onclick={() => moveAxis(index, -1)}
+							>
+								<ChevronUpIcon class="size-4" />
+							</Button>
+							<Button
+								variant="ghost"
+								size="icon"
+								class="hidden lg:inline-flex"
+								data-move="down"
+								disabled={index === sortedAxes.length - 1 || axisBusy}
+								aria-label={m.archive_axes_move_down({ name: axis.name })}
+								onclick={() => moveAxis(index, 1)}
+							>
+								<ChevronDownIcon class="size-4" />
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={axisBusy}
+								aria-label={m.archive_axes_edit_label({ name: axis.name })}
+								onclick={() => openEditAxisDialog(axis)}
+							>
+								{m.action_edit()}
+							</Button>
+							<Button
+								variant="destructive"
+								size="sm"
+								disabled={axisBusy}
+								aria-label={m.archive_axes_delete_label({ name: axis.name })}
+								onclick={() => startDeleteAxis(axis)}
+							>
+								{m.action_delete()}
+							</Button>
 						</div>
 					{/each}
 				</div>
@@ -1158,7 +1145,7 @@
 
 					{#if archiveHasNoItems}
 						<p class="text-sm text-muted-foreground">{m.archive_axes_values_no_items()}</p>
-					{:else if axis.source === 'filenameWord' && editable}
+					{:else if axis.source === 'filenameWord'}
 						<!-- 表を埋める手がかりなので、枠で囲って表と見分ける (→ docs/ui.md「UI 全般」の「余白と区切り」)。 -->
 						<section
 							class="flex flex-col gap-6 rounded-lg border bg-background p-4"
@@ -1295,9 +1282,7 @@
 												]}
 											>
 												<Table.Cell class="py-0">
-													{#if editable}
-														{@render dragHandle(valueZone.handle(entry.id))}
-													{/if}
+													{@render dragHandle(valueZone.handle(entry.id))}
 												</Table.Cell>
 												<Table.Cell class="py-1.5">
 													<!-- 階層と日付の軸は、値がアイテムから決まるので、生の値は打たせない。 -->
@@ -1315,7 +1300,7 @@
 																	number: String(index + 1)
 																})}
 																required
-																disabled={axisStructureBusy || !editable}
+																disabled={axisStructureBusy}
 															/>
 															<!-- スマートフォン幅では照合する位置の列を隠し、ここに回す。
 															     4つの欄を横に並べると、元の値と表示名に字を打つ幅が残らないため。 -->
@@ -1337,59 +1322,55 @@
 														aria-label={m.archive_axes_values_display_label({
 															value: axisValueRowName(row, index)
 														})}
-														disabled={axisStructureBusy || !editable}
+														disabled={axisStructureBusy}
 													/>
 												</Table.Cell>
 												<Table.Cell class={['py-0', columnFromLgClass]}>
 													<!-- 押せる範囲を四方に 6px 広げているので、隣と重ならないよう間隔を 12px 取る
 														     (→ docs/ui.md「UI 全般」。軸の一覧の上下ボタンと同じ)。 -->
-													{#if editable}
-														<div class="flex justify-end gap-3">
-															<Button
-																type="button"
-																variant="ghost"
-																size="icon"
-																data-move="up"
-																disabled={index === 0 || axisBusy}
-																aria-label={m.archive_axes_values_move_up({
-																	value: axisValueRowName(row, index)
-																})}
-																onclick={() => moveAxisValueRow(index, -1)}
-															>
-																<ChevronUpIcon class="size-4" />
-															</Button>
-															<Button
-																type="button"
-																variant="ghost"
-																size="icon"
-																data-move="down"
-																disabled={index === axisValueRows.length - 1 || axisBusy}
-																aria-label={m.archive_axes_values_move_down({
-																	value: axisValueRowName(row, index)
-																})}
-																onclick={() => moveAxisValueRow(index, 1)}
-															>
-																<ChevronDownIcon class="size-4" />
-															</Button>
-														</div>
-													{/if}
+													<div class="flex justify-end gap-3">
+														<Button
+															type="button"
+															variant="ghost"
+															size="icon"
+															data-move="up"
+															disabled={index === 0 || axisBusy}
+															aria-label={m.archive_axes_values_move_up({
+																value: axisValueRowName(row, index)
+															})}
+															onclick={() => moveAxisValueRow(index, -1)}
+														>
+															<ChevronUpIcon class="size-4" />
+														</Button>
+														<Button
+															type="button"
+															variant="ghost"
+															size="icon"
+															data-move="down"
+															disabled={index === axisValueRows.length - 1 || axisBusy}
+															aria-label={m.archive_axes_values_move_down({
+																value: axisValueRowName(row, index)
+															})}
+															onclick={() => moveAxisValueRow(index, 1)}
+														>
+															<ChevronDownIcon class="size-4" />
+														</Button>
+													</div>
 												</Table.Cell>
 												{#if axis.source === 'filenameWord'}
 													<Table.Cell>
-														{#if editable}
-															<Button
-																type="button"
-																variant="ghost"
-																size="icon-sm"
-																disabled={axisStructureBusy}
-																aria-label={m.archive_axes_values_remove_row({
-																	value: axisValueRowName(row, index)
-																})}
-																onclick={() => removeAxisValueRow(index)}
-															>
-																<XIcon class="size-4" />
-															</Button>
-														{/if}
+														<Button
+															type="button"
+															variant="ghost"
+															size="icon-sm"
+															disabled={axisStructureBusy}
+															aria-label={m.archive_axes_values_remove_row({
+																value: axisValueRowName(row, index)
+															})}
+															onclick={() => removeAxisValueRow(index)}
+														>
+															<XIcon class="size-4" />
+														</Button>
 													</Table.Cell>
 												{/if}
 											</tr>
@@ -1405,27 +1386,25 @@
 
 						<!-- 値を追加するボタンは保存ボタンの右隣に置く。押しても保存はしないので、確定の保存とは
 						     別の見た目 (枠線だけ) にする。type="button" で送信しない。 -->
-						{#if editable}
-							<div class="flex flex-wrap items-center gap-3">
-								<LoadingButton
-									type="submit"
-									loading={axisValuesSavingId === selectedAxisId}
-									disabled={axisStructureBusy || axisValuesSaving || !axisValuesLoaded}
+						<div class="flex flex-wrap items-center gap-3">
+							<LoadingButton
+								type="submit"
+								loading={axisValuesSavingId === selectedAxisId}
+								disabled={axisStructureBusy || axisValuesSaving || !axisValuesLoaded}
+							>
+								{m.action_save()}
+							</LoadingButton>
+							{#if axis.source === 'filenameWord'}
+								<Button
+									type="button"
+									variant="outline"
+									disabled={axisStructureBusy || !axisValuesLoaded}
+									onclick={addAxisValueRow}
 								>
-									{m.action_save()}
-								</LoadingButton>
-								{#if axis.source === 'filenameWord'}
-									<Button
-										type="button"
-										variant="outline"
-										disabled={axisStructureBusy || !axisValuesLoaded}
-										onclick={addAxisValueRow}
-									>
-										{m.archive_axes_values_add_row()}
-									</Button>
-								{/if}
-							</div>
-						{/if}
+									{m.archive_axes_values_add_row()}
+								</Button>
+							{/if}
+						</div>
 					</form>
 				</div>
 			{/if}
@@ -1451,7 +1430,7 @@
 				<!-- 見出しを別に見せるとラベルと同じ文言が2回並ぶので、ラベルを見出しの太さにして区切りを兼ねる。
 				     見出しで移動する読み上げのために、見出し自体は見えない形で残す。 -->
 				<h2 id="title-template-heading" class="sr-only">{m.archive_axes_template_title()}</h2>
-				<Field.Field data-disabled={!editable}>
+				<Field.Field>
 					<!-- 区画の見出しを兼ねるので、ほかの区画の見出しと同じ大きさにする。 -->
 					<Field.FieldLabel for="title-template" class="text-base font-semibold">
 						{m.archive_axes_template_title()}
@@ -1460,7 +1439,6 @@
 						id="title-template"
 						bind:ref={titleTemplateInputEl}
 						bind:value={titleTemplateInput}
-						disabled={!editable}
 						aria-describedby="title-template-help"
 					/>
 					<!-- 入力欄についての注意なので、入力欄のすぐ下に置く。 -->
@@ -1468,37 +1446,32 @@
 						>{m.archive_axes_template_help()}</Field.FieldDescription
 					>
 				</Field.Field>
-				{#if editable}
-					<div class="flex flex-col gap-2">
-						<Field.FieldDescription id="title-template-tokens-label">
-							{m.archive_axes_template_available_axes_label()}
-						</Field.FieldDescription>
-						<!-- 押すとカーソル位置にプレースホルダーを挿入する。保存はしないので、確定に見える差し色を
+				<div class="flex flex-col gap-2">
+					<Field.FieldDescription id="title-template-tokens-label">
+						{m.archive_axes_template_available_axes_label()}
+					</Field.FieldDescription>
+					<!-- 押すとカーソル位置にプレースホルダーを挿入する。保存はしないので、確定に見える差し色を
 					     使わず枠線だけにする (→ docs/ui.md「UI 全般」。値の辞書の語の候補と同じ)。
 					     押せる範囲を上下に広げるので、折り返した行と重ならないよう行間を空ける。 -->
-						<ul class="flex flex-wrap gap-x-2 gap-y-4 py-2">
-							{#each sortedAxes as axis (axis.id)}
-								{@render tokenButton(axis.name)}
-							{/each}
-							<!-- 軸ではないが同じようにテンプレートで使える (→ docs/archive.md「表示タイトル」)。 -->
-							{@render tokenButton(FILE_NAME_PLACEHOLDER)}
-						</ul>
-						<Field.FieldDescription
-							>{m.archive_axes_template_file_name_help()}</Field.FieldDescription
-						>
-					</div>
-				{/if}
-				{#if editable}
-					<div>
-						<LoadingButton
-							type="submit"
-							loading={templateSaving}
-							disabled={axisBusy || !templateForm.dirty}
-						>
-							{m.action_save()}
-						</LoadingButton>
-					</div>
-				{/if}
+					<ul class="flex flex-wrap gap-x-2 gap-y-4 py-2">
+						{#each sortedAxes as axis (axis.id)}
+							{@render tokenButton(axis.name)}
+						{/each}
+						<!-- 軸ではないが同じようにテンプレートで使える (→ docs/archive.md「表示タイトル」)。 -->
+						{@render tokenButton(FILE_NAME_PLACEHOLDER)}
+					</ul>
+					<Field.FieldDescription>{m.archive_axes_template_file_name_help()}</Field.FieldDescription
+					>
+				</div>
+				<div>
+					<LoadingButton
+						type="submit"
+						loading={templateSaving}
+						disabled={axisBusy || !templateForm.dirty}
+					>
+						{m.action_save()}
+					</LoadingButton>
+				</div>
 			</form>
 		</div>
 	</div>

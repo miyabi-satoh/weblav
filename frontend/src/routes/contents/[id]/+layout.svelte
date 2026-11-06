@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { pageHeadingInRowClass, sectionGridClass } from '$lib/page-layout';
+	import { pageHeadingInRowClass } from '$lib/page-layout';
 	import { page } from '$app/state';
 	import { isAdmin } from '$lib/auth';
 	import { resolve } from '$app/paths';
@@ -8,7 +8,7 @@
 	import { archiveItemsSummary, contentTypeLabel } from '$lib/content-labels';
 	import { byIdMap } from '$lib/content-tree';
 	import { contentViewHref } from '$lib/content-view-href';
-	import { gotoWithoutLeaveConfirm } from '$lib/leave-confirm';
+	import { contentEditBack } from '$lib/content-edit-back';
 	import { Button } from '$lib/components/ui/button';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import ScanProgress from '$lib/components/scan-progress.svelte';
@@ -18,14 +18,12 @@
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import ContentDeleteDialog from '$lib/components/content-delete-dialog.svelte';
 	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
 	import { contentTypeIcon } from '$lib/content-types';
 	import { contentPathLabel } from '$lib/root-location';
 	import * as m from '$lib/paraglide/messages.js';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import { backLinkClass } from '$lib/back-link';
-	import EyeIcon from '@lucide/svelte/icons/eye';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -33,14 +31,15 @@
 	let content = $derived(data.content);
 	let contentById = $derived(byIdMap(data.contents));
 	let view = $derived(contentViewHref(content, page.data.user?.id));
-	let deletingContent = $state<typeof content | null>(null);
+
+	let back = $derived(contentEditBack(page.data.user, content, contentById));
 
 	// 再スキャンは見出しの段で押し、進み具合と結果は見出しの下に出す (→ docs/ui.md「UI 全般」)。
 	// タブを移っても消えないよう、ここで持つ。
 	const rescan = new ArchiveRescanState();
 	provideArchiveRescan(rescan);
 	const errorDialog = new ErrorDialogState();
-	let canRescan = $derived(data.editable && content.listView);
+	let canRescan = $derived(content.listView);
 	let contentId = $derived(data.contentId);
 
 	$effect(() => {
@@ -55,26 +54,18 @@
 	});
 
 	// 一覧の表示を使うフォルダーは「基本情報 / 軸定義 / ファイル」を同列に並べる (→ docs/access.md「ロールと操作」)。
-	// 対象外は、パターンを書き換える人のためのものなので、書き換えられる人にだけ出す。
 	let tabs = $derived.by(() => {
 		const id = String(data.contentId);
 		const basic = {
-			href: resolve('/admin/contents/[id]', { id }),
+			href: resolve('/contents/[id]', { id }),
 			label: m.contents_edit_tabs_basic()
 		};
 		if (!content.listView) return [basic];
 		return [
 			basic,
-			{ href: resolve('/admin/contents/[id]/axes', { id }), label: m.archive_tabs_axes() },
-			{ href: resolve('/admin/contents/[id]/items', { id }), label: m.archive_tabs_items() },
-			...(data.editable
-				? [
-						{
-							href: resolve('/admin/contents/[id]/excluded', { id }),
-							label: m.archive_tabs_excluded()
-						}
-					]
-				: [])
+			{ href: resolve('/contents/[id]/axes', { id }), label: m.archive_tabs_axes() },
+			{ href: resolve('/contents/[id]/items', { id }), label: m.archive_tabs_items() },
+			{ href: resolve('/contents/[id]/excluded', { id }), label: m.archive_tabs_excluded() }
 		];
 	});
 
@@ -85,29 +76,21 @@
 	function startRescan() {
 		void rescan.run(data.contentId, (message) => errorDialog.show(message));
 	}
-
-	// 見るだけの理由を、どのタブでも見出しの下で示す (→ docs/ui.md「UI 全般」)。
-	let viewOnlyNote = $derived.by(() => {
-		if (data.editable) return null;
-		const creator = content.createdByUsername;
-		return creator
-			? m.contents_edit_view_only({ creator })
-			: m.contents_edit_view_only_no_creator();
-	});
 </script>
 
 <svelte:head><title>{pageTitle(content.title)}</title></svelte:head>
 
 <div class="px-4 pt-4 md:px-6">
-	<a href={resolve('/admin/contents')} class={backLinkClass}>
+	<!-- eslint-disable svelte/no-navigation-without-resolve -- contentEditBack() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
+	<a href={back.href} class={backLinkClass}>
 		<ChevronLeftIcon class="size-4" />
-		<span class="underline underline-offset-4">{m.admin_contents_nav_title()}</span>
+		<span class="underline underline-offset-4">{back.label}</span>
 	</a>
-	<!-- 閲覧画面へのリンクと⋮は、どのタブでも同じ所に出すので見出しの段に置く (→ docs/ui.md「UI 全般」)。 -->
+	<!-- eslint-enable svelte/no-navigation-without-resolve -->
+	<!-- 再スキャンと閲覧画面へのリンクは、どのタブでも同じ所に出すので見出しの段に置く (→ docs/ui.md「UI 全般」)。 -->
 	<div class="mt-2 flex items-start gap-2">
 		<h1 class={pageHeadingInRowClass}>{content.title}</h1>
 		<div class="flex shrink-0 items-center gap-1">
-			<!-- スマートフォンの幅では、タイトルに幅を残すため、どちらも⋮の中に入れる (→ docs/ui.md「UI 全般」)。 -->
 			{#if canRescan}
 				<LoadingButton
 					class="max-sm:hidden"
@@ -131,15 +114,16 @@
 				>{m.contents_menu_view()}</Button
 			>
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
-			<!-- 見るだけの人には消す操作が無いので、広い幅では⋮ごと出さない。 -->
-			<div class={[!data.editable && 'sm:hidden']}>
+			<!-- スマートフォンの幅では、タイトルに幅を残すため、どちらも⋮の中に入れる。種類で項目の数が変わるので、
+			     ライブラリでなく1つになるものも⋮にする (→ docs/ui.md「UI 全般」)。 -->
+			<div class="sm:hidden">
 				<RowActionsMenu name={content.title}>
 					{#if canRescan}
-						<DropdownMenu.Item class="sm:hidden" disabled={rescan.busy} onSelect={startRescan}>
+						<DropdownMenu.Item disabled={rescan.busy} onSelect={startRescan}>
 							{m.archive_items_rescan_button()}
 						</DropdownMenu.Item>
 					{/if}
-					<DropdownMenu.Item class="sm:hidden">
+					<DropdownMenu.Item>
 						{#snippet child({ props })}
 							<!-- eslint-disable svelte/no-navigation-without-resolve -- contentViewHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」) -->
 							<a
@@ -151,11 +135,6 @@
 							<!-- eslint-enable svelte/no-navigation-without-resolve -->
 						{/snippet}
 					</DropdownMenu.Item>
-					{#if data.editable}
-						<DropdownMenu.Item variant="destructive" onSelect={() => (deletingContent = content)}>
-							{m.action_delete()}
-						</DropdownMenu.Item>
-					{/if}
 				</RowActionsMenu>
 			</div>
 		</div>
@@ -176,18 +155,6 @@
 			<span>{archiveItemsSummary(content.archiveItems)}</span>
 		{/if}
 	</p>
-	{#if viewOnlyNote}
-		<!-- 下の区画の1列目と同じ幅にする。どの画面幅でも端が揃うよう、同じ格子に置く。 -->
-		<div class={[sectionGridClass, 'mt-3']}>
-			<p
-				class="flex items-start gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm"
-				data-testid="view-only-note"
-			>
-				<EyeIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-				<span>{viewOnlyNote}</span>
-			</p>
-		</div>
-	{/if}
 </div>
 
 {#if rescan.progress || rescan.result}
@@ -217,13 +184,5 @@
 {#key data.contentId}
 	{@render children()}
 {/key}
-
-<!-- 消したものの編集ページには戻れないので、一覧へ移る。 -->
-<ContentDeleteDialog
-	bind:content={deletingContent}
-	contents={data.contents}
-	{contentById}
-	ondeleted={() => gotoWithoutLeaveConfirm(resolve('/admin/contents'))}
-/>
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

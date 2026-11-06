@@ -55,61 +55,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/contents": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 管理画面向けの一覧。`path`・公開範囲・作成者を含む。
-         *     ログイン済みなら `user` も呼べるが、他人の `private` は `admin` にだけ返す
-         *     (→ docs/access.md「管理画面の一覧が `user` に見えること」)。
-         */
-        get: operations["list_admin_contents"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/fs/count": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 登録前の確認用に、対象になるファイル数を数える。 */
-        get: operations["count_target_files"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/fs/dirs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** サーバー上のディレクトリ一覧。 */
-        get: operations["list_dirs"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/log-settings": {
         parameters: {
             query?: never;
@@ -551,7 +496,8 @@ export interface paths {
         };
         /**
          * 非表示のコンテンツの一覧。`admin` には全部、ほかの人には自分が作成者のものだけを返す。
-         *     自分が非表示にしたものを、閲覧の場から消えた後に探して戻せるようにするため。新しく非表示にした順。
+         *     閲覧の場のどこにも並ばないので、後から探して開けるようにするため。
+         *     行の形と並び順はホームやグループの一覧と同じにし、画面も同じ一覧の部品で出す (→ docs/ui.md「UI 全般」)。
          */
         get: operations["list_hidden_contents"];
         put?: never;
@@ -577,6 +523,27 @@ export interface paths {
          *     問わない。取得するだけで何も書き込まないため)。
          */
         post: operations["fetch_link_metadata"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contents/manage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 管理画面向けの一覧。`path`・公開範囲・作成者を含む。
+         *     ログイン済みなら `user` も呼べるが、他人の `private` は `admin` にだけ返す
+         *     (→ docs/access.md「管理用の一覧が `user` に見えること」)。
+         */
+        get: operations["list_admin_contents"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1226,27 +1193,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/contents/{id}/unhide": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 非表示のコンテンツを、非表示にする前の公開範囲に戻す。覚えていなければ (この仕組みより前に非表示に
-         *     したもの) `authenticated` に戻す。前が `private` で作成者がいなければ、誰も戻せない (403)。
-         *     非表示でないものはそのままの公開範囲を返す (二度押しを失敗にしないため)。
-         */
-        post: operations["unhide_content"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/contents/{id}/upload": {
         parameters: {
             query?: never;
@@ -1269,26 +1215,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/contents/{id}/visibility": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * 公開範囲だけを変える。ホームなどの一覧の行から、編集画面を開かずに変えるため。
-         *     変えてよいかの判定は編集 (`update_content`) と同じ。
-         */
-        put: operations["set_visibility"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/contents/{id}/visibility-preview": {
         parameters: {
             query?: never;
@@ -1300,6 +1226,40 @@ export interface paths {
         put?: never;
         /** パターンを保存すると、見えるファイルがどう変わるかを数える。保存の前に知らせるため。 */
         post: operations["preview_visibility"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fs/count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 登録前の確認用に、対象になるファイル数を数える。 */
+        get: operations["count_target_files"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fs/dirs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** サーバー上のディレクトリ一覧。 */
+        get: operations["list_dirs"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1826,7 +1786,7 @@ export interface components {
     schemas: {
         /**
          * @description 管理画面向けのレスポンス。`path` (サーバー上の絶対パス)・公開範囲・作成者を含む。
-         *     `user` にも返す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。見えるのは「共有」の配下だけ
+         *     `user` にも返す (→ docs/access.md「管理用の一覧が `user` に見えること」)。見えるのは「共有」の配下だけ
          *     なので、`user` に見せたくないパスはそもそも登録されない (→ docs/folders.md「共有」)。
          */
         AdminContentResponse: {
@@ -1838,7 +1798,7 @@ export interface components {
              * @description 作成者のユーザーid。`None`なら作成者なし (→ docs/access.md「公開範囲」)。
              */
             createdBy?: number | null;
-            /** @description 作成者のユーザー名。管理画面の一覧の「作成者」に出す (→ docs/access.md「管理画面の一覧が `user` に見えること」)。 */
+            /** @description 作成者のユーザー名。管理画面の一覧の「作成者」に出す (→ docs/access.md「管理用の一覧が `user` に見えること」)。 */
             createdByUsername?: string | null;
             description?: string | null;
             /** @description `type = 'folder'` で隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。 */
@@ -2416,6 +2376,11 @@ export interface components {
              *     パンくず表示にそのまま使える。
              */
             ancestors: components["schemas"]["GroupAncestor"][];
+            /**
+             * @description 見ている人がこの中にコンテンツを足せるか。画面は真のとき、見出しの段に「追加」を出す。
+             *     ログインしていて、グループが他人の「作成者のみ」でないとき (→ docs/access.md「作成者のみのグループ」)。
+             */
+            canAdd: boolean;
             /** @description 見ている人がこのコンテンツを書き換えられるか。画面は真のとき、編集ページへの導線を出す。 */
             canEdit: boolean;
             entries: components["schemas"]["ContentResponse"][];
@@ -2444,10 +2409,6 @@ export interface components {
             locale: string;
             slug: string;
             title: string;
-        };
-        /** @description 非表示のコンテンツの1行。管理画面の一覧と同じ形に、戻すときの公開範囲を添える。 */
-        HiddenContentResponse: components["schemas"]["AdminContentResponse"] & {
-            restoreVisibility?: components["schemas"]["Visibility"] | null;
         };
         /** @description 表示するときの画像の縦横 (px)。EXIF の向きを当てた後の値。 */
         ImageSize: {
@@ -2873,9 +2834,6 @@ export interface components {
              */
             createdBy: number;
         };
-        SetVisibilityRequest: {
-            visibility: components["schemas"]["Visibility"];
-        };
         SetupRestoreRequest: {
             /** @description 受け取ったときに返した id。 */
             id: string;
@@ -3117,10 +3075,6 @@ export interface components {
             path?: string;
             /** Format: int64 */
             shareId: number;
-        };
-        UnhideResponse: {
-            /** @description 戻した後の公開範囲。 */
-            visibility: components["schemas"]["Visibility"];
         };
         UpdateContentRequest: {
             autoRescan?: components["schemas"]["AutoRefresh"] | null;
@@ -3465,123 +3419,6 @@ export interface operations {
                 };
             };
             /** @description バックアップではない・新しい版で作られた */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    list_admin_contents: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminContentResponse"][];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    count_target_files: {
-        parameters: {
-            query: {
-                /** @description 数える対象のディレクトリの絶対パス。 */
-                path: string;
-                /** @description 見せるファイルのパターン。1行に1つ (→ `file_filter`)。省略時は全ファイル。 */
-                includePatterns?: string | null;
-                /** @description 隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。 */
-                excludePatterns?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 対象ファイル数 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CountResponse"];
-                };
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description パスが存在しない・ディレクトリでない・共有の外 */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    list_dirs: {
-        parameters: {
-            query?: {
-                /** @description 一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「共有」の一覧。 */
-                path?: string;
-                /** @description 真なら、フォルダーに加えて直下のファイルも返す (`files`)。ショートカットの先を選ぶときに使う。 */
-                files?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description ディレクトリの一覧 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DirsResponse"];
-                };
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description パスが存在しない・ディレクトリでない・共有の外 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -5078,7 +4915,13 @@ export interface operations {
     };
     list_hidden_contents: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description 並び順。`title` (既定、タイトル順) か `new` (新しい順)。
+                 *     知らない値は既定として扱う (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
+                 */
+                sort?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5091,7 +4934,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HiddenContentResponse"][];
+                    "application/json": components["schemas"]["ContentResponse"][];
                 };
             };
             /** @description 未ログイン */
@@ -5138,6 +4981,35 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_admin_contents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminContentResponse"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7136,64 +7008,6 @@ export interface operations {
             };
         };
     };
-    unhide_content: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UnhideResponse"];
-                };
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 作成者・admin以外か、前が作成者のみで作成者がいない */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 存在しないか、他人の作成者のみ */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 作成者のみのグループの決まりに合わない */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
     replace_content_upload: {
         parameters: {
             query?: never;
@@ -7246,66 +7060,6 @@ export interface operations {
                 };
             };
             /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    set_visibility: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SetVisibilityRequest"];
-            };
-        };
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 作成者・admin以外か、作成者のいないものを作成者のみにする変更 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 存在しないか、他人の作成者のみ */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 作成者のみのグループの決まりに合わない */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -7369,6 +7123,94 @@ export interface operations {
             };
             /** @description フォルダーのある NAS やディスクにつながらない */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    count_target_files: {
+        parameters: {
+            query: {
+                /** @description 数える対象のディレクトリの絶対パス。 */
+                path: string;
+                /** @description 見せるファイルのパターン。1行に1つ (→ `file_filter`)。省略時は全ファイル。 */
+                includePatterns?: string | null;
+                /** @description 隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。 */
+                excludePatterns?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 対象ファイル数 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description パスが存在しない・ディレクトリでない・共有の外 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_dirs: {
+        parameters: {
+            query?: {
+                /** @description 一覧を取得するディレクトリの絶対パス。省略時(空文字列)は登録済みの「共有」の一覧。 */
+                path?: string;
+                /** @description 真なら、フォルダーに加えて直下のファイルも返す (`files`)。ショートカットの先を選ぶときに使う。 */
+                files?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ディレクトリの一覧 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirsResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description パスが存在しない・ディレクトリでない・共有の外 */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

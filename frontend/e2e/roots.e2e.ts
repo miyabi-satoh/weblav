@@ -252,7 +252,7 @@ test('編集ページ: 場所を選び直すと、中のコンテンツも新し
 				await expect(page.getByTestId('root-path')).toHaveText(target);
 
 				// 新しい場所の同じフォルダーを開く。
-				const contents = (await send(page.request, 'get', '/admin/contents')) as {
+				const contents = (await send(page.request, 'get', '/contents/manage')) as {
 					id: number;
 					path: string | null;
 				}[];
@@ -365,7 +365,7 @@ test('登録を消したフォルダーを指すコンテンツでも、ピッ�
 				await send(page.request, 'delete', `/admin/roots/${rootId}`);
 				rootId = null;
 
-				await page.goto(`/admin/contents/${content.id}`);
+				await page.goto(`/contents/${content.id}`);
 				await page.getByRole('button', { name: CHANGE_PATH_BUTTON_NAME }).click();
 
 				// 上位の一覧 (登録済みの「共有」。名前で並ぶ) に落ちていること。

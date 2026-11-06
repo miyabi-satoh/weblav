@@ -1,20 +1,18 @@
 import { client } from '$lib/api/client';
 import { fetchOrError } from '$lib/api/load';
+import { parseBrowseSort } from '$lib/browse-sort';
 import * as m from '$lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
-// 非表示のコンテンツは閲覧の場のどこにも並ばないので、戻す・直す・消す入口をここに集める。
-// 管理画面の一覧も取るのは、削除の確認で、グループを消すと見える範囲が広がる子を知らせるため
-// (→ content-delete-dialog.svelte)。
+// 非表示のコンテンツは閲覧の場のどこにも並ばないので、ここに集めて開けるようにする。
+// 並び順はホームやグループと同じ扱い (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
 export const load: PageLoad = async ({ parent, url }) => {
 	await parent();
-	const [hidden, contents] = await Promise.all([
-		fetchOrError(client.GET('/api/v1/contents/hidden'), m.hidden_fetch_failed(), {
-			loginRedirectFrom: url
-		}),
-		fetchOrError(client.GET('/api/v1/admin/contents'), m.contents_fetch_failed(), {
-			loginRedirectFrom: url
-		})
-	]);
-	return { hidden, contents };
+	const sort = parseBrowseSort(url.searchParams.get('sort'));
+	const hidden = await fetchOrError(
+		client.GET('/api/v1/contents/hidden', { params: { query: { sort } } }),
+		m.hidden_fetch_failed(),
+		{ loginRedirectFrom: url }
+	);
+	return { hidden, sort };
 };
