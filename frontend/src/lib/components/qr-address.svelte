@@ -55,14 +55,19 @@
 		     ため本文と同じ書体にする。break-all: 省略せず全文を折り返して見せる
 		     (手入力したい人が全文を確認できるように)。 -->
 		{#if choices.length > 1}
-			<!-- 選ぶ欄は1行なので、長いアドレスは末尾が切れる。QR とコピーには全文が入る。 -->
+			<!-- 1行に切り詰めず、選んだアドレスも全文を折り返して見せる (上の code と同じ理由)。
+			     shadcn の既定の高さ (h-11) を最小の高さにし、折り返した分だけ伸ばす。 -->
 			<Select.Root type="single" bind:value={url}>
-				<Select.Trigger class="min-w-0 flex-1" aria-label={m.share_address_select_label()}>
-					<span class="truncate">{url}</span>
+				<Select.Trigger
+					class="min-h-11 min-w-0 flex-1 text-left whitespace-normal data-[size=default]:h-auto"
+					aria-label={m.share_address_select_label()}
+				>
+					<span class="break-all">{url}</span>
 				</Select.Trigger>
 				<Select.Content>
+					<!-- 候補どうしで違うのはホストだけ。全文を並べると狭い画面で画面の外へはみ出す。 -->
 					{#each choices as choice (choice)}
-						<Select.Item value={choice}>{choice}</Select.Item>
+						<Select.Item value={choice}>{new URL(choice).host}</Select.Item>
 					{/each}
 				</Select.Content>
 			</Select.Root>
