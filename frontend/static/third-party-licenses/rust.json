@@ -221,6 +221,11 @@
 			"text": "UNICODE LICENSE V3\n\nCOPYRIGHT AND PERMISSION NOTICE\n\nCopyright © 2020-2024 Unicode, Inc.\n\nNOTICE TO USER: Carefully read the following legal agreement. BY\nDOWNLOADING, INSTALLING, COPYING OR OTHERWISE USING DATA FILES, AND/OR\nSOFTWARE, YOU UNEQUIVOCALLY ACCEPT, AND AGREE TO BE BOUND BY, ALL OF THE\nTERMS AND CONDITIONS OF THIS AGREEMENT. IF YOU DO NOT AGREE, DO NOT\nDOWNLOAD, INSTALL, COPY, DISTRIBUTE OR USE THE DATA FILES OR SOFTWARE.\n\nPermission is hereby granted, free of charge, to any person obtaining a\ncopy of data files and any associated documentation (the \"Data Files\") or\nsoftware and any associated documentation (the \"Software\") to deal in the\nData Files or Software without restriction, including without limitation\nthe rights to use, copy, modify, merge, publish, distribute, and/or sell\ncopies of the Data Files or Software, and to permit persons to whom the\nData Files or Software are furnished to do so, provided that either (a)\nthis copyright and permission notice appear with all copies of the Data\nFiles or Software, or (b) this copyright and permission notice appear in\nassociated Documentation.\n\nTHE DATA FILES AND SOFTWARE ARE PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY\nKIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF\nMERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF\nTHIRD PARTY RIGHTS.\n\nIN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE\nBE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES,\nOR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,\nWHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,\nARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THE DATA\nFILES OR SOFTWARE.\n\nExcept as contained in this notice, the name of a copyright holder shall\nnot be used in advertising or otherwise to promote the sale, use or other\ndealings in these Data Files or Software without prior written\nauthorization of the copyright holder.\n\nSPDX-License-Identifier: Unicode-3.0\n\n—\n\nPortions of ICU4X may have been adapted from ICU4C and/or ICU4J.\nICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation and others.\n"
 		},
 		{
+			"id": "BSD-3-Clause",
+			"name": "BSD 3-Clause \"New\" or \"Revised\" License",
+			"text": "Copyright 2018 MaidSafe.net limited.\nCopyright 2020 messense\n\nRedistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:\n\n1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.\n\n2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.\n\n3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n"
+		},
+		{
 			"id": "MIT",
 			"name": "MIT License",
 			"text": "MIT License\n\nCopyright (c) 2023 Sean Larkin\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
@@ -1856,6 +1861,17 @@
 			]
 		},
 		{
+			"name": "if-addrs",
+			"versions": [
+				"0.15.0"
+			],
+			"license": "MIT OR BSD-3-Clause",
+			"repository": "https://github.com/messense/if-addrs",
+			"texts": [
+				44
+			]
+		},
+		{
 			"name": "image",
 			"versions": [
 				"0.25.10"
@@ -1896,7 +1912,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/TheLarkInn/is-docker",
 			"texts": [
-				44
+				45
 			]
 		},
 		{
@@ -1907,7 +1923,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/TheLarkInn/is-wsl",
 			"texts": [
-				44
+				45
 			]
 		},
 		{
@@ -1929,7 +1945,7 @@
 			"license": "BSD-2-Clause",
 			"repository": "https://github.com/kamadak/exif-rs",
 			"texts": [
-				45
+				46
 			]
 		},
 		{
@@ -2006,7 +2022,7 @@
 			"license": "ISC",
 			"repository": "https://github.com/nagisa/rust_libloading/",
 			"texts": [
-				46
+				47
 			]
 		},
 		{
@@ -2017,7 +2033,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/rusqlite/rusqlite",
 			"texts": [
-				47
+				48
 			]
 		},
 		{
@@ -2028,7 +2044,7 @@
 			"license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
 			"repository": "https://github.com/sunfishcode/linux-raw-sys",
 			"texts": [
-				48,
+				49,
 				4
 			]
 		},
@@ -2073,7 +2089,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/hawkw/matchers",
 			"texts": [
-				49
+				50
 			]
 		},
 		{
@@ -2084,8 +2100,8 @@
 			"license": "MIT AND BSD-3-Clause",
 			"repository": "https://github.com/ibraheemdev/matchit",
 			"texts": [
-				50,
-				51
+				51,
+				52
 			]
 		},
 		{
@@ -2107,7 +2123,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/Gilnaa/memoffset",
 			"texts": [
-				52
+				53
 			]
 		},
 		{
@@ -2129,7 +2145,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/abonander/mime_guess",
 			"texts": [
-				53
+				54
 			]
 		},
 		{
@@ -2152,7 +2168,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/mio",
 			"texts": [
-				54
+				55
 			]
 		},
 		{
@@ -2163,7 +2179,7 @@
 			"license": "BSD-3-Clause OR Apache-2.0",
 			"repository": "https://github.com/awxkee/moxcms",
 			"texts": [
-				55
+				56
 			]
 		},
 		{
@@ -2185,7 +2201,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/rwf2/multer",
 			"texts": [
-				56
+				57
 			]
 		},
 		{
@@ -2196,7 +2212,7 @@
 			"license": "BSD-2-Clause",
 			"repository": "https://github.com/kamadak/mutate_once-rs",
 			"texts": [
-				57
+				58
 			]
 		},
 		{
@@ -2218,7 +2234,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/nix-rust/nix",
 			"texts": [
-				58
+				59
 			]
 		},
 		{
@@ -2229,7 +2245,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/nushell/nu-ansi-term",
 			"texts": [
-				59
+				60
 			]
 		},
 		{
@@ -2383,7 +2399,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/Byron/open-rs",
 			"texts": [
-				60
+				61
 			]
 		},
 		{
@@ -2416,7 +2432,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/rust-openssl/rust-openssl",
 			"texts": [
-				61
+				62
 			]
 		},
 		{
@@ -2427,7 +2443,7 @@
 			"license": "MPL-2.0",
 			"repository": "https://github.com/soc/option-ext",
 			"texts": [
-				62
+				63
 			]
 		},
 		{
@@ -2581,7 +2597,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/jhpratt/powerfmt",
 			"texts": [
-				63
+				64
 			]
 		},
 		{
@@ -2592,7 +2608,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/cryptocorrosion/cryptocorrosion",
 			"texts": [
-				64
+				65
 			]
 		},
 		{
@@ -2603,7 +2619,7 @@
 			"license": "BSD-3-Clause OR Apache-2.0",
 			"repository": "https://github.com/awxkee/pxfm",
 			"texts": [
-				55
+				56
 			]
 		},
 		{
@@ -2647,7 +2663,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/rust-random/rand",
 			"texts": [
-				65
+				66
 			]
 		},
 		{
@@ -2691,8 +2707,8 @@
 			"license": "MIT",
 			"repository": "https://github.com/PolyMeilex/rfd",
 			"texts": [
-				66,
-				67
+				67,
+				68
 			]
 		},
 		{
@@ -2703,7 +2719,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/3Hren/msgpack-rust",
 			"texts": [
-				68
+				69
 			]
 		},
 		{
@@ -2714,7 +2730,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/3Hren/msgpack-rust",
 			"texts": [
-				68
+				69
 			]
 		},
 		{
@@ -2747,7 +2763,7 @@
 			"license": "MIT",
 			"repository": "https://pyrossh.dev/repos/rust-embed",
 			"texts": [
-				69
+				70
 			]
 		},
 		{
@@ -2758,7 +2774,7 @@
 			"license": "MIT",
 			"repository": "https://pyrossh.dev/repos/rust-embed",
 			"texts": [
-				69
+				70
 			]
 		},
 		{
@@ -2769,7 +2785,7 @@
 			"license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
 			"repository": "https://github.com/bytecodealliance/rustix",
 			"texts": [
-				48,
+				49,
 				4
 			]
 		},
@@ -2781,7 +2797,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/rustls/pki-types",
 			"texts": [
-				70
+				71
 			]
 		},
 		{
@@ -2803,7 +2819,7 @@
 			"license": "Unlicense OR MIT",
 			"repository": "https://github.com/BurntSushi/same-file",
 			"texts": [
-				71
+				72
 			]
 		},
 		{
@@ -2814,7 +2830,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/steffengy/schannel-rs",
 			"texts": [
-				72
+				73
 			]
 		},
 		{
@@ -2947,7 +2963,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/hawkw/sharded-slab",
 			"texts": [
-				73
+				74
 			]
 		},
 		{
@@ -2969,7 +2985,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/mcountryman/simd-adler32",
 			"texts": [
-				74
+				75
 			]
 		},
 		{
@@ -2991,7 +3007,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/slab",
 			"texts": [
-				75
+				76
 			]
 		},
 		{
@@ -3024,7 +3040,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/mvdnes/spin-rs",
 			"texts": [
-				76
+				77
 			]
 		},
 		{
@@ -3035,7 +3051,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/launchbadge/sqlx",
 			"texts": [
-				77
+				78
 			]
 		},
 		{
@@ -3046,7 +3062,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/launchbadge/sqlx",
 			"texts": [
-				77
+				78
 			]
 		},
 		{
@@ -3057,7 +3073,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/launchbadge/sqlx",
 			"texts": [
-				77
+				78
 			]
 		},
 		{
@@ -3079,7 +3095,7 @@
 			"license": "BSD-3-Clause",
 			"repository": "https://github.com/dalek-cryptography/subtle",
 			"texts": [
-				78
+				79
 			]
 		},
 		{
@@ -3190,7 +3206,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tokio",
 			"texts": [
-				79
+				80
 			]
 		},
 		{
@@ -3201,7 +3217,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tokio",
 			"texts": [
-				79
+				80
 			]
 		},
 		{
@@ -3212,7 +3228,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tokio",
 			"texts": [
-				79
+				80
 			]
 		},
 		{
@@ -3278,7 +3294,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tower-rs/tower",
 			"texts": [
-				80
+				81
 			]
 		},
 		{
@@ -3289,7 +3305,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/imbolc/tower-cookies",
 			"texts": [
-				81
+				82
 			]
 		},
 		{
@@ -3300,7 +3316,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tower-rs/tower-http",
 			"texts": [
-				82
+				83
 			]
 		},
 		{
@@ -3311,7 +3327,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tower-rs/tower",
 			"texts": [
-				80
+				81
 			]
 		},
 		{
@@ -3322,7 +3338,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tower-rs/tower",
 			"texts": [
-				80
+				81
 			]
 		},
 		{
@@ -3333,7 +3349,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/maxcountryman/tower-sessions",
 			"texts": [
-				83
+				84
 			]
 		},
 		{
@@ -3344,7 +3360,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/maxcountryman/tower-sessions",
 			"texts": [
-				83
+				84
 			]
 		},
 		{
@@ -3355,7 +3371,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/maxcountryman/tower-sessions-stores",
 			"texts": [
-				84
+				85
 			]
 		},
 		{
@@ -3366,7 +3382,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tracing",
 			"texts": [
-				85
+				86
 			]
 		},
 		{
@@ -3377,7 +3393,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tracing",
 			"texts": [
-				85
+				86
 			]
 		},
 		{
@@ -3388,8 +3404,8 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tracing",
 			"texts": [
-				85,
-				86
+				86,
+				87
 			]
 		},
 		{
@@ -3400,7 +3416,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tracing",
 			"texts": [
-				85
+				86
 			]
 		},
 		{
@@ -3411,7 +3427,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/tokio-rs/tracing",
 			"texts": [
-				85
+				86
 			]
 		},
 		{
@@ -3422,7 +3438,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/ArturKovacs/trash",
 			"texts": [
-				87
+				88
 			]
 		},
 		{
@@ -3455,7 +3471,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/paholg/typenum",
 			"texts": [
-				88
+				89
 			]
 		},
 		{
@@ -3488,7 +3504,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/algesten/ureq",
 			"texts": [
-				89
+				90
 			]
 		},
 		{
@@ -3521,7 +3537,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/kornelski/rust_urlencoding",
 			"texts": [
-				90
+				91
 			]
 		},
 		{
@@ -3554,7 +3570,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/juhaku/utoipa",
 			"texts": [
-				91
+				92
 			]
 		},
 		{
@@ -3565,7 +3581,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/juhaku/utoipa",
 			"texts": [
-				91
+				92
 			]
 		},
 		{
@@ -3587,7 +3603,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/smithay/wayland-rs",
 			"texts": [
-				92
+				93
 			]
 		},
 		{
@@ -3598,7 +3614,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/smithay/wayland-rs",
 			"texts": [
-				92
+				93
 			]
 		},
 		{
@@ -3609,8 +3625,8 @@
 			"license": "MIT",
 			"repository": "https://github.com/smithay/wayland-rs",
 			"texts": [
-				92,
-				93
+				93,
+				94
 			]
 		},
 		{
@@ -3621,7 +3637,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/smithay/wayland-rs",
 			"texts": [
-				92
+				93
 			]
 		},
 		{
@@ -3632,7 +3648,7 @@
 			"license": "CDLA-Permissive-2.0",
 			"repository": "https://github.com/rustls/webpki-roots",
 			"texts": [
-				94
+				95
 			]
 		},
 		{
@@ -3654,7 +3670,7 @@
 			"license": "Unlicense OR MIT",
 			"repository": "https://github.com/BurntSushi/winapi-util",
 			"texts": [
-				71
+				72
 			]
 		},
 		{
@@ -3665,7 +3681,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				95
+				96
 			]
 		},
 		{
@@ -3676,7 +3692,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				95
+				96
 			]
 		},
 		{
@@ -3687,7 +3703,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				95
+				96
 			]
 		},
 		{
@@ -3698,7 +3714,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				95
+				96
 			]
 		},
 		{
@@ -3709,7 +3725,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				95
+				96
 			]
 		},
 		{
@@ -3720,7 +3736,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				95
+				96
 			]
 		},
 		{
@@ -3731,7 +3747,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				95
+				96
 			]
 		},
 		{
@@ -3742,7 +3758,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				95
+				96
 			]
 		},
 		{
@@ -3753,7 +3769,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				95
+				96
 			]
 		},
 		{
@@ -3764,7 +3780,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				95
+				96
 			]
 		},
 		{
@@ -3775,7 +3791,7 @@
 			"license": "MIT OR Apache-2.0",
 			"repository": "https://github.com/microsoft/windows-rs",
 			"texts": [
-				95
+				96
 			]
 		},
 		{
@@ -3786,7 +3802,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/winnow-rs/winnow",
 			"texts": [
-				96
+				97
 			]
 		},
 		{
@@ -3808,7 +3824,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/AltF02/x11-rs",
 			"texts": [
-				97
+				98
 			]
 		},
 		{
@@ -3819,7 +3835,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/AltF02/x11-rs",
 			"texts": [
-				97
+				98
 			]
 		},
 		{
@@ -3841,7 +3857,7 @@
 			"license": "BSD-2-Clause OR Apache-2.0 OR MIT",
 			"repository": "https://github.com/google/zerocopy",
 			"texts": [
-				98
+				99
 			]
 		},
 		{
@@ -3896,7 +3912,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/zip-rs/zip2",
 			"texts": [
-				86
+				87
 			]
 		},
 		{
@@ -3907,7 +3923,7 @@
 			"license": "Zlib",
 			"repository": "https://github.com/trifectatechfoundation/zlib-rs",
 			"texts": [
-				99
+				100
 			]
 		},
 		{
@@ -3918,7 +3934,7 @@
 			"license": "MIT",
 			"repository": "https://github.com/dtolnay/zmij",
 			"texts": [
-				97
+				98
 			]
 		},
 		{
@@ -3929,7 +3945,7 @@
 			"license": "MIT OR Apache-2.0 OR Zlib",
 			"repository": "https://github.com/etemesi254/zune-image",
 			"texts": [
-				89
+				90
 			]
 		},
 		{
@@ -3940,7 +3956,7 @@
 			"license": "MIT OR Apache-2.0 OR Zlib",
 			"repository": "https://github.com/etemesi254/zune-image/tree/dev/crates/zune-jpeg",
 			"texts": [
-				89
+				90
 			]
 		}
 	]

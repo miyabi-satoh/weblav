@@ -5,12 +5,18 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
+	import * as Select from '$lib/components/ui/select';
 	import { copyText } from '$lib/clipboard';
 	import { CopiedState } from '$lib/copied-state.svelte';
 	import { qrCardClass, qrImageClass } from '$lib/qr-card';
 
 	// ほかの端末で開くアドレスの、QR コードと控えるための全文・コピー (ページの共有)。
-	let { url, qrAlt }: { url: string; qrAlt: string } = $props();
+	// `choices` が2つ以上なら、アドレスを選べる (PC の名前を引けない端末へ IP で渡すため)。
+	let {
+		url = $bindable(),
+		choices = [],
+		qrAlt
+	}: { url: string; choices?: string[]; qrAlt: string } = $props();
 
 	let qrDataUrl = $state<string | null>(null);
 	const copyFeedback = new CopiedState();
@@ -48,9 +54,23 @@
 		     マニュアルのコード表示専用。URLは「控えるアドレス」であり code片ではない
 		     ため本文と同じ書体にする。break-all: 省略せず全文を折り返して見せる
 		     (手入力したい人が全文を確認できるように)。 -->
-		<code class="min-w-0 flex-1 rounded border bg-muted px-2 py-1.5 font-sans text-sm break-all"
-			>{url}</code
-		>
+		{#if choices.length > 1}
+			<!-- 選ぶ欄は1行なので、長いアドレスは末尾が切れる。QR とコピーには全文が入る。 -->
+			<Select.Root type="single" bind:value={url}>
+				<Select.Trigger class="min-w-0 flex-1" aria-label={m.share_address_select_label()}>
+					<span class="truncate">{url}</span>
+				</Select.Trigger>
+				<Select.Content>
+					{#each choices as choice (choice)}
+						<Select.Item value={choice}>{choice}</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+		{:else}
+			<code class="min-w-0 flex-1 rounded border bg-muted px-2 py-1.5 font-sans text-sm break-all"
+				>{url}</code
+			>
+		{/if}
 		<!-- アイコンのみ (→ GitHub等の「表示中テキストをコピー」ボタンの作法に合わせる)。
 		     成功のフィードバックはアイコンを一時的にチェックマークへ切り替えるだけにし
 		     (トーストはこの軽い操作には大げさ)、失敗時だけトーストで知らせる。 -->

@@ -8,11 +8,15 @@
 	import QrAddress from '$lib/components/qr-address.svelte';
 	import { client } from '$lib/api/client';
 	import { headerIconActionClass } from '$lib/header-action';
-	import { shareableUrl } from '$lib/share-url';
+	import { pickShareUrl, shareableUrls } from '$lib/share-url';
+	import { readStored, writeStored } from '$lib/stored';
 
 	// 開いているページを、ほかの端末へ渡す (→ docs/ui.md「ページの共有」)。
 
-	type Connection = { mdnsHostname?: string | null; port: number };
+	type Connection = { mdnsHostname?: string | null; port: number; lanAddresses?: string[] };
+
+	// 名前で開けないネットワークでは毎回 IP に切り替えることになるので、選んだホストを端末に覚える。
+	const HOST_STORAGE_KEY = 'weblav:share-host';
 
 	/** `undefined`: まだ聞いていない。`null`: 聞けなかった。 */
 	let connection = $state<Connection | null | undefined>(undefined);
@@ -24,7 +28,7 @@
 		canShare = typeof navigator.share === 'function';
 	});
 
-	// PC の前 (`localhost`) で開いたときに、PC の名前へ置き換えるため。置き換えが要らなければ使わない。
+	// PC の名前と IP のアドレスを候補に足すため。
 	async function loadConnection() {
 		if (connection !== undefined) return;
 		try {
@@ -35,7 +39,14 @@
 		}
 	}
 
-	let url = $derived(shareableUrl(page.url, connection ?? undefined));
+	let urls = $derived(shareableUrls(page.url, connection ?? undefined));
+	let storedHost = $state(readStored(HOST_STORAGE_KEY));
+	let url = $derived(pickShareUrl(urls, storedHost));
+
+	function selectUrl(next: string) {
+		storedHost = new URL(next).host;
+		writeStored(HOST_STORAGE_KEY, storedHost);
+	}
 
 	async function showQr() {
 		await loadConnection();
@@ -84,7 +95,7 @@
 			{#if connection === undefined}
 				<p class="text-sm text-muted-foreground">{m.common_loading()}</p>
 			{:else if url}
-				<QrAddress {url} qrAlt={m.share_qr_alt()} />
+				<QrAddress bind:url={() => url ?? '', selectUrl} choices={urls} qrAlt={m.share_qr_alt()} />
 			{:else if connection?.port === 0}
 				<p class="text-sm text-muted-foreground">{m.share_bind_local()}</p>
 			{:else if connection}

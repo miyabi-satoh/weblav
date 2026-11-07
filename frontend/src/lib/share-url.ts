@@ -9,18 +9,34 @@ function isLoopbackHost(hostname: string): boolean {
 	);
 }
 
+type Connection = { mdnsHostname?: string | null; port: number; lanAddresses?: string[] };
+
 /**
- * ほかの端末に渡す、開いているページのアドレス (→ docs/ui.md「ページの共有」)。
- * ほかの端末から開いているなら、そのアドレスはもう届くのでそのまま使う (HTTPS の前段を置いた構成も含む)。
- * PC の前で `localhost` から開いているときだけ、PC の名前 (mDNS) とサーバーのポートに置き換える。
- * 置き換えられなければ `undefined`。
+ * ほかの端末に渡せる、開いているページのアドレスの候補 (→ docs/ui.md「ページの共有」)。先頭が既定。
+ * ほかの端末から開いているなら、そのアドレスはもう届くので先頭に置く (HTTPS の前段を置いた構成も含む)。
+ * サーバーへ HTTP で直に届く開き方なら、PC の名前 (mDNS) と LAN の IP アドレスも、サーバーのポートで足す。
+ * 名前を引けない端末へは IP で渡すため。HTTPS の前段越しに開いているときは、サーバーのポートへの直の
+ * アドレスが前段と同じに届くとは限らないので足さない。
  */
-export function shareableUrl(
-	current: URL,
-	connection: { mdnsHostname?: string | null; port: number } | undefined
-): string | undefined {
+export function shareableUrls(current: URL, connection: Connection | undefined): string[] {
 	const path = `${current.pathname}${current.search}`;
-	if (!isLoopbackHost(current.hostname)) return `${current.origin}${path}`;
-	if (!connection?.mdnsHostname || connection.port === 0) return undefined;
-	return `${current.protocol}//${connection.mdnsHostname}:${connection.port}${path}`;
+	const loopback = isLoopbackHost(current.hostname);
+	const urls = loopback ? [] : [`${current.origin}${path}`];
+	if (!connection || connection.port === 0 || (!loopback && current.protocol !== 'http:')) {
+		return urls;
+	}
+	const hosts = [connection.mdnsHostname, ...(connection.lanAddresses ?? [])];
+	for (const host of hosts) {
+		if (!host) continue;
+		const url = `${current.protocol}//${host}:${connection.port}${path}`;
+		if (!urls.includes(url)) urls.push(url);
+	}
+	return urls;
+}
+
+/**
+ * 候補のうち、前に選んだホストのもの。無くなっていれば既定 (先頭)。候補が無ければ `undefined`。
+ */
+export function pickShareUrl(urls: string[], storedHost: string | null): string | undefined {
+	return urls.find((url) => new URL(url).host === storedHost) ?? urls[0];
 }
