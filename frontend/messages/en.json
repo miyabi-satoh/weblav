@@ -77,8 +77,6 @@
 	"share_trigger_label": "Share this page",
 	"share_qr_menu_item": "Show QR code...",
 	"share_apps_menu_item": "Share with other apps...",
-	"share_copy_menu_item": "Copy link",
-	"share_copied_toast": "Link copied",
 	"share_dialog_title": "Share this page",
 	"share_dialog_description": "Scan the QR code on a device connected to the same Wi-Fi to open this page.",
 	"share_qr_alt": "QR code for this page",
