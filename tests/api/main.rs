@@ -626,6 +626,18 @@ fn parse_json(body: &str) -> serde_json::Value {
     serde_json::from_str(body).expect("レスポンスをJSONとして読めなかった")
 }
 
+/// 1行に1つの JSON (NDJSON) の応答を、並びとして読む。
+fn parse_ndjson(body: &str) -> serde_json::Value {
+    serde_json::Value::Array(
+        body.lines()
+            .map(|line| {
+                serde_json::from_str::<serde_json::Value>(line)
+                    .expect("応答の行をJSONとして読めなかった")
+            })
+            .collect(),
+    )
+}
+
 /// 軸を1本作り、その id を返す。
 async fn create_axis(app: Router, cookie: &str, archive_id: i64, json: &str) -> i64 {
     let (status, body) = send_json(

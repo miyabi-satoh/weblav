@@ -5067,7 +5067,7 @@
     },
     "/api/v1/link-previews/refresh": {
       "post": {
-        "summary": "一覧に出したリンクのページの情報を、期限が切れていれば取り直して返す。\n一覧は覚えている情報ですぐ出し、これの答えで差し替える (→ docs/ui.md「リンクのカード」)。",
+        "summary": "一覧に出したリンクのページの情報を、期限が切れていれば取り直して返す。\n一覧は覚えている情報ですぐ出し、これの答えで差し替える (→ docs/ui.md「リンクのカード」)。\n答えは1件ごとに1行の JSON (NDJSON) で、確かめ終えた順に流す。いちばん遅いページを待たずに、\n取れたカードから差し替えられるようにするため。",
         "operationId": "refresh_link_previews",
         "requestBody": {
           "content": {
@@ -5081,14 +5081,11 @@
         },
         "responses": {
           "200": {
-            "description": "頼まれたリンクの今の情報。取れなかったものも、覚えている情報で返す",
+            "description": "頼まれたリンクの今の情報を、1件ずつ1行で、確かめ終えた順に。取れなかったものも、覚えている情報で返す",
             "content": {
-              "application/json": {
+              "application/x-ndjson": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/RefreshedLinkPreview"
-                  }
+                  "$ref": "#/components/schemas/RefreshedLinkPreview"
                 }
               }
             }

@@ -117,7 +117,7 @@ async fn refresh_answers_with_the_previews_of_the_links_in_a_links_file(pool: Sq
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let json = parse_json(&body);
+    let json = parse_ndjson(&body);
     assert_eq!(json[0]["url"], "https://example.com/", "{json}");
     assert_eq!(json[0]["preview"]["title"], "Example", "{json}");
 }
