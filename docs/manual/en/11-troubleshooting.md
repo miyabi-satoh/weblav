@@ -9,15 +9,16 @@ Check these in order.
 
    ![The Share this page screen](images/share-qr.webp)
 
-3. Check the server computer settings.
+3. If the name address (such as `http://my-pc.local:8370`) does not open, select the address on the Share this page screen and switch to the numeric address (such as `http://192.168.1.13:8370`). The QR code changes to that address too.
+4. Check the server computer settings.
    - **Windows**: In Settings > Network & internet > the network you use, set “Network profile type” to “Private network”.
    - **macOS**: In System Settings > Network > Firewall > Options, set WebLAV to “Allow incoming connections”.
    - **Ubuntu**: If you have turned on the firewall (ufw), enter `sudo ufw allow 8370/tcp` in Terminal (if the number after `:` in that address is not 8370, use that number).
-4. Check the device settings, if it opens in Safari but not Chrome or another browser.
+5. Check the device settings, if it opens in Safari but not Chrome or another browser.
    - **iPhone and iPad**: In Settings > Privacy & Security > Local Network, turn on the browser.
    - **Mac**: In System Settings > Privacy & Security > Local Network, turn on the browser.
    - **Android**: In Settings > Apps > your browser > Permissions, allow “Nearby devices”.
-5. Reconnect to Wi-Fi or restart the router.
+6. Reconnect to Wi-Fi or restart the router.
 
 ## The port number changed
 

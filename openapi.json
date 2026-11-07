@@ -1731,7 +1731,7 @@
         "operationId": "connection_info",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "他の端末から開くためのアドレス",
             "content": {
               "application/json": {
                 "schema": {
@@ -7196,9 +7196,17 @@
       "ConnectionInfoResponse": {
         "type": "object",
         "required": [
-          "port"
+          "port",
+          "lanAddresses"
         ],
         "properties": {
+          "lanAddresses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "この PC の LAN の IPv4 アドレス (`192.168.1.13`等)。`mdnsHostname`の名前を引けない端末で開くため。\n仮想の LAN (Docker・VPN など) のものは除く。全インターフェースで待ち受けていないときは空。"
+          },
           "mdnsHostname": {
             "type": [
               "string",

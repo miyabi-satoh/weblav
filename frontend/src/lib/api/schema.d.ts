@@ -2034,6 +2034,11 @@ export interface components {
         };
         ConnectionInfoResponse: {
             /**
+             * @description この PC の LAN の IPv4 アドレス (`192.168.1.13`等)。`mdnsHostname`の名前を引けない端末で開くため。
+             *     仮想の LAN (Docker・VPN など) のものは除く。全インターフェースで待ち受けていないときは空。
+             */
+            lanAddresses: string[];
+            /**
              * @description mDNS のホスト名(`my-pc.local`等、ポートを除く)。全インターフェースで待ち受けて
              *     いないときや、OS から名前を読めなかったときは`None`。
              */
@@ -4822,7 +4827,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
+            /** @description 他の端末から開くためのアドレス */
             200: {
                 headers: {
                     [name: string]: unknown;

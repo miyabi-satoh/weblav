@@ -80,6 +80,7 @@
 	"share_dialog_title": "このページを共有",
 	"share_dialog_description": "同じ Wi-Fi に接続したデバイスで QR コードをスキャンすると、このページを開けます。",
 	"share_qr_alt": "このページの QR コード",
+	"share_address_select_label": "共有するアドレス",
 	"share_copy_button": "コピー",
 	"share_unavailable": "このコンピューターの名前はアドレスに使用できません。英数字とハイフンだけを使ってコンピューターの名前を変更してください。",
 	"share_bind_local": "設定ファイルの bind が\"0.0.0.0\"ではないため、ほかのデバイスから接続できません。\"0.0.0.0\"に設定して WebLAV を再起動すると接続できるようになります。",

@@ -80,6 +80,7 @@
 	"share_dialog_title": "Share this page",
 	"share_dialog_description": "Scan the QR code on a device connected to the same Wi-Fi to open this page.",
 	"share_qr_alt": "QR code for this page",
+	"share_address_select_label": "Address to share",
 	"share_copy_button": "Copy",
 	"share_unavailable": "This computer's name can't be used for the address. Rename the computer using only letters, numbers, and hyphens.",
 	"share_bind_local": "Other devices can't connect because bind in the config file isn't “0.0.0.0”. Set it to “0.0.0.0” and restart WebLAV to allow connections.",

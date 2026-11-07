@@ -14,6 +14,7 @@ const RECOVERY_CODE_COPY_BUTTON_NAME = /^コピー$|^Copy$/;
 const SHARE_TRIGGER_NAME = /^このページを共有$|^Share this page$/;
 const SHARE_QR_MENU_ITEM_NAME = /^QR コードを表示\.\.\.$|^Show QR code\.\.\.$/;
 const SHARE_COPY_BUTTON_NAME = /^コピー$|^Copy$/;
+const SHARE_ADDRESS_SELECT_NAME = /^共有するアドレス$|^Address to share$/;
 
 type WindowWithClipboard = Window & { __realClipboard?: Clipboard };
 
@@ -74,6 +75,32 @@ test('共有の QR コードの画面から、ページのアドレスをコピ�
 		await copyButton.click();
 		await expect(copyButton).toBeFocused();
 		expect(await readClipboard(page)).toBe(`${new URL(baseURL!).protocol}//e2e-host.local:8370/`);
+	} finally {
+		await page.context().close();
+	}
+});
+
+test('共有の QR コードの画面で IP アドレスを選ぶと、そのアドレスをコピーする', async ({
+	browser,
+	baseURL
+}) => {
+	const page = await insecurePage(browser, baseURL);
+	try {
+		await page.route('**/api/v1/connection-info', (route) =>
+			route.fulfill({
+				json: { mdnsHostname: 'e2e-host.local', port: 8370, lanAddresses: ['192.168.1.13'] }
+			})
+		);
+		await page.goto('/');
+		await page.getByRole('button', { name: SHARE_TRIGGER_NAME }).click();
+		await page.getByRole('menuitem', { name: SHARE_QR_MENU_ITEM_NAME }).click();
+		const dialog = page.getByRole('dialog');
+		await dialog.getByRole('button', { name: SHARE_ADDRESS_SELECT_NAME }).click();
+		await page.getByRole('option', { name: '192.168.1.13:8370' }).click();
+		await dialog.getByRole('button', { name: SHARE_COPY_BUTTON_NAME }).click();
+		await expect
+			.poll(() => readClipboard(page))
+			.toBe(`${new URL(baseURL!).protocol}//192.168.1.13:8370/`);
 	} finally {
 		await page.context().close();
 	}
