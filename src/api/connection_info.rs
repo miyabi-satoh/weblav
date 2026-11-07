@@ -82,6 +82,8 @@ fn lan_ipv4_addresses() -> Vec<Ipv4Addr> {
 /// VPN (Tailscale の 100.64.0.0/10 など) は同じ Wi-Fi の端末から届かないため。
 /// Docker・仮想マシン・VPN の仮想の LAN もプライベートのアドレスを持つので、名前で除く。
 fn is_lan_candidate(interface_name: &str, ip: Ipv4Addr) -> bool {
+    // macOS・Linux のインターフェースの名前 (小文字)。大文字と小文字を区別して比べるのは、
+    // Windows の実の LAN につながる `vEthernet (…)` を `veth` に当てないため。
     const VIRTUAL_PREFIXES: [&str; 12] = [
         "docker",
         "br-",
@@ -98,11 +100,10 @@ fn is_lan_candidate(interface_name: &str, ip: Ipv4Addr) -> bool {
     ];
     // Windows の WSL と Hyper-V の既定のスイッチ。外部のスイッチ (実の LAN につながる) は別の名前になる。
     const VIRTUAL_WINDOWS_MARKS: [&str; 2] = ["(WSL", "(Default Switch)"];
-    let name = interface_name.to_ascii_lowercase();
     ip.is_private()
         && !VIRTUAL_PREFIXES
             .iter()
-            .any(|prefix| name.starts_with(prefix))
+            .any(|prefix| interface_name.starts_with(prefix))
         && !VIRTUAL_WINDOWS_MARKS
             .iter()
             .any(|mark| interface_name.contains(mark))
