@@ -1359,6 +1359,8 @@ export interface paths {
         /**
          * 一覧に出したリンクのページの情報を、期限が切れていれば取り直して返す。
          *     一覧は覚えている情報ですぐ出し、これの答えで差し替える (→ docs/ui.md「リンクのカード」)。
+         *     答えは1件ごとに1行の JSON (NDJSON) で、確かめ終えた順に流す。いちばん遅いページを待たずに、
+         *     取れたカードから差し替えられるようにするため。
          */
         post: operations["refresh_link_previews"];
         delete?: never;
@@ -7405,13 +7407,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description 頼まれたリンクの今の情報。取れなかったものも、覚えている情報で返す */
+            /** @description 頼まれたリンクの今の情報を、1件ずつ1行で、確かめ終えた順に。取れなかったものも、覚えている情報で返す */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RefreshedLinkPreview"][];
+                    "application/x-ndjson": components["schemas"]["RefreshedLinkPreview"];
                 };
             };
             /** @description 件数が多すぎる */

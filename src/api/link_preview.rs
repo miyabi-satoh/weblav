@@ -1,13 +1,13 @@
 //! リンクのカードに出すページの情報を、URL ごとに覚えて配る (→ docs/ui.md「リンクのカード」)。
 //!
-//! 一覧は覚えている情報ですぐに出し (`cached`)、画面がその後で取り直しを頼む (`refresh`)。
+//! 一覧は覚えている情報ですぐに出し (`cached`)、画面がその後で取り直しを頼む (`stream_refreshed`)。
 
 use std::collections::{HashMap, HashSet};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use axum::Json;
+use axum::body::Body;
 use axum::extract::{Path as UrlPath, State};
 use axum::http::{HeaderValue, header};
 use axum::response::{IntoResponse, Response};
@@ -15,7 +15,9 @@ use image::DynamicImage;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::SqlitePool;
+use tokio::io::{AsyncWriteExt, DuplexStream};
 use tokio::sync::Semaphore;
+use tokio_util::io::ReaderStream;
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -37,6 +39,10 @@ const MIN_RECHECK_SECS: i64 = 5 * 60;
 
 /// 1回の取り直しで受け付ける件数の上限。一覧に出す分を超える頼みは、壊れた画面か悪用とみなす。
 const MAX_REFRESH_TARGETS: usize = 200;
+
+/// 取り直した答えを流すときの、書き手と読み手の間の溜め。1件は 1KB ほどなので、読み手が遅くても
+/// 何十件か先に取り終えた分を溜めておける大きさにする。溜まりきれば、書き手は読まれるのを待つだけ。
+const STREAM_BUFFER_BYTES: usize = 64 * 1024;
 
 /// 取りに行く画像の大きさの上限。カードの画像は縮めて使うので、大きな原寸は要らない。
 const MAX_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
@@ -178,12 +184,14 @@ struct RefreshedLinkPreview {
 
 /// 一覧に出したリンクのページの情報を、期限が切れていれば取り直して返す。
 /// 一覧は覚えている情報ですぐ出し、これの答えで差し替える (→ docs/ui.md「リンクのカード」)。
+/// 答えは1件ごとに1行の JSON (NDJSON) で、確かめ終えた順に流す。いちばん遅いページを待たずに、
+/// 取れたカードから差し替えられるようにするため。
 #[utoipa::path(
     post,
     path = "/link-previews/refresh",
     request_body = RefreshLinkPreviewsRequest,
     responses(
-        (status = OK, body = Vec<RefreshedLinkPreview>, description = "頼まれたリンクの今の情報。取れなかったものも、覚えている情報で返す"),
+        (status = OK, body = RefreshedLinkPreview, content_type = "application/x-ndjson", description = "頼まれたリンクの今の情報を、1件ずつ1行で、確かめ終えた順に。取れなかったものも、覚えている情報で返す"),
         (status = 422, body = crate::error::ErrorResponse, description = "件数が多すぎる"),
     )
 )]
@@ -191,7 +199,7 @@ async fn refresh_link_previews(
     viewer: Viewer,
     State(state): State<AppState>,
     AppJson(payload): AppJson<RefreshLinkPreviewsRequest>,
-) -> Result<Json<Vec<RefreshedLinkPreview>>, AppError> {
+) -> Result<Response, AppError> {
     if payload.content_ids.len() > MAX_REFRESH_TARGETS {
         return Err(AppError::Validation(
             "too many links to refresh".to_string(),
@@ -216,60 +224,88 @@ async fn refresh_link_previews(
             Err(err) => return Err(err),
         }
     }
-    let previews = refresh(&state, urls).await?;
-    Ok(Json(
-        previews
-            .into_iter()
-            .map(|(url, preview)| RefreshedLinkPreview { url, preview })
-            .collect(),
-    ))
+    let urls = mark_shown(&state.pool, urls).await?;
+    let (reader, writer) = tokio::io::duplex(STREAM_BUFFER_BYTES);
+    // 応答と切り離して走らせる。閲覧する側が途中で閉じても、取りに行った分は覚えて次に使えるため。
+    tokio::spawn(stream_refreshed(state, urls, writer));
+    Ok((
+        [(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("application/x-ndjson"),
+        )],
+        Body::from_stream(ReaderStream::new(reader)),
+    )
+        .into_response())
 }
 
-/// `urls` の情報を、期限が切れていれば取り直して返す。どれも一覧に出たものとして覚える。
-pub(super) async fn refresh(
-    state: &AppState,
-    urls: Vec<String>,
-) -> Result<Vec<(String, LinkPreview)>, AppError> {
+/// 同じ URL を1つにまとめ、どれも一覧に出たものとして覚える。
+async fn mark_shown(pool: &SqlitePool, urls: Vec<String>) -> Result<Vec<String>, AppError> {
     let mut seen = HashSet::new();
     let urls: Vec<String> = urls
         .into_iter()
         .filter(|url| seen.insert(url.clone()))
         .collect();
-    let now = now_secs();
     // 一覧に出た時刻をまとめて1文で書く。匿名でも何度でも頼めるので、件数分の書き込みにしない。
     let urls_json = serde_json::to_string(&urls).expect("文字列の並びは JSON にできる");
+    let now = now_secs();
     sqlx::query!(
         r#"INSERT INTO link_previews (url, shown_at) SELECT value, ? FROM json_each(?) WHERE true
            ON CONFLICT (url) DO UPDATE SET shown_at = excluded.shown_at"#,
         now,
         urls_json
     )
-    .execute(&state.pool)
+    .execute(pool)
     .await?;
+    Ok(urls)
+}
 
+/// `urls` の情報を、期限が切れていれば取り直し、確かめ終えた順に1行ずつ `out` へ書く。
+async fn stream_refreshed(state: AppState, urls: Vec<String>, mut out: DuplexStream) {
+    let now = now_secs();
     let mut tasks = tokio::task::JoinSet::new();
-    for url in &urls {
-        let (state, url) = (state.clone(), url.clone());
-        tasks.spawn(async move { refresh_one(&state, &url, now).await });
+    for url in urls {
+        let state = state.clone();
+        tasks.spawn(async move {
+            let result = refresh_one(&state, &url, now).await;
+            (url, result)
+        });
     }
-    while let Some(result) = tasks.join_next().await {
+    // 読み手が閉じたら書くのはやめるが、取りに行くのは続ける (覚えておけば次に使えるため)。
+    let mut reader_open = true;
+    while let Some(joined) = tasks.join_next().await {
         // 1件の失敗 (DB の異常など) で、ほかのリンクの答えまで捨てない。
-        match result {
-            Ok(Ok(())) => {}
-            Ok(Err(err)) => tracing::warn!(error = %err, "failed to refresh a link preview"),
-            Err(err) => tracing::warn!(error = %err, "link preview task failed"),
+        let url = match joined {
+            Ok((url, Ok(()))) => url,
+            Ok((url, Err(err))) => {
+                tracing::warn!(error = %err, "failed to refresh a link preview");
+                url
+            }
+            Err(err) => {
+                tracing::warn!(error = %err, "link preview task failed");
+                continue;
+            }
+        };
+        if !reader_open {
+            continue;
         }
+        let preview = match cached(&state.pool, std::slice::from_ref(&url)).await {
+            Ok(mut previews) => previews.remove(&url).unwrap_or_default(),
+            Err(err) => {
+                tracing::warn!(error = %err, "failed to read a link preview");
+                continue;
+            }
+        };
+        let mut line = serde_json::to_vec(&RefreshedLinkPreview { url, preview })
+            .expect("カードの情報は JSON にできる");
+        line.push(b'\n');
+        reader_open = out.write_all(&line).await.is_ok();
     }
-    enforce_total_limit(&state.pool, &state.link_previews.dir, MAX_TOTAL_BYTES).await?;
-
-    let mut previews = cached(&state.pool, &urls).await?;
-    Ok(urls
-        .into_iter()
-        .map(|url| {
-            let preview = previews.remove(&url).unwrap_or_default();
-            (url, preview)
-        })
-        .collect())
+    drop(out);
+    if let Err(err) =
+        enforce_total_limit(&state.pool, &state.link_previews.dir, MAX_TOTAL_BYTES).await
+    {
+        tracing::warn!(error = %err, "failed to enforce the link preview size limit");
+    }
 }
 
 /// 1件を、期限が切れていて、前回確かめてから間があいていれば取り直す。
