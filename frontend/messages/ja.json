@@ -77,8 +77,6 @@
 	"share_trigger_label": "このページを共有",
 	"share_qr_menu_item": "QR コードを表示...",
 	"share_apps_menu_item": "ほかのアプリで共有...",
-	"share_copy_menu_item": "リンクをコピー",
-	"share_copied_toast": "リンクをコピーしました。",
 	"share_dialog_title": "このページを共有",
 	"share_dialog_description": "同じ Wi-Fi に接続したデバイスで QR コードをスキャンすると、このページを開けます。",
 	"share_qr_alt": "このページの QR コード",

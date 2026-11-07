@@ -1,14 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { toast } from 'svelte-sonner';
 	import ShareIcon from '@lucide/svelte/icons/share';
 	import * as m from '$lib/paraglide/messages.js';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import QrAddress from '$lib/components/qr-address.svelte';
 	import { client } from '$lib/api/client';
-	import { copyText } from '$lib/clipboard';
 	import { headerIconActionClass } from '$lib/header-action';
 	import { shareableUrl } from '$lib/share-url';
 
@@ -59,20 +57,6 @@
 			qrOpen = true;
 		}
 	}
-
-	async function copyLink() {
-		await loadConnection();
-		if (!url) {
-			qrOpen = true;
-			return;
-		}
-		try {
-			await copyText(url);
-			toast.success(m.share_copied_toast());
-		} catch {
-			toast.error(m.common_copy_failed_toast());
-		}
-	}
 </script>
 
 <DropdownMenu.Root>
@@ -84,8 +68,6 @@
 		<DropdownMenu.Item onSelect={showQr}>{m.share_qr_menu_item()}</DropdownMenu.Item>
 		{#if canShare}
 			<DropdownMenu.Item onSelect={shareWithApps}>{m.share_apps_menu_item()}</DropdownMenu.Item>
-		{:else}
-			<DropdownMenu.Item onSelect={copyLink}>{m.share_copy_menu_item()}</DropdownMenu.Item>
 		{/if}
 	</DropdownMenu.Content>
 </DropdownMenu.Root>
