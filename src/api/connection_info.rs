@@ -84,13 +84,22 @@ fn lan_ipv4_addresses() -> Vec<Ipv4Addr> {
 fn is_lan_candidate(interface_name: &str, ip: Ipv4Addr) -> bool {
     // macOS・Linux のインターフェースの名前 (小文字)。大文字と小文字を区別して比べるのは、
     // Windows の実の LAN につながる `vEthernet (…)` を `veth` に当てないため。
-    const VIRTUAL_PREFIXES: [&str; 12] = [
+    // `bridge` は macOS のインターネット共有と仮想マシン (`bridge100` など)。Linux で実の LAN を
+    // 束ねるブリッジは `br0` などの名前なので当たらない。
+    const VIRTUAL_PREFIXES: [&str; 19] = [
         "docker",
         "br-",
         "veth",
         "virbr",
         "vmnet",
         "vboxnet",
+        "vnic",
+        "bridge",
+        "lxcbr",
+        "lxdbr",
+        "incusbr",
+        "cni",
+        "podman",
         "utun",
         "tun",
         "tap",
@@ -98,8 +107,9 @@ fn is_lan_candidate(interface_name: &str, ip: Ipv4Addr) -> bool {
         "tailscale",
         "zt",
     ];
-    // Windows の WSL と Hyper-V の既定のスイッチ。外部のスイッチ (実の LAN につながる) は別の名前になる。
-    const VIRTUAL_WINDOWS_MARKS: [&str; 2] = ["(WSL", "(Default Switch)"];
+    // Windows の表示名 (if-addrs は Windows では FriendlyName を名前にする)。WSL と Hyper-V の既定の
+    // スイッチ、VMware・VirtualBox のホストの LAN。Hyper-V の外部のスイッチ (実の LAN) は別の名前になる。
+    const VIRTUAL_WINDOWS_MARKS: [&str; 4] = ["(WSL", "(Default Switch)", "VMware", "VirtualBox"];
     ip.is_private()
         && !VIRTUAL_PREFIXES
             .iter()
@@ -156,6 +166,12 @@ mod tests {
             "tailscale0",
             "vEthernet (WSL (Hyper-V firewall))",
             "vEthernet (Default Switch)",
+            "VMware Network Adapter VMnet8",
+            "VirtualBox Host-Only Network",
+            "bridge100",
+            "vnic0",
+            "lxdbr0",
+            "podman0",
         ] {
             assert!(
                 !is_lan_candidate(name, Ipv4Addr::new(172, 17, 0, 1)),
