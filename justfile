@@ -24,7 +24,6 @@ default:
 install:
     pnpm install
     cd {{ frontend_dir }} && pnpm install
-    cd site && pnpm install
     cd {{ frontend_dir }} && pnpm exec playwright install chromium
 
 # SvelteKit(SPA) をビルドして frontend/build/ に出力
@@ -44,7 +43,7 @@ run: build
 run: build
     .\target\release\{{ bin_name }}.exe
 
-# assets/icon.svg・tray-icon-mac.svg から exe・タスクトレイ・メニューバー・MSIX・ブラウザーのタブ用の画像 (assets/icon.ico・tray-icon-64.rgba・tray-icon-mac-64.rgba・msix/*.png・frontend と site の favicon) を再生成する
+# assets/icon.svg・tray-icon-mac.svg から exe・タスクトレイ・メニューバー・MSIX・ブラウザーのタブ用の画像 (assets/icon.ico・tray-icon-64.rgba・tray-icon-mac-64.rgba・msix/*.png・frontend の favicon) を再生成する
 generate-icon:
     pnpm run generate:icon
 
@@ -197,11 +196,6 @@ lint: ensure-frontend-build
     node scripts/check-long-vowel.mjs
     node scripts/check-parentheses.mjs
 
-# 紹介のサイト (site/) を検査する (型検査・ビルド)。ビルドしたものは静的なファイルだけの Worker が出す (→ site/wrangler.jsonc)
-site-check:
-    cd site && pnpm run check
-    cd site && pnpm run build
-
 # フロントエンドを型検査する (svelte-check)。Rust の型検査は `lint` の clippy が兼ねる
 check: ensure-frontend-build
     cd {{ frontend_dir }} && pnpm run check
@@ -214,8 +208,8 @@ test: ensure-frontend-build
 # e2e は build の後に置き、その時点のフロントで流す。
 # 先に frontend-build を流すのは、残っている frontend/build で ensure-frontend-build が飛ばされ、
 # Paraglide の生成物が古いまま型検査に進まないようにするため (just は同じレシピを1回しか流さないので、build の分と重ならない)。
-# 一連の品質チェック (フォーマット→lint→型検査→生成物→test→サイト→build→e2e)。CI (GitHub Actions) が PR ごとに流す
-ci: frontend-build fmt-check lint check api-types-check licenses-check test site-check build e2e-local
+# 一連の品質チェック (フォーマット→lint→型検査→生成物→test→build→e2e)。CI (GitHub Actions) が PR ごとに流す
+ci: frontend-build fmt-check lint check api-types-check licenses-check test build e2e-local
 
 # ビルド成果物を削除する
 [unix]

@@ -1,6 +1,6 @@
 // assets/icon.svg から、exeに埋め込む.ico (build.rs → winresource)・
 // タスクトレイ用の生RGBA (src/tray/mod.rsがinclude_bytes!で読む)・MSIX のロゴ (scripts/msix.mjs)・
-// ブラウザーのタブのアイコン (frontend と紹介のサイト site の favicon。SVG は元をそのまま写す) を、
+// ブラウザーのタブのアイコン (frontend の favicon。SVG は元をそのまま写す) を、
 // assets/tray-icon-mac.svg から macOS のメニューバー用の生RGBAを生成する。
 // sharp・to-icoはどちらもNode製で、Windows専用の外部ツール(Inkscape等)を要らない
 // ため、Macでもこのまま実行できる。
@@ -11,11 +11,7 @@ import toIco from 'to-ico';
 const SVG_PATH = 'assets/icon.svg';
 const MAC_TRAY_SVG_PATH = 'assets/tray-icon-mac.svg';
 const FAVICON_PATH = 'frontend/src/lib/assets/favicon.svg';
-const SITE_FAVICON_SVG_PATH = 'site/public/favicon.svg';
-const SITE_FAVICON_ICO_PATH = 'site/public/favicon.ico';
 const ICO_PATH = 'assets/icon.ico';
-// 紹介のサイトの favicon.ico。ブラウザーが取りに行くたびに送るので、exe 用の 256px は入れずタブで使う大きさだけにする。
-const SITE_ICO_SIZES = [16, 32, 48];
 // exeに埋め込むアイコンのサイズ (Windowsの主な表示先: タスクバー・エクスプローラー各種・Alt+Tab)。
 const ICO_SIZES = [16, 20, 24, 32, 48, 256];
 // タスクトレイ用。実際の表示は16〜32px程度だが、高DPI環境での縮小表示をきれいにするため
@@ -72,9 +68,6 @@ async function main() {
 
 	await copyFile(SVG_PATH, FAVICON_PATH);
 	console.log(`wrote ${FAVICON_PATH}`);
-	await copyFile(SVG_PATH, SITE_FAVICON_SVG_PATH);
-	await writeFile(SITE_FAVICON_ICO_PATH, await renderIco(svg, SITE_ICO_SIZES));
-	console.log(`wrote ${SITE_FAVICON_SVG_PATH}, ${SITE_FAVICON_ICO_PATH}`);
 
 	for (const [name, size] of MSIX_LOGOS) {
 		const path = `assets/msix/${name}.png`;

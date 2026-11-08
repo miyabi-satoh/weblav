@@ -12,10 +12,9 @@ const root = path.join(import.meta.dirname, '..');
 const targets = [
   'frontend/messages/ja.json',
   'docs/manual/ja',
-  'site/src',
   'src/tray'
 ];
-const extensions = /\.(json|md|mdx|astro|ts|svelte|rs)$/;
+const extensions = /\.(json|md|ts|svelte|rs)$/;
 
 const words = [
   'フォルダ',
