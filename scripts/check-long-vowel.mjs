@@ -14,7 +14,7 @@ const targets = [
   'docs/manual/ja',
   'src/tray'
 ];
-const extensions = /\.(json|md|mdx|astro|ts|svelte|rs)$/;
+const extensions = /\.(json|md|ts|svelte|rs)$/;
 
 const words = [
   'フォルダ',

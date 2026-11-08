@@ -208,7 +208,7 @@ test: ensure-frontend-build
 # e2e は build の後に置き、その時点のフロントで流す。
 # 先に frontend-build を流すのは、残っている frontend/build で ensure-frontend-build が飛ばされ、
 # Paraglide の生成物が古いまま型検査に進まないようにするため (just は同じレシピを1回しか流さないので、build の分と重ならない)。
-# 一連の品質チェック (フォーマット→lint→型検査→生成物→test→サイト→build→e2e)。CI (GitHub Actions) が PR ごとに流す
+# 一連の品質チェック (フォーマット→lint→型検査→生成物→test→build→e2e)。CI (GitHub Actions) が PR ごとに流す
 ci: frontend-build fmt-check lint check api-types-check licenses-check test build e2e-local
 
 # ビルド成果物を削除する

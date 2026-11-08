@@ -37,7 +37,7 @@ cargo install --locked cargo-about@0.9.2 --features cli   # `--features cli` が
 `git commit` 時に `src/**/*.rs`(・`migrations/**/*.sql`)の変更があれば
 `openapi.json` / `schema.d.ts` / `.sqlx/` の再生成漏れを、`Cargo.lock`・`about.toml`・`license-texts/`・生成と整形のスクリプトの変更があればライセンス表示の生成漏れを自動検知する。
 `git push` 時には整形 (`just fmt-check`) だけを確かめる。
-`just ci` (フォーマット→lint→型検査→生成物→test→サイト→build→e2e) は、GitHub Actions の CI が PR ごとに流す (`.github/workflows/ci.yml`)。
+`just ci` (フォーマット→lint→型検査→生成物→test→build→e2e) は、GitHub Actions の CI が PR ごとに流す (`.github/workflows/ci.yml`)。
 
 ## 開発
 
@@ -120,7 +120,7 @@ worktree で `cargo check` などを直に流すときは `SQLX_OFFLINE=true` �
 ```sh
 just test        # テスト実行 (cargo test + vitest)
 just e2e-local   # E2E を使い捨ての backend (一時 WEBLAV_HOME・管理者1人) に対して実行する。開発用 DB は使わない
-just ci          # frontend-build → fmt-check → lint → check → api-types-check → licenses-check → test → site-check → build → e2e-local を一括実行 (CI が流す)
+just ci          # frontend-build → fmt-check → lint → check → api-types-check → licenses-check → test → build → e2e-local を一括実行 (CI が流す)
 ```
 
 ## ビルド
