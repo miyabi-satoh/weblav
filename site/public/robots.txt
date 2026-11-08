@@ -1,4 +1,0 @@
-User-agent: *
-Disallow:
-
-Sitemap: https://weblav.amiiby.com/sitemap-index.xml

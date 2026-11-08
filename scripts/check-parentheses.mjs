@@ -7,7 +7,6 @@ import path from 'node:path';
 
 const root = path.join(import.meta.dirname, '..');
 
-// 紹介のサイト (site/) は、文章の書き方を amiiby-site の決まりに揃えるので対象外。
 // タスクトレイ (src/tray) は全角だけを見る。空白の検査は、コードのコメントの括弧まで拾うため。
 const targets = [
   { path: 'frontend/messages/ja.json', spacing: true },
