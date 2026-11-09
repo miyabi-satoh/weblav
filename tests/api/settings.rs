@@ -59,7 +59,7 @@ async fn site_settings_update_limits_each_value_to_100_chars(pool: SqlitePool) {
     );
 }
 
-// --- サーバーの設定 (→ docs/architecture.md「スキーマ」) ---
+// --- サーバーの設定 (→ docs/access.md「ロールと操作」) ---
 
 const ADMIN_SERVER_SETTINGS_URI: &str = "/api/v1/admin/server-settings";
 

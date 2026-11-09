@@ -100,7 +100,7 @@ worktree で `cargo check` などを直に流すときは `SQLX_OFFLINE=true` �
   `migration <version> was previously applied but has been modified` で止まる。
   手順は「起動中の WebLAV を止める → DB とその `-wal` / `-shm` を消す → 当て直す」。
   `data/dev-runtime/session.key` は消さなくてよい。
-  ほかの環境に渡って適用されたマイグレーションは、編集も改名もせず、変更は新しいファイルとして足す (→ docs/architecture.md「既存テーブルの変更」)。
+  ほかの環境に渡って適用されたマイグレーションは、編集も改名もせず、変更は新しいファイルとして足す (→ docs/architecture.md「スキーマ」)。
 - **公開範囲の継承を取りこぼさない**。
   祖先の判定は、単体で開く全経路 (グループ・フォルダー・ファイル配信・アーカイブ) が `ensure_viewable` を呼ぶ (→ docs/access.md「祖先のグループを辿る」)。
 - **公開範囲の比較を SQL に持ち込まない**。

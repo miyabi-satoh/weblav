@@ -1661,8 +1661,7 @@ async fn delete_content(
     // UPDATE(reparent)をDELETEより先にトランザクション内で行うことで、削除対象を
     // 親として参照する行が無い状態を作ってからDELETEする。こうすることで、
     // `contents.parent_id`の`ON DELETE CASCADE`が発火する前提(削除対象がまだ
-    // 親として参照されている状態)自体を作らない
-    // (詳細はmigrations/20260908070902_add_parent_id_index_to_contents.sqlのコメント参照)。
+    // 親として参照されている状態)自体を作らない。
     // group以外の削除でもこのUPDATEは無害(該当行が無いだけ)なので、type分岐はしない。
     let mut tx = crate::db::begin_write(&state.pool).await?;
 
@@ -2844,8 +2843,7 @@ async fn change_visibility(
     if existing.content_type == ContentType::Group && visibility == Visibility::Private {
         ensure_children_fit_private_group(pool, id, existing.created_by).await?;
     }
-    // 非表示にする前の公開範囲は、マイグレーションのトリガーが覚える
-    // (→ migrations/20261101120000_visibility_before_hidden.sql)。
+    // 非表示にする前の公開範囲は、DB のトリガーが覚える (→ `contents.visibility_before_hidden`)。
     sqlx::query!(
         r#"UPDATE contents SET visibility = ?,
                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')

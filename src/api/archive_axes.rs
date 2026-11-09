@@ -21,9 +21,9 @@ use crate::auth::AuthUser;
 use crate::error::{AppError, AppJson, run_blocking};
 use crate::state::AppState;
 
-/// `archive_axes.source`。2値のみで正規表現は受け付けない (→ docs/archive.md「軸の定義」)。
+/// `archive_axes.source`。正規表現は受け付けない (→ docs/archive.md「軸の定義」)。
 ///
-/// DB上は `dir_level` / `filename_word` の snake_case (マイグレーションのコメント参照)。
+/// DB上は `dir_level` などの snake_case。
 /// JSONはプロジェクト全体の慣例 (camelCase) に合わせるため、表現をそれぞれ別に持つ。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema, sqlx::Type)]
 #[serde(rename_all = "camelCase")]
