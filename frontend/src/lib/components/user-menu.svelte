@@ -33,6 +33,12 @@
 		<DropdownMenu.Group>
 			<DropdownMenu.Label class="wrap-anywhere">{username}</DropdownMenu.Label>
 			<DropdownMenu.Separator />
+			<!-- ユーザー名・パスワード・リカバリコードは、アカウントのページにまとめる。見出しの名前と結び付くよう、すぐ下に置く (→ docs/ui.md「アカウントのページ」)。 -->
+			<DropdownMenu.Item>
+				{#snippet child({ props })}
+					<a href={resolve('/account')} {...props}>{m.account_title()}</a>
+				{/snippet}
+			</DropdownMenu.Item>
 			{#if isAdmin}
 				<DropdownMenu.Item>
 					{#snippet child({ props })}
@@ -57,12 +63,8 @@
 					<a href={resolve('/help')} {...props}>{m.help_eyebrow()}</a>
 				{/snippet}
 			</DropdownMenu.Item>
-			<!-- ユーザー名・パスワード・リカバリコードは、アカウントのページにまとめる (→ docs/ui.md「アカウントのページ」)。 -->
-			<DropdownMenu.Item>
-				{#snippet child({ props })}
-					<a href={resolve('/account')} {...props}>{m.account_title()}</a>
-				{/snippet}
-			</DropdownMenu.Item>
+			<!-- 押すと画面を出てしまうので、線で離して最後に置く。 -->
+			<DropdownMenu.Separator />
 			<DropdownMenu.Item onSelect={onlogout}>{m.logout_button()}</DropdownMenu.Item>
 		</DropdownMenu.Group>
 	</DropdownMenu.Content>
