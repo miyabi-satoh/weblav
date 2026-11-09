@@ -64,6 +64,8 @@ pub enum CreateUserError {
 pub struct CreatedUser {
     pub id: i64,
     pub created_at: String,
+    /// 作ったパスワードの指紋 (`credential_fingerprint`)。作ってそのままログインさせるとき (セットアップ) に使う。
+    pub credential: String,
 }
 
 /// ユーザーを作成する。CLI (`--create-user`) とユーザー管理APIの両方から呼ぶ共通処理。
@@ -93,6 +95,7 @@ pub async fn create_user(
         Ok(row) => Ok(CreatedUser {
             id: row.id,
             created_at: row.created_at,
+            credential: credential_fingerprint(&hash),
         }),
         Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
             Err(CreateUserError::UsernameTaken(username.to_string()))
@@ -353,7 +356,7 @@ pub async fn authenticate(
     pool: &SqlitePool,
     username: &str,
     password: &str,
-) -> Result<Option<AuthUser>, AppError> {
+) -> Result<Option<Authenticated>, AppError> {
     // username は大文字小文字を無視して照合する(users_username_nocase インデックス側と
     // 意味を合わせるため、比較にも明示的に COLLATE NOCASE を指定する)。
     let row = sqlx::query_as!(
@@ -373,16 +376,27 @@ pub async fn authenticate(
         .map_err(AppError::from)
 }
 
-fn verify_row(row: Option<UserRow>, password: &str) -> Result<Option<AuthUser>, Error> {
+/// 照合が通った利用者と、照合に使ったパスワードの指紋 (`credential_fingerprint`)。
+pub struct Authenticated {
+    pub user: AuthUser,
+    /// ログインで確かめた記録に使う。照合の後に読み直さないのは、その間に再設定されると、
+    /// 古いパスワードで入った人を新しいパスワードで確かめたことにしてしまうため。
+    pub credential: String,
+}
+
+fn verify_row(row: Option<UserRow>, password: &str) -> Result<Option<Authenticated>, Error> {
     match row {
         Some(row) => {
             let ok = verify_password(password, &row.password_hash)?;
-            Ok(ok.then_some(AuthUser {
-                id: row.id,
-                username: row.username,
-                role: row.role,
-                has_recovery_code: row.has_recovery_code,
-                session: None,
+            Ok(ok.then(|| Authenticated {
+                credential: credential_fingerprint(&row.password_hash),
+                user: AuthUser {
+                    id: row.id,
+                    username: row.username,
+                    role: row.role,
+                    has_recovery_code: row.has_recovery_code,
+                    session: None,
+                },
             }))
         }
         None => {
@@ -902,7 +916,7 @@ mod tests {
             .await
             .expect("authenticate should not error");
 
-        let user = user.expect("correct credentials should authenticate");
+        let user = user.expect("correct credentials should authenticate").user;
         assert_eq!(user.username, "alice");
     }
 
@@ -925,7 +939,9 @@ mod tests {
             .await
             .expect("authenticate should not error");
 
-        let user = user.expect("case-insensitive match should authenticate");
+        let user = user
+            .expect("case-insensitive match should authenticate")
+            .user;
         // DB上の表記(登録時のcase)がそのまま返る。
         assert_eq!(user.username, "alice");
     }
@@ -968,7 +984,7 @@ mod tests {
         let user = authenticate(&pool, "alicia", "password")
             .await
             .expect("照合で失敗しないはず");
-        assert_eq!(user.map(|u| u.username).as_deref(), Some("alicia"));
+        assert_eq!(user.map(|a| a.user.username).as_deref(), Some("alicia"));
     }
 
     /// 大文字小文字だけの違いもほかの人の名前とは重ねられないが、自分の名前の大文字小文字は変えられる。

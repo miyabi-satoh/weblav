@@ -2,7 +2,6 @@ use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
 use tower_sessions::Session;
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
@@ -95,8 +94,8 @@ async fn login(
         return Err(AppError::TooManyRequests);
     }
 
-    let user = auth::authenticate(&state.pool, &payload.username, &payload.password).await?;
-    let Some(user) = user else {
+    let authed = auth::authenticate(&state.pool, &payload.username, &payload.password).await?;
+    let Some(auth::Authenticated { user, credential }) = authed else {
         return Err(AppError::InvalidCredentials);
     };
 
@@ -104,25 +103,20 @@ async fn login(
     // パスワードで短時間に何度もログインし直しただけの正当な利用者もロックされる。
     state.login_rate_limiter.release(&payload.username);
 
-    start_session(&state.pool, &session, user.id).await?;
+    start_session(&session, user.id, &credential).await?;
 
     Ok(Json(user.into()))
 }
 
-/// `user_id` でログインした状態にする。ログインと初回セットアップで共有する。
+/// `user_id` でログインした状態にする。ログイン・初回セットアップ・リカバリコードでの戻しで共有する。
+/// `credential` は、入れたパスワードの指紋 (`auth::credential_fingerprint`)。
 ///
 /// セッション固定化攻撃対策: ログインのたびにセッションIDを振り直す。
 pub(super) async fn start_session(
-    pool: &SqlitePool,
     session: &Session,
     user_id: i64,
+    credential: &str,
 ) -> Result<(), AppError> {
-    let password_hash =
-        sqlx::query_scalar!("SELECT password_hash FROM users WHERE id = ?", user_id)
-            .fetch_optional(pool)
-            .await?
-            // 照合の直後にアカウントが削除された場合。
-            .ok_or(AppError::Unauthorized)?;
     session.cycle_id().await.map_err(auth::Error::Session)?;
     session
         .insert(SESSION_USER_ID_KEY, user_id)
@@ -130,7 +124,7 @@ pub(super) async fn start_session(
         .map_err(auth::Error::Session)?;
     // パスワード (かリカバリコード) を入れたばかりなので、確かめ直したことにする
     // (→ docs/access.md「操作の前のパスワードの確認」)。
-    auth::mark_password_confirmed(session, &auth::credential_fingerprint(&password_hash)).await
+    auth::mark_password_confirmed(session, credential).await
 }
 
 #[utoipa::path(post, path = "/auth/logout", responses((status = 204)))]
@@ -414,7 +408,12 @@ async fn recover(
     .await?
     .ok_or_else(|| AppError::Conflict("recovery code was changed concurrently".to_string()))?;
 
-    start_session(&state.pool, &session, user_id).await?;
+    start_session(
+        &session,
+        user_id,
+        &auth::credential_fingerprint(&password_hash),
+    )
+    .await?;
     Ok(Json(UserWithRecoveryCodeResponse {
         user: UserResponse {
             id: user_id,

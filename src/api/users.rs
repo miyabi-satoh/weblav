@@ -1,4 +1,4 @@
-//! ユーザー管理API (→ docs/access.md「ロールと操作」)。全ハンドラ `AdminUser` 限定で、書き換えはパスワードの確かめ直しも求める (`ConfirmedAdmin`)。
+//! ユーザー管理API (→ docs/access.md「ロールと操作」)。全ハンドラ `AdminUser` 限定で、書き換えはパスワードの確かめ直しも求める (`ConfirmedAdmin`。個々のユーザーへの操作は、自分への操作を先に断るため `reject_self_then_confirm`)。
 
 use axum::Json;
 use axum::extract::{Path, State};
