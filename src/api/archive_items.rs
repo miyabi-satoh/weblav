@@ -856,9 +856,18 @@ pub(super) async fn search_items(
         .zip(reachable)
         .filter(|(_, reachable)| *reachable)
     {
-        let index = archive_index::index_if_cached_or_build(state, archive.id).await?;
-        let filter = FileFilter::load(&state.pool, archive.id).await?;
-        sources.push((archive, index, filter));
+        // 探す間に消されたフォルダーは、飛ばす。断ると検索ごと 404 になる。
+        let loaded = match archive_index::index_if_cached_or_build(state, archive.id).await {
+            Ok(index) => FileFilter::load(&state.pool, archive.id)
+                .await
+                .map(|filter| (index, filter)),
+            Err(err) => Err(err),
+        };
+        match loaded {
+            Ok((index, filter)) => sources.push((archive, index, filter)),
+            Err(AppError::NotFound) => {}
+            Err(err) => return Err(err),
+        }
     }
 
     run_blocking(move || {

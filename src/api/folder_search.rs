@@ -150,20 +150,26 @@ pub(super) async fn search(
     let roots = super::roots::load_roots(state).await?;
     let own_dirs = state.own_dirs.clone();
     let mut walk_terms = terms.clone();
-    let containers: Vec<Container> = folders
+
+    // 絞り込みで外れるものは、一覧と同じく検索にも出さない (→ `file_filter`)。
+    // 探す間に消されたフォルダーは、飛ばす。断ると検索ごと 404 になる。
+    let mut filtered = Vec::with_capacity(folders.len());
+    for folder in folders {
+        match FileFilter::load(&state.pool, folder.id).await {
+            Ok(filter) => filtered.push((folder, filter)),
+            Err(AppError::NotFound) => {}
+            Err(err) => return Err(err),
+        }
+    }
+    // 候補は `filtered` の添え字でフォルダーを指すので、飛ばした後の並びで作る。
+    let containers: Vec<Container> = filtered
         .iter()
-        .map(|folder| Container {
+        .map(|(folder, _)| Container {
             id: folder.id,
             title: folder.title.clone(),
             ancestors: folder.ancestors.clone(),
         })
         .collect();
-
-    // 絞り込みで外れるものは、一覧と同じく検索にも出さない (→ `file_filter`)。
-    let mut filters = Vec::with_capacity(folders.len());
-    for folder in &folders {
-        filters.push(FileFilter::load(&state.pool, folder.id).await?);
-    }
 
     // 辿るのはディスクの I/O で、フォルダーの大きさに比例して重くなる。
     let (mut candidates, incomplete, mut sources) = run_blocking(move || {
@@ -171,7 +177,7 @@ pub(super) async fn search(
         let mut candidates = Vec::new();
         let mut truncated = false;
         let mut sources = Vec::new();
-        for (index, (folder, filter)) in folders.into_iter().zip(filters).enumerate() {
+        for (index, (folder, filter)) in filtered.into_iter().enumerate() {
             // 配信と同じく、共有の外は辿らない (→ contents::resolve_path)。
             let Ok(root) = std::fs::canonicalize(&folder.path) else {
                 continue;
@@ -294,7 +300,12 @@ async fn archive_sources(
         ancestors,
     } in archives
     {
-        let filter = FileFilter::load(&state.pool, archive_id).await?;
+        // 探す間に消されたフォルダーは、飛ばす。断ると検索ごと 404 になる。
+        let filter = match FileFilter::load(&state.pool, archive_id).await {
+            Ok(filter) => filter,
+            Err(AppError::NotFound) => continue,
+            Err(err) => return Err(err),
+        };
         let items = sqlx::query!(
             r#"SELECT id as "id!", rel_path FROM archive_items WHERE archive_id = ?"#,
             archive_id
