@@ -7014,7 +7014,7 @@
       },
       "AxisSource": {
         "type": "string",
-        "description": "`archive_axes.source`。2値のみで正規表現は受け付けない (→ docs/archive.md「軸の定義」)。\n\nDB上は `dir_level` / `filename_word` の snake_case (マイグレーションのコメント参照)。\nJSONはプロジェクト全体の慣例 (camelCase) に合わせるため、表現をそれぞれ別に持つ。",
+        "description": "`archive_axes.source`。正規表現は受け付けない (→ docs/archive.md「軸の定義」)。\n\nDB上は `dir_level` などの snake_case。\nJSONはプロジェクト全体の慣例 (camelCase) に合わせるため、表現をそれぞれ別に持つ。",
         "enum": [
           "dirLevel",
           "filenameWord",
