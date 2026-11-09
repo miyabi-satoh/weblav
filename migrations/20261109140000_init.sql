@@ -5,6 +5,7 @@
 -- セッションの表は tower-sessions-sqlx-store が別に作る。
 
 CREATE TABLE users (
+    -- AUTOINCREMENT: 消したユーザーの id を使い回すと、残っていたセッションが新しいユーザーとして通るため。
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
@@ -55,6 +56,7 @@ CREATE TABLE contents (
     -- hidden にする前の公開範囲。「表示に戻す」で元に戻すため (→ docs/access.md「非表示のコンテンツ」)。
     -- 公開範囲を変える箇所ごとに書くと書き漏らすので、下のトリガーの1か所で書く。
     visibility_before_hidden TEXT,
+    -- folder のみ。除外のパターン。形は include_patterns と同じ。
     exclude_patterns TEXT
 );
 
@@ -290,7 +292,7 @@ CREATE TABLE folder_bookmarks (
 );
 
 -- リンクのカードに出すページの情報のキャッシュ (→ docs/ui.md「リンクのカード」)。URL ごとに1行。
--- 画像の実体はデータの置き場の link-previews/ に置く。
+-- 画像の実体はデータの置き場の link-previews/ に置く。時刻はどれも Unix 秒。
 CREATE TABLE link_previews (
     url TEXT PRIMARY KEY NOT NULL,
     title TEXT,
@@ -304,7 +306,7 @@ CREATE TABLE link_previews (
     -- 条件付きで取り直すための、前回の応答の検証子。
     etag TEXT,
     last_modified TEXT,
-    -- この時刻までは、確かめに行かずに使う (Unix 秒)。
+    -- この時刻までは、確かめに行かずに使う。
     fresh_until INTEGER NOT NULL DEFAULT 0,
     -- 最後に確かめに行った時刻。取れなかったときも進め、相手を何度も突かないようにする。
     checked_at INTEGER NOT NULL DEFAULT 0,

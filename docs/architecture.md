@@ -189,6 +189,4 @@ API のエラーは共通の envelope で返す。
 
 表と列の意味と理由は、`migrations/` の SQL にコメントで書く。最初のファイル (`*_init.sql`) が全体を作り、形を変えるときは新しいファイルを足す。
 
-- `contents` の `type` と `visibility` には `CHECK` を置かない。SQLite では `CHECK` を後から変えられずテーブルの作り直しが要るのに対し、type ごとの必須の列の検証 (`url` / `path`) は結局アプリケーション層が担うため、列挙の値だけを DB 側に二重に持つ意味が薄い。
 - ほかの環境に渡って適用されたマイグレーションは、編集も改名もしない。sqlx が `_sqlx_migrations` のチェックサムを照合し、変わっていると起動しないため (`DEVELOPMENT.md`「注意すること」)。
-- セッションの表は `tower-sessions-sqlx-store` が別に作る。
