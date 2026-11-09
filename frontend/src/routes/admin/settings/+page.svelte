@@ -174,16 +174,14 @@
 	// ファイル名に作った日時を利用者の時刻で入れる。サーバーは名前を付けない (→ docs/access.md「バックアップとリストア」)。
 	async function downloadBackup() {
 		// ダウンロードはブラウザーが直接開くので、確かめ直しが要ると断られても画面では受けられない。
-		// 先に確かめておく (→ docs/access.md「操作の前のパスワードの確認」)。
-		const checked = await errorDialog.attempt(() =>
-			client.POST('/api/v1/auth/password-confirmation')
-		);
-		if (checked === null) return;
+		// 確かめ直しは引換券を受け取るときに済ませる (→ docs/access.md「操作の前のパスワードの確認」)。
+		const issued = await errorDialog.attempt(() => client.POST('/api/v1/admin/backup/ticket'));
+		if (!issued?.data) return;
 		const now = new Date();
 		const pad = (n: number) => String(n).padStart(2, '0');
 		const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
 		const link = document.createElement('a');
-		link.href = adminBackupHref();
+		link.href = adminBackupHref(issued.data.ticket);
 		link.download = `weblav-backup-${stamp}.zip`;
 		link.click();
 	}

@@ -209,8 +209,7 @@ async fn admin_cannot_change_themselves_from_user_management(pool: SqlitePool) {
 /// `users_write_lock`でカウント〜更新が直列化されている限り、どちらか一方だけが
 /// 成功し、もう一方は最後のadmin保護で422になるはず。
 ///
-/// 注意: `concurrent_delete_and_upload_of_same_blob_does_not_orphan_row`と同じく、
-/// `tokio::join!`は必ずしも危険な順序を再現しないが、回帰時にはいずれかの実行順序で
+/// 注意: `tokio::join!`は必ずしも危険な順序を再現しないが、回帰時にはいずれかの実行順序で
 /// 偶発的に失敗するようになるため安全網として有用。
 #[sqlx::test]
 async fn concurrent_demote_and_delete_of_last_two_admins_keeps_one_admin(pool: SqlitePool) {

@@ -21,7 +21,6 @@ const CONFIG_FILE_NAME: &str = "config.toml";
 const DB_FILE_NAME: &str = "weblav.db";
 const SESSION_KEY_FILE_NAME: &str = "session.key";
 const LOG_DIR_NAME: &str = "logs";
-const BLOBS_DIR_NAME: &str = "blobs";
 const THUMBNAILS_DIR_NAME: &str = "thumbnails";
 const LINK_PREVIEWS_DIR_NAME: &str = "link-previews";
 const BACKUP_WORK_DIR_NAME: &str = "backup-work";
@@ -87,13 +86,6 @@ impl AppDirs {
 
     pub fn log_dir(&self) -> PathBuf {
         self.data_dir.join(LOG_DIR_NAME)
-    }
-
-    /// アップロードされたファイルコンテンツの実体(content-addressed blobストレージ)を
-    /// 置くディレクトリ。作成自体は最初の書き込み時に行う(DB・セッション鍵と同じ、
-    /// 遅延作成の方針)。
-    pub fn blobs_dir(&self) -> PathBuf {
-        self.data_dir.join(BLOBS_DIR_NAME)
     }
 
     /// 画像の縮小画像を置くディレクトリ (→ `api::thumbnails`)。元のファイルから作り直せるので、消してもよい。
@@ -426,7 +418,6 @@ mod tests {
         assert_eq!(dirs.db_path(), Path::new("/data/weblav.db"));
         assert_eq!(dirs.session_key_path(), Path::new("/data/session.key"));
         assert_eq!(dirs.log_dir(), Path::new("/data/logs"));
-        assert_eq!(dirs.blobs_dir(), Path::new("/data/blobs"));
         assert_eq!(dirs.lock_path(), Path::new("/data/weblav.lock"));
         assert_eq!(dirs.addr_path(), Path::new("/data/weblav.addr"));
     }

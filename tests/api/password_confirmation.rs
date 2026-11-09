@@ -97,7 +97,7 @@ async fn changing_the_own_password_keeps_only_this_session_confirmed(pool: Sqlit
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
 }
 
-/// 管理者だけの書き換えは、確かめた内でなければ断る。事前の確かめ (`password-confirmation`) も同じ答えを返す。
+/// 管理者だけの書き換えは、確かめた内でなければ断る。バックアップは、落とす口でなく引換券を出す口で断る。
 #[sqlx::test]
 async fn admin_only_writes_require_a_fresh_confirmation(pool: SqlitePool) {
     insert_admin(&pool, "admin", "old-password").await;
@@ -120,8 +120,7 @@ async fn admin_only_writes_require_a_fresh_confirmation(pool: SqlitePool) {
         "password_confirmation_required",
     );
 
-    let (status, body) =
-        send_empty(app, "POST", "/api/v1/auth/password-confirmation", &cookie).await;
+    let (status, body) = send_empty(app, "POST", "/api/v1/admin/backup/ticket", &cookie).await;
     assert_error(
         status,
         &body,

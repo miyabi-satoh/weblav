@@ -96,12 +96,6 @@ export class ContentFormState {
 	 */
 	titleTemplate = $state<string | null>(null);
 	visibility = $state<Visibility>('public');
-	/**
-	 * `file` の編集で、今のファイルを示すための表示用。ファイルは差し替えない
-	 * (ファイルは共有の中に置く。前から登録してある file コンテンツは題などだけを直せる)。
-	 */
-	existingFileName = $state<string | null>(null);
-	existingFileSize = $state<number | null>(null);
 
 	/**
 	 * link のタイトル・説明を URL から取り直す (編集フォームの再取得ボタン、→ docs/ui.md「UI 全般」)。
@@ -253,8 +247,6 @@ export class ContentFormState {
 		this.autoRescanTime = AUTO_RESCAN_DEFAULT_TIME;
 		this.titleTemplate = null;
 		this.visibility = 'public';
-		this.existingFileName = null;
-		this.existingFileSize = null;
 		this.resetRefetchState();
 		this.markPristine();
 	}
@@ -330,28 +322,12 @@ export class ContentFormState {
 		return { ...this.commonFields(), title: this.type === 'group' ? this.title : null };
 	}
 
-	/** `file` の題などを直すときに送る multipart。ファイルは送らない (差し替えはしない)。 */
-	toFormData(): FormData {
-		const fields = this.commonFields();
-		const body = new FormData();
-		body.append('title', fields.title);
-		if (fields.description !== null) body.append('description', fields.description);
-		body.append('visibility', fields.visibility);
-		if (fields.parentId !== null) body.append('parentId', String(fields.parentId));
-		return body;
-	}
-
-	/** 既存のコンテンツ `id` をフォームの値で置き換える。`file` は multipart、ほかは JSON で送る。 */
+	/** 既存のコンテンツ `id` をフォームの値で置き換える。 */
 	replace(id: number) {
-		const params = { path: { id } };
-		return this.type === 'file'
-			? client.PUT('/api/v1/contents/{id}/upload', {
-					params,
-					// openapi-fetch は FormData をそのまま送るが、生成された型はスキーマの形のままなので
-					// キャストする (実行時の挙動とは無関係)。
-					body: this.toFormData() as unknown as components['schemas']['ReplaceContentUploadRequest']
-				})
-			: client.PUT('/api/v1/contents/{id}', { params, body: this.requestFields() });
+		return client.PUT('/api/v1/contents/{id}', {
+			params: { path: { id } },
+			body: this.requestFields()
+		});
 	}
 
 	/**
@@ -393,12 +369,7 @@ export class ContentFormState {
 		loaded.loadFrom(content, canSeeFullPath);
 		this.copyPartFrom(loaded, part);
 		this.titleTemplate = loaded.titleTemplate;
-		if (part === 'common') {
-			this.resetRefetchState();
-		} else {
-			this.existingFileName = loaded.existingFileName;
-			this.existingFileSize = loaded.existingFileSize;
-		}
+		if (part === 'common') this.resetRefetchState();
 		(part === 'common' ? this.#commonDirtyState : this.#specificDirtyState).markPristine();
 	}
 
@@ -422,8 +393,6 @@ export class ContentFormState {
 		this.autoRescanTime = content.autoRescan.time ?? AUTO_RESCAN_DEFAULT_TIME;
 		this.titleTemplate = content.titleTemplate ?? null;
 		this.visibility = content.visibility;
-		this.existingFileName = content.fileName ?? null;
-		this.existingFileSize = content.fileSize ?? null;
 		this.resetRefetchState();
 		this.markPristine();
 	}

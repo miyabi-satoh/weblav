@@ -46,8 +46,8 @@ pub const APP_BUILD: Option<&str> = option_env!("WEBLAV_BUILD");
 /// アプリケーション全体の `Router` を組み立てる。セッションストア用テーブルの作成もここで
 /// 行う。`main.rs` と統合テスト(`tests/api/`)の両方から共通で呼べるように公開している。
 ///
-/// `dirs` から、ファイルアップロード型コンテンツの実体 (`blobs_dir`)・画像の縮小画像
-/// (`thumbnails_dir`)・管理画面から書き換える設定ファイル (`config_path`) の置き場を取る。
+/// `dirs` から、画像の縮小画像 (`thumbnails_dir`)・管理画面から書き換える設定ファイル
+/// (`config_path`) の置き場を取る。
 /// どれもディレクトリの作成は最初に書くときまで遅らせる (DB・セッション鍵と同じ方針)。
 /// 設定とデータの置き場そのものは、共有の中でも見せない場所として判定に使う
 /// (→ `api::roots::OwnDirs`)。
@@ -140,7 +140,6 @@ pub async fn build_app(
         pool,
         login_rate_limiter,
         recovery_rate_limiter,
-        blobs_dir: dirs.blobs_dir(),
         thumbnails: Arc::new(api::thumbnails::Thumbnails::new(dirs.thumbnails_dir())),
         link_previews: Arc::new(api::link_preview::LinkPreviews::new(
             dirs.link_previews_dir(),

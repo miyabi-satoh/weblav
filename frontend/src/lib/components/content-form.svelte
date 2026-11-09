@@ -9,7 +9,6 @@
 	import { visibilityLabel } from '$lib/content-labels';
 	import type { ContentFormPart, ContentFormState } from '$lib/content-form.svelte';
 	import { isPathContentType } from '$lib/content-types';
-	import { formatByteSize } from '$lib/format';
 	import * as m from '$lib/paraglide/messages.js';
 	import type { components } from '$lib/api/schema';
 	import { Button } from '$lib/components/ui/button';
@@ -29,7 +28,7 @@
 		 * `create` は作成ダイアログの2段目。種別は1段目で選び済みで、その種別の必須項目だけを出す。
 		 * 公開範囲はフォルダーにだけ出す (ファイル単位で隠せず、登録した時点で公開されるため
 		 * → docs/folders.md「登録前の確認」)。
-		 * `edit` は編集ページ。すべての項目を出す。種別は変えられず、ファイルは差し替えの任意項目になる。
+		 * `edit` は編集ページ。すべての項目を出す。種別は変えられない。
 		 */
 		variant: 'create' | 'edit';
 		/**
@@ -109,19 +108,6 @@
 					{form.path === '' ? m.contents_form_path_choose() : m.contents_form_path_change()}
 				</Button>
 			</div>
-		</Field.Field>
-	{:else if showsSpecific && form.type === 'file'}
-		<!-- ファイルは差し替えない (ファイルは共有の中に置く)。前から登録してあるものは、今のファイルを見せるだけ。 -->
-		<Field.Field>
-			<Field.FieldLabel>{m.contents_form_file_label()}</Field.FieldLabel>
-			{#if form.existingFileName !== null}
-				<p class="text-sm text-muted-foreground">
-					{form.existingFileName}
-					{#if form.existingFileSize !== null}
-						({formatByteSize(form.existingFileSize)})
-					{/if}
-				</p>
-			{/if}
 		</Field.Field>
 	{/if}
 	{#if showsTitle}

@@ -749,6 +749,14 @@ fn fit_within(image: DynamicImage, size: u32) -> DynamicImage {
     }
 }
 
+/// `store_file` が名前に使う形 (SHA-256 を `hex_encode` した64桁の小文字16進) か。
+fn is_sha256_hex(hash: &str) -> bool {
+    hash.len() == 64
+        && hash
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
 /// 中身のハッシュを名前にして置く。同じアイコンを使うページが多いので、1つの実体を共有する。
 fn store_file(dir: &Path, bytes: &[u8], format: ThumbnailFormat) -> Result<String, AppError> {
     let name = format!(
@@ -780,7 +788,7 @@ async fn link_preview_file(
     // 名前を中身のハッシュと知っている拡張子の形に限り、置き場の外を指させない。
     let format = name
         .rsplit_once('.')
-        .filter(|(hash, _)| super::contents::is_valid_blob_hash(hash))
+        .filter(|(hash, _)| is_sha256_hex(hash))
         .and_then(|(_, extension)| {
             ThumbnailFormat::ALL
                 .into_iter()

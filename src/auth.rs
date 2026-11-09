@@ -316,16 +316,6 @@ async fn password_confirmation(
         .map_err(Error::Session)?)
 }
 
-/// 確かめた内に入るかを読むだけで、時刻は延ばさない。
-pub async fn password_is_confirmed(session: &Session, credential: &str) -> Result<bool, AppError> {
-    let confirmation = password_confirmation(session).await?;
-    Ok(confirmation_is_fresh(
-        confirmation.as_ref(),
-        credential,
-        unix_now(),
-    ))
-}
-
 /// 確かめ直しが要る操作の前に呼ぶ。今のパスワードで最後に確かめてから
 /// `PASSWORD_CONFIRMATION_WINDOW` の内なら時刻を今に延ばして通し、そうでなければ
 /// `PasswordConfirmationRequired` を返す。
@@ -333,7 +323,8 @@ pub async fn require_password_confirmation(
     session: &Session,
     credential: &str,
 ) -> Result<(), AppError> {
-    if !password_is_confirmed(session, credential).await? {
+    let confirmation = password_confirmation(session).await?;
+    if !confirmation_is_fresh(confirmation.as_ref(), credential, unix_now()) {
         return Err(AppError::PasswordConfirmationRequired);
     }
     mark_password_confirmed(session, credential).await
@@ -570,12 +561,6 @@ impl AuthUser {
     pub async fn require_confirmation(&self) -> Result<(), AppError> {
         let s = self.user_session()?;
         require_password_confirmation(&s.session, &s.credential).await
-    }
-
-    /// 確かめた内に入るかを読むだけで、時刻は延ばさない (→ `password_is_confirmed`)。
-    pub async fn is_password_confirmed(&self) -> Result<bool, AppError> {
-        let s = self.user_session()?;
-        password_is_confirmed(&s.session, &s.credential).await
     }
 
     fn user_session(&self) -> Result<&UserSession, AppError> {
@@ -836,26 +821,6 @@ mod tests {
         ));
         let kept = password_confirmation(&session).await.expect("読めるはず");
         assert_eq!(kept, Some(stale), "断ったときは時刻を延ばさない");
-    }
-
-    #[sqlx::test]
-    async fn password_is_confirmed_does_not_extend_the_confirmation(pool: SqlitePool) {
-        let session = test_session(pool).await;
-        let old = PasswordConfirmation {
-            at: unix_now() - 60,
-            credential: "c1".to_string(),
-        };
-        session
-            .insert(SESSION_PASSWORD_CONFIRMATION_KEY, old.clone())
-            .await
-            .expect("書けるはず");
-        assert!(
-            password_is_confirmed(&session, "c1")
-                .await
-                .expect("読めるはず")
-        );
-        let kept = password_confirmation(&session).await.expect("読めるはず");
-        assert_eq!(kept, Some(old), "読むだけの確かめでは時刻を延ばさない");
     }
 
     #[test]

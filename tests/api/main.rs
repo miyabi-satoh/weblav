@@ -42,7 +42,6 @@ mod setup;
 mod shares;
 mod shortcuts;
 mod system;
-mod upload;
 mod users;
 
 // 使うのは `TempDir`・`project_temp_dir` だけで、残りは未使用になるため dead_code を許可する。
@@ -133,11 +132,11 @@ async fn insert_folder_by(
     .expect("folderを挿入できなかった")
 }
 
-/// `test_app` の呼び出しごとに増える連番。テスト間で blobs_dir が衝突しないよう、
+/// `test_app` の呼び出しごとに増える連番。テスト間で data_dir が衝突しないよう、
 /// data_dir の名前に使う (スレッドIDは再利用され得るので使わない)。
 static TEST_APP_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
-/// この実行の `test_app_with_blobs` の `data_dir` をまとめて置く場所。
+/// この実行の `test_app` の `data_dir` をまとめて置く場所。
 ///
 /// 自動では片付けない。1回の実行で数十KBしか増えず、`cargo clean` で `target/` ごと消えるため。
 /// 名前はプロセスIDと開始時刻。プロセスIDだけだと、再利用されたときに前回の分とぶつかる。
@@ -163,7 +162,7 @@ fn next_app_dir() -> std::path::PathBuf {
 }
 
 /// 設定とデータの置き場を `dir` 1つにまとめたアプリを組み立てる。
-/// 置き場の中身 (blob・config.toml など) を直接確かめるテストで使う。
+/// 置き場の中身 (config.toml など) を直接確かめるテストで使う。
 async fn app_in(pool: SqlitePool, config: &Config, dir: &std::path::Path) -> Router {
     app_with_picker(pool, config, dir, FolderPicker::new(|| Ok(None))).await
 }
@@ -192,72 +191,37 @@ async fn app_with_picker(
     .expect("failed to build app")
 }
 
-/// アップロード系テストはblobの実体(ファイルの有無)を直接検証したいので、
-/// `blobs_dir`のパスも一緒に返すバリアント。
-///
-/// `data_dir`は`blobs_dir`の親。folderの登録先に使う`temp_test_dir`とは別の
-/// ディレクトリの下に置くので、その祖先にはならない
-/// (データ置き場を巻き込むパスは配れない。→ `api::roots::is_within_roots`)。
-async fn test_app_with_blobs(pool: SqlitePool) -> (Router, std::path::PathBuf) {
+/// `data_dir` は folder の登録先に使う `temp_test_dir` とは別のディレクトリの下に置くので、
+/// その祖先にはならない (データ置き場を巻き込むパスは配れない。→ `api::roots::is_within_roots`)。
+async fn test_app(pool: SqlitePool) -> Router {
     let data_dir = next_app_dir();
     register_content_root(&pool).await;
-    let app = app_in(pool, &Config::default(), &data_dir).await;
-    let dirs = AppDirs {
-        config_dir: data_dir.clone(),
-        data_dir,
-    };
-    (app, dirs.blobs_dir())
+    app_in(pool, &Config::default(), &data_dir).await
 }
 
-async fn test_app(pool: SqlitePool) -> Router {
-    test_app_with_blobs(pool).await.0
-}
-
-/// file コンテンツを直接作り、idを返す。実体は `blobs_dir` に内容のハッシュの名前で置く (アプリと同じ形)。
-/// 画面からはもう作れない (ファイルは共有の中に置く) が、前から登録してあるものは読める・直せるので、
-/// それを確かめるテストで使う。作成者は `created_by`、公開範囲は `visibility`。
-async fn insert_file_content(
+/// 共有の中のファイル `file` を指すショートカットを直接INSERTし、idを返す。題は `title` にする
+/// (画面から作るとファイル名になる)。`file` は土台の共有 (`temp_test_dir`) の中に作っておくこと。
+async fn insert_shortcut(
     pool: &SqlitePool,
-    blobs_dir: &std::path::Path,
-    file: (&str, &str, &[u8]),
-    parent_id: Option<i64>,
+    title: &str,
+    file: &std::path::Path,
     visibility: &str,
-    created_by: Option<i64>,
+    parent_id: Option<i64>,
 ) -> i64 {
-    use sha2::Digest;
-    let (title, file_name, content) = file;
-    let hash: String = sha2::Sha256::digest(content)
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect();
-    std::fs::create_dir_all(blobs_dir).expect("blobs_dir を作れなかった");
-    std::fs::write(blobs_dir.join(&hash), content).expect("blob を書けなかった");
+    let path = canonical_path_as_api_returns_it(
+        &std::fs::canonicalize(file).expect("canonicalize できなかった"),
+    );
     sqlx::query_scalar(
-        "INSERT INTO contents (type, parent_id, title, visibility, blob_hash, file_name, file_size, created_by) \
-         VALUES ('file', ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+        "INSERT INTO contents (type, parent_id, title, path, visibility) \
+         VALUES ('shortcut', ?, ?, ?, ?) RETURNING id",
     )
     .bind(parent_id)
     .bind(title)
+    .bind(path)
     .bind(visibility)
-    .bind(hash)
-    .bind(file_name)
-    .bind(content.len() as i64)
-    .bind(created_by)
     .fetch_one(pool)
     .await
-    .expect("fileを挿入できなかった")
-}
-
-/// `blobs_dir`直下(`tmp/`を除く)にあるblobファイルの数を数える。コミット済みの
-/// blob(重複排除の単位)がいくつ残っているかをテストから確認するためのヘルパー。
-fn count_committed_blobs(blobs_dir: &std::path::Path) -> usize {
-    let Ok(entries) = std::fs::read_dir(blobs_dir) else {
-        return 0;
-    };
-    entries
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.file_name() != "tmp")
-        .count()
+    .expect("shortcutを挿入できなかった")
 }
 
 /// multipart/form-dataのリクエストを組み立てる(テスト用の最小実装。外部クレートを

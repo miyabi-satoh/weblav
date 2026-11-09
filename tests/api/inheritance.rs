@@ -102,22 +102,17 @@ async fn folder_inside_authenticated_group_is_unauthorized_anonymously(pool: Sql
     }
 }
 
-/// ファイルの配信も、祖先のグループを開けなければ401になる。ログイン済みなら開ける。
+/// ショートカットの配信も、祖先のグループを開けなければ401になる。ログイン済みなら開ける。
 #[sqlx::test]
-async fn file_inside_authenticated_group_is_unauthorized_anonymously(pool: SqlitePool) {
+async fn shortcut_inside_authenticated_group_is_unauthorized_anonymously(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
     let group_id = insert_group_under(&pool, "職員用", "authenticated", None).await;
-    let (app, blobs_dir) = test_app_with_blobs(pool.clone()).await;
+    let dir = temp_test_dir("shortcut-inherited");
+    let file = dir.join("doc.txt");
+    std::fs::write(&file, b"hello").expect("ファイルを作れなかった");
+    let id = insert_shortcut(&pool, "資料", &file, "public", Some(group_id)).await;
+    let app = test_app(pool).await;
     let cookie = login(app.clone(), "alice", "correct-password").await;
-    let id = insert_file_content(
-        &pool,
-        &blobs_dir,
-        ("資料", "doc.txt", b"hello"),
-        Some(group_id),
-        "public",
-        None,
-    )
-    .await;
     let uri = format!("/api/v1/contents/{id}/download");
 
     let (status, body) = send_anon(app.clone(), "GET", &uri).await;
@@ -207,36 +202,6 @@ async fn moving_content_keeps_requested_visibility(pool: SqlitePool) {
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(stored_visibility(&pool, link).await, "public");
-}
-
-/// multipart の差し替えでも、付け替えで公開範囲を書き換えない。
-#[sqlx::test]
-async fn replacing_upload_while_moving_out_keeps_requested_visibility(pool: SqlitePool) {
-    let staff = insert_group_under(&pool, "職員用", "authenticated", None).await;
-    let (app, blobs_dir) = test_app_with_blobs(pool.clone()).await;
-    let cookie = admin_cookie(app.clone(), &pool).await;
-    let id = insert_file_content(
-        &pool,
-        &blobs_dir,
-        ("資料", "doc.txt", b"hello"),
-        Some(staff),
-        "public",
-        None,
-    )
-    .await;
-
-    let response = app
-        .oneshot(multipart_request(
-            "PUT",
-            &format!("/api/v1/contents/{id}/upload"),
-            &cookie,
-            &[("title", "資料"), ("visibility", "public")],
-            None,
-        ))
-        .await
-        .expect("request should not fail");
-    assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(stored_visibility(&pool, id).await, "public");
 }
 
 /// グループを削除しても、ルート直下へ移る子の公開範囲は書き換えない (→ docs/access.md「親が外れるときの公開範囲」)。
@@ -409,23 +374,13 @@ async fn browse_group_ancestors_are_not_truncated_beyond_fifty_levels(pool: Sqli
     assert_eq!(ancestor_ids, chain[..N - 1]);
 }
 
-/// groupを削除すると直接の子(link/file)はルート直下(parent_id = NULL)に昇格し、
-/// file子のblobは削除されない(削除されたのはgroup自身であり、reparentされた
-/// file行はまだ生きているため)。
+/// groupを削除すると直接の子はルート直下(parent_id = NULL)に昇格し、消えずに残る。
 #[sqlx::test]
 async fn delete_group_reparents_children_to_root(pool: SqlitePool) {
     let group_id = insert_group_under(&pool, "資料", "authenticated", None).await;
-    let (app, blobs_dir) = test_app_with_blobs(pool.clone()).await;
-    let cookie = admin_cookie(app.clone(), &pool).await;
-    let file_id = insert_file_content(
-        &pool,
-        &blobs_dir,
-        ("配下ファイル", "doc.txt", b"hello group"),
-        Some(group_id),
-        "authenticated",
-        None,
-    )
-    .await;
+    let child_id =
+        insert_link_by(&pool, "配下のリンク", "authenticated", None, Some(group_id)).await;
+    let (app, cookie) = admin_app(&pool).await;
 
     let (delete_status, _) = send_empty(
         app.clone(),
@@ -436,38 +391,20 @@ async fn delete_group_reparents_children_to_root(pool: SqlitePool) {
     .await;
     assert_eq!(delete_status, StatusCode::NO_CONTENT);
 
-    // reparentされたfile行のparentIdがnullになっていることを確認。
     let admin_list_response = send_raw(
-        app.clone(),
+        app,
         build_request("GET", "/api/v1/contents/manage", Some(&cookie), None),
     )
     .await;
     let admin_body: serde_json::Value =
         serde_json::from_str(&body_string(admin_list_response).await).expect("valid json");
-    let file_entry = admin_body
+    let child_entry = admin_body
         .as_array()
         .expect("配列のはず")
         .iter()
-        .find(|c| c["id"].as_i64() == Some(file_id))
-        .expect("file content should still exist");
-    assert!(file_entry["parentId"].is_null(), "{file_entry}");
-
-    // blobがGCされておらず、ダウンロードが引き続き成功することを確認。
-    let download_response = send_raw(
-        app,
-        build_request(
-            "GET",
-            &format!("/api/v1/contents/{file_id}/download"),
-            Some(&cookie),
-            None,
-        ),
-    )
-    .await;
-    assert_eq!(download_response.status(), StatusCode::OK);
-    let bytes = to_bytes(download_response.into_body(), usize::MAX)
-        .await
-        .expect("本文を読めるはず");
-    assert_eq!(&bytes[..], b"hello group");
+        .find(|c| c["id"].as_i64() == Some(child_id))
+        .expect("child content should still exist");
+    assert!(child_entry["parentId"].is_null(), "{child_entry}");
 }
 
 /// folderコンテンツの作成はadminなら成功し、レスポンス(admin向け)には

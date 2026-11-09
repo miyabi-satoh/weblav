@@ -7,8 +7,19 @@
   "paths": {
     "/api/v1/admin/backup": {
       "get": {
-        "summary": "今の DB とアップロードしたファイルを1つの zip にして返す。作りながら送る。",
+        "summary": "今の DB とアップロードしたファイルを1つの zip にして返す。作りながら送る。\n引換券は、合っていてもいなくても使い済みにする。",
         "operationId": "download_backup",
+        "parameters": [
+          {
+            "name": "ticket",
+            "in": "query",
+            "description": "`POST /admin/backup/ticket` で受け取った引換券。",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "バックアップの zip",
@@ -28,6 +39,16 @@
           },
           "403": {
             "description": "admin以外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "引換券が無い・違う・期限切れ",
             "content": {
               "application/json": {
                 "schema": {
@@ -157,6 +178,44 @@
           },
           "422": {
             "description": "バックアップではない・新しい版で作られた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/backup/ticket": {
+      "post": {
+        "summary": "バックアップを落とすための引換券を出す。パスワードの確かめ直しはここで求め、落とす口では求めない。\nブラウザーが直接開く口は、断られても画面で受けて確かめ直しのダイアログを出せないため。",
+        "operationId": "issue_download_ticket",
+        "responses": {
+          "200": {
+            "description": "引換券",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadTicketResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外・パスワードの確かめ直しが要る",
             "content": {
               "application/json": {
                 "schema": {
@@ -1569,37 +1628,6 @@
           },
           "422": {
             "description": "新しいパスワード未入力",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/auth/password-confirmation": {
-      "post": {
-        "summary": "確かめ直しが要る操作を、要求を送る前に通せるか確かめる。読むだけで時刻は延ばさない\n(叩き続けるだけで確かめた状態を保てないように)。続けて送る操作の成功で延びる。\n画面が要求の応答を受けられない操作 (ブラウザーが直接開くダウンロード) の前に呼ぶ。",
-        "operationId": "check_password_confirmation",
-        "responses": {
-          "204": {
-            "description": "確かめた内なので、そのまま通せる"
-          },
-          "401": {
-            "description": "未ログイン",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "パスワードの確かめ直しが要る",
             "content": {
               "application/json": {
                 "schema": {
@@ -3327,7 +3355,7 @@
     },
     "/api/v1/contents/{id}/download": {
       "get": {
-        "summary": "folder配下のファイル、またはfileコンテンツの実体(blob)を配信する。\nそのコンテンツを開けるなら (`ensure_openable`) ダウンロードできる。\n`query.path`はfolderの場合のみ使う(fileは`id`だけで実体が一意に決まる)。",
+        "summary": "folder配下のファイル、またはショートカットの先のファイルを配信する。\nそのコンテンツを開けるなら (`ensure_openable`) ダウンロードできる。\n`query.path`はfolderの場合のみ使う(shortcutは`id`だけで先が一意に決まる)。",
         "operationId": "download_content",
         "parameters": [
           {
@@ -4607,85 +4635,6 @@
           },
           "404": {
             "description": "見えない・存在しない、またはプレビューしない画像",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/contents/{id}/upload": {
-      "put": {
-        "summary": "ファイルコンテンツの題・説明・親・公開範囲を更新する(multipart)。ファイルの差し替えはしない\n(`file` を送ると422)。ファイルは共有の中に置いて扱う (→ `api::shares`)。この口が multipart のままなのは、\n前からある画面と送り方を変えないため。`type = 'file'` 以外のidに対しては422にする\n(link/folderの更新は既存の`PUT /contents/{id}`(JSON)を使う)。",
-        "operationId": "replace_content_upload",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/ReplaceContentUploadRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminContentResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Entity",
             "content": {
               "application/json": {
                 "schema": {
@@ -6614,14 +6563,7 @@
               "string",
               "null"
             ],
-            "description": "`type = 'file'` と `type = 'shortcut'` の場合のみ`Some`。`blob_hash`(内部実装detail)は含めない。"
-          },
-          "fileSize": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64"
+            "description": "`type = 'shortcut'` の場合のみ`Some`。先のファイルの名前。"
           },
           "id": {
             "type": "integer",
@@ -7363,6 +7305,7 @@
           },
           {
             "type": "object",
+            "description": "共有の中のファイルを指すショートカット (`ContentType::Shortcut`)。閲覧の場では、フォルダーの中のファイルと同じく\nファイルとして見せる (フォルダーを指すものが `Folder` で返るのと同じく、指す先の種類で返す)。",
             "required": [
               "id",
               "title",
@@ -7387,11 +7330,12 @@
               },
               "fileName": {
                 "type": "string",
-                "description": "ダウンロード時のファイル名。ダウンロードURL自体は`id`ベース\n(`/contents/{id}/download`)なので、これは表示・保存名のヒント用。"
+                "description": "先のファイルの名前。ダウンロードURL自体は`id`ベース\n(`/contents/{id}/download`)なので、これは表示・保存名のヒント用。"
               },
               "fileSize": {
                 "type": "integer",
-                "format": "int64"
+                "format": "int64",
+                "description": "先のファイルの大きさ。一覧でだけ埋める (ほかは0)。"
               },
               "id": {
                 "type": "integer",
@@ -7481,7 +7425,6 @@
         "enum": [
           "link",
           "folder",
-          "file",
           "group",
           "shortcut"
         ]
@@ -7819,6 +7762,18 @@
           "selectable": {
             "type": "boolean",
             "description": "現在位置そのものを登録先に選べるか。ルートの一覧では `false`。"
+          }
+        }
+      },
+      "DownloadTicketResponse": {
+        "type": "object",
+        "required": [
+          "ticket"
+        ],
+        "properties": {
+          "ticket": {
+            "type": "string",
+            "description": "`GET /admin/backup` の `ticket` に付ける値。"
           }
         }
       },
@@ -8566,7 +8521,7 @@
       },
       "LinksFileQuery": {
         "type": "object",
-        "description": "どの一覧のファイルか。フォルダーの中は `path`、アーカイブのアイテムは `item`、`file` コンテンツは id だけで指す。",
+        "description": "どの一覧のファイルか。フォルダーの中は `path`、アーカイブのアイテムは `item`、ショートカットは id だけで指す。",
         "properties": {
           "item": {
             "type": [
@@ -8607,7 +8562,7 @@
               "string",
               "null"
             ],
-            "description": "フォルダー・アーカイブの中のファイルなら、そのコンテンツのタイトル。`file` コンテンツなら無し。"
+            "description": "フォルダー・アーカイブの中のファイルなら、そのコンテンツのタイトル。ショートカットなら無し。"
           },
           "links": {
             "type": [
@@ -8621,7 +8576,7 @@
           },
           "name": {
             "type": "string",
-            "description": "パンくずの最後に出す名前。`file` コンテンツは一覧に出ている登録したタイトル、ほかはファイル名。"
+            "description": "パンくずの最後に出す名前。ショートカットは一覧に出ている登録したタイトル、ほかはファイル名。"
           },
           "title": {
             "type": "string",
@@ -9004,43 +8959,6 @@
           }
         }
       },
-      "ReplaceContentUploadRequest": {
-        "type": "object",
-        "description": "utoipaのOpenAPIドキュメント用のダミー構造体。実際のリクエストは\n`axum::extract::Multipart` で受け取るため、この構造体自体はデシリアライズに使わない\n(`multipart/form-data`のスキーマ表現としてutoipaに渡すためだけのもの)。",
-        "required": [
-          "title"
-        ],
-        "properties": {
-          "description": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "parent_id": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64",
-            "description": "親グループのid。省略/空ならルート直下へ移動する。"
-          },
-          "title": {
-            "type": "string"
-          },
-          "visibility": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/Visibility",
-                "description": "公開範囲。省略/空なら現在値のまま。"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        }
-      },
       "RescanPhase": {
         "type": "string",
         "description": "再スキャンの段階 (→ `crate::state::ScanPhase`)。",
@@ -9330,11 +9248,11 @@
           "contentId": {
             "type": "integer",
             "format": "int64",
-            "description": "一覧のファイルを持つコンテンツ (フォルダー・アーカイブ・`file`)。"
+            "description": "一覧のファイルを持つコンテンツ (フォルダー・アーカイブ・ショートカット)。"
           },
           "fileTitle": {
             "type": "string",
-            "description": "一覧のファイルの題。`title` が無ければ、`file` コンテンツは登録したタイトル、ほかはファイル名。"
+            "description": "一覧のファイルの題。`title` が無ければ、ショートカットは登録したタイトル、ほかはファイル名。"
           },
           "item": {
             "type": [

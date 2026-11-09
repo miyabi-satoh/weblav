@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url, path,\n                  description, created_at as \"created_at!\", file_name, file_size,\n                  visibility as \"visibility: Visibility\", created_by, include_patterns, exclude_patterns, title_template,\n                  list_view as \"list_view: bool\",\n                  auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time\n           FROM contents\n           WHERE parent_id IS NULL",
+  "query": "SELECT id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url, path,\n                  description, created_at as \"created_at!\",\n                  visibility as \"visibility: Visibility\", created_by, include_patterns, exclude_patterns, title_template,\n                  list_view as \"list_view: bool\",\n                  auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time\n           FROM contents\n           ORDER BY id",
   "describe": {
     "columns": [
       {
@@ -44,58 +44,48 @@
         "type_info": "Text"
       },
       {
-        "name": "file_name",
+        "name": "visibility: Visibility",
         "ordinal": 8,
         "type_info": "Text"
       },
       {
-        "name": "file_size",
+        "name": "created_by",
         "ordinal": 9,
         "type_info": "Integer"
       },
       {
-        "name": "visibility: Visibility",
+        "name": "include_patterns",
         "ordinal": 10,
         "type_info": "Text"
       },
       {
-        "name": "created_by",
-        "ordinal": 11,
-        "type_info": "Integer"
-      },
-      {
-        "name": "include_patterns",
-        "ordinal": 12,
-        "type_info": "Text"
-      },
-      {
         "name": "exclude_patterns",
-        "ordinal": 13,
+        "ordinal": 11,
         "type_info": "Text"
       },
       {
         "name": "title_template",
-        "ordinal": 14,
+        "ordinal": 12,
         "type_info": "Text"
       },
       {
         "name": "list_view: bool",
-        "ordinal": 15,
+        "ordinal": 13,
         "type_info": "Integer"
       },
       {
         "name": "auto_rescan_mode: AutoMode",
-        "ordinal": 16,
+        "ordinal": 14,
         "type_info": "Text"
       },
       {
         "name": "auto_rescan_hours",
-        "ordinal": 17,
+        "ordinal": 15,
         "type_info": "Integer"
       },
       {
         "name": "auto_rescan_time",
-        "ordinal": 18,
+        "ordinal": 16,
         "type_info": "Text"
       }
     ],
@@ -103,7 +93,7 @@
       "Right": 0
     },
     "nullable": [
-      true,
+      false,
       false,
       true,
       false,
@@ -111,8 +101,6 @@
       true,
       true,
       false,
-      true,
-      true,
       false,
       true,
       true,
@@ -124,5 +112,5 @@
       true
     ]
   },
-  "hash": "bb7685ad9003a02972894957edcca95e7a2f55fc25d2dfdf97d6c6cdc185bbcf"
+  "hash": "8bfc0fa6d8a2af7188d2b11c6f0100e8e1633325328fa49c004c02fec0780680"
 }

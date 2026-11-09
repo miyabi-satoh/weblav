@@ -20,7 +20,6 @@ export function contentTypeLabel(type: ContentType, listView = false): string {
 	if (type === 'folder') return listView ? m.contents_type_library() : m.contents_type_shortcut();
 	if (type === 'shortcut') return m.contents_type_shortcut();
 	if (type === 'group') return m.contents_type_group();
-	if (type === 'file') return m.contents_type_file();
 	return type;
 }
 

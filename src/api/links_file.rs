@@ -20,7 +20,7 @@ const LINKS_FILE_SUFFIX: &str = ".links.toml";
 /// 読む大きさの上限。手やジョブが書くリンクの一覧は数十KBに収まるので、それより大きいものは一覧とみなさない。
 const MAX_LINKS_FILE_BYTES: u64 = 1024 * 1024;
 
-/// どの一覧のファイルか。フォルダーの中は `path`、アーカイブのアイテムは `item`、`file` コンテンツは id だけで指す。
+/// どの一覧のファイルか。フォルダーの中は `path`、アーカイブのアイテムは `item`、ショートカットは id だけで指す。
 #[derive(Debug, Default, Deserialize, IntoParams, ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[into_params(parameter_in = Query)]
@@ -37,11 +37,11 @@ pub(super) struct LinksFileQuery {
 struct LinksFileResponse {
     /// ファイルに書かれた `title`。省かれているか読めなければファイル名。
     title: String,
-    /// パンくずの最後に出す名前。`file` コンテンツは一覧に出ている登録したタイトル、ほかはファイル名。
+    /// パンくずの最後に出す名前。ショートカットは一覧に出ている登録したタイトル、ほかはファイル名。
     name: String,
     /// ルートに近い順の祖先グループ。コンテンツ自身は含まない。
     ancestors: Vec<GroupAncestor>,
-    /// フォルダー・アーカイブの中のファイルなら、そのコンテンツのタイトル。`file` コンテンツなら無し。
+    /// フォルダー・アーカイブの中のファイルなら、そのコンテンツのタイトル。ショートカットなら無し。
     container_title: Option<String>,
     /// 書いた順のリンク。読めなければ無し (画面は読めなかった旨と、ファイルを新規タブで開く手段を出す)。
     links: Option<Vec<LinksFileEntry>>,
@@ -63,7 +63,7 @@ struct Opened {
     file: ServedFile,
     lineage: Lineage,
     container_title: Option<String>,
-    /// `file` コンテンツの登録したタイトル。
+    /// ショートカットの登録したタイトル。
     content_title: Option<String>,
 }
 
@@ -105,7 +105,7 @@ async fn open(
                 content_title: None,
             }
         }
-        (ContentType::File | ContentType::Shortcut, None) => {
+        (ContentType::Shortcut, None) => {
             let lineage = contents::ensure_viewable(&state.pool, viewer, id).await?;
             let file = contents::content_file(state, viewer, id, "").await?;
             let content_title = lineage.own_title();

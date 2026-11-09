@@ -186,25 +186,6 @@ async fn confirm_password(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// 確かめ直しが要る操作を、要求を送る前に通せるか確かめる。読むだけで時刻は延ばさない
-/// (叩き続けるだけで確かめた状態を保てないように)。続けて送る操作の成功で延びる。
-/// 画面が要求の応答を受けられない操作 (ブラウザーが直接開くダウンロード) の前に呼ぶ。
-#[utoipa::path(
-    post,
-    path = "/auth/password-confirmation",
-    responses(
-        (status = 204, description = "確かめた内なので、そのまま通せる"),
-        (status = 401, description = "未ログイン", body = crate::error::ErrorResponse),
-        (status = 403, description = "パスワードの確かめ直しが要る", body = crate::error::ErrorResponse),
-    )
-)]
-async fn check_password_confirmation(user: AuthUser) -> Result<StatusCode, AppError> {
-    if !user.is_password_confirmed().await? {
-        return Err(AppError::PasswordConfirmationRequired);
-    }
-    Ok(StatusCode::NO_CONTENT)
-}
-
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct ChangePasswordRequest {
@@ -434,7 +415,6 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(logout))
         .routes(routes!(me))
         .routes(routes!(confirm_password))
-        .routes(routes!(check_password_confirmation))
         .routes(routes!(change_password))
         .routes(routes!(change_username))
         .routes(routes!(create_recovery_code))

@@ -13,7 +13,7 @@ import { withQuery } from '$lib/href';
 /**
  * `GET /api/v1/contents/{id}/download` へのリンク。
  *
- * `path` は folder コンテンツ配下の相対パス。file コンテンツでは省く。
+ * `path` は folder コンテンツ配下の相対パス。ショートカットでは省く。
  */
 export function contentDownloadHref(contentId: number, path?: string): string {
 	const base = `/api/v1/contents/${contentId}/download`;
@@ -28,9 +28,12 @@ export function adminLogsHref(): string {
 	return '/api/v1/admin/logs';
 }
 
-/** `GET /api/v1/admin/backup` へのリンク。作りながら返す zip。ファイル名は画面が `download` 属性で付ける。 */
-export function adminBackupHref(): string {
-	return '/api/v1/admin/backup';
+/**
+ * `GET /api/v1/admin/backup` へのリンク。作りながら返す zip。ファイル名は画面が `download` 属性で付ける。
+ * `ticket` は `POST /api/v1/admin/backup/ticket` で受け取った、一度だけ使える引換券。
+ */
+export function adminBackupHref(ticket: string): string {
+	return withQuery('/api/v1/admin/backup', { ticket });
 }
 
 /** `GET /api/v1/contents/{id}/remote` へのリンク。`link` コンテンツの URL のファイルを、サーバーが取ってきて流す。 */

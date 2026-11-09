@@ -1314,7 +1314,7 @@ mod tests {
     fn only_own_dirs_and_inside_are_left_out() {
         let dir = crate::test_support::TempDir::new("roots-data-dir");
         let data_dir = dir.path().join("weblav");
-        std::fs::create_dir_all(data_dir.join("blobs")).expect("データ置き場を作れなかった");
+        std::fs::create_dir_all(data_dir.join("logs")).expect("データ置き場を作れなかった");
         let data_dir = std::fs::canonicalize(&data_dir).expect("canonicalize できなかった");
         let base = std::fs::canonicalize(dir.path()).expect("canonicalize できなかった");
 
@@ -1324,7 +1324,7 @@ mod tests {
 
         assert!(!own_dirs.contains(&base));
         assert!(own_dirs.contains(&data_dir));
-        assert!(own_dirs.contains(&data_dir.join("blobs")));
+        assert!(own_dirs.contains(&data_dir.join("logs")));
         assert!(own_dirs.contains(&config_dir));
         assert!(!own_dirs.contains(&base.join("other")));
     }
