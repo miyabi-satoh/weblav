@@ -3,14 +3,13 @@
 // 使い捨てのユーザーを API で作って使う。
 import { test, expect } from '@playwright/test';
 import {
+	ACCOUNT_MENU_ITEM_NAME,
 	RECOVERY_CODE_CREATE_BUTTON_NAME,
-	CURRENT_PASSWORD_LABEL,
 	EMPTY_STORAGE_STATE,
 	FORGOT_PASSWORD_LINK_NAME,
 	LOGIN_PASSWORD_LABEL,
 	LOGIN_USERNAME_LABEL,
 	PASSWORD_HASH_TIMEOUT,
-	RECOVERY_CODE_MENU_ITEM_NAME,
 	USERNAME_LABEL,
 	fillLogInForm,
 	requiredLabel,
@@ -21,6 +20,7 @@ import { removeUserIfPresent } from './user-helpers';
 
 const MISSING_NOTICE_TEXT =
 	/リカバリコードがまだ作成されていません|You haven't created a recovery code yet/;
+const MISSING_NOTICE_ON_ACCOUNT_TEXT = /まだ作成していません|Not created yet/;
 const CREATE_ACTION_NAME = /^リカバリコードを作成\.\.\.$|^Create recovery code$/;
 const RECOVERY_CODE_LABEL = requiredLabel('リカバリコード', 'Recovery code');
 const NEW_PASSWORD_LABEL = requiredLabel('新しいパスワード', 'New password');
@@ -29,8 +29,8 @@ const NEW_PASSWORD_CONFIRM_LABEL = requiredLabel(
 	'New password (confirm)'
 );
 const RESET_BUTTON_NAME = /^パスワードを再設定する$|^Reset password$/;
-const INCORRECT_CURRENT_TEXT =
-	/現在のパスワードが正しくありません|The current password is incorrect/;
+const RECOVERY_SECTION_NAME = /^リカバリコード$|^Recovery code$/;
+const CREATED_ON_TEXT = /に作成しました|Created on /;
 const INVALID_RECOVERY_TEXT =
 	/ユーザー名またはリカバリコードが正しくありません|The username or recovery code is incorrect/;
 
@@ -54,20 +54,10 @@ test('管理者はリカバリコードを作り、パスワードを忘れた�
 		await own.waitForURL('/', { timeout: PASSWORD_HASH_TIMEOUT });
 
 		// まだ作っていない管理者には、管理画面に帯を出す。帯から作ると帯は消える。
+		// ログインしたばかりなので、パスワードは聞き直さずに作る (→ docs/access.md「操作の前のパスワードの確認」)。
 		await own.goto('/admin/contents');
 		await expect(own.getByText(MISSING_NOTICE_TEXT)).toBeVisible();
 		await own.getByRole('button', { name: CREATE_ACTION_NAME }).click();
-		const dialog = own.getByRole('dialog');
-		// 今のパスワードを間違えても、ログインへ飛ばさずその場で知らせる。
-		await dialog.getByLabel(CURRENT_PASSWORD_LABEL).fill('wrong-password');
-		await dialog.getByRole('button', { name: RECOVERY_CODE_CREATE_BUTTON_NAME }).click();
-		await expect(own.getByText(INCORRECT_CURRENT_TEXT)).toBeVisible({
-			timeout: PASSWORD_HASH_TIMEOUT
-		});
-		await own.keyboard.press('Escape');
-		await expect(own).toHaveURL('/admin/contents');
-		await dialog.getByLabel(CURRENT_PASSWORD_LABEL).fill('old-password');
-		await dialog.getByRole('button', { name: RECOVERY_CODE_CREATE_BUTTON_NAME }).click();
 		const code = await keepRecoveryCode(own);
 		await expect(own.getByText(MISSING_NOTICE_TEXT)).toHaveCount(0);
 
@@ -109,7 +99,7 @@ test('管理者はリカバリコードを作り、パスワードを忘れた�
 	}
 });
 
-test('編集者も、ユーザーメニューから作ったリカバリコードでパスワードを再設定できる', async ({
+test('編集者も、アカウントのページで作ったリカバリコードでパスワードを再設定できる', async ({
 	page,
 	browser
 }) => {
@@ -127,13 +117,16 @@ test('編集者も、ユーザーメニューから作ったリカバリコー�
 		await fillLogInForm(own, username, 'old-password');
 		await own.waitForURL('/', { timeout: PASSWORD_HASH_TIMEOUT });
 
-		// 作るよう促す帯は管理画面にだけ出し、管理画面は編集者に開かない。編集者はメニューから作る。
+		// 作るよう促す帯は管理画面にだけ出し、管理画面は編集者に開かない。編集者はアカウントのページで作る。
 		await own.getByRole('button', { name: username, exact: true }).click();
-		await own.getByRole('menuitem', { name: RECOVERY_CODE_MENU_ITEM_NAME }).click();
-		const dialog = own.getByRole('dialog');
-		await dialog.getByLabel(CURRENT_PASSWORD_LABEL).fill('old-password');
-		await dialog.getByRole('button', { name: RECOVERY_CODE_CREATE_BUTTON_NAME }).click();
+		await own.getByRole('menuitem', { name: ACCOUNT_MENU_ITEM_NAME }).click();
+		await own.waitForURL('/account');
+		const section = own.getByRole('region', { name: RECOVERY_SECTION_NAME });
+		await expect(section).toContainText(MISSING_NOTICE_ON_ACCOUNT_TEXT);
+		await section.getByRole('button', { name: RECOVERY_CODE_CREATE_BUTTON_NAME }).click();
 		const code = await keepRecoveryCode(own);
+		// 作った日を出す。手元の控えの作成日時と見比べられるように。
+		await expect(section).toContainText(CREATED_ON_TEXT);
 
 		await context.clearCookies();
 		await own.goto('/recover');

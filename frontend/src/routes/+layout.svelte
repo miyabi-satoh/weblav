@@ -25,6 +25,7 @@
 	import LinkDetailDialog from '$lib/components/link-detail-dialog.svelte';
 	import NavigationProgress from '$lib/components/navigation-progress.svelte';
 	import ShareJobsPanel from '$lib/components/share-ops/share-jobs-panel.svelte';
+	import PasswordConfirmationDialog from '$lib/components/password-confirmation-dialog.svelte';
 	import { Toaster } from '$lib/components/ui/sonner';
 	import { nowPlaying } from '$lib/now-playing.svelte';
 	import { searchHref, searchScopeOf } from '$lib/search-scope';
@@ -168,6 +169,7 @@
 />
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />
+<PasswordConfirmationDialog />
 
 <!-- ヘッダー (52px / md 以上 56px → docs/ui.md「UI 全般」) のすぐ下に出す。 -->
 <Toaster position="top-center" offset={{ top: 64 }} mobileOffset={{ top: 60 }} />

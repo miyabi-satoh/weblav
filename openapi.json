@@ -1063,7 +1063,7 @@
             }
           },
           "403": {
-            "description": "admin以外",
+            "description": "admin以外・パスワードの確かめ直しが要る",
             "content": {
               "application/json": {
                 "schema": {
@@ -1114,7 +1114,7 @@
             }
           },
           "403": {
-            "description": "admin以外",
+            "description": "admin以外・自分自身・パスワードの確かめ直しが要る",
             "content": {
               "application/json": {
                 "schema": {
@@ -1185,7 +1185,7 @@
             }
           },
           "403": {
-            "description": "admin以外",
+            "description": "admin以外・自分自身・パスワードの確かめ直しが要る",
             "content": {
               "application/json": {
                 "schema": {
@@ -1263,7 +1263,7 @@
             }
           },
           "403": {
-            "description": "admin以外",
+            "description": "admin以外・自分自身・パスワードの確かめ直しが要る",
             "content": {
               "application/json": {
                 "schema": {
@@ -1297,7 +1297,7 @@
     },
     "/api/v1/admin/users/{id}/username": {
       "put": {
-        "summary": "ほかのユーザーのユーザー名を変える。パスワードの再設定と同じく、本人のパスワードは求めない。",
+        "summary": "ほかのユーザーのユーザー名を変える。パスワードの再設定と同じく、本人のパスワードは求めない\n(管理者自身の確かめ直しは求める)。",
         "operationId": "update_username",
         "parameters": [
           {
@@ -1342,7 +1342,7 @@
             }
           },
           "403": {
-            "description": "admin以外",
+            "description": "admin以外・自分自身・パスワードの確かめ直しが要る",
             "content": {
               "application/json": {
                 "schema": {
@@ -1363,6 +1363,47 @@
           },
           "422": {
             "description": "ユーザー名が空、またはほかのユーザーが使っている",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/confirm-password": {
+      "post": {
+        "summary": "今のパスワードを確かめ直す (→ docs/access.md「操作の前のパスワードの確認」)。通ると、\n確かめ直しが要る操作を、しばらく聞き直さずに通す。",
+        "operationId": "confirm_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "確かめた"
+          },
+          "401": {
+            "description": "未ログイン、またはパスワードが違う",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "パスワードの試行が多すぎる",
             "content": {
               "application/json": {
                 "schema": {
@@ -1490,7 +1531,7 @@
     },
     "/api/v1/auth/password": {
       "put": {
-        "summary": "自分自身のパスワードを変更する。管理者による他人のパスワード再設定\n(`PUT /admin/users/{id}/password`)とは異なり、現在のパスワードの入力を要求する。",
+        "summary": "自分自身のパスワードを変更する。管理者による他人のパスワード再設定\n(`PUT /admin/users/{id}/password`)と同じく、パスワードの確かめ直しを求める。",
         "operationId": "change_password",
         "requestBody": {
           "content": {
@@ -1507,7 +1548,7 @@
             "description": "変更した"
           },
           "401": {
-            "description": "未ログイン、または現在のパスワードが違う",
+            "description": "未ログイン",
             "content": {
               "application/json": {
                 "schema": {
@@ -1516,8 +1557,8 @@
               }
             }
           },
-          "409": {
-            "description": "検証後に他の変更(管理者によるリセット等)と競合した",
+          "403": {
+            "description": "パスワードの確かめ直しが要る",
             "content": {
               "application/json": {
                 "schema": {
@@ -1535,9 +1576,30 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password-confirmation": {
+      "post": {
+        "summary": "確かめ直しが要る操作を、要求を送る前に通せるか確かめる。確かめた内なら時刻を延ばす。\n画面が要求の応答を受けられない操作 (ブラウザーが直接開くダウンロード) の前に呼ぶ。",
+        "operationId": "check_password_confirmation",
+        "responses": {
+          "204": {
+            "description": "確かめた内なので、そのまま通せる"
           },
-          "429": {
-            "description": "Too Many Requests",
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "パスワードの確かめ直しが要る",
             "content": {
               "application/json": {
                 "schema": {
@@ -1619,18 +1681,8 @@
     },
     "/api/v1/auth/recovery-code": {
       "post": {
-        "summary": "自分のリカバリコードを作り直す (→ docs/access.md「リカバリコード」)。前のものは無効になる。\nパスワードの変更と同じく、今のパスワードを求める。",
+        "summary": "自分のリカバリコードを作り直す (→ docs/access.md「リカバリコード」)。前のものは無効になる。\nパスワードの確かめ直しを求める。",
         "operationId": "create_recovery_code",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateRecoveryCodeRequest"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "description": "作り直したリカバリコード",
@@ -1643,7 +1695,7 @@
             }
           },
           "401": {
-            "description": "未ログイン、または現在のパスワードが違う",
+            "description": "未ログイン",
             "content": {
               "application/json": {
                 "schema": {
@@ -1652,18 +1704,8 @@
               }
             }
           },
-          "409": {
-            "description": "確かめてから書くまでにパスワードが変わった",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "今のパスワードの試行が多すぎる",
+          "403": {
+            "description": "パスワードの確かめ直しが要る",
             "content": {
               "application/json": {
                 "schema": {
@@ -1677,7 +1719,7 @@
     },
     "/api/v1/auth/username": {
       "put": {
-        "summary": "自分自身のユーザー名を変更する。パスワードの変更と同じく、今のパスワードを求める\n(→ docs/access.md「ユーザー名の変更」)。",
+        "summary": "自分自身のユーザー名を変更する。パスワードの確かめ直しを求める (→ docs/access.md「ユーザー名の変更」)。",
         "operationId": "change_username",
         "requestBody": {
           "content": {
@@ -1694,7 +1736,17 @@
             "description": "変更した"
           },
           "401": {
-            "description": "未ログイン、または現在のパスワードが違う",
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "パスワードの確かめ直しが要る",
             "content": {
               "application/json": {
                 "schema": {
@@ -1705,16 +1757,6 @@
           },
           "422": {
             "description": "新しいユーザー名が空、またはほかのユーザーが使っている",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "今のパスワードの試行が多すぎる",
             "content": {
               "application/json": {
                 "schema": {
@@ -7163,13 +7205,9 @@
       "ChangePasswordRequest": {
         "type": "object",
         "required": [
-          "currentPassword",
           "newPassword"
         ],
         "properties": {
-          "currentPassword": {
-            "type": "string"
-          },
           "newPassword": {
             "type": "string"
           }
@@ -7178,14 +7216,21 @@
       "ChangeUsernameRequest": {
         "type": "object",
         "required": [
-          "currentPassword",
           "username"
         ],
         "properties": {
-          "currentPassword": {
-            "type": "string"
-          },
           "username": {
+            "type": "string"
+          }
+        }
+      },
+      "ConfirmPasswordRequest": {
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "properties": {
+          "password": {
             "type": "string"
           }
         }
@@ -7541,17 +7586,6 @@
           }
         }
       },
-      "CreateRecoveryCodeRequest": {
-        "type": "object",
-        "required": [
-          "currentPassword"
-        ],
-        "properties": {
-          "currentPassword": {
-            "type": "string"
-          }
-        }
-      },
       "CreateRootRequest": {
         "type": "object",
         "required": [
@@ -7823,6 +7857,7 @@
           "forbidden",
           "invalid_credentials",
           "incorrect_current_password",
+          "password_confirmation_required",
           "invalid_recovery_code",
           "too_many_requests",
           "invalid_request_body",
@@ -8744,6 +8779,13 @@
                 "type": "integer",
                 "format": "int64",
                 "description": "非表示のコンテンツの一覧 (`GET /contents/hidden`) に並ぶ件数。ユーザーメニューに出す。"
+              },
+              "recoveryCodeCreatedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "リカバリコードを作った時刻。コードが無いときと、時刻を持つ前に作ったコードでは `None`。\nアカウントのページで、控えの作成日時と見比べられるよう出す。"
               }
             }
           }

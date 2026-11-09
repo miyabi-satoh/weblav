@@ -303,6 +303,17 @@ pub(super) async fn load_editable_archive(
     Ok(meta)
 }
 
+/// アーカイブの設定 (軸など) を変える操作向けの `ensure_editable_archive`。他人のものなら
+/// パスワードの確かめ直しも求める (→ `contents::ensure_changeable`)。
+pub(super) async fn ensure_changeable_archive(
+    pool: &sqlx::SqlitePool,
+    user: &AuthUser,
+    id: i64,
+) -> Result<(), AppError> {
+    let meta = load_archive(pool, id).await?;
+    super::contents::ensure_changeable(user, meta.visibility, meta.created_by).await
+}
+
 /// `load_editable_archive` の、存在確認だけで足りる呼び出し元向け。
 pub(super) async fn ensure_editable_archive(
     pool: &sqlx::SqlitePool,

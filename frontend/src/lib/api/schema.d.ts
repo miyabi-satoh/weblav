@@ -311,9 +311,32 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** ほかのユーザーのユーザー名を変える。パスワードの再設定と同じく、本人のパスワードは求めない。 */
+        /**
+         * ほかのユーザーのユーザー名を変える。パスワードの再設定と同じく、本人のパスワードは求めない
+         *     (管理者自身の確かめ直しは求める)。
+         */
         put: operations["update_username"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/confirm-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 今のパスワードを確かめ直す (→ docs/access.md「操作の前のパスワードの確認」)。通ると、
+         *     確かめ直しが要る操作を、しばらく聞き直さずに通す。
+         */
+        post: operations["confirm_password"];
         delete?: never;
         options?: never;
         head?: never;
@@ -378,10 +401,30 @@ export interface paths {
         get?: never;
         /**
          * 自分自身のパスワードを変更する。管理者による他人のパスワード再設定
-         *     (`PUT /admin/users/{id}/password`)とは異なり、現在のパスワードの入力を要求する。
+         *     (`PUT /admin/users/{id}/password`)と同じく、パスワードの確かめ直しを求める。
          */
         put: operations["change_password"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password-confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 確かめ直しが要る操作を、要求を送る前に通せるか確かめる。確かめた内なら時刻を延ばす。
+         *     画面が要求の応答を受けられない操作 (ブラウザーが直接開くダウンロード) の前に呼ぶ。
+         */
+        post: operations["check_password_confirmation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -419,7 +462,7 @@ export interface paths {
         put?: never;
         /**
          * 自分のリカバリコードを作り直す (→ docs/access.md「リカバリコード」)。前のものは無効になる。
-         *     パスワードの変更と同じく、今のパスワードを求める。
+         *     パスワードの確かめ直しを求める。
          */
         post: operations["create_recovery_code"];
         delete?: never;
@@ -436,10 +479,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /**
-         * 自分自身のユーザー名を変更する。パスワードの変更と同じく、今のパスワードを求める
-         *     (→ docs/access.md「ユーザー名の変更」)。
-         */
+        /** 自分自身のユーザー名を変更する。パスワードの確かめ直しを求める (→ docs/access.md「ユーザー名の変更」)。 */
         put: operations["change_username"];
         post?: never;
         delete?: never;
@@ -2027,12 +2067,13 @@ export interface components {
             matched: number;
         };
         ChangePasswordRequest: {
-            currentPassword: string;
             newPassword: string;
         };
         ChangeUsernameRequest: {
-            currentPassword: string;
             username: string;
+        };
+        ConfirmPasswordRequest: {
+            password: string;
         };
         ConnectionInfoResponse: {
             /**
@@ -2178,9 +2219,6 @@ export interface components {
             url?: string | null;
             visibility?: components["schemas"]["Visibility"] | null;
         };
-        CreateRecoveryCodeRequest: {
-            currentPassword: string;
-        };
         CreateRootRequest: {
             /** @description 名前。前後の空白は除く。省くか空ならフォルダー名にする。 */
             name?: string | null;
@@ -2273,7 +2311,7 @@ export interface components {
          * @description API エラーの機械可読なコード。frontend はこの値で表示文言を選ぶ。
          * @enum {string}
          */
-        ErrorCode: "not_found" | "database_unavailable" | "unauthorized" | "forbidden" | "invalid_credentials" | "incorrect_current_password" | "invalid_recovery_code" | "too_many_requests" | "invalid_request_body" | "file_too_large" | "internal_error" | "conflict" | "config_unreadable" | "folder_unreachable" | "insufficient_storage" | "trash_unavailable" | "entry_in_use" | "share_read_only";
+        ErrorCode: "not_found" | "database_unavailable" | "unauthorized" | "forbidden" | "invalid_credentials" | "incorrect_current_password" | "password_confirmation_required" | "invalid_recovery_code" | "too_many_requests" | "invalid_request_body" | "file_too_large" | "internal_error" | "conflict" | "config_unreadable" | "folder_unreachable" | "insufficient_storage" | "trash_unavailable" | "entry_in_use" | "share_read_only";
         /**
          * @description レスポンスボディの共通envelope。`code` が機械可読な契約(frontendはこちらでi18nする)、
          *     `message` は英語のデバッグ用の説明文で、画面には出さない。
@@ -2576,6 +2614,11 @@ export interface components {
              * @description 非表示のコンテンツの一覧 (`GET /contents/hidden`) に並ぶ件数。ユーザーメニューに出す。
              */
             hiddenContentCount: number;
+            /**
+             * @description リカバリコードを作った時刻。コードが無いときと、時刻を持つ前に作ったコードでは `None`。
+             *     アカウントのページで、控えの作成日時と見比べられるよう出す。
+             */
+            recoveryCodeCreatedAt?: string | null;
         };
         MoveRootRequest: {
             /** @description 新しい場所の絶対パス。フォルダー選択の窓 (`/admin/roots/pick`) が返す値をそのまま渡す。 */
@@ -4226,7 +4269,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4273,7 +4316,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・自分自身・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4333,7 +4376,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・自分自身・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4395,7 +4438,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・自分自身・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4457,7 +4500,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・自分自身・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4477,6 +4520,46 @@ export interface operations {
             };
             /** @description ユーザー名が空、またはほかのユーザーが使っている */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    confirm_password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description 確かめた */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン、またはパスワードが違う */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description パスワードの試行が多すぎる */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4622,7 +4705,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description 未ログイン、または現在のパスワードが違う */
+            /** @description 未ログイン */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4631,8 +4714,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 検証後に他の変更(管理者によるリセット等)と競合した */
-            409: {
+            /** @description パスワードの確かめ直しが要る */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4649,8 +4732,35 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Too Many Requests */
-            429: {
+        };
+    };
+    check_password_confirmation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 確かめた内なので、そのまま通せる */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description パスワードの確かめ直しが要る */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4727,11 +4837,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateRecoveryCodeRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description 作り直したリカバリコード */
             200: {
@@ -4742,7 +4848,7 @@ export interface operations {
                     "application/json": components["schemas"]["RecoveryCodeResponse"];
                 };
             };
-            /** @description 未ログイン、または現在のパスワードが違う */
+            /** @description 未ログイン */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4751,17 +4857,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 確かめてから書くまでにパスワードが変わった */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 今のパスワードの試行が多すぎる */
-            429: {
+            /** @description パスワードの確かめ直しが要る */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4791,8 +4888,17 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description 未ログイン、または現在のパスワードが違う */
+            /** @description 未ログイン */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description パスワードの確かめ直しが要る */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4802,15 +4908,6 @@ export interface operations {
             };
             /** @description 新しいユーザー名が空、またはほかのユーザーが使っている */
             422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description 今のパスワードの試行が多すぎる */
-            429: {
                 headers: {
                     [name: string]: unknown;
                 };

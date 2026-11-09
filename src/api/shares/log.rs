@@ -370,6 +370,7 @@ mod tests {
             username: "taro".to_string(),
             role: crate::auth::Role::User,
             has_recovery_code: false,
+            session: None,
         }
     }
 

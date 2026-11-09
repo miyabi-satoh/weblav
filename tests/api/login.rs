@@ -224,23 +224,18 @@ async fn login_is_rate_limited_after_repeated_failures(pool: SqlitePool) {
 
 const RECOVERY_CODE_URI: &str = "/api/v1/auth/recovery-code";
 
-/// ログイン中の管理者のリカバリコードを作り、見せる形のコードを返す。
-async fn create_recovery_code(app: Router, cookie: &str, password: &str) -> String {
-    let (status, body) = send_json(
-        app,
-        "POST",
-        RECOVERY_CODE_URI,
-        cookie,
-        &format!(r#"{{"currentPassword":"{password}"}}"#),
-    )
-    .await;
+/// ログイン中の利用者のリカバリコードを作り、見せる形のコードを返す。
+/// ログインしたばかりなので、パスワードの確かめ直しは求められない。
+async fn create_recovery_code(app: Router, cookie: &str) -> String {
+    let (status, body) = send_empty(app, "POST", RECOVERY_CODE_URI, cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     json_str(&body, "recoveryCode")
 }
 
-/// 本人は今のパスワードを入れて自分のユーザー名を変えられ、ログインしたまま新しい名前になる。
+/// 本人は自分のユーザー名を変えられ、ログインしたまま新しい名前になる。ログインしたばかりなので、
+/// パスワードの確かめ直しは求められない (→ docs/access.md「操作の前のパスワードの確認」)。
 #[sqlx::test]
-async fn user_changes_their_own_username_with_the_current_password(pool: SqlitePool) {
+async fn user_changes_their_own_username_right_after_logging_in(pool: SqlitePool) {
     insert_user(&pool, "bob", "correct-password").await;
     let app = test_app(pool).await;
     let cookie = login(app.clone(), "bob", "correct-password").await;
@@ -250,22 +245,7 @@ async fn user_changes_their_own_username_with_the_current_password(pool: SqliteP
         "PUT",
         "/api/v1/auth/username",
         &cookie,
-        r#"{"currentPassword":"wrong","username":"robert"}"#,
-    )
-    .await;
-    assert_error(
-        status,
-        &body,
-        StatusCode::UNAUTHORIZED,
-        "incorrect_current_password",
-    );
-
-    let (status, body) = send_json(
-        app.clone(),
-        "PUT",
-        "/api/v1/auth/username",
-        &cookie,
-        r#"{"currentPassword":"correct-password","username":"robert"}"#,
+        r#"{"username":"robert"}"#,
     )
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
@@ -277,24 +257,16 @@ async fn user_changes_their_own_username_with_the_current_password(pool: SqliteP
     login(app, "robert", "correct-password").await;
 }
 
-/// 管理者は今のパスワードを入れてリカバリコードを作れる (→ docs/access.md「リカバリコード」)。
+/// パスワードの確かめ直しは、今のパスワードが合うときだけ通る。
 #[sqlx::test]
-async fn admin_creates_a_recovery_code_with_the_current_password(pool: SqlitePool) {
-    insert_admin(&pool, "admin", "correct-password").await;
+async fn confirming_the_password_requires_the_current_password(pool: SqlitePool) {
+    insert_user(&pool, "bob", "correct-password").await;
     let app = test_app(pool).await;
-    let cookie = login(app.clone(), "admin", "correct-password").await;
+    let cookie = login(app.clone(), "bob", "correct-password").await;
 
-    let (_, body) = send_empty(app.clone(), "GET", "/api/v1/auth/me", &cookie).await;
-    assert!(body.contains(r#""hasRecoveryCode":false"#), "{body}");
-
-    let (status, body) = send_json(
-        app.clone(),
-        "POST",
-        RECOVERY_CODE_URI,
-        &cookie,
-        r#"{"currentPassword":"wrong"}"#,
-    )
-    .await;
+    let uri = "/api/v1/auth/confirm-password";
+    let (status, body) =
+        send_json(app.clone(), "POST", uri, &cookie, r#"{"password":"wrong"}"#).await;
     assert_error(
         status,
         &body,
@@ -302,13 +274,37 @@ async fn admin_creates_a_recovery_code_with_the_current_password(pool: SqlitePoo
         "incorrect_current_password",
     );
 
-    let code = create_recovery_code(app.clone(), &cookie, "correct-password").await;
+    let (status, body) = send_json(
+        app,
+        "POST",
+        uri,
+        &cookie,
+        r#"{"password":"correct-password"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+}
+
+/// リカバリコードを作ると、作った時刻が `me` に載る (→ docs/access.md「リカバリコード」)。
+#[sqlx::test]
+async fn creating_a_recovery_code_records_when_it_was_created(pool: SqlitePool) {
+    insert_admin(&pool, "admin", "correct-password").await;
+    let app = test_app(pool).await;
+    let cookie = login(app.clone(), "admin", "correct-password").await;
+
+    let (_, body) = send_empty(app.clone(), "GET", "/api/v1/auth/me", &cookie).await;
+    assert!(body.contains(r#""hasRecoveryCode":false"#), "{body}");
+    assert!(body.contains(r#""recoveryCodeCreatedAt":null"#), "{body}");
+
+    let code = create_recovery_code(app.clone(), &cookie).await;
     // 5文字ずつ `-` で区切った 20 文字。
     assert_eq!(code.len(), 23, "{code}");
     assert_eq!(code.split('-').count(), 4, "{code}");
 
     let (_, body) = send_empty(app, "GET", "/api/v1/auth/me", &cookie).await;
     assert!(body.contains(r#""hasRecoveryCode":true"#), "{body}");
+    let me: serde_json::Value = serde_json::from_str(&body).expect("JSON のはず");
+    assert!(me["recoveryCodeCreatedAt"].is_string(), "{body}");
 }
 
 /// 編集者も自分のコードを作り、それでパスワードを再設定できる。
@@ -317,7 +313,7 @@ async fn regular_user_resets_the_password_with_their_own_recovery_code(pool: Sql
     insert_user(&pool, "alice", "old-password").await;
     let app = test_app(pool).await;
     let cookie = login(app.clone(), "alice", "old-password").await;
-    let code = create_recovery_code(app.clone(), &cookie, "old-password").await;
+    let code = create_recovery_code(app.clone(), &cookie).await;
 
     let response = recover(app.clone(), "alice", &code, "new-password").await;
     assert_eq!(response.status(), StatusCode::OK);
@@ -330,7 +326,7 @@ async fn recovery_code_resets_the_password_and_is_replaced(pool: SqlitePool) {
     insert_admin(&pool, "admin", "old-password").await;
     let app = test_app(pool).await;
     let cookie = login(app.clone(), "admin", "old-password").await;
-    let code = create_recovery_code(app.clone(), &cookie, "old-password").await;
+    let code = create_recovery_code(app.clone(), &cookie).await;
 
     let response = recover(app.clone(), "admin", &code, "new-password").await;
     assert_eq!(response.status(), StatusCode::OK);
@@ -358,7 +354,7 @@ async fn recovery_failures_are_indistinguishable(pool: SqlitePool) {
     insert_admin(&pool, "no-code", "password").await;
     let app = test_app(pool.clone()).await;
     let cookie = login(app.clone(), "admin", "password").await;
-    let code = create_recovery_code(app.clone(), &cookie, "password").await;
+    let code = create_recovery_code(app.clone(), &cookie).await;
 
     let wrong = "00000-00000-00000-00000";
     for (username, code) in [
@@ -387,7 +383,7 @@ async fn changing_the_role_keeps_the_recovery_code(pool: SqlitePool) {
     let app = test_app(pool.clone()).await;
     let admin_cookie = login(app.clone(), "admin", "password").await;
     let bob_cookie = login(app.clone(), "bob", "password").await;
-    let code = create_recovery_code(app.clone(), &bob_cookie, "password").await;
+    let code = create_recovery_code(app.clone(), &bob_cookie).await;
     let bob_id: i64 = sqlx::query_scalar("SELECT id FROM users WHERE username = 'bob'")
         .fetch_one(&pool)
         .await
@@ -416,7 +412,7 @@ async fn resetting_the_password_by_an_admin_discards_the_recovery_code(pool: Sql
     let app = test_app(pool.clone()).await;
     let admin_cookie = login(app.clone(), "admin", "password").await;
     let alice_cookie = login(app.clone(), "alice", "password").await;
-    let code = create_recovery_code(app.clone(), &alice_cookie, "password").await;
+    let code = create_recovery_code(app.clone(), &alice_cookie).await;
     let alice_id: i64 = sqlx::query_scalar("SELECT id FROM users WHERE username = 'alice'")
         .fetch_one(&pool)
         .await

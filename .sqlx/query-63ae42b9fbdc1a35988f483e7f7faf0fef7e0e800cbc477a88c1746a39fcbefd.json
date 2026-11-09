@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE users SET recovery_code_hash = ?, recovery_code_created_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "63ae42b9fbdc1a35988f483e7f7faf0fef7e0e800cbc477a88c1746a39fcbefd"
+}

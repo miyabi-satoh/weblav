@@ -386,6 +386,7 @@ mod tests {
             username: "taro".to_string(),
             role: crate::auth::Role::Admin,
             has_recovery_code: false,
+            session: None,
         };
 
         let listed = ListedPaths::load(&pool, &user).await.expect("読めなかった");

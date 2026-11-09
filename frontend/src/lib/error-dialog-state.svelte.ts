@@ -1,5 +1,5 @@
 import type { ApiResult } from '$lib/api/client';
-import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
+import { GENERIC_ERROR_MESSAGE, errorCode, errorMessage } from '$lib/api/errors';
 
 /**
  * `ErrorDialog` の開閉と文言。
@@ -33,7 +33,11 @@ export class ErrorDialogState {
 		try {
 			const result = await request();
 			if (!result.response.ok) {
-				this.show(errorMessage(result.error));
+				// パスワードの確かめ直しを利用者がやめたもの (→ `$lib/api/client`)。自分でやめたので
+				// 失敗として知らせない。
+				if (errorCode(result.error) !== 'password_confirmation_required') {
+					this.show(errorMessage(result.error));
+				}
 				return null;
 			}
 			await onSuccess?.(result);

@@ -14,37 +14,35 @@ Some contents are visible only to signed-in users.
 
 To sign out, select your username at the top right, then choose “Log out”.
 
-## Change your password
+## Manage your account
 
-1. Select your username at the top right, then choose “Change password...”.
+Change your username, password, and recovery code on the account page.
+
+1. Select your username at the top right, then choose “Account”.
 
    ![The username menu](images/header-user-menu.webp)
 
-2. Enter your current and new passwords, then select “Save”.
+2. Change the values in the section you want, then select “Save”.
 
-   ![The Change password screen](images/change-password.webp)
+   ![The account page](images/account-page.webp)
+
+If you save more than 10 minutes after signing in, you are asked for your current password. Enter it and select “Confirm” to save. Once confirmed, you are not asked again for the next 10 minutes.
+The same applies to actions on the admin pages and to administrators changing contents created by other people.
 
 If you forget your password, reset it yourself with your recovery code (→ “Forgot your password” below), or ask an administrator to reset it.
 
-## Change your username
-
-1. Select your username at the top right, then choose “Change username...”.
-
-   ![The username menu](images/header-user-menu.webp)
-
-2. Enter your new username and current password, then select “Save”.
+### Change your username
 
 From then on, log in with the new username. Your password and recovery code keep working. The username written on your saved recovery code stays the old one, so enter the new username if you forget your password.
 
-## Create a recovery code
+### Create a recovery code
 
-With a recovery code, you can reset your password yourself if you forget it.
-Also create a new code here if you lose it or someone else may have seen it. The previous code stops working.
+With a recovery code, you can reset your password yourself if you forget it. The section shows whether you have created one and when. Compare it with the creation date on your saved copy to tell whether that copy still works.
 
-1. Select your username at the top right, then choose “Recovery code...”.
-2. Enter your current password, then select “Create”.
-3. Save or print the code shown, then select “I've kept it”.
+1. In the recovery code section, select “Create” (“Regenerate...” if you already have one).
+2. Save or print the code shown, then select “I've kept it”.
 
+If you lose it or someone else may have seen it, regenerate it. The previous code stops working.
 Administrators without a recovery code see “Create recovery code” at the top of the admin pages. You can create it from there too.
 
 ## Forgot your password

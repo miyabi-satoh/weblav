@@ -7,7 +7,7 @@ use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
-use crate::auth::AdminUser;
+use crate::auth::ConfirmedAdmin;
 use crate::error::{AppError, AppJson};
 use crate::state::AppState;
 
@@ -67,7 +67,7 @@ struct UpdateSiteSettingsRequest {
     )
 )]
 async fn update_site_settings(
-    _admin: AdminUser,
+    _admin: ConfirmedAdmin,
     State(state): State<AppState>,
     AppJson(payload): AppJson<UpdateSiteSettingsRequest>,
 ) -> Result<Json<SiteSettingsResponse>, AppError> {

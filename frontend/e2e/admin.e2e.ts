@@ -80,7 +80,10 @@ test('ログイン済みでログイン画面を開くと行き先へ送られ�
 test('管理画面: ユーザー一覧に自分自身が表示される', async ({ page }) => {
 	await page.goto('/admin/users');
 	await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
-	await expect(page.getByRole('cell', { name: ADMIN_USERNAME, exact: true })).toBeVisible();
+	// 自分の行は「(あなた)」を添える (→ docs/ui.md「管理画面のユーザーの一覧」)。
+	await expect(
+		page.getByRole('cell', { name: new RegExp(`^${ADMIN_USERNAME} \\((あなた|you)\\)$`) })
+	).toBeVisible();
 });
 
 test('画面を移る途中は、移る先の読み込みが終わるまで上端にバーが出る', async ({ page }) => {

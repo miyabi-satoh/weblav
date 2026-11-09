@@ -9,7 +9,7 @@
 	import { resolve } from '$app/paths';
 	import { dialogFormClass } from '$lib/dialog-form';
 	import { client } from '$lib/api/client';
-	import { isSoleAdmin } from '$lib/auth';
+	import { page } from '$app/state';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { formatDate } from '$lib/format';
 	import * as m from '$lib/paraglide/messages.js';
@@ -41,6 +41,9 @@
 
 	let { data }: PageProps = $props();
 	let users = $derived(data.users);
+	// 自分の行は押せなくする。自分はユーザー管理でなく、ユーザーメニューの「アカウント」から直す
+	// (→ docs/ui.md「管理画面のユーザーの一覧」)。
+	let selfId = $derived(page.data.user?.id);
 
 	const errorDialog = new ErrorDialogState();
 
@@ -125,13 +128,21 @@
 					     ::after で行いっぱいに広げ、⋮は DOM で後ろに置いてその上に重ねる (→ docs/ui.md「UI 全般」)。
 					     FIX: 古い iOS の WebKit は tr の relative を ::after の基準にしない (WebKit Bug 240961)。
 					     transform なら基準にするので併せて付ける。 -->
-					<Table.Row class="relative transform-gpu">
+					{@const isSelf = target.id === selfId}
+					<!-- 自分の行は押しても何も起きないので、指を重ねても塗らない (押せそうに見せない)。 -->
+					<Table.Row class={['relative transform-gpu', isSelf && 'hover:bg-transparent']}>
 						<Table.Cell class={truncatingColumnClass}>
-							<a
-								href={resolve('/admin/users/[id]', { id: String(target.id) })}
-								class={[rowLinkClass, 'block after:left-0']}
-								data-testid="user-username">{target.username}</a
-							>
+							{#if isSelf}
+								<span class="block truncate" data-testid="user-username"
+									>{m.admin_users_self_name({ username: target.username })}</span
+								>
+							{:else}
+								<a
+									href={resolve('/admin/users/[id]', { id: String(target.id) })}
+									class={[rowLinkClass, 'block after:left-0']}
+									data-testid="user-username">{target.username}</a
+								>
+							{/if}
 						</Table.Cell>
 						<!-- 権限は編集ページで変える。 -->
 						<Table.Cell class={fitColumnClass}>{roleLabel(target.role)}</Table.Cell>
@@ -139,24 +150,21 @@
 							{formatDate(target.createdAt)}
 						</Table.Cell>
 						<Table.Cell class={actionColumnClass}>
-							<RowActionsMenu name={target.username}>
-								<!-- ユーザー名・権限・パスワードの再設定は、どれも編集ページで行う。 -->
-								<DropdownMenu.Item>
-									{#snippet child({ props })}
-										<a href={resolve('/admin/users/[id]', { id: String(target.id) })} {...props}
-											>{m.action_edit_page()}</a
-										>
-									{/snippet}
-								</DropdownMenu.Item>
-								<!-- 最後の管理者は消せない (→ docs/access.md「ユーザーの削除と作成者」)。理由は編集ページに出す。 -->
-								<DropdownMenu.Item
-									variant="destructive"
-									disabled={isSoleAdmin(target, users)}
-									onSelect={() => (deletingUser = target)}
-								>
-									{m.action_delete()}
-								</DropdownMenu.Item>
-							</RowActionsMenu>
+							{#if !isSelf}
+								<RowActionsMenu name={target.username}>
+									<!-- ユーザー名・権限・パスワードの再設定は、どれも編集ページで行う。 -->
+									<DropdownMenu.Item>
+										{#snippet child({ props })}
+											<a href={resolve('/admin/users/[id]', { id: String(target.id) })} {...props}
+												>{m.action_edit_page()}</a
+											>
+										{/snippet}
+									</DropdownMenu.Item>
+									<DropdownMenu.Item variant="destructive" onSelect={() => (deletingUser = target)}>
+										{m.action_delete()}
+									</DropdownMenu.Item>
+								</RowActionsMenu>
+							{/if}
 						</Table.Cell>
 					</Table.Row>
 				{/each}

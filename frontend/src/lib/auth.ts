@@ -4,13 +4,13 @@ import type { components } from '$lib/api/schema';
 /**
  * ログインが必要なページの route id 判定。`+layout.ts` で使う。
  *
- * ログインを要求するのは `/admin` 配下と、コンテンツの編集ページ (`/contents/[id]` 配下) だけ
- * (→ docs/access.md「フロントエンドのガード反転」)。
+ * ログインを要求するのは `/admin` 配下と、コンテンツの編集ページ (`/contents/[id]` 配下)、
+ * 自分のアカウント (`/account`) だけ (→ docs/access.md「フロントエンドのガード反転」)。
  *
  * `url.pathname` ではなく `route.id` で判定する: base path を設定してもroute idは
  * 変わらないため。
  */
-const PROTECTED_ROUTE_PREFIXES = ['/admin', '/contents'];
+const PROTECTED_ROUTE_PREFIXES = ['/admin', '/contents', '/account'];
 
 export function isProtectedRoute(routeId: string | null): boolean {
 	if (routeId === null) return false;
@@ -42,17 +42,6 @@ export function canEditContent(
 ): boolean {
 	if (!user) return false;
 	return isAdmin(user) || content.createdBy === user.id;
-}
-
-/**
- * `target` が最後の1人の admin か。降格・削除の操作を押せなくする判定に使う
- * (→ docs/access.md「admin の最後の1人」)。サーバーも同じ決まりで断る。
- */
-export function isSoleAdmin(
-	target: Pick<components['schemas']['UserListItem'], 'role'>,
-	users: readonly Pick<components['schemas']['UserListItem'], 'role'>[]
-): boolean {
-	return target.role === 'admin' && users.filter((user) => user.role === 'admin').length === 1;
 }
 
 /**

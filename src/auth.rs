@@ -78,7 +78,8 @@ pub async fn create_user(
     let hash = hash_password_blocking(password).await?;
 
     let result = sqlx::query!(
-        r#"INSERT INTO users (username, password_hash, role, recovery_code_hash) VALUES (?, ?, ?, ?)
+        r#"INSERT INTO users (username, password_hash, role, recovery_code_hash, recovery_code_created_at)
+           VALUES (?, ?, ?, ?4, CASE WHEN ?4 IS NULL THEN NULL ELSE strftime('%Y-%m-%dT%H:%M:%fZ', 'now') END)
            RETURNING id as "id!", created_at"#,
         username,
         hash,
@@ -246,6 +247,50 @@ static DUMMY_HASH: LazyLock<String> = LazyLock::new(|| {
 
 pub const SESSION_USER_ID_KEY: &str = "user_id";
 
+/// 最後にパスワードを確かめた時刻 (UNIX 秒)。ログインでも入る (→ docs/access.md「操作の前のパスワードの確認」)。
+const SESSION_PASSWORD_CONFIRMED_AT_KEY: &str = "password_confirmed_at";
+
+/// パスワードを確かめてから、聞き直さずに通す長さ。続けて直す1回の作業 (数分) に足り、
+/// 教室の共有 PC で席を立った隙に使われる時間は短くしたいため 10 分にした。
+/// GitHub の sudo mode (2 時間) は自分専用の端末を前提にした長さなので採らない。
+pub const PASSWORD_CONFIRMATION_WINDOW: Duration = Duration::from_secs(10 * 60);
+
+/// `confirmed_at` (UNIX 秒) が `now` から見て確かめた内に入るか。時計が戻って未来の時刻に
+/// なったものは、どれだけ戻ったか分からないので通さない。
+fn confirmation_is_fresh(confirmed_at: Option<i64>, now: i64) -> bool {
+    let Some(at) = confirmed_at else {
+        return false;
+    };
+    let window = PASSWORD_CONFIRMATION_WINDOW.as_secs() as i64;
+    (0..window).contains(&(now - at))
+}
+
+fn unix_now() -> i64 {
+    time::OffsetDateTime::now_utc().unix_timestamp()
+}
+
+/// パスワードを確かめたことをセッションに残す (ログイン・確かめ直し・確かめ直しが要る操作の成功)。
+pub async fn mark_password_confirmed(session: &Session) -> Result<(), AppError> {
+    session
+        .insert(SESSION_PASSWORD_CONFIRMED_AT_KEY, unix_now())
+        .await
+        .map_err(Error::Session)?;
+    Ok(())
+}
+
+/// 確かめ直しが要る操作の前に呼ぶ。最後に確かめてから `PASSWORD_CONFIRMATION_WINDOW` の内なら
+/// 時刻を今に延ばして通し、過ぎていれば `PasswordConfirmationRequired` を返す。
+pub async fn require_password_confirmation(session: &Session) -> Result<(), AppError> {
+    let confirmed_at: Option<i64> = session
+        .get(SESSION_PASSWORD_CONFIRMED_AT_KEY)
+        .await
+        .map_err(Error::Session)?;
+    if !confirmation_is_fresh(confirmed_at, unix_now()) {
+        return Err(AppError::PasswordConfirmationRequired);
+    }
+    mark_password_confirmed(session).await
+}
+
 struct UserRow {
     id: i64,
     username: String,
@@ -292,6 +337,7 @@ fn verify_row(row: Option<UserRow>, password: &str) -> Result<Option<AuthUser>, 
                 username: row.username,
                 role: row.role,
                 has_recovery_code: row.has_recovery_code,
+                session: None,
             }))
         }
         None => {
@@ -444,11 +490,25 @@ pub struct AuthUser {
     pub role: Role,
     /// リカバリコードを作ってあるか (→ docs/access.md「リカバリコード」)。
     pub has_recovery_code: bool,
+    /// この要求のセッション。確かめ直し (`require_confirmation`) に使う。
+    /// 要求から取り出したときだけ入る (ログインの照合で作ったものとテストでは `None`)。
+    pub session: Option<Session>,
 }
 
 impl AuthUser {
     pub fn is_admin(&self) -> bool {
         self.role == Role::Admin
+    }
+
+    /// 確かめ直しが要る操作の前に呼ぶ (→ `require_password_confirmation`)。
+    pub async fn require_confirmation(&self) -> Result<(), AppError> {
+        let session =
+            self.session
+                .as_ref()
+                .ok_or(AppError::Internal(Error::MissingSessionLayer(
+                    "AuthUser without a session",
+                )))?;
+        require_password_confirmation(session).await
     }
 }
 
@@ -494,6 +554,7 @@ impl FromRequestParts<AppState> for AuthUser {
             username: user.username,
             role: user.role,
             has_recovery_code: user.has_recovery_code,
+            session: Some(session),
         })
     }
 }
@@ -561,9 +622,100 @@ impl FromRequestParts<AppState> for AdminUser {
     }
 }
 
+/// `AdminUser` に加えて、パスワードの確かめ直しを求める extractor。管理者だけができる操作に使う
+/// (→ docs/access.md「操作の前のパスワードの確認」)。未ログインは 401、admin でなければ 403
+/// `forbidden` を先に返し、確かめ直しの 403 `password_confirmation_required` はその後。
+pub struct ConfirmedAdmin(pub AuthUser);
+
+impl std::ops::Deref for ConfirmedAdmin {
+    type Target = AuthUser;
+
+    fn deref(&self) -> &AuthUser {
+        &self.0
+    }
+}
+
+impl FromRequestParts<AppState> for ConfirmedAdmin {
+    type Rejection = AppError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let AdminUser(user) = AdminUser::from_request_parts(parts, state).await?;
+        user.require_confirmation().await?;
+        Ok(ConfirmedAdmin(user))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn confirmation_is_fresh_only_within_the_window() {
+        let window = PASSWORD_CONFIRMATION_WINDOW.as_secs() as i64;
+        assert!(
+            !confirmation_is_fresh(None, 1_000),
+            "確かめていなければ通さない"
+        );
+        assert!(confirmation_is_fresh(Some(1_000), 1_000));
+        assert!(confirmation_is_fresh(Some(1_000), 1_000 + window - 1));
+        assert!(!confirmation_is_fresh(Some(1_000), 1_000 + window));
+        assert!(
+            !confirmation_is_fresh(Some(1_000), 999),
+            "未来の時刻は通さない"
+        );
+    }
+
+    async fn test_session(pool: SqlitePool) -> Session {
+        let store = tower_sessions_sqlx_store::SqliteStore::new(pool);
+        store.migrate().await.expect("セッションの表を作れるはず");
+        Session::new(None, std::sync::Arc::new(store), None)
+    }
+
+    #[sqlx::test]
+    async fn require_password_confirmation_rejects_a_session_that_never_confirmed(
+        pool: SqlitePool,
+    ) {
+        let session = test_session(pool).await;
+        let result = require_password_confirmation(&session).await;
+        assert!(matches!(
+            result,
+            Err(AppError::PasswordConfirmationRequired)
+        ));
+    }
+
+    #[sqlx::test]
+    async fn require_password_confirmation_passes_after_confirming(pool: SqlitePool) {
+        let session = test_session(pool).await;
+        mark_password_confirmed(&session).await.expect("書けるはず");
+        require_password_confirmation(&session)
+            .await
+            .expect("確かめた直後は通るはず");
+    }
+
+    #[sqlx::test]
+    async fn require_password_confirmation_rejects_and_keeps_a_stale_confirmation(
+        pool: SqlitePool,
+    ) {
+        let session = test_session(pool).await;
+        let stale = unix_now() - PASSWORD_CONFIRMATION_WINDOW.as_secs() as i64;
+        session
+            .insert(SESSION_PASSWORD_CONFIRMED_AT_KEY, stale)
+            .await
+            .expect("書けるはず");
+        let result = require_password_confirmation(&session).await;
+        assert!(matches!(
+            result,
+            Err(AppError::PasswordConfirmationRequired)
+        ));
+        let kept: Option<i64> = session
+            .get(SESSION_PASSWORD_CONFIRMED_AT_KEY)
+            .await
+            .expect("読めるはず");
+        assert_eq!(kept, Some(stale), "断ったときは時刻を延ばさない");
+    }
 
     #[test]
     fn hash_then_verify_roundtrip() {

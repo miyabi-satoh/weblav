@@ -6,6 +6,8 @@ use super::*;
 /// 匿名でも公開範囲によって開ける閲覧の口 (`Viewer` を取るもの) は入れない。
 const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
     ("GET", "/api/v1/auth/me"),
+    ("POST", "/api/v1/auth/confirm-password"),
+    ("POST", "/api/v1/auth/password-confirmation"),
     ("PUT", "/api/v1/auth/password"),
     ("PUT", "/api/v1/auth/username"),
     ("POST", "/api/v1/auth/recovery-code"),

@@ -226,7 +226,7 @@ async fn create_axis(
     // アーカイブの存在確認からINSERTまでを直列化する (→ `AppState::contents_write_lock`)。
     // この鍵は`title_template`のリネーム時の書き換え (→ update_axis) とも共有する。
     let _write_guard = state.contents_write_lock.lock().await;
-    super::archive::ensure_editable_archive(&state.pool, &user, id).await?;
+    super::archive::ensure_changeable_archive(&state.pool, &user, id).await?;
     // 入力の検証は存在の判定 (404) の後に行う。軸 API とコンテンツの更新で順を揃える。
     let name = validate_axis_name(&payload.name)?;
     validate_axis_source(payload.source, payload.dir_level)?;
@@ -332,7 +332,7 @@ async fn update_axis(
     AppJson(payload): AppJson<AxisRequest>,
 ) -> Result<Json<AxisResponse>, AppError> {
     let _write_guard = state.contents_write_lock.lock().await;
-    super::archive::ensure_editable_archive(&state.pool, &user, id).await?;
+    super::archive::ensure_changeable_archive(&state.pool, &user, id).await?;
 
     // 所属条件 (`WHERE id = ? AND archive_id = ?`) を通ったものだけを対象にする
     // (→ docs/archive.md「エンドポイント一覧」)。別アーカイブの軸idを渡されても404にする。
@@ -416,7 +416,7 @@ async fn delete_axis(
     Path((id, axis_id)): Path<(i64, i64)>,
 ) -> Result<StatusCode, AppError> {
     let _write_guard = state.contents_write_lock.lock().await;
-    super::archive::ensure_editable_archive(&state.pool, &user, id).await?;
+    super::archive::ensure_changeable_archive(&state.pool, &user, id).await?;
 
     let name = fetch_axis(&state.pool, id, axis_id).await?.name;
 
@@ -603,7 +603,7 @@ async fn replace_axis_values(
     // 所属確認からINSERTまでの間に軸が削除され、外部キー制約違反 (500) になりうる。
     // 公開範囲の判定も鍵の内側で行い、判定の後に他人の`private`へ変わっても書き込まない。
     let _write_guard = state.contents_write_lock.lock().await;
-    super::archive::ensure_editable_archive(&state.pool, &user, id).await?;
+    super::archive::ensure_changeable_archive(&state.pool, &user, id).await?;
     let axis = fetch_axis(&state.pool, id, axis_id).await?;
     let rows = normalize_axis_values(axis.source, payload.values)?;
 
@@ -1033,7 +1033,7 @@ async fn replace_axes(
     AppJson(payload): AppJson<ImportAxesRequest>,
 ) -> Result<Json<Vec<AxisResponse>>, AppError> {
     let _write_guard = state.contents_write_lock.lock().await;
-    super::archive::ensure_editable_archive(&state.pool, &user, id).await?;
+    super::archive::ensure_changeable_archive(&state.pool, &user, id).await?;
     let (axes, template) = validate_import(payload)?;
 
     let mut tx = crate::db::begin_write(&state.pool).await?;

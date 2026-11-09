@@ -1,4 +1,4 @@
-//! ユーザー管理API (→ docs/access.md「ロールと操作」)。全ハンドラ `AdminUser` 限定。
+//! ユーザー管理API (→ docs/access.md「ロールと操作」)。全ハンドラ `AdminUser` 限定で、書き換えはパスワードの確かめ直しも求める (`ConfirmedAdmin`)。
 
 use axum::Json;
 use axum::extract::{Path, State};
@@ -9,7 +9,7 @@ use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
-use crate::auth::{self, AdminUser, Role};
+use crate::auth::{self, AdminUser, AuthUser, ConfirmedAdmin, Role};
 use crate::error::{AppError, AppJson};
 use crate::state::AppState;
 
@@ -119,12 +119,12 @@ struct CreateUserRequest {
     responses(
         (status = 201, body = UserListItem, description = "作成したユーザー"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
         (status = 422, body = crate::error::ErrorResponse, description = "ユーザー名重複・パスワード未入力"),
     )
 )]
 async fn create_user(
-    _admin: AdminUser,
+    _admin: ConfirmedAdmin,
     State(state): State<AppState>,
     AppJson(payload): AppJson<CreateUserRequest>,
 ) -> Result<(StatusCode, Json<UserListItem>), AppError> {
@@ -181,6 +181,15 @@ async fn reject_if_last_admin(
     Ok(())
 }
 
+/// 自分自身はユーザー管理から変えさせない (→ docs/access.md「ロールと操作」)。名前とパスワードは
+/// アカウントのページで変え、降格と削除はほかの管理者がする。
+fn reject_self(admin: &AuthUser, id: i64) -> Result<(), AppError> {
+    if admin.id == id {
+        return Err(AppError::Forbidden);
+    }
+    Ok(())
+}
+
 #[utoipa::path(
     put,
     path = "/admin/users/{id}/role",
@@ -189,17 +198,18 @@ async fn reject_if_last_admin(
     responses(
         (status = OK, body = UserListItem, description = "更新後のユーザー"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・自分自身・パスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "存在しないユーザー"),
         (status = 422, body = crate::error::ErrorResponse, description = "最後のadminを降格しようとした"),
     )
 )]
 async fn update_role(
-    _admin: AdminUser,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<UpdateRoleRequest>,
 ) -> Result<Json<UserListItem>, AppError> {
+    reject_self(&admin, id)?;
     // カウントと更新の間を`users_write_lock`で直列化する
     // (`AppState::users_write_lock`のドキュメント参照)。
     let _write_guard = state.users_write_lock.lock().await;
@@ -232,17 +242,18 @@ struct ResetPasswordRequest {
     responses(
         (status = 204, description = "変更した"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・自分自身・パスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "存在しないユーザー"),
         (status = 422, body = crate::error::ErrorResponse, description = "パスワード未入力"),
     )
 )]
 async fn reset_password(
-    _admin: AdminUser,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<ResetPasswordRequest>,
 ) -> Result<StatusCode, AppError> {
+    reject_self(&admin, id)?;
     validate::non_empty(&payload.password, "password is required")?;
 
     let hash = auth::hash_password_blocking(&payload.password).await?;
@@ -250,7 +261,7 @@ async fn reset_password(
     // パスワードを知られて再設定するときに、知った人が作ったコードで取り戻されないよう、コードも消す
     // (→ docs/access.md「リカバリコード」)。
     let updated = sqlx::query!(
-        "UPDATE users SET password_hash = ?, recovery_code_hash = NULL WHERE id = ?",
+        "UPDATE users SET password_hash = ?, recovery_code_hash = NULL, recovery_code_created_at = NULL WHERE id = ?",
         hash,
         id
     )
@@ -268,7 +279,8 @@ struct RenameUserRequest {
     username: String,
 }
 
-/// ほかのユーザーのユーザー名を変える。パスワードの再設定と同じく、本人のパスワードは求めない。
+/// ほかのユーザーのユーザー名を変える。パスワードの再設定と同じく、本人のパスワードは求めない
+/// (管理者自身の確かめ直しは求める)。
 #[utoipa::path(
     put,
     path = "/admin/users/{id}/username",
@@ -277,17 +289,18 @@ struct RenameUserRequest {
     responses(
         (status = OK, body = UserListItem, description = "変更したユーザー"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・自分自身・パスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "存在しないユーザー"),
         (status = 422, body = crate::error::ErrorResponse, description = "ユーザー名が空、またはほかのユーザーが使っている"),
     )
 )]
 async fn update_username(
-    _admin: AdminUser,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<RenameUserRequest>,
 ) -> Result<Json<UserListItem>, AppError> {
+    reject_self(&admin, id)?;
     let username = validate::trimmed_non_empty(&payload.username, "username is required")?;
 
     let mut tx = crate::db::begin_write(&state.pool).await?;
@@ -305,16 +318,17 @@ async fn update_username(
     responses(
         (status = 204, description = "削除した"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・自分自身・パスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "存在しないユーザー"),
         (status = 422, body = crate::error::ErrorResponse, description = "最後のadminを削除しようとした"),
     )
 )]
 async fn delete_user(
-    _admin: AdminUser,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Result<StatusCode, AppError> {
+    reject_self(&admin, id)?;
     // update_roleと同じ理由で直列化する(`AppState::users_write_lock`のドキュメント参照)。
     // 作成者の記録を消すため`contents_write_lock`も取る。取る順は`users_write_lock`が先。
     let _users_guard = state.users_write_lock.lock().await;
