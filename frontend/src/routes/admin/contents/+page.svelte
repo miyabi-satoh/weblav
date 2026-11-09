@@ -9,7 +9,7 @@
 	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
+	import { GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
 	import { archiveItemsSummary, contentTypeLabel, visibilityLabel } from '$lib/content-labels';
 	import { ContentFormState, fetchFreshContent } from '$lib/content-form.svelte';
 	import { ancestorPath, byIdMap, flattenTree, selfAndAncestors } from '$lib/content-tree';
@@ -147,7 +147,7 @@
 		try {
 			const latest = await fetchFreshContent(content.id);
 			if ('error' in latest) {
-				errorDialog.show(errorMessage(latest.error));
+				errorDialog.showError(latest.error);
 				await refreshAll();
 				return;
 			}
@@ -155,7 +155,7 @@
 			reparentForm.parentId = parentId === null ? 'root' : String(parentId);
 			const result = await reparentForm.replace(content.id);
 			if (!result.response.ok || !result.data) {
-				errorDialog.show(errorMessage(result.error));
+				errorDialog.showError(result.error);
 				return;
 			}
 			await refreshAll();

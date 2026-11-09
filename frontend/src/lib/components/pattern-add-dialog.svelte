@@ -132,7 +132,7 @@
 		try {
 			const latest = await fetchFreshContent(content.id);
 			if ('error' in latest) {
-				errorDialog.show(errorMessage(latest.error));
+				errorDialog.showError(latest.error);
 				return;
 			}
 			const fresh = latest.content;
@@ -143,7 +143,7 @@
 			form.excludePatterns = next.excludePatterns ?? '';
 			const result = await form.replace(content.id);
 			if (!result.response.ok) {
-				errorDialog.show(errorMessage(result.error));
+				errorDialog.showError(result.error);
 				return;
 			}
 			await onsaved();

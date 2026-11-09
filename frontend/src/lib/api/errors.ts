@@ -65,6 +65,14 @@ function unwrapError(body: unknown): { code?: unknown; detail?: unknown } | unde
 	return error as { code?: unknown; detail?: unknown };
 }
 
+/**
+ * パスワードの確かめ直しを利用者がやめた応答か (→ `$lib/api/client`)。自分でやめたので、
+ * 失敗として知らせない。
+ */
+export function isConfirmationCancelled(body: unknown): boolean {
+	return errorCode(body) === 'password_confirmation_required';
+}
+
 /** envelope から `code` を取り出す。 */
 export function errorCode(body: unknown): ErrorCode | undefined {
 	const code = unwrapError(body)?.code;

@@ -20,14 +20,6 @@ export type ApiResult<T = unknown> = { data?: T; error?: unknown; response: Resp
  */
 const ANONYMOUS_PATHS = ['/api/v1/auth/me', '/api/v1/auth/login', '/api/v1/auth/recover'];
 
-/**
- * 画面を開いたまま操作したときの 401 をログインへ繋ぐ。
- *
- * 送るのはログインが切れた 401 (`unauthorized`) だけ。パスワードやリカバリコードの
- * 誤りも 401 で返るが、それは呼び出し側がエラーとして見せる。
- * 画面の読み込み中 (`navigating`) は何もしない。その 401 は load 側
- * (`fetchOrError` の `loginRedirectFrom`) が戻り先付きで処理する。
- */
 /** 確かめ直しのための口。これ自体が断られても、ダイアログを開き直さない。 */
 const CONFIRMATION_PATH = '/api/v1/auth/confirm-password';
 
@@ -61,6 +53,14 @@ client.use({
 	}
 });
 
+/**
+ * 画面を開いたまま操作したときの 401 をログインへ繋ぐ。
+ *
+ * 送るのはログインが切れた 401 (`unauthorized`) だけ。パスワードやリカバリコードの
+ * 誤りも 401 で返るが、それは呼び出し側がエラーとして見せる。
+ * 画面の読み込み中 (`navigating`) は何もしない。その 401 は load 側
+ * (`fetchOrError` の `loginRedirectFrom`) が戻り先付きで処理する。
+ */
 client.use({
 	async onResponse({ response, schemaPath }) {
 		if (response.status !== 401 || ANONYMOUS_PATHS.includes(schemaPath)) return;

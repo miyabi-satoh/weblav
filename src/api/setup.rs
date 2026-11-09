@@ -230,7 +230,7 @@ async fn create_admin(
     state.setup_tokens.consume(&payload.token);
 
     // そのままログインさせる (→ docs/access.md「初回セットアップ」)。
-    super::auth::start_session(&session, created.id).await?;
+    super::auth::start_session(&state.pool, &session, created.id).await?;
 
     Ok((
         StatusCode::CREATED,

@@ -2,6 +2,7 @@ use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
+use sqlx::SqlitePool;
 use tower_sessions::Session;
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
@@ -103,7 +104,7 @@ async fn login(
     // パスワードで短時間に何度もログインし直しただけの正当な利用者もロックされる。
     state.login_rate_limiter.release(&payload.username);
 
-    start_session(&session, user.id).await?;
+    start_session(&state.pool, &session, user.id).await?;
 
     Ok(Json(user.into()))
 }
@@ -111,7 +112,17 @@ async fn login(
 /// `user_id` でログインした状態にする。ログインと初回セットアップで共有する。
 ///
 /// セッション固定化攻撃対策: ログインのたびにセッションIDを振り直す。
-pub(super) async fn start_session(session: &Session, user_id: i64) -> Result<(), AppError> {
+pub(super) async fn start_session(
+    pool: &SqlitePool,
+    session: &Session,
+    user_id: i64,
+) -> Result<(), AppError> {
+    let password_hash =
+        sqlx::query_scalar!("SELECT password_hash FROM users WHERE id = ?", user_id)
+            .fetch_optional(pool)
+            .await?
+            // 照合の直後にアカウントが削除された場合。
+            .ok_or(AppError::Unauthorized)?;
     session.cycle_id().await.map_err(auth::Error::Session)?;
     session
         .insert(SESSION_USER_ID_KEY, user_id)
@@ -119,7 +130,7 @@ pub(super) async fn start_session(session: &Session, user_id: i64) -> Result<(),
         .map_err(auth::Error::Session)?;
     // パスワード (かリカバリコード) を入れたばかりなので、確かめ直したことにする
     // (→ docs/access.md「操作の前のパスワードの確認」)。
-    auth::mark_password_confirmed(session).await
+    auth::mark_password_confirmed(session, &auth::credential_fingerprint(&password_hash)).await
 }
 
 #[utoipa::path(post, path = "/auth/logout", responses((status = 204)))]
@@ -177,11 +188,12 @@ async fn confirm_password(
     AppJson(payload): AppJson<ConfirmPasswordRequest>,
 ) -> Result<StatusCode, AppError> {
     verify_current_password(&state, &user, payload.password).await?;
-    auth::mark_password_confirmed(&session).await?;
+    auth::mark_password_confirmed(&session, &credential_of(&user)?).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// 確かめ直しが要る操作を、要求を送る前に通せるか確かめる。確かめた内なら時刻を延ばす。
+/// 確かめ直しが要る操作を、要求を送る前に通せるか確かめる。読むだけで時刻は延ばさない
+/// (叩き続けるだけで確かめた状態を保てないように)。続けて送る操作の成功で延びる。
 /// 画面が要求の応答を受けられない操作 (ブラウザーが直接開くダウンロード) の前に呼ぶ。
 #[utoipa::path(
     post,
@@ -193,7 +205,9 @@ async fn confirm_password(
     )
 )]
 async fn check_password_confirmation(user: AuthUser) -> Result<StatusCode, AppError> {
-    user.require_confirmation().await?;
+    if !user.is_password_confirmed().await? {
+        return Err(AppError::PasswordConfirmationRequired);
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -218,6 +232,7 @@ struct ChangePasswordRequest {
 )]
 async fn change_password(
     user: AuthUser,
+    session: Session,
     State(state): State<AppState>,
     AppJson(payload): AppJson<ChangePasswordRequest>,
 ) -> Result<StatusCode, AppError> {
@@ -232,6 +247,9 @@ async fn change_password(
     )
     .execute(&state.pool)
     .await?;
+    // 新しいパスワードを決めたばかりなので、このセッションは確かめた内のままにする
+    // (ほかのセッションは、古いパスワードで確かめた記録なので通らなくなる)。
+    auth::mark_password_confirmed(&session, &auth::credential_fingerprint(&new_hash)).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -263,6 +281,16 @@ async fn change_username(
 
     auth::rename_user(&state.pool, user.id, &username).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// 要求から取り出した `AuthUser` が持つ、今のパスワードの指紋。
+fn credential_of(user: &AuthUser) -> Result<String, AppError> {
+    user.session
+        .as_ref()
+        .map(|s| s.credential.clone())
+        .ok_or(AppError::Internal(auth::Error::MissingSessionLayer(
+            "AuthUser without a session",
+        )))
 }
 
 /// ログイン中の利用者の今のパスワードを確かめる。
@@ -386,7 +414,7 @@ async fn recover(
     .await?
     .ok_or_else(|| AppError::Conflict("recovery code was changed concurrently".to_string()))?;
 
-    start_session(&session, user_id).await?;
+    start_session(&state.pool, &session, user_id).await?;
     Ok(Json(UserWithRecoveryCodeResponse {
         user: UserResponse {
             id: user_id,

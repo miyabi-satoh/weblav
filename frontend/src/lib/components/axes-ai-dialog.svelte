@@ -4,7 +4,13 @@
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import { toast } from 'svelte-sonner';
 	import { client } from '$lib/api/client';
-	import { errorCode, errorDetail, errorMessage, GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
+	import {
+		errorCode,
+		errorDetail,
+		errorMessage,
+		GENERIC_ERROR_MESSAGE,
+		isConfirmationCancelled
+	} from '$lib/api/errors';
 	import type { components } from '$lib/api/schema';
 	import {
 		buildAxesPrompt,
@@ -179,6 +185,8 @@
 				body: checked.request
 			});
 			if (error) {
+				// 確かめ直しをやめたときは、確かめた答えの画面のまま止める (失敗として知らせない)。
+				if (isConfirmationCancelled(error)) return;
 				failImport(answerErrorMessage(error), current);
 				return;
 			}

@@ -221,7 +221,10 @@ export const shots: Record<string, ShotEntry> = {
 				})
 			);
 			await page.locator('#account-username').fill(`${TEST_ADMIN.username}-new`);
-			await page.getByRole('button', { name: /^保存する$/ }).first().click();
+			await page
+				.getByRole('button', { name: /^保存する$/ })
+				.first()
+				.click();
 			await waitForDialog(page);
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
 		}

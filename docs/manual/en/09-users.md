@@ -17,6 +17,8 @@ After you add the user, their edit page opens. To make them an administrator, ch
 - **Standard user**: Can register contents. They can change or delete only contents they registered. They cannot change contents registered by other people. They cannot open the admin pages.
 - **Admin**: Can change or delete all contents. They can also manage users, shares, and site settings.
 
+Change your own username and password in “Account”, like everyone else (→ [Sign in and display](03-account.md)). In the “Users” list, your own row is marked “(you)” and does not open. To make yourself a standard user or to delete yourself, ask another administrator.
+
 What standard users can do in a share (view, add, move, delete) is set for each share. To give a person different permissions, in “Shares” in the admin pages, select the share row to open its edit page, then add that person under “Per-user exceptions” and choose their permission in the “Permissions” section (→ [Add shares](04-shares.md)). Administrators can do everything in every share.
 
 ## Reset a password
@@ -40,8 +42,6 @@ Users with a recovery code can also reset their own password (→ [Sign in and d
 
    ![The user edit page](images/user-edit.webp)
 
-If there is only one administrator, you cannot make them a standard user.
-
 After changing a username, let them know to log in with the new username from now on, including when they use their saved recovery code. Users can also change their own username (→ [Sign in and display](03-account.md)).
 
 ## Delete a user
@@ -58,5 +58,3 @@ Contents registered by the deleted user remain, and only administrators can chan
 Contents with “Creator only” visibility become “Hidden”. To show them again, an administrator chooses a new “Visibility” on the content edit page.
 If someone will take over, choose that person under “Creator” on the content edit page, then select “Save”.
 The record of what they did in shares is kept.
-
-You cannot delete the only administrator.

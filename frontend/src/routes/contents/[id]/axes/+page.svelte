@@ -323,7 +323,7 @@
 			);
 			const failed = results.find((result) => !result.response.ok || !result.data);
 			if (failed) {
-				errorDialog.show(errorMessage(failed.error));
+				errorDialog.showError(failed.error);
 				// 一部だけ成功した状態を残さないよう、サーバーの実態を取り直す。
 				await reloadAxesAfterFailedOrder(previous);
 				return;
@@ -432,7 +432,7 @@
 			if (!response.ok) {
 				// 確認を開いたままにすると、エラーを閉じた後にもう一度キャンセルさせることになる。
 				deletingAxis = null;
-				if (await restoreTemplate()) errorDialog.show(errorMessage(error));
+				if (await restoreTemplate()) errorDialog.showError(error);
 				return;
 			}
 			axes = axes.filter((axis) => axis.id !== target.id);
@@ -875,7 +875,7 @@
 			}
 		});
 		if (!response.ok || !updated) {
-			errorDialog.show(errorMessage(error));
+			errorDialog.showError(error);
 			return false;
 		}
 		currentContent = updated;

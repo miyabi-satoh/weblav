@@ -32,6 +32,7 @@ mod link_previews;
 mod links_file;
 mod login;
 mod minimal_input;
+mod password_confirmation;
 mod private;
 mod remote_files;
 mod roots;

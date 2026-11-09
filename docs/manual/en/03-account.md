@@ -26,7 +26,7 @@ Change your username, password, and recovery code on the account page.
 
    ![The account page](images/account-page.webp)
 
-If you save more than 10 minutes after signing in, you are asked for your current password. Enter it and select “Confirm” to save. Once confirmed, you are not asked again for the next 10 minutes.
+If 10 minutes pass after you sign in or confirm your password without saving such a change, you are asked for your current password when you save. Enter it and select “Confirm” to save.
 The same applies to actions on the admin pages and to administrators changing contents created by other people.
 
 If you forget your password, reset it yourself with your recovery code (→ “Forgot your password” below), or ask an administrator to reset it.

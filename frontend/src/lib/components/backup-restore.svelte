@@ -7,7 +7,7 @@
 	 */
 	import type { Snippet } from 'svelte';
 	import type { ApiResult } from '$lib/api/client';
-	import { errorMessage, GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
+	import { GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
 	import type { components } from '$lib/api/schema';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { formatDateTime } from '$lib/format';
@@ -46,8 +46,9 @@
 	let confirmOpen = $state(false);
 	const errorDialog = new ErrorDialogState();
 
-	function failureMessage(result: ApiResult): string {
-		return result.response.status === 404 ? notFoundMessage : errorMessage(result.error);
+	function showFailure(result: ApiResult) {
+		if (result.response.status === 404) errorDialog.show(notFoundMessage);
+		else errorDialog.showError(result.error);
 	}
 
 	async function handleFileChange() {
@@ -62,7 +63,7 @@
 			body.append('file', file);
 			const result = await stage(body);
 			if (!result.response.ok || !result.data) {
-				errorDialog.show(failureMessage(result));
+				showFailure(result);
 				return;
 			}
 			staged = result.data;
@@ -82,7 +83,7 @@
 			const result = await restore(staged.id);
 			if (!result.response.ok) {
 				confirmOpen = false;
-				errorDialog.show(failureMessage(result));
+				showFailure(result);
 				return;
 			}
 			confirmOpen = false;

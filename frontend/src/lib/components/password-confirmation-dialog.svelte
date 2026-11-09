@@ -2,7 +2,7 @@
 	import { dialogFormClass } from '$lib/dialog-form';
 	import * as m from '$lib/paraglide/messages.js';
 	import { client } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
+	import { GENERIC_ERROR_MESSAGE, errorCode, errorMessage } from '$lib/api/errors';
 	import { passwordConfirmation } from '$lib/password-confirmation.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
@@ -36,6 +36,12 @@
 				body: { password }
 			});
 			if (!response.ok) {
+				// ログインが切れていたら (別のタブでログアウトしたなど)、`client` がログインへ送るので、
+				// 閉じて元の要求もやめたことにする。開いたままだとログインの画面に重なって残る。
+				if (errorCode(body) === 'unauthorized') {
+					passwordConfirmation.settle(false);
+					return;
+				}
 				// 違ったときは閉じずに欄の下へ出し、打ち直せるようにする。
 				error = errorMessage(body);
 				return;

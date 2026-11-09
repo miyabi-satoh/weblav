@@ -183,11 +183,13 @@ async fn reject_if_last_admin(
 
 /// 自分自身はユーザー管理から変えさせない (→ docs/access.md「ロールと操作」)。名前とパスワードは
 /// アカウントのページで変え、降格と削除はほかの管理者がする。
-fn reject_self(admin: &AuthUser, id: i64) -> Result<(), AppError> {
+/// 断るのは確かめ直しより先にする (判定の順は 403 `forbidden` が先。→ docs/access.md「操作の前のパスワードの確認」)。
+/// 先に確かめ直すと、通せない操作のためにパスワードを聞くことになる。
+async fn reject_self_then_confirm(admin: &AuthUser, id: i64) -> Result<(), AppError> {
     if admin.id == id {
         return Err(AppError::Forbidden);
     }
-    Ok(())
+    admin.require_confirmation().await
 }
 
 #[utoipa::path(
@@ -204,12 +206,12 @@ fn reject_self(admin: &AuthUser, id: i64) -> Result<(), AppError> {
     )
 )]
 async fn update_role(
-    admin: ConfirmedAdmin,
+    admin: AdminUser,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<UpdateRoleRequest>,
 ) -> Result<Json<UserListItem>, AppError> {
-    reject_self(&admin, id)?;
+    reject_self_then_confirm(&admin, id).await?;
     // カウントと更新の間を`users_write_lock`で直列化する
     // (`AppState::users_write_lock`のドキュメント参照)。
     let _write_guard = state.users_write_lock.lock().await;
@@ -248,12 +250,12 @@ struct ResetPasswordRequest {
     )
 )]
 async fn reset_password(
-    admin: ConfirmedAdmin,
+    admin: AdminUser,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<ResetPasswordRequest>,
 ) -> Result<StatusCode, AppError> {
-    reject_self(&admin, id)?;
+    reject_self_then_confirm(&admin, id).await?;
     validate::non_empty(&payload.password, "password is required")?;
 
     let hash = auth::hash_password_blocking(&payload.password).await?;
@@ -295,12 +297,12 @@ struct RenameUserRequest {
     )
 )]
 async fn update_username(
-    admin: ConfirmedAdmin,
+    admin: AdminUser,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<RenameUserRequest>,
 ) -> Result<Json<UserListItem>, AppError> {
-    reject_self(&admin, id)?;
+    reject_self_then_confirm(&admin, id).await?;
     let username = validate::trimmed_non_empty(&payload.username, "username is required")?;
 
     let mut tx = crate::db::begin_write(&state.pool).await?;
@@ -324,11 +326,11 @@ async fn update_username(
     )
 )]
 async fn delete_user(
-    admin: ConfirmedAdmin,
+    admin: AdminUser,
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Result<StatusCode, AppError> {
-    reject_self(&admin, id)?;
+    reject_self_then_confirm(&admin, id).await?;
     // update_roleと同じ理由で直列化する(`AppState::users_write_lock`のドキュメント参照)。
     // 作成者の記録を消すため`contents_write_lock`も取る。取る順は`users_write_lock`が先。
     let _users_guard = state.users_write_lock.lock().await;

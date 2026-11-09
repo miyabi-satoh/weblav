@@ -10,7 +10,7 @@
 	import { ModeWatcher } from 'mode-watcher';
 	import { client } from '$lib/api/client';
 	import { isAdmin } from '$lib/auth';
-	import { GENERIC_ERROR_MESSAGE, errorMessage, messageForCode } from '$lib/api/errors';
+	import { GENERIC_ERROR_MESSAGE, messageForCode } from '$lib/api/errors';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { headerIconActionClass, headerTextActionClass } from '$lib/header-action';
 	import SearchIcon from '@lucide/svelte/icons/search';
@@ -85,7 +85,7 @@
 			// 共有端末で「ログアウトしたつもり」で有効なセッションが残ってしまう。
 			// 失敗時は遷移しない。
 			if (!response.ok) {
-				errorDialog.show(errorMessage(error), m.logout_error_title());
+				errorDialog.showError(error, m.logout_error_title());
 				return;
 			}
 		} catch {
