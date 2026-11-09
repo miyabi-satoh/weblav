@@ -72,7 +72,14 @@ pub(super) async fn item_counts(
             .await?;
     let mut counts = HashMap::with_capacity(ids.len());
     for id in ids {
-        counts.insert(id, item_counts_of(&state.pool, id).await?);
+        // 数える間に消されたフォルダーは一覧にも出ないので、飛ばす。断ると一覧ごと 404 になる。
+        match item_counts_of(&state.pool, id).await {
+            Ok(count) => {
+                counts.insert(id, count);
+            }
+            Err(AppError::NotFound) => {}
+            Err(err) => return Err(err),
+        }
     }
     Ok(counts)
 }
