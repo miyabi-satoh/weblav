@@ -71,8 +71,8 @@ export const CANCEL_BUTTON_NAME = /^キャンセル$|^Cancel$/;
 /** ユーザー一覧の⋮メニューのパスワード再設定。 */
 export const RESET_PASSWORD_MENU_ITEM_NAME = /パスワードを再設定|Reset password/;
 
-/** ユーザーメニューのリカバリコード。 */
-export const RECOVERY_CODE_MENU_ITEM_NAME = /^リカバリコード\.\.\.$|^Recovery code\.\.\.$/;
+/** ユーザーメニューの「アカウント」。 */
+export const ACCOUNT_MENU_ITEM_NAME = /^アカウント$|^Account$/;
 
 /** 初回セットアップで、使えないリンクを開いたときの案内。 */
 export const INVALID_SETUP_LINK_TEXT = /このリンクは使用できません|This link cannot be used/;

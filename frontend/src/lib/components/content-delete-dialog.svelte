@@ -4,7 +4,7 @@
 	 * `content` に対象を入れると開き、閉じると `null` に戻す。
 	 */
 	import { client } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
+	import { GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
 	import { visibilityLabel } from '$lib/content-labels';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { formatNumber } from '$lib/format';
@@ -50,7 +50,7 @@
 			});
 			if (!response.ok) {
 				content = null;
-				errorDialog.show(errorMessage(error));
+				errorDialog.showError(error);
 				return;
 			}
 			// 画面を更新し終えてから閉じる。先に閉じると、移り終えるまで消したものを操作できてしまうため。

@@ -64,6 +64,8 @@ pub enum CreateUserError {
 pub struct CreatedUser {
     pub id: i64,
     pub created_at: String,
+    /// 作ったパスワードの指紋 (`credential_fingerprint`)。作ってそのままログインさせるとき (セットアップ) に使う。
+    pub credential: String,
 }
 
 /// ユーザーを作成する。CLI (`--create-user`) とユーザー管理APIの両方から呼ぶ共通処理。
@@ -78,7 +80,8 @@ pub async fn create_user(
     let hash = hash_password_blocking(password).await?;
 
     let result = sqlx::query!(
-        r#"INSERT INTO users (username, password_hash, role, recovery_code_hash) VALUES (?, ?, ?, ?)
+        r#"INSERT INTO users (username, password_hash, role, recovery_code_hash, recovery_code_created_at)
+           VALUES (?, ?, ?, ?4, CASE WHEN ?4 IS NULL THEN NULL ELSE strftime('%Y-%m-%dT%H:%M:%fZ', 'now') END)
            RETURNING id as "id!", created_at"#,
         username,
         hash,
@@ -92,6 +95,7 @@ pub async fn create_user(
         Ok(row) => Ok(CreatedUser {
             id: row.id,
             created_at: row.created_at,
+            credential: credential_fingerprint(&hash),
         }),
         Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
             Err(CreateUserError::UsernameTaken(username.to_string()))
@@ -246,6 +250,95 @@ static DUMMY_HASH: LazyLock<String> = LazyLock::new(|| {
 
 pub const SESSION_USER_ID_KEY: &str = "user_id";
 
+/// 最後にパスワードを確かめた記録 (→ docs/access.md「操作の前のパスワードの確認」)。ログインでも入る。
+const SESSION_PASSWORD_CONFIRMATION_KEY: &str = "password_confirmation";
+
+/// パスワードを確かめてから、聞き直さずに通す長さ。続けて直す1回の作業 (数分) に足り、
+/// 教室の共有 PC で席を立った隙に使われる時間は短くしたいため 10 分にした。
+/// GitHub の sudo mode (2 時間) は自分専用の端末を前提にした長さなので採らない。
+pub const PASSWORD_CONFIRMATION_WINDOW: Duration = Duration::from_secs(10 * 60);
+
+/// セッションに残す、パスワードを確かめた記録。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct PasswordConfirmation {
+    /// 確かめた時刻 (UNIX 秒)。
+    at: i64,
+    /// 確かめたときのパスワードの指紋 (`credential_fingerprint`)。管理者の再設定などでパスワードが
+    /// 変わった後は、古いパスワードで確かめたセッションを通さないために比べる。
+    credential: String,
+}
+
+/// パスワードのハッシュの指紋。ハッシュは塩ごと作り直すので、同じパスワードに戻しても変わる。
+/// ハッシュそのものをセッションの表に置かないよう、SHA-256 にかけて持つ。
+pub fn credential_fingerprint(password_hash: &str) -> String {
+    use sha2::{Digest, Sha256};
+    crate::api::hex_encode(&Sha256::digest(password_hash.as_bytes()))
+}
+
+/// `confirmation` が、今のパスワード (`credential`) で `now` から見て確かめた内に入るか。
+/// 時計が戻って未来の時刻になったものは、どれだけ戻ったか分からないので通さない。
+fn confirmation_is_fresh(
+    confirmation: Option<&PasswordConfirmation>,
+    credential: &str,
+    now: i64,
+) -> bool {
+    let Some(c) = confirmation else {
+        return false;
+    };
+    let window = PASSWORD_CONFIRMATION_WINDOW.as_secs() as i64;
+    c.credential == credential && (0..window).contains(&(now - c.at))
+}
+
+fn unix_now() -> i64 {
+    time::OffsetDateTime::now_utc().unix_timestamp()
+}
+
+/// パスワードを確かめたことをセッションに残す (ログイン・確かめ直し・自分のパスワードの変更・
+/// 確かめ直しが要る操作の成功)。`credential` は今のパスワードの指紋。
+pub async fn mark_password_confirmed(session: &Session, credential: &str) -> Result<(), AppError> {
+    let confirmation = PasswordConfirmation {
+        at: unix_now(),
+        credential: credential.to_string(),
+    };
+    session
+        .insert(SESSION_PASSWORD_CONFIRMATION_KEY, confirmation)
+        .await
+        .map_err(Error::Session)?;
+    Ok(())
+}
+
+async fn password_confirmation(
+    session: &Session,
+) -> Result<Option<PasswordConfirmation>, AppError> {
+    Ok(session
+        .get(SESSION_PASSWORD_CONFIRMATION_KEY)
+        .await
+        .map_err(Error::Session)?)
+}
+
+/// 確かめた内に入るかを読むだけで、時刻は延ばさない。
+pub async fn password_is_confirmed(session: &Session, credential: &str) -> Result<bool, AppError> {
+    let confirmation = password_confirmation(session).await?;
+    Ok(confirmation_is_fresh(
+        confirmation.as_ref(),
+        credential,
+        unix_now(),
+    ))
+}
+
+/// 確かめ直しが要る操作の前に呼ぶ。今のパスワードで最後に確かめてから
+/// `PASSWORD_CONFIRMATION_WINDOW` の内なら時刻を今に延ばして通し、そうでなければ
+/// `PasswordConfirmationRequired` を返す。
+pub async fn require_password_confirmation(
+    session: &Session,
+    credential: &str,
+) -> Result<(), AppError> {
+    if !password_is_confirmed(session, credential).await? {
+        return Err(AppError::PasswordConfirmationRequired);
+    }
+    mark_password_confirmed(session, credential).await
+}
+
 struct UserRow {
     id: i64,
     username: String,
@@ -263,7 +356,7 @@ pub async fn authenticate(
     pool: &SqlitePool,
     username: &str,
     password: &str,
-) -> Result<Option<AuthUser>, AppError> {
+) -> Result<Option<Authenticated>, AppError> {
     // username は大文字小文字を無視して照合する(users_username_nocase インデックス側と
     // 意味を合わせるため、比較にも明示的に COLLATE NOCASE を指定する)。
     let row = sqlx::query_as!(
@@ -283,15 +376,27 @@ pub async fn authenticate(
         .map_err(AppError::from)
 }
 
-fn verify_row(row: Option<UserRow>, password: &str) -> Result<Option<AuthUser>, Error> {
+/// 照合が通った利用者と、照合に使ったパスワードの指紋 (`credential_fingerprint`)。
+pub struct Authenticated {
+    pub user: AuthUser,
+    /// ログインで確かめた記録に使う。照合の後に読み直さないのは、その間に再設定されると、
+    /// 古いパスワードで入った人を新しいパスワードで確かめたことにしてしまうため。
+    pub credential: String,
+}
+
+fn verify_row(row: Option<UserRow>, password: &str) -> Result<Option<Authenticated>, Error> {
     match row {
         Some(row) => {
             let ok = verify_password(password, &row.password_hash)?;
-            Ok(ok.then_some(AuthUser {
-                id: row.id,
-                username: row.username,
-                role: row.role,
-                has_recovery_code: row.has_recovery_code,
+            Ok(ok.then(|| Authenticated {
+                credential: credential_fingerprint(&row.password_hash),
+                user: AuthUser {
+                    id: row.id,
+                    username: row.username,
+                    role: row.role,
+                    has_recovery_code: row.has_recovery_code,
+                    session: None,
+                },
             }))
         }
         None => {
@@ -444,11 +549,41 @@ pub struct AuthUser {
     pub role: Role,
     /// リカバリコードを作ってあるか (→ docs/access.md「リカバリコード」)。
     pub has_recovery_code: bool,
+    /// この要求のセッションと今のパスワードの指紋。確かめ直し (`require_confirmation`) に使う。
+    /// 要求から取り出したときだけ入る (ログインの照合で作ったものとテストでは `None`)。
+    pub session: Option<UserSession>,
+}
+
+/// `AuthUser` が持つ、要求のセッションと今のパスワードの指紋 (`credential_fingerprint`)。
+#[derive(Clone)]
+pub struct UserSession {
+    pub session: Session,
+    pub credential: String,
 }
 
 impl AuthUser {
     pub fn is_admin(&self) -> bool {
         self.role == Role::Admin
+    }
+
+    /// 確かめ直しが要る操作の前に呼ぶ (→ `require_password_confirmation`)。
+    pub async fn require_confirmation(&self) -> Result<(), AppError> {
+        let s = self.user_session()?;
+        require_password_confirmation(&s.session, &s.credential).await
+    }
+
+    /// 確かめた内に入るかを読むだけで、時刻は延ばさない (→ `password_is_confirmed`)。
+    pub async fn is_password_confirmed(&self) -> Result<bool, AppError> {
+        let s = self.user_session()?;
+        password_is_confirmed(&s.session, &s.credential).await
+    }
+
+    fn user_session(&self) -> Result<&UserSession, AppError> {
+        self.session
+            .as_ref()
+            .ok_or(AppError::Internal(Error::MissingSessionLayer(
+                "AuthUser without a session",
+            )))
     }
 }
 
@@ -494,6 +629,10 @@ impl FromRequestParts<AppState> for AuthUser {
             username: user.username,
             role: user.role,
             has_recovery_code: user.has_recovery_code,
+            session: Some(UserSession {
+                session,
+                credential: credential_fingerprint(&user.password_hash),
+            }),
         })
     }
 }
@@ -561,9 +700,163 @@ impl FromRequestParts<AppState> for AdminUser {
     }
 }
 
+/// `AdminUser` に加えて、パスワードの確かめ直しを求める extractor。管理者だけができる操作に使う
+/// (→ docs/access.md「操作の前のパスワードの確認」)。未ログインは 401、admin でなければ 403
+/// `forbidden` を先に返し、確かめ直しの 403 `password_confirmation_required` はその後。
+pub struct ConfirmedAdmin(pub AuthUser);
+
+impl std::ops::Deref for ConfirmedAdmin {
+    type Target = AuthUser;
+
+    fn deref(&self) -> &AuthUser {
+        &self.0
+    }
+}
+
+impl FromRequestParts<AppState> for ConfirmedAdmin {
+    type Rejection = AppError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let AdminUser(user) = AdminUser::from_request_parts(parts, state).await?;
+        user.require_confirmation().await?;
+        Ok(ConfirmedAdmin(user))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn confirmation_is_fresh_only_within_the_window_and_for_the_same_password() {
+        let window = PASSWORD_CONFIRMATION_WINDOW.as_secs() as i64;
+        let at = |at| PasswordConfirmation {
+            at,
+            credential: "c1".to_string(),
+        };
+        assert!(
+            !confirmation_is_fresh(None, "c1", 1_000),
+            "確かめていなければ通さない"
+        );
+        assert!(confirmation_is_fresh(Some(&at(1_000)), "c1", 1_000));
+        assert!(confirmation_is_fresh(
+            Some(&at(1_000)),
+            "c1",
+            1_000 + window - 1
+        ));
+        assert!(!confirmation_is_fresh(
+            Some(&at(1_000)),
+            "c1",
+            1_000 + window
+        ));
+        assert!(
+            !confirmation_is_fresh(Some(&at(1_000)), "c1", 999),
+            "未来の時刻は通さない"
+        );
+        assert!(
+            !confirmation_is_fresh(Some(&at(1_000)), "c2", 1_000),
+            "確かめた後にパスワードが変わったら通さない"
+        );
+    }
+
+    #[test]
+    fn credential_fingerprint_changes_with_the_hash() {
+        let a = hash_password("same password").expect("ハッシュを作れるはず");
+        let b = hash_password("same password").expect("ハッシュを作れるはず");
+        assert_eq!(credential_fingerprint(&a), credential_fingerprint(&a));
+        assert_ne!(
+            credential_fingerprint(&a),
+            credential_fingerprint(&b),
+            "同じパスワードに再設定しても、塩が変わるので別の指紋になる"
+        );
+    }
+
+    async fn test_session(pool: SqlitePool) -> Session {
+        let store = tower_sessions_sqlx_store::SqliteStore::new(pool);
+        store.migrate().await.expect("セッションの表を作れるはず");
+        Session::new(None, std::sync::Arc::new(store), None)
+    }
+
+    #[sqlx::test]
+    async fn require_password_confirmation_rejects_a_session_that_never_confirmed(
+        pool: SqlitePool,
+    ) {
+        let session = test_session(pool).await;
+        let result = require_password_confirmation(&session, "c1").await;
+        assert!(matches!(
+            result,
+            Err(AppError::PasswordConfirmationRequired)
+        ));
+    }
+
+    #[sqlx::test]
+    async fn require_password_confirmation_passes_after_confirming(pool: SqlitePool) {
+        let session = test_session(pool).await;
+        mark_password_confirmed(&session, "c1")
+            .await
+            .expect("書けるはず");
+        require_password_confirmation(&session, "c1")
+            .await
+            .expect("確かめた直後は通るはず");
+    }
+
+    #[sqlx::test]
+    async fn require_password_confirmation_rejects_after_the_password_changed(pool: SqlitePool) {
+        let session = test_session(pool).await;
+        mark_password_confirmed(&session, "c1")
+            .await
+            .expect("書けるはず");
+        let result = require_password_confirmation(&session, "c2").await;
+        assert!(matches!(
+            result,
+            Err(AppError::PasswordConfirmationRequired)
+        ));
+    }
+
+    #[sqlx::test]
+    async fn require_password_confirmation_rejects_and_keeps_a_stale_confirmation(
+        pool: SqlitePool,
+    ) {
+        let session = test_session(pool).await;
+        let stale = PasswordConfirmation {
+            at: unix_now() - PASSWORD_CONFIRMATION_WINDOW.as_secs() as i64,
+            credential: "c1".to_string(),
+        };
+        session
+            .insert(SESSION_PASSWORD_CONFIRMATION_KEY, stale.clone())
+            .await
+            .expect("書けるはず");
+        let result = require_password_confirmation(&session, "c1").await;
+        assert!(matches!(
+            result,
+            Err(AppError::PasswordConfirmationRequired)
+        ));
+        let kept = password_confirmation(&session).await.expect("読めるはず");
+        assert_eq!(kept, Some(stale), "断ったときは時刻を延ばさない");
+    }
+
+    #[sqlx::test]
+    async fn password_is_confirmed_does_not_extend_the_confirmation(pool: SqlitePool) {
+        let session = test_session(pool).await;
+        let old = PasswordConfirmation {
+            at: unix_now() - 60,
+            credential: "c1".to_string(),
+        };
+        session
+            .insert(SESSION_PASSWORD_CONFIRMATION_KEY, old.clone())
+            .await
+            .expect("書けるはず");
+        assert!(
+            password_is_confirmed(&session, "c1")
+                .await
+                .expect("読めるはず")
+        );
+        let kept = password_confirmation(&session).await.expect("読めるはず");
+        assert_eq!(kept, Some(old), "読むだけの確かめでは時刻を延ばさない");
+    }
 
     #[test]
     fn hash_then_verify_roundtrip() {
@@ -623,7 +916,7 @@ mod tests {
             .await
             .expect("authenticate should not error");
 
-        let user = user.expect("correct credentials should authenticate");
+        let user = user.expect("correct credentials should authenticate").user;
         assert_eq!(user.username, "alice");
     }
 
@@ -646,7 +939,9 @@ mod tests {
             .await
             .expect("authenticate should not error");
 
-        let user = user.expect("case-insensitive match should authenticate");
+        let user = user
+            .expect("case-insensitive match should authenticate")
+            .user;
         // DB上の表記(登録時のcase)がそのまま返る。
         assert_eq!(user.username, "alice");
     }
@@ -689,7 +984,7 @@ mod tests {
         let user = authenticate(&pool, "alicia", "password")
             .await
             .expect("照合で失敗しないはず");
-        assert_eq!(user.map(|u| u.username).as_deref(), Some("alicia"));
+        assert_eq!(user.map(|a| a.user.username).as_deref(), Some("alicia"));
     }
 
     /// 大文字小文字だけの違いもほかの人の名前とは重ねられないが、自分の名前の大文字小文字は変えられる。

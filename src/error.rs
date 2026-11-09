@@ -44,6 +44,11 @@ pub enum AppError {
     /// で、パスワード変更ダイアログにはユーザー名の欄が無いため)。
     #[error("incorrect current password")]
     IncorrectCurrentPassword,
+    /// 確かめ直しが要る操作 (→ docs/access.md「操作の前のパスワードの確認」) で、
+    /// 最後にパスワードを確かめてから時間がたっている場合。frontend はこのコードを見て
+    /// パスワードを聞き、確かめてから同じ要求を送り直す。
+    #[error("password confirmation required")]
+    PasswordConfirmationRequired,
     /// リカバリコードでの再設定に失敗した場合 (→ docs/access.md「リカバリコード」)。ユーザーがいない・
     /// コードが無い・違う、を区別しない。
     #[error("invalid recovery code")]
@@ -134,6 +139,7 @@ pub enum ErrorCode {
     Forbidden,
     InvalidCredentials,
     IncorrectCurrentPassword,
+    PasswordConfirmationRequired,
     InvalidRecoveryCode,
     TooManyRequests,
     InvalidRequestBody,
@@ -215,6 +221,11 @@ impl AppError {
             Self::IncorrectCurrentPassword => (
                 StatusCode::UNAUTHORIZED,
                 ErrorCode::IncorrectCurrentPassword,
+            ),
+            // ログインは生きているので 401 にしない (401 は frontend がログインへ送る)。
+            Self::PasswordConfirmationRequired => (
+                StatusCode::FORBIDDEN,
+                ErrorCode::PasswordConfirmationRequired,
             ),
             Self::InvalidRecoveryCode => (StatusCode::UNAUTHORIZED, ErrorCode::InvalidRecoveryCode),
             Self::TooManyRequests => (StatusCode::TOO_MANY_REQUESTS, ErrorCode::TooManyRequests),

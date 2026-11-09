@@ -307,6 +307,7 @@ mod tests {
             username: format!("user{id}"),
             role,
             has_recovery_code: false,
+            session: None,
         }
     }
 

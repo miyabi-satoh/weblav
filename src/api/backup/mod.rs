@@ -24,7 +24,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use super::completed_reader::CompletedReader;
-use crate::auth::AdminUser;
+use crate::auth::ConfirmedAdmin;
 use crate::error::{AppError, AppJson, multipart_error_to_app_error, run_blocking};
 use crate::state::AppState;
 
@@ -145,7 +145,7 @@ struct RestoreBackupRequest {
     )
 )]
 async fn download_backup(
-    _admin: AdminUser,
+    _admin: ConfirmedAdmin,
     State(state): State<AppState>,
 ) -> Result<impl IntoResponse, AppError> {
     let snapshot = {
@@ -197,7 +197,7 @@ async fn download_backup(
     )
 )]
 async fn stage_restore(
-    _admin: AdminUser,
+    _admin: ConfirmedAdmin,
     State(state): State<AppState>,
     multipart: Multipart,
 ) -> Result<Json<StagedBackupResponse>, AppError> {
@@ -219,7 +219,7 @@ async fn stage_restore(
     )
 )]
 async fn restore(
-    admin: AdminUser,
+    admin: ConfirmedAdmin,
     session: Session,
     State(state): State<AppState>,
     AppJson(payload): AppJson<RestoreBackupRequest>,

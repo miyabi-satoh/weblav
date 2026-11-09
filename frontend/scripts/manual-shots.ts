@@ -47,6 +47,7 @@ const ADMIN_SHOTS = [
 	'user-edit',
 	'header-user-menu',
 	'setup-admin-menu',
+	'account-page',
 	'settings-page',
 	'settings-server',
 	'settings-port',
@@ -384,6 +385,17 @@ async function shootUsers(page: Page) {
 		});
 		await page.keyboard.press('Escape');
 		await page.getByRole('menu').waitFor({ state: 'hidden' });
+	}
+	if (want('account-page')) {
+		await goto(page, '/account');
+		// この幅では区画が1列に並ぶので、最後のリカバリコードの区画の下端まで写す。
+		await shotBetween(
+			page,
+			'account-page',
+			page.getByRole('heading', { level: 1, name: /^アカウント$/ }),
+			page.getByRole('region', { name: /^リカバリコード$/ }),
+			{ padTop: 16, padBottom: 16 }
+		);
 	}
 }
 

@@ -4,7 +4,6 @@ import {
 	isAdmin,
 	isApiTarget,
 	isProtectedRoute,
-	isSoleAdmin,
 	loginPathWithRedirect,
 	safeRedirectTarget
 } from './auth';
@@ -30,25 +29,16 @@ describe('canEditContent', () => {
 	});
 });
 
-describe('isSoleAdmin', () => {
-	it('is true only for the one remaining admin', () => {
-		const admin = { role: 'admin' as const };
-		const user = { role: 'user' as const };
-		expect(isSoleAdmin(admin, [admin, user])).toBe(true);
-		expect(isSoleAdmin(admin, [admin, { role: 'admin' }, user])).toBe(false);
-		expect(isSoleAdmin(user, [admin, user])).toBe(false);
-	});
-});
-
 describe('isProtectedRoute', () => {
 	it('protects /admin and everything under it', () => {
 		expect(isProtectedRoute('/admin')).toBe(true);
 		expect(isProtectedRoute('/admin/contents')).toBe(true);
 	});
 
-	it('protects the content edit pages', () => {
+	it('protects the content edit pages and the account page', () => {
 		expect(isProtectedRoute('/contents/[id]')).toBe(true);
 		expect(isProtectedRoute('/contents/[id]/axes')).toBe(true);
+		expect(isProtectedRoute('/account')).toBe(true);
 	});
 
 	it('leaves viewing routes open to anonymous visitors', () => {

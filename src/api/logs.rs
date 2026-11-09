@@ -17,7 +17,7 @@ use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
-use crate::auth::AdminUser;
+use crate::auth::{AdminUser, ConfirmedAdmin};
 use crate::error::{AppError, AppJson, run_blocking};
 use crate::logging;
 use crate::state::AppState;
@@ -75,7 +75,7 @@ async fn get_log_settings(
     )
 )]
 async fn update_log_settings(
-    _admin: AdminUser,
+    _admin: ConfirmedAdmin,
     State(state): State<AppState>,
     AppJson(payload): AppJson<UpdateLogSettingsRequest>,
 ) -> Result<Json<LogSettingsResponse>, AppError> {

@@ -10,7 +10,7 @@
 	import { ModeWatcher } from 'mode-watcher';
 	import { client } from '$lib/api/client';
 	import { isAdmin } from '$lib/auth';
-	import { GENERIC_ERROR_MESSAGE, errorMessage, messageForCode } from '$lib/api/errors';
+	import { GENERIC_ERROR_MESSAGE, messageForCode } from '$lib/api/errors';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { headerIconActionClass, headerTextActionClass } from '$lib/header-action';
 	import SearchIcon from '@lucide/svelte/icons/search';
@@ -25,6 +25,7 @@
 	import LinkDetailDialog from '$lib/components/link-detail-dialog.svelte';
 	import NavigationProgress from '$lib/components/navigation-progress.svelte';
 	import ShareJobsPanel from '$lib/components/share-ops/share-jobs-panel.svelte';
+	import PasswordConfirmationDialog from '$lib/components/password-confirmation-dialog.svelte';
 	import { Toaster } from '$lib/components/ui/sonner';
 	import { nowPlaying } from '$lib/now-playing.svelte';
 	import { searchHref, searchScopeOf } from '$lib/search-scope';
@@ -84,7 +85,7 @@
 			// 共有端末で「ログアウトしたつもり」で有効なセッションが残ってしまう。
 			// 失敗時は遷移しない。
 			if (!response.ok) {
-				errorDialog.show(errorMessage(error), m.logout_error_title());
+				errorDialog.showError(error, m.logout_error_title());
 				return;
 			}
 		} catch {
@@ -168,6 +169,7 @@
 />
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />
+<PasswordConfirmationDialog />
 
 <!-- ヘッダー (52px / md 以上 56px → docs/ui.md「UI 全般」) のすぐ下に出す。 -->
 <Toaster position="top-center" offset={{ top: 64 }} mobileOffset={{ top: 60 }} />

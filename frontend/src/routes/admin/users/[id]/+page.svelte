@@ -3,7 +3,6 @@
 	import { toast } from 'svelte-sonner';
 	import { resolve } from '$app/paths';
 	import { client } from '$lib/api/client';
-	import { isSoleAdmin } from '$lib/auth';
 	import { dialogFormClass } from '$lib/dialog-form';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
@@ -44,9 +43,8 @@
 
 	let { data }: PageProps = $props();
 
+	// 自分自身はこのページで開かない (`+page.ts`)。開いている自分も管理者なので、相手が最後の管理者のことは無い。
 	let target = $derived(data.target);
-	// 最後の管理者は降格も削除もできない (→ docs/access.md「admin の最後の1人」)。サーバーも同じ決まりで断る。
-	let soleAdmin = $derived(isSoleAdmin(data.target, data.users));
 
 	// 区画ごとに保存する (→ docs/ui.md「編集ページの区画」)。保存した後は応答の値で入れ直すので、読み込みは初回だけでよい。
 	let username = $state(untrack(() => data.target.username));
@@ -60,8 +58,6 @@
 	let deletingUser = $state<UserListItem | null>(null);
 	const errorDialog = new ErrorDialogState();
 
-	// 保存の後に見出しを取り直すので、自分の名前を変えたときのヘッダーの名前も引き直される。
-	// 自分を一般ユーザーにしたときは、この画面をもう開けないので、`admin/+layout.ts` のガードがホームへ移す。
 	const sections = new SectionSaveState<Part>([usernameForm, roleForm], errorDialog);
 
 	async function handleUsernameSubmit(event: SubmitEvent) {
@@ -146,7 +142,7 @@
 	}
 
 	// 消したユーザーの編集ページには戻れないので、一覧へ移る。消したものの変更は保存しようがないので、
-	// 離れるときの確認は出さない。自分を消したときは、一覧の読み込みが 401 になってログインへ移る。
+	// 離れるときの確認は出さない。
 	async function handleDeleted() {
 		await gotoWithoutLeaveConfirm(resolve('/admin/users'));
 	}
@@ -206,11 +202,10 @@
 			<div class="flex flex-col gap-2">
 				<RadioGroup.Root
 					bind:value={() => role, (value) => (role = value as Role)}
-					disabled={soleAdmin}
 					aria-labelledby="role-section-heading"
 				>
 					{#each ROLES as option (option)}
-						<Field.Field orientation="horizontal" data-disabled={soleAdmin} class="min-h-9">
+						<Field.Field orientation="horizontal" class="min-h-9">
 							<RadioGroup.Item value={option} id="user-role-{option}" />
 							<Field.FieldLabel for="user-role-{option}" class="font-normal"
 								>{roleLabel(option)}</Field.FieldLabel
@@ -218,10 +213,6 @@
 						</Field.Field>
 					{/each}
 				</RadioGroup.Root>
-				<!-- 押せない理由は、押せないときにだけ出す。 -->
-				{#if soleAdmin}
-					<p class="text-sm text-muted-foreground">{m.admin_users_last_admin_note()}</p>
-				{/if}
 			</div>
 			<div>
 				<LoadingButton
@@ -232,10 +223,8 @@
 			</div>
 		</form>
 	</div>
-	<!-- 最後の管理者は消せない。理由は区画の中にも書く。 -->
 	<DeleteSection
 		notes={[m.common_delete_section_irreversible(), m.admin_users_delete_section_note()]}
-		disabledReason={soleAdmin ? m.admin_users_last_admin_note() : null}
 		onclick={() => (deletingUser = target)}
 	/>
 </div>

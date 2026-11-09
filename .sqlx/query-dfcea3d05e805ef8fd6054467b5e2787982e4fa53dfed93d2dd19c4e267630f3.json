@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "UPDATE users SET password_hash = ?, recovery_code_hash = ?\n           WHERE id = ? AND recovery_code_hash = ?\n           RETURNING username, role as \"role: Role\"",
+  "query": "UPDATE users SET password_hash = ?, recovery_code_hash = ?,\n                  recovery_code_created_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')\n           WHERE id = ? AND recovery_code_hash = ?\n           RETURNING username, role as \"role: Role\"",
   "describe": {
     "columns": [
       {
@@ -22,5 +22,5 @@
       false
     ]
   },
-  "hash": "49cec35e354823bca8e1d0b21e48268cc9b4c5195422e9488788681cf0f2de3a"
+  "hash": "dfcea3d05e805ef8fd6054467b5e2787982e4fa53dfed93d2dd19c4e267630f3"
 }

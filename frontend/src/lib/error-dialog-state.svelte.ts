@@ -1,5 +1,5 @@
 import type { ApiResult } from '$lib/api/client';
-import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
+import { GENERIC_ERROR_MESSAGE, errorMessage, isConfirmationCancelled } from '$lib/api/errors';
 
 /**
  * `ErrorDialog` の開閉と文言。
@@ -20,6 +20,12 @@ export class ErrorDialogState {
 		this.open = true;
 	}
 
+	/** エラー応答の理由を出す。パスワードの確かめ直しをやめたものは出さない (`isConfirmationCancelled`)。 */
+	showError(error: unknown, title?: string) {
+		if (isConfirmationCancelled(error)) return;
+		this.show(errorMessage(error), title);
+	}
+
 	/**
 	 * 要求を送る。エラー応答と例外は理由をダイアログに出して `null` を返し、
 	 * 成功したら応答をそのまま返す。
@@ -33,7 +39,7 @@ export class ErrorDialogState {
 		try {
 			const result = await request();
 			if (!result.response.ok) {
-				this.show(errorMessage(result.error));
+				this.showError(result.error);
 				return null;
 			}
 			await onSuccess?.(result);

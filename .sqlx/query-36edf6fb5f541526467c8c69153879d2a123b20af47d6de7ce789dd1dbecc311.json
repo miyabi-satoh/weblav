@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT recovery_code_created_at FROM users WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "recovery_code_created_at",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "36edf6fb5f541526467c8c69153879d2a123b20af47d6de7ce789dd1dbecc311"
+}

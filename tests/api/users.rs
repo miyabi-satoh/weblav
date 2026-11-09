@@ -161,48 +161,49 @@ async fn users_role_update_promotes_and_demotes(pool: SqlitePool) {
     assert_eq!(json["role"], "user");
 }
 
+/// 管理者は自分自身をユーザー管理から変えられない。名前とパスワードはアカウントのページで変え、
+/// 降格と削除はほかの管理者がする (→ docs/access.md「ロールと操作」)。
 #[sqlx::test]
-async fn users_role_update_of_sole_admin_is_rejected(pool: SqlitePool) {
+async fn admin_cannot_change_themselves_from_user_management(pool: SqlitePool) {
     insert_admin(&pool, "admin-alice", "correct-password").await;
+    insert_admin(&pool, "admin-bob", "correct-password").await;
     let app = test_app(pool).await;
     let cookie = login(app.clone(), "admin-alice", "correct-password").await;
     let alice_id = user_id(app.clone(), &cookie, "admin-alice").await;
 
-    let (status, body) = send_json(
-        app,
-        "PUT",
-        &format!("/api/v1/admin/users/{alice_id}/role"),
-        &cookie,
-        r#"{"role":"user"}"#,
-    )
-    .await;
-    assert_error(
-        status,
-        &body,
-        StatusCode::UNPROCESSABLE_ENTITY,
-        "invalid_request_body",
-    );
+    let base = format!("/api/v1/admin/users/{alice_id}");
+    let cases = [
+        ("PUT", format!("{base}/role"), Some(r#"{"role":"user"}"#)),
+        (
+            "PUT",
+            format!("{base}/username"),
+            Some(r#"{"username":"alicia"}"#),
+        ),
+        (
+            "PUT",
+            format!("{base}/password"),
+            Some(r#"{"password":"new-password"}"#),
+        ),
+        ("DELETE", base.clone(), None),
+    ];
+    for (method, uri, json) in cases {
+        let (status, body) = match json {
+            Some(json) => send_json(app.clone(), method, &uri, &cookie, json).await,
+            None => send_empty(app.clone(), method, &uri, &cookie).await,
+        };
+        assert_error_case(
+            status,
+            &body,
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            &format!("{method} {uri}"),
+        );
+    }
+    login(app, "admin-alice", "correct-password").await;
 }
 
-#[sqlx::test]
-async fn users_delete_of_sole_admin_is_rejected(pool: SqlitePool) {
-    insert_admin(&pool, "admin-alice", "correct-password").await;
-    let app = test_app(pool).await;
-    let cookie = login(app.clone(), "admin-alice", "correct-password").await;
-    let alice_id = user_id(app.clone(), &cookie, "admin-alice").await;
-
-    let (status, _) = send_empty(
-        app,
-        "DELETE",
-        &format!("/api/v1/admin/users/{alice_id}"),
-        &cookie,
-    )
-    .await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-}
-
-/// TOCTOU回帰テスト: adminが2人だけの状態で、片方を降格するリクエストともう片方を
-/// 削除するリクエストを`tokio::join!`で同時に実行する。`AppState::users_write_lock`が
+/// TOCTOU回帰テスト: adminが2人だけの状態で、互いに相手を降格・削除するリクエストを
+/// `tokio::join!`で同時に実行する (自分自身はユーザー管理から変えられないので、2人で掛け合う)。`AppState::users_write_lock`が
 /// 無いと、両リクエストがそれぞれ「admin数=2」を見た直後に両方コミットされ、
 /// adminが0人になってしまう(update_role/delete_userのreject_if_last_admin参照)。
 /// `users_write_lock`でカウント〜更新が直列化されている限り、どちらか一方だけが
@@ -218,12 +219,13 @@ async fn concurrent_demote_and_delete_of_last_two_admins_keeps_one_admin(pool: S
     let db = pool.clone();
     let app = test_app(pool).await;
     let cookie = login(app.clone(), "admin-a", "correct-password").await;
+    let cookie_b = login(app.clone(), "admin-b", "correct-password").await;
     let admin_a_id = user_id(app.clone(), &cookie, "admin-a").await;
     let admin_b_id = user_id(app.clone(), &cookie, "admin-b").await;
 
     let demote_fut = {
         let app = app.clone();
-        let cookie = cookie.clone();
+        let cookie = cookie_b.clone();
         async move {
             send_json(
                 app,

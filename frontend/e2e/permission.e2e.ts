@@ -13,7 +13,7 @@ import {
 	contentRow,
 	fillLogInForm,
 	ITEMS_TAB_NAME,
-	RECOVERY_CODE_MENU_ITEM_NAME,
+	ACCOUNT_MENU_ITEM_NAME,
 	saveForm,
 	uniqueId,
 	VISIBILITY_LABEL,
@@ -217,7 +217,7 @@ test('編集者: 管理画面はどれもホームへ戻され、メニューに
 
 			await editorPage.getByRole('button', { name: username, exact: true }).click();
 			await expect(
-				editorPage.getByRole('menuitem', { name: RECOVERY_CODE_MENU_ITEM_NAME })
+				editorPage.getByRole('menuitem', { name: ACCOUNT_MENU_ITEM_NAME })
 			).toBeVisible();
 			await expect(editorPage.getByRole('menuitem', { name: ADMIN_MENU_ITEM_NAME })).toHaveCount(0);
 			await editorPage.keyboard.press('Escape');

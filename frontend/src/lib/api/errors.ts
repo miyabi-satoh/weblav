@@ -18,6 +18,7 @@ export const MESSAGES: Record<ErrorCode, () => string> = {
 	forbidden: m.error_forbidden,
 	invalid_credentials: m.error_invalid_credentials,
 	incorrect_current_password: m.error_incorrect_current_password,
+	password_confirmation_required: m.error_password_confirmation_required,
 	invalid_recovery_code: m.error_invalid_recovery_code,
 	too_many_requests: m.error_too_many_requests,
 	invalid_request_body: m.error_invalid_request_body,
@@ -62,6 +63,14 @@ function unwrapError(body: unknown): { code?: unknown; detail?: unknown } | unde
 	const error = (body as { error?: unknown }).error;
 	if (typeof error !== 'object' || error === null) return undefined;
 	return error as { code?: unknown; detail?: unknown };
+}
+
+/**
+ * パスワードの確かめ直しを利用者がやめた応答か (→ `$lib/api/client`)。自分でやめたので、
+ * 失敗として知らせない。
+ */
+export function isConfirmationCancelled(body: unknown): boolean {
+	return errorCode(body) === 'password_confirmation_required';
 }
 
 /** envelope から `code` を取り出す。 */

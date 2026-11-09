@@ -34,7 +34,7 @@ use super::file_filter::{FileFilter, normalize_patterns};
 use super::schedule::{AutoMode, AutoRefresh, parse_auto_refresh};
 use super::search::FieldKind;
 use super::sort::{SortOrder, SortQuery, title_cmp};
-use crate::auth::{AdminUser, AuthUser, Viewer};
+use crate::auth::{AuthUser, ConfirmedAdmin, Viewer};
 use crate::error::{AppError, AppJson, multipart_error_to_app_error, run_blocking};
 use crate::state::AppState;
 
@@ -274,6 +274,20 @@ pub(super) fn ensure_editable(
     } else {
         Err(AppError::Forbidden)
     }
+}
+
+/// 書き換える操作の前の `ensure_editable`。他人が作ったもの (作成者がいないものを含む) を
+/// admin が変えるときは、パスワードの確かめ直しも求める (→ docs/access.md「操作の前のパスワードの確認」)。
+pub(super) async fn ensure_changeable(
+    user: &AuthUser,
+    visibility: Visibility,
+    created_by: Option<i64>,
+) -> Result<(), AppError> {
+    ensure_editable(user, visibility, created_by)?;
+    if created_by != Some(user.id) {
+        user.require_confirmation().await?;
+    }
+    Ok(())
 }
 
 /// 書き換えられる人か。作成者と admin (→ docs/access.md「ロールと操作」)。
@@ -1411,7 +1425,7 @@ async fn update_content(
     .fetch_optional(&state.pool)
     .await?
     .ok_or(AppError::NotFound)?;
-    ensure_editable(&user, existing.visibility, existing.created_by)?;
+    ensure_changeable(&user, existing.visibility, existing.created_by).await?;
     let existing_type = existing.content_type;
     // 入力の検証は、存在を隠す判定 (404) と権限の判定の後に行う。
     let title = validate_title(&payload.title)?;
@@ -1596,7 +1610,7 @@ pub struct SetCreatorRequest {
     )
 )]
 async fn set_creator(
-    _admin: AdminUser,
+    _admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<SetCreatorRequest>,
@@ -1675,7 +1689,7 @@ async fn delete_content(
     .fetch_optional(&state.pool)
     .await?
     .ok_or(AppError::NotFound)?;
-    ensure_editable(&user, existing.visibility, existing.created_by)?;
+    ensure_changeable(&user, existing.visibility, existing.created_by).await?;
     let existing_type = existing.content_type;
 
     // 走査中の削除を防ぐ (→ docs/archive.md「スキャン」)。走査の途中で行が消えると、
@@ -3129,7 +3143,7 @@ async fn replace_content_upload(
     .ok_or(AppError::NotFound)?;
 
     // 存在を隠す判定 (404) は、入力の検証 (422) より先に行う。
-    ensure_editable(&user, existing.visibility, existing.created_by)?;
+    ensure_changeable(&user, existing.visibility, existing.created_by).await?;
     if existing.content_type != ContentType::File {
         return Err(AppError::Validation(
             "this content is not a file".to_string(),
@@ -3211,7 +3225,7 @@ async fn change_visibility(
     existing: &VisibilityState,
     requested: Visibility,
 ) -> Result<Visibility, AppError> {
-    ensure_editable(user, existing.visibility, existing.created_by)?;
+    ensure_changeable(user, existing.visibility, existing.created_by).await?;
     let visibility =
         resolve_visibility_for_update(Some(requested), existing.visibility, existing.created_by)?;
     if visibility == existing.visibility {
@@ -3396,6 +3410,7 @@ mod tests {
             username: format!("user{id}"),
             role,
             has_recovery_code: false,
+            session: None,
         })
     }
 

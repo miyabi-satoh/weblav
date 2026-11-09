@@ -9,7 +9,7 @@
 	import { isAdmin } from '$lib/auth';
 	import { client } from '$lib/api/client';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
+	import { GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
 	import {
 		type ContentFormPart,
 		ContentFormState,
@@ -260,7 +260,7 @@
 			});
 			// 正しくないパターンは保存もできないので、知らせる窓を挟まずに直してもらう。
 			if (result.response.status === 422) {
-				errorDialog.show(errorMessage(result.error));
+				errorDialog.showError(result.error);
 				await resumeNavigationAfterSave();
 				return;
 			}
@@ -295,7 +295,7 @@
 		});
 		if (!result.response.ok) {
 			closeConfirms();
-			errorDialog.show(errorMessage(result.error));
+			errorDialog.showError(result.error);
 			return false;
 		}
 		creatorDirty.markPristine();
@@ -325,7 +325,7 @@
 				const result = await form.replacePart(content.id, part, content);
 				if (!result.response.ok || !result.data) {
 					closeConfirms();
-					errorDialog.show(errorMessage(result.error));
+					errorDialog.showError(result.error);
 					// 作成者だけ保存できていることがあるので、見出しと一覧は取り直す。
 					await refreshAll();
 					return;

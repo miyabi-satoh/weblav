@@ -4,6 +4,7 @@ import { navigating } from '$app/state';
 import { resolve } from '$app/paths';
 import { loginPathWithRedirect } from '$lib/auth';
 import { errorCode } from '$lib/api/errors';
+import { passwordConfirmation } from '$lib/password-confirmation.svelte';
 import type { paths } from '$lib/api/schema';
 
 // openapi.json のパスは `/api/v1/...` を含む (backend 側で nest した prefix がそのまま
@@ -18,6 +19,39 @@ export type ApiResult<T = unknown> = { data?: T; error?: unknown; response: Resp
  * 401 は呼び出し側が扱う。
  */
 const ANONYMOUS_PATHS = ['/api/v1/auth/me', '/api/v1/auth/login', '/api/v1/auth/recover'];
+
+/** 確かめ直しのための口。これ自体が断られても、ダイアログを開き直さない。 */
+const CONFIRMATION_PATH = '/api/v1/auth/confirm-password';
+
+/** 送り直すときのための、送る前の要求の写し。応答を受けたら消す。 */
+const pendingRequests = new Map<string, Request>();
+
+/**
+ * パスワードの確かめ直しが要ると返されたら、ダイアログで聞き、確かめられたら同じ要求を
+ * 送り直す (→ docs/access.md「操作の前のパスワードの確認」)。やめたら断られた応答をそのまま返す。
+ * 読むだけの要求は断られないので、写しを取らない (大きなファイルを送る要求だけ写しが重い)。
+ */
+client.use({
+	onRequest({ request, id, schemaPath }) {
+		if (request.method === 'GET' || schemaPath === CONFIRMATION_PATH) return;
+		pendingRequests.set(id, request.clone());
+	},
+	async onResponse({ response, id }) {
+		const original = pendingRequests.get(id);
+		pendingRequests.delete(id);
+		if (original === undefined || response.status !== 403) return;
+		const body: unknown = await response
+			.clone()
+			.json()
+			.catch(() => undefined);
+		if (errorCode(body) !== 'password_confirmation_required') return;
+		if (!(await passwordConfirmation.request())) return;
+		return fetch(original);
+	},
+	onError({ id }) {
+		pendingRequests.delete(id);
+	}
+});
 
 /**
  * 画面を開いたまま操作したときの 401 をログインへ繋ぐ。

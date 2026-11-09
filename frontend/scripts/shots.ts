@@ -200,14 +200,31 @@ export const shots: Record<string, ShotEntry> = {
 		}
 	},
 
-	// ユーザーメニューの「リカバリコード...」を開き、今のパスワードを求めている状態。
-	// 作ると admin のコードが替わるので、作る手前で止める。
-	recovery_code_dialog: {
+	// 自分のアカウントのページ。
+	account_page: {
+		async run(page, ctx) {
+			await openAsAdmin(page, ctx.baseURL, '/account');
+			await page.screenshot({ path: ctx.outFile, fullPage: true });
+		}
+	},
+
+	// 確定したときにサーバーが確かめ直しを求め、パスワードを聞いている状態。
+	// ログインしたばかりのセッションは確かめた内に入るので、断る応答を作って出す。保存はさせない。
+	password_confirmation_dialog: {
 		viewports: ['desktop'],
 		async run(page, ctx) {
-			await openAsAdmin(page, ctx.baseURL, '/');
-			await page.getByRole('button', { name: TEST_ADMIN.username, exact: true }).click();
-			await page.getByRole('menuitem', { name: /^リカバリコード\.\.\.$/ }).click();
+			await openAsAdmin(page, ctx.baseURL, '/account');
+			await page.route('**/api/v1/auth/username', (route) =>
+				route.fulfill({
+					status: 403,
+					json: { error: { code: 'password_confirmation_required', message: '' } }
+				})
+			);
+			await page.locator('#account-username').fill(`${TEST_ADMIN.username}-new`);
+			await page
+				.getByRole('button', { name: /^保存する$/ })
+				.first()
+				.click();
 			await waitForDialog(page);
 			await page.screenshot({ path: ctx.outFile, animations: 'disabled' });
 		}

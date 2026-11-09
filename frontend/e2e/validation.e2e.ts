@@ -8,7 +8,6 @@ import {
 	ADD_SUBMIT_BUTTON_NAME,
 	basicSaveButton,
 	CLOSE_BUTTON_NAME,
-	DELETE_MENU_ITEM_NAME,
 	ERROR_DIALOG_NAME,
 	INVALID_INPUT_TEXT,
 	openAddDialog,
@@ -24,10 +23,12 @@ import {
 	USER_ADD_BUTTON_NAME,
 	USERNAME_LABEL,
 	userRow,
-	waitForDialog,
-	deleteSectionButton
+	waitForDialog
 } from './helpers';
 import { createUser, removeUserIfPresent } from './user-helpers';
+
+const SELF_NAME = /\((あなた|you)\)$/;
+const NOT_FOUND_HEADING_NAME = /^ページが見つかりません$|^Page not found$/;
 
 /**
  * エラーダイアログに `text` が出ていることを確かめて閉じる。
@@ -148,34 +149,20 @@ test.describe('ユーザー', () => {
 		}
 	});
 
-	test('最後の管理者は、権限を変えられず削除もできない', async ({ page }) => {
-		const users = (await send(page.request, 'get', '/admin/users')) as {
-			role: string;
-			username: string;
-		}[];
-		const admins = users.filter((user) => user.role === 'admin');
-		// 起動済みの開発用サーバーに当てるときは、管理者が複数いることがある。
-		test.skip(admins.length !== 1, '管理者が1人ではない');
-
-		// 一覧の⋮でも消せない。
+	test('自分の行は押せず、⋮も出さず、編集ページも開けない', async ({ page }) => {
+		// 自分はユーザー管理でなくアカウントのページで直す (→ docs/ui.md「管理画面のユーザーの一覧」)。
 		await page.goto('/admin/users');
-		const row = userRow(page, admins[0].username);
-		await row.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).click();
-		await expect(
-			page.getByRole('menu').getByRole('menuitem', { name: DELETE_MENU_ITEM_NAME })
-		).toBeDisabled();
-		await page.keyboard.press('Escape');
+		const row = page
+			.getByRole('row')
+			.filter({ has: page.getByTestId('user-username').and(page.getByText(SELF_NAME)) });
+		await expect(row).toHaveCount(1);
+		await expect(row.getByRole('link')).toHaveCount(0);
+		await expect(row.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME })).toHaveCount(0);
 
-		// 編集ページでは、権限を選べず、理由を出す。見出しの⋮でも消せない。
-		await row.click();
-		await page.waitForURL(/\/admin\/users\/\d+$/);
-		const roleForm = page.getByRole('form', { name: /^権限$|^Role$/ });
-		await expect(roleForm).toContainText(
-			/最後の管理者は降格も削除もできません|The last admin cannot be demoted or deleted/
-		);
+		const me = (await send(page.request, 'get', '/auth/me')) as { id: number };
+		await page.goto(`/admin/users/${me.id}`);
 		await expect(
-			roleForm.getByRole('radio', { name: /^一般ユーザー$|^Standard user$/ })
-		).toBeDisabled();
-		await expect(deleteSectionButton(page)).toBeDisabled();
+			page.getByRole('heading', { level: 1, name: NOT_FOUND_HEADING_NAME })
+		).toBeVisible();
 	});
 });

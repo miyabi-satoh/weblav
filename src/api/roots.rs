@@ -18,7 +18,7 @@ use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
-use crate::auth::AdminUser;
+use crate::auth::{AdminUser, ConfirmedAdmin};
 use crate::error::{AppError, AppJson, run_blocking};
 use crate::folder_reach::{OTHERS_WAIT, Reach, TARGET_WAIT};
 use crate::state::AppState;
@@ -160,7 +160,7 @@ struct CreateRootRequest {
 )]
 async fn create_root(
     _: LocalRequest,
-    _admin: AdminUser,
+    _admin: ConfirmedAdmin,
     State(state): State<AppState>,
     AppJson(payload): AppJson<CreateRootRequest>,
 ) -> Result<(StatusCode, Json<RootResponse>), AppError> {
@@ -331,7 +331,7 @@ struct RenameRootRequest {
     )
 )]
 async fn rename_root(
-    _admin: AdminUser,
+    _admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<RenameRootRequest>,
@@ -452,7 +452,7 @@ struct UserAccessRequest {
     )
 )]
 async fn update_root_access(
-    _admin: AdminUser,
+    _admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<UpdateRootAccessRequest>,
@@ -511,7 +511,7 @@ async fn update_root_access(
     )
 )]
 async fn delete_root(
-    _admin: AdminUser,
+    _admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Result<StatusCode, AppError> {
@@ -862,7 +862,7 @@ struct PickRootResponse {
 )]
 async fn pick_root(
     _: LocalRequest,
-    _admin: AdminUser,
+    _admin: ConfirmedAdmin,
     State(state): State<AppState>,
 ) -> Result<Json<PickRootResponse>, AppError> {
     let session = state
@@ -940,7 +940,7 @@ struct MoveRootRequest {
 )]
 async fn move_root(
     _: LocalRequest,
-    _admin: AdminUser,
+    _admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<MoveRootRequest>,
