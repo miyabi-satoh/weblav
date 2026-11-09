@@ -31,6 +31,7 @@ const NEW_PASSWORD_CONFIRM_LABEL = requiredLabel(
 const RESET_BUTTON_NAME = /^パスワードを再設定する$|^Reset password$/;
 const RECOVERY_SECTION_NAME = /^リカバリコード$|^Recovery code$/;
 const CREATED_ON_TEXT = /に作成しました|Created on /;
+const REPLACE_BUTTON_NAME = /^作り直す\.\.\.$|^Regenerate\.\.\.$/;
 const INVALID_RECOVERY_TEXT =
 	/ユーザー名またはリカバリコードが正しくありません|The username or recovery code is incorrect/;
 
@@ -127,6 +128,8 @@ test('編集者も、アカウントのページで作ったリカバリコー�
 		const code = await keepRecoveryCode(own);
 		// 作った日を出す。手元の控えの作成日時と見比べられるように。
 		await expect(section).toContainText(CREATED_ON_TEXT);
+		// 次に押すと、控えたばかりのコードを無効にする前に確かめる形になる。
+		await expect(section.getByRole('button', { name: REPLACE_BUTTON_NAME })).toBeVisible();
 
 		await context.clearCookies();
 		await own.goto('/recover');
