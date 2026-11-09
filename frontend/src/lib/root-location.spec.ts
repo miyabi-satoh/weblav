@@ -21,7 +21,6 @@ function content(fields: Partial<Content>): Content {
 		rootDeleted: false,
 		description: null,
 		fileName: null,
-		fileSize: null,
 		visibility: 'public',
 		createdBy: null,
 		createdByUsername: null,

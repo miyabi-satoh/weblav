@@ -520,7 +520,7 @@ async fn archive_view_follows_files_added_or_removed_since_the_last_scan(pool: S
 async fn a_folder_never_serves_the_data_dir_or_hidden_entries(pool: SqlitePool) {
     let base = temp_test_dir("serve-hidden");
     let data_dir = base.join("weblav");
-    std::fs::create_dir_all(data_dir.join("blobs")).expect("データ置き場を作れなかった");
+    std::fs::create_dir_all(data_dir.join("logs")).expect("データ置き場を作れなかった");
     std::fs::write(data_dir.join("weblav.db"), b"secret").expect("ファイルを作れなかった");
     std::fs::create_dir_all(base.join(".git")).expect("フォルダーを作れなかった");
     std::fs::write(base.join(".git").join("config"), b"x").expect("ファイルを作れなかった");
@@ -577,7 +577,7 @@ async fn a_folder_never_serves_the_data_dir_or_hidden_entries(pool: SqlitePool) 
 async fn a_root_may_contain_own_dirs_but_not_be_inside_them(pool: SqlitePool) {
     let base = root_dir("roots-data-ancestor");
     let data_dir = base.join("weblav");
-    std::fs::create_dir_all(data_dir.join("blobs")).expect("データ置き場を作れなかった");
+    std::fs::create_dir_all(data_dir.join("logs")).expect("データ置き場を作れなかった");
     let config_dir = base.join("config");
     std::fs::create_dir_all(&config_dir).expect("設定の置き場を作れなかった");
     let app = build_app(
@@ -610,7 +610,7 @@ async fn a_root_may_contain_own_dirs_but_not_be_inside_them(pool: SqlitePool) {
         }
     };
 
-    let (status, body) = register(data_dir.join("blobs")).await;
+    let (status, body) = register(data_dir.join("logs")).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     assert!(body.contains(r#""kind":"rootInsideOwnDirs""#), "{body}");
     let (status, body) = register(data_dir.clone()).await;
@@ -639,7 +639,7 @@ async fn a_root_may_contain_own_dirs_but_not_be_inside_them(pool: SqlitePool) {
 #[sqlx::test]
 async fn browse_rejects_a_folder_pointing_at_the_data_dir(pool: SqlitePool) {
     let data_dir = temp_test_dir("browse-denied-root");
-    let inside = data_dir.join("blobs");
+    let inside = data_dir.join("logs");
     std::fs::create_dir_all(&inside).expect("データ置き場を作れなかった");
     std::fs::write(inside.join("secret.txt"), b"x").expect("ファイルを作れなかった");
     // データ置き場の隣は普通に見えること (規則を広げすぎていないことの確認)。

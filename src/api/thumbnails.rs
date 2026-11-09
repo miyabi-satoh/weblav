@@ -72,7 +72,7 @@ pub(super) struct ImageSize {
 }
 
 /// 一覧の行に添える、プレビューのための情報。一覧ごとの型 (アーカイブのアイテム・フォルダーの
-/// エントリ・file コンテンツ) に同じ名前のフィールドで写す。
+/// エントリ・ショートカット) に同じ名前のフィールドで写す。
 pub(super) struct FilePreview {
     /// ページ内でプレビューする画像なら、その大きさ。
     pub(super) image: Option<ImageSize>,
@@ -83,7 +83,7 @@ pub(super) struct FilePreview {
 }
 
 /// ファイル `name` (中身は `path`、大きさは `size`) のプレビューの情報。
-/// 種類は `name` の拡張子で決める (file コンテンツの実体は拡張子を持たないため)。
+/// 種類は `name` の拡張子で決める。
 /// ブロッキング I/O なので `run_blocking` の中から呼ぶ。
 pub(super) fn file_preview(name: &str, path: &Path, size: u64) -> FilePreview {
     let image = is_image_file_name(name)
@@ -213,7 +213,7 @@ pub struct Thumbnails {
 }
 
 impl Thumbnails {
-    /// `dir` の作成は最初に縮小画像を作るときまで遅らせる (DB・blob と同じ)。
+    /// `dir` の作成は最初に縮小画像を作るときまで遅らせる。
     pub fn new(dir: PathBuf) -> Self {
         let permits = std::thread::available_parallelism().map_or(1, |n| (n.get() / 2).max(1));
         Self {
@@ -256,7 +256,7 @@ enum Cached {
 }
 
 /// `source` (配信の検証を通した実体のパス) の縮小画像を返す。
-/// `file_name` は拡張子の判定に使う (file コンテンツの実体は拡張子を持たないため)。
+/// `file_name` は拡張子の判定に使う。
 ///
 /// 元のファイルが変わるとキーが変わるので、ブラウザーには毎回 ETag で問い合わせさせる。
 /// 縮小画像を作れないファイルは 404 にして、画面にはファイルのアイコンを出させる。
@@ -346,8 +346,7 @@ fn if_none_match_contains(headers: &HeaderMap, etag: &HeaderValue) -> bool {
 
 /// 元のファイルの場所・大きさ・更新日時・拡張子と、縮小画像の作り方から決まるキー。
 /// どれかが変われば別のキーになるので、古い縮小画像を返さない。
-/// 拡張子は `file_name` から取る。file コンテンツの実体は中身が同じなら名前の違うファイルでも共有され、
-/// 縮小画像の作り方 (画像として読むか、OS にどの種類として頼むか) は拡張子で決まるため。
+/// 拡張子は `file_name` から取る。縮小画像の作り方 (画像として読むか、OS にどの種類として頼むか) は拡張子で決まるため。
 fn cache_key(source: &Path, file_name: &str) -> Result<String, AppError> {
     let metadata = std::fs::metadata(source)?;
     let modified = metadata
@@ -627,26 +626,6 @@ mod tests {
         );
         assert!(preview.thumbnail);
         assert!(!preview.is_text);
-    }
-
-    #[test]
-    fn file_preview_judges_the_kind_by_name_not_by_path() {
-        // file コンテンツの実体のように、拡張子の無い場所でも名前で画像と分かる。
-        let dir = temp_dir("thumbnails-blob");
-        let path = dir.join("blob");
-        RgbImage::new(10, 20)
-            .save_with_format(&path, ImageFormat::Png)
-            .expect("failed to write png");
-        let size = std::fs::metadata(&path).expect("failed to stat png").len();
-        assert_eq!(
-            file_preview("tall.png", &path, size).image,
-            Some(ImageSize {
-                width: 10,
-                height: 20
-            })
-        );
-        // 名前が画像でなければ、中身が画像でも大きさは読まない。
-        assert_eq!(file_preview("blob.bin", &path, size).image, None);
     }
 
     #[test]

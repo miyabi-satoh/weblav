@@ -133,23 +133,16 @@ async fn folder_thumbnail_anonymous_on_authenticated_folder_is_unauthorized(pool
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
-/// アップロードした画像も、ホームの一覧に大きさが載り、縮小画像を返す。
+/// 画像を指すショートカットも、ホームの一覧に大きさが載り、縮小画像を返す。
 #[sqlx::test]
-async fn uploaded_image_gets_size_in_home_list_and_thumbnail(pool: SqlitePool) {
+async fn shortcut_image_gets_size_in_home_list_and_thumbnail(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
-    let (app, blobs_dir) = test_app_with_blobs(pool.clone()).await;
+    let dir = temp_test_dir("thumbnail-shortcut");
+    let file = dir.join("photo.png");
+    std::fs::write(&file, png_bytes(120, 80)).expect("画像を書けなかった");
+    let id = insert_shortcut(&pool, "写真", &file, "public", None).await;
+    let app = test_app(pool).await;
     let cookie = login(app.clone(), "alice", "correct-password").await;
-
-    let png = png_bytes(120, 80);
-    let id = insert_file_content(
-        &pool,
-        &blobs_dir,
-        ("写真", "photo.png", &png),
-        None,
-        "public",
-        None,
-    )
-    .await;
 
     let (status, body) = send_empty(app.clone(), "GET", "/api/v1/contents", &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -159,7 +152,7 @@ async fn uploaded_image_gets_size_in_home_list_and_thumbnail(pool: SqlitePool) {
         .expect("一覧が配列でなかった")
         .iter()
         .find(|content| content["id"] == id)
-        .expect("アップロードしたファイルが一覧に無かった");
+        .expect("ショートカットが一覧に無かった");
     assert_eq!(
         file["image"],
         serde_json::json!({"width": 120, "height": 80})
@@ -174,53 +167,17 @@ async fn uploaded_image_gets_size_in_home_list_and_thumbnail(pool: SqlitePool) {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
-/// アップロードしたテキストは、ホームの一覧でテキストのビューアーに振り分けられる。
+/// グループの中の、画像を指すショートカットも、グループの一覧に大きさが載る。
 #[sqlx::test]
-async fn uploaded_text_file_is_marked_as_text_in_home_list(pool: SqlitePool) {
-    insert_user(&pool, "alice", "correct-password").await;
-    let (app, blobs_dir) = test_app_with_blobs(pool.clone()).await;
-    let cookie = login(app.clone(), "alice", "correct-password").await;
-
-    let id = insert_file_content(
-        &pool,
-        &blobs_dir,
-        ("設定", "config.yml", b"name: weblav\n"),
-        None,
-        "public",
-        None,
-    )
-    .await;
-
-    let (status, body) = send_empty(app, "GET", "/api/v1/contents", &cookie).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
-    let file = parsed
-        .as_array()
-        .expect("一覧が配列でなかった")
-        .iter()
-        .find(|content| content["id"] == id)
-        .expect("アップロードしたファイルが一覧に無かった");
-    assert_eq!(file["isText"], true, "{body}");
-}
-
-/// グループの中にアップロードした画像も、グループの一覧に大きさが載る。
-#[sqlx::test]
-async fn uploaded_image_gets_size_in_group_list(pool: SqlitePool) {
+async fn shortcut_image_gets_size_in_group_list(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;
     let group_id = insert_group_under(&pool, "アルバム", "authenticated", None).await;
-    let (app, blobs_dir) = test_app_with_blobs(pool.clone()).await;
+    let dir = temp_test_dir("thumbnail-shortcut-group");
+    let file = dir.join("photo.png");
+    std::fs::write(&file, png_bytes(60, 90)).expect("画像を書けなかった");
+    let id = insert_shortcut(&pool, "写真", &file, "public", Some(group_id)).await;
+    let app = test_app(pool).await;
     let cookie = login(app.clone(), "alice", "correct-password").await;
-
-    let png = png_bytes(60, 90);
-    let id = insert_file_content(
-        &pool,
-        &blobs_dir,
-        ("写真", "photo.png", &png),
-        Some(group_id),
-        "public",
-        None,
-    )
-    .await;
 
     let (status, body) = send_empty(
         app,
@@ -236,7 +193,7 @@ async fn uploaded_image_gets_size_in_group_list(pool: SqlitePool) {
         .expect("entries が配列でなかった")
         .iter()
         .find(|content| content["id"] == id)
-        .expect("アップロードしたファイルがグループの一覧に無かった");
+        .expect("ショートカットがグループの一覧に無かった");
     assert_eq!(
         file["image"],
         serde_json::json!({"width": 60, "height": 90})

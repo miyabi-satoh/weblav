@@ -42,7 +42,7 @@ pub(super) fn thumbnail(path: &Path, extension: &str, size: u32) -> Result<Dynam
             QLThumbnailGenerationRequestRepresentationTypes::Thumbnail,
         )
     };
-    // file コンテンツの実体は拡張子を持たないので、種類は元のファイル名から渡す。
+    // 候補を決めたのと同じ拡張子で、種類を渡す。
     if let Some(content_type) = UTType::typeWithFilenameExtension(&NSString::from_str(extension)) {
         unsafe { request.setContentType(Some(&content_type)) };
     }

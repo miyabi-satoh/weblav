@@ -45,7 +45,6 @@
 	let { contents, hasSharedFolders }: Props = $props();
 
 	// 種別による制限は持たない。ログイン済みなら全部作れる (→ docs/access.md「ロールと操作」)。
-	// ファイルは共有の中に置くので、ここでは作らない。前から登録してある file コンテンツは一覧に残る。
 	// `folder` の行はショートカットとして出す。ピッカーでファイルを選ぶと `shortcut` になる。ライブラリはここに出さない。
 	const CREATABLE_TYPES: ContentType[] = ['link', 'folder', 'group'];
 

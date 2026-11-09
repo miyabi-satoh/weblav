@@ -229,10 +229,7 @@ async fn download_backup(
     if !ticket.is_some_and(|t| t.admits(&query.ticket, now)) {
         return Err(AppError::NotFound);
     }
-    let snapshot = {
-        let _guard = state.contents_write_lock.lock().await;
-        archive::snapshot(&state.pool, &state.blobs_dir, &state.backup_work_dir).await?
-    };
+    let snapshot = archive::snapshot(&state.pool, &state.backup_work_dir).await?;
     let manifest = Manifest::now();
 
     let (reader, writer) = tokio::io::duplex(DOWNLOAD_BUFFER_BYTES);
@@ -373,7 +370,6 @@ pub(super) async fn restore_staged(state: &AppState, id: &str) -> Result<(), App
     let staged = state.restore_staging.take(id).ok_or(AppError::NotFound)?;
     let result = archive::restore(
         &state.pool,
-        &state.blobs_dir,
         &state.backup_work_dir,
         &staged.dir.path().join(UPLOAD_FILE_NAME),
         &staged.manifest,

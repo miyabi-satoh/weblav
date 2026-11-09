@@ -147,19 +147,14 @@ async fn links_file_in_an_archive_is_opened_by_its_item(pool: SqlitePool) {
     assert_eq!(json["links"][0]["url"], "https://example.com/", "{json}");
 }
 
-/// 取り込んだファイルは、一覧の行と同じく登録したタイトルをパンくずに出す。
+/// ショートカットは、一覧の行と同じく登録したタイトルをパンくずに出す。
 #[sqlx::test]
-async fn links_file_content_is_named_by_its_registered_title(pool: SqlitePool) {
-    let (app, blobs_dir) = test_app_with_blobs(pool.clone()).await;
-    let id = insert_file_content(
-        &pool,
-        &blobs_dir,
-        ("今朝のリンク", "a.links.toml", LINKS_TOML.as_bytes()),
-        None,
-        "public",
-        None,
-    )
-    .await;
+async fn links_file_shortcut_is_named_by_its_registered_title(pool: SqlitePool) {
+    let dir = temp_test_dir("links-file-shortcut");
+    let file = dir.join("a.links.toml");
+    std::fs::write(&file, LINKS_TOML).expect("一覧のファイルを書けなかった");
+    let id = insert_shortcut(&pool, "今朝のリンク", &file, "public", None).await;
+    let app = test_app(pool).await;
 
     let (status, body) = send_anon(app, "GET", &format!("/api/v1/contents/{id}/links")).await;
     assert_eq!(status, StatusCode::OK, "{body}");

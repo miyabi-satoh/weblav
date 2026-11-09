@@ -213,7 +213,7 @@
 				...(hit.path != null ? { path: hit.path } : {}),
 				...(hit.item != null ? { item: hit.item } : {})
 			};
-			// 一覧のファイルを入れているフォルダーの階層かアーカイブ。`file` コンテンツの一覧には無い。
+			// 一覧のファイルを入れているフォルダーの階層かアーカイブ。ショートカットの一覧には無い。
 			const container =
 				hit.containerTitle == null
 					? []

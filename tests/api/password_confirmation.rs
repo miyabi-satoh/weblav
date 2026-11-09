@@ -120,8 +120,7 @@ async fn admin_only_writes_require_a_fresh_confirmation(pool: SqlitePool) {
         "password_confirmation_required",
     );
 
-    let (status, body) =
-        send_empty(app, "POST", "/api/v1/admin/backup/ticket", &cookie).await;
+    let (status, body) = send_empty(app, "POST", "/api/v1/admin/backup/ticket", &cookie).await;
     assert_error(
         status,
         &body,

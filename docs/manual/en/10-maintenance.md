@@ -65,7 +65,7 @@ The version appears under “About WebLAV” at the bottom of the “Site settin
 
 Files inside shares are not deleted.
 
-**On Windows, settings and data are also deleted, including users, registered contents, and files registered in earlier versions.** If you will reinstall and continue using WebLAV, first make a backup as described in “Back up and restore” above.
+**On Windows, settings and data are also deleted, including users and registered contents.** If you will reinstall and continue using WebLAV, first make a backup as described in “Back up and restore” above.
 
 ## Where settings and data are stored
 

@@ -92,7 +92,6 @@
 	// 種類ごとの項目の区画の見出し。グループには種類ごとの項目が無い。
 	let specificTitle = $derived.by(() => {
 		if (content.type === 'link') return m.contents_edit_link_title();
-		if (content.type === 'file') return m.contents_edit_file_title();
 		if (content.type === 'folder') return m.contents_edit_folder_title();
 		if (content.type === 'shortcut') return m.contents_edit_shortcut_title();
 		return null;

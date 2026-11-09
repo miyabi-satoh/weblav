@@ -3,15 +3,12 @@
 //! zip の中身:
 //! - `manifest.json`: 作った版と日時 (`Manifest`)
 //! - `weblav.db`: DB の一貫したコピー (`VACUUM INTO`)
-//! - `blobs/<hash>`: file コンテンツの実体
 
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use sqlx::sqlite::{SqliteConnectOptions, SqliteConnection, SqlitePoolOptions};
 use sqlx::{Connection, SqlitePool};
 use zip::result::ZipError;
@@ -27,7 +24,6 @@ use crate::session::RevokedSessions;
 const FORMAT: u32 = 1;
 const MANIFEST_ENTRY: &str = "manifest.json";
 const DB_ENTRY: &str = "weblav.db";
-const BLOBS_PREFIX: &str = "blobs/";
 /// 目録として読む上限。目録は数百バイトなので、これを超えるものは目録ではない。
 const MAX_MANIFEST_BYTES: u64 = 64 * 1024;
 /// tower-sessions が作るセッションの表。戻さずに中身を消す。
@@ -153,22 +149,13 @@ pub(crate) fn remove_work_root(root: &Path) {
     }
 }
 
-/// zip に入れる DB と blob の写し。
+/// zip に入れる DB の写し。
 pub(super) struct Snapshot {
     dir: WorkDir,
-    blob_hashes: Vec<String>,
 }
 
-/// 今の DB と blob を写し取る。
-///
-/// 呼び出し側は `contents_write_lock` を持っていること。DB の写しと blob の集合を
-/// 同じ時点に揃えるため (持たないと、写した後に消された blob を入れ損ねる)。
-/// blob はハードリンクで写すので、鍵を持つ時間は blob の大きさによらず短い。
-pub(super) async fn snapshot(
-    pool: &SqlitePool,
-    blobs_dir: &Path,
-    work_root: &Path,
-) -> Result<Snapshot, AppError> {
+/// 今の DB を写し取る。`VACUUM INTO` は1つの読み取りの中で写すので、書き込みと並んでも一貫した写しになる。
+pub(super) async fn snapshot(pool: &SqlitePool, work_root: &Path) -> Result<Snapshot, AppError> {
     let root = work_root.to_path_buf();
     let dir = run_blocking(move || WorkDir::create(&root)).await??;
 
@@ -177,48 +164,7 @@ pub(super) async fn snapshot(
         .to_str()
         .ok_or_else(|| io::Error::other("the data directory path is not valid UTF-8"))?;
     sqlx::query!("VACUUM INTO ?", db_path).execute(pool).await?;
-
-    let blob_hashes = referenced_blobs(pool).await?;
-    let blobs_dir = blobs_dir.to_path_buf();
-    let snapshot = run_blocking(move || -> io::Result<Snapshot> {
-        let linked_dir = dir.path().join("blobs");
-        create_owner_only_dir(&linked_dir)?;
-        let mut kept = Vec::with_capacity(blob_hashes.len());
-        for hash in blob_hashes {
-            if !super::super::contents::is_valid_blob_hash(&hash) {
-                tracing::warn!(blob_hash = %hash, "blob_hash is not 64 hex digits; leaving it out of the backup");
-                continue;
-            }
-            let source = blobs_dir.join(&hash);
-            let target = linked_dir.join(&hash);
-            match std::fs::hard_link(&source, &target) {
-                Ok(()) => {}
-                Err(err) if err.kind() == io::ErrorKind::NotFound => {
-                    tracing::warn!(blob_hash = %hash, "blob file is missing; leaving it out of the backup");
-                    continue;
-                }
-                // ハードリンクを張れないファイルシステムでは、写しを取る。
-                Err(_) => {
-                    std::fs::copy(&source, &target)?;
-                }
-            }
-            kept.push(hash);
-        }
-        Ok(Snapshot {
-            dir,
-            blob_hashes: kept,
-        })
-    })
-    .await??;
-    Ok(snapshot)
-}
-
-async fn referenced_blobs(pool: &SqlitePool) -> Result<Vec<String>, sqlx::Error> {
-    sqlx::query_scalar!(
-        r#"SELECT DISTINCT blob_hash as "blob_hash!" FROM contents WHERE blob_hash IS NOT NULL"#
-    )
-    .fetch_all(pool)
-    .await
+    Ok(Snapshot { dir })
 }
 
 /// `snapshot` を zip にして `out` へ書く。書き終えた `out` を返す。
@@ -231,11 +177,6 @@ pub(super) fn write_zip<W: Write>(
     let deflated = SimpleFileOptions::default()
         .compression_method(CompressionMethod::Deflated)
         .large_file(true);
-    // ADR: blob は圧縮しない。画像・音声・動画・PDF は既に圧縮されていて、deflate し直しても
-    // 小さくならず時間だけ掛かるため。
-    let stored = SimpleFileOptions::default()
-        .compression_method(CompressionMethod::Stored)
-        .large_file(true);
 
     zip.start_file(MANIFEST_ENTRY, deflated)?;
     zip.write_all(&serde_json::to_vec_pretty(manifest)?)?;
@@ -245,12 +186,6 @@ pub(super) fn write_zip<W: Write>(
         &mut File::open(snapshot.dir.path().join(DB_ENTRY))?,
         &mut zip,
     )?;
-
-    let blobs_dir = snapshot.dir.path().join("blobs");
-    for hash in &snapshot.blob_hashes {
-        zip.start_file(format!("{BLOBS_PREFIX}{hash}"), stored)?;
-        io::copy(&mut File::open(blobs_dir.join(hash))?, &mut zip)?;
-    }
 
     let mut out = zip.finish()?.into_inner();
     out.flush()?;
@@ -282,13 +217,12 @@ pub(super) fn read_manifest(path: &Path) -> Result<Manifest, ReadError> {
     Ok(manifest)
 }
 
-/// `zip_path` のバックアップで、今の DB と blob を置き換える。消したセッションは `revoked` に登録する。
+/// `zip_path` のバックアップで、今の DB を置き換える。消したセッションは `revoked` に登録する。
 ///
 /// 呼び出し側は `users_write_lock` と `contents_write_lock` を持っていること。
-/// 置き換える途中で、利用者の操作や blob の後始末が割り込まないようにするため。
+/// 置き換える途中で、利用者の操作が割り込まないようにするため。
 pub(super) async fn restore(
     pool: &SqlitePool,
-    blobs_dir: &Path,
     work_root: &Path,
     zip_path: &Path,
     manifest: &Manifest,
@@ -298,31 +232,15 @@ pub(super) async fn restore(
     let dir = run_blocking(move || WorkDir::create(&root)).await??;
     let db_path = dir.path().join(DB_ENTRY);
 
-    // ADR: blob は今の置き場へ先に足す。同じ名前は同じ中身なので上書きの必要が無い。
-    // DB を置き換える前に失敗しても、今の DB から参照されていない blob が増えるだけで、
-    // それも下で消す (鍵を持っているので、アップロードの途中の blob を消すことは無い)。
-    let result = async {
-        let (zip, db, blobs) = (
-            zip_path.to_path_buf(),
-            db_path.clone(),
-            blobs_dir.to_path_buf(),
-        );
-        run_blocking(move || extract(&zip, &db, &blobs)).await??;
-        prepare_db(&db_path, manifest).await?;
-        replace_tables(pool, &db_path, revoked).await
-    }
-    .await;
-    remove_unreferenced_blobs(pool, blobs_dir).await;
-    result
+    let (zip, db) = (zip_path.to_path_buf(), db_path.clone());
+    run_blocking(move || extract_db(&zip, &db)).await??;
+    prepare_db(&db_path, manifest).await?;
+    replace_tables(pool, &db_path, revoked).await
 }
 
-/// DB を `db_out` へ、blob を `blobs_dir` へ取り出す。blob は名前と中身のハッシュが合うものだけを置く。
-fn extract(zip_path: &Path, db_out: &Path, blobs_dir: &Path) -> Result<(), ReadError> {
+/// DB を `db_out` へ取り出す。
+fn extract_db(zip_path: &Path, db_out: &Path) -> Result<(), ReadError> {
     let mut archive = ZipArchive::new(File::open(zip_path)?).map_err(zip_read_error)?;
-    // アップロードと同じ一時ディレクトリを使う。置き場へ rename するには同じファイルシステムに要るため。
-    let tmp_dir = blobs_dir.join("tmp");
-    create_owner_only_dir(blobs_dir)?;
-    create_owner_only_dir(&tmp_dir)?;
 
     let mut has_db = false;
     for index in 0..archive.len() {
@@ -336,58 +254,12 @@ fn extract(zip_path: &Path, db_out: &Path, blobs_dir: &Path) -> Result<(), ReadE
             let mut out = File::create_new(db_out)?;
             io::copy(&mut entry, &mut out).map_err(io_read_error)?;
             has_db = true;
-        } else if let Some(hash) = name.strip_prefix(BLOBS_PREFIX) {
-            if !super::super::contents::is_valid_blob_hash(hash) {
-                return Err(ReadError::Invalid);
-            }
-            extract_blob(&mut entry, hash, blobs_dir, &tmp_dir)?;
         }
     }
     if has_db {
         Ok(())
     } else {
         Err(ReadError::Invalid)
-    }
-}
-
-fn extract_blob(
-    entry: &mut impl Read,
-    hash: &str,
-    blobs_dir: &Path,
-    tmp_dir: &Path,
-) -> Result<(), ReadError> {
-    let dest = blobs_dir.join(hash);
-    if dest.exists() {
-        return Ok(());
-    }
-
-    let tmp = TempFile(tmp_dir.join(format!("restore-{}", super::super::random_hex::<16>()?)));
-    let mut file = File::create_new(&tmp.0)?;
-    let mut hasher = Sha256::new();
-    let mut buf = vec![0u8; 64 * 1024];
-    loop {
-        let read = entry.read(&mut buf).map_err(io_read_error)?;
-        if read == 0 {
-            break;
-        }
-        hasher.update(&buf[..read]);
-        file.write_all(&buf[..read])?;
-    }
-    drop(file);
-
-    if super::super::hex_encode(&hasher.finalize()) != hash {
-        return Err(ReadError::Invalid);
-    }
-    std::fs::rename(&tmp.0, &dest)?;
-    Ok(())
-}
-
-/// 置き場へ移す前の一時ファイル。移した後は元の名前が無いので、drop での削除は空振りする。
-struct TempFile(PathBuf);
-
-impl Drop for TempFile {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.0);
     }
 }
 
@@ -557,37 +429,4 @@ async fn copy_tables(
 /// SQLite の識別子として引用する。
 fn quote(name: &str) -> String {
     format!("\"{}\"", name.replace('"', "\"\""))
-}
-
-/// 置き換えた DB から参照されていない blob を消す。
-/// 失敗しても戻し自体は済んでいるので、ログに残すだけにする (`contents::gc_blob_if_unreferenced` と同じ)。
-async fn remove_unreferenced_blobs(pool: &SqlitePool, blobs_dir: &Path) {
-    let referenced: HashSet<String> = match referenced_blobs(pool).await {
-        Ok(hashes) => hashes.into_iter().collect(),
-        Err(err) => {
-            tracing::warn!(%err, "failed to list referenced blobs; unreferenced blobs are left");
-            return;
-        }
-    };
-    let blobs_dir = blobs_dir.to_path_buf();
-    let result = run_blocking(move || -> io::Result<()> {
-        for entry in std::fs::read_dir(&blobs_dir)? {
-            let entry = entry?;
-            let name = entry.file_name();
-            let Some(name) = name.to_str() else { continue };
-            if !super::super::contents::is_valid_blob_hash(name) || referenced.contains(name) {
-                continue;
-            }
-            if let Err(err) = std::fs::remove_file(entry.path()) {
-                tracing::warn!(%err, blob_hash = %name, "failed to remove an unreferenced blob");
-            }
-        }
-        Ok(())
-    })
-    .await;
-    match result {
-        Ok(Ok(())) => {}
-        Ok(Err(err)) => tracing::warn!(%err, "failed to remove unreferenced blobs"),
-        Err(err) => tracing::warn!(%err, "failed to remove unreferenced blobs"),
-    }
 }

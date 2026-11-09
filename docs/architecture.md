@@ -28,8 +28,6 @@
 - 循環参照の検出 (`WITH RECURSIVE ancestors`)、グループ削除時の
   「直下の子をルート直下へ昇格」 (実装済み: `validate_parent` /
   `delete_content`)。
-- `file` コンテンツの content-addressed blob ストレージと参照0件時の GC
-  (実装済み: `gc_blob_if_unreferenced`)。
 - Range リクエスト対応 (`ServeFile` 経由。実装済み: `serve_file_response`)。
 
 ### エラーの契約と表示言語
@@ -155,10 +153,10 @@ API のエラーは共通の envelope で返す。
 
 ## データモデルの全体像
 
-コンテンツは4種類 (`link` / `file` / `folder` / `group`) を
-`contents` テーブル1本で表す。`file` は新しく作れず、前から登録してあるものを読む・配る・題などを直す・消すだけ (ファイルは共有の中に置く。→ shares.md)。type ごとに必要なカラムだけを埋め、
+コンテンツは4種類 (`link` / `folder` / `shortcut` / `group`) を
+`contents` テーブル1本で表す。ファイルは共有の中に置き、`shortcut` で指す (→ shares.md・folders.md「ショートカット」)。type ごとに必要なカラムだけを埋め、
 「type ごとにどれが必須か」はアプリケーション層 (Rust) で検証する
-(既存の `url` / `path` / `blob_hash` と同じ方針)。
+(既存の `url` / `path` と同じ方針)。
 
 `folder` も `group` の配下に置ける (`parent_id` を持てる)。
 親になれるのは `group` だけ。
@@ -191,7 +189,7 @@ API のエラーは共通の envelope で返す。
 
 `contents` の `type` と `visibility` には `CHECK` 制約を置かない。
 SQLite では `CHECK` を後から変えられずテーブル再作成が要るのに対し、
-type ごとの必須カラムの検証 (`url` / `path` / `blob_hash`) は結局
+type ごとの必須カラムの検証 (`url` / `path`) は結局
 アプリケーション層が担うため、列挙値だけ DB 側に二重に持つ意味が薄い。
 
 **WebLAV はまだ配布していないため、移行すべき既存データが存在しない**。
@@ -222,13 +220,13 @@ type ごとの必須カラムの検証 (`url` / `path` / `blob_hash`) は結局
 -- contents (CHECK制約なし。一覧の表示の列と created_by は ALTER TABLE で追加する)
 CREATE TABLE contents (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    -- 'link' | 'file' | 'folder' | 'group' | 'shortcut'
+    -- 'link' | 'folder' | 'group' | 'shortcut'
     -- 値の検証はアプリケーション層で行う (→ 「既存テーブルの変更」)
     type TEXT NOT NULL,
     parent_id INTEGER REFERENCES contents (id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     url TEXT,          -- link のみ必須
-    path TEXT,         -- folder のみ必須。canonicalize済みの絶対パス
+    path TEXT,         -- folder と shortcut で必須。canonicalize済みの絶対パス
     description TEXT,
     -- 'public' | 'authenticated' | 'private' | 'hidden'。
     -- 親グループから継承する (→ access.md「祖先のグループを辿る」・「親が外れるときの公開範囲」)。private のグループの中は、その作成者の private だけ (→ access.md「作成者のみのグループ」)
@@ -238,9 +236,6 @@ CREATE TABLE contents (
     created_by INTEGER REFERENCES users (id),
     -- hidden にする前の公開範囲。トリガーが書き、hidden でなくなると消す (→ access.md「非表示のコンテンツ」)
     visibility_before_hidden TEXT,
-    blob_hash TEXT,    -- file のみ。SHA-256(64桁16進)。実体は blobs_dir/<hash>
-    file_name TEXT,    -- file のみ
-    file_size INTEGER, -- file のみ
     -- folder のみ。見せるものの絞り込み (→ folders.md「見せるものの絞り込み」)。1行に1つの glob。NULL なら絞らない
     include_patterns TEXT,
     exclude_patterns TEXT,
@@ -255,7 +250,6 @@ CREATE TABLE contents (
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
-CREATE INDEX idx_contents_blob_hash ON contents (blob_hash);
 CREATE INDEX idx_contents_parent_id ON contents (parent_id, id);
 CREATE INDEX idx_contents_created_by ON contents (created_by);
 

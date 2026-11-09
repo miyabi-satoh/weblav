@@ -13,7 +13,7 @@ import { withQuery } from '$lib/href';
 /**
  * `GET /api/v1/contents/{id}/download` へのリンク。
  *
- * `path` は folder コンテンツ配下の相対パス。file コンテンツでは省く。
+ * `path` は folder コンテンツ配下の相対パス。ショートカットでは省く。
  */
 export function contentDownloadHref(contentId: number, path?: string): string {
 	const base = `/api/v1/contents/${contentId}/download`;

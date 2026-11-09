@@ -18,14 +18,11 @@ pub struct AppState {
     pub login_rate_limiter: Arc<LoginRateLimiter>,
     /// リカバリコードでの再設定の試行を絞る (→ docs/access.md「リカバリコード」)。ログインとは別の枠。
     pub recovery_rate_limiter: Arc<LoginRateLimiter>,
-    /// ファイルアップロード型コンテンツの実体(content-addressed blob)を置くディレクトリ。
-    /// `AppDirs::blobs_dir()`。
-    pub blobs_dir: PathBuf,
     /// 画像の縮小画像の置き場と、同時に作る数の上限 (→ `api::thumbnails`)。
     pub thumbnails: Arc<crate::api::thumbnails::Thumbnails>,
     /// リンクのカードの画像の置き場と、同時に取りに行く数の上限 (→ `api::link_preview`)。
     pub link_previews: Arc<crate::api::link_preview::LinkPreviews>,
-    /// weblav 自身の置き場 (`AppDirs` の設定とデータ)。設定ファイル・DB・セッション鍵・blobが入る。
+    /// weblav 自身の置き場 (`AppDirs` の設定とデータ)。設定ファイル・DB・セッション鍵などが入る。
     /// ここ自身とその中は、共有の中にあっても登録先・一覧・配信に使わせない
     /// (→ `api::roots::OwnDirs`、docs/folders.md「共有」)。
     pub own_dirs: Vec<PathBuf>,
@@ -42,32 +39,26 @@ pub struct AppState {
     pub config_write_lock: Arc<Mutex<()>>,
     /// アップロード1件あたりの最大バイト数(`config.upload.max_size_mb`から算出)。`None` なら上限なし。
     /// multipartをストリーミングで受け取る際、この値を超えたら
-    /// `AppError::FileTooLarge` にする(サーバー全体の受付上限は`contents::router`側の
+    /// `AppError::FileTooLarge` にする(サーバー全体の受付上限は`shares::write::router`側の
     /// `DefaultBodyLimit`が別途担う。両者の役割分担はそちらのコメント参照)。
     pub max_upload_bytes: Option<u64>,
-    /// `contents`テーブルへの書き込みを直列化するための鍵。直列化が要る書き込みは次の2つ。
-    /// - blobの「実体確定(commit_blob)→DB書き込み→参照無しGC」。これが無いと、
-    ///   あるリクエストがGCの参照カウント確認(COUNT)をした直後に、別リクエストが
-    ///   同じハッシュのblobをcommit_blob済みでまだDB行を書いていないタイミングが挟まると、
-    ///   GC側が「参照0」と誤判定してその実体を削除してしまい、後から書かれるDB行が
-    ///   実体の無いものになる(TOCTOU)。
+    /// `contents`テーブルへの書き込みを直列化するための鍵。直列化が要る書き込みは次のとおり。
     /// - group階層の親付け替え(`validate_parent`の循環参照チェック→UPDATE)。
+    ///   `validate_parent`は「親の祖先を辿ってselfが含まれないか」を検証するだけの
+    ///   SELECTなので、検証とUPDATEの間に別リクエストの書き込みが挟まると、
+    ///   双方の検証が通った直後に両方がコミットされてA→B→Aのような循環が
+    ///   出来てしまう(SQLiteのDEFERREDトランザクションはSELECT時点では
+    ///   書き込みロックを取らないため、アプリ側で直列化する必要がある)。
+    /// - 作成と削除。親の検証の後、書き込む前に親が消えると外部キー制約違反 (500) になるため。
+    ///   軸の追加・更新・削除・値の辞書の一括更新も、同じ理由で
+    ///   アーカイブの存在確認から書き込みまでをこの鍵で直列化する。
+    ///   値の辞書の一括更新は、公開範囲の判定 (他人の`private`なら
+    ///   404) から書き込みまでをこの鍵の内側で行う。判定の後に公開範囲が変わるのを防ぐため。
     ///
-    /// `validate_parent`は「親の祖先を辿ってselfが含まれないか」を検証するだけの
-    /// SELECTなので、検証とUPDATEの間に別リクエストの書き込みが挟まると、
-    /// 双方の検証が通った直後に両方がコミットされてA→B→Aのような循環が
-    /// 出来てしまう(SQLiteのDEFERREDトランザクションはSELECT時点では
-    /// 書き込みロックを取らないため、アプリ側で直列化する必要がある)。
     /// admin操作の頻度を考えると、目的が違う書き込み同士が互いを待たされても
-    /// 無視できるオーバーヘッドであり、鍵を2つに分けてロック順序を管理する複雑さを
-    /// 避けるために1本化してある。ストリーミング受信自体はこの鍵の外で行うため、
-    /// 大きいファイルの受信中に他の書き込みをブロックすることはない。単一プロセス内
-    /// のみで意味を持つ(`SqlitePool`同様、複数プロセスでの共有運用は想定していない)。
-    /// 作成もこの鍵で削除と直列化する。親の検証の後、書き込む前に親が消えると外部キー制約
-    /// 違反 (500) になるため。軸の追加・更新・削除・値の辞書の一括更新も、同じ理由で
-    /// アーカイブの存在確認から書き込みまでをこの鍵で直列化する。
-    /// 値の辞書の一括更新は、公開範囲の判定 (他人の`private`なら
-    /// 404) から書き込みまでをこの鍵の内側で行う。判定の後に公開範囲が変わるのを防ぐため。
+    /// 無視できるオーバーヘッドであり、鍵を分けてロック順序を管理する複雑さを
+    /// 避けるために1本化してある。単一プロセス内のみで意味を持つ
+    /// (`SqlitePool`同様、複数プロセスでの共有運用は想定していない)。
     pub contents_write_lock: Arc<Mutex<()>>,
     /// アーカイブごとの走査の排他 (→ docs/archive.md「スキャン」)。
     pub archive_scans: Arc<ArchiveScans>,

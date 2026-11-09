@@ -231,7 +231,7 @@ Smart App Control も、Store の署名がある MSIX を許可する範囲に�
 ### 設定とデータの置き場所
 
 - `%APPDATA%`・`%LOCALAPPDATA%` に書いたものは、パッケージごとの場所 (`%LOCALAPPDATA%\Packages\<パッケージ名>\LocalCache\{Roaming,Local}`) に回される (実機で確認)。
-  - アンインストールで、設定とデータ (DB・アップロードしたファイル) は尋ねられずに消える。
+  - アンインストールで、設定とデータ (DB など) は尋ねられずに消える。
 - 消えるのは Store アプリの普通の動きなので、置き場所は変えずに受け入れる。アンインストールの前にバックアップ (→ access.md「バックアップとリストア」) が要ることは、マニュアルの「運用する」で伝える。
   - 仮想化を外す `unvirtualizedResources` は、資料で PC ゲーム向けとされ、ほかの用途は想定されていない ([App capability declarations](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/app-capability-declarations))。Store の審査を通らない見込みなので使わない。
   - `AppData` の外に置けば回されないが、Windows の普通の置き場所から外れ、アンインストールしても残り続けるので採らない。

@@ -1,28 +1,23 @@
-//! コンテンツ(リンク/フォルダー/アップロードファイル/グループ)のCRUD API、および
-//! folder/file/groupコンテンツの閲覧・配信API。
+//! コンテンツ(リンク/フォルダー/ショートカット/グループ)のCRUD API、および
+//! folder/shortcut/groupコンテンツの閲覧・配信API。
 //!
 //! `type = 'group'` は仮想フォルダーで、`parent_id`(自己参照)により無制限にネストできる。
 //! 親に指定できるのは`group`のみ(`folder`はFS上の実ディレクトリを指すコンテナであり、
 //! その「子」はDB行ではなくFSのエントリなので、DB階層の親にはなれない)。循環参照は
 //! `validate_parent`で拒否する。
 //!
-//! `file` の実体は `AppState::blobs_dir` 配下にSHA-256ハッシュ名で保存する
-//! (content-addressed storage、重複排除)。新しく作る口と実体の差し替えはもう無い (ファイルは共有の中に置く。
-//! → `api::shares`)。前から登録してあるものは、読む・配る・題などを直す (`PUT /contents/{id}/upload`) ・消すができる。
-//! JSONの `create_content`/`update_content` は`file`以外を扱う(`file`が来たら422にする)。
-//!
 //! `shortcut` は、共有の中の1つのファイルを `path` で指す (→ docs/folders.md「ショートカット」)。
-//! 閲覧の場には `file` と同じ形で返すので、一覧の開き方は画面で分かれない。
+//! 閲覧の場にはファイルの行 (`ContentResponse::File`) として返す。
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path as FsPath, PathBuf};
 
 use axum::Json;
-use axum::extract::{Multipart, Path, Query, Request, State};
+use axum::extract::{Path, Query, Request, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
-use serde::{Deserialize, Serialize, de::IntoDeserializer};
+use serde::{Deserialize, Serialize};
 use tower::ServiceExt;
 use tower_http::services::ServeFile;
 use utoipa::{IntoParams, ToSchema};
@@ -35,7 +30,7 @@ use super::schedule::{AutoMode, AutoRefresh, parse_auto_refresh};
 use super::search::FieldKind;
 use super::sort::{SortOrder, SortQuery, title_cmp};
 use crate::auth::{AuthUser, ConfirmedAdmin, Viewer};
-use crate::error::{AppError, AppJson, multipart_error_to_app_error, run_blocking};
+use crate::error::{AppError, AppJson, run_blocking};
 use crate::state::AppState;
 
 /// `contents.type`。管理画面のレスポンスにもそのまま `type` として載せるため、
@@ -46,7 +41,6 @@ use crate::state::AppState;
 pub enum ContentType {
     Link,
     Folder,
-    File,
     Group,
     /// 共有の中のファイルを指すショートカット。フォルダーを指すものは `Folder` のまま
     /// (ライブラリに切り替えられるのはフォルダーだけなので、一覧の表示の読み手を増やさないため)。
@@ -310,10 +304,6 @@ struct ContentRow {
     description: Option<String>,
     /// 「新しい順」の並べ替えに使う (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。レスポンスには出さない。
     created_at: String,
-    // `blob_hash`は選択しない: `ContentResponse`/`AdminContentResponse`のどちらも
-    // 公開しない内部実装detail(delete/replace時のGCは別途ad-hocなクエリで取得する)。
-    file_name: Option<String>,
-    file_size: Option<i64>,
     visibility: Visibility,
     created_by: Option<i64>,
     /// `type = 'folder'` で見せるファイルのパターン。1行に1つ (→ `file_filter`)。
@@ -366,6 +356,8 @@ pub enum ContentResponse {
         /// 一覧の表示 (軸で絞り込む平らな一覧) を使うか。使うなら、閲覧の入口はそちらを開く。
         list_view: bool,
     },
+    /// 共有の中のファイルを指すショートカット (`ContentType::Shortcut`)。閲覧の場では、フォルダーの中のファイルと同じく
+    /// ファイルとして見せる (フォルダーを指すものが `Folder` で返るのと同じく、指す先の種類で返す)。
     #[serde(rename_all = "camelCase")]
     File {
         id: i64,
@@ -373,9 +365,10 @@ pub enum ContentResponse {
         description: Option<String>,
         private: bool,
         can_edit: bool,
-        /// ダウンロード時のファイル名。ダウンロードURL自体は`id`ベース
+        /// 先のファイルの名前。ダウンロードURL自体は`id`ベース
         /// (`/contents/{id}/download`)なので、これは表示・保存名のヒント用。
         file_name: String,
+        /// 先のファイルの大きさ。一覧でだけ埋める (ほかは0)。
         file_size: i64,
         /// ページ内でプレビューする画像なら、その大きさ (→ docs/ui.md「画像のプレビュー」)。
         /// 一覧 (`list_contents`・`browse_group`) でだけ埋める。
@@ -438,28 +431,7 @@ impl ContentResponse {
                 can_edit,
                 list_view: row.list_view,
             }),
-            ContentType::File => {
-                let file_name = row
-                    .file_name
-                    .ok_or(AppError::DataIntegrity("file content without a file_name"))?;
-                let file_size = row
-                    .file_size
-                    .ok_or(AppError::DataIntegrity("file content without a file_size"))?;
-                Ok(ContentResponse::File {
-                    id: row.id,
-                    title: row.title,
-                    description: row.description,
-                    private,
-                    can_edit,
-                    file_name,
-                    file_size,
-                    image: None,
-                    is_text: false,
-                    thumbnail: false,
-                    missing: false,
-                })
-            }
-            // 閲覧の場ではファイルと同じに扱う。大きさとプレビューは `with_previews` で埋める。
+            // 大きさとプレビューは `with_previews` で埋める。
             ContentType::Shortcut => {
                 let path = row
                     .path
@@ -518,9 +490,8 @@ pub struct AdminContentResponse {
     /// 「(見つからない共有)」と出す。`root_name` が `None` なら `false`。
     pub root_deleted: bool,
     pub description: Option<String>,
-    /// `type = 'file'` と `type = 'shortcut'` の場合のみ`Some`。`blob_hash`(内部実装detail)は含めない。
+    /// `type = 'shortcut'` の場合のみ`Some`。先のファイルの名前。
     pub file_name: Option<String>,
-    pub file_size: Option<i64>,
     pub visibility: Visibility,
     /// 作成者のユーザーid。`None`なら作成者なし (→ docs/access.md「公開範囲」)。
     pub created_by: Option<i64>,
@@ -562,7 +533,7 @@ impl AdminContentResponse {
         };
         let file_name = match (row.content_type, row.path.as_deref()) {
             (ContentType::Shortcut, Some(path)) => Some(shortcut_file_name(path)),
-            _ => row.file_name,
+            _ => None,
         };
         Self {
             id: row.id,
@@ -576,7 +547,6 @@ impl AdminContentResponse {
             root_deleted,
             description: row.description,
             file_name,
-            file_size: row.file_size,
             visibility: row.visibility,
             created_by: row.created_by,
             created_by_username,
@@ -1023,7 +993,7 @@ async fn list_contents(
     let mut rows = sqlx::query_as!(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
-                  description, created_at as "created_at!", file_name, file_size,
+                  description, created_at as "created_at!",
                   visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                   list_view as "list_view: bool",
                   auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
@@ -1061,7 +1031,7 @@ async fn list_admin_contents(
     let rows = sqlx::query_as!(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
-                  description, created_at as "created_at!", file_name, file_size,
+                  description, created_at as "created_at!",
                   visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                   list_view as "list_view: bool",
                   auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
@@ -1249,7 +1219,7 @@ pub(super) async fn list_path_on_home(
     let row = sqlx::query_as!(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url,
-                  path, description, created_at as "created_at!", file_name, file_size,
+                  path, description, created_at as "created_at!",
                   visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                   list_view as "list_view: bool",
                   auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
@@ -1283,18 +1253,12 @@ async fn insert_content(
             None,
             Some(validate_shortcut_path(state, user, new.path.as_deref(), None).await?),
         ),
-        // ファイルは共有の中に置く (→ `api::shares`)。file コンテンツは新しく作らない。
-        ContentType::File => {
-            return Err(AppError::Validation(
-                "file contents can no longer be created; upload into a share instead".to_string(),
-            ));
-        }
         ContentType::Group => (None, None),
     };
     let derived_title = match new.content_type {
         ContentType::Link => new.link_title,
         ContentType::Folder | ContentType::Shortcut => path.as_deref().map(title_from_path),
-        ContentType::File | ContentType::Group => None,
+        ContentType::Group => None,
     };
     let title =
         resolve_create_title(&state.pool, parent_id, new.title.as_deref(), derived_title).await?;
@@ -1307,7 +1271,7 @@ async fn insert_content(
                                   visibility, created_by)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
-                     path, description, created_at as "created_at!", file_name, file_size,
+                     path, description, created_at as "created_at!",
                      visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                      list_view as "list_view: bool",
                      auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
@@ -1500,12 +1464,6 @@ async fn update_content(
             None,
             None,
         ),
-        // fileはJSONではなくmultipart専用エンドポイント(replace_content_upload)で更新する。
-        ContentType::File => {
-            return Err(AppError::Validation(
-                "use PUT /contents/{id}/upload to update a file content".to_string(),
-            ));
-        }
         ContentType::Group => (None, None, None, None, None),
     };
     let is_folder = existing_type == ContentType::Folder;
@@ -1541,7 +1499,7 @@ async fn update_content(
                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
            WHERE id = ?
            RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
-                     path, description, created_at as "created_at!", file_name, file_size,
+                     path, description, created_at as "created_at!",
                      visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                      list_view as "list_view: bool",
                      auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
@@ -1645,7 +1603,7 @@ async fn set_creator(
            SET created_by = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
            WHERE id = ?
            RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
-                     path, description, created_at as "created_at!", file_name, file_size,
+                     path, description, created_at as "created_at!",
                      visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                      list_view as "list_view: bool",
                      auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
@@ -1717,81 +1675,16 @@ async fn delete_content(
     .execute(&mut *tx)
     .await?;
 
-    // `type`/`blob_hash`をRETURNINGで受け取り、file行なら削除後にblobのGCを行う。
-    let deleted = sqlx::query!(
-        r#"DELETE FROM contents WHERE id = ?
-           RETURNING type as "content_type: ContentType", blob_hash"#,
-        id
-    )
-    .fetch_optional(&mut *tx)
-    .await?
-    .ok_or(AppError::NotFound)?;
+    let deleted = sqlx::query!("DELETE FROM contents WHERE id = ?", id)
+        .execute(&mut *tx)
+        .await?;
+    if deleted.rows_affected() == 0 {
+        return Err(AppError::NotFound);
+    }
 
     tx.commit().await?;
 
-    if deleted.content_type == ContentType::File
-        && let Some(hash) = deleted.blob_hash
-    {
-        gc_blob_if_unreferenced(&state, &hash).await;
-    }
-
     Ok(StatusCode::NO_CONTENT)
-}
-
-/// `hash`を参照する行が(このDELETE/UPDATEを確定させた後で)他に残っていなければ、
-/// 対応するblobファイルを削除する。呼び出し側は必ずDBの変更を確定させた**後**に呼ぶこと
-/// (確定前に呼ぶと、削除/更新対象自身の古い参照がまだ残っていて「参照あり」に
-/// 誤判定してしまう)。
-///
-/// あくまでベストエフォートの後始末なので、失敗しても呼び出し元(DELETE/PUT)を
-/// 失敗させない(戻り値が無いのはそのため)。DBの変更は既に確定しているため、ここで
-/// 5xxを返すと「成功したはずの操作が失敗したように見える」上に、失敗を見た管理者が
-/// 同じDELETEを再試行すると今度は404になって余計混乱させる。ファイルが既に存在しない
-/// 場合(孤立blobの手動削除・クラッシュ後の再実行等)や削除自体に失敗した場合
-/// (Windowsでダウンロード配信中に共有違反になる等)は孤立blobとしてログに警告を残すだけ
-/// にする(孤立blobは`AppState::blobs_dir`配下に残るだけの「無害」な状態であり、
-/// 後から手動/別ツールで掃除できる)。
-async fn gc_blob_if_unreferenced(state: &AppState, hash: &str) {
-    if !is_valid_blob_hash(hash) {
-        tracing::warn!(
-            blob_hash = %hash,
-            "blob_hash is not 64 hex digits; skipping GC (the database may have been modified directly)"
-        );
-        return;
-    }
-
-    let remaining = match sqlx::query_scalar!(
-        r#"SELECT COUNT(*) as "count!" FROM contents WHERE blob_hash = ?"#,
-        hash
-    )
-    .fetch_one(&state.pool)
-    .await
-    {
-        Ok(remaining) => remaining,
-        Err(err) => {
-            tracing::warn!(
-                %err,
-                blob_hash = %hash,
-                "failed to count blob references; the blob is left orphaned"
-            );
-            return;
-        }
-    };
-
-    if remaining != 0 {
-        return;
-    }
-
-    let path = state.blobs_dir.join(hash);
-    if let Err(err) = tokio::fs::remove_file(&path).await
-        && err.kind() != std::io::ErrorKind::NotFound
-    {
-        tracing::warn!(
-            %err,
-            blob_hash = %hash,
-            "failed to delete unreferenced blob; the blob is left orphaned"
-        );
-    }
 }
 
 // --- folder コンテンツ配下の閲覧・配信 ---
@@ -1960,9 +1853,7 @@ pub(super) fn reject_traversal_components(rel: &str) -> Result<(), AppError> {
 /// **folderの登録先(および祖先ディレクトリ)に書き込めるのは、信頼できる人に限ること。**
 /// NAS の共有を登録するときは、その共有に書き込める人もここに入る (→ docs/folders.md「NAS と外付けのディスク」)。
 /// 信頼できない人が書き込める場所を公開する必要が出たら、この制限の解消(上記の再設計)が
-/// 必須になる。なお`file`コンテンツ(アップロード)はこのTOCTOUの
-/// 対象外: 実体は`blobs_dir`配下にweblavプロセス自身だけが書くcontent-addressedな
-/// 領域にあり、folderのような「外部が管理する共有ディレクトリ」を覗くものではないため。
+/// 必須になる。
 ///
 /// `filter_of` はフォルダーのコンテンツの id で、そのフォルダーの絞り込みで外れるもの
 /// (→ `file_filter`) も、一覧に出さないものと同じく 404 にする。登録先そのものは開ける。
@@ -2230,7 +2121,7 @@ async fn browse_group(
     let mut rows = sqlx::query_as!(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
-                  description, created_at as "created_at!", file_name, file_size,
+                  description, created_at as "created_at!",
                   visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                   list_view as "list_view: bool",
                   auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
@@ -2268,8 +2159,8 @@ async fn browse_group(
     }))
 }
 
-/// 一覧に並ぶ file コンテンツとショートカットに、ページ内で見せるための情報 (画像の大きさ・テキストか) を埋める。
-/// `ContentRow` は `blob_hash` を持たないので、並んだ分をまとめて引き直す。
+/// 一覧に並ぶショートカットに、ページ内で見せるための情報 (大きさ・画像の大きさ・テキストか) を埋める。
+/// `ContentResponse` は `path` を持たないので、並んだ分をまとめて引き直す。
 async fn with_previews(
     state: &AppState,
     mut contents: Vec<ContentResponse>,
@@ -2296,22 +2187,19 @@ async fn with_previews(
         })
         .collect();
     let file_ids_json = serde_json::to_string(&file_ids).expect("数の並びは JSON にできる");
-    let sources: HashMap<i64, (Option<String>, Option<String>)> = sqlx::query!(
-        r#"SELECT id as "id!", blob_hash, path FROM contents
-           WHERE id IN (SELECT value FROM json_each(?)) AND type IN ('file', 'shortcut')"#,
+    let paths: HashMap<i64, String> = sqlx::query!(
+        r#"SELECT id as "id!", path as "path!" FROM contents
+           WHERE id IN (SELECT value FROM json_each(?)) AND type = 'shortcut' AND path IS NOT NULL"#,
         file_ids_json,
     )
     .fetch_all(&state.pool)
     .await?
     .into_iter()
-    .map(|row| (row.id, (row.blob_hash, row.path)))
+    .map(|row| (row.id, row.path))
     .collect();
 
     // つながらない NAS のショートカットは、一覧全体を待たせずに飛ばす (検索と同じ)。
-    let shortcut_paths: Vec<&str> = sources
-        .values()
-        .filter_map(|(_, path)| path.as_deref())
-        .collect();
+    let shortcut_paths: Vec<&str> = paths.values().map(String::as_str).collect();
     let reachable: HashMap<String, bool> = shortcut_paths
         .iter()
         .map(|path| path.to_string())
@@ -2321,38 +2209,24 @@ async fn with_previews(
         )
         .collect();
 
-    // 実体と大きさ (`None` は読みに行く)。先が無いショートカットは、読むものが無いので別に持つ。
+    // 先のファイル。先が無いショートカットは、読むものが無いので別に持つ。
     let mut targets = Vec::new();
     let mut missing_rows = Vec::new();
     for (index, content) in contents.iter().enumerate() {
-        let ContentResponse::File {
-            id,
-            file_name,
-            file_size,
-            ..
-        } = content
-        else {
+        let ContentResponse::File { id, file_name, .. } = content else {
             continue;
         };
-        let (hash, path) = sources.get(id).cloned().unwrap_or_default();
-        if let Some(path) = path {
-            if !reachable.get(&path).copied().unwrap_or(false) {
-                continue;
-            }
-            match resolve_shortcut_file(state, &path).await {
-                Ok(file) => targets.push((index, file.path, file_name.clone(), None)),
-                Err(AppError::NotFound) => missing_rows.push(index),
-                Err(err) => return Err(err),
-            }
+        let Some(path) = paths.get(id) else {
+            continue;
+        };
+        if !reachable.get(path).copied().unwrap_or(false) {
             continue;
         }
-        let hash = hash.ok_or(AppError::DataIntegrity("file content without a blob_hash"))?;
-        targets.push((
-            index,
-            blob_path(state, *id, &hash)?,
-            file_name.clone(),
-            Some(u64::try_from(*file_size).unwrap_or(u64::MAX)),
-        ));
+        match resolve_shortcut_file(state, path).await {
+            Ok(file) => targets.push((index, file.path, file_name.clone())),
+            Err(AppError::NotFound) => missing_rows.push(index),
+            Err(err) => return Err(err),
+        }
     }
     for index in missing_rows {
         if let ContentResponse::File { missing, .. } = &mut contents[index] {
@@ -2366,9 +2240,9 @@ async fn with_previews(
     let previews = run_blocking(move || {
         targets
             .into_iter()
-            .map(|(index, path, file_name, size)| {
-                let size = size
-                    .or_else(|| std::fs::metadata(&path).ok().map(|metadata| metadata.len()))
+            .map(|(index, path, file_name)| {
+                let size = std::fs::metadata(&path)
+                    .map(|metadata| metadata.len())
                     .unwrap_or_default();
                 let preview = super::thumbnails::file_preview(&file_name, &path, size);
                 (index, size, preview)
@@ -2536,7 +2410,7 @@ pub(super) struct ContentSearch {
     pub(super) archives: Vec<super::archive_items::SearchableArchive>,
     /// 閲覧者が一覧で見られるフォルダー。フォルダーの中の区画は、この中から探す。
     pub(super) folders: Vec<super::folder_search::SearchableFolder>,
-    /// 閲覧者が一覧で見られる、リンクの一覧のファイルの `file` コンテンツ。
+    /// 閲覧者が一覧で見られる、リンクの一覧のファイルを指すショートカット。
     pub(super) links_files: Vec<super::folder_search::LinksFileContent>,
 }
 
@@ -2553,7 +2427,7 @@ pub(super) async fn search_contents(
     let rows = sqlx::query_as!(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
-                  description, created_at as "created_at!", file_name, file_size,
+                  description, created_at as "created_at!",
                   visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                   list_view as "list_view: bool",
                   auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
@@ -2616,18 +2490,6 @@ pub(super) async fn search_contents(
                     row.path.clone(),
                     group_lineage(&groups, row.parent_id),
                 )),
-                ContentType::File
-                    if row
-                        .file_name
-                        .as_deref()
-                        .is_some_and(super::links_file::is_links_file_name) =>
-                {
-                    links_files.push(super::folder_search::LinksFileContent {
-                        id: row.id,
-                        title: row.title.clone(),
-                        ancestors: group_lineage(&groups, row.parent_id),
-                    });
-                }
                 ContentType::Shortcut
                     if row
                         .path
@@ -2759,10 +2621,7 @@ pub(super) fn content_disposition_header(disposition: &str, file_name: &str) -> 
 
 /// `target`を`ServeFile`(ストリーミング・Rangeリクエスト対応)で配信し、
 /// `Content-Disposition`をホワイトリスト方式で上書きしたレスポンスを組み立てる。
-/// folder配下のファイルとfileコンテンツ(blob)の両方から共通で使う。
-/// `mime`は呼び出し側が決める(folderは実ファイルパスから、fileは保存済みファイル名から
-/// 推測する。blobのパス自体は拡張子を持たないため、blobのパスから推測すると
-/// 常に`application/octet-stream`になってしまう)。
+/// `mime`は呼び出し側が決める。
 async fn serve_file_response(
     target: &FsPath,
     file_name: &str,
@@ -2849,9 +2708,9 @@ pub(super) async fn resolve_file_under(
     ServedFile::from_file(target).await
 }
 
-/// folder配下のファイル、またはfileコンテンツの実体(blob)を配信する。
+/// folder配下のファイル、またはショートカットの先のファイルを配信する。
 /// そのコンテンツを開けるなら (`ensure_openable`) ダウンロードできる。
-/// `query.path`はfolderの場合のみ使う(fileは`id`だけで実体が一意に決まる)。
+/// `query.path`はfolderの場合のみ使う(shortcutは`id`だけで先が一意に決まる)。
 #[utoipa::path(
     get,
     path = "/contents/{id}/download",
@@ -2896,7 +2755,7 @@ async fn thumbnail_content(
     file.thumbnail(&state, &headers).await
 }
 
-/// `id` のコンテンツが指す実体。folder は `rel` で配下のファイルを、file は blob を、shortcut は先のファイルを指す。
+/// `id` のコンテンツが指す実体。folder は `rel` で配下のファイルを、shortcut は先のファイルを指す。
 pub(super) async fn content_file(
     state: &AppState,
     viewer: &Viewer,
@@ -2904,7 +2763,7 @@ pub(super) async fn content_file(
     rel: &str,
 ) -> Result<ServedFile, AppError> {
     let row = sqlx::query!(
-        r#"SELECT type as "content_type: ContentType", path, blob_hash, file_name
+        r#"SELECT type as "content_type: ContentType", path
            FROM contents WHERE id = ?"#,
         id
     )
@@ -2927,258 +2786,7 @@ pub(super) async fn content_file(
                 .ok_or(AppError::DataIntegrity("shortcut content without a path"))?;
             resolve_shortcut_file(state, &path).await
         }
-        ContentType::File => {
-            let hash = row
-                .blob_hash
-                .ok_or(AppError::DataIntegrity("file content without a blob_hash"))?;
-            let file_name = row
-                .file_name
-                .ok_or(AppError::DataIntegrity("file content without a file_name"))?;
-            let target = blob_path(state, id, &hash)?;
-
-            if !path_is_file(&target).await? {
-                // rowはあるのに実体が無い(想定外)。管理者の手動操作・バグ等の可能性が
-                // あるため、パストラバーサル対策の404とは別にログに残す。
-                tracing::error!(
-                    content_id = id,
-                    blob_hash = %hash,
-                    "blob for file content not found"
-                );
-                return Err(AppError::NotFound);
-            }
-
-            // mimeはblobのパス(拡張子を持たない)ではなく、保存済みの元ファイル名から推測する。
-            Ok(ServedFile {
-                path: target,
-                file_name,
-            })
-        }
     }
-}
-
-/// file コンテンツの実体 (blob) のパス。
-fn blob_path(state: &AppState, id: i64, hash: &str) -> Result<PathBuf, AppError> {
-    // DBの`blob_hash`をファイルパスに結合する前の多層防御(`is_valid_blob_hash`
-    // 参照)。通常のAPI経路では常に正当な値のはずなので、ここに来るのは
-    // DBが直接改変された場合のみ。
-    if !is_valid_blob_hash(hash) {
-        tracing::error!(
-            content_id = id,
-            blob_hash = %hash,
-            "blob_hash is not 64 hex digits (the database may have been modified directly)"
-        );
-        return Err(AppError::NotFound);
-    }
-    Ok(state.blobs_dir.join(hash))
-}
-
-/// `blob_hash`が想定形式(SHA-256を`hex_encode`した64桁の小文字16進文字列)かどうかを
-/// 検証する。通常のAPI経路(`commit_blob`が書き込む値)では常にこの形式になるはずだが、
-/// DBの値をファイルパスに結合する前の多層防御として、DBから読んだ`blob_hash`を使う
-/// 箇所(GC・ダウンロード)ではこれで検証してから使う。DBが直接改変され
-/// `../../etc/passwd`等の不正な値が入っていた場合でも、`blobs_dir`外を指すパスの
-/// 組み立てに使わせない。
-pub(super) fn is_valid_blob_hash(hash: &str) -> bool {
-    hash.len() == 64
-        && hash
-            .bytes()
-            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-}
-
-/// アップロードmultipartから収集したフィールド値。フィールドの到着順はクライアント次第
-/// (`collect_upload_fields`参照)なので、検証は全フィールドを読み終えた後にまとめて行う。
-#[derive(Default)]
-struct UploadFields {
-    title: Option<String>,
-    description: Option<String>,
-    parent_id: Option<i64>,
-    visibility: Option<Visibility>,
-}
-
-/// multipartのテキストフィールド1つあたりの上限(バイト)。title/description等の
-/// メタデータは通常数百文字程度で十分なはずなので、`file`フィールド用のストリーミング
-/// サイズチェック(`stream_field_to_temp_blob`)とは別に、テキスト側にも独立した上限を
-/// 設ける。これが無いと、`file`を伴わない巨大な`description`だけでも
-/// `DefaultBodyLimit`のバックストップ(約`max_upload_bytes`+1MiB)近くまで
-/// メモリに読み込まれてしまう(ログインした人だけの操作だが、事故防止のため)。
-const MAX_TEXT_FIELD_BYTES: usize = 64 * 1024;
-
-/// multipartのテキストフィールドを、`max_bytes`を超えたら早期に拒否しながら
-/// チャンク単位で読む。`Field::text()`は全量を一括でメモリに読み込んでしまうため、
-/// サイズを検証する前に大きなバッファを確保してしまう問題を避けるため、
-/// 自前でチャンクを積み上げながらその都度サイズを確認する。
-async fn read_text_field(
-    field: &mut axum::extract::multipart::Field<'_>,
-    max_bytes: usize,
-) -> Result<String, AppError> {
-    let mut buf = Vec::new();
-    while let Some(chunk) = field.chunk().await.map_err(multipart_error_to_app_error)? {
-        // 累積してから上限判定すると、1回の`chunk()`が既に上限を大幅に超える大きさを
-        // 返した場合に、判定前にその全量を`buf`へコピーしてしまう(multipartライブラリの
-        // チャンク分割ポリシーはこちらで制御できないため、単一チャンクが大きいことは
-        // 想定しておく必要がある)。`extend_from_slice`より先にサイズを確認することで、
-        // 上限超過が確定した時点で即座に拒否し、`buf`側への無駄なコピーを避ける。
-        if buf.len().saturating_add(chunk.len()) > max_bytes {
-            return Err(AppError::Validation("value is too long".to_string()));
-        }
-        buf.extend_from_slice(&chunk);
-    }
-    String::from_utf8(buf).map_err(|_| AppError::Validation("value is not valid UTF-8".to_string()))
-}
-
-/// multipartのフィールドを名前で振り分けて収集する。フィールドの順序に依存しない。
-/// 未知のフィールド名は読み飛ばす (将来フロント側にフィールドが増えても本APIが壊れないようにするため)。
-/// `file` は 422 にする。ファイルの差し替えはやめたので、送られたら黙って捨てずに知らせる
-/// (→ `replace_content_upload`)。
-async fn collect_upload_fields(multipart: &mut Multipart) -> Result<UploadFields, AppError> {
-    let mut fields = UploadFields::default();
-    while let Some(mut field) = multipart
-        .next_field()
-        .await
-        .map_err(multipart_error_to_app_error)?
-    {
-        match field.name() {
-            Some("title") => {
-                fields.title = Some(read_text_field(&mut field, MAX_TEXT_FIELD_BYTES).await?);
-            }
-            Some("description") => {
-                let text = read_text_field(&mut field, MAX_TEXT_FIELD_BYTES).await?;
-                fields.description = (!text.is_empty()).then_some(text);
-            }
-            Some("parentId") => {
-                let text = read_text_field(&mut field, MAX_TEXT_FIELD_BYTES).await?;
-                let text = text.trim();
-                if !text.is_empty() {
-                    let value = text.parse::<i64>().map_err(|_| {
-                        AppError::Validation("parentId must be a number".to_string())
-                    })?;
-                    fields.parent_id = Some(value);
-                }
-            }
-            Some("visibility") => {
-                let text = read_text_field(&mut field, MAX_TEXT_FIELD_BYTES).await?;
-                let text = text.trim();
-                if !text.is_empty() {
-                    // 値の対応はJSONと同じ`Visibility`のserdeの定義に任せる。
-                    let value = Visibility::deserialize(text.into_deserializer()).map_err(
-                        |_: serde::de::value::Error| {
-                            AppError::Validation(
-                                "visibility is not one of the allowed values".to_string(),
-                            )
-                        },
-                    )?;
-                    fields.visibility = Some(value);
-                }
-            }
-            Some("file") => {
-                return Err(AppError::Validation(
-                    "replacing the file of a file content is no longer supported".to_string(),
-                ));
-            }
-            _ => {
-                while field
-                    .chunk()
-                    .await
-                    .map_err(multipart_error_to_app_error)?
-                    .is_some()
-                {}
-            }
-        }
-    }
-    Ok(fields)
-}
-
-/// utoipaのOpenAPIドキュメント用のダミー構造体。実際のリクエストは
-/// `axum::extract::Multipart` で受け取るため、この構造体自体はデシリアライズに使わない
-/// (`multipart/form-data`のスキーマ表現としてutoipaに渡すためだけのもの)。
-#[derive(Debug, Deserialize, ToSchema)]
-#[allow(dead_code)]
-struct ReplaceContentUploadRequest {
-    title: String,
-    description: Option<String>,
-    /// 親グループのid。省略/空ならルート直下へ移動する。
-    #[schema(value_type = Option<i64>)]
-    parent_id: Option<i64>,
-    /// 公開範囲。省略/空なら現在値のまま。
-    visibility: Option<Visibility>,
-}
-
-/// ファイルコンテンツの題・説明・親・公開範囲を更新する(multipart)。ファイルの差し替えはしない
-/// (`file` を送ると422)。ファイルは共有の中に置いて扱う (→ `api::shares`)。この口が multipart のままなのは、
-/// 前からある画面と送り方を変えないため。`type = 'file'` 以外のidに対しては422にする
-/// (link/folderの更新は既存の`PUT /contents/{id}`(JSON)を使う)。
-#[utoipa::path(
-    put,
-    path = "/contents/{id}/upload",
-    params(("id" = i64, Path)),
-    request_body(content = ReplaceContentUploadRequest, content_type = "multipart/form-data"),
-    responses(
-        (status = OK, body = AdminContentResponse),
-        (status = 401, body = crate::error::ErrorResponse),
-        (status = 403, body = crate::error::ErrorResponse),
-        (status = 404, body = crate::error::ErrorResponse),
-        (status = 422, body = crate::error::ErrorResponse),
-    )
-)]
-async fn replace_content_upload(
-    user: AuthUser,
-    State(state): State<AppState>,
-    Path(id): Path<i64>,
-    mut multipart: Multipart,
-) -> Result<Json<AdminContentResponse>, AppError> {
-    let fields = collect_upload_fields(&mut multipart).await?;
-    let description = fields.description;
-
-    // 判定からUPDATEまでを直列化する (→ `AppState::contents_write_lock`)。
-    let _write_guard = state.contents_write_lock.lock().await;
-
-    let existing = sqlx::query!(
-        r#"SELECT type as "content_type: ContentType",
-                  visibility as "visibility: Visibility", created_by
-           FROM contents WHERE id = ?"#,
-        id
-    )
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or(AppError::NotFound)?;
-
-    // 存在を隠す判定 (404) は、入力の検証 (422) より先に行う。
-    ensure_changeable(&user, existing.visibility, existing.created_by).await?;
-    if existing.content_type != ContentType::File {
-        return Err(AppError::Validation(
-            "this content is not a file".to_string(),
-        ));
-    }
-    let title = validate_title(fields.title.as_deref().unwrap_or_default())?;
-    let visibility =
-        resolve_visibility_for_update(fields.visibility, existing.visibility, existing.created_by)?;
-    let parent = validate_parent(&state.pool, fields.parent_id, Some(id)).await?;
-    ensure_fits_parent(parent.as_ref(), visibility, existing.created_by)?;
-    let parent_id = parent.map(|parent| parent.id);
-
-    // `updated_at` はSQLiteに`ON UPDATE`相当の機能が無いため、ここで明示的に更新する。
-    let row = sqlx::query_as!(
-        ContentRow,
-        r#"UPDATE contents
-           SET parent_id = ?, title = ?, description = ?, visibility = ?,
-               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-           WHERE id = ?
-           RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
-                     path, description, created_at as "created_at!", file_name, file_size,
-                     visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
-                     list_view as "list_view: bool",
-                     auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
-        parent_id,
-        title,
-        description,
-        visibility,
-        id,
-    )
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or(AppError::NotFound)?;
-
-    Ok(Json(admin_response(&state.pool, row).await?))
 }
 
 /// 非表示から戻すときの公開範囲。覚えていなければ、ログインした人に見える `authenticated` にする
@@ -3271,7 +2879,7 @@ async fn list_hidden_contents(
     let mut rows = sqlx::query_as!(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url, path,
-                  description, created_at as "created_at!", file_name, file_size,
+                  description, created_at as "created_at!",
                   visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
                   list_view as "list_view: bool",
                   auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
@@ -3329,7 +2937,6 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(browse_folder))
         .routes(routes!(browse_group))
         .routes(routes!(thumbnail_content))
-        .routes(routes!(replace_content_upload))
         .merge(download_routes)
 }
 
@@ -3430,8 +3037,6 @@ mod tests {
             path: None,
             description: None,
             created_at: String::new(),
-            file_name: None,
-            file_size: None,
             visibility,
             created_by,
             include_patterns: None,
@@ -3541,13 +3146,13 @@ mod tests {
 
     #[test]
     fn check_scope_target_accepts_only_containers_and_clean_folder_levels() {
-        use ContentType::{File, Folder, Group, Link};
+        use ContentType::{Folder, Group, Link, Shortcut};
         for (content_type, path, ok) in [
             (Group, "", true),
             (Folder, "", true),
             (Folder, "2024/リスニング", true),
             (Link, "", false),
-            (File, "", false),
+            (Shortcut, "", false),
             (Group, "2024", false),
             (Folder, "2024/", false),
             (Folder, "/2024", false),

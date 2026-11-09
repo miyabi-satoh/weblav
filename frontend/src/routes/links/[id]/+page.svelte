@@ -16,7 +16,7 @@
 	import { pageEmptyTextClass } from '$lib/page-layout';
 
 	// リンクの一覧のファイルを開いた画面 (→ docs/ui.md「リンクの一覧のファイル」)。
-	// フォルダーの中・アーカイブのアイテム・file コンテンツのどれも、この1つの画面で開く。
+	// フォルダーの中・アーカイブのアイテム・ショートカットのどれも、この1つの画面で開く。
 	let { data }: PageProps = $props();
 
 	// ページ内の絞り込み (→ docs/ui.md「一覧の絞り込み」)。一覧の部品が context から読む。
@@ -81,7 +81,7 @@
 			<span>{linksFile.name}</span>
 		</BrowseBreadcrumb>
 
-		<!-- 編集するのは、ファイルの入ったコンテンツ (file コンテンツならそのもの)。 -->
+		<!-- 編集するのは、ファイルの入ったコンテンツ (ショートカットならそのもの)。 -->
 		<BrowseHeading
 			heading={linksFile.title}
 			{contentId}

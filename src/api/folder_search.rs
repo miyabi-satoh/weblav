@@ -1,7 +1,7 @@
 //! 検索の、フォルダーの中とリンクの一覧のファイルの中 (→ docs/search.md「フォルダーの中」「リンクの一覧のファイルの中」)。
 //!
 //! どちらも索引を持たず、検索のたびにディスクを読む。見える範囲は、呼び出し側が渡すフォルダー・アーカイブ・
-//! `file` コンテンツ (閲覧者が一覧で見られるもの) で決まる。
+//! ショートカット (閲覧者が一覧で見られるもの) で決まる。
 
 use std::path::PathBuf;
 
@@ -44,7 +44,7 @@ pub(super) struct Container {
     pub(super) ancestors: Vec<GroupAncestor>,
 }
 
-/// リンクの一覧のファイルの `file` コンテンツ。閲覧者が一覧で見られることは、呼び出し側が確かめる。
+/// リンクの一覧のファイルを指すショートカット。閲覧者が一覧で見られることは、呼び出し側が確かめる。
 pub(super) struct LinksFileContent {
     pub(super) id: i64,
     pub(super) title: String,
@@ -79,13 +79,13 @@ pub(super) struct ListedTitle {
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct SearchLinkHit {
-    /// 一覧のファイルを持つコンテンツ (フォルダー・アーカイブ・`file`)。
+    /// 一覧のファイルを持つコンテンツ (フォルダー・アーカイブ・ショートカット)。
     pub(super) content_id: i64,
     /// フォルダーの中の一覧なら、その相対パス。
     pub(super) path: Option<String>,
     /// アーカイブの中の一覧なら、そのアイテムの id。
     pub(super) item: Option<i64>,
-    /// 一覧のファイルの題。`title` が無ければ、`file` コンテンツは登録したタイトル、ほかはファイル名。
+    /// 一覧のファイルの題。`title` が無ければ、ショートカットは登録したタイトル、ほかはファイル名。
     pub(super) file_title: String,
     /// フォルダー・アーカイブの中の一覧なら、そのコンテンツのタイトル。
     pub(super) container_title: Option<String>,
@@ -115,7 +115,7 @@ struct LinksSource {
     item: Option<i64>,
     container_title: Option<String>,
     ancestors: Vec<GroupAncestor>,
-    /// `file` コンテンツの登録したタイトル。
+    /// ショートカットの登録したタイトル。
     content_title: Option<String>,
     file: PathBuf,
     file_name: String,
@@ -338,7 +338,7 @@ async fn archive_sources(
     Ok(sources)
 }
 
-/// リンクの一覧のファイルの `file` コンテンツ。
+/// リンクの一覧のファイルを指すショートカット。
 async fn file_sources(
     state: &AppState,
     viewer: &Viewer,

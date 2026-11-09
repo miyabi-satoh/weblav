@@ -91,7 +91,7 @@
 
 	let audioQueue = $derived(entries.filter(isAudioContent).map(toTrack));
 
-	/** 画像の file コンテンツなら、ビューアーに渡す形。大きさが分からない (読めない) 画像は普通のファイルの行にする。 */
+	/** 画像のファイルの行なら、ビューアーに渡す形。大きさが分からない (読めない) 画像は普通のファイルの行にする。 */
 	function toViewerImage(content: ContentEntry): ViewerImage | undefined {
 		if (content.type !== 'file' || content.missing || !content.image) return undefined;
 		return {
@@ -103,13 +103,13 @@
 		};
 	}
 
-	/** 画像でない file コンテンツの行に縮小画像を出すなら、その URL (→ docs/ui.md「画像のプレビュー」)。 */
+	/** 画像でないファイルの行に縮小画像を出すなら、その URL (→ docs/ui.md「画像のプレビュー」)。 */
 	function rowThumbnail(content: ContentEntry): { src: string; original: string } | undefined {
 		if (content.type !== 'file' || !content.thumbnail) return undefined;
 		return { src: contentThumbnailHref(content.id), original: contentDownloadHref(content.id) };
 	}
 
-	/** PDF・動画・テキストなど、ビューアーで開く file コンテンツなら、ビューアーに渡す形 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。 */
+	/** PDF・動画・テキストなど、ビューアーで開くファイルの行なら、ビューアーに渡す形 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。 */
 	function toViewerFile(content: ContentEntry): ViewerFile | undefined {
 		const embed = toViewerEmbed(content);
 		if (embed) return embed;

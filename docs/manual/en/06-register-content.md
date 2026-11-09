@@ -150,13 +150,12 @@ To move an existing item:
 
 Open the edit page, make your changes, then select “Save”. To open the edit page, select the pen at the right end of a row in the list on Home or in a group, or the pen next to the heading of a group or other page. Administrators can also select the row in the list in the admin pages.
 
-To see how it looks to viewers, select “View on site” next to the heading of the edit page (it is also in the row’s “⋮” in the list in the admin pages). This opens the group the item is in (Home if it isn't in a group), where it's listed. Items set to “Hidden” and other people's “Creator only” items aren't listed there, so the item itself opens (files registered in an earlier version, such as images, still open the group).
+To see how it looks to viewers, select “View on site” next to the heading of the edit page (it is also in the row’s “⋮” in the list in the admin pages). This opens the group the item is in (Home if it isn't in a group), where it's listed. Items set to “Hidden” and other people's “Creator only” items aren't listed there, so the item itself opens (shortcuts to files such as images still open the group).
 
 ![The Link edit page. Below the title and description are buttons to refetch each one.](images/edit-link.webp)
 
 - Title and description
 - Link: Use “Refetch title” and “Refetch description” to fetch them again from the linked site.
-- File (registered in an earlier version): You can change the title and other details, but you cannot replace the file. To change its contents, put the file in a share again.
 - Shortcut to a folder: “Include patterns”, “Exclude patterns” (→ “Limit what you show” above) and “Organize as a library” (→ [Set up a library](07-archive-setup.md)). Neither is asked when you add a folder, so change them here.
   - Changing the location with “Change...” under “Path” clears the list.
 

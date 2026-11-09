@@ -15,7 +15,6 @@ const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
     ("POST", "/api/v1/contents/link-metadata"),
     ("PUT", "/api/v1/contents/9999"),
     ("DELETE", "/api/v1/contents/9999"),
-    ("PUT", "/api/v1/contents/9999/upload"),
     ("PUT", "/api/v1/contents/9999/creator"),
     ("GET", "/api/v1/contents/hidden"),
     ("POST", "/api/v1/contents/9999/rescan"),

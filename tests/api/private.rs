@@ -467,20 +467,6 @@ async fn management_endpoints_hide_others_private_from_regular_users(pool: Sqlit
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 
-    // link に対する差し替えは本来422 (ファイル型ではない) だが、存在を隠す404が先に返る。
-    let response = app
-        .clone()
-        .oneshot(multipart_request(
-            "PUT",
-            &format!("/api/v1/contents/{link_id}/upload"),
-            &cookie,
-            &[("title", "改題")],
-            None,
-        ))
-        .await
-        .expect("request should not fail");
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
-
     for (method, path) in [
         ("POST", format!("/api/v1/contents/{archive_id}/rescan")),
         ("GET", format!("/api/v1/contents/{archive_id}/path-samples")),

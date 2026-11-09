@@ -24,8 +24,7 @@ const KIND_BY_EXTENSION: [&str; 22] = [
 ];
 
 /// `name` の拡張子で種類が決まらないファイルを、テキストのビューアーで見せるか。
-/// `path` は中身の場所 (file コンテンツの実体は拡張子を持たないので、名前とは別に受け取る)、
-/// `size` はその大きさ。読めないファイルは `false`。
+/// `path` は中身の場所、`size` はその大きさ。読めないファイルは `false`。
 /// ブロッキング I/O なので `run_blocking` の中から呼ぶ。
 pub(super) fn is_text_file(name: &str, path: &Path, size: u64) -> bool {
     if size > TEXT_VIEWER_MAX_BYTES || kind_by_extension(name) {

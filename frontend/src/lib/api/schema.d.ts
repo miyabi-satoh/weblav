@@ -890,9 +890,9 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * folder配下のファイル、またはfileコンテンツの実体(blob)を配信する。
+         * folder配下のファイル、またはショートカットの先のファイルを配信する。
          *     そのコンテンツを開けるなら (`ensure_openable`) ダウンロードできる。
-         *     `query.path`はfolderの場合のみ使う(fileは`id`だけで実体が一意に決まる)。
+         *     `query.path`はfolderの場合のみ使う(shortcutは`id`だけで先が一意に決まる)。
          */
         get: operations["download_content"];
         put?: never;
@@ -1229,28 +1229,6 @@ export interface paths {
         /** `download_content` と同じ実体の縮小画像 (→ docs/ui.md「画像のプレビュー」)。 */
         get: operations["thumbnail_content"];
         put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/contents/{id}/upload": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * ファイルコンテンツの題・説明・親・公開範囲を更新する(multipart)。ファイルの差し替えはしない
-         *     (`file` を送ると422)。ファイルは共有の中に置いて扱う (→ `api::shares`)。この口が multipart のままなのは、
-         *     前からある画面と送り方を変えないため。`type = 'file'` 以外のidに対しては422にする
-         *     (link/folderの更新は既存の`PUT /contents/{id}`(JSON)を使う)。
-         */
-        put: operations["replace_content_upload"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1848,10 +1826,8 @@ export interface components {
             description?: string | null;
             /** @description `type = 'folder'` で隠すファイル・フォルダーのパターン。1行に1つ。対象より優先する。 */
             excludePatterns?: string | null;
-            /** @description `type = 'file'` と `type = 'shortcut'` の場合のみ`Some`。`blob_hash`(内部実装detail)は含めない。 */
+            /** @description `type = 'shortcut'` の場合のみ`Some`。先のファイルの名前。 */
             fileName?: string | null;
-            /** Format: int64 */
-            fileSize?: number | null;
             /** Format: int64 */
             id: number;
             /** @description `type = 'folder'` で見せるファイルのパターン。1行に1つ。`None` なら全ファイルが対象。 */
@@ -2138,11 +2114,14 @@ export interface components {
             canEdit: boolean;
             description?: string | null;
             /**
-             * @description ダウンロード時のファイル名。ダウンロードURL自体は`id`ベース
+             * @description 先のファイルの名前。ダウンロードURL自体は`id`ベース
              *     (`/contents/{id}/download`)なので、これは表示・保存名のヒント用。
              */
             fileName: string;
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description 先のファイルの大きさ。一覧でだけ埋める (ほかは0)。
+             */
             fileSize: number;
             /** Format: int64 */
             id: number;
@@ -2178,7 +2157,7 @@ export interface components {
          *     `Serialize`/`Deserialize`/`ToSchema` も併せて持つ(`auth::Role` と同じ書き方)。
          * @enum {string}
          */
-        ContentType: "link" | "folder" | "file" | "group" | "shortcut";
+        ContentType: "link" | "folder" | "group" | "shortcut";
         CountResponse: {
             /** @description 数え上げたファイル数。`truncated` が `true` なら下限値。 */
             count: number;
@@ -2554,7 +2533,7 @@ export interface components {
             preview?: components["schemas"]["LinkPreview"] | null;
             url: string;
         };
-        /** @description どの一覧のファイルか。フォルダーの中は `path`、アーカイブのアイテムは `item`、`file` コンテンツは id だけで指す。 */
+        /** @description どの一覧のファイルか。フォルダーの中は `path`、アーカイブのアイテムは `item`、ショートカットは id だけで指す。 */
         LinksFileQuery: {
             /**
              * Format: int64
@@ -2569,11 +2548,11 @@ export interface components {
             ancestors: components["schemas"]["GroupAncestor"][];
             /** @description 見ている人が、ファイルの入ったコンテンツを書き換えられるか。画面は真のとき、その編集ページへの導線を出す。 */
             canEdit: boolean;
-            /** @description フォルダー・アーカイブの中のファイルなら、そのコンテンツのタイトル。`file` コンテンツなら無し。 */
+            /** @description フォルダー・アーカイブの中のファイルなら、そのコンテンツのタイトル。ショートカットなら無し。 */
             containerTitle?: string | null;
             /** @description 書いた順のリンク。読めなければ無し (画面は読めなかった旨と、ファイルを新規タブで開く手段を出す)。 */
             links?: components["schemas"]["LinksFileEntry"][] | null;
-            /** @description パンくずの最後に出す名前。`file` コンテンツは一覧に出ている登録したタイトル、ほかはファイル名。 */
+            /** @description パンくずの最後に出す名前。ショートカットは一覧に出ている登録したタイトル、ほかはファイル名。 */
             name: string;
             /** @description ファイルに書かれた `title`。省かれているか読めなければファイル名。 */
             title: string;
@@ -2695,21 +2674,6 @@ export interface components {
             values: components["schemas"]["AxisValueInput"][];
         };
         /**
-         * @description utoipaのOpenAPIドキュメント用のダミー構造体。実際のリクエストは
-         *     `axum::extract::Multipart` で受け取るため、この構造体自体はデシリアライズに使わない
-         *     (`multipart/form-data`のスキーマ表現としてutoipaに渡すためだけのもの)。
-         */
-        ReplaceContentUploadRequest: {
-            description?: string | null;
-            /**
-             * Format: int64
-             * @description 親グループのid。省略/空ならルート直下へ移動する。
-             */
-            parent_id?: number | null;
-            title: string;
-            visibility?: components["schemas"]["Visibility"] | null;
-        };
-        /**
          * @description 再スキャンの段階 (→ `crate::state::ScanPhase`)。
          * @enum {string}
          */
@@ -2813,10 +2777,10 @@ export interface components {
             containerTitle?: string | null;
             /**
              * Format: int64
-             * @description 一覧のファイルを持つコンテンツ (フォルダー・アーカイブ・`file`)。
+             * @description 一覧のファイルを持つコンテンツ (フォルダー・アーカイブ・ショートカット)。
              */
             contentId: number;
-            /** @description 一覧のファイルの題。`title` が無ければ、`file` コンテンツは登録したタイトル、ほかはファイル名。 */
+            /** @description 一覧のファイルの題。`title` が無ければ、ショートカットは登録したタイトル、ほかはファイル名。 */
             fileTitle: string;
             /**
              * Format: int64
@@ -7121,68 +7085,6 @@ export interface operations {
             };
             /** @description 見えない・存在しない、またはプレビューしない画像 */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    replace_content_upload: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["ReplaceContentUploadRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminContentResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
                 headers: {
                     [name: string]: unknown;
                 };

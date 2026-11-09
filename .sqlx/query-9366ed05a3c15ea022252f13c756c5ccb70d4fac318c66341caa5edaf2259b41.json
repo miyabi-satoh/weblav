@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id as \"id!\", path as \"path!\" FROM contents\n           WHERE id IN (SELECT value FROM json_each(?)) AND type = 'shortcut' AND path IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "path!",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "9366ed05a3c15ea022252f13c756c5ccb70d4fac318c66341caa5edaf2259b41"
+}

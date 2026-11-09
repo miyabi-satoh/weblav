@@ -13,7 +13,10 @@ const SETUP_RESTORE_URI: &str = "/api/v1/setup/restore";
 async fn issue_ticket(app: Router, cookie: &str) -> String {
     let (status, body) = send_empty(app, "POST", BACKUP_TICKET_URI, cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    parse_json(&body)["ticket"].as_str().expect("券があるはず").to_string()
+    parse_json(&body)["ticket"]
+        .as_str()
+        .expect("券があるはず")
+        .to_string()
 }
 
 /// 引換券を受け取ってバックアップを落とし、zip の中身を返す。
@@ -78,37 +81,28 @@ async fn content_titles(pool: &SqlitePool) -> Vec<String> {
         .expect("コンテンツを読めなかった")
 }
 
-/// 作ったバックアップで戻すと、作った時点の DB とアップロードしたファイルに戻る。
+/// 作ったバックアップで戻すと、作った時点の DB に戻る。
 /// セッションは全部消えるので、戻した人もログインし直す。
 #[sqlx::test]
-async fn restoring_a_backup_brings_back_the_data_and_files(pool: SqlitePool) {
-    let (app, blobs_dir) = test_app_with_blobs(pool.clone()).await;
+async fn restoring_a_backup_brings_back_the_data(pool: SqlitePool) {
+    let app = test_app(pool.clone()).await;
     let cookie = admin_cookie(app.clone(), &pool).await;
     insert_user(&pool, "taro", "password").await;
     let other_cookie = login(app.clone(), "taro", "password").await;
 
-    let file_id = insert_file_content(
-        &pool,
-        &blobs_dir,
-        ("資料", "doc.txt", b"hello backup"),
-        None,
-        "public",
-        None,
-    )
-    .await;
+    let link_id = insert_link_by(&pool, "資料", "public", None, None).await;
 
     let zip = download_backup(app.clone(), &cookie).await;
 
-    // バックアップの後の変更。ファイルを消すと、その実体も消える。
+    // バックアップの後の変更。
     let (status, _) = send_empty(
         app.clone(),
         "DELETE",
-        &format!("/api/v1/contents/{file_id}"),
+        &format!("/api/v1/contents/{link_id}"),
         &cookie,
     )
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
-    assert_eq!(count_committed_blobs(&blobs_dir), 0);
     insert_link_by(&pool, "後で足したリンク", "public", None, None).await;
 
     let (status, body) = stage_backup(app.clone(), &cookie, &zip).await;
@@ -131,22 +125,15 @@ async fn restoring_a_backup_brings_back_the_data_and_files(pool: SqlitePool) {
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
 
     assert_eq!(content_titles(&pool).await, ["資料"]);
-    assert_eq!(count_committed_blobs(&blobs_dir), 1);
     for cookie in [&cookie, &other_cookie] {
         let (status, _) = send_empty(app.clone(), "GET", "/api/v1/auth/me", cookie).await;
         assert_eq!(status, StatusCode::UNAUTHORIZED, "戻したらログインし直す");
     }
 
     let cookie = login(app.clone(), "admin-alice", "correct-password").await;
-    let (status, body) = send_empty(
-        app,
-        "GET",
-        &format!("/api/v1/contents/{file_id}/download"),
-        &cookie,
-    )
-    .await;
+    let (status, body) = send_empty(app, "GET", "/api/v1/contents", &cookie).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body, "hello backup");
+    assert!(body.contains(r#""title":"資料""#), "{body}");
 }
 
 /// 戻した後で消えたユーザーの id を、新しいユーザーに使い回さない (AUTOINCREMENT の続きも戻す)。

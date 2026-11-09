@@ -50,7 +50,7 @@ pub enum Failure {
 }
 
 /// `path` の縮小画像を、`size` px の四角に収まる大きさで作る。
-/// `file_name` は種類の判定に使う (file コンテンツの実体は拡張子を持たないため)。
+/// `file_name` の拡張子で、OS に頼む種類かを決める。
 /// OS の処理を待つので `run_blocking` の中から呼ぶ。
 #[allow(unused_variables)]
 pub fn thumbnail(path: &Path, file_name: &str, size: u32) -> Result<DynamicImage, Failure> {
@@ -58,7 +58,7 @@ pub fn thumbnail(path: &Path, file_name: &str, size: u32) -> Result<DynamicImage
     #[cfg(target_os = "macos")]
     return macos::thumbnail(path, extension, size);
     #[cfg(windows)]
-    return windows::thumbnail(path, extension, size);
+    return windows::thumbnail(path, size);
     #[cfg(not(any(target_os = "macos", windows)))]
     Err(Failure::Unavailable)
 }
