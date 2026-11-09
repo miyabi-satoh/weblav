@@ -7,7 +7,6 @@ use super::*;
 const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
     ("GET", "/api/v1/auth/me"),
     ("POST", "/api/v1/auth/confirm-password"),
-    ("POST", "/api/v1/auth/password-confirmation"),
     ("PUT", "/api/v1/auth/password"),
     ("PUT", "/api/v1/auth/username"),
     ("POST", "/api/v1/auth/recovery-code"),
@@ -57,6 +56,7 @@ const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
     ),
     ("GET", "/api/v1/fs/dirs"),
     ("GET", "/api/v1/fs/count"),
+    ("POST", "/api/v1/admin/backup/ticket"),
     ("GET", "/api/v1/admin/backup"),
     ("POST", "/api/v1/admin/backup/restore/stage"),
     ("POST", "/api/v1/admin/backup/restore"),
@@ -99,6 +99,7 @@ const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
 /// `{id}` は表を回すテストが実在する ID に差し替える。
 const ADMIN_ONLY_APIS: &[(&str, &str)] = &[
     ("PUT", "/api/v1/contents/{content}/creator"),
+    ("POST", "/api/v1/admin/backup/ticket"),
     ("GET", "/api/v1/admin/backup"),
     ("POST", "/api/v1/admin/backup/restore/stage"),
     ("POST", "/api/v1/admin/backup/restore"),

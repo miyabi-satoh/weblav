@@ -7,8 +7,19 @@
   "paths": {
     "/api/v1/admin/backup": {
       "get": {
-        "summary": "今の DB とアップロードしたファイルを1つの zip にして返す。作りながら送る。",
+        "summary": "今の DB とアップロードしたファイルを1つの zip にして返す。作りながら送る。\n引換券は、合っていてもいなくても使い済みにする。",
         "operationId": "download_backup",
+        "parameters": [
+          {
+            "name": "ticket",
+            "in": "query",
+            "description": "`POST /admin/backup/ticket` で受け取った引換券。",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "バックアップの zip",
@@ -28,6 +39,16 @@
           },
           "403": {
             "description": "admin以外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "引換券が無い・違う・期限切れ",
             "content": {
               "application/json": {
                 "schema": {
@@ -157,6 +178,44 @@
           },
           "422": {
             "description": "バックアップではない・新しい版で作られた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/backup/ticket": {
+      "post": {
+        "summary": "バックアップを落とすための引換券を出す。パスワードの確かめ直しはここで求め、落とす口では求めない。\nブラウザーが直接開く口は、断られても画面で受けて確かめ直しのダイアログを出せないため。",
+        "operationId": "issue_download_ticket",
+        "responses": {
+          "200": {
+            "description": "引換券",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadTicketResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外・パスワードの確かめ直しが要る",
             "content": {
               "application/json": {
                 "schema": {
@@ -1569,37 +1628,6 @@
           },
           "422": {
             "description": "新しいパスワード未入力",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/auth/password-confirmation": {
-      "post": {
-        "summary": "確かめ直しが要る操作を、要求を送る前に通せるか確かめる。読むだけで時刻は延ばさない\n(叩き続けるだけで確かめた状態を保てないように)。続けて送る操作の成功で延びる。\n画面が要求の応答を受けられない操作 (ブラウザーが直接開くダウンロード) の前に呼ぶ。",
-        "operationId": "check_password_confirmation",
-        "responses": {
-          "204": {
-            "description": "確かめた内なので、そのまま通せる"
-          },
-          "401": {
-            "description": "未ログイン",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "パスワードの確かめ直しが要る",
             "content": {
               "application/json": {
                 "schema": {
@@ -7819,6 +7847,18 @@
           "selectable": {
             "type": "boolean",
             "description": "現在位置そのものを登録先に選べるか。ルートの一覧では `false`。"
+          }
+        }
+      },
+      "DownloadTicketResponse": {
+        "type": "object",
+        "required": [
+          "ticket"
+        ],
+        "properties": {
+          "ticket": {
+            "type": "string",
+            "description": "`GET /admin/backup` の `ticket` に付ける値。"
           }
         }
       },

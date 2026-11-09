@@ -3,14 +3,24 @@
 use super::*;
 
 const BACKUP_URI: &str = "/api/v1/admin/backup";
+const BACKUP_TICKET_URI: &str = "/api/v1/admin/backup/ticket";
 const BACKUP_STAGE_URI: &str = "/api/v1/admin/backup/restore/stage";
 const BACKUP_RESTORE_URI: &str = "/api/v1/admin/backup/restore";
 const SETUP_RESTORE_STAGE_URI: &str = "/api/v1/setup/restore/stage";
 const SETUP_RESTORE_URI: &str = "/api/v1/setup/restore";
 
-/// バックアップを落とし、zip の中身を返す。
+/// 引換券を受け取る。
+async fn issue_ticket(app: Router, cookie: &str) -> String {
+    let (status, body) = send_empty(app, "POST", BACKUP_TICKET_URI, cookie).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    parse_json(&body)["ticket"].as_str().expect("券があるはず").to_string()
+}
+
+/// 引換券を受け取ってバックアップを落とし、zip の中身を返す。
 async fn download_backup(app: Router, cookie: &str) -> Vec<u8> {
-    let response = send_raw(app, build_request("GET", BACKUP_URI, Some(cookie), None)).await;
+    let ticket = issue_ticket(app.clone(), cookie).await;
+    let uri = format!("{BACKUP_URI}?ticket={ticket}");
+    let response = send_raw(app, build_request("GET", &uri, Some(cookie), None)).await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
         response.headers()[header::CONTENT_TYPE],
@@ -319,4 +329,38 @@ async fn setup_restores_a_backup_instead_of_creating_an_admin(pool: SqlitePool) 
     )
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+/// 引換券は一度だけ使え、違う券や券の無い要求には落とさせない。
+#[sqlx::test]
+async fn backup_download_needs_its_ticket_and_the_ticket_works_once(pool: SqlitePool) {
+    insert_admin(&pool, "admin", "admin-password").await;
+    let app = test_app(pool).await;
+    let cookie = login(app.clone(), "admin", "admin-password").await;
+
+    let ticket = issue_ticket(app.clone(), &cookie).await;
+    let (status, body) = send_empty(
+        app.clone(),
+        "GET",
+        &format!("{BACKUP_URI}?ticket=wrong"),
+        &cookie,
+    )
+    .await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
+    // 違う券で問い合わせた時点で、受け取った券も使い済みになる。
+    let (status, body) = send_empty(
+        app.clone(),
+        "GET",
+        &format!("{BACKUP_URI}?ticket={ticket}"),
+        &cookie,
+    )
+    .await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
+
+    let ticket = issue_ticket(app.clone(), &cookie).await;
+    let uri = format!("{BACKUP_URI}?ticket={ticket}");
+    let response = send_raw(app.clone(), build_request("GET", &uri, Some(&cookie), None)).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let (status, body) = send_empty(app, "GET", &uri, &cookie).await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
 }

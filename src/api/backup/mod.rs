@@ -3,6 +3,9 @@
 //!
 //! 戻すのは2段にする。受け取ったファイルをいったん置いて目録を返し、画面で日時と版を
 //! 確かめてもらってから、置いたものの id を指して戻す。
+//!
+//! 落とすのも2段にする。画面が引換券を受け取り、ブラウザーがその券を付けて直接取りに行く
+//! (→ docs/access.md「操作の前のパスワードの確認」)。
 
 mod archive;
 
@@ -12,19 +15,19 @@ use std::time::{Duration, Instant};
 
 use axum::Json;
 use axum::body::Body;
-use axum::extract::{DefaultBodyLimit, Multipart, State};
+use axum::extract::{DefaultBodyLimit, Multipart, Query, State};
 use axum::http::{StatusCode, header};
 use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tokio_util::io::{ReaderStream, SyncIoBridge};
 use tower_sessions::Session;
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use super::completed_reader::CompletedReader;
-use crate::auth::ConfirmedAdmin;
+use crate::auth::{AdminUser, ConfirmedAdmin};
 use crate::error::{AppError, AppJson, multipart_error_to_app_error, run_blocking};
 use crate::state::AppState;
 
@@ -39,6 +42,13 @@ const UPLOAD_FILE_NAME: &str = "upload.zip";
 /// 時間では掃除しない。期限を過ぎたものは、次に受け取るか戻すとき、または起動し直したときに消える。
 /// 置くのは1つだけなので、残ってもディスクを占めるのは1つ分で済む。
 const STAGED_TTL: Duration = Duration::from_secs(30 * 60);
+
+/// ADR: 引換券を使える長さ。券を受け取った画面が、すぐにブラウザーへ取りに行かせる間 (ふつうはミリ秒) を
+/// 遅いマシンでも覆い、アドレスが履歴から漏れても使えない短さにする。券は一度きりで、出したセッションでしか使えない。
+const DOWNLOAD_TICKET_TTL: Duration = Duration::from_secs(60);
+
+/// 引換券を覚えておくセッションのキー。
+const SESSION_DOWNLOAD_TICKET_KEY: &str = "backup_download_ticket";
 
 /// zip を作る側と送る側の間に置くバッファの大きさ。
 const DOWNLOAD_BUFFER_BYTES: usize = 256 * 1024;
@@ -127,6 +137,35 @@ pub(super) struct StageBackupRequest {
     file: Vec<u8>,
 }
 
+/// セッションに覚えておく引換券。
+#[derive(Debug, Serialize, Deserialize)]
+struct DownloadTicket {
+    id: String,
+    /// 出した時刻 (UNIX 秒)。
+    issued_at: i64,
+}
+
+impl DownloadTicket {
+    /// `id` の券で、`now` から見て使える長さの内か。時計が戻って未来の時刻になったものは通さない。
+    fn admits(&self, id: &str, now: i64) -> bool {
+        let ttl = DOWNLOAD_TICKET_TTL.as_secs() as i64;
+        self.id == id && (0..ttl).contains(&(now - self.issued_at))
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct DownloadTicketResponse {
+    /// `GET /admin/backup` の `ticket` に付ける値。
+    ticket: String,
+}
+
+#[derive(Debug, Deserialize, IntoParams)]
+struct DownloadQuery {
+    /// `POST /admin/backup/ticket` で受け取った引換券。
+    ticket: String,
+}
+
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct RestoreBackupRequest {
@@ -134,20 +173,62 @@ struct RestoreBackupRequest {
     id: String,
 }
 
+/// バックアップを落とすための引換券を出す。パスワードの確かめ直しはここで求め、落とす口では求めない。
+/// ブラウザーが直接開く口は、断られても画面で受けて確かめ直しのダイアログを出せないため。
+#[utoipa::path(
+    post,
+    path = "/admin/backup/ticket",
+    responses(
+        (status = OK, body = DownloadTicketResponse, description = "引換券"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
+    )
+)]
+async fn issue_download_ticket(
+    _admin: ConfirmedAdmin,
+    session: Session,
+) -> Result<Json<DownloadTicketResponse>, AppError> {
+    let ticket = DownloadTicket {
+        id: super::random_hex::<16>()?,
+        issued_at: time::OffsetDateTime::now_utc().unix_timestamp(),
+    };
+    let response = DownloadTicketResponse {
+        ticket: ticket.id.clone(),
+    };
+    session
+        .insert(SESSION_DOWNLOAD_TICKET_KEY, ticket)
+        .await
+        .map_err(|err| AppError::Internal(crate::auth::Error::Session(err)))?;
+    Ok(Json(response))
+}
+
 /// 今の DB とアップロードしたファイルを1つの zip にして返す。作りながら送る。
+/// 引換券は、合っていてもいなくても使い済みにする。
 #[utoipa::path(
     get,
     path = "/admin/backup",
+    params(DownloadQuery),
     responses(
         (status = OK, content_type = "application/zip", description = "バックアップの zip"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 404, body = crate::error::ErrorResponse, description = "引換券が無い・違う・期限切れ"),
     )
 )]
 async fn download_backup(
-    _admin: ConfirmedAdmin,
+    _admin: AdminUser,
+    session: Session,
     State(state): State<AppState>,
+    Query(query): Query<DownloadQuery>,
 ) -> Result<impl IntoResponse, AppError> {
+    let ticket: Option<DownloadTicket> = session
+        .remove(SESSION_DOWNLOAD_TICKET_KEY)
+        .await
+        .map_err(|err| AppError::Internal(crate::auth::Error::Session(err)))?;
+    let now = time::OffsetDateTime::now_utc().unix_timestamp();
+    if !ticket.is_some_and(|t| t.admits(&query.ticket, now)) {
+        return Err(AppError::NotFound);
+    }
     let snapshot = {
         let _guard = state.contents_write_lock.lock().await;
         archive::snapshot(&state.pool, &state.blobs_dir, &state.backup_work_dir).await?
@@ -332,6 +413,7 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
         .layer(DefaultBodyLimit::disable());
 
     OpenApiRouter::new()
+        .routes(routes!(issue_download_ticket))
         .routes(routes!(download_backup))
         .routes(routes!(restore))
         .merge(upload_routes)
@@ -348,6 +430,21 @@ mod tests {
 
     fn manifest() -> Manifest {
         Manifest::now()
+    }
+
+    #[test]
+    fn download_ticket_admits_only_its_own_id_within_the_ttl() {
+        let ttl = DOWNLOAD_TICKET_TTL.as_secs() as i64;
+        let ticket = DownloadTicket {
+            id: "a".to_string(),
+            issued_at: 1_000,
+        };
+
+        assert!(ticket.admits("a", 1_000));
+        assert!(ticket.admits("a", 1_000 + ttl - 1));
+        assert!(!ticket.admits("b", 1_000), "違う券は通さない");
+        assert!(!ticket.admits("a", 1_000 + ttl), "期限を過ぎたら通さない");
+        assert!(!ticket.admits("a", 999), "時計が戻ったら通さない");
     }
 
     #[test]

@@ -11,7 +11,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 今の DB とアップロードしたファイルを1つの zip にして返す。作りながら送る。 */
+        /**
+         * 今の DB とアップロードしたファイルを1つの zip にして返す。作りながら送る。
+         *     引換券は、合っていてもいなくても使い済みにする。
+         */
         get: operations["download_backup"];
         put?: never;
         post?: never;
@@ -49,6 +52,26 @@ export interface paths {
         put?: never;
         /** 戻すバックアップを受け取り、目録を返す。まだ何も置き換えない。 */
         post: operations["stage_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/backup/ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * バックアップを落とすための引換券を出す。パスワードの確かめ直しはここで求め、落とす口では求めない。
+         *     ブラウザーが直接開く口は、断られても画面で受けて確かめ直しのダイアログを出せないため。
+         */
+        post: operations["issue_download_ticket"];
         delete?: never;
         options?: never;
         head?: never;
@@ -405,27 +428,6 @@ export interface paths {
          */
         put: operations["change_password"];
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/password-confirmation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 確かめ直しが要る操作を、要求を送る前に通せるか確かめる。読むだけで時刻は延ばさない
-         *     (叩き続けるだけで確かめた状態を保てないように)。続けて送る操作の成功で延びる。
-         *     画面が要求の応答を受けられない操作 (ブラウザーが直接開くダウンロード) の前に呼ぶ。
-         */
-        post: operations["check_password_confirmation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2303,6 +2305,10 @@ export interface components {
             /** @description 現在位置そのものを登録先に選べるか。ルートの一覧では `false`。 */
             selectable: boolean;
         };
+        DownloadTicketResponse: {
+            /** @description `GET /admin/backup` の `ticket` に付ける値。 */
+            ticket: string;
+        };
         ErrorBody: {
             code: components["schemas"]["ErrorCode"];
             detail?: components["schemas"]["ValidationDetail"] | null;
@@ -3323,7 +3329,10 @@ export type $defs = Record<string, never>;
 export interface operations {
     download_backup: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description `POST /admin/backup/ticket` で受け取った引換券。 */
+                ticket: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3350,6 +3359,15 @@ export interface operations {
             };
             /** @description admin以外 */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 引換券が無い・違う・期限切れ */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3468,6 +3486,44 @@ export interface operations {
             };
             /** @description バックアップではない・新しい版で作られた */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    issue_download_ticket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 引換券 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadTicketResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外・パスワードの確かめ直しが要る */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4726,42 +4782,6 @@ export interface operations {
             };
             /** @description 新しいパスワード未入力 */
             422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    check_password_confirmation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 確かめた内なので、そのまま通せる */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description パスワードの確かめ直しが要る */
-            403: {
                 headers: {
                     [name: string]: unknown;
                 };
