@@ -3,6 +3,7 @@
 // 共有の管理者の名前やパスワードを変えるとほかのテストのログインが壊れるので、使い捨てのユーザーで見る。
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { logInByApi, withUserByApi } from './api-helpers';
+import { keepRecoveryCode } from './recovery-helpers';
 import {
 	CANCEL_BUTTON_NAME,
 	CURRENT_PASSWORD_LABEL,
@@ -81,6 +82,34 @@ test('アカウントのページで、ユーザー名とパスワードを変�
 			await own.getByLabel(LOGIN_PASSWORD_LABEL).fill('changed-password');
 			await own.getByLabel(LOGIN_PASSWORD_LABEL).press('Enter');
 			await own.waitForURL('/', { timeout: PASSWORD_HASH_TIMEOUT });
+		} finally {
+			await context.close();
+		}
+	});
+});
+
+test('リカバリコードを作ると、区画が作った日と作り直しのボタンに替わる', async ({
+	page,
+	browser
+}) => {
+	const username = uniqueId('e2e-account-code');
+	await withUserByApi(page.request, username, PASSWORD, async () => {
+		const context = await anonymousContext(browser);
+		try {
+			await logInByApi(context.request, username, PASSWORD);
+			const own = await context.newPage();
+			await own.goto('/account');
+
+			const section = own.getByRole('region', { name: /^リカバリコード$|^Recovery code$/ });
+			await expect(section).toContainText(/まだ作成していません|not created/i);
+			await section.getByRole('button', { name: /^作成する$|^Create$/ }).click();
+			await keepRecoveryCode(own);
+
+			// 作り直すと控えたばかりのコードが使えなくなるので、次に押すときは確かめる形になる。
+			await expect(section).toContainText(/に作成しました|Created on/);
+			await expect(
+				section.getByRole('button', { name: /^作り直す\.\.\.$|^Regenerate\.\.\.$/ })
+			).toBeVisible();
 		} finally {
 			await context.close();
 		}
