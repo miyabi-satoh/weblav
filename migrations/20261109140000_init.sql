@@ -292,11 +292,12 @@ CREATE TABLE folder_bookmarks (
 );
 
 -- リンクのカードに出すページの情報のキャッシュ (→ docs/ui.md「リンクのカード」)。URL ごとに1行。
--- 画像の実体はデータの置き場の link-previews/ に置く。時刻はどれも Unix 秒。
+-- 画像の実体はデータの置き場の link-previews/ に置く。INTEGER の時刻 (fresh_until・checked_at・shown_at) は Unix 秒。
 CREATE TABLE link_previews (
     url TEXT PRIMARY KEY NOT NULL,
     title TEXT,
     site_name TEXT,
+    -- ページを最後に更新した日時 (無ければ公開した日時)。文字列 (→ `api::link_preview::LinkPreview::updated_at`)。
     updated_at TEXT,
     -- 画像とアイコンを取った元の URL。ページの指定が変わったときだけ取り直す。
     image_source TEXT,
