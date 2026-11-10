@@ -133,7 +133,7 @@
 	}
 
 	// 追加と同じ OS の窓で選び直す。違うフォルダーなら、中のコンテンツも移るので確かめてから変える。
-	// 同じフォルダーなら場所は変えず、窓で選び直したブックマークで許可を戻すだけ (macOS → docs/shares.md「共有の場所の選び直し」)。
+	// 同じフォルダーなら場所は変えない。起動したときに許可を戻せていなければ、ここで戻す (macOS → docs/shares.md「共有の場所の選び直し」)。
 	async function handlePick() {
 		if (picking) return;
 		picking = true;

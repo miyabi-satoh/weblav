@@ -379,7 +379,7 @@ async fn moving_a_root_carries_its_contents_and_keeps_its_settings(pool: SqliteP
     );
 }
 
-/// 今と同じフォルダーを選ぶのは、書き込みの許可の取り直し (macOS)。何も付け替えずに共有を返す。
+/// 今と同じフォルダーを選んでも、何も付け替えずに共有を返す。
 #[sqlx::test]
 async fn picking_the_same_place_again_returns_the_root_unchanged(pool: SqlitePool) {
     let dir = root_dir("roots-move-same");
