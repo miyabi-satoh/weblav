@@ -5,6 +5,8 @@
 		"just msix",
 		"just bundle-mac",
 		"just install-mac",
+		"just install-linux",
+		"just install-windows",
 		"just install",
 		"just build",
 		"just run",
