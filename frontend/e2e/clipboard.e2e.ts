@@ -73,7 +73,7 @@ test('共有の QR コードの画面から、ページのアドレスをコピ�
 	try {
 		// mDNS が使えない環境でもアドレスを出すよう、ホスト名を返させる。
 		await page.route('**/api/v1/connection-info', (route) =>
-			route.fulfill({ json: { mdnsHostname: 'e2e-host.local', port: 8370 } })
+			route.fulfill({ json: { mdnsHostname: 'e2e-host.local', port: 8370, lanAddresses: [] } })
 		);
 		await page.goto('/');
 		await page.getByRole('button', { name: SHARE_TRIGGER_NAME }).click();
