@@ -10,6 +10,7 @@ import {
 	CLOSE_BUTTON_NAME,
 	ERROR_DIALOG_NAME,
 	INVALID_INPUT_TEXT,
+	NOT_FOUND_HEADING_NAME,
 	openAddDialog,
 	PASSWORD_CONFIRM_LABEL,
 	PASSWORD_HASH_TIMEOUT,
@@ -18,6 +19,7 @@ import {
 	RESET_PASSWORD_MENU_ITEM_NAME,
 	ROW_ACTIONS_BUTTON_NAME,
 	SAVE_BUTTON_NAME,
+	SELF_SUFFIX_NAME,
 	TITLE_LABEL,
 	uniqueId,
 	USER_ADD_BUTTON_NAME,
@@ -26,9 +28,6 @@ import {
 	waitForDialog
 } from './helpers';
 import { createUser, removeUserIfPresent } from './user-helpers';
-
-const SELF_NAME = /\((あなた|you)\)$/;
-const NOT_FOUND_HEADING_NAME = /^ページが見つかりません$|^Page not found$/;
 
 /**
  * エラーダイアログに `text` が出ていることを確かめて閉じる。
@@ -154,7 +153,7 @@ test.describe('ユーザー', () => {
 		await page.goto('/admin/users');
 		const row = page
 			.getByRole('row')
-			.filter({ has: page.getByTestId('user-username').and(page.getByText(SELF_NAME)) });
+			.filter({ has: page.getByTestId('user-username').and(page.getByText(SELF_SUFFIX_NAME)) });
 		await expect(row).toHaveCount(1);
 		await expect(row.getByRole('link')).toHaveCount(0);
 		await expect(row.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME })).toHaveCount(0);

@@ -8,12 +8,10 @@
 	import QrAddress from '$lib/components/qr-address.svelte';
 	import { client } from '$lib/api/client';
 	import { headerIconActionClass } from '$lib/header-action';
-	import { pickShareUrl, shareableUrls } from '$lib/share-url';
+	import { pickShareUrl, shareableUrls, type Connection } from '$lib/share-url';
 	import { readStored, writeStored } from '$lib/stored';
 
 	// 開いているページを、ほかの端末へ渡す (→ docs/ui.md「ページの共有」)。
-
-	type Connection = { mdnsHostname?: string | null; port: number; lanAddresses?: string[] };
 
 	// 名前で開けないネットワークでは毎回 IP に切り替えることになるので、選んだホストを端末に覚える。
 	const HOST_STORAGE_KEY = 'weblav:share-host';

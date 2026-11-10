@@ -177,12 +177,11 @@ struct ConfirmPasswordRequest {
 )]
 async fn confirm_password(
     user: AuthUser,
-    session: Session,
     State(state): State<AppState>,
     AppJson(payload): AppJson<ConfirmPasswordRequest>,
 ) -> Result<StatusCode, AppError> {
     verify_current_password(&state, &user, payload.password).await?;
-    auth::mark_password_confirmed(&session, &credential_of(&user)?).await?;
+    user.mark_confirmed().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -207,7 +206,6 @@ struct ChangePasswordRequest {
 )]
 async fn change_password(
     user: AuthUser,
-    session: Session,
     State(state): State<AppState>,
     AppJson(payload): AppJson<ChangePasswordRequest>,
 ) -> Result<StatusCode, AppError> {
@@ -224,7 +222,11 @@ async fn change_password(
     .await?;
     // 新しいパスワードを決めたばかりなので、このセッションは確かめた内のままにする
     // (ほかのセッションは、古いパスワードで確かめた記録なので通らなくなる)。
-    auth::mark_password_confirmed(&session, &auth::credential_fingerprint(&new_hash)).await?;
+    auth::mark_password_confirmed(
+        &user.user_session()?.session,
+        &auth::credential_fingerprint(&new_hash),
+    )
+    .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -256,16 +258,6 @@ async fn change_username(
 
     auth::rename_user(&state.pool, user.id, &username).await?;
     Ok(StatusCode::NO_CONTENT)
-}
-
-/// 要求から取り出した `AuthUser` が持つ、今のパスワードの指紋。
-fn credential_of(user: &AuthUser) -> Result<String, AppError> {
-    user.session
-        .as_ref()
-        .map(|s| s.credential.clone())
-        .ok_or(AppError::Internal(auth::Error::MissingSessionLayer(
-            "AuthUser without a session",
-        )))
 }
 
 /// ログイン中の利用者の今のパスワードを確かめる。

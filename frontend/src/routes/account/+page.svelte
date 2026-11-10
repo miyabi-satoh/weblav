@@ -3,11 +3,13 @@
 	import { client } from '$lib/api/client';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
+	import { RecoveryCodeCreate } from '$lib/recovery-code-create.svelte';
 	import { formatDate } from '$lib/format';
 	import { SectionSaveState } from '$lib/section-save.svelte';
 	import { masonry } from '$lib/masonry';
 	import {
 		adminPageClass,
+		adminPageHeaderClass,
 		pageHeadingTextClass,
 		sectionCardClass,
 		sectionGridClass
@@ -82,29 +84,27 @@
 	}
 
 	// リカバリコード。作り直すと前のものは使えなくなるので、持っているときだけ先に確かめる。
-	let creatingCode = $state(false);
+	const recoveryCode = new RecoveryCodeCreate(errorDialog);
 	let replaceConfirmOpen = $state(false);
-	let createdCode = $state<string | null>(null);
 
-	async function createRecoveryCode() {
-		if (creatingCode) return;
+	function createRecoveryCode() {
+		if (recoveryCode.creating) return;
 		replaceConfirmOpen = false;
-		creatingCode = true;
-		const result = await errorDialog.attempt(() => client.POST('/api/v1/auth/recovery-code'));
-		creatingCode = false;
-		if (result?.data) createdCode = result.data.recoveryCode;
+		void recoveryCode.create();
 	}
 
 	function handleRecoveryCodeClick() {
 		if (me.hasRecoveryCode) replaceConfirmOpen = true;
-		else void createRecoveryCode();
+		else createRecoveryCode();
 	}
 </script>
 
 <svelte:head><title>{pageTitle(m.account_title())}</title></svelte:head>
 
 <div class={adminPageClass}>
-	<h1 class="mb-6 {pageHeadingTextClass}">{m.account_title()}</h1>
+	<div class={adminPageHeaderClass}>
+		<h1 class={pageHeadingTextClass}>{m.account_title()}</h1>
+	</div>
 	<div class={sectionGridClass} {@attach masonry}>
 		<form
 			onsubmit={handleUsernameSubmit}
@@ -149,7 +149,7 @@
 			<Field.FieldGroup>
 				<Field.Field>
 					<Field.FieldLabel for="account-new-password" required
-						>{m.change_password_new_label()}</Field.FieldLabel
+						>{m.common_new_password_label()}</Field.FieldLabel
 					>
 					<PasswordInput
 						id="account-new-password"
@@ -160,7 +160,7 @@
 				</Field.Field>
 				<Field.Field data-invalid={mismatch}>
 					<Field.FieldLabel for="account-new-password-confirm" required
-						>{m.change_password_new_confirm_label()}</Field.FieldLabel
+						>{m.common_new_password_confirm_label()}</Field.FieldLabel
 					>
 					<PasswordInput
 						id="account-new-password-confirm"
@@ -196,7 +196,10 @@
 				{/if}
 			</p>
 			<div>
-				<LoadingButton variant="outline" loading={creatingCode} onclick={handleRecoveryCodeClick}
+				<LoadingButton
+					variant="outline"
+					loading={recoveryCode.creating}
+					onclick={handleRecoveryCodeClick}
 					>{me.hasRecoveryCode
 						? m.account_recovery_code_replace_button()
 						: m.account_recovery_code_create_button()}</LoadingButton
@@ -221,7 +224,7 @@
 	</AlertDialog.Content>
 </AlertDialog.Root>
 
-<RecoveryCodeDialog bind:code={createdCode} username={me.username} />
+<RecoveryCodeDialog bind:code={recoveryCode.code} username={me.username} />
 
 <LeaveConfirmDialog guard={sections.leaveGuard} ondiscard={() => sections.discard()} />
 

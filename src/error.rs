@@ -39,9 +39,9 @@ pub enum AppError {
     Forbidden,
     #[error("invalid credentials")]
     InvalidCredentials,
-    /// 自分のパスワードを変更する際、入力した現在のパスワードが違う場合。ログイン失敗の
+    /// パスワードの確かめ直しで、入力した今のパスワードが違う場合。ログイン失敗の
     /// `InvalidCredentials`とは別コードにする(あちらの文言は「ユーザー名またはパスワード」
-    /// で、パスワード変更ダイアログにはユーザー名の欄が無いため)。
+    /// で、確かめ直しのダイアログにはユーザー名の欄が無いため)。
     #[error("incorrect current password")]
     IncorrectCurrentPassword,
     /// 確かめ直しが要る操作 (→ docs/access.md「操作の前のパスワードの確認」) で、

@@ -285,16 +285,22 @@ fn confirmation_is_fresh(
     let Some(c) = confirmation else {
         return false;
     };
-    let window = PASSWORD_CONFIRMATION_WINDOW.as_secs() as i64;
-    c.credential == credential && (0..window).contains(&(now - c.at))
+    c.credential == credential && is_within(c.at, PASSWORD_CONFIRMATION_WINDOW, now)
 }
 
-fn unix_now() -> i64 {
+/// `at` (UNIX 秒) から `now` までが `ttl` の内か。時計が戻って `at` が未来になったものは、
+/// どれだけ戻ったか分からないので通さない。セッションに残す時刻の期限の判定で共有する。
+pub(crate) fn is_within(at: i64, ttl: Duration, now: i64) -> bool {
+    (0..ttl.as_secs() as i64).contains(&(now - at))
+}
+
+/// 今の時刻 (UNIX 秒)。セッションに残す時刻に使う。
+pub(crate) fn unix_now() -> i64 {
     time::OffsetDateTime::now_utc().unix_timestamp()
 }
 
 /// パスワードを確かめたことをセッションに残す (ログイン・確かめ直し・自分のパスワードの変更・
-/// 確かめ直しが要る操作の成功)。`credential` は今のパスワードの指紋。
+/// 確かめ直しが要る操作の前の延長)。`credential` は今のパスワードの指紋。
 pub async fn mark_password_confirmed(session: &Session, credential: &str) -> Result<(), AppError> {
     let confirmation = PasswordConfirmation {
         at: unix_now(),
@@ -563,12 +569,31 @@ impl AuthUser {
         require_password_confirmation(&s.session, &s.credential).await
     }
 
-    fn user_session(&self) -> Result<&UserSession, AppError> {
+    /// 今のパスワードを確かめたことを、この要求のセッションに残す (→ `mark_password_confirmed`)。
+    /// 指紋は要求から取り出したときのもの。
+    pub async fn mark_confirmed(&self) -> Result<(), AppError> {
+        let s = self.user_session()?;
+        mark_password_confirmed(&s.session, &s.credential).await
+    }
+
+    pub(crate) fn user_session(&self) -> Result<&UserSession, AppError> {
         self.session
             .as_ref()
             .ok_or(AppError::Internal(Error::MissingSessionLayer(
                 "AuthUser without a session",
             )))
+    }
+
+    /// テスト用の、セッションを持たない `AuthUser`。
+    #[cfg(test)]
+    pub(crate) fn for_test(id: i64, role: Role) -> Self {
+        AuthUser {
+            id,
+            username: format!("user{id}"),
+            role,
+            has_recovery_code: false,
+            session: None,
+        }
     }
 }
 

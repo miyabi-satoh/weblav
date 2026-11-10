@@ -707,7 +707,6 @@ async fn created_by_change_keeps_private_group_rule(pool: SqlitePool) {
 }
 
 /// 一般ユーザーも、作成時に `private` を選べる (作成者は本人のため → docs/access.md「ロールと操作」)。
-/// JSON と multipart の両方の経路で確かめる。
 #[sqlx::test]
 async fn regular_user_can_create_private_content(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;

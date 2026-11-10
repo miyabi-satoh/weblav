@@ -8,8 +8,8 @@
 	import { resolve } from '$app/paths';
 	import { adminNavTabListClass, navTabClass } from '$lib/nav-tabs';
 	import * as m from '$lib/paraglide/messages.js';
-	import { client } from '$lib/api/client';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
+	import { RecoveryCodeCreate } from '$lib/recovery-code-create.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import RecoveryCodeDialog from '$lib/components/recovery-code-dialog.svelte';
@@ -20,18 +20,9 @@
 	// リカバリコードをまだ作っていない管理者には、作るよう促す (→ docs/access.md「リカバリコード」)。
 	// `/admin` の下は admin にしか開けないので (→ `+layout.ts`)、ここでは role を見ない。
 	let recoveryCodeMissing = $derived(page.data.user?.hasRecoveryCode === false);
-	let createdCode = $state<string | null>(null);
-	let creatingCode = $state(false);
 	const errorDialog = new ErrorDialogState();
-
 	// まだ無いので、作り直しの確かめは要らない。すぐ作って見せる。
-	async function createRecoveryCode() {
-		if (creatingCode) return;
-		creatingCode = true;
-		const result = await errorDialog.attempt(() => client.POST('/api/v1/auth/recovery-code'));
-		creatingCode = false;
-		if (result?.data) createdCode = result.data.recoveryCode;
-	}
+	const recoveryCode = new RecoveryCodeCreate(errorDialog);
 
 	let tabs = $derived([
 		{ href: resolve('/admin/contents'), label: m.admin_contents_nav_title, icon: LayoutListIcon },
@@ -64,15 +55,18 @@
 	<WarningBand class="md:px-6">
 		<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
 			<p class="text-sm leading-relaxed">{m.recovery_code_missing_notice()}</p>
-			<LoadingButton variant="outline" size="sm" loading={creatingCode} onclick={createRecoveryCode}
-				>{m.recovery_code_missing_action()}</LoadingButton
+			<LoadingButton
+				variant="outline"
+				size="sm"
+				loading={recoveryCode.creating}
+				onclick={() => recoveryCode.create()}>{m.recovery_code_missing_action()}</LoadingButton
 			>
 		</div>
 	</WarningBand>
 {/if}
 {#if page.data.user}
 	<!-- 見せている間に帯が消えても閉じないよう、帯の外に置く。 -->
-	<RecoveryCodeDialog bind:code={createdCode} username={page.data.user.username} />
+	<RecoveryCodeDialog bind:code={recoveryCode.code} username={page.data.user.username} />
 {/if}
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />
 {@render children()}

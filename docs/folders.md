@@ -109,10 +109,10 @@
 `GET` / `POST /api/v1/admin/roots`、`PUT` / `DELETE /api/v1/admin/roots/{id}`、場所の選び直しは `PUT /api/v1/admin/roots/{id}/path` (→ shares.md「共有の場所の選び直し」)。
 
 - 登録 (`POST`) と場所の選び直しができるのは**サーバーの PC の前にいる管理者**だけ
-  (`LocalRequest` + `AdminUser`、access.md「初回セットアップ」と同じループバックの判定)。
+  (`LocalRequest` + `ConfirmedAdmin`、access.md「初回セットアップ」と同じループバックの判定)。
   公開する範囲を広げる操作だけを PC の前に限る。通信が暗号化されないので、LAN で管理者のパスワードを盗まれても、範囲を広げられないようにするため。
   LAN の端末からは、登録とフォルダー選択の口があること自体を見せずに 404 にする。
-- 一覧・名前の変更・権限・削除は、LAN の端末の管理者もできる (`AdminUser`)。どれも範囲を広げない。
+- 一覧・名前の変更・権限・削除は、LAN の端末の管理者もできる (一覧は `AdminUser`、ほかは `ConfirmedAdmin`。→ access.md「操作の前のパスワードの確認」)。どれも範囲を広げない。
   管理者は LAN の端末からコンテンツを消せるので、削除だけを PC の前に残しても守れるものが増えない。
 - 画面は管理画面のタブを1つ増やす。「共有を追加...」と編集ページの「フォルダーを選び直す...」は、サーバーの PC から開いたときだけ出す。
   LAN の端末から開いたときは、追加・選び直しができる場所の案内を出し、削除の確認にも追加し直せる場所を添える。
@@ -132,7 +132,7 @@
 
 #### 選び方
 
-`POST /api/v1/admin/roots/pick` (`LocalRequest` + `AdminUser`) で、**サーバーの PC に OS 標準のフォルダー選択の窓を出し**、選ばれた絶対パスを返す
+`POST /api/v1/admin/roots/pick` (`LocalRequest` + `ConfirmedAdmin`) で、**サーバーの PC に OS 標準のフォルダー選択の窓を出し**、選ばれた絶対パスを返す
 (`{ "path": "..." }`、キャンセルなら `null`)。登録はしない。画面は返ったパスをそのまま `POST /api/v1/admin/roots` へ送る。
 
 - OS の窓にする理由:

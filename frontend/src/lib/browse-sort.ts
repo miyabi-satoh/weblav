@@ -4,7 +4,7 @@ import * as m from '$lib/paraglide/messages.js';
 /** ホームとグループの一覧の並び順 (→ docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。 */
 export type BrowseSort = 'title' | 'new';
 
-export const DEFAULT_BROWSE_SORT: BrowseSort = 'title';
+const DEFAULT_BROWSE_SORT: BrowseSort = 'title';
 
 /** ドロップダウンに出す順。`label` は表示言語の切り替えに追従させるため関数のまま持つ。 */
 export const SORT_OPTIONS: { value: BrowseSort; label: () => string }[] = [

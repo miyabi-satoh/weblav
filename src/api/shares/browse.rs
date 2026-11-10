@@ -381,13 +381,7 @@ mod tests {
         insert("/srv/hidden", "hidden").await;
         insert("/srv/both", "hidden").await;
         let shown = insert("/srv/both", "authenticated").await;
-        let user = AuthUser {
-            id: 1,
-            username: "taro".to_string(),
-            role: crate::auth::Role::Admin,
-            has_recovery_code: false,
-            session: None,
-        };
+        let user = AuthUser::for_test(1, crate::auth::Role::Admin);
 
         let listed = ListedPaths::load(&pool, &user).await.expect("読めなかった");
 

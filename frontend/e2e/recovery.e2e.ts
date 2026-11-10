@@ -5,12 +5,15 @@ import { test, expect } from '@playwright/test';
 import {
 	ACCOUNT_MENU_ITEM_NAME,
 	RECOVERY_CODE_CREATE_BUTTON_NAME,
-	EMPTY_STORAGE_STATE,
+	RECOVERY_CODE_REPLACE_BUTTON_NAME,
 	FORGOT_PASSWORD_LINK_NAME,
 	LOGIN_PASSWORD_LABEL,
 	LOGIN_USERNAME_LABEL,
+	NEW_PASSWORD_CONFIRM_LABEL,
+	NEW_PASSWORD_LABEL,
 	PASSWORD_HASH_TIMEOUT,
 	USERNAME_LABEL,
+	anonymousContext,
 	fillLogInForm,
 	requiredLabel,
 	uniqueId
@@ -23,15 +26,9 @@ const MISSING_NOTICE_TEXT =
 const MISSING_NOTICE_ON_ACCOUNT_TEXT = /まだ作成していません|Not created yet/;
 const CREATE_ACTION_NAME = /^リカバリコードを作成\.\.\.$|^Create recovery code$/;
 const RECOVERY_CODE_LABEL = requiredLabel('リカバリコード', 'Recovery code');
-const NEW_PASSWORD_LABEL = requiredLabel('新しいパスワード', 'New password');
-const NEW_PASSWORD_CONFIRM_LABEL = requiredLabel(
-	'新しいパスワード (確認)',
-	'New password (confirm)'
-);
 const RESET_BUTTON_NAME = /^パスワードを再設定する$|^Reset password$/;
 const RECOVERY_SECTION_NAME = /^リカバリコード$|^Recovery code$/;
 const CREATED_ON_TEXT = /に作成しました|Created on /;
-const REPLACE_BUTTON_NAME = /^作り直す\.\.\.$|^Regenerate\.\.\.$/;
 const INVALID_RECOVERY_TEXT =
 	/ユーザー名またはリカバリコードが正しくありません|The username or recovery code is incorrect/;
 
@@ -47,7 +44,7 @@ test('管理者はリカバリコードを作り、パスワードを忘れた�
 	});
 	expect(created.ok()).toBe(true);
 
-	const context = await browser.newContext({ storageState: EMPTY_STORAGE_STATE });
+	const context = await anonymousContext(browser);
 	const own = await context.newPage();
 	try {
 		await own.goto('/login');
@@ -111,7 +108,7 @@ test('編集者も、アカウントのページで作ったリカバリコー�
 	});
 	expect(created.ok()).toBe(true);
 
-	const context = await browser.newContext({ storageState: EMPTY_STORAGE_STATE });
+	const context = await anonymousContext(browser);
 	const own = await context.newPage();
 	try {
 		await own.goto('/login');
@@ -129,7 +126,9 @@ test('編集者も、アカウントのページで作ったリカバリコー�
 		// 作った日を出す。手元の控えの作成日時と見比べられるように。
 		await expect(section).toContainText(CREATED_ON_TEXT);
 		// 次に押すと、控えたばかりのコードを無効にする前に確かめる形になる。
-		await expect(section.getByRole('button', { name: REPLACE_BUTTON_NAME })).toBeVisible();
+		await expect(
+			section.getByRole('button', { name: RECOVERY_CODE_REPLACE_BUTTON_NAME })
+		).toBeVisible();
 
 		await context.clearCookies();
 		await own.goto('/recover');

@@ -62,7 +62,7 @@ struct UpdateSiteSettingsRequest {
     responses(
         (status = OK, body = SiteSettingsResponse, description = "更新後の設定"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
         (status = 422, body = crate::error::ErrorResponse, description = "上限の文字数を超えている"),
     )
 )]

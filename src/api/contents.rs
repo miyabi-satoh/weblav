@@ -1343,7 +1343,7 @@ async fn fetch_link_metadata(
     responses(
         (status = OK, body = AdminContentResponse),
         (status = 401, body = crate::error::ErrorResponse),
-        (status = 403, body = crate::error::ErrorResponse),
+        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの・admin が他人のものを変えるときのパスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse),
         (status = 422, body = crate::error::ErrorResponse),
     )
@@ -1562,7 +1562,7 @@ pub struct SetCreatorRequest {
     responses(
         (status = OK, body = AdminContentResponse),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "存在しない"),
         (status = 422, body = crate::error::ErrorResponse, description = "存在しないユーザーか、作成者のみのグループの決まりに合わない"),
     )
@@ -1623,7 +1623,7 @@ async fn set_creator(
     responses(
         (status = 204),
         (status = 401, body = crate::error::ErrorResponse),
-        (status = 403, body = crate::error::ErrorResponse),
+        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの・admin が他人のものを変えるときのパスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse),
     )
 )]
@@ -3010,13 +3010,7 @@ mod tests {
     }
 
     fn viewer(id: i64, role: crate::auth::Role) -> Viewer {
-        Viewer::User(AuthUser {
-            id,
-            username: format!("user{id}"),
-            role,
-            has_recovery_code: false,
-            session: None,
-        })
+        Viewer::User(AuthUser::for_test(id, role))
     }
 
     fn content_row(

@@ -619,29 +619,11 @@ async fn share_operations_are_listed_newest_first_in_pages(pool: SqlitePool) {
 
 /// `files` を `file` の欄に並べた multipart の要求。
 fn upload_request(uri: &str, cookie: &str, files: &[(&str, &[u8])]) -> Request<Body> {
-    const BOUNDARY: &str = "----weblavshareupload0123456789";
-    let mut body = Vec::new();
-    for (name, content) in files {
-        body.extend_from_slice(format!("--{BOUNDARY}\r\n").as_bytes());
-        body.extend_from_slice(
-            format!("Content-Disposition: form-data; name=\"file\"; filename=\"{name}\"\r\n")
-                .as_bytes(),
-        );
-        body.extend_from_slice(b"Content-Type: application/octet-stream\r\n\r\n");
-        body.extend_from_slice(content);
-        body.extend_from_slice(b"\r\n");
-    }
-    body.extend_from_slice(format!("--{BOUNDARY}--\r\n").as_bytes());
-    Request::builder()
-        .method("POST")
-        .uri(uri)
-        .header(header::COOKIE, cookie)
-        .header(
-            header::CONTENT_TYPE,
-            format!("multipart/form-data; boundary={BOUNDARY}"),
-        )
-        .body(Body::from(body))
-        .expect("リクエストを組み立てられなかった")
+    let fields: Vec<(&str, &str, &[u8])> = files
+        .iter()
+        .map(|&(name, content)| ("file", name, content))
+        .collect();
+    multipart_request("POST", uri, cookie, &[], &fields)
 }
 
 fn upload_uri(id: i64, path: &str) -> String {

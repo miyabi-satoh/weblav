@@ -12,7 +12,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * 今の DB とアップロードしたファイルを1つの zip にして返す。作りながら送る。
+         * 今の DB を zip にして返す。作りながら送る。
          *     引換券は、合っていてもいなくても使い済みにする。
          */
         get: operations["download_backup"];
@@ -3364,7 +3364,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3433,7 +3433,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3560,7 +3560,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3687,7 +3687,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3743,7 +3743,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3805,7 +3805,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3861,7 +3861,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3914,7 +3914,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3976,7 +3976,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4092,7 +4092,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4195,7 +4195,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5132,7 +5132,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden */
+            /** @description `user` から見て他人が作ったもの・admin が他人のものを変えるときのパスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5188,7 +5188,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Forbidden */
+            /** @description `user` から見て他人が作ったもの・admin が他人のものを変えるときのパスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5510,7 +5510,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `user` から見て他人が作ったもの */
+            /** @description `user` から見て他人が作ったもの・admin が他人のものを変えるときのパスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5572,7 +5572,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `user` から見て他人が作ったもの */
+            /** @description `user` から見て他人が作ったもの・admin が他人のものを変えるときのパスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5697,7 +5697,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `user` から見て他人が作ったもの */
+            /** @description `user` から見て他人が作ったもの・admin が他人のものを変えるときのパスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5754,7 +5754,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `user` から見て他人が作ったもの */
+            /** @description `user` から見て他人が作ったもの・admin が他人のものを変えるときのパスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5858,7 +5858,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `user` から見て他人が作ったもの */
+            /** @description `user` から見て他人が作ったもの・admin が他人のものを変えるときのパスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6023,7 +6023,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description admin以外 */
+            /** @description admin以外・パスワードの確かめ直しが要る */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -8344,6 +8344,15 @@ export interface operations {
             };
             /** @description 未ログイン */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin が他人の非表示のものを戻すときのパスワードの確かめ直しが要る */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

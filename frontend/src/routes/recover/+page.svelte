@@ -100,7 +100,7 @@
 							</Field.Field>
 							<Field.Field>
 								<Field.FieldLabel for="new-password" required
-									>{m.recover_new_password_label()}</Field.FieldLabel
+									>{m.common_new_password_label()}</Field.FieldLabel
 								>
 								<PasswordInput
 									id="new-password"
@@ -111,7 +111,7 @@
 							</Field.Field>
 							<Field.Field data-invalid={passwordMismatch}>
 								<Field.FieldLabel for="new-password-confirm" required
-									>{m.recover_new_password_confirm_label()}</Field.FieldLabel
+									>{m.common_new_password_confirm_label()}</Field.FieldLabel
 								>
 								<PasswordInput
 									id="new-password-confirm"

@@ -71,7 +71,7 @@ async fn get_log_settings(
     responses(
         (status = OK, body = LogSettingsResponse, description = "切り替えた後の設定"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
     )
 )]
 async fn update_log_settings(

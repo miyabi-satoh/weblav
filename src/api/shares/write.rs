@@ -402,6 +402,7 @@ pub struct ListOnHomeRequest {
     responses(
         (status = CREATED, body = AdminContentResponse, description = "載せた"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin が他人の非表示のものを戻すときのパスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "共有・フォルダー・ファイルが無い、見られない"),
         (status = 422, body = crate::error::ErrorResponse, description = "公開範囲が合わない"),
     )

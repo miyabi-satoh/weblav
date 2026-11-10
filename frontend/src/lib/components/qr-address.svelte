@@ -79,7 +79,7 @@
 		<!-- アイコンのみ (→ GitHub等の「表示中テキストをコピー」ボタンの作法に合わせる)。
 		     成功のフィードバックはアイコンを一時的にチェックマークへ切り替えるだけにし
 		     (トーストはこの軽い操作には大げさ)、失敗時だけトーストで知らせる。 -->
-		<Button variant="outline" size="icon-sm" onclick={copyUrl} aria-label={m.share_copy_button()}>
+		<Button variant="outline" size="icon-sm" onclick={copyUrl} aria-label={m.action_copy()}>
 			{#if copyFeedback.copied}
 				<CheckIcon />
 			{:else}

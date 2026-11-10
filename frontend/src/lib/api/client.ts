@@ -3,7 +3,7 @@ import { goto } from '$app/navigation';
 import { navigating } from '$app/state';
 import { resolve } from '$app/paths';
 import { loginPathWithRedirect } from '$lib/auth';
-import { errorCode } from '$lib/api/errors';
+import { errorCode, isPasswordConfirmationRequired } from '$lib/api/errors';
 import { passwordConfirmation } from '$lib/password-confirmation.svelte';
 import type { paths } from '$lib/api/schema';
 
@@ -44,7 +44,7 @@ client.use({
 			.clone()
 			.json()
 			.catch(() => undefined);
-		if (errorCode(body) !== 'password_confirmation_required') return;
+		if (!isPasswordConfirmationRequired(body)) return;
 		if (!(await passwordConfirmation.request())) return;
 		return fetch(original);
 	},

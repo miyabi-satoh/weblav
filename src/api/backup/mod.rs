@@ -27,7 +27,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use super::completed_reader::CompletedReader;
-use crate::auth::{AdminUser, ConfirmedAdmin};
+use crate::auth::{self, AdminUser, ConfirmedAdmin};
 use crate::error::{AppError, AppJson, multipart_error_to_app_error, run_blocking};
 use crate::state::AppState;
 
@@ -148,14 +148,13 @@ struct DownloadTicket {
 impl DownloadTicket {
     /// `id` の券で、`now` から見て使える長さの内か。時計が戻って未来の時刻になったものは通さない。
     fn admits(&self, id: &str, now: i64) -> bool {
-        let ttl = DOWNLOAD_TICKET_TTL.as_secs() as i64;
-        self.id == id && (0..ttl).contains(&(now - self.issued_at))
+        self.id == id && auth::is_within(self.issued_at, DOWNLOAD_TICKET_TTL, now)
     }
 }
 
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct DownloadTicketResponse {
+struct DownloadTicketResponse {
     /// `GET /admin/backup` の `ticket` に付ける値。
     ticket: String,
 }
@@ -185,24 +184,25 @@ struct RestoreBackupRequest {
     )
 )]
 async fn issue_download_ticket(
-    _admin: ConfirmedAdmin,
-    session: Session,
+    admin: ConfirmedAdmin,
 ) -> Result<Json<DownloadTicketResponse>, AppError> {
     let ticket = DownloadTicket {
         id: super::random_hex::<16>()?,
-        issued_at: time::OffsetDateTime::now_utc().unix_timestamp(),
+        issued_at: auth::unix_now(),
     };
     let response = DownloadTicketResponse {
         ticket: ticket.id.clone(),
     };
-    session
+    admin
+        .user_session()?
+        .session
         .insert(SESSION_DOWNLOAD_TICKET_KEY, ticket)
         .await
-        .map_err(|err| AppError::Internal(crate::auth::Error::Session(err)))?;
+        .map_err(auth::Error::Session)?;
     Ok(Json(response))
 }
 
-/// 今の DB とアップロードしたファイルを1つの zip にして返す。作りながら送る。
+/// 今の DB を zip にして返す。作りながら送る。
 /// 引換券は、合っていてもいなくても使い済みにする。
 #[utoipa::path(
     get,
@@ -216,17 +216,17 @@ async fn issue_download_ticket(
     )
 )]
 async fn download_backup(
-    _admin: AdminUser,
-    session: Session,
+    admin: AdminUser,
     State(state): State<AppState>,
     Query(query): Query<DownloadQuery>,
 ) -> Result<impl IntoResponse, AppError> {
-    let ticket: Option<DownloadTicket> = session
+    let ticket: Option<DownloadTicket> = admin
+        .user_session()?
+        .session
         .remove(SESSION_DOWNLOAD_TICKET_KEY)
         .await
-        .map_err(|err| AppError::Internal(crate::auth::Error::Session(err)))?;
-    let now = time::OffsetDateTime::now_utc().unix_timestamp();
-    if !ticket.is_some_and(|t| t.admits(&query.ticket, now)) {
+        .map_err(auth::Error::Session)?;
+    if !ticket.is_some_and(|t| t.admits(&query.ticket, auth::unix_now())) {
         return Err(AppError::NotFound);
     }
     let snapshot = archive::snapshot(&state.pool, &state.backup_work_dir).await?;
@@ -270,7 +270,7 @@ async fn download_backup(
     responses(
         (status = OK, body = StagedBackupResponse, description = "受け取ったバックアップの目録"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
         (status = 422, body = crate::error::ErrorResponse, description = "バックアップではない・新しい版で作られた"),
     )
 )]
@@ -290,7 +290,7 @@ async fn stage_restore(
     responses(
         (status = 204, description = "戻した"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "受け取ったものが無い・期限切れ"),
         (status = 409, body = crate::error::ErrorResponse, description = "アーカイブの走査中"),
         (status = 422, body = crate::error::ErrorResponse, description = "バックアップが壊れている"),
@@ -298,7 +298,6 @@ async fn stage_restore(
 )]
 async fn restore(
     admin: ConfirmedAdmin,
-    session: Session,
     State(state): State<AppState>,
     AppJson(payload): AppJson<RestoreBackupRequest>,
 ) -> Result<StatusCode, AppError> {
@@ -307,7 +306,7 @@ async fn restore(
         restore_staged(&state, &payload.id).await?;
     }
     tracing::info!(user_id = admin.id, "restored data from a backup");
-    end_session(&session).await?;
+    end_session(&admin.user_session()?.session).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -395,14 +394,12 @@ pub(super) async fn restore_staged(state: &AppState, id: &str) -> Result<(), App
 /// 戻した後で、この要求のセッションを消す。
 /// 戻した DB では、このセッションの利用者 id が別の人を指しうるため。
 pub(super) async fn end_session(session: &Session) -> Result<(), AppError> {
-    session
-        .flush()
-        .await
-        .map_err(|err| AppError::Internal(crate::auth::Error::Session(err)))
+    session.flush().await.map_err(auth::Error::Session)?;
+    Ok(())
 }
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
-    // ADR: 受け取る大きさに上限を設けない。DB とアップロードしたファイルの全部が入るので、
+    // ADR: 受け取る大きさに上限を設けない。DB が丸ごと入り、その大きさは使い方しだいなので、
     // 決まった上限では足りなくなりうる。使えるのは admin と、この PC の中からのセットアップだけ。
     let upload_routes = OpenApiRouter::new()
         .routes(routes!(stage_restore))

@@ -13,6 +13,7 @@ import {
 	LOGIN_PASSWORD_LABEL,
 	LOGIN_USERNAME_LABEL,
 	logIn,
+	NOT_FOUND_HEADING_NAME,
 	PASSWORD_HASH_TIMEOUT,
 	SETUP_HELP_LINK_TEXT
 } from './helpers';
@@ -56,9 +57,7 @@ test('管理者がいればサーバーの PC から開いても、最初の管�
 
 test('どのページにも当たらない URL は、見出しとホームへの戻り先を出す', async ({ page }) => {
 	await page.goto('/no/such/page');
-	await expect(
-		page.getByRole('heading', { level: 1, name: /^ページが見つかりません$|^Page not found$/ })
-	).toBeVisible();
+	await expect(page.getByRole('heading', { level: 1, name: NOT_FOUND_HEADING_NAME })).toBeVisible();
 	await page.getByRole('link', { name: /^ホームに戻る$|^Back to home$/ }).click();
 	await page.waitForURL((url) => url.pathname === '/');
 });

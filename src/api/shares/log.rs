@@ -365,13 +365,7 @@ mod tests {
     use super::*;
 
     fn user() -> AuthUser {
-        AuthUser {
-            id: 1,
-            username: "taro".to_string(),
-            role: crate::auth::Role::User,
-            has_recovery_code: false,
-            session: None,
-        }
+        AuthUser::for_test(1, crate::auth::Role::User)
     }
 
     async fn results(pool: &sqlx::SqlitePool) -> Vec<(i64, String, Option<String>)> {

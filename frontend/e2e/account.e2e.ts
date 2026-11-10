@@ -9,22 +9,17 @@ import {
 	ERROR_DIALOG_NAME,
 	LOGIN_PASSWORD_LABEL,
 	LOGIN_USERNAME_LABEL,
+	NEW_PASSWORD_CONFIRM_LABEL,
+	NEW_PASSWORD_LABEL,
 	PASSWORD_HASH_TIMEOUT,
 	SAVE_BUTTON_NAME,
+	USERNAME_LABEL,
 	anonymousContext,
-	requiredLabel,
 	uniqueId
 } from './helpers';
 
 const PASSWORD = 'account-password';
-const USERNAME_SECTION_NAME = requiredLabel('ユーザー名', 'Username');
 const PASSWORD_SECTION_NAME = /^パスワード$|^Password$/;
-const ACCOUNT_USERNAME_LABEL = requiredLabel('ユーザー名', 'Username');
-const NEW_PASSWORD_LABEL = requiredLabel('新しいパスワード', 'New password');
-const NEW_PASSWORD_CONFIRM_LABEL = requiredLabel(
-	'新しいパスワード (確認)',
-	'New password (confirm)'
-);
 const CONFIRMATION_DIALOG_NAME = /^パスワードの確認$|^Confirm your password$/;
 const CONFIRM_BUTTON_NAME = /^確認する$|^Confirm$/;
 const INCORRECT_CURRENT_TEXT =
@@ -61,8 +56,8 @@ test('アカウントのページで、ユーザー名とパスワードを変�
 			const own = await context.newPage();
 			await own.goto('/account');
 
-			const usernameForm = own.getByRole('form', { name: USERNAME_SECTION_NAME });
-			await usernameForm.getByLabel(ACCOUNT_USERNAME_LABEL).fill(renamed);
+			const usernameForm = own.getByRole('form', { name: USERNAME_LABEL });
+			await usernameForm.getByLabel(USERNAME_LABEL).fill(renamed);
 			await usernameForm.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
 			// ヘッダーの名前も新しくなる。
 			await expect(own.getByRole('button', { name: renamed, exact: true })).toBeVisible();
@@ -106,8 +101,8 @@ test('確かめ直しが要ると、パスワードを聞いてから同じ操�
 			const calls = await requireConfirmationOnce(own);
 			await own.goto('/account');
 
-			const usernameForm = own.getByRole('form', { name: USERNAME_SECTION_NAME });
-			await usernameForm.getByLabel(ACCOUNT_USERNAME_LABEL).fill(renamed);
+			const usernameForm = own.getByRole('form', { name: USERNAME_LABEL });
+			await usernameForm.getByLabel(USERNAME_LABEL).fill(renamed);
 			await usernameForm.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
 
 			const dialog = own.getByRole('dialog', { name: CONFIRMATION_DIALOG_NAME });
@@ -140,17 +135,15 @@ test('確かめ直しをやめると、失敗を知らせずに書きかけを�
 			await requireConfirmationOnce(own);
 			await own.goto('/account');
 
-			const usernameForm = own.getByRole('form', { name: USERNAME_SECTION_NAME });
-			await usernameForm.getByLabel(ACCOUNT_USERNAME_LABEL).fill(`${username}-draft`);
+			const usernameForm = own.getByRole('form', { name: USERNAME_LABEL });
+			await usernameForm.getByLabel(USERNAME_LABEL).fill(`${username}-draft`);
 			await usernameForm.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
 			const dialog = own.getByRole('dialog', { name: CONFIRMATION_DIALOG_NAME });
 			await dialog.getByRole('button', { name: CANCEL_BUTTON_NAME }).click();
 
 			await expect(dialog).toHaveCount(0);
 			await expect(own.getByRole('alertdialog', { name: ERROR_DIALOG_NAME })).toHaveCount(0);
-			await expect(usernameForm.getByLabel(ACCOUNT_USERNAME_LABEL)).toHaveValue(
-				`${username}-draft`
-			);
+			await expect(usernameForm.getByLabel(USERNAME_LABEL)).toHaveValue(`${username}-draft`);
 		} finally {
 			await context.close();
 		}

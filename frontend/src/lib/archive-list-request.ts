@@ -25,7 +25,7 @@ export function axisFilters(url: URL, reserved: string[] = []): Record<string, s
  * サーバーへ送るクエリ。軸の絞り込みは `axis.<軸名>` にして、区切りの引数などと取り違えないようにする
  * (→ docs/archive.md「一覧の API を区切って返す」)。空の値は送らない。
  */
-export function archiveListQuery(
+function archiveListQuery(
 	filters: Record<string, string>,
 	extra: Record<string, string>
 ): Record<string, string> {

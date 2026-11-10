@@ -302,13 +302,7 @@ mod tests {
     }
 
     fn user(id: i64, role: crate::auth::Role) -> AuthUser {
-        AuthUser {
-            id,
-            username: format!("user{id}"),
-            role,
-            has_recovery_code: false,
-            session: None,
-        }
+        AuthUser::for_test(id, role)
     }
 
     /// ユーザーごとの例外があればそれを、無ければ共有の既定を使う。

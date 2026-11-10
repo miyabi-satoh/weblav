@@ -10,12 +10,10 @@
 	type Props = {
 		/** 消すと何が起きるか。1つずつ段落にする。 */
 		notes: string[];
-		/** 押せない理由。あれば、ボタンを押せなくして書く。 */
-		disabledReason?: string | null;
 		onclick: () => void;
 	};
 
-	let { notes, disabledReason = null, onclick }: Props = $props();
+	let { notes, onclick }: Props = $props();
 </script>
 
 <!-- 上の石垣 (`masonry`) は最後の区画の下にも区画の間と同じ隙間を残すので、ここでは上に間を足さない。 -->
@@ -32,13 +30,10 @@
 			{#each notes as note (note)}
 				<p>{note}</p>
 			{/each}
-			{#if disabledReason}
-				<p>{disabledReason}</p>
-			{/if}
 		</div>
 		<div>
 			<!-- 押しても確認の窓が開くだけなので、見えるところに置いても誤って消すことはない。 -->
-			<Button variant="destructive" disabled={disabledReason !== null} {onclick}>
+			<Button variant="destructive" {onclick}>
 				{m.action_delete()}
 			</Button>
 		</div>

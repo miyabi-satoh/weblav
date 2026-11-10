@@ -26,6 +26,11 @@ export const USERNAME_LABEL = requiredLabel('ユーザー名', 'Username');
 export const PASSWORD_LABEL = requiredLabel('パスワード', 'Password');
 export const PASSWORD_CONFIRM_LABEL = requiredLabel('パスワード (確認)', 'Password (confirm)');
 export const CURRENT_PASSWORD_LABEL = requiredLabel('現在のパスワード', 'Current password');
+export const NEW_PASSWORD_LABEL = requiredLabel('新しいパスワード', 'New password');
+export const NEW_PASSWORD_CONFIRM_LABEL = requiredLabel(
+	'新しいパスワード (確認)',
+	'New password (confirm)'
+);
 
 /** ログイン画面の入力欄とボタン。表示言語 (ja/en) のどちらでも見つかるようにする。 */
 export const LOGIN_USERNAME_LABEL = /^ユーザー名\s*$|^Username\s*$/;
@@ -84,12 +89,19 @@ export const SETUP_HELP_LINK_TEXT =
 export const RECOVERY_CODE_SAVE_BUTTON_NAME = /^ファイルに保存$|^Save to file$/;
 export const RECOVERY_CODE_KEPT_BUTTON_NAME = /^保管しました$|^I've kept it$/;
 export const RECOVERY_CODE_CREATE_BUTTON_NAME = /^作成する$|^Create$/;
+export const RECOVERY_CODE_REPLACE_BUTTON_NAME = /^作り直す\.\.\.$|^Regenerate\.\.\.$/;
 
 /** アーカイブの編集ページのタブ「ファイル」。 */
 export const ITEMS_TAB_NAME = /^ファイル$|^Files$/;
 
 /** 処理に失敗したことを知らせるダイアログの見出し (`error-dialog.svelte` の既定)。 */
 export const ERROR_DIALOG_NAME = /^操作に失敗しました$|^Operation failed$/;
+
+/** どのページにも当たらないときの見出し。 */
+export const NOT_FOUND_HEADING_NAME = /^ページが見つかりません$|^Page not found$/;
+
+/** ユーザーの一覧で、自分の名前の後ろに添える「(あなた)」。 */
+export const SELF_SUFFIX_NAME = /\((あなた|you)\)$/;
 
 /** サーバーが入力を受け付けなかったとき (422) の文言。 */
 export const INVALID_INPUT_TEXT = /入力内容を確認してください|Please check your input/;

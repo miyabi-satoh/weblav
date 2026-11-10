@@ -225,13 +225,13 @@ async fn insert_shortcut(
 }
 
 /// multipart/form-dataのリクエストを組み立てる(テスト用の最小実装。外部クレートを
-/// 増やさないため手書きする)。`file_field`は`(フィールド名, ファイル名, 内容)`。
+/// 増やさないため手書きする)。`file_fields`の各要素は`(フィールド名, ファイル名, 内容)`。
 fn multipart_request(
     method: &str,
     uri: &str,
     cookie: &str,
     text_fields: &[(&str, &str)],
-    file_field: Option<(&str, &str, &[u8])>,
+    file_fields: &[(&str, &str, &[u8])],
 ) -> Request<Body> {
     const BOUNDARY: &str = "----weblavtestboundary0123456789";
     let mut body = Vec::new();
@@ -243,7 +243,7 @@ fn multipart_request(
         body.extend_from_slice(value.as_bytes());
         body.extend_from_slice(b"\r\n");
     }
-    if let Some((name, file_name, content)) = file_field {
+    for (name, file_name, content) in file_fields {
         body.extend_from_slice(format!("--{BOUNDARY}\r\n").as_bytes());
         body.extend_from_slice(
             format!(
@@ -501,6 +501,7 @@ fn set_cookie(response: &Response) -> String {
 }
 
 const RECOVER_URI: &str = "/api/v1/auth/recover";
+const RECOVERY_CODE_URI: &str = "/api/v1/auth/recovery-code";
 
 fn json_str(body: &str, key: &str) -> String {
     parse_json(body)[key]

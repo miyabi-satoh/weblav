@@ -107,10 +107,10 @@
   現状は次のとおり。
   - `error_` — API エラーの表示文言 (下記)
   - `contents_` — コンテンツ関連
-  - `action_` — 画面によらず同じ汎用の操作ラベル (`action_cancel`・`action_close`)
-  - `common_` — 画面によらず同じ汎用の文言のうち、ラベル以外 (`common_error_title`)
+  - `action_` — 画面によらず同じ汎用の操作ラベル (`action_cancel`・`action_close`・`action_copy`)
+  - `common_` — 画面によらず同じ汎用の文言のうち、操作のラベル以外 (`common_error_title`・`common_new_password_label`)
   - `site_settings_` — サイト設定関連 (ホームの見出しと管理画面のサイト設定の両方で使う)
-  - `account_` — 自分のアカウントの操作 (ユーザーメニューのダイアログ) で共有する文言 (`account_current_password_label`)
+  - `account_` — 自分のアカウントのページの文言。ほかの画面からも同じ語で指すものを含む (ユーザーメニューの `account_title`・パスワードを確かめ直す窓の `account_current_password_label`)
   - `media_` — 音声のプレイヤーと動画のビューアーで共有する再生の操作 (`media_play_button`)
   - `schedule_` — 自動で回す処理の時刻の選択肢 (一覧の表示を使うフォルダーの自動の再スキャンで使う。`schedule_off`)
   - `shares_` — 共有 (ホームの「共有」の区画・共有の一覧・共有の中の画面で共有する。`shares_heading`)

@@ -222,8 +222,6 @@ async fn login_is_rate_limited_after_repeated_failures(pool: SqlitePool) {
     );
 }
 
-const RECOVERY_CODE_URI: &str = "/api/v1/auth/recovery-code";
-
 /// ログイン中の利用者のリカバリコードを作り、見せる形のコードを返す。
 /// ログインしたばかりなので、パスワードの確かめ直しは求められない。
 async fn create_recovery_code(app: Router, cookie: &str) -> String {
@@ -255,34 +253,6 @@ async fn user_changes_their_own_username_right_after_logging_in(pool: SqlitePool
     assert!(body.contains(r#""username":"robert""#), "{body}");
 
     login(app, "robert", "correct-password").await;
-}
-
-/// パスワードの確かめ直しは、今のパスワードが合うときだけ通る。
-#[sqlx::test]
-async fn confirming_the_password_requires_the_current_password(pool: SqlitePool) {
-    insert_user(&pool, "bob", "correct-password").await;
-    let app = test_app(pool).await;
-    let cookie = login(app.clone(), "bob", "correct-password").await;
-
-    let uri = "/api/v1/auth/confirm-password";
-    let (status, body) =
-        send_json(app.clone(), "POST", uri, &cookie, r#"{"password":"wrong"}"#).await;
-    assert_error(
-        status,
-        &body,
-        StatusCode::UNAUTHORIZED,
-        "incorrect_current_password",
-    );
-
-    let (status, body) = send_json(
-        app,
-        "POST",
-        uri,
-        &cookie,
-        r#"{"password":"correct-password"}"#,
-    )
-    .await;
-    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
 }
 
 /// リカバリコードを作ると、作った時刻が `me` に載る (→ docs/access.md「リカバリコード」)。
