@@ -136,7 +136,7 @@ id は連番なので、匿名に何かがあると分かること自体の害�
 | コンテンツの `visibility` の変更 | `AuthUser` + ハンドラ内で判定 (下記) |
 | 作成者 (`created_by`) の付け替え | `AdminUser` (下記) |
 | 管理用のコンテンツの一覧・フォルダーの選択・対象のファイル数 (`/contents/manage`・`/fs/dirs`・`/fs/count`) | `AuthUser` |
-| 共有の登録・場所の選び直し (macOS の書き込みの許可の取り直しを含む) | `LocalRequest` + `AdminUser` (→ folders.md「共有」・shares.md「共有の場所の選び直し」) |
+| 共有の登録・場所の選び直し | `LocalRequest` + `AdminUser` (→ folders.md「共有」・shares.md「共有の場所の選び直し」) |
 | 共有の一覧・名前の変更・削除・権限の設定 | `AdminUser` |
 | 共有の中を見る・書き換える | `AuthUser` + 共有ごとのできること (→ shares.md「できること」) |
 | 共有の中の操作の記録 | `AdminUser` (→ shares.md「操作の記録」) |

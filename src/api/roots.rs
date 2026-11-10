@@ -58,9 +58,6 @@ pub struct RootResponse {
     pub editor_access: ShareAccess,
     /// ユーザーごとの例外。ユーザー名の順。
     pub user_access: Vec<RootUserAccess>,
-    /// 中を書き換えられる許可があるか。macOS のサンドボックスで、読むだけの許可のまま登録した共有は偽。
-    /// 偽なら、この PC で窓から同じフォルダーを選び直してもらう (`PUT /admin/roots/{id}/path`)。
-    pub writable: bool,
 }
 
 /// 共有の、ユーザーごとの例外の1件。
@@ -114,7 +111,6 @@ async fn list_roots(
     .await?;
     let counts = ContentCounts::load(&state.pool).await?;
     let mut user_access = load_user_access(&state.pool).await?;
-    let read_only = crate::folder_access::read_only_paths(&state.pool).await?;
     // 管理者が様子を見る画面なので、眠っている NAS が起きるまで待つ。
     let paths = rows.iter().map(|row| row.path.clone()).collect();
     let reaches = check_all(&state, paths, TARGET_WAIT).await;
@@ -125,7 +121,6 @@ async fn list_roots(
             content_count: counts.under(&row.path),
             removed_content_count: counts.removed_with(&row.path),
             status: RootStatus::from(&reach),
-            writable: !read_only.contains(&row.path),
             id: row.id,
             name: row.name,
             path: row.path,
@@ -209,9 +204,6 @@ async fn create_root(
             removed_content_count: counts.removed_with(&row.path),
             // 今 canonicalize できたフォルダー。
             status: RootStatus::Ready,
-            writable: !crate::folder_access::read_only_paths(&state.pool)
-                .await?
-                .contains(&row.path),
             path: row.path,
             editor_access: row.editor_access,
             user_access,
@@ -385,9 +377,6 @@ async fn root_response(state: &AppState, id: i64) -> Result<RootResponse, AppErr
         content_count: counts.under(&row.path),
         removed_content_count: counts.removed_with(&row.path),
         status: RootStatus::from(&reach),
-        writable: !crate::folder_access::read_only_paths(&state.pool)
-            .await?
-            .contains(&row.path),
         path: row.path,
         editor_access: row.editor_access,
         user_access,
@@ -922,8 +911,7 @@ struct MoveRootRequest {
 /// 権限と名前は共有の id に付いているので、そのまま残る。中のフォルダーのコンテンツの登録先は、
 /// 新しい場所の同じ相対パスへ付け替える。
 ///
-/// 今と同じフォルダーを選んだときは何も付け替えず、書き込みの許可だけを取り直す。macOS のサンドボックスでは、
-/// 許可は利用者が窓で選んだときにしか増やせないため (`RootResponse::writable` が偽の共有)。
+/// 今と同じフォルダーを選んだときは何も付け替えない (ブックマークは、窓で選んだときに作り直してある)。
 #[utoipa::path(
     put,
     path = "/admin/roots/{id}/path",
@@ -986,9 +974,7 @@ async fn move_root(
         list_views
     };
 
-    // 窓で選んだときに作ったブックマーク (`pick_root`) で、許可を戻し直す。読むだけの許可で戻していても、
-    // 書き込みの許可で戻し直すため。macOS 以外では何もしない。
-    crate::folder_access::forget_restored(&path);
+    // 窓で選んだときに作ったブックマーク (`pick_root`) で、新しい場所の許可を戻す。macOS 以外では何もしない。
     crate::folder_access::restore(&state.pool).await;
     // 中身が変わっていれば、一覧の表示の索引を次の再スキャンを待たずに読み直す (→ docs/archive.md「スキャン」)。
     super::shares::repoint::refresh_after_change(&state, list_views);

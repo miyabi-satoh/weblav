@@ -202,8 +202,7 @@ export interface paths {
          *     権限と名前は共有の id に付いているので、そのまま残る。中のフォルダーのコンテンツの登録先は、
          *     新しい場所の同じ相対パスへ付け替える。
          *
-         *     今と同じフォルダーを選んだときは何も付け替えず、書き込みの許可だけを取り直す。macOS のサンドボックスでは、
-         *     許可は利用者が窓で選んだときにしか増やせないため (`RootResponse::writable` が偽の共有)。
+         *     今と同じフォルダーを選んだときは何も付け替えない (ブックマークは、窓で選んだときに作り直してある)。
          */
         put: operations["move_root"];
         post?: never;
@@ -2601,7 +2600,7 @@ export interface components {
              */
             hiddenContentCount: number;
             /**
-             * @description リカバリコードを作った時刻。コードが無いときと、時刻を持つ前に作ったコードでは `None`。
+             * @description リカバリコードを作った時刻。コードが無いときは `None`。
              *     アカウントのページで、控えの作成日時と見比べられるよう出す。
              */
             recoveryCodeCreatedAt?: string | null;
@@ -2733,11 +2732,6 @@ export interface components {
             status: components["schemas"]["RootStatus"];
             /** @description ユーザーごとの例外。ユーザー名の順。 */
             userAccess: components["schemas"]["RootUserAccess"][];
-            /**
-             * @description 中を書き換えられる許可があるか。macOS のサンドボックスで、読むだけの許可のまま登録した共有は偽。
-             *     偽なら、この PC で窓から同じフォルダーを選び直してもらう (`PUT /admin/roots/{id}/path`)。
-             */
-            writable: boolean;
         };
         /**
          * @description 共有の今の様子 (→ `folder_reach::Reach`)。

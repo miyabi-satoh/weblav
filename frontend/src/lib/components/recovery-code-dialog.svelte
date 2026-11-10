@@ -12,7 +12,7 @@
 
 	async function handleConfirm() {
 		code = null;
-		// 「作成済み」と作った日を出し直す。
+		// アカウントのページに、作った日を出し直す。
 		await refreshAll();
 	}
 </script>
