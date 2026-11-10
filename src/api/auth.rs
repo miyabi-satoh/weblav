@@ -8,7 +8,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use crate::auth::{self, AuthUser, Role, SESSION_USER_ID_KEY};
-use crate::error::{AppError, AppJson};
+use crate::error::{AppError, AppJson, run_blocking};
 use crate::state::AppState;
 
 use super::validate;
@@ -283,11 +283,8 @@ async fn verify_current_password(
         return Err(AppError::Unauthorized);
     };
 
-    let ok = tokio::task::spawn_blocking(move || {
-        auth::verify_password(&current_password, &row.password_hash)
-    })
-    .await
-    .map_err(auth::Error::Join)??;
+    let ok = run_blocking(move || auth::verify_password(&current_password, &row.password_hash))
+        .await??;
     if !ok {
         return Err(AppError::IncorrectCurrentPassword);
     }

@@ -13,8 +13,8 @@
           {
             "name": "ticket",
             "in": "query",
-            "description": "`POST /admin/backup/ticket` で受け取った引換券。",
-            "required": true,
+            "description": "`POST /admin/backup/ticket` で受け取った引換券。無いときも、違う券と同じく 404 にする。",
+            "required": false,
             "schema": {
               "type": "string"
             }
