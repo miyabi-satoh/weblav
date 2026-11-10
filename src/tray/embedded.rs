@@ -219,12 +219,16 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
                         spawn_login_task(login_proxy.clone(), change);
                     }
                 } else if event.id == open_item.id() {
-                    // `that` はランチャーの終了を待つことがあり、tao のイベントループ
-                    // (メインスレッド)を止めうる (open 5.4.3 のドキュメント参照)。
-                    let _ = open::that_detached(browser_origin(poll_addr));
+                    // `that_detached` も、ランチャーが終わるのを最大 250ms 待つ (open 5.4.5)。
+                    // tao のイベントループ (メインスレッド) を止めないよう、別スレッドで開く。
+                    std::thread::spawn(move || {
+                        let _ = open::that_detached(browser_origin(poll_addr));
+                    });
                 } else if event.id == manual_item.id() {
                     // マニュアルはログインしなくても読める (→ docs/help.md)。
-                    let _ = open::that_detached(format!("{}/help", browser_origin(poll_addr)));
+                    std::thread::spawn(move || {
+                        let _ = open::that_detached(format!("{}/help", browser_origin(poll_addr)));
+                    });
                 }
             }
             _ => {}
