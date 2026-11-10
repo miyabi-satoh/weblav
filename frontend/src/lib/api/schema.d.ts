@@ -3288,7 +3288,7 @@ export interface operations {
     download_backup: {
         parameters: {
             query: {
-                /** @description `POST /admin/backup/ticket` で受け取った引換券。 */
+                /** @description `POST /admin/backup/ticket` で受け取った引換券。無いときも、違う券と同じく 404 にする。 */
                 ticket: string;
             };
             header?: never;

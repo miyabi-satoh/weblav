@@ -578,7 +578,7 @@
 	"recovery_code_file_usage": "パスワードを忘れた場合は、ログインページの「パスワードをお忘れですか？」から使用してください。使用すると、新しいコードに置き換えられます。",
 	"recovery_code_dialog_title": "リカバリコード",
 	"recovery_code_missing_notice": "リカバリコードがまだ作成されていません。パスワードを忘れた場合に自分で再設定できるよう、作成してください。",
-	"recovery_code_missing_action": "リカバリコードを作成...",
+	"recovery_code_missing_action": "リカバリコードを作成する",
 	"archive_axes_ai_button": "AI に相談...",
 	"archive_axes_ai_dialog_title": "AI に分類の設計を相談",
 	"archive_axes_ai_dialog_description": "お使いの AI サービス (ChatGPT、Claude など) に分類と表示タイトルを設計してもらい、その回答をインポートします。",

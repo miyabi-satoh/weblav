@@ -325,6 +325,19 @@ async fn backup_download_needs_its_ticket_and_the_ticket_works_once(pool: Sqlite
     let app = test_app(pool).await;
     let cookie = login(app.clone(), "admin", "admin-password").await;
 
+    // 券を付けない要求も、受け取った券を使い済みにする。
+    let ticket = issue_ticket(app.clone(), &cookie).await;
+    let (status, body) = send_empty(app.clone(), "GET", BACKUP_URI, &cookie).await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
+    let (status, body) = send_empty(
+        app.clone(),
+        "GET",
+        &format!("{BACKUP_URI}?ticket={ticket}"),
+        &cookie,
+    )
+    .await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
+
     let ticket = issue_ticket(app.clone(), &cookie).await;
     let (status, body) = send_empty(
         app.clone(),

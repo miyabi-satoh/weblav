@@ -161,7 +161,9 @@ struct DownloadTicketResponse {
 
 #[derive(Debug, Deserialize, IntoParams)]
 struct DownloadQuery {
-    /// `POST /admin/backup/ticket` で受け取った引換券。
+    /// `POST /admin/backup/ticket` で受け取った引換券。無いときも、違う券と同じく 404 にする。
+    #[serde(default)]
+    #[param(required = true)]
     ticket: String,
 }
 

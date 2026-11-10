@@ -24,7 +24,7 @@ import { removeUserIfPresent } from './user-helpers';
 const MISSING_NOTICE_TEXT =
 	/リカバリコードがまだ作成されていません|You haven't created a recovery code yet/;
 const MISSING_NOTICE_ON_ACCOUNT_TEXT = /まだ作成していません|Not created yet/;
-const CREATE_ACTION_NAME = /^リカバリコードを作成\.\.\.$|^Create recovery code$/;
+const CREATE_ACTION_NAME = /^リカバリコードを作成する$|^Create recovery code$/;
 const RECOVERY_CODE_LABEL = requiredLabel('リカバリコード', 'Recovery code');
 const RESET_BUTTON_NAME = /^パスワードを再設定する$|^Reset password$/;
 const RECOVERY_SECTION_NAME = /^リカバリコード$|^Recovery code$/;
