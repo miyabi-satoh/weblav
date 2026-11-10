@@ -189,12 +189,10 @@
 				{m.recovery_code_label()}
 			</h2>
 			<p class="text-sm">
-				{#if !me.hasRecoveryCode}
-					{m.account_recovery_code_missing()}
-				{:else if me.recoveryCodeCreatedAt}
+				{#if me.recoveryCodeCreatedAt}
 					{m.account_recovery_code_created_on({ date: formatDate(me.recoveryCodeCreatedAt) })}
 				{:else}
-					{m.account_recovery_code_created()}
+					{m.account_recovery_code_missing()}
 				{/if}
 			</p>
 			<div>

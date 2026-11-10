@@ -20,11 +20,10 @@ pub fn bookmark(path: &Path) -> Result<Option<Vec<u8>>, String> {
 }
 
 /// 窓で選んだフォルダーのブックマークを残す。同じパスがあれば書き直す。
-/// 窓で選んで作るブックマークは書き込みの許可を持つ (`bookmark`)。
 pub async fn save(pool: &SqlitePool, path: &str, bookmark: &[u8]) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "INSERT INTO folder_bookmarks (path, bookmark, read_write) VALUES (?, ?, 1)
-         ON CONFLICT (path) DO UPDATE SET bookmark = excluded.bookmark, read_write = 1",
+        "INSERT INTO folder_bookmarks (path, bookmark) VALUES (?, ?)
+         ON CONFLICT (path) DO UPDATE SET bookmark = excluded.bookmark",
         path,
         bookmark
     )
@@ -33,8 +32,7 @@ pub async fn save(pool: &SqlitePool, path: &str, bookmark: &[u8]) -> Result<(), 
     Ok(())
 }
 
-/// 古くなったブックマークを作り直したものに置き換える。許可の種類は前のまま
-/// (読むだけの許可から作り直しても、書き込みの許可にはならないため)。
+/// 古くなったブックマークを作り直したものに置き換える。
 async fn renew(pool: &SqlitePool, path: &str, bookmark: &[u8]) -> Result<(), sqlx::Error> {
     sqlx::query!(
         "UPDATE folder_bookmarks SET bookmark = ? WHERE path = ?",
@@ -44,27 +42,6 @@ async fn renew(pool: &SqlitePool, path: &str, bookmark: &[u8]) -> Result<(), sql
     .execute(pool)
     .await?;
     Ok(())
-}
-
-/// 読むだけの許可のブックマークしか無いフォルダーのパス。サンドボックスでは中を書き換えられないので、
-/// 管理画面で選び直すよう知らせる。ブックマークが無いフォルダー (macOS 以外など) は含めない。
-pub async fn read_only_paths(pool: &SqlitePool) -> Result<BTreeSet<String>, sqlx::Error> {
-    Ok(
-        sqlx::query_scalar!("SELECT path FROM folder_bookmarks WHERE read_write = 0")
-            .fetch_all(pool)
-            .await?
-            .into_iter()
-            .collect(),
-    )
-}
-
-/// 選び直したフォルダーの許可を、次の `restore` で取り直させる。読むだけの許可で戻していても、
-/// 書き込みの許可のブックマークで戻し直すため。
-pub fn forget_restored(path: &str) {
-    STARTED
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .remove(path);
 }
 
 /// 共有のブックマーク。無い (macOS 以外・窓で選んでいない) か読めなければ `None`。

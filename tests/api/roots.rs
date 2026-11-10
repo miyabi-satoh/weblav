@@ -337,37 +337,6 @@ async fn registered_root_id(pool: &SqlitePool, dir: &std::path::Path) -> i64 {
         .expect("共有の行を引けなかった")
 }
 
-/// 読むだけの許可のブックマークしか無い共有は、一覧で書き込めないと出る。ブックマークの無い共有 (macOS 以外) は書き込める。
-#[sqlx::test]
-async fn roots_list_tells_whether_each_root_is_writable(pool: SqlitePool) {
-    let read_only = root_dir("roots-read-only");
-    let writable = root_dir("roots-writable");
-    registered_root_id(&pool, &read_only).await;
-    registered_root_id(&pool, &writable).await;
-    sqlx::query("INSERT INTO folder_bookmarks (path, bookmark) VALUES (?, x'00')")
-        .bind(canonical_path_as_api_returns_it(&read_only))
-        .execute(&pool)
-        .await
-        .expect("ブックマークを入れられなかった");
-    let (app, cookie) = admin_app(&pool).await;
-
-    let (status, body) = send(app, roots_request("GET", ROOTS_URI, &cookie, None)).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    let roots = parse_json(&body);
-    let writable_of = |dir: &std::path::Path| {
-        let path = canonical_path_as_api_returns_it(dir);
-        roots
-            .as_array()
-            .expect("配列でない")
-            .iter()
-            .find(|root| root["path"] == path.as_str())
-            .unwrap_or_else(|| panic!("{path} が一覧に無い: {body}"))["writable"]
-            .clone()
-    };
-    assert_eq!(writable_of(&read_only), false);
-    assert_eq!(writable_of(&writable), true);
-}
-
 /// 場所を選び直すと、中のフォルダーのコンテンツが新しい場所へ移り、名前と権限は残る。
 /// 付け替えの決まり (頭の似た隣・一覧の表示) は `roots::rebase_contents` の単体テストで確かめる。
 #[sqlx::test]
@@ -410,7 +379,7 @@ async fn moving_a_root_carries_its_contents_and_keeps_its_settings(pool: SqliteP
     );
 }
 
-/// 今と同じフォルダーを選ぶのは、書き込みの許可の取り直し (macOS)。何も付け替えずに共有を返す。
+/// 今と同じフォルダーを選んでも、何も付け替えずに共有を返す。
 #[sqlx::test]
 async fn picking_the_same_place_again_returns_the_root_unchanged(pool: SqlitePool) {
     let dir = root_dir("roots-move-same");

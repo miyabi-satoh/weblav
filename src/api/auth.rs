@@ -49,7 +49,7 @@ pub struct MeResponse {
     pub user: UserResponse,
     /// 非表示のコンテンツの一覧 (`GET /contents/hidden`) に並ぶ件数。ユーザーメニューに出す。
     pub hidden_content_count: i64,
-    /// リカバリコードを作った時刻。コードが無いときと、時刻を持つ前に作ったコードでは `None`。
+    /// リカバリコードを作った時刻。コードが無いときは `None`。
     /// アカウントのページで、控えの作成日時と見比べられるよう出す。
     pub recovery_code_created_at: Option<String>,
 }

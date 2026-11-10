@@ -90,14 +90,6 @@ If you moved the folder of a share to another disk or a NAS, do not delete the s
 
 Keep the folders inside in the same arrangement as before the move. Contents inside open the folders with the same names in the new location.
 
-## Grant write access again on macOS
-
-On macOS, shares added with an earlier version of WebLAV do not have write permission. Until you grant it, you cannot add or move files in those shares. If the share list in the admin pages shows “No write permission”, grant it again.
-
-1. On this Mac, open “Shares” in the admin pages from “Open in browser” in the task tray menu.
-2. Select the row of that share to open its edit page.
-3. In the “Location” section, select “Choose folder again...”, then choose the same folder in the window that opens.
-
 ## Rename one
 
 The name appears instead of the path when choosing a folder for content, when showing the content location, and in the “Shares” section on Home.

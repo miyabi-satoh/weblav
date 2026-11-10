@@ -133,14 +133,14 @@
 	}
 
 	// 追加と同じ OS の窓で選び直す。違うフォルダーなら、中のコンテンツも移るので確かめてから変える。
-	// 同じフォルダーなら、何も変えずに書き込みの許可だけを取り直す (macOS → docs/shares.md「共有の場所の選び直し」)。
+	// 同じフォルダーなら場所は変えない。起動したときに許可を戻せていなければ、ここで戻す (macOS → docs/shares.md「共有の場所の選び直し」)。
 	async function handlePick() {
 		if (picking) return;
 		picking = true;
 		try {
 			const path = await pickRootFolder(errorDialog);
 			if (path == null) return;
-			// 知らせは出さない。場所は画面のまま変わらず、許可が戻れば書き込めない旨の注記が消える。
+			// 場所は画面のまま変わらないので、知らせは出さない。
 			if (path === root.path) {
 				await move(path);
 				return;
@@ -186,7 +186,7 @@
 		{m.admin_roots_content_count({ count: formatNumber(root.contentCount) })}
 	</p>
 	<!-- 一覧の行と同じ知らせを、ここでも見出しの下に出す。 -->
-	<RootWarnings status={root.status} writable={root.writable} size="sm" />
+	<RootWarnings status={root.status} size="sm" />
 </div>
 
 <div class={adminPageClass}>
@@ -203,9 +203,6 @@
 					<LoadingButton variant="outline" loading={picking} disabled={moving} onclick={handlePick}
 						>{m.admin_roots_edit_repick_button()}</LoadingButton
 					>
-					{#if !root.writable}
-						<p class="text-sm text-muted-foreground">{m.admin_roots_edit_not_writable_note()}</p>
-					{/if}
 				</div>
 			{:else}
 				<p class="text-sm text-muted-foreground">{m.admin_roots_edit_location_local_only()}</p>

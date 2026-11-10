@@ -88,12 +88,6 @@
 			<p class="text-sm leading-relaxed">{m.admin_roots_unreachable_warning()}</p>
 		</WarningBand>
 	{/if}
-	<!-- 取り直すのは編集ページの「フォルダーを選び直す...」から (この PC の窓で選ぶため)。 -->
-	{#if data.roots.some((root) => !root.writable)}
-		<WarningBand class="mb-4 rounded-md border">
-			<p class="text-sm leading-relaxed">{m.admin_roots_not_writable_warning()}</p>
-		</WarningBand>
-	{/if}
 
 	{#if data.roots.length === 0}
 		<p class={adminEmptyTextClass}>{m.admin_roots_empty()}</p>
@@ -150,7 +144,7 @@
 									<span aria-hidden="true">·</span>
 									{contentCount}
 								</span>
-								<RootWarnings status={root.status} writable={root.writable} size="xs" />
+								<RootWarnings status={root.status} size="xs" />
 							</Table.Cell>
 							<!-- 一般ユーザーがこの中でできること。例外は人数だけを出す (中身は編集ページで見る)。 -->
 							<Table.Cell class={[columnFromSmClass, fitColumnClass]}>{access}</Table.Cell>

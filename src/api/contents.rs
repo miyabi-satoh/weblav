@@ -2788,7 +2788,7 @@ pub(super) async fn content_file(
     }
 }
 
-/// 非表示から戻すときの公開範囲。覚えていなければ、ログインした人に見える `authenticated` にする
+/// 非表示から戻すときの公開範囲。覚えていなければ (初めから非表示で作ったもの)、ログインした人に見える `authenticated` にする
 /// (`public` に戻すと、隠していたものを匿名にまで見せてしまうため)。
 fn restore_target(before_hidden: Option<Visibility>) -> Visibility {
     match before_hidden {
