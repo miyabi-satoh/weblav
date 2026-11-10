@@ -1,10 +1,11 @@
 //! 「共有」(→ docs/folders.md「共有」) の管理 API。
 //!
 //! コンテンツに使えるパスは、ここに登録したフォルダーの配下だけになる。
-//! 追加できるのは**サーバーの PC の前にいる管理者**だけ (`LocalRequest` + `AdminUser`)。
+//! 追加できるのは**サーバーの PC の前にいる管理者**だけ (`LocalRequest` + `ConfirmedAdmin`)。
 //! LAN の端末からは、追加の口があること自体を見せずに 404 にする。
 //! 場所の選び直しも、窓で選ぶので同じく PC の前の管理者だけ。
-//! 一覧・名前の変更・権限・削除は、LAN の端末の管理者もできる (`AdminUser`)。
+//! 一覧・名前の変更・権限・削除は、LAN の端末の管理者もできる (一覧は `AdminUser`、ほかは `ConfirmedAdmin`。
+//! → docs/access.md「操作の前のパスワードの確認」)。
 
 use std::collections::HashMap;
 use std::path::{Path as FsPath, PathBuf};
