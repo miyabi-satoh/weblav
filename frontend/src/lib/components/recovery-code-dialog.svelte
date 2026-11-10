@@ -12,7 +12,8 @@
 
 	async function handleConfirm() {
 		code = null;
-		// アカウントのページに、作った日を出し直す。
+		// 取り直して、作ったことを画面に出し直す。アカウントのページは作った日を、管理画面の帯は
+		// `hasRecoveryCode` を見て消える。
 		await refreshAll();
 	}
 </script>

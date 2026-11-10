@@ -42,7 +42,9 @@ import {
 	waitForDialog,
 	PASSWORD_HASH_TIMEOUT,
 	deleteSectionButton,
-	browseLink
+	browseLink,
+	escapeRegExp,
+	SELF_SUFFIX_NAME
 } from './helpers';
 import {
 	createGroupContent,
@@ -82,7 +84,9 @@ test('管理画面: ユーザー一覧に自分自身が表示される', async 
 	await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
 	// 自分の行は「(あなた)」を添える (→ docs/ui.md「管理画面のユーザーの一覧」)。
 	await expect(
-		page.getByRole('cell', { name: new RegExp(`^${ADMIN_USERNAME} \\((あなた|you)\\)$`) })
+		page.getByRole('cell', {
+			name: new RegExp(`^${escapeRegExp(ADMIN_USERNAME)} ${SELF_SUFFIX_NAME.source}`)
+		})
 	).toBeVisible();
 });
 

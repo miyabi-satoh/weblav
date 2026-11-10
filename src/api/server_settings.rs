@@ -100,7 +100,7 @@ async fn get_server_settings(
     responses(
         (status = OK, body = ServerSettingsResponse, description = "保存した後の値"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
         (status = 409, body = crate::error::ErrorResponse, description = "config.toml を読めない"),
         (status = 422, body = crate::error::ErrorResponse, description = "範囲の外の値"),
     )

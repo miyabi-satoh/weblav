@@ -5,6 +5,8 @@
 
 use super::*;
 
+const CONFIRM_PASSWORD_URI: &str = "/api/v1/auth/confirm-password";
+
 /// 確かめた後にパスワードが変わった状態を作る (ほかの管理者の再設定と同じ書き換え)。
 async fn replace_password_hash(pool: &SqlitePool, username: &str, password: &str) {
     let hash = auth::hash_password(password).expect("ハッシュを作れるはず");
@@ -37,8 +39,7 @@ async fn admin_reset_stops_the_old_session_from_changing_the_account(pool: Sqlit
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
 
-    let (status, body) =
-        send_empty(app.clone(), "POST", "/api/v1/auth/recovery-code", &alice).await;
+    let (status, body) = send_empty(app.clone(), "POST", RECOVERY_CODE_URI, &alice).await;
     assert_error(
         status,
         &body,
@@ -50,13 +51,13 @@ async fn admin_reset_stops_the_old_session_from_changing_the_account(pool: Sqlit
     let (status, body) = send_json(
         app.clone(),
         "POST",
-        "/api/v1/auth/confirm-password",
+        CONFIRM_PASSWORD_URI,
         &alice,
         r#"{"password":"new-password"}"#,
     )
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
-    let (status, body) = send_empty(app, "POST", "/api/v1/auth/recovery-code", &alice).await;
+    let (status, body) = send_empty(app, "POST", RECOVERY_CODE_URI, &alice).await;
     assert_eq!(status, StatusCode::OK, "{body}");
 }
 
@@ -189,4 +190,37 @@ async fn editing_others_contents_requires_a_fresh_confirmation_but_own_does_not(
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
+}
+
+/// パスワードの確かめ直しは、今のパスワードが合うときだけ通る。
+#[sqlx::test]
+async fn confirming_the_password_requires_the_current_password(pool: SqlitePool) {
+    insert_user(&pool, "bob", "correct-password").await;
+    let app = test_app(pool).await;
+    let cookie = login(app.clone(), "bob", "correct-password").await;
+
+    let (status, body) = send_json(
+        app.clone(),
+        "POST",
+        CONFIRM_PASSWORD_URI,
+        &cookie,
+        r#"{"password":"wrong"}"#,
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNAUTHORIZED,
+        "incorrect_current_password",
+    );
+
+    let (status, body) = send_json(
+        app,
+        "POST",
+        CONFIRM_PASSWORD_URI,
+        &cookie,
+        r#"{"password":"correct-password"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
 }

@@ -65,12 +65,17 @@ function unwrapError(body: unknown): { code?: unknown; detail?: unknown } | unde
 	return error as { code?: unknown; detail?: unknown };
 }
 
+/** パスワードの確かめ直しが要ると断った応答か (→ docs/access.md「操作の前のパスワードの確認」)。 */
+export function isPasswordConfirmationRequired(body: unknown): boolean {
+	return errorCode(body) === 'password_confirmation_required';
+}
+
 /**
  * パスワードの確かめ直しを利用者がやめた応答か (→ `$lib/api/client`)。自分でやめたので、
- * 失敗として知らせない。
+ * 失敗として知らせない。やめたときは断られた応答がそのまま呼び出し側に届くので、見分け方は同じ。
  */
 export function isConfirmationCancelled(body: unknown): boolean {
-	return errorCode(body) === 'password_confirmation_required';
+	return isPasswordConfirmationRequired(body);
 }
 
 /** envelope から `code` を取り出す。 */

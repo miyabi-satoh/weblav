@@ -1,3 +1,5 @@
+import type { components } from '$lib/api/schema';
+
 /** 同じ PC の中だけで通じるホスト名。ほかの端末に渡すときは、PC の名前に置き換える。 */
 function isLoopbackHost(hostname: string): boolean {
 	const host = hostname.toLowerCase();
@@ -9,7 +11,8 @@ function isLoopbackHost(hostname: string): boolean {
 	);
 }
 
-type Connection = { mdnsHostname?: string | null; port: number; lanAddresses?: string[] };
+/** ほかの端末から開くための、サーバーの名前とアドレス (`GET /api/v1/connection-info`)。 */
+export type Connection = components['schemas']['ConnectionInfoResponse'];
 
 /**
  * ほかの端末に渡せる、開いているページのアドレスの候補 (→ docs/ui.md「ページの共有」)。先頭が既定。
@@ -25,7 +28,7 @@ export function shareableUrls(current: URL, connection: Connection | undefined):
 	if (!connection || connection.port === 0 || (!loopback && current.protocol !== 'http:')) {
 		return urls;
 	}
-	const hosts = [connection.mdnsHostname, ...(connection.lanAddresses ?? [])];
+	const hosts = [connection.mdnsHostname, ...connection.lanAddresses];
 	for (const host of hosts) {
 		if (!host) continue;
 		const url = `${current.protocol}//${host}:${connection.port}${path}`;

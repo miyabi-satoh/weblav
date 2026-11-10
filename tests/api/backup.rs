@@ -45,7 +45,7 @@ async fn stage_backup(app: Router, cookie: &str, zip: &[u8]) -> (StatusCode, Str
             BACKUP_STAGE_URI,
             cookie,
             &[],
-            Some(("file", "backup.zip", zip)),
+            &[("file", "backup.zip", zip)],
         ),
     )
     .await
@@ -267,7 +267,7 @@ fn setup_stage_request(token: &str, zip: &[u8]) -> Request<Body> {
         SETUP_RESTORE_STAGE_URI,
         "",
         &[],
-        Some(("file", "backup.zip", zip)),
+        &[("file", "backup.zip", zip)],
     );
     request.headers_mut().insert(
         "x-setup-token",

@@ -3,14 +3,20 @@
 // execCommand の道を通す。写った中身は、隠す前に取っておいた本物で読む。
 import { test, expect, type Browser, type Page } from '@playwright/test';
 import { ADMIN_STORAGE_STATE } from './auth';
-import { RECOVERY_CODE_KEPT_BUTTON_NAME } from './helpers';
+import { send } from './api-helpers';
+import {
+	RECOVERY_CODE_CREATE_BUTTON_NAME,
+	RECOVERY_CODE_KEPT_BUTTON_NAME,
+	RECOVERY_CODE_REPLACE_BUTTON_NAME
+} from './helpers';
 
-const RECOVERY_CODE_COPY_BUTTON_NAME = /^コピー$|^Copy$/;
-const RECOVERY_CODE_ACTION_NAME = /^作成する$|^Create$|^作り直す\.\.\.$|^Regenerate\.\.\.$/;
+const COPY_BUTTON_NAME = /^コピー$|^Copy$/;
+const RECOVERY_CODE_ACTION_NAME = new RegExp(
+	`${RECOVERY_CODE_CREATE_BUTTON_NAME.source}|${RECOVERY_CODE_REPLACE_BUTTON_NAME.source}`
+);
 const REPLACE_CONFIRM_NAME = /^作り直す$|^Regenerate$/;
 const SHARE_TRIGGER_NAME = /^このページを共有$|^Share this page$/;
 const SHARE_QR_MENU_ITEM_NAME = /^QR コードを表示\.\.\.$|^Show QR code\.\.\.$/;
-const SHARE_COPY_BUTTON_NAME = /^コピー$|^Copy$/;
 const SHARE_ADDRESS_SELECT_NAME = /^共有するアドレス$|^Address to share$/;
 
 type WindowWithClipboard = Window & { __realClipboard?: Clipboard };
@@ -39,9 +45,7 @@ test('アカウントのページで作ったリカバリコードをコピー�
 		);
 		await page.goto('/account');
 		// 共有の管理者がもうコードを持っていれば、作り直しの確かめを挟む。
-		const me = (await (await page.request.get('/api/v1/auth/me')).json()) as {
-			hasRecoveryCode: boolean;
-		};
+		const me = (await send(page.request, 'get', '/auth/me')) as { hasRecoveryCode: boolean };
 		await page.getByRole('button', { name: RECOVERY_CODE_ACTION_NAME }).click();
 		if (me.hasRecoveryCode) {
 			await page
@@ -52,7 +56,7 @@ test('アカウントのページで作ったリカバリコードをコピー�
 		const dialog = page.getByRole('dialog');
 		await expect(dialog.getByText(fakeCode)).toBeVisible();
 
-		const copyButton = dialog.getByRole('button', { name: RECOVERY_CODE_COPY_BUTTON_NAME });
+		const copyButton = dialog.getByRole('button', { name: COPY_BUTTON_NAME });
 		await copyButton.click();
 		await expect(copyButton).toBeFocused();
 		await expect(
@@ -69,13 +73,13 @@ test('共有の QR コードの画面から、ページのアドレスをコピ�
 	try {
 		// mDNS が使えない環境でもアドレスを出すよう、ホスト名を返させる。
 		await page.route('**/api/v1/connection-info', (route) =>
-			route.fulfill({ json: { mdnsHostname: 'e2e-host.local', port: 8370 } })
+			route.fulfill({ json: { mdnsHostname: 'e2e-host.local', port: 8370, lanAddresses: [] } })
 		);
 		await page.goto('/');
 		await page.getByRole('button', { name: SHARE_TRIGGER_NAME }).click();
 		await page.getByRole('menuitem', { name: SHARE_QR_MENU_ITEM_NAME }).click();
 		const dialog = page.getByRole('dialog');
-		const copyButton = dialog.getByRole('button', { name: SHARE_COPY_BUTTON_NAME });
+		const copyButton = dialog.getByRole('button', { name: COPY_BUTTON_NAME });
 		await copyButton.click();
 		await expect(copyButton).toBeFocused();
 		expect(await readClipboard(page)).toBe(`${new URL(baseURL!).protocol}//e2e-host.local:8370/`);
@@ -101,7 +105,7 @@ test('共有の QR コードの画面で IP アドレスを選ぶと、そのア
 		const dialog = page.getByRole('dialog');
 		await dialog.getByRole('button', { name: SHARE_ADDRESS_SELECT_NAME }).click();
 		await page.getByRole('option', { name: '192.168.1.13:8370' }).click();
-		await dialog.getByRole('button', { name: SHARE_COPY_BUTTON_NAME }).click();
+		await dialog.getByRole('button', { name: COPY_BUTTON_NAME }).click();
 		await expect
 			.poll(() => readClipboard(page))
 			.toBe(`${new URL(baseURL!).protocol}//192.168.1.13:8370/`);

@@ -212,7 +212,7 @@ async fn list_axes(
     responses(
         (status = 201, body = AxisResponse, description = "作成した軸"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの"),
+        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの・admin が他人のものを変えるときのパスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "存在しない・アーカイブでない"),
         (status = 422, body = crate::error::ErrorResponse, description = "軸名が空・重複・使えない文字を含む、階層番号の指定が不正"),
     )
@@ -320,7 +320,7 @@ async fn insert_axis_values(
     responses(
         (status = OK, body = AxisResponse, description = "更新後の軸"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの"),
+        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの・admin が他人のものを変えるときのパスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "所属しない・存在しない軸"),
         (status = 422, body = crate::error::ErrorResponse, description = "軸名が空・重複・使えない文字を含む、階層番号の指定が不正"),
     )
@@ -405,7 +405,7 @@ async fn update_axis(
     responses(
         (status = 204, description = "削除した"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの"),
+        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの・admin が他人のものを変えるときのパスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "所属しない・存在しない軸"),
         (status = 422, body = crate::error::ErrorResponse, description = "テンプレートで使用中"),
     )
@@ -588,7 +588,7 @@ pub struct ReplaceAxisValuesRequest {
     responses(
         (status = OK, body = Vec<AxisValueResponse>, description = "更新後の値の辞書"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの"),
+        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの・admin が他人のものを変えるときのパスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "所属しない・存在しない軸"),
         (status = 422, body = crate::error::ErrorResponse, description = "値が空・重複・上限超え、階層の軸に anywhere 以外の照合位置"),
     )
@@ -1021,7 +1021,7 @@ async fn preview_import_axes(
     responses(
         (status = OK, body = Vec<AxisResponse>, description = "置き換えた後の軸の一覧"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの"),
+        (status = 403, body = crate::error::ErrorResponse, description = "`user` から見て他人が作ったもの・admin が他人のものを変えるときのパスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "存在しない・アーカイブでない"),
         (status = 422, body = crate::error::ErrorResponse, description = "軸名・階層番号・値・テンプレートが決まりに合わない"),
     )

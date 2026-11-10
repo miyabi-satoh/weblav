@@ -106,7 +106,7 @@
 				<CheckIcon data-icon="inline-start" />
 			{:else}
 				<CopyIcon data-icon="inline-start" />
-			{/if}{m.recovery_code_copy()}
+			{/if}{m.action_copy()}
 		</Button>
 		<Button variant="outline" onclick={save}>
 			<DownloadIcon data-icon="inline-start" />{m.recovery_code_save()}

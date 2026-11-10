@@ -1,10 +1,11 @@
 //! 「共有」(→ docs/folders.md「共有」) の管理 API。
 //!
 //! コンテンツに使えるパスは、ここに登録したフォルダーの配下だけになる。
-//! 追加できるのは**サーバーの PC の前にいる管理者**だけ (`LocalRequest` + `AdminUser`)。
+//! 追加できるのは**サーバーの PC の前にいる管理者**だけ (`LocalRequest` + `ConfirmedAdmin`)。
 //! LAN の端末からは、追加の口があること自体を見せずに 404 にする。
 //! 場所の選び直しも、窓で選ぶので同じく PC の前の管理者だけ。
-//! 一覧・名前の変更・権限・削除は、LAN の端末の管理者もできる (`AdminUser`)。
+//! 一覧・名前の変更・権限・削除は、LAN の端末の管理者もできる (一覧は `AdminUser`、ほかは `ConfirmedAdmin`。
+//! → docs/access.md「操作の前のパスワードの確認」)。
 
 use std::collections::HashMap;
 use std::path::{Path as FsPath, PathBuf};
@@ -148,7 +149,7 @@ struct CreateRootRequest {
     responses(
         (status = 201, body = RootResponse, description = "登録したフォルダー"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "サーバーのPC以外からの要求"),
         (status = 422, body = crate::error::ErrorResponse, description = "パスが存在しない・ディレクトリでない・weblav 自身の置き場の中・既存と重なる・同じ名前がある"),
     )
@@ -317,7 +318,7 @@ struct RenameRootRequest {
     responses(
         (status = OK, body = RootResponse, description = "名前を変えたフォルダー"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "存在しない"),
         (status = 422, body = crate::error::ErrorResponse, description = "同じ名前がある"),
     )
@@ -435,7 +436,7 @@ struct UserAccessRequest {
     responses(
         (status = OK, body = RootResponse, description = "権限を変えた共有"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "存在しない"),
         (status = 422, body = crate::error::ErrorResponse, description = "存在しないユーザーを含む"),
     )
@@ -495,7 +496,7 @@ async fn update_root_access(
     responses(
         (status = 204, description = "削除した"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "存在しない"),
     )
 )]
@@ -844,7 +845,7 @@ struct PickRootResponse {
     responses(
         (status = OK, body = PickRootResponse, description = "選ばれたパス。キャンセルなら null"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "サーバーのPC以外からの要求"),
         (status = 409, body = crate::error::ErrorResponse, description = "窓がもう開いている"),
     )
@@ -920,7 +921,7 @@ struct MoveRootRequest {
     responses(
         (status = OK, body = RootResponse, description = "場所を付け替えた共有"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
-        (status = 403, body = crate::error::ErrorResponse, description = "admin以外"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "サーバーのPC以外からの要求か、共有が無い"),
         (status = 422, body = crate::error::ErrorResponse, description = "パスが存在しない・ディレクトリでない・weblav 自身の置き場の中・ほかの共有と同じ"),
         (status = 503, body = crate::error::ErrorResponse, description = "選んだ場所につながらない"),
