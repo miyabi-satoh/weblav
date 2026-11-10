@@ -103,7 +103,7 @@ test('共有の QR コードの画面で IP アドレスを選ぶと、そのア
 		await page.getByRole('button', { name: SHARE_TRIGGER_NAME }).click();
 		await page.getByRole('menuitem', { name: SHARE_QR_MENU_ITEM_NAME }).click();
 		const dialog = page.getByRole('dialog');
-		await dialog.getByRole('button', { name: SHARE_ADDRESS_SELECT_NAME }).click();
+		await dialog.getByRole('combobox', { name: SHARE_ADDRESS_SELECT_NAME }).click();
 		await page.getByRole('option', { name: '192.168.1.13:8370' }).click();
 		await dialog.getByRole('button', { name: COPY_BUTTON_NAME }).click();
 		await expect

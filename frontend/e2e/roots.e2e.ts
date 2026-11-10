@@ -104,7 +104,7 @@ test('フォルダーを選ぶとフォルダー名で追加されて編集ペ�
 
 		const accessForm = sectionForm(page, ACCESS_SECTION_NAME);
 		await accessForm
-			.getByRole('button', { name: /^一般ユーザーの既定$|^Default for standard users$/ })
+			.getByRole('combobox', { name: /^一般ユーザーの既定$|^Default for standard users$/ })
 			.click();
 		await page.getByRole('option', { name: /^追加のみ$|^Add only$/ }).click();
 		await saveForm(page, {
@@ -162,7 +162,7 @@ test('編集ページ: 例外に一般ユーザーを足して権限を変え、
 			await form.getByRole('button', { name: /^例外を追加$|^Add exception$/ }).click();
 			await page.getByRole('menuitem', { name: username }).click();
 			await form
-				.getByRole('button', { name: new RegExp(`${username}`) })
+				.getByRole('combobox', { name: new RegExp(`${username}`) })
 				.first()
 				.click();
 			await page.getByRole('option', { name: /^追加のみ$|^Add only$/ }).click();

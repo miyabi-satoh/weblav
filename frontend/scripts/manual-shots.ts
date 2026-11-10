@@ -723,7 +723,7 @@ async function shootAdmin() {
 			const phone = await newPage(backend, PLAYER_WIDTH);
 			await goto(phone, `/archives/${archive!.id}`);
 			if (want('viewing-filter')) {
-				await phone.getByRole('button', { name: /^年度/ }).click();
+				await phone.getByRole('combobox', { name: /^年度/ }).click();
 				const options = phone.getByRole('listbox');
 				await options.waitFor();
 				await shotBetween(phone, 'viewing-filter', phone.getByRole('navigation').first(), options, {
@@ -733,7 +733,7 @@ async function shootAdmin() {
 				await phone.keyboard.press('Escape');
 			}
 			if (want('viewing-sort')) {
-				const sort = phone.getByRole('button', { name: /^並べ替え/ });
+				const sort = phone.getByRole('combobox', { name: /^並べ替え/ });
 				await sort.click();
 				const options = phone.getByRole('listbox');
 				await options.waitFor();

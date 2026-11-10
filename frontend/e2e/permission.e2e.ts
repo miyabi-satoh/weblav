@@ -185,7 +185,7 @@ test('管理者: 他人の「作成者のみ」でも、公開範囲をすべて
 					await page.getByLabel(VISIBILITY_LABEL).click();
 					await expect(page.getByRole('option')).toHaveCount(4);
 					await page.keyboard.press('Escape');
-					await expect(page.getByRole('button', { name: /^作成者$|^Creator$/ })).toBeEnabled();
+					await expect(page.getByRole('combobox', { name: /^作成者$|^Creator$/ })).toBeEnabled();
 				}
 			);
 		} finally {
@@ -265,7 +265,7 @@ test('編集者: 他人のアーカイブの編集ページは閲覧画面へ送
 
 					// 管理者が作成者を編集者に付け替える。
 					await page.goto(`/contents/${archive.id}`);
-					await page.getByRole('button', { name: /^作成者$|^Creator$/ }).click();
+					await page.getByRole('combobox', { name: /^作成者$|^Creator$/ }).click();
 					await page.getByRole('option', { name: username }).click();
 					await saveForm(page, { button: basicSaveButton(page) });
 
