@@ -165,7 +165,7 @@ test('アーカイブの閲覧: 軸で絞り込み、音声を押すとページ
 			);
 
 			// 絞り込みの開くボタンは、軸名を aria-label に持つ。
-			await page.getByRole('button', { name: '年度', exact: true }).click();
+			await page.getByRole('combobox', { name: '年度', exact: true }).click();
 			await page.getByRole('option', { name: /^2023/ }).click();
 			await page.waitForURL((url) => url.searchParams.get('年度') === '2023');
 			await expect(page.getByText(/^1\s件のファイル$|^1 file$/)).toBeVisible();
@@ -328,7 +328,7 @@ function axisRow(page: Page, name: string) {
 
 /** 閲覧画面の絞り込みの開くボタン (軸名を aria-label に持つ)。 */
 function filterTriggers(page: Page, names: string[]) {
-	return page.getByRole('button', { name: new RegExp(`^(${names.join('|')})$`) });
+	return page.getByRole('combobox', { name: new RegExp(`^(${names.join('|')})$`) });
 }
 
 test('軸の並べ替え: 上下ボタンで動かした順が保存され、閲覧の絞り込みの並びに出る', async ({
@@ -477,7 +477,7 @@ test('値の辞書: 照合する位置を行ごとに選ぶと一致する件数
 			await addAxisValue(page, 'ing', '音声');
 			await expect(axisValuesPreviewSummary(page, 2, 1)).toBeVisible();
 
-			const position = axisValuesForm(page).getByRole('button', {
+			const position = axisValuesForm(page).getByRole('combobox', {
 				name: /^ing の一致位置: |^Match position for ing: /
 			});
 			const choose = async (option: RegExp) => {
@@ -565,7 +565,7 @@ test('絞り込みの解除: 解除のリンクで絞り込みが外れ、全件
 			// 絞り込んでいないときは出ない。
 			await expect(resetLink).toHaveCount(0);
 
-			const trigger = page.getByRole('button', { name: '年度', exact: true });
+			const trigger = page.getByRole('combobox', { name: '年度', exact: true });
 			await trigger.click();
 			await page.getByRole('option', { name: /^2023/ }).click();
 			await page.waitForURL((url) => url.searchParams.get('年度') === '2023');

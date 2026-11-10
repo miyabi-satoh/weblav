@@ -152,7 +152,7 @@ const browse: Story = {
 			caption: '絞り込みの「年度」を開く',
 			roles: LOGGED_IN,
 			async run(page) {
-				await page.getByRole('button', { name: '年度', exact: true }).click();
+				await page.getByRole('combobox', { name: '年度', exact: true }).click();
 				await page.getByRole('option').first().waitFor();
 			}
 		},
@@ -234,7 +234,7 @@ const browse: Story = {
 		{
 			caption: '並び順を「新しい順」にする',
 			async run(page) {
-				await page.getByRole('button', { name: '並べ替え', exact: true }).click();
+				await page.getByRole('combobox', { name: '並べ替え', exact: true }).click();
 				await page.getByRole('option', { name: /^新しい順$/ }).click();
 				await page.waitForURL((url) => url.searchParams.get('sort') === 'new');
 			}
