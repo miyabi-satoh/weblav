@@ -207,10 +207,10 @@
 			<Table.Root>
 				<Table.Header>
 					<Table.Row>
-						<Table.Head class={fitColumnClass}>{m.admin_operations_column_at()}</Table.Head>
+						<Table.Head class={fitColumnClass}>{m.admin_operations_table_datetime()}</Table.Head>
 						<Table.Head class={fitColumnClass}>{m.admin_operations_filter_user_label()}</Table.Head>
-						<Table.Head class={fitColumnClass}>{m.admin_operations_column_op()}</Table.Head>
-						<Table.Head>{m.admin_operations_column_target()}</Table.Head>
+						<Table.Head class={fitColumnClass}>{m.admin_operations_table_operation()}</Table.Head>
+						<Table.Head>{m.admin_operations_table_target()}</Table.Head>
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
