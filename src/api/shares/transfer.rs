@@ -325,7 +325,7 @@ async fn start_transfer(
     )
     .await;
     let job_id = job.id.clone();
-    tokio::spawn(run_transfer(
+    operations::spawn_with_client_ip(run_transfer(
         state,
         job,
         log_id,
@@ -812,7 +812,7 @@ async fn start_delete(
     .await;
     let job_id = job.id.clone();
     let paths = entries.into_iter().map(|entry| entry.canonical).collect();
-    tokio::spawn(run_delete(state, job, log_id, paths, payload.permanent));
+    operations::spawn_with_client_ip(run_delete(state, job, log_id, paths, payload.permanent));
     Ok((StatusCode::ACCEPTED, Json(JobStartedResponse { job_id })))
 }
 

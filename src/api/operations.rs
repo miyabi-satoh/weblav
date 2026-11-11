@@ -21,13 +21,24 @@ tokio::task_local! {
 }
 
 /// 要求を送ってきた端末の IP アドレスを、その要求を扱う間だけ覚えておく。記録を作る所まで
-/// 引数で引き回さずに済ませるため。裏で続く処理へは、記録 (`OpRecord`) を作った時点で写したものが渡る。
+/// 引数で引き回さずに済ませるため。裏で続く処理で記録を作るときは、`spawn_with_client_ip` で始めて引き継ぐ。
 pub(crate) async fn with_client_ip(
     request: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> axum::response::Response {
     let ip = client_ip(&request);
     CLIENT_IP.scope(ip, next.run(request)).await
+}
+
+/// 今の要求の IP アドレスを引き継いで、裏の処理を始める。裏で作る記録 (コピー・移動の上書きで消した
+/// ものの削除など) にも、操作した端末を残すため。
+pub(crate) fn spawn_with_client_ip<F>(future: F) -> tokio::task::JoinHandle<F::Output>
+where
+    F: std::future::Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    let ip = CLIENT_IP.try_with(Clone::clone).ok().flatten();
+    tokio::spawn(CLIENT_IP.scope(ip, future))
 }
 
 /// 接続元の IP アドレス。同じ PC のリバースプロキシ (→ docs/architecture.md「LAN からの到達性」) から
@@ -730,6 +741,19 @@ mod tests {
             );
         }
         request
+    }
+
+    /// 裏で始めた処理で作った記録にも、要求の端末の IP アドレスが写る。
+    #[tokio::test]
+    async fn spawned_work_keeps_the_client_ip_of_the_request() {
+        let record = CLIENT_IP
+            .scope(Some("192.168.1.20".to_string()), async {
+                spawn_with_client_ip(async { OpRecord::by(Op::Delete, None, "taro") })
+                    .await
+                    .expect("終わるはず")
+            })
+            .await;
+        assert_eq!(record.client_ip.as_deref(), Some("192.168.1.20"));
     }
 
     /// LAN から直に来たものは接続元を採り、端末が付けた転送のヘッダは信じない。
