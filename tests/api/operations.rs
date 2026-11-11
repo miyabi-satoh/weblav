@@ -126,5 +126,6 @@ async fn editing_records_only_the_changed_fields(pool: SqlitePool) {
     assert_eq!(updated["targetId"], id);
     // 変える前の名前で残す。
     assert_eq!(updated["targetName"], "時間割");
+    assert_eq!(updated["targetRenamedTo"], "時間割(改)");
     assert_eq!(updated["fields"], serde_json::json!(["title"]));
 }

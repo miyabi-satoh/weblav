@@ -255,6 +255,7 @@ async fn change_password(
     )
     .execute(&state.pool)
     .await?;
+    record_or_warn(&state.pool, &OpRecord::new(Op::ChangePassword, &user)).await;
     // 新しいパスワードを決めたばかりなので、このセッションは確かめた内のままにする
     // (ほかのセッションは、古いパスワードで確かめた記録なので通らなくなる)。
     auth::mark_password_confirmed(
@@ -262,7 +263,6 @@ async fn change_password(
         &auth::credential_fingerprint(&new_hash),
     )
     .await?;
-    record_or_warn(&state.pool, &OpRecord::new(Op::ChangePassword, &user)).await;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -293,13 +293,15 @@ async fn change_username(
     user.require_confirmation().await?;
 
     auth::rename_user(&state.pool, user.id, &username).await?;
-    record_or_warn(
-        &state.pool,
-        &OpRecord::new(Op::ChangeUsername, &user)
-            .target(user.id, &user.username)
-            .renamed_to(&username),
-    )
-    .await;
+    if username != user.username {
+        record_or_warn(
+            &state.pool,
+            &OpRecord::new(Op::ChangeUsername, &user)
+                .target(user.id, &user.username)
+                .renamed_to(&username),
+        )
+        .await;
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -423,6 +425,11 @@ async fn recover(
     .fetch_optional(&state.pool)
     .await?
     .ok_or_else(|| AppError::Conflict("recovery code was changed concurrently".to_string()))?;
+    record_or_warn(
+        &state.pool,
+        &OpRecord::by(Op::Recover, Some(user_id), &user.username),
+    )
+    .await;
 
     start_session(
         &session,
@@ -430,11 +437,6 @@ async fn recover(
         &auth::credential_fingerprint(&password_hash),
     )
     .await?;
-    record_or_warn(
-        &state.pool,
-        &OpRecord::by(Op::Recover, Some(user_id), &user.username),
-    )
-    .await;
     Ok(Json(UserWithRecoveryCodeResponse {
         user: UserResponse {
             id: user_id,

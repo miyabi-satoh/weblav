@@ -1122,7 +1122,7 @@ async fn create_content(
         (None, None)
     };
 
-    let created = insert_content(
+    let row = insert_content(
         &state,
         &user,
         NewContent {
@@ -1137,12 +1137,16 @@ async fn create_content(
         },
     )
     .await?;
+    // 書き込みが済んだら、応答を組み立てる前に残す (組み立てに失敗しても、作ったことは残す)。
     record_or_warn(
         &state.pool,
-        &OpRecord::new(Op::CreateContent, &user).target(created.id, &created.title),
+        &OpRecord::new(Op::CreateContent, &user).target(row.id, &row.title),
     )
     .await;
-    Ok((StatusCode::CREATED, Json(created)))
+    Ok((
+        StatusCode::CREATED,
+        Json(admin_response(&state.pool, row).await?),
+    ))
 }
 
 /// 作るコンテンツ。リンクの URL とページから取ったタイトルは、取りに行った後のもの。
@@ -1167,7 +1171,7 @@ pub(super) async fn create_path_content(
     path: String,
     visibility: Option<Visibility>,
 ) -> Result<AdminContentResponse, AppError> {
-    insert_content(
+    let row = insert_content(
         state,
         user,
         NewContent {
@@ -1181,7 +1185,8 @@ pub(super) async fn create_path_content(
             visibility,
         },
     )
-    .await
+    .await?;
+    admin_response(&state.pool, row).await
 }
 
 /// 共有の中のフォルダーかファイルをホームに載せる。閲覧者が戻せる非表示のコンテンツがその場所にあれば、それを戻す。
@@ -1242,7 +1247,7 @@ async fn insert_content(
     state: &AppState,
     user: &AuthUser,
     new: NewContent,
-) -> Result<AdminContentResponse, AppError> {
+) -> Result<ContentRow, AppError> {
     // 親の検証からINSERTまでを直列化する (→ `AppState::contents_write_lock`)。
     let _write_guard = state.contents_write_lock.lock().await;
     let parent = validate_parent(&state.pool, new.parent_id, None).await?;
@@ -1271,7 +1276,7 @@ async fn insert_content(
 
     let content_type = new.content_type;
     let description = new.description;
-    let row = sqlx::query_as!(
+    let created = sqlx::query_as!(
         ContentRow,
         r#"INSERT INTO contents (type, parent_id, title, url, path, description,
                                   visibility, created_by)
@@ -1292,8 +1297,7 @@ async fn insert_content(
     )
     .fetch_one(&state.pool)
     .await?;
-
-    admin_response(&state.pool, row).await
+    Ok(created)
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -1588,13 +1592,13 @@ async fn update_content(
         .filter_map(|(field, changed)| changed.then_some(field))
         .collect();
     if !fields.is_empty() {
-        record_or_warn(
-            &state.pool,
-            &OpRecord::new(Op::UpdateContent, &user)
-                .target(id, &existing.title)
-                .fields(fields),
-        )
-        .await;
+        let mut record = OpRecord::new(Op::UpdateContent, &user)
+            .target(id, &existing.title)
+            .fields(fields);
+        if existing.title != row.title {
+            record = record.renamed_to(&row.title);
+        }
+        record_or_warn(&state.pool, &record).await;
     }
 
     Ok(Json(admin_response(&state.pool, row).await?))

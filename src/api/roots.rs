@@ -467,8 +467,8 @@ async fn update_root_access(
     let _users_guard = state.users_write_lock.lock().await;
     let mut tx = crate::db::begin_write(&state.pool).await?;
     // 同じ内容で保存したものは記録に残さないため、前の設定を取っておく。
-    let before_default = sqlx::query_scalar!(
-        r#"SELECT editor_access as "editor_access: ShareAccess" FROM roots
+    let before = sqlx::query!(
+        r#"SELECT name, editor_access as "editor_access: ShareAccess" FROM roots
            WHERE id = ? AND deleted_at IS NULL"#,
         id
     )
@@ -519,21 +519,24 @@ async fn update_root_access(
         .await?;
     }
     tx.commit().await?;
-    let response = root_response(&state, id).await?;
     // 同じユーザーが2度来たら後の方にするのは、書き込みと同じ。
     let after_users: std::collections::BTreeMap<i64, ShareAccess> = payload
         .users
         .iter()
         .map(|user| (user.user_id, user.access))
         .collect();
-    if before_default != Some(payload.editor_access) || before_users != after_users {
+    // 書き込みが済んだら、応答を組み立てる前に残す (組み立てに失敗しても、変えたことは残す)。
+    // 行が無ければ上の UPDATE が 404 を返しているので、ここでは必ずある。
+    if let Some(before) = before
+        && (before.editor_access != payload.editor_access || before_users != after_users)
+    {
         record_or_warn(
             &state.pool,
-            &OpRecord::new(Op::ChangeShareAccess, &admin).target(id, &response.name),
+            &OpRecord::new(Op::ChangeShareAccess, &admin).target(id, &before.name),
         )
         .await;
     }
-    Ok(Json(response))
+    root_response(&state, id).await.map(Json)
 }
 
 #[utoipa::path(
@@ -983,8 +986,8 @@ async fn move_root(
     Path(id): Path<i64>,
     AppJson(payload): AppJson<MoveRootRequest>,
 ) -> Result<Json<RootResponse>, AppError> {
-    sqlx::query_scalar!(
-        "SELECT id FROM roots WHERE id = ? AND deleted_at IS NULL",
+    let name = sqlx::query_scalar!(
+        "SELECT name FROM roots WHERE id = ? AND deleted_at IS NULL",
         id
     )
     .fetch_optional(&state.pool)
@@ -1025,20 +1028,19 @@ async fn move_root(
         tx.commit().await?;
         list_views
     };
+    if moved {
+        record_or_warn(
+            &state.pool,
+            &OpRecord::new(Op::MoveShare, &admin).target(id, &name),
+        )
+        .await;
+    }
 
     // 窓で選んだときに作ったブックマーク (`pick_root`) で、新しい場所の許可を戻す。macOS 以外では何もしない。
     crate::folder_access::restore(&state.pool).await;
     // 中身が変わっていれば、一覧の表示の索引を次の再スキャンを待たずに読み直す (→ docs/archive.md「スキャン」)。
     super::shares::repoint::refresh_after_change(&state, list_views);
-    let response = root_response(&state, id).await?;
-    if moved {
-        record_or_warn(
-            &state.pool,
-            &OpRecord::new(Op::MoveShare, &admin).target(id, &response.name),
-        )
-        .await;
-    }
-    Ok(Json(response))
+    root_response(&state, id).await.map(Json)
 }
 
 /// `old` の中に登録先があるフォルダーのコンテンツとショートカットを、`new` の同じ相対パスへ付け替える。
