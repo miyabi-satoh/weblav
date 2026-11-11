@@ -674,16 +674,48 @@ async fn replace_axis_values(
     let rows = normalize_axis_values(axis.source, payload.values)?;
 
     let mut tx = crate::db::begin_write(&state.pool).await?;
+    // 同じ値の辞書で保存したものは記録に残さないため、前の辞書を取っておく。
+    let before: Vec<(String, Option<String>, i64, AxisMatchPosition)> = sqlx::query!(
+        r#"SELECT raw_value, display_name, position,
+                  match_position as "match_position: AxisMatchPosition"
+           FROM archive_axis_values WHERE axis_id = ? ORDER BY position"#,
+        axis_id
+    )
+    .fetch_all(&mut *tx)
+    .await?
+    .into_iter()
+    .map(|row| {
+        (
+            row.raw_value,
+            row.display_name,
+            row.position,
+            row.match_position,
+        )
+    })
+    .collect();
     sqlx::query!("DELETE FROM archive_axis_values WHERE axis_id = ?", axis_id)
         .execute(&mut *tx)
         .await?;
     insert_axis_values(&mut tx, axis_id, &rows).await?;
     tx.commit().await?;
-    record_or_warn(
-        &state.pool,
-        &axis_record(&state, &user, Op::ReplaceAxisValues, id, Some(&axis.name)).await,
-    )
-    .await;
+    let after: Vec<(String, Option<String>, i64, AxisMatchPosition)> = rows
+        .iter()
+        .map(|row| {
+            (
+                row.raw_value.clone(),
+                row.display_name.clone(),
+                row.position,
+                row.match_position,
+            )
+        })
+        .collect();
+    if before != after {
+        record_or_warn(
+            &state.pool,
+            &axis_record(&state, &user, Op::ReplaceAxisValues, id, Some(&axis.name)).await,
+        )
+        .await;
+    }
 
     Ok(Json(
         rows.into_iter()
