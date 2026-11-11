@@ -90,9 +90,9 @@ pub async fn build_app(
         tokio::task::spawn_blocking(move || api::backup::remove_work_root(&dir)).await?;
     }
 
-    // 前に動いていたときに途中で止まった共有の操作を失敗にし、古い記録を消す。記録の片付けで起動は止めない。
-    if let Err(err) = api::share_operations_on_startup(&pool).await {
-        tracing::warn!(error = %error::error_chain(&err), "cleaning up share operations failed");
+    // 前に動いていたときに途中で止まった操作を失敗にし、古い記録を消す。記録の片付けで起動は止めない。
+    if let Err(err) = api::operations_on_startup(&pool).await {
+        tracing::warn!(error = %error::error_chain(&err), "cleaning up operations failed");
     }
 
     let revoked_sessions = Arc::new(session::RevokedSessions::default());
@@ -166,7 +166,7 @@ pub async fn build_app(
         folder_picker,
     };
     api::spawn_auto_rescan(state.clone());
-    api::spawn_share_operations_purge(state.pool.clone());
+    api::spawn_operations_purge(state.pool.clone());
     let app = app.with_state(state);
 
     Ok(app)

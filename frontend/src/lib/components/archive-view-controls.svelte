@@ -75,7 +75,7 @@
 	}
 
 	function axisLabel(axis: ArchiveAxis): string {
-		return selectedOption(axis)?.value ?? m.archive_view_filter_all();
+		return selectedOption(axis)?.value ?? m.common_filter_all();
 	}
 
 	function filterHref(axis: ArchiveAxis, value: string): string {
@@ -116,7 +116,7 @@
 		<Select.Root type="single" bind:value={() => axisValue(axis), (v) => handleAxisChange(axis, v)}>
 			<BrowseSelectTrigger label={axis.name} value={axisLabel(axis)} highlighted={filtered} />
 			<Select.Content>
-				<Select.Item value={allValueFor(axis)}>{m.archive_view_filter_all()}</Select.Item>
+				<Select.Item value={allValueFor(axis)}>{m.common_filter_all()}</Select.Item>
 				<!-- 選んだときに残る件数を添える。0件の組み合わせを選ぶ前に見分けられる
 				     ようにするためで、選択肢自体は 0 でも消さない (→ docs/archive.md「エンドポイント一覧」)。 -->
 				{#each axis.options as option (option.value)}

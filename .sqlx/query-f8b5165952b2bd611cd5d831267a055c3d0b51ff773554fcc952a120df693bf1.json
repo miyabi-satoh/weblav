@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE operations SET result = ?, item_count = ?, byte_count = ?, error = ? WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "f8b5165952b2bd611cd5d831267a055c3d0b51ff773554fcc952a120df693bf1"
+}

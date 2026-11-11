@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE roots SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')\n         WHERE id = ? AND deleted_at IS NULL RETURNING name",
+  "describe": {
+    "columns": [
+      {
+        "name": "name",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9763cb4ccfe3d70c612ebe9f9db6080fbd101e1757c369adc279a9acf9f4bf43"
+}

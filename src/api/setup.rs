@@ -228,6 +228,16 @@ async fn create_admin(
     )
     .await?;
     state.setup_tokens.consume(&payload.token);
+    super::operations::record_or_warn(
+        &state.pool,
+        &super::operations::OpRecord::by(
+            super::operations::Op::CreateUser,
+            Some(created.id),
+            &username,
+        )
+        .target(created.id, &username),
+    )
+    .await;
 
     // そのままログインさせる (→ docs/access.md「初回セットアップ」)。
     super::auth::start_session(&session, created.id, &created.credential).await?;

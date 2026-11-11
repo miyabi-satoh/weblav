@@ -27,11 +27,11 @@ use crate::state::AppState;
 use super::browse::ListedAs;
 use super::fsops::{self, TrashPolicy};
 use super::jobs::{Job, JobOp, ShareJobResponse};
-use super::log::{self, LoggedPlace, OpRecord, OpResult, ShareOp, record_or_warn};
 use super::paths::{Resolved, ensure_not_protected, ensure_without_own_dirs, resolve_existing};
 use super::repoint::{self, Change};
 use super::{ShareAccess, require};
 use crate::api::fs::join_rel;
+use crate::api::operations::{self, LoggedPlace, Op, OpRecord, OpResult, record_or_warn};
 
 /// コピーか移動か。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, ToSchema)]
@@ -296,8 +296,8 @@ async fn start_transfer(
         run_blocking(move || fsops::ensure_space(&dest_dir, total_bytes)).await??;
     }
     let (job_op, share_op) = match payload.op {
-        TransferOp::Copy => (JobOp::Copy, ShareOp::Copy),
-        TransferOp::Move => (JobOp::Move, ShareOp::Move),
+        TransferOp::Copy => (JobOp::Copy, Op::Copy),
+        TransferOp::Move => (JobOp::Move, Op::Move),
     };
     let job = state
         .share_jobs
@@ -305,7 +305,7 @@ async fn start_transfer(
     let first = &prepared.sources[0].resolved;
     let log_id = record_or_warn(
         &state.pool,
-        &OpRecord::new(
+        &OpRecord::in_share(
             share_op,
             &user,
             first.root_id,
@@ -482,8 +482,8 @@ async fn transfer_all(
 async fn log_overwritten(state: &AppState, user: &AuthUser, dest: &Resolved, name: &str) {
     record_or_warn(
         &state.pool,
-        &OpRecord::new(
-            ShareOp::Delete,
+        &OpRecord::in_share(
+            Op::Delete,
             user,
             dest.root_id,
             &dest.root_name,
@@ -631,7 +631,7 @@ async fn close_log(
         Ok(()) => (OpResult::Succeeded, None),
         Err(err) => (OpResult::Failed, Some(err.code().to_string())),
     };
-    log::finish(
+    operations::finish(
         &state.pool,
         log_id,
         state_code,
@@ -800,8 +800,8 @@ async fn start_delete(
     )?;
     let log_id = record_or_warn(
         &state.pool,
-        &OpRecord::new(
-            ShareOp::Delete,
+        &OpRecord::in_share(
+            Op::Delete,
             &user,
             entries[0].root_id,
             &entries[0].root_name,

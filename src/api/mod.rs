@@ -21,6 +21,7 @@ mod links_file;
 mod list_filter;
 mod local;
 mod logs;
+mod operations;
 mod page_dates;
 mod remote_file;
 mod roots;
@@ -45,8 +46,8 @@ use crate::state::AppState;
 /// `N` バイトの乱数を16進の文字列にする。トークンや作業用の名前に使う。
 /// 乱数を取れないのは OS 側の異常で、クライアント起因ではないため、呼び出し側では 5xx にする。
 pub(crate) use archive::spawn_auto_rescan;
-pub(crate) use shares::log::{
-    on_startup as share_operations_on_startup, spawn_purge as spawn_share_operations_purge,
+pub(crate) use operations::{
+    on_startup as operations_on_startup, spawn_purge as spawn_operations_purge,
 };
 pub use shares::{ShareJobs, TrashPolicy};
 
@@ -113,6 +114,7 @@ fn routes(max_upload_bytes: Option<u64>) -> OpenApiRouter<AppState> {
         .merge(setup::router())
         .merge(shares::router(max_upload_bytes))
         .merge(logs::router())
+        .merge(operations::router())
         .merge(backup::router())
         .merge(server_settings::router())
         .merge(site_settings::router())

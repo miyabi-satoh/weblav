@@ -26,6 +26,7 @@ use utoipa_axum::routes;
 
 use super::error_detail::ValidationDetail;
 use super::file_filter::{FileFilter, normalize_patterns};
+use super::operations::{Op, OpRecord, record_or_warn};
 use super::schedule::{AutoMode, AutoRefresh, parse_auto_refresh};
 use super::search::FieldKind;
 use super::sort::{SortOrder, SortQuery, title_cmp};
@@ -1136,6 +1137,11 @@ async fn create_content(
         },
     )
     .await?;
+    record_or_warn(
+        &state.pool,
+        &OpRecord::new(Op::CreateContent, &user).target(created.id, &created.title),
+    )
+    .await;
     Ok((StatusCode::CREATED, Json(created)))
 }
 
@@ -1381,6 +1387,8 @@ async fn update_content(
     let existing = sqlx::query!(
         r#"SELECT type as "content_type: ContentType", path,
                   visibility as "visibility: Visibility", created_by,
+                  parent_id, title, url, description, include_patterns, exclude_patterns,
+                  title_template,
                   list_view as "list_view: bool",
                   auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents WHERE id = ?"#,
@@ -1473,7 +1481,7 @@ async fn update_content(
         None => AutoRefresh::from_columns(
             existing.auto_rescan_mode,
             existing.auto_rescan_hours,
-            existing.auto_rescan_time,
+            existing.auto_rescan_time.clone(),
         ),
     };
     let auto_rescan_hours = auto_rescan.hours.map(i64::from);
@@ -1541,6 +1549,54 @@ async fn update_content(
 
     tx.commit().await?;
 
+    // 変えた項目の名前だけを残す (→ docs/operations.md)。何も変えずに保存したものは残さない。
+    let changed = [
+        ("parentId", existing.parent_id != row.parent_id),
+        ("title", existing.title != row.title),
+        ("url", existing.url != row.url),
+        ("path", existing.path != row.path),
+        ("description", existing.description != row.description),
+        ("visibility", existing.visibility != row.visibility),
+        (
+            "includePatterns",
+            existing.include_patterns != row.include_patterns,
+        ),
+        (
+            "excludePatterns",
+            existing.exclude_patterns != row.exclude_patterns,
+        ),
+        (
+            "titleTemplate",
+            existing.title_template != row.title_template,
+        ),
+        ("listView", existing.list_view != row.list_view),
+        (
+            "autoRescan",
+            (
+                existing.auto_rescan_mode,
+                existing.auto_rescan_hours,
+                &existing.auto_rescan_time,
+            ) != (
+                row.auto_rescan_mode,
+                row.auto_rescan_hours,
+                &row.auto_rescan_time,
+            ),
+        ),
+    ];
+    let fields: Vec<&'static str> = changed
+        .into_iter()
+        .filter_map(|(field, changed)| changed.then_some(field))
+        .collect();
+    if !fields.is_empty() {
+        record_or_warn(
+            &state.pool,
+            &OpRecord::new(Op::UpdateContent, &user)
+                .target(id, &existing.title)
+                .fields(fields),
+        )
+        .await;
+    }
+
     Ok(Json(admin_response(&state.pool, row).await?))
 }
 
@@ -1568,7 +1624,7 @@ pub struct SetCreatorRequest {
     )
 )]
 async fn set_creator(
-    _admin: ConfirmedAdmin,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<SetCreatorRequest>,
@@ -1612,6 +1668,13 @@ async fn set_creator(
     )
     .fetch_one(&state.pool)
     .await?;
+    if existing.created_by != Some(payload.created_by) {
+        record_or_warn(
+            &state.pool,
+            &OpRecord::new(Op::ChangeCreator, &admin).target(id, &row.title),
+        )
+        .await;
+    }
 
     Ok(Json(admin_response(&state.pool, row).await?))
 }
@@ -1640,7 +1703,7 @@ async fn delete_content(
     // 他人の `private` (404で隠す対象) でも行が消えてしまう。typeは走査ロックの要否に使う。
     let existing = sqlx::query!(
         r#"SELECT type as "content_type: ContentType", visibility as "visibility: Visibility",
-                  created_by
+                  created_by, title
            FROM contents WHERE id = ?"#,
         id
     )
@@ -1682,6 +1745,11 @@ async fn delete_content(
     }
 
     tx.commit().await?;
+    record_or_warn(
+        &state.pool,
+        &OpRecord::new(Op::DeleteContent, &user).target(id, &existing.title),
+    )
+    .await;
 
     Ok(StatusCode::NO_CONTENT)
 }

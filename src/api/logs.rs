@@ -75,15 +75,24 @@ async fn get_log_settings(
     )
 )]
 async fn update_log_settings(
-    _admin: ConfirmedAdmin,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     AppJson(payload): AppJson<UpdateLogSettingsRequest>,
 ) -> Result<Json<LogSettingsResponse>, AppError> {
+    let changed = state.log.verbose() != payload.verbose;
     state
         .log
         .set_verbose(payload.verbose)
         .map_err(|err| AppError::Io(std::io::Error::other(err)))?;
     tracing::info!(verbose = payload.verbose, "log verbosity changed");
+    if changed {
+        super::operations::record_or_warn(
+            &state.pool,
+            &super::operations::OpRecord::new(super::operations::Op::UpdateLogSettings, &admin)
+                .fields(["verbose"]),
+        )
+        .await;
+    }
     Ok(Json(response(&state)))
 }
 

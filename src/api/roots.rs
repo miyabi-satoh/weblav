@@ -27,6 +27,7 @@ use crate::state::AppState;
 use super::error_detail::ValidationDetail;
 use super::fs::{canonical_dir, inside_own_dirs, path_to_string};
 use super::local::LocalRequest;
+use super::operations::{Op, OpRecord, record_or_warn};
 use super::shares::{AccessMap, ShareAccess};
 
 /// 登録済みの「共有」1件。
@@ -156,7 +157,7 @@ struct CreateRootRequest {
 )]
 async fn create_root(
     _: LocalRequest,
-    _admin: ConfirmedAdmin,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     AppJson(payload): AppJson<CreateRootRequest>,
 ) -> Result<(StatusCode, Json<RootResponse>), AppError> {
@@ -188,6 +189,11 @@ async fn create_root(
     .fetch_one(&mut *tx)
     .await?;
     tx.commit().await?;
+    record_or_warn(
+        &state.pool,
+        &OpRecord::new(Op::CreateShare, &admin).target(row.id, &row.name),
+    )
+    .await;
     // 0件とは限らない。削除したフォルダーを登録し直すと、その中のコンテンツが戻る
     // (コンテンツの登録は削除時に消していない)。
     let counts = ContentCounts::load(&state.pool).await?;
@@ -324,19 +330,20 @@ struct RenameRootRequest {
     )
 )]
 async fn rename_root(
-    _admin: ConfirmedAdmin,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<RenameRootRequest>,
 ) -> Result<Json<RootResponse>, AppError> {
     let mut tx = crate::db::begin_write(&state.pool).await?;
-    let path = sqlx::query_scalar!(
-        "SELECT path FROM roots WHERE id = ? AND deleted_at IS NULL",
+    let before = sqlx::query!(
+        "SELECT path, name FROM roots WHERE id = ? AND deleted_at IS NULL",
         id
     )
     .fetch_optional(&mut *tx)
     .await?
     .ok_or(AppError::NotFound)?;
+    let path = before.path;
     let name = match super::validate::trimmed_or_none(Some(&payload.name)) {
         Some(name) => {
             ensure_name_available(&mut tx, name, Some(id)).await?;
@@ -348,6 +355,15 @@ async fn rename_root(
         .execute(&mut *tx)
         .await?;
     tx.commit().await?;
+    if before.name != name {
+        record_or_warn(
+            &state.pool,
+            &OpRecord::new(Op::RenameShare, &admin)
+                .target(id, &before.name)
+                .renamed_to(&name),
+        )
+        .await;
+    }
 
     root_response(&state, id).await.map(Json)
 }
@@ -442,7 +458,7 @@ struct UserAccessRequest {
     )
 )]
 async fn update_root_access(
-    _admin: ConfirmedAdmin,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<UpdateRootAccessRequest>,
@@ -486,7 +502,13 @@ async fn update_root_access(
         .await?;
     }
     tx.commit().await?;
-    root_response(&state, id).await.map(Json)
+    let response = root_response(&state, id).await?;
+    record_or_warn(
+        &state.pool,
+        &OpRecord::new(Op::ChangeShareAccess, &admin).target(id, &response.name),
+    )
+    .await;
+    Ok(Json(response))
 }
 
 #[utoipa::path(
@@ -501,23 +523,25 @@ async fn update_root_access(
     )
 )]
 async fn delete_root(
-    _admin: ConfirmedAdmin,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Result<StatusCode, AppError> {
     // 行は消さずに削除済みの印を付ける。残ったコンテンツの場所を、起点を隠したまま出すため
     // (→ docs/folders.md「共有」)。
-    let deleted = sqlx::query!(
+    let name = sqlx::query_scalar!(
         "UPDATE roots SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-         WHERE id = ? AND deleted_at IS NULL",
+         WHERE id = ? AND deleted_at IS NULL RETURNING name",
         id
     )
-    .execute(&state.pool)
+    .fetch_optional(&state.pool)
     .await?
-    .rows_affected();
-    if deleted == 0 {
-        return Err(AppError::NotFound);
-    }
+    .ok_or(AppError::NotFound)?;
+    record_or_warn(
+        &state.pool,
+        &OpRecord::new(Op::DeleteShare, &admin).target(id, &name),
+    )
+    .await;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -929,7 +953,7 @@ struct MoveRootRequest {
 )]
 async fn move_root(
     _: LocalRequest,
-    _admin: ConfirmedAdmin,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<MoveRootRequest>,
@@ -943,6 +967,7 @@ async fn move_root(
     .ok_or(AppError::NotFound)?;
     let path = registrable_path(&state, payload.path).await?;
 
+    let mut moved = true;
     let list_views = {
         // コンテンツの登録先の書き換えと直列化する (→ `AppState::contents_write_lock`)。
         let _write_guard = state.contents_write_lock.lock().await;
@@ -955,6 +980,7 @@ async fn move_root(
         .await?
         .ok_or(AppError::NotFound)?;
         let list_views = if old == path {
+            moved = false;
             Vec::new()
         } else {
             ensure_path_available(&mut tx, &path, Some(id)).await?;
@@ -979,7 +1005,15 @@ async fn move_root(
     crate::folder_access::restore(&state.pool).await;
     // 中身が変わっていれば、一覧の表示の索引を次の再スキャンを待たずに読み直す (→ docs/archive.md「スキャン」)。
     super::shares::repoint::refresh_after_change(&state, list_views);
-    root_response(&state, id).await.map(Json)
+    let response = root_response(&state, id).await?;
+    if moved {
+        record_or_warn(
+            &state.pool,
+            &OpRecord::new(Op::MoveShare, &admin).target(id, &response.name),
+        )
+        .await;
+    }
+    Ok(Json(response))
 }
 
 /// `old` の中に登録先があるフォルダーのコンテンツとショートカットを、`new` の同じ相対パスへ付け替える。

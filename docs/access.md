@@ -139,7 +139,7 @@ id は連番なので、匿名に何かがあると分かること自体の害�
 | 共有の登録・場所の選び直し | `LocalRequest` + `AdminUser` (→ folders.md「共有」・shares.md「共有の場所の選び直し」) |
 | 共有の一覧・名前の変更・削除・権限の設定 | `AdminUser` |
 | 共有の中を見る・書き換える | `AuthUser` + 共有ごとのできること (→ shares.md「できること」) |
-| 共有の中の操作の記録 | `AdminUser` (→ shares.md「操作の記録」) |
+| 操作の記録 | `AdminUser` (→ operations.md) |
 | ユーザー管理 | `AdminUser` |
 | サイト設定の取得 | なし (未ログインでも読める。ホームの見出しに使う) |
 | サイト設定の変更 | `AdminUser` |

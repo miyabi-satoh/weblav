@@ -11,6 +11,7 @@ use crate::auth::{self, AuthUser, Role, SESSION_USER_ID_KEY};
 use crate::error::{AppError, AppJson, run_blocking};
 use crate::state::AppState;
 
+use super::operations::{Op, OpRecord, record_or_warn};
 use super::validate;
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -96,7 +97,9 @@ async fn login(
 
     let authed = auth::authenticate(&state.pool, &payload.username, &payload.password).await?;
     let Some(auth::Authenticated { user, credential }) = authed else {
-        return Err(AppError::InvalidCredentials);
+        let err = AppError::InvalidCredentials;
+        record_failed_sign_in(&state, Op::Login, &payload.username, &err).await;
+        return Err(err);
     };
 
     // 認証に成功した試行はレートリミットの対象から外す。これが無いと、正しい
@@ -104,8 +107,32 @@ async fn login(
     state.login_rate_limiter.release(&payload.username);
 
     start_session(&session, user.id, &credential).await?;
+    record_or_warn(&state.pool, &OpRecord::new(Op::Login, &user)).await;
 
     Ok(Json(user.into()))
+}
+
+/// ログインとリカバリコードでの再設定の失敗を残す。他人のアカウントで試されていないかを、後から確かめるため。
+/// 打ち込まれた名前のユーザーがいれば、その人の操作として絞り込めるよう id も残す。
+async fn record_failed_sign_in(state: &AppState, op: Op, username: &str, err: &AppError) {
+    let user_id = match sqlx::query_scalar!(
+        r#"SELECT id as "id!" FROM users WHERE username = ?"#,
+        username
+    )
+    .fetch_optional(&state.pool)
+    .await
+    {
+        Ok(id) => id,
+        Err(err) => {
+            tracing::warn!(error = %crate::error::error_chain(&err), "looking up a user for the operation log failed");
+            None
+        }
+    };
+    record_or_warn(
+        &state.pool,
+        &OpRecord::by(op, user_id, username).failed(err),
+    )
+    .await;
 }
 
 /// `user_id` でログインした状態にする。ログイン・初回セットアップ・リカバリコードでの戻しで共有する。
@@ -128,8 +155,16 @@ pub(super) async fn start_session(
 }
 
 #[utoipa::path(post, path = "/auth/logout", responses((status = 204)))]
-async fn logout(session: Session) -> Result<StatusCode, AppError> {
+async fn logout(
+    session: Session,
+    viewer: auth::Viewer,
+    State(state): State<AppState>,
+) -> Result<StatusCode, AppError> {
     session.flush().await.map_err(auth::Error::Session)?;
+    // ログインしていない人のログアウトは、何も変わらないので残さない。
+    if let auth::Viewer::User(user) = viewer {
+        record_or_warn(&state.pool, &OpRecord::new(Op::Logout, &user)).await;
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -227,6 +262,7 @@ async fn change_password(
         &auth::credential_fingerprint(&new_hash),
     )
     .await?;
+    record_or_warn(&state.pool, &OpRecord::new(Op::ChangePassword, &user)).await;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -257,6 +293,13 @@ async fn change_username(
     user.require_confirmation().await?;
 
     auth::rename_user(&state.pool, user.id, &username).await?;
+    record_or_warn(
+        &state.pool,
+        &OpRecord::new(Op::ChangeUsername, &user)
+            .target(user.id, &user.username)
+            .renamed_to(&username),
+    )
+    .await;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -317,6 +360,7 @@ async fn create_recovery_code(
     )
     .execute(&state.pool)
     .await?;
+    record_or_warn(&state.pool, &OpRecord::new(Op::CreateRecoveryCode, &user)).await;
     Ok(Json(RecoveryCodeResponse { recovery_code }))
 }
 
@@ -357,7 +401,9 @@ async fn recover(
     let verified =
         auth::verify_recovery_code(&state.pool, &payload.username, &payload.recovery_code).await?;
     let Some((user_id, used_hash)) = verified else {
-        return Err(AppError::InvalidRecoveryCode);
+        let err = AppError::InvalidRecoveryCode;
+        record_failed_sign_in(&state, Op::Recover, &payload.username, &err).await;
+        return Err(err);
     };
     state.recovery_rate_limiter.release(&payload.username);
 
@@ -384,6 +430,11 @@ async fn recover(
         &auth::credential_fingerprint(&password_hash),
     )
     .await?;
+    record_or_warn(
+        &state.pool,
+        &OpRecord::by(Op::Recover, Some(user_id), &user.username),
+    )
+    .await;
     Ok(Json(UserWithRecoveryCodeResponse {
         user: UserResponse {
             id: user_id,

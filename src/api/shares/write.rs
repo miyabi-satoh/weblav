@@ -20,11 +20,11 @@ use crate::error::{AppError, AppJson, multipart_error_to_app_error, run_blocking
 use crate::state::AppState;
 
 use super::fsops;
-use super::log::{LoggedPlace, OpRecord, ShareOp, record_or_warn};
 use super::paths::{Resolved, ensure_not_protected, resolve_existing, resolve_parent_for_new};
 use super::repoint;
 use super::{ShareAccess, require};
 use crate::api::fs::{join_rel, parent_rel};
+use crate::api::operations::{LoggedPlace, Op, OpRecord, record_or_warn};
 
 /// 拡張子を直すかを決めるのに読む、ファイルの頭の大きさ (→ `fsops::sniff_image`)。
 const SNIFF_BYTES: usize = 64;
@@ -132,8 +132,8 @@ async fn upload_to_share(
         let file = place_upload(&state, &dir, &name, received).await?;
         record_or_warn(
             &state.pool,
-            &OpRecord::new(
-                ShareOp::Upload,
+            &OpRecord::in_share(
+                Op::Upload,
                 &user,
                 dir.root_id,
                 &dir.root_name,
@@ -298,8 +298,8 @@ async fn create_share_folder(
     let path = join_rel(&new.dir.rel, &new.name);
     record_or_warn(
         &state.pool,
-        &OpRecord::new(
-            ShareOp::Mkdir,
+        &OpRecord::in_share(
+            Op::Mkdir,
             &user,
             new.dir.root_id,
             &new.dir.root_name,
@@ -363,8 +363,8 @@ async fn rename_share_entry(
     .await;
     record_or_warn(
         &state.pool,
-        &OpRecord::new(
-            ShareOp::Rename,
+        &OpRecord::in_share(
+            Op::Rename,
             &user,
             entry.root_id,
             &entry.root_name,
@@ -420,8 +420,8 @@ async fn list_on_home(
         crate::api::contents::list_path_on_home(&state, &user, path, payload.visibility).await?;
     record_or_warn(
         &state.pool,
-        &OpRecord::new(
-            ShareOp::ListOnHome,
+        &OpRecord::in_share(
+            Op::ListOnHome,
             &user,
             dir.root_id,
             &dir.root_name,

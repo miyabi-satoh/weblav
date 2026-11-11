@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT title FROM contents WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "title",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f6b2faae53be478be0fef4ae01cfede8964ab37ca19052d1e0c02988670f99f4"
+}
