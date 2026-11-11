@@ -986,8 +986,8 @@ async fn move_root(
     Path(id): Path<i64>,
     AppJson(payload): AppJson<MoveRootRequest>,
 ) -> Result<Json<RootResponse>, AppError> {
-    let name = sqlx::query_scalar!(
-        "SELECT name FROM roots WHERE id = ? AND deleted_at IS NULL",
+    sqlx::query_scalar!(
+        "SELECT id FROM roots WHERE id = ? AND deleted_at IS NULL",
         id
     )
     .fetch_optional(&state.pool)
@@ -996,17 +996,19 @@ async fn move_root(
     let path = registrable_path(&state, payload.path).await?;
 
     let mut moved = true;
-    let list_views = {
+    let (name, list_views) = {
         // コンテンツの登録先の書き換えと直列化する (→ `AppState::contents_write_lock`)。
         let _write_guard = state.contents_write_lock.lock().await;
         let mut tx = crate::db::begin_write(&state.pool).await?;
-        let old = sqlx::query_scalar!(
-            "SELECT path FROM roots WHERE id = ? AND deleted_at IS NULL",
+        // 記録に写す名前も、同じトランザクションの中で読む (間に名前を変えられても、そのときの名前にする)。
+        let current = sqlx::query!(
+            "SELECT path, name FROM roots WHERE id = ? AND deleted_at IS NULL",
             id
         )
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(AppError::NotFound)?;
+        let old = current.path;
         let list_views = if old == path {
             moved = false;
             Vec::new()
@@ -1026,7 +1028,7 @@ async fn move_root(
             rebase_contents(&mut tx, FsPath::new(&old), FsPath::new(&path)).await?
         };
         tx.commit().await?;
-        list_views
+        (current.name, list_views)
     };
     if moved {
         record_or_warn(
