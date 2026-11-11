@@ -11,6 +11,7 @@
 		adminListRowGutterClass,
 		adminPageClass,
 		adminPageHeaderClass,
+		adminTableBandClass,
 		pageHeadingTextClass
 	} from '$lib/page-layout';
 	import { withQuery } from '$lib/href';
@@ -23,8 +24,10 @@
 		opResultLabel
 	} from '$lib/operations';
 	import { pageTitle } from '$lib/page-title';
+	import { fitColumnClass } from '$lib/table-columns';
 	import * as m from '$lib/paraglide/messages.js';
 	import * as Select from '$lib/components/ui/select';
+	import * as Table from '$lib/components/ui/table';
 	import BrowseSelectTrigger from '$lib/components/browse-select-trigger.svelte';
 	import ErrorDialog from '$lib/components/error-dialog.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
@@ -35,7 +38,6 @@
 	type Operation = components['schemas']['OperationResponse'];
 
 	// 操作の記録 (→ docs/ui.md「UI 全般」)。誰がいつ何に何をしたかを新しい順に並べる。
-	// スマートフォンの幅でも収まるよう、表にせず1件を数段に組む。
 	let { data }: PageProps = $props();
 
 	/** 絞り込みの「すべて」の値。Select の値は文字列なので、空を「絞り込まない」に充てる。 */
@@ -52,6 +54,16 @@
 			...(category === ALL ? {} : { category }),
 			...(user === ALL ? {} : { user })
 		});
+	}
+
+	/** 共有の中の操作の件数と大きさ。ほかの操作には無い。 */
+	function countParts(operation: Operation): string[] {
+		return [
+			operation.itemCount == null
+				? ''
+				: m.admin_operations_items({ count: formatNumber(operation.itemCount) }),
+			operation.byteCount == null ? '' : formatByteSize(operation.byteCount)
+		].filter((part) => part !== '');
 	}
 
 	let more = $state<Operation[]>([]);
@@ -83,6 +95,27 @@
 		loadingMore = false;
 	}
 </script>
+
+{#snippet resultMark(operation: Operation)}
+	{@const result = opResultLabel(operation)}
+	{#if result}
+		<span class={operation.result === 'failed' ? 'text-destructive' : 'text-muted-foreground'}
+			>{result}</span
+		>
+	{/if}
+{/snippet}
+
+{#snippet targetLines(operation: Operation)}
+	{@const places = opPlaces(operation)}
+	{#if places}
+		<span class="text-xs wrap-anywhere md:text-sm"
+			>{places.to === undefined ? places.from : `${places.from} → ${places.to}`}</span
+		>
+	{/if}
+	{#each opFieldLines(operation.fields ?? []) as line, index (index)}
+		<span class="text-xs wrap-anywhere text-muted-foreground">{line}</span>
+	{/each}
+{/snippet}
 
 <svelte:head><title>{pageTitle(m.admin_operations_nav_title())}</title></svelte:head>
 
@@ -146,44 +179,69 @@
 				: m.admin_operations_empty_filtered()}
 		</p>
 	{:else}
-		<ul class={[adminListBandClass, listClass]}>
+		<!-- スマートフォンの幅: 1件を数段に積む。列に並べると、どれかの列を隠すか横に送ることになるため。 -->
+		<ul class={[adminListBandClass, listClass, 'md:hidden']}>
 			{#each items as operation (operation.id)}
-				{@const places = opPlaces(operation)}
-				{@const result = opResultLabel(operation)}
 				<li class={[listItemClass, adminListRowGutterClass, 'flex flex-col gap-0.5 py-3']}>
 					<span class="flex flex-wrap items-baseline gap-x-2 text-sm">
 						<span class="font-medium">{opLabel(operation.op)}</span>
 						<span class="text-muted-foreground">{operation.username}</span>
-						{#if result}
-							<span
-								class={operation.result === 'failed' ? 'text-destructive' : 'text-muted-foreground'}
-								>{result}</span
-							>
-						{/if}
+						{@render resultMark(operation)}
 					</span>
-					{#if places}
-						<span class="text-xs wrap-anywhere"
-							>{places.to === undefined ? places.from : `${places.from} → ${places.to}`}
-						</span>
-					{/if}
-					{#each opFieldLines(operation.fields ?? []) as line, index (index)}
-						<span class="text-xs wrap-anywhere text-muted-foreground">{line}</span>
-					{/each}
+					{@render targetLines(operation)}
 					<span class="text-xs text-muted-foreground">
 						<SeparatedText
 							text={[
 								formatDateTime(operation.at),
-								operation.clientIp ?? '',
-								operation.itemCount == null
-									? ''
-									: m.admin_operations_items({ count: formatNumber(operation.itemCount) }),
-								operation.byteCount == null ? '' : formatByteSize(operation.byteCount)
-							].filter((part) => part !== '')}
+								...(operation.clientIp ? [operation.clientIp] : []),
+								...countParts(operation)
+							]}
 						/>
 					</span>
 				</li>
 			{/each}
 		</ul>
+		<!-- タブレットより広い幅: 監査ログの多くと同じく列に並べ、いつ・誰が・何を・何にを横に見比べられるようにする。
+		     どの列も隠さない。 -->
+		<div class={[adminTableBandClass, 'hidden md:block']}>
+			<Table.Root>
+				<Table.Header>
+					<Table.Row>
+						<Table.Head class={fitColumnClass}>{m.admin_operations_column_at()}</Table.Head>
+						<Table.Head class={fitColumnClass}>{m.admin_operations_filter_user_label()}</Table.Head>
+						<Table.Head class={fitColumnClass}>{m.admin_operations_column_op()}</Table.Head>
+						<Table.Head>{m.admin_operations_column_target()}</Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#each items as operation (operation.id)}
+						<Table.Row>
+							<Table.Cell class={[fitColumnClass, 'align-top']}>
+								<span class="block text-sm">{formatDateTime(operation.at)}</span>
+								{#if operation.clientIp}
+									<span class="block text-xs text-muted-foreground">{operation.clientIp}</span>
+								{/if}
+							</Table.Cell>
+							<Table.Cell class={[fitColumnClass, 'align-top']}>{operation.username}</Table.Cell>
+							<Table.Cell class={[fitColumnClass, 'align-top']}>
+								<span class="block font-medium">{opLabel(operation.op)}</span>
+								{@render resultMark(operation)}
+							</Table.Cell>
+							<Table.Cell class="align-top whitespace-normal">
+								<div class="flex flex-col gap-0.5">
+									{@render targetLines(operation)}
+									{#if countParts(operation).length > 0}
+										<span class="text-xs text-muted-foreground">
+											<SeparatedText text={countParts(operation)} />
+										</span>
+									{/if}
+								</div>
+							</Table.Cell>
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Root>
+		</div>
 		{#if nextBefore !== null}
 			<div class="pt-4">
 				<LoadingButton type="button" variant="outline" loading={loadingMore} onclick={loadMore}>
