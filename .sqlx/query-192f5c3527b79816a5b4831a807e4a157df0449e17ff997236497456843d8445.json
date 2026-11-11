@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT user_id, access as \"access: ShareAccess\" FROM root_user_access WHERE root_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "user_id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "access: ShareAccess",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "192f5c3527b79816a5b4831a807e4a157df0449e17ff997236497456843d8445"
+}

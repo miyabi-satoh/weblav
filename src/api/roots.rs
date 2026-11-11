@@ -466,6 +466,23 @@ async fn update_root_access(
     // ユーザーの削除と行き違うと、消えたユーザーの例外を足そうとして外部キーで落ちるので、同じ鍵で並べる。
     let _users_guard = state.users_write_lock.lock().await;
     let mut tx = crate::db::begin_write(&state.pool).await?;
+    // 同じ内容で保存したものは記録に残さないため、前の設定を取っておく。
+    let before_default = sqlx::query_scalar!(
+        r#"SELECT editor_access as "editor_access: ShareAccess" FROM roots
+           WHERE id = ? AND deleted_at IS NULL"#,
+        id
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    let before_users: std::collections::BTreeMap<i64, ShareAccess> = sqlx::query!(
+        r#"SELECT user_id, access as "access: ShareAccess" FROM root_user_access WHERE root_id = ?"#,
+        id
+    )
+    .fetch_all(&mut *tx)
+    .await?
+    .into_iter()
+    .map(|row| (row.user_id, row.access))
+    .collect();
     let updated = sqlx::query!(
         "UPDATE roots SET editor_access = ? WHERE id = ? AND deleted_at IS NULL",
         payload.editor_access,
@@ -503,11 +520,19 @@ async fn update_root_access(
     }
     tx.commit().await?;
     let response = root_response(&state, id).await?;
-    record_or_warn(
-        &state.pool,
-        &OpRecord::new(Op::ChangeShareAccess, &admin).target(id, &response.name),
-    )
-    .await;
+    // 同じユーザーが2度来たら後の方にするのは、書き込みと同じ。
+    let after_users: std::collections::BTreeMap<i64, ShareAccess> = payload
+        .users
+        .iter()
+        .map(|user| (user.user_id, user.access))
+        .collect();
+    if before_default != Some(payload.editor_access) || before_users != after_users {
+        record_or_warn(
+            &state.pool,
+            &OpRecord::new(Op::ChangeShareAccess, &admin).target(id, &response.name),
+        )
+        .await;
+    }
     Ok(Json(response))
 }
 
