@@ -15,6 +15,47 @@ use crate::auth::{AdminUser, AuthUser};
 use crate::error::AppError;
 use crate::state::AppState;
 
+tokio::task_local! {
+    /// 今の要求を送ってきた端末の IP アドレス (`with_client_ip`)。記録を作るときに写す。
+    static CLIENT_IP: Option<String>;
+}
+
+/// 要求を送ってきた端末の IP アドレスを、その要求を扱う間だけ覚えておく。記録を作る所まで
+/// 引数で引き回さずに済ませるため。裏で続く処理へは、記録 (`OpRecord`) を作った時点で写したものが渡る。
+pub(crate) async fn with_client_ip(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let ip = client_ip(&request);
+    CLIENT_IP.scope(ip, next.run(request)).await
+}
+
+/// 接続元の IP アドレス。同じ PC のリバースプロキシ (→ docs/architecture.md「LAN からの到達性」) から
+/// 来たときは、プロキシが `X-Forwarded-For` の最後に足した値を採る。前段のプロキシが足した値だけを
+/// 信じ、端末が自分で付けた値 (それより前の値) は使わない。LAN から直に来たものは、ヘッダを見ない。
+fn client_ip(request: &axum::extract::Request) -> Option<String> {
+    let peer = request
+        .extensions()
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()?
+        .0
+        .ip()
+        .to_canonical();
+    if peer.is_loopback() {
+        let forwarded = request
+            .headers()
+            .get_all("x-forwarded-for")
+            .iter()
+            .filter_map(|value| value.to_str().ok())
+            .flat_map(|value| value.split(','))
+            .next_back()
+            .and_then(|last| last.trim().parse::<std::net::IpAddr>().ok());
+        if let Some(forwarded) = forwarded {
+            return Some(forwarded.to_canonical().to_string());
+        }
+    }
+    Some(peer.to_string())
+}
+
 /// 記録を残す日数。1年前の同じ時期の出来事 (年度替わりの整理など) まで遡れるようにする。
 const RETENTION_DAYS: i64 = 365;
 
@@ -145,7 +186,8 @@ pub(crate) struct OpRecord {
     target: Option<(i64, String)>,
     renamed_to: Option<String>,
     part: Option<String>,
-    fields: Option<Vec<String>>,
+    fields: Option<Vec<FieldChange>>,
+    client_ip: Option<String>,
     root: Option<(i64, String)>,
     paths: Vec<String>,
     dest: Option<LoggedPlace>,
@@ -171,6 +213,7 @@ impl OpRecord {
             renamed_to: None,
             part: None,
             fields: None,
+            client_ip: CLIENT_IP.try_with(Clone::clone).ok().flatten(),
             root: None,
             paths: Vec::new(),
             dest: None,
@@ -213,9 +256,9 @@ impl OpRecord {
         self
     }
 
-    /// 編集で変えた項目の名前 (API の項目名)。
-    pub(crate) fn fields<S: Into<String>>(mut self, fields: impl IntoIterator<Item = S>) -> Self {
-        self.fields = Some(fields.into_iter().map(Into::into).collect());
+    /// 編集で変えた項目 (→ `FieldChange`)。
+    pub(crate) fn fields(mut self, fields: Vec<FieldChange>) -> Self {
+        self.fields = Some(fields);
         self
     }
 
@@ -271,14 +314,15 @@ pub(crate) async fn record(pool: &sqlx::SqlitePool, record: &OpRecord) -> Result
     let byte_count = record.byte_count.map(saturating_i64);
     let id = sqlx::query_scalar!(
         r#"INSERT INTO operations
-             (category, user_id, username, op, target_id, target_name, target_renamed_to, target_part,
-              fields, root_id, root_name, paths, dest_root_id, dest_root_name, dest_path, item_count,
-              byte_count, result, error)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             (category, user_id, username, client_ip, op, target_id, target_name, target_renamed_to,
+              target_part, fields, root_id, root_name, paths, dest_root_id, dest_root_name, dest_path,
+              item_count, byte_count, result, error)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            RETURNING id as "id!""#,
         category,
         record.user_id,
         record.username,
+        record.client_ip,
         record.op,
         target_id,
         target_name,
@@ -301,8 +345,59 @@ pub(crate) async fn record(pool: &sqlx::SqlitePool, record: &OpRecord) -> Result
     Ok(id)
 }
 
-/// 前と後で値が変わった項目の名前 (JSON にしたときの項目名)。設定のように、項目をまとめて保存するものに使う。
-pub(crate) fn changed_fields<T: Serialize>(before: &T, after: &T) -> Vec<String> {
+/// 編集で変えた1項目。短い値 (選択肢・数・名前) は前と後の値を持ち、長い文 (説明・パターンなど) は
+/// 名前だけを持つ (→ docs/operations.md「1件に持つもの」)。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FieldChange {
+    /// API の項目名。
+    pub name: String,
+    /// 項目がユーザーごとにあるもの (共有の権限の例外) の、そのユーザーの名前。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subject: Option<String>,
+    /// 前と後の値。長い文の項目には無い。無かったもの・無くしたものは `null`。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub values: Option<FieldValues>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct FieldValues {
+    pub before: serde_json::Value,
+    pub after: serde_json::Value,
+}
+
+impl FieldChange {
+    /// 値を残さない項目 (長い文)。
+    pub(crate) fn named(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            subject: None,
+            values: None,
+        }
+    }
+
+    /// 前と後の値を残す項目。
+    pub(crate) fn changed(name: &str, before: impl Serialize, after: impl Serialize) -> Self {
+        // 書けない値は無いものとして残す (記録のために操作を止めない)。
+        let value = |v: serde_json::Result<serde_json::Value>| v.unwrap_or_default();
+        Self {
+            name: name.to_string(),
+            subject: None,
+            values: Some(FieldValues {
+                before: value(serde_json::to_value(before)),
+                after: value(serde_json::to_value(after)),
+            }),
+        }
+    }
+
+    pub(crate) fn about(mut self, subject: &str) -> Self {
+        self.subject = Some(subject.to_string());
+        self
+    }
+}
+
+/// 前と後で値が変わった項目と、その値 (JSON にしたときの項目名)。設定のように、短い値の項目をまとめて保存するものに使う。
+pub(crate) fn changed_fields<T: Serialize>(before: &T, after: &T) -> Vec<FieldChange> {
     let (Ok(serde_json::Value::Object(before)), Ok(serde_json::Value::Object(after))) =
         (serde_json::to_value(before), serde_json::to_value(after))
     else {
@@ -310,8 +405,10 @@ pub(crate) fn changed_fields<T: Serialize>(before: &T, after: &T) -> Vec<String>
     };
     after
         .into_iter()
-        .filter(|(key, value)| before.get(key.as_str()) != Some(value))
-        .map(|(key, _)| key)
+        .filter_map(|(key, value)| {
+            let old = before.get(key.as_str()).cloned().unwrap_or_default();
+            (old != value).then(|| FieldChange::changed(&key, old, value))
+        })
         .collect()
 }
 
@@ -439,8 +536,10 @@ pub struct OperationResponse {
     target_renamed_to: Option<String>,
     /// 対象の中の部分の名前 (アーカイブの軸の名前)。
     target_part: Option<String>,
-    /// 編集で変えた項目の名前 (API の項目名)。編集でない操作には無い。
-    fields: Option<Vec<String>>,
+    /// 操作した端末の IP アドレス。分からなかったものには無い。
+    client_ip: Option<String>,
+    /// 編集で変えた項目。編集でない操作には無い。
+    fields: Option<Vec<FieldChange>>,
     /// 共有の中の操作の、扱った共有と、そのときの名前。
     share_id: Option<i64>,
     share_name: Option<String>,
@@ -495,7 +594,7 @@ async fn list_operations(
     let fetch = limit + 1;
     let rows = sqlx::query!(
         r#"SELECT id as "id!", at, category as "category: OpCategory", user_id, username,
-                  op as "op: Op", target_id, target_name, target_renamed_to, target_part, fields, root_id, root_name, paths,
+                  client_ip, op as "op: Op", target_id, target_name, target_renamed_to, target_part, fields, root_id, root_name, paths,
                   dest_root_id, dest_root_name, dest_path, item_count, byte_count,
                   result as "result: OpResult", error
            FROM operations
@@ -524,6 +623,7 @@ async fn list_operations(
             target_name: row.target_name,
             target_renamed_to: row.target_renamed_to,
             target_part: row.target_part,
+            client_ip: row.client_ip,
             fields: row
                 .fields
                 .map(|fields| serde_json::from_str(&fields).unwrap_or_default()),
@@ -617,6 +717,33 @@ mod tests {
         assert_eq!(row, ("cancelled".to_string(), 3, 1024));
     }
 
+    fn request_from(peer: &str, forwarded: Option<&str>) -> axum::extract::Request {
+        let mut request = axum::extract::Request::new(axum::body::Body::empty());
+        let peer: std::net::SocketAddr = peer.parse().expect("アドレスのはず");
+        request
+            .extensions_mut()
+            .insert(axum::extract::ConnectInfo(peer));
+        if let Some(forwarded) = forwarded {
+            request.headers_mut().insert(
+                "x-forwarded-for",
+                forwarded.parse().expect("ヘッダの値のはず"),
+            );
+        }
+        request
+    }
+
+    /// LAN から直に来たものは接続元を採り、端末が付けた転送のヘッダは信じない。
+    /// 同じ PC のプロキシから来たものは、プロキシが最後に足した値を採る。
+    #[test]
+    fn client_ip_trusts_forwarded_for_only_from_a_local_proxy() {
+        let direct = request_from("192.168.1.20:5000", Some("10.0.0.1"));
+        assert_eq!(client_ip(&direct).as_deref(), Some("192.168.1.20"));
+        let proxied = request_from("127.0.0.1:5000", Some("10.0.0.1, 192.168.1.30"));
+        assert_eq!(client_ip(&proxied).as_deref(), Some("192.168.1.30"));
+        let local = request_from("[::ffff:127.0.0.1]:5000", None);
+        assert_eq!(client_ip(&local).as_deref(), Some("127.0.0.1"));
+    }
+
     #[test]
     fn changed_fields_lists_only_the_fields_whose_values_differ() {
         #[derive(Serialize)]
@@ -633,7 +760,14 @@ mod tests {
             site_name: "学校",
             home_heading: Some("お知らせ"),
         };
-        assert_eq!(changed_fields(&before, &after), vec!["homeHeading"]);
+        assert_eq!(
+            changed_fields(&before, &after),
+            vec![FieldChange::changed(
+                "homeHeading",
+                serde_json::Value::Null,
+                "お知らせ"
+            )]
+        );
         assert!(changed_fields(&before, &before).is_empty());
     }
 
@@ -644,7 +778,10 @@ mod tests {
             &pool,
             &OpRecord::new(Op::UpdateContent, &user())
                 .target(7, "時間割")
-                .fields(vec!["title", "visibility"]),
+                .fields(vec![
+                    FieldChange::named("description"),
+                    FieldChange::changed("visibility", "public", "private"),
+                ]),
         )
         .await
         .expect("書けなかった");
@@ -661,7 +798,8 @@ mod tests {
                 "contents".to_string(),
                 7,
                 "時間割".to_string(),
-                r#"["title","visibility"]"#.to_string(),
+                r#"[{"name":"description"},{"name":"visibility","values":{"before":"public","after":"private"}}]"#
+                    .to_string(),
                 None
             )
         );

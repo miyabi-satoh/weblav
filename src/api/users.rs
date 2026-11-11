@@ -15,7 +15,7 @@ use crate::state::AppState;
 
 use super::contents::Visibility;
 use super::error_detail::ValidationDetail;
-use super::operations::{Op, OpRecord, record_or_warn};
+use super::operations::{FieldChange, Op, OpRecord, record_or_warn};
 use super::validate;
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -243,7 +243,13 @@ async fn update_role(
     if current_role != payload.role {
         record_or_warn(
             &state.pool,
-            &OpRecord::new(Op::ChangeRole, &admin).target(id, &item.username),
+            &OpRecord::new(Op::ChangeRole, &admin)
+                .target(id, &item.username)
+                .fields(vec![FieldChange::changed(
+                    "role",
+                    current_role,
+                    payload.role,
+                )]),
         )
         .await;
     }

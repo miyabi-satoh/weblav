@@ -258,6 +258,34 @@
 	"admin_operations_op_restore_backup": "Restore from backup",
 	"admin_operations_target_part": "“{part}” in {target}",
 	"admin_operations_fields": "Changed: {fields}",
+	"admin_operations_change": "{field}: {before} → {after}",
+	"admin_operations_field_user_access": "Permission for {user}",
+	"admin_operations_value_on": "On",
+	"admin_operations_value_off": "Off",
+	"admin_operations_value_none": "None",
+	"admin_operations_value_no_exception": "No exception",
+	"admin_operations_value_interval": [
+		{
+			"declarations": ["input hours", "local hoursPlural = hours: plural"],
+			"selectors": ["hoursPlural"],
+			"match": {
+				"hoursPlural=one": "Every {hours} hour",
+				"hoursPlural=other": "Every {hours} hours"
+			}
+		}
+	],
+	"admin_operations_value_daily": "Every day after {time}",
+	"admin_operations_value_days": [
+		{
+			"declarations": ["input days", "local daysPlural = days: plural"],
+			"selectors": ["daysPlural"],
+			"match": {
+				"daysPlural=one": "{days} day",
+				"daysPlural=other": "{days} days"
+			}
+		}
+	],
+	"admin_operations_value_megabytes": "{size} MB",
 	"admin_operations_field_position": "Order",
 	"admin_operations_field_optional_in_title": "Display when there is no value",
 	"admin_settings_saved_toast": "Site name and heading saved.",

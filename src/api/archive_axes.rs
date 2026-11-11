@@ -17,7 +17,7 @@ use utoipa_axum::routes;
 
 use super::archive::AxisRowMatch;
 use super::error_detail::ValidationDetail;
-use super::operations::{Op, OpRecord, record_or_warn};
+use super::operations::{FieldChange, Op, OpRecord, record_or_warn};
 use crate::auth::AuthUser;
 use crate::error::{AppError, AppJson, run_blocking};
 use crate::state::AppState;
@@ -398,28 +398,46 @@ async fn update_axis(
 
     tx.commit().await?;
 
-    let changed = [
-        ("name", name != existing_name),
-        ("source", payload.source != existing.source),
-        ("dirLevel", payload.dir_level != existing.dir_level),
-        (
+    let mut fields = Vec::new();
+    if name != existing_name {
+        fields.push(FieldChange::changed("name", &existing_name, &name));
+    }
+    if payload.source != existing.source {
+        fields.push(FieldChange::changed(
+            "source",
+            existing.source,
+            payload.source,
+        ));
+    }
+    if payload.dir_level != existing.dir_level {
+        fields.push(FieldChange::changed(
+            "dirLevel",
+            existing.dir_level,
+            payload.dir_level,
+        ));
+    }
+    if payload.optional_in_title != existing.optional_in_title {
+        fields.push(FieldChange::changed(
             "optionalInTitle",
-            payload.optional_in_title != existing.optional_in_title,
-        ),
-        ("filterable", payload.filterable != existing.filterable),
-        ("position", payload.position != existing.position),
-    ];
-    let fields: Vec<&'static str> = changed
-        .into_iter()
-        .filter_map(|(field, changed)| changed.then_some(field))
-        .collect();
+            existing.optional_in_title,
+            payload.optional_in_title,
+        ));
+    }
+    if payload.filterable != existing.filterable {
+        fields.push(FieldChange::changed(
+            "filterable",
+            existing.filterable,
+            payload.filterable,
+        ));
+    }
+    // 並び順は、何番目かの数を見ても分からないので名前だけにする。
+    if payload.position != existing.position {
+        fields.push(FieldChange::named("position"));
+    }
     if !fields.is_empty() {
-        let mut record = axis_record(&state, &user, Op::UpdateAxis, id, Some(&existing_name))
+        let record = axis_record(&state, &user, Op::UpdateAxis, id, Some(&existing_name))
             .await
             .fields(fields);
-        if name != existing_name {
-            record = record.renamed_to(&name);
-        }
         record_or_warn(&state.pool, &record).await;
     }
 

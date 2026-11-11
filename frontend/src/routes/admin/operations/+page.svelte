@@ -17,7 +17,7 @@
 	import {
 		OP_CATEGORIES,
 		opCategoryLabel,
-		opFieldsLabel,
+		opFieldLines,
 		opLabel,
 		opPlaces,
 		opResultLabel
@@ -166,13 +166,14 @@
 							>{places.to === undefined ? places.from : `${places.from} → ${places.to}`}
 						</span>
 					{/if}
-					{#if operation.fields && operation.fields.length > 0}
-						<span class="text-xs text-muted-foreground">{opFieldsLabel(operation.fields)}</span>
-					{/if}
+					{#each opFieldLines(operation.fields ?? []) as line, index (index)}
+						<span class="text-xs wrap-anywhere text-muted-foreground">{line}</span>
+					{/each}
 					<span class="text-xs text-muted-foreground">
 						<SeparatedText
 							text={[
 								formatDateTime(operation.at),
+								operation.clientIp ?? '',
 								operation.itemCount == null
 									? ''
 									: m.admin_operations_items({ count: formatNumber(operation.itemCount) }),

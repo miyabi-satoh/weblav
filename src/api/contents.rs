@@ -26,7 +26,7 @@ use utoipa_axum::routes;
 
 use super::error_detail::ValidationDetail;
 use super::file_filter::{FileFilter, normalize_patterns};
-use super::operations::{Op, OpRecord, record_or_warn};
+use super::operations::{FieldChange, Op, OpRecord, record_or_warn};
 use super::schedule::{AutoMode, AutoRefresh, parse_auto_refresh};
 use super::search::FieldKind;
 use super::sort::{SortOrder, SortQuery, title_cmp};
@@ -1559,55 +1559,105 @@ async fn update_content(
 
     tx.commit().await?;
 
-    // 変えた項目の名前だけを残す (→ docs/operations.md)。何も変えずに保存したものは残さない。
-    let changed = [
-        ("parentId", existing.parent_id != row.parent_id),
-        ("title", existing.title != row.title),
-        ("url", existing.url != row.url),
-        ("path", existing.path != row.path),
-        ("description", existing.description != row.description),
-        ("visibility", existing.visibility != row.visibility),
-        (
-            "includePatterns",
-            existing.include_patterns != row.include_patterns,
-        ),
-        (
-            "excludePatterns",
-            existing.exclude_patterns != row.exclude_patterns,
-        ),
-        (
-            "titleTemplate",
-            existing.title_template != row.title_template,
-        ),
-        ("listView", existing.list_view != row.list_view),
-        (
+    // 変えた項目を残す。短い値は前と後の値も、長い文は名前だけ (→ docs/operations.md「1件に持つもの」)。
+    // 何も変えずに保存したものは残さない。
+    let mut fields = Vec::new();
+    if existing.parent_id != row.parent_id {
+        fields.push(FieldChange::changed(
+            "parentId",
+            group_title_for_log(&state.pool, existing.parent_id).await,
+            group_title_for_log(&state.pool, row.parent_id).await,
+        ));
+    }
+    if existing.title != row.title {
+        fields.push(FieldChange::changed("title", &existing.title, &row.title));
+    }
+    if existing.url != row.url {
+        fields.push(FieldChange::changed("url", &existing.url, &row.url));
+    }
+    if existing.path != row.path {
+        // 画面ではフルパスの代わりに共有の名前から先を出すので、記録も同じ形で持つ (→ docs/folders.md「共有」)。
+        let roots = super::roots::load_root_records(&state.pool)
+            .await
+            .unwrap_or_default();
+        let place = |path: &Option<String>| {
+            path.as_deref()
+                .and_then(|path| super::roots::locate(&roots, path))
+                .map(|location| {
+                    serde_json::json!({ "share": location.root_name, "path": location.path_in_root })
+                })
+        };
+        fields.push(FieldChange::changed(
+            "path",
+            place(&existing.path),
+            place(&row.path),
+        ));
+    }
+    if existing.description != row.description {
+        fields.push(FieldChange::named("description"));
+    }
+    if existing.visibility != row.visibility {
+        fields.push(FieldChange::changed(
+            "visibility",
+            existing.visibility,
+            row.visibility,
+        ));
+    }
+    if existing.include_patterns != row.include_patterns {
+        fields.push(FieldChange::named("includePatterns"));
+    }
+    if existing.exclude_patterns != row.exclude_patterns {
+        fields.push(FieldChange::named("excludePatterns"));
+    }
+    if existing.title_template != row.title_template {
+        fields.push(FieldChange::named("titleTemplate"));
+    }
+    if existing.list_view != row.list_view {
+        fields.push(FieldChange::changed(
+            "listView",
+            existing.list_view,
+            row.list_view,
+        ));
+    }
+    let auto_rescan = |mode: AutoMode, hours: Option<i64>, time: &Option<String>| serde_json::json!({ "mode": mode, "hours": hours, "time": time });
+    let before_rescan = auto_rescan(
+        existing.auto_rescan_mode,
+        existing.auto_rescan_hours,
+        &existing.auto_rescan_time,
+    );
+    let after_rescan = auto_rescan(
+        row.auto_rescan_mode,
+        row.auto_rescan_hours,
+        &row.auto_rescan_time,
+    );
+    if before_rescan != after_rescan {
+        fields.push(FieldChange::changed(
             "autoRescan",
-            (
-                existing.auto_rescan_mode,
-                existing.auto_rescan_hours,
-                &existing.auto_rescan_time,
-            ) != (
-                row.auto_rescan_mode,
-                row.auto_rescan_hours,
-                &row.auto_rescan_time,
-            ),
-        ),
-    ];
-    let fields: Vec<&'static str> = changed
-        .into_iter()
-        .filter_map(|(field, changed)| changed.then_some(field))
-        .collect();
+            before_rescan,
+            after_rescan,
+        ));
+    }
     if !fields.is_empty() {
-        let mut record = OpRecord::new(Op::UpdateContent, &user)
-            .target(id, &existing.title)
-            .fields(fields);
-        if existing.title != row.title {
-            record = record.renamed_to(&row.title);
-        }
-        record_or_warn(&state.pool, &record).await;
+        record_or_warn(
+            &state.pool,
+            &OpRecord::new(Op::UpdateContent, &user)
+                .target(id, &existing.title)
+                .fields(fields),
+        )
+        .await;
     }
 
     Ok(Json(admin_response(&state.pool, row).await?))
+}
+
+/// 操作の記録に写す、親のグループの題。読めなければ無いものとして残す (記録のために操作を止めない)。
+async fn group_title_for_log(pool: &sqlx::SqlitePool, id: Option<i64>) -> Option<String> {
+    let id = id?;
+    sqlx::query_scalar!("SELECT title FROM contents WHERE id = ?", id)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -1679,9 +1729,25 @@ async fn set_creator(
     .fetch_one(&state.pool)
     .await?;
     if existing.created_by != Some(payload.created_by) {
+        let pool = &state.pool;
+        let username = |id: Option<i64>| async move {
+            let id = id?;
+            sqlx::query_scalar!("SELECT username FROM users WHERE id = ?", id)
+                .fetch_optional(pool)
+                .await
+                .ok()
+                .flatten()
+        };
+        let change = FieldChange::changed(
+            "createdBy",
+            username(existing.created_by).await,
+            username(Some(payload.created_by)).await,
+        );
         record_or_warn(
             &state.pool,
-            &OpRecord::new(Op::ChangeCreator, &admin).target(id, &row.title),
+            &OpRecord::new(Op::ChangeCreator, &admin)
+                .target(id, &row.title)
+                .fields(vec![change]),
         )
         .await;
     }

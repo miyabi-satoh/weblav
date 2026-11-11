@@ -7961,6 +7961,48 @@
           }
         }
       },
+      "FieldChange": {
+        "type": "object",
+        "description": "編集で変えた1項目。短い値 (選択肢・数・名前) は前と後の値を持ち、長い文 (説明・パターンなど) は\n名前だけを持つ (→ docs/operations.md「1件に持つもの」)。",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "API の項目名。"
+          },
+          "subject": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "項目がユーザーごとにあるもの (共有の権限の例外) の、そのユーザーの名前。"
+          },
+          "values": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FieldValues",
+                "description": "前と後の値。長い文の項目には無い。無かったもの・無くしたものは `null`。"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "FieldValues": {
+        "type": "object",
+        "required": [
+          "before",
+          "after"
+        ],
+        "properties": {
+          "after": {},
+          "before": {}
+        }
+      },
       "FilenameWord": {
         "type": "object",
         "required": [
@@ -8900,6 +8942,13 @@
           "category": {
             "$ref": "#/components/schemas/OpCategory"
           },
+          "clientIp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "操作した端末の IP アドレス。分からなかったものには無い。"
+          },
           "destPath": {
             "type": [
               "string",
@@ -8933,9 +8982,9 @@
               "null"
             ],
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/FieldChange"
             },
-            "description": "編集で変えた項目の名前 (API の項目名)。編集でない操作には無い。"
+            "description": "編集で変えた項目。編集でない操作には無い。"
           },
           "id": {
             "type": "integer",

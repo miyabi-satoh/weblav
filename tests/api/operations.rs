@@ -94,7 +94,7 @@ async fn failed_and_successful_logins_are_recorded_and_filterable(pool: SqlitePo
     assert!(nobody["userId"].is_null(), "{nobody}");
 }
 
-/// 編集は変えた項目の名前だけを残し、何も変えずに保存したものは残さない。
+/// 編集は変えた項目を残し (短い値は前と後の値も)、何も変えずに保存したものは残さない。
 #[sqlx::test]
 async fn editing_records_only_the_changed_fields(pool: SqlitePool) {
     let (app, admin) = admin_app(&pool).await;
@@ -103,7 +103,7 @@ async fn editing_records_only_the_changed_fields(pool: SqlitePool) {
         "POST",
         "/api/v1/contents",
         &admin,
-        r#"{"type":"group","title":"時間割"}"#,
+        r#"{"type":"group","title":"時間割","visibility":"public"}"#,
     )
     .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
@@ -114,7 +114,7 @@ async fn editing_records_only_the_changed_fields(pool: SqlitePool) {
             "PUT",
             &format!("/api/v1/contents/{id}"),
             &admin,
-            &format!(r#"{{"title":"{title}"}}"#),
+            &format!(r#"{{"title":"{title}","visibility":"authenticated"}}"#),
         )
         .await;
         assert_eq!(status, StatusCode::OK, "{body}");
@@ -126,6 +126,11 @@ async fn editing_records_only_the_changed_fields(pool: SqlitePool) {
     assert_eq!(updated["targetId"], id);
     // 変える前の名前で残す。
     assert_eq!(updated["targetName"], "時間割");
-    assert_eq!(updated["targetRenamedTo"], "時間割(改)");
-    assert_eq!(updated["fields"], serde_json::json!(["title"]));
+    assert_eq!(
+        updated["fields"],
+        serde_json::json!([
+            { "name": "title", "values": { "before": "時間割", "after": "時間割(改)" } },
+            { "name": "visibility", "values": { "before": "public", "after": "authenticated" } }
+        ])
+    );
 }

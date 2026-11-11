@@ -120,6 +120,8 @@ fn routes(max_upload_bytes: Option<u64>) -> OpenApiRouter<AppState> {
         .merge(site_settings::router())
         .merge(users::router())
         .fallback(|| async { AppError::NotFound })
+        // 操作の記録に、操作した端末の IP アドレスを写すため (→ `operations::with_client_ip`)。
+        .layer(axum::middleware::from_fn(operations::with_client_ip))
 }
 
 /// `/api/v1` をnestしただけの、状態未確定のルーター。

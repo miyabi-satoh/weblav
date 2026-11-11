@@ -33,7 +33,7 @@ Change these on the “Site settings” tab in the admin pages.
 
 Signing in and out, and changes to contents, users, shares, and settings, are recorded with who did it and when. Failed sign-ins are recorded too. Viewing and automatic tasks (such as scheduled rescans) are not recorded.
 
-The records are listed newest first on the “Activity” tab in the admin pages. You can narrow them down by “Type” and “User”. Edits show the names of the changed items (the values before and after are not recorded). Select “Load more” to show older ones. Records are deleted after one year.
+The records are listed newest first on the “Activity” tab in the admin pages. You can narrow them down by “Type” and “User”. Edits show the changed items with their values before and after (long text such as descriptions and patterns shows only the item name). The IP address of the device used is recorded too. Select “Load more” to show older ones. Records are deleted after one year.
 
 ## Back up and restore
 

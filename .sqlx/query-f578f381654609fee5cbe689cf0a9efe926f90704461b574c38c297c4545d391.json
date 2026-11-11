@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO operations\n             (category, user_id, username, client_ip, op, target_id, target_name, target_renamed_to,\n              target_part, fields, root_id, root_name, paths, dest_root_id, dest_root_name, dest_path,\n              item_count, byte_count, result, error)\n           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n           RETURNING id as \"id!\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 20
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f578f381654609fee5cbe689cf0a9efe926f90704461b574c38c297c4545d391"
+}

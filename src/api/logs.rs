@@ -89,7 +89,11 @@ async fn update_log_settings(
         super::operations::record_or_warn(
             &state.pool,
             &super::operations::OpRecord::new(super::operations::Op::UpdateLogSettings, &admin)
-                .fields(["verbose"]),
+                .fields(vec![super::operations::FieldChange::changed(
+                    "verbose",
+                    !payload.verbose,
+                    payload.verbose,
+                )]),
         )
         .await;
     }

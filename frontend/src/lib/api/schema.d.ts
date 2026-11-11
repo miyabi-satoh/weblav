@@ -2329,6 +2329,21 @@ export interface components {
             /** @description 名前の語で絞る前の、パターンで外れているファイルの数。 */
             totalAll: number;
         };
+        /**
+         * @description 編集で変えた1項目。短い値 (選択肢・数・名前) は前と後の値を持ち、長い文 (説明・パターンなど) は
+         *     名前だけを持つ (→ docs/operations.md「1件に持つもの」)。
+         */
+        FieldChange: {
+            /** @description API の項目名。 */
+            name: string;
+            /** @description 項目がユーザーごとにあるもの (共有の権限の例外) の、そのユーザーの名前。 */
+            subject?: string | null;
+            values?: components["schemas"]["FieldValues"] | null;
+        };
+        FieldValues: {
+            after: unknown;
+            before: unknown;
+        };
         FilenameWord: {
             /** @description この語を含むアイテム数。 */
             count: number;
@@ -2639,6 +2654,8 @@ export interface components {
              */
             byteCount?: number | null;
             category: components["schemas"]["OpCategory"];
+            /** @description 操作した端末の IP アドレス。分からなかったものには無い。 */
+            clientIp?: string | null;
             destPath?: string | null;
             /**
              * Format: int64
@@ -2648,8 +2665,8 @@ export interface components {
             destShareName?: string | null;
             /** @description 失敗したときの API のエラーの code。 */
             error?: string | null;
-            /** @description 編集で変えた項目の名前 (API の項目名)。編集でない操作には無い。 */
-            fields?: string[] | null;
+            /** @description 編集で変えた項目。編集でない操作には無い。 */
+            fields?: components["schemas"]["FieldChange"][] | null;
             /** Format: int64 */
             id: number;
             /**

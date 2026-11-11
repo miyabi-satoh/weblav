@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { opFieldsLabel, opPlaces, opResultLabel } from './operations';
+import { opFieldLines, opPlaces, opResultLabel } from './operations';
 import type { components } from '$lib/api/schema';
 
 type Operation = components['schemas']['OperationResponse'];
@@ -54,9 +54,21 @@ describe('opPlaces', () => {
 	});
 });
 
-describe('opFieldsLabel', () => {
-	it('uses the form labels and keeps unknown names as they are', () => {
-		expect(opFieldsLabel(['title', 'somethingNew'])).toBe('Changed: Title, somethingNew');
+describe('opFieldLines', () => {
+	it('shows values before and after, then the names of fields kept without values', () => {
+		expect(
+			opFieldLines([
+				{ name: 'description' },
+				{ name: 'visibility', values: { before: 'public', after: 'private' } },
+				{ name: 'userAccess', subject: 'hanako', values: { before: null, after: 'all' } },
+				{ name: 'somethingNew' }
+			])
+		).toEqual([
+			// テストの表示言語は既定の英語。
+			'Visibility: Everyone → Creator only',
+			'Permission for hanako: No exception → Full access',
+			'Changed: Description, somethingNew'
+		]);
 	});
 });
 

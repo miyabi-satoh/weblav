@@ -9,6 +9,8 @@ CREATE TABLE operations (
     user_id INTEGER,
     -- そのときの名前。ログインに失敗したときは打ち込まれた名前。
     username TEXT NOT NULL,
+    -- 操作した端末の IP アドレス。分からなかったときは NULL。
+    client_ip TEXT,
     op TEXT NOT NULL,
     -- 操作の対象 (コンテンツ・ユーザー・共有など) の id と、そのときの名前。共有の中の操作は下の場所で持つ。
     target_id INTEGER,
@@ -17,7 +19,7 @@ CREATE TABLE operations (
     target_renamed_to TEXT,
     -- 対象の中の部分の名前 (アーカイブの軸の名前)。
     target_part TEXT,
-    -- 編集で変えた項目の名前の JSON の配列。値は残さない。
+    -- 編集で変えた項目の JSON の配列 (`operations::FieldChange`)。短い値は前と後の値も持つ。
     fields TEXT,
     -- ここから共有の中の操作の分。扱った共有と、共有からの相対パス ('/' 区切り) の JSON の配列。
     root_id INTEGER,

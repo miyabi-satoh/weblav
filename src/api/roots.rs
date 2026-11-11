@@ -27,7 +27,7 @@ use crate::state::AppState;
 use super::error_detail::ValidationDetail;
 use super::fs::{canonical_dir, inside_own_dirs, path_to_string};
 use super::local::LocalRequest;
-use super::operations::{Op, OpRecord, record_or_warn};
+use super::operations::{FieldChange, Op, OpRecord, record_or_warn};
 use super::shares::{AccessMap, ShareAccess};
 
 /// 登録済みの「共有」1件。
@@ -527,14 +527,43 @@ async fn update_root_access(
         .collect();
     // 書き込みが済んだら、応答を組み立てる前に残す (組み立てに失敗しても、変えたことは残す)。
     // 行が無ければ上の UPDATE が 404 を返しているので、ここでは必ずある。
-    if let Some(before) = before
-        && (before.editor_access != payload.editor_access || before_users != after_users)
-    {
-        record_or_warn(
-            &state.pool,
-            &OpRecord::new(Op::ChangeShareAccess, &admin).target(id, &before.name),
-        )
-        .await;
+    if let Some(before) = before {
+        let mut fields = Vec::new();
+        if before.editor_access != payload.editor_access {
+            fields.push(FieldChange::changed(
+                "editorAccess",
+                before.editor_access,
+                payload.editor_access,
+            ));
+        }
+        // 例外は人ごとに、前と後を残す。例外の無いほうは `null` (一般ユーザーの既定に従う)。
+        let user_ids: std::collections::BTreeSet<i64> = before_users
+            .keys()
+            .chain(after_users.keys())
+            .copied()
+            .collect();
+        for user_id in user_ids {
+            let (old, new) = (before_users.get(&user_id), after_users.get(&user_id));
+            if old == new {
+                continue;
+            }
+            let username = sqlx::query_scalar!("SELECT username FROM users WHERE id = ?", user_id)
+                .fetch_optional(&state.pool)
+                .await
+                .ok()
+                .flatten()
+                .unwrap_or_default();
+            fields.push(FieldChange::changed("userAccess", old, new).about(&username));
+        }
+        if !fields.is_empty() {
+            record_or_warn(
+                &state.pool,
+                &OpRecord::new(Op::ChangeShareAccess, &admin)
+                    .target(id, &before.name)
+                    .fields(fields),
+            )
+            .await;
+        }
     }
     root_response(&state, id).await.map(Json)
 }
