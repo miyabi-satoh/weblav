@@ -416,19 +416,16 @@ async fn list_on_home(
     let dir = resolve_existing(&state, &user, id, &payload.path).await?;
     require(&dir, ShareAccess::Read)?;
     let path = crate::api::fs::path_to_string(dir.canonical.clone())?;
+    let record = OpRecord::in_share(
+        Op::ListOnHome,
+        &user,
+        dir.root_id,
+        &dir.root_name,
+        vec![dir.rel.clone()],
+    );
     let created =
-        crate::api::contents::list_path_on_home(&state, &user, path, payload.visibility).await?;
-    record_or_warn(
-        &state.pool,
-        &OpRecord::in_share(
-            Op::ListOnHome,
-            &user,
-            dir.root_id,
-            &dir.root_name,
-            vec![dir.rel.clone()],
-        ),
-    )
-    .await;
+        crate::api::contents::list_path_on_home(&state, &user, path, payload.visibility, &record)
+            .await?;
     Ok((StatusCode::CREATED, Json(created)))
 }
 

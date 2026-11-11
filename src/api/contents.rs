@@ -1164,12 +1164,14 @@ struct NewContent {
 }
 
 /// フォルダーを指すコンテンツか、ファイルを指すショートカットを、ルート直下に作る。共有の画面の「ホームに載せる」から使う。
-pub(super) async fn create_path_content(
+/// 作ったら、応答を組み立てる前に `record` を残す (組み立てに失敗しても、作ったことは残す)。
+async fn create_path_content(
     state: &AppState,
     user: &AuthUser,
     content_type: ContentType,
     path: String,
     visibility: Option<Visibility>,
+    record: &OpRecord,
 ) -> Result<AdminContentResponse, AppError> {
     let row = insert_content(
         state,
@@ -1186,16 +1188,19 @@ pub(super) async fn create_path_content(
         },
     )
     .await?;
+    record_or_warn(&state.pool, record).await;
     admin_response(&state.pool, row).await
 }
 
 /// 共有の中のフォルダーかファイルをホームに載せる。閲覧者が戻せる非表示のコンテンツがその場所にあれば、それを戻す。
 /// 新しく作ると、対象と除外のパターンが空の2つ目のコンテンツができ、外していたファイルが見えてしまうため。
+/// 作るか戻すかしたら、応答を組み立てる前に `record` を残す (組み立てに失敗しても、変えたことは残す)。
 pub(super) async fn list_path_on_home(
     state: &AppState,
     user: &AuthUser,
     path: String,
     visibility: Option<Visibility>,
+    record: &OpRecord,
 ) -> Result<AdminContentResponse, AppError> {
     let content_type = if path_is_file(FsPath::new(&path)).await? {
         ContentType::Shortcut
@@ -1219,7 +1224,7 @@ pub(super) async fn list_path_on_home(
     .fetch_optional(&state.pool)
     .await?;
     let Some(id) = hidden else {
-        return create_path_content(state, user, content_type, path, visibility).await;
+        return create_path_content(state, user, content_type, path, visibility, record).await;
     };
     {
         let _write_guard = state.contents_write_lock.lock().await;
@@ -1227,6 +1232,7 @@ pub(super) async fn list_path_on_home(
         let target = visibility.unwrap_or(restore_target(existing.visibility_before_hidden));
         change_visibility(&state.pool, user, id, &existing, target).await?;
     }
+    record_or_warn(&state.pool, record).await;
     let row = sqlx::query_as!(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url,
