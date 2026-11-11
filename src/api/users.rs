@@ -15,6 +15,7 @@ use crate::state::AppState;
 
 use super::contents::Visibility;
 use super::error_detail::ValidationDetail;
+use super::operations::{FieldChange, Op, OpRecord, record_or_warn};
 use super::validate;
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -51,6 +52,14 @@ impl From<UserRow> for UserListItem {
 
 async fn current_role(conn: &mut SqliteConnection, id: i64) -> Result<Role, AppError> {
     sqlx::query_scalar!(r#"SELECT role as "role: Role" FROM users WHERE id = ?"#, id)
+        .fetch_optional(conn)
+        .await?
+        .ok_or(AppError::NotFound)
+}
+
+/// 操作の記録に写す、そのときの名前。
+async fn username_of(conn: &mut SqliteConnection, id: i64) -> Result<String, AppError> {
+    sqlx::query_scalar!("SELECT username FROM users WHERE id = ?", id)
         .fetch_optional(conn)
         .await?
         .ok_or(AppError::NotFound)
@@ -124,7 +133,7 @@ struct CreateUserRequest {
     )
 )]
 async fn create_user(
-    _admin: ConfirmedAdmin,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     AppJson(payload): AppJson<CreateUserRequest>,
 ) -> Result<(StatusCode, Json<UserListItem>), AppError> {
@@ -135,6 +144,11 @@ async fn create_user(
 
     let role = payload.role.unwrap_or(Role::User);
     let created = auth::create_user(&state.pool, &username, &payload.password, role, None).await?;
+    record_or_warn(
+        &state.pool,
+        &OpRecord::new(Op::CreateUser, &admin).target(created.id, &username),
+    )
+    .await;
 
     Ok((
         StatusCode::CREATED,
@@ -226,6 +240,19 @@ async fn update_role(
         .await?;
     let item = fetch_list_item(&mut tx, id).await?;
     tx.commit().await?;
+    if current_role != payload.role {
+        record_or_warn(
+            &state.pool,
+            &OpRecord::new(Op::ChangeRole, &admin)
+                .target(id, &item.username)
+                .fields(vec![FieldChange::changed(
+                    "role",
+                    current_role,
+                    payload.role,
+                )]),
+        )
+        .await;
+    }
 
     Ok(Json(item))
 }
@@ -262,16 +289,20 @@ async fn reset_password(
 
     // パスワードを知られて再設定するときに、知った人が作ったコードで取り戻されないよう、コードも消す
     // (→ docs/access.md「リカバリコード」)。
-    let updated = sqlx::query!(
-        "UPDATE users SET password_hash = ?, recovery_code_hash = NULL, recovery_code_created_at = NULL WHERE id = ?",
+    let username = sqlx::query_scalar!(
+        "UPDATE users SET password_hash = ?, recovery_code_hash = NULL, recovery_code_created_at = NULL
+         WHERE id = ? RETURNING username",
         hash,
         id
     )
-    .execute(&state.pool)
-    .await?;
-    if updated.rows_affected() == 0 {
-        return Err(AppError::NotFound);
-    }
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(AppError::NotFound)?;
+    record_or_warn(
+        &state.pool,
+        &OpRecord::new(Op::ResetPassword, &admin).target(id, &username),
+    )
+    .await;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -306,9 +337,19 @@ async fn update_username(
     let username = validate::trimmed_non_empty(&payload.username, "username is required")?;
 
     let mut tx = crate::db::begin_write(&state.pool).await?;
+    let before = username_of(&mut tx, id).await?;
     auth::rename_user(&mut *tx, id, &username).await?;
     let item = fetch_list_item(&mut tx, id).await?;
     tx.commit().await?;
+    if before != item.username {
+        record_or_warn(
+            &state.pool,
+            &OpRecord::new(Op::RenameUser, &admin)
+                .target(id, &before)
+                .renamed_to(&item.username),
+        )
+        .await;
+    }
 
     Ok(Json(item))
 }
@@ -361,11 +402,17 @@ async fn delete_user(
     .execute(&mut *tx)
     .await?;
 
+    let username = username_of(&mut tx, id).await?;
     sqlx::query!("DELETE FROM users WHERE id = ?", id)
         .execute(&mut *tx)
         .await?;
 
     tx.commit().await?;
+    record_or_warn(
+        &state.pool,
+        &OpRecord::new(Op::DeleteUser, &admin).target(id, &username),
+    )
+    .await;
 
     Ok(StatusCode::NO_CONTENT)
 }

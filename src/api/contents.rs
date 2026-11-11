@@ -26,6 +26,7 @@ use utoipa_axum::routes;
 
 use super::error_detail::ValidationDetail;
 use super::file_filter::{FileFilter, normalize_patterns};
+use super::operations::{FieldChange, Op, OpRecord, record_or_warn};
 use super::schedule::{AutoMode, AutoRefresh, parse_auto_refresh};
 use super::search::FieldKind;
 use super::sort::{SortOrder, SortQuery, title_cmp};
@@ -1121,7 +1122,7 @@ async fn create_content(
         (None, None)
     };
 
-    let created = insert_content(
+    let row = insert_content(
         &state,
         &user,
         NewContent {
@@ -1136,7 +1137,16 @@ async fn create_content(
         },
     )
     .await?;
-    Ok((StatusCode::CREATED, Json(created)))
+    // 書き込みが済んだら、応答を組み立てる前に残す (組み立てに失敗しても、作ったことは残す)。
+    record_or_warn(
+        &state.pool,
+        &OpRecord::new(Op::CreateContent, &user).target(row.id, &row.title),
+    )
+    .await;
+    Ok((
+        StatusCode::CREATED,
+        Json(admin_response(&state.pool, row).await?),
+    ))
 }
 
 /// 作るコンテンツ。リンクの URL とページから取ったタイトルは、取りに行った後のもの。
@@ -1154,14 +1164,16 @@ struct NewContent {
 }
 
 /// フォルダーを指すコンテンツか、ファイルを指すショートカットを、ルート直下に作る。共有の画面の「ホームに載せる」から使う。
-pub(super) async fn create_path_content(
+/// 作ったら、応答を組み立てる前に `record` を残す (組み立てに失敗しても、作ったことは残す)。
+async fn create_path_content(
     state: &AppState,
     user: &AuthUser,
     content_type: ContentType,
     path: String,
     visibility: Option<Visibility>,
+    record: &OpRecord,
 ) -> Result<AdminContentResponse, AppError> {
-    insert_content(
+    let row = insert_content(
         state,
         user,
         NewContent {
@@ -1175,16 +1187,20 @@ pub(super) async fn create_path_content(
             visibility,
         },
     )
-    .await
+    .await?;
+    record_or_warn(&state.pool, record).await;
+    admin_response(&state.pool, row).await
 }
 
 /// 共有の中のフォルダーかファイルをホームに載せる。閲覧者が戻せる非表示のコンテンツがその場所にあれば、それを戻す。
 /// 新しく作ると、対象と除外のパターンが空の2つ目のコンテンツができ、外していたファイルが見えてしまうため。
+/// 作るか戻すかしたら、応答を組み立てる前に `record` を残す (組み立てに失敗しても、変えたことは残す)。
 pub(super) async fn list_path_on_home(
     state: &AppState,
     user: &AuthUser,
     path: String,
     visibility: Option<Visibility>,
+    record: &OpRecord,
 ) -> Result<AdminContentResponse, AppError> {
     let content_type = if path_is_file(FsPath::new(&path)).await? {
         ContentType::Shortcut
@@ -1208,7 +1224,7 @@ pub(super) async fn list_path_on_home(
     .fetch_optional(&state.pool)
     .await?;
     let Some(id) = hidden else {
-        return create_path_content(state, user, content_type, path, visibility).await;
+        return create_path_content(state, user, content_type, path, visibility, record).await;
     };
     {
         let _write_guard = state.contents_write_lock.lock().await;
@@ -1216,6 +1232,7 @@ pub(super) async fn list_path_on_home(
         let target = visibility.unwrap_or(restore_target(existing.visibility_before_hidden));
         change_visibility(&state.pool, user, id, &existing, target).await?;
     }
+    record_or_warn(&state.pool, record).await;
     let row = sqlx::query_as!(
         ContentRow,
         r#"SELECT id as "id!", type as "content_type: ContentType", parent_id, title, url,
@@ -1236,7 +1253,7 @@ async fn insert_content(
     state: &AppState,
     user: &AuthUser,
     new: NewContent,
-) -> Result<AdminContentResponse, AppError> {
+) -> Result<ContentRow, AppError> {
     // 親の検証からINSERTまでを直列化する (→ `AppState::contents_write_lock`)。
     let _write_guard = state.contents_write_lock.lock().await;
     let parent = validate_parent(&state.pool, new.parent_id, None).await?;
@@ -1265,7 +1282,7 @@ async fn insert_content(
 
     let content_type = new.content_type;
     let description = new.description;
-    let row = sqlx::query_as!(
+    let created = sqlx::query_as!(
         ContentRow,
         r#"INSERT INTO contents (type, parent_id, title, url, path, description,
                                   visibility, created_by)
@@ -1286,8 +1303,7 @@ async fn insert_content(
     )
     .fetch_one(&state.pool)
     .await?;
-
-    admin_response(&state.pool, row).await
+    Ok(created)
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -1381,6 +1397,8 @@ async fn update_content(
     let existing = sqlx::query!(
         r#"SELECT type as "content_type: ContentType", path,
                   visibility as "visibility: Visibility", created_by,
+                  parent_id, title, url, description, include_patterns, exclude_patterns,
+                  title_template,
                   list_view as "list_view: bool",
                   auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time
            FROM contents WHERE id = ?"#,
@@ -1473,7 +1491,7 @@ async fn update_content(
         None => AutoRefresh::from_columns(
             existing.auto_rescan_mode,
             existing.auto_rescan_hours,
-            existing.auto_rescan_time,
+            existing.auto_rescan_time.clone(),
         ),
     };
     let auto_rescan_hours = auto_rescan.hours.map(i64::from);
@@ -1541,7 +1559,105 @@ async fn update_content(
 
     tx.commit().await?;
 
+    // 変えた項目を残す。短い値は前と後の値も、長い文は名前だけ (→ docs/operations.md「1件に持つもの」)。
+    // 何も変えずに保存したものは残さない。
+    let mut fields = Vec::new();
+    if existing.parent_id != row.parent_id {
+        fields.push(FieldChange::changed(
+            "parentId",
+            group_title_for_log(&state.pool, existing.parent_id).await,
+            group_title_for_log(&state.pool, row.parent_id).await,
+        ));
+    }
+    if existing.title != row.title {
+        fields.push(FieldChange::changed("title", &existing.title, &row.title));
+    }
+    if existing.url != row.url {
+        fields.push(FieldChange::changed("url", &existing.url, &row.url));
+    }
+    if existing.path != row.path {
+        // 画面ではフルパスの代わりに共有の名前から先を出すので、記録も同じ形で持つ (→ docs/folders.md「共有」)。
+        let roots = super::roots::load_root_records(&state.pool)
+            .await
+            .unwrap_or_default();
+        let place = |path: &Option<String>| {
+            path.as_deref()
+                .and_then(|path| super::roots::locate(&roots, path))
+                .map(|location| {
+                    serde_json::json!({ "share": location.root_name, "path": location.path_in_root })
+                })
+        };
+        fields.push(FieldChange::changed(
+            "path",
+            place(&existing.path),
+            place(&row.path),
+        ));
+    }
+    if existing.description != row.description {
+        fields.push(FieldChange::named("description"));
+    }
+    if existing.visibility != row.visibility {
+        fields.push(FieldChange::changed(
+            "visibility",
+            existing.visibility,
+            row.visibility,
+        ));
+    }
+    if existing.include_patterns != row.include_patterns {
+        fields.push(FieldChange::named("includePatterns"));
+    }
+    if existing.exclude_patterns != row.exclude_patterns {
+        fields.push(FieldChange::named("excludePatterns"));
+    }
+    if existing.title_template != row.title_template {
+        fields.push(FieldChange::named("titleTemplate"));
+    }
+    if existing.list_view != row.list_view {
+        fields.push(FieldChange::changed(
+            "listView",
+            existing.list_view,
+            row.list_view,
+        ));
+    }
+    let auto_rescan = |mode: AutoMode, hours: Option<i64>, time: &Option<String>| serde_json::json!({ "mode": mode, "hours": hours, "time": time });
+    let before_rescan = auto_rescan(
+        existing.auto_rescan_mode,
+        existing.auto_rescan_hours,
+        &existing.auto_rescan_time,
+    );
+    let after_rescan = auto_rescan(
+        row.auto_rescan_mode,
+        row.auto_rescan_hours,
+        &row.auto_rescan_time,
+    );
+    if before_rescan != after_rescan {
+        fields.push(FieldChange::changed(
+            "autoRescan",
+            before_rescan,
+            after_rescan,
+        ));
+    }
+    if !fields.is_empty() {
+        record_or_warn(
+            &state.pool,
+            &OpRecord::new(Op::UpdateContent, &user)
+                .target(id, &existing.title)
+                .fields(fields),
+        )
+        .await;
+    }
+
     Ok(Json(admin_response(&state.pool, row).await?))
+}
+
+/// 操作の記録に写す、親のグループの題。読めなければ無いものとして残す (記録のために操作を止めない)。
+async fn group_title_for_log(pool: &sqlx::SqlitePool, id: Option<i64>) -> Option<String> {
+    let id = id?;
+    sqlx::query_scalar!("SELECT title FROM contents WHERE id = ?", id)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -1568,7 +1684,7 @@ pub struct SetCreatorRequest {
     )
 )]
 async fn set_creator(
-    _admin: ConfirmedAdmin,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<SetCreatorRequest>,
@@ -1612,6 +1728,29 @@ async fn set_creator(
     )
     .fetch_one(&state.pool)
     .await?;
+    if existing.created_by != Some(payload.created_by) {
+        let pool = &state.pool;
+        let username = |id: Option<i64>| async move {
+            let id = id?;
+            sqlx::query_scalar!("SELECT username FROM users WHERE id = ?", id)
+                .fetch_optional(pool)
+                .await
+                .ok()
+                .flatten()
+        };
+        let change = FieldChange::changed(
+            "createdBy",
+            username(existing.created_by).await,
+            username(Some(payload.created_by)).await,
+        );
+        record_or_warn(
+            &state.pool,
+            &OpRecord::new(Op::ChangeCreator, &admin)
+                .target(id, &row.title)
+                .fields(vec![change]),
+        )
+        .await;
+    }
 
     Ok(Json(admin_response(&state.pool, row).await?))
 }
@@ -1640,7 +1779,7 @@ async fn delete_content(
     // 他人の `private` (404で隠す対象) でも行が消えてしまう。typeは走査ロックの要否に使う。
     let existing = sqlx::query!(
         r#"SELECT type as "content_type: ContentType", visibility as "visibility: Visibility",
-                  created_by
+                  created_by, title
            FROM contents WHERE id = ?"#,
         id
     )
@@ -1682,6 +1821,11 @@ async fn delete_content(
     }
 
     tx.commit().await?;
+    record_or_warn(
+        &state.pool,
+        &OpRecord::new(Op::DeleteContent, &user).target(id, &existing.title),
+    )
+    .await;
 
     Ok(StatusCode::NO_CONTENT)
 }

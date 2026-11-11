@@ -106,7 +106,7 @@ async fn get_server_settings(
     )
 )]
 async fn update_server_settings(
-    _admin: ConfirmedAdmin,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     AppJson(payload): AppJson<ServerSettings>,
 ) -> Result<Json<ServerSettingsResponse>, AppError> {
@@ -115,12 +115,22 @@ async fn update_server_settings(
     // 次の保存を待たせるため (`spawn_blocking` の処理は止まらずに続く)。
     let guard = state.config_write_lock.clone().lock_owned().await;
     let path = state.config_path.clone();
-    let saved = run_blocking(move || {
+    let (before, saved) = run_blocking(move || {
         let _guard = guard;
+        let before = read_saved(&path)?;
         write_saved(&path, &payload)?;
-        read_saved(&path)
+        Ok::<_, AppError>((before, read_saved(&path)?))
     })
     .await??;
+    let fields = super::operations::changed_fields(&before, &saved);
+    if !fields.is_empty() {
+        super::operations::record_or_warn(
+            &state.pool,
+            &super::operations::OpRecord::new(super::operations::Op::UpdateServerSettings, &admin)
+                .fields(fields),
+        )
+        .await;
+    }
     tracing::info!(
         ?payload,
         "server settings saved; effective from the next start"

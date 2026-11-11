@@ -1,0 +1,146 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id as \"id!\", at, category as \"category: OpCategory\", user_id, username,\n                  client_ip, op as \"op: Op\", target_id, target_name, target_renamed_to, target_part, fields, root_id, root_name, paths,\n                  dest_root_id, dest_root_name, dest_path, item_count, byte_count,\n                  result as \"result: OpResult\", error\n           FROM operations\n           WHERE id < ?1 AND (?2 IS NULL OR category = ?2) AND (?3 IS NULL OR user_id = ?3)\n           ORDER BY id DESC LIMIT ?4",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "at",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "category: OpCategory",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "user_id",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "username",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "client_ip",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "op: Op",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "target_id",
+        "ordinal": 7,
+        "type_info": "Integer"
+      },
+      {
+        "name": "target_name",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "target_renamed_to",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "target_part",
+        "ordinal": 10,
+        "type_info": "Text"
+      },
+      {
+        "name": "fields",
+        "ordinal": 11,
+        "type_info": "Text"
+      },
+      {
+        "name": "root_id",
+        "ordinal": 12,
+        "type_info": "Integer"
+      },
+      {
+        "name": "root_name",
+        "ordinal": 13,
+        "type_info": "Text"
+      },
+      {
+        "name": "paths",
+        "ordinal": 14,
+        "type_info": "Text"
+      },
+      {
+        "name": "dest_root_id",
+        "ordinal": 15,
+        "type_info": "Integer"
+      },
+      {
+        "name": "dest_root_name",
+        "ordinal": 16,
+        "type_info": "Text"
+      },
+      {
+        "name": "dest_path",
+        "ordinal": 17,
+        "type_info": "Text"
+      },
+      {
+        "name": "item_count",
+        "ordinal": 18,
+        "type_info": "Integer"
+      },
+      {
+        "name": "byte_count",
+        "ordinal": 19,
+        "type_info": "Integer"
+      },
+      {
+        "name": "result: OpResult",
+        "ordinal": 20,
+        "type_info": "Text"
+      },
+      {
+        "name": "error",
+        "ordinal": 21,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "b7aad0ba089b96130d392206722cc2e8e0ac00ed71215cf88e421f06234c2309"
+}

@@ -233,6 +233,12 @@ async fn download_backup(
     }
     let snapshot = archive::snapshot(&state.pool, &state.backup_work_dir).await?;
     let manifest = Manifest::now();
+    // 全員の非公開のものまで持ち出せる操作なので、誰がいつ取ったかを残す。
+    crate::api::operations::record_or_warn(
+        &state.pool,
+        &crate::api::operations::OpRecord::new(crate::api::operations::Op::DownloadBackup, &admin),
+    )
+    .await;
 
     let (reader, writer) = tokio::io::duplex(DOWNLOAD_BUFFER_BYTES);
     let writer = SyncIoBridge::new(writer);
@@ -308,6 +314,16 @@ async fn restore(
         restore_staged(&state, &payload.id).await?;
     }
     tracing::info!(user_id = admin.id, "restored data from a backup");
+    // 戻した後のデータに書く。ユーザーの id は戻す前のもので、戻した後では別の人を指しうるので残さない。
+    crate::api::operations::record_or_warn(
+        &state.pool,
+        &crate::api::operations::OpRecord::by(
+            crate::api::operations::Op::RestoreBackup,
+            None,
+            &admin.username,
+        ),
+    )
+    .await;
     end_session(&admin.user_session()?.session).await?;
     Ok(StatusCode::NO_CONTENT)
 }

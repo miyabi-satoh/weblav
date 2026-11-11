@@ -1,0 +1,104 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT type as \"content_type: ContentType\", path,\n                  visibility as \"visibility: Visibility\", created_by,\n                  parent_id, title, url, description, include_patterns, exclude_patterns,\n                  title_template,\n                  list_view as \"list_view: bool\",\n                  auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time\n           FROM contents WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "content_type: ContentType",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "path",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "visibility: Visibility",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_by",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "parent_id",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "title",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "url",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "description",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "include_patterns",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "exclude_patterns",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "title_template",
+        "ordinal": 10,
+        "type_info": "Text"
+      },
+      {
+        "name": "list_view: bool",
+        "ordinal": 11,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_rescan_mode: AutoMode",
+        "ordinal": 12,
+        "type_info": "Text"
+      },
+      {
+        "name": "auto_rescan_hours",
+        "ordinal": 13,
+        "type_info": "Integer"
+      },
+      {
+        "name": "auto_rescan_time",
+        "ordinal": 14,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "d9305ba183cc0a5f939650dca1dd2623c056a75e344561d247a90c4751b981be"
+}

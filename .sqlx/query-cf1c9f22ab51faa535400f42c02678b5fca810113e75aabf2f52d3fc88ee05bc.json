@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT name, source as \"source: AxisSource\", dir_level,\n                  optional_in_title as \"optional_in_title: bool\",\n                  filterable as \"filterable: bool\", position\n           FROM archive_axes WHERE id = ? AND archive_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "name",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "source: AxisSource",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "dir_level",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "optional_in_title: bool",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "filterable: bool",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "position",
+        "ordinal": 5,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "cf1c9f22ab51faa535400f42c02678b5fca810113e75aabf2f52d3fc88ee05bc"
+}

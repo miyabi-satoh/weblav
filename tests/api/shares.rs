@@ -577,46 +577,6 @@ async fn a_folder_content_points_to_its_share(pool: SqlitePool) {
     assert_eq!(parse_json(&body)["share"], serde_json::Value::Null);
 }
 
-/// 操作の記録は新しい順に返し、続きは `nextBefore` から読む。
-#[sqlx::test]
-async fn share_operations_are_listed_newest_first_in_pages(pool: SqlitePool) {
-    let (app, admin) = admin_app(&pool).await;
-    for (op, path) in [("mkdir", "a"), ("upload", "a/b.pdf"), ("delete", "c")] {
-        sqlx::query(
-            "INSERT INTO share_operations (user_id, username, op, root_id, root_name, paths, result)
-             VALUES (1, 'admin', ?, 1, '教材', json_array(?), 'succeeded')",
-        )
-        .bind(op)
-        .bind(path)
-        .execute(&pool)
-        .await
-        .expect("記録を入れられなかった");
-    }
-
-    let uri = "/api/v1/admin/share-operations?limit=2";
-    let (status, body) = send_empty(app.clone(), "GET", uri, &admin).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    let body = parse_json(&body);
-    let ops: Vec<&str> = body["items"]
-        .as_array()
-        .expect("配列のはず")
-        .iter()
-        .map(|item| item["op"].as_str().expect("op"))
-        .collect();
-    assert_eq!(ops, vec!["delete", "upload"]);
-    assert_eq!(body["items"][1]["paths"], serde_json::json!(["a/b.pdf"]));
-    assert_eq!(body["items"][1]["shareName"], "教材");
-    let next = body["nextBefore"].as_i64().expect("続きがあるはず");
-
-    let uri = format!("/api/v1/admin/share-operations?limit=2&before={next}");
-    let (status, body) = send_empty(app, "GET", &uri, &admin).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    let body = parse_json(&body);
-    assert_eq!(body["items"].as_array().expect("配列のはず").len(), 1);
-    assert_eq!(body["items"][0]["op"], "mkdir");
-    assert!(body["nextBefore"].is_null(), "{body}");
-}
-
 /// `files` を `file` の欄に並べた multipart の要求。
 fn upload_request(uri: &str, cookie: &str, files: &[(&str, &[u8])]) -> Request<Body> {
     let fields: Vec<(&str, &str, &[u8])> = files
@@ -696,11 +656,12 @@ async fn files_can_be_uploaded_into_a_share(pool: SqlitePool) {
         "作業用のファイルが残った: {leftovers:?}"
     );
 
-    let logged: Vec<(String, String, String)> =
-        sqlx::query_as("SELECT op, paths, result FROM share_operations ORDER BY id")
-            .fetch_all(&pool)
-            .await
-            .expect("記録を読めなかった");
+    let logged: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT op, paths, result FROM operations WHERE root_id IS NOT NULL ORDER BY id",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("記録を読めなかった");
     assert_eq!(
         logged,
         vec![
@@ -1102,11 +1063,12 @@ async fn copying_reports_conflicts_and_can_add_a_number(pool: SqlitePool) {
     assert_eq!(job["state"], "succeeded", "{job}");
     assert!(share.dir.join("memo (1).txt").is_file());
 
-    let logged: Vec<(String, String, Option<i64>)> =
-        sqlx::query_as("SELECT op, result, item_count FROM share_operations ORDER BY id")
-            .fetch_all(&pool)
-            .await
-            .expect("記録を読めなかった");
+    let logged: Vec<(String, String, Option<i64>)> = sqlx::query_as(
+        "SELECT op, result, item_count FROM operations WHERE root_id IS NOT NULL ORDER BY id",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("記録を読めなかった");
     assert_eq!(
         logged,
         vec![
@@ -1273,11 +1235,12 @@ async fn overwriting_a_listed_folder_warns_clears_the_index_and_records_the_dele
         .await
         .expect("索引を読めなかった");
     assert!(rels.is_empty(), "{rels:?}");
-    let logged: Vec<(String, String, Option<i64>)> =
-        sqlx::query_as("SELECT op, paths, item_count FROM share_operations ORDER BY id")
-            .fetch_all(&pool)
-            .await
-            .expect("記録を読めなかった");
+    let logged: Vec<(String, String, Option<i64>)> = sqlx::query_as(
+        "SELECT op, paths, item_count FROM operations WHERE root_id IS NOT NULL ORDER BY id",
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("記録を読めなかった");
     assert_eq!(
         logged,
         vec![
@@ -1304,10 +1267,11 @@ async fn a_skipped_transfer_reaches_the_total_but_records_nothing_done(pool: Sql
     assert_eq!(job["doneItems"], job["totalItems"], "{job}");
     assert_eq!(job["doneBytes"], 3, "{job}");
 
-    let logged: (i64, i64) = sqlx::query_as("SELECT item_count, byte_count FROM share_operations")
-        .fetch_one(&pool)
-        .await
-        .expect("記録を読めなかった");
+    let logged: (i64, i64) =
+        sqlx::query_as("SELECT item_count, byte_count FROM operations WHERE root_id IS NOT NULL")
+            .fetch_one(&pool)
+            .await
+            .expect("記録を読めなかった");
     assert_eq!(logged, (0, 0));
 }
 

@@ -8,7 +8,6 @@
 mod browse;
 mod fsops;
 mod jobs;
-pub(crate) mod log;
 mod paths;
 pub(super) mod repoint;
 mod transfer;
@@ -237,7 +236,6 @@ pub(crate) fn router(max_upload_bytes: Option<u64>) -> OpenApiRouter<AppState> {
         .merge(browse::router())
         .merge(write::router(max_upload_bytes))
         .merge(transfer::router())
-        .merge(log::router())
 }
 
 #[cfg(test)]

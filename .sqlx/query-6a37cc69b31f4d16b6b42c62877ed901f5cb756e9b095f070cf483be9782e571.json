@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT raw_value, display_name, position,\n                  match_position as \"match_position: AxisMatchPosition\"\n           FROM archive_axis_values WHERE axis_id = ? ORDER BY position",
+  "describe": {
+    "columns": [
+      {
+        "name": "raw_value",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "display_name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "position",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "match_position: AxisMatchPosition",
+        "ordinal": 3,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "6a37cc69b31f4d16b6b42c62877ed901f5cb756e9b095f070cf483be9782e571"
+}

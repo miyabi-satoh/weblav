@@ -1,10 +1,10 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT path FROM roots WHERE id = ? AND deleted_at IS NULL",
+  "query": "SELECT title FROM contents WHERE id = ?",
   "describe": {
     "columns": [
       {
-        "name": "path",
+        "name": "title",
         "ordinal": 0,
         "type_info": "Text"
       }
@@ -16,5 +16,5 @@
       false
     ]
   },
-  "hash": "ecd403e255c0d647f483b517552ad4aa154900d9c1327b18dbc124e375acd6ea"
+  "hash": "f6b2faae53be478be0fef4ae01cfede8964ab37ca19052d1e0c02988670f99f4"
 }

@@ -23,6 +23,7 @@ use crate::state::AppState;
 use super::archive_axes::{AxisMatchPosition, AxisSource};
 use super::contents::ContentType;
 use super::error_detail::ValidationDetail;
+use super::operations::{Op, OpRecord, record_or_warn};
 use super::schedule::{AutoMode, AutoRefresh};
 
 /// `rel_path` の `dir_level` 段目のディレクトリ名を返す (→ docs/archive.md「軸の定義」)。
@@ -384,6 +385,7 @@ async fn rescan(
     // 排他を取る前の確認の後に公開範囲が変わっていた場合に備え、取り直した値で判定し直す。
     // 更新は走査中なら409になるので、ここから先は公開範囲と path は変わらない。
     let archive = load_editable_archive(&state.pool, &user, id).await?;
+    let record = OpRecord::new(Op::Rescan, &user).target(id, &archive.title);
 
     // 別のタスクで最後まで進める。画面を閉じられてハンドラが落とされても、ファイルを読む
     // スレッドは止められず読み続けるので、読んだ分を残し、その間は排他も外さない
@@ -395,6 +397,11 @@ async fn rescan(
         if let Err(err) = &result {
             tracing::warn!(archive_id = id, error = %crate::error::error_chain(err), "archive rescan failed");
         }
+        let record = match &result {
+            Ok(_) => record,
+            Err(err) => record.failed(err),
+        };
+        record_or_warn(&state.pool, &record).await;
         result
     })
     .await?

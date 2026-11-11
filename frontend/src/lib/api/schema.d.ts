@@ -115,6 +115,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 操作の記録。新しい順。 */
+        get: operations["list_operations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/roots": {
         parameters: {
             query?: never;
@@ -221,23 +238,6 @@ export interface paths {
         };
         get: operations["get_server_settings"];
         put: operations["update_server_settings"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/share-operations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 共有の中のファイルを書き換えた操作の記録。新しい順。 */
-        get: operations["list_share_operations"];
-        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2329,6 +2329,21 @@ export interface components {
             /** @description 名前の語で絞る前の、パターンで外れているファイルの数。 */
             totalAll: number;
         };
+        /**
+         * @description 編集で変えた1項目。短い値 (選択肢・数・名前) は前と後の値を持ち、長い文 (説明・パターンなど) は
+         *     名前だけを持つ (→ docs/operations.md「1件に持つもの」)。
+         */
+        FieldChange: {
+            /** @description API の項目名。 */
+            name: string;
+            /** @description 項目がユーザーごとにあるもの (共有の権限の例外) の、そのユーザーの名前。 */
+            subject?: string | null;
+            values?: components["schemas"]["FieldValues"] | null;
+        };
+        FieldValues: {
+            after: unknown;
+            before: unknown;
+        };
         FilenameWord: {
             /** @description この語を含むアイテム数。 */
             count: number;
@@ -2615,10 +2630,89 @@ export interface components {
          */
         OnConflict: "overwrite" | "rename" | "skip";
         /**
+         * @description 操作の種類。
+         * @enum {string}
+         */
+        Op: "login" | "logout" | "change_password" | "change_username" | "create_recovery_code" | "recover" | "create_content" | "update_content" | "change_creator" | "delete_content" | "create_axis" | "update_axis" | "delete_axis" | "replace_axis_values" | "replace_axes" | "rescan" | "create_user" | "change_role" | "reset_password" | "rename_user" | "delete_user" | "upload" | "mkdir" | "rename" | "move" | "copy" | "delete" | "list_on_home" | "create_share" | "rename_share" | "change_share_access" | "move_share" | "delete_share" | "update_site_settings" | "update_server_settings" | "update_log_settings" | "download_backup" | "restore_backup";
+        /**
+         * @description 操作の分類。画面の絞り込みに使う。
+         * @enum {string}
+         */
+        OpCategory: "auth" | "contents" | "users" | "shares" | "settings";
+        /**
          * @description 操作の結果。
          * @enum {string}
          */
         OpResult: "running" | "succeeded" | "failed" | "cancelled";
+        /** @description 記録の1行。 */
+        OperationResponse: {
+            /** @description 操作した時刻 (UTC、ISO 8601)。 */
+            at: string;
+            /**
+             * Format: int64
+             * @description 実際に置いたファイルの大きさの合計 (バイト)。
+             */
+            byteCount?: number | null;
+            category: components["schemas"]["OpCategory"];
+            /** @description 操作した端末の IP アドレス。分からなかったものには無い。 */
+            clientIp?: string | null;
+            destPath?: string | null;
+            /**
+             * Format: int64
+             * @description 移動・コピーの置き先のフォルダー、名前の変更の後の場所。
+             */
+            destShareId?: number | null;
+            destShareName?: string | null;
+            /** @description 失敗したときの API のエラーの code。 */
+            error?: string | null;
+            /** @description 編集で変えた項目。編集でない操作には無い。 */
+            fields?: components["schemas"]["FieldChange"][] | null;
+            /** Format: int64 */
+            id: number;
+            /**
+             * Format: int64
+             * @description 実際に置いた・消したファイル・フォルダーの数。飛ばしたもの、中止で置かなかったもの、失敗した1つ
+             *     (別のディスクへの移動で、置けたが元を消せなかったものを含む) は数えない。
+             *     終わるまで分からないものと、共有の中の操作でないものは `None`。
+             */
+            itemCount?: number | null;
+            op: components["schemas"]["Op"];
+            /** @description 扱った場所の、共有からの相対パス。共有の中の操作でなければ空。 */
+            paths: string[];
+            result: components["schemas"]["OpResult"];
+            /**
+             * Format: int64
+             * @description 共有の中の操作の、扱った共有と、そのときの名前。
+             */
+            shareId?: number | null;
+            shareName?: string | null;
+            /**
+             * Format: int64
+             * @description 対象 (コンテンツ・ユーザー・共有など) の id と、そのときの名前。共有の中の操作には無い。
+             */
+            targetId?: number | null;
+            targetName?: string | null;
+            /** @description 対象の中の部分の名前 (アーカイブの軸の名前)。 */
+            targetPart?: string | null;
+            /** @description 名前を変えた操作の、変えた後の名前 (`targetName` は変える前の名前)。 */
+            targetRenamedTo?: string | null;
+            /**
+             * Format: int64
+             * @description 操作したユーザー。消したユーザーでも残る (`username` はそのときの名前)。
+             *     ログインに失敗したときは打ち込まれた名前で、その名前のユーザーがいなければ `userId` は無い。
+             */
+            userId?: number | null;
+            username: string;
+        };
+        OperationsResponse: {
+            /** @description 新しい順。 */
+            items: components["schemas"]["OperationResponse"][];
+            /**
+             * Format: int64
+             * @description 続きがあれば、次に `before` へ渡す値。
+             */
+            nextBefore?: number | null;
+        };
         PathSamplesResponse: {
             /** @description 見えるアイテムの数。 */
             itemCount: number;
@@ -2925,62 +3019,6 @@ export interface components {
              * @description 扱うファイル・フォルダーの数 (中のものも数える)。削除では、選んだものの数。
              */
             totalItems: number;
-        };
-        /**
-         * @description 操作の種類。
-         * @enum {string}
-         */
-        ShareOp: "upload" | "mkdir" | "rename" | "move" | "copy" | "delete" | "list_on_home";
-        /** @description 記録の1行。 */
-        ShareOperationResponse: {
-            /** @description 操作した時刻 (UTC、ISO 8601)。 */
-            at: string;
-            /**
-             * Format: int64
-             * @description 実際に置いたファイルの大きさの合計 (バイト)。
-             */
-            byteCount?: number | null;
-            destPath?: string | null;
-            /**
-             * Format: int64
-             * @description 移動・コピーの置き先のフォルダー、名前の変更の後の場所。
-             */
-            destShareId?: number | null;
-            destShareName?: string | null;
-            /** @description 失敗したときの API のエラーの code。 */
-            error?: string | null;
-            /** Format: int64 */
-            id: number;
-            /**
-             * Format: int64
-             * @description 実際に置いた・消したファイル・フォルダーの数。飛ばしたもの、中止で置かなかったもの、失敗した1つ
-             *     (別のディスクへの移動で、置けたが元を消せなかったものを含む) は数えない。
-             *     終わるまで分からないものは `None`。
-             */
-            itemCount?: number | null;
-            op: components["schemas"]["ShareOp"];
-            /** @description 扱った場所の、共有からの相対パス。 */
-            paths: string[];
-            result: components["schemas"]["OpResult"];
-            /** Format: int64 */
-            shareId: number;
-            /** @description そのときの共有の名前。 */
-            shareName: string;
-            /**
-             * Format: int64
-             * @description 操作したユーザー。消したユーザーでも残る (`username` はそのときの名前)。
-             */
-            userId?: number | null;
-            username: string;
-        };
-        ShareOperationsResponse: {
-            /** @description 新しい順。 */
-            items: components["schemas"]["ShareOperationResponse"][];
-            /**
-             * Format: int64
-             * @description 続きがあれば、次に `before` へ渡す値。
-             */
-            nextBefore?: number | null;
         };
         SharePathResponse: {
             /** @description 作った・名前を変えた後の場所の、共有からの相対パス。 */
@@ -3618,6 +3656,53 @@ export interface operations {
             };
         };
     };
+    list_operations: {
+        parameters: {
+            query?: {
+                /** @description これより前 (id が小さい) の記録を返す。前の応答の `nextBefore` を渡す。省略すると新しいものから。 */
+                before?: number | null;
+                /** @description 返す件数。既定 100、上限 1000。 */
+                limit?: number | null;
+                /** @description この分類だけを返す。 */
+                category?: components["schemas"]["OpCategory"] | null;
+                /** @description このユーザーがした操作だけを返す。 */
+                userId?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作の記録 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationsResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     list_roots: {
         parameters: {
             query?: never;
@@ -4112,49 +4197,6 @@ export interface operations {
             };
             /** @description 範囲の外の値 */
             422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    list_share_operations: {
-        parameters: {
-            query?: {
-                /** @description これより前 (id が小さい) の記録を返す。前の応答の `nextBefore` を渡す。省略すると新しいものから。 */
-                before?: number | null;
-                /** @description 返す件数。既定 100、上限 1000。 */
-                limit?: number | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 操作の記録 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ShareOperationsResponse"];
-                };
-            };
-            /** @description 未ログイン */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description admin以外 */
-            403: {
                 headers: {
                     [name: string]: unknown;
                 };

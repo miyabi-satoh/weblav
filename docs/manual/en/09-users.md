@@ -57,4 +57,4 @@ After changing a username, let them know to log in with the new username from no
 Contents registered by the deleted user remain, and only administrators can change them.
 Contents with “Creator only” visibility become “Hidden”. To show them again, an administrator chooses a new “Visibility” on the content edit page.
 If someone will take over, choose that person under “Creator” on the content edit page, then select “Save”.
-The record of what they did in shares is kept.
+The record of what they did is kept.

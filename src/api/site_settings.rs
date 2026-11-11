@@ -7,6 +7,7 @@ use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
+use super::operations::{Op, OpRecord, changed_fields, record_or_warn};
 use crate::auth::ConfirmedAdmin;
 use crate::error::{AppError, AppJson};
 use crate::state::AppState;
@@ -14,7 +15,7 @@ use crate::state::AppState;
 /// 1項目の上限 (文字数)。ホームの見出しが数行に収まる長さ。
 const MAX_CHARS: usize = 100;
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, PartialEq, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SiteSettingsResponse {
     /// ホームの見出しの上に小さく出す名前。未設定は空文字列。
@@ -67,13 +68,14 @@ struct UpdateSiteSettingsRequest {
     )
 )]
 async fn update_site_settings(
-    _admin: ConfirmedAdmin,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     AppJson(payload): AppJson<UpdateSiteSettingsRequest>,
 ) -> Result<Json<SiteSettingsResponse>, AppError> {
     // 空白だけの入力は未設定として扱う。画面に空の行を出さないため。
     let site_name = within_limit(payload.site_name.trim(), "siteName is too long")?;
     let home_heading = within_limit(payload.home_heading.trim(), "homeHeading is too long")?;
+    let before = load(&state.pool).await?;
 
     let settings = sqlx::query_as!(
         SiteSettingsResponse,
@@ -84,6 +86,14 @@ async fn update_site_settings(
     )
     .fetch_one(&state.pool)
     .await?;
+    let fields = changed_fields(&before, &settings);
+    if !fields.is_empty() {
+        record_or_warn(
+            &state.pool,
+            &OpRecord::new(Op::UpdateSiteSettings, &admin).fields(fields),
+        )
+        .await;
+    }
     Ok(Json(settings))
 }
 

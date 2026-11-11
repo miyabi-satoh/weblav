@@ -17,6 +17,7 @@ use utoipa_axum::routes;
 
 use super::archive::AxisRowMatch;
 use super::error_detail::ValidationDetail;
+use super::operations::{FieldChange, Op, OpRecord, record_or_warn};
 use crate::auth::AuthUser;
 use crate::error::{AppError, AppJson, run_blocking};
 use crate::state::AppState;
@@ -245,6 +246,11 @@ async fn create_axis(
         },
     )
     .await?;
+    record_or_warn(
+        &state.pool,
+        &axis_record(&state, &user, Op::CreateAxis, id, Some(&row.name)).await,
+    )
+    .await;
 
     Ok((StatusCode::CREATED, Json(row)))
 }
@@ -392,7 +398,75 @@ async fn update_axis(
 
     tx.commit().await?;
 
+    let mut fields = Vec::new();
+    if name != existing_name {
+        fields.push(FieldChange::changed("name", &existing_name, &name));
+    }
+    if payload.source != existing.source {
+        fields.push(FieldChange::changed(
+            "source",
+            existing.source,
+            payload.source,
+        ));
+    }
+    if payload.dir_level != existing.dir_level {
+        fields.push(FieldChange::changed(
+            "dirLevel",
+            existing.dir_level,
+            payload.dir_level,
+        ));
+    }
+    if payload.optional_in_title != existing.optional_in_title {
+        fields.push(FieldChange::changed(
+            "optionalInTitle",
+            existing.optional_in_title,
+            payload.optional_in_title,
+        ));
+    }
+    if payload.filterable != existing.filterable {
+        fields.push(FieldChange::changed(
+            "filterable",
+            existing.filterable,
+            payload.filterable,
+        ));
+    }
+    // 並び順は、何番目かの数を見ても分からないので名前だけにする。
+    if payload.position != existing.position {
+        fields.push(FieldChange::named("position"));
+    }
+    if !fields.is_empty() {
+        let record = axis_record(&state, &user, Op::UpdateAxis, id, Some(&existing_name))
+            .await
+            .fields(fields);
+        record_or_warn(&state.pool, &record).await;
+    }
+
     Ok(Json(row))
+}
+
+/// 軸の操作の記録。対象はアーカイブのコンテンツで、軸の名前を部分として添える。
+async fn axis_record(
+    state: &AppState,
+    user: &AuthUser,
+    op: Op,
+    archive_id: i64,
+    axis_name: Option<&str>,
+) -> OpRecord {
+    let title = sqlx::query_scalar!("SELECT title FROM contents WHERE id = ?", archive_id)
+        .fetch_optional(&state.pool)
+        .await;
+    let title = match title {
+        Ok(title) => title.unwrap_or_default(),
+        Err(err) => {
+            tracing::warn!(error = %crate::error::error_chain(&err), "looking up an archive for the operation log failed");
+            String::new()
+        }
+    };
+    let record = OpRecord::new(op, user).target(archive_id, &title);
+    match axis_name {
+        Some(name) => record.part(name),
+        None => record,
+    }
 }
 
 /// 軸の削除。権限は `create_axis` と同じ。`archive_axis_values` は `ON DELETE CASCADE` で
@@ -439,6 +513,11 @@ async fn delete_axis(
     )
     .execute(&state.pool)
     .await?;
+    record_or_warn(
+        &state.pool,
+        &axis_record(&state, &user, Op::DeleteAxis, id, Some(&name)).await,
+    )
+    .await;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -447,6 +526,9 @@ struct AxisInfo {
     name: String,
     source: AxisSource,
     dir_level: Option<i64>,
+    optional_in_title: bool,
+    filterable: bool,
+    position: i64,
 }
 
 /// 所属条件を通した軸の定義を取得する。存在しない・所属しない軸は404
@@ -458,7 +540,9 @@ async fn fetch_axis(
 ) -> Result<AxisInfo, AppError> {
     sqlx::query_as!(
         AxisInfo,
-        r#"SELECT name, source as "source: AxisSource", dir_level
+        r#"SELECT name, source as "source: AxisSource", dir_level,
+                  optional_in_title as "optional_in_title: bool",
+                  filterable as "filterable: bool", position
            FROM archive_axes WHERE id = ? AND archive_id = ?"#,
         axis_id,
         archive_id
@@ -608,11 +692,48 @@ async fn replace_axis_values(
     let rows = normalize_axis_values(axis.source, payload.values)?;
 
     let mut tx = crate::db::begin_write(&state.pool).await?;
+    // 同じ値の辞書で保存したものは記録に残さないため、前の辞書を取っておく。
+    let before: Vec<(String, Option<String>, i64, AxisMatchPosition)> = sqlx::query!(
+        r#"SELECT raw_value, display_name, position,
+                  match_position as "match_position: AxisMatchPosition"
+           FROM archive_axis_values WHERE axis_id = ? ORDER BY position"#,
+        axis_id
+    )
+    .fetch_all(&mut *tx)
+    .await?
+    .into_iter()
+    .map(|row| {
+        (
+            row.raw_value,
+            row.display_name,
+            row.position,
+            row.match_position,
+        )
+    })
+    .collect();
     sqlx::query!("DELETE FROM archive_axis_values WHERE axis_id = ?", axis_id)
         .execute(&mut *tx)
         .await?;
     insert_axis_values(&mut tx, axis_id, &rows).await?;
     tx.commit().await?;
+    let after: Vec<(String, Option<String>, i64, AxisMatchPosition)> = rows
+        .iter()
+        .map(|row| {
+            (
+                row.raw_value.clone(),
+                row.display_name.clone(),
+                row.position,
+                row.match_position,
+            )
+        })
+        .collect();
+    if before != after {
+        record_or_warn(
+            &state.pool,
+            &axis_record(&state, &user, Op::ReplaceAxisValues, id, Some(&axis.name)).await,
+        )
+        .await;
+    }
 
     Ok(Json(
         rows.into_iter()
@@ -1068,6 +1189,11 @@ async fn replace_axes(
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
+    record_or_warn(
+        &state.pool,
+        &axis_record(&state, &user, Op::ReplaceAxes, id, None).await,
+    )
+    .await;
 
     Ok(Json(created))
 }

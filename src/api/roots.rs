@@ -27,6 +27,7 @@ use crate::state::AppState;
 use super::error_detail::ValidationDetail;
 use super::fs::{canonical_dir, inside_own_dirs, path_to_string};
 use super::local::LocalRequest;
+use super::operations::{FieldChange, Op, OpRecord, record_or_warn};
 use super::shares::{AccessMap, ShareAccess};
 
 /// 登録済みの「共有」1件。
@@ -156,7 +157,7 @@ struct CreateRootRequest {
 )]
 async fn create_root(
     _: LocalRequest,
-    _admin: ConfirmedAdmin,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     AppJson(payload): AppJson<CreateRootRequest>,
 ) -> Result<(StatusCode, Json<RootResponse>), AppError> {
@@ -188,6 +189,11 @@ async fn create_root(
     .fetch_one(&mut *tx)
     .await?;
     tx.commit().await?;
+    record_or_warn(
+        &state.pool,
+        &OpRecord::new(Op::CreateShare, &admin).target(row.id, &row.name),
+    )
+    .await;
     // 0件とは限らない。削除したフォルダーを登録し直すと、その中のコンテンツが戻る
     // (コンテンツの登録は削除時に消していない)。
     let counts = ContentCounts::load(&state.pool).await?;
@@ -324,19 +330,20 @@ struct RenameRootRequest {
     )
 )]
 async fn rename_root(
-    _admin: ConfirmedAdmin,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<RenameRootRequest>,
 ) -> Result<Json<RootResponse>, AppError> {
     let mut tx = crate::db::begin_write(&state.pool).await?;
-    let path = sqlx::query_scalar!(
-        "SELECT path FROM roots WHERE id = ? AND deleted_at IS NULL",
+    let before = sqlx::query!(
+        "SELECT path, name FROM roots WHERE id = ? AND deleted_at IS NULL",
         id
     )
     .fetch_optional(&mut *tx)
     .await?
     .ok_or(AppError::NotFound)?;
+    let path = before.path;
     let name = match super::validate::trimmed_or_none(Some(&payload.name)) {
         Some(name) => {
             ensure_name_available(&mut tx, name, Some(id)).await?;
@@ -348,6 +355,15 @@ async fn rename_root(
         .execute(&mut *tx)
         .await?;
     tx.commit().await?;
+    if before.name != name {
+        record_or_warn(
+            &state.pool,
+            &OpRecord::new(Op::RenameShare, &admin)
+                .target(id, &before.name)
+                .renamed_to(&name),
+        )
+        .await;
+    }
 
     root_response(&state, id).await.map(Json)
 }
@@ -442,7 +458,7 @@ struct UserAccessRequest {
     )
 )]
 async fn update_root_access(
-    _admin: ConfirmedAdmin,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<UpdateRootAccessRequest>,
@@ -450,6 +466,23 @@ async fn update_root_access(
     // ユーザーの削除と行き違うと、消えたユーザーの例外を足そうとして外部キーで落ちるので、同じ鍵で並べる。
     let _users_guard = state.users_write_lock.lock().await;
     let mut tx = crate::db::begin_write(&state.pool).await?;
+    // 同じ内容で保存したものは記録に残さないため、前の設定を取っておく。
+    let before = sqlx::query!(
+        r#"SELECT name, editor_access as "editor_access: ShareAccess" FROM roots
+           WHERE id = ? AND deleted_at IS NULL"#,
+        id
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    let before_users: std::collections::BTreeMap<i64, ShareAccess> = sqlx::query!(
+        r#"SELECT user_id, access as "access: ShareAccess" FROM root_user_access WHERE root_id = ?"#,
+        id
+    )
+    .fetch_all(&mut *tx)
+    .await?
+    .into_iter()
+    .map(|row| (row.user_id, row.access))
+    .collect();
     let updated = sqlx::query!(
         "UPDATE roots SET editor_access = ? WHERE id = ? AND deleted_at IS NULL",
         payload.editor_access,
@@ -486,6 +519,52 @@ async fn update_root_access(
         .await?;
     }
     tx.commit().await?;
+    // 同じユーザーが2度来たら後の方にするのは、書き込みと同じ。
+    let after_users: std::collections::BTreeMap<i64, ShareAccess> = payload
+        .users
+        .iter()
+        .map(|user| (user.user_id, user.access))
+        .collect();
+    // 書き込みが済んだら、応答を組み立てる前に残す (組み立てに失敗しても、変えたことは残す)。
+    // 行が無ければ上の UPDATE が 404 を返しているので、ここでは必ずある。
+    if let Some(before) = before {
+        let mut fields = Vec::new();
+        if before.editor_access != payload.editor_access {
+            fields.push(FieldChange::changed(
+                "editorAccess",
+                before.editor_access,
+                payload.editor_access,
+            ));
+        }
+        // 例外は人ごとに、前と後を残す。例外の無いほうは `null` (一般ユーザーの既定に従う)。
+        let user_ids: std::collections::BTreeSet<i64> = before_users
+            .keys()
+            .chain(after_users.keys())
+            .copied()
+            .collect();
+        for user_id in user_ids {
+            let (old, new) = (before_users.get(&user_id), after_users.get(&user_id));
+            if old == new {
+                continue;
+            }
+            let username = sqlx::query_scalar!("SELECT username FROM users WHERE id = ?", user_id)
+                .fetch_optional(&state.pool)
+                .await
+                .ok()
+                .flatten()
+                .unwrap_or_default();
+            fields.push(FieldChange::changed("userAccess", old, new).about(&username));
+        }
+        if !fields.is_empty() {
+            record_or_warn(
+                &state.pool,
+                &OpRecord::new(Op::ChangeShareAccess, &admin)
+                    .target(id, &before.name)
+                    .fields(fields),
+            )
+            .await;
+        }
+    }
     root_response(&state, id).await.map(Json)
 }
 
@@ -501,23 +580,25 @@ async fn update_root_access(
     )
 )]
 async fn delete_root(
-    _admin: ConfirmedAdmin,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Result<StatusCode, AppError> {
     // 行は消さずに削除済みの印を付ける。残ったコンテンツの場所を、起点を隠したまま出すため
     // (→ docs/folders.md「共有」)。
-    let deleted = sqlx::query!(
+    let name = sqlx::query_scalar!(
         "UPDATE roots SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-         WHERE id = ? AND deleted_at IS NULL",
+         WHERE id = ? AND deleted_at IS NULL RETURNING name",
         id
     )
-    .execute(&state.pool)
+    .fetch_optional(&state.pool)
     .await?
-    .rows_affected();
-    if deleted == 0 {
-        return Err(AppError::NotFound);
-    }
+    .ok_or(AppError::NotFound)?;
+    record_or_warn(
+        &state.pool,
+        &OpRecord::new(Op::DeleteShare, &admin).target(id, &name),
+    )
+    .await;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -929,7 +1010,7 @@ struct MoveRootRequest {
 )]
 async fn move_root(
     _: LocalRequest,
-    _admin: ConfirmedAdmin,
+    admin: ConfirmedAdmin,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     AppJson(payload): AppJson<MoveRootRequest>,
@@ -943,18 +1024,22 @@ async fn move_root(
     .ok_or(AppError::NotFound)?;
     let path = registrable_path(&state, payload.path).await?;
 
-    let list_views = {
+    let mut moved = true;
+    let (name, list_views) = {
         // コンテンツの登録先の書き換えと直列化する (→ `AppState::contents_write_lock`)。
         let _write_guard = state.contents_write_lock.lock().await;
         let mut tx = crate::db::begin_write(&state.pool).await?;
-        let old = sqlx::query_scalar!(
-            "SELECT path FROM roots WHERE id = ? AND deleted_at IS NULL",
+        // 記録に写す名前も、同じトランザクションの中で読む (間に名前を変えられても、そのときの名前にする)。
+        let current = sqlx::query!(
+            "SELECT path, name FROM roots WHERE id = ? AND deleted_at IS NULL",
             id
         )
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(AppError::NotFound)?;
+        let old = current.path;
         let list_views = if old == path {
+            moved = false;
             Vec::new()
         } else {
             ensure_path_available(&mut tx, &path, Some(id)).await?;
@@ -972,8 +1057,15 @@ async fn move_root(
             rebase_contents(&mut tx, FsPath::new(&old), FsPath::new(&path)).await?
         };
         tx.commit().await?;
-        list_views
+        (current.name, list_views)
     };
+    if moved {
+        record_or_warn(
+            &state.pool,
+            &OpRecord::new(Op::MoveShare, &admin).target(id, &name),
+        )
+        .await;
+    }
 
     // 窓で選んだときに作ったブックマーク (`pick_root`) で、新しい場所の許可を戻す。macOS 以外では何もしない。
     crate::folder_access::restore(&state.pool).await;

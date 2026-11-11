@@ -21,6 +21,7 @@
 	import { SORTABLE_FLIP_DURATION_MS, SortableZone } from '$lib/sortable-zone.svelte';
 	import { columnFromLgClass, columnFromSmClass, dragHandleClass } from '$lib/table-columns';
 	import { byPosition } from '$lib/sort';
+	import { axisSourceLabel as sourceOptionLabel } from '$lib/axis-labels';
 	import * as m from '$lib/paraglide/messages.js';
 	import type { components } from '$lib/api/schema';
 	import { Button } from '$lib/components/ui/button';
@@ -88,13 +89,6 @@
 	}
 
 	const AXIS_SOURCES: AxisSource[] = ['dirLevel', 'filenameWord', 'dateYear', 'dateMonth'];
-
-	function sourceOptionLabel(source: AxisSource): string {
-		if (source === 'dirLevel') return m.archive_axes_source_option_dir_level();
-		if (source === 'dateYear') return m.archive_axes_source_date_year();
-		if (source === 'dateMonth') return m.archive_axes_source_date_month();
-		return m.archive_axes_source_option_filename_word();
-	}
 
 	/** 軸の保存に送る body。作成・編集・並べ替えで送る項目を揃える。 */
 	function axisRequestBody(axis: Omit<Axis, 'id'>): AxisRequest {
