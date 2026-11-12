@@ -111,6 +111,7 @@ async fn insert_link_by(
 }
 
 /// folder を直接INSERTし、idを返す。
+/// path は、API で登録したときと同じく Windows の `\\?\` を落として保存する。共有の中のパスとの突き合わせが綴りで行われるため。
 async fn insert_folder_by(
     pool: &SqlitePool,
     title: &str,
@@ -125,7 +126,7 @@ async fn insert_folder_by(
     )
     .bind(parent_id)
     .bind(title)
-    .bind(path.as_ref().display().to_string())
+    .bind(canonical_path_as_api_returns_it(path.as_ref()))
     .bind(visibility)
     .bind(created_by)
     .fetch_one(pool)
