@@ -10,7 +10,7 @@ use crate::file_ext::has_extension_in;
 
 /// ビューアーが読み込むテキストの上限。画面の `text-view.svelte` の `MAX_BYTES` と揃える。
 /// これより大きいファイルはビューアーで開けないので、先頭も読まない。
-const TEXT_VIEWER_MAX_BYTES: u64 = 2 * 1024 * 1024;
+pub(super) const TEXT_VIEWER_MAX_BYTES: u64 = 2 * 1024 * 1024;
 
 /// NUL を探す先頭のバイト数。git と同じ 8000 バイト。
 const SNIFF_BYTES: usize = 8000;

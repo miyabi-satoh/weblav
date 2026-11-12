@@ -1111,6 +1111,7 @@ async fn create_content(
         let title = needs_link_title.then(|| {
             metadata.title.unwrap_or_else(|| {
                 super::remote_file::relayed_file_name(url)
+                    .or(metadata.file_name)
                     .unwrap_or_else(|| super::link_title::host_of(url))
             })
         });

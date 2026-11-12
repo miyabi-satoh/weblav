@@ -458,7 +458,9 @@ fn link_title(url: &str, preview: Option<&LinkPreview>) -> String {
     {
         return title.to_string();
     }
-    if let Some(file_name) = super::remote_file::relayed_file_name(url) {
+    if let Some(file_name) = super::remote_file::relayed_file_name(url)
+        .or_else(|| preview.and_then(|preview| preview.file_name.clone()))
+    {
         return file_name;
     }
     url::Url::parse(url)
@@ -480,6 +482,7 @@ mod tests {
             image_url: None,
             icon_url: None,
             gone: false,
+            file_name: None,
         }
     }
 

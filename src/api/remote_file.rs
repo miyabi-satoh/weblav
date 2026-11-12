@@ -38,7 +38,7 @@ const MAX_CONCURRENT_RELAYS: usize = 128;
 static RELAY_PERMITS: Semaphore = Semaphore::const_new(MAX_CONCURRENT_RELAYS);
 
 /// 相手の応答から、そのまま閲覧側へ渡すヘッダー。Range と、ブラウザーが取り直しを判断するもの。
-/// `Content-Type` は渡さず、こちらで拡張子から決める (→ `relay_response`)。
+/// `Content-Type` は渡さず、こちらでファイル名の拡張子から決める (→ `relay_response`)。
 const PASSED_HEADERS: [header::HeaderName; 5] = [
     header::CONTENT_LENGTH,
     header::CONTENT_RANGE,
@@ -48,7 +48,7 @@ const PASSED_HEADERS: [header::HeaderName; 5] = [
 ];
 
 /// `link` コンテンツの URL のファイルを、取りに行って流す。
-/// 中継しない URL (拡張子で開き方が決まらない・リンクでない) と、相手が応答しない・エラーを返すときは 404。
+/// 中継しない URL (開き方が決まらない・リンクでない) と、相手が応答しない・エラーを返すときは 404。
 #[utoipa::path(
     get,
     path = "/contents/{id}/remote",
@@ -82,7 +82,7 @@ async fn remote_content(
     let url = row
         .url
         .ok_or(AppError::DataIntegrity("link content without a url"))?;
-    relay(url, &headers).await
+    relay(&state, url, &headers).await
 }
 
 /// リンクの一覧のファイル (`.links.toml`) の中のリンクの URL のファイルを、取りに行って流す。
@@ -128,12 +128,22 @@ async fn links_remote_content(
     if !urls.contains(&query.url) {
         return Err(AppError::NotFound);
     }
-    relay(query.url, &headers).await
+    relay(&state, query.url, &headers).await
 }
 
 /// 中継する URL を、公開アドレスにだけつないで取り、閲覧側の `Range` を渡して流す。
-async fn relay(url: String, headers: &HeaderMap) -> Result<Response, AppError> {
-    let file_name = relayed_file_name(&url).ok_or(AppError::NotFound)?;
+/// URL の拡張子で決まらなければ、リンクの情報を取ったときに相手の応答から決めたファイル名を使う
+/// (→ `file_name_from_response`)。
+async fn relay(state: &AppState, url: String, headers: &HeaderMap) -> Result<Response, AppError> {
+    let (file_name, decided_by_response) = match relayed_file_name(&url) {
+        Some(name) => (name, false),
+        None => (
+            super::link_preview::stored_file_name(&state.pool, &url)
+                .await?
+                .ok_or(AppError::NotFound)?,
+            true,
+        ),
+    };
 
     // 待たせずに断る。ブラウザーの動画・音声は、読めなければ画面が案内を出す。
     let permit = RELAY_PERMITS
@@ -146,6 +156,10 @@ async fn relay(url: String, headers: &HeaderMap) -> Result<Response, AppError> {
     let upstream = run_blocking(move || link_title::open_file_blocking(&url, range.as_deref()))
         .await?
         .ok_or(AppError::NotFound)?;
+    // 応答で決めた名前は、覚えた後に相手が中身を替えている (ページになったなど) ことがあるので、今の応答でも対象かを見る。
+    if decided_by_response && link_title::response_file_name(&upstream).is_none() {
+        return Err(AppError::NotFound);
+    }
     relay_response(upstream, &file_name, permit)
 }
 
@@ -162,6 +176,210 @@ pub(super) fn relayed_file_name(url: &str) -> Option<String> {
         .ok()?
         .into_owned();
     super::text_files::kind_by_extension(&name).then_some(name)
+}
+
+/// 相手の `Content-Type` から決める拡張子。ビューアー・プレイヤーで開く種類だけで、HTML・SVG・XML のような
+/// このアプリのオリジンでスクリプトが動きうるものは入れない (→ `relay_response`)。
+const EXTENSION_BY_CONTENT_TYPE: [(&str, &str); 30] = [
+    ("application/pdf", "pdf"),
+    ("video/mp4", "mp4"),
+    ("video/x-m4v", "m4v"),
+    ("video/webm", "webm"),
+    ("video/quicktime", "mov"),
+    ("audio/mpeg", "mp3"),
+    ("audio/mp4", "m4a"),
+    ("audio/x-m4a", "m4a"),
+    ("audio/aac", "aac"),
+    ("audio/wav", "wav"),
+    ("audio/x-wav", "wav"),
+    ("audio/ogg", "ogg"),
+    ("audio/flac", "flac"),
+    ("audio/x-flac", "flac"),
+    ("audio/opus", "opus"),
+    ("image/jpeg", "jpg"),
+    ("image/png", "png"),
+    ("image/gif", "gif"),
+    ("image/webp", "webp"),
+    ("image/bmp", "bmp"),
+    ("image/heic", "heic"),
+    ("image/avif", "avif"),
+    ("image/tiff", "tiff"),
+    (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "docx",
+    ),
+    (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "xlsx",
+    ),
+    (
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "pptx",
+    ),
+    ("text/plain", "txt"),
+    ("text/markdown", "md"),
+    ("text/x-markdown", "md"),
+    ("text/csv", "csv"),
+];
+
+/// URL の拡張子で開き方が決まらないときに、相手の応答から決めたファイル名 (→ docs/ui.md「URL のファイル」)。
+/// `final_url` はリダイレクトを辿った後の URL。
+/// 拡張子の無いダウンロードの口 (`/download?id=1`) も、ファイルと同じビューアーで開けるようにするため。
+/// - `Content-Disposition` のファイル名か、辿った後の URL の拡張子で種類が決まれば、その名前
+/// - 決まらなければ、`Content-Type` が対象の種類なら、その名前 (無ければパスの最後の部分かホスト名) に拡張子を足す
+/// - テキストは、ビューアーが読める大きさを超えると分かっていれば外す (新しいタブで開く)
+pub(super) fn file_name_from_response(
+    final_url: &str,
+    content_type: Option<&str>,
+    content_disposition: Option<&str>,
+    content_length: Option<u64>,
+) -> Option<String> {
+    // ページや、スクリプトの動きうる型は、名前や URL がファイルらしくても対象にしない。
+    let essence = content_type
+        .unwrap_or_default()
+        .split(';')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    // Office の文書 (`application/vnd.openxmlformats-…`) は外さないよう、型の名前で見る。
+    if matches!(
+        essence.as_str(),
+        "text/html" | "application/xhtml+xml" | "text/xml" | "application/xml"
+    ) || essence.ends_with("+xml")
+    {
+        return None;
+    }
+    let disposition_name = content_disposition.and_then(disposition_file_name);
+    if let Some(name) = disposition_name
+        .clone()
+        .filter(|name| super::text_files::kind_by_extension(name))
+        .or_else(|| relayed_file_name(final_url))
+    {
+        return Some(name);
+    }
+    let (_, extension) = EXTENSION_BY_CONTENT_TYPE
+        .iter()
+        .find(|(content_type, _)| *content_type == essence)?;
+    if essence.starts_with("text/")
+        && content_length.is_some_and(|length| length > super::text_files::TEXT_VIEWER_MAX_BYTES)
+    {
+        return None;
+    }
+    let base = disposition_name.or_else(|| last_path_segment(final_url))?;
+    // 名前の拡張子が同じ大分類 (text・video など) の対象なら、そのまま使う。`text/plain` で配る `.md` を
+    // Markdown として開けるように。違えば、型の拡張子を足す。
+    let top_level = |content_type: &str| {
+        content_type
+            .split('/')
+            .next()
+            .unwrap_or_default()
+            .to_string()
+    };
+    let keeps_name = base.rsplit_once('.').is_some_and(|(_, ext)| {
+        EXTENSION_BY_CONTENT_TYPE
+            .iter()
+            .any(|(content_type, known)| {
+                known.eq_ignore_ascii_case(ext) && top_level(content_type) == top_level(&essence)
+            })
+    });
+    Some(if keeps_name {
+        base
+    } else {
+        format!("{base}.{extension}")
+    })
+}
+
+/// `Content-Disposition` のファイル名。`filename*` (RFC 5987) を `filename` より先に使い、フォルダーの部分は落とす。
+fn disposition_file_name(value: &str) -> Option<String> {
+    let params = disposition_params(value);
+    let extended = params
+        .iter()
+        .find(|(name, _)| name == "filename*")
+        .and_then(|(_, value)| {
+            let (charset, rest) = value.split_once('\'')?;
+            let (_, encoded) = rest.split_once('\'')?;
+            if !charset.eq_ignore_ascii_case("utf-8") {
+                return None;
+            }
+            percent_encoding::percent_decode_str(encoded)
+                .decode_utf8()
+                .ok()
+                .map(std::borrow::Cow::into_owned)
+        });
+    let name = extended.or_else(|| {
+        params
+            .into_iter()
+            .find(|(name, _)| name == "filename")
+            .map(|(_, value)| value)
+    })?;
+    let name = name.rsplit(['/', '\\']).next().unwrap_or_default().trim();
+    (!name.is_empty()).then(|| name.to_string())
+}
+
+/// `Content-Disposition` の型の後ろの引数 (名前は小文字)。引用の中の `;` では区切らず、引用は `\` の逃がしを戻して外す (RFC 6266・RFC 9110 の quoted-string)。
+fn disposition_params(value: &str) -> Vec<(String, String)> {
+    let mut params = Vec::new();
+    let mut segments = Vec::new();
+    let mut current = String::new();
+    let mut chars = value.chars();
+    let mut quoted = false;
+    while let Some(c) = chars.next() {
+        match c {
+            '"' => {
+                quoted = !quoted;
+                current.push(c);
+            }
+            '\\' if quoted => {
+                current.push(c);
+                if let Some(next) = chars.next() {
+                    current.push(next);
+                }
+            }
+            ';' if !quoted => segments.push(std::mem::take(&mut current)),
+            _ => current.push(c),
+        }
+    }
+    segments.push(current);
+    for segment in segments.into_iter().skip(1) {
+        let Some((name, raw)) = segment.split_once('=') else {
+            continue;
+        };
+        let raw = raw.trim();
+        let value = match raw.strip_prefix('"') {
+            Some(inner) => {
+                let mut unquoted = String::new();
+                let mut chars = inner.chars();
+                while let Some(c) = chars.next() {
+                    match c {
+                        '\\' => unquoted.extend(chars.next()),
+                        '"' => break,
+                        _ => unquoted.push(c),
+                    }
+                }
+                unquoted
+            }
+            None => raw.to_string(),
+        };
+        params.push((name.trim().to_ascii_lowercase(), value));
+    }
+    params
+}
+
+/// URL のパスの最後の部分を戻したもの。空ならホスト名。
+fn last_path_segment(url: &str) -> Option<String> {
+    let url = url::Url::parse(url).ok()?;
+    let last = url
+        .path_segments()
+        .and_then(|mut segments| segments.next_back())
+        .and_then(|last| {
+            percent_encoding::percent_decode_str(last)
+                .decode_utf8()
+                .ok()
+        })
+        .map(|last| last.trim().to_string())
+        .filter(|last| !last.is_empty());
+    last.or_else(|| url.host_str().map(str::to_string))
 }
 
 /// 相手の応答を、ファイルの配信 (`download_content`) と同じ形の応答にして流す。
@@ -186,9 +404,10 @@ fn relay_response(
             headers.insert(name, value);
         }
     }
-    // ADR: 型は相手の `Content-Type` でなく拡張子で決める。相手が HTML を返したときに、
-    // このアプリのオリジンでスクリプトの動くページとして出さないため。インラインで出すかの判定も
-    // ファイルの配信と同じものを使う。
+    // ADR: 返す型は相手の `Content-Type` をそのまま渡さず、こちらで決めたファイル名の拡張子から決める。
+    // 相手が HTML を返したときに、このアプリのオリジンでスクリプトの動くページとして出さないため。
+    // 名前は、URL の拡張子か、対象の種類だけから決めたもの (→ `file_name_from_response`)。
+    // インラインで出すかの判定も、ファイルの配信と同じものを使う。
     let mime = mime_guess::from_path(file_name).first_or_octet_stream();
     let disposition = if contents::is_inline_allowed(&mime) {
         "inline"
@@ -270,6 +489,146 @@ mod tests {
         assert_eq!(
             relayed_file_name("https://example.com/%E8%B3%87%E6%96%99.pdf").as_deref(),
             Some("資料.pdf")
+        );
+    }
+
+    #[test]
+    fn file_name_from_response_adds_the_extension_of_the_content_type() {
+        assert_eq!(
+            file_name_from_response(
+                "https://example.com/download",
+                Some("application/PDF; charset=binary"),
+                None,
+                None
+            )
+            .as_deref(),
+            Some("download.pdf")
+        );
+        // パスが空なら、ホスト名に足す。
+        assert_eq!(
+            file_name_from_response("https://example.com/", Some("video/mp4"), None, None)
+                .as_deref(),
+            Some("example.com.mp4")
+        );
+        // 名前に同じ拡張子があれば、重ねない。
+        assert_eq!(
+            file_name_from_response(
+                "https://example.com/memo.TXT",
+                Some("text/plain"),
+                None,
+                None
+            )
+            .as_deref(),
+            Some("memo.TXT")
+        );
+    }
+
+    #[test]
+    fn file_name_from_response_prefers_the_disposition_and_the_redirected_url() {
+        assert_eq!(
+            file_name_from_response(
+                "https://example.com/download?id=1",
+                Some("application/octet-stream"),
+                Some("attachment; filename=\"a.pdf\"; filename*=UTF-8''%E8%B3%87%E6%96%99.pdf"),
+                None
+            )
+            .as_deref(),
+            Some("資料.pdf")
+        );
+        assert_eq!(
+            file_name_from_response(
+                "https://example.com/download",
+                Some("text/plain"),
+                Some("attachment; filename=\"dir/notes.md\""),
+                None
+            )
+            .as_deref(),
+            Some("notes.md")
+        );
+        assert_eq!(
+            file_name_from_response(
+                "https://cdn.example.com/files/report.docx",
+                Some("application/octet-stream"),
+                None,
+                None
+            )
+            .as_deref(),
+            Some("report.docx")
+        );
+    }
+
+    #[test]
+    fn file_name_from_response_skips_pages_even_with_a_file_like_name() {
+        assert_eq!(
+            file_name_from_response(
+                "https://example.com/files/a.pdf",
+                Some("text/html; charset=utf-8"),
+                Some("attachment; filename=b.pdf"),
+                None
+            ),
+            None
+        );
+        assert_eq!(
+            file_name_from_response(
+                "https://example.com/a.pdf",
+                Some("image/svg+xml"),
+                None,
+                None
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn disposition_file_name_keeps_semicolons_and_escapes_inside_quotes() {
+        assert_eq!(
+            disposition_file_name(r#"attachment; filename="a;b \"c\".pdf"; size=10"#).as_deref(),
+            Some(r#"a;b "c".pdf"#)
+        );
+        assert_eq!(
+            disposition_file_name("inline; filename=report.pdf").as_deref(),
+            Some("report.pdf")
+        );
+        assert_eq!(disposition_file_name("attachment"), None);
+    }
+
+    #[test]
+    fn file_name_from_response_skips_pages_unknown_types_and_large_text() {
+        for content_type in [
+            "text/html; charset=utf-8",
+            "image/svg+xml",
+            "application/zip",
+        ] {
+            assert_eq!(
+                file_name_from_response("https://example.com/x", Some(content_type), None, None),
+                None,
+                "{content_type}"
+            );
+        }
+        assert_eq!(
+            file_name_from_response("https://example.com/x", None, None, None),
+            None
+        );
+        let too_large = super::super::text_files::TEXT_VIEWER_MAX_BYTES + 1;
+        assert_eq!(
+            file_name_from_response(
+                "https://example.com/log",
+                Some("text/plain"),
+                None,
+                Some(too_large)
+            ),
+            None
+        );
+        // テキストでなければ、大きくても開く。
+        assert_eq!(
+            file_name_from_response(
+                "https://example.com/v",
+                Some("video/webm"),
+                None,
+                Some(too_large)
+            )
+            .as_deref(),
+            Some("v.webm")
         );
     }
 

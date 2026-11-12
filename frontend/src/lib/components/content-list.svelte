@@ -11,8 +11,8 @@
 	import {
 		isAudioFileName,
 		isLinksFileName,
+		remoteFile,
 		remoteFileKind,
-		remoteFileName,
 		viewerFileKind
 	} from '$lib/file-kind';
 	import { linksFileHref, LinksFileIcon } from '$lib/links-file';
@@ -70,15 +70,24 @@
 	const filter = listFilter();
 	let entries = $derived(filter ? filter.apply(allEntries, (item) => item.title) : allEntries);
 
-	/** URL のファイルを指す link コンテンツなら、その種類。サーバーの中継で、ファイルと同じ行・ビューアーで開く (→ docs/ui.md「URL のファイル」)。 */
-	function remoteKind(content: ContentEntry) {
-		return content.type === 'link' ? remoteFileKind(content.url) : undefined;
+	/**
+	 * URL のファイルを指す link コンテンツなら、その種類とファイル名。サーバーの中継で、ファイルと同じ行・ビューアーで開く
+	 * (→ docs/ui.md「URL のファイル」)。URL の拡張子で決まらないものは、取り直したリンクの情報で後から決まることがある。
+	 */
+	function remoteOf(content: ContentEntry) {
+		return content.type === 'link'
+			? remoteFile(content.url, previewOf(content)?.fileName)
+			: undefined;
+	}
+
+	function previewOf(content: LinkEntry) {
+		return refreshed.get(content.url) ?? content.preview;
 	}
 
 	function isAudioContent(content: ContentEntry): boolean {
 		return (
 			(content.type === 'file' && !content.missing && isAudioFileName(content.fileName)) ||
-			remoteKind(content) === 'audio'
+			remoteOf(content)?.kind === 'audio'
 		);
 	}
 
@@ -113,13 +122,13 @@
 	function toViewerFile(content: ContentEntry): ViewerFile | undefined {
 		const embed = toViewerEmbed(content);
 		if (embed) return embed;
-		const remote = remoteKind(content);
-		if (content.type === 'link' && remote && remote !== 'audio') {
+		const remote = remoteOf(content);
+		if (content.type === 'link' && remote && remote.kind !== 'audio') {
 			return {
 				src: contentRemoteHref(content.id),
 				title: content.title,
-				fileName: remoteFileName(content.url) ?? '',
-				kind: remote,
+				fileName: remote.fileName,
+				kind: remote.kind,
 				originalUrl: content.url
 			};
 		}
@@ -151,13 +160,17 @@
 
 	/** リンクのカードで出す link コンテンツ。URL のファイルはファイルの行で出す。 */
 	function isLinkCard(content: ContentEntry): content is LinkEntry {
-		return content.type === 'link' && !remoteKind(content);
+		return content.type === 'link' && !remoteOf(content);
 	}
 
 	// リンクのカードは覚えている情報ですぐ出し、サーバーに取り直しを頼んだ答えで差し替える
 	// (→ docs/ui.md「リンクのカード」)。取り直せなくても、覚えている情報のまま出しておけば足りる。
+	// 頼むのは URL の拡張子で開き方の決まらないリンク。答えでファイルの行に変わったものも頼む先から外さない
+	// (外すと頼み直しで答えが消え、カードに戻るため)。
 	const refreshed = new RefreshedLinkPreviews(() => {
-		const contentIds = entries.filter(isLinkCard).map((entry) => entry.id);
+		const contentIds = entries
+			.filter((entry) => entry.type === 'link' && !remoteFileKind(entry.url))
+			.map((entry) => entry.id);
 		return contentIds.length === 0 ? undefined : { contentIds };
 	});
 
@@ -173,7 +186,7 @@
 				href: content.url,
 				title: content.title,
 				description: subtitle(content),
-				preview: refreshed.get(content.url) ?? content.preview
+				preview: previewOf(content)
 			})
 		)
 	);
@@ -234,7 +247,7 @@
 						title={content.title}
 						description={subtitle(content)}
 						location={location?.(content)}
-						preview={refreshed.get(content.url) ?? content.preview}
+						preview={previewOf(content)}
 						private={content.private}
 						viewer={viewerFile && { file: viewerFile, items: viewerList }}
 						details={{ items: linkDetails, index: linkDetailIndex.get(content.id) ?? -1 }}

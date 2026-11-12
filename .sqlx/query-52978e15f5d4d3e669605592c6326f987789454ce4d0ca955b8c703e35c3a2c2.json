@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT url, title, description, site_name, updated_at, image_file, icon_file,\n                  gone AS \"gone: bool\"\n           FROM link_previews WHERE url IN (SELECT value FROM json_each(?))",
+  "query": "SELECT url, title, description, site_name, updated_at, image_file, icon_file,\n                  gone AS \"gone: bool\", file_name\n           FROM link_previews WHERE url IN (SELECT value FROM json_each(?))",
   "describe": {
     "columns": [
       {
@@ -42,6 +42,11 @@
         "name": "gone: bool",
         "ordinal": 7,
         "type_info": "Integer"
+      },
+      {
+        "name": "file_name",
+        "ordinal": 8,
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -55,8 +60,9 @@
       true,
       true,
       true,
-      false
+      false,
+      true
     ]
   },
-  "hash": "9340a696b416e806d5d667e84ecdc3e6b5efef8793b9ab3de52b482aa80be95d"
+  "hash": "52978e15f5d4d3e669605592c6326f987789454ce4d0ca955b8c703e35c3a2c2"
 }

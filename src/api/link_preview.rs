@@ -93,6 +93,9 @@ pub struct LinkPreview {
     pub icon_url: Option<String>,
     /// 最後に確かめたとき、ページが無くなっていた (404・410)。
     pub gone: bool,
+    /// URL の拡張子で開き方が決まらないファイルの、相手の応答から決めた名前。あれば画面はファイルの行・ビューアーで開く
+    /// (→ docs/ui.md「URL のファイル」)。ページ (HTML) と、ビューアーで開かない種類は無し。
+    pub file_name: Option<String>,
 }
 
 struct PreviewRow {
@@ -104,6 +107,7 @@ struct PreviewRow {
     image_file: Option<String>,
     icon_file: Option<String>,
     gone: bool,
+    file_name: Option<String>,
 }
 
 impl From<PreviewRow> for LinkPreview {
@@ -116,6 +120,7 @@ impl From<PreviewRow> for LinkPreview {
             image_url: row.image_file.map(|file| file_url(&file)),
             icon_url: row.icon_file.map(|file| file_url(&file)),
             gone: row.gone,
+            file_name: row.file_name,
         }
     }
 }
@@ -144,7 +149,7 @@ pub(super) async fn cached(
     let rows = sqlx::query_as!(
         PreviewRow,
         r#"SELECT url, title, description, site_name, updated_at, image_file, icon_file,
-                  gone AS "gone: bool"
+                  gone AS "gone: bool", file_name
            FROM link_previews WHERE url IN (SELECT value FROM json_each(?))"#,
         urls_json
     )
@@ -154,6 +159,17 @@ pub(super) async fn cached(
         .into_iter()
         .map(|row| (row.url.clone(), LinkPreview::from(row)))
         .collect())
+}
+
+/// 覚えている、URL のファイルとして開くときの名前 (→ `LinkPreview::file_name`)。取りには行かない。
+pub(super) async fn stored_file_name(
+    pool: &SqlitePool,
+    url: &str,
+) -> Result<Option<String>, AppError> {
+    let name = sqlx::query_scalar!("SELECT file_name FROM link_previews WHERE url = ?", url)
+        .fetch_optional(pool)
+        .await?;
+    Ok(name.flatten())
 }
 
 /// 取り直しの対象。見る権限は呼び出し側が確かめる。
@@ -515,11 +531,12 @@ async fn save(
     let bytes = settled.image_bytes + settled.icon_bytes;
     if let Some(card) = card {
         sqlx::query!(
-            "UPDATE link_previews SET title = ?, description = ?, site_name = ?, updated_at = ? WHERE url = ?",
+            "UPDATE link_previews SET title = ?, description = ?, site_name = ?, updated_at = ?, file_name = ? WHERE url = ?",
             card.title,
             card.description,
             card.site_name,
             card.updated_at,
+            card.file_name,
             url
         )
         .execute(&mut *tx)
