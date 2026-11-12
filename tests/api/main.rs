@@ -472,7 +472,7 @@ fn temp_root_path(name: &str) -> std::path::PathBuf {
     parent.join(format!("{name}-{:?}", std::thread::current().id()))
 }
 
-/// `canonicalize()` の結果を、APIが返す形の文字列にする。
+/// パスを、APIが保存して返す形の文字列にする。
 ///
 /// Windows の `canonicalize()` は verbatim 形式 (`\\?\C:\...`) を返すが、APIは保存時に
 /// その接頭辞を落とす (→ `api::fs::simplify_verbatim`)。本体の関数は非公開モジュールに
