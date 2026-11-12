@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isLanUrl, remoteFileKind, remoteFileName, urlHost } from './file-kind';
+import { isLanUrl, remoteFile, remoteFileKind, remoteFileName, urlHost } from './file-kind';
 
 describe('remoteFileKind', () => {
 	it('パスの最後の部分の拡張子で種類を決める', () => {
@@ -17,6 +17,32 @@ describe('remoteFileKind', () => {
 		expect(remoteFileKind('https://example.com/view?file=a.pdf')).toBeUndefined();
 		expect(remoteFileKind('http://192.168.0.10/handout.pdf')).toBeUndefined();
 		expect(remoteFileKind('http://nas.local/handout.pdf')).toBeUndefined();
+	});
+});
+
+describe('remoteFile', () => {
+	it('URL の拡張子で決まれば、応答で決めた名前より先に使う', () => {
+		expect(remoteFile('https://example.com/a.pdf', 'b.mp4')).toEqual({
+			kind: 'pdf',
+			fileName: 'a.pdf'
+		});
+	});
+
+	it('URL で決まらなければ、応答で決めた名前で決める', () => {
+		expect(remoteFile('https://example.com/download?id=1', 'download.pdf')).toEqual({
+			kind: 'pdf',
+			fileName: 'download.pdf'
+		});
+		expect(remoteFile('https://example.com/song', 'song.mp3')?.kind).toBe('audio');
+		expect(remoteFile('https://example.com/memo.txt', 'memo.txt')?.kind).toBe('text');
+		expect(remoteFile('https://example.com/notes', 'notes.md')?.kind).toBe('text');
+	});
+
+	it('どちらでも決まらない・LAN の URL はリンクのカードのままにする', () => {
+		expect(remoteFile('https://example.com/', null)).toBeUndefined();
+		expect(remoteFile('https://example.com/memo.txt')).toBeUndefined();
+		expect(remoteFile('https://example.com/x', 'x.zip')).toBeUndefined();
+		expect(remoteFile('http://192.168.0.10/download', 'download.pdf')).toBeUndefined();
 	});
 });
 

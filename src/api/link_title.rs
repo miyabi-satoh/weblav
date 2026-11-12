@@ -41,6 +41,8 @@ const MAX_REDIRECTS: u32 = 3;
 pub(super) struct LinkMetadata {
     pub title: Option<String>,
     pub description: Option<String>,
+    /// URL の拡張子で決まらないファイルの、相手の応答から決めた名前 (→ `remote_file::file_name_from_response`)。
+    pub file_name: Option<String>,
 }
 
 /// ページのタイトルと説明を返す。取れない・読めないときはどちらも `None`。
@@ -165,9 +167,28 @@ fn fetch_page(url: &str) -> Option<LinkMetadata> {
         return Some(LinkMetadata::default());
     }
     let Some(html) = read_html(&mut response) else {
-        return Some(LinkMetadata::default());
+        return Some(LinkMetadata {
+            file_name: response_file_name(&response),
+            ..LinkMetadata::default()
+        });
     };
     Some(extract_metadata(&html))
+}
+
+/// HTML でない応答の、ファイルとして開くときの名前 (→ `remote_file::file_name_from_response`)。
+fn response_file_name(response: &ureq::http::Response<ureq::Body>) -> Option<String> {
+    let header = |name: &str| {
+        response
+            .headers()
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+    };
+    super::remote_file::file_name_from_response(
+        &response.get_uri().to_string(),
+        header("content-type"),
+        header("content-disposition"),
+        header("content-length").and_then(|value| value.parse().ok()),
+    )
 }
 
 /// HTML の応答の本文を、先頭から `MAX_BODY_BYTES` まで読む。HTML でない・UTF-8 で読めないときは `None`。
@@ -218,6 +239,8 @@ pub(super) struct PageCard {
     pub updated_at: Option<String>,
     pub image_url: Option<String>,
     pub icon_url: Option<String>,
+    /// HTML でないファイルの、ファイルとして開くときの名前 (→ `remote_file::file_name_from_response`)。
+    pub file_name: Option<String>,
 }
 
 /// キャッシュの決まり (RFC 9111) に使う応答のヘッダー。値は相手が送ったまま。
@@ -280,8 +303,10 @@ pub(super) fn fetch_card_blocking(
     let mut card = match (read_html(&mut response), base) {
         (Some(html), Some(base)) => extract_card(&html, &base),
         // HTML でないページ (PDF など) は、ホスト名とアイコンだけのカードになる。
+        // 開き方の決まる種類なら、ファイルの行で出すための名前を覚える (→ docs/ui.md「URL のファイル」)。
         (_, base) => PageCard {
             icon_url: base.and_then(|base| default_icon(&base)),
+            file_name: response_file_name(&response),
             ..PageCard::default()
         },
     };
@@ -350,6 +375,7 @@ fn extract_card(html: &str, base: &url::Url) -> PageCard {
         icon_url: extract_icon_href(html, &lower)
             .and_then(|href| resolve_web_url(base, &href))
             .or_else(|| default_icon(base)),
+        file_name: None,
     }
 }
 
@@ -404,6 +430,7 @@ fn extract_metadata(html: &str) -> LinkMetadata {
     LinkMetadata {
         title: extract_page_title(html, &lower),
         description: extract_page_description(html, &lower),
+        file_name: None,
     }
 }
 
@@ -853,6 +880,7 @@ mod tests {
         LinkMetadata {
             title: Some(title.to_string()),
             description: None,
+            file_name: None,
         }
     }
 

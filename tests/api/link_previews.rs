@@ -23,6 +23,24 @@ async fn home_list_carries_the_remembered_link_preview(pool: SqlitePool) {
     );
 }
 
+/// 相手の応答から決めたファイル名も渡す。画面はこれで、拡張子の無い URL もファイルの行で出す (→ docs/ui.md「URL のファイル」)。
+#[sqlx::test]
+async fn home_list_carries_the_file_name_decided_from_the_response(pool: SqlitePool) {
+    insert_link_by(&pool, "リンク", "public", None, None).await;
+    insert_fresh_preview(&pool, "https://example.com", None).await;
+    sqlx::query("UPDATE link_previews SET file_name = 'download.pdf' WHERE url = ?")
+        .bind("https://example.com")
+        .execute(&pool)
+        .await
+        .expect("ファイル名を入れられるはず");
+    let app = test_app(pool).await;
+
+    let (status, body) = send_anon(app, "GET", "/api/v1/contents").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let json = parse_json(&body);
+    assert_eq!(json[0]["preview"]["fileName"], "download.pdf", "{json}");
+}
+
 /// 見られるリンクの今の情報を返す。見られない id を飛ばす場合分けは `contents::viewable_link_url` の単体テストで見る。
 #[sqlx::test]
 async fn refresh_answers_with_the_preview_of_a_visible_link(pool: SqlitePool) {

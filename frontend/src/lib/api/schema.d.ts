@@ -1178,7 +1178,7 @@ export interface paths {
         };
         /**
          * `link` コンテンツの URL のファイルを、取りに行って流す。
-         *     中継しない URL (拡張子で開き方が決まらない・リンクでない) と、相手が応答しない・エラーを返すときは 404。
+         *     中継しない URL (開き方が決まらない・リンクでない) と、相手が応答しない・エラーを返すときは 404。
          */
         get: operations["remote_content"];
         put?: never;
@@ -2533,6 +2533,11 @@ export interface components {
         LinkPreview: {
             /** @description ページの説明 (`og:description`、無ければ `<meta name="description">`)。 */
             description?: string | null;
+            /**
+             * @description URL の拡張子で開き方が決まらないファイルの、相手の応答から決めた名前。あれば画面はファイルの行・ビューアーで開く
+             *     (→ docs/ui.md「URL のファイル」)。ページ (HTML) と、ビューアーで開かない種類は無し。
+             */
+            fileName?: string | null;
             /** @description 最後に確かめたとき、ページが無くなっていた (404・410)。 */
             gone: boolean;
             iconUrl?: string | null;

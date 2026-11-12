@@ -135,16 +135,46 @@ export function isLanUrl(url: string): boolean {
 
 /**
  * `link` コンテンツの URL を、サーバーの中継を通してプレイヤー・ビューアーで開くなら、その種類
- * (→ docs/ui.md「URL のファイル」)。拡張子で開き方の決まるファイルだけで、サーバーの
- * `remote_file::relayed_file_name` と揃える。LAN の URL と、それ以外のページは `undefined` (新しいタブで開く)。
+ * (→ docs/ui.md「URL のファイル」)。URL の拡張子で開き方の決まるファイルだけで、サーバーの
+ * `remote_file::relayed_file_name` と揃える。LAN の URL と、それ以外のページは `undefined`。
+ * 拡張子で決まらない URL も、相手の応答で決まることがある (→ `remoteFile`)。
  */
 export function remoteFileKind(url: string): RemoteFileKind | undefined {
 	if (isLanUrl(url)) return undefined;
 	const fileName = remoteFileName(url);
-	if (fileName === undefined) return undefined;
+	return fileName === undefined ? undefined : kindByExtension(fileName);
+}
+
+function kindByExtension(fileName: string): RemoteFileKind | undefined {
 	if (isAudioFileName(fileName)) return 'audio';
 	const extension = fileExtension(fileName);
 	if (extension === undefined) return undefined;
 	if (REMOTE_IMAGE_EXTENSIONS.has(extension)) return 'image';
 	return VIEWER_EXTENSIONS[extension];
+}
+
+/**
+ * サーバーが相手の `Content-Type` から決めるテキストの拡張子。サーバーの `remote_file::EXTENSION_BY_CONTENT_TYPE` と揃える。
+ * URL の拡張子だけでは、テキストかを決めない (フォルダーのファイルも、拡張子でなく中身で決めているため)。
+ */
+const REMOTE_TEXT_EXTENSIONS = new Set(['txt', 'md', 'csv']);
+
+export type RemoteFile = { kind: RemoteFileKind; fileName: string };
+
+/**
+ * `link` コンテンツの URL を、ファイルの行・プレイヤー・ビューアーで開くなら、その種類とファイル名
+ * (→ docs/ui.md「URL のファイル」)。URL の拡張子で決まらなければ、サーバーがリンクの情報を取ったときに
+ * 相手の応答から決めた名前 (`LinkPreview` の `fileName`) で決める。どちらでも決まらなければ `undefined` (リンクのカード)。
+ */
+export function remoteFile(url: string, decidedName?: string | null): RemoteFile | undefined {
+	if (isLanUrl(url)) return undefined;
+	const urlName = remoteFileName(url);
+	const urlKind = urlName === undefined ? undefined : kindByExtension(urlName);
+	if (urlName !== undefined && urlKind) return { kind: urlKind, fileName: urlName };
+	if (!decidedName) return undefined;
+	const extension = fileExtension(decidedName);
+	const kind =
+		kindByExtension(decidedName) ??
+		(extension !== undefined && REMOTE_TEXT_EXTENSIONS.has(extension) ? 'text' : undefined);
+	return kind && { kind, fileName: decidedName };
 }

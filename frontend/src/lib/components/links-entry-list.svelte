@@ -24,7 +24,7 @@
 	import { listFilter } from '$lib/list-filter.svelte';
 	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
 	import { linksFileRemoteHref } from '$lib/api/urls';
-	import { remoteFileKind, remoteFileName, urlHost } from '$lib/file-kind';
+	import { remoteFile, urlHost } from '$lib/file-kind';
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
 	import { linkDetailOf, opensLinkDetail } from '$lib/link-detail.svelte';
 	import { viewerItems } from '$lib/viewer-items';
@@ -56,8 +56,12 @@
 	function linkTitle(row: LinksEntryRow): string {
 		const title = previewOf(row)?.title;
 		if (title) return title;
-		if (remoteFileKind(row.url)) return remoteFileName(row.url) ?? row.url;
-		return urlHost(row.url);
+		return remoteOf(row)?.fileName ?? urlHost(row.url);
+	}
+
+	/** URL のファイルなら、その種類とファイル名。URL の拡張子で決まらなければ、相手の応答で決めた名前で決める。 */
+	function remoteOf(row: LinksEntryRow) {
+		return remoteFile(row.url, previewOf(row)?.fileName);
 	}
 
 	function remoteHref(row: LinksEntryRow): string {
@@ -79,24 +83,24 @@
 				originalUrl: row.url
 			};
 		}
-		const kind = remoteFileKind(row.url);
-		if (!kind || kind === 'audio') return undefined;
+		const remote = remoteOf(row);
+		if (!remote || remote.kind === 'audio') return undefined;
 		return {
 			src: remoteHref(row),
 			title: linkTitle(row),
-			fileName: remoteFileName(row.url) ?? '',
-			kind,
+			fileName: remote.fileName,
+			kind: remote.kind,
 			originalUrl: row.url
 		};
 	}
 
-	let audioQueue = $derived(rows.filter((row) => remoteFileKind(row.url) === 'audio').map(toTrack));
+	let audioQueue = $derived(rows.filter((row) => remoteOf(row)?.kind === 'audio').map(toTrack));
 	let viewerList = $derived(viewerItems(rows, () => undefined, toViewerFile));
 
 	// 詳しい表示で前後へ移る、詳しい表示を出すリンクの並び (→ docs/ui.md「リンクのカード」)。
 	// 音声と URL のファイルはファイルの行で出すので入れない。
 	let linkDetailRows = $derived(
-		rows.filter((row) => !remoteFileKind(row.url) && opensLinkDetail(row.url, !!toViewerFile(row)))
+		rows.filter((row) => !remoteOf(row) && opensLinkDetail(row.url, !!toViewerFile(row)))
 	);
 	let linkDetails = $derived(
 		linkDetailRows.map((row) =>
@@ -123,7 +127,7 @@
 {:else}
 	<ul class={browseListClass()}>
 		{#each rows as row, index (`${index}:${row.contentId}:${row.url}`)}
-			{@const kind = remoteFileKind(row.url)}
+			{@const kind = remoteOf(row)?.kind}
 			{@const viewerFile = toViewerFile(row)}
 			<li class={browseItemClass()}>
 				{#if kind === 'audio'}
