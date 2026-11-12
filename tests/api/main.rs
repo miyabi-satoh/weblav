@@ -111,6 +111,7 @@ async fn insert_link_by(
 }
 
 /// folder を直接INSERTし、idを返す。
+/// path は、API で登録したときと同じく Windows の `\\?\` を落として保存する。共有の中のパスとの突き合わせが綴りで行われるため。
 async fn insert_folder_by(
     pool: &SqlitePool,
     title: &str,
@@ -125,7 +126,7 @@ async fn insert_folder_by(
     )
     .bind(parent_id)
     .bind(title)
-    .bind(path.as_ref().display().to_string())
+    .bind(canonical_path_as_api_returns_it(path.as_ref()))
     .bind(visibility)
     .bind(created_by)
     .fetch_one(pool)
@@ -471,7 +472,7 @@ fn temp_root_path(name: &str) -> std::path::PathBuf {
     parent.join(format!("{name}-{:?}", std::thread::current().id()))
 }
 
-/// `canonicalize()` の結果を、APIが返す形の文字列にする。
+/// パスを、APIが保存して返す形の文字列にする。
 ///
 /// Windows の `canonicalize()` は verbatim 形式 (`\\?\C:\...`) を返すが、APIは保存時に
 /// その接頭辞を落とす (→ `api::fs::simplify_verbatim`)。本体の関数は非公開モジュールに

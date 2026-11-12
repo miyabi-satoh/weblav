@@ -363,6 +363,8 @@ mod tests {
     #[test]
     fn symbols_wrapped_in_brackets_match_literally() {
         let filter = filter("", "*[[]mix[]]*\n*[{]a,b[}]*\n*[*]*\n*[?]*\n*[\\]*");
+        // Windows のファイル名には `\` が入らず、globset も `\` を区切りの `/` に直して照らすため、Unix だけで確かめる。
+        #[cfg(unix)]
         assert!(!filter.allows_file("back\\slash.mp3"));
         assert!(!filter.allows_file("x/song[mix].mp3"));
         assert!(!filter.allows_file("{a,b}.mp3"));
