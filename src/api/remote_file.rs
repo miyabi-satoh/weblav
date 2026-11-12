@@ -135,11 +135,14 @@ async fn links_remote_content(
 /// URL の拡張子で決まらなければ、リンクの情報を取ったときに相手の応答から決めたファイル名を使う
 /// (→ `file_name_from_response`)。
 async fn relay(state: &AppState, url: String, headers: &HeaderMap) -> Result<Response, AppError> {
-    let file_name = match relayed_file_name(&url) {
-        Some(name) => name,
-        None => super::link_preview::stored_file_name(&state.pool, &url)
-            .await?
-            .ok_or(AppError::NotFound)?,
+    let (file_name, decided_by_response) = match relayed_file_name(&url) {
+        Some(name) => (name, false),
+        None => (
+            super::link_preview::stored_file_name(&state.pool, &url)
+                .await?
+                .ok_or(AppError::NotFound)?,
+            true,
+        ),
     };
 
     // 待たせずに断る。ブラウザーの動画・音声は、読めなければ画面が案内を出す。
@@ -153,6 +156,10 @@ async fn relay(state: &AppState, url: String, headers: &HeaderMap) -> Result<Res
     let upstream = run_blocking(move || link_title::open_file_blocking(&url, range.as_deref()))
         .await?
         .ok_or(AppError::NotFound)?;
+    // 応答で決めた名前は、覚えた後に相手が中身を替えている (ページになったなど) ことがあるので、今の応答でも対象かを見る。
+    if decided_by_response && link_title::response_file_name(&upstream).is_none() {
+        return Err(AppError::NotFound);
+    }
     relay_response(upstream, &file_name, permit)
 }
 
@@ -275,14 +282,7 @@ pub(super) fn file_name_from_response(
 
 /// `Content-Disposition` のファイル名。`filename*` (RFC 5987) を `filename` より先に使い、フォルダーの部分は落とす。
 fn disposition_file_name(value: &str) -> Option<String> {
-    let params: Vec<(String, &str)> = value
-        .split(';')
-        .skip(1)
-        .filter_map(|param| {
-            let (name, value) = param.split_once('=')?;
-            Some((name.trim().to_ascii_lowercase(), value.trim()))
-        })
-        .collect();
+    let params = disposition_params(value);
     let extended = params
         .iter()
         .find(|(name, _)| name == "filename*")
@@ -299,12 +299,61 @@ fn disposition_file_name(value: &str) -> Option<String> {
         });
     let name = extended.or_else(|| {
         params
-            .iter()
+            .into_iter()
             .find(|(name, _)| name == "filename")
-            .map(|(_, value)| value.trim_matches('"').to_string())
+            .map(|(_, value)| value)
     })?;
     let name = name.rsplit(['/', '\\']).next().unwrap_or_default().trim();
     (!name.is_empty()).then(|| name.to_string())
+}
+
+/// `Content-Disposition` の型の後ろの引数 (名前は小文字)。引用の中の `;` では区切らず、引用は `\` の逃がしを戻して外す (RFC 6266・RFC 9110 の quoted-string)。
+fn disposition_params(value: &str) -> Vec<(String, String)> {
+    let mut params = Vec::new();
+    let mut segments = Vec::new();
+    let mut current = String::new();
+    let mut chars = value.chars();
+    let mut quoted = false;
+    while let Some(c) = chars.next() {
+        match c {
+            '"' => {
+                quoted = !quoted;
+                current.push(c);
+            }
+            '\\' if quoted => {
+                current.push(c);
+                if let Some(next) = chars.next() {
+                    current.push(next);
+                }
+            }
+            ';' if !quoted => segments.push(std::mem::take(&mut current)),
+            _ => current.push(c),
+        }
+    }
+    segments.push(current);
+    for segment in segments.into_iter().skip(1) {
+        let Some((name, raw)) = segment.split_once('=') else {
+            continue;
+        };
+        let raw = raw.trim();
+        let value = match raw.strip_prefix('"') {
+            Some(inner) => {
+                let mut unquoted = String::new();
+                let mut chars = inner.chars();
+                while let Some(c) = chars.next() {
+                    match c {
+                        '\\' => unquoted.extend(chars.next()),
+                        '"' => break,
+                        _ => unquoted.push(c),
+                    }
+                }
+                unquoted
+            }
+            None => raw.to_string(),
+        };
+        params.push((name.trim().to_ascii_lowercase(), value));
+    }
+    params
 }
 
 /// URL のパスの最後の部分を戻したもの。空ならホスト名。
@@ -496,6 +545,19 @@ mod tests {
             .as_deref(),
             Some("report.docx")
         );
+    }
+
+    #[test]
+    fn disposition_file_name_keeps_semicolons_and_escapes_inside_quotes() {
+        assert_eq!(
+            disposition_file_name(r#"attachment; filename="a;b \"c\".pdf"; size=10"#).as_deref(),
+            Some(r#"a;b "c".pdf"#)
+        );
+        assert_eq!(
+            disposition_file_name("inline; filename=report.pdf").as_deref(),
+            Some("report.pdf")
+        );
+        assert_eq!(disposition_file_name("attachment"), None);
     }
 
     #[test]

@@ -176,7 +176,7 @@ fn fetch_page(url: &str) -> Option<LinkMetadata> {
 }
 
 /// HTML でない応答の、ファイルとして開くときの名前 (→ `remote_file::file_name_from_response`)。
-fn response_file_name(response: &ureq::http::Response<ureq::Body>) -> Option<String> {
+pub(super) fn response_file_name(response: &ureq::http::Response<ureq::Body>) -> Option<String> {
     let header = |name: &str| {
         response
             .headers()
