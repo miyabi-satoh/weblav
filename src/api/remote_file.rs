@@ -234,6 +234,22 @@ pub(super) fn file_name_from_response(
     content_disposition: Option<&str>,
     content_length: Option<u64>,
 ) -> Option<String> {
+    // ページや、スクリプトの動きうる型は、名前や URL がファイルらしくても対象にしない。
+    let essence = content_type
+        .unwrap_or_default()
+        .split(';')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    // Office の文書 (`application/vnd.openxmlformats-…`) は外さないよう、型の名前で見る。
+    if matches!(
+        essence.as_str(),
+        "text/html" | "application/xhtml+xml" | "text/xml" | "application/xml"
+    ) || essence.ends_with("+xml")
+    {
+        return None;
+    }
     let disposition_name = content_disposition.and_then(disposition_file_name);
     if let Some(name) = disposition_name
         .clone()
@@ -242,12 +258,6 @@ pub(super) fn file_name_from_response(
     {
         return Some(name);
     }
-    let essence = content_type?
-        .split(';')
-        .next()
-        .unwrap_or_default()
-        .trim()
-        .to_ascii_lowercase();
     let (_, extension) = EXTENSION_BY_CONTENT_TYPE
         .iter()
         .find(|(content_type, _)| *content_type == essence)?;
@@ -544,6 +554,28 @@ mod tests {
             )
             .as_deref(),
             Some("report.docx")
+        );
+    }
+
+    #[test]
+    fn file_name_from_response_skips_pages_even_with_a_file_like_name() {
+        assert_eq!(
+            file_name_from_response(
+                "https://example.com/files/a.pdf",
+                Some("text/html; charset=utf-8"),
+                Some("attachment; filename=b.pdf"),
+                None
+            ),
+            None
+        );
+        assert_eq!(
+            file_name_from_response(
+                "https://example.com/a.pdf",
+                Some("image/svg+xml"),
+                None,
+                None
+            ),
+            None
         );
     }
 
