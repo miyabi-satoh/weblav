@@ -5,6 +5,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import FolderIcon from '@lucide/svelte/icons/folder';
+	import HardDriveIcon from '@lucide/svelte/icons/hard-drive';
 	import HouseIcon from '@lucide/svelte/icons/house';
 	import { contentTypeIcon } from '$lib/content-types';
 	import { withQuery } from '$lib/href';
@@ -107,16 +108,29 @@
 	let contentHits = $derived(result?.contents ?? []);
 	let fileHits = $derived(result?.files ?? []);
 	let linkHits = $derived(result?.links ?? []);
-	let hasHits = $derived(contentHits.length + fileHits.length + linkHits.length > 0);
+	let shareHits = $derived(result?.shares ?? []);
+	let hasHits = $derived(
+		contentHits.length + fileHits.length + shareHits.length + linkHits.length > 0
+	);
 
 	// 2段目に出す、どこにあるか。上のグループから順に並べ、押すと選んだ段の画面を開く (→ docs/search.md「画面」)。
 
 	/** 範囲にしている場所。その中を探している間は、範囲より上はどの行も同じなので、行には範囲から下だけを出す。 */
 	let scopePlace = $derived<ScopePlace | null>(
-		data.scope && !data.all
-			? { contentId: Number(data.scope.within), depth: data.scope.path?.split('/').length ?? 0 }
+		data.scope && 'within' in data.scope && !data.all
+			? { contentId: Number(data.scope.within), depth: scopeDepth(data.scope.path) }
 			: null
 	);
+	/** 共有の中を範囲にしているときの、その共有の id と階層の深さ。 */
+	let shareScope = $derived(
+		data.scope && 'share' in data.scope && !data.all
+			? { shareId: Number(data.scope.share), depth: scopeDepth(data.scope.path) }
+			: null
+	);
+
+	function scopeDepth(path: string | undefined): number {
+		return path ? path.split('/').length : 0;
+	}
 
 	/**
 	 * 当たりの場所。`ancestors` は上のグループ、`own` は当たりを持つコンテンツ (`ownId`) から下の段。
@@ -197,9 +211,44 @@
 		}))
 	);
 
-	// 検索の結果は、フォルダーのコンテンツの中だけを探す (共有の中は探さない)。
 	function folderHref(row: FolderEntryRow): string {
 		return withQuery(resolve('/folders/[id]', { id: String(row.source.id) }), { path: row.path });
+	}
+
+	function shareHref(shareId: number, path: string): string {
+		const href = resolve('/shares/[id]', { id: String(shareId) });
+		return path === '' ? href : withQuery(href, { path });
+	}
+
+	/** 共有の中の行。場所は共有と、その中の階層。共有の中を範囲にしているときは、範囲から下だけを出す。 */
+	let shareRows = $derived<FolderEntryRow[]>(
+		shareHits.map((hit) => {
+			const dirs = hit.path.split('/').slice(0, -1);
+			const levels: RowLocationLevel[] = [
+				{ label: hit.shareName, href: shareHref(hit.shareId, ''), icon: HardDriveIcon },
+				...dirs.map((label, index) => ({
+					label,
+					href: shareHref(hit.shareId, dirs.slice(0, index + 1).join('/')),
+					icon: FolderIcon
+				}))
+			];
+			return {
+				source: { kind: 'share', id: hit.shareId },
+				path: hit.path,
+				entry: hit.entry,
+				location:
+					shareScope?.shareId === hit.shareId ? { levels, from: shareScope.depth } : { levels }
+			};
+		})
+	);
+
+	function shareDirHref(row: FolderEntryRow): string {
+		return shareHref(row.source.id, row.path);
+	}
+
+	/** フォルダーの中の行 (番号で始まる) と重ならないよう、頭に `share/` を付ける。 */
+	function sharePreviewKey(row: FolderEntryRow): string {
+		return `share/${row.source.id}/${row.path}`;
 	}
 
 	/**
@@ -374,8 +423,29 @@
 				{/if}
 			</section>
 		{/if}
-		{#if linkRows.length > 0}
+		{#if shareRows.length > 0}
 			<section class={contentHits.length + fileRows.length > 0 ? 'mt-8' : undefined}>
+				{@render sectionHeading(
+					m.search_shares_heading(),
+					shareRows.length,
+					result.sharesTruncated
+				)}
+				<!-- 共有の中のリンクの一覧のファイルは、ほかのテキストと同じくビューアーで開く (→ docs/shares.md「口の一覧」)。 -->
+				<FolderEntryList
+					rows={shareRows}
+					dirHref={shareDirHref}
+					linksHref={() => undefined}
+					previewKey={sharePreviewKey}
+				/>
+				{#if result.sharesTruncated}
+					{@render truncatedNote(shareRows.length)}
+				{/if}
+			</section>
+		{/if}
+		{#if linkRows.length > 0}
+			<section
+				class={contentHits.length + fileRows.length + shareRows.length > 0 ? 'mt-8' : undefined}
+			>
 				{@render sectionHeading(m.search_links_heading(), linkRows.length, result.linksTruncated)}
 				<LinksEntryList rows={linkRows} />
 				{#if result.linksTruncated}

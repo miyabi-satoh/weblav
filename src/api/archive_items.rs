@@ -919,10 +919,18 @@ pub(super) async fn search_items(
         let truncated = hits.len() > super::search::RESULT_LIMIT;
         hits.truncate(super::search::RESULT_LIMIT);
 
+        // 共有の中の区画から同じファイルを外すため、実体のパスを添える。
+        let canonical: Vec<Option<std::path::PathBuf>> = sources
+            .iter()
+            .map(|(archive, _, _)| std::fs::canonicalize(&archive.path).ok())
+            .collect();
         let hits = hits
             .into_iter()
             .map(|hit| {
                 let (archive, _, _) = &sources[hit.source];
+                let absolute = canonical[hit.source]
+                    .as_ref()
+                    .map(|root| root.join(&hit.item.rel_path));
                 let item = hit.item;
                 // フォルダーの中のファイルの当たりと同じ行にする。配信はフォルダーの口が同じ絞り込みで確かめる (→ docs/folders.md「見せるものの絞り込み」)。
                 let hit_row = SearchFileHit {
@@ -940,6 +948,7 @@ pub(super) async fn search_items(
                         title: item.title,
                         subtitle: item.subtitle,
                     }),
+                    absolute,
                 };
                 (hit.score, hit_row)
             })

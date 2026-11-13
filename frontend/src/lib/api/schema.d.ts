@@ -1398,8 +1398,8 @@ export interface paths {
         };
         /**
          * 閲覧者がホームからたどって一覧で見られるコンテンツ・アーカイブの公開アイテム・フォルダーの中・
-         *     リンクの一覧のファイルの中のリンクを、タイトルの文字列で探す (→ docs/search.md)。語が空なら空の結果を返す。
-         *     `within` を渡すと、その場所の中だけを探す (→ docs/search.md「範囲」)。
+         *     リンクの一覧のファイルの中のリンクと、ログインした人が見られる共有の中を、タイトルの文字列で探す (→ docs/search.md)。
+         *     語が空なら空の結果を返す。`within`・`share` を渡すと、その場所の中だけを探す (→ docs/search.md「範囲」)。
          */
         get: operations["search"];
         put?: never;
@@ -2901,7 +2901,7 @@ export interface components {
             /** @description `files` を打ち切ったか。 */
             filesTruncated: boolean;
             /**
-             * @description 大きなフォルダーを途中までしか辿っていないか (1つのフォルダーで 20,000 件まで)。
+             * @description 大きなフォルダーか共有を途中までしか辿っていないか (1か所で 20,000 件まで)。
              *     その先のファイルとリンクの一覧は探していない。語を足しても広がらないので、打ち切りとは分けて伝える。
              */
             foldersIncomplete: boolean;
@@ -2909,8 +2909,24 @@ export interface components {
             links: components["schemas"]["SearchLinkHit"][];
             /** @description `links` を打ち切ったか。 */
             linksTruncated: boolean;
-            /** @description `within` のコンテンツのタイトル。切り替えの「『…』の中」に出す。`within` が無ければ `None`。 */
+            /** @description `within` のコンテンツのタイトルか、`share` の共有の名前。切り替えの「『…』の中」に出す。どちらも無ければ `None`。 */
             scopeTitle?: string | null;
+            /**
+             * @description ログインした人が見られる共有の中のファイルとディレクトリ。`files` に出したものは除く。
+             *     当たりのよい順 (同じ程度なら名前の順)。区画ごとの上限 (100 件) で打ち切る。
+             */
+            shares: components["schemas"]["SearchShareHit"][];
+            /** @description `shares` を打ち切ったか。 */
+            sharesTruncated: boolean;
+        };
+        SearchShareHit: {
+            entry: components["schemas"]["FolderEntry"];
+            /** @description 共有からの相対パス (`/` 区切り)。エントリ自身の名前まで含む。 */
+            path: string;
+            /** Format: int64 */
+            shareId: number;
+            /** @description 行の2段目に、どこにあるかとして出す。 */
+            shareName: string;
         };
         /** @description 管理画面で変えられる設定。 */
         ServerSettings: {
@@ -7495,9 +7511,11 @@ export interface operations {
                 q?: string;
                 /** @description 探す場所のグループ・フォルダー・アーカイブの id。無ければ全体を探す。 */
                 within?: number | null;
-                /** @description `within` がフォルダーのとき、その中の階層 (登録パスからの相対パス)。 */
+                /** @description 探す場所の共有の id。`within` とは一緒に渡せない。ログインが要る。 */
+                share?: number | null;
+                /** @description `within` がフォルダーのとき、その中の階層 (登録パスからの相対パス)。`share` のときは共有からの相対パス。 */
                 path?: string;
-                /** @description `true` なら `within` で絞らず全体を探す。範囲の名前は返すので、画面は切り替えを出したままにできる。 */
+                /** @description `true` なら `within`・`share` で絞らず全体を探す。範囲の名前は返すので、画面は切り替えを出したままにできる。 */
                 all?: boolean;
             };
             header?: never;
@@ -7524,8 +7542,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 範囲の場所が無いか、開けないか、グループ・フォルダー・アーカイブでない */
+            /** @description 範囲の場所が無いか、開けないか、グループ・フォルダー・アーカイブ・共有の中のフォルダーでない */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 範囲の共有のある NAS やディスクにつながらない */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

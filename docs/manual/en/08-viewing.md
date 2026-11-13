@@ -30,8 +30,8 @@ Some content is visible only to logged-in users (→ [Log in and display](03-acc
 
 - Type in the “Filter” box to keep only the rows whose names match. A row matches when the letters you type appear in its name in that order, even with other letters in between (“eng2” matches “English listening 2”). Matching letters are highlighted.
 - Use the buttons to the right of “Sort” to switch between a list and tiles. Tiles fit more items on a wide screen. This device remembers your choice.
-- Select the magnifying glass at the top right and type words to search content by title and description, and files in folders organized as a library by title and values such as the year. Separate words with spaces to find items that contain all of them. Case and full-width or half-width characters do not matter. Files and folders inside folders are found by name, and links in files whose names end with `.links.toml` by page title and description (`note`).
-  - If you select it while a group or folder is open, it searches inside that place. Select “Everywhere” below the search box to search everything.
+- Select the magnifying glass at the top right and type words to search content by title and description, and files in folders organized as a library by title and values such as the year. Separate words with spaces to find items that contain all of them. Case and full-width or half-width characters do not matter. Files and folders inside folders are found by name, and links in files whose names end with `.links.toml` by page title and description (`note`). When you are signed in, files and folders in the shares you can use are also found by name and listed under “In shares”.
+  - If you select it while a group, folder, or share is open, it searches inside that place. Select “Everywhere” below the search box to search everything.
 
 ## Play or open files
 

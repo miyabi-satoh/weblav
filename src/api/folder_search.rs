@@ -23,7 +23,7 @@ use crate::state::AppState;
 
 /// ADR: 1つのフォルダーで、検索のたびに辿るエントリ数の上限。
 /// 索引を持たずに打つたび辿るので、巨大なツリーを指したフォルダーで検索ごと遅くならないよう抑える。
-const FOLDER_WALK_LIMIT: usize = 20_000;
+pub(super) const FOLDER_WALK_LIMIT: usize = 20_000;
 
 /// 検索の対象にするフォルダー。閲覧者が一覧で見られることは、呼び出し側が確かめる。
 pub(super) struct SearchableFolder {
@@ -66,6 +66,9 @@ pub(super) struct SearchFileHit {
     /// 一覧の表示の索引で当たった行なら、その表示タイトルと軸の値。行のタイトルと2段目に出す。
     /// 索引で照らすのは表示タイトルと軸の値で、ファイル名と階層ではないため (→ docs/search.md「何を照らすか」)。
     pub(super) listed: Option<ListedTitle>,
+    /// 実体のパス。共有の中の区画から、同じファイルを外すのに使う。画面には送らない。
+    #[serde(skip)]
+    pub(super) absolute: Option<PathBuf>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -267,6 +270,7 @@ pub(super) async fn search(
                         path: candidate.rel_path,
                         entry,
                         listed: None,
+                        absolute: Some(candidate.absolute),
                     },
                 ))
             })

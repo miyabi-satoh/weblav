@@ -820,6 +820,7 @@
 	],
 	"search_contents_heading": "Content",
 	"search_files_heading": "In folders",
+	"search_shares_heading": "In shares",
 	"search_links_heading": "In link lists",
 	"search_empty": "Nothing matches “{query}”.",
 	"search_truncated": "Showing the first {count}. Add more words to narrow it down.",

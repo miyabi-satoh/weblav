@@ -298,3 +298,120 @@ async fn search_matches_places_and_skipped_letters_and_ranks_better_matches_firs
         "{found}"
     );
 }
+
+/// ログインした人に見える共有の中を、`shares` の区画で返す。`files` に出したファイルは重ねて出さない。
+#[sqlx::test]
+async fn search_finds_entries_in_readable_shares_for_logged_in_users(pool: SqlitePool) {
+    let share = temp_root_dir("search-share");
+    std::fs::create_dir_all(share.join("教材/公開")).expect("ディレクトリを作れなかった");
+    std::fs::write(share.join("教材/リスニング.pdf"), b"").expect("ファイルを作れなかった");
+    std::fs::write(share.join("教材/公開/リスニング公開.pdf"), b"")
+        .expect("ファイルを作れなかった");
+    let (share_id, share_name) = register_search_share(&pool, &share).await;
+    let folder_id = insert_folder_by(
+        &pool,
+        "公開",
+        share.join("教材/公開").display().to_string(),
+        "public",
+        None,
+        None,
+    )
+    .await;
+    insert_user(&pool, "taro", "password").await;
+    let app = test_app(pool.clone()).await;
+    only_share_readable(&pool, share_id).await;
+    let cookie = login(app.clone(), "taro", "password").await;
+
+    let (status, body) =
+        send_empty(app.clone(), "GET", &search_uri("リスニング", ""), &cookie).await;
+
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let found = parse_json(&body);
+    assert_eq!(found["files"][0]["contentId"], folder_id, "{found}");
+    let shares = found["shares"].as_array().expect("shares は配列");
+    assert_eq!(shares.len(), 1, "{found}");
+    assert_eq!(shares[0]["shareId"], share_id, "{found}");
+    assert_eq!(shares[0]["shareName"], share_name.as_str(), "{found}");
+    assert_eq!(shares[0]["path"], "教材/リスニング.pdf", "{found}");
+    assert_eq!(found["sharesTruncated"], false, "{found}");
+    // ログインしていなければ、共有の中は探さない。
+    let found = search(app, "リスニング").await;
+    assert_eq!(found["shares"], serde_json::json!([]), "{found}");
+}
+
+/// 共有の中の階層を範囲にすると、その下だけを辿り、パスは共有からの相対で返す。コンテンツの区画は探さない。
+/// 見られない共有は 404、未ログインは 401。
+#[sqlx::test]
+async fn search_within_a_share_walks_only_below_it(pool: SqlitePool) {
+    let share = temp_root_dir("search-share-scope");
+    std::fs::create_dir_all(share.join("2024")).expect("ディレクトリを作れなかった");
+    std::fs::create_dir_all(share.join("2023")).expect("ディレクトリを作れなかった");
+    std::fs::write(share.join("2024/リスニング.pdf"), b"").expect("ファイルを作れなかった");
+    std::fs::write(share.join("2023/リスニング.pdf"), b"").expect("ファイルを作れなかった");
+    let (share_id, share_name) = register_search_share(&pool, &share).await;
+    insert_link_by(&pool, "リスニングのページ", "public", None, None).await;
+    insert_user(&pool, "taro", "password").await;
+    let app = test_app(pool.clone()).await;
+    only_share_readable(&pool, share_id).await;
+    let cookie = login(app.clone(), "taro", "password").await;
+
+    let (status, body) = send_empty(
+        app.clone(),
+        "GET",
+        &search_uri("リスニング", &format!("share={share_id}&path=2024")),
+        &cookie,
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let found = parse_json(&body);
+    assert_eq!(found["contents"], serde_json::json!([]), "{found}");
+    let paths: Vec<&str> = found["shares"]
+        .as_array()
+        .expect("shares は配列")
+        .iter()
+        .map(|hit| hit["path"].as_str().expect("path は文字列"))
+        .collect();
+    assert_eq!(paths, vec!["2024/リスニング.pdf"], "{found}");
+    assert_eq!(found["scopeTitle"], share_name.as_str(), "{found}");
+
+    let hidden: i64 = sqlx::query_scalar("SELECT id FROM roots WHERE id != ?")
+        .bind(share_id)
+        .fetch_one(&pool)
+        .await
+        .expect("土台の共有を引けなかった");
+    let (status, body) = send_empty(
+        app.clone(),
+        "GET",
+        &search_uri("a", &format!("share={hidden}")),
+        &cookie,
+    )
+    .await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
+    let (status, body) =
+        send_anon(app, "GET", &search_uri("a", &format!("share={share_id}"))).await;
+    assert_error(status, &body, StatusCode::UNAUTHORIZED, "unauthorized");
+}
+
+/// 共有を登録し、id と名前を返す。
+async fn register_search_share(pool: &SqlitePool, dir: &std::path::Path) -> (i64, String) {
+    let canonical = std::fs::canonicalize(dir).expect("canonicalize できなかった");
+    register_root(pool, &canonical).await;
+    let name = canonical_path_as_api_returns_it(&canonical);
+    let id = sqlx::query_scalar("SELECT id FROM roots WHERE path = ?")
+        .bind(&name)
+        .fetch_one(pool)
+        .await
+        .expect("共有の行を引けなかった");
+    (id, name)
+}
+
+/// 一般ユーザーが見られる共有を `share_id` だけにする。土台の共有にはほかのテストのフォルダーも入っていて、
+/// 当たりが揃わないため。
+async fn only_share_readable(pool: &SqlitePool, share_id: i64) {
+    sqlx::query("UPDATE roots SET editor_access = 'none' WHERE id != ?")
+        .bind(share_id)
+        .execute(pool)
+        .await
+        .expect("共有の権限を書けなかった");
+}
