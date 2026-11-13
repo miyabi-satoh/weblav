@@ -14,7 +14,18 @@
 // 古いUIのままスクショが撮れてしまう)。
 
 import { chromium, type Browser, type Page } from 'playwright';
-import { rmSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
+import {
+	rmSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	writeFileSync,
+	readdirSync,
+	statSync
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { pathToFileURL } from 'node:url';
+import { compile } from '@inlang/paraglide-js';
 import path from 'node:path';
 import { startBackend } from './backend-process.ts';
 import { setUpFixtures, writeFixtureFiles } from './shot-fixtures.ts';
@@ -109,11 +120,23 @@ async function main(): Promise<void> {
 			}
 		}
 
-		// paraglideメッセージを直接importして文言を取得する(ja固定)。
+		// paraglideメッセージをimportして文言を取得する(ja固定)。
+		// `src/lib/paraglide` の文言は Vite のプラグインが出す仮想モジュールで、Node からは読めないので、
+		// 一時フォルダに実ファイルとしてコンパイルしてから読む。
 		// esModuleInterop によりモジュール名前空間の型に合成の`default`プロパティが
 		// 付き、`Messages`(Record<string, MessageFn>)と構造的に一致しなくなるため
 		// キャストする。実際に関数かどうかは下の`missing`チェックで検証済み。
-		const messages = (await import('../src/lib/paraglide/messages.js')) as unknown as Messages;
+		const paraglideDir = mkdtempSync(path.join(tmpdir(), 'weblav-spec-paraglide-'));
+		await compile({
+			project: path.join(REPO_ROOT, 'frontend/project.inlang'),
+			outdir: paraglideDir,
+			strategy: ['baseLocale']
+		});
+		const messages = (await import(
+			pathToFileURL(path.join(paraglideDir, 'messages.js')).href
+		)) as unknown as Messages;
+		// 読み込みは import の時点で済むので、すぐ消す。
+		rmSync(paraglideDir, { recursive: true, force: true });
 
 		const PARAM_NAMES = new Proxy({} as Record<string, string>, {
 			get: (_, key) => (typeof key === 'string' ? `{${key}}` : undefined)

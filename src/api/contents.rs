@@ -296,7 +296,7 @@ pub(super) fn folder_path(path: Option<String>) -> Result<String, AppError> {
 }
 
 /// FIX: `INSERT`・`UPDATE` の `RETURNING` では、`parent_id`・`created_by` を `"…?"` で NULL になりうると明示する。
-/// sqlx 0.9 は外部キーの列を NULL にならないと見立て、NULL を 0 として読むため。
+/// sqlx 0.9 は、その文で代入する列を NULL にならないと見立て、代入した NULL を 0 として読むため (→ AGENTS.md「DB 操作」)。
 struct ContentRow {
     id: i64,
     content_type: ContentType,

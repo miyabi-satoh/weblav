@@ -142,7 +142,7 @@ export function thirdPartyLicenses(): Plugin {
 							VIRTUAL_MODULE_PREFIXES.find(([prefix]) => source.startsWith(prefix))?.[1];
 						if (packageOf === undefined) {
 							this.error(
-								`仮想モジュール ${source.slice(1)} のパッケージが分からない (VIRTUAL_MODULES に足す)`
+								`仮想モジュール ${source.slice(1)} のパッケージが分からない (VIRTUAL_MODULES か VIRTUAL_MODULE_PREFIXES に足す)`
 							);
 						}
 						const dir = packageOf(this.environment.config.root);
