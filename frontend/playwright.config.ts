@@ -16,7 +16,13 @@ export default defineConfig({
 	// cookie が無ければ表示言語がブラウザーの言語で決まり (→ docs/ui.md「UI 全般」)、日時の書式も
 	// それに従うため、実行する PC の言語で結果が変わらないよう固定する。
 	// 落ちたときだけ trace を残す。CI で落ちた様子を、手元で再現できなくても後から見られるように。
+	// 流し直して通ったテストの落ちた回の trace も残る。
 	use: { baseURL, locale: 'en-US', trace: 'retain-on-failure' },
+	// 落ちたテストを2回まで流し直す (CI の既定と同じ回数を手元でも)。機械が詰まって時々落ちるテストで検査を止めない。
+	// 流し直して通ったテストは、最後の集計に `N flaky` と出る。
+	retries: 2,
+	// GitHub Actions では、流し直して通ったテストを警告の注記にも出す (注記は PR のチェックと `gh run view` に出る)。
+	reporter: process.env.GITHUB_ACTIONS ? [['dot'], ['github']] : 'list',
 	// 管理者ログインをテストごとにUI操作からやり直さない
 	// (公式ベストプラクティス、認証状態の使い回し: https://playwright.dev/docs/auth)。
 	// setupプロジェクトが一度だけログインしてstorageStateを保存し、e2eプロジェクトはそれを使い回す
