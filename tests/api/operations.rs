@@ -83,7 +83,11 @@ async fn failed_and_successful_logins_are_recorded_and_filterable(pool: SqlitePo
         .collect();
     assert_eq!(
         results,
-        vec![("login", "succeeded"), ("login", "failed"), ("login", "failed")]
+        vec![
+            ("login", "succeeded"),
+            ("login", "failed"),
+            ("login", "failed")
+        ]
     );
     assert_eq!(items[1]["error"], "invalid_credentials");
     assert_eq!(items[1]["username"], "Alice");
