@@ -870,12 +870,30 @@ pub(super) async fn search_items(
         }
     }
 
+    // 共有の中の区画から同じファイルを外すため、実体のパスを添える。直に canonicalize せず
+    // `folder_reach` で求める。つながらない NAS では長く戻らないため。
+    let mut canonical = Vec::with_capacity(sources.len());
+    for (archive, _, _) in &sources {
+        canonical.push(
+            match state
+                .folder_reach
+                .check(&state.pool, &archive.path, OTHERS_WAIT)
+                .await
+            {
+                crate::folder_reach::Reach::Ready(path) => Some(path),
+                _ => None,
+            },
+        );
+    }
+
     run_blocking(move || {
         // フォルダーごと見つからないアーカイブは、閲覧の画面と同じく行を出さない (→ docs/archive.md「アイテムの配信」)。
-        let sources: Vec<_> = sources
+        // 実体のパスは `sources` と同じ添え字で引くので、組にしたまま外す。
+        let (sources, canonical): (Vec<_>, Vec<_>) = sources
             .into_iter()
-            .filter(|(archive, _, _)| !folder_missing(std::path::Path::new(&archive.path)))
-            .collect();
+            .zip(canonical)
+            .filter(|((archive, _, _), _)| !folder_missing(std::path::Path::new(&archive.path)))
+            .unzip();
         let mut hits: Vec<ItemHit> = Vec::new();
         for (source, (archive, index, filter)) in sources.iter().enumerate() {
             let places = super::search::container_places(&archive.title, &archive.ancestors);
@@ -919,11 +937,6 @@ pub(super) async fn search_items(
         let truncated = hits.len() > super::search::RESULT_LIMIT;
         hits.truncate(super::search::RESULT_LIMIT);
 
-        // 共有の中の区画から同じファイルを外すため、実体のパスを添える。
-        let canonical: Vec<Option<std::path::PathBuf>> = sources
-            .iter()
-            .map(|(archive, _, _)| std::fs::canonicalize(&archive.path).ok())
-            .collect();
         let hits = hits
             .into_iter()
             .map(|hit| {
