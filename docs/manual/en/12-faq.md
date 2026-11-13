@@ -29,9 +29,9 @@ On Windows, PDF files get thumbnails only when a PDF app that makes thumbnails (
 
 ## Can I register or manage from a phone?
 
-Yes. Sign in and use it in a browser.
+Yes. Log in and use it in a browser.
 However, you can add “Shares” and create the first administrator only on the computer running WebLAV.
 
 ## Does every viewer need an account?
 
-No. Anyone can view items with “Everyone” visibility without signing in.
+No. Anyone can view items with “Everyone” visibility without logging in.

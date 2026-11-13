@@ -2,7 +2,7 @@
 
 WebLAV lets you view files on your computer in a browser on phones and tablets on the same network.
 
-![WebLAV open in a phone browser: a list of registered contents, a list of photos, and an open photo, while audio plays at the bottom of the screen](images/intro-overview.webp)
+![WebLAV open in a phone browser: a list of registered content, a list of photos, and an open photo, while audio plays at the bottom of the screen](images/intro-overview.webp)
 
 You can open this manual at any time from “Manual” on the WebLAV icon in the task tray (menu bar on macOS, top right of the screen on Ubuntu).
 
@@ -12,16 +12,16 @@ You can open this manual at any time from “Manual” on the WebLAV icon in the
 - View images, PDFs, videos, and text
 - List links to external websites
 - Upload, rename, move, and delete files in folders on the computer from a browser
-- Choose who can see each item: anyone, signed-in users only, or only you
+- Choose who can see each item: anyone, logged-in users only, or only you
 
 ## How it works
 
-Only contents registered in the admin pages appear for viewers.
+Only content registered in the admin pages appears for viewers.
 
 ![How folders on the computer relate to the viewer's screen: add "学校" (School) as a share, then register "教材" (Teaching materials) and "英検" (EIKEN) inside it as shortcuts. Only those two appear for viewers. Unregistered "下書き" (Drafts) and "家計簿" (Household accounts) outside the share do not appear.](images/how-it-works.webp)
 
-- **Shares**: Folders that WebLAV may work with. Signed-in users can view, add, or move the files inside, depending on their permissions. Adding one alone does not show anything to people who are not signed in.
-- **Contents**: Register folders or files in a share as a “Shortcut” to show them. These are what viewers see.
+- **Shares**: Folders that WebLAV may work with. Logged-in users can view, add, or move the files inside, depending on their permissions. Adding one alone does not show anything to people who are not logged in.
+- **Content**: Register folders or files in a share as a “Shortcut” to show them. These are what viewers see.
 
 ## Quick start
 
@@ -37,7 +37,7 @@ Only contents registered in the admin pages appear for viewers.
 
    ![The Shares page](images/quickstart-roots.webp)
 
-4. In “Contents”, choose “Shortcut” from “Add content...” and register the folder or file you want to show.
+4. In “Content”, choose “Shortcut” from “Add content...” and register the folder or file you want to show.
 
    ![Choosing a type when adding content](images/quickstart-add-folder.webp)
 
@@ -46,5 +46,5 @@ Only contents registered in the admin pages appear for viewers.
    ![The Share this page screen](images/share-qr.webp)
 
 - Detailed instructions → [Set up](02-setup.md)
-- Other types and visibility → [Register contents](06-register-content.md)
+- Other types and visibility → [Register content](06-register-content.md)
 - If you cannot open it → [Troubleshooting](11-troubleshooting.md)

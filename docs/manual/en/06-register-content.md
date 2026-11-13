@@ -1,4 +1,4 @@
-# Register contents
+# Register content
 
 ## Types
 
@@ -25,9 +25,9 @@ On Home or on a group's page, select “Add” to the right of the heading and c
 
 Administrators can also add from the admin pages.
 
-1. On the “Contents” tab in the admin pages, select “Add content...”.
+1. On the “Content” tab in the admin pages, select “Add content...”.
 
-   ![The Contents tab and Add button](images/contents-page.webp)
+   ![The Content tab and Add button](images/contents-page.webp)
 
 2. Choose a type.
 
@@ -107,7 +107,7 @@ note = "A description shown under the link (optional)"
 | Creator only | Listed only for the person who registered it (administrators can open it from the admin pages) |
 | Hidden | Not listed (the person who registered it and administrators can open it from “Hidden content” in the user name menu) |
 
-1. In the list on Home or in a group, select the pen at the right end of a row of an item you registered (administrators: any item) (administrators can also select the row in the “Contents” list in the admin pages).
+1. In the list on Home or in a group, select the pen at the right end of a row of an item you registered (administrators: any item) (administrators can also select the row in the “Content” list in the admin pages).
 
    ![A row in the Home list, with the pen at the right end](images/row-edit-pen.webp)
 
@@ -141,12 +141,12 @@ Administrators can also add from the list in the admin pages.
 
 To move an existing item:
 
-1. Open the edit page (→ “Change contents” below).
+1. Open the edit page (→ “Change content” below).
 2. Choose “Parent group”, then select “Save”.
 
    ![Parent group and Visibility on the edit page](images/edit-visibility.webp)
 
-## Change contents
+## Change content
 
 Open the edit page, make your changes, then select “Save”. To open the edit page, select the pen at the right end of a row in the list on Home or in a group, or the pen next to the heading of a group or other page. Administrators can also select the row in the list in the admin pages.
 

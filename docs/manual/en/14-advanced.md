@@ -33,13 +33,13 @@ Items you do not write use their default values.
 | | `output` | `"file"` | Where logs go. `"file"` writes files; `"stdout"` writes to the screen when starting from a terminal. |
 | `[session]` | `secret` | `""` | The key used to sign logins. It is generated automatically when blank. Usually, do not write this. |
 | | `secure_cookie` | `false` | Set to `true` when using HTTPS (→ “Use HTTPS” below). |
-| | `expiry_days` | `14` | Days to stay signed in. 0 means no time limit. |
+| | `expiry_days` | `14` | Days to stay logged in. 0 means no time limit. |
 | `[upload]` | `max_size_mb` | none (no limit) | Maximum size in MB of each file uploaded to a share. No limit when omitted or 0. |
 
 - You can also change `port`, `expiry_days`, and `max_size_mb` in Site settings in the admin pages.
 - If `bind` is set to a specific address of the computer (such as `192.168.1.10`), the “Setup” screen cannot be opened. Set it back to the default while creating the first administrator.
 - Even if you turn on “Detailed logs” in the pages, it returns to the `filter` value after WebLAV restarts.
-- A typo in `secret` prevents WebLAV from starting. Changing it signs everyone out.
+- A typo in `secret` prevents WebLAV from starting. Changing it logs everyone out.
 
 ## Use HTTPS
 

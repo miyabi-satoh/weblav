@@ -1,8 +1,8 @@
-# Sign in and display
+# Log in and display
 
-## Sign in
+## Log in
 
-Some contents are visible only to signed-in users.
+Some content is visible only to logged-in users.
 
 1. Select “Log in” at the top right.
 
@@ -12,7 +12,7 @@ Some contents are visible only to signed-in users.
 
    ![The login screen](images/login.webp)
 
-To sign out, select your username at the top right, then choose “Log out”.
+To log out, select your username at the top right, then choose “Log out”.
 
 ## Manage your account
 
@@ -26,8 +26,8 @@ Change your username, password, and recovery code on the account page.
 
    ![The account page](images/account-page.webp)
 
-If 10 minutes pass after you sign in or confirm your password without saving such a change, you are asked for your current password when you save. Enter it and select “Confirm” to save.
-The same applies to actions on the admin pages and to administrators changing contents created by other people.
+If 10 minutes pass after you log in or confirm your password without saving such a change, you are asked for your current password when you save. Enter it and select “Confirm” to save.
+The same applies to actions on the admin pages and to administrators changing content created by other people.
 
 If you forget your password, reset it yourself with your recovery code (→ “Forgot your password” below), or ask an administrator to reset it.
 
@@ -47,7 +47,7 @@ Administrators without a recovery code see “Create recovery code” at the top
 
 ## Forgot your password
 
-1. On the sign-in screen, select “Forgot your password?”.
+1. On the login screen, select “Forgot your password?”.
 2. Enter your username, recovery code, and new password, then select “Reset password”.
 3. A new recovery code is shown. Keep it, then select “I've kept it”.
 

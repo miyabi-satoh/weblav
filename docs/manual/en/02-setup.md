@@ -34,7 +34,7 @@ To start automatically, turn on “Start at login” from the WebLAV icon at the
 
 3. Save or print the recovery code shown, then select “I've kept it”.
 
-The recovery code lets you reset your password yourself if you forget it (→ [Sign in and display](03-account.md)).
+The recovery code lets you reset your password yourself if you forget it (→ [Log in and display](03-account.md)).
 It is shown only this once, so keep it where others can't see it.
 The admin pages open after you select “I've kept it”.
 
