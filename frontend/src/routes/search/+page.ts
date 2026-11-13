@@ -37,7 +37,15 @@ function searchRequest(q: string, scope: SearchScopeQuery | null, all: boolean) 
 		params: {
 			query: {
 				q,
-				...(scope ? { within: Number(scope.within), path: scope.path ?? '', all } : {})
+				...(scope
+					? {
+							...('within' in scope
+								? { within: Number(scope.within) }
+								: { share: Number(scope.share) }),
+							path: scope.path ?? '',
+							all
+						}
+					: {})
 			}
 		}
 	});

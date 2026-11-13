@@ -10,6 +10,7 @@ mod fsops;
 mod jobs;
 mod paths;
 pub(super) mod repoint;
+pub(super) mod search;
 mod transfer;
 mod write;
 

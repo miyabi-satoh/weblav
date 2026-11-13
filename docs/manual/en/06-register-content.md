@@ -67,7 +67,7 @@ By default, everything in a folder that a shortcut points to is visible. To limi
 - `backup/`: folders with that name at any level
 - `docs/*.pdf`: files directly inside “docs” at the top (a pattern containing `/` starts at the top of the folder)
 
-If “Include patterns” is empty, everything is included. “Exclude patterns” takes priority. Filtered-out items don't appear in the folder view, downloads, or search, for viewers or for people who can change the folder. They still appear on the share screen. When only “Include patterns” is set, subfolders appear even if no file inside them matches.
+If “Include patterns” is empty, everything is included. “Exclude patterns” takes priority. Filtered-out items don't appear in the folder view, downloads, or search, for viewers or for people who can change the folder. They still appear on the share screen and under “In shares” in search. When only “Include patterns” is set, subfolders appear even if no file inside them matches.
 
 When saving patterns would make more or fewer files visible, the counts appear before the save.
 

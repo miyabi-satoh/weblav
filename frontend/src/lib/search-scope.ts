@@ -1,8 +1,11 @@
 import { resolve } from '$app/paths';
 import { withQuery } from '$lib/href';
 
-/** 検索の範囲のクエリ (→ docs/search.md「範囲」)。`within` はグループ・フォルダー・アーカイブの id。 */
-export type SearchScopeQuery = { within: string; path?: string };
+/**
+ * 検索の範囲のクエリ (→ docs/search.md「範囲」)。`within` はグループ・フォルダー・アーカイブの id、`share` は共有の id。
+ * `path` はフォルダーか共有の中の階層。
+ */
+export type SearchScopeQuery = { within: string; path?: string } | { share: string; path?: string };
 
 /**
  * 今開いている閲覧ページを、検索の範囲にしたもの。範囲にならない画面 (ホームなど) は `null`。
@@ -19,6 +22,10 @@ export function searchScopeOf(
 			return { within: params.id };
 		case '/folders/[id]':
 			return withPath(params.id, url.searchParams.get('path') ?? '');
+		case '/shares/[id]': {
+			const path = url.searchParams.get('path') ?? '';
+			return path === '' ? { share: params.id } : { share: params.id, path };
+		}
 		case '/links/[id]': {
 			if (url.searchParams.has('item')) return { within: params.id };
 			const path = url.searchParams.get('path');
@@ -47,10 +54,13 @@ export function searchScopeLevels(path: string | undefined): { upper: string; la
 
 /** 検索の画面の URL に載っている範囲。 */
 export function searchScopeFromQuery(url: URL): SearchScopeQuery | null {
-	const within = url.searchParams.get('within');
+	const path = url.searchParams.get('path') ?? '';
 	// 手で書き換えた URL などで id でなければ、範囲を持たない。
-	if (within === null || !/^\d+$/.test(within)) return null;
-	return withPath(within, url.searchParams.get('path') ?? '');
+	const within = url.searchParams.get('within');
+	if (within !== null) return /^\d+$/.test(within) ? withPath(within, path) : null;
+	const share = url.searchParams.get('share');
+	if (share === null || !/^\d+$/.test(share)) return null;
+	return path === '' ? { share } : { share, path };
 }
 
 function withPath(within: string, path: string): SearchScopeQuery {

@@ -2,6 +2,9 @@
 //!
 //! 見える範囲の判定は一覧と同じヘルパー (`can_list`) を通す。
 
+use std::collections::HashSet;
+use std::path::PathBuf;
+
 use axum::Json;
 use axum::extract::{Query, State};
 use serde::{Deserialize, Serialize};
@@ -11,11 +14,13 @@ use utoipa_axum::routes;
 
 use crate::auth::Viewer;
 use crate::error::AppError;
+use crate::folder_reach::{OTHERS_WAIT, Reach};
 use crate::state::AppState;
 
 use super::archive_items;
 use super::contents::{self, ContentResponse, GroupAncestor};
 use super::folder_search::{self, SearchFileHit, SearchLinkHit};
+use super::shares::search::{self as share_search, SearchShareHit, ShareWalk};
 use super::sort::title_cmp;
 
 /// ADR: 区画ごとに返す件数の上限 (→ docs/search.md「結果の並びと上限」)。
@@ -233,10 +238,12 @@ struct SearchQuery {
     q: String,
     /// 探す場所のグループ・フォルダー・アーカイブの id。無ければ全体を探す。
     within: Option<i64>,
-    /// `within` がフォルダーのとき、その中の階層 (登録パスからの相対パス)。
+    /// 探す場所の共有の id。`within` とは一緒に渡せない。ログインが要る。
+    share: Option<i64>,
+    /// `within` がフォルダーのとき、その中の階層 (登録パスからの相対パス)。`share` のときは共有からの相対パス。
     #[serde(default)]
     path: String,
-    /// `true` なら `within` で絞らず全体を探す。範囲の名前は返すので、画面は切り替えを出したままにできる。
+    /// `true` なら `within`・`share` で絞らず全体を探す。範囲の名前は返すので、画面は切り替えを出したままにできる。
     #[serde(default)]
     all: bool,
 }
@@ -254,7 +261,7 @@ pub(super) struct SearchContentHit {
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct SearchResponse {
-    /// `within` のコンテンツのタイトル。切り替えの「『…』の中」に出す。`within` が無ければ `None`。
+    /// `within` のコンテンツのタイトルか、`share` の共有の名前。切り替えの「『…』の中」に出す。どちらも無ければ `None`。
     scope_title: Option<String>,
     /// 当たりのよい順 (同じ程度ならタイトル順)。区画ごとの上限 (100 件) で打ち切る。
     contents: Vec<SearchContentHit>,
@@ -272,34 +279,19 @@ struct SearchResponse {
     links: Vec<SearchLinkHit>,
     /// `links` を打ち切ったか。
     links_truncated: bool,
+    /// ログインした人が見られる共有の中のファイルとディレクトリ。`files` に出したものは除く。
+    /// 当たりのよい順 (同じ程度なら名前の順)。区画ごとの上限 (100 件) で打ち切る。
+    shares: Vec<SearchShareHit>,
+    /// `shares` を打ち切ったか。
+    shares_truncated: bool,
+    /// 大きな共有を途中までしか辿っていないか (1つの共有で 20,000 件まで)。
+    /// フォルダーと分けるのは、NAS 全体のような共有では、どの語でも打ち切りになり、何が途中までかを伝え分けるため。
+    shares_incomplete: bool,
 }
 
-/// 閲覧者がホームからたどって一覧で見られるコンテンツ・アーカイブの公開アイテム・フォルダーの中・
-/// リンクの一覧のファイルの中のリンクを、タイトルの文字列で探す (→ docs/search.md)。語が空なら空の結果を返す。
-/// `within` を渡すと、その場所の中だけを探す (→ docs/search.md「範囲」)。
-#[utoipa::path(
-    get,
-    path = "/search",
-    params(SearchQuery),
-    responses(
-        (status = OK, body = SearchResponse, description = "区画ごとの検索結果"),
-        (status = 401, body = crate::error::ErrorResponse, description = "範囲の場所を開くにはログインが要る"),
-        (status = 404, body = crate::error::ErrorResponse, description = "範囲の場所が無いか、開けないか、グループ・フォルダー・アーカイブでない"),
-    )
-)]
-async fn search(
-    viewer: Viewer,
-    State(state): State<AppState>,
-    Query(query): Query<SearchQuery>,
-) -> Result<Json<SearchResponse>, AppError> {
-    let scope = match query.within {
-        Some(id) => Some(contents::search_scope(&state, &viewer, id, &query.path).await?),
-        None => None,
-    };
-    let scope_title = scope.as_ref().map(|scope| scope.title.clone());
-    let scope = scope.filter(|_| !query.all);
-    let Some(terms) = Terms::parse(&query.q) else {
-        return Ok(Json(SearchResponse {
+impl SearchResponse {
+    fn empty(scope_title: Option<String>) -> Self {
+        Self {
             scope_title,
             contents: Vec::new(),
             contents_truncated: false,
@@ -308,9 +300,122 @@ async fn search(
             folders_incomplete: false,
             links: Vec::new(),
             links_truncated: false,
-        }));
+            shares: Vec::new(),
+            shares_truncated: false,
+            shares_incomplete: false,
+        }
+    }
+}
+
+/// 閲覧者がホームからたどって一覧で見られるコンテンツ・アーカイブの公開アイテム・フォルダーの中・
+/// リンクの一覧のファイルの中のリンクと、ログインした人が見られる共有の中を、タイトルの文字列で探す (→ docs/search.md)。
+/// 語が空なら空の結果を返す。`within`・`share` を渡すと、その場所の中だけを探す (→ docs/search.md「範囲」)。
+#[utoipa::path(
+    get,
+    path = "/search",
+    params(SearchQuery),
+    responses(
+        (status = OK, body = SearchResponse, description = "区画ごとの検索結果"),
+        (status = 401, body = crate::error::ErrorResponse, description = "範囲の場所を開くにはログインが要る"),
+        (status = 404, body = crate::error::ErrorResponse, description = "範囲の場所が無いか、開けないか、グループ・フォルダー・アーカイブ・共有の中のフォルダーでない"),
+        (status = 503, body = crate::error::ErrorResponse, description = "範囲の共有のある NAS やディスクにつながらない"),
+    )
+)]
+async fn search(
+    viewer: Viewer,
+    State(state): State<AppState>,
+    Query(query): Query<SearchQuery>,
+) -> Result<Json<SearchResponse>, AppError> {
+    if query.within.is_some() && query.share.is_some() {
+        return Err(AppError::NotFound);
+    }
+    let scope = match query.within {
+        Some(id) => Some(contents::search_scope(&state, &viewer, id, &query.path).await?),
+        None => None,
     };
-    let found = contents::search_contents(&state, &viewer, &terms, scope.as_ref()).await?;
+    let share_scope = match (query.share, &viewer) {
+        (Some(id), Viewer::User(user)) => {
+            Some(share_search::scope(&state, user, id, &query.path).await?)
+        }
+        (Some(_), Viewer::Anonymous) => return Err(AppError::Unauthorized),
+        (None, _) => None,
+    };
+    let scope_title = scope
+        .as_ref()
+        .map(|scope| scope.title.clone())
+        .or_else(|| share_scope.as_ref().map(|scope| scope.title().to_owned()));
+    let scope = scope.filter(|_| !query.all);
+    let share_scope = share_scope.filter(|_| !query.all);
+    let Some(terms) = Terms::parse(&query.q) else {
+        return Ok(Json(SearchResponse::empty(scope_title)));
+    };
+    // 共有の中を範囲にしたときは、共有の中だけを探す。コンテンツの区画は共有の外にもあるため。
+    if let (Some(share_scope), Viewer::User(user)) = (share_scope, &viewer) {
+        let walked = share_search::walk(&state, user, Some(share_scope), &terms).await?;
+        let found = share_search::finish(walked, HashSet::new()).await?;
+        return Ok(Json(SearchResponse {
+            shares_incomplete: found.incomplete,
+            shares: found.hits,
+            shares_truncated: found.truncated,
+            ..SearchResponse::empty(scope_title)
+        }));
+    }
+    // 共有の中は、コンテンツの側と並べて辿る。どちらも辿るのはディスクで、順に待つと NAS では倍かかるため。
+    // コンテンツの中を範囲にしたときは、範囲の外になるので辿らない。
+    let walk_shares = async {
+        match (&viewer, &scope) {
+            (Viewer::User(user), None) => share_search::walk(&state, user, None, &terms).await,
+            _ => Ok(ShareWalk::default()),
+        }
+    };
+    let (in_contents, walked) = tokio::join!(
+        search_in_contents(&state, &viewer, &terms, scope.as_ref()),
+        walk_shares
+    );
+    let in_contents = in_contents?;
+    let walked = walked?;
+    // 共有の中に当たりが無ければ、外すものを調べない (未ログインと、コンテンツの中を範囲にしたとき)。
+    let covered = if walked.is_empty() {
+        HashSet::new()
+    } else {
+        covered_paths(&state, &in_contents).await
+    };
+    let in_shares = share_search::finish(walked, covered).await?;
+    Ok(Json(SearchResponse {
+        scope_title,
+        contents: in_contents.contents,
+        contents_truncated: in_contents.contents_truncated,
+        files: in_contents.files,
+        files_truncated: in_contents.files_truncated,
+        folders_incomplete: in_contents.folders_incomplete,
+        links: in_contents.links,
+        links_truncated: in_contents.links_truncated,
+        shares: in_shares.hits,
+        shares_truncated: in_shares.truncated,
+        shares_incomplete: in_shares.incomplete,
+    }))
+}
+
+/// コンテンツ・フォルダーの中・リンクの一覧の中の区画。
+struct ContentSide {
+    contents: Vec<SearchContentHit>,
+    contents_truncated: bool,
+    /// 当たったフォルダーとショートカットの登録パス。
+    hit_paths: Vec<String>,
+    files: Vec<SearchFileHit>,
+    files_truncated: bool,
+    folders_incomplete: bool,
+    links: Vec<SearchLinkHit>,
+    links_truncated: bool,
+}
+
+async fn search_in_contents(
+    state: &AppState,
+    viewer: &Viewer,
+    terms: &Terms,
+    scope: Option<&contents::SearchScope>,
+) -> Result<ContentSide, AppError> {
+    let found = contents::search_contents(state, viewer, terms, scope).await?;
     let archives = found
         .archives
         .iter()
@@ -321,31 +426,65 @@ async fn search(
         })
         .collect();
     let in_folders = folder_search::search(
-        &state,
-        &viewer,
+        state,
+        viewer,
         found.folders,
         archives,
         found.links_files,
-        &terms,
+        terms,
     )
     .await?;
     let (items, items_truncated) =
-        archive_items::search_items(&state, found.archives, terms).await?;
+        archive_items::search_items(state, found.archives, terms.clone()).await?;
     let (files, files_truncated) = merge_file_hits(
         items,
         in_folders.files,
         items_truncated || in_folders.files_truncated,
     );
-    Ok(Json(SearchResponse {
-        scope_title,
+    Ok(ContentSide {
         contents: found.hits,
         contents_truncated: found.truncated,
+        hit_paths: found.hit_paths,
         files,
         files_truncated,
         folders_incomplete: in_folders.incomplete,
         links: in_folders.links,
         links_truncated: in_folders.links_truncated,
-    }))
+    })
+}
+
+/// コンテンツの側の区画に出したものの実体のパス。共有の中の区画で、同じものを2度並べないため。
+/// 当たったフォルダー・ショートカットそのもの (コンテンツの区画) と、フォルダーの中の区画の行。
+/// 登録パスは `folder_reach` で確かめる。つながらない NAS のパスを直に canonicalize すると、長く戻らないため。
+async fn covered_paths(state: &AppState, side: &ContentSide) -> HashSet<PathBuf> {
+    let mut covered: HashSet<PathBuf> = side
+        .files
+        .iter()
+        .filter_map(|hit| hit.absolute.clone())
+        .collect();
+    let mut checks = tokio::task::JoinSet::new();
+    for path in &side.hit_paths {
+        // 確かめるのは親のフォルダー。`folder_reach` はフォルダーを読んで確かめるので、ショートカットの指すファイルでは通らないため。
+        let path = std::path::Path::new(path);
+        let (Some(parent), Some(name)) = (
+            path.parent().and_then(|parent| parent.to_str()),
+            path.file_name(),
+        ) else {
+            continue;
+        };
+        let (parent, name) = (parent.to_owned(), name.to_owned());
+        let reach = state.folder_reach.clone();
+        let pool = state.pool.clone();
+        checks.spawn(async move {
+            match reach.check(&pool, &parent, OTHERS_WAIT).await {
+                Reach::Ready(parent) => Some(parent.join(name)),
+                Reach::Gone | Reach::Unreachable => None,
+            }
+        });
+    }
+    // 確かめられなかったものは外さない。重なっても、出さないよりよいため。
+    covered.extend(checks.join_all().await.into_iter().flatten());
+    covered
 }
 
 /// 一覧の表示の索引の当たりと、フォルダーを辿った当たりを、1つの並びにつなぐ (→ docs/search.md「結果の並びと上限」)。
@@ -529,6 +668,7 @@ mod tests {
                 title: title.to_owned(),
                 subtitle: None,
             }),
+            absolute: None,
         }
     }
 

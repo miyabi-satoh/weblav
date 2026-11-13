@@ -870,12 +870,34 @@ pub(super) async fn search_items(
         }
     }
 
+    // 共有の中の区画から同じファイルを外すため、実体のパスを添える。直に canonicalize せず
+    // `folder_reach` で求める。つながらない NAS では長く戻らないため。
+    // 1つずつ待つと、NAS が切れたときにアーカイブの数だけ待つので、並べて確かめる。
+    let mut checks = tokio::task::JoinSet::new();
+    for (index, (archive, _, _)) in sources.iter().enumerate() {
+        let reach = state.folder_reach.clone();
+        let pool = state.pool.clone();
+        let path = archive.path.clone();
+        checks.spawn(async move {
+            match reach.check(&pool, &path, OTHERS_WAIT).await {
+                crate::folder_reach::Reach::Ready(path) => (index, Some(path)),
+                _ => (index, None),
+            }
+        });
+    }
+    let mut canonical = vec![None; sources.len()];
+    for (index, path) in checks.join_all().await {
+        canonical[index] = path;
+    }
+
     run_blocking(move || {
         // フォルダーごと見つからないアーカイブは、閲覧の画面と同じく行を出さない (→ docs/archive.md「アイテムの配信」)。
-        let sources: Vec<_> = sources
+        // 実体のパスは `sources` と同じ添え字で引くので、組にしたまま外す。
+        let (sources, canonical): (Vec<_>, Vec<_>) = sources
             .into_iter()
-            .filter(|(archive, _, _)| !folder_missing(std::path::Path::new(&archive.path)))
-            .collect();
+            .zip(canonical)
+            .filter(|((archive, _, _), _)| !folder_missing(std::path::Path::new(&archive.path)))
+            .unzip();
         let mut hits: Vec<ItemHit> = Vec::new();
         for (source, (archive, index, filter)) in sources.iter().enumerate() {
             let places = super::search::container_places(&archive.title, &archive.ancestors);
@@ -923,6 +945,9 @@ pub(super) async fn search_items(
             .into_iter()
             .map(|hit| {
                 let (archive, _, _) = &sources[hit.source];
+                let absolute = canonical[hit.source]
+                    .as_ref()
+                    .map(|root| root.join(&hit.item.rel_path));
                 let item = hit.item;
                 // フォルダーの中のファイルの当たりと同じ行にする。配信はフォルダーの口が同じ絞り込みで確かめる (→ docs/folders.md「見せるものの絞り込み」)。
                 let hit_row = SearchFileHit {
@@ -940,6 +965,7 @@ pub(super) async fn search_items(
                         title: item.title,
                         subtitle: item.subtitle,
                     }),
+                    absolute,
                 };
                 (hit.score, hit_row)
             })

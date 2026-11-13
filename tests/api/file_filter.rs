@@ -214,12 +214,17 @@ async fn excluded_rows_in_the_index_stay_out_of_every_reader(pool: SqlitePool) {
         format!("/api/v1/contents/{id}/dir-levels"),
         format!("/api/v1/contents/{id}/filename-words"),
         format!("/api/v1/contents/{id}/axes/{axis_id}/values"),
-        "/api/v1/search?q=himitsu".to_string(),
     ] {
         let (status, body) = send_empty(app.clone(), "GET", &reader, &cookie).await;
         assert_eq!(status, StatusCode::OK, "{reader}: {body}");
         assert!(!body.contains("himitsu"), "{reader}: {body}");
     }
+    // 検索は、共有の中の区画を除いて見る。共有の中は、共有の画面と同じく全部出るため (→ docs/search.md「共有の中」)。
+    let (status, body) = send_empty(app.clone(), "GET", "/api/v1/search?q=himitsu", &cookie).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let mut found = parse_json(&body);
+    found["shares"] = serde_json::Value::Null;
+    assert!(!found.to_string().contains("himitsu"), "{body}");
     let (status, body) = send_json(
         app.clone(),
         "POST",

@@ -23,7 +23,7 @@ use crate::state::AppState;
 
 /// ADR: 1つのフォルダーで、検索のたびに辿るエントリ数の上限。
 /// 索引を持たずに打つたび辿るので、巨大なツリーを指したフォルダーで検索ごと遅くならないよう抑える。
-const FOLDER_WALK_LIMIT: usize = 20_000;
+pub(super) const FOLDER_WALK_LIMIT: usize = 20_000;
 
 /// 検索の対象にするフォルダー。閲覧者が一覧で見られることは、呼び出し側が確かめる。
 pub(super) struct SearchableFolder {
@@ -66,6 +66,9 @@ pub(super) struct SearchFileHit {
     /// 一覧の表示の索引で当たった行なら、その表示タイトルと軸の値。行のタイトルと2段目に出す。
     /// 索引で照らすのは表示タイトルと軸の値で、ファイル名と階層ではないため (→ docs/search.md「何を照らすか」)。
     pub(super) listed: Option<ListedTitle>,
+    /// 実体のパス。共有の中の区画から、同じファイルを外すのに使う。画面には送らない。
+    #[serde(skip)]
+    pub(super) absolute: Option<PathBuf>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -214,23 +217,11 @@ pub(super) async fn search(
                         file_name: name.clone(),
                     });
                 }
-                let own = normalize(&name);
-                // 途中のフォルダー名。名前の手前までの段 (登録パスからの相対)。
-                let dirs: Vec<String> = entry
-                    .rel_path
-                    .rsplit_once('/')
-                    .map(|(dirs, _)| dirs.split('/').map(normalize).collect())
-                    .unwrap_or_default();
-                let mut fields = vec![(FieldKind::Own, own.as_str())];
-                fields.extend(
-                    folder_places
-                        .iter()
-                        .chain(&dirs)
-                        .map(|text| (FieldKind::Place, text.as_str())),
-                );
-                if let Some(found) = walk_terms.score(&fields) {
+                if let Some(score) =
+                    score_walked(&mut walk_terms, &folder_places, &entry.rel_path, &name)
+                {
                     candidates.push(FileCandidate {
-                        score: found.score,
+                        score,
                         folder: index,
                         rel_path: entry.rel_path,
                         name,
@@ -267,6 +258,7 @@ pub(super) async fn search(
                         path: candidate.rel_path,
                         entry,
                         listed: None,
+                        absolute: Some(candidate.absolute),
                     },
                 ))
             })
@@ -285,6 +277,31 @@ pub(super) async fn search(
         links,
         links_truncated,
     })
+}
+
+/// 辿ったエントリを、名前と、入れ物 (`places`) と途中のフォルダーの名前で照らす。
+/// 共有の中の区画 (`shares::search`) も同じ照らし方にし、2つの区画で並びがずれないようにする。
+/// `rel_path` は入れ物からの相対パス (`/` 区切り)、`name` はその最後の段。
+pub(super) fn score_walked(
+    terms: &mut Terms,
+    places: &[String],
+    rel_path: &str,
+    name: &str,
+) -> Option<Score> {
+    let own = normalize(name);
+    // 途中のフォルダー名。名前の手前までの段。
+    let dirs: Vec<String> = rel_path
+        .rsplit_once('/')
+        .map(|(dirs, _)| dirs.split('/').map(normalize).collect())
+        .unwrap_or_default();
+    let mut fields = vec![(FieldKind::Own, own.as_str())];
+    fields.extend(
+        places
+            .iter()
+            .chain(&dirs)
+            .map(|text| (FieldKind::Place, text.as_str())),
+    );
+    terms.score(&fields).map(|found| found.score)
 }
 
 /// アーカイブの見せるアイテムのうち、リンクの一覧のファイル。配信と同じ確かめ (`item_file`) を通ったものだけ。

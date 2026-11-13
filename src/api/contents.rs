@@ -2551,6 +2551,8 @@ pub(super) struct ContentSearch {
     pub(super) folders: Vec<super::folder_search::SearchableFolder>,
     /// 閲覧者が一覧で見られる、リンクの一覧のファイルを指すショートカット。
     pub(super) links_files: Vec<super::folder_search::LinksFileContent>,
+    /// 当たったフォルダーとショートカットの登録パス (canonicalize していない)。共有の中の区画から、同じものを外すのに使う。
+    pub(super) hit_paths: Vec<String>,
 }
 
 /// 閲覧者が一覧で見られるコンテンツを、タイトルと説明で探す。
@@ -2675,8 +2677,16 @@ pub(super) async fn search_contents(
 
     let mut placements = Vec::with_capacity(hits.len());
     let mut contents = Vec::with_capacity(hits.len());
+    let mut hit_paths = Vec::new();
     for (row, found) in hits {
         placements.push((group_lineage(&groups, row.parent_id), found.in_detail));
+        if matches!(
+            row.content_type,
+            ContentType::Folder | ContentType::Shortcut
+        ) && let Some(path) = &row.path
+        {
+            hit_paths.push(path.clone());
+        }
         contents.push(ContentResponse::from_row(row, viewer)?);
     }
     let contents = with_previews(state, contents).await?;
@@ -2721,6 +2731,7 @@ pub(super) async fn search_contents(
         archives,
         folders,
         links_files,
+        hit_paths,
     })
 }
 
