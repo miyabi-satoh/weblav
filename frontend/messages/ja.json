@@ -138,7 +138,6 @@
 	"shares_access_level_all": "フルアクセス",
 	"admin_operations_nav_title": "操作の記録",
 	"admin_operations_table_datetime": "日時",
-	"admin_operations_table_user": "ユーザー",
 	"admin_operations_table_operation": "操作",
 	"admin_operations_table_target": "対象",
 	"admin_operations_fetch_failed": "操作の記録を読み込めませんでした。しばらくしてからもう一度お試しください。",

@@ -192,7 +192,6 @@
 	"shares_access_level_all": "Full access",
 	"admin_operations_nav_title": "Activity",
 	"admin_operations_table_datetime": "Date",
-	"admin_operations_table_user": "User",
 	"admin_operations_table_operation": "Action",
 	"admin_operations_table_target": "Target",
 	"admin_operations_fetch_failed": "Couldn't load the activity. Please try again later.",
