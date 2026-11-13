@@ -872,18 +872,22 @@ pub(super) async fn search_items(
 
     // 共有の中の区画から同じファイルを外すため、実体のパスを添える。直に canonicalize せず
     // `folder_reach` で求める。つながらない NAS では長く戻らないため。
-    let mut canonical = Vec::with_capacity(sources.len());
-    for (archive, _, _) in &sources {
-        canonical.push(
-            match state
-                .folder_reach
-                .check(&state.pool, &archive.path, OTHERS_WAIT)
-                .await
-            {
-                crate::folder_reach::Reach::Ready(path) => Some(path),
-                _ => None,
-            },
-        );
+    // 1つずつ待つと、NAS が切れたときにアーカイブの数だけ待つので、並べて確かめる。
+    let mut checks = tokio::task::JoinSet::new();
+    for (index, (archive, _, _)) in sources.iter().enumerate() {
+        let reach = state.folder_reach.clone();
+        let pool = state.pool.clone();
+        let path = archive.path.clone();
+        checks.spawn(async move {
+            match reach.check(&pool, &path, OTHERS_WAIT).await {
+                crate::folder_reach::Reach::Ready(path) => (index, Some(path)),
+                _ => (index, None),
+            }
+        });
+    }
+    let mut canonical = vec![None; sources.len()];
+    for (index, path) in checks.join_all().await {
+        canonical[index] = path;
     }
 
     run_blocking(move || {
