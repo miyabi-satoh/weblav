@@ -3,8 +3,8 @@
   "private": true,
   "packageManager": "pnpm@12.10.1",
   "devDependencies": {
-    "lefthook": "^2.1.14",
-    "sharp": "0.35.4",
+    "lefthook": "^2.2.2",
+    "sharp": "0.35.5",
     "to-ico": "1.1.5"
   },
   "scripts": {

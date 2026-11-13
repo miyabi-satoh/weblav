@@ -6,22 +6,46 @@
       {
         "name": "raw_value",
         "ordinal": 0,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "archive_axis_values",
+            "name": "raw_value"
+          }
+        }
       },
       {
         "name": "display_name",
         "ordinal": 1,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "archive_axis_values",
+            "name": "display_name"
+          }
+        }
       },
       {
         "name": "position",
         "ordinal": 2,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "archive_axis_values",
+            "name": "position"
+          }
+        }
       },
       {
         "name": "match_position: AxisMatchPosition",
         "ordinal": 3,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "archive_axis_values",
+            "name": "match_position"
+          }
+        }
       }
     ],
     "parameters": {

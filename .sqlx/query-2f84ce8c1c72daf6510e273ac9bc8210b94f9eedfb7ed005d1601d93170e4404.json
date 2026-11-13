@@ -6,12 +6,24 @@
       {
         "name": "name",
         "ordinal": 0,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "roots",
+            "name": "name"
+          }
+        }
       },
       {
         "name": "editor_access: ShareAccess",
         "ordinal": 1,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "roots",
+            "name": "editor_access"
+          }
+        }
       }
     ],
     "parameters": {

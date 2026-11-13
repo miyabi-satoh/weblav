@@ -6,42 +6,90 @@
       {
         "name": "content_type: ContentType",
         "ordinal": 0,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "type"
+          }
+        }
       },
       {
         "name": "title",
         "ordinal": 1,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "title"
+          }
+        }
       },
       {
         "name": "path",
         "ordinal": 2,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "path"
+          }
+        }
       },
       {
         "name": "include_patterns",
         "ordinal": 3,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "include_patterns"
+          }
+        }
       },
       {
         "name": "exclude_patterns",
         "ordinal": 4,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "exclude_patterns"
+          }
+        }
       },
       {
         "name": "visibility: super::contents::Visibility",
         "ordinal": 5,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "visibility"
+          }
+        }
       },
       {
         "name": "created_by",
         "ordinal": 6,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "created_by"
+          }
+        }
       },
       {
         "name": "list_view: bool",
         "ordinal": 7,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "list_view"
+          }
+        }
       }
     ],
     "parameters": {

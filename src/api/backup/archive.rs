@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use sqlx::sqlite::{SqliteConnectOptions, SqliteConnection, SqlitePoolOptions};
-use sqlx::{Connection, SqlitePool};
+use sqlx::{AssertSqlSafe, Connection, SqlitePool};
 use zip::result::ZipError;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
@@ -372,7 +372,7 @@ async fn copy_tables(
 
     // 先に全部消してから入れる。入れた後で別の表を消すと、`ON DELETE` の動作が入れた行に及ぶため。
     for table in &tables {
-        sqlx::query(&format!("DELETE FROM main.{}", quote(table)))
+        sqlx::query(AssertSqlSafe(format!("DELETE FROM main.{}", quote(table))))
             .execute(&mut *tx)
             .await?;
     }
@@ -388,9 +388,9 @@ async fn copy_tables(
             .collect::<Vec<_>>()
             .join(", ");
         let table = quote(table);
-        sqlx::query(&format!(
+        sqlx::query(AssertSqlSafe(format!(
             "INSERT INTO main.{table} ({columns}) SELECT {columns} FROM backup.{table}"
-        ))
+        )))
         .execute(&mut *tx)
         .await?;
     }
@@ -406,14 +406,14 @@ async fn copy_tables(
     .await?;
 
     let session_table = quote(SESSION_TABLE);
-    let sessions: Vec<String> = sqlx::query_scalar(&format!("SELECT id FROM main.{session_table}"))
+    let sessions: Vec<String> = sqlx::query_scalar(AssertSqlSafe(format!("SELECT id FROM main.{session_table}")))
         .fetch_all(&mut *tx)
         .await?;
     // 消す前に登録する。消した後で、戻す前から続いていた要求がセッションを書き戻しても残らない
     // (→ `session::Store`)。確定できなければ消えていないので、登録も取り消す。
     revoked.extend(sessions.iter().cloned());
     let deleted = async {
-        sqlx::query(&format!("DELETE FROM main.{session_table}"))
+        sqlx::query(AssertSqlSafe(format!("DELETE FROM main.{session_table}")))
             .execute(&mut *tx)
             .await?;
         tx.commit().await
@@ -426,7 +426,8 @@ async fn copy_tables(
     Ok(())
 }
 
-/// SQLite の識別子として引用する。
+/// SQLite の識別子として引用する。表と列の名前はこれで引用してから SQL に組むので、
+/// 組んだ文字列は `AssertSqlSafe` で渡してよい (値の注入にならない)。
 fn quote(name: &str) -> String {
     format!("\"{}\"", name.replace('"', "\"\""))
 }
