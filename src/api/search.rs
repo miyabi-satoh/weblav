@@ -13,7 +13,8 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use crate::auth::Viewer;
-use crate::error::{AppError, run_blocking};
+use crate::error::AppError;
+use crate::folder_reach::{OTHERS_WAIT, Reach};
 use crate::state::AppState;
 
 use super::archive_items;
@@ -372,8 +373,14 @@ async fn search(
         walk_shares
     );
     let in_contents = in_contents?;
-    let covered = covered_paths(&in_contents).await?;
-    let in_shares = share_search::finish(walked?, covered).await?;
+    let walked = walked?;
+    // 共有の中に当たりが無ければ、外すものを調べない (未ログインと、コンテンツの中を範囲にしたとき)。
+    let covered = if walked.is_empty() {
+        HashSet::new()
+    } else {
+        covered_paths(&state, &in_contents).await
+    };
+    let in_shares = share_search::finish(walked, covered).await?;
     Ok(Json(SearchResponse {
         scope_title,
         contents: in_contents.contents,
@@ -448,22 +455,36 @@ async fn search_in_contents(
 
 /// コンテンツの側の区画に出したものの実体のパス。共有の中の区画で、同じものを2度並べないため。
 /// 当たったフォルダー・ショートカットそのもの (コンテンツの区画) と、フォルダーの中の区画の行。
-async fn covered_paths(side: &ContentSide) -> Result<HashSet<PathBuf>, AppError> {
-    let registered = side.hit_paths.clone();
+/// 登録パスは `folder_reach` で確かめる。つながらない NAS のパスを直に canonicalize すると、長く戻らないため。
+async fn covered_paths(state: &AppState, side: &ContentSide) -> HashSet<PathBuf> {
     let mut covered: HashSet<PathBuf> = side
         .files
         .iter()
         .filter_map(|hit| hit.absolute.clone())
         .collect();
-    let canonical = run_blocking(move || {
-        registered
-            .iter()
-            .filter_map(|path| std::fs::canonicalize(path).ok())
-            .collect::<Vec<_>>()
-    })
-    .await?;
-    covered.extend(canonical);
-    Ok(covered)
+    let mut checks = tokio::task::JoinSet::new();
+    for path in &side.hit_paths {
+        // 確かめるのは親のフォルダー。`folder_reach` はフォルダーを読んで確かめるので、ショートカットの指すファイルでは通らないため。
+        let path = std::path::Path::new(path);
+        let (Some(parent), Some(name)) = (
+            path.parent().and_then(|parent| parent.to_str()),
+            path.file_name(),
+        ) else {
+            continue;
+        };
+        let (parent, name) = (parent.to_owned(), name.to_owned());
+        let reach = state.folder_reach.clone();
+        let pool = state.pool.clone();
+        checks.spawn(async move {
+            match reach.check(&pool, &parent, OTHERS_WAIT).await {
+                Reach::Ready(parent) => Some(parent.join(name)),
+                Reach::Gone | Reach::Unreachable => None,
+            }
+        });
+    }
+    // 確かめられなかったものは外さない。重なっても、出さないよりよいため。
+    covered.extend(checks.join_all().await.into_iter().flatten());
+    covered
 }
 
 /// 一覧の表示の索引の当たりと、フォルダーを辿った当たりを、1つの並びにつなぐ (→ docs/search.md「結果の並びと上限」)。

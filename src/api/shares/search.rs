@@ -100,6 +100,13 @@ pub(in crate::api) struct ShareWalk {
     incomplete: bool,
 }
 
+impl ShareWalk {
+    /// 当たりが1つも無いか。
+    pub(in crate::api) fn is_empty(&self) -> bool {
+        self.candidates.is_empty()
+    }
+}
+
 /// `user` が見られる共有の中のファイル・ディレクトリを名前で照らす。`scope` があれば、その中だけを辿る。
 pub(in crate::api) async fn walk(
     state: &AppState,
