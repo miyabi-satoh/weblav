@@ -25,6 +25,7 @@
 	} from '$lib/operations';
 	import { pageTitle } from '$lib/page-title';
 	import { fitColumnClass } from '$lib/table-columns';
+	import { LatestRequest } from '$lib/latest-request';
 	import * as m from '$lib/paraglide/messages.js';
 	import * as Select from '$lib/components/ui/select';
 	import * as Table from '$lib/components/ui/table';
@@ -70,11 +71,15 @@
 	let nextBefore = $state<number | null>(null);
 	let loadingMore = $state(false);
 	const errorDialog = new ErrorDialogState();
+	// 続きを読んでいる間に絞り込みを変えると、前の絞り込みの続きが後から届く。足さずに捨てる。
+	const moreRequests = new LatestRequest();
 
 	// 画面を開き直したら、足した分を捨てて最初の1回分からにする。
 	$effect.pre(() => {
 		nextBefore = data.operations.nextBefore ?? null;
 		more = [];
+		moreRequests.invalidate();
+		loadingMore = false;
 	});
 
 	let items = $derived([...data.operations.items, ...more]);
@@ -83,11 +88,14 @@
 		if (loadingMore || nextBefore === null) return;
 		loadingMore = true;
 		const before = nextBefore;
-		const result = await errorDialog.attempt(() =>
-			client.GET('/api/v1/admin/operations', {
-				params: { query: { ...data.filters, before } }
-			})
-		);
+		const isLatest = moreRequests.begin();
+		const pending = client.GET('/api/v1/admin/operations', {
+			params: { query: { ...data.filters, before } }
+		});
+		// 最新かを確かめてから結果を扱う。前の絞り込みの続きが失敗しても、今の画面にエラーを出さないため。
+		await pending.catch(() => {});
+		if (!isLatest()) return;
+		const result = await errorDialog.attempt(() => pending);
 		if (result?.data) {
 			more = [...more, ...result.data.items];
 			nextBefore = result.data.nextBefore ?? null;

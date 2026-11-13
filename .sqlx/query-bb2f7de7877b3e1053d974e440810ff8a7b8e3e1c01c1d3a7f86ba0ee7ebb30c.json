@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\" FROM users WHERE username = ?",
+  "query": "SELECT id as \"id!\" FROM users WHERE username = ? COLLATE NOCASE",
   "describe": {
     "columns": [
       {
@@ -16,5 +16,5 @@
       true
     ]
   },
-  "hash": "707f307df6196b863875a047b21ae2d51876b85307213d55db392be6a318b518"
+  "hash": "bb2f7de7877b3e1053d974e440810ff8a7b8e3e1c01c1d3a7f86ba0ee7ebb30c"
 }

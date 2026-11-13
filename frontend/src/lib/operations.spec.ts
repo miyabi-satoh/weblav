@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { opFieldLines, opPlaces, opResultLabel } from './operations';
+import { opFieldLines, opFilters, opPlaces, opResultLabel } from './operations';
 import type { components } from '$lib/api/schema';
 
 type Operation = components['schemas']['OperationResponse'];
@@ -76,5 +76,29 @@ describe('opResultLabel', () => {
 	it('marks only operations that did not finish', () => {
 		expect(opResultLabel(base)).toBeUndefined();
 		expect(opResultLabel({ ...base, result: 'failed' })).toBeDefined();
+	});
+});
+
+describe('opFilters', () => {
+	const users = [{ id: 1 }, { id: 2 }];
+	const filters = (query: string) => opFilters(new URLSearchParams(query), users);
+
+	it('一覧にいるユーザーと知っている分類で絞り込む', () => {
+		expect(filters('category=auth&user=2')).toEqual({ category: 'auth', userId: 2 });
+	});
+
+	it('一覧にいないユーザー (消した人など) では絞り込まない', () => {
+		expect(filters('user=3').userId).toBeUndefined();
+	});
+
+	it('数でないユーザーと知らない分類では絞り込まない', () => {
+		expect(filters('category=unknown&user=abc')).toEqual({
+			category: undefined,
+			userId: undefined
+		});
+	});
+
+	it('ユーザーの一覧が取れなかったときは、ユーザーで絞り込まない', () => {
+		expect(opFilters(new URLSearchParams('user=1'), []).userId).toBeUndefined();
 	});
 });

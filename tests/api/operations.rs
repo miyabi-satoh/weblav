@@ -57,7 +57,8 @@ async fn failed_and_successful_logins_are_recorded_and_filterable(pool: SqlitePo
     insert_user(&pool, "alice", "correct-password").await;
     let (app, admin) = admin_app(&pool).await;
     let alice = db_user_id(&pool, "alice").await;
-    for username in ["alice", "nobody"] {
+    // 大文字と小文字だけ違う名前の失敗も、その人のものとして残る (ログインは区別しないため)。
+    for username in ["alice", "Alice", "nobody"] {
         let (status, _) = send_anon_json(
             app.clone(),
             "POST",
@@ -80,8 +81,16 @@ async fn failed_and_successful_logins_are_recorded_and_filterable(pool: SqlitePo
             )
         })
         .collect();
-    assert_eq!(results, vec![("login", "succeeded"), ("login", "failed")]);
+    assert_eq!(
+        results,
+        vec![
+            ("login", "succeeded"),
+            ("login", "failed"),
+            ("login", "failed")
+        ]
+    );
     assert_eq!(items[1]["error"], "invalid_credentials");
+    assert_eq!(items[1]["username"], "Alice");
 
     // いない名前の失敗は、打ち込まれた名前で残り、ユーザーの id を持たない。
     let body = list(app, &admin, "category=auth").await;

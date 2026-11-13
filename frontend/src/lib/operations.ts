@@ -19,6 +19,19 @@ type AxisSource = components['schemas']['AxisSource'];
 /** 絞り込みに並べる分類の順。画面の管理のタブと同じ並び。 */
 export const OP_CATEGORIES: OpCategory[] = ['auth', 'contents', 'users', 'shares', 'settings'];
 
+/**
+ * URL クエリの絞り込み。知らない値は絞り込まないものとして扱う。消したユーザーなど、
+ * 一覧に無いユーザーも知らない値とする。絞り込みの欄に名前を出せず、「すべて」と出したまま絞り込むことになるため。
+ */
+export function opFilters(
+	params: URLSearchParams,
+	users: readonly { id: number }[]
+): { category?: OpCategory; userId?: number } {
+	const category = OP_CATEGORIES.find((value) => value === params.get('category'));
+	const user = Number(params.get('user'));
+	return { category, userId: users.some(({ id }) => id === user) ? user : undefined };
+}
+
 export function opCategoryLabel(category: OpCategory): string {
 	switch (category) {
 		case 'auth':
