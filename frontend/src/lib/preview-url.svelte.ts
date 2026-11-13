@@ -134,8 +134,10 @@ export function followPreviewUrl(handlers: NonNullable<typeof viewers>) {
 				open = false;
 				shownKey = null;
 				cancelPendingWrite();
-				handlers.close();
 			}
+			// 開いていなくても閉じる。進むで開き直している途中 (画像を読む間) に戻ると、
+			// 履歴の移動が shallow で beforeNavigate を通らず、ほかに取りやめる所が無いため。
+			handlers.close();
 			restoring = wanted;
 			if (wanted !== null) scheduleRestore();
 		});
