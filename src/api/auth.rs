@@ -114,9 +114,11 @@ async fn login(
 
 /// ログインとリカバリコードでの再設定の失敗を残す。他人のアカウントで試されていないかを、後から確かめるため。
 /// 打ち込まれた名前のユーザーがいれば、その人の操作として絞り込めるよう id も残す。
+/// ログインと同じく大文字と小文字を区別せずに探す (`auth::authenticate`)。区別すると、
+/// 大文字と小文字だけ違う名前で試されたものが、その人で絞り込んでも出ない。
 async fn record_failed_sign_in(state: &AppState, op: Op, username: &str, err: &AppError) {
     let user_id = match sqlx::query_scalar!(
-        r#"SELECT id as "id!" FROM users WHERE username = ?"#,
+        r#"SELECT id as "id!" FROM users WHERE username = ? COLLATE NOCASE"#,
         username
     )
     .fetch_optional(&state.pool)
