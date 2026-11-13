@@ -4,7 +4,7 @@ WebLAV lets you view files on your computer in a browser on phones and tablets o
 
 ![WebLAV open in a phone browser: a list of registered content, a list of photos, and an open photo, while audio plays at the bottom of the screen](images/intro-overview.webp)
 
-You can open this manual at any time from “Manual” on the WebLAV icon in the task tray (menu bar on macOS, top right of the screen on Ubuntu).
+You can open this manual at any time from “Manual” on the WebLAV icon in the system tray (menu bar on macOS, top right of the screen on Ubuntu).
 
 ## What you can do
 
@@ -27,13 +27,13 @@ Only content registered in the admin pages appears for viewers.
 
 1. Install and start WebLAV. On Windows, get “WebLAV” from Microsoft Store and open it. On macOS, put `WebLAV.app` in the Applications folder and open it.
 
-2. Choose “Setup” from the WebLAV icon in the task tray (menu bar on macOS, top right of the screen on Ubuntu), then create an administrator. Keep the recovery code shown.
+2. Choose “Setup” from the WebLAV icon in the system tray (menu bar on macOS, top right of the screen on Ubuntu), then create an administrator. Keep the recovery code shown.
 
-   ![WebLAV icon menu in the task tray on Windows](images/quickstart-tray-menu.webp)
+   ![WebLAV icon menu in the system tray on Windows](images/quickstart-tray-menu.webp)
 
    ![The setup screen](images/quickstart-setup.webp)
 
-3. In “Shares” in the admin pages, add a folder that you are willing to share. The button for adding appears only when you open it from “Open in browser” in the task tray menu on the computer running WebLAV (→ [Add shares](04-shares.md)).
+3. In “Shares” in the admin pages, add a folder that you are willing to share. The button for adding appears only when you open it from “Open in browser” in the system tray menu on the computer running WebLAV (→ [Add shares](04-shares.md)).
 
    ![The Shares page](images/quickstart-roots.webp)
 

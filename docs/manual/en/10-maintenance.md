@@ -3,9 +3,9 @@
 ## Start and quit
 
 - Start: Open WebLAV from the Start menu (or the Applications folder on macOS).
-- Quit: Choose “Quit” from the WebLAV icon in the task tray (menu bar on macOS, top right of the screen on Ubuntu).
+- Quit: Choose “Quit” from the WebLAV icon in the system tray (menu bar on macOS, top right of the screen on Ubuntu).
 
-  ![WebLAV icon menu in the task tray on Windows](images/quickstart-tray-menu.webp)
+  ![WebLAV icon menu in the system tray on Windows](images/quickstart-tray-menu.webp)
 
 WebLAV runs only while you are logged in to the computer.
 

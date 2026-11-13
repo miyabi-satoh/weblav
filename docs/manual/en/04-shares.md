@@ -15,9 +15,9 @@ To show something on the viewer's screen (Home), register a folder or file in a 
 
 ## Open it
 
-1. On the computer running WebLAV, choose “Open in browser” from the WebLAV icon in the task tray (menu bar on macOS, top right of the screen on Ubuntu). This opens `http://localhost:8370`.
+1. On the computer running WebLAV, choose “Open in browser” from the WebLAV icon in the system tray (menu bar on macOS, top right of the screen on Ubuntu). This opens `http://localhost:8370`.
 
-   ![WebLAV icon menu in the task tray on Windows](images/quickstart-tray-menu.webp)
+   ![WebLAV icon menu in the system tray on Windows](images/quickstart-tray-menu.webp)
 
 2. Log in as an administrator, select your username at the top right, then choose “Admin”.
 
