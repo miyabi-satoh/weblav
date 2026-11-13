@@ -1,11 +1,12 @@
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { pdfjsAssets } from './scripts/pdfjs-assets.ts';
 import { thirdPartyLicenses } from './scripts/third-party-licenses.ts';
+import { flakyAnnotations } from './scripts/vitest-flaky-annotations.ts';
 
 export default defineConfig({
 	plugins: [
@@ -49,6 +50,13 @@ export default defineConfig({
 	},
 	test: {
 		expect: { requireAssertions: true },
+		// 落ちたテストを2回まで流し直す (e2e の Playwright と同じ回数)。機械が詰まって時々落ちるテストで、CI や手元の検査が止まらないようにする。
+		// 流し直して通ったテストは flakyAnnotations が最後に警告で出すので、埋もれずに直す相手として見える。
+		retry: 2,
+		// 場所を出せば、警告から行へ飛べる。
+		includeTaskLocation: true,
+		// reporters を書くと既定が置き換わるので、既定 (エージェントでは minimal、GitHub Actions では github-actions も) に足す。
+		reporters: [...configDefaults.reporters, flakyAnnotations()],
 		projects: [
 			{
 				extends: './vite.config.ts',
