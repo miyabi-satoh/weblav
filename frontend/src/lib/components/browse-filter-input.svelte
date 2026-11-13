@@ -17,5 +17,6 @@
 		active={filter.active}
 		class={className}
 		bind:value={() => filter.value, (next) => filter.set(next)}
+		onblur={() => filter.flush()}
 	/>
 {/if}

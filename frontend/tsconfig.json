@@ -8,6 +8,6 @@
 		// (Node docs typescript.html 推奨)。
 		"erasableSyntaxOnly": true
 	},
-	// 既定の include は src/ 配下のみなので、scripts/・設定のファイルも tsc/svelte-check の対象に入れる。
+	// 型検査 (tsc/svelte-check) の対象。指定しないとフォルダーの全部 (ビルドの出力を含む) になる。
 	"include": ["src", "vite.config.ts", "playwright.config.ts", "scripts/**/*.ts"]
 }

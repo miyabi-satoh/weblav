@@ -105,14 +105,11 @@ export function previewClosed() {
 /**
  * 画面を移る (戻る・進むで別の画面へ移るのを含む)。ビューアーを閉じるかを返す。
  * ページを離れる (読み込み直す・外のサイトへ移る) ときは閉じない。ブラウザーがページを残して戻ってきたとき、URL と食い違わないように。
- * 書きかけは、戻ってきたときに同じものを開けるよう、移る前に今の画面の履歴へ書く。
- * 戻る・進むでは履歴がもう移った先を指しているので、書かずに取り消す。
+ * 前後に移って URL に写す前の書きかけは、書かずに取り消す。replaceState は履歴を書く前に待つので、
+ * ここで書くと移った先の履歴を書き換えうる (戻ったときは、写し終えた所を開く)。
  */
-export function previewLeaving(navigation: { type: string; willUnload: boolean }): boolean {
-	if (pendingWrite !== undefined) {
-		cancelPendingWrite();
-		if (navigation.type !== 'popstate' && open) write(shownKey, false);
-	}
+export function previewLeaving(navigation: { willUnload: boolean }): boolean {
+	cancelPendingWrite();
 	if (navigation.willUnload) return false;
 	open = false;
 	shownKey = null;
