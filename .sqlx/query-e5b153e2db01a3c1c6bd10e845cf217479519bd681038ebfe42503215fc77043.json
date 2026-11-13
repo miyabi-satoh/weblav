@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "UPDATE contents\n           SET parent_id = ?, title = ?, url = ?, path = ?, description = ?,\n               visibility = ?, include_patterns = ?, exclude_patterns = ?, title_template = ?,\n               list_view = ?,\n               auto_rescan_mode = ?, auto_rescan_hours = ?, auto_rescan_time = ?,\n               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')\n           WHERE id = ?\n           RETURNING id as \"id!\", type as \"content_type: ContentType\", parent_id, title, url,\n                     path, description, created_at as \"created_at!\",\n                     visibility as \"visibility: Visibility\", created_by, include_patterns, exclude_patterns, title_template,\n                     list_view as \"list_view: bool\",\n                     auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time",
+  "query": "UPDATE contents\n           SET parent_id = ?, title = ?, url = ?, path = ?, description = ?,\n               visibility = ?, include_patterns = ?, exclude_patterns = ?, title_template = ?,\n               list_view = ?,\n               auto_rescan_mode = ?, auto_rescan_hours = ?, auto_rescan_time = ?,\n               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')\n           WHERE id = ?\n           RETURNING id as \"id!\", type as \"content_type: ContentType\", parent_id as \"parent_id?\", title, url,\n                     path, description, created_at as \"created_at!\",\n                     visibility as \"visibility: Visibility\", created_by as \"created_by?\", include_patterns, exclude_patterns, title_template,\n                     list_view as \"list_view: bool\",\n                     auto_rescan_mode as \"auto_rescan_mode: AutoMode\", auto_rescan_hours, auto_rescan_time",
   "describe": {
     "columns": [
       {
@@ -26,7 +26,7 @@
         }
       },
       {
-        "name": "parent_id",
+        "name": "parent_id?",
         "ordinal": 2,
         "type_info": "Integer",
         "origin": {
@@ -103,7 +103,7 @@
         }
       },
       {
-        "name": "created_by",
+        "name": "created_by?",
         "ordinal": 9,
         "type_info": "Integer",
         "origin": {
@@ -214,5 +214,5 @@
       true
     ]
   },
-  "hash": "f4e675c2b9efb9dad105ebefad810420c8cf1bfe997e3def75c685abe27a3d20"
+  "hash": "e5b153e2db01a3c1c6bd10e845cf217479519bd681038ebfe42503215fc77043"
 }

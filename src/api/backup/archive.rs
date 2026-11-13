@@ -406,9 +406,11 @@ async fn copy_tables(
     .await?;
 
     let session_table = quote(SESSION_TABLE);
-    let sessions: Vec<String> = sqlx::query_scalar(AssertSqlSafe(format!("SELECT id FROM main.{session_table}")))
-        .fetch_all(&mut *tx)
-        .await?;
+    let sessions: Vec<String> = sqlx::query_scalar(AssertSqlSafe(format!(
+        "SELECT id FROM main.{session_table}"
+    )))
+    .fetch_all(&mut *tx)
+    .await?;
     // 消す前に登録する。消した後で、戻す前から続いていた要求がセッションを書き戻しても残らない
     // (→ `session::Store`)。確定できなければ消えていないので、登録も取り消す。
     revoked.extend(sessions.iter().cloned());
