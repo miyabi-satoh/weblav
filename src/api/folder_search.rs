@@ -217,23 +217,11 @@ pub(super) async fn search(
                         file_name: name.clone(),
                     });
                 }
-                let own = normalize(&name);
-                // 途中のフォルダー名。名前の手前までの段 (登録パスからの相対)。
-                let dirs: Vec<String> = entry
-                    .rel_path
-                    .rsplit_once('/')
-                    .map(|(dirs, _)| dirs.split('/').map(normalize).collect())
-                    .unwrap_or_default();
-                let mut fields = vec![(FieldKind::Own, own.as_str())];
-                fields.extend(
-                    folder_places
-                        .iter()
-                        .chain(&dirs)
-                        .map(|text| (FieldKind::Place, text.as_str())),
-                );
-                if let Some(found) = walk_terms.score(&fields) {
+                if let Some(score) =
+                    score_walked(&mut walk_terms, &folder_places, &entry.rel_path, &name)
+                {
                     candidates.push(FileCandidate {
-                        score: found.score,
+                        score,
                         folder: index,
                         rel_path: entry.rel_path,
                         name,
@@ -289,6 +277,31 @@ pub(super) async fn search(
         links,
         links_truncated,
     })
+}
+
+/// 辿ったエントリを、名前と、入れ物 (`places`) と途中のフォルダーの名前で照らす。
+/// 共有の中の区画 (`shares::search`) も同じ照らし方にし、2つの区画で並びがずれないようにする。
+/// `rel_path` は入れ物からの相対パス (`/` 区切り)、`name` はその最後の段。
+pub(super) fn score_walked(
+    terms: &mut Terms,
+    places: &[String],
+    rel_path: &str,
+    name: &str,
+) -> Option<Score> {
+    let own = normalize(name);
+    // 途中のフォルダー名。名前の手前までの段。
+    let dirs: Vec<String> = rel_path
+        .rsplit_once('/')
+        .map(|(dirs, _)| dirs.split('/').map(normalize).collect())
+        .unwrap_or_default();
+    let mut fields = vec![(FieldKind::Own, own.as_str())];
+    fields.extend(
+        places
+            .iter()
+            .chain(&dirs)
+            .map(|text| (FieldKind::Place, text.as_str())),
+    );
+    terms.score(&fields).map(|found| found.score)
 }
 
 /// アーカイブの見せるアイテムのうち、リンクの一覧のファイル。配信と同じ確かめ (`item_file`) を通ったものだけ。

@@ -64,6 +64,8 @@ fn is_invalid_on_windows(name: &str) -> bool {
 pub(super) struct Resolved {
     pub(super) root_id: i64,
     pub(super) root_name: String,
+    /// 共有の実体のパス。
+    pub(super) root_path: PathBuf,
     /// 場所の実体のパス。
     pub(super) canonical: PathBuf,
     /// 共有からの相対パス。実体の綴りを '/' でつなぐ。共有そのものなら空。
@@ -111,12 +113,14 @@ pub(super) async fn resolve_existing(
     let own_dirs = state.own_dirs.clone();
     let rel = rel.to_string();
     let canonical_root = root.path;
+    let root_path = canonical_root.clone();
     let (canonical, rel) = run_blocking(move || {
         let own_dirs = OwnDirs::resolve(&own_dirs);
         resolve_under(&canonical_root, &rel, &own_dirs)
     })
     .await??;
     Ok(Resolved {
+        root_path,
         access: effective_access(&access, &all_roots, &canonical),
         root_id,
         root_name: root.name,

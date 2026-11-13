@@ -3,6 +3,7 @@
 //! 見える範囲の判定は一覧と同じヘルパー (`can_list`) を通す。
 
 use std::collections::HashSet;
+use std::path::PathBuf;
 
 use axum::Json;
 use axum::extract::{Query, State};
@@ -12,13 +13,13 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use crate::auth::Viewer;
-use crate::error::AppError;
+use crate::error::{AppError, run_blocking};
 use crate::state::AppState;
 
 use super::archive_items;
 use super::contents::{self, ContentResponse, GroupAncestor};
 use super::folder_search::{self, SearchFileHit, SearchLinkHit};
-use super::shares::search::{self as share_search, SearchShareHit, ShareSearch};
+use super::shares::search::{self as share_search, SearchShareHit, ShareWalk};
 use super::sort::title_cmp;
 
 /// ADR: 区画ごとに返す件数の上限 (→ docs/search.md「結果の並びと上限」)。
@@ -270,7 +271,7 @@ struct SearchResponse {
     files: Vec<SearchFileHit>,
     /// `files` を打ち切ったか。
     files_truncated: bool,
-    /// 大きなフォルダーか共有を途中までしか辿っていないか (1か所で 20,000 件まで)。
+    /// 大きなフォルダーを途中までしか辿っていないか (1つのフォルダーで 20,000 件まで)。
     /// その先のファイルとリンクの一覧は探していない。語を足しても広がらないので、打ち切りとは分けて伝える。
     folders_incomplete: bool,
     /// リンクの一覧のファイルの中のリンク。当たりのよい順 (同じ程度なら題の順)。区画ごとの上限 (100 件) で打ち切る。
@@ -282,6 +283,9 @@ struct SearchResponse {
     shares: Vec<SearchShareHit>,
     /// `shares` を打ち切ったか。
     shares_truncated: bool,
+    /// 大きな共有を途中までしか辿っていないか (1つの共有で 20,000 件まで)。
+    /// フォルダーと分けるのは、NAS 全体のような共有では、どの語でも打ち切りになり、何が途中までかを伝え分けるため。
+    shares_incomplete: bool,
 }
 
 impl SearchResponse {
@@ -297,6 +301,7 @@ impl SearchResponse {
             links_truncated: false,
             shares: Vec::new(),
             shares_truncated: false,
+            shares_incomplete: false,
         }
     }
 }
@@ -345,16 +350,65 @@ async fn search(
     };
     // 共有の中を範囲にしたときは、共有の中だけを探す。コンテンツの区画は共有の外にもあるため。
     if let (Some(share_scope), Viewer::User(user)) = (share_scope, &viewer) {
-        let found =
-            share_search::search(&state, user, Some(share_scope), &terms, HashSet::new()).await?;
+        let walked = share_search::walk(&state, user, Some(share_scope), &terms).await?;
+        let found = share_search::finish(walked, HashSet::new()).await?;
         return Ok(Json(SearchResponse {
-            folders_incomplete: found.incomplete,
+            shares_incomplete: found.incomplete,
             shares: found.hits,
             shares_truncated: found.truncated,
             ..SearchResponse::empty(scope_title)
         }));
     }
-    let found = contents::search_contents(&state, &viewer, &terms, scope.as_ref()).await?;
+    // 共有の中は、コンテンツの側と並べて辿る。どちらも辿るのはディスクで、順に待つと NAS では倍かかるため。
+    // コンテンツの中を範囲にしたときは、範囲の外になるので辿らない。
+    let walk_shares = async {
+        match (&viewer, &scope) {
+            (Viewer::User(user), None) => share_search::walk(&state, user, None, &terms).await,
+            _ => Ok(ShareWalk::default()),
+        }
+    };
+    let (in_contents, walked) = tokio::join!(
+        search_in_contents(&state, &viewer, &terms, scope.as_ref()),
+        walk_shares
+    );
+    let in_contents = in_contents?;
+    let covered = covered_paths(&in_contents).await?;
+    let in_shares = share_search::finish(walked?, covered).await?;
+    Ok(Json(SearchResponse {
+        scope_title,
+        contents: in_contents.contents,
+        contents_truncated: in_contents.contents_truncated,
+        files: in_contents.files,
+        files_truncated: in_contents.files_truncated,
+        folders_incomplete: in_contents.folders_incomplete,
+        links: in_contents.links,
+        links_truncated: in_contents.links_truncated,
+        shares: in_shares.hits,
+        shares_truncated: in_shares.truncated,
+        shares_incomplete: in_shares.incomplete,
+    }))
+}
+
+/// コンテンツ・フォルダーの中・リンクの一覧の中の区画。
+struct ContentSide {
+    contents: Vec<SearchContentHit>,
+    contents_truncated: bool,
+    /// 当たったフォルダーとショートカットの登録パス。
+    hit_paths: Vec<String>,
+    files: Vec<SearchFileHit>,
+    files_truncated: bool,
+    folders_incomplete: bool,
+    links: Vec<SearchLinkHit>,
+    links_truncated: bool,
+}
+
+async fn search_in_contents(
+    state: &AppState,
+    viewer: &Viewer,
+    terms: &Terms,
+    scope: Option<&contents::SearchScope>,
+) -> Result<ContentSide, AppError> {
+    let found = contents::search_contents(state, viewer, terms, scope).await?;
     let archives = found
         .archives
         .iter()
@@ -365,44 +419,51 @@ async fn search(
         })
         .collect();
     let in_folders = folder_search::search(
-        &state,
-        &viewer,
+        state,
+        viewer,
         found.folders,
         archives,
         found.links_files,
-        &terms,
+        terms,
     )
     .await?;
     let (items, items_truncated) =
-        archive_items::search_items(&state, found.archives, terms.clone()).await?;
+        archive_items::search_items(state, found.archives, terms.clone()).await?;
     let (files, files_truncated) = merge_file_hits(
         items,
         in_folders.files,
         items_truncated || in_folders.files_truncated,
     );
-    // コンテンツの中を範囲にしたときは、共有の中は探さない。範囲の外になるため。
-    let in_shares = match (&viewer, &scope) {
-        (Viewer::User(user), None) => {
-            let covered = files
-                .iter()
-                .filter_map(|hit| hit.absolute.clone())
-                .collect();
-            share_search::search(&state, user, None, &terms, covered).await?
-        }
-        _ => ShareSearch::default(),
-    };
-    Ok(Json(SearchResponse {
-        scope_title,
+    Ok(ContentSide {
         contents: found.hits,
         contents_truncated: found.truncated,
+        hit_paths: found.hit_paths,
         files,
         files_truncated,
-        folders_incomplete: in_folders.incomplete || in_shares.incomplete,
+        folders_incomplete: in_folders.incomplete,
         links: in_folders.links,
         links_truncated: in_folders.links_truncated,
-        shares: in_shares.hits,
-        shares_truncated: in_shares.truncated,
-    }))
+    })
+}
+
+/// コンテンツの側の区画に出したものの実体のパス。共有の中の区画で、同じものを2度並べないため。
+/// 当たったフォルダー・ショートカットそのもの (コンテンツの区画) と、フォルダーの中の区画の行。
+async fn covered_paths(side: &ContentSide) -> Result<HashSet<PathBuf>, AppError> {
+    let registered = side.hit_paths.clone();
+    let mut covered: HashSet<PathBuf> = side
+        .files
+        .iter()
+        .filter_map(|hit| hit.absolute.clone())
+        .collect();
+    let canonical = run_blocking(move || {
+        registered
+            .iter()
+            .filter_map(|path| std::fs::canonicalize(path).ok())
+            .collect::<Vec<_>>()
+    })
+    .await?;
+    covered.extend(canonical);
+    Ok(covered)
 }
 
 /// 一覧の表示の索引の当たりと、フォルダーを辿った当たりを、1つの並びにつなぐ (→ docs/search.md「結果の並びと上限」)。

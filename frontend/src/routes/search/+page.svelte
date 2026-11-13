@@ -318,6 +318,17 @@
 	</p>
 {/snippet}
 
+{#snippet incompleteNotes(margin: string)}
+	{#if result?.foldersIncomplete}
+		<p class={[margin, pageEmptyTextClass]}>{m.search_folders_incomplete()}</p>
+	{/if}
+	{#if result?.sharesIncomplete}
+		<p class={[result.foldersIncomplete ? 'mt-2' : margin, pageEmptyTextClass]}>
+			{m.search_shares_incomplete()}
+		</p>
+	{/if}
+{/snippet}
+
 <div class="py-6">
 	<!-- 結果との間は、一覧の上の段と一覧の間と同じにする。 -->
 	<div class={[browseGutterClass, hasHits && 'mb-4']}>
@@ -388,9 +399,7 @@
 		<p class={['mt-6', pageEmptyTextClass]}>{m.search_fetch_failed()}</p>
 	{:else if result && !hasHits}
 		<p class={['mt-6', pageEmptyTextClass]}>{m.search_empty({ query: data.q.trim() })}</p>
-		{#if result.foldersIncomplete}
-			<p class={['mt-2', pageEmptyTextClass]}>{m.search_folders_incomplete()}</p>
-		{/if}
+		{@render incompleteNotes('mt-2')}
 	{:else if result}
 		{#if contentHits.length > 0}
 			<section>
@@ -453,8 +462,6 @@
 				{/if}
 			</section>
 		{/if}
-		{#if result.foldersIncomplete}
-			<p class={['mt-8', pageEmptyTextClass]}>{m.search_folders_incomplete()}</p>
-		{/if}
+		{@render incompleteNotes('mt-8')}
 	{/if}
 </div>

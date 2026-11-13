@@ -334,6 +334,12 @@ async fn search_finds_entries_in_readable_shares_for_logged_in_users(pool: Sqlit
     assert_eq!(shares[0]["shareName"], share_name.as_str(), "{found}");
     assert_eq!(shares[0]["path"], "教材/リスニング.pdf", "{found}");
     assert_eq!(found["sharesTruncated"], false, "{found}");
+    // コンテンツの区画に出したフォルダーそのものも重ねない。
+    let (status, body) = send_empty(app.clone(), "GET", &search_uri("公開", ""), &cookie).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let found = parse_json(&body);
+    assert_eq!(found["contents"][0]["content"]["id"], folder_id, "{found}");
+    assert!(!body.contains("\"path\":\"教材/公開\""), "{found}");
     // ログインしていなければ、共有の中は探さない。
     let found = search(app, "リスニング").await;
     assert_eq!(found["shares"], serde_json::json!([]), "{found}");

@@ -2901,7 +2901,7 @@ export interface components {
             /** @description `files` を打ち切ったか。 */
             filesTruncated: boolean;
             /**
-             * @description 大きなフォルダーか共有を途中までしか辿っていないか (1か所で 20,000 件まで)。
+             * @description 大きなフォルダーを途中までしか辿っていないか (1つのフォルダーで 20,000 件まで)。
              *     その先のファイルとリンクの一覧は探していない。語を足しても広がらないので、打ち切りとは分けて伝える。
              */
             foldersIncomplete: boolean;
@@ -2916,6 +2916,11 @@ export interface components {
              *     当たりのよい順 (同じ程度なら名前の順)。区画ごとの上限 (100 件) で打ち切る。
              */
             shares: components["schemas"]["SearchShareHit"][];
+            /**
+             * @description 大きな共有を途中までしか辿っていないか (1つの共有で 20,000 件まで)。
+             *     フォルダーと分けるのは、NAS 全体のような共有では、どの語でも打ち切りになり、何が途中までかを伝え分けるため。
+             */
+            sharesIncomplete: boolean;
             /** @description `shares` を打ち切ったか。 */
             sharesTruncated: boolean;
         };

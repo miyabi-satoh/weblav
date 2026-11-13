@@ -219,10 +219,12 @@ async fn excluded_rows_in_the_index_stay_out_of_every_reader(pool: SqlitePool) {
         assert_eq!(status, StatusCode::OK, "{reader}: {body}");
         assert!(!body.contains("himitsu"), "{reader}: {body}");
     }
-    // 検索は未ログインで見る。ログインした人には、共有の画面と同じく共有の中が全部出るため (→ docs/search.md「共有の中」)。
-    let (status, body) = send_anon(app.clone(), "GET", "/api/v1/search?q=himitsu").await;
+    // 検索は、共有の中の区画を除いて見る。共有の中は、共有の画面と同じく全部出るため (→ docs/search.md「共有の中」)。
+    let (status, body) = send_empty(app.clone(), "GET", "/api/v1/search?q=himitsu", &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert!(!body.contains("himitsu"), "{body}");
+    let mut found = parse_json(&body);
+    found["shares"] = serde_json::Value::Null;
+    assert!(!found.to_string().contains("himitsu"), "{body}");
     let (status, body) = send_json(
         app.clone(),
         "POST",
