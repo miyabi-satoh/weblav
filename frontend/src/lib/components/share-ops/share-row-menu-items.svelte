@@ -42,7 +42,7 @@
 			{m.shares_copy_menu()}
 		</DropdownMenu.Item>
 	{:else if action === 'download'}
-		<!-- 行を押すとビューアーで開くものも、ファイルとして手元に置けるようにする。API への直リンク (→ $lib/api/urls.ts)。 -->
+		<!-- 行を押すとビューアーで開くものも、ファイルとして手元に置けるようにする。API への直リンク (→ #lib/api/urls.ts)。 -->
 		<DropdownMenu.Item>
 			{#snippet child({ props })}
 				<a

@@ -7,7 +7,7 @@
 	import * as m from '#lib/paraglide/messages.js';
 
 	// 検索の結果の行の2段目に出す、どこにあるか。押すと階層を全部並べ、選んだ段の画面を開く
-	// (→ docs/search.md「画面」)。行のリンクの上に重ねて置く (→ $lib/list-row.ts)。
+	// (→ docs/search.md「画面」)。行のリンクの上に重ねて置く (→ #lib/list-row.ts)。
 	let {
 		location,
 		clip = browseLayout.tile

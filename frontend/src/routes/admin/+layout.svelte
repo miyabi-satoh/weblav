@@ -25,35 +25,15 @@
 	const recoveryCode = new RecoveryCodeCreate(errorDialog);
 
 	let tabs = $derived([
-		{
-			href: resolve('admin/contents'),
-			label: m.admin_contents_nav_title,
-			icon: LayoutListIcon
-		},
-
-		{
-			href: resolve('admin/users'),
-			label: m.admin_users_nav_title,
-			icon: UsersIcon
-		},
-
-		{
-			href: resolve('admin/roots'),
-			label: m.admin_roots_nav_title,
-			icon: FolderLockIcon
-		},
-
+		{ href: resolve('admin/contents'), label: m.admin_contents_nav_title, icon: LayoutListIcon },
+		{ href: resolve('admin/users'), label: m.admin_users_nav_title, icon: UsersIcon },
+		{ href: resolve('admin/roots'), label: m.admin_roots_nav_title, icon: FolderLockIcon },
 		{
 			href: resolve('admin/operations'),
 			label: m.admin_operations_nav_title,
 			icon: HistoryIcon
 		},
-
-		{
-			href: resolve('admin/settings'),
-			label: m.admin_settings_nav_title,
-			icon: SettingsIcon
-		}
+		{ href: resolve('admin/settings'), label: m.admin_settings_nav_title, icon: SettingsIcon }
 	]);
 </script>
 

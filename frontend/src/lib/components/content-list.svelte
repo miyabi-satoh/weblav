@@ -146,7 +146,7 @@
 		};
 	}
 
-	// URL の `preview` には、コンテンツの番号を持つ (→ $lib/preview-url.svelte.ts)。
+	// URL の `preview` には、コンテンツの番号を持つ (→ #lib/preview-url.svelte.ts)。
 	let viewerList = $derived(
 		viewerItems(entries, toViewerImage, toViewerFile, (content) => String(content.id))
 	);

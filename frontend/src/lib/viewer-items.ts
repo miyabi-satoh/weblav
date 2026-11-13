@@ -15,7 +15,7 @@ import { closeImageViewer, openImageViewer, type ViewerImage } from '#lib/image-
 import { previewClosed, previewShown } from '#lib/preview-url.svelte.ts';
 
 /**
- * `key` は、開いているものを URL の `preview` に持つときの見分け (→ $lib/preview-url.svelte.ts)。
+ * `key` は、開いているものを URL の `preview` に持つときの見分け (→ #lib/preview-url.svelte.ts)。
  * 一覧の中で重ならず、読み込み直しても変わらないものを、一覧が持つ値から作る。一覧に無いものは持たない。
  */
 export type ViewerItem = (
@@ -83,7 +83,7 @@ export function openLinkedPath(from: ContentLocation, path: string) {
 	showFile([{ type: 'file', file }], 0);
 }
 
-/** URL の `preview` から開き直す (→ $lib/preview-url.svelte.ts)。 */
+/** URL の `preview` から開き直す (→ #lib/preview-url.svelte.ts)。 */
 export function openViewerAt(items: ViewerItem[], index: number) {
 	cancelRestore();
 	restoring = new AbortController();

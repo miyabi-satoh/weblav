@@ -3,7 +3,11 @@
 	"compilerOptions": {
 		"sourceMap": true,
 		"strict": true,
+		// scripts/ 配下は `node` の型ストリップ実行(`node scripts/generate-spec.ts`)で
+		// 動かすため、型検査でも型だけを消して実行できない構文を弾く
+		// (Node docs typescript.html 推奨)。
 		"erasableSyntaxOnly": true
 	},
+	// 既定の include は src/ 配下のみなので、scripts/・設定のファイルも tsc/svelte-check の対象に入れる。
 	"include": ["src", "vite.config.ts", "playwright.config.ts", "scripts/**/*.ts"]
 }

@@ -1,5 +1,5 @@
 // ページ内で開いているもの (画像・ファイルのビューアー) を、URL の `preview` に持つ決まり
-// (→ docs/ui.md「PDF・動画・テキストのビューアー」)。履歴の書き方は $lib/preview-url.svelte.ts。
+// (→ docs/ui.md「PDF・動画・テキストのビューアー」)。履歴の書き方は #lib/preview-url.svelte.ts。
 
 import type { ReadonlyURL } from '$app/state';
 import { queryParams, withQuery } from '#lib/href.ts';

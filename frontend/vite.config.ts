@@ -20,9 +20,6 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 			adapter: adapter({ fallback: 'index.html' })
-
-			// 既定の include は src/・test/ 配下のみで scripts/・playwright.config.ts が
-			// tsc/svelte-check の対象外になっていた (→ frontend/scripts, playwright.config.ts)。
 		}),
 
 		paraglideVitePlugin({

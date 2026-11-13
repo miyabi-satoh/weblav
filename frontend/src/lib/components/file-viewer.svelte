@@ -34,9 +34,8 @@
 	let current = $derived(fileViewer.current);
 
 	// 戻るなどで画面を移ったら閉じる。移った先の上に、前の画面のファイルを残さない。
-	// 開いているものを URL に写す shallow routing の履歴 (→ $lib/preview-url.svelte.ts) は、画面の移動にならないので、ここは通らない。
+	// 開いているものを URL に写す shallow routing の履歴 (→ #lib/preview-url.svelte.ts) は、画面の移動にならないので、ここは通らない。
 	beforeNavigate((navigation) => {
-		if (navigation.shallow && navigation.type === 'goto') return;
 		if (previewLeaving(navigation)) closeViewers();
 	});
 
@@ -60,7 +59,7 @@
 	function handleKeydown(event: KeyboardEvent) {
 		// 動画のシークバーの左右キーと、拡大した PDF の横のスクロールと重ねない。
 		if (event.target instanceof HTMLInputElement || zoomStep > 0) return;
-		// Markdown のプレビューの表は、フォーカスを当てて左右キーで横に送る (→ $lib/manual-markdown.ts)。
+		// Markdown のプレビューの表は、フォーカスを当てて左右キーで横に送る (→ #lib/manual-markdown.ts)。
 		if (event.target instanceof Element && event.target.closest('.table-scroll')) return;
 		// Excel の表 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
 		if (event.target instanceof Element && event.target.closest('[data-office-view]')) return;
@@ -140,7 +139,7 @@
 							</div>
 						</div>
 					{/if}
-					<!-- API への直リンクか、URL のファイルの元の URL (→ $lib/api/urls.ts)。 -->
+					<!-- API への直リンクか、URL のファイルの元の URL (→ #lib/api/urls.ts)。 -->
 					<a
 						href={current.originalUrl ?? current.src}
 						class={viewerButtonClass}
@@ -163,7 +162,7 @@
 								class="flex size-full flex-col items-center justify-center gap-4 p-4 text-center"
 							>
 								<p>{m.file_viewer_error()}</p>
-								<!-- API への直リンクか、URL のファイルの元の URL (→ $lib/api/urls.ts)。 -->
+								<!-- API への直リンクか、URL のファイルの元の URL (→ #lib/api/urls.ts)。 -->
 								<a
 									href={current.originalUrl ?? current.src}
 									class="text-white underline underline-offset-4"

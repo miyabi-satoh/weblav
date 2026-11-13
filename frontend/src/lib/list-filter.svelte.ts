@@ -1,5 +1,5 @@
 import { getContext, setContext, untrack } from 'svelte';
-import { beforeNavigate, goto, replaceState } from '$app/navigation';
+import { beforeNavigate, replaceState } from '$app/navigation';
 import { page } from '$app/state';
 import { queryParams, withQuery } from '#lib/href.ts';
 import { LIST_FILTER_QUERY, matchFilter, parseFilterTerms } from '#lib/list-filter.ts';
@@ -24,7 +24,7 @@ export class ListFilterState {
 	#pendingWrite: ReturnType<typeof setTimeout> | undefined;
 
 	constructor() {
-		// shallow routing は page.url を変えないので、語は page.state にも持ち、そちらを先に読む。
+		// shallow routing の replaceState は page.url を変えないので、語は page.state にも持ち、そちらを先に読む。
 		// 戻る・進むでは page.state が戻り、読み込み直し (再読み込み・共有されたリンク) では URL から読む。
 		$effect.pre(() => {
 			const incoming = page.state.listFilter ?? page.url.searchParams.get(LIST_FILTER_QUERY) ?? '';
@@ -37,11 +37,10 @@ export class ListFilterState {
 		// 書きかけは、移る前に今の画面の履歴へ書く (戻ったときに語が残るように)。
 		// 戻る・進むでは履歴がもう移った先を指しているので、書かずに取り消す。
 		beforeNavigate((navigation) => {
-			if (navigation.shallow && navigation.type === 'goto') return;
 			if (this.#pendingWrite === undefined) return;
 			clearTimeout(this.#pendingWrite);
 			this.#pendingWrite = undefined;
-			if (navigation.type !== 'popstate') this.#write(true);
+			if (navigation.type !== 'popstate') this.#write();
 		});
 		$effect(() => () => clearTimeout(this.#pendingWrite));
 	}
@@ -73,28 +72,20 @@ export class ListFilterState {
 		}, URL_WRITE_DELAY_MS);
 	}
 
-	/** `duringNavigation` は、移る前の処理 (`beforeNavigate`) の中から書くとき。 */
-	#write(duringNavigation = false) {
+	#write() {
 		const query = this.value.trim() === '' ? '' : this.value;
 		this.#seen = query;
 		// ほかのクエリは、`page.url` でなく今のブラウザーの URL から取る。shallow routing で書いたもの
-		// (開いているものの `preview`。→ $lib/preview-url.svelte.ts) は `page.url` に写らず、外したものも残るため。
+		// (開いているものの `preview`。→ #lib/preview-url.svelte.ts) は `page.url` に写らず、外したものも残るため。
 		const params = queryParams(location.search);
 		delete params[LIST_FILTER_QUERY];
 		const href = withQuery(
 			location.pathname,
 			query === '' ? params : { ...params, [LIST_FILTER_QUERY]: query }
 		);
-		const state = { ...page.state, listFilter: query };
-		if (duringNavigation) {
-			// FIX: 移る前の処理の中では、非推奨の replaceState で書く。shallow の goto は移動を始め直す扱いで、
-			// 走っている移動 (押したリンク) を取り消すため。replaceState は移動に触らない (SvelteKit 4 で消える)。
-			// eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の URL のパスをそのまま使う (→ AGENTS.md「コードの規約」)
-			replaceState(href, state);
-			return;
-		}
+		// FIX: 非推奨の replaceState で書く理由は #lib/preview-url.svelte.ts の write() と同じ。
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の URL のパスをそのまま使う (→ AGENTS.md「コードの規約」)
-		goto(href, { shallow: true, replace: true, state });
+		replaceState(href, { ...page.state, listFilter: query });
 	}
 
 	/** ほかのクエリ (並び順など) へ移る href に、今の語を引き継ぐための項目。 */

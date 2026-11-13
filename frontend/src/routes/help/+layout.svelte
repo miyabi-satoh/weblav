@@ -21,13 +21,7 @@
 
 	// スマートフォン幅のページでは目次をボタンの中にたたみ、本文から見せる (→ docs/help.md)。
 	let tocOpen = $state(false);
-
-	afterNavigate(({ shallow, type }) => {
-		if (shallow && type === 'goto') return;
-
-		return (tocOpen = false);
-	});
-
+	afterNavigate(() => (tocOpen = false));
 	const tocCollapsed = $derived(page.params.slug !== undefined && !tocOpen);
 </script>
 

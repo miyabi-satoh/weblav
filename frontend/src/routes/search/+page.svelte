@@ -250,7 +250,7 @@
 	}
 
 	/**
-	 * URL の `preview` に持つ、ファイルの行の見分け (→ $lib/preview-url.svelte.ts)。いくつものフォルダーの行が並ぶので、
+	 * URL の `preview` に持つ、ファイルの行の見分け (→ #lib/preview-url.svelte.ts)。いくつものフォルダーの行が並ぶので、
 	 * フォルダーの番号を前に付ける。`/` を含むので、コンテンツの行 (番号) とも重ならない。
 	 */
 	function filePreviewKey(row: FolderEntryRow): string {

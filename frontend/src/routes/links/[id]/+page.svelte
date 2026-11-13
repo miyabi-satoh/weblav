@@ -97,7 +97,7 @@
 	{#if linksFile.links == null}
 		<div class={['flex flex-col items-start gap-2', browseGutterClass]}>
 			<p>{m.links_file_error()}</p>
-			<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
+			<!-- API への直リンク (→ #lib/api/urls.ts)。 -->
 			<a
 				href={downloadHref}
 				class="text-primary underline underline-offset-4"

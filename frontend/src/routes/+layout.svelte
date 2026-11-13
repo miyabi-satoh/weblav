@@ -143,7 +143,6 @@
 				/>
 			{:else}
 				<!-- スマートフォン幅では文字を読み上げにだけ渡す (→ docs/ui.md「UI 全般」)。 -->
-
 				<a href={resolve('login')} class={headerTextActionClass}>
 					<LogInIcon data-icon="inline-start" class="size-5" />
 					<span class="max-md:sr-only">{m.login_nav_label()}</span>
@@ -170,7 +169,7 @@
 />
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />
-
 <PasswordConfirmationDialog />
+
 <!-- ヘッダー (52px / md 以上 56px → docs/ui.md「UI 全般」) のすぐ下に出す。 -->
 <Toaster position="top-center" offset={{ top: 64 }} mobileOffset={{ top: 60 }} />

@@ -7,7 +7,7 @@
 	type Props = {
 		/** 今の並び順。URL クエリから読んだ値を渡す。 */
 		value: T;
-		/** 選べる並び順 (画面ごとに違う。→ `#lib/browse-sort`, `$lib/archive-sort`)。 */
+		/** 選べる並び順 (画面ごとに違う。→ `#lib/browse-sort.ts`, `#lib/archive-sort.ts`)。 */
 		options: { value: T; label: () => string }[];
 		/** 並び順を変えた先の URL を組み立てる。クエリ以外は呼び出し側が決める。 */
 		href: (sort: T) => string;

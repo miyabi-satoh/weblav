@@ -138,11 +138,9 @@
 			type="single"
 			bind:value={
 				() => categoryValue,
-				(
-					next
-
+				(next) =>
 					// eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」)
-				) => goto(filterHref(next, userValue))
+					goto(filterHref(next, userValue))
 			}
 		>
 			<BrowseSelectTrigger
@@ -163,11 +161,9 @@
 			type="single"
 			bind:value={
 				() => userValue,
-				(
-					next
-
+				(next) =>
 					// eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」)
-				) => goto(filterHref(categoryValue, next))
+					goto(filterHref(categoryValue, next))
 			}
 		>
 			<BrowseSelectTrigger

@@ -90,22 +90,19 @@
 								required
 							/>
 						</Field.Field>
-
-						<Field.Field
-							><LoadingButton type="submit" class="w-full" {loading}
-								>{m.login_submit()}</LoadingButton
-							></Field.Field
-						>
+						<Field.Field>
+							<LoadingButton type="submit" class="w-full" {loading}>
+								{m.login_submit()}
+							</LoadingButton>
+						</Field.Field>
 					</Field.FieldGroup>
 				</form>
 			</Card.Content>
 			<Card.Footer class="flex-col gap-4">
 				<!-- リカバリコードはコードそのものが証明なので、LAN の端末にも出す (→ docs/access.md「リカバリコード」)。 -->
-
 				<a href={resolve('recover')} class={centeredPageFooterLinkClass}
 					>{m.login_forgot_password_link()}</a
 				>
-
 				{#if data.setupRequired}
 					<a href={resolve('/help/[slug]', { slug: 'setup' })} class={centeredPageFooterLinkClass}>
 						{m.login_help_link()}

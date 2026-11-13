@@ -7,7 +7,7 @@
 	import { browseRowClass, browseRowPressClass, browseRowTextClass } from '#lib/list-row.ts';
 	import ListRowIcon from '#lib/components/list-row-icon.svelte';
 
-	// 閲覧側の一覧の、ページ内のビューアーで開く PDF・動画・テキストなどの行・タイル (→ $lib/list-row.ts)。
+	// 閲覧側の一覧の、ページ内のビューアーで開く PDF・動画・テキストなどの行・タイル (→ #lib/list-row.ts)。
 	// 画像の行 (list-row-image-link.svelte) と同じく、元のファイルへの直リンクのまま置き、
 	// 修飾キー付きのクリックや長押しのメニューではブラウザーに任せて新しいタブで開けるようにする。
 	let {
@@ -21,7 +21,7 @@
 		/** `items` と同じ組み立て方で作る (押した行を `items` の中から `src` で探すため)。 */
 		file: ViewerFile;
 		/**
-		 * この行が並ぶ一覧の、ページ内で開くもの (表示順。→ $lib/viewer-items.ts)。ビューアーの前・次になる。
+		 * この行が並ぶ一覧の、ページ内で開くもの (表示順。→ #lib/viewer-items.ts)。ビューアーの前・次になる。
 		 * 関数なら押したときに呼ぶ (区切って取る一覧は、前後の区切りを取ってから作る)。
 		 */
 		items: ViewerItem[] | (() => Promise<ViewerItem[]>);
@@ -54,7 +54,7 @@
 <div class={browseRowClass(compact)}>
 	<ListRowIcon icon={FileIcon} {compact} thumbnail={file.thumbnail} />
 	<span class={browseRowTextClass()}>
-		<!-- API への直リンクか、URL のファイルの元の URL (→ $lib/api/urls.ts)。
+		<!-- API への直リンクか、URL のファイルの元の URL (→ #lib/api/urls.ts)。
 		     中継の URL は Office をダウンロードにし、LAN を指す名前では開けないため、元の URL にする。 -->
 		<a
 			href={file.originalUrl ?? file.src}

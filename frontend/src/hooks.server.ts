@@ -11,7 +11,8 @@ const handleParaglide: Handle = ({ event, resolve }) =>
 			transformPageChunk: ({ html }) =>
 				html
 					.replace('%paraglide.lang%', locale)
-					.replace('%paraglide.dir%', getTextDirection(locale)) // mode-watcher公式のFOUC防止スクリプト。<ModeWatcher disableHeadScriptInjection />
+					.replace('%paraglide.dir%', getTextDirection(locale))
+					// mode-watcher公式のFOUC防止スクリプト。<ModeWatcher disableHeadScriptInjection />
 					// と対にして、二重に注入されないようにしている (→ +layout.svelte)。
 					.replace('%modewatcher.snippet%', `<script>${createInitialModeExpression()}</script>`)
 		})

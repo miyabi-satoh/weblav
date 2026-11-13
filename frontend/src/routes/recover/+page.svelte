@@ -125,9 +125,9 @@
 								{/if}
 							</Field.Field>
 							<Field.Field>
-								<LoadingButton type="submit" class="w-full" {loading} disabled={passwordMismatch}
-									>{m.recover_submit()}</LoadingButton
-								>
+								<LoadingButton type="submit" class="w-full" {loading} disabled={passwordMismatch}>
+									{m.recover_submit()}
+								</LoadingButton>
 							</Field.Field>
 						</Field.FieldGroup>
 					</form>

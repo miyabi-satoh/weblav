@@ -6,7 +6,7 @@
 	import { THUMBNAIL_FOR_ATTRIBUTE } from '#lib/image-viewer.ts';
 	import { tileBandClass } from '#lib/list-row.ts';
 
-	// 1列リストの行の先頭、タイルの上に置くアイコン枠 (→ $lib/list-row.ts、タイルの大きさは docs/ui.md「UI 全般」)。
+	// 1列リストの行の先頭、タイルの上に置くアイコン枠 (→ #lib/list-row.ts、タイルの大きさは docs/ui.md「UI 全般」)。
 	// `play` はページ内で再生する音声の行で、差し色の丸に再生アイコンを入れる。
 	// `current` はプレイヤーに載っている曲の行で、丸を塗り、鳴っている間は一時停止のアイコンにする (下のバーと揃える)。
 	// `thumbnail` は縮小画像のある行 (画像と、OS が縮小画像を作れた PDF・動画・Office などのファイル) で、
@@ -26,7 +26,7 @@
 		compact?: boolean;
 		/**
 		 * `src` は縮小画像、`original` は元のファイルの URL。画像のビューアーは `original` で行の縮小画像を探し、
-		 * 開閉のアニメーションの起点にする (→ $lib/image-viewer.ts)。
+		 * 開閉のアニメーションの起点にする (→ #lib/image-viewer.ts)。
 		 */
 		thumbnail?: { src: string; original: string };
 	} = $props();

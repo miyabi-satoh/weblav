@@ -86,7 +86,7 @@ export const LINKED_PATH_ATTRIBUTE = 'data-linked-path';
 /**
  * `text` を、無害化した HTML にする。組まないもの (長すぎる) は `undefined`。
  *
- * @param tableLabel 表を包む領域の名前 (→ $lib/manual-markdown.ts の `ScrollTableRenderer`)。
+ * @param tableLabel 表を包む領域の名前 (→ #lib/manual-markdown.ts の `ScrollTableRenderer`)。
  * @param location このファイルの場所。無ければ、相対パスの画像とリンクを解決しない (ファイル1つのコンテンツなど)。
  */
 export async function renderMarkdownPreview(

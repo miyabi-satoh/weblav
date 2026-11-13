@@ -10,7 +10,7 @@
  */
 
 import { untrack } from 'svelte';
-import { goto } from '$app/navigation';
+import { pushState, replaceState } from '$app/navigation';
 import { page } from '$app/state';
 import { previewHref, wantedPreviewKey } from '#lib/preview-query.ts';
 import type { ViewerItem } from '#lib/viewer-items.ts';
@@ -44,22 +44,17 @@ let restoreScheduled = false;
 const sources = new Set<PreviewSource>();
 let viewers: { open: (items: ViewerItem[], index: number) => void; close: () => void } | undefined;
 
+// FIX: 非推奨の pushState・replaceState で書く (SvelteKit 4 で消える)。代わりの shallow の goto は移動の扱いで、
+// 走っている移動 (押したリンク) と読み込み直し (refreshAll) の結果を取り消し、移動の前後の処理も呼ぶため。
 function write(key: string | null, push: boolean) {
 	seen = key;
 	const href = previewHref(location.pathname, location.search, key);
 	if (push) {
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の URL のパスをそのまま使う (→ AGENTS.md「コードの規約」)
-		goto(href, {
-			shallow: true,
-			state: { ...page.state, preview: key, previewPushed: true }
-		});
+		pushState(href, { ...page.state, preview: key, previewPushed: true });
 	} else {
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の URL のパスをそのまま使う (→ AGENTS.md「コードの規約」)
-		goto(href, {
-			shallow: true,
-			replace: true,
-			state: { ...page.state, preview: key }
-		});
+		replaceState(href, { ...page.state, preview: key });
 	}
 }
 

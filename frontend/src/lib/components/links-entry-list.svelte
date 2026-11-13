@@ -96,7 +96,7 @@
 	}
 
 	let audioQueue = $derived(rows.filter((row) => remoteOf(row)?.kind === 'audio').map(toTrack));
-	// URL の `preview` には、リンクの URL を持つ (→ $lib/preview-url.svelte.ts)。並びの位置と違い、
+	// URL の `preview` には、リンクの URL を持つ (→ #lib/preview-url.svelte.ts)。並びの位置と違い、
 	// 一覧のファイルに行を足しても変わらない。同じ URL が2つ並んでも、開くものは同じ。
 	let viewerList = $derived(
 		viewerItems(

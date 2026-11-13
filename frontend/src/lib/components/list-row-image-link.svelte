@@ -14,7 +14,7 @@
 	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import * as m from '#lib/paraglide/messages.js';
 
-	// 閲覧側の一覧の、ページ内のビューアーで開く画像の行・タイル (→ $lib/list-row.ts)。
+	// 閲覧側の一覧の、ページ内のビューアーで開く画像の行・タイル (→ #lib/list-row.ts)。
 	// 元の画像への直リンクのまま置き、修飾キー付きのクリックや長押しのメニューでは
 	// ブラウザーに任せて新しいタブで開けるようにする。
 	let {
@@ -28,7 +28,7 @@
 		/** `items` と同じ組み立て方で作る (押した行を `items` の中から `src` で探すため)。 */
 		image: ViewerImage;
 		/**
-		 * この行が並ぶ一覧の、ページ内で開くもの (表示順。→ $lib/viewer-items.ts)。ビューアーの前・次になる。
+		 * この行が並ぶ一覧の、ページ内で開くもの (表示順。→ #lib/viewer-items.ts)。ビューアーの前・次になる。
 		 * 関数なら押したときに呼ぶ (区切って取る一覧は、前後の区切りを取ってから作る)。
 		 */
 		items: ViewerItem[] | (() => Promise<ViewerItem[]>);
@@ -79,7 +79,7 @@
 		{compact}
 	/>
 	<span class={browseRowTextClass()}>
-		<!-- API への直リンク (→ $lib/api/urls.ts)。 -->
+		<!-- API への直リンク (→ #lib/api/urls.ts)。 -->
 		<a
 			href={image.src}
 			class={browseRowPressClass()}

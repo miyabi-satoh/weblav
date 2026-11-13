@@ -12,12 +12,11 @@
 		hiddenCount,
 		isAdmin,
 		onlogout
-
-		/** 管理画面の入口を出すか。管理画面は admin 専用 (→ docs/access.md「ロールと操作」)。 */
-		/** 非表示のコンテンツの一覧に並ぶ件数。0 なら項目を出さない。 */
 	}: {
 		username: string;
+		/** 管理画面の入口を出すか。管理画面は admin 専用 (→ docs/access.md「ロールと操作」)。 */
 		isAdmin: boolean;
+		/** 非表示のコンテンツの一覧に並ぶ件数。0 なら項目を出さない。 */
 		hiddenCount: number;
 		onlogout: () => void;
 	} = $props();

@@ -250,7 +250,7 @@
 				role="alert"
 			>
 				{m.audio_player_error()}
-				<!-- API への直リンクか、URL のファイルの元の URL (→ $lib/api/urls.ts)。 -->
+				<!-- API への直リンクか、URL のファイルの元の URL (→ #lib/api/urls.ts)。 -->
 				<a
 					href={track.originalUrl ?? track.src}
 					class="underline underline-offset-4"

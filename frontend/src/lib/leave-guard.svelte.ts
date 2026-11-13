@@ -23,7 +23,6 @@ export class LeaveGuard {
 		this.#dirty = dirty;
 		this.#saving = saving;
 		beforeNavigate((navigation) => {
-			if (navigation.shallow && navigation.type === 'goto') return;
 			if (!this.#dirty() && !this.#saving()) return;
 			if (leaveConfirmBypassed()) return;
 			// タブを閉じる・再読み込みは、ブラウザー標準の確認に任せる。

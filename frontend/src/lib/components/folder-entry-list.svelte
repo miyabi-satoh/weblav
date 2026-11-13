@@ -78,7 +78,7 @@
 		 */
 		linksHref: (row: FolderEntryRow) => string | undefined;
 		/**
-		 * URL の `preview` に持つ、行の見分け (→ $lib/preview-url.svelte.ts)。省くと、入れ物の一番上からのパス。
+		 * URL の `preview` に持つ、行の見分け (→ #lib/preview-url.svelte.ts)。省くと、入れ物の一番上からのパス。
 		 * ほかのフォルダーの行も並ぶ画面 (検索の結果) は、入れ物も含めて重ならないものを渡す。
 		 */
 		previewKey?: (row: FolderEntryRow) => string;

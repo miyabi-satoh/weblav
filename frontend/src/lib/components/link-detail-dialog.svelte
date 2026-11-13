@@ -28,9 +28,7 @@
 	});
 
 	// 戻るなどで画面を移ったら閉じる。移った先の上に、前の画面のリンクを残さない (ファイルのビューアーと同じ)。
-	beforeNavigate(({ shallow, type }) => {
-		if (shallow && type === 'goto') return;
-
+	beforeNavigate(() => {
 		linkDetail.open = false;
 	});
 	let imageUrl = $derived(preview?.imageUrl !== failedImage ? preview?.imageUrl : null);

@@ -128,13 +128,13 @@
 
 	/** プレビューの中のコードの塊に、言語の指定 (```` ```yaml ````) に合わせて色を付ける。 */
 	function highlightCodeBlocks(article: HTMLElement) {
-		// 無害化で、コードの塊の class は `language-<言語>` の1つだけになっている (→ $lib/markdown-preview.ts)。
+		// 無害化で、コードの塊の class は `language-<言語>` の1つだけになっている (→ #lib/markdown-preview.ts)。
 		for (const code of article.querySelectorAll<HTMLElement>('pre > code[class^="language-"]')) {
 			const language = code.className.slice('language-'.length);
 			void highlightCodeBlock(language, code.textContent)
 				.catch(() => undefined)
 				.then((html) => {
-					// highlight.js が中身をエスケープして返す (→ $lib/code-highlight.ts)。
+					// highlight.js が中身をエスケープして返す (→ #lib/code-highlight.ts)。
 					if (html !== undefined && code.isConnected) code.innerHTML = html;
 				});
 		}
@@ -147,7 +147,7 @@
 			<Spinner class="size-8 text-white" aria-label={m.common_loading()} />
 		</div>
 	{:else if showPreview}
-		<!-- 無害化した HTML (→ $lib/markdown-preview.ts)。 -->
+		<!-- 無害化した HTML (→ #lib/markdown-preview.ts)。 -->
 		<!-- eslint-disable svelte/no-at-html-tags -->
 		{#key preview}
 			<!-- 押されるのは中の相対パスのリンクで、この要素はそのクリックを受けるだけ。リンクは Enter でもクリックを起こすので、キーの操作は別に要らない。 -->
@@ -163,7 +163,7 @@
 		{/key}
 		<!-- eslint-enable svelte/no-at-html-tags -->
 	{:else}
-		<!-- highlight.js が中身をエスケープして返すので、{@html} に渡してよい (→ $lib/code-highlight.ts)。 -->
+		<!-- highlight.js が中身をエスケープして返すので、{@html} に渡してよい (→ #lib/code-highlight.ts)。 -->
 		<!-- eslint-disable svelte/no-at-html-tags -->
 		<pre
 			class={[

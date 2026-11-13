@@ -152,7 +152,6 @@
 
 <div class="px-4 pt-4 md:px-6">
 	<BackLink href={resolve('admin/users')} label={m.admin_users_nav_title()} />
-
 	<!-- パスワードの再設定は見出しの段のボタンに、削除は最後の「削除」の区画に置く (→ docs/ui.md「UI 全般」)。 -->
 	<div class="mt-2 flex items-start gap-2">
 		<h1 class={pageHeadingInRowClass}>{target.username}</h1>
@@ -279,7 +278,6 @@
 				<Button type="button" variant="outline" onclick={() => (resetOpen = false)}
 					>{m.action_cancel()}</Button
 				>
-
 				<!-- ほかの入力のダイアログと同じく、送れる形になるまで押せなくする。 -->
 				<LoadingButton
 					type="submit"

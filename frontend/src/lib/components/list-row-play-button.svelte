@@ -7,7 +7,7 @@
 	import ListRowIcon from '#lib/components/list-row-icon.svelte';
 	import * as m from '#lib/paraglide/messages.js';
 
-	// 閲覧側の一覧の、ページ内プレイヤーで再生する音声の行・タイル (→ $lib/list-row.ts)。
+	// 閲覧側の一覧の、ページ内プレイヤーで再生する音声の行・タイル (→ #lib/list-row.ts)。
 	let {
 		track,
 		queue,

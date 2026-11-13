@@ -93,7 +93,7 @@
 		event.stopPropagation();
 	}
 
-	// 左右キーのほかは、ビューアーのどこにフォーカスがあっても効かせる (動画サイトと同じキー → $lib/video-keys.ts)。
+	// 左右キーのほかは、ビューアーのどこにフォーカスがあっても効かせる (動画サイトと同じキー → #lib/video-keys.ts)。
 	// 開いた直後のフォーカスは動画の外にあり、動画の中だけで受けると押しても効かないため。
 	function handleDocumentKeydown(event: KeyboardEvent) {
 		const action = videoKeyAction(event);

@@ -5,7 +5,7 @@
 	import RowLocationButton from '#lib/components/row-location.svelte';
 	import SeparatedText from '#lib/components/separated-text.svelte';
 
-	// 行の2段目 (→ $lib/list-row.ts)。頭の印・場所・文字を「·」で区切って並べる。何も無ければ段ごと出さない。
+	// 行の2段目 (→ #lib/list-row.ts)。頭の印・場所・文字を「·」で区切って並べる。何も無ければ段ごと出さない。
 	let {
 		prefix,
 		location,

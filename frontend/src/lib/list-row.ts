@@ -3,7 +3,7 @@ import { browseLayout } from '#lib/browse-layout.svelte.ts';
 
 /**
  * 閲覧側の一覧 (トップ・グループ・アーカイブ・フォルダー) で共有する class。
- * 1列リストとタイルの2つの並べ方を持ち、`browse*Class()` が端末で選んだ方を返す (→ $lib/browse-layout.svelte.ts)。
+ * 1列リストとタイルの2つの並べ方を持ち、`browse*Class()` が端末で選んだ方を返す (→ #lib/browse-layout.svelte.ts)。
  * 行は枠 (`browseRowClass`) の中に、タイトルを包むリンクかボタン (`browseRowPressClass`) を1つ置き、
  * その押せる範囲を枠いっぱいに広げる。2段目に置く別のボタン (検索の結果の場所) を、リンクの中に入れ子に
  * せずに重ねるため (→ docs/ui.md「UI 全般」)。

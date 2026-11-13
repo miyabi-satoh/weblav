@@ -70,7 +70,6 @@
 			badge: entry.listedAs ? m.shares_listed_badge() : undefined
 		}))
 	);
-
 	let listedByPath = $derived(
 		new Map(
 			browse.entries.map((entry) => [childSharePath(browse.path, entry.name), entry.listedAs])
@@ -94,9 +93,9 @@
 {#snippet rowMenu(row: FolderEntryRow)}
 	{#if hasActions(row)}
 		<span class={rowMenuSlotClass()}>
-			<RowActionsMenu name={row.entry.name}
-				><ShareRowMenuItems {ops} target={targetOf(row)} /></RowActionsMenu
-			>
+			<RowActionsMenu name={row.entry.name}>
+				<ShareRowMenuItems {ops} target={targetOf(row)} />
+			</RowActionsMenu>
 		</span>
 	{/if}
 {/snippet}
@@ -108,9 +107,7 @@
 		<!-- ホーム / 共有 / 共有の名前 / … (→ docs/ui.md「共有の中の画面」)。 -->
 		<BrowseBreadcrumb ancestors={[]}>
 			<span aria-hidden="true">/</span>
-
 			<a href={resolve('shares')} class={breadcrumbLinkClass}>{m.shares_heading()}</a>
-
 			<span aria-hidden="true">/</span>
 			{#if crumbs.length === 0}
 				<span>{browse.share.name}</span>

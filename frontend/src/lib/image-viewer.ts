@@ -92,7 +92,7 @@ export type OpenImageViewerOptions = {
 	onClose?: () => void;
 };
 
-/** 開いている画像のビューアー。戻るで閉じるため (→ $lib/preview-url.svelte.ts)。 */
+/** 開いている画像のビューアー。戻るで閉じるため (→ #lib/preview-url.svelte.ts)。 */
 let current: { close: () => void } | null = null;
 
 /** 開いている画像のビューアーを閉じる (戻る・画面の移動)。`onClose` は呼ばない。 */
@@ -102,7 +102,7 @@ export function closeImageViewer() {
 
 /**
  * `items[index]` (画像) を開く。前後は `items` のうち、`index` を含む画像の連なり。
- * 連なりの端で前・次を押すと、隣のファイルへ `onLeave` で渡す (→ $lib/viewer-items.ts)。
+ * 連なりの端で前・次を押すと、隣のファイルへ `onLeave` で渡す (→ #lib/viewer-items.ts)。
  *
  * 元の画像を読み終えてから開く (上限を過ぎたら縮小画像で開く)。開き始めたら解決する。
  * 待つ間に行が消えたら (ページを移ったなど) `signal` を中断し、開かないようにする。
