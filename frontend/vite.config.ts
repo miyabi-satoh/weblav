@@ -50,7 +50,7 @@ export default defineConfig({
 	},
 	test: {
 		expect: { requireAssertions: true },
-		// 落ちたテストを2回まで流し直す (Playwright の CI の既定と同じ回数)。機械が詰まって時々落ちるテストで、CI や手元の検査が止まらないようにする。
+		// 落ちたテストを2回まで流し直す (e2e の Playwright と同じ回数)。機械が詰まって時々落ちるテストで、CI や手元の検査が止まらないようにする。
 		// 流し直して通ったテストは flakyAnnotations が最後に警告で出すので、埋もれずに直す相手として見える。
 		retry: 2,
 		// 場所を出せば、警告から行へ飛べる。

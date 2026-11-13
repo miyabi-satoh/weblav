@@ -18,10 +18,11 @@ export default defineConfig({
 	// 落ちたときだけ trace を残す。CI で落ちた様子を、手元で再現できなくても後から見られるように。
 	// 流し直して通ったテストの落ちた回の trace も残る。
 	use: { baseURL, locale: 'en-US', trace: 'retain-on-failure' },
-	// 落ちたテストを2回まで流し直す (CI の既定と同じ回数を手元でも)。機械が詰まって時々落ちるテストで検査を止めない。
+	// 落ちたテストを、手元でも CI でも2回まで流し直す (Playwright の雛形が CI で使う回数)。機械が詰まって時々落ちるテストで検査を止めない。
 	// 流し直して通ったテストは、最後の集計に `N flaky` と出る。
 	retries: 2,
-	// GitHub Actions では、流し直して通ったテストを警告の注記にも出す (注記は PR のチェックと `gh run view` に出る)。
+	// GitHub Actions では注記にも出す (注記は PR のチェックと `gh run view` に出る)。github の reporter は、
+	// 流し直して通ったテストの落ちた回をエラーの注記にし、集計の注記に flaky の数を出す。
 	reporter: process.env.GITHUB_ACTIONS ? [['dot'], ['github']] : 'list',
 	// 管理者ログインをテストごとにUI操作からやり直さない
 	// (公式ベストプラクティス、認証状態の使い回し: https://playwright.dev/docs/auth)。

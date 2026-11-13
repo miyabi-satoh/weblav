@@ -124,7 +124,7 @@ just ci          # frontend-build → fmt-check → lint → check → api-types
 ```
 
 vitest と Playwright は、落ちたテストを2回まで流し直す。
-流し直して通ったテストは最後に出る (vitest は `⚠ Flaky test` の行、Playwright は集計の `N flaky`。GitHub Actions では警告の注記)。
+流し直して通ったテストは最後に出る (vitest は `⚠ Flaky test` の行、Playwright は集計の `N flaky`。GitHub Actions では注記にもなり、vitest は警告、Playwright は落ちた回のエラーと集計の flaky の数)。
 時々落ちているので、出たら原因を調べて直す。
 CI では、落ちたときの画面と trace を成果物 `test-failure-records` に上げる。
 
