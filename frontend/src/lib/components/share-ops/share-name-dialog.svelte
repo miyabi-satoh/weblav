@@ -4,17 +4,17 @@
 	 * 送るのは呼び出し側の `request`。失敗したら閉じずに理由を出し、入れ直せるようにする (同じ名前があるときなど)。
 	 */
 	import { tick, untrack } from 'svelte';
-	import type { ApiResult } from '$lib/api/client';
-	import { dialogFormClass } from '$lib/dialog-form';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { FormDirtyState } from '$lib/form-dirty.svelte';
-	import * as m from '$lib/paraglide/messages.js';
-	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
+	import type { ApiResult } from '#lib/api/client.ts';
+	import { dialogFormClass } from '#lib/dialog-form.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { FormDirtyState } from '#lib/form-dirty.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
 
 	let {
 		open = $bindable(),

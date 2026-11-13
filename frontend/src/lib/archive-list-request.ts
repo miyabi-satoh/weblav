@@ -3,12 +3,12 @@
  * 閲覧の画面と編集ページのファイルのタブで同じ形にする。
  */
 
-import { client } from '$lib/api/client';
-import type { components } from '$lib/api/schema';
-import type { ChunkFetch, ShuffleFetch } from '$lib/archive-paged-list.svelte';
-import { ARCHIVE_CHUNK_SIZE } from '$lib/archive-paged-list.svelte';
-import { LIST_FILTER_QUERY } from '$lib/list-filter';
-import { PREVIEW_QUERY } from '$lib/preview-query';
+import { client } from '#lib/api/client.ts';
+import type { components } from '#lib/api/schema.js';
+import type { ChunkFetch, ShuffleFetch } from '#lib/archive-paged-list.svelte.ts';
+import { ARCHIVE_CHUNK_SIZE } from '#lib/archive-paged-list.svelte.ts';
+import { LIST_FILTER_QUERY } from '#lib/list-filter.ts';
+import { PREVIEW_QUERY } from '#lib/preview-query.ts';
 
 type ArchiveViewItem = components['schemas']['ArchiveViewItem'];
 type ExcludedItem = components['schemas']['ExcludedItem'];

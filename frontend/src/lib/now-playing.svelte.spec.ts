@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { nowPlaying, type Track, type TrackSource } from '$lib/now-playing.svelte';
+import { nowPlaying, type Track, type TrackSource } from '#lib/now-playing.svelte.ts';
 
 function tracks(count: number): Track[] {
 	return Array.from({ length: count }, (_, i) => ({ src: `/t${i}`, title: `t${i}`, position: i }));

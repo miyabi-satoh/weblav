@@ -1,7 +1,7 @@
 <script lang="ts" module>
-	import type { components } from '$lib/api/schema';
-	import type { FileSource } from '$lib/file-source';
-	import type { RowLocation } from '$lib/row-location';
+	import type { components } from '#lib/api/schema.js';
+	import type { FileSource } from '#lib/file-source.ts';
+	import type { RowLocation } from '#lib/row-location.ts';
 
 	type FolderEntry = components['schemas']['FolderEntry'];
 	type ListedTitle = components['schemas']['ListedTitle'];
@@ -32,19 +32,19 @@
 
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import FilterHighlight from '$lib/components/filter-highlight.svelte';
-	import { listFilter } from '$lib/list-filter.svelte';
-	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
-	import { sourceDownloadHref, sourceKey, sourceThumbnailHref } from '$lib/file-source';
-	import type { ContentLocation } from '$lib/content-location';
-	import { formatByteSize, formatDate } from '$lib/format';
-	import { isAudioFileName, isLinksFileName, viewerFileKind } from '$lib/file-kind';
-	import { LinksFileIcon } from '$lib/links-file';
-	import type { ViewerFile } from '$lib/file-viewer.svelte';
-	import type { Track } from '$lib/now-playing.svelte';
-	import type { ViewerImage } from '$lib/image-viewer';
-	import { findViewerItem, viewerItems } from '$lib/viewer-items';
-	import { providePreviewSource } from '$lib/preview-url.svelte';
+	import FilterHighlight from '#lib/components/filter-highlight.svelte';
+	import { listFilter } from '#lib/list-filter.svelte.ts';
+	import ListFilterEmpty from '#lib/components/list-filter-empty.svelte';
+	import { sourceDownloadHref, sourceKey, sourceThumbnailHref } from '#lib/file-source.ts';
+	import type { ContentLocation } from '#lib/content-location.ts';
+	import { formatByteSize, formatDate } from '#lib/format.ts';
+	import { isAudioFileName, isLinksFileName, viewerFileKind } from '#lib/file-kind.ts';
+	import { LinksFileIcon } from '#lib/links-file.ts';
+	import type { ViewerFile } from '#lib/file-viewer.svelte.ts';
+	import type { Track } from '#lib/now-playing.svelte.ts';
+	import type { ViewerImage } from '#lib/image-viewer.ts';
+	import { findViewerItem, viewerItems } from '#lib/viewer-items.ts';
+	import { providePreviewSource } from '#lib/preview-url.svelte.ts';
 	import {
 		browseItemClass,
 		browseListClass,
@@ -52,13 +52,13 @@
 		browseRowPressClass,
 		browseRowTextClass,
 		browseRowTitleClass
-	} from '$lib/list-row';
-	import ListRowIcon from '$lib/components/list-row-icon.svelte';
-	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
-	import ListRowImageLink from '$lib/components/list-row-image-link.svelte';
-	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
-	import ListRowDownloadLink from '$lib/components/list-row-download-link.svelte';
-	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
+	} from '#lib/list-row.ts';
+	import ListRowIcon from '#lib/components/list-row-icon.svelte';
+	import ListRowPlayButton from '#lib/components/list-row-play-button.svelte';
+	import ListRowImageLink from '#lib/components/list-row-image-link.svelte';
+	import ListRowFileLink from '#lib/components/list-row-file-link.svelte';
+	import ListRowDownloadLink from '#lib/components/list-row-download-link.svelte';
+	import ListRowSubtitle from '#lib/components/list-row-subtitle.svelte';
 	import FolderIcon from '@lucide/svelte/icons/folder';
 
 	// フォルダーの一覧 (`/folders/[id]`)・共有の一覧 (`/shares/[id]`)・検索の結果で使う、フォルダーの中のファイル・ディレクトリの行。
@@ -78,7 +78,7 @@
 		 */
 		linksHref: (row: FolderEntryRow) => string | undefined;
 		/**
-		 * URL の `preview` に持つ、行の見分け (→ $lib/preview-url.svelte.ts)。省くと、入れ物の一番上からのパス。
+		 * URL の `preview` に持つ、行の見分け (→ #lib/preview-url.svelte.ts)。省くと、入れ物の一番上からのパス。
 		 * ほかのフォルダーの行も並ぶ画面 (検索の結果) は、入れ物も含めて重ならないものを渡す。
 		 */
 		previewKey?: (row: FolderEntryRow) => string;

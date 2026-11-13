@@ -1,9 +1,9 @@
 <script lang="ts">
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import * as m from '$lib/paraglide/messages.js';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	type Props = {
-		/** 進み具合の文言 (`$lib/archive-scan.ts`)。 */
+		/** 進み具合の文言 (`#lib/archive-scan.ts`)。 */
 		message: string;
 		/** 中止を頼む。止まると、スキャンを始めた側に `cancelled` の結果が返る。 */
 		oncancel: () => Promise<void>;

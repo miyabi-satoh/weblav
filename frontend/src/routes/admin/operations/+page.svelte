@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { client } from '$lib/api/client';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { formatByteSize, formatDateTime, formatNumber } from '$lib/format';
-	import { listClass, listItemClass } from '$lib/list-row';
+	import { client } from '#lib/api/client.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { formatByteSize, formatDateTime, formatNumber } from '#lib/format.ts';
+	import { listClass, listItemClass } from '#lib/list-row.ts';
 	import {
 		adminEmptyTextClass,
 		adminListBandClass,
@@ -13,8 +13,8 @@
 		adminPageHeaderClass,
 		adminTableBandClass,
 		pageHeadingTextClass
-	} from '$lib/page-layout';
-	import { withQuery } from '$lib/href';
+	} from '#lib/page-layout.ts';
+	import { withQuery } from '#lib/href.ts';
 	import {
 		OP_CATEGORIES,
 		opCategoryLabel,
@@ -22,18 +22,18 @@
 		opLabel,
 		opPlaces,
 		opResultLabel
-	} from '$lib/operations';
-	import { pageTitle } from '$lib/page-title';
-	import { fitColumnClass } from '$lib/table-columns';
-	import { LatestRequest } from '$lib/latest-request';
-	import * as m from '$lib/paraglide/messages.js';
-	import * as Select from '$lib/components/ui/select';
-	import * as Table from '$lib/components/ui/table';
-	import BrowseSelectTrigger from '$lib/components/browse-select-trigger.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import SeparatedText from '$lib/components/separated-text.svelte';
-	import type { components } from '$lib/api/schema';
+	} from '#lib/operations.ts';
+	import { pageTitle } from '#lib/page-title.ts';
+	import { fitColumnClass } from '#lib/table-columns.ts';
+	import { LatestRequest } from '#lib/latest-request.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import BrowseSelectTrigger from '#lib/components/browse-select-trigger.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import SeparatedText from '#lib/components/separated-text.svelte';
+	import type { components } from '#lib/api/schema.js';
 	import type { PageProps } from './$types';
 
 	type Operation = components['schemas']['OperationResponse'];
@@ -51,7 +51,7 @@
 	);
 
 	function filterHref(category: string, user: string): string {
-		return withQuery(resolve('/admin/operations'), {
+		return withQuery(resolve('admin/operations'), {
 			...(category === ALL ? {} : { category }),
 			...(user === ALL ? {} : { user })
 		});

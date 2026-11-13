@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { dialogFormClass } from '$lib/dialog-form';
-	import * as m from '$lib/paraglide/messages.js';
-	import { client } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE, errorCode, errorMessage } from '$lib/api/errors';
-	import { passwordConfirmation } from '$lib/password-confirmation.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Field from '$lib/components/ui/field';
-	import PasswordInput from '$lib/components/password-input.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
+	import { dialogFormClass } from '#lib/dialog-form.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { client } from '#lib/api/client.ts';
+	import { GENERIC_ERROR_MESSAGE, errorCode, errorMessage } from '#lib/api/errors.ts';
+	import { passwordConfirmation } from '#lib/password-confirmation.svelte.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import PasswordInput from '#lib/components/password-input.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
 
-	/** 確かめ直しのダイアログ (→ `$lib/password-confirmation.svelte`)。ルートのレイアウトに1つだけ置く。 */
+	/** 確かめ直しのダイアログ (→ `#lib/password-confirmation.svelte.ts`)。ルートのレイアウトに1つだけ置く。 */
 	let password = $state('');
 	let confirming = $state(false);
 	let error = $state<string | null>(null);

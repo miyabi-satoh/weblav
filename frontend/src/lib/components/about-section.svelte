@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import * as m from '$lib/paraglide/messages.js';
-	import { CONTACT_URL, PRIVACY_URL, TERMS_URL } from '$lib/site-links';
+	import * as m from '#lib/paraglide/messages.js';
+	import { CONTACT_URL, PRIVACY_URL, TERMS_URL } from '#lib/site-links.ts';
 
 	let { version, build }: { version: string; build: string | null } = $props();
 
@@ -35,7 +35,7 @@
 		</li>
 	</ul>
 	<ul class="flex flex-wrap gap-x-5">
-		<li><a href={resolve('/help')} class={linkClass}>{m.help_eyebrow()}</a></li>
-		<li><a href={resolve('/licenses')} class={linkClass}>{m.licenses_link()}</a></li>
+		<li><a href={resolve('help')} class={linkClass}>{m.help_eyebrow()}</a></li>
+		<li><a href={resolve('licenses')} class={linkClass}>{m.licenses_link()}</a></li>
 	</ul>
 </div>

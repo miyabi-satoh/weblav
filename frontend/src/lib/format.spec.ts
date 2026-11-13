@@ -10,7 +10,7 @@ import {
 
 // 表示言語は画面のトグルで変わる (→ docs/ui.md「UI 全般」)。テストからも切り替えられるようにする。
 const { locale } = vi.hoisted(() => ({ locale: { current: 'ja' } }));
-vi.mock('$lib/paraglide/runtime', () => ({ getLocale: () => locale.current }));
+vi.mock('#lib/paraglide/runtime.js', () => ({ getLocale: () => locale.current }));
 
 /** 端末のタイムゾーンで解釈させる (UTC 指定だと実行環境によって日付がずれる)。 */
 const dateTime = new Date(2026, 8, 16, 10, 47).getTime();

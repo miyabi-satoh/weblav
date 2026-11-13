@@ -4,9 +4,9 @@ import { render } from 'vitest-browser-svelte';
 import ShareDeleteDialog from './share-delete-dialog.svelte';
 
 const { post, track } = vi.hoisted(() => ({ post: vi.fn(), track: vi.fn() }));
-vi.mock('$lib/api/client', () => ({ client: { POST: post } }));
-vi.mock('$lib/share-jobs.svelte', async (original) => ({
-	...(await original<typeof import('$lib/share-jobs.svelte')>()),
+vi.mock('#lib/api/client.ts', () => ({ client: { POST: post } }));
+vi.mock('#lib/share-jobs.svelte.ts', async (original) => ({
+	...(await original<typeof import('#lib/share-jobs.svelte.ts')>()),
 	shareJobs: { track }
 }));
 

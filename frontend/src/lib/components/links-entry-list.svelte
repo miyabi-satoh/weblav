@@ -1,7 +1,7 @@
 <script lang="ts" module>
-	import type { components } from '$lib/api/schema';
-	import type { LinksFileTarget } from '$lib/links-file';
-	import type { RowLocation } from '$lib/row-location';
+	import type { components } from '#lib/api/schema.js';
+	import type { LinksFileTarget } from '#lib/links-file.ts';
+	import type { RowLocation } from '#lib/row-location.ts';
 
 	type LinkPreview = components['schemas']['LinkPreview'];
 
@@ -20,22 +20,22 @@
 </script>
 
 <script lang="ts">
-	import FilterHighlight from '$lib/components/filter-highlight.svelte';
-	import { listFilter } from '$lib/list-filter.svelte';
-	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
-	import { linksFileRemoteHref } from '$lib/api/urls';
-	import { remoteFile, urlHost } from '$lib/file-kind';
-	import type { ViewerFile } from '$lib/file-viewer.svelte';
-	import { linkDetailOf, opensLinkDetail } from '$lib/link-detail.svelte';
-	import { findViewerItem, viewerItems } from '$lib/viewer-items';
-	import { providePreviewSource } from '$lib/preview-url.svelte';
-	import type { Track } from '$lib/now-playing.svelte';
-	import { videoEmbedUrl } from '$lib/video-embed';
-	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
-	import ListRowLink from '$lib/components/list-row-link.svelte';
-	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
-	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
-	import { browseItemClass, browseListClass, browseRowTitleClass } from '$lib/list-row';
+	import FilterHighlight from '#lib/components/filter-highlight.svelte';
+	import { listFilter } from '#lib/list-filter.svelte.ts';
+	import ListFilterEmpty from '#lib/components/list-filter-empty.svelte';
+	import { linksFileRemoteHref } from '#lib/api/urls.ts';
+	import { remoteFile, urlHost } from '#lib/file-kind.ts';
+	import type { ViewerFile } from '#lib/file-viewer.svelte.ts';
+	import { linkDetailOf, opensLinkDetail } from '#lib/link-detail.svelte.ts';
+	import { findViewerItem, viewerItems } from '#lib/viewer-items.ts';
+	import { providePreviewSource } from '#lib/preview-url.svelte.ts';
+	import type { Track } from '#lib/now-playing.svelte.ts';
+	import { videoEmbedUrl } from '#lib/video-embed.ts';
+	import ListRowFileLink from '#lib/components/list-row-file-link.svelte';
+	import ListRowLink from '#lib/components/list-row-link.svelte';
+	import ListRowPlayButton from '#lib/components/list-row-play-button.svelte';
+	import ListRowSubtitle from '#lib/components/list-row-subtitle.svelte';
+	import { browseItemClass, browseListClass, browseRowTitleClass } from '#lib/list-row.ts';
 
 	// リンクの一覧のファイルの画面 (`/links/[id]`) と検索の結果で使う、一覧の中のリンクの行。
 	// URL のファイルと動画サイトの動画は、一覧のコンテンツと同じく、ファイルの行・ビューアーで開く
@@ -96,7 +96,7 @@
 	}
 
 	let audioQueue = $derived(rows.filter((row) => remoteOf(row)?.kind === 'audio').map(toTrack));
-	// URL の `preview` には、リンクの URL を持つ (→ $lib/preview-url.svelte.ts)。並びの位置と違い、
+	// URL の `preview` には、リンクの URL を持つ (→ #lib/preview-url.svelte.ts)。並びの位置と違い、
 	// 一覧のファイルに行を足しても変わらない。同じ URL が2つ並んでも、開くものは同じ。
 	let viewerList = $derived(
 		viewerItems(

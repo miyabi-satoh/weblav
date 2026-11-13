@@ -1,4 +1,4 @@
-import audioExtensions from '$lib/audio-extensions.json';
+import audioExtensions from '#lib/audio-extensions.json';
 
 /** ファイル名の拡張子 (小文字、ドットを除く)。ドットが無ければ `undefined`。 */
 export function fileExtension(fileName: string): string | undefined {

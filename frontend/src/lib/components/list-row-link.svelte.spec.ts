@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import ListRowLink from './list-row-link.svelte';
-import { linkDetail } from '$lib/link-detail.svelte';
+import { linkDetail } from '#lib/link-detail.svelte.ts';
 
 describe('ListRowLink', () => {
 	afterEach(() => {

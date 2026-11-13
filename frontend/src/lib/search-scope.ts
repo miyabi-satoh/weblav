@@ -1,5 +1,6 @@
+import type { ReadonlyURL } from '$app/state';
 import { resolve } from '$app/paths';
-import { withQuery } from '$lib/href';
+import { withQuery } from '#lib/href.ts';
 
 /**
  * 検索の範囲のクエリ (→ docs/search.md「範囲」)。`within` はグループ・フォルダー・アーカイブの id、`share` は共有の id。
@@ -14,7 +15,7 @@ export type SearchScopeQuery = { within: string; path?: string } | { share: stri
 export function searchScopeOf(
 	routeId: string | null,
 	params: Record<string, string>,
-	url: URL
+	url: ReadonlyURL
 ): SearchScopeQuery | null {
 	switch (routeId) {
 		case '/groups/[id]':
@@ -53,7 +54,7 @@ export function searchScopeLevels(path: string | undefined): { upper: string; la
 }
 
 /** 検索の画面の URL に載っている範囲。 */
-export function searchScopeFromQuery(url: URL): SearchScopeQuery | null {
+export function searchScopeFromQuery(url: ReadonlyURL): SearchScopeQuery | null {
 	const path = url.searchParams.get('path') ?? '';
 	// 手で書き換えた URL などで id でなければ、範囲を持たない。
 	const within = url.searchParams.get('within');
@@ -69,7 +70,7 @@ function withPath(within: string, path: string): SearchScopeQuery {
 
 /** 検索の画面への href。`all` は、範囲を持ったまま全体を探すときに立てる。 */
 export function searchHref(q: string, scope: SearchScopeQuery | null, all = false): string {
-	return withQuery(resolve('/search'), {
+	return withQuery(resolve('search'), {
 		...(q === '' ? {} : { q }),
 		...(scope ?? {}),
 		...(scope && all ? { all: '1' } : {})

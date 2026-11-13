@@ -8,7 +8,7 @@
  * アプリ内の遷移として横取りする。
  */
 
-import { withQuery } from '$lib/href';
+import { withQuery } from '#lib/href.ts';
 
 /**
  * `GET /api/v1/contents/{id}/download` へのリンク。

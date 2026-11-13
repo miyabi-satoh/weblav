@@ -1,55 +1,55 @@
 <script lang="ts">
-	import { LeaveGuard } from '$lib/leave-guard.svelte';
-	import { adminPageClass, sectionCardClass, sectionGridClass } from '$lib/page-layout';
-	import { masonry } from '$lib/masonry';
+	import { LeaveGuard } from '#lib/leave-guard.svelte.ts';
+	import { adminPageClass, sectionCardClass, sectionGridClass } from '#lib/page-layout.ts';
+	import { masonry } from '#lib/masonry.ts';
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { refreshAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { isAdmin } from '$lib/auth';
-	import { client } from '$lib/api/client';
-	import { FormDirtyState } from '$lib/form-dirty.svelte';
-	import { GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
+	import { isAdmin } from '#lib/auth.ts';
+	import { client } from '#lib/api/client.ts';
+	import { FormDirtyState } from '#lib/form-dirty.svelte.ts';
+	import { GENERIC_ERROR_MESSAGE } from '#lib/api/errors.ts';
 	import {
 		type ContentFormPart,
 		ContentFormState,
 		contentFormEffectiveVisibility,
 		contentFormVisibilityError,
 		contentFormVisibilityNote
-	} from '$lib/content-form.svelte';
-	import { ancestorPath, byIdMap, selfAndAncestors } from '$lib/content-tree';
-	import { isDirectoryContentType, isPathContentType } from '$lib/content-types';
-	import { cancelScan } from '$lib/archive-scan';
-	import { archiveRescan } from '$lib/archive-rescan.svelte';
-	import { parentPath } from '$lib/path-trail';
-	import ScanProgress from '$lib/components/scan-progress.svelte';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
+	} from '#lib/content-form.svelte.ts';
+	import { ancestorPath, byIdMap, selfAndAncestors } from '#lib/content-tree.ts';
+	import { isDirectoryContentType, isPathContentType } from '#lib/content-types.ts';
+	import { cancelScan } from '#lib/archive-scan.ts';
+	import { archiveRescan } from '#lib/archive-rescan.svelte.ts';
+	import { parentPath } from '#lib/path-trail.ts';
+	import ScanProgress from '#lib/components/scan-progress.svelte';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
 	import {
 		canHoldContentOf,
 		effectiveVisibilityUnder,
 		loosenedByReparent,
 		selectableVisibilities
-	} from '$lib/visibility';
-	import { contentPathLabel } from '$lib/root-location';
-	import { visibilityLabel } from '$lib/content-labels';
-	import { formatNumber } from '$lib/format';
-	import * as m from '$lib/paraglide/messages.js';
-	import { visibilityChangeCounts } from '$lib/visibility-preview';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog';
-	import LoadingLabel from '$lib/components/loading-label.svelte';
-	import ConfirmRegister from '$lib/components/confirm-register.svelte';
-	import ContentForm from '$lib/components/content-form.svelte';
-	import * as Field from '$lib/components/ui/field';
-	import * as Select from '$lib/components/ui/select';
-	import DirPicker from '$lib/components/dir-picker.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import LeaveConfirmDialog from '$lib/components/leave-confirm-dialog.svelte';
-	import ContentDeleteDialog from '$lib/components/content-delete-dialog.svelte';
-	import DeleteSection from '$lib/components/delete-section.svelte';
-	import { contentEditBack } from '$lib/content-edit-back';
-	import { gotoWithoutLeaveConfirm } from '$lib/leave-confirm';
-	import type { components } from '$lib/api/schema';
+	} from '#lib/visibility.ts';
+	import { contentPathLabel } from '#lib/root-location.ts';
+	import { visibilityLabel } from '#lib/content-labels.ts';
+	import { formatNumber } from '#lib/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { visibilityChangeCounts } from '#lib/visibility-preview.ts';
+	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.ts';
+	import LoadingLabel from '#lib/components/loading-label.svelte';
+	import ConfirmRegister from '#lib/components/confirm-register.svelte';
+	import ContentForm from '#lib/components/content-form.svelte';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import DirPicker from '#lib/components/dir-picker.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import LeaveConfirmDialog from '#lib/components/leave-confirm-dialog.svelte';
+	import ContentDeleteDialog from '#lib/components/content-delete-dialog.svelte';
+	import DeleteSection from '#lib/components/delete-section.svelte';
+	import { contentEditBack } from '#lib/content-edit-back.ts';
+	import { gotoWithoutLeaveConfirm } from '#lib/leave-confirm.ts';
+	import type { components } from '#lib/api/schema.js';
 	import type { PageProps } from './$types';
 
 	type Visibility = components['schemas']['Visibility'];

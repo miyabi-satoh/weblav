@@ -1,7 +1,7 @@
 import { resolve } from '$app/paths';
-import type { components } from '$lib/api/schema';
-import { isLinksFileName } from '$lib/file-kind';
-import { linksFileHref } from '$lib/links-file';
+import type { components } from '#lib/api/schema.js';
+import { isLinksFileName } from '#lib/file-kind.ts';
+import { linksFileHref } from '#lib/links-file.ts';
 
 type Content = Pick<
 	components['schemas']['AdminContentResponse'],

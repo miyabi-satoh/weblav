@@ -1,4 +1,4 @@
-import { readStored, writeStored } from '$lib/stored';
+import { readStored, writeStored } from '#lib/stored.ts';
 
 /** 動画の「繰り返し再生」の状態を端末に覚えさせるキー。 */
 const STORAGE_KEY = 'weblav:video-loop';

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import EllipsisVerticalIcon from '@lucide/svelte/icons/ellipsis-vertical';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import * as m from '$lib/paraglide/messages.js';
-	import { actionMenuTriggerClass } from '$lib/table-columns';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { actionMenuTriggerClass } from '#lib/table-columns.ts';
 
 	/**
 	 * 管理画面の行末の ⋮ メニュー。項目は `DropdownMenu.Item` を children で渡す。

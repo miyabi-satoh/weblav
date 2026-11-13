@@ -3,11 +3,11 @@
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import PrinterIcon from '@lucide/svelte/icons/printer';
-	import * as m from '$lib/paraglide/messages.js';
-	import { Button } from '$lib/components/ui/button';
-	import { CopiedState } from '$lib/copied-state.svelte';
-	import { escapeHtml } from '$lib/html';
-	import { formatDateTime } from '$lib/format';
+	import * as m from '#lib/paraglide/messages.js';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { CopiedState } from '#lib/copied-state.svelte.ts';
+	import { escapeHtml } from '#lib/html.ts';
+	import { formatDateTime } from '#lib/format.ts';
 
 	/**
 	 * 作ったリカバリコードを1回だけ見せる (→ docs/access.md「リカバリコード」)。

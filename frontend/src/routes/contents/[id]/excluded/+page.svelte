@@ -1,28 +1,28 @@
 <script lang="ts">
 	import { WindowVirtualizer } from 'virtua/svelte';
-	import { client } from '$lib/api/client';
-	import type { components } from '$lib/api/schema';
-	import { excludedChunks } from '$lib/archive-list-request';
-	import { ArchivePagedList } from '$lib/archive-paged-list.svelte';
-	import ArchiveRowPlaceholder from '$lib/components/archive-row-placeholder.svelte';
-	import ArchiveStaleNotice from '$lib/components/archive-stale-notice.svelte';
-	import BrowseControls from '$lib/components/browse-controls.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import FilterHighlight from '$lib/components/filter-highlight.svelte';
-	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
-	import PatternAddDialog from '$lib/components/pattern-add-dialog.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { formatNumber } from '$lib/format';
-	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
-	import { NameFilteredView } from '$lib/name-filtered-view.svelte';
+	import { client } from '#lib/api/client.ts';
+	import type { components } from '#lib/api/schema.js';
+	import { excludedChunks } from '#lib/archive-list-request.ts';
+	import { ArchivePagedList } from '#lib/archive-paged-list.svelte.ts';
+	import ArchiveRowPlaceholder from '#lib/components/archive-row-placeholder.svelte';
+	import ArchiveStaleNotice from '#lib/components/archive-stale-notice.svelte';
+	import BrowseControls from '#lib/components/browse-controls.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import FilterHighlight from '#lib/components/filter-highlight.svelte';
+	import ListFilterEmpty from '#lib/components/list-filter-empty.svelte';
+	import PatternAddDialog from '#lib/components/pattern-add-dialog.svelte';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { formatNumber } from '#lib/format.ts';
+	import { ListFilterState, provideListFilter } from '#lib/list-filter.svelte.ts';
+	import { NameFilteredView } from '#lib/name-filtered-view.svelte.ts';
 	import {
 		adminListBandClass,
 		adminPageClass,
 		listCountRowClass,
 		pageEmptyTextClass
-	} from '$lib/page-layout';
-	import * as m from '$lib/paraglide/messages.js';
+	} from '#lib/page-layout.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import type { PageProps } from './$types';
 
 	type ExcludedItem = components['schemas']['ExcludedItem'];

@@ -4,11 +4,11 @@
  */
 
 import type { HLJSApi, LanguageFn } from 'highlight.js';
-import { fileExtension } from '$lib/file-kind';
+import { fileExtension } from '#lib/file-kind.ts';
 
 type LanguageModule = { default: LanguageFn };
 
-/** Markdown のファイルの拡張子。プレビューで組むか (→ $lib/markdown-preview.ts) もこれで決める。 */
+/** Markdown のファイルの拡張子。プレビューで組むか (→ #lib/markdown-preview.ts) もこれで決める。 */
 export const MARKDOWN_EXTENSIONS = ['md', 'markdown'];
 
 /** 拡張子 → highlight.js の言語名。言語の定義は使う分だけ読み込むので、ここで読み込み方も持つ。 */

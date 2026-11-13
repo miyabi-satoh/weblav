@@ -7,12 +7,12 @@
 		browseRowPressClass,
 		browseRowTextClass,
 		browseRowTitleClass
-	} from '$lib/list-row';
+	} from '#lib/list-row.ts';
 	import { resolve } from '$app/paths';
-	import ListRowIcon from '$lib/components/list-row-icon.svelte';
-	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
-	import * as m from '$lib/paraglide/messages.js';
-	import type { components } from '$lib/api/schema';
+	import ListRowIcon from '#lib/components/list-row-icon.svelte';
+	import ListRowSubtitle from '#lib/components/list-row-subtitle.svelte';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { components } from '#lib/api/schema.js';
 
 	type Share = components['schemas']['ShareResponse'];
 	type ShareAccess = components['schemas']['ShareAccess'];

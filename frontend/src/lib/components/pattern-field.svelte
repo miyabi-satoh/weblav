@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Field from '$lib/components/ui/field';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { dialogFormClass } from '$lib/dialog-form';
-	import * as m from '$lib/paraglide/messages.js';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import { dialogFormClass } from '#lib/dialog-form.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	type Props = {
 		label: string;

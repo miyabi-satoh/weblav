@@ -2,24 +2,24 @@
 	import { goto, refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { isAdmin } from '$lib/auth';
-	import { client } from '$lib/api/client';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import * as m from '$lib/paraglide/messages.js';
-	import * as Card from '$lib/components/ui/card';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
-	import PasswordInput from '$lib/components/password-input.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import RecoveryCodePanel from '$lib/components/recovery-code-panel.svelte';
-	import { pageTitle } from '$lib/page-title';
+	import { isAdmin } from '#lib/auth.ts';
+	import { client } from '#lib/api/client.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import PasswordInput from '#lib/components/password-input.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import RecoveryCodePanel from '#lib/components/recovery-code-panel.svelte';
+	import { pageTitle } from '#lib/page-title.ts';
 	import {
 		centeredPageClass,
 		centeredPageInnerClass,
 		centeredPageCardClass,
 		centeredPageFooterLinkClass
-	} from '$lib/page-layout';
+	} from '#lib/page-layout.ts';
 
 	// リカバリコードで自分のパスワードを再設定する (→ docs/access.md「リカバリコード」)。
 	let username = $state('');
@@ -58,7 +58,7 @@
 	async function handleKept() {
 		await refreshAll();
 		// 管理画面は admin 専用 (→ docs/access.md「ロールと操作」)。
-		await goto(isAdmin(page.data.user) ? resolve('/admin/contents') : resolve('/'));
+		await goto(isAdmin(page.data.user) ? resolve('admin/contents') : resolve('/'));
 	}
 </script>
 
@@ -135,9 +135,9 @@
 			</Card.Content>
 			{#if newCode === null}
 				<Card.Footer class="justify-center">
-					<a href={resolve('/login')} class={centeredPageFooterLinkClass}>
-						{m.recover_back_to_login()}
-					</a>
+					<a href={resolve('login')} class={centeredPageFooterLinkClass}
+						>{m.recover_back_to_login()}</a
+					>
 				</Card.Footer>
 			{/if}
 		</Card.Root>

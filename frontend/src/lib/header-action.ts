@@ -1,5 +1,5 @@
-import { buttonVariants } from '$lib/components/ui/button';
-import { cn } from '$lib/utils';
+import { buttonVariants } from '#lib/components/ui/button/index.ts';
+import { cn } from '#lib/utils.ts';
 
 /**
  * ヘッダーの操作で共有する class。枠を付けず補助色で置く (→ docs/ui.md「UI 全般」)。

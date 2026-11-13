@@ -1,5 +1,5 @@
 import { beforeNavigate, goto } from '$app/navigation';
-import { leaveConfirmBypassed } from '$lib/leave-confirm';
+import { leaveConfirmBypassed } from '#lib/leave-confirm.ts';
 
 /**
  * 保存していない変更を、別の画面へ移って失わないようにする (→ docs/ui.md「UI 全般」の離れるときの確認)。

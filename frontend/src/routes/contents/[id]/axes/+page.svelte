@@ -1,44 +1,44 @@
 <script lang="ts">
-	import { dialogFormClass } from '$lib/dialog-form';
-	import { adminPageClass } from '$lib/page-layout';
+	import { dialogFormClass } from '#lib/dialog-form.ts';
+	import { adminPageClass } from '#lib/page-layout.ts';
 	import { tick, untrack } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { client } from '$lib/api/client';
-	import { archiveItemManageDownloadHref } from '$lib/api/urls';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
+	import { client } from '#lib/api/client.ts';
+	import { archiveItemManageDownloadHref } from '#lib/api/urls.ts';
+	import { GENERIC_ERROR_MESSAGE, errorMessage } from '#lib/api/errors.ts';
 	import {
 		WORD_CANDIDATES_PAGE_SIZE,
 		axisValuesPreviewBlocker,
 		FILENAME_WORD_VALUES_LIMIT,
 		wordCandidates
-	} from '$lib/axis-value-assist';
-	import { formatList, formatNumber } from '$lib/format';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { LatestRequest } from '$lib/latest-request';
-	import { moveItem } from '$lib/reorder';
-	import { SORTABLE_FLIP_DURATION_MS, SortableZone } from '$lib/sortable-zone.svelte';
-	import { columnFromLgClass, columnFromSmClass, dragHandleClass } from '$lib/table-columns';
-	import { byPosition } from '$lib/sort';
-	import { axisSourceLabel } from '$lib/axis-labels';
-	import * as m from '$lib/paraglide/messages.js';
-	import type { components } from '$lib/api/schema';
-	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import * as Field from '$lib/components/ui/field';
-	import * as RadioGroup from '$lib/components/ui/radio-group';
-	import { Input } from '$lib/components/ui/input';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import * as Select from '$lib/components/ui/select';
-	import * as Table from '$lib/components/ui/table';
-	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import WarningBand from '$lib/components/warning-band.svelte';
-	import AxesAiDialog from '$lib/components/axes-ai-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
+	} from '#lib/axis-value-assist.ts';
+	import { formatList, formatNumber } from '#lib/format.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { LatestRequest } from '#lib/latest-request.ts';
+	import { moveItem } from '#lib/reorder.ts';
+	import { SORTABLE_FLIP_DURATION_MS, SortableZone } from '#lib/sortable-zone.svelte.ts';
+	import { columnFromLgClass, columnFromSmClass, dragHandleClass } from '#lib/table-columns.ts';
+	import { byPosition } from '#lib/sort.ts';
+	import { axisSourceLabel } from '#lib/axis-labels.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { components } from '#lib/api/schema.js';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import * as RadioGroup from '#lib/components/ui/radio-group/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import ConfirmDialog from '#lib/components/confirm-dialog.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import WarningBand from '#lib/components/warning-band.svelte';
+	import AxesAiDialog from '#lib/components/axes-ai-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
 	import { toast } from 'svelte-sonner';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
@@ -46,8 +46,8 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import type { Attachment } from 'svelte/attachments';
 	import type { PageProps } from './$types';
-	import { FormDirtyState } from '$lib/form-dirty.svelte';
-	import { axisPlaceholder, removeAxisFromTemplate } from '$lib/title-template';
+	import { FormDirtyState } from '#lib/form-dirty.svelte.ts';
+	import { axisPlaceholder, removeAxisFromTemplate } from '#lib/title-template.ts';
 
 	type Axis = components['schemas']['AxisResponse'];
 	type AxisSource = components['schemas']['AxisSource'];

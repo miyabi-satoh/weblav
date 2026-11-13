@@ -1,9 +1,9 @@
 <script lang="ts">
-	import type { ArchivePagedList } from '$lib/archive-paged-list.svelte';
-	import { ARCHIVE_CHUNK_SIZE } from '$lib/archive-paged-list.svelte';
-	import { browseRowClass, browseRowTextClass } from '$lib/list-row';
-	import { Button } from '$lib/components/ui/button';
-	import * as m from '$lib/paraglide/messages.js';
+	import type { ArchivePagedList } from '#lib/archive-paged-list.svelte.ts';
+	import { ARCHIVE_CHUNK_SIZE } from '#lib/archive-paged-list.svelte.ts';
+	import { browseRowClass, browseRowTextClass } from '#lib/list-row.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// 区切って取るアーカイブの一覧の、まだ取っていない行と、消えた・絞り込みで外れた行
 	// (→ docs/archive.md「画面が見える辺りを取りに行く」)。行と同じ高さで場所を取り、取り終えたら行に替わる。

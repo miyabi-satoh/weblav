@@ -1,16 +1,16 @@
 <script lang="ts">
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { listItemClass } from '$lib/list-row';
-	import { pageTitle } from '$lib/page-title';
+	import { listItemClass } from '#lib/list-row.ts';
+	import { pageTitle } from '#lib/page-title.ts';
 	import {
 		docListClass,
 		docPageClass,
 		docPageEyebrowClass,
 		docPageHeadingClass,
 		docPageLeadClass
-	} from '$lib/page-layout';
-	import * as m from '$lib/paraglide/messages.js';
+	} from '#lib/page-layout.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import type { LicenseList, LicensePackage } from './+page';
 	import type { PageProps } from './$types';
 

@@ -1,10 +1,10 @@
 import { error, redirect } from '@sveltejs/kit';
 import { resolve } from '$app/paths';
-import { client } from '$lib/api/client';
-import { GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
-import { isProtectedRoute, loginPathWithRedirect } from '$lib/auth';
-import * as m from '$lib/paraglide/messages.js';
-import type { components } from '$lib/api/schema';
+import { client } from '#lib/api/client.ts';
+import { GENERIC_ERROR_MESSAGE } from '#lib/api/errors.ts';
+import { isProtectedRoute, loginPathWithRedirect } from '#lib/auth.ts';
+import * as m from '#lib/paraglide/messages.js';
+import type { components } from '#lib/api/schema.js';
 import type { LayoutLoad } from './$types';
 
 // weblav.exe はビルド済みの静的ファイルを配信するだけなので、
@@ -36,7 +36,7 @@ export const load: LayoutLoad = async ({ route, url }) => {
 	// 匿名として扱わずエラーとして扱う。
 	if (response.status === 401) {
 		if (isProtectedRoute(routeId)) {
-			redirect(307, loginPathWithRedirect(resolve('/login'), currentPath));
+			redirect(307, loginPathWithRedirect(resolve('login'), currentPath));
 		}
 		return { user: null };
 	}

@@ -1,5 +1,5 @@
 // 値の辞書で、照合語を決める手がかり (語の候補・保存前の結果) を出すための判定 (→ docs/archive.md「軸の設定を助ける表示」)。
-import type { components } from '$lib/api/schema';
+import type { components } from '#lib/api/schema.js';
 
 type AxisSource = components['schemas']['AxisSource'];
 type FilenameWord = components['schemas']['FilenameWord'];

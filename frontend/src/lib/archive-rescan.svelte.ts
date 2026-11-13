@@ -4,9 +4,9 @@
  */
 import { getContext, setContext } from 'svelte';
 import { refreshAll } from '$app/navigation';
-import { type ArchiveScanResult, rescanArchive, waitForRunningScan } from '$lib/archive-scan';
-import { formatNumber } from '$lib/format';
-import * as m from '$lib/paraglide/messages.js';
+import { type ArchiveScanResult, rescanArchive, waitForRunningScan } from '#lib/archive-scan.ts';
+import { formatNumber } from '#lib/format.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 const CONTEXT_KEY = Symbol('archive-rescan');
 

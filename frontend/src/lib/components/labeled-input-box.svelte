@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { activeFieldClass, fieldLabelClass } from '$lib/filter-field';
+	import { activeFieldClass, fieldLabelClass } from '#lib/filter-field.ts';
 	import XIcon from '@lucide/svelte/icons/x';
 	import type { ClassValue } from 'svelte/elements';
 
@@ -16,6 +16,7 @@
 		id?: string;
 		active?: boolean;
 		class?: ClassValue;
+		onblur?: () => void;
 	};
 
 	let {
@@ -25,7 +26,8 @@
 		input = $bindable(null),
 		id,
 		active = false,
-		class: className
+		class: className,
+		onblur
 	}: Props = $props();
 
 	function clear() {
@@ -52,6 +54,7 @@
 			enterkeyhint="search"
 			class="w-full min-w-0 bg-transparent text-base text-sub-foreground outline-none"
 			bind:value
+			{onblur}
 		/>
 	</label>
 	{#if value !== ''}

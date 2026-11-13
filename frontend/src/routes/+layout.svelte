@@ -3,32 +3,32 @@
 	import { resolve } from '$app/paths';
 	import { goto, refreshAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import * as m from '$lib/paraglide/messages.js';
-	import { getLocale, getTextDirection } from '$lib/paraglide/runtime';
+	import * as m from '#lib/paraglide/messages.js';
+	import { getLocale, getTextDirection } from '#lib/paraglide/runtime.js';
 	import './layout.css';
-	import favicon from '$lib/assets/favicon.svg';
+	import favicon from '#lib/assets/favicon.svg';
 	import { ModeWatcher } from 'mode-watcher';
-	import { client } from '$lib/api/client';
-	import { isAdmin } from '$lib/auth';
-	import { GENERIC_ERROR_MESSAGE, messageForCode } from '$lib/api/errors';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { headerIconActionClass, headerTextActionClass } from '$lib/header-action';
+	import { client } from '#lib/api/client.ts';
+	import { isAdmin } from '#lib/auth.ts';
+	import { GENERIC_ERROR_MESSAGE, messageForCode } from '#lib/api/errors.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { headerIconActionClass, headerTextActionClass } from '#lib/header-action.ts';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import LogInIcon from '@lucide/svelte/icons/log-in';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import ModeToggle from '$lib/components/mode-toggle.svelte';
-	import LanguageToggle from '$lib/components/language-toggle.svelte';
-	import ShareButton from '$lib/components/share-button.svelte';
-	import UserMenu from '$lib/components/user-menu.svelte';
-	import AudioPlayerBar from '$lib/components/audio-player-bar.svelte';
-	import FileViewer from '$lib/components/file-viewer.svelte';
-	import LinkDetailDialog from '$lib/components/link-detail-dialog.svelte';
-	import NavigationProgress from '$lib/components/navigation-progress.svelte';
-	import ShareJobsPanel from '$lib/components/share-ops/share-jobs-panel.svelte';
-	import PasswordConfirmationDialog from '$lib/components/password-confirmation-dialog.svelte';
-	import { Toaster } from '$lib/components/ui/sonner';
-	import { nowPlaying } from '$lib/now-playing.svelte';
-	import { searchHref, searchScopeOf } from '$lib/search-scope';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import ModeToggle from '#lib/components/mode-toggle.svelte';
+	import LanguageToggle from '#lib/components/language-toggle.svelte';
+	import ShareButton from '#lib/components/share-button.svelte';
+	import UserMenu from '#lib/components/user-menu.svelte';
+	import AudioPlayerBar from '#lib/components/audio-player-bar.svelte';
+	import FileViewer from '#lib/components/file-viewer.svelte';
+	import LinkDetailDialog from '#lib/components/link-detail-dialog.svelte';
+	import NavigationProgress from '#lib/components/navigation-progress.svelte';
+	import ShareJobsPanel from '#lib/components/share-ops/share-jobs-panel.svelte';
+	import PasswordConfirmationDialog from '#lib/components/password-confirmation-dialog.svelte';
+	import { Toaster } from '#lib/components/ui/sonner/index.ts';
+	import { nowPlaying } from '#lib/now-playing.svelte.ts';
+	import { searchHref, searchScopeOf } from '#lib/search-scope.ts';
 
 	let { children } = $props();
 
@@ -58,11 +58,11 @@
 		errorDialog.show(messageForCode(code));
 		// 読み込み直しやブックマークで同じ知らせが蘇らないよう、クエリを落とす。
 		// 履歴は増やさない (戻るボタンでエラーに戻れても意味がない)。
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.delete('error');
 		// 今いる URL からクエリを1つ落とすだけで、route id を解決する話ではない。
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- 現在の URL の書き換え (上のコメント参照)
-		void goto(url, { replaceState: true, noScroll: true, keepFocus: true });
+		void goto(url, { replace: true, reset: false });
 	});
 
 	// メニュー項目は押せなくできないので、応答を待つ間の2回目を捨てる。
@@ -143,7 +143,7 @@
 				/>
 			{:else}
 				<!-- スマートフォン幅では文字を読み上げにだけ渡す (→ docs/ui.md「UI 全般」)。 -->
-				<a href={resolve('/login')} class={headerTextActionClass}>
+				<a href={resolve('login')} class={headerTextActionClass}>
 					<LogInIcon data-icon="inline-start" class="size-5" />
 					<span class="max-md:sr-only">{m.login_nav_label()}</span>
 				</a>

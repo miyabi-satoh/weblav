@@ -1,6 +1,6 @@
 <script lang="ts" module>
-	import { pickerCrumbButtonClass, pickerNavClass, pickerRowClass } from '$lib/dir-picker';
-	import type { components } from '$lib/api/schema';
+	import { pickerCrumbButtonClass, pickerNavClass, pickerRowClass } from '#lib/dir-picker.ts';
+	import type { components } from '#lib/api/schema.js';
 
 	type ShareAccess = components['schemas']['ShareAccess'];
 
@@ -19,13 +19,13 @@
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import HardDriveIcon from '@lucide/svelte/icons/hard-drive';
-	import { client } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
-	import { pathCrumbs } from '$lib/breadcrumb';
-	import { LatestRequest } from '$lib/latest-request';
-	import * as m from '$lib/paraglide/messages.js';
-	import { accessAtLeast } from '$lib/share-ops';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { client } from '#lib/api/client.ts';
+	import { GENERIC_ERROR_MESSAGE, errorMessage } from '#lib/api/errors.ts';
+	import { pathCrumbs } from '#lib/breadcrumb.ts';
+	import { LatestRequest } from '#lib/latest-request.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { accessAtLeast } from '#lib/share-ops.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 
 	type ShareResponse = components['schemas']['ShareResponse'];
 	type DirsResponse = components['schemas']['ShareDirsResponse'];

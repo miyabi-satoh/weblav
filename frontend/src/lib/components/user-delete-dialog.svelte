@@ -2,13 +2,13 @@
 	/**
 	 * ユーザーの削除の確認。ユーザーの一覧の⋮と、ユーザーの編集ページの「削除」の区画で同じものを出す。
 	 */
-	import { client } from '$lib/api/client';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { formatNumber } from '$lib/format';
-	import * as m from '$lib/paraglide/messages.js';
-	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import type { components } from '$lib/api/schema';
+	import { client } from '#lib/api/client.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { formatNumber } from '#lib/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import ConfirmDialog from '#lib/components/confirm-dialog.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import type { components } from '#lib/api/schema.js';
 
 	type UserListItem = components['schemas']['UserListItem'];
 

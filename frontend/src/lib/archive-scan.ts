@@ -1,8 +1,8 @@
-import { client } from '$lib/api/client';
-import { GENERIC_ERROR_MESSAGE, errorDetail, errorMessage } from '$lib/api/errors';
-import type { components } from '$lib/api/schema';
-import { formatDuration, formatNumber } from '$lib/format';
-import * as m from '$lib/paraglide/messages.js';
+import { client } from '#lib/api/client.ts';
+import { GENERIC_ERROR_MESSAGE, errorDetail, errorMessage } from '#lib/api/errors.ts';
+import type { components } from '#lib/api/schema.js';
+import { formatDuration, formatNumber } from '#lib/format.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 type RescanResponse = components['schemas']['RescanResponse'];
 

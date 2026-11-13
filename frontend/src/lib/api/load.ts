@@ -1,8 +1,8 @@
 import { error, redirect } from '@sveltejs/kit';
 import { resolve } from '$app/paths';
-import { GENERIC_ERROR_MESSAGE, errorCode } from '$lib/api/errors';
-import { loginPathWithRedirect } from '$lib/auth';
-import * as m from '$lib/paraglide/messages.js';
+import { GENERIC_ERROR_MESSAGE, errorCode } from '#lib/api/errors.ts';
+import { loginPathWithRedirect } from '#lib/auth.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 type Options = {
 	loginRedirectFrom?: URL;
@@ -39,10 +39,7 @@ export async function fetchOrError<T>(
 	if (loginRedirectFrom && response.status === 401) {
 		redirect(
 			307,
-			loginPathWithRedirect(
-				resolve('/login'),
-				loginRedirectFrom.pathname + loginRedirectFrom.search
-			)
+			loginPathWithRedirect(resolve('login'), loginRedirectFrom.pathname + loginRedirectFrom.search)
 		);
 	}
 	if (response.status === 404) {

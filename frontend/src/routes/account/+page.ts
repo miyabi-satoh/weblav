@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
+import { GENERIC_ERROR_MESSAGE } from '#lib/api/errors.ts';
 import type { PageLoad } from './$types';
 
 // ログインしていなければ、ルートの `+layout.ts` がログインへ送る (`isProtectedRoute`)。

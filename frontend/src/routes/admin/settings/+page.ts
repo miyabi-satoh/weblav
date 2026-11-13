@@ -1,7 +1,7 @@
-import { client } from '$lib/api/client';
-import { errorMessage } from '$lib/api/errors';
-import { fetchOrError, fetchOrNull } from '$lib/api/load';
-import * as m from '$lib/paraglide/messages.js';
+import { client } from '#lib/api/client.ts';
+import { errorMessage } from '#lib/api/errors.ts';
+import { fetchOrError, fetchOrNull } from '#lib/api/load.ts';
+import * as m from '#lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
 // admin 限定であることは +layout.ts が確認済み。サイト設定の読み取りはホームと同じ API を使う。

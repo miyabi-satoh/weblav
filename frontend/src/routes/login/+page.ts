@@ -1,8 +1,8 @@
 import { redirect } from '@sveltejs/kit';
 import { resolve } from '$app/paths';
-import { client } from '$lib/api/client';
-import { isApiTarget, safeRedirectTarget } from '$lib/auth';
-import { isLoopbackHost } from '$lib/loopback';
+import { client } from '#lib/api/client.ts';
+import { isApiTarget, safeRedirectTarget } from '#lib/auth.ts';
+import { isLoopbackHost } from '#lib/loopback.ts';
 import type { PageLoad } from './$types';
 
 /**

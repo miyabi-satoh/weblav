@@ -2,36 +2,36 @@
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { resolve } from '$app/paths';
-	import { client } from '$lib/api/client';
-	import { dialogFormClass } from '$lib/dialog-form';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { FormDirtyState } from '$lib/form-dirty.svelte';
-	import { formatDate } from '$lib/format';
-	import { gotoWithoutLeaveConfirm } from '$lib/leave-confirm';
-	import { SectionSaveState } from '$lib/section-save.svelte';
-	import { masonry } from '$lib/masonry';
+	import { client } from '#lib/api/client.ts';
+	import { dialogFormClass } from '#lib/dialog-form.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { FormDirtyState } from '#lib/form-dirty.svelte.ts';
+	import { formatDate } from '#lib/format.ts';
+	import { gotoWithoutLeaveConfirm } from '#lib/leave-confirm.ts';
+	import { SectionSaveState } from '#lib/section-save.svelte.ts';
+	import { masonry } from '#lib/masonry.ts';
 	import {
 		adminPageClass,
 		pageHeadingInRowClass,
 		sectionCardClass,
 		sectionGridClass
-	} from '$lib/page-layout';
-	import { pageTitle } from '$lib/page-title';
-	import * as m from '$lib/paraglide/messages.js';
-	import { roleLabel } from '$lib/role-labels';
-	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
-	import * as RadioGroup from '$lib/components/ui/radio-group';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LeaveConfirmDialog from '$lib/components/leave-confirm-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import PasswordInput from '$lib/components/password-input.svelte';
-	import DeleteSection from '$lib/components/delete-section.svelte';
-	import UserDeleteDialog from '$lib/components/user-delete-dialog.svelte';
-	import BackLink from '$lib/components/back-link.svelte';
-	import type { components } from '$lib/api/schema';
+	} from '#lib/page-layout.ts';
+	import { pageTitle } from '#lib/page-title.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { roleLabel } from '#lib/role-labels.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import * as RadioGroup from '#lib/components/ui/radio-group/index.ts';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LeaveConfirmDialog from '#lib/components/leave-confirm-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import PasswordInput from '#lib/components/password-input.svelte';
+	import DeleteSection from '#lib/components/delete-section.svelte';
+	import UserDeleteDialog from '#lib/components/user-delete-dialog.svelte';
+	import BackLink from '#lib/components/back-link.svelte';
+	import type { components } from '#lib/api/schema.js';
 	import type { PageProps } from './$types';
 
 	type UserListItem = components['schemas']['UserListItem'];
@@ -144,14 +144,14 @@
 	// 消したユーザーの編集ページには戻れないので、一覧へ移る。消したものの変更は保存しようがないので、
 	// 離れるときの確認は出さない。
 	async function handleDeleted() {
-		await gotoWithoutLeaveConfirm(resolve('/admin/users'));
+		await gotoWithoutLeaveConfirm(resolve('admin/users'));
 	}
 </script>
 
 <svelte:head><title>{pageTitle(target.username)}</title></svelte:head>
 
 <div class="px-4 pt-4 md:px-6">
-	<BackLink href={resolve('/admin/users')} label={m.admin_users_nav_title()} />
+	<BackLink href={resolve('admin/users')} label={m.admin_users_nav_title()} />
 	<!-- パスワードの再設定は見出しの段のボタンに、削除は最後の「削除」の区画に置く (→ docs/ui.md「UI 全般」)。 -->
 	<div class="mt-2 flex items-start gap-2">
 		<h1 class={pageHeadingInRowClass}>{target.username}</h1>

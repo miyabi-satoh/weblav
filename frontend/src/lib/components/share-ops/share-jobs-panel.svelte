@@ -2,17 +2,17 @@
 	import { onMount } from 'svelte';
 	import { refreshAll } from '$app/navigation';
 	import { toast } from 'svelte-sonner';
-	import * as m from '$lib/paraglide/messages.js';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
+	import * as m from '#lib/paraglide/messages.js';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
 	import {
 		jobErrorMessage,
 		jobProgressRatio,
 		jobProgressText,
 		shareJobs
-	} from '$lib/share-jobs.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import { Progress } from '$lib/components/ui/progress';
+	} from '#lib/share-jobs.svelte.ts';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import { Progress } from '#lib/components/ui/progress/index.ts';
 
 	/**
 	 * 共有の中のコピー・移動・削除の進み具合 (→ docs/ui.md「共有の中の画面」)。

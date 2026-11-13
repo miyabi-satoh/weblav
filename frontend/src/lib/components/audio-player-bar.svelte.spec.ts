@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import AudioPlayerBar from './audio-player-bar.svelte';
-import { nowPlaying } from '$lib/now-playing.svelte';
+import { nowPlaying } from '#lib/now-playing.svelte.ts';
 
 /** 無音の WAV (8kHz・8bit・モノラル) を、指定の秒数で作る。 */
 function silentWavUrl(seconds: number): string {

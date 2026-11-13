@@ -3,16 +3,16 @@
  * 画面に置くのは `file-viewer.svelte` の1つだけ。前後には画像も並び、隣が画像なら画像のビューアーへ渡す。
  */
 
-import type { ContentLocation } from '$lib/content-location';
-import type { ViewerFileKind } from '$lib/file-kind';
-import { previewShown } from '$lib/preview-url.svelte';
-import type { ViewerItem } from '$lib/viewer-items';
+import type { ContentLocation } from '#lib/content-location.ts';
+import type { ViewerFileKind } from '#lib/file-kind.ts';
+import { previewShown } from '#lib/preview-url.svelte.ts';
+import type { ViewerItem } from '#lib/viewer-items.ts';
 
 export type ViewerFile = {
-	/** ダウンロードの URL。`embed` では、動画サイトの埋め込みプレイヤーの URL (→ $lib/video-embed.ts)。 */
+	/** ダウンロードの URL。`embed` では、動画サイトの埋め込みプレイヤーの URL (→ #lib/video-embed.ts)。 */
 	src: string;
 	title: string;
-	/** 元のファイル名。テキストに色を付けるかを拡張子で決める (→ $lib/code-highlight.ts)。 */
+	/** 元のファイル名。テキストに色を付けるかを拡張子で決める (→ #lib/code-highlight.ts)。 */
 	fileName: string;
 	kind: ViewerFileKind;
 	/**
@@ -33,7 +33,7 @@ let items = $state<ViewerItem[]>([]);
 let index = $state(0);
 let open = $state(false);
 /**
- * 隣が画像のとき、画像のビューアーへ渡す (→ $lib/viewer-items.ts)。画像を読み終えるまで待つので、
+ * 隣が画像のとき、画像のビューアーへ渡す (→ #lib/viewer-items.ts)。画像を読み終えるまで待つので、
  * 待つ間に閉じたら (Esc・画面の移動など) `signal` を中断し、後から画像のビューアーを出さない。
  */
 let leave: (target: number, signal: AbortSignal) => Promise<void> = async () => {};
@@ -63,7 +63,7 @@ export const fileViewer = {
 		const item = items[index];
 		return item?.type === 'file' ? item.file : undefined;
 	},
-	/** `items[at]` (ファイル) を開く。行からは `$lib/viewer-items.ts` の `openViewerItem` を通す。 */
+	/** `items[at]` (ファイル) を開く。行からは `#lib/viewer-items.ts` の `openViewerItem` を通す。 */
 	show(
 		list: ViewerItem[],
 		at: number,

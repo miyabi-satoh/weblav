@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
-	import { cn } from '$lib/utils';
+	import { cn } from '#lib/utils.ts';
 
 	let { class: className, children }: { class?: string; children: Snippet } = $props();
 </script>

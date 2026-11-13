@@ -210,7 +210,7 @@ export async function sharedContentRoot(
 	return root === undefined ? null : { root: root.path, rootName: root.name, contentRoot };
 }
 
-/** 登録側の画面で、階層の名前を並べる区切り (`$lib/root-location` の `LOCATION_SEPARATOR`)。 */
+/** 登録側の画面で、階層の名前を並べる区切り (`#lib/root-location` の `LOCATION_SEPARATOR`)。 */
 export const LOCATION_SEPARATOR = ' / ';
 
 /**

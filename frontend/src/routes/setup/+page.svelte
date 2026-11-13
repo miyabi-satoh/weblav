@@ -2,25 +2,25 @@
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { client } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import * as m from '$lib/paraglide/messages.js';
-	import * as Card from '$lib/components/ui/card';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
-	import PasswordInput from '$lib/components/password-input.svelte';
-	import type { components } from '$lib/api/schema';
-	import BackupRestore from '$lib/components/backup-restore.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import RecoveryCodePanel from '$lib/components/recovery-code-panel.svelte';
-	import { pageTitle } from '$lib/page-title';
+	import { client } from '#lib/api/client.ts';
+	import { GENERIC_ERROR_MESSAGE, errorMessage } from '#lib/api/errors.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import PasswordInput from '#lib/components/password-input.svelte';
+	import type { components } from '#lib/api/schema.js';
+	import BackupRestore from '#lib/components/backup-restore.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import RecoveryCodePanel from '#lib/components/recovery-code-panel.svelte';
+	import { pageTitle } from '#lib/page-title.ts';
 	import {
 		centeredPageClass,
 		centeredPageInnerClass,
 		centeredPageCardClass
-	} from '$lib/page-layout';
+	} from '#lib/page-layout.ts';
 
 	let { data } = $props();
 
@@ -66,7 +66,7 @@
 				recoveryCode = created.recoveryCode;
 				return;
 			}
-			await goto(resolve('/admin/contents'));
+			await goto(resolve('admin/contents'));
 		} catch {
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
@@ -76,7 +76,7 @@
 
 	// 画面が移れば、ルートの `+layout.ts` がログイン状態を取り直す。
 	async function handleRecoveryCodeKept() {
-		await goto(resolve('/admin/contents'));
+		await goto(resolve('admin/contents'));
 	}
 
 	// 管理者を作る代わりに、バックアップから戻す (→ docs/access.md「バックアップとリストア」)。
@@ -95,7 +95,7 @@
 	// 戻してもログインはさせない。戻したデータの管理者でログインしてもらう。
 	async function handleRestored() {
 		toast.success(m.setup_restored_toast());
-		await goto(resolve('/login'));
+		await goto(resolve('login'));
 	}
 </script>
 
@@ -159,9 +159,9 @@
 								{/if}
 							</Field.Field>
 							<Field.Field>
-								<LoadingButton type="submit" class="w-full" {loading} disabled={passwordMismatch}>
-									{m.setup_submit()}
-								</LoadingButton>
+								<LoadingButton type="submit" class="w-full" {loading} disabled={passwordMismatch}
+									>{m.setup_submit()}</LoadingButton
+								>
 							</Field.Field>
 						</Field.FieldGroup>
 					</form>

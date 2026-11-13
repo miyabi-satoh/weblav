@@ -1,10 +1,10 @@
 import { error } from '@sveltejs/kit';
-import { client } from '$lib/api/client';
-import { fetchOrError } from '$lib/api/load';
-import { archiveListInit, axisFilters } from '$lib/archive-list-request';
-import { parseArchiveSort } from '$lib/archive-sort';
-import { LIST_FILTER_QUERY } from '$lib/list-filter';
-import * as m from '$lib/paraglide/messages.js';
+import { client } from '#lib/api/client.ts';
+import { fetchOrError } from '#lib/api/load.ts';
+import { archiveListInit, axisFilters } from '#lib/archive-list-request.ts';
+import { parseArchiveSort } from '#lib/archive-sort.ts';
+import { LIST_FILTER_QUERY } from '#lib/list-filter.ts';
+import * as m from '#lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
 // 一覧の表示を使うフォルダーの、ファイルのタブ。閲覧の画面 (`/archives/[id]`) と同じ絞り込みと並べ替えで並べる

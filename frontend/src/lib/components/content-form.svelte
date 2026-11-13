@@ -6,20 +6,20 @@
 	 * 値は `ContentFormState` が持ち、この部品は見た目と入力だけを受け持つ。
 	 * 送信ボタンとダイアログの枠は置かない。呼び出し側が自分の形で用意する。
 	 */
-	import { visibilityLabel } from '$lib/content-labels';
-	import type { ContentFormPart, ContentFormState } from '$lib/content-form.svelte';
-	import { isPathContentType } from '$lib/content-types';
-	import * as m from '$lib/paraglide/messages.js';
-	import type { components } from '$lib/api/schema';
-	import { Button } from '$lib/components/ui/button';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
-	import AutoScheduleField from '$lib/components/auto-schedule-field.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import * as Select from '$lib/components/ui/select';
-	import { Switch } from '$lib/components/ui/switch';
-	import PatternField from '$lib/components/pattern-field.svelte';
-	import { Textarea } from '$lib/components/ui/textarea';
+	import { visibilityLabel } from '#lib/content-labels.ts';
+	import type { ContentFormPart, ContentFormState } from '#lib/content-form.svelte.ts';
+	import { isPathContentType } from '#lib/content-types.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { components } from '#lib/api/schema.js';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import AutoScheduleField from '#lib/components/auto-schedule-field.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import PatternField from '#lib/components/pattern-field.svelte';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
 
 	type Visibility = components['schemas']['Visibility'];
 	type Props = {

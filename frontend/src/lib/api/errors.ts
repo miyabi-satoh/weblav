@@ -7,8 +7,8 @@
  * `kind` で場合分けし、サーバーが渡した値(タイトル・軸名・公開範囲)を差し込んで組み立てる
  * (→ `src/api/error_detail.rs`)。
  */
-import * as m from '$lib/paraglide/messages.js';
-import type { components } from '$lib/api/schema';
+import * as m from '#lib/paraglide/messages.js';
+import type { components } from '#lib/api/schema.js';
 
 export type ErrorCode = components['schemas']['ErrorCode'];
 
@@ -71,7 +71,7 @@ export function isPasswordConfirmationRequired(body: unknown): boolean {
 }
 
 /**
- * パスワードの確かめ直しを利用者がやめた応答か (→ `$lib/api/client`)。自分でやめたので、
+ * パスワードの確かめ直しを利用者がやめた応答か (→ `#lib/api/client.ts`)。自分でやめたので、
  * 失敗として知らせない。やめたときは断られた応答がそのまま呼び出し側に届くので、見分け方は同じ。
  */
 export function isConfirmationCancelled(body: unknown): boolean {

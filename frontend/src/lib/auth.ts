@@ -1,5 +1,5 @@
-import { withQuery } from '$lib/href';
-import type { components } from '$lib/api/schema';
+import { withQuery } from '#lib/href.ts';
+import type { components } from '#lib/api/schema.js';
 
 /**
  * ログインが必要なページの route id 判定。`+layout.ts` で使う。

@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { browseLayout } from '$lib/browse-layout.svelte';
-	import { browseRowSubtitleClass } from '$lib/list-row';
-	import type { RowLocation } from '$lib/row-location';
-	import RowLocationButton from '$lib/components/row-location.svelte';
-	import SeparatedText from '$lib/components/separated-text.svelte';
+	import { browseLayout } from '#lib/browse-layout.svelte.ts';
+	import { browseRowSubtitleClass } from '#lib/list-row.ts';
+	import type { RowLocation } from '#lib/row-location.ts';
+	import RowLocationButton from '#lib/components/row-location.svelte';
+	import SeparatedText from '#lib/components/separated-text.svelte';
 
-	// 行の2段目 (→ $lib/list-row.ts)。頭の印・場所・文字を「·」で区切って並べる。何も無ければ段ごと出さない。
+	// 行の2段目 (→ #lib/list-row.ts)。頭の印・場所・文字を「·」で区切って並べる。何も無ければ段ごと出さない。
 	let {
 		prefix,
 		location,

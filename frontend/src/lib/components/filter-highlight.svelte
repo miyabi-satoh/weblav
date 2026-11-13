@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { highlightSegments } from '$lib/list-filter';
-	import { listFilter } from '$lib/list-filter.svelte';
+	import { highlightSegments } from '#lib/list-filter.ts';
+	import { listFilter } from '#lib/list-filter.svelte.ts';
 
 	// 一覧の行のタイトル。ページ内の絞り込みで当たった文字を目立たせる (→ docs/ui.md「一覧の絞り込み」)。
 	// 間を空けて当たった行も、なぜ残ったかが読み取れるようにするため。

@@ -1,14 +1,14 @@
 <script lang="ts">
-	import BrowseControls from '$lib/components/browse-controls.svelte';
-	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
-	import ContentList from '$lib/components/content-list.svelte';
-	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
+	import BrowseControls from '#lib/components/browse-controls.svelte';
+	import BrowseSortSelect from '#lib/components/browse-sort.svelte';
+	import ContentList from '#lib/components/content-list.svelte';
+	import { ListFilterState, provideListFilter } from '#lib/list-filter.svelte.ts';
 	import { resolve } from '$app/paths';
-	import { SORT_OPTIONS, browseSortHref, type BrowseSort } from '$lib/browse-sort';
-	import { browseGutterClass } from '$lib/list-row';
-	import { pageEmptyTextClass, pageHeadingClass } from '$lib/page-layout';
-	import { pageTitle } from '$lib/page-title';
-	import * as m from '$lib/paraglide/messages.js';
+	import { SORT_OPTIONS, browseSortHref, type BrowseSort } from '#lib/browse-sort.ts';
+	import { browseGutterClass } from '#lib/list-row.ts';
+	import { pageEmptyTextClass, pageHeadingClass } from '#lib/page-layout.ts';
+	import { pageTitle } from '#lib/page-title.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -19,7 +19,7 @@
 
 	function sortHref(sort: BrowseSort): string {
 		// 並び順を変えても、打った絞り込みは残す。
-		return browseSortHref(resolve('/hidden'), sort, listFilter.query);
+		return browseSortHref(resolve('hidden'), sort, listFilter.query);
 	}
 </script>
 

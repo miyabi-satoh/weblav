@@ -1,33 +1,33 @@
 <script lang="ts">
 	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { client } from '$lib/api/client';
+	import { client } from '#lib/api/client.ts';
 	import {
 		archiveItemManageDownloadHref,
 		archiveItemManageThumbnailHref,
 		archiveManageFileHref
-	} from '$lib/api/urls';
-	import type { components } from '$lib/api/schema';
-	import { NameFilteredView } from '$lib/name-filtered-view.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import PatternAddDialog from '$lib/components/pattern-add-dialog.svelte';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { linksFileHref } from '$lib/links-file';
-	import { ArchivePagedList } from '$lib/archive-paged-list.svelte';
-	import { archiveListInit, manageChunks, manageShuffle } from '$lib/archive-list-request';
-	import ArchiveStaleNotice from '$lib/components/archive-stale-notice.svelte';
-	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
-	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
-	import { adminListBandClass, adminPageClass, pageEmptyTextClass } from '$lib/page-layout';
-	import * as m from '$lib/paraglide/messages.js';
-	import ArchiveViewControls from '$lib/components/archive-view-controls.svelte';
+	} from '#lib/api/urls.ts';
+	import type { components } from '#lib/api/schema.js';
+	import { NameFilteredView } from '#lib/name-filtered-view.svelte.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import PatternAddDialog from '#lib/components/pattern-add-dialog.svelte';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { linksFileHref } from '#lib/links-file.ts';
+	import { ArchivePagedList } from '#lib/archive-paged-list.svelte.ts';
+	import { archiveListInit, manageChunks, manageShuffle } from '#lib/archive-list-request.ts';
+	import ArchiveStaleNotice from '#lib/components/archive-stale-notice.svelte';
+	import ListFilterEmpty from '#lib/components/list-filter-empty.svelte';
+	import { ListFilterState, provideListFilter } from '#lib/list-filter.svelte.ts';
+	import { adminListBandClass, adminPageClass, pageEmptyTextClass } from '#lib/page-layout.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import ArchiveViewControls from '#lib/components/archive-view-controls.svelte';
 	import ArchiveViewList, {
 		type ArchiveItemUrls,
 		type ArchiveViewRow
-	} from '$lib/components/archive-view-list.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
-	import WarningBand from '$lib/components/warning-band.svelte';
+	} from '#lib/components/archive-view-list.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import ListRowSubtitle from '#lib/components/list-row-subtitle.svelte';
+	import WarningBand from '#lib/components/warning-band.svelte';
 	import type { PageProps } from './$types';
 
 	type ManageItem = components['schemas']['ArchiveViewItem'];

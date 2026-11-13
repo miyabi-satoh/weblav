@@ -2,8 +2,8 @@
  * アーカイブの軸の定義を外部の AI に考えてもらうプロンプトと、その答えの読み取り
  * (→ docs/archive.md「軸の定義を外部の AI で作る」)。
  */
-import { getLocale } from '$lib/paraglide/runtime';
-import type { components } from '$lib/api/schema';
+import { getLocale } from '#lib/paraglide/runtime.js';
+import type { components } from '#lib/api/schema.js';
 import ja from './ja.md?raw';
 import en from './en.md?raw';
 

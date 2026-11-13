@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import * as m from '$lib/paraglide/messages.js';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { loading, children }: { loading: boolean; children: Snippet } = $props();
 </script>

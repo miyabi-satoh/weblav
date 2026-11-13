@@ -1,7 +1,7 @@
 /**
  * 画面の骨組みで共有する class。個々の画面に同じ文字列を書かない。
  */
-import { browseGutterClass } from '$lib/list-row';
+import { browseGutterClass } from '#lib/list-row.ts';
 
 /** 見出し (`<h1>`) の文字の大きさ。閲覧側・管理画面とも同じ大きさで置く (→ docs/ui.md「UI 全般」)。 */
 export const pageHeadingTextClass = 'text-lg font-semibold';

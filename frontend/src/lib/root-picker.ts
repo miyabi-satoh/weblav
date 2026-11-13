@@ -1,10 +1,10 @@
 /**
  * 共有の追加と場所の選び直しで、サーバーの PC に OS のフォルダー選択の窓を出す (→ docs/folders.md「選び方」)。
  */
-import { client } from '$lib/api/client';
-import { GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
-import type { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-import * as m from '$lib/paraglide/messages.js';
+import { client } from '#lib/api/client.ts';
+import { GENERIC_ERROR_MESSAGE } from '#lib/api/errors.ts';
+import type { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 /** 窓で選ばれたパス。キャンセルなら `null`。失敗も `null` で、理由は `errorDialog` に出す。 */
 export async function pickRootFolder(errorDialog: ErrorDialogState): Promise<string | null> {

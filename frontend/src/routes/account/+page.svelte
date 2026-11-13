@@ -1,35 +1,35 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { client } from '$lib/api/client';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { FormDirtyState } from '$lib/form-dirty.svelte';
-	import { RecoveryCodeCreate } from '$lib/recovery-code-create.svelte';
-	import { formatDate } from '$lib/format';
-	import { SectionSaveState } from '$lib/section-save.svelte';
-	import { masonry } from '$lib/masonry';
+	import { client } from '#lib/api/client.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { FormDirtyState } from '#lib/form-dirty.svelte.ts';
+	import { RecoveryCodeCreate } from '#lib/recovery-code-create.svelte.ts';
+	import { formatDate } from '#lib/format.ts';
+	import { SectionSaveState } from '#lib/section-save.svelte.ts';
+	import { masonry } from '#lib/masonry.ts';
 	import {
 		adminPageClass,
 		adminPageHeaderClass,
 		pageHeadingTextClass,
 		sectionCardClass,
 		sectionGridClass
-	} from '$lib/page-layout';
-	import { pageTitle } from '$lib/page-title';
-	import * as m from '$lib/paraglide/messages.js';
-	import { Button } from '$lib/components/ui/button';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LeaveConfirmDialog from '$lib/components/leave-confirm-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import PasswordInput from '$lib/components/password-input.svelte';
-	import RecoveryCodeDialog from '$lib/components/recovery-code-dialog.svelte';
+	} from '#lib/page-layout.ts';
+	import { pageTitle } from '#lib/page-title.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.ts';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LeaveConfirmDialog from '#lib/components/leave-confirm-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import PasswordInput from '#lib/components/password-input.svelte';
+	import RecoveryCodeDialog from '#lib/components/recovery-code-dialog.svelte';
 	import type { PageProps } from './$types';
 
 	/**
 	 * 自分のアカウント (→ docs/ui.md「アカウントのページ」)。区画でじかに直し、確定したときに
-	 * サーバーが求めればパスワードを聞く (→ `$lib/password-confirmation.svelte`)。
+	 * サーバーが求めればパスワードを聞く (→ `#lib/password-confirmation.svelte.ts`)。
 	 */
 	type Part = 'username' | 'password';
 

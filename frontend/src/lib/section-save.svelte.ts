@@ -1,9 +1,9 @@
 import { refreshAll } from '$app/navigation';
 import { toast } from 'svelte-sonner';
-import type { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-import type { FormDirtyState } from '$lib/form-dirty.svelte';
-import { LeaveGuard } from '$lib/leave-guard.svelte';
-import * as m from '$lib/paraglide/messages.js';
+import type { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+import type { FormDirtyState } from '#lib/form-dirty.svelte.ts';
+import { LeaveGuard } from '#lib/leave-guard.svelte.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 /**
  * 区画ごとに保存する編集ページの、保存中の区画・離れるときの確認・保存の後の知らせ (→ docs/ui.md「編集ページの区画」)。

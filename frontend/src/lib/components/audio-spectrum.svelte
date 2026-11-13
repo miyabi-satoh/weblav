@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { spectrumBars } from '$lib/spectrum';
+	import { spectrumBars } from '#lib/spectrum.ts';
 
 	let {
 		analyser,

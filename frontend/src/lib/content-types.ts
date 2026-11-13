@@ -5,7 +5,7 @@ import FileIcon from '@lucide/svelte/icons/file';
 import FolderIcon from '@lucide/svelte/icons/folder';
 import FolderTreeIcon from '@lucide/svelte/icons/folder-tree';
 import LinkIcon from '@lucide/svelte/icons/link';
-import type { components } from '$lib/api/schema';
+import type { components } from '#lib/api/schema.js';
 
 type ContentType = components['schemas']['ContentType'];
 

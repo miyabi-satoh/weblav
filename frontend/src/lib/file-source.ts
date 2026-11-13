@@ -3,7 +3,7 @@ import {
 	contentThumbnailHref,
 	shareDownloadHref,
 	shareThumbnailHref
-} from '$lib/api/urls';
+} from '#lib/api/urls.ts';
 
 /**
  * フォルダーの中のファイル・ディレクトリの行が、どこのものか。
@@ -12,7 +12,7 @@ import {
  */
 export type FileSource = { kind: 'content'; id: number } | { kind: 'share'; id: number };
 
-/** ファイルを開く・ダウンロードする API への直リンク (→ $lib/api/urls.ts)。 */
+/** ファイルを開く・ダウンロードする API への直リンク (→ #lib/api/urls.ts)。 */
 export function sourceDownloadHref(source: FileSource, path: string): string {
 	return source.kind === 'content'
 		? contentDownloadHref(source.id, path)

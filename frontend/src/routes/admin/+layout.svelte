@@ -6,14 +6,14 @@
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { adminNavTabListClass, navTabClass } from '$lib/nav-tabs';
-	import * as m from '$lib/paraglide/messages.js';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { RecoveryCodeCreate } from '$lib/recovery-code-create.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import RecoveryCodeDialog from '$lib/components/recovery-code-dialog.svelte';
-	import WarningBand from '$lib/components/warning-band.svelte';
+	import { adminNavTabListClass, navTabClass } from '#lib/nav-tabs.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { RecoveryCodeCreate } from '#lib/recovery-code-create.svelte.ts';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import RecoveryCodeDialog from '#lib/components/recovery-code-dialog.svelte';
+	import WarningBand from '#lib/components/warning-band.svelte';
 
 	let { children } = $props();
 
@@ -25,15 +25,15 @@
 	const recoveryCode = new RecoveryCodeCreate(errorDialog);
 
 	let tabs = $derived([
-		{ href: resolve('/admin/contents'), label: m.admin_contents_nav_title, icon: LayoutListIcon },
-		{ href: resolve('/admin/users'), label: m.admin_users_nav_title, icon: UsersIcon },
-		{ href: resolve('/admin/roots'), label: m.admin_roots_nav_title, icon: FolderLockIcon },
+		{ href: resolve('admin/contents'), label: m.admin_contents_nav_title, icon: LayoutListIcon },
+		{ href: resolve('admin/users'), label: m.admin_users_nav_title, icon: UsersIcon },
+		{ href: resolve('admin/roots'), label: m.admin_roots_nav_title, icon: FolderLockIcon },
 		{
-			href: resolve('/admin/operations'),
+			href: resolve('admin/operations'),
 			label: m.admin_operations_nav_title,
 			icon: HistoryIcon
 		},
-		{ href: resolve('/admin/settings'), label: m.admin_settings_nav_title, icon: SettingsIcon }
+		{ href: resolve('admin/settings'), label: m.admin_settings_nav_title, icon: SettingsIcon }
 	]);
 </script>
 

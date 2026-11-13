@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import * as m from '$lib/paraglide/messages.js';
-	import { headerIconActionClass } from '$lib/header-action';
-	import { cn } from '$lib/utils';
-	import { pageHeadingInRowClass } from '$lib/page-layout';
+	import * as m from '#lib/paraglide/messages.js';
+	import { headerIconActionClass } from '#lib/header-action.ts';
+	import { cn } from '#lib/utils.ts';
+	import { pageHeadingInRowClass } from '#lib/page-layout.ts';
 	import type { Snippet } from 'svelte';
 
 	// 閲覧の画面の見出し。書き換えられる人には、右端に編集ページへのペンを出す (→ docs/ui.md「UI 全般」)。

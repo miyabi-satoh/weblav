@@ -1,6 +1,6 @@
-import { client } from '$lib/api/client';
-import { fetchOrNull } from '$lib/api/load';
-import { searchScopeFromQuery, type SearchScopeQuery } from '$lib/search-scope';
+import { client } from '#lib/api/client.ts';
+import { fetchOrNull } from '#lib/api/load.ts';
+import { searchScopeFromQuery, type SearchScopeQuery } from '#lib/search-scope.ts';
 import type { PageLoad } from './$types';
 
 // 語と範囲は URL に持つ (→ docs/search.md)。打ちながら探すので、取れなくても画面ごとエラーにはせず、

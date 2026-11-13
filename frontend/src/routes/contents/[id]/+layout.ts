@@ -1,10 +1,10 @@
 import { error, redirect } from '@sveltejs/kit';
 import { resolve } from '$app/paths';
-import { client } from '$lib/api/client';
-import { fetchOrError } from '$lib/api/load';
-import { canEditContent } from '$lib/auth';
-import { contentSelfHref } from '$lib/content-view-href';
-import * as m from '$lib/paraglide/messages.js';
+import { client } from '#lib/api/client.ts';
+import { fetchOrError } from '#lib/api/load.ts';
+import { canEditContent } from '#lib/auth.ts';
+import { contentSelfHref } from '#lib/content-view-href.ts';
+import * as m from '#lib/paraglide/messages.js';
 import type { LayoutLoad } from './$types';
 
 // 単一コンテンツ取得APIが無いため、一覧を取って対象idを探す。

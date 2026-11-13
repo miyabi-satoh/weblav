@@ -1,6 +1,6 @@
-import { client } from '$lib/api/client';
-import { fetchOrError, fetchOrNull } from '$lib/api/load';
-import * as m from '$lib/paraglide/messages.js';
+import { client } from '#lib/api/client.ts';
+import { fetchOrError, fetchOrNull } from '#lib/api/load.ts';
+import * as m from '#lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
 // admin 限定であることは API が確かめる。追加だけは、サーバーの PC から開いたときに限る (+page.svelte)。

@@ -1,23 +1,23 @@
 <script lang="ts">
-	import BrowseControls from '$lib/components/browse-controls.svelte';
-	import BrowseHeading from '$lib/components/browse-heading.svelte';
-	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
+	import BrowseControls from '#lib/components/browse-controls.svelte';
+	import BrowseHeading from '#lib/components/browse-heading.svelte';
+	import { ListFilterState, provideListFilter } from '#lib/list-filter.svelte.ts';
 	import { resolve } from '$app/paths';
-	import * as m from '$lib/paraglide/messages.js';
-	import { linksFileHref } from '$lib/links-file';
-	import { breadcrumbLinkClass, pathCrumbs } from '$lib/breadcrumb';
-	import { SORT_OPTIONS, browseSortHref, sortQuery, type BrowseSort } from '$lib/browse-sort';
-	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
-	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
-	import FolderEntryList, { type FolderEntryRow } from '$lib/components/folder-entry-list.svelte';
-	import { browseGutterClass, rowMenuSlotClass } from '$lib/list-row';
+	import * as m from '#lib/paraglide/messages.js';
+	import { linksFileHref } from '#lib/links-file.ts';
+	import { breadcrumbLinkClass, pathCrumbs } from '#lib/breadcrumb.ts';
+	import { SORT_OPTIONS, browseSortHref, sortQuery, type BrowseSort } from '#lib/browse-sort.ts';
+	import BrowseBreadcrumb from '#lib/components/browse-breadcrumb.svelte';
+	import BrowseSortSelect from '#lib/components/browse-sort.svelte';
+	import FolderEntryList, { type FolderEntryRow } from '#lib/components/folder-entry-list.svelte';
+	import { browseGutterClass, rowMenuSlotClass } from '#lib/list-row.ts';
 	import type { PageProps } from './$types';
-	import { pageTitle } from '$lib/page-title';
-	import { pageEmptyTextClass } from '$lib/page-layout';
-	import FolderViewSwitch from '$lib/components/folder-view-switch.svelte';
+	import { pageTitle } from '#lib/page-title.ts';
+	import { pageEmptyTextClass } from '#lib/page-layout.ts';
+	import FolderViewSwitch from '#lib/components/folder-view-switch.svelte';
 	import { refreshAll } from '$app/navigation';
-	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
-	import { ShareOpsState } from '$lib/share-ops-state.svelte';
+	import RowActionsMenu from '#lib/components/row-actions-menu.svelte';
+	import { ShareOpsState } from '#lib/share-ops-state.svelte.ts';
 	import {
 		canAddTo,
 		childSharePath,
@@ -25,10 +25,10 @@
 		type ShareAction,
 		type ShareDir,
 		type ShareTarget
-	} from '$lib/share-ops';
-	import ShareAddMenu from '$lib/components/share-ops/share-add-menu.svelte';
-	import ShareOpsHost from '$lib/components/share-ops/share-ops-host.svelte';
-	import ShareRowMenuItems from '$lib/components/share-ops/share-row-menu-items.svelte';
+	} from '#lib/share-ops.ts';
+	import ShareAddMenu from '#lib/components/share-ops/share-add-menu.svelte';
+	import ShareOpsHost from '#lib/components/share-ops/share-ops-host.svelte';
+	import ShareRowMenuItems from '#lib/components/share-ops/share-row-menu-items.svelte';
 
 	let { data }: PageProps = $props();
 

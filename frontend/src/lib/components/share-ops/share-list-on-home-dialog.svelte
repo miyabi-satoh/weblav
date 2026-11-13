@@ -4,19 +4,19 @@
 	 * 入れさせるのは公開範囲だけ。タイトルはサーバーが名前で付け、ほかは載せた後の編集ページで変える
 	 * (→ docs/ui.md「UI 全般」の「作成の入力は必要最小限にする」)。
 	 */
-	import { client } from '$lib/api/client';
-	import type { components } from '$lib/api/schema';
-	import { visibilityLabel } from '$lib/content-labels';
-	import { dialogFormClass } from '$lib/dialog-form';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import * as m from '$lib/paraglide/messages.js';
-	import type { ShareTarget } from '$lib/share-ops';
-	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Field from '$lib/components/ui/field';
-	import * as RadioGroup from '$lib/components/ui/radio-group';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
+	import { client } from '#lib/api/client.ts';
+	import type { components } from '#lib/api/schema.js';
+	import { visibilityLabel } from '#lib/content-labels.ts';
+	import { dialogFormClass } from '#lib/dialog-form.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { ShareTarget } from '#lib/share-ops.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import * as RadioGroup from '#lib/components/ui/radio-group/index.ts';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
 
 	type Visibility = components['schemas']['Visibility'];
 

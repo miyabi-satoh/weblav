@@ -1,23 +1,23 @@
 <script lang="ts">
 	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import * as m from '$lib/paraglide/messages.js';
-	import { breadcrumbLinkClass, pathCrumbs } from '$lib/breadcrumb';
-	import { SORT_OPTIONS, browseSortHref, type BrowseSort } from '$lib/browse-sort';
-	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
-	import { browseGutterClass, rowMenuSlotClass } from '$lib/list-row';
-	import { pageEmptyTextClass, pageHeadingInRowClass } from '$lib/page-layout';
-	import { pageTitle } from '$lib/page-title';
-	import { ShareOpsState } from '$lib/share-ops-state.svelte';
-	import { canAddTo, childSharePath, shareRowActions, type ShareDir } from '$lib/share-ops';
-	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
-	import BrowseControls from '$lib/components/browse-controls.svelte';
-	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
-	import FolderEntryList, { type FolderEntryRow } from '$lib/components/folder-entry-list.svelte';
-	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
-	import ShareAddMenu from '$lib/components/share-ops/share-add-menu.svelte';
-	import ShareOpsHost from '$lib/components/share-ops/share-ops-host.svelte';
-	import ShareRowMenuItems from '$lib/components/share-ops/share-row-menu-items.svelte';
+	import * as m from '#lib/paraglide/messages.js';
+	import { breadcrumbLinkClass, pathCrumbs } from '#lib/breadcrumb.ts';
+	import { SORT_OPTIONS, browseSortHref, type BrowseSort } from '#lib/browse-sort.ts';
+	import { ListFilterState, provideListFilter } from '#lib/list-filter.svelte.ts';
+	import { browseGutterClass, rowMenuSlotClass } from '#lib/list-row.ts';
+	import { pageEmptyTextClass, pageHeadingInRowClass } from '#lib/page-layout.ts';
+	import { pageTitle } from '#lib/page-title.ts';
+	import { ShareOpsState } from '#lib/share-ops-state.svelte.ts';
+	import { canAddTo, childSharePath, shareRowActions, type ShareDir } from '#lib/share-ops.ts';
+	import BrowseBreadcrumb from '#lib/components/browse-breadcrumb.svelte';
+	import BrowseControls from '#lib/components/browse-controls.svelte';
+	import BrowseSortSelect from '#lib/components/browse-sort.svelte';
+	import FolderEntryList, { type FolderEntryRow } from '#lib/components/folder-entry-list.svelte';
+	import RowActionsMenu from '#lib/components/row-actions-menu.svelte';
+	import ShareAddMenu from '#lib/components/share-ops/share-add-menu.svelte';
+	import ShareOpsHost from '#lib/components/share-ops/share-ops-host.svelte';
+	import ShareRowMenuItems from '#lib/components/share-ops/share-row-menu-items.svelte';
 	import type { PageProps } from './$types';
 
 	// 共有の中の画面 (→ docs/ui.md「共有の中の画面」)。フォルダーのコンテンツの画面と同じ一覧に、
@@ -107,7 +107,7 @@
 		<!-- ホーム / 共有 / 共有の名前 / … (→ docs/ui.md「共有の中の画面」)。 -->
 		<BrowseBreadcrumb ancestors={[]}>
 			<span aria-hidden="true">/</span>
-			<a href={resolve('/shares')} class={breadcrumbLinkClass}>{m.shares_heading()}</a>
+			<a href={resolve('shares')} class={breadcrumbLinkClass}>{m.shares_heading()}</a>
 			<span aria-hidden="true">/</span>
 			{#if crumbs.length === 0}
 				<span>{browse.share.name}</span>

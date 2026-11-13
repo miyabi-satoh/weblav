@@ -1,8 +1,8 @@
 import { getContext, setContext, untrack } from 'svelte';
 import { beforeNavigate, replaceState } from '$app/navigation';
 import { page } from '$app/state';
-import { queryParams, withQuery } from '$lib/href';
-import { LIST_FILTER_QUERY, matchFilter, parseFilterTerms } from '$lib/list-filter';
+import { queryParams, withQuery } from '#lib/href.ts';
+import { LIST_FILTER_QUERY, matchFilter, parseFilterTerms } from '#lib/list-filter.ts';
 
 const CONTEXT_KEY = Symbol('list-filter');
 
@@ -34,13 +34,11 @@ export class ListFilterState {
 				this.value = incoming;
 			});
 		});
-		// 書きかけは、移る前に今の画面の履歴へ書く (戻ったときに語が残るように)。
-		// 戻る・進むでは履歴がもう移った先を指しているので、書かずに取り消す。
-		beforeNavigate((navigation) => {
-			if (this.#pendingWrite === undefined) return;
+		// 移るときの書きかけは、書かずに取り消す。replaceState は履歴を書く前に待つので、ここで書くと
+		// 移った先の履歴を書き換えうる。リンクを押す・タップするなら、その前に欄を離れた時点で書いている (→ flush)。
+		beforeNavigate(() => {
 			clearTimeout(this.#pendingWrite);
 			this.#pendingWrite = undefined;
-			if (navigation.type !== 'popstate') this.#write();
 		});
 		$effect(() => () => clearTimeout(this.#pendingWrite));
 	}
@@ -72,17 +70,26 @@ export class ListFilterState {
 		}, URL_WRITE_DELAY_MS);
 	}
 
+	/** 書きかけを今すぐ URL に写す。欄を離れたときに呼ぶ (戻ったときに語が残るように)。 */
+	flush() {
+		if (this.#pendingWrite === undefined) return;
+		clearTimeout(this.#pendingWrite);
+		this.#pendingWrite = undefined;
+		this.#write();
+	}
+
 	#write() {
 		const query = this.value.trim() === '' ? '' : this.value;
 		this.#seen = query;
 		// ほかのクエリは、`page.url` でなく今のブラウザーの URL から取る。shallow routing で書いたもの
-		// (開いているものの `preview`。→ $lib/preview-url.svelte.ts) は `page.url` に写らず、外したものも残るため。
+		// (開いているものの `preview`。→ #lib/preview-url.svelte.ts) は `page.url` に写らず、外したものも残るため。
 		const params = queryParams(location.search);
 		delete params[LIST_FILTER_QUERY];
 		const href = withQuery(
 			location.pathname,
 			query === '' ? params : { ...params, [LIST_FILTER_QUERY]: query }
 		);
+		// FIX: 非推奨の replaceState で書く理由は #lib/preview-url.svelte.ts の write() と同じ。
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の URL のパスをそのまま使う (→ AGENTS.md「コードの規約」)
 		replaceState(href, { ...page.state, listFilter: query });
 	}

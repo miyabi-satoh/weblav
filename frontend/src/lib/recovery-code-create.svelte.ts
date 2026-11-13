@@ -1,5 +1,5 @@
-import { client } from '$lib/api/client';
-import type { ErrorDialogState } from '$lib/error-dialog-state.svelte';
+import { client } from '#lib/api/client.ts';
+import type { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
 
 /**
  * 自分のリカバリコードを作る (→ docs/access.md「リカバリコード」)。作ったものは `code` に入り、

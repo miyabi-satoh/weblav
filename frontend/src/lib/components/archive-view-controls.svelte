@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { listCountRowClass } from '$lib/page-layout';
+	import { listCountRowClass } from '#lib/page-layout.ts';
 	import type { Snippet } from 'svelte';
-	import BrowseControls from '$lib/components/browse-controls.svelte';
+	import BrowseControls from '#lib/components/browse-controls.svelte';
 	import { goto } from '$app/navigation';
-	import { withQuery } from '$lib/href';
-	import * as m from '$lib/paraglide/messages.js';
-	import { ARCHIVE_SORT_OPTIONS, archiveSortHref, type ArchiveSort } from '$lib/archive-sort';
-	import { listFilter } from '$lib/list-filter.svelte';
-	import * as Select from '$lib/components/ui/select';
-	import BrowseSelectTrigger from '$lib/components/browse-select-trigger.svelte';
-	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
-	import type { components } from '$lib/api/schema';
-	import { formatNumber } from '$lib/format';
+	import { withQuery } from '#lib/href.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { ARCHIVE_SORT_OPTIONS, archiveSortHref, type ArchiveSort } from '#lib/archive-sort.ts';
+	import { listFilter } from '#lib/list-filter.svelte.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import BrowseSelectTrigger from '#lib/components/browse-select-trigger.svelte';
+	import BrowseSortSelect from '#lib/components/browse-sort.svelte';
+	import type { components } from '#lib/api/schema.js';
+	import { formatNumber } from '#lib/format.ts';
 
 	type ArchiveAxis = components['schemas']['ArchiveAxisResponse'];
 

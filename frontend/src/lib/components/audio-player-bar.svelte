@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { nowPlaying, REPEAT_MODES, type RepeatMode } from '$lib/now-playing.svelte';
-	import * as m from '$lib/paraglide/messages.js';
-	import MediaSeekBar from '$lib/components/media-seek-bar.svelte';
-	import { clampTime, SKIP_SECONDS } from '$lib/media';
-	import { Button } from '$lib/components/ui/button';
-	import AudioSpectrum from '$lib/components/audio-spectrum.svelte';
+	import { nowPlaying, REPEAT_MODES, type RepeatMode } from '#lib/now-playing.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import MediaSeekBar from '#lib/components/media-seek-bar.svelte';
+	import { clampTime, SKIP_SECONDS } from '#lib/media.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import AudioSpectrum from '#lib/components/audio-spectrum.svelte';
 	import ArrowRightToLineIcon from '@lucide/svelte/icons/arrow-right-to-line';
 	import ListEndIcon from '@lucide/svelte/icons/list-end';
 	import PauseIcon from '@lucide/svelte/icons/pause';
@@ -250,7 +250,7 @@
 				role="alert"
 			>
 				{m.audio_player_error()}
-				<!-- API への直リンクか、URL のファイルの元の URL (→ $lib/api/urls.ts)。 -->
+				<!-- API への直リンクか、URL のファイルの元の URL (→ #lib/api/urls.ts)。 -->
 				<a
 					href={track.originalUrl ?? track.src}
 					class="underline underline-offset-4"

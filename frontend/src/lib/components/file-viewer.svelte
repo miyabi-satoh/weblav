@@ -7,21 +7,21 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import ZoomInIcon from '@lucide/svelte/icons/zoom-in';
 	import ZoomOutIcon from '@lucide/svelte/icons/zoom-out';
-	import { fileViewer } from '$lib/file-viewer.svelte';
-	import { isMarkdownFileName } from '$lib/markdown-preview';
-	import { nowPlaying } from '$lib/now-playing.svelte';
-	import OfficeView from '$lib/components/office-view.svelte';
-	import PdfView from '$lib/components/pdf-view.svelte';
-	import TextView from '$lib/components/text-view.svelte';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import VideoPlayer from '$lib/components/video-player.svelte';
-	import { viewerButtonClass } from '$lib/viewer-button';
-	import { followPreviewUrl, previewClosed, previewLeaving } from '$lib/preview-url.svelte';
-	import { closeViewers, openLinkedPath, openViewerAt } from '$lib/viewer-items';
-	import * as m from '$lib/paraglide/messages.js';
+	import { fileViewer } from '#lib/file-viewer.svelte.ts';
+	import { isMarkdownFileName } from '#lib/markdown-preview.ts';
+	import { nowPlaying } from '#lib/now-playing.svelte.ts';
+	import OfficeView from '#lib/components/office-view.svelte';
+	import PdfView from '#lib/components/pdf-view.svelte';
+	import TextView from '#lib/components/text-view.svelte';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import VideoPlayer from '#lib/components/video-player.svelte';
+	import { viewerButtonClass } from '#lib/viewer-button.ts';
+	import { followPreviewUrl, previewClosed, previewLeaving } from '#lib/preview-url.svelte.ts';
+	import { closeViewers, openLinkedPath, openViewerAt } from '#lib/viewer-items.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// PDF・動画・テキストなどをページの上に重ねて表示するビューアー (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
-	// 画面に1つだけ置き (→ routes/+layout.svelte)、一覧の行は `$lib/viewer-items.ts` を通して開く。
+	// 画面に1つだけ置き (→ routes/+layout.svelte)、一覧の行は `#lib/viewer-items.ts` を通して開く。
 
 	/** PDF の倍率の段階。1 はページを幅に合わせた大きさ。 */
 	const ZOOM_STEPS = [1, 1.5, 2, 3];
@@ -34,7 +34,7 @@
 	let current = $derived(fileViewer.current);
 
 	// 戻るなどで画面を移ったら閉じる。移った先の上に、前の画面のファイルを残さない。
-	// 開いているものを URL に写す shallow routing の履歴 (→ $lib/preview-url.svelte.ts) は、画面の移動にならないので、ここは通らない。
+	// 開いているものを URL に写す shallow routing の履歴 (→ #lib/preview-url.svelte.ts) は、画面の移動にならないので、ここは通らない。
 	beforeNavigate((navigation) => {
 		if (previewLeaving(navigation)) closeViewers();
 	});
@@ -59,7 +59,7 @@
 	function handleKeydown(event: KeyboardEvent) {
 		// 動画のシークバーの左右キーと、拡大した PDF の横のスクロールと重ねない。
 		if (event.target instanceof HTMLInputElement || zoomStep > 0) return;
-		// Markdown のプレビューの表は、フォーカスを当てて左右キーで横に送る (→ $lib/manual-markdown.ts)。
+		// Markdown のプレビューの表は、フォーカスを当てて左右キーで横に送る (→ #lib/manual-markdown.ts)。
 		if (event.target instanceof Element && event.target.closest('.table-scroll')) return;
 		// Excel の表 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
 		if (event.target instanceof Element && event.target.closest('[data-office-view]')) return;
@@ -139,7 +139,7 @@
 							</div>
 						</div>
 					{/if}
-					<!-- API への直リンクか、URL のファイルの元の URL (→ $lib/api/urls.ts)。 -->
+					<!-- API への直リンクか、URL のファイルの元の URL (→ #lib/api/urls.ts)。 -->
 					<a
 						href={current.originalUrl ?? current.src}
 						class={viewerButtonClass}
@@ -162,7 +162,7 @@
 								class="flex size-full flex-col items-center justify-center gap-4 p-4 text-center"
 							>
 								<p>{m.file_viewer_error()}</p>
-								<!-- API への直リンクか、URL のファイルの元の URL (→ $lib/api/urls.ts)。 -->
+								<!-- API への直リンクか、URL のファイルの元の URL (→ #lib/api/urls.ts)。 -->
 								<a
 									href={current.originalUrl ?? current.src}
 									class="text-white underline underline-offset-4"

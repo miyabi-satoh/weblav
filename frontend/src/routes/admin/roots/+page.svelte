@@ -2,37 +2,37 @@
 	import { goto, refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { client } from '$lib/api/client';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { formatNumber } from '$lib/format';
-	import { pageTitle } from '$lib/page-title';
-	import { canAddRoots } from '$lib/root-location';
-	import { pickRootFolder } from '$lib/root-picker';
+	import { client } from '#lib/api/client.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { formatNumber } from '#lib/format.ts';
+	import { pageTitle } from '#lib/page-title.ts';
+	import { canAddRoots } from '#lib/root-location.ts';
+	import { pickRootFolder } from '#lib/root-picker.ts';
 	import {
 		adminEmptyTextClass,
 		adminPageClass,
 		adminPageHeaderClass,
 		adminTableBandClass,
 		pageHeadingTextClass
-	} from '$lib/page-layout';
+	} from '#lib/page-layout.ts';
 	import {
 		actionColumnClass,
 		columnFromSmClass,
 		fitColumnClass,
 		rowLinkStretchClass
-	} from '$lib/table-columns';
-	import * as m from '$lib/paraglide/messages.js';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import RootDeleteDialog from '$lib/components/root-delete-dialog.svelte';
-	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import * as Table from '$lib/components/ui/table';
-	import RootWarnings from '$lib/components/root-warnings.svelte';
-	import WarningBand from '$lib/components/warning-band.svelte';
-	import { shareAccessLabel } from '$lib/share-ops';
+	} from '#lib/table-columns.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import RootDeleteDialog from '#lib/components/root-delete-dialog.svelte';
+	import RowActionsMenu from '#lib/components/row-actions-menu.svelte';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import RootWarnings from '#lib/components/root-warnings.svelte';
+	import WarningBand from '#lib/components/warning-band.svelte';
+	import { shareAccessLabel } from '#lib/share-ops.ts';
 	import type { PageProps } from './$types';
-	import type { components } from '$lib/api/schema';
+	import type { components } from '#lib/api/schema.js';
 
 	type Root = components['schemas']['RootResponse'];
 

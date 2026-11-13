@@ -1,4 +1,4 @@
-import { readStored, writeStored } from '$lib/stored';
+import { readStored, writeStored } from '#lib/stored.ts';
 
 /**
  * ページ下部の音声プレイヤーが再生する対象。同時に鳴らせるのは1トラックのみ

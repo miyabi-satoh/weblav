@@ -1,7 +1,7 @@
 <script lang="ts" module>
-	import type { components } from '$lib/api/schema';
-	import { formatByteSize } from '$lib/format';
-	import * as m from '$lib/paraglide/messages.js';
+	import type { components } from '#lib/api/schema.js';
+	import { formatByteSize } from '#lib/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	type UploadedFile = components['schemas']['UploadedFile'];
 
@@ -44,13 +44,13 @@
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
 	import FileIcon from '@lucide/svelte/icons/file';
-	import { shareUploadUrl, uploadShareFile } from '$lib/share-upload';
-	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Progress } from '$lib/components/ui/progress';
-	import FileDropzone from '$lib/components/file-dropzone.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import { listItemClass } from '$lib/list-row';
+	import { shareUploadUrl, uploadShareFile } from '#lib/share-upload.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Progress } from '#lib/components/ui/progress/index.ts';
+	import FileDropzone from '#lib/components/file-dropzone.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import { listItemClass } from '#lib/list-row.ts';
 
 	let {
 		open = $bindable(),

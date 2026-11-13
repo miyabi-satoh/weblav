@@ -1,9 +1,9 @@
 <script lang="ts">
 	import GlobeIcon from '@lucide/svelte/icons/globe';
-	import { getLocale, setLocale, locales, isLocale } from '$lib/paraglide/runtime';
-	import * as m from '$lib/paraglide/messages.js';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import { headerIconActionClass } from '$lib/header-action';
+	import { getLocale, setLocale, locales, isLocale } from '#lib/paraglide/runtime.js';
+	import * as m from '#lib/paraglide/messages.js';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import { headerIconActionClass } from '#lib/header-action.ts';
 
 	const localeLabels: Record<string, () => string> = {
 		en: m.language_en,

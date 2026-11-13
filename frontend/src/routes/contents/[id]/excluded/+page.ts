@@ -1,8 +1,8 @@
 import { error } from '@sveltejs/kit';
-import { client } from '$lib/api/client';
-import { fetchOrError } from '$lib/api/load';
-import { LIST_FILTER_QUERY } from '$lib/list-filter';
-import * as m from '$lib/paraglide/messages.js';
+import { client } from '#lib/api/client.ts';
+import { fetchOrError } from '#lib/api/load.ts';
+import { LIST_FILTER_QUERY } from '#lib/list-filter.ts';
+import * as m from '#lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
 // ライブラリの対象外のタブ (→ docs/ui.md「対象外のタブ」)。

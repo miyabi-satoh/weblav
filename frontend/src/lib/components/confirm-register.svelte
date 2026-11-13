@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { client } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE, errorMessage, unreadableFolderMessage } from '$lib/api/errors';
-	import * as m from '$lib/paraglide/messages.js';
-	import type { components } from '$lib/api/schema';
-	import { contentTypeLabel } from '$lib/content-labels';
-	import { LatestRequest } from '$lib/latest-request';
-	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import ScanProgress from '$lib/components/scan-progress.svelte';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import WarningBand from '$lib/components/warning-band.svelte';
-	import { formatNumber } from '$lib/format';
+	import { client } from '#lib/api/client.ts';
+	import { GENERIC_ERROR_MESSAGE, errorMessage, unreadableFolderMessage } from '#lib/api/errors.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { components } from '#lib/api/schema.js';
+	import { contentTypeLabel } from '#lib/content-labels.ts';
+	import { LatestRequest } from '#lib/latest-request.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import ScanProgress from '#lib/components/scan-progress.svelte';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import WarningBand from '#lib/components/warning-band.svelte';
+	import { formatNumber } from '#lib/format.ts';
 
 	type ContentType = components['schemas']['ContentType'];
 	type Visibility = components['schemas']['Visibility'];
@@ -22,7 +22,7 @@
 		contentType: ContentType;
 		/** 件数を数える絶対パス。 */
 		path: string;
-		/** 画面に出す場所 (→ `$lib/root-location`)。 */
+		/** 画面に出す場所 (→ `#lib/root-location.ts`)。 */
 		pathLabel: string;
 		/**
 		 * 実際の見え方。設定ではなく、親グループの公開範囲を重ねた値を渡す

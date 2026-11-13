@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist/legacy/build/pdf.mjs';
-	import * as m from '$lib/paraglide/messages.js';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// PDF の1ページ (→ pdf-view.svelte)。見えている前後だけを描き、離れたら描いた分を捨てる。
 	// iPad の Safari はキャンバスの合計のメモリにも上限があり、全ページを描いたままにすると描けなくなるため。

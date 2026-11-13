@@ -2,9 +2,9 @@
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import { setMode, userPrefersMode } from 'mode-watcher';
-	import * as m from '$lib/paraglide/messages.js';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import { headerIconActionClass } from '$lib/header-action';
+	import * as m from '#lib/paraglide/messages.js';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import { headerIconActionClass } from '#lib/header-action.ts';
 </script>
 
 <DropdownMenu.Root>

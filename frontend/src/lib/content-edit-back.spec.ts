@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { components } from '$lib/api/schema';
+import type { components } from '#lib/api/schema.js';
 import { contentEditBack } from './content-edit-back';
 
+// 本物と同じく、ルートの ID (`/` で始まる) は引数を埋め、パスは頭に `/` を付ける。
 vi.mock('$app/paths', () => ({
 	resolve: (path: string, params?: { id: string }) =>
-		params ? path.replace('[id]', params.id) : path
+		path.startsWith('/') ? (params ? path.replace('[id]', params.id) : path) : `/${path}`
 }));
 
 type Content = components['schemas']['AdminContentResponse'];

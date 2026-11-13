@@ -1,7 +1,7 @@
 <script lang="ts">
 	// 編集ページの見出しの上の、一覧へ戻るリンク。`href` は呼び出し側が resolve() したもの。
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
-	import { backLinkClass } from '$lib/back-link';
+	import { backLinkClass } from '#lib/back-link.ts';
 
 	let { href, label }: { href: string; label: string } = $props();
 </script>

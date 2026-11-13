@@ -1,7 +1,7 @@
-import { client } from '$lib/api/client';
-import { fetchOrError } from '$lib/api/load';
-import { isAdmin } from '$lib/auth';
-import * as m from '$lib/paraglide/messages.js';
+import { client } from '#lib/api/client.ts';
+import { fetchOrError } from '#lib/api/load.ts';
+import { isAdmin } from '#lib/auth.ts';
+import * as m from '#lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
 // 作成者の選択肢 (admin だけに出す → docs/ui.md「UI 全般」)。

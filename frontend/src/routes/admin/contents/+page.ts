@@ -1,7 +1,7 @@
-import { client } from '$lib/api/client';
-import { fetchOrError } from '$lib/api/load';
-import * as m from '$lib/paraglide/messages.js';
-import { fetchSharedFolderPresence } from '$lib/shared-folders';
+import { client } from '#lib/api/client.ts';
+import { fetchOrError } from '#lib/api/load.ts';
+import * as m from '#lib/paraglide/messages.js';
+import { fetchSharedFolderPresence } from '#lib/shared-folders.ts';
 import type { PageLoad } from './$types';
 
 // 未ログインと `user` の弾き出しは、ルートと `routes/admin` の `+layout.ts` が行う。

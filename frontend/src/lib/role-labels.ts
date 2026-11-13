@@ -1,5 +1,5 @@
-import * as m from '$lib/paraglide/messages.js';
-import type { components } from '$lib/api/schema';
+import * as m from '#lib/paraglide/messages.js';
+import type { components } from '#lib/api/schema.js';
 
 type Role = components['schemas']['Role'];
 

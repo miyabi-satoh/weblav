@@ -1,6 +1,6 @@
-import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
-import { withQuery } from '$lib/href';
-import type { components } from '$lib/api/schema';
+import { GENERIC_ERROR_MESSAGE, errorMessage } from '#lib/api/errors.ts';
+import { withQuery } from '#lib/href.ts';
+import type { components } from '#lib/api/schema.js';
 
 type UploadedFile = components['schemas']['UploadedFile'];
 

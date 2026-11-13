@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
-import { client } from '$lib/api/client';
-import { fetchOrError } from '$lib/api/load';
-import * as m from '$lib/paraglide/messages.js';
+import { client } from '#lib/api/client.ts';
+import { fetchOrError } from '#lib/api/load.ts';
+import * as m from '#lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
 // 分類 (軸)・値の辞書・表示タイトルの編集画面。書き換えられない人は [id]/+layout.ts が閲覧の画面へ移すので、

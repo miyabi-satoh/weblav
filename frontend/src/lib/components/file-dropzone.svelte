@@ -4,7 +4,7 @@
 	 * 重ね、クリック・キーボードでの選択は input の標準動作に任せる。
 	 * ドラッグ&ドロップだけを label に足す。
 	 */
-	import { cn } from '$lib/utils';
+	import { cn } from '#lib/utils.ts';
 	import UploadIcon from '@lucide/svelte/icons/upload';
 
 	type Props = {

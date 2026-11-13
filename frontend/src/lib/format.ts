@@ -1,4 +1,4 @@
-import { getLocale } from '$lib/paraglide/runtime';
+import { getLocale } from '#lib/paraglide/runtime.js';
 
 /** バイト数を読みやすい単位(B/KB/MB/GB/TB)に変換する。`null`/`undefined` は空文字にする。
  * 数と単位の間で折り返さないよう、ノーブレークスペースで区切る (→ docs/ui.md「UI 全般」)。 */

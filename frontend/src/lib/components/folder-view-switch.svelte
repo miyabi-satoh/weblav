@@ -2,9 +2,9 @@
 	import { resolve } from '$app/paths';
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import ListFilterIcon from '@lucide/svelte/icons/list-filter';
-	import * as m from '$lib/paraglide/messages.js';
-	import { browseToggleItemClass } from '$lib/list-row';
-	import { cn } from '$lib/utils';
+	import * as m from '#lib/paraglide/messages.js';
+	import { browseToggleItemClass } from '#lib/list-row.ts';
+	import { cn } from '#lib/utils.ts';
 
 	// 一覧の表示を使うフォルダーで、フォルダーの表示と一覧の表示を行き来する (→ docs/folders.md「2つの表示」)。
 	// 押すと画面が移るので、ボタンでなくリンクの組にする。見た目はリストとタイルの切り替えに揃える。

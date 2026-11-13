@@ -1,7 +1,7 @@
 <script lang="ts">
-	import * as InputGroup from '$lib/components/ui/input-group';
-	import { parseIntegerInput } from '$lib/integer-input';
-	import * as m from '$lib/paraglide/messages.js';
+	import * as InputGroup from '#lib/components/ui/input-group/index.ts';
+	import { parseIntegerInput } from '#lib/integer-input.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// `type="number"` を使わない (→ docs/ui.md「見た目の決めごと」)。
 	// そのぶん範囲の検査を自前で持ち、ブラウザーの検証の吹き出しに載せる。

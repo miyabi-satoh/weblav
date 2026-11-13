@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { opFieldLines, opFilters, opPlaces, opResultLabel } from './operations';
-import type { components } from '$lib/api/schema';
+import type { components } from '#lib/api/schema.js';
 
 type Operation = components['schemas']['OperationResponse'];
 

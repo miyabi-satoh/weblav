@@ -1,7 +1,7 @@
-import { client } from '$lib/api/client';
-import { fetchOrError, fetchOrNull } from '$lib/api/load';
-import { opFilters } from '$lib/operations';
-import * as m from '$lib/paraglide/messages.js';
+import { client } from '#lib/api/client.ts';
+import { fetchOrError, fetchOrNull } from '#lib/api/load.ts';
+import { opFilters } from '#lib/operations.ts';
+import * as m from '#lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
 // 新しいものから1回分を取り、続きは画面の「さらに読み込む」で足す。

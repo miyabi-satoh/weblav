@@ -4,8 +4,8 @@
  * サーバーも同じ判定をする (→ docs/access.md「親が外れるときの公開範囲」・「ロールと操作」)。ここでの判定は、選べない値を見せず、
  * 実際の見え方を画面に示すためだけのもの。
  */
-import type { components } from '$lib/api/schema';
-import { selfAndAncestors } from '$lib/content-tree';
+import type { components } from '#lib/api/schema.js';
+import { selfAndAncestors } from '#lib/content-tree.ts';
 
 type Visibility = components['schemas']['Visibility'];
 

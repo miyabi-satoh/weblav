@@ -4,10 +4,10 @@
 	 * 「アップロード...」「新しいフォルダー...」を選ばせる。
 	 */
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import * as m from '$lib/paraglide/messages.js';
-	import type { ShareOpsState } from '$lib/share-ops-state.svelte';
-	import { buttonVariants } from '$lib/components/ui/button';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { ShareOpsState } from '#lib/share-ops-state.svelte.ts';
+	import { buttonVariants } from '#lib/components/ui/button/index.ts';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
 
 	let { ops }: { ops: ShareOpsState } = $props();
 </script>
