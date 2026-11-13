@@ -285,5 +285,5 @@ test('共有が0件なら、フォルダーは選べず、理由が出る', asyn
 	const dialog = page.getByRole('dialog');
 	await expect(dialog.getByRole('button', { name: CONTENT_TYPE_NAME.folder })).toBeDisabled();
 	await expect(dialog.getByRole('button', { name: CONTENT_TYPE_NAME.link })).toBeEnabled();
-	await expect(dialog.getByText(/「共有」を登録してください|Register a share/)).toBeVisible();
+	await expect(dialog.getByText(/「共有」を登録してください|register a share/)).toBeVisible();
 });

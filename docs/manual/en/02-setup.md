@@ -9,7 +9,7 @@ Follow these steps on the computer that will run the server.
 1. Search for “WebLAV” in Microsoft Store and select “Get”.
 2. When installation finishes, select “Open”.
 
-After you start WebLAV once, it starts automatically when you sign in. To stop this, turn off “Start at sign-in” from the WebLAV icon in the task tray.
+After you start WebLAV once, it starts automatically when you sign in. To stop this, turn off “Start at sign-in” from the WebLAV icon in the system tray.
 
 ### macOS
 
@@ -24,9 +24,9 @@ To start automatically, turn on “Start at login” from the WebLAV icon at the
 
 ## 2. Create the first administrator
 
-1. Choose “Setup” from the WebLAV icon in the task tray (menu bar on macOS, top right of the screen on Ubuntu).
+1. Choose “Setup” from the WebLAV icon in the system tray (menu bar on macOS, top right of the screen on Ubuntu).
 
-   ![WebLAV icon menu in the task tray on Windows](images/quickstart-tray-menu.webp)
+   ![WebLAV icon menu in the system tray on Windows](images/quickstart-tray-menu.webp)
 
 2. In the browser that opens, choose a username and password, then select “Create administrator”.
 
@@ -34,7 +34,7 @@ To start automatically, turn on “Start at login” from the WebLAV icon at the
 
 3. Save or print the recovery code shown, then select “I've kept it”.
 
-The recovery code lets you reset your password yourself if you forget it (→ [Sign in and display](03-account.md)).
+The recovery code lets you reset your password yourself if you forget it (→ [Log in and display](03-account.md)).
 It is shown only this once, so keep it where others can't see it.
 The admin pages open after you select “I've kept it”.
 

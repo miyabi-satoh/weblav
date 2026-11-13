@@ -27,7 +27,7 @@ Recordings
 └─ 2025
 ```
 
-1. In “Contents”, select “Shortcut” from “Add content...”, then select “Choose...”.
+1. In “Content”, select “Shortcut” from “Add content...”, then select “Choose...”.
 
    ![The Add shortcut screen](images/add-folder-form.webp)
 
@@ -56,7 +56,7 @@ Recordings
 
    ![The Files tab](images/archive-items-tab.webp)
 
-To narrow down what appears, write include or exclude patterns on the “Settings” tab, or put only the files to show in a separate folder and register that (→ [Register contents](06-register-content.md)).
+To narrow down what appears, write include or exclude patterns on the “Settings” tab, or put only the files to show in a separate folder and register that (→ [Register content](06-register-content.md)).
 
 The “Categories” and “Files” tabs appear only for a library. People who can change it also see the “Excluded” tab.
 

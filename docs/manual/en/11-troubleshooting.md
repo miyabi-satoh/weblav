@@ -62,7 +62,7 @@ Send the logs in the `logs` folder at the data location (→ [Maintain WebLAV](1
 
 ## Forgot the administrator password
 
-Reset it with your recovery code (→ “Forgot your password” in [Sign in and display](03-account.md)).
+Reset it with your recovery code (→ “Forgot your password” in [Log in and display](03-account.md)).
 You can also ask another administrator to reset it (→ [Manage users](09-users.md)).
 
 If you have also lost the recovery code and there is no other administrator, WebLAV cannot recover it.

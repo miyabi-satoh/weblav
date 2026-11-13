@@ -1,11 +1,11 @@
 # Work with files in shares
 
-Signed-in users can view, add, and move files in shares from a browser. This works the same from a phone.
+Logged-in users can view, add, and move files in shares from a browser. This works the same from a phone.
 What you can do depends on your permission for each share (→ [Add shares](04-shares.md)). Administrators can do everything.
 
 ## Open a share
 
-1. Sign in, then select a share in the “Shares” section below the list on Home.
+1. Log in, then select a share in the “Shares” section below the list on Home.
 
    The second line of each row shows what you can do in that share (“Read only”, “Add only”, or “Full access”).
 
@@ -13,7 +13,7 @@ What you can do depends on your permission for each share (→ [Add shares](04-s
 
 Select a file to open it in place, just like in folder content (→ [View files](08-viewing.md)).
 
-When you open a folder listed on Home (→ [Register contents](06-register-content.md)), the same actions as on the share screen appear if it is a place in a share where you can make changes, except “List on Home”.
+When you open a folder listed on Home (→ [Register content](06-register-content.md)), the same actions as on the share screen appear if it is a place in a share where you can make changes, except “List on Home”.
 
 ## Upload files
 
@@ -92,7 +92,7 @@ This shows a folder or file in a share on Home as a shortcut. You can do this in
 1. Select “⋮” on the folder or file row, then choose “List on Home...”.
 2. Choose the visibility, then select “List”.
 
-The title is the folder or file name. To change it, open the edit page with the pen at the right end of the row on Home (→ [Register contents](06-register-content.md)).
+The title is the folder or file name. To change it, open the edit page with the pen at the right end of the row on Home (→ [Register content](06-register-content.md)).
 
 If a place has hidden content and its creator or an admin lists it, that content comes back with the visibility chosen instead of a new one being created. Its title and its patterns for what to show stay the same. When someone who is neither its creator nor an admin lists it, or an admin lists someone else's content as “Creator only”, it becomes separate content.
 
@@ -102,7 +102,7 @@ Items listed on Home show “Listed”. When you open a listed folder, “Listed
 
 Items you rename or move on the share screens keep their place in the library list. Items you rename or move in File Explorer or Finder join the list as new files the next time the folder is read.
 
-What a folder listed on Home shows depends on matching names and locations against its patterns, so renaming or moving an item matches it again (→ [Register contents](06-register-content.md)).
+What a folder listed on Home shows depends on matching names and locations against its patterns, so renaming or moving an item matches it again (→ [Register content](06-register-content.md)).
 
 Shortcuts listed on Home follow what they point to when you rename or move it on the share screens. They do not follow items you rename or move in File Explorer or Finder, and can no longer be opened. Choose the location again on the edit page.
 

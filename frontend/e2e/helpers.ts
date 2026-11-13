@@ -134,7 +134,7 @@ export const DELETE_MENU_ITEM_NAME = /削除|Delete/;
 export const VIEW_ON_SITE_LINK_NAME = /^閲覧画面で開く$|^View on site$/;
 
 /** 管理画面のタブの「コンテンツ」。 */
-export const CONTENTS_NAV_LINK_NAME = /^コンテンツ$|^Contents$/;
+export const CONTENTS_NAV_LINK_NAME = /^コンテンツ$|^Content$/;
 
 /** 閲覧画面の下部に出るページ内プレイヤー。 */
 export const AUDIO_PLAYER_REGION_NAME = /^オーディオプレーヤー$|^Audio player$/;

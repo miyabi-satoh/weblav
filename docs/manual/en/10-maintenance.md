@@ -3,9 +3,9 @@
 ## Start and quit
 
 - Start: Open WebLAV from the Start menu (or the Applications folder on macOS).
-- Quit: Choose “Quit” from the WebLAV icon in the task tray (menu bar on macOS, top right of the screen on Ubuntu).
+- Quit: Choose “Quit” from the WebLAV icon in the system tray (menu bar on macOS, top right of the screen on Ubuntu).
 
-  ![WebLAV icon menu in the task tray on Windows](images/quickstart-tray-menu.webp)
+  ![WebLAV icon menu in the system tray on Windows](images/quickstart-tray-menu.webp)
 
 WebLAV runs only while you are signed in to the computer.
 
@@ -19,8 +19,8 @@ Change these on the “Site settings” tab in the admin pages.
 
   ![The Home page section in Site settings](images/settings-home.webp)
 
-- Server: The port, upload limit, and how long to stay signed in (days). Changes take effect the next time WebLAV starts.
-  The upload limit is the maximum size of each file uploaded to a share. The default is 0 (no limit). If you enter a number of MB, larger files cannot be uploaded. If you set how long to stay signed in to 0, you stay signed in with no time limit.
+- Server: The port, upload limit, and how long to stay logged in (days). Changes take effect the next time WebLAV starts.
+  The upload limit is the maximum size of each file uploaded to a share. The default is 0 (no limit). If you enter a number of MB, larger files cannot be uploaded. If you set how long to stay logged in to 0, you stay logged in with no time limit.
   A setting you changed shows “Reset to default”. Select it, then save, to go back to the original value.
 
   ![The Server section in Site settings](images/settings-server.webp)
@@ -31,7 +31,7 @@ Change these on the “Site settings” tab in the admin pages.
 
 ## Check activity
 
-Signing in and out, and changes to contents, users, shares, and settings, are recorded with who did it and when. Failed sign-ins are recorded too. Viewing and automatic tasks (such as scheduled rescans) are not recorded.
+Logging in and out, and changes to content, users, shares, and settings, are recorded with who did it and when. Failed logins are recorded too. Viewing and automatic tasks (such as scheduled rescans) are not recorded.
 
 The records are listed newest first on the “Activity” tab in the admin pages. You can narrow them down by “Type” and “User”. Edits show the changed items with their values before and after (long text such as descriptions and patterns shows only the item name). The IP address of the device used is recorded too. Select “Load more” to show older ones. Records are deleted after one year.
 
@@ -65,7 +65,7 @@ The version appears under “About WebLAV” at the bottom of the “Site settin
 
 Files inside shares are not deleted.
 
-**On Windows, settings and data are also deleted, including users and registered contents.** If you will reinstall and continue using WebLAV, first make a backup as described in “Back up and restore” above.
+**On Windows, settings and data are also deleted, including users and registered content.** If you will reinstall and continue using WebLAV, first make a backup as described in “Back up and restore” above.
 
 ## Where settings and data are stored
 

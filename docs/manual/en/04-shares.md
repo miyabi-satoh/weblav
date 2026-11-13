@@ -1,9 +1,9 @@
 # Add shares
 
 A “share” is a folder on the computer that you have decided WebLAV may work with.
-In a share, signed-in users can view, add, or move files (→ [Work with files in shares](05-files.md)).
-To show something on the viewer's screen (Home), register a folder or file in a share as a “Shortcut” (→ [Register contents](06-register-content.md)).
-**Adding a share alone does not show anything to people who are not signed in.**
+In a share, logged-in users can view, add, or move files (→ [Work with files in shares](05-files.md)).
+To show something on the viewer's screen (Home), register a folder or file in a share as a “Shortcut” (→ [Register content](06-register-content.md)).
+**Adding a share alone does not show anything to people who are not logged in.**
 
 ![How folders on the computer relate to the viewer's screen: add "学校" (School) as a share, then register "教材" (Teaching materials) and "英検" (EIKEN) inside it as shortcuts. Only those two appear for viewers. Unregistered "下書き" (Drafts) and "家計簿" (Household accounts) outside the share do not appear.](images/how-it-works.webp)
 
@@ -15,11 +15,11 @@ To show something on the viewer's screen (Home), register a folder or file in a 
 
 ## Open it
 
-1. On the computer running WebLAV, choose “Open in browser” from the WebLAV icon in the task tray (menu bar on macOS, top right of the screen on Ubuntu). This opens `http://localhost:8370`.
+1. On the computer running WebLAV, choose “Open in browser” from the WebLAV icon in the system tray (menu bar on macOS, top right of the screen on Ubuntu). This opens `http://localhost:8370`.
 
-   ![WebLAV icon menu in the task tray on Windows](images/quickstart-tray-menu.webp)
+   ![WebLAV icon menu in the system tray on Windows](images/quickstart-tray-menu.webp)
 
-2. Sign in as an administrator, select your username at the top right, then choose “Admin”.
+2. Log in as an administrator, select your username at the top right, then choose “Admin”.
 
    ![The username menu at the top right](images/setup-admin-menu.webp)
 
@@ -81,14 +81,14 @@ NAS and network drives have no trash. Items deleted or overwritten in such a sha
 
 ## Choose the location again after moving the folder
 
-If you moved the folder of a share to another disk or a NAS, do not delete the share; choose its new location instead. The name and permissions stay, and contents registered inside it open the same folders in the new location.
+If you moved the folder of a share to another disk or a NAS, do not delete the share; choose its new location instead. The name and permissions stay, and content registered inside it opens the same folders in the new location.
 
 1. On the computer running WebLAV, select the share row to open its edit page.
 2. In the “Location” section, select “Choose folder again...”.
 3. In the window that opens, choose the folder at its new location.
 4. Check the new location in the confirmation, then select “Change”.
 
-Keep the folders inside in the same arrangement as before the move. Contents inside open the folders with the same names in the new location.
+Keep the folders inside in the same arrangement as before the move. Content inside opens the folders with the same names in the new location.
 
 ## Rename one
 
@@ -111,6 +111,6 @@ The name appears instead of the path when choosing a folder for content, when sh
 
    ![The removal confirmation](images/roots-delete.webp)
 
-Contents registered inside it stop being viewable, but their entries remain. Add the same folder again to make them viewable again. You can add it again only on the computer running WebLAV.
+Content registered inside it stops being viewable, but its entries remain. Add the same folder again to make it viewable again. You can add it again only on the computer running WebLAV.
 
-Next, go to [Work with files in shares](05-files.md) or [Register contents](06-register-content.md).
+Next, go to [Work with files in shares](05-files.md) or [Register content](06-register-content.md).
