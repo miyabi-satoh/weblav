@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as m from '$lib/paraglide/messages.js';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog';
+	import * as m from '#lib/paraglide/messages.js';
+	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.ts';
 
 	type Props = {
 		open: boolean;

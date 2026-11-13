@@ -1,5 +1,5 @@
-import { withQuery } from '$lib/href';
-import * as m from '$lib/paraglide/messages.js';
+import { withQuery } from '#lib/href.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 /** アーカイブの一覧の並び順 (→ docs/archive.md「エンドポイント一覧」, docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。 */
 export type ArchiveSort = 'axis' | 'title' | 'new';

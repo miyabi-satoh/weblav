@@ -6,15 +6,15 @@
 	 * ファイルを選んだらまず受け取らせ (`stage`)、返った目録 (作った日時と版) を確認に出してから戻す。
 	 */
 	import type { Snippet } from 'svelte';
-	import type { ApiResult } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
-	import type { components } from '$lib/api/schema';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { formatDateTime } from '$lib/format';
-	import * as m from '$lib/paraglide/messages.js';
-	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
+	import type { ApiResult } from '#lib/api/client.ts';
+	import { GENERIC_ERROR_MESSAGE } from '#lib/api/errors.ts';
+	import type { components } from '#lib/api/schema.js';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { formatDateTime } from '#lib/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import ConfirmDialog from '#lib/components/confirm-dialog.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
 
 	type Staged = components['schemas']['StagedBackupResponse'];
 

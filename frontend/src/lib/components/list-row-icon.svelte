@@ -2,9 +2,9 @@
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import PauseIcon from '@lucide/svelte/icons/pause';
 	import type FileIcon from '@lucide/svelte/icons/file';
-	import { browseLayout } from '$lib/browse-layout.svelte';
-	import { THUMBNAIL_FOR_ATTRIBUTE } from '$lib/image-viewer';
-	import { tileBandClass } from '$lib/list-row';
+	import { browseLayout } from '#lib/browse-layout.svelte.ts';
+	import { THUMBNAIL_FOR_ATTRIBUTE } from '#lib/image-viewer.ts';
+	import { tileBandClass } from '#lib/list-row.ts';
 
 	// 1列リストの行の先頭、タイルの上に置くアイコン枠 (→ $lib/list-row.ts、タイルの大きさは docs/ui.md「UI 全般」)。
 	// `play` はページ内で再生する音声の行で、差し色の丸に再生アイコンを入れる。

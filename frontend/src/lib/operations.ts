@@ -1,11 +1,11 @@
-import * as m from '$lib/paraglide/messages.js';
-import { axisSourceLabel } from '$lib/axis-labels';
-import { visibilityLabel } from '$lib/content-labels';
-import { formatList, formatNumber } from '$lib/format';
-import { roleLabel } from '$lib/role-labels';
-import { rootLocationLabel } from '$lib/root-location';
-import { shareAccessLabel } from '$lib/share-ops';
-import type { components } from '$lib/api/schema';
+import * as m from '#lib/paraglide/messages.js';
+import { axisSourceLabel } from '#lib/axis-labels.ts';
+import { visibilityLabel } from '#lib/content-labels.ts';
+import { formatList, formatNumber } from '#lib/format.ts';
+import { roleLabel } from '#lib/role-labels.ts';
+import { rootLocationLabel } from '#lib/root-location.ts';
+import { shareAccessLabel } from '#lib/share-ops.ts';
+import type { components } from '#lib/api/schema.js';
 
 type Operation = components['schemas']['OperationResponse'];
 type Op = components['schemas']['Op'];

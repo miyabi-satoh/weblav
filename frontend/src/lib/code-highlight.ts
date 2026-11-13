@@ -4,7 +4,7 @@
  */
 
 import type { HLJSApi, LanguageFn } from 'highlight.js';
-import { fileExtension } from '$lib/file-kind';
+import { fileExtension } from '#lib/file-kind.ts';
 
 type LanguageModule = { default: LanguageFn };
 

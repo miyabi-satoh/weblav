@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { activeFieldClass, fieldLabelClass } from '$lib/filter-field';
+	import { activeFieldClass, fieldLabelClass } from '#lib/filter-field.ts';
 	import type { ComponentProps } from 'svelte';
-	import * as Select from '$lib/components/ui/select';
+	import * as Select from '#lib/components/ui/select/index.ts';
 
 	type Props = Omit<ComponentProps<typeof Select.Trigger>, 'children'> & {
 		/** 上に小さく出す項目名。読み上げの名前にも使う。 */

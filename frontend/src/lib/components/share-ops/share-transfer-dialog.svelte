@@ -1,7 +1,7 @@
 <script lang="ts" module>
-	import type { components } from '$lib/api/schema';
+	import type { components } from '#lib/api/schema.js';
 	import type { PickedDir } from './share-dir-picker.svelte';
-	import { accessAtLeast, type ShareTarget } from '$lib/share-ops';
+	import { accessAtLeast, type ShareTarget } from '#lib/share-ops.ts';
 
 	type TransferOp = components['schemas']['TransferOp'];
 
@@ -29,16 +29,16 @@
 	 * 移動・コピー (→ docs/ui.md「共有の中の画面」)。置き先を選び、同じ名前があれば「上書きする」「番号を付ける」「飛ばす」を選ばせる。
 	 * 始めたら裏で続く処理になるので、進み具合はルートのレイアウトの欄 (`share-jobs-panel.svelte`) に任せて閉じる。
 	 */
-	import { client } from '$lib/api/client';
-	import { MESSAGES } from '$lib/api/errors';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import * as m from '$lib/paraglide/messages.js';
-	import { jobLabel, shareJobs } from '$lib/share-jobs.svelte';
-	import { lastSegment } from '$lib/share-ops';
-	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
+	import { client } from '#lib/api/client.ts';
+	import { MESSAGES } from '#lib/api/errors.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { jobLabel, shareJobs } from '#lib/share-jobs.svelte.ts';
+	import { lastSegment } from '#lib/share-ops.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
 	import ShareDirPicker from './share-dir-picker.svelte';
 
 	type ShareResponse = components['schemas']['ShareResponse'];

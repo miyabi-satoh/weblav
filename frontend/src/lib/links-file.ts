@@ -1,5 +1,5 @@
 import { resolve } from '$app/paths';
-import { withQuery } from '$lib/href';
+import { withQuery } from '#lib/href.ts';
 
 /** どの一覧のファイルか。フォルダーの中は `path`、アーカイブのアイテムは `item`、ショートカットは指さない。 */
 export type LinksFileTarget = { path?: string; item?: number };

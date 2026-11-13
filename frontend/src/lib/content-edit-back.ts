@@ -1,7 +1,7 @@
 import { resolve } from '$app/paths';
-import { isAdmin } from '$lib/auth';
-import * as m from '$lib/paraglide/messages.js';
-import type { components } from '$lib/api/schema';
+import { isAdmin } from '#lib/auth.ts';
+import * as m from '#lib/paraglide/messages.js';
+import type { components } from '#lib/api/schema.js';
 
 type Content = components['schemas']['AdminContentResponse'];
 type User = Pick<components['schemas']['UserResponse'], 'role'> | null | undefined;
@@ -18,10 +18,13 @@ export function contentEditBack(
 	contentById: ReadonlyMap<number, Content>
 ): { href: string; label: string } {
 	if (isAdmin(user)) {
-		return { href: resolve('/admin/contents'), label: m.admin_contents_nav_title() };
+		return {
+			href: resolve('admin/contents'),
+			label: m.admin_contents_nav_title()
+		};
 	}
 	if (content.visibility === 'hidden') {
-		return { href: resolve('/hidden'), label: m.hidden_title() };
+		return { href: resolve('hidden'), label: m.hidden_title() };
 	}
 	const parent = content.parentId == null ? undefined : contentById.get(content.parentId);
 	if (parent) {

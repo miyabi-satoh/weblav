@@ -1,5 +1,5 @@
 <script lang="ts">
-	import LabeledInputBox from '$lib/components/labeled-input-box.svelte';
+	import LabeledInputBox from '#lib/components/labeled-input-box.svelte';
 	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -7,27 +7,27 @@
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import HardDriveIcon from '@lucide/svelte/icons/hard-drive';
 	import HouseIcon from '@lucide/svelte/icons/house';
-	import { contentTypeIcon } from '$lib/content-types';
-	import { withQuery } from '$lib/href';
-	import { linksFileHref, LinksFileIcon } from '$lib/links-file';
+	import { contentTypeIcon } from '#lib/content-types.ts';
+	import { withQuery } from '#lib/href.ts';
+	import { linksFileHref, LinksFileIcon } from '#lib/links-file.ts';
 	import {
 		scopeStart,
 		type RowLocation,
 		type RowLocationLevel,
 		type ScopePlace
-	} from '$lib/row-location';
-	import * as m from '$lib/paraglide/messages.js';
-	import * as ToggleGroup from '$lib/components/ui/toggle-group';
-	import BrowseLayoutToggle from '$lib/components/browse-layout-toggle.svelte';
-	import ContentList from '$lib/components/content-list.svelte';
-	import FolderEntryList, { type FolderEntryRow } from '$lib/components/folder-entry-list.svelte';
-	import LinksEntryList, { type LinksEntryRow } from '$lib/components/links-entry-list.svelte';
-	import type { components } from '$lib/api/schema';
-	import { browseGutterClass, browseToggleItemClass } from '$lib/list-row';
-	import { pageEmptyTextClass, pageHeadingClass } from '$lib/page-layout';
-	import { pageTitle } from '$lib/page-title';
-	import { searchHref, searchScopeLevels } from '$lib/search-scope';
-	import { formatNumber } from '$lib/format';
+	} from '#lib/row-location.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.ts';
+	import BrowseLayoutToggle from '#lib/components/browse-layout-toggle.svelte';
+	import ContentList from '#lib/components/content-list.svelte';
+	import FolderEntryList, { type FolderEntryRow } from '#lib/components/folder-entry-list.svelte';
+	import LinksEntryList, { type LinksEntryRow } from '#lib/components/links-entry-list.svelte';
+	import type { components } from '#lib/api/schema.js';
+	import { browseGutterClass, browseToggleItemClass } from '#lib/list-row.ts';
+	import { pageEmptyTextClass, pageHeadingClass } from '#lib/page-layout.ts';
+	import { pageTitle } from '#lib/page-title.ts';
+	import { searchHref, searchScopeLevels } from '#lib/search-scope.ts';
+	import { formatNumber } from '#lib/format.ts';
 	import type { PageProps } from './$types';
 
 	type ContentEntry = components['schemas']['ContentResponse'];
@@ -72,9 +72,8 @@
 		sent = q;
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- searchHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」)
 		void goto(searchHref(q, data.scope, data.all), {
-			replaceState: true,
-			keepFocus: true,
-			noScroll: true
+			replace: true,
+			reset: false
 		});
 	}
 
@@ -85,9 +84,8 @@
 		clearTimeout(pendingSearch);
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- searchHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」)
 		void goto(searchHref(q, data.scope, all), {
-			replaceState: true,
-			keepFocus: true,
-			noScroll: true
+			replace: true,
+			reset: false
 		});
 	}
 

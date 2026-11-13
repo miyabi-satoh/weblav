@@ -2,25 +2,25 @@
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { resolve } from '$app/paths';
-	import { client } from '$lib/api/client';
-	import { adminBackupHref, adminLogsHref } from '$lib/api/urls';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { FormDirtyState } from '$lib/form-dirty.svelte';
-	import { gotoWithoutLeaveConfirm } from '$lib/leave-confirm';
-	import { LeaveGuard } from '$lib/leave-guard.svelte';
-	import { pageTitle } from '$lib/page-title';
-	import * as m from '$lib/paraglide/messages.js';
-	import * as Field from '$lib/components/ui/field';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Switch } from '$lib/components/ui/switch';
-	import BackupRestore from '$lib/components/backup-restore.svelte';
-	import AboutSection from '$lib/components/about-section.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import IntegerInput from '$lib/components/integer-input.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import LeaveConfirmDialog from '$lib/components/leave-confirm-dialog.svelte';
-	import type { components } from '$lib/api/schema';
+	import { client } from '#lib/api/client.ts';
+	import { adminBackupHref, adminLogsHref } from '#lib/api/urls.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { FormDirtyState } from '#lib/form-dirty.svelte.ts';
+	import { gotoWithoutLeaveConfirm } from '#lib/leave-confirm.ts';
+	import { LeaveGuard } from '#lib/leave-guard.svelte.ts';
+	import { pageTitle } from '#lib/page-title.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Switch } from '#lib/components/ui/switch/index.ts';
+	import BackupRestore from '#lib/components/backup-restore.svelte';
+	import AboutSection from '#lib/components/about-section.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import IntegerInput from '#lib/components/integer-input.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import LeaveConfirmDialog from '#lib/components/leave-confirm-dialog.svelte';
+	import type { components } from '#lib/api/schema.js';
 	import type { PageProps } from './$types';
 	import {
 		adminPageClass,
@@ -28,8 +28,8 @@
 		pageHeadingTextClass,
 		sectionCardClass,
 		sectionGridClass
-	} from '$lib/page-layout';
-	import { masonry } from '$lib/masonry';
+	} from '#lib/page-layout.ts';
+	import { masonry } from '#lib/masonry.ts';
 
 	let { data }: PageProps = $props();
 
@@ -201,7 +201,7 @@
 	async function handleRestored() {
 		toast.success(m.backup_restored_toast());
 		// 戻した後は書きかけの値に意味が無いので、離れるときの確認を出さない。
-		await gotoWithoutLeaveConfirm(resolve('/login'));
+		await gotoWithoutLeaveConfirm(resolve('login'));
 	}
 </script>
 

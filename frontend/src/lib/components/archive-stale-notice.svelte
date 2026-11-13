@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
-	import * as m from '$lib/paraglide/messages.js';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// 区切って取っている一覧が、取り始めた後に変わった (ほかの人がパターンを変えた・再スキャンした) ことの知らせ
 	// (→ docs/archive.md「一覧の API を区切って返す」)。勝手に取り直すと見ている行が動くので、押したときだけ取り直す。

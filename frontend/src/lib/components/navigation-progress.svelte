@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { navigating } from '$app/state';
-	import * as m from '$lib/paraglide/messages.js';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// 画面を移る途中 (移る先の load を待つ間) に、画面の上端へ細いバーを出す
 	// (→ docs/ui.md「UI 全般」)。すぐ終わる移動でちらつかないよう、少し待ってから出す。

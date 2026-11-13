@@ -5,35 +5,35 @@
 		adminPageHeaderClass,
 		pageHeadingTextClass,
 		adminTableBandClass
-	} from '$lib/page-layout';
+	} from '#lib/page-layout.ts';
 	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
-	import { archiveItemsSummary, contentTypeLabel, visibilityLabel } from '$lib/content-labels';
-	import { ContentFormState, fetchFreshContent } from '$lib/content-form.svelte';
-	import { ancestorPath, byIdMap, flattenTree, selfAndAncestors } from '$lib/content-tree';
-	import { contentTypeIcon } from '$lib/content-types';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { canHoldContentOf, fitsParent, loosenedByReparent } from '$lib/visibility';
-	import { ReparentDrag } from '$lib/reparent-drag.svelte';
-	import * as m from '$lib/paraglide/messages.js';
-	import type { components } from '$lib/api/schema';
+	import { GENERIC_ERROR_MESSAGE } from '#lib/api/errors.ts';
+	import { archiveItemsSummary, contentTypeLabel, visibilityLabel } from '#lib/content-labels.ts';
+	import { ContentFormState, fetchFreshContent } from '#lib/content-form.svelte.ts';
+	import { ancestorPath, byIdMap, flattenTree, selfAndAncestors } from '#lib/content-tree.ts';
+	import { contentTypeIcon } from '#lib/content-types.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { canHoldContentOf, fitsParent, loosenedByReparent } from '#lib/visibility.ts';
+	import { ReparentDrag } from '#lib/reparent-drag.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { components } from '#lib/api/schema.js';
 	import ArrowUpToLineIcon from '@lucide/svelte/icons/arrow-up-to-line';
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
-	import { Button } from '$lib/components/ui/button';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import * as Table from '$lib/components/ui/table';
-	import { contentPathLabel } from '$lib/root-location';
-	import ContentCreateDialog from '$lib/components/content-create-dialog.svelte';
-	import ContentDeleteDialog from '$lib/components/content-delete-dialog.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LoadingLabel from '$lib/components/loading-label.svelte';
-	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.ts';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import { contentPathLabel } from '#lib/root-location.ts';
+	import ContentCreateDialog from '#lib/components/content-create-dialog.svelte';
+	import ContentDeleteDialog from '#lib/components/content-delete-dialog.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LoadingLabel from '#lib/components/loading-label.svelte';
+	import RowActionsMenu from '#lib/components/row-actions-menu.svelte';
 	import type { PageProps } from './$types';
-	import { pageTitle } from '$lib/page-title';
-	import { contentViewHref } from '$lib/content-view-href';
+	import { pageTitle } from '#lib/page-title.ts';
+	import { contentViewHref } from '#lib/content-view-href.ts';
 	import {
 		actionColumnClass,
 		cappedColumnClass,
@@ -45,7 +45,7 @@
 		fitColumnClass,
 		rowLinkClass,
 		truncatingColumnClass
-	} from '$lib/table-columns';
+	} from '#lib/table-columns.ts';
 
 	type Content = components['schemas']['AdminContentResponse'];
 	type Visibility = components['schemas']['Visibility'];

@@ -2,8 +2,8 @@
 	// 共有がつながらない・見つからないときの知らせ。管理の一覧の行と編集ページの見出しの下で同じものを出す
 	// (閲覧側では開いたときに初めて分かるので、管理の画面で先に気づけるようにする。→ docs/folders.md「つながっているかの確かめ」)。
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
-	import type { components } from '$lib/api/schema';
-	import * as m from '$lib/paraglide/messages.js';
+	import type { components } from '#lib/api/schema.js';
+	import * as m from '#lib/paraglide/messages.js';
 
 	type RootStatus = components['schemas']['RootStatus'];
 

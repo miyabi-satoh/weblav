@@ -1,5 +1,5 @@
-import type { ApiResult } from '$lib/api/client';
-import { GENERIC_ERROR_MESSAGE, errorMessage, isConfirmationCancelled } from '$lib/api/errors';
+import type { ApiResult } from '#lib/api/client.ts';
+import { GENERIC_ERROR_MESSAGE, errorMessage, isConfirmationCancelled } from '#lib/api/errors.ts';
 
 /**
  * `ErrorDialog` の開閉と文言。

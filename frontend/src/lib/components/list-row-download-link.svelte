@@ -1,10 +1,10 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import FileIcon from '@lucide/svelte/icons/file';
-	import { browseRowClass, browseRowPressClass, browseRowTextClass } from '$lib/list-row';
-	import ListRowNewTab from '$lib/components/list-row-new-tab.svelte';
-	import ListRowIcon from '$lib/components/list-row-icon.svelte';
-	import * as m from '$lib/paraglide/messages.js';
+	import { browseRowClass, browseRowPressClass, browseRowTextClass } from '#lib/list-row.ts';
+	import ListRowNewTab from '#lib/components/list-row-new-tab.svelte';
+	import ListRowIcon from '#lib/components/list-row-icon.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// 閲覧側の一覧の、ページ内では開かず新しいタブで開くファイルの行・タイル (→ $lib/list-row.ts)。
 	let {

@@ -1,6 +1,6 @@
 import { marked, Renderer, type Tokens } from 'marked';
-import { helpImageHref } from '$lib/api/urls';
-import { escapeHtml } from '$lib/html';
+import { helpImageHref } from '#lib/api/urls.ts';
+import { escapeHtml } from '#lib/html.ts';
 
 /**
  * 横に送れる表を、キーボードでも操作できる領域で包む renderer。

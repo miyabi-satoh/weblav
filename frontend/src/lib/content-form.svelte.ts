@@ -7,15 +7,15 @@
  * 親グループによる実際の見え方は、ほかの行を見ないと決まらない。
  * `contentFormVisibilityNote` に一覧を渡し、画面側の `$derived` で呼ぶ。
  */
-import { client } from '$lib/api/client';
-import { fetchOrNull } from '$lib/api/load';
-import type { components } from '$lib/api/schema';
-import { visibilityLabel } from '$lib/content-labels';
-import { isPathContentType } from '$lib/content-types';
-import { FormDirtyState } from '$lib/form-dirty.svelte';
-import { contentPathLabel } from '$lib/root-location';
-import { childrenFitPrivateGroup, effectiveVisibilityUnder } from '$lib/visibility';
-import * as m from '$lib/paraglide/messages.js';
+import { client } from '#lib/api/client.ts';
+import { fetchOrNull } from '#lib/api/load.ts';
+import type { components } from '#lib/api/schema.js';
+import { visibilityLabel } from '#lib/content-labels.ts';
+import { isPathContentType } from '#lib/content-types.ts';
+import { FormDirtyState } from '#lib/form-dirty.svelte.ts';
+import { contentPathLabel } from '#lib/root-location.ts';
+import { childrenFitPrivateGroup, effectiveVisibilityUnder } from '#lib/visibility.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 type Content = components['schemas']['AdminContentResponse'];
 type ContentType = components['schemas']['ContentType'];
@@ -64,7 +64,7 @@ export class ContentFormState {
 	title = $state('');
 	url = $state('');
 	path = $state('');
-	/** `path` の画面での出し方 (→ `$lib/root-location`)。`path` と一緒に変える。 */
+	/** `path` の画面での出し方 (→ `#lib/root-location`)。`path` と一緒に変える。 */
 	pathLabel = $state('');
 	/** 選んだ場所がファイルか。種類を選び直しても、選んだ場所に合う種類で作るために持つ。 */
 	pathIsFile = $state(false);

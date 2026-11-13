@@ -4,9 +4,9 @@
  *
  * 画面に出すだけの文字列で、パスとしては使わない。API に渡すのは絶対パスのまま。
  */
-import type { components } from '$lib/api/schema';
-import { isLoopbackHost } from '$lib/loopback';
-import * as m from '$lib/paraglide/messages.js';
+import type { components } from '#lib/api/schema.js';
+import { isLoopbackHost } from '#lib/loopback.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 type Content = components['schemas']['AdminContentResponse'];
 

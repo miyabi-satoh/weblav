@@ -1,8 +1,8 @@
 <script lang="ts">
 	import EyeIcon from '@lucide/svelte/icons/eye';
 	import EyeOffIcon from '@lucide/svelte/icons/eye-off';
-	import * as InputGroup from '$lib/components/ui/input-group';
-	import * as m from '$lib/paraglide/messages.js';
+	import * as InputGroup from '#lib/components/ui/input-group/index.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import type { ComponentProps } from 'svelte';
 
 	type Props = Omit<ComponentProps<typeof InputGroup.Input>, 'type' | 'files'> & {

@@ -1,7 +1,7 @@
 /**
  * 共有ごとの権限 (→ docs/shares.md「できること」) を、管理画面の共有の編集ページで選ぶための型と変換。
  */
-import type { components } from '$lib/api/schema';
+import type { components } from '#lib/api/schema.js';
 
 type ShareAccess = components['schemas']['ShareAccess'];
 type UserListItem = components['schemas']['UserListItem'];

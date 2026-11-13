@@ -1,6 +1,6 @@
 import { toast } from 'svelte-sonner';
-import { copyText } from '$lib/clipboard';
-import * as m from '$lib/paraglide/messages.js';
+import { copyText } from '#lib/clipboard.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 /** コピーの成功を、ボタンのアイコンで見せておく時間 (ミリ秒)。読み取れて、次の操作の邪魔にならない長さ。 */
 const COPIED_DURATION_MS = 2000;

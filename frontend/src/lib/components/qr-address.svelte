@@ -2,11 +2,11 @@
 	import QRCode from 'qrcode';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import * as m from '$lib/paraglide/messages.js';
-	import { Button } from '$lib/components/ui/button';
-	import * as Select from '$lib/components/ui/select';
-	import { CopiedState } from '$lib/copied-state.svelte';
-	import { qrCardClass, qrImageClass } from '$lib/qr-card';
+	import * as m from '#lib/paraglide/messages.js';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import { CopiedState } from '#lib/copied-state.svelte.ts';
+	import { qrCardClass, qrImageClass } from '#lib/qr-card.ts';
 
 	// ほかの端末で開くアドレスの、QR コードと控えるための全文・コピー (ページの共有)。
 	// `choices` が2つ以上なら、アドレスを選べる (PC の名前を引けない端末へ IP で渡すため)。

@@ -4,38 +4,38 @@
 		adminPageHeaderClass,
 		pageHeadingTextClass,
 		adminTableBandClass
-	} from '$lib/page-layout';
+	} from '#lib/page-layout.ts';
 	import { goto, refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { dialogFormClass } from '$lib/dialog-form';
-	import { client } from '$lib/api/client';
+	import { dialogFormClass } from '#lib/dialog-form.ts';
+	import { client } from '#lib/api/client.ts';
 	import { page } from '$app/state';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { formatDate } from '$lib/format';
-	import * as m from '$lib/paraglide/messages.js';
-	import type { components } from '$lib/api/schema';
-	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
-	import PasswordInput from '$lib/components/password-input.svelte';
-	import * as Table from '$lib/components/ui/table';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import RowActionsMenu from '$lib/components/row-actions-menu.svelte';
-	import UserDeleteDialog from '$lib/components/user-delete-dialog.svelte';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { formatDate } from '#lib/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { components } from '#lib/api/schema.js';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import PasswordInput from '#lib/components/password-input.svelte';
+	import * as Table from '#lib/components/ui/table/index.ts';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import RowActionsMenu from '#lib/components/row-actions-menu.svelte';
+	import UserDeleteDialog from '#lib/components/user-delete-dialog.svelte';
 	import type { PageProps } from './$types';
-	import { pageTitle } from '$lib/page-title';
-	import { roleLabel } from '$lib/role-labels';
+	import { pageTitle } from '#lib/page-title.ts';
+	import { roleLabel } from '#lib/role-labels.ts';
 	import {
 		actionColumnClass,
 		columnFromMdClass,
 		fitColumnClass,
 		rowLinkClass,
 		truncatingColumnClass
-	} from '$lib/table-columns';
-	import { FormDirtyState } from '$lib/form-dirty.svelte';
+	} from '#lib/table-columns.ts';
+	import { FormDirtyState } from '#lib/form-dirty.svelte.ts';
 
 	type UserListItem = components['schemas']['UserListItem'];
 

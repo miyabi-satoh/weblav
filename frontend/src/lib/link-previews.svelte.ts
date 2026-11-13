@@ -1,7 +1,7 @@
 import { SvelteMap } from 'svelte/reactivity';
-import { client } from '$lib/api/client';
-import type { components } from '$lib/api/schema';
-import { readNdjson } from '$lib/ndjson';
+import { client } from '#lib/api/client.ts';
+import type { components } from '#lib/api/schema.js';
+import { readNdjson } from '#lib/ndjson.ts';
 
 type LinkPreview = components['schemas']['LinkPreview'];
 type RefreshedLinkPreview = components['schemas']['RefreshedLinkPreview'];

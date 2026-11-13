@@ -2,15 +2,15 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import ShareIcon from '@lucide/svelte/icons/share';
-	import * as m from '$lib/paraglide/messages.js';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import QrAddress from '$lib/components/qr-address.svelte';
-	import { client } from '$lib/api/client';
-	import { fetchOrNull } from '$lib/api/load';
-	import { headerIconActionClass } from '$lib/header-action';
-	import { pickShareUrl, shareableUrls, type Connection } from '$lib/share-url';
-	import { readStored, writeStored } from '$lib/stored';
+	import * as m from '#lib/paraglide/messages.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import QrAddress from '#lib/components/qr-address.svelte';
+	import { client } from '#lib/api/client.ts';
+	import { fetchOrNull } from '#lib/api/load.ts';
+	import { headerIconActionClass } from '#lib/header-action.ts';
+	import { pickShareUrl, shareableUrls, type Connection } from '#lib/share-url.ts';
+	import { readStored, writeStored } from '#lib/stored.ts';
 
 	// 開いているページを、ほかの端末へ渡す (→ docs/ui.md「ページの共有」)。
 

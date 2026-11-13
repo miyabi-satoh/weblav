@@ -1,7 +1,7 @@
-import { client } from '$lib/api/client';
-import { MESSAGES, GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
-import * as m from '$lib/paraglide/messages.js';
-import type { components } from '$lib/api/schema';
+import { client } from '#lib/api/client.ts';
+import { MESSAGES, GENERIC_ERROR_MESSAGE } from '#lib/api/errors.ts';
+import * as m from '#lib/paraglide/messages.js';
+import type { components } from '#lib/api/schema.js';
 
 type ShareJob = components['schemas']['ShareJobResponse'];
 type JobOp = components['schemas']['JobOp'];

@@ -2,33 +2,33 @@
 	import { untrack } from 'svelte';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import CopyIcon from '@lucide/svelte/icons/copy';
-	import { client } from '$lib/api/client';
+	import { client } from '#lib/api/client.ts';
 	import {
 		errorCode,
 		errorDetail,
 		errorMessage,
 		GENERIC_ERROR_MESSAGE,
 		isConfirmationCancelled
-	} from '$lib/api/errors';
-	import type { components } from '$lib/api/schema';
+	} from '#lib/api/errors.ts';
+	import type { components } from '#lib/api/schema.js';
 	import {
 		buildAxesPrompt,
 		parseAxesAnswer,
 		type ImportAxesRequest,
 		type ParseFailure
-	} from '$lib/axes-ai-prompt';
-	import { CopiedState } from '$lib/copied-state.svelte';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { FormDirtyState } from '$lib/form-dirty.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Field from '$lib/components/ui/field';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import WarningBand from '$lib/components/warning-band.svelte';
-	import * as m from '$lib/paraglide/messages.js';
+	} from '#lib/axes-ai-prompt/index.ts';
+	import { CopiedState } from '#lib/copied-state.svelte.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { FormDirtyState } from '#lib/form-dirty.svelte.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import WarningBand from '#lib/components/warning-band.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let {
 		open = $bindable(false),

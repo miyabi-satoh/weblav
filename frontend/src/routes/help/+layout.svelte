@@ -3,9 +3,9 @@
 	import { resolve } from '$app/paths';
 	import { afterNavigate } from '$app/navigation';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import { Button } from '$lib/components/ui/button';
-	import * as m from '$lib/paraglide/messages.js';
-	import { listItemClass } from '$lib/list-row';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { listItemClass } from '#lib/list-row.ts';
 	import {
 		docListClass,
 		docPageEyebrowClass,
@@ -14,14 +14,20 @@
 		helpContentClass,
 		helpPageClass,
 		helpSidebarClass
-	} from '$lib/page-layout';
+	} from '#lib/page-layout.ts';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
 
 	// スマートフォン幅のページでは目次をボタンの中にたたみ、本文から見せる (→ docs/help.md)。
 	let tocOpen = $state(false);
-	afterNavigate(() => (tocOpen = false));
+
+	afterNavigate(({ shallow, type }) => {
+		if (shallow && type === 'goto') return;
+
+		return (tocOpen = false);
+	});
+
 	const tocCollapsed = $derived(page.params.slug !== undefined && !tocOpen);
 </script>
 
@@ -69,7 +75,7 @@
 		     マニュアルの1ページではないので目次の中には入れず、その下に置く。 -->
 			<p class="mt-4">
 				<a
-					href={resolve('/licenses')}
+					href={resolve('licenses')}
 					class="relative text-xs text-muted-foreground underline underline-offset-4 after:absolute after:inset-x-0 after:-inset-y-3.5"
 				>
 					{m.licenses_link()}

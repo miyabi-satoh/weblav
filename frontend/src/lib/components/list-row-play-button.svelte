@@ -1,11 +1,11 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { browseLayout } from '$lib/browse-layout.svelte';
-	import { browseRowClass, browseRowPressClass, browseRowTextClass } from '$lib/list-row';
-	import { cn } from '$lib/utils';
-	import { nowPlaying, type Track, type TrackSource } from '$lib/now-playing.svelte';
-	import ListRowIcon from '$lib/components/list-row-icon.svelte';
-	import * as m from '$lib/paraglide/messages.js';
+	import { browseLayout } from '#lib/browse-layout.svelte.ts';
+	import { browseRowClass, browseRowPressClass, browseRowTextClass } from '#lib/list-row.ts';
+	import { cn } from '#lib/utils.ts';
+	import { nowPlaying, type Track, type TrackSource } from '#lib/now-playing.svelte.ts';
+	import ListRowIcon from '#lib/components/list-row-icon.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// 閲覧側の一覧の、ページ内プレイヤーで再生する音声の行・タイル (→ $lib/list-row.ts)。
 	let {

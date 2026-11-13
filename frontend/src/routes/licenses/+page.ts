@@ -33,8 +33,9 @@ export interface LicenseList {
 // Rust の分はリポジトリに入れてあり、画面の分はビルドのたびに作る (→ docs/third-party-licenses.md)。
 // どちらも静的ファイルなので、API ではなくそのまま取る。
 const FILES = {
-	rust: asset('/third-party-licenses/rust.json'),
-	npm: asset('/third-party-licenses/npm.json')
+	rust: asset('third-party-licenses/rust.json'),
+	// 画面の分はビルドで書き出すので、static/ のファイルから作られる型の候補に入らない。
+	npm: asset('third-party-licenses/npm.json' as Parameters<typeof asset>[0])
 } as const;
 
 export const load: PageLoad = async ({ fetch }) => {

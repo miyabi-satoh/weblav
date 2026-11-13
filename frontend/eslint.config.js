@@ -44,7 +44,7 @@ export default defineConfig(
 	{
 		rules: {
 			// invalidateAll と invalidate は取り直すときに page.state を空に戻すので、そこに置いた一覧の絞り込みの語が消える
-			// (→ $lib/list-filter.svelte.ts)。page.state を残す refreshAll を使う。
+			// (→ #lib/list-filter.svelte.ts)。page.state を残す refreshAll を使う。
 			'no-restricted-imports': [
 				'error',
 				{

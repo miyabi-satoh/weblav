@@ -1,6 +1,6 @@
 import { isHttpError, isRedirect } from '@sveltejs/kit';
 import { describe, expect, it, vi } from 'vitest';
-import * as m from '$lib/paraglide/messages.js';
+import * as m from '#lib/paraglide/messages.js';
 import { fetchOrError } from './load';
 
 vi.mock('$app/paths', () => ({ resolve: (path: string) => path }));

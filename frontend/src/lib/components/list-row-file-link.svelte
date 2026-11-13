@@ -1,11 +1,11 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import FileIcon from '@lucide/svelte/icons/file';
-	import type { ViewerFile } from '$lib/file-viewer.svelte';
-	import { isPlainClick } from '$lib/image-viewer';
-	import { openViewerItem, type ViewerItem } from '$lib/viewer-items';
-	import { browseRowClass, browseRowPressClass, browseRowTextClass } from '$lib/list-row';
-	import ListRowIcon from '$lib/components/list-row-icon.svelte';
+	import type { ViewerFile } from '#lib/file-viewer.svelte.ts';
+	import { isPlainClick } from '#lib/image-viewer.ts';
+	import { openViewerItem, type ViewerItem } from '#lib/viewer-items.ts';
+	import { browseRowClass, browseRowPressClass, browseRowTextClass } from '#lib/list-row.ts';
+	import ListRowIcon from '#lib/components/list-row-icon.svelte';
 
 	// 閲覧側の一覧の、ページ内のビューアーで開く PDF・動画・テキストなどの行・タイル (→ $lib/list-row.ts)。
 	// 画像の行 (list-row-image-link.svelte) と同じく、元のファイルへの直リンクのまま置き、

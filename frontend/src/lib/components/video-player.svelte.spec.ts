@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import VideoPlayer from './video-player.svelte';
-import { videoLoop } from '$lib/video-loop.svelte';
+import { videoLoop } from '#lib/video-loop.svelte.ts';
 
 describe('VideoPlayer', () => {
 	afterEach(() => {

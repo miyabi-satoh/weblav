@@ -10,10 +10,10 @@
  */
 
 import { untrack } from 'svelte';
-import { pushState, replaceState } from '$app/navigation';
+import { goto } from '$app/navigation';
 import { page } from '$app/state';
-import { previewHref, wantedPreviewKey } from '$lib/preview-query';
-import type { ViewerItem } from '$lib/viewer-items';
+import { previewHref, wantedPreviewKey } from '#lib/preview-query.ts';
+import type { ViewerItem } from '#lib/viewer-items.ts';
 
 /**
  * 前後に移ってから URL に写すまでの間。Safari は短い間に何度も履歴を書き換えると例外を投げ、
@@ -49,10 +49,17 @@ function write(key: string | null, push: boolean) {
 	const href = previewHref(location.pathname, location.search, key);
 	if (push) {
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の URL のパスをそのまま使う (→ AGENTS.md「コードの規約」)
-		pushState(href, { ...page.state, preview: key, previewPushed: true });
+		goto(href, {
+			shallow: true,
+			state: { ...page.state, preview: key, previewPushed: true }
+		});
 	} else {
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の URL のパスをそのまま使う (→ AGENTS.md「コードの規約」)
-		replaceState(href, { ...page.state, preview: key });
+		goto(href, {
+			shallow: true,
+			replace: true,
+			state: { ...page.state, preview: key }
+		});
 	}
 }
 

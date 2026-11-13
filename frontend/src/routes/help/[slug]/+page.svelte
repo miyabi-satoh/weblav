@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
-	import { pageTitle } from '$lib/page-title';
-	import { renderManual } from '$lib/manual-markdown';
-	import * as m from '$lib/paraglide/messages.js';
+	import { pageTitle } from '#lib/page-title.ts';
+	import { renderManual } from '#lib/manual-markdown.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { data }: PageProps = $props();
 

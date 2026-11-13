@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { ClassValue } from 'svelte/elements';
-	import BrowseFilterInput from '$lib/components/browse-filter-input.svelte';
-	import BrowseLayoutToggle from '$lib/components/browse-layout-toggle.svelte';
+	import BrowseFilterInput from '#lib/components/browse-filter-input.svelte';
+	import BrowseLayoutToggle from '#lib/components/browse-layout-toggle.svelte';
 
 	// 一覧の上の段 (→ docs/ui.md「UI 全般」)。
 	// 1段目は、どの一覧でも並び順・名前の絞り込み (余りまで伸ばす)・リストとタイルの切り替え。

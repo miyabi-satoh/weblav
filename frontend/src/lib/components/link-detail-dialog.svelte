@@ -3,12 +3,12 @@
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { beforeNavigate } from '$app/navigation';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button, buttonVariants } from '$lib/components/ui/button';
-	import SeparatedText from '$lib/components/separated-text.svelte';
-	import { formatTimeAgo } from '$lib/format';
-	import { linkDetail, linkSiteNameOf } from '$lib/link-detail.svelte';
-	import * as m from '$lib/paraglide/messages.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Button, buttonVariants } from '#lib/components/ui/button/index.ts';
+	import SeparatedText from '#lib/components/separated-text.svelte';
+	import { formatTimeAgo } from '#lib/format.ts';
+	import { linkDetail, linkSiteNameOf } from '#lib/link-detail.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// リンクの詳しい表示。一覧のカードでは縮んでいる画像・題・説明を全部見せてから、新しいタブで開かせる
 	// (→ docs/ui.md「リンクのカード」)。
@@ -28,7 +28,9 @@
 	});
 
 	// 戻るなどで画面を移ったら閉じる。移った先の上に、前の画面のリンクを残さない (ファイルのビューアーと同じ)。
-	beforeNavigate(() => {
+	beforeNavigate(({ shallow, type }) => {
+		if (shallow && type === 'goto') return;
+
 		linkDetail.open = false;
 	});
 	let imageUrl = $derived(preview?.imageUrl !== failedImage ? preview?.imageUrl : null);

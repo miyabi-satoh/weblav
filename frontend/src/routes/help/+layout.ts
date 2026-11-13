@@ -1,7 +1,7 @@
-import { client } from '$lib/api/client';
-import { fetchOrError } from '$lib/api/load';
-import { getLocale } from '$lib/paraglide/runtime';
-import * as m from '$lib/paraglide/messages.js';
+import { client } from '#lib/api/client.ts';
+import { fetchOrError } from '#lib/api/load.ts';
+import { getLocale } from '#lib/paraglide/runtime.js';
+import * as m from '#lib/paraglide/messages.js';
 import type { LayoutLoad } from './$types';
 
 // マニュアルは匿名で読める (→ docs/help.md)。ここではログイン状態を問わない。

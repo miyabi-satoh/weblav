@@ -1,9 +1,10 @@
-import type { components } from '$lib/api/schema';
+import type { ReadonlyURL } from '$app/state';
+import type { components } from '#lib/api/schema.js';
 
 /**
  * 同じ PC の中だけで通じるホスト名。ほかの端末に渡すときは、PC の名前に置き換える。
  *
- * `$lib/loopback.ts` の `isLoopbackHost` とは別に持つ。あちらはサーバーの判定に揃えて `localhost` の名前だけを
+ * `#lib/loopback.ts` の `isLoopbackHost` とは別に持つ。あちらはサーバーの判定に揃えて `localhost` の名前だけを
  * 通す (DNS リバインディングと区別するため)。こちらはほかの端末から届かないアドレスを外すのが目的なので、
  * `*.localhost` のようにループバックに向く名前も広く含める。
  */
@@ -27,7 +28,7 @@ export type Connection = components['schemas']['ConnectionInfoResponse'];
  * 名前を引けない端末へは IP で渡すため。HTTPS の前段越しに開いているときは、サーバーのポートへの直の
  * アドレスが前段と同じに届くとは限らないので足さない。
  */
-export function shareableUrls(current: URL, connection: Connection | undefined): string[] {
+export function shareableUrls(current: ReadonlyURL, connection: Connection | undefined): string[] {
 	const path = `${current.pathname}${current.search}`;
 	const loopback = isThisPcOnlyHost(current.hostname);
 	const urls = loopback ? [] : [`${current.origin}${path}`];

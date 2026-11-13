@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import * as m from '$lib/paraglide/messages.js';
+import * as m from '#lib/paraglide/messages.js';
 import { uploadItemNote, type UploadItem } from './share-upload-dialog.svelte';
 
 const file = new File(['x'], 'IMG_0001.heic');

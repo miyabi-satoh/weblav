@@ -1,6 +1,6 @@
-import type { components } from '$lib/api/schema';
-import { formatNumber } from '$lib/format';
-import * as m from '$lib/paraglide/messages.js';
+import type { components } from '#lib/api/schema.js';
+import { formatNumber } from '#lib/format.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 type VisibilityPreview = components['schemas']['VisibilityPreview'];
 

@@ -1,5 +1,5 @@
-import type { components } from '$lib/api/schema';
-import { isLanUrl, urlHost } from '$lib/file-kind';
+import type { components } from '#lib/api/schema.js';
+import { isLanUrl, urlHost } from '#lib/file-kind.ts';
 
 type LinkPreview = components['schemas']['LinkPreview'];
 

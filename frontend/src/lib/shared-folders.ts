@@ -1,4 +1,4 @@
-import { client } from '$lib/api/client';
+import { client } from '#lib/api/client.ts';
 
 /**
  * 「共有」が1件でもあるか。

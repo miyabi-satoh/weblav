@@ -2,23 +2,23 @@
 	import { goto, refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { client } from '$lib/api/client';
-	import { isApiTarget, safeRedirectTarget } from '$lib/auth';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import * as m from '$lib/paraglide/messages.js';
-	import * as Card from '$lib/components/ui/card';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
-	import PasswordInput from '$lib/components/password-input.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import { pageTitle } from '$lib/page-title';
+	import { client } from '#lib/api/client.ts';
+	import { isApiTarget, safeRedirectTarget } from '#lib/auth.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import * as Card from '#lib/components/ui/card/index.ts';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import PasswordInput from '#lib/components/password-input.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import { pageTitle } from '#lib/page-title.ts';
 	import {
 		centeredPageClass,
 		centeredPageInnerClass,
 		centeredPageCardClass,
 		centeredPageFooterLinkClass
-	} from '$lib/page-layout';
+	} from '#lib/page-layout.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -90,19 +90,22 @@
 								required
 							/>
 						</Field.Field>
-						<Field.Field>
-							<LoadingButton type="submit" class="w-full" {loading}>
-								{m.login_submit()}
-							</LoadingButton>
-						</Field.Field>
+
+						<Field.Field
+							><LoadingButton type="submit" class="w-full" {loading}
+								>{m.login_submit()}</LoadingButton
+							></Field.Field
+						>
 					</Field.FieldGroup>
 				</form>
 			</Card.Content>
 			<Card.Footer class="flex-col gap-4">
 				<!-- リカバリコードはコードそのものが証明なので、LAN の端末にも出す (→ docs/access.md「リカバリコード」)。 -->
-				<a href={resolve('/recover')} class={centeredPageFooterLinkClass}
+
+				<a href={resolve('recover')} class={centeredPageFooterLinkClass}
 					>{m.login_forgot_password_link()}</a
 				>
+
 				{#if data.setupRequired}
 					<a href={resolve('/help/[slug]', { slug: 'setup' })} class={centeredPageFooterLinkClass}>
 						{m.login_help_link()}

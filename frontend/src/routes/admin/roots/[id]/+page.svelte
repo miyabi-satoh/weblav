@@ -3,47 +3,47 @@
 	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { client } from '$lib/api/client';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { FormDirtyState } from '$lib/form-dirty.svelte';
-	import { formatNumber } from '$lib/format';
-	import { gotoWithoutLeaveConfirm } from '$lib/leave-confirm';
-	import { SectionSaveState } from '$lib/section-save.svelte';
-	import { masonry } from '$lib/masonry';
+	import { client } from '#lib/api/client.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { FormDirtyState } from '#lib/form-dirty.svelte.ts';
+	import { formatNumber } from '#lib/format.ts';
+	import { gotoWithoutLeaveConfirm } from '#lib/leave-confirm.ts';
+	import { SectionSaveState } from '#lib/section-save.svelte.ts';
+	import { masonry } from '#lib/masonry.ts';
 	import {
 		adminPageClass,
 		pageHeadingTextClass,
 		sectionCardClass,
 		sectionGridClass
-	} from '$lib/page-layout';
-	import { pageTitle } from '$lib/page-title';
-	import * as m from '$lib/paraglide/messages.js';
+	} from '#lib/page-layout.ts';
+	import { pageTitle } from '#lib/page-title.ts';
+	import * as m from '#lib/paraglide/messages.js';
 	import {
 		type AccessException,
 		addException,
 		exceptionCandidates,
 		visibleExceptions
-	} from '$lib/root-access';
-	import { canAddRoots } from '$lib/root-location';
-	import { pickRootFolder } from '$lib/root-picker';
-	import { ACCESS_CHOICES, shareAccessLabel } from '$lib/share-ops';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog';
-	import { Button, buttonVariants } from '$lib/components/ui/button';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
-	import * as Select from '$lib/components/ui/select';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LeaveConfirmDialog from '$lib/components/leave-confirm-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
-	import LoadingLabel from '$lib/components/loading-label.svelte';
-	import RootDeleteDialog from '$lib/components/root-delete-dialog.svelte';
-	import DeleteSection from '$lib/components/delete-section.svelte';
+	} from '#lib/root-access.ts';
+	import { canAddRoots } from '#lib/root-location.ts';
+	import { pickRootFolder } from '#lib/root-picker.ts';
+	import { ACCESS_CHOICES, shareAccessLabel } from '#lib/share-ops.ts';
+	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.ts';
+	import { Button, buttonVariants } from '#lib/components/ui/button/index.ts';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LeaveConfirmDialog from '#lib/components/leave-confirm-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
+	import LoadingLabel from '#lib/components/loading-label.svelte';
+	import RootDeleteDialog from '#lib/components/root-delete-dialog.svelte';
+	import DeleteSection from '#lib/components/delete-section.svelte';
 	import XIcon from '@lucide/svelte/icons/x';
-	import BackLink from '$lib/components/back-link.svelte';
-	import RootWarnings from '$lib/components/root-warnings.svelte';
-	import { listItemClass } from '$lib/list-row';
-	import type { components } from '$lib/api/schema';
+	import BackLink from '#lib/components/back-link.svelte';
+	import RootWarnings from '#lib/components/root-warnings.svelte';
+	import { listItemClass } from '#lib/list-row.ts';
+	import type { components } from '#lib/api/schema.js';
 	import type { PageProps } from './$types';
 
 	type Root = components['schemas']['RootResponse'];
@@ -180,7 +180,8 @@
 <svelte:head><title>{pageTitle(root.name)}</title></svelte:head>
 
 <div class="px-4 pt-4 md:px-6">
-	<BackLink href={resolve('/admin/roots')} label={m.admin_roots_nav_title()} />
+	<BackLink href={resolve('admin/roots')} label={m.admin_roots_nav_title()} />
+
 	<!-- 削除は、ほかの編集ページと同じく最後の「削除」の区画に置く (→ docs/ui.md「編集ページの区画」)。 -->
 	<h1 class={['mt-2 wrap-anywhere', pageHeadingTextClass]}>{root.name}</h1>
 	<p class="text-sm text-muted-foreground">
@@ -318,9 +319,8 @@
 							{#each candidates as user (user.id)}
 								<DropdownMenu.Item
 									onSelect={() => (exceptions = addException(exceptions, user, editorAccess))}
+									>{user.username}</DropdownMenu.Item
 								>
-									{user.username}
-								</DropdownMenu.Item>
 							{/each}
 						</DropdownMenu.Content>
 					</DropdownMenu.Root>
@@ -380,7 +380,7 @@
 <!-- 消した共有の編集ページには戻れないので、一覧へ移る。消したものの変更は保存しようがないので、離れるときの確認は出さない。 -->
 <RootDeleteDialog
 	bind:root={deletingRoot}
-	ondeleted={() => gotoWithoutLeaveConfirm(resolve('/admin/roots'))}
+	ondeleted={() => gotoWithoutLeaveConfirm(resolve('admin/roots'))}
 />
 
 <LeaveConfirmDialog guard={sections.leaveGuard} ondiscard={() => sections.discard()} />

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { components } from '$lib/api/schema';
-	import * as m from '$lib/paraglide/messages.js';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
-	import * as RadioGroup from '$lib/components/ui/radio-group';
-	import IntegerInput from '$lib/components/integer-input.svelte';
+	import type { components } from '#lib/api/schema.js';
+	import * as m from '#lib/paraglide/messages.js';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import * as RadioGroup from '#lib/components/ui/radio-group/index.ts';
+	import IntegerInput from '#lib/components/integer-input.svelte';
 
 	type AutoMode = components['schemas']['AutoMode'];
 

@@ -3,9 +3,9 @@
 	 * 編集ページの最後に置く「削除」の区画。消すと何が起きるかを書き、確認の窓を開くボタンを置く
 	 * (→ docs/ui.md「編集ページの区画」)。区画の石垣の下に、1列目と同じ幅で置く。
 	 */
-	import { Button } from '$lib/components/ui/button';
-	import { sectionCardClass, sectionGridClass } from '$lib/page-layout';
-	import * as m from '$lib/paraglide/messages.js';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { sectionCardClass, sectionGridClass } from '#lib/page-layout.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	type Props = {
 		/** 消すと何が起きるか。1つずつ段落にする。 */

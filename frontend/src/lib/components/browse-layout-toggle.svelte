@@ -1,10 +1,10 @@
 <script lang="ts">
 	import ListIcon from '@lucide/svelte/icons/list';
 	import LayoutGridIcon from '@lucide/svelte/icons/layout-grid';
-	import * as ToggleGroup from '$lib/components/ui/toggle-group';
-	import { browseLayout, type BrowseLayout } from '$lib/browse-layout.svelte';
-	import * as m from '$lib/paraglide/messages.js';
-	import { browseToggleItemClass } from '$lib/list-row';
+	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.ts';
+	import { browseLayout, type BrowseLayout } from '#lib/browse-layout.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { browseToggleItemClass } from '#lib/list-row.ts';
 
 	const options: { value: BrowseLayout; label: () => string; icon: typeof ListIcon }[] = [
 		{ value: 'list', label: m.browse_layout_list, icon: ListIcon },

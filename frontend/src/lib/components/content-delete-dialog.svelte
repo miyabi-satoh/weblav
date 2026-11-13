@@ -3,16 +3,16 @@
 	 * コンテンツを消す前の確認と、消す要求。コンテンツ管理の一覧と編集ページの両方から使う (→ docs/ui.md「UI 全般」)。
 	 * `content` に対象を入れると開き、閉じると `null` に戻す。
 	 */
-	import { client } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE } from '$lib/api/errors';
-	import { visibilityLabel } from '$lib/content-labels';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { formatNumber } from '$lib/format';
-	import { childrenLoosenedByDeletingGroup } from '$lib/visibility';
-	import * as m from '$lib/paraglide/messages.js';
-	import type { components } from '$lib/api/schema';
-	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
+	import { client } from '#lib/api/client.ts';
+	import { GENERIC_ERROR_MESSAGE } from '#lib/api/errors.ts';
+	import { visibilityLabel } from '#lib/content-labels.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { formatNumber } from '#lib/format.ts';
+	import { childrenLoosenedByDeletingGroup } from '#lib/visibility.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { components } from '#lib/api/schema.js';
+	import ConfirmDialog from '#lib/components/confirm-dialog.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
 
 	type Content = components['schemas']['AdminContentResponse'];
 

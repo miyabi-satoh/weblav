@@ -1,10 +1,10 @@
 <script lang="ts">
 	import FolderIcon from '@lucide/svelte/icons/folder';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import { browseLayout } from '$lib/browse-layout.svelte';
-	import { browseRowAboveClass } from '$lib/list-row';
-	import { rowLocationText, type RowLocation } from '$lib/row-location';
-	import * as m from '$lib/paraglide/messages.js';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import { browseLayout } from '#lib/browse-layout.svelte.ts';
+	import { browseRowAboveClass } from '#lib/list-row.ts';
+	import { rowLocationText, type RowLocation } from '#lib/row-location.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// 検索の結果の行の2段目に出す、どこにあるか。押すと階層を全部並べ、選んだ段の画面を開く
 	// (→ docs/search.md「画面」)。行のリンクの上に重ねて置く (→ $lib/list-row.ts)。

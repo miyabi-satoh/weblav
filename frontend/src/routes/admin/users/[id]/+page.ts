@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
-import { client } from '$lib/api/client';
-import { fetchOrError } from '$lib/api/load';
-import * as m from '$lib/paraglide/messages.js';
+import { client } from '#lib/api/client.ts';
+import { fetchOrError } from '#lib/api/load.ts';
+import * as m from '#lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
 // 1件を取る API は無いので、一覧から探す (共有の編集ページと同じ)。

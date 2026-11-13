@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { activeFieldClass, fieldLabelClass } from '$lib/filter-field';
+	import { activeFieldClass, fieldLabelClass } from '#lib/filter-field.ts';
 	import XIcon from '@lucide/svelte/icons/x';
 	import type { ClassValue } from 'svelte/elements';
 

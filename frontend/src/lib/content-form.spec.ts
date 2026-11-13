@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { components } from '$lib/api/schema';
+import type { components } from '#lib/api/schema.js';
 
 const put = vi.fn();
-vi.mock('$lib/api/client', () => ({ client: { PUT: (...args: unknown[]) => put(...args) } }));
+vi.mock('#lib/api/client.ts', () => ({ client: { PUT: (...args: unknown[]) => put(...args) } }));
 
 const { ContentFormState } = await import('./content-form.svelte');
 

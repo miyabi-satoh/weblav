@@ -1,18 +1,18 @@
 <script lang="ts">
-	import BrowseControls from '$lib/components/browse-controls.svelte';
-	import BrowseHeading from '$lib/components/browse-heading.svelte';
-	import ContentAddMenu from '$lib/components/content-add-menu.svelte';
-	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
+	import BrowseControls from '#lib/components/browse-controls.svelte';
+	import BrowseHeading from '#lib/components/browse-heading.svelte';
+	import ContentAddMenu from '#lib/components/content-add-menu.svelte';
+	import { ListFilterState, provideListFilter } from '#lib/list-filter.svelte.ts';
 	import { resolve } from '$app/paths';
-	import * as m from '$lib/paraglide/messages.js';
-	import { SORT_OPTIONS, browseSortHref, type BrowseSort } from '$lib/browse-sort';
-	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
-	import BrowseSortSelect from '$lib/components/browse-sort.svelte';
-	import ContentList from '$lib/components/content-list.svelte';
+	import * as m from '#lib/paraglide/messages.js';
+	import { SORT_OPTIONS, browseSortHref, type BrowseSort } from '#lib/browse-sort.ts';
+	import BrowseBreadcrumb from '#lib/components/browse-breadcrumb.svelte';
+	import BrowseSortSelect from '#lib/components/browse-sort.svelte';
+	import ContentList from '#lib/components/content-list.svelte';
 	import type { PageProps } from './$types';
-	import { pageTitle } from '$lib/page-title';
-	import { browseGutterClass } from '$lib/list-row';
-	import { pageEmptyTextClass } from '$lib/page-layout';
+	import { pageTitle } from '#lib/page-title.ts';
+	import { browseGutterClass } from '#lib/list-row.ts';
+	import { pageEmptyTextClass } from '#lib/page-layout.ts';
 
 	let { data }: PageProps = $props();
 

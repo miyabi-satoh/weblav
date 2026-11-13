@@ -3,14 +3,14 @@
 	 * 共有の削除の確認。共有の一覧の⋮と、共有の編集ページの「削除」の区画で同じものを出す。
 	 */
 	import { page } from '$app/state';
-	import { client } from '$lib/api/client';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { formatNumber } from '$lib/format';
-	import * as m from '$lib/paraglide/messages.js';
-	import { canAddRoots } from '$lib/root-location';
-	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import type { components } from '$lib/api/schema';
+	import { client } from '#lib/api/client.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { formatNumber } from '#lib/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { canAddRoots } from '#lib/root-location.ts';
+	import ConfirmDialog from '#lib/components/confirm-dialog.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import type { components } from '#lib/api/schema.js';
 
 	type Root = components['schemas']['RootResponse'];
 

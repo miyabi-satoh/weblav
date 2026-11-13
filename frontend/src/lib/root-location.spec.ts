@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { components } from '$lib/api/schema';
+import type { components } from '#lib/api/schema.js';
 import { canAddRoots, contentPathLabel, rootLocationLabel } from './root-location';
 
-vi.mock('$lib/paraglide/messages.js', () => ({
+vi.mock('#lib/paraglide/messages.js', () => ({
 	contents_path_root_deleted: () => '(見つからない共有)'
 }));
 

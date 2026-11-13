@@ -1,5 +1,5 @@
 import { MediaQuery } from 'svelte/reactivity';
-import { browseLayout } from '$lib/browse-layout.svelte';
+import { browseLayout } from '#lib/browse-layout.svelte.ts';
 
 /**
  * 閲覧側の一覧 (トップ・グループ・アーカイブ・フォルダー) で共有する class。

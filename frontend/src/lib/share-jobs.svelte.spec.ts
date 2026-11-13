@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POLL_MS, SHOW_AFTER_MS, ShareJobsState, jobProgressRatio } from './share-jobs.svelte';
 
 const { get, del } = vi.hoisted(() => ({ get: vi.fn(), del: vi.fn() }));
-vi.mock('$lib/api/client', () => ({ client: { GET: get, DELETE: del } }));
+vi.mock('#lib/api/client.ts', () => ({ client: { GET: get, DELETE: del } }));
 
 function job(state: 'running' | 'succeeded' | 'failed', doneItems = 0) {
 	return {

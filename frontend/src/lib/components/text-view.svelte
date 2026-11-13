@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { highlightCode, highlightCodeBlock, isCodeFileName } from '$lib/code-highlight';
-	import { isPlainClick } from '$lib/image-viewer';
-	import type { ContentLocation } from '$lib/content-location';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { highlightCode, highlightCodeBlock, isCodeFileName } from '#lib/code-highlight.ts';
+	import { isPlainClick } from '#lib/image-viewer.ts';
+	import type { ContentLocation } from '#lib/content-location.ts';
 	import {
 		isMarkdownFileName,
 		LINKED_PATH_ATTRIBUTE,
 		renderMarkdownPreview
-	} from '$lib/markdown-preview';
-	import * as m from '$lib/paraglide/messages.js';
+	} from '#lib/markdown-preview.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// ビューアーのテキストの本文 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
 	let {

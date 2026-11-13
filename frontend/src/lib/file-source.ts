@@ -3,7 +3,7 @@ import {
 	contentThumbnailHref,
 	shareDownloadHref,
 	shareThumbnailHref
-} from '$lib/api/urls';
+} from '#lib/api/urls.ts';
 
 /**
  * フォルダーの中のファイル・ディレクトリの行が、どこのものか。

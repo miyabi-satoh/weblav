@@ -1,5 +1,5 @@
-import type { components } from '$lib/api/schema';
-import * as m from '$lib/paraglide/messages.js';
+import type { components } from '#lib/api/schema.js';
+import * as m from '#lib/paraglide/messages.js';
 
 type ShareAccess = components['schemas']['ShareAccess'];
 

@@ -1,6 +1,6 @@
-import { client } from '$lib/api/client';
-import { fetchOrError } from '$lib/api/load';
-import * as m from '$lib/paraglide/messages.js';
+import { client } from '#lib/api/client.ts';
+import { fetchOrError } from '#lib/api/load.ts';
+import * as m from '#lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
 // 共有はログインした人のもの。ホームの「共有」の区画と同じ行を並べ、パンくずの「共有」から戻る先にする。

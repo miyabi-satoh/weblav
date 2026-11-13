@@ -1,10 +1,10 @@
 <script lang="ts" module>
-	import type { components } from '$lib/api/schema';
+	import type { components } from '#lib/api/schema.js';
 	import {
 		archiveFileHref,
 		archiveItemDownloadHref,
 		archiveItemThumbnailHref
-	} from '$lib/api/urls';
+	} from '#lib/api/urls.ts';
 
 	type ArchiveViewItem = components['schemas']['ArchiveViewItem'];
 
@@ -36,18 +36,18 @@
 </script>
 
 <script lang="ts" generics="T extends ArchiveViewItem">
-	import FilterHighlight from '$lib/components/filter-highlight.svelte';
+	import FilterHighlight from '#lib/components/filter-highlight.svelte';
 	import { tick, type Snippet } from 'svelte';
-	import type { ContentLocation } from '$lib/content-location';
-	import { isAudioFileName, isLinksFileName, viewerFileKind } from '$lib/file-kind';
-	import { LinksFileIcon } from '$lib/links-file';
-	import type { ViewerFile } from '$lib/file-viewer.svelte';
-	import type { Track, TrackSource } from '$lib/now-playing.svelte';
-	import type { ViewerImage } from '$lib/image-viewer';
-	import { viewerItems, type ViewerItem } from '$lib/viewer-items';
-	import { archivePreviewKey, parseArchivePreviewKey } from '$lib/preview-query';
-	import { providePreviewSource } from '$lib/preview-url.svelte';
-	import { ARCHIVE_CHUNK_SIZE, type ArchivePagedList } from '$lib/archive-paged-list.svelte';
+	import type { ContentLocation } from '#lib/content-location.ts';
+	import { isAudioFileName, isLinksFileName, viewerFileKind } from '#lib/file-kind.ts';
+	import { LinksFileIcon } from '#lib/links-file.ts';
+	import type { ViewerFile } from '#lib/file-viewer.svelte.ts';
+	import type { Track, TrackSource } from '#lib/now-playing.svelte.ts';
+	import type { ViewerImage } from '#lib/image-viewer.ts';
+	import { viewerItems, type ViewerItem } from '#lib/viewer-items.ts';
+	import { archivePreviewKey, parseArchivePreviewKey } from '#lib/preview-query.ts';
+	import { providePreviewSource } from '#lib/preview-url.svelte.ts';
+	import { ARCHIVE_CHUNK_SIZE, type ArchivePagedList } from '#lib/archive-paged-list.svelte.ts';
 	import { WindowVirtualizer, type WindowVirtualizerHandle } from 'virtua/svelte';
 	import {
 		browseItemClass,
@@ -59,17 +59,17 @@
 		browseVirtualLineClass,
 		browseVirtualLineStyle,
 		browseVirtualListClass
-	} from '$lib/list-row';
-	import { formatNumber } from '$lib/format';
-	import * as m from '$lib/paraglide/messages.js';
-	import { Button } from '$lib/components/ui/button';
-	import ArchiveRowPlaceholder from '$lib/components/archive-row-placeholder.svelte';
-	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
-	import ListRowIcon from '$lib/components/list-row-icon.svelte';
-	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
-	import ListRowImageLink from '$lib/components/list-row-image-link.svelte';
-	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
-	import ListRowDownloadLink from '$lib/components/list-row-download-link.svelte';
+	} from '#lib/list-row.ts';
+	import { formatNumber } from '#lib/format.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import ArchiveRowPlaceholder from '#lib/components/archive-row-placeholder.svelte';
+	import ListRowSubtitle from '#lib/components/list-row-subtitle.svelte';
+	import ListRowIcon from '#lib/components/list-row-icon.svelte';
+	import ListRowPlayButton from '#lib/components/list-row-play-button.svelte';
+	import ListRowImageLink from '#lib/components/list-row-image-link.svelte';
+	import ListRowFileLink from '#lib/components/list-row-file-link.svelte';
+	import ListRowDownloadLink from '#lib/components/list-row-download-link.svelte';
 
 	// 一覧の表示 (`/archives/[id]`)・編集ページのファイルのタブで使う、ファイルの行。
 	// 押したときの動きと見え方を揃えるため、種類ごとの描き分けをここに集める。

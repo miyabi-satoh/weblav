@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
-import type { components } from '$lib/api/schema';
+import type { components } from '#lib/api/schema.js';
 import ShareTransferDialog from './share-transfer-dialog.svelte';
 
 const { get, post } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
-vi.mock('$lib/api/client', () => ({ client: { GET: get, POST: post } }));
+vi.mock('#lib/api/client.ts', () => ({ client: { GET: get, POST: post } }));
 
 type ShareAccess = components['schemas']['ShareAccess'];
 

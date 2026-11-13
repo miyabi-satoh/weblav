@@ -1,5 +1,5 @@
-import type { components } from '$lib/api/schema';
-import { accessAtLeast, type ShareDir, type ShareTarget } from '$lib/share-ops';
+import type { components } from '#lib/api/schema.js';
+import { accessAtLeast, type ShareDir, type ShareTarget } from '#lib/share-ops.ts';
 
 type ShareResponse = components['schemas']['ShareResponse'];
 type TransferOp = components['schemas']['TransferOp'];

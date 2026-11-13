@@ -1,19 +1,19 @@
 <script lang="ts">
-	import BrowseControls from '$lib/components/browse-controls.svelte';
-	import BrowseHeading from '$lib/components/browse-heading.svelte';
-	import { ListFilterState, provideListFilter } from '$lib/list-filter.svelte';
+	import BrowseControls from '#lib/components/browse-controls.svelte';
+	import BrowseHeading from '#lib/components/browse-heading.svelte';
+	import { ListFilterState, provideListFilter } from '#lib/list-filter.svelte.ts';
 	import { resolve } from '$app/paths';
-	import { withQuery } from '$lib/href';
-	import * as m from '$lib/paraglide/messages.js';
-	import { archiveItemDownloadHref, contentDownloadHref } from '$lib/api/urls';
-	import { breadcrumbLinkClass, pathCrumbs } from '$lib/breadcrumb';
-	import { RefreshedLinkPreviews } from '$lib/link-previews.svelte';
-	import BrowseBreadcrumb from '$lib/components/browse-breadcrumb.svelte';
-	import LinksEntryList, { type LinksEntryRow } from '$lib/components/links-entry-list.svelte';
-	import { browseGutterClass } from '$lib/list-row';
+	import { withQuery } from '#lib/href.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { archiveItemDownloadHref, contentDownloadHref } from '#lib/api/urls.ts';
+	import { breadcrumbLinkClass, pathCrumbs } from '#lib/breadcrumb.ts';
+	import { RefreshedLinkPreviews } from '#lib/link-previews.svelte.ts';
+	import BrowseBreadcrumb from '#lib/components/browse-breadcrumb.svelte';
+	import LinksEntryList, { type LinksEntryRow } from '#lib/components/links-entry-list.svelte';
+	import { browseGutterClass } from '#lib/list-row.ts';
 	import type { PageProps } from './$types';
-	import { pageTitle } from '$lib/page-title';
-	import { pageEmptyTextClass } from '$lib/page-layout';
+	import { pageTitle } from '#lib/page-title.ts';
+	import { pageEmptyTextClass } from '#lib/page-layout.ts';
 
 	// リンクの一覧のファイルを開いた画面 (→ docs/ui.md「リンクの一覧のファイル」)。
 	// フォルダーの中・アーカイブのアイテム・ショートカットのどれも、この1つの画面で開く。

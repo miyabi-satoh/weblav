@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { fileExtension } from '$lib/file-kind';
-	import * as m from '$lib/paraglide/messages.js';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { fileExtension } from '#lib/file-kind.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// ビューアーの Office のファイル (Word・Excel・PowerPoint) の本文 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
 	let { src, fileName, onerror }: { src: string; fileName: string; onerror: () => void } = $props();

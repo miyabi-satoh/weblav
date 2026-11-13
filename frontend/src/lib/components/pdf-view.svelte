@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-	import PdfPage from '$lib/components/pdf-page.svelte';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import * as m from '$lib/paraglide/messages.js';
+	import PdfPage from '#lib/components/pdf-page.svelte';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// ビューアーの PDF の本文 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。ページを縦に並べる。
 	// PDF.js の本体と worker は、PDF を開くときに取りに行く。

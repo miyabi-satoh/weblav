@@ -1,4 +1,4 @@
-import { LOCATION_SEPARATOR } from '$lib/root-location';
+import { LOCATION_SEPARATOR } from '#lib/root-location.ts';
 
 /** id から行を引く表。`selfAndAncestors` へ渡すために作る。 */
 export function byIdMap<T extends { id: number }>(items: readonly T[]): ReadonlyMap<number, T> {

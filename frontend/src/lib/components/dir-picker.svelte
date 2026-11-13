@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { pickerCrumbButtonClass, pickerNavClass, pickerRowClass } from '$lib/dir-picker';
-	import { client } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
-	import * as m from '$lib/paraglide/messages.js';
-	import type { components } from '$lib/api/schema';
-	import { LatestRequest } from '$lib/latest-request';
-	import { isSamePath, pathTrail } from '$lib/path-trail';
-	import { joinLocationLabels } from '$lib/root-location';
-	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { pickerCrumbButtonClass, pickerNavClass, pickerRowClass } from '#lib/dir-picker.ts';
+	import { client } from '#lib/api/client.ts';
+	import { GENERIC_ERROR_MESSAGE, errorMessage } from '#lib/api/errors.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { components } from '#lib/api/schema.js';
+	import { LatestRequest } from '#lib/latest-request.ts';
+	import { isSamePath, pathTrail } from '#lib/path-trail.ts';
+	import { joinLocationLabels } from '#lib/root-location.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import FileIcon from '@lucide/svelte/icons/file';

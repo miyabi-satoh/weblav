@@ -7,30 +7,30 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { dialogFormClass } from '$lib/dialog-form';
-	import { client } from '$lib/api/client';
-	import { isAdmin } from '$lib/auth';
-	import { contentTypeLabel } from '$lib/content-labels';
+	import { dialogFormClass } from '#lib/dialog-form.ts';
+	import { client } from '#lib/api/client.ts';
+	import { isAdmin } from '#lib/auth.ts';
+	import { contentTypeLabel } from '#lib/content-labels.ts';
 	import {
 		ContentFormState,
 		contentFormEffectiveVisibility,
 		contentFormVisibilityNote
-	} from '$lib/content-form.svelte';
-	import { byIdMap } from '$lib/content-tree';
-	import { isDirectoryContentType, isPathContentType } from '$lib/content-types';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { selectableVisibilities } from '$lib/visibility';
-	import { parentPath } from '$lib/path-trail';
-	import * as m from '$lib/paraglide/messages.js';
-	import type { components } from '$lib/api/schema';
-	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import ConfirmRegister from '$lib/components/confirm-register.svelte';
-	import ContentForm from '$lib/components/content-form.svelte';
-	import ContentTypeChooser from '$lib/components/content-type-chooser.svelte';
-	import DirPicker from '$lib/components/dir-picker.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
+	} from '#lib/content-form.svelte.ts';
+	import { byIdMap } from '#lib/content-tree.ts';
+	import { isDirectoryContentType, isPathContentType } from '#lib/content-types.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { selectableVisibilities } from '#lib/visibility.ts';
+	import { parentPath } from '#lib/path-trail.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { components } from '#lib/api/schema.js';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import ConfirmRegister from '#lib/components/confirm-register.svelte';
+	import ContentForm from '#lib/components/content-form.svelte';
+	import ContentTypeChooser from '#lib/components/content-type-chooser.svelte';
+	import DirPicker from '#lib/components/dir-picker.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
 
 	type Content = components['schemas']['AdminContentResponse'];
 	type ContentType = components['schemas']['ContentType'];

@@ -1,11 +1,11 @@
 <script lang="ts">
-	import FilterHighlight from '$lib/components/filter-highlight.svelte';
+	import FilterHighlight from '#lib/components/filter-highlight.svelte';
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import type { Snippet } from 'svelte';
-	import { browseLayout } from '$lib/browse-layout.svelte';
-	import type { ViewerFile } from '$lib/file-viewer.svelte';
-	import { openViewerItem, type ViewerItem } from '$lib/viewer-items';
-	import { formatTimeAgo } from '$lib/format';
+	import { browseLayout } from '#lib/browse-layout.svelte.ts';
+	import type { ViewerFile } from '#lib/file-viewer.svelte.ts';
+	import { openViewerItem, type ViewerItem } from '#lib/viewer-items.ts';
+	import { formatTimeAgo } from '#lib/format.ts';
 	import {
 		linkDetail,
 		linkDetailOf,
@@ -13,8 +13,8 @@
 		linkTitleOf,
 		opensLinkDetail,
 		type LinkDetail
-	} from '$lib/link-detail.svelte';
-	import { isPlainClick } from '$lib/image-viewer';
+	} from '#lib/link-detail.svelte.ts';
+	import { isPlainClick } from '#lib/image-viewer.ts';
 	import {
 		browseRowClass,
 		browseRowPressClass,
@@ -22,14 +22,14 @@
 		browseRowTextClass,
 		browseRowTitleClass,
 		tileBandClass
-	} from '$lib/list-row';
-	import ListRowNewTab from '$lib/components/list-row-new-tab.svelte';
-	import ListRowIcon from '$lib/components/list-row-icon.svelte';
-	import RowLocationButton from '$lib/components/row-location.svelte';
-	import SeparatedText from '$lib/components/separated-text.svelte';
-	import * as m from '$lib/paraglide/messages.js';
-	import type { RowLocation } from '$lib/row-location';
-	import type { components } from '$lib/api/schema';
+	} from '#lib/list-row.ts';
+	import ListRowNewTab from '#lib/components/list-row-new-tab.svelte';
+	import ListRowIcon from '#lib/components/list-row-icon.svelte';
+	import RowLocationButton from '#lib/components/row-location.svelte';
+	import SeparatedText from '#lib/components/separated-text.svelte';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { RowLocation } from '#lib/row-location.ts';
+	import type { components } from '#lib/api/schema.js';
 
 	type LinkPreview = components['schemas']['LinkPreview'];
 

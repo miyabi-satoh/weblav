@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Button, type ButtonProps } from '$lib/components/ui/button';
-	import LoadingLabel from '$lib/components/loading-label.svelte';
-	import { cn } from '$lib/utils';
+	import { Button, type ButtonProps } from '#lib/components/ui/button/index.ts';
+	import LoadingLabel from '#lib/components/loading-label.svelte';
+	import { cn } from '#lib/utils.ts';
 
 	type Props = ButtonProps & {
 		loading?: boolean;

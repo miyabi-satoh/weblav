@@ -1,30 +1,30 @@
 <script lang="ts">
-	import FilterHighlight from '$lib/components/filter-highlight.svelte';
-	import { listFilter } from '$lib/list-filter.svelte';
-	import ListFilterEmpty from '$lib/components/list-filter-empty.svelte';
+	import FilterHighlight from '#lib/components/filter-highlight.svelte';
+	import { listFilter } from '#lib/list-filter.svelte.ts';
+	import ListFilterEmpty from '#lib/components/list-filter-empty.svelte';
 	import { resolve } from '$app/paths';
 	import FileIcon from '@lucide/svelte/icons/file';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import { actionMenuTriggerClass } from '$lib/table-columns';
-	import { contentDownloadHref, contentRemoteHref, contentThumbnailHref } from '$lib/api/urls';
-	import { contentTypeIcon } from '$lib/content-types';
+	import { actionMenuTriggerClass } from '#lib/table-columns.ts';
+	import { contentDownloadHref, contentRemoteHref, contentThumbnailHref } from '#lib/api/urls.ts';
+	import { contentTypeIcon } from '#lib/content-types.ts';
 	import {
 		isAudioFileName,
 		isLinksFileName,
 		remoteFile,
 		remoteFileKind,
 		viewerFileKind
-	} from '$lib/file-kind';
-	import { linksFileHref, LinksFileIcon } from '$lib/links-file';
-	import { RefreshedLinkPreviews } from '$lib/link-previews.svelte';
-	import type { ViewerFile } from '$lib/file-viewer.svelte';
-	import type { Track } from '$lib/now-playing.svelte';
-	import type { ViewerImage } from '$lib/image-viewer';
-	import { linkDetailOf, opensLinkDetail } from '$lib/link-detail.svelte';
-	import { findViewerItem, viewerItems } from '$lib/viewer-items';
-	import { providePreviewSource } from '$lib/preview-url.svelte';
-	import { browseLayout } from '$lib/browse-layout.svelte';
-	import { videoEmbedUrl } from '$lib/video-embed';
+	} from '#lib/file-kind.ts';
+	import { linksFileHref, LinksFileIcon } from '#lib/links-file.ts';
+	import { RefreshedLinkPreviews } from '#lib/link-previews.svelte.ts';
+	import type { ViewerFile } from '#lib/file-viewer.svelte.ts';
+	import type { Track } from '#lib/now-playing.svelte.ts';
+	import type { ViewerImage } from '#lib/image-viewer.ts';
+	import { linkDetailOf, opensLinkDetail } from '#lib/link-detail.svelte.ts';
+	import { findViewerItem, viewerItems } from '#lib/viewer-items.ts';
+	import { providePreviewSource } from '#lib/preview-url.svelte.ts';
+	import { browseLayout } from '#lib/browse-layout.svelte.ts';
+	import { videoEmbedUrl } from '#lib/video-embed.ts';
 	import {
 		browseItemClass,
 		browseListClass,
@@ -33,19 +33,19 @@
 		browseRowTextClass,
 		browseRowTitleClass,
 		rowMenuSlotClass
-	} from '$lib/list-row';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import ListRowIcon from '$lib/components/list-row-icon.svelte';
-	import ListRowPlayButton from '$lib/components/list-row-play-button.svelte';
-	import ListRowImageLink from '$lib/components/list-row-image-link.svelte';
-	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
-	import ListRowDownloadLink from '$lib/components/list-row-download-link.svelte';
-	import ListRowLink from '$lib/components/list-row-link.svelte';
-	import ListRowSubtitle from '$lib/components/list-row-subtitle.svelte';
-	import * as m from '$lib/paraglide/messages.js';
-	import type { RowLocation } from '$lib/row-location';
-	import type { components } from '$lib/api/schema';
+	} from '#lib/list-row.ts';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import ListRowIcon from '#lib/components/list-row-icon.svelte';
+	import ListRowPlayButton from '#lib/components/list-row-play-button.svelte';
+	import ListRowImageLink from '#lib/components/list-row-image-link.svelte';
+	import ListRowFileLink from '#lib/components/list-row-file-link.svelte';
+	import ListRowDownloadLink from '#lib/components/list-row-download-link.svelte';
+	import ListRowLink from '#lib/components/list-row-link.svelte';
+	import ListRowSubtitle from '#lib/components/list-row-subtitle.svelte';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { RowLocation } from '#lib/row-location.ts';
+	import type { components } from '#lib/api/schema.js';
 
 	type ContentEntry = components['schemas']['ContentResponse'];
 	type LinkEntry = Extract<ContentEntry, { type: 'link' }>;

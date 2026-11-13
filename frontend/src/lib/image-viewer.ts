@@ -5,9 +5,9 @@
  * 画像を開くまで読み込まないよう、本体と CSS は開くときに取りに行く。
  */
 
-import type { ContentLocation } from '$lib/content-location';
-import * as m from '$lib/paraglide/messages.js';
-import type { ViewerItem } from '$lib/viewer-items';
+import type { ContentLocation } from '#lib/content-location.ts';
+import * as m from '#lib/paraglide/messages.js';
+import type { ViewerItem } from '#lib/viewer-items.ts';
 
 export type ViewerImage = {
 	/** 元の画像 (ダウンロードの URL)。 */

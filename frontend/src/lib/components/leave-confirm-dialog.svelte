@@ -2,9 +2,9 @@
 	/**
 	 * 保存していない変更があるまま別の画面へ移ろうとしたときの確認 (`LeaveGuard`)。
 	 */
-	import type { LeaveGuard } from '$lib/leave-guard.svelte';
-	import * as m from '$lib/paraglide/messages.js';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog';
+	import type { LeaveGuard } from '#lib/leave-guard.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.ts';
 
 	let {
 		guard,

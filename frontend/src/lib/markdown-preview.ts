@@ -3,9 +3,9 @@
  * marked と DOMPurify は、プレビューを開いたときに読み込む。
  */
 
-import { MARKDOWN_EXTENSIONS, MAX_FORMATTED_LENGTH } from '$lib/code-highlight';
-import { resolveRelativePath, type ContentLocation } from '$lib/content-location';
-import { fileExtension } from '$lib/file-kind';
+import { MARKDOWN_EXTENSIONS, MAX_FORMATTED_LENGTH } from '#lib/code-highlight.ts';
+import { resolveRelativePath, type ContentLocation } from '#lib/content-location.ts';
+import { fileExtension } from '#lib/file-kind.ts';
 
 /** Markdown として組んで見せるファイルか。 */
 export function isMarkdownFileName(fileName: string): boolean {
@@ -96,7 +96,7 @@ export async function renderMarkdownPreview(
 ): Promise<string | undefined> {
 	if (text.length > MAX_FORMATTED_LENGTH) return undefined;
 	const [{ marked }, { ScrollTableRenderer, collapseCjkLineBreaks }, { default: DOMPurify }] =
-		await Promise.all([import('marked'), import('$lib/manual-markdown'), import('dompurify')]);
+		await Promise.all([import('marked'), import('#lib/manual-markdown.ts'), import('dompurify')]);
 	const html = collapseCjkLineBreaks(
 		marked.parse(text, { async: false, renderer: new ScrollTableRenderer(tableLabel) })
 	);

@@ -4,14 +4,14 @@
 	 * ごみ箱へ送れる場所かで文言を分け (送れなければ「元に戻せません」)、消すと開けなくなるホームのコンテンツを並べる。
 	 * 消し始めたら裏で続く処理になるので、進み具合はルートのレイアウトの欄に任せて閉じる。
 	 */
-	import { client } from '$lib/api/client';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import * as m from '$lib/paraglide/messages.js';
-	import { jobLabel, shareJobs } from '$lib/share-jobs.svelte';
-	import type { ShareTarget } from '$lib/share-ops';
-	import type { components } from '$lib/api/schema';
-	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
+	import { client } from '#lib/api/client.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { jobLabel, shareJobs } from '#lib/share-jobs.svelte.ts';
+	import type { ShareTarget } from '#lib/share-ops.ts';
+	import type { components } from '#lib/api/schema.js';
+	import ConfirmDialog from '#lib/components/confirm-dialog.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
 
 	type DeleteCheck = components['schemas']['DeleteCheckResponse'];
 

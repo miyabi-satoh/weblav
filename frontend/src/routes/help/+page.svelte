@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as m from '$lib/paraglide/messages.js';
-	import { pageTitle } from '$lib/page-title';
+	import * as m from '#lib/paraglide/messages.js';
+	import { pageTitle } from '#lib/page-title.ts';
 </script>
 
 <svelte:head><title>{pageTitle(m.help_eyebrow())}</title></svelte:head>

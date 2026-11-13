@@ -1,18 +1,18 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import FileIcon from '@lucide/svelte/icons/file';
-	import { browseLayout } from '$lib/browse-layout.svelte';
+	import { browseLayout } from '#lib/browse-layout.svelte.ts';
 	import {
 		browseRowClass,
 		browseRowPressClass,
 		browseRowTextClass,
 		tileCornerClass
-	} from '$lib/list-row';
-	import { isPlainClick, type ViewerImage } from '$lib/image-viewer';
-	import { openViewerItem, type ViewerItem } from '$lib/viewer-items';
-	import ListRowIcon from '$lib/components/list-row-icon.svelte';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import * as m from '$lib/paraglide/messages.js';
+	} from '#lib/list-row.ts';
+	import { isPlainClick, type ViewerImage } from '#lib/image-viewer.ts';
+	import { openViewerItem, type ViewerItem } from '#lib/viewer-items.ts';
+	import ListRowIcon from '#lib/components/list-row-icon.svelte';
+	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// 閲覧側の一覧の、ページ内のビューアーで開く画像の行・タイル (→ $lib/list-row.ts)。
 	// 元の画像への直リンクのまま置き、修飾キー付きのクリックや長押しのメニューでは

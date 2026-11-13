@@ -3,11 +3,11 @@
 	 * 共有の中の行の ⋮ に並べる操作 (→ docs/ui.md「共有の中の画面」)。押してから断られるものは出さない (`shareRowActions`)。
 	 * `RowActionsMenu` の中に置く。フォルダーのコンテンツの画面でも同じものを出す。
 	 */
-	import { shareDownloadHref } from '$lib/api/urls';
-	import * as m from '$lib/paraglide/messages.js';
-	import type { ShareOpsState } from '$lib/share-ops-state.svelte';
-	import { shareRowActions, type ShareAction, type ShareTarget } from '$lib/share-ops';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import { shareDownloadHref } from '#lib/api/urls.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { ShareOpsState } from '#lib/share-ops-state.svelte.ts';
+	import { shareRowActions, type ShareAction, type ShareTarget } from '#lib/share-ops.ts';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
 
 	let {
 		ops,

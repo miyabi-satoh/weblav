@@ -2,17 +2,17 @@
  * ページ内で開くもの (画像・PDF・動画・テキストなど) の並びと、その間の前後の移動
  * (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
  *
- * 画像は PhotoSwipe (`$lib/image-viewer.ts`)、ほかは `file-viewer.svelte` で開き、ビューアーは2つのまま、
+ * 画像は PhotoSwipe (`#lib/image-viewer.ts`)、ほかは `file-viewer.svelte` で開き、ビューアーは2つのまま、
  * 前後だけを一覧の表示順でつなぐ。隣が別の種類なら、今のビューアーから相手のビューアーへ渡す。
  */
 
 import { flushSync } from 'svelte';
-import { isCodeFileName } from '$lib/code-highlight';
-import type { ContentLocation } from '$lib/content-location';
-import { viewerFileKind } from '$lib/file-kind';
-import { fileViewer, type ViewerFile } from '$lib/file-viewer.svelte';
-import { closeImageViewer, openImageViewer, type ViewerImage } from '$lib/image-viewer';
-import { previewClosed, previewShown } from '$lib/preview-url.svelte';
+import { isCodeFileName } from '#lib/code-highlight.ts';
+import type { ContentLocation } from '#lib/content-location.ts';
+import { viewerFileKind } from '#lib/file-kind.ts';
+import { fileViewer, type ViewerFile } from '#lib/file-viewer.svelte.ts';
+import { closeImageViewer, openImageViewer, type ViewerImage } from '#lib/image-viewer.ts';
+import { previewClosed, previewShown } from '#lib/preview-url.svelte.ts';
 
 /**
  * `key` は、開いているものを URL の `preview` に持つときの見分け (→ $lib/preview-url.svelte.ts)。

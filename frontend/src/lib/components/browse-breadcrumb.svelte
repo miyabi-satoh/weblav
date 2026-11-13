@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import * as m from '$lib/paraglide/messages.js';
-	import { breadcrumbLinkClass, breadcrumbNavClass } from '$lib/breadcrumb';
-	import type { components } from '$lib/api/schema';
+	import * as m from '#lib/paraglide/messages.js';
+	import { breadcrumbLinkClass, breadcrumbNavClass } from '#lib/breadcrumb.ts';
+	import type { components } from '#lib/api/schema.js';
 	import type { Snippet } from 'svelte';
 
 	type Props = {

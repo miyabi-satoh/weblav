@@ -5,15 +5,15 @@
 	 */
 	import { tick } from 'svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import { client } from '$lib/api/client';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { fetchSharedFolderPresence } from '$lib/shared-folders';
-	import * as m from '$lib/paraglide/messages.js';
-	import type { components } from '$lib/api/schema';
-	import { buttonVariants } from '$lib/components/ui/button';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import ContentCreateDialog from '$lib/components/content-create-dialog.svelte';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
+	import { client } from '#lib/api/client.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { fetchSharedFolderPresence } from '#lib/shared-folders.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { components } from '#lib/api/schema.js';
+	import { buttonVariants } from '#lib/components/ui/button/index.ts';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import ContentCreateDialog from '#lib/components/content-create-dialog.svelte';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
 
 	type Content = components['schemas']['AdminContentResponse'];
 	type ContentType = components['schemas']['ContentType'];

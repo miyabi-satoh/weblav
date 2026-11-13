@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { formatDuration } from '$lib/format';
-	import { seekDrag } from '$lib/seek-drag';
-	import * as m from '$lib/paraglide/messages.js';
+	import { formatDuration } from '#lib/format.ts';
+	import { seekDrag } from '#lib/seek-drag.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// 音声のプレイヤーと動画のビューアーのシークバー。今の位置・シークバー・長さを横に並べる。
 	// 並べる行 (幅・文字色) は呼び出し側が用意する。

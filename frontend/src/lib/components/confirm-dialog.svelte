@@ -6,9 +6,9 @@
 	 * 処理中は閉じさせない。応答を受けて、成否によらず呼び出し側が閉じる (→ docs/ui.md「UI 全般」)。
 	 */
 	import type { Snippet } from 'svelte';
-	import * as m from '$lib/paraglide/messages.js';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog';
-	import LoadingLabel from '$lib/components/loading-label.svelte';
+	import * as m from '#lib/paraglide/messages.js';
+	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.ts';
+	import LoadingLabel from '#lib/components/loading-label.svelte';
 
 	type Props = {
 		open: boolean;

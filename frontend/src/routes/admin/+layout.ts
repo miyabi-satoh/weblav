@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { resolve } from '$app/paths';
-import { isAdmin } from '$lib/auth';
+import { isAdmin } from '#lib/auth.ts';
 import type { LayoutLoad } from './$types';
 
 // `/admin` の下は admin 専用 (→ docs/access.md「ロールと操作」)。未ログインは親(ルート `+layout.ts`)が

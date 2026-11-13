@@ -4,23 +4,23 @@
 	 * 変わる件数を見せてから、その場で保存する。窓の後ろで一覧が変わるので、知らせ (トースト) は出さない。
 	 */
 	import { untrack } from 'svelte';
-	import { client } from '$lib/api/client';
-	import { GENERIC_ERROR_MESSAGE, errorMessage } from '$lib/api/errors';
-	import type { components } from '$lib/api/schema';
-	import { ContentFormState, fetchFreshContent } from '$lib/content-form.svelte';
-	import { dialogFormClass } from '$lib/dialog-form';
-	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
-	import { LatestRequest } from '$lib/latest-request';
-	import * as m from '$lib/paraglide/messages.js';
-	import { visibilityChangeCounts } from '$lib/visibility-preview';
-	import { appendPattern, patternCandidate } from '$lib/pattern-candidate';
-	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
-	import * as RadioGroup from '$lib/components/ui/radio-group';
-	import ErrorDialog from '$lib/components/error-dialog.svelte';
-	import LoadingButton from '$lib/components/loading-button.svelte';
+	import { client } from '#lib/api/client.ts';
+	import { GENERIC_ERROR_MESSAGE, errorMessage } from '#lib/api/errors.ts';
+	import type { components } from '#lib/api/schema.js';
+	import { ContentFormState, fetchFreshContent } from '#lib/content-form.svelte.ts';
+	import { dialogFormClass } from '#lib/dialog-form.ts';
+	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
+	import { LatestRequest } from '#lib/latest-request.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { visibilityChangeCounts } from '#lib/visibility-preview.ts';
+	import { appendPattern, patternCandidate } from '#lib/pattern-candidate.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import * as Field from '#lib/components/ui/field/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import * as RadioGroup from '#lib/components/ui/radio-group/index.ts';
+	import ErrorDialog from '#lib/components/error-dialog.svelte';
+	import LoadingButton from '#lib/components/loading-button.svelte';
 
 	type Content = components['schemas']['AdminContentResponse'];
 	type VisibilityPreview = components['schemas']['VisibilityPreview'];

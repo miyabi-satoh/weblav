@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { refreshAll } from '$app/navigation';
-	import * as m from '$lib/paraglide/messages.js';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import RecoveryCodePanel from '$lib/components/recovery-code-panel.svelte';
+	import * as m from '#lib/paraglide/messages.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import RecoveryCodePanel from '#lib/components/recovery-code-panel.svelte';
 
 	/**
 	 * 作ったリカバリコードを見せる (→ docs/access.md「リカバリコード」)。`code` を入れると開き、

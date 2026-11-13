@@ -1,4 +1,4 @@
-import { readStored, writeStored } from '$lib/stored';
+import { readStored, writeStored } from '#lib/stored.ts';
 
 /**
  * 閲覧側の一覧 (ホーム・グループ・フォルダー・アーカイブ) の並べ方 (→ docs/ui.md「UI 全般」)。

@@ -8,13 +8,13 @@
 	import RotateCwIcon from '@lucide/svelte/icons/rotate-cw';
 	import Volume2Icon from '@lucide/svelte/icons/volume-2';
 	import VolumeXIcon from '@lucide/svelte/icons/volume-x';
-	import { nowPlaying } from '$lib/now-playing.svelte';
-	import { videoLoop } from '$lib/video-loop.svelte';
-	import { viewerButtonClass } from '$lib/viewer-button';
-	import * as m from '$lib/paraglide/messages.js';
-	import MediaSeekBar from '$lib/components/media-seek-bar.svelte';
-	import { clampTime, SKIP_SECONDS } from '$lib/media';
-	import { videoKeyAction } from '$lib/video-keys';
+	import { nowPlaying } from '#lib/now-playing.svelte.ts';
+	import { videoLoop } from '#lib/video-loop.svelte.ts';
+	import { viewerButtonClass } from '#lib/viewer-button.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import MediaSeekBar from '#lib/components/media-seek-bar.svelte';
+	import { clampTime, SKIP_SECONDS } from '#lib/media.ts';
+	import { videoKeyAction } from '#lib/video-keys.ts';
 
 	// ファイルのビューアーの動画 (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
 	// 操作は `<video controls>` を使わずに自前で置く。

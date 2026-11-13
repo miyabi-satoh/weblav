@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { pageTitle } from '$lib/page-title';
-	import { docPageClass, docPageHeadingClass, docPageLeadClass } from '$lib/page-layout';
-	import * as m from '$lib/paraglide/messages.js';
+	import { pageTitle } from '#lib/page-title.ts';
+	import { docPageClass, docPageHeadingClass, docPageLeadClass } from '#lib/page-layout.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	// 読み込みの失敗 (fetchOrError) と、どのページにも当たらない URL がここに来る。
 	// 共通ヘッダーの下に、何が起きたかと戻り先を出す。

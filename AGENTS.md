@@ -65,7 +65,7 @@
 ### Frontend (Svelte)
 
 - Svelte 5 runes のみを使う (`$props()` / `$state()` / `$derived()` 等)。
-- **複数の画面で共有する Tailwind の class は `$lib/*.ts` に定数として置く**
+- **複数の画面で共有する Tailwind の class は `#lib/*.ts` に定数として置く**
   (`list-row.ts`・`breadcrumb.ts`・`header-action.ts`・`table-columns.ts`・`viewer-button.ts`・`dialog-form.ts`・`back-link.ts`)。
   同じ長い class 文字列を画面ごとに書かない。
 - **Tailwind の任意値クラス (`text-[13px]`・`h-(--x)`・`[mask-type:luminance]` など) は使わない**。
@@ -73,9 +73,9 @@
   標準のユーティリティが無いプロパティは、`routes/layout.css` に `@utility` で名前を付けて使う (`touch-callout-none` が例)。
   `just lint` で `scripts/check-tailwind-arbitrary.mjs` が検出する。
   `data-[size=default]:` のような任意値の variant と、shadcn-svelte の部品 (`components/ui/`) は対象外。
-- **クエリを持つ URL は `$lib/href.ts` の `withQuery()` で組み立てる**。
+- **クエリを持つ URL は `#lib/href.ts` の `withQuery()` で組み立てる**。
   エスケープの仕方と、空のときに `?` を付けるかを画面ごとにばらけさせない。
-  SvelteKit のルートだけでなく、API への直リンク (`$lib/api/urls.ts`) やログインの戻り先も同じ。
+  SvelteKit のルートだけでなく、API への直リンク (`#lib/api/urls.ts`) やログインの戻り先も同じ。
   - 値が空の項目も**そのまま載る**。落としたい項目は呼び出し側で入れないこと
     (アーカイブの絞り込みのように、空の値に意味がある画面があるため)。
   - href をヘルパー関数で組み立てると、`svelte/no-navigation-without-resolve` は
@@ -85,7 +85,7 @@
   - `<a>` の属性が1行に収まるときは `eslint-disable-next-line` を使う。
     複数行になると `href` の行を指せないので、その要素だけを `eslint-disable` / `eslint-enable` で囲む。
     囲む範囲を複数の要素にまたがらせない。
-- **フォームの dirty 判定は `$lib/form-dirty.svelte.ts` の `FormDirtyState` を使う**。
+- **フォームの dirty 判定は `#lib/form-dirty.svelte.ts` の `FormDirtyState` を使う**。
   今の値を返す関数を渡し、開いた時点で `markPristine()` を呼ぶ。開いた時点のスナップショットと構造比較する形に揃える (値ごとの比較にしない)。
 - 双方向バインディングは `bind:value` (または `bind:value={getter, setter}`) を使う。
   `value={x} onchange={...}` のような手動同期で代替しない。
@@ -118,7 +118,7 @@
 - **API エラーの表示文言は `error_<code>` に統一**し、`AppError::status_and_code()` が返す `code` 文字列とそのまま対応させる。
   例: `code: "not_found"` → キー `error_not_found`。
   個々の API 呼び出し側で文言を作り分けない。
-  共通のエラーハンドラ (`$lib/api/errors.ts`) で `error_${code}` を引き、該当キーが無ければ `error_generic` にフォールバックする。
+  共通のエラーハンドラ (`#lib/api/errors.ts`) で `error_${code}` を引き、該当キーが無ければ `error_generic` にフォールバックする。
 - **422 の内訳 (`error.detail`) の文言も、同じ共通のエラーハンドラで組み立てる** (→ docs/architecture.md「エラーの契約と表示言語」)。
   `kind` で場合分けし、サーバーが渡した値を差し込む。呼び出し側は今までどおり
   `errorMessage(error)` を呼ぶだけでよい。

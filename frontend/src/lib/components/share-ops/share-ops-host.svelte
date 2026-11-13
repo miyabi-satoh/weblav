@@ -4,10 +4,10 @@
 	 * ⋮ (`share-row-menu-items.svelte`) と「追加」(`share-add-menu.svelte`) から開く。
 	 */
 	import { untrack } from 'svelte';
-	import { client } from '$lib/api/client';
-	import * as m from '$lib/paraglide/messages.js';
-	import type { ShareOpsState } from '$lib/share-ops-state.svelte';
-	import { lastSegment, type ShareTarget } from '$lib/share-ops';
+	import { client } from '#lib/api/client.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import type { ShareOpsState } from '#lib/share-ops-state.svelte.ts';
+	import { lastSegment, type ShareTarget } from '#lib/share-ops.ts';
 	import ShareDeleteDialog from './share-delete-dialog.svelte';
 	import ShareListOnHomeDialog from './share-list-on-home-dialog.svelte';
 	import ShareNameDialog from './share-name-dialog.svelte';

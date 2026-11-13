@@ -1,7 +1,7 @@
-import { client } from '$lib/api/client';
-import { fetchOrError, fetchOrNull } from '$lib/api/load';
-import { parseBrowseSort } from '$lib/browse-sort';
-import * as m from '$lib/paraglide/messages.js';
+import { client } from '#lib/api/client.ts';
+import { fetchOrError, fetchOrNull } from '#lib/api/load.ts';
+import { parseBrowseSort } from '#lib/browse-sort.ts';
+import * as m from '#lib/paraglide/messages.js';
 import type { PageLoad } from './$types';
 
 // トップページは匿名でも開ける。一覧APIは閲覧レベルで絞った結果を返すため401にはならず、
