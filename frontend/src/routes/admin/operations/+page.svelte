@@ -89,12 +89,13 @@
 		loadingMore = true;
 		const before = nextBefore;
 		const isLatest = moreRequests.begin();
-		const result = await errorDialog.attempt(() =>
-			client.GET('/api/v1/admin/operations', {
-				params: { query: { ...data.filters, before } }
-			})
-		);
+		const pending = client.GET('/api/v1/admin/operations', {
+			params: { query: { ...data.filters, before } }
+		});
+		// 最新かを確かめてから結果を扱う。前の絞り込みの続きが失敗しても、今の画面にエラーを出さないため。
+		await pending.catch(() => {});
 		if (!isLatest()) return;
+		const result = await errorDialog.attempt(() => pending);
 		if (result?.data) {
 			more = [...more, ...result.data.items];
 			nextBefore = result.data.nextBefore ?? null;
