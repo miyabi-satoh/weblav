@@ -111,6 +111,6 @@ The name appears instead of the path when choosing a folder for content, when sh
 
    ![The removal confirmation](images/roots-delete.webp)
 
-Content registered inside it stops being viewable, but its entries remain. Add the same folder again to make them viewable again. You can add it again only on the computer running WebLAV.
+Content registered inside it stops being viewable, but its entries remain. Add the same folder again to make it viewable again. You can add it again only on the computer running WebLAV.
 
 Next, go to [Work with files in shares](05-files.md) or [Register content](06-register-content.md).

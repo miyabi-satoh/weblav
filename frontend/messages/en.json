@@ -753,7 +753,7 @@
 	"recover_submit": "Reset password",
 	"recover_error_title": "Couldn't reset the password",
 	"recover_done_description": "Your password has been reset. The recovery code you used no longer works. Keep the new code below.",
-	"recover_back_to_login": "Back to log in",
+	"recover_back_to_login": "Back to login",
 	"setup_recovery_code_description": "The administrator has been created. Next, keep your recovery code.",
 	"recovery_code_label": "Recovery code",
 	"recovery_code_description": "If you forget your password, you can reset it with this code. This is the only time the code is shown. Keep it where others can't see it.",

@@ -7,7 +7,7 @@
 
   ![WebLAV icon menu in the system tray on Windows](images/quickstart-tray-menu.webp)
 
-WebLAV runs only while you are logged in to the computer.
+WebLAV runs only while you are signed in to the computer.
 
 ## Change site settings
 
