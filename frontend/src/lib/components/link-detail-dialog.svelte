@@ -146,7 +146,6 @@
 					target="_blank"
 					rel="external noopener noreferrer"
 					class={[buttonVariants(), linkDetail.count > 1 && 'ml-auto']}
-					onclick={() => (linkDetail.open = false)}
 				>
 					<ExternalLinkIcon data-icon="inline-start" />
 					{m.action_open_in_new_tab()}
