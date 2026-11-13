@@ -59,6 +59,7 @@ export function openViewerItem(
 	items: ViewerItem[],
 	signal = new AbortController().signal
 ): Promise<void> {
+	cancelRestore();
 	const at = items.findIndex((candidate) => itemSrc(candidate) === itemSrc(item));
 	return openAt(at < 0 ? [item] : items, Math.max(at, 0), signal);
 }
@@ -84,11 +85,25 @@ export function openLinkedPath(from: ContentLocation, path: string) {
 
 /** URL の `preview` から開き直す (→ $lib/preview-url.svelte.ts)。 */
 export function openViewerAt(items: ViewerItem[], index: number) {
-	void openAt(items, index, new AbortController().signal);
+	cancelRestore();
+	restoring = new AbortController();
+	void openAt(items, index, restoring.signal);
+}
+
+/**
+ * URL から開き直している途中の画像。読み終えるまで待つ間に画面を移る・別の行を押すと、
+ * 移った先や開いたビューアーの上に後から画像が開くので、そのときは取りやめる (行の `pending` と同じ)。
+ */
+let restoring: AbortController | null = null;
+
+function cancelRestore() {
+	restoring?.abort();
+	restoring = null;
 }
 
 /** 戻る・画面の移動で、開いているビューアーを閉じる。 */
 export function closeViewers() {
+	cancelRestore();
 	fileViewer.open = false;
 	closeImageViewer();
 }
