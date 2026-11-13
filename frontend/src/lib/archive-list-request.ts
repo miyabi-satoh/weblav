@@ -8,16 +8,17 @@ import type { components } from '$lib/api/schema';
 import type { ChunkFetch, ShuffleFetch } from '$lib/archive-paged-list.svelte';
 import { ARCHIVE_CHUNK_SIZE } from '$lib/archive-paged-list.svelte';
 import { LIST_FILTER_QUERY } from '$lib/list-filter';
+import { PREVIEW_QUERY } from '$lib/preview-query';
 
 type ArchiveViewItem = components['schemas']['ArchiveViewItem'];
 type ExcludedItem = components['schemas']['ExcludedItem'];
 
 /**
  * 画面の URL の軸の絞り込み (`?科目=国語`)。共有されたリンクの形は変えないので、画面の URL は軸の名前をそのままキーにする。
- * 並び順 (`sort`)・名前の語 (`filter`) は軸でない。
+ * 並び順 (`sort`)・名前の語 (`filter`)・開いているもの (`preview`) は軸でない。
  */
 export function axisFilters(url: URL, reserved: string[] = []): Record<string, string> {
-	const skip = new Set(['sort', LIST_FILTER_QUERY, ...reserved]);
+	const skip = new Set(['sort', LIST_FILTER_QUERY, PREVIEW_QUERY, ...reserved]);
 	return Object.fromEntries([...url.searchParams].filter(([key]) => !skip.has(key)));
 }
 

@@ -11,22 +11,39 @@ import { isCodeFileName } from '$lib/code-highlight';
 import type { ContentLocation } from '$lib/content-location';
 import { viewerFileKind } from '$lib/file-kind';
 import { fileViewer, type ViewerFile } from '$lib/file-viewer.svelte';
-import { openImageViewer, type ViewerImage } from '$lib/image-viewer';
+import { closeImageViewer, openImageViewer, type ViewerImage } from '$lib/image-viewer';
+import { previewClosed, previewShown } from '$lib/preview-url.svelte';
 
-export type ViewerItem = { type: 'image'; image: ViewerImage } | { type: 'file'; file: ViewerFile };
+/**
+ * `key` は、開いているものを URL の `preview` に持つときの見分け (→ $lib/preview-url.svelte.ts)。
+ * 一覧の中で重ならず、読み込み直しても変わらないものを、一覧が持つ値から作る。一覧に無いものは持たない。
+ */
+export type ViewerItem = (
+	{ type: 'image'; image: ViewerImage } | { type: 'file'; file: ViewerFile }
+) & { key?: string };
 
 /** 一覧の行から、ページ内で開くものを表示順に並べる。行の出し分けと同じく、画像を先に見る。 */
 export function viewerItems<T>(
 	entries: T[],
 	toImage: (entry: T) => ViewerImage | undefined,
-	toFile: (entry: T) => ViewerFile | undefined
+	toFile: (entry: T) => ViewerFile | undefined,
+	keyOf: (entry: T) => string
 ): ViewerItem[] {
 	return entries.flatMap((entry): ViewerItem[] => {
 		const image = toImage(entry);
-		if (image) return [{ type: 'image', image }];
+		if (image) return [{ type: 'image', image, key: keyOf(entry) }];
 		const file = toFile(entry);
-		return file ? [{ type: 'file', file }] : [];
+		return file ? [{ type: 'file', file, key: keyOf(entry) }] : [];
 	});
+}
+
+/** `items` の中の、`key` のもの。読み込み直したときに、URL の `preview` から開き直すのに使う。 */
+export function findViewerItem(
+	items: ViewerItem[],
+	key: string
+): { items: ViewerItem[]; index: number } | undefined {
+	const index = items.findIndex((item) => item.key === key);
+	return index < 0 ? undefined : { items, index };
 }
 
 function itemSrc(item: ViewerItem): string {
@@ -65,9 +82,27 @@ export function openLinkedPath(from: ContentLocation, path: string) {
 	showFile([{ type: 'file', file }], 0);
 }
 
+/** URL の `preview` から開き直す (→ $lib/preview-url.svelte.ts)。 */
+export function openViewerAt(items: ViewerItem[], index: number) {
+	void openAt(items, index, new AbortController().signal);
+}
+
+/** 戻る・画面の移動で、開いているビューアーを閉じる。 */
+export function closeViewers() {
+	fileViewer.open = false;
+	closeImageViewer();
+}
+
+/** 画像のビューアーが見せているものを URL に写す。 */
+const imagePreviewOptions = (items: ViewerItem[]) => ({
+	onShow: (index: number) => previewShown(items[index].key ?? null),
+	onClose: previewClosed
+});
+
 function openAt(items: ViewerItem[], index: number, signal: AbortSignal): Promise<void> {
 	if (items[index].type === 'image') {
 		return openImageViewer(items, index, signal, {
+			...imagePreviewOptions(items),
 			// 画像の並びの端から、隣のファイルへ。ファイルのビューアーを先に開いてから画像のビューアーを閉じる。
 			onLeave: (target) => showFile(items, target)
 		});
@@ -81,6 +116,7 @@ function showFile(items: ViewerItem[], index: number) {
 		// ファイルから隣の画像へ。画像を読み終えるまでファイルを出したままにし、間にページを見せない。
 		// 2つのビューアーがどちらもフォーカスを中に閉じ込めるので、画像のビューアーを開く直前に閉じ切る。
 		openImageViewer(items, target, signal, {
+			...imagePreviewOptions(items),
 			animate: false,
 			beforeOpen: () => flushSync(() => (fileViewer.open = false)),
 			onLeave: (next) => showFile(items, next)

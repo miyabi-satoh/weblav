@@ -313,6 +313,41 @@ test('ファイルのビューアー: テキストと PDF をページ内で開�
 	);
 });
 
+test('ファイルのビューアー: 開いたものが URL に載り、読み込み直しても開いたまま。前後は履歴を足さず、戻るで閉じる', async ({
+	page
+}) => {
+	await withDirectoryContent(
+		page.request,
+		{
+			type: 'folder',
+			namePrefix: 'e2e-preview-url',
+			files: { 'a-config.yml': '一つ目の本文', 'b-config.yml': '二つ目の本文' }
+		},
+		async (folder, name) => {
+			await page.goto(`/folders/${folder.id}`);
+			await page.getByRole('link', { name: /a-config\.yml/ }).click();
+			await expect(page).toHaveURL(/[?&]preview=a-config\.yml/);
+
+			await page.reload();
+			const viewer = page.getByRole('dialog', { name: 'a-config.yml' });
+			await expect(viewer.getByText('一つ目の本文')).toBeVisible();
+
+			const historyLength = await page.evaluate(() => history.length);
+			await viewer.getByRole('button', { name: NEXT_FILE_BUTTON_NAME }).click();
+			await expect(page.getByRole('dialog', { name: 'b-config.yml' })).toBeVisible();
+			await expect(page).toHaveURL(/[?&]preview=b-config\.yml/);
+			expect(await page.evaluate(() => history.length)).toBe(historyLength);
+
+			await page.goBack();
+			await expect(page.getByRole('dialog')).toHaveCount(0);
+			await expect(page).toHaveURL(
+				(url) => url.pathname === `/folders/${folder.id}` && !url.searchParams.has('preview')
+			);
+			await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+		}
+	);
+});
+
 // ここから下は操作の細部。
 
 /**

@@ -27,7 +27,8 @@
 	import { remoteFile, urlHost } from '$lib/file-kind';
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
 	import { linkDetailOf, opensLinkDetail } from '$lib/link-detail.svelte';
-	import { viewerItems } from '$lib/viewer-items';
+	import { findViewerItem, viewerItems } from '$lib/viewer-items';
+	import { providePreviewSource } from '$lib/preview-url.svelte';
 	import type { Track } from '$lib/now-playing.svelte';
 	import { videoEmbedUrl } from '$lib/video-embed';
 	import ListRowFileLink from '$lib/components/list-row-file-link.svelte';
@@ -95,7 +96,17 @@
 	}
 
 	let audioQueue = $derived(rows.filter((row) => remoteOf(row)?.kind === 'audio').map(toTrack));
-	let viewerList = $derived(viewerItems(rows, () => undefined, toViewerFile));
+	// URL の `preview` には、リンクの URL を持つ (→ $lib/preview-url.svelte.ts)。並びの位置と違い、
+	// 一覧のファイルに行を足しても変わらない。同じ URL が2つ並んでも、開くものは同じ。
+	let viewerList = $derived(
+		viewerItems(
+			rows,
+			() => undefined,
+			toViewerFile,
+			(row) => row.url
+		)
+	);
+	providePreviewSource((key) => findViewerItem(viewerList, key));
 
 	// 詳しい表示で前後へ移る、詳しい表示を出すリンクの並び (→ docs/ui.md「リンクのカード」)。
 	// 音声と URL のファイルはファイルの行で出すので入れない。

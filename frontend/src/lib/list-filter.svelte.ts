@@ -1,7 +1,7 @@
 import { getContext, setContext, untrack } from 'svelte';
 import { beforeNavigate, replaceState } from '$app/navigation';
 import { page } from '$app/state';
-import { withQuery } from '$lib/href';
+import { queryParams, withQuery } from '$lib/href';
 import { LIST_FILTER_QUERY, matchFilter, parseFilterTerms } from '$lib/list-filter';
 
 const CONTEXT_KEY = Symbol('list-filter');
@@ -75,10 +75,12 @@ export class ListFilterState {
 	#write() {
 		const query = this.value.trim() === '' ? '' : this.value;
 		this.#seen = query;
-		const params = Object.fromEntries(page.url.searchParams);
+		// ほかのクエリは、`page.url` でなく今のブラウザーの URL から取る。shallow routing で書いたもの
+		// (開いているものの `preview`。→ $lib/preview-url.svelte.ts) は `page.url` に写らず、外したものも残るため。
+		const params = queryParams(location.search);
 		delete params[LIST_FILTER_QUERY];
 		const href = withQuery(
-			page.url.pathname,
+			location.pathname,
 			query === '' ? params : { ...params, [LIST_FILTER_QUERY]: query }
 		);
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の URL のパスをそのまま使う (→ AGENTS.md「コードの規約」)

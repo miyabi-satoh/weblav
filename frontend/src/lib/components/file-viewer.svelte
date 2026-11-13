@@ -16,7 +16,8 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import VideoPlayer from '$lib/components/video-player.svelte';
 	import { viewerButtonClass } from '$lib/viewer-button';
-	import { openLinkedPath } from '$lib/viewer-items';
+	import { followPreviewUrl, previewClosed, previewLeaving } from '$lib/preview-url.svelte';
+	import { closeViewers, openLinkedPath, openViewerAt } from '$lib/viewer-items';
 	import * as m from '$lib/paraglide/messages.js';
 
 	// PDF・動画・テキストなどをページの上に重ねて表示するビューアー (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
@@ -33,9 +34,19 @@
 	let current = $derived(fileViewer.current);
 
 	// 戻るなどで画面を移ったら閉じる。移った先の上に、前の画面のファイルを残さない。
-	beforeNavigate(() => {
-		fileViewer.open = false;
+	// 開いているものを URL に写す shallow routing の履歴 (→ $lib/preview-url.svelte.ts) は、画面の移動にならないので、ここは通らない。
+	beforeNavigate((navigation) => {
+		if (previewLeaving(navigation)) closeViewers();
 	});
+
+	// 画像のビューアーの分もここで受ける。ページをまたいで1つだけ置く部品は、これだけのため (→ routes/+layout.svelte)。
+	followPreviewUrl({ open: openViewerAt, close: closeViewers });
+
+	/** 閉じるボタン・Esc で閉じた。開いているものを URL から外す。 */
+	function setOpen(value: boolean) {
+		fileViewer.open = value;
+		if (!value) previewClosed();
+	}
 
 	// 別のファイルに移ったら、倍率と読めなかった印を戻す。
 	$effect.pre(() => {
@@ -59,7 +70,7 @@
 	}
 </script>
 
-<DialogPrimitive.Root bind:open={fileViewer.open}>
+<DialogPrimitive.Root bind:open={() => fileViewer.open, setOpen}>
 	<DialogPrimitive.Portal>
 		<DialogPrimitive.Content
 			class="fixed inset-0 z-50 flex flex-col bg-black text-white outline-none"

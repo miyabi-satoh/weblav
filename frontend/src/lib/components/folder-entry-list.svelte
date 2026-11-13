@@ -43,7 +43,8 @@
 	import type { ViewerFile } from '$lib/file-viewer.svelte';
 	import type { Track } from '$lib/now-playing.svelte';
 	import type { ViewerImage } from '$lib/image-viewer';
-	import { viewerItems } from '$lib/viewer-items';
+	import { findViewerItem, viewerItems } from '$lib/viewer-items';
+	import { providePreviewSource } from '$lib/preview-url.svelte';
 	import {
 		browseItemClass,
 		browseListClass,
@@ -66,6 +67,7 @@
 		rows: allRows,
 		dirHref,
 		linksHref,
+		previewKey = (row) => row.path,
 		trailing
 	}: {
 		rows: FolderEntryRow[];
@@ -75,6 +77,11 @@
 		 * ほかのテキストのファイルと同じくビューアーで開く。
 		 */
 		linksHref: (row: FolderEntryRow) => string | undefined;
+		/**
+		 * URL の `preview` に持つ、行の見分け (→ $lib/preview-url.svelte.ts)。省くと、入れ物の一番上からのパス。
+		 * ほかのフォルダーの行も並ぶ画面 (検索の結果) は、入れ物も含めて重ならないものを渡す。
+		 */
+		previewKey?: (row: FolderEntryRow) => string;
 		/** 行の右端に置くもの (書き換えられる人の ⋮ メニュー)。 */
 		trailing?: Snippet<[FolderEntryRow]>;
 	} = $props();
@@ -136,7 +143,8 @@
 		};
 	}
 
-	let viewerList = $derived(viewerItems(rows, toViewerImage, toViewerFile));
+	let viewerList = $derived(viewerItems(rows, toViewerImage, toViewerFile, previewKey));
+	providePreviewSource((key) => findViewerItem(viewerList, key));
 </script>
 
 {#snippet entryTitle(row: FolderEntryRow)}
