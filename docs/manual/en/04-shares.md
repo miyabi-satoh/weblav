@@ -54,7 +54,7 @@ What standard users can do in a share is set for each share.
 | Full access | Add only, plus rename, move, delete, and overwrite |
 
 1. Select the share row to open its edit page.
-2. In the “Permissions” section, choose “Default for users”.
+2. In the “Permissions” section, choose “Default for standard users”.
 3. If some people need a different permission from the default, select “Add exception” under “Per-user exceptions”, choose the person, then choose their permission in the row. Select × in the row to return to the default.
 4. Select “Save” in the “Permissions” section.
 

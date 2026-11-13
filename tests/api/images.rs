@@ -59,7 +59,7 @@ async fn folder_images_get_sizes_and_thumbnails(pool: SqlitePool) {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    let parsed = parse_json(&body);
     let entry = |name: &str| {
         parsed["entries"]
             .as_array()
@@ -146,7 +146,7 @@ async fn shortcut_image_gets_size_in_home_list_and_thumbnail(pool: SqlitePool) {
 
     let (status, body) = send_empty(app.clone(), "GET", "/api/v1/contents", &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    let parsed = parse_json(&body);
     let file = parsed
         .as_array()
         .expect("一覧が配列でなかった")
@@ -187,7 +187,7 @@ async fn shortcut_image_gets_size_in_group_list(pool: SqlitePool) {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    let parsed = parse_json(&body);
     let file = parsed["entries"]
         .as_array()
         .expect("entries が配列でなかった")
@@ -217,7 +217,7 @@ async fn archive_image_items_get_sizes_and_thumbnails(pool: SqlitePool) {
 
     let (status, body) = view_archive(app.clone(), "", id, &[]).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    let parsed = parse_json(&body);
     assert_eq!(
         parsed["items"][0]["image"],
         serde_json::json!({"width": 64, "height": 48})

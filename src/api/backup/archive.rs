@@ -53,7 +53,7 @@ impl Manifest {
         Self {
             format: FORMAT,
             app_version: crate::APP_VERSION.to_string(),
-            created_at: time::OffsetDateTime::now_utc().unix_timestamp(),
+            created_at: crate::auth::unix_now(),
             schema_version: crate::db::schema_version(),
         }
     }

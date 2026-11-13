@@ -31,14 +31,15 @@ import {
 	specificSaveButton,
 	TITLE_LABEL,
 	uniqueId,
-	USE_THIS_FOLDER_BUTTON_NAME
+	USE_THIS_FOLDER_BUTTON_NAME,
+	CLEANUP_SAFE_TIMEOUTS,
+	SAVE_BUTTON_NAME
 } from './helpers';
 
 /** 編集ページの「ライブラリとして整理する」のスイッチ。 */
 const LIST_VIEW_SWITCH_NAME = /^ライブラリとして整理する$|^Organize as a library$/;
 
-// 待ち続けて制限時間を使い切ると、後片付けまで時間切れになる (→ archive.e2e.ts)。
-test.use({ actionTimeout: 10_000, navigationTimeout: 10_000 });
+test.use(CLEANUP_SAFE_TIMEOUTS);
 
 /**
  * パスを選ぶダイアログで、上位の一覧から置き場の中の `dirName` まで辿って決める。
@@ -227,7 +228,7 @@ test('対象のパターン: ライブラリを使わないフォルダーでも
 				name: /^見える内容が変わります$|^What people can see will change$/
 			});
 			await expect(notice.getByText(/見えなくなる: 1|No longer visible: 1/)).toBeVisible();
-			await notice.getByRole('button', { name: /^保存する$|^Save$/ }).click();
+			await notice.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
 			await expect(notice).toBeHidden();
 			await expect(specificSaveButton(page)).toBeDisabled();
 

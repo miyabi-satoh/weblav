@@ -1,7 +1,8 @@
 //! 操作の記録 (`operations`)。→ docs/operations.md
 //!
 //! 管理者が、誰がいつ何をしたかを後から確かめるためのもの。利用者の操作のうち、データベースか
-//! 共有の中を書き換えるものと、ログインを残す。見るだけの操作と、自動で動く処理は残さない。
+//! 共有の中を書き換えるものと、ログイン・バックアップのダウンロードを残す。それ以外の見るだけの操作と、
+//! 自動で動く処理は残さない。
 //! 記録に失敗しても操作そのものは止めない (記録のために、済んだ操作を失敗に見せないため)。
 
 use axum::Json;
@@ -372,6 +373,7 @@ pub struct FieldChange {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct FieldValues {
     pub before: serde_json::Value,
     pub after: serde_json::Value,
@@ -436,6 +438,16 @@ pub(crate) async fn record_or_warn(pool: &sqlx::SqlitePool, record: &OpRecord) -
             None
         }
     }
+}
+
+/// 記録に載せる利用者の名前を引く。引けなければ (消えた利用者・データベースの失敗) `None`。
+/// 名前は記録を読みやすくするための添え物で、引けなくても操作と記録は止めないため。
+pub(crate) async fn recorded_username(pool: &sqlx::SqlitePool, id: i64) -> Option<String> {
+    sqlx::query_scalar!("SELECT username FROM users WHERE id = ?", id)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
 }
 
 /// 裏で続いた操作 (`OpResult::Running` で書いた行) の結果を書く。失敗はログに出すだけ。

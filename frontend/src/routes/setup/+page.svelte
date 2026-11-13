@@ -128,13 +128,13 @@
 						<Field.FieldGroup>
 							<Field.Field>
 								<Field.FieldLabel for="username" required
-									>{m.setup_username_label()}</Field.FieldLabel
+									>{m.common_username_label()}</Field.FieldLabel
 								>
 								<Input id="username" autocomplete="username" bind:value={username} required />
 							</Field.Field>
 							<Field.Field>
 								<Field.FieldLabel for="password" required
-									>{m.setup_password_label()}</Field.FieldLabel
+									>{m.common_password_label()}</Field.FieldLabel
 								>
 								<PasswordInput
 									id="password"
@@ -145,7 +145,7 @@
 							</Field.Field>
 							<Field.Field data-invalid={passwordMismatch}>
 								<Field.FieldLabel for="password-confirm" required
-									>{m.setup_password_confirm_label()}</Field.FieldLabel
+									>{m.common_password_confirm_label()}</Field.FieldLabel
 								>
 								<PasswordInput
 									id="password-confirm"

@@ -186,7 +186,7 @@
 				<Field.FieldGroup>
 					<Field.Field>
 						<Field.FieldLabel for="user-username" required
-							>{m.admin_users_dialog_username_label()}</Field.FieldLabel
+							>{m.common_username_label()}</Field.FieldLabel
 						>
 						<!-- ブラウザーのパスワードマネージャーが管理者自身の資格情報を入れてしまう
 					     (入れたまま保存すると、新しいユーザーに管理者と同じパスワードが付く)。
@@ -195,7 +195,7 @@
 					</Field.Field>
 					<Field.Field>
 						<Field.FieldLabel for="user-password" required
-							>{m.admin_users_dialog_password_label()}</Field.FieldLabel
+							>{m.common_password_label()}</Field.FieldLabel
 						>
 						<PasswordInput
 							id="user-password"
@@ -206,7 +206,7 @@
 					</Field.Field>
 					<Field.Field data-invalid={createPasswordMismatch}>
 						<Field.FieldLabel for="user-password-confirm" required
-							>{m.admin_users_dialog_password_confirm_label()}</Field.FieldLabel
+							>{m.common_password_confirm_label()}</Field.FieldLabel
 						>
 						<PasswordInput
 							id="user-password-confirm"

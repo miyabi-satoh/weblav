@@ -9,8 +9,7 @@
 
 mod archive;
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use axum::Json;
@@ -20,13 +19,14 @@ use axum::http::{StatusCode, header};
 use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
-use tokio_util::io::{ReaderStream, SyncIoBridge};
+use tokio_util::io::ReaderStream;
 use tower_sessions::Session;
 use utoipa::{IntoParams, ToSchema};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use super::completed_reader::CompletedReader;
+use super::operations::{Op, OpRecord, record_or_warn};
 use crate::auth::{self, AdminUser, ConfirmedAdmin};
 use crate::error::{AppError, AppJson, multipart_error_to_app_error, run_blocking};
 use crate::state::AppState;
@@ -234,27 +234,15 @@ async fn download_backup(
     let snapshot = archive::snapshot(&state.pool, &state.backup_work_dir).await?;
     let manifest = Manifest::now();
     // 全員の非公開のものまで持ち出せる操作なので、誰がいつ取ったかを残す。
-    crate::api::operations::record_or_warn(
-        &state.pool,
-        &crate::api::operations::OpRecord::new(crate::api::operations::Op::DownloadBackup, &admin),
-    )
-    .await;
+    record_or_warn(&state.pool, &OpRecord::new(Op::DownloadBackup, &admin)).await;
 
-    let (reader, writer) = tokio::io::duplex(DOWNLOAD_BUFFER_BYTES);
-    let writer = SyncIoBridge::new(writer);
-    let finished = Arc::new(AtomicBool::new(false));
-    let finished_by_writer = Arc::clone(&finished);
-    tokio::task::spawn_blocking(move || {
-        match archive::write_zip(&snapshot, &manifest, writer) {
-            // 終わった印を付けてから閉じる。読む側は閉じたのを見てから印を見る。
-            Ok(writer) => {
-                finished_by_writer.store(true, Ordering::Release);
-                drop(writer);
-            }
-            // 受け取る側が途中で切った場合もここに来る。
-            Err(err) => tracing::warn!(%err, "failed to write the backup"),
-        }
-    });
+    let reader = CompletedReader::spawn_writer(
+        DOWNLOAD_BUFFER_BYTES,
+        "the backup was not completed",
+        move |writer| archive::write_zip(&snapshot, &manifest, writer),
+        // 受け取る側が途中で切った場合もここに来る。
+        |err| tracing::warn!(%err, "failed to write the backup"),
+    );
 
     Ok((
         [
@@ -262,11 +250,7 @@ async fn download_backup(
             // ファイル名は画面が付ける (`download` 属性)。作った日時を利用者の時刻で入れるため。
             (header::CONTENT_DISPOSITION, "attachment"),
         ],
-        Body::from_stream(ReaderStream::new(CompletedReader::new(
-            reader,
-            finished,
-            "the backup was not completed",
-        ))),
+        Body::from_stream(ReaderStream::new(reader)),
     ))
 }
 
@@ -315,13 +299,9 @@ async fn restore(
     }
     tracing::info!(user_id = admin.id, "restored data from a backup");
     // 戻した後のデータに書く。ユーザーの id は戻す前のもので、戻した後では別の人を指しうるので残さない。
-    crate::api::operations::record_or_warn(
+    record_or_warn(
         &state.pool,
-        &crate::api::operations::OpRecord::by(
-            crate::api::operations::Op::RestoreBackup,
-            None,
-            &admin.username,
-        ),
+        &OpRecord::by(Op::RestoreBackup, None, &admin.username),
     )
     .await;
     end_session(&admin.user_session()?.session).await?;

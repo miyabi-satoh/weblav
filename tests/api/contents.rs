@@ -38,8 +38,7 @@ async fn contents_list_for_logged_in_user_includes_public_and_authenticated(pool
 async fn list_titles(app: Router, uri: &str) -> Vec<String> {
     let (status, body) = send_anon(app, "GET", uri).await;
     assert_eq!(status, StatusCode::OK);
-    let entries: serde_json::Value =
-        serde_json::from_str(&body).expect("一覧のレスポンスを読めなかった");
+    let entries = parse_json(&body);
     // グループの一覧 (`entries` を持つ) とトップの一覧 (配列そのもの) の両方を受ける。
     let array = entries
         .get("entries")
@@ -415,10 +414,7 @@ async fn browse_group_can_add_only_when_signed_in_and_not_others_private_group(p
     insert_user(&pool, "alice", "correct-password").await;
     insert_admin(&pool, "root", "correct-password").await;
     let public_group = insert_group_under(&pool, "公開グループ", "public", None).await;
-    let alice_id: i64 = sqlx::query_scalar("SELECT id FROM users WHERE username = 'alice'")
-        .fetch_one(&pool)
-        .await
-        .expect("alice の id を引けるはず");
+    let alice_id = db_user_id(&pool, "alice").await;
     let private_group: i64 = sqlx::query_scalar(
         "INSERT INTO contents (type, title, visibility, created_by) \
          VALUES ('group', 'alice のグループ', 'private', ?) RETURNING id",
@@ -432,7 +428,7 @@ async fn browse_group_can_add_only_when_signed_in_and_not_others_private_group(p
     let admin = login(app.clone(), "root", "correct-password").await;
 
     let can_add = |body: String| -> bool {
-        let json: serde_json::Value = serde_json::from_str(&body).expect("JSON のはず");
+        let json = parse_json(&body);
         json["canAdd"].as_bool().expect("canAdd があるはず")
     };
     let public_uri = format!("/api/v1/contents/{public_group}/group");

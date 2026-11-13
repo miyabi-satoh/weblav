@@ -22,6 +22,8 @@ use crate::error::{AppError, AppJson, run_blocking};
 use crate::logging;
 use crate::state::AppState;
 
+use super::operations::{FieldChange, Op, OpRecord, record_or_warn};
+
 /// ダウンロードさせるときのファイル名。
 const DOWNLOAD_FILE_NAME: &str = "weblav-logs.txt";
 
@@ -86,14 +88,13 @@ async fn update_log_settings(
         .map_err(|err| AppError::Io(std::io::Error::other(err)))?;
     tracing::info!(verbose = payload.verbose, "log verbosity changed");
     if changed {
-        super::operations::record_or_warn(
+        record_or_warn(
             &state.pool,
-            &super::operations::OpRecord::new(super::operations::Op::UpdateLogSettings, &admin)
-                .fields(vec![super::operations::FieldChange::changed(
-                    "verbose",
-                    !payload.verbose,
-                    payload.verbose,
-                )]),
+            &OpRecord::new(Op::UpdateLogSettings, &admin).fields(vec![FieldChange::changed(
+                "verbose",
+                !payload.verbose,
+                payload.verbose,
+            )]),
         )
         .await;
     }

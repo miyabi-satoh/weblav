@@ -637,8 +637,8 @@ pub(super) struct ScanResult {
 /// フォルダーの相対パスと更新日時 (Unix ナノ秒)。
 pub(super) type DirStamp = (String, Option<i64>);
 
-/// フォルダーの更新日時 (Unix ナノ秒)。中のものを足したり消したりすると変わる。
-pub(super) fn dir_modified_ns(metadata: &std::fs::Metadata) -> Option<i64> {
+/// 更新日時 (Unix ナノ秒)。フォルダーなら、中のものを足したり消したりすると変わる。
+pub(super) fn modified_ns(metadata: &std::fs::Metadata) -> Option<i64> {
     metadata
         .modified()
         .ok()
@@ -749,7 +749,7 @@ pub(super) fn scan_files_until(
             && let Ok(rel) = entry.path().strip_prefix(root)
             && let Some(rel) = rel.to_str()
         {
-            let modified_ns = entry.metadata().ok().as_ref().and_then(dir_modified_ns);
+            let modified_ns = entry.metadata().ok().as_ref().and_then(modified_ns);
             dirs.push((normalize_rel_path(rel), modified_ns));
         }
         // 登録先そのもの (depth 0) は、配下のエントリではないので数えない。
@@ -832,7 +832,7 @@ pub(super) fn list_dir_shallow(
         };
         let rel = normalize_rel_path(rel);
         if entry.file_type().is_dir() {
-            let modified_ns = entry.metadata().ok().as_ref().and_then(dir_modified_ns);
+            let modified_ns = entry.metadata().ok().as_ref().and_then(modified_ns);
             subdirs.push((rel, modified_ns));
         } else if entry.file_type().is_file() {
             files.push(rel);

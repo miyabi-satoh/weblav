@@ -100,7 +100,7 @@
 - 命名パターンは `<画面 or コンポーネント名>_<要素>_<種別>`。
   - 画面名は route 名 (`login`・`admin` 等) かコンポーネント名を使う
   - 種別のサフィックス例: `_label`・`_button`・`_title`・`_description`・`_error_title`
-  - 例: `login_username_label`・`admin_contents_nav_title`・`contents_form_confirm_button`
+  - 例: `login_error_title`・`admin_contents_nav_title`・`admin_contents_add_button`
 - 複数の画面・コンポーネントで同じ文言を使うものは、**横断プレフィックスにまとめて重複させない**。
   文言が画面ごとに変わるもの (「戻る」「このフォルダーにする」等) は、同じ役割のボタンでも画面側のプレフィックスに置く。
   新しい横断プレフィックスは、実際に重複が出た時点で足す。

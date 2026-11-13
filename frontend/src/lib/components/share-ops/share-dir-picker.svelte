@@ -138,7 +138,7 @@
 	{#if loadError !== ''}
 		<p class="px-4 py-4 text-sm text-destructive">{loadError}</p>
 	{:else if loading && listing === null}
-		<div class="px-4 py-4"><Spinner aria-label={m.dir_picker_loading()} /></div>
+		<div class="px-4 py-4"><Spinner aria-label={m.common_loading()} /></div>
 	{:else if listing === null}
 		{#each addable as share (share.id)}
 			<button type="button" class={pickerRowClass} onclick={() => load(share.id, '')}>

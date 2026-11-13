@@ -231,15 +231,6 @@ fn browse_uri(id: i64, path: &str) -> String {
     )
 }
 
-fn entry_names(body: &serde_json::Value) -> Vec<String> {
-    body["entries"]
-        .as_array()
-        .expect("entries は配列のはず")
-        .iter()
-        .map(|entry| entry["name"].as_str().expect("名前").to_string())
-        .collect()
-}
-
 /// 中を一覧でき、ドット始まりは出さない。共有の既定 (「見る」) のできることが返る。
 #[sqlx::test]
 async fn a_share_can_be_browsed(pool: SqlitePool) {
@@ -262,7 +253,7 @@ async fn a_share_can_be_browsed(pool: SqlitePool) {
     assert_eq!(body["access"], "read");
     assert_eq!(body["path"], "");
     assert_eq!(body["share"]["id"], share.id);
-    assert_eq!(entry_names(&body), vec!["教材", "memo.txt"]);
+    assert_eq!(entry_names_of(&body), vec!["教材", "memo.txt"]);
     assert_eq!(body["canListOnHome"], true);
     // ごみ箱を使えるかは置き場所で決まるので、値ではなく出していることを見る。
     assert!(body["trash"].is_boolean(), "{body}");
@@ -277,7 +268,7 @@ async fn a_share_can_be_browsed(pool: SqlitePool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     let body = parse_json(&body);
     assert_eq!(body["path"], "教材");
-    assert_eq!(entry_names(&body), vec!["a.pdf"]);
+    assert_eq!(entry_names_of(&body), vec!["a.pdf"]);
 
     // 管理者はすべての操作ができる。
     let (status, body) =

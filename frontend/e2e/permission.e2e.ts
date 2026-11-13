@@ -18,11 +18,14 @@ import {
 	uniqueId,
 	VISIBILITY_LABEL,
 	VISIBILITY_PRIVATE_OPTION_NAME,
-	browseLink
+	browseLink,
+	CLEANUP_SAFE_TIMEOUTS,
+	BROWSE_ADD_BUTTON_NAME,
+	BROWSE_ADD_MENU_ITEM_NAME,
+	RESCAN_BUTTON_NAME
 } from './helpers';
 
-// 待ち続けて制限時間を使い切ると、後片付けまで時間切れになる (→ archive.e2e.ts)。
-test.use({ actionTimeout: 10_000, navigationTimeout: 10_000 });
+test.use(CLEANUP_SAFE_TIMEOUTS);
 
 const EDITOR_PASSWORD = 'E2eEditor!2026Test';
 
@@ -223,12 +226,8 @@ test('編集者: 管理画面はどれもホームへ戻され、メニューに
 			await editorPage.keyboard.press('Escape');
 
 			// フォルダー (ショートカット) も編集者に開いている (→ docs/access.md「ロールと操作」)。
-			await editorPage.getByRole('button', { name: /^追加$|^Add$/ }).click();
-			for (const name of [
-				/^リンク\.\.\.$|^Link\.\.\.$/,
-				/^ショートカット\.\.\.$|^Shortcut\.\.\.$/,
-				/^グループ\.\.\.$|^Group\.\.\.$/
-			]) {
+			await editorPage.getByRole('button', { name: BROWSE_ADD_BUTTON_NAME }).click();
+			for (const name of Object.values(BROWSE_ADD_MENU_ITEM_NAME)) {
 				await expect(editorPage.getByRole('menuitem', { name })).toBeVisible();
 			}
 		} finally {
@@ -278,9 +277,7 @@ test('編集者: 他人のアーカイブの編集ページは閲覧画面へ送
 					await saveAxisValues(editorPage, '種類');
 
 					await browseLink(editorPage, ITEMS_TAB_NAME).click();
-					await expect(
-						editorPage.getByRole('button', { name: /再スキャンする|Rescan/ })
-					).toBeVisible();
+					await expect(editorPage.getByRole('button', { name: RESCAN_BUTTON_NAME })).toBeVisible();
 				} finally {
 					await editor.close();
 				}

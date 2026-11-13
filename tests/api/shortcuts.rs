@@ -24,6 +24,14 @@ async fn create_shortcut(
     extract_id(&body)
 }
 
+/// どの共有の外にもある一時ディレクトリ (Drop で消える)。
+/// `temp_test_dir` は共有の中に作るので、共有の外には直接作る。
+fn outside_every_share_dir(name: &str) -> test_support::TempDir {
+    test_support::TempDir::at(
+        test_app_run_dir().join(format!("{name}-{:?}", std::thread::current().id())),
+    )
+}
+
 /// 土台の共有の id。
 async fn root_id_for(pool: &SqlitePool, _dir: &std::path::Path) -> i64 {
     let root = canonical_path_as_api_returns_it(
@@ -112,7 +120,8 @@ async fn a_shortcut_requires_a_listed_file_inside_a_share(pool: SqlitePool) {
     let dir = temp_test_dir("shortcut-validate");
     std::fs::write(dir.join("a.txt"), b"a").expect("ファイルを作れなかった");
     std::fs::write(dir.join(".dot"), b"a").expect("ファイルを作れなかった");
-    let outside = std::env::temp_dir().join("weblav-shortcut-outside.txt");
+    let outside_dir = outside_every_share_dir("shortcut-validate-outside");
+    let outside = outside_dir.join("outside.txt");
     std::fs::write(&outside, b"a").expect("ファイルを作れなかった");
     let (app, cookie) = admin_app(&pool).await;
     let create = |content_type: &str, path: &std::path::Path| {
@@ -424,11 +433,7 @@ async fn a_shortcut_target_replaced_by_a_folder_shows_as_missing(pool: SqlitePoo
 async fn a_shortcut_pointing_outside_every_share_does_not_open(pool: SqlitePool) {
     let dir = temp_test_dir("shortcut-outside");
     std::fs::write(dir.join("a.txt"), b"a").expect("ファイルを作れなかった");
-    // `temp_test_dir` は共有の中に作るので、共有の外には直接作る。
-    let outside_dir = test_support::TempDir::at(test_app_run_dir().join(format!(
-        "shortcut-outside-{:?}",
-        std::thread::current().id()
-    )));
+    let outside_dir = outside_every_share_dir("shortcut-outside");
     let outside = outside_dir.join("outside.txt");
     std::fs::write(&outside, b"secret").expect("ファイルを作れなかった");
     let (app, cookie) = admin_app(&pool).await;

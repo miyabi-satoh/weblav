@@ -42,6 +42,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import BackLink from '$lib/components/back-link.svelte';
 	import RootWarnings from '$lib/components/root-warnings.svelte';
+	import { listItemClass } from '$lib/list-row';
 	import type { components } from '$lib/api/schema';
 	import type { PageProps } from './$types';
 
@@ -268,9 +269,7 @@
 				{:else if exceptionRows.length > 0}
 					<ul class="flex flex-col">
 						{#each exceptionRows as exception (exception.userId)}
-							<li
-								class="flex min-h-11 items-center gap-3 border-b border-divider py-1 last:border-b-0"
-							>
+							<li class={[listItemClass, 'flex min-h-11 items-center gap-3 py-1']}>
 								<span class="min-w-0 flex-1 text-sm wrap-anywhere">{exception.username}</span>
 								<Select.Root
 									type="single"

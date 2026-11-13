@@ -44,6 +44,14 @@ export const FORGOT_PASSWORD_LINK_NAME = /^パスワードをお忘れですか�
  */
 export const PASSWORD_HASH_TIMEOUT = 15_000;
 
+/**
+ * 操作・遷移ごとの待ちの上限。後片付けを API で行うテストファイルが `test.use()` に渡す。
+ * 操作が見つからないまま待ち続けるとテストの制限時間を使い切り、finally の後片付け
+ * (API での削除) まで時間切れになってコンテンツと木が残る。操作ごとの待ちを短くして、
+ * 失敗しても片付ける時間を残す。
+ */
+export const CLEANUP_SAFE_TIMEOUTS = { actionTimeout: 10_000, navigationTimeout: 10_000 };
+
 /** フォームの確定と、削除の確認ダイアログの確定。表示言語 (ja/en) のどちらでも見つかるようにする。 */
 export const SAVE_BUTTON_NAME = /^保存する$|^Save$/;
 
@@ -144,6 +152,17 @@ export const REPEAT_OFF_BUTTON_NAME = /^1\s曲で止まる$|^Stop after this tra
 export const REPEAT_LIST_BUTTON_NAME = /^続けて再生$|^Play through the list$/;
 /** ページ内プレイヤーの「シャッフル」。 */
 export const SHUFFLE_BUTTON_NAME = /^シャッフル$|^Shuffle$/;
+
+/** 閲覧の画面 (ホーム・グループ・共有の中) の見出しの「追加」と、そのメニューの種類。 */
+export const BROWSE_ADD_BUTTON_NAME = /^追加$|^Add$/;
+export const BROWSE_ADD_MENU_ITEM_NAME = {
+	link: /^リンク\.\.\.$|^Link\.\.\.$/,
+	shortcut: /^ショートカット\.\.\.$|^Shortcut\.\.\.$/,
+	group: /^グループ\.\.\.$|^Group\.\.\.$/
+} as const;
+
+/** アーカイブの「ファイル」のタブの「再スキャンする」。 */
+export const RESCAN_BUTTON_NAME = /^再スキャンする$|^Rescan$/;
 
 /**
  * 保存し、保存したことを知らせるトーストが出るまで待つ。

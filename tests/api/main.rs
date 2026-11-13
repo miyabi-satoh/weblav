@@ -332,10 +332,7 @@ async fn body_string(response: Response) -> String {
 }
 
 fn extract_id(body: &str) -> i64 {
-    serde_json::from_str::<serde_json::Value>(body)
-        .expect("レスポンスをJSONとして読めなかった")["id"]
-        .as_i64()
-        .expect("idが返らなかった")
+    parse_json(body)["id"].as_i64().expect("idが返らなかった")
 }
 
 /// クッキーのみ付けたボディ無しリクエストを送る(GET/DELETE用)。
@@ -594,6 +591,26 @@ fn parse_json(body: &str) -> serde_json::Value {
     serde_json::from_str(body).expect("レスポンスをJSONとして読めなかった")
 }
 
+/// フォルダー・共有の一覧の応答から、エントリの名前を並び順のまま取り出す。
+fn entry_names(body: &str) -> Vec<String> {
+    entry_names_of(&parse_json(body))
+}
+
+/// `entry_names` の、読み終えた JSON から取り出す版。
+fn entry_names_of(json: &serde_json::Value) -> Vec<String> {
+    json["entries"]
+        .as_array()
+        .unwrap_or_else(|| panic!("entries が配列でなかった: {json}"))
+        .iter()
+        .map(|entry| {
+            entry["name"]
+                .as_str()
+                .unwrap_or_else(|| panic!("name が文字列でなかった: {entry}"))
+                .to_string()
+        })
+        .collect()
+}
+
 /// 1行に1つの JSON (NDJSON) の応答を、並びとして読む。
 fn parse_ndjson(body: &str) -> serde_json::Value {
     serde_json::Value::Array(
@@ -685,7 +702,7 @@ async fn manage_items(app: Router, cookie: &str, archive_id: i64) -> Vec<serde_j
 async fn user_id(app: Router, cookie: &str, username: &str) -> i64 {
     let (status, body) = send_empty(app, "GET", "/api/v1/admin/users", cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let json: serde_json::Value = serde_json::from_str(&body).expect("JSONを読めなかった");
+    let json = parse_json(&body);
     json.as_array()
         .expect("配列でない")
         .iter()

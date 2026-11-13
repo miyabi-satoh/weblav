@@ -41,14 +41,19 @@ import {
 	saveForm,
 	userRow,
 	waitForDialog,
-	deleteSectionButton
+	deleteSectionButton,
+	BROWSE_ADD_BUTTON_NAME,
+	BROWSE_ADD_MENU_ITEM_NAME,
+	RESCAN_BUTTON_NAME
 } from '../e2e/helpers.ts';
 import {
 	waitForPageReady,
 	waitForThumbnails,
 	type ShotFixtures,
-	type ViewportName
+	type ViewportName,
+	gotoReady
 } from './shots.ts';
+import { withQuery } from '../src/lib/href.ts';
 
 export type Role = 'anonymous' | 'user' | 'admin';
 
@@ -80,14 +85,9 @@ const LOGGED_IN: Role[] = ['user', 'admin'];
 const ADMIN_ONLY: Role[] = ['admin'];
 const USER_ONLY: Role[] = ['user'];
 
-async function open(page: Page, url: string) {
-	await page.goto(url);
-	await waitForPageReady(page);
-}
-
 /** ホームとグループの画面の見出しの「追加」から種類を選び、追加の窓が開くのを待つ。 */
 async function chooseFromBrowseAddMenu(page: Page, item: RegExp) {
-	await page.getByRole('button', { name: /^追加$/ }).click();
+	await page.getByRole('button', { name: BROWSE_ADD_BUTTON_NAME }).click();
 	await page.getByRole('menuitem', { name: item }).click();
 	await page.getByRole('dialog').waitFor();
 }
@@ -105,7 +105,7 @@ const openUserMenu = async (page: Page, ctx: StepContext) => {
 };
 
 const folderUrl = (ctx: StepContext, dir: string) =>
-	`/folders/${ctx.fixtures.folderId}?path=${encodeURIComponent(dir)}`;
+	withQuery(`/folders/${ctx.fixtures.folderId}`, { path: dir });
 
 /** 筋書きの中で作るものの名前。役割ごとに分け、前の役割が作ったものと取り違えない。 */
 const ownTitle = (ctx: StepContext) => `動画用のリンク (${ctx.role})`;
@@ -115,7 +115,7 @@ const browse: Story = {
 	title: '閲覧',
 	roles: ['anonymous', 'user', 'admin'],
 	steps: [
-		{ caption: 'ホームを開く', run: (page) => open(page, '/') },
+		{ caption: 'ホームを開く', run: (page) => gotoReady(page, '/') },
 		{
 			caption: '「ログインした人」のグループの URL を開く (ログインの画面へ送られる)',
 			roles: ['anonymous'],
@@ -188,7 +188,7 @@ const browse: Story = {
 		},
 		{
 			caption: '誰でも見られるフォルダーを開く',
-			run: (page, ctx) => open(page, `/folders/${ctx.fixtures.folderId}`)
+			run: (page, ctx) => gotoReady(page, `/folders/${ctx.fixtures.folderId}`)
 		},
 		{
 			caption: 'フォルダーの中の「写真」へ進む',
@@ -242,7 +242,7 @@ const browse: Story = {
 		{
 			caption: 'PDF を押してページの上に開く',
 			async run(page, ctx) {
-				await open(page, folderUrl(ctx, '共通テスト'));
+				await gotoReady(page, folderUrl(ctx, '共通テスト'));
 				await page.getByRole('link', { name: /2024_問題\.pdf/ }).click();
 				// 描き終えるまでキャンバスは幅を持たない (→ pdf-page.svelte)。
 				await page.waitForFunction(
@@ -253,14 +253,14 @@ const browse: Story = {
 		{
 			caption: '検索の画面で「リスニング」を探す',
 			async run(page) {
-				await open(page, '/search');
+				await gotoReady(page, '/search');
 				await page.getByLabel(/^検索する語句/).fill('リスニング');
 				await page.keyboard.press('Enter');
 				await page.getByRole('heading', { level: 2 }).first().waitFor();
 			}
 		},
-		{ caption: 'マニュアルの目次を開く', run: (page) => open(page, '/help') },
-		{ caption: 'マニュアルのページを開く', run: (page) => open(page, '/help/setup') }
+		{ caption: 'マニュアルの目次を開く', run: (page) => gotoReady(page, '/help') },
+		{ caption: 'マニュアルのページを開く', run: (page) => gotoReady(page, '/help/setup') }
 	]
 };
 
@@ -399,9 +399,9 @@ const contents: Story = {
 		{
 			caption: 'コンテンツ管理を開く',
 			roles: ADMIN_ONLY,
-			run: (page) => open(page, '/admin/contents')
+			run: (page) => gotoReady(page, '/admin/contents')
 		},
-		{ caption: 'ホームを開く', roles: USER_ONLY, run: (page) => open(page, '/') },
+		{ caption: 'ホームを開く', roles: USER_ONLY, run: (page) => gotoReady(page, '/') },
 		{
 			caption: '「追加...」を押す',
 			roles: ADMIN_ONLY,
@@ -411,7 +411,7 @@ const contents: Story = {
 			caption: '見出しの「追加」から「リンク...」を選ぶ',
 			roles: USER_ONLY,
 			async run(page) {
-				await chooseFromBrowseAddMenu(page, /^リンク\.\.\.$/);
+				await chooseFromBrowseAddMenu(page, BROWSE_ADD_MENU_ITEM_NAME.link);
 				await page.getByLabel(requiredLabel('URL')).waitFor();
 			}
 		},
@@ -457,7 +457,7 @@ const contents: Story = {
 			caption: '一覧に戻り、作った行の操作のメニューを開く',
 			roles: ADMIN_ONLY,
 			async run(page, ctx) {
-				await open(page, '/admin/contents');
+				await gotoReady(page, '/admin/contents');
 				const row = contentRow(page, ownTitle(ctx));
 				await row.scrollIntoViewIfNeeded();
 				await row.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).click();
@@ -559,7 +559,7 @@ const contents: Story = {
 		{
 			caption: '管理者が作ったフォルダーの編集のページを開く (一般ユーザーは閲覧の画面へ移る)',
 			async run(page, ctx) {
-				await open(page, `/contents/${ctx.fixtures.folderId}`);
+				await gotoReady(page, `/contents/${ctx.fixtures.folderId}`);
 				await page.getByRole('heading', { level: 1 }).waitFor();
 			}
 		}
@@ -574,7 +574,7 @@ const archive: Story = {
 		{
 			caption: 'アーカイブの編集のページを開く (基本情報)',
 			async run(page, ctx) {
-				await open(page, `/contents/${ctx.fixtures.archiveId}`);
+				await gotoReady(page, `/contents/${ctx.fixtures.archiveId}`);
 				await page.getByRole('heading', { level: 1 }).waitFor();
 			}
 		},
@@ -626,7 +626,7 @@ const archive: Story = {
 			roles: ADMIN_ONLY,
 			async run(page) {
 				// スマートフォンの幅では、見出しの段の ⋮ の中にある (→ docs/ui.md「UI 全般」)。
-				const button = page.getByRole('button', { name: /^再スキャンする$/ });
+				const button = page.getByRole('button', { name: RESCAN_BUTTON_NAME });
 				if (await button.isVisible()) {
 					await button.click();
 				} else {
@@ -635,14 +635,14 @@ const archive: Story = {
 						.locator('xpath=..')
 						.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME })
 						.click();
-					await page.getByRole('menuitem', { name: /^再スキャンする$/ }).click();
+					await page.getByRole('menuitem', { name: RESCAN_BUTTON_NAME }).click();
 				}
 				await page.getByRole('listitem').first().waitFor();
 			}
 		},
 		{
 			caption: '閲覧の側でアーカイブを開く',
-			run: (page, ctx) => open(page, `/archives/${ctx.fixtures.archiveId}`)
+			run: (page, ctx) => gotoReady(page, `/archives/${ctx.fixtures.archiveId}`)
 		}
 	]
 };
@@ -654,7 +654,7 @@ const admin: Story = {
 		{
 			caption: 'ユーザー管理を開く',
 			roles: ADMIN_ONLY,
-			run: (page) => open(page, '/admin/users')
+			run: (page) => gotoReady(page, '/admin/users')
 		},
 		{
 			caption: 'ユーザー管理の URL を開く (ホームへ戻される)',
@@ -739,7 +739,7 @@ const admin: Story = {
 		{
 			caption: '共有を開く',
 			roles: ADMIN_ONLY,
-			run: (page) => open(page, '/admin/roots')
+			run: (page) => gotoReady(page, '/admin/roots')
 		},
 		{
 			caption: '共有の URL を開く (ホームへ戻される)',
@@ -772,7 +772,7 @@ const admin: Story = {
 			roles: ADMIN_ONLY,
 			async run(page) {
 				await cancelDialog(page, 'alertdialog');
-				await open(page, '/admin/settings');
+				await gotoReady(page, '/admin/settings');
 			}
 		},
 		{

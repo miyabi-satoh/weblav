@@ -541,7 +541,7 @@ async fn a_root_name_is_trimmed_and_must_be_unique(pool: SqlitePool) {
 async fn admin_content_by_id(app: Router, cookie: &str, id: i64) -> serde_json::Value {
     let (status, body) = send_empty(app, "GET", "/api/v1/contents/manage", cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let body: serde_json::Value = serde_json::from_str(&body).expect("応答が JSON でない");
+    let body = parse_json(&body);
     body.as_array()
         .expect("配列でない")
         .iter()
@@ -650,7 +650,7 @@ async fn browsing_into_a_nested_root_keeps_the_outer_one_as_the_start(pool: Sqli
     );
     let (status, body) = send_empty(app, "GET", &uri, &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let listing: serde_json::Value = serde_json::from_str(&body).expect("JSON のはず");
+    let listing = parse_json(&body);
     assert_eq!(
         listing["root"].as_str(),
         Some(outer_path.as_str()),
@@ -749,7 +749,7 @@ async fn a_root_on_a_disconnected_volume_is_unreachable(pool: SqlitePool) {
 
     let (status, body) = send(app.clone(), roots_request("GET", ROOTS_URI, &cookie, None)).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let roots: serde_json::Value = serde_json::from_str(&body).expect("JSON のはず");
+    let roots = parse_json(&body);
     let status_of = |path: &str| {
         roots
             .as_array()

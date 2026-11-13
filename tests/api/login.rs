@@ -273,7 +273,7 @@ async fn creating_a_recovery_code_records_when_it_was_created(pool: SqlitePool) 
 
     let (_, body) = send_empty(app, "GET", "/api/v1/auth/me", &cookie).await;
     assert!(body.contains(r#""hasRecoveryCode":true"#), "{body}");
-    let me: serde_json::Value = serde_json::from_str(&body).expect("JSON のはず");
+    let me = parse_json(&body);
     assert!(me["recoveryCodeCreatedAt"].is_string(), "{body}");
 }
 
@@ -354,10 +354,7 @@ async fn changing_the_role_keeps_the_recovery_code(pool: SqlitePool) {
     let admin_cookie = login(app.clone(), "admin", "password").await;
     let bob_cookie = login(app.clone(), "bob", "password").await;
     let code = create_recovery_code(app.clone(), &bob_cookie).await;
-    let bob_id: i64 = sqlx::query_scalar("SELECT id FROM users WHERE username = 'bob'")
-        .fetch_one(&pool)
-        .await
-        .expect("bob should exist");
+    let bob_id = db_user_id(&pool, "bob").await;
 
     let uri = format!("/api/v1/admin/users/{bob_id}/role");
     let (status, _) = send_json(
@@ -383,10 +380,7 @@ async fn resetting_the_password_by_an_admin_discards_the_recovery_code(pool: Sql
     let admin_cookie = login(app.clone(), "admin", "password").await;
     let alice_cookie = login(app.clone(), "alice", "password").await;
     let code = create_recovery_code(app.clone(), &alice_cookie).await;
-    let alice_id: i64 = sqlx::query_scalar("SELECT id FROM users WHERE username = 'alice'")
-        .fetch_one(&pool)
-        .await
-        .expect("alice should exist");
+    let alice_id = db_user_id(&pool, "alice").await;
 
     let (status, _) = send_json(
         app.clone(),

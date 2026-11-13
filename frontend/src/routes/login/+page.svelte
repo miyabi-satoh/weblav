@@ -78,11 +78,11 @@
 				<form onsubmit={handleSubmit}>
 					<Field.FieldGroup>
 						<Field.Field>
-							<Field.FieldLabel for="username">{m.login_username_label()}</Field.FieldLabel>
+							<Field.FieldLabel for="username">{m.common_username_label()}</Field.FieldLabel>
 							<Input id="username" autocomplete="username" bind:value={username} required />
 						</Field.Field>
 						<Field.Field>
-							<Field.FieldLabel for="password">{m.login_password_label()}</Field.FieldLabel>
+							<Field.FieldLabel for="password">{m.common_password_label()}</Field.FieldLabel>
 							<PasswordInput
 								id="password"
 								autocomplete="current-password"

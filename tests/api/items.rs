@@ -2,17 +2,6 @@
 
 use super::*;
 
-/// ディレクトリ・フォルダーの一覧の応答から、エントリの名前を並び順のまま取り出す。
-fn entry_names(body: &str) -> Vec<String> {
-    let json: serde_json::Value = serde_json::from_str(body).expect("一覧を読めなかった");
-    json["entries"]
-        .as_array()
-        .expect("entries が無い")
-        .iter()
-        .filter_map(|entry| entry["name"].as_str().map(str::to_string))
-        .collect()
-}
-
 /// 軸を1本(`filenameWord`)持つアーカイブをセットアップし、
 /// `(app, cookie, archive_id, dir)` を返す。
 /// `dir` は Drop で消えるので、使わなくてもテストの終わりまで持つ (`_dir` で受ける。`_` だとすぐ消える)。
@@ -97,7 +86,7 @@ async fn archive_view_on_non_archive_content_is_not_found(pool: SqlitePool) {
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 }
 
-/// `sort` クエリで並び順を選べる。並べ方の場合分けは `build_archive_view` の単体テストで見る。
+/// `sort` クエリで並び順を選べる。並べ方の場合分けは `api::archive_items` の単体テスト `items_are_sorted_by_the_requested_order` で見る。
 /// ここは、クエリとスキャンで見つかった日時 (`archive_items.created_at`) がつながっていることだけ。
 #[sqlx::test]
 async fn archive_view_accepts_sort_query(pool: SqlitePool) {
@@ -121,7 +110,7 @@ async fn archive_view_accepts_sort_query(pool: SqlitePool) {
     let (status, body) = view_archive(app, "", id, &[("sort", "new")]).await;
 
     assert_eq!(status, StatusCode::OK, "{body}");
-    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    let parsed = parse_json(&body);
     let file_names: Vec<&str> = parsed["items"]
         .as_array()
         .expect("itemsが配列でなかった")
@@ -160,7 +149,7 @@ async fn archive_view_sorts_unset_last_and_falls_back_title(pool: SqlitePool) {
 
     let (status, body) = view_archive(app, "", id, &[]).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    let parsed = parse_json(&body);
     let titles: Vec<&str> = parsed["items"]
         .as_array()
         .expect("itemsが配列でなかった")
@@ -481,7 +470,7 @@ async fn archive_view_follows_files_added_or_removed_since_the_last_scan(pool: S
     std::fs::remove_file(dir.join("2024_eigo.pdf")).expect("ファイルを消せなかった");
 
     let file_names = |body: &str| {
-        let parsed: serde_json::Value = serde_json::from_str(body).expect("JSONとして読めなかった");
+        let parsed = parse_json(body);
         let mut names: Vec<String> = parsed["items"]
             .as_array()
             .expect("配列でなかった")
@@ -508,7 +497,7 @@ async fn archive_view_follows_files_added_or_removed_since_the_last_scan(pool: S
     std::fs::remove_dir_all(&*dir).expect("フォルダーを消せなかった");
     let (status, body) = view_archive(app, "", id, &[]).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    let parsed = parse_json(&body);
     assert_eq!(parsed["items"], serde_json::json!([]), "{body}");
     assert_eq!(parsed["folderMissing"], true, "{body}");
 }
@@ -653,19 +642,8 @@ async fn browse_rejects_a_folder_pointing_at_the_data_dir(pool: SqlitePool) {
 
     let app = app_in(pool.clone(), &Config::default(), &data_dir).await;
 
-    for (title, path) in [
-        ("データ置き場", data_dir.display().to_string()),
-        ("教材", materials.display().to_string()),
-    ] {
-        sqlx::query(
-            "INSERT INTO contents (type, title, path, visibility) \
-             VALUES ('folder', ?, ?, 'public')",
-        )
-        .bind(title)
-        .bind(path)
-        .execute(&pool)
-        .await
-        .expect("failed to insert folder content");
+    for (title, path) in [("データ置き場", &*data_dir), ("教材", &*materials)] {
+        insert_folder_by(&pool, title, path, "public", None, None).await;
     }
 
     // 1件目 (データ置き場) は 404、2件目 (隣の教材フォルダー) は 200。
@@ -722,13 +700,13 @@ async fn archive_view_groups_options_by_display_name_and_hides_unfilterable_axes
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let axes: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    let axes = parse_json(&body);
     assert_eq!(axes[0]["filterable"], false, "{body}");
     assert_eq!(axes[1]["filterable"], true, "{body}");
 
     let (status, body) = view_archive(app.clone(), "", id, &[]).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    let parsed = parse_json(&body);
     assert_eq!(
         parsed["axes"],
         serde_json::json!([{
@@ -756,7 +734,7 @@ async fn archive_view_groups_options_by_display_name_and_hides_unfilterable_axes
     // 表示名で絞ると、その表示名にまとめた値のどれかに当たるアイテムが残る。
     let (status, body) = view_archive(app.clone(), "", id, &[("axis.教科", "理科")]).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    let parsed = parse_json(&body);
     assert_eq!(
         parsed["items"]
             .as_array()
@@ -769,7 +747,7 @@ async fn archive_view_groups_options_by_display_name_and_hides_unfilterable_axes
     // 絞り込みに出さない軸の名前のキーは無視する。
     let (status, body) = view_archive(app, "", id, &[("axis.年度", "2024")]).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    let parsed = parse_json(&body);
     assert_eq!(
         parsed["items"]
             .as_array()

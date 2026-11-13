@@ -167,11 +167,10 @@ export type RemoteFile = { kind: RemoteFileKind; fileName: string };
  * 相手の応答から決めた名前 (`LinkPreview` の `fileName`) で決める。どちらでも決まらなければ `undefined` (リンクのカード)。
  */
 export function remoteFile(url: string, decidedName?: string | null): RemoteFile | undefined {
-	if (isLanUrl(url)) return undefined;
-	const urlName = remoteFileName(url);
-	const urlKind = urlName === undefined ? undefined : kindByExtension(urlName);
-	if (urlName !== undefined && urlKind) return { kind: urlKind, fileName: urlName };
-	if (!decidedName) return undefined;
+	const urlKind = remoteFileKind(url);
+	// 種類が決まったなら、URL からファイル名が取れている。
+	if (urlKind) return { kind: urlKind, fileName: remoteFileName(url)! };
+	if (isLanUrl(url) || !decidedName) return undefined;
 	const extension = fileExtension(decidedName);
 	const kind =
 		kindByExtension(decidedName) ??

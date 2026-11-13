@@ -50,6 +50,7 @@
 	import { Progress } from '$lib/components/ui/progress';
 	import FileDropzone from '$lib/components/file-dropzone.svelte';
 	import LoadingButton from '$lib/components/loading-button.svelte';
+	import { listItemClass } from '$lib/list-row';
 
 	let {
 		open = $bindable(),
@@ -170,7 +171,7 @@
 				<ul class="flex flex-col" aria-label={m.shares_upload_list_label()}>
 					{#each items as item, index (index)}
 						{@const note = uploadItemNote(item, maxBytes)}
-						<li class="flex items-start gap-3 border-b border-divider py-2 last:border-b-0">
+						<li class={[listItemClass, 'flex items-start gap-3 py-2']}>
 							{#if item.state === 'done'}
 								<CircleCheckIcon class="mt-0.5 size-4 shrink-0 text-primary" />
 							{:else if item.state === 'failed' || item.state === 'tooLarge'}

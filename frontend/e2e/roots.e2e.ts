@@ -4,18 +4,13 @@
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import { test, expect, type Page, type Route } from '@playwright/test';
-import {
-	createRootByApi,
-	removeRootByApi,
-	send,
-	withContentByApi,
-	withUserByApi
-} from './api-helpers';
+import { removeRootByApi, send, withContentByApi, withUserByApi } from './api-helpers';
 import {
 	createRootFixtureTree,
 	FIXTURE_UNREACHABLE,
 	removeFixtureTree,
-	sharedContentRoot
+	sharedContentRoot,
+	withRootByApi
 } from './fixture-helpers';
 import {
 	CHANGE_PATH_BUTTON_NAME,
@@ -35,25 +30,16 @@ import { SERVER_IS_REMOTE, SERVER_IS_REMOTE_REASON } from './server-location';
 test.skip(SERVER_IS_REMOTE, SERVER_IS_REMOTE_REASON);
 
 test('登録した共有が並び、画面から削除できる', async ({ page }) => {
-	const root = createRootFixtureTree(uniqueId('roots'));
-	let id: number | null = null;
-	try {
-		id = await createRootByApi(page.request, root);
-		test.skip(id === null, FIXTURE_UNREACHABLE);
-
+	await withRootByApi(page.request, uniqueId('roots'), async (root) => {
 		await page.goto('/admin/roots');
-		const row = page.getByRole('row').filter({ hasText: root });
+		const row = page.getByRole('row').filter({ hasText: root.path });
 		await expect(row).toBeVisible();
 
 		await clickRowMenuItem(page, row, DELETE_MENU_ITEM_NAME);
 		await confirmDelete(page);
 
-		await expect(page.getByRole('row').filter({ hasText: root })).toHaveCount(0);
-	} finally {
-		removeFixtureTree(root);
-		// 画面での削除まで届かずに失敗したときのため。既に消えていれば 404 で、そのままでよい。
-		if (id !== null) await removeRootByApi(page.request, id);
-	}
+		await expect(page.getByRole('row').filter({ hasText: root.path })).toHaveCount(0);
+	});
 });
 
 /**
@@ -140,13 +126,9 @@ test('フォルダーを選ぶとフォルダー名で追加されて編集ペ�
 
 // 例外は全員を並べず、選んだ人だけを並べる (→ docs/ui.md「UI 全般」の管理画面の共有)。
 test('編集ページ: 例外に一般ユーザーを足して権限を変え、外すと既定に戻る', async ({ page }) => {
-	const root = createRootFixtureTree(uniqueId('roots-exception'));
 	const username = uniqueId('exception-user');
-	let id: number | null = null;
-	try {
-		id = await createRootByApi(page.request, root);
-		test.skip(id === null, FIXTURE_UNREACHABLE);
-		const rootId = id;
+	await withRootByApi(page.request, uniqueId('roots-exception'), async (root) => {
+		const rootId = root.id;
 		await withUserByApi(page.request, username, 'E2eSmoke!2026Test', async () => {
 			const readExceptions = async () => {
 				const roots = (await send(page.request, 'get', '/admin/roots')) as {
@@ -185,22 +167,15 @@ test('編集ページ: 例外に一般ユーザーを足して権限を変え、
 			});
 			expect(await readExceptions()).toEqual([]);
 		});
-	} finally {
-		if (id !== null) await removeRootByApi(page.request, id);
-		removeFixtureTree(root);
-	}
+	});
 });
 
 test('編集ページ: 保存していない変更があると、離れる前に確かめる', async ({ page }) => {
-	const root = createRootFixtureTree(uniqueId('roots-leave'));
-	let id: number | null = null;
-	try {
-		id = await createRootByApi(page.request, root);
-		test.skip(id === null, FIXTURE_UNREACHABLE);
+	await withRootByApi(page.request, uniqueId('roots-leave'), async (root) => {
 		await page.goto('/admin/roots');
 		await clickRowMenuItem(
 			page,
-			page.getByRole('row').filter({ hasText: realpathSync(root) }),
+			page.getByRole('row').filter({ hasText: realpathSync(root.path) }),
 			EDIT_MENU_ITEM_NAME
 		);
 		await page.waitForURL(/\/admin\/roots\/\d+$/);
@@ -216,56 +191,49 @@ test('編集ページ: 保存していない変更があると、離れる前に
 		await back.click();
 		await confirm.getByRole('button', { name: DISCARD_AND_LEAVE_BUTTON_NAME }).click();
 		await page.waitForURL(/\/admin\/roots$/);
-	} finally {
-		if (id !== null) await removeRootByApi(page.request, id);
-		removeFixtureTree(root);
-	}
+	});
 });
 
 // フォルダーを移した先を選び直すと、中のフォルダーのコンテンツも新しい場所を開く (→ docs/shares.md「共有の場所の選び直し」)。
 test('編集ページ: 場所を選び直すと、中のコンテンツも新しい場所へ移る', async ({ page }) => {
-	const before = createRootFixtureTree(uniqueId('roots-move-from'));
 	const after = createRootFixtureTree(uniqueId('roots-move-to'));
-	let id: number | null = null;
 	try {
-		id = await createRootByApi(page.request, before);
-		test.skip(id === null, FIXTURE_UNREACHABLE);
 		const target = realpathSync(after);
-		await withContentByApi(
-			page.request,
-			{
-				type: 'folder',
-				title: uniqueId('moving-folder'),
-				path: path.join(realpathSync(before), '2024'),
-				visibility: 'hidden'
-			},
-			async (content) => {
-				await stubFolderPicker(page, (route) => route.fulfill({ json: { path: target } }));
-				await page.goto(`/admin/roots/${id}`);
-				await page.getByRole('button', { name: REPICK_BUTTON_NAME }).click();
+		await withRootByApi(page.request, uniqueId('roots-move-from'), async (before) => {
+			await withContentByApi(
+				page.request,
+				{
+					type: 'folder',
+					title: uniqueId('moving-folder'),
+					path: path.join(realpathSync(before.path), '2024'),
+					visibility: 'hidden'
+				},
+				async (content) => {
+					await stubFolderPicker(page, (route) => route.fulfill({ json: { path: target } }));
+					await page.goto(`/admin/roots/${before.id}`);
+					await page.getByRole('button', { name: REPICK_BUTTON_NAME }).click();
 
-				const confirm = page.getByRole('alertdialog', {
-					name: /^共有の場所を変更しますか？$|^Change the location of this share\?$/
-				});
-				await expect(confirm).toContainText(target);
-				await confirm.getByRole('button', { name: /^変更する$|^Change$/ }).click();
-				await expect(page.getByTestId('root-path')).toHaveText(target);
+					const confirm = page.getByRole('alertdialog', {
+						name: /^共有の場所を変更しますか？$|^Change the location of this share\?$/
+					});
+					await expect(confirm).toContainText(target);
+					await confirm.getByRole('button', { name: /^変更する$|^Change$/ }).click();
+					await expect(page.getByTestId('root-path')).toHaveText(target);
 
-				// 新しい場所の同じフォルダーを開く。
-				const contents = (await send(page.request, 'get', '/contents/manage')) as {
-					id: number;
-					path: string | null;
-				}[];
-				expect(contents.find((entry) => entry.id === content.id)?.path).toBe(
-					path.join(target, '2024')
-				);
-				await page.goto(`/folders/${content.id}`);
-				await expect(page.getByText('listening.mp3')).toBeVisible();
-			}
-		);
+					// 新しい場所の同じフォルダーを開く。
+					const contents = (await send(page.request, 'get', '/contents/manage')) as {
+						id: number;
+						path: string | null;
+					}[];
+					expect(contents.find((entry) => entry.id === content.id)?.path).toBe(
+						path.join(target, '2024')
+					);
+					await page.goto(`/folders/${content.id}`);
+					await expect(page.getByText('listening.mp3')).toBeVisible();
+				}
+			);
+		});
 	} finally {
-		if (id !== null) await removeRootByApi(page.request, id);
-		removeFixtureTree(before);
 		removeFixtureTree(after);
 	}
 });
@@ -294,12 +262,8 @@ test('窓を閉じるまでボタンを押せなくし、キャンセルなら�
 
 // 窓ではどのフォルダーでも選べるので、断られたら理由を出す (→ docs/folders.md「選び方」)。
 test('登録済みのフォルダーを選ぶと、登録済みだと伝える', async ({ page }) => {
-	const root = createRootFixtureTree(uniqueId('roots-twice'));
-	let id: number | null = null;
-	try {
-		id = await createRootByApi(page.request, root);
-		test.skip(id === null, FIXTURE_UNREACHABLE);
-		const target = realpathSync(root);
+	await withRootByApi(page.request, uniqueId('roots-twice'), async (root) => {
+		const target = realpathSync(root.path);
 		await stubFolderPicker(page, (route) => route.fulfill({ json: { path: target } }));
 		await page.goto('/admin/roots');
 		await page.getByRole('button', { name: ROOT_ADD_BUTTON_NAME }).click();
@@ -309,10 +273,7 @@ test('登録済みのフォルダーを選ぶと、登録済みだと伝える',
 				`「${path.basename(target)}」として登録済み|already registered as “${path.basename(target)}”`
 			)
 		);
-	} finally {
-		if (id !== null) await removeRootByApi(page.request, id);
-		removeFixtureTree(root);
-	}
+	});
 });
 
 test('窓がすでに開いているときは、そう伝える', async ({ page }) => {
@@ -347,23 +308,17 @@ test('管理画面のタブから開ける', async ({ page }) => {
 test('登録を消したフォルダーを指すコンテンツでも、ピッカーは上位の一覧から開き直せる', async ({
 	page
 }) => {
-	const root = createRootFixtureTree(uniqueId('roots-gone'));
-	let rootId: number | null = null;
-	try {
-		rootId = await createRootByApi(page.request, root);
-		test.skip(rootId === null, FIXTURE_UNREACHABLE);
-
+	await withRootByApi(page.request, uniqueId('roots-gone'), async (root) => {
 		await withContentByApi(
 			page.request,
 			{
 				type: 'folder',
 				title: uniqueId('gone-folder'),
-				path: root,
+				path: root.path,
 				visibility: 'hidden'
 			},
 			async (content) => {
-				await send(page.request, 'delete', `/admin/roots/${rootId}`);
-				rootId = null;
+				await send(page.request, 'delete', `/admin/roots/${root.id}`);
 
 				await page.goto(`/contents/${content.id}`);
 				await page.getByRole('button', { name: CHANGE_PATH_BUTTON_NAME }).click();
@@ -375,8 +330,5 @@ test('登録を消したフォルダーを指すコンテンツでも、ピッ�
 				await expect(page.getByText(shared!.rootName, { exact: true })).toBeVisible();
 			}
 		);
-	} finally {
-		if (rootId !== null) await removeRootByApi(page.request, rootId);
-		removeFixtureTree(root);
-	}
+	});
 });

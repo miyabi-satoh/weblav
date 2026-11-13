@@ -44,7 +44,9 @@ import {
 	deleteSectionButton,
 	browseLink,
 	escapeRegExp,
-	SELF_SUFFIX_NAME
+	SELF_SUFFIX_NAME,
+	BROWSE_ADD_BUTTON_NAME,
+	BROWSE_ADD_MENU_ITEM_NAME
 } from './helpers';
 import {
 	createGroupContent,
@@ -209,8 +211,8 @@ test('グループの画面の「追加」から作ると、そのグループ�
 		await browseLink(page, groupTitle).click();
 		// ホームの見出しにも「追加」があるので、グループの画面に移ってから押す。
 		await expect(page.getByRole('heading', { level: 1, name: groupTitle })).toBeVisible();
-		await page.getByRole('button', { name: /^追加$|^Add$/ }).click();
-		await page.getByRole('menuitem', { name: /^グループ\.\.\.$|^Group\.\.\.$/ }).click();
+		await page.getByRole('button', { name: BROWSE_ADD_BUTTON_NAME }).click();
+		await page.getByRole('menuitem', { name: BROWSE_ADD_MENU_ITEM_NAME.group }).click();
 		await waitForDialog(page);
 		// 種別はメニューで選んだので、窓は入力の段から始まり、どこに入るかを添える。
 		await expect(page.getByRole('dialog').getByText(groupTitle, { exact: false })).toBeVisible();

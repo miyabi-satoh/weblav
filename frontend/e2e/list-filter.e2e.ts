@@ -2,8 +2,9 @@
 // ここでは打つと行が減り、当たった文字が強調され、語が URL に載り、戻ったときに残ることだけを確かめる。
 import { test, expect } from '@playwright/test';
 import { setUpArchiveForBrowsing, withDirectoryContent } from './fixture-helpers';
+import { CLEANUP_SAFE_TIMEOUTS } from './helpers';
 
-test.use({ actionTimeout: 10_000, navigationTimeout: 10_000 });
+test.use(CLEANUP_SAFE_TIMEOUTS);
 
 test('一覧の絞り込み: 打つと当たる行だけが残り、語が URL に載る', async ({ page }) => {
 	await withDirectoryContent(

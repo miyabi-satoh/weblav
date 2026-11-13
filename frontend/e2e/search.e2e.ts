@@ -2,10 +2,10 @@
 // ここではヘッダーから開いて打つと結果が出て、押すと元の一覧と同じように開くことだけを確かめる。
 import { test, expect } from '@playwright/test';
 import { withContentByApi } from './api-helpers';
-import { AUDIO_PLAYER_REGION_NAME, uniqueId } from './helpers';
+import { AUDIO_PLAYER_REGION_NAME, uniqueId, CLEANUP_SAFE_TIMEOUTS } from './helpers';
 import { setUpArchiveForBrowsing, withDirectoryContent } from './fixture-helpers';
 
-test.use({ actionTimeout: 10_000, navigationTimeout: 10_000 });
+test.use(CLEANUP_SAFE_TIMEOUTS);
 
 const SEARCH_LINK_NAME = /^検索$|^Search$/;
 // ラベルは文言の前後で改行しているので、前後の空白を許す。

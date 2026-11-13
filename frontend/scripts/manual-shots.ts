@@ -10,8 +10,10 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { chromium, type APIRequestContext, type Locator, type Page } from 'playwright';
+import { chromium, type Locator, type Page } from 'playwright';
+import { send } from '../e2e/api-helpers.ts';
 import {
+	BROWSE_ADD_BUTTON_NAME,
 	CHANGE_PATH_BUTTON_NAME,
 	CHOOSE_PATH_BUTTON_NAME,
 	CONTENT_ADD_BUTTON_NAME,
@@ -29,7 +31,7 @@ import {
 	waitForDialog
 } from '../e2e/helpers.ts';
 import { insertTestAdmin, startBackend, type Backend } from './backend-process.ts';
-import { waitForPageReady } from './shots.ts';
+import { gotoReady, waitForPageReady } from './shots.ts';
 import { silentWav } from './silent-wav.ts';
 import { TEST_ADMIN } from './test-account.ts';
 
@@ -152,13 +154,6 @@ function makeSharedDir(): string {
 	return realpathSync(shared);
 }
 
-async function send(request: APIRequestContext, method: string, apiPath: string, data?: unknown) {
-	const res = await request.fetch(`/api/v1${apiPath}`, { method, data });
-	if (!res.ok())
-		throw new Error(`${method} ${apiPath} が失敗しました (${res.status()}): ${await res.text()}`);
-	return res.status() === 204 ? null : ((await res.json()) as { id: number });
-}
-
 /** 管理者でログインしたページを開く。ログイン画面は撮らないので API で入る。 */
 async function newPage(backend: Backend, width: number, sharedPath?: string): Promise<Page> {
 	const context = await browser.newContext({
@@ -169,7 +164,7 @@ async function newPage(backend: Backend, width: number, sharedPath?: string): Pr
 	});
 	await context.addCookies([{ name: 'WEBLAV_LOCALE', value: 'ja', url: backend.baseURL }]);
 	const page = await context.newPage();
-	await send(page.request, 'POST', '/auth/login', {
+	await send(page.request, 'post', '/auth/login', {
 		username: TEST_ADMIN.username,
 		password: TEST_ADMIN.password
 	});
@@ -218,11 +213,6 @@ async function closePagesAndStop(backend: Backend) {
 async function stopBackend(backend: Backend) {
 	liveBackends.delete(backend);
 	await backend.stop();
-}
-
-async function goto(page: Page, url: string) {
-	await page.goto(url);
-	await waitForPageReady(page);
 }
 
 /** PNG を、ブラウザーの WebP エンコーダーで変換して書き出す。cwebp などを入れずに済む。 */
@@ -332,20 +322,20 @@ async function shootUsers(page: Page) {
 		['suzuki', 'user'],
 		['tanaka', 'user']
 	]) {
-		const created = await send(page.request, 'POST', '/admin/users', {
+		const created = (await send(page.request, 'post', '/admin/users', {
 			username,
 			password: SHOT_USER_PASSWORD,
 			role
-		});
-		editId = created!.id;
+		})) as { id: number };
+		editId = created.id;
 	}
 
 	if (want('users-page')) {
-		await goto(page, '/admin/users');
+		await gotoReady(page, '/admin/users');
 		await shotBetween(page, 'users-page', adminNav(page), row(page, 'tanaka'), { padBottom: 16 });
 	}
 	if (want('user-menu')) {
-		await goto(page, '/admin/users');
+		await gotoReady(page, '/admin/users');
 		await row(page, 'tanaka').getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).click();
 		await page.getByRole('menu').waitFor();
 		await shotBetween(page, 'user-menu', row(page, 'tanaka'), page.getByRole('menu'), {
@@ -356,7 +346,7 @@ async function shootUsers(page: Page) {
 		await page.getByRole('menu').waitFor({ state: 'hidden' });
 	}
 	if (want('user-add')) {
-		await goto(page, '/admin/users');
+		await gotoReady(page, '/admin/users');
 		await openAddDialog(page, USER_ADD_BUTTON_NAME);
 		await page.getByLabel(USERNAME_LABEL).fill('yamada');
 		await page.getByLabel(PASSWORD_LABEL).fill(SHOT_USER_PASSWORD);
@@ -365,7 +355,7 @@ async function shootUsers(page: Page) {
 		await page.keyboard.press('Escape');
 	}
 	if (want('user-edit')) {
-		await goto(page, `/admin/users/${editId}`);
+		await gotoReady(page, `/admin/users/${editId}`);
 		await shotBetween(
 			page,
 			'user-edit',
@@ -377,7 +367,7 @@ async function shootUsers(page: Page) {
 	// どちらもユーザー名のメニューを写す。セットアップの直後と、ふだんのログインの章で同じものを見せる。
 	for (const name of ['header-user-menu', 'setup-admin-menu']) {
 		if (!want(name)) continue;
-		await goto(page, '/');
+		await gotoReady(page, '/');
 		await page.getByRole('banner').getByRole('button', { name: TEST_ADMIN.username }).click();
 		await page.getByRole('menu').waitFor();
 		await shotBetween(page, name, page.getByRole('banner'), page.getByRole('menu'), {
@@ -387,7 +377,7 @@ async function shootUsers(page: Page) {
 		await page.getByRole('menu').waitFor({ state: 'hidden' });
 	}
 	if (want('account-page')) {
-		await goto(page, '/account');
+		await gotoReady(page, '/account');
 		// この幅では区画が1列に並ぶので、最後のリカバリコードの区画の下端まで写す。
 		await shotBetween(
 			page,
@@ -405,10 +395,10 @@ async function shootAdmin() {
 	try {
 		const shared = makeSharedDir();
 		const page = await newPage(backend, DESKTOP_WIDTH, shared);
-		await send(page.request, 'POST', '/admin/roots', { path: shared });
+		await send(page.request, 'post', '/admin/roots', { path: shared });
 
 		if (want('roots-page')) {
-			await goto(page, '/admin/roots');
+			await gotoReady(page, '/admin/roots');
 			await shotBetween(
 				page,
 				'roots-page',
@@ -418,7 +408,7 @@ async function shootAdmin() {
 			);
 		}
 		if (want('roots-menu')) {
-			await goto(page, '/admin/roots');
+			await gotoReady(page, '/admin/roots');
 			const actions = page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).first();
 			await actions.click();
 			await page.getByRole('menu').waitFor();
@@ -434,17 +424,17 @@ async function shootAdmin() {
 
 		const folderIds = new Map<string, number>();
 		for (const title of ['写真', '音楽', '書類']) {
-			const folder = await send(page.request, 'POST', '/contents', {
+			const folder = (await send(page.request, 'post', '/contents', {
 				type: 'folder',
 				path: path.join(shared, title),
 				visibility: 'public'
-			});
-			folderIds.set(title, folder!.id);
+			})) as { id: number };
+			folderIds.set(title, folder.id);
 		}
 
 		if (want('viewing-player')) {
 			const phone = await newPage(backend, PLAYER_WIDTH);
-			await goto(phone, `/folders/${folderIds.get('音楽')}`);
+			await gotoReady(phone, `/folders/${folderIds.get('音楽')}`);
 			await phone.getByRole('button', { name: '朝の散歩.mp3', exact: true }).click();
 			const player = phone.getByRole('region', { name: 'オーディオプレーヤー' });
 			// 鳴っている途中の位置で止め、写る時刻と再生ボタンを決まった形にする。
@@ -458,15 +448,15 @@ async function shootAdmin() {
 			await shotElement(phone, 'viewing-player', player);
 			await phone.context().close();
 		}
-		const group = await send(page.request, 'POST', '/contents', {
+		const group = (await send(page.request, 'post', '/contents', {
 			type: 'group',
 			title: '旅行の思い出',
 			visibility: 'public'
-		});
-		await send(page.request, 'POST', '/contents', {
+		})) as { id: number };
+		await send(page.request, 'post', '/contents', {
 			type: 'folder',
 			path: path.join(shared, '動画'),
-			parentId: group!.id,
+			parentId: group.id,
 			visibility: 'public'
 		});
 
@@ -486,7 +476,7 @@ async function shootAdmin() {
 					json: { ...body, saved: body.defaults, running: body.defaults }
 				});
 			});
-			await goto(page, '/admin/settings');
+			await gotoReady(page, '/admin/settings');
 			if (want('settings-page'))
 				await shotBetween(
 					page,
@@ -518,13 +508,13 @@ async function shootAdmin() {
 				);
 		}
 
-		await goto(page, '/admin/contents');
+		await gotoReady(page, '/admin/contents');
 		if (want('contents-page'))
 			await shotBetween(page, 'contents-page', adminNav(page), row(page, '書類'));
 		// 閲覧の画面から足す・直す・消す道 (→ 06-register-content.md)。管理者でなくても同じ所に出る。
 		if (want('add-menu')) {
-			await goto(page, '/');
-			await page.getByRole('button', { name: /^追加$/ }).click();
+			await gotoReady(page, '/');
+			await page.getByRole('button', { name: BROWSE_ADD_BUTTON_NAME }).click();
 			await page.getByRole('menu').waitFor();
 			await shotBetween(page, 'add-menu', page.getByRole('banner'), page.getByRole('menu'), {
 				padBottom: 16
@@ -534,7 +524,7 @@ async function shootAdmin() {
 		}
 		const editPen = (page: Page) => page.getByRole('link', { name: '写真を編集' });
 		if (want('row-edit-pen')) {
-			await goto(page, '/');
+			await gotoReady(page, '/');
 			const rowLink = page.getByRole('link', { name: '写真' }).filter({ hasText: '写真' });
 			await shotBetween(page, 'row-edit-pen', rowLink, editPen(page), {
 				padTop: 16,
@@ -542,7 +532,7 @@ async function shootAdmin() {
 			});
 		}
 		if (want('delete-section')) {
-			await goto(page, '/');
+			await gotoReady(page, '/');
 			await editPen(page).click();
 			await page.waitForURL(/\/contents\/\d+$/);
 			await waitForPageReady(page);
@@ -583,14 +573,14 @@ async function shootAdmin() {
 		// 共有の中のコンテンツは、写真・音楽・書類・動画の4件。
 		if (want('quickstart-roots')) {
 			const narrow = await newPage(backend, MOBILE_WIDTH, shared);
-			await goto(narrow, '/admin/roots');
+			await gotoReady(narrow, '/admin/roots');
 			const rootRow = narrow.getByText(WINDOWS_SHARED_PATH).locator('xpath=ancestor::tr[1]');
 			await shotBetween(narrow, 'quickstart-roots', adminNav(narrow), rootRow);
 			await narrow.context().close();
 		}
 
 		if (want('add-archive-picker')) {
-			await goto(page, '/admin/contents');
+			await gotoReady(page, '/admin/contents');
 			await openAddDialog(page, CONTENT_ADD_BUTTON_NAME);
 			await chooseContentType(page, 'folder');
 			await dialog(page).getByRole('button', { name: CHOOSE_PATH_BUTTON_NAME }).click();
@@ -602,23 +592,23 @@ async function shootAdmin() {
 		}
 
 		// マニュアルの手順 (06-archive-setup.md) と同じく、フォルダーを作ってから一覧の表示を使う。
-		const created = await send(page.request, 'POST', '/contents', {
+		const created = (await send(page.request, 'post', '/contents', {
 			type: 'folder',
 			title: '録音',
 			path: path.join(shared, '録音'),
 			visibility: 'public'
-		});
+		})) as { id: number };
 		// 完全上書き型の PUT なので、作成時の応答をそのまま送り直す。
-		const archive = await send(page.request, 'PUT', `/contents/${created!.id}`, {
+		const archive = (await send(page.request, 'put', `/contents/${created.id}`, {
 			...created,
 			listView: true,
 			includePatterns: '*.mp3'
-		});
+		})) as { id: number };
 		// 階層ごとの値は、索引を作ってから出る。
-		await send(page.request, 'POST', `/contents/${archive!.id}/rescan`);
+		await send(page.request, 'post', `/contents/${archive.id}/rescan`);
 
 		if (want('folder-list-view')) {
-			await goto(page, `/contents/${archive!.id}`);
+			await gotoReady(page, `/contents/${archive.id}`);
 			await shotBetween(
 				page,
 				'folder-list-view',
@@ -629,7 +619,7 @@ async function shootAdmin() {
 		}
 
 		if (want('axis-add-dir')) {
-			await goto(page, `/contents/${archive!.id}/axes`);
+			await gotoReady(page, `/contents/${archive.id}/axes`);
 			await page.getByRole('button', { name: '分類を追加...' }).click();
 			await waitForDialog(page);
 			const d = dialog(page);
@@ -642,7 +632,7 @@ async function shootAdmin() {
 		}
 
 		if (want('archive-axes-tab')) {
-			await goto(page, `/contents/${archive!.id}/axes`);
+			await gotoReady(page, `/contents/${archive.id}/axes`);
 			await shotBetween(
 				page,
 				'archive-axes-tab',
@@ -653,7 +643,7 @@ async function shootAdmin() {
 		}
 
 		if (want('axis-add-word')) {
-			await goto(page, `/contents/${archive!.id}/axes`);
+			await gotoReady(page, `/contents/${archive.id}/axes`);
 			await page.getByRole('button', { name: '分類を追加...' }).click();
 			await waitForDialog(page);
 			const d = dialog(page);
@@ -666,7 +656,7 @@ async function shootAdmin() {
 
 		// 共有の中のコンテンツは、録音を足して5件。
 		if (want('roots-delete')) {
-			await goto(page, '/admin/roots');
+			await gotoReady(page, '/admin/roots');
 			await page.getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).first().click();
 			await page.getByRole('menuitem', { name: DELETE_MENU_ITEM_NAME }).click();
 			await page.getByRole('alertdialog').waitFor();
@@ -679,16 +669,16 @@ async function shootAdmin() {
 			{ name: '種類', source: 'filenameWord' }
 		];
 		for (const [position, axis] of axes.entries())
-			await send(page.request, 'POST', `/contents/${archive!.id}/axes`, { ...axis, position });
+			await send(page.request, 'post', `/contents/${archive.id}/axes`, { ...axis, position });
 		// マニュアルの手順 (06-archive-setup.md) と同じ表示タイトルにする。
 		// 完全上書き型の PUT なので、作成時の応答をそのまま送り直す。
-		await send(page.request, 'PUT', `/contents/${archive!.id}`, {
+		await send(page.request, 'put', `/contents/${archive.id}`, {
 			...archive,
 			titleTemplate: '{年度} {回} {fileName}'
 		});
 
 		if (want('axis-row-actions')) {
-			await goto(page, `/contents/${archive!.id}/axes`);
+			await gotoReady(page, `/contents/${archive.id}/axes`);
 			await shotBetween(
 				page,
 				'axis-row-actions',
@@ -702,7 +692,7 @@ async function shootAdmin() {
 		}
 
 		if (want('archive-axes-template')) {
-			await goto(page, `/contents/${archive!.id}/axes`);
+			await gotoReady(page, `/contents/${archive.id}/axes`);
 			await shotBetween(
 				page,
 				'archive-axes-template',
@@ -714,14 +704,14 @@ async function shootAdmin() {
 
 		const tabs = page.getByRole('navigation', { name: 'コンテンツの設定' });
 		if (want('archive-items-tab')) {
-			await goto(page, `/contents/${archive!.id}/items`);
+			await gotoReady(page, `/contents/${archive.id}/items`);
 			const thirdRow = page.getByRole('listitem').filter({ hasText: '.mp3' }).nth(2);
 			await shotBetween(page, 'archive-items-tab', tabs, thirdRow, { padTop: 8, padBottom: 8 });
 		}
 
 		if (want('viewing-filter') || want('viewing-sort')) {
 			const phone = await newPage(backend, PLAYER_WIDTH);
-			await goto(phone, `/archives/${archive!.id}`);
+			await gotoReady(phone, `/archives/${archive.id}`);
 			if (want('viewing-filter')) {
 				await phone.getByRole('combobox', { name: /^年度/ }).click();
 				const options = phone.getByRole('listbox');
@@ -748,7 +738,7 @@ async function shootAdmin() {
 			await page.route('**/api/v1/connection-info', (route) =>
 				route.fulfill({ json: { mdnsHostname: 'my-pc.local', port: 8370 } })
 			);
-			await goto(page, '/');
+			await gotoReady(page, '/');
 			await page.getByRole('button', { name: 'このページを共有' }).click();
 			await page.getByRole('menuitem', { name: 'QR コードを表示...' }).click();
 			await shotElement(page, 'share-qr', dialog(page));

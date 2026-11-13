@@ -204,7 +204,7 @@
 				<p class="px-4 py-4 text-sm text-destructive">{loadError}</p>
 			{:else if loading && listing === null}
 				<div class="px-4 py-4">
-					<Spinner aria-label={m.dir_picker_loading()} />
+					<Spinner aria-label={m.common_loading()} />
 				</div>
 			{:else if listing !== null}
 				{#if listing.parent !== null && listing.parent !== undefined}

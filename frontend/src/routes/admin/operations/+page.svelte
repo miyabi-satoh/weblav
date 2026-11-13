@@ -137,9 +137,9 @@
 		>
 			<BrowseSelectTrigger
 				label={m.admin_operations_filter_category_label()}
-				value={categoryValue === ALL
+				value={data.filters.category === undefined
 					? m.common_filter_all()
-					: opCategoryLabel(data.filters.category ?? 'auth')}
+					: opCategoryLabel(data.filters.category)}
 				highlighted={categoryValue !== ALL}
 			/>
 			<Select.Content>

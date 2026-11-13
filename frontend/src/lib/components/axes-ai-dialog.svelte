@@ -2,7 +2,6 @@
 	import { untrack } from 'svelte';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import CopyIcon from '@lucide/svelte/icons/copy';
-	import { toast } from 'svelte-sonner';
 	import { client } from '$lib/api/client';
 	import {
 		errorCode,
@@ -18,7 +17,6 @@
 		type ImportAxesRequest,
 		type ParseFailure
 	} from '$lib/axes-ai-prompt';
-	import { copyText } from '$lib/clipboard';
 	import { CopiedState } from '$lib/copied-state.svelte';
 	import { ErrorDialogState } from '$lib/error-dialog-state.svelte';
 	import { FormDirtyState } from '$lib/form-dirty.svelte';
@@ -109,12 +107,7 @@
 
 	async function copyPrompt() {
 		if (!prompt) return;
-		try {
-			await copyText(prompt);
-			copyFeedback.show();
-		} catch {
-			toast.error(m.common_copy_failed_toast());
-		}
+		await copyFeedback.copy(prompt);
 	}
 
 	async function checkPasted() {

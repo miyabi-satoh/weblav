@@ -263,8 +263,7 @@ async fn archive_rescan_indexes_files_recursively(pool: SqlitePool) {
 
     let (status, body) = rescan(app, &cookie, id).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let result: serde_json::Value =
-        serde_json::from_str(&body).expect("結果をJSONとして読めなかった");
+    let result = parse_json(&body);
     assert_eq!(result["added"], 2, "{body}");
     assert_eq!(result["removed"], 0, "{body}");
     assert_eq!(result["total"], 2, "{body}");
@@ -353,8 +352,7 @@ async fn archive_rescan_removes_vanished_items(pool: SqlitePool) {
 
     let (status, body) = rescan(app, &cookie, id).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let result: serde_json::Value =
-        serde_json::from_str(&body).expect("結果をJSONとして読めなかった");
+    let result = parse_json(&body);
     assert_eq!(result["added"], 1, "{body}");
     assert_eq!(result["removed"], 1, "{body}");
     assert_eq!(result["total"], 2, "{body}");
@@ -434,7 +432,7 @@ async fn archive_rescan_reports_a_missing_folder_and_keeps_the_index(pool: Sqlit
         StatusCode::UNPROCESSABLE_ENTITY,
         "invalid_request_body",
     );
-    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    let parsed = parse_json(&body);
     assert_eq!(
         parsed["error"]["detail"]["kind"], "archiveFolderMissing",
         "{body}"
@@ -463,7 +461,7 @@ async fn archive_rescan_refuses_to_sync_when_a_folder_is_unreadable(pool: Sqlite
         StatusCode::UNPROCESSABLE_ENTITY,
         "invalid_request_body",
     );
-    let parsed: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
+    let parsed = parse_json(&body);
     assert_eq!(
         parsed["error"]["detail"],
         serde_json::json!({"kind": "archiveFolderUnreadable", "path": "locked"}),
@@ -504,8 +502,7 @@ async fn archive_patterns_change_keeps_rows_left_out_at_the_next_scan(pool: Sqli
 
     let (status, body) = rescan(app, &cookie, id).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let result: serde_json::Value =
-        serde_json::from_str(&body).expect("結果をJSONとして読めなかった");
+    let result = parse_json(&body);
     assert_eq!(result["added"], 0, "{body}");
     assert_eq!(result["removed"], 0, "{body}");
     assert_eq!(result["total"], 1, "{body}");

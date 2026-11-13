@@ -24,6 +24,7 @@ use crate::state::AppState;
 use super::auth::{UserResponse, UserWithRecoveryCodeResponse};
 use super::backup::{StageBackupRequest, StagedBackupResponse};
 use super::local::LocalRequest;
+use super::operations::{Op, OpRecord, record_or_warn};
 use super::validate;
 
 /// ADR: 発行したトークンの寿命。タスクトレイから押してブラウザーで入力を終えるまでの時間で、
@@ -228,14 +229,9 @@ async fn create_admin(
     )
     .await?;
     state.setup_tokens.consume(&payload.token);
-    super::operations::record_or_warn(
+    record_or_warn(
         &state.pool,
-        &super::operations::OpRecord::by(
-            super::operations::Op::CreateUser,
-            Some(created.id),
-            &username,
-        )
-        .target(created.id, &username),
+        &OpRecord::by(Op::CreateUser, Some(created.id), &username).target(created.id, &username),
     )
     .await;
 

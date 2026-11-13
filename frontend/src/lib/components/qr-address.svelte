@@ -1,12 +1,10 @@
 <script lang="ts">
 	import QRCode from 'qrcode';
-	import { toast } from 'svelte-sonner';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select';
-	import { copyText } from '$lib/clipboard';
 	import { CopiedState } from '$lib/copied-state.svelte';
 	import { qrCardClass, qrImageClass } from '$lib/qr-card';
 
@@ -34,12 +32,7 @@
 	});
 
 	async function copyUrl() {
-		try {
-			await copyText(url);
-			copyFeedback.show();
-		} catch {
-			toast.error(m.common_copy_failed_toast());
-		}
+		await copyFeedback.copy(url);
 	}
 </script>
 

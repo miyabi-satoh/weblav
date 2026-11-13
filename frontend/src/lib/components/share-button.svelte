@@ -7,6 +7,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import QrAddress from '$lib/components/qr-address.svelte';
 	import { client } from '$lib/api/client';
+	import { fetchOrNull } from '$lib/api/load';
 	import { headerIconActionClass } from '$lib/header-action';
 	import { pickShareUrl, shareableUrls, type Connection } from '$lib/share-url';
 	import { readStored, writeStored } from '$lib/stored';
@@ -29,12 +30,7 @@
 	// PC の名前と IP のアドレスを候補に足すため。
 	async function loadConnection() {
 		if (connection !== undefined) return;
-		try {
-			const { data, response } = await client.GET('/api/v1/connection-info');
-			connection = response.ok && data ? data : null;
-		} catch {
-			connection = null;
-		}
+		connection = await fetchOrNull(client.GET('/api/v1/connection-info'));
 	}
 
 	let urls = $derived(shareableUrls(page.url, connection ?? undefined));

@@ -52,7 +52,7 @@
 	async function handleUsernameSubmit(event: SubmitEvent) {
 		event.preventDefault();
 		if (username.trim() === '') return;
-		await sections.save('username', m.account_username_label(), async () => {
+		await sections.save('username', m.common_username_label(), async () => {
 			const result = await errorDialog.attempt(() =>
 				client.PUT('/api/v1/auth/username', { body: { username } })
 			);
@@ -114,7 +114,7 @@
 			<!-- 区画の欄はユーザー名だけなので、見出しを欄のラベルにして同じ語を2度出さない (ユーザーの編集ページと同じ)。 -->
 			<h2 id="account-username-heading">
 				<Field.FieldLabel for="account-username" required class="text-base font-semibold"
-					>{m.account_username_label()}</Field.FieldLabel
+					>{m.common_username_label()}</Field.FieldLabel
 				>
 			</h2>
 			<Input id="account-username" autocomplete="username" bind:value={username} required />
