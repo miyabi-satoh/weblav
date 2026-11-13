@@ -18,7 +18,9 @@ import {
 	SHUFFLE_BUTTON_NAME,
 	saveForm,
 	specificSaveButton,
-	waitForDialog
+	waitForDialog,
+	CLEANUP_SAFE_TIMEOUTS,
+	RESCAN_BUTTON_NAME
 } from './helpers';
 import { send } from './api-helpers';
 import { rescanArchive, setUpArchiveForBrowsing, withDirectoryContent } from './fixture-helpers';
@@ -35,10 +37,7 @@ import {
 	wordCandidatesRegion
 } from './archive-helpers';
 
-// 操作が見つからないまま待ち続けるとテストの制限時間を使い切り、finally の後片付け
-// (API での削除) まで時間切れになってコンテンツと木が残る。操作ごとの待ちを短くして、
-// 失敗しても片付ける時間を残す。
-test.use({ actionTimeout: 10_000, navigationTimeout: 10_000 });
+test.use(CLEANUP_SAFE_TIMEOUTS);
 
 // ラベルは文言の前後で改行しているので、前後の空白を許す。
 const TITLE_TEMPLATE_LABEL = /^\s*(表示タイトルのテンプレート|Title template)\s*$/;
@@ -125,7 +124,7 @@ test('ファイル: 再スキャンで索引し、件数が見出しに出る', 
 		{ type: 'archive', namePrefix: 'e2e-items' },
 		async (archive) => {
 			await page.goto(`/contents/${archive.id}/items`);
-			await page.getByRole('button', { name: /^再スキャンする$|^Rescan$/ }).click();
+			await page.getByRole('button', { name: RESCAN_BUTTON_NAME }).click();
 			await expect(page.getByText(/新規\s3\s件・削除\s0\s件|3 added, 0 removed/)).toBeVisible();
 			await expect(page.getByText(/^3\s件のファイル$|^3 files$/)).toBeVisible();
 		}
@@ -140,7 +139,7 @@ test('再スキャンしても、分類のタブの打っているテンプレ�
 			await page.goto(`/contents/${archive.id}/axes`);
 			const template = page.getByRole('textbox', { name: TITLE_TEMPLATE_LABEL });
 			await template.fill('{fileName} 書きかけ');
-			await page.getByRole('button', { name: /^再スキャンする$|^Rescan$/ }).click();
+			await page.getByRole('button', { name: RESCAN_BUTTON_NAME }).click();
 			await expect(page.getByText(/新規\s3\s件・削除\s0\s件|3 added, 0 removed/)).toBeVisible();
 			await expect(template).toHaveValue('{fileName} 書きかけ');
 		}
@@ -599,7 +598,7 @@ test('対象のパターンを広げて保存すると、再スキャンなし�
 			const notice = page.getByRole('alertdialog', {
 				name: /^見える内容が変わります$|^What people can see will change$/
 			});
-			await notice.getByRole('button', { name: /^保存する$|^Save$/ }).click();
+			await notice.getByRole('button', { name: SAVE_BUTTON_NAME }).click();
 			await expect(notice).toBeHidden();
 
 			await page.goto(`/contents/${content.id}/items`);

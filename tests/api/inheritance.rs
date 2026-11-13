@@ -313,8 +313,7 @@ async fn browse_group_returns_children_and_ancestors(pool: SqlitePool) {
     )
     .await;
     assert_eq!(response.status(), StatusCode::OK);
-    let body: serde_json::Value =
-        serde_json::from_str(&body_string(response).await).expect("valid json");
+    let body = parse_json(&body_string(response).await);
     assert_eq!(body["groupTitle"], "C");
     let ancestor_ids: Vec<i64> = body["ancestors"]
         .as_array()
@@ -362,8 +361,7 @@ async fn browse_group_ancestors_are_not_truncated_beyond_fifty_levels(pool: Sqli
     )
     .await;
     assert_eq!(response.status(), StatusCode::OK);
-    let body: serde_json::Value =
-        serde_json::from_str(&body_string(response).await).expect("valid json");
+    let body = parse_json(&body_string(response).await);
     let ancestor_ids: Vec<i64> = body["ancestors"]
         .as_array()
         .expect("配列のはず")
@@ -396,8 +394,7 @@ async fn delete_group_reparents_children_to_root(pool: SqlitePool) {
         build_request("GET", "/api/v1/contents/manage", Some(&cookie), None),
     )
     .await;
-    let admin_body: serde_json::Value =
-        serde_json::from_str(&body_string(admin_list_response).await).expect("valid json");
+    let admin_body = parse_json(&body_string(admin_list_response).await);
     let child_entry = admin_body
         .as_array()
         .expect("配列のはず")
@@ -435,7 +432,7 @@ async fn folder_content_create_by_admin_succeeds(pool: SqlitePool) {
     assert_eq!(status, StatusCode::CREATED);
     assert!(body.contains(r#""type":"folder""#), "{body}");
     assert!(body.contains(r#""title":"教材""#), "{body}");
-    let created: serde_json::Value = serde_json::from_str(&body).expect("JSONを読めなかった");
+    let created = parse_json(&body);
     assert_eq!(
         created["path"].as_str().expect("文字列のはず"),
         canonical_path_as_api_returns_it(&canonical_dir),
@@ -490,8 +487,7 @@ async fn fs_dirs_without_path_returns_the_shared_folders(pool: SqlitePool) {
     .await;
 
     assert_eq!(response.status(), StatusCode::OK);
-    let body: serde_json::Value =
-        serde_json::from_str(&body_string(response).await).expect("JSONを読めなかった");
+    let body = parse_json(&body_string(response).await);
     assert_eq!(body["path"], "");
     assert!(body["parent"].is_null(), "{body}");
     assert_eq!(body["selectable"], false);
@@ -540,8 +536,7 @@ async fn fs_dirs_returns_only_selectable_directories(pool: SqlitePool) {
     .await;
 
     assert_eq!(response.status(), StatusCode::OK);
-    let body: serde_json::Value =
-        serde_json::from_str(&body_string(response).await).expect("JSONを読めなかった");
+    let body = parse_json(&body_string(response).await);
     assert_eq!(body["selectable"], true);
     let entries = body["entries"].as_array().expect("entriesが配列でない");
     assert_eq!(entries.len(), 1, "{body}");

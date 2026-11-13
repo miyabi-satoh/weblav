@@ -14,7 +14,9 @@ import {
 	saveForm,
 	TITLE_LABEL,
 	VISIBILITY_LABEL,
-	waitForDialog
+	waitForDialog,
+	BROWSE_ADD_BUTTON_NAME,
+	BROWSE_ADD_MENU_ITEM_NAME
 } from './helpers';
 
 /**
@@ -41,8 +43,8 @@ export async function openCreateForm(
  */
 async function openLinkFormFromHome(page: Page) {
 	await page.goto('/');
-	await page.getByRole('button', { name: /^追加$|^Add$/ }).click();
-	await page.getByRole('menuitem', { name: /^リンク\.\.\.$|^Link\.\.\.$/ }).click();
+	await page.getByRole('button', { name: BROWSE_ADD_BUTTON_NAME }).click();
+	await page.getByRole('menuitem', { name: BROWSE_ADD_MENU_ITEM_NAME.link }).click();
 	await waitForDialog(page);
 }
 

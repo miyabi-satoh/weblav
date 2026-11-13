@@ -188,7 +188,7 @@ fmt-check:
     cargo fmt --check
     cd {{ frontend_dir }} && pnpm run format:check
 
-# Lint を実行する (clippy + eslint)
+# Lint を実行する (clippy + eslint + 表記の検査)
 lint: ensure-frontend-build
     cargo clippy --all-targets -- -D warnings
     cd {{ frontend_dir }} && pnpm run lint

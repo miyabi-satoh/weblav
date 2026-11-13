@@ -17,7 +17,7 @@ async fn insert_archive_by(
     )
     .bind(parent_id)
     .bind(title)
-    .bind(path.as_ref().display().to_string())
+    .bind(canonical_path_as_api_returns_it(path.as_ref()))
     .bind(visibility)
     .bind(created_by)
     .fetch_one(pool)
@@ -603,7 +603,7 @@ async fn regular_user_can_put_own_content_into_others_group(pool: SqlitePool) {
     )
     .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
-    let id: serde_json::Value = serde_json::from_str(&body).expect("JSON");
+    let id = parse_json(&body);
     let id = id["id"].as_i64().expect("id");
 
     let (status, body) = send_json(
@@ -737,7 +737,7 @@ async fn users_list_includes_private_content_count(pool: SqlitePool) {
 
     let (status, body) = send_empty(app, "GET", "/api/v1/admin/users", &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let json: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めない");
+    let json = parse_json(&body);
     let bob = json
         .as_array()
         .expect("配列でない")

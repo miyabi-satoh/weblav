@@ -5,7 +5,7 @@
 use std::collections::{HashMap, HashSet};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::UNIX_EPOCH;
 
 use axum::body::Body;
 use axum::extract::{Path as UrlPath, State};
@@ -127,14 +127,6 @@ impl From<PreviewRow> for LinkPreview {
 
 fn file_url(file: &str) -> String {
     format!("/api/v1/link-previews/files/{file}")
-}
-
-fn now_secs() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| {
-            i64::try_from(elapsed.as_secs()).unwrap_or(i64::MAX)
-        })
 }
 
 /// 覚えている情報を返す。取りには行かない。まだ覚えていない URL は入らない。
@@ -263,7 +255,7 @@ async fn mark_shown(pool: &SqlitePool, urls: Vec<String>) -> Result<Vec<String>,
         .collect();
     // 一覧に出た時刻をまとめて1文で書く。匿名でも何度でも頼めるので、件数分の書き込みにしない。
     let urls_json = serde_json::to_string(&urls).expect("文字列の並びは JSON にできる");
-    let now = now_secs();
+    let now = crate::auth::unix_now();
     sqlx::query!(
         r#"INSERT INTO link_previews (url, shown_at) SELECT value, ? FROM json_each(?) WHERE true
            ON CONFLICT (url) DO UPDATE SET shown_at = excluded.shown_at"#,
@@ -277,7 +269,7 @@ async fn mark_shown(pool: &SqlitePool, urls: Vec<String>) -> Result<Vec<String>,
 
 /// `urls` の情報を、期限が切れていれば取り直し、確かめ終えた順に1行ずつ `out` へ書く。
 async fn stream_refreshed(state: AppState, urls: Vec<String>, mut out: DuplexStream) {
-    let now = now_secs();
+    let now = crate::auth::unix_now();
     let mut tasks = tokio::task::JoinSet::new();
     for url in urls {
         let state = state.clone();

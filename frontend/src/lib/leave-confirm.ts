@@ -10,7 +10,7 @@ let bypassed = false;
 export async function gotoWithoutLeaveConfirm(url: string): Promise<void> {
 	bypassed = true;
 	try {
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- 呼び出し側が resolve() した URL を渡す
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- 呼び出し側が resolve() した値を受けるので静的に追えない (→ AGENTS.md「コードの規約」)
 		await goto(url);
 	} finally {
 		bypassed = false;

@@ -21,7 +21,7 @@
 	import { SORTABLE_FLIP_DURATION_MS, SortableZone } from '$lib/sortable-zone.svelte';
 	import { columnFromLgClass, columnFromSmClass, dragHandleClass } from '$lib/table-columns';
 	import { byPosition } from '$lib/sort';
-	import { axisSourceLabel as sourceOptionLabel } from '$lib/axis-labels';
+	import { axisSourceLabel } from '$lib/axis-labels';
 	import * as m from '$lib/paraglide/messages.js';
 	import type { components } from '$lib/api/schema';
 	import { Button } from '$lib/components/ui/button';
@@ -102,11 +102,11 @@
 		};
 	}
 
-	function axisSourceLabel(axis: Axis): string {
+	/** 軸の行に出す抽出元。フォルダーの階層は何段目かまで出す。 */
+	function axisRowSourceLabel(axis: Axis): string {
 		if (axis.source === 'dirLevel')
 			return m.archive_axes_source_dir_level({ level: String(axis.dirLevel ?? '') });
-		if (axis.source === 'filenameWord') return m.archive_axes_source_filename_word();
-		return sourceOptionLabel(axis.source);
+		return axisSourceLabel(axis.source);
 	}
 
 	// 軸の追加・編集ダイアログ。
@@ -1057,7 +1057,7 @@
 							>
 								<p class="truncate text-sm font-medium">{axis.name}</p>
 								<!-- 「フォルダーの第1階層」が「第1階 / 層」と割れないようにする。 -->
-								<p class="text-xs break-keep text-muted-foreground">{axisSourceLabel(axis)}</p>
+								<p class="text-xs break-keep text-muted-foreground">{axisRowSourceLabel(axis)}</p>
 								{#if !axis.filterable}
 									<p class="text-xs text-muted-foreground">{m.archive_axes_not_filterable()}</p>
 								{/if}
@@ -1157,7 +1157,7 @@
 								{#if filenameWords.status === 'failed' || axisValuesLoadError !== ''}
 									<p class="text-sm text-muted-foreground">{m.archive_axes_words_fetch_failed()}</p>
 								{:else if filenameWords.status !== 'loaded' || !axisValuesLoaded}
-									<Spinner aria-label={m.archive_axes_words_loading()} />
+									<Spinner aria-label={m.common_loading()} />
 								{:else if wordCandidateList.length === 0}
 									<p class="text-sm text-muted-foreground">
 										{wordQuery.trim() === ''
@@ -1488,18 +1488,18 @@
 						</Field.FieldLabel>
 						<Select.Root type="single" bind:value={axisFormSource} required>
 							<Select.Trigger id="axis-source" class="w-full">
-								{sourceOptionLabel(axisFormSource)}
+								{axisSourceLabel(axisFormSource)}
 							</Select.Trigger>
 							<Select.Content>
 								{#each AXIS_SOURCES as source (source)}
-									<Select.Item value={source}>{sourceOptionLabel(source)}</Select.Item>
+									<Select.Item value={source}>{axisSourceLabel(source)}</Select.Item>
 								{/each}
 							</Select.Content>
 						</Select.Root>
 					</Field.Field>
 					{#if axisFormSource === 'dirLevel'}
 						{#if dirLevels.status === 'loading'}
-							<Spinner aria-label={m.archive_axes_dialog_dir_level_loading()} />
+							<Spinner aria-label={m.common_loading()} />
 						{:else if dirLevelOptions.length > 0}
 							<Field.FieldSet>
 								<Field.FieldLegend id="axis-dir-level-legend" variant="label">

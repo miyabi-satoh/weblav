@@ -63,7 +63,7 @@
 	async function handleUsernameSubmit(event: SubmitEvent) {
 		event.preventDefault();
 		if (username.trim() === '') return;
-		await sections.save('username', m.admin_users_dialog_username_label(), async () => {
+		await sections.save('username', m.common_username_label(), async () => {
 			// 失敗したら値を残す。名前が重なったときに、入れ直せるようにする。
 			const result = await errorDialog.attempt(() =>
 				client.PUT('/api/v1/admin/users/{id}/username', {
@@ -176,7 +176,7 @@
 			<!-- 区画の欄はユーザー名だけなので、見出しを欄のラベルにして同じ語を2度出さない。 -->
 			<h2 id="username-section-heading">
 				<Field.FieldLabel for="user-username" required class="text-base font-semibold"
-					>{m.admin_users_dialog_username_label()}</Field.FieldLabel
+					>{m.common_username_label()}</Field.FieldLabel
 				>
 			</h2>
 			<!-- ブラウザーのパスワードマネージャーが管理者自身の資格情報を入れないよう、自動入力を切る。 -->
@@ -245,7 +245,7 @@
 				<Field.FieldGroup>
 					<Field.Field>
 						<Field.FieldLabel for="reset-password" required
-							>{m.admin_users_dialog_password_label()}</Field.FieldLabel
+							>{m.common_password_label()}</Field.FieldLabel
 						>
 						<!-- 再設定はユーザー名の欄が無く、ブラウザーにログインフォームと判定されない。
 					     `new-password` にすると Chrome のパスワード生成が2つの欄に干渉し、
@@ -259,7 +259,7 @@
 					</Field.Field>
 					<Field.Field data-invalid={resetPasswordMismatch}>
 						<Field.FieldLabel for="reset-password-confirm" required
-							>{m.admin_users_dialog_password_confirm_label()}</Field.FieldLabel
+							>{m.common_password_confirm_label()}</Field.FieldLabel
 						>
 						<PasswordInput
 							id="reset-password-confirm"

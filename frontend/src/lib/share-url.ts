@@ -1,7 +1,13 @@
 import type { components } from '$lib/api/schema';
 
-/** 同じ PC の中だけで通じるホスト名。ほかの端末に渡すときは、PC の名前に置き換える。 */
-function isLoopbackHost(hostname: string): boolean {
+/**
+ * 同じ PC の中だけで通じるホスト名。ほかの端末に渡すときは、PC の名前に置き換える。
+ *
+ * `$lib/loopback.ts` の `isLoopbackHost` とは別に持つ。あちらはサーバーの判定に揃えて `localhost` の名前だけを
+ * 通す (DNS リバインディングと区別するため)。こちらはほかの端末から届かないアドレスを外すのが目的なので、
+ * `*.localhost` のようにループバックに向く名前も広く含める。
+ */
+function isThisPcOnlyHost(hostname: string): boolean {
 	const host = hostname.toLowerCase();
 	return (
 		host === 'localhost' ||
@@ -23,7 +29,7 @@ export type Connection = components['schemas']['ConnectionInfoResponse'];
  */
 export function shareableUrls(current: URL, connection: Connection | undefined): string[] {
 	const path = `${current.pathname}${current.search}`;
-	const loopback = isLoopbackHost(current.hostname);
+	const loopback = isThisPcOnlyHost(current.hostname);
 	const urls = loopback ? [] : [`${current.origin}${path}`];
 	if (!connection || connection.port === 0 || (!loopback && current.protocol !== 'http:')) {
 		return urls;

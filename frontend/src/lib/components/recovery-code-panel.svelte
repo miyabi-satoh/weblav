@@ -1,12 +1,10 @@
 <script lang="ts">
-	import { toast } from 'svelte-sonner';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import PrinterIcon from '@lucide/svelte/icons/printer';
 	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
-	import { copyText } from '$lib/clipboard';
 	import { CopiedState } from '$lib/copied-state.svelte';
 	import { escapeHtml } from '$lib/html';
 	import { formatDateTime } from '$lib/format';
@@ -23,13 +21,7 @@
 	const copyFeedback = new CopiedState();
 
 	async function copy() {
-		try {
-			await copyText(code);
-			kept = true;
-			copyFeedback.show();
-		} catch {
-			toast.error(m.common_copy_failed_toast());
-		}
+		if (await copyFeedback.copy(code)) kept = true;
 	}
 
 	/** 保存と印刷で同じ文面を使う。コードだけの紙やファイルでは、何のコードか分からないため。 */

@@ -81,7 +81,7 @@
 						<Field.FieldGroup>
 							<Field.Field>
 								<Field.FieldLabel for="username" required
-									>{m.recover_username_label()}</Field.FieldLabel
+									>{m.common_username_label()}</Field.FieldLabel
 								>
 								<Input id="username" autocomplete="username" bind:value={username} required />
 							</Field.Field>

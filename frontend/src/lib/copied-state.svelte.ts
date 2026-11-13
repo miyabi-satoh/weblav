@@ -1,3 +1,7 @@
+import { toast } from 'svelte-sonner';
+import { copyText } from '$lib/clipboard';
+import * as m from '$lib/paraglide/messages.js';
+
 /** コピーの成功を、ボタンのアイコンで見せておく時間 (ミリ秒)。読み取れて、次の操作の邪魔にならない長さ。 */
 const COPIED_DURATION_MS = 2000;
 
@@ -14,5 +18,17 @@ export class CopiedState {
 		this.copied = true;
 		clearTimeout(this.#timeout);
 		this.#timeout = setTimeout(() => (this.copied = false), COPIED_DURATION_MS);
+	}
+
+	/** `text` をコピーし、成否をボタンのアイコンかトーストで知らせる。コピーできたかを返す。 */
+	async copy(text: string): Promise<boolean> {
+		try {
+			await copyText(text);
+		} catch {
+			toast.error(m.common_copy_failed_toast());
+			return false;
+		}
+		this.show();
+		return true;
 	}
 }

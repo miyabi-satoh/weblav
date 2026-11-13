@@ -2,6 +2,7 @@
 // 共有の管理者 (`admin`) のパスワードを変えるとほかのテストのログインが壊れるので、
 // 使い捨てのユーザーを API で作って使う。
 import { test, expect } from '@playwright/test';
+import { createUserByApi } from './api-helpers';
 import {
 	ACCOUNT_MENU_ITEM_NAME,
 	RECOVERY_CODE_CREATE_BUTTON_NAME,
@@ -39,10 +40,7 @@ test('管理者はリカバリコードを作り、パスワードを忘れた�
 	// Argon2 のハッシュ化・照合を8回ほど重ねるので、マシンが混んでいると既定の30秒を超える。
 	test.slow();
 	const username = uniqueId('e2e-recovery');
-	const created = await page.request.post('/api/v1/admin/users', {
-		data: { username, password: 'old-password', role: 'admin' }
-	});
-	expect(created.ok()).toBe(true);
+	await createUserByApi(page.request, username, 'old-password', 'admin');
 
 	const context = await anonymousContext(browser);
 	const own = await context.newPage();
@@ -103,10 +101,7 @@ test('編集者も、アカウントのページで作ったリカバリコー�
 }) => {
 	test.slow();
 	const username = uniqueId('e2e-recovery-editor');
-	const created = await page.request.post('/api/v1/admin/users', {
-		data: { username, password: 'old-password', role: 'user' }
-	});
-	expect(created.ok()).toBe(true);
+	await createUserByApi(page.request, username, 'old-password', 'user');
 
 	const context = await anonymousContext(browser);
 	const own = await context.newPage();

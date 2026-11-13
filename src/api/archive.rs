@@ -568,11 +568,7 @@ fn read_items(
         let file = match std::fs::symlink_metadata(&path) {
             Ok(metadata) => {
                 let size = i64::try_from(metadata.len()).unwrap_or(i64::MAX);
-                let modified_ns = metadata
-                    .modified()
-                    .ok()
-                    .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
-                    .and_then(|duration| i64::try_from(duration.as_nanos()).ok());
+                let modified_ns = super::fs::modified_ns(&metadata);
                 if known.get(&rel_path) == Some(&(size, modified_ns)) {
                     None
                 } else {
@@ -836,7 +832,7 @@ async fn run_due_rescans(state: &AppState, tried: &mut HashMap<i64, i64>) -> Res
     )
     .fetch_all(&state.pool)
     .await?;
-    let now = time::OffsetDateTime::now_utc().unix_timestamp();
+    let now = crate::auth::unix_now();
     for row in rows {
         let auto = AutoRefresh::from_columns(
             row.auto_rescan_mode,
@@ -987,7 +983,7 @@ fn find_dir_changes(
             // 読めないだけでは消えたとは言えない (上のフォルダーの権限を落とした NAS など)。行を残す。
             Err(_) => continue,
         };
-        let now = super::fs::dir_modified_ns(&metadata);
+        let now = super::fs::modified_ns(&metadata);
         if now == *modified_ns {
             continue;
         }

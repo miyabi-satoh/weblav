@@ -27,7 +27,7 @@ use crate::state::AppState;
 use super::error_detail::ValidationDetail;
 use super::fs::{canonical_dir, inside_own_dirs, path_to_string};
 use super::local::LocalRequest;
-use super::operations::{FieldChange, Op, OpRecord, record_or_warn};
+use super::operations::{FieldChange, Op, OpRecord, record_or_warn, recorded_username};
 use super::shares::{AccessMap, ShareAccess};
 
 /// 登録済みの「共有」1件。
@@ -547,11 +547,8 @@ async fn update_root_access(
             if old == new {
                 continue;
             }
-            let username = sqlx::query_scalar!("SELECT username FROM users WHERE id = ?", user_id)
-                .fetch_optional(&state.pool)
+            let username = recorded_username(&state.pool, user_id)
                 .await
-                .ok()
-                .flatten()
                 .unwrap_or_default();
             fields.push(FieldChange::changed("userAccess", old, new).about(&username));
         }

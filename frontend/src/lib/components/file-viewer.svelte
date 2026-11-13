@@ -220,7 +220,7 @@
 							<span class="sr-only">
 								{fileViewer.previousIsImage
 									? m.image_viewer_previous_button()
-									: m.file_viewer_previous()}
+									: m.file_viewer_previous_button()}
 							</span>
 						</button>
 						<button
@@ -231,7 +231,9 @@
 						>
 							<ChevronRightIcon class="size-6" />
 							<span class="sr-only">
-								{fileViewer.nextIsImage ? m.image_viewer_next_button() : m.file_viewer_next()}
+								{fileViewer.nextIsImage
+									? m.image_viewer_next_button()
+									: m.file_viewer_next_button()}
 							</span>
 						</button>
 					{/if}

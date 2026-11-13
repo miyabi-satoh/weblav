@@ -49,8 +49,8 @@
 	type ContentEntry = components['schemas']['ContentResponse'];
 	type LinkEntry = Extract<ContentEntry, { type: 'link' }>;
 
-	// トップページ(`/`)・`/groups/[id]`・検索の結果で使う一覧。片方だけの改修で
-	// もう片方が古びるのを防ぐため、コンテンツ種別ごとの表示分岐をここに集約する。
+	// トップページ(`/`)・`/groups/[id]`・`/hidden`・検索の結果で使う一覧。どれか1つの画面だけの改修で
+	// ほかが古びるのを防ぐため、コンテンツ種別ごとの表示分岐をここに集約する。
 	let {
 		entries: allEntries,
 		subtitle = (content) => content.description,

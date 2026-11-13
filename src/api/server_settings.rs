@@ -18,6 +18,8 @@ use crate::config::{self, Config};
 use crate::error::{AppError, AppJson, run_blocking};
 use crate::state::AppState;
 
+use super::operations::{Op, OpRecord, changed_fields, record_or_warn};
+
 /// アップロードの上限の上限 (MiB)。100 GiB。桁を打ち間違えたときに気づけるよう、実用の範囲で止める。
 const MAX_UPLOAD_MAX_SIZE_MB: u64 = 100 * 1024;
 /// セッションの有効日数の上限。10年。
@@ -122,12 +124,11 @@ async fn update_server_settings(
         Ok::<_, AppError>((before, read_saved(&path)?))
     })
     .await??;
-    let fields = super::operations::changed_fields(&before, &saved);
+    let fields = changed_fields(&before, &saved);
     if !fields.is_empty() {
-        super::operations::record_or_warn(
+        record_or_warn(
             &state.pool,
-            &super::operations::OpRecord::new(super::operations::Op::UpdateServerSettings, &admin)
-                .fields(fields),
+            &OpRecord::new(Op::UpdateServerSettings, &admin).fields(fields),
         )
         .await;
     }

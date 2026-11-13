@@ -8,7 +8,13 @@
 import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { test, type APIRequestContext } from '@playwright/test';
-import { removeContentByApi, send, type Visibility } from './api-helpers';
+import {
+	createRootByApi,
+	removeContentByApi,
+	removeRootByApi,
+	send,
+	type Visibility
+} from './api-helpers';
 import { uniqueId } from './helpers';
 import { SERVER_IS_REMOTE } from './server-location';
 
@@ -75,6 +81,28 @@ export function removeFixtureTree(root: string): void {
 		rmSync(root, { recursive: true, force: true });
 	} catch (err) {
 		console.warn(`e2e のフィクスチャの後片付けに失敗しました (${root}):`, err);
+	}
+}
+
+/**
+ * 既定のフィクスチャの木 (2024/・2023/ の下に音声と PDF) を `name` に作って「共有」に登録し、`fn` に渡す。
+ * サーバーからパスが見えなければテストを飛ばす。登録と木は、途中で失敗しても片付ける。
+ * テストの中で登録を消していても、後片付けの削除が 404 になるだけでよい (→ `removeRootByApi`)。
+ */
+export async function withRootByApi<T>(
+	request: APIRequestContext,
+	name: string,
+	fn: (root: { id: number; name: string; path: string }) => Promise<T>
+): Promise<T> {
+	const root = createRootFixtureTree(name);
+	let id: number | null = null;
+	try {
+		id = await createRootByApi(request, root);
+		test.skip(id === null, FIXTURE_UNREACHABLE);
+		return await fn({ id: id!, name, path: root });
+	} finally {
+		if (id !== null) await removeRootByApi(request, id);
+		removeFixtureTree(root);
 	}
 }
 

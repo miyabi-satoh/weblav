@@ -30,6 +30,7 @@ import {
 	userRow,
 	waitForDialog
 } from '../e2e/helpers.ts';
+import { withQuery } from '../src/lib/href.ts';
 import { TEST_ADMIN, TEST_USER } from './test-account.ts';
 
 /** generate-spec.ts が作成したフィクスチャのid(→ 同ファイルの setupArchiveFixtures)。 */
@@ -79,8 +80,7 @@ async function login(page: Page, username: string, password: string) {
 /** 管理者でログインしてから画面を開き、共通の描画完了まで待つ。 */
 async function openAsAdmin(page: Page, baseURL: string, pathname: string | URL): Promise<void> {
 	await login(page, TEST_ADMIN.username, TEST_ADMIN.password);
-	await page.goto(new URL(pathname, baseURL).toString());
-	await waitForPageReady(page);
+	await gotoReady(page, new URL(pathname, baseURL).toString());
 }
 
 /**
@@ -106,6 +106,12 @@ async function logout(page: Page) {
 export async function waitForPageReady(page: Page): Promise<void> {
 	await page.getByRole('link', { name: 'WebLAV' }).waitFor({ timeout: 5000 });
 	await page.evaluate(() => document.fonts.ready);
+}
+
+/** 画面を開き、共通の描画完了まで待つ (→ `waitForPageReady`)。 */
+export async function gotoReady(page: Page, url: string): Promise<void> {
+	await page.goto(url);
+	await waitForPageReady(page);
 }
 
 /** フィクスチャの `写真` フォルダーを開き、行の縮小画像が読み込まれるまで待つ。 */
@@ -576,7 +582,7 @@ export const shots: Record<string, ShotEntry> = {
 	// 検索: 語で探した結果 (コンテンツとフォルダーの中の2区画)。
 	search: {
 		async run(page, ctx) {
-			await openAsAdmin(page, ctx.baseURL, `/search?q=${encodeURIComponent('リスニング')}`);
+			await openAsAdmin(page, ctx.baseURL, withQuery('/search', { q: 'リスニング' }));
 			await page.getByRole('heading', { level: 2 }).first().waitFor();
 			await page.screenshot({ path: ctx.outFile });
 		}

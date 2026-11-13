@@ -26,7 +26,7 @@ use utoipa_axum::routes;
 
 use super::error_detail::ValidationDetail;
 use super::file_filter::{FileFilter, normalize_patterns};
-use super::operations::{FieldChange, Op, OpRecord, record_or_warn};
+use super::operations::{FieldChange, Op, OpRecord, record_or_warn, recorded_username};
 use super::schedule::{AutoMode, AutoRefresh, parse_auto_refresh};
 use super::search::FieldKind;
 use super::sort::{SortOrder, SortQuery, title_cmp};
@@ -1730,19 +1730,14 @@ async fn set_creator(
     .fetch_one(&state.pool)
     .await?;
     if existing.created_by != Some(payload.created_by) {
-        let pool = &state.pool;
-        let username = |id: Option<i64>| async move {
-            let id = id?;
-            sqlx::query_scalar!("SELECT username FROM users WHERE id = ?", id)
-                .fetch_optional(pool)
-                .await
-                .ok()
-                .flatten()
+        let before = match existing.created_by {
+            Some(id) => recorded_username(&state.pool, id).await,
+            None => None,
         };
         let change = FieldChange::changed(
             "createdBy",
-            username(existing.created_by).await,
-            username(Some(payload.created_by)).await,
+            before,
+            recorded_username(&state.pool, payload.created_by).await,
         );
         record_or_warn(
             &state.pool,

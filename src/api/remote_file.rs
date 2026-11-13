@@ -4,16 +4,13 @@
 //! 誰でも任意の URL を取らせられる口にしないため。外へつなぐのは `link_title` の取得の口
 //! (公開アドレスにだけつなぐ) に任せる。
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-
 use axum::body::Body;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use tokio::sync::{Semaphore, SemaphorePermit};
-use tokio_util::io::{ReaderStream, SyncIoBridge};
+use tokio_util::io::ReaderStream;
 use utoipa::IntoParams;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -426,29 +423,17 @@ fn relay_response(
     // 閲覧の権限を確かめて流すものなので、共有のキャッシュには置かせない。
     headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("private"));
 
-    let (reader, writer) = tokio::io::duplex(RELAY_BUFFER_BYTES);
-    let finished = Arc::new(AtomicBool::new(false));
-    let finished_by_writer = Arc::clone(&finished);
     let mut body = upstream.into_body().into_reader();
-    tokio::task::spawn_blocking(move || {
-        // 受け取り終えるか、閲覧側が切るまで、中継の数に数える。
-        let _permit = permit;
-        let mut writer = SyncIoBridge::new(writer);
-        match std::io::copy(&mut body, &mut writer) {
-            // 終わった印を付けてから閉じる。読む側は閉じたのを見てから印を見る。
-            Ok(_) => {
-                finished_by_writer.store(true, Ordering::Release);
-                drop(writer);
-            }
-            // 閲覧側が途中で切った (動画の早送りで頼み直したときなど) 場合もここに来る。
-            Err(err) => tracing::debug!(%err, "stopped relaying a remote file"),
-        }
-    });
-
-    let reader = CompletedReader::new(
-        reader,
-        finished,
+    let reader = CompletedReader::spawn_writer(
+        RELAY_BUFFER_BYTES,
         "the remote file was not relayed completely",
+        move |mut writer| {
+            // 受け取り終えるか、閲覧側が切るまで、中継の数に数える。
+            let _permit = permit;
+            std::io::copy(&mut body, &mut writer).map(|_| writer)
+        },
+        // 閲覧側が途中で切った (動画の早送りで頼み直したときなど) 場合もここに来る。
+        |err| tracing::debug!(%err, "stopped relaying a remote file"),
     );
     Ok((
         status,

@@ -52,8 +52,7 @@ async fn stage_backup(app: Router, cookie: &str, zip: &[u8]) -> (StatusCode, Str
 }
 
 fn staged_id(body: &str) -> String {
-    serde_json::from_str::<serde_json::Value>(body).expect("レスポンスをJSONとして読めなかった")
-        ["id"]
+    parse_json(body)["id"]
         .as_str()
         .expect("idが返らなかった")
         .to_string()

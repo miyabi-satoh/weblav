@@ -43,14 +43,14 @@ use utoipa_axum::router::OpenApiRouter;
 use crate::error::{AppError, ErrorCode, ErrorResponse};
 use crate::state::AppState;
 
-/// `N` バイトの乱数を16進の文字列にする。トークンや作業用の名前に使う。
-/// 乱数を取れないのは OS 側の異常で、クライアント起因ではないため、呼び出し側では 5xx にする。
 pub(crate) use archive::spawn_auto_rescan;
 pub(crate) use operations::{
     on_startup as operations_on_startup, spawn_purge as spawn_operations_purge,
 };
 pub use shares::{ShareJobs, TrashPolicy};
 
+/// `N` バイトの乱数を16進の文字列にする。トークンや作業用の名前に使う。
+/// 乱数を取れないのは OS 側の異常で、クライアント起因ではないため、呼び出し側では 5xx にする。
 pub(crate) fn random_hex<const N: usize>() -> std::io::Result<String> {
     let mut bytes = [0u8; N];
     getrandom::fill(&mut bytes).map_err(std::io::Error::other)?;

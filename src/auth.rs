@@ -294,7 +294,7 @@ pub(crate) fn is_within(at: i64, ttl: Duration, now: i64) -> bool {
     (0..ttl.as_secs() as i64).contains(&(now - at))
 }
 
-/// 今の時刻 (UNIX 秒)。セッションに残す時刻に使う。
+/// 今の時刻 (UNIX 秒)。セッションに残す時刻や、期限・予定の判定に使う。
 pub(crate) fn unix_now() -> i64 {
     time::OffsetDateTime::now_utc().unix_timestamp()
 }
@@ -869,7 +869,7 @@ mod tests {
     }
 
     #[test]
-    fn recovery_code_normalization() {
+    fn recovery_code_is_normalized_and_rejects_invalid_input() {
         assert_eq!(
             normalize_recovery_code(" abcde-fghjk mnpqr-stvwo ").as_deref(),
             Some("ABCDEFGHJKMNPQRSTVW0")

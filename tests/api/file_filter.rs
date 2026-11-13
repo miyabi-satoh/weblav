@@ -3,16 +3,6 @@
 
 use super::*;
 
-/// 閲覧の一覧の、行の名前。
-fn browse_names(body: &str) -> Vec<String> {
-    parse_json(body)["entries"]
-        .as_array()
-        .expect("配列のはず")
-        .iter()
-        .filter_map(|entry| entry["name"].as_str().map(str::to_string))
-        .collect()
-}
-
 async fn set_patterns(pool: &SqlitePool, id: i64, include: Option<&str>, exclude: Option<&str>) {
     sqlx::query!(
         "UPDATE contents SET include_patterns = ?, exclude_patterns = ? WHERE id = ?",
@@ -41,9 +31,9 @@ async fn patterns_reach_the_folder_list_download_and_search(pool: SqlitePool) {
     let browse = format!("/api/v1/contents/{id}/browse?path=");
     let (status, body) = send_anon(app.clone(), "GET", &browse).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(browse_names(&body), ["notes", "a.pdf"], "{body}");
+    assert_eq!(entry_names(&body), ["notes", "a.pdf"], "{body}");
     let (_, body) = send_empty(app.clone(), "GET", &browse, &cookie).await;
-    assert_eq!(browse_names(&body), ["notes", "a.pdf"], "{body}");
+    assert_eq!(entry_names(&body), ["notes", "a.pdf"], "{body}");
     let (status, body) = send_anon(
         app.clone(),
         "GET",
@@ -51,7 +41,7 @@ async fn patterns_reach_the_folder_list_download_and_search(pool: SqlitePool) {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert!(browse_names(&body).is_empty(), "{body}");
+    assert!(entry_names(&body).is_empty(), "{body}");
 
     let download = |path: &str| format!("/api/v1/contents/{id}/download?path={path}");
     let (status, _) = send_anon(app.clone(), "GET", &download("a.pdf")).await;
@@ -117,7 +107,7 @@ async fn excluded_folder_is_left_out_and_invalid_patterns_are_rejected(pool: Sql
 
     let browse = format!("/api/v1/contents/{id}/browse?path=");
     let (_, body) = send_empty(app.clone(), "GET", &browse, &cookie).await;
-    assert_eq!(browse_names(&body), ["b.txt"], "{body}");
+    assert_eq!(entry_names(&body), ["b.txt"], "{body}");
     let (status, _) = send_anon(
         app.clone(),
         "GET",
@@ -129,7 +119,7 @@ async fn excluded_folder_is_left_out_and_invalid_patterns_are_rejected(pool: Sql
     set_patterns(&pool, id, None, Some("*")).await;
     let (status, body) = send_anon(app, "GET", &browse).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert!(browse_names(&body).is_empty(), "{body}");
+    assert!(entry_names(&body).is_empty(), "{body}");
 }
 
 /// ライブラリでは、パターンを変えると再スキャンを待たずに、一覧・配信・検索に効く。

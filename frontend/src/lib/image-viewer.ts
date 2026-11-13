@@ -213,7 +213,7 @@ export async function openImageViewer(
 			ui.registerElement({
 				name,
 				className: `pswp__button--arrow pswp__button--leave pswp__button--arrow--${forward ? 'next' : 'prev'}`,
-				title: forward ? m.file_viewer_next() : m.file_viewer_previous(),
+				title: forward ? m.file_viewer_next_button() : m.file_viewer_previous_button(),
 				isButton: true,
 				appendTo: 'wrapper',
 				html: icon('<path d="m15 18-6-6 6-6"/>', { ...ARROW, outlined: true }),

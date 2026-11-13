@@ -339,18 +339,7 @@ async fn folder_browse_accepts_sort_query(pool: SqlitePool) {
     async fn names(app: Router, uri: &str, cookie: &str) -> Vec<String> {
         let (status, body) = send_empty(app, "GET", uri, cookie).await;
         assert_eq!(status, StatusCode::OK);
-        let json: serde_json::Value = serde_json::from_str(&body).expect("JSONとして読めなかった");
-        json["entries"]
-            .as_array()
-            .expect("entriesが配列でなかった")
-            .iter()
-            .map(|entry| {
-                entry["name"]
-                    .as_str()
-                    .expect("nameが文字列でなかった")
-                    .to_string()
-            })
-            .collect()
+        entry_names(&body)
     }
 
     let uri = format!("/api/v1/contents/{content_id}/browse");

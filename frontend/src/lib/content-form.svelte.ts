@@ -8,6 +8,7 @@
  * `contentFormVisibilityNote` に一覧を渡し、画面側の `$derived` で呼ぶ。
  */
 import { client } from '$lib/api/client';
+import { fetchOrNull } from '$lib/api/load';
 import type { components } from '$lib/api/schema';
 import { visibilityLabel } from '$lib/content-labels';
 import { isPathContentType } from '$lib/content-types';
@@ -37,14 +38,7 @@ export type ContentFormPart = 'common' | 'specific';
 
 /** `POST /contents/link-metadata` を呼ぶ。取れない・通信に失敗したら `null`。 */
 async function fetchLinkMetadata(url: string): Promise<LinkMetadataResponse | null> {
-	try {
-		const { data, response } = await client.POST('/api/v1/contents/link-metadata', {
-			body: { url }
-		});
-		return response.ok && data ? data : null;
-	} catch {
-		return null;
-	}
+	return fetchOrNull(client.POST('/api/v1/contents/link-metadata', { body: { url } }));
 }
 
 /** 開いた時点との比較に使う値。 */

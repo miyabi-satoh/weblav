@@ -137,9 +137,9 @@
 		>
 			<BrowseSelectTrigger
 				label={m.admin_operations_filter_category_label()}
-				value={categoryValue === ALL
+				value={data.filters.category === undefined
 					? m.common_filter_all()
-					: opCategoryLabel(data.filters.category ?? 'auth')}
+					: opCategoryLabel(data.filters.category)}
 				highlighted={categoryValue !== ALL}
 			/>
 			<Select.Content>
@@ -208,7 +208,7 @@
 				<Table.Header>
 					<Table.Row>
 						<Table.Head class={fitColumnClass}>{m.admin_operations_table_datetime()}</Table.Head>
-						<Table.Head class={fitColumnClass}>{m.admin_operations_filter_user_label()}</Table.Head>
+						<Table.Head class={fitColumnClass}>{m.admin_operations_table_user()}</Table.Head>
 						<Table.Head class={fitColumnClass}>{m.admin_operations_table_operation()}</Table.Head>
 						<Table.Head>{m.admin_operations_table_target()}</Table.Head>
 					</Table.Row>

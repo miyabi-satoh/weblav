@@ -18,8 +18,7 @@ async fn axis_crud_round_trip_as_admin(pool: SqlitePool) {
     )
     .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
-    let axis: serde_json::Value =
-        serde_json::from_str(&body).expect("軸の作成レスポンスを読めなかった");
+    let axis = parse_json(&body);
     assert_eq!(axis["name"], "科目", "{body}");
     assert_eq!(axis["source"], "dirLevel", "{body}");
     assert_eq!(axis["dirLevel"], 1, "{body}");
@@ -56,8 +55,7 @@ async fn axis_crud_round_trip_as_admin(pool: SqlitePool) {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let updated: serde_json::Value =
-        serde_json::from_str(&body).expect("軸の更新レスポンスを読めなかった");
+    let updated = parse_json(&body);
     assert_eq!(updated["name"], "教科", "{body}");
     assert_eq!(updated["filterable"], false, "{body}");
     assert_eq!(updated["position"], 1, "{body}");
@@ -489,7 +487,7 @@ async fn axis_values_dir_level_merges_dictionary_with_current_items(pool: Sqlite
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let values: serde_json::Value = serde_json::from_str(&body).expect("値の辞書を読めなかった");
+    let values = parse_json(&body);
     assert_eq!(
         values,
         serde_json::json!([
@@ -519,7 +517,7 @@ async fn axis_optional_in_title_round_trip(pool: SqlitePool) {
     )
     .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
-    let axis: serde_json::Value = serde_json::from_str(&body).expect("軸を読めなかった");
+    let axis = parse_json(&body);
     assert_eq!(axis["optionalInTitle"], false);
 
     let axis_id = create_axis(
@@ -542,7 +540,7 @@ async fn axis_optional_in_title_round_trip(pool: SqlitePool) {
 
     let (status, body) = send_empty(app, "GET", &axes_url, &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let axes: serde_json::Value = serde_json::from_str(&body).expect("軸の一覧を読めなかった");
+    let axes = parse_json(&body);
     assert_eq!(axes[1]["name"], "課程");
     assert_eq!(axes[1]["optionalInTitle"], true);
 }
@@ -698,7 +696,7 @@ async fn axis_values_dir_level_orders_dictionary_by_position_then_raw_values(poo
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let values: serde_json::Value = serde_json::from_str(&body).expect("値の辞書を読めなかった");
+    let values = parse_json(&body);
     assert_eq!(
         values,
         serde_json::json!([
@@ -737,7 +735,7 @@ async fn axis_values_filename_word_returns_dictionary_only(pool: SqlitePool) {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let values: serde_json::Value = serde_json::from_str(&body).expect("値の辞書を読めなかった");
+    let values = parse_json(&body);
     assert_eq!(
         values,
         serde_json::json!([
@@ -755,7 +753,7 @@ async fn axis_values_filename_word_returns_dictionary_only(pool: SqlitePool) {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let values: serde_json::Value = serde_json::from_str(&body).expect("値の辞書を読めなかった");
+    let values = parse_json(&body);
     assert_eq!(
         values.as_array().expect("配列でなかった").len(),
         2,

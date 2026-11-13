@@ -100,16 +100,17 @@ export async function removeRootByApi(request: APIRequestContext, id: number): P
 	await removeByApi(request, `/admin/roots/${id}`, '共有');
 }
 
-/** 編集者 (`user`) を作り、id を返す。呼べるのは admin のログイン状態だけ。 */
-async function createUserByApi(
+/** ユーザーを作り、id を返す。`role` の既定は編集者 (`user`)。呼べるのは admin のログイン状態だけ。 */
+export async function createUserByApi(
 	request: APIRequestContext,
 	username: string,
-	password: string
+	password: string,
+	role: 'admin' | 'user' = 'user'
 ): Promise<number> {
 	const user = (await send(request, 'post', '/admin/users', {
 		username,
 		password,
-		role: 'user'
+		role
 	})) as { id: number };
 	return user.id;
 }
