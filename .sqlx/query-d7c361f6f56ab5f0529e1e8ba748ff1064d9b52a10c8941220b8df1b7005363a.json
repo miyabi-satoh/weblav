@@ -6,12 +6,24 @@
       {
         "name": "path",
         "ordinal": 0,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "folder_bookmarks",
+            "name": "path"
+          }
+        }
       },
       {
         "name": "bookmark",
         "ordinal": 1,
-        "type_info": "Blob"
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "folder_bookmarks",
+            "name": "bookmark"
+          }
+        }
       }
     ],
     "parameters": {

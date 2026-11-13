@@ -6,112 +6,244 @@
       {
         "name": "id!",
         "ordinal": 0,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "id"
+          }
+        }
       },
       {
         "name": "at",
         "ordinal": 1,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "at"
+          }
+        }
       },
       {
         "name": "category: OpCategory",
         "ordinal": 2,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "category"
+          }
+        }
       },
       {
         "name": "user_id",
         "ordinal": 3,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "user_id"
+          }
+        }
       },
       {
         "name": "username",
         "ordinal": 4,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "username"
+          }
+        }
       },
       {
         "name": "client_ip",
         "ordinal": 5,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "client_ip"
+          }
+        }
       },
       {
         "name": "op: Op",
         "ordinal": 6,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "op"
+          }
+        }
       },
       {
         "name": "target_id",
         "ordinal": 7,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "target_id"
+          }
+        }
       },
       {
         "name": "target_name",
         "ordinal": 8,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "target_name"
+          }
+        }
       },
       {
         "name": "target_renamed_to",
         "ordinal": 9,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "target_renamed_to"
+          }
+        }
       },
       {
         "name": "target_part",
         "ordinal": 10,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "target_part"
+          }
+        }
       },
       {
         "name": "fields",
         "ordinal": 11,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "fields"
+          }
+        }
       },
       {
         "name": "root_id",
         "ordinal": 12,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "root_id"
+          }
+        }
       },
       {
         "name": "root_name",
         "ordinal": 13,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "root_name"
+          }
+        }
       },
       {
         "name": "paths",
         "ordinal": 14,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "paths"
+          }
+        }
       },
       {
         "name": "dest_root_id",
         "ordinal": 15,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "dest_root_id"
+          }
+        }
       },
       {
         "name": "dest_root_name",
         "ordinal": 16,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "dest_root_name"
+          }
+        }
       },
       {
         "name": "dest_path",
         "ordinal": 17,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "dest_path"
+          }
+        }
       },
       {
         "name": "item_count",
         "ordinal": 18,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "item_count"
+          }
+        }
       },
       {
         "name": "byte_count",
         "ordinal": 19,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "byte_count"
+          }
+        }
       },
       {
         "name": "result: OpResult",
         "ordinal": 20,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "result"
+          }
+        }
       },
       {
         "name": "error",
         "ordinal": 21,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "operations",
+            "name": "error"
+          }
+        }
       }
     ],
     "parameters": {

@@ -6,54 +6,108 @@
       {
         "name": "id!",
         "ordinal": 0,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "archive_items",
+            "name": "id"
+          }
+        }
       },
       {
         "name": "rel_path",
         "ordinal": 1,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "archive_items",
+            "name": "rel_path"
+          }
+        }
       },
       {
         "name": "created_at!",
         "ordinal": 2,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "archive_items",
+            "name": "created_at"
+          }
+        }
       },
       {
         "name": "file_size",
         "ordinal": 3,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "archive_items",
+            "name": "file_size"
+          }
+        }
       },
       {
         "name": "modified_ns",
         "ordinal": 4,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "archive_items",
+            "name": "modified_ns"
+          }
+        }
       },
       {
         "name": "image_width",
         "ordinal": 5,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "archive_items",
+            "name": "image_width"
+          }
+        }
       },
       {
         "name": "image_height",
         "ordinal": 6,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "archive_items",
+            "name": "image_height"
+          }
+        }
       },
       {
         "name": "is_text: bool",
         "ordinal": 7,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "archive_items",
+            "name": "is_text"
+          }
+        }
       },
       {
         "name": "taken_at",
         "ordinal": 8,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "archive_items",
+            "name": "taken_at"
+          }
+        }
       }
     ],
     "parameters": {
       "Right": 1
     },
     "nullable": [
-      true,
+      false,
       false,
       false,
       true,

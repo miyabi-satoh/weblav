@@ -47,6 +47,7 @@ const EXTRA_PACKAGES = [
 // - `\0rolldown/runtime.js`: モジュールの読み込みの手伝い。Vite が使う Rolldown 本体のコード。
 // - `\0virtual:pdfjs-assets`: PDF.js から写したファイルの置き場 (pdfjs-assets.ts)。写した中身は pdfjs-dist のもの。
 // ID は完全に一致したものだけを通す。前方一致にすると、同じ道具の知らないモジュールまで確かめずに通ってしまう。
+// 例外は下の VIRTUAL_MODULE_PREFIXES。
 const VIRTUAL_MODULES: Record<string, (root: string) => string> = {
 	'\0vite/preload-helper.js': (root) => viteDir(root),
 	// Vite が読み込む Rolldown を、Vite の場所から Node の解決で探す (pnpm でも、npm が入れ子に置いても見つかる)。
@@ -55,6 +56,16 @@ const VIRTUAL_MODULES: Record<string, (root: string) => string> = {
 	'\0virtual:pdfjs-assets': (root) =>
 		dirname(createRequire(join(root, 'package.json')).resolve('pdfjs-dist/package.json'))
 };
+
+// 頭の一致で通す仮想モジュール。ID に文言ごとの名前やハッシュが入り、完全な一致では書けないもの。
+// - `\0virtual:paraglide/<ハッシュ>/`: Paraglide がコンパイルした文言のモジュール。中身は Paraglide のコンパイラが書いたコード。
+const VIRTUAL_MODULE_PREFIXES: [string, (root: string) => string][] = [
+	[
+		'\0virtual:paraglide/',
+		// package.json を書き出していないので Node の解決では引けない。EXTRA_PACKAGES と同じく置き場で引く。
+		(root) => resolve(root, 'node_modules', '@inlang/paraglide-js')
+	]
+];
 
 // 本文の中で、配る物に入らない部分が始まる印。そこから後ろは表示しない。
 // - Vite の `LICENSE.md` は、Vite 本体の条文の後に、Vite 自身が同梱する依存の条文を2千行ほど続けている。
@@ -126,10 +137,12 @@ export function thirdPartyLicenses(): Plugin {
 						: output.originalFileNames.map((name) => resolve(this.environment.config.root, name));
 				for (const source of sources) {
 					if (source.startsWith('\0')) {
-						const packageOf = VIRTUAL_MODULES[source];
+						const packageOf =
+							VIRTUAL_MODULES[source] ??
+							VIRTUAL_MODULE_PREFIXES.find(([prefix]) => source.startsWith(prefix))?.[1];
 						if (packageOf === undefined) {
 							this.error(
-								`仮想モジュール ${source.slice(1)} のパッケージが分からない (VIRTUAL_MODULES に足す)`
+								`仮想モジュール ${source.slice(1)} のパッケージが分からない (VIRTUAL_MODULES か VIRTUAL_MODULE_PREFIXES に足す)`
 							);
 						}
 						const dir = packageOf(this.environment.config.root);

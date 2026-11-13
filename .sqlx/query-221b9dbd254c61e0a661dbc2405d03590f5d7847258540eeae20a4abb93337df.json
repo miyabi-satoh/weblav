@@ -6,12 +6,24 @@
       {
         "name": "site_name!",
         "ordinal": 0,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "site_settings",
+            "name": "site_name"
+          }
+        }
       },
       {
         "name": "home_heading!",
         "ordinal": 1,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "site_settings",
+            "name": "home_heading"
+          }
+        }
       }
     ],
     "parameters": {

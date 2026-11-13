@@ -6,12 +6,24 @@
       {
         "name": "include_patterns",
         "ordinal": 0,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "include_patterns"
+          }
+        }
       },
       {
         "name": "exclude_patterns",
         "ordinal": 1,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "exclude_patterns"
+          }
+        }
       }
     ],
     "parameters": {

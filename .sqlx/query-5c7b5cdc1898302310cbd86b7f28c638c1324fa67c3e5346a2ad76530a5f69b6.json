@@ -6,7 +6,13 @@
       {
         "name": "list_view: bool",
         "ordinal": 0,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "list_view"
+          }
+        }
       }
     ],
     "parameters": {

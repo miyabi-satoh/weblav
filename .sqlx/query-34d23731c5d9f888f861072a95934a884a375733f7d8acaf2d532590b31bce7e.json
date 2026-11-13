@@ -6,44 +6,86 @@
       {
         "name": "id!",
         "ordinal": 0,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "archive_axes",
+            "name": "id"
+          }
+        }
       },
       {
         "name": "name",
         "ordinal": 1,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "archive_axes",
+            "name": "name"
+          }
+        }
       },
       {
         "name": "source: AxisSource",
         "ordinal": 2,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "archive_axes",
+            "name": "source"
+          }
+        }
       },
       {
         "name": "dir_level",
         "ordinal": 3,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "archive_axes",
+            "name": "dir_level"
+          }
+        }
       },
       {
         "name": "optional_in_title: bool",
         "ordinal": 4,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "archive_axes",
+            "name": "optional_in_title"
+          }
+        }
       },
       {
         "name": "filterable: bool",
         "ordinal": 5,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "archive_axes",
+            "name": "filterable"
+          }
+        }
       },
       {
         "name": "position",
         "ordinal": 6,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "archive_axes",
+            "name": "position"
+          }
+        }
       }
     ],
     "parameters": {
       "Right": 1
     },
     "nullable": [
-      true,
+      false,
       false,
       false,
       true,

@@ -6,12 +6,24 @@
       {
         "name": "index_version",
         "ordinal": 0,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "archive_versions",
+            "name": "index_version"
+          }
+        }
       },
       {
         "name": "filter_version",
         "ordinal": 1,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "archive_versions",
+            "name": "filter_version"
+          }
+        }
       }
     ],
     "parameters": {

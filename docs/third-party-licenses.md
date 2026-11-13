@@ -26,7 +26,7 @@
     `about.toml` の `accepted` に無いライセンスの依存が入ると生成が止まるので、そこで気づける。
   - **画面 (npm) は Vite プラグイン** (`frontend/scripts/third-party-licenses.ts`) が、ビルドのたびに `build/third-party-licenses/npm.json` を出す。
     `package.json` の依存ではなく、実際に chunk とアセットに入ったパッケージだけを数える。lint やテストの道具を表示に混ぜないため。
-    Vite・Rolldown がバンドルに差し込む仮想モジュール (ID が `\0` で始まる) は `VIRTUAL_MODULES` で持ち主のパッケージに結び付け、知らないものが入ったら止める。
+    Vite・Rolldown がバンドルに差し込む仮想モジュール (ID が `\0` で始まる) は `VIRTUAL_MODULES` で持ち主のパッケージに結び付け、知らないものが入ったら止める。ID に文言ごとの名前やハッシュが入るもの (Paraglide がコンパイルした文言) だけは、`VIRTUAL_MODULE_PREFIXES` で頭の一致で結び付ける。
     chunk から辿れないものは `EXTRA_PACKAGES` に明示して足す。Paraglide の生成物は `src/lib/paraglide` に出て node_modules の外になり、
     CSS の `@import` (Tailwind ほか) は `@tailwindcss/vite` が展開するのでモジュールにもアセットにも現れないため。
     ライセンスの id が `ACCEPTED` に無ければビルドを止める (Rust 側の `about.toml` の `accepted` と同じ役目)。

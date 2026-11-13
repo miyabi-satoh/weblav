@@ -6,14 +6,20 @@
       {
         "name": "id!",
         "ordinal": 0,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "roots",
+            "name": "id"
+          }
+        }
       }
     ],
     "parameters": {
       "Right": 1
     },
     "nullable": [
-      true
+      false
     ]
   },
   "hash": "8d859787f202291a8e22386bf4a86a5e441e7e7275f90a895a81e6b1793fec07"

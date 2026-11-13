@@ -295,6 +295,8 @@ pub(super) fn folder_path(path: Option<String>) -> Result<String, AppError> {
     path.ok_or(AppError::DataIntegrity("folder content without a path"))
 }
 
+/// FIX: `INSERT`・`UPDATE` の `RETURNING` では、`parent_id`・`created_by` を `"…?"` で NULL になりうると明示する。
+/// sqlx 0.9 は、その文で代入する列を NULL にならないと見立て、代入した NULL を 0 として読むため (→ AGENTS.md「DB 操作」)。
 struct ContentRow {
     id: i64,
     content_type: ContentType,
@@ -1288,9 +1290,9 @@ async fn insert_content(
         r#"INSERT INTO contents (type, parent_id, title, url, path, description,
                                   visibility, created_by)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-           RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
+           RETURNING id as "id!", type as "content_type: ContentType", parent_id as "parent_id?", title, url,
                      path, description, created_at as "created_at!",
-                     visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
+                     visibility as "visibility: Visibility", created_by as "created_by?", include_patterns, exclude_patterns, title_template,
                      list_view as "list_view: bool",
                      auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         content_type,
@@ -1517,9 +1519,9 @@ async fn update_content(
                auto_rescan_mode = ?, auto_rescan_hours = ?, auto_rescan_time = ?,
                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
            WHERE id = ?
-           RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
+           RETURNING id as "id!", type as "content_type: ContentType", parent_id as "parent_id?", title, url,
                      path, description, created_at as "created_at!",
-                     visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
+                     visibility as "visibility: Visibility", created_by as "created_by?", include_patterns, exclude_patterns, title_template,
                      list_view as "list_view: bool",
                      auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         parent_id,
@@ -1719,9 +1721,9 @@ async fn set_creator(
         r#"UPDATE contents
            SET created_by = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
            WHERE id = ?
-           RETURNING id as "id!", type as "content_type: ContentType", parent_id, title, url,
+           RETURNING id as "id!", type as "content_type: ContentType", parent_id as "parent_id?", title, url,
                      path, description, created_at as "created_at!",
-                     visibility as "visibility: Visibility", created_by, include_patterns, exclude_patterns, title_template,
+                     visibility as "visibility: Visibility", created_by as "created_by?", include_patterns, exclude_patterns, title_template,
                      list_view as "list_view: bool",
                      auto_rescan_mode as "auto_rescan_mode: AutoMode", auto_rescan_hours, auto_rescan_time"#,
         payload.created_by,

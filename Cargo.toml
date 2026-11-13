@@ -49,14 +49,14 @@ kamadak-exif = "0.6.1"
 mime_guess = "2.0.5"
 open = "5.4.3"
 percent-encoding = "2.3.2"
-rfd = "0.17.2"
+rfd = "0.18.0"
 rpassword = "7.5.4"
 rust-embed = "8.12.0"
 serde = { version = "1.0.229", features = ["derive"] }
 # バックアップの zip に入れる目録 (→ src/api/backup)。axum が既に引いている。
 serde_json = "1.0.151"
 sha2 = "0.11.0"
-sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "macros", "migrate"] }
+sqlx = { version = "0.9", features = ["runtime-tokio", "sqlite", "macros", "migrate"] }
 tao = "0.37.0"
 thiserror = "2.0.20"
 time = { version = "0.3.55", features = ["formatting", "macros", "parsing"] }
@@ -70,11 +70,11 @@ tower = { version = "0.5.3", features = ["util"] }
 # 共有の中のものを消すとき、OS のごみ箱へ送る (→ src/api/shares/fsops.rs)。
 trash = "5.2.9"
 tower-http = { version = "0.7.1", features = ["compression-gzip", "fs", "set-header", "trace"] }
-tower-sessions = { version = "0.14", default-features = false, features = [
+tower-sessions = { version = "0.15", default-features = false, features = [
     "axum-core",
     "signed",
 ] }
-tower-sessions-sqlx-store = { version = "0.15.0", features = ["sqlite"] }
+tower-sessions-sqlx-store = { version = "0.16.0", features = ["sqlite"] }
 tracing = "0.1.44"
 tracing-appender = "0.2.5"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }

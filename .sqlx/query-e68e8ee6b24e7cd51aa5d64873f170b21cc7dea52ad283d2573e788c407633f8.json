@@ -6,27 +6,57 @@
       {
         "name": "path",
         "ordinal": 0,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "path"
+          }
+        }
       },
       {
         "name": "visibility: Visibility",
         "ordinal": 1,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "visibility"
+          }
+        }
       },
       {
         "name": "created_by",
         "ordinal": 2,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "created_by"
+          }
+        }
       },
       {
         "name": "list_view: bool",
         "ordinal": 3,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "list_view"
+          }
+        }
       },
       {
         "name": "last_scanned_at",
         "ordinal": 4,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "last_scanned_at"
+          }
+        }
       }
     ],
     "parameters": {

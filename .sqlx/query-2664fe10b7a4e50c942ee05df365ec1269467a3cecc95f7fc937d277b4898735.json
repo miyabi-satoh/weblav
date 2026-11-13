@@ -6,12 +6,24 @@
       {
         "name": "path",
         "ordinal": 0,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "roots",
+            "name": "path"
+          }
+        }
       },
       {
         "name": "name",
         "ordinal": 1,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "roots",
+            "name": "name"
+          }
+        }
       }
     ],
     "parameters": {
