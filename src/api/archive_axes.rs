@@ -76,9 +76,10 @@ fn validate_axis_name(name: &str) -> Result<String, AppError> {
         });
     }
     // `sort` は並び順のクエリキーで予約している (→ docs/archive.md「エンドポイント一覧」, docs/ui.md「ホーム・グループ・フォルダー・アーカイブの並び順」)。
-    // 画面の URL は軸の名前をそのままクエリのキーにする (`?科目=国語`) ので、並び順 (`sort`) と名前の語 (`filter`)
-    // と同じ名前の軸は、画面がそのキーを軸として読めず絞り込めない (→ docs/ui.md「一覧の絞り込み」)。
-    if name == "sort" || name == "filter" {
+    // 画面の URL は軸の名前をそのままクエリのキーにする (`?科目=国語`) ので、並び順 (`sort`)・名前の語 (`filter`)・
+    // 開いているプレビュー (`preview`) と同じ名前の軸は、画面がそのキーを軸として読めず絞り込めない
+    // (→ docs/ui.md「一覧の絞り込み」「PDF・動画・テキストのビューアー」)。
+    if matches!(name.as_str(), "sort" | "filter" | "preview") {
         return Err(AppError::ValidationDetailed {
             message: format!("axis name '{name}' is reserved"),
             detail: ValidationDetail::AxisNameReserved { name },
@@ -1235,7 +1236,7 @@ mod tests {
     fn validate_axis_name_rejects_names_unusable_as_placeholders() {
         assert_eq!(validate_axis_name(" 科目 ").expect("通るはず"), "科目");
         for name in [
-            "", "  ", "{科目}", "科{目", "科目}", "fileName", "sort", "filter",
+            "", "  ", "{科目}", "科{目", "科目}", "fileName", "sort", "filter", "preview",
         ] {
             assert!(is_validation(&validate_axis_name(name)), "{name:?}");
         }

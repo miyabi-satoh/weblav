@@ -21,7 +21,8 @@
 	import type { Track } from '$lib/now-playing.svelte';
 	import type { ViewerImage } from '$lib/image-viewer';
 	import { linkDetailOf, opensLinkDetail } from '$lib/link-detail.svelte';
-	import { viewerItems } from '$lib/viewer-items';
+	import { findViewerItem, viewerItems } from '$lib/viewer-items';
+	import { providePreviewSource } from '$lib/preview-url.svelte';
 	import { browseLayout } from '$lib/browse-layout.svelte';
 	import { videoEmbedUrl } from '$lib/video-embed';
 	import {
@@ -145,7 +146,11 @@
 		};
 	}
 
-	let viewerList = $derived(viewerItems(entries, toViewerImage, toViewerFile));
+	// URL の `preview` には、コンテンツの番号を持つ (→ $lib/preview-url.svelte.ts)。
+	let viewerList = $derived(
+		viewerItems(entries, toViewerImage, toViewerFile, (content) => String(content.id))
+	);
+	providePreviewSource((key) => findViewerItem(viewerList, key));
 
 	/**
 	 * 動画サイトの動画を指す link コンテンツなら、ビューアーに渡す形 (→ docs/ui.md「動画サイトの埋め込み」)。

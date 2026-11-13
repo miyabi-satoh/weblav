@@ -45,6 +45,8 @@
 	import type { Track, TrackSource } from '$lib/now-playing.svelte';
 	import type { ViewerImage } from '$lib/image-viewer';
 	import { viewerItems, type ViewerItem } from '$lib/viewer-items';
+	import { archivePreviewKey, parseArchivePreviewKey } from '$lib/preview-query';
+	import { providePreviewSource } from '$lib/preview-url.svelte';
 	import { ARCHIVE_CHUNK_SIZE, type ArchivePagedList } from '$lib/archive-paged-list.svelte';
 	import { WindowVirtualizer, type WindowVirtualizerHandle } from 'virtua/svelte';
 	import {
@@ -148,21 +150,6 @@
 	function rowAt(index: number): ArchiveViewRow<T> | null | undefined {
 		const item = list.get(index);
 		return item ? { archiveId, item } : item;
-	}
-
-	/** `index` 行目の周りの、手元にある行 (消えた・絞り込みで外れた行を除く)。 */
-	function loadedRowsAround(index: number): ArchiveViewRow<T>[] {
-		const [start, end] = list.loadedRange(index);
-		return rowsBetween(start, end);
-	}
-
-	function rowsBetween(start: number, end: number): ArchiveViewRow<T>[] {
-		const rows: ArchiveViewRow<T>[] = [];
-		for (let i = start; i < end; i++) {
-			const row = rowAt(i);
-			if (row) rows.push(row);
-		}
-		return rows;
 	}
 
 	function downloadHref(row: ArchiveViewRow<T>): string {
@@ -289,8 +276,33 @@
 			list.ensureLoaded(index - ARCHIVE_CHUNK_SIZE),
 			list.ensureLoaded(index + ARCHIVE_CHUNK_SIZE)
 		]);
-		return viewerItems(loadedRowsAround(index), toViewerImage, toViewerFile);
+		// 手元にある行 (消えた・絞り込みで外れた行を除く) から作る。URL の `preview` に持つ key は位置を含むので、位置と一緒に渡す。
+		const [start, end] = list.loadedRange(index);
+		const rows: { row: ArchiveViewRow<T>; index: number }[] = [];
+		for (let i = start; i < end; i++) {
+			const row = rowAt(i);
+			if (row) rows.push({ row, index: i });
+		}
+		return viewerItems(
+			rows,
+			(entry) => toViewerImage(entry.row),
+			(entry) => toViewerFile(entry.row),
+			(entry) => archivePreviewKey(entry.index, entry.row.item.id)
+		);
 	}
+
+	// 読み込み直したときは、key の位置の区切りを取ってから探す。位置がずれていても (前にファイルが増えたなど)、
+	// 取った前後の区切りにあれば、ファイルの番号で見つける。見つけた行までスクロールし、閉じたときに一覧のその辺りが見えるようにする。
+	providePreviewSource(async (key) => {
+		const target = parseArchivePreviewKey(key);
+		if (!target || list.total === 0) return undefined;
+		const items = await viewerListAround(Math.min(target.index, list.total - 1));
+		const keys = items.map((item) => parseArchivePreviewKey(item.key ?? ''));
+		const index = keys.findIndex((found) => found?.itemId === target.itemId);
+		if (index < 0) return undefined;
+		void scrollToIndex(keys[index]?.index ?? 0);
+		return { items, index };
+	});
 
 	/** 画像の行なら、ビューアーに渡す形。大きさが分からない (読めない) 画像は普通のファイルの行にする。 */
 	function toViewerImage(row: ArchiveViewRow<T>): ViewerImage | undefined {

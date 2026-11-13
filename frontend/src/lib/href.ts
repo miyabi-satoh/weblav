@@ -16,3 +16,8 @@ export function withQuery(base: string, params: Record<string, string>): string 
 	const query = new URLSearchParams(params).toString();
 	return query === '' ? base : `${base}?${query}`;
 }
+
+/** `location.search` の形のクエリを、`withQuery` に渡せる形にする。同じキーが2つあれば後のもの。 */
+export function queryParams(search: string): Record<string, string> {
+	return Object.fromEntries(new URLSearchParams(search));
+}

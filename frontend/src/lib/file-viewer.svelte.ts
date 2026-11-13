@@ -5,6 +5,7 @@
 
 import type { ContentLocation } from '$lib/content-location';
 import type { ViewerFileKind } from '$lib/file-kind';
+import { previewShown } from '$lib/preview-url.svelte';
 import type { ViewerItem } from '$lib/viewer-items';
 
 export type ViewerFile = {
@@ -73,6 +74,7 @@ export const fileViewer = {
 		index = at;
 		leave = onLeave;
 		open = true;
+		previewShown(list[at].key ?? null);
 	},
 	/** 前後のボタンの読み上げを、行き先の種類に合わせる (画像のビューアーの端の矢印と同じ)。 */
 	get previousIsImage() {
@@ -103,6 +105,7 @@ function move(target: number) {
 	if (handoff) return;
 	if (items[target].type === 'file') {
 		index = target;
+		previewShown(items[target].key ?? null);
 		return;
 	}
 	const controller = new AbortController();

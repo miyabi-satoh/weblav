@@ -202,6 +202,14 @@
 		return withQuery(resolve('/folders/[id]', { id: String(row.source.id) }), { path: row.path });
 	}
 
+	/**
+	 * URL の `preview` に持つ、ファイルの行の見分け (→ $lib/preview-url.svelte.ts)。いくつものフォルダーの行が並ぶので、
+	 * フォルダーの番号を前に付ける。`/` を含むので、コンテンツの行 (番号) とも重ならない。
+	 */
+	function filePreviewKey(row: FolderEntryRow): string {
+		return `${row.source.id}/${row.path}`;
+	}
+
 	function folderLinksHref(row: FolderEntryRow): string {
 		return linksFileHref(row.source.id, { path: row.path });
 	}
@@ -355,7 +363,12 @@
 		{#if fileRows.length > 0}
 			<section class={contentHits.length > 0 ? 'mt-8' : undefined}>
 				{@render sectionHeading(m.search_files_heading(), fileRows.length, result.filesTruncated)}
-				<FolderEntryList rows={fileRows} dirHref={folderHref} linksHref={folderLinksHref} />
+				<FolderEntryList
+					rows={fileRows}
+					dirHref={folderHref}
+					linksHref={folderLinksHref}
+					previewKey={filePreviewKey}
+				/>
 				{#if result.filesTruncated}
 					{@render truncatedNote(fileRows.length)}
 				{/if}

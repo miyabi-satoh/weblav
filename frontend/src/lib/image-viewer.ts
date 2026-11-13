@@ -86,7 +86,19 @@ export type OpenImageViewerOptions = {
 	beforeOpen?: () => void;
 	/** 画像の並びの端から、隣のファイル (`items[target]`) へ移るときに呼ぶ。呼んだ後、このビューアーはすぐに消える。 */
 	onLeave: (target: number) => void;
+	/** `items[index]` を見せ始めた (開いた・前後に移った)。 */
+	onShow?: (index: number) => void;
+	/** 見ている人が閉じた。隣のファイルへ移るとき (`onLeave`) と `closeImageViewer` では呼ばない。 */
+	onClose?: () => void;
 };
+
+/** 開いている画像のビューアー。戻るで閉じるため (→ $lib/preview-url.svelte.ts)。 */
+let current: { close: () => void } | null = null;
+
+/** 開いている画像のビューアーを閉じる (戻る・画面の移動)。`onClose` は呼ばない。 */
+export function closeImageViewer() {
+	current?.close();
+}
 
 /**
  * `items[index]` (画像) を開く。前後は `items` のうち、`index` を含む画像の連なり。
@@ -99,7 +111,7 @@ export async function openImageViewer(
 	items: ViewerItem[],
 	index: number,
 	signal: AbortSignal,
-	{ animate = true, beforeOpen, onLeave }: OpenImageViewerOptions
+	{ animate = true, beforeOpen, onLeave, onShow, onClose }: OpenImageViewerOptions
 ): Promise<void> {
 	// PhotoSwipe には、隣り合う画像の連なりだけを渡す (→ docs/ui.md「PDF・動画・テキストのビューアー」)。
 	let start = index;
@@ -168,11 +180,31 @@ export async function openImageViewer(
 		return (rowThumbnail ?? thumbnail) as HTMLElement;
 	});
 
+	/** 見ている人が閉じたのでない (隣のファイルへ移る・外から閉じる)。`destroy()` も中で `close` を流すため。 */
+	let closingFromCode = false;
+	const handle = {
+		close: () => {
+			closingFromCode = true;
+			// FIX: PhotoSwipe は開くアニメーションの間は `close()` が何もしないので、終わってから閉じる。
+			if (viewer.opener.isOpening) viewer.on('openingAnimationEnd', () => viewer.close());
+			else viewer.close();
+		}
+	};
+	current = handle;
+	viewer.on('destroy', () => {
+		if (current === handle) current = null;
+	});
+	viewer.on('change', () => onShow?.(start + viewer.currIndex));
+	viewer.on('close', () => {
+		if (!closingFromCode) onClose?.();
+	});
+
 	/** 連なりの端から、隣のファイルへ。ファイルのビューアーを先に開いてから消し、間にページを見せない。 */
 	const leaveTo = (target: number) => {
 		// FIX: PhotoSwipe は開くアニメーションの間は閉じられず (`close()` が何もしない)、PhotoSwipe が画面に残ってしまう。
 		if (viewer.opener.isOpening) return;
 		onLeave(target);
+		closingFromCode = true;
 		viewer.destroy();
 	};
 	const hasPreviousFile = start > 0;
