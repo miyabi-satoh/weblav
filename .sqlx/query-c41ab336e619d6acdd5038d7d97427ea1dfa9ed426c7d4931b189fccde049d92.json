@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE roots SET exclude_patterns = ? WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "c41ab336e619d6acdd5038d7d97427ea1dfa9ed426c7d4931b189fccde049d92"
+}

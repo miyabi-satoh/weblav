@@ -25,6 +25,7 @@ mod backup;
 mod contents;
 mod file_filter;
 mod guards;
+mod hidden;
 mod images;
 mod inheritance;
 mod items;

@@ -772,13 +772,9 @@ async fn validate_folder_path(
     } else {
         super::roots::load_roots_for(state, user).await?
     };
-    let own_dirs = state.own_dirs.clone();
+    let rules = super::hidden::HiddenRules::load(state).await?;
     let canonical = run_blocking(move || {
-        super::fs::canonical_dir_within_roots(
-            &path,
-            &roots,
-            &super::roots::OwnDirs::resolve(&own_dirs),
-        )
+        super::fs::canonical_dir_within_roots(&path, &roots, &rules.resolve())
     })
     .await??;
 
@@ -800,13 +796,9 @@ async fn validate_shortcut_path(
     }
     super::roots::ensure_reachable(state, &path).await?;
     let roots = super::roots::load_roots_for(state, user).await?;
-    let own_dirs = state.own_dirs.clone();
+    let rules = super::hidden::HiddenRules::load(state).await?;
     let canonical = run_blocking(move || {
-        super::fs::canonical_file_within_roots(
-            &path,
-            &roots,
-            &super::roots::OwnDirs::resolve(&own_dirs),
-        )
+        super::fs::canonical_file_within_roots(&path, &roots, &rules.resolve())
     })
     .await??;
     super::fs::path_to_string(canonical)
@@ -2014,12 +2006,12 @@ pub(super) async fn resolve_path(
 
     super::roots::ensure_reachable(state, root).await?;
     let root = PathBuf::from(root);
-    let own_dirs = state.own_dirs.clone();
     let roots = super::roots::load_roots(state).await?;
+    let rules = super::hidden::HiddenRules::load(state).await?;
 
     let rel_owned = rel.to_string();
     let canonical_candidate = run_blocking(move || {
-        let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
+        let hidden = rules.resolve();
         let canonical_root = std::fs::canonicalize(&root).map_err(|_| AppError::NotFound)?;
 
         // 「共有」の外は**配信の側でも**拒む。登録時の検証
@@ -2030,12 +2022,12 @@ pub(super) async fn resolve_path(
         // **候補パスに触る前に判定する**。触ってから弾くと、候補が実在するかどうかで
         // 応答までの時間が変わり、存在を推し量る手がかりになる。
         // 存在を伏せるため 422 ではなく 404 を返す (閲覧者に見せる経路のため)。
-        if !super::roots::is_within_roots(&roots, &canonical_root, &own_dirs) {
+        if !super::roots::is_within_roots(&roots, &canonical_root, &hidden) {
             return Err(AppError::NotFound);
         }
 
         let canonical_candidate =
-            super::fs::resolve_within(&canonical_root, &rel_owned, &own_dirs)?;
+            super::fs::resolve_within(&canonical_root, &rel_owned, &hidden)?;
         if let Some(filter) = &filter {
             let rel = super::fs::rel_of(&canonical_root, &canonical_candidate)?;
             let shown = if canonical_candidate.is_dir() {
@@ -2054,8 +2046,7 @@ pub(super) async fn resolve_path(
     Ok(canonical_candidate)
 }
 
-/// `dir` 直下のエントリを列挙する。ドットファイル(`.DS_Store`等)と weblav 自身の置き場
-/// (`own_dirs`。→ docs/folders.md「共有」) は除外し、
+/// `dir` 直下のエントリを列挙する。表示しないもの (→ `api::hidden`) は除外し、
 /// ディレクトリ優先(固定)→`order`で選んだ順(タイトル順か新しい順)でソートする。
 ///
 /// シンボリックリンクは一覧に表示しない(ポリシー)。もし表示してリンク先を
@@ -2071,20 +2062,17 @@ pub(super) async fn resolve_path(
 pub(super) fn read_entries(
     dir: &FsPath,
     dir_rel: &str,
-    own_dirs: &super::roots::OwnDirs,
+    hidden: &super::hidden::Hidden,
     filter: Option<&FileFilter>,
     order: SortOrder,
 ) -> std::io::Result<Vec<FolderEntry>> {
     let mut entries = Vec::new();
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
-        let Some((name, _)) = super::fs::visible_entry(&entry) else {
+        // `dir` は実体パスで、リンクは外すので、エントリのパスも実体パスのまま比べられる。
+        let Some((name, _)) = hidden.visible_entry(&entry) else {
             continue;
         };
-        // `dir` は実体パスで、リンクは上で外しているので、エントリのパスも実体パスのまま比べられる。
-        if own_dirs.contains(&entry.path()) {
-            continue;
-        }
         let rel = super::fs::join_rel(dir_rel, &name);
         // ここまで来ればシンボリックリンクではないので、`std::fs::metadata` を呼んでも
         // 実体(非リンク)のメタデータがそのまま返る。取得自体が失敗した場合
@@ -2161,7 +2149,7 @@ async fn browse_folder(
         return Err(AppError::NotFound);
     }
 
-    let own_dirs = state.own_dirs.clone();
+    let rules = super::hidden::HiddenRules::load(&state).await?;
     let order = SortOrder::from_query(query.sort.as_deref());
     let filter = FileFilter::load(&state.pool, id).await?;
     let dir = target.clone();
@@ -2173,7 +2161,7 @@ async fn browse_folder(
         Ok::<_, AppError>(read_entries(
             &target,
             &dir_rel,
-            &super::roots::OwnDirs::resolve(&own_dirs),
+            &rules.resolve(),
             Some(&filter),
             order,
         )?)

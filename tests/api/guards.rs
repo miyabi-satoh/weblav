@@ -66,6 +66,7 @@ const LOGIN_REQUIRED_APIS: &[(&str, &str)] = &[
     ("PUT", "/api/v1/admin/roots/9999"),
     ("DELETE", "/api/v1/admin/roots/9999"),
     ("PUT", "/api/v1/admin/roots/9999/access"),
+    ("GET", "/api/v1/admin/hidden-settings"),
     ("GET", "/api/v1/admin/operations"),
     ("GET", "/api/v1/admin/server-settings"),
     ("PUT", "/api/v1/admin/server-settings"),
@@ -106,6 +107,7 @@ const ADMIN_ONLY_APIS: &[(&str, &str)] = &[
     ("PUT", "/api/v1/admin/roots/9999"),
     ("DELETE", "/api/v1/admin/roots/9999"),
     ("PUT", "/api/v1/admin/roots/9999/access"),
+    ("GET", "/api/v1/admin/hidden-settings"),
     ("GET", "/api/v1/admin/operations"),
     ("GET", "/api/v1/admin/log-settings"),
     ("PUT", "/api/v1/admin/log-settings"),
@@ -132,10 +134,13 @@ const LOCAL_ONLY_APIS: &[(&str, &str)] = &[
     ("POST", "/api/v1/admin/roots"),
     ("POST", "/api/v1/admin/roots/pick"),
     ("PUT", "/api/v1/admin/roots/9999/path"),
+    ("PUT", "/api/v1/admin/roots/9999/exclude"),
+    ("PUT", "/api/v1/admin/hidden-settings"),
 ];
 
-fn is_roots_api(uri: &str) -> bool {
-    uri.starts_with(ROOTS_URI)
+/// この PC の中からだけの口のうち、管理者だけの口 (共有の追加・表示しないものの設定など)。
+fn is_admin_api(uri: &str) -> bool {
+    uri.starts_with("/api/v1/admin/")
 }
 
 /// 本文を付けずに送る。本文の検証より先にログインを確かめていなければ、401 でなく 415・422 などになる。
@@ -146,7 +151,7 @@ async fn login_required_apis_reject_requests_without_a_session(pool: SqlitePool)
 
     let roots = LOCAL_ONLY_APIS
         .iter()
-        .filter(|(_, uri)| is_roots_api(uri))
+        .filter(|(_, uri)| is_admin_api(uri))
         .map(|(method, uri)| (*method, *uri, true));
     let cases = LOGIN_REQUIRED_APIS
         .iter()
@@ -183,7 +188,7 @@ async fn admin_apis_reject_regular_users(pool: SqlitePool) {
 
     let roots = LOCAL_ONLY_APIS
         .iter()
-        .filter(|(_, uri)| is_roots_api(uri))
+        .filter(|(_, uri)| is_admin_api(uri))
         .map(|(method, uri)| (*method, uri.to_string(), true));
     let cases = ADMIN_ONLY_APIS
         .iter()

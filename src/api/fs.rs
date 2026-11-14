@@ -7,7 +7,6 @@
 //! 見られるもの (→ `api::shares`) だけ。判定そのものは
 //! `api::roots` に置き、ここは辿り方 (`listing`) を持つ。
 
-use std::fs::{DirEntry, FileType};
 use std::path::{Path as FsPath, PathBuf};
 
 use axum::Json;
@@ -23,7 +22,8 @@ use crate::error::{AppError, run_blocking};
 use crate::state::AppState;
 
 use super::file_filter::FileFilter;
-use super::roots::{OwnDirs, Root};
+use super::hidden::{Hidden, HiddenRules};
+use super::roots::Root;
 
 /// 登録前の確認で、数え上げを打ち切るファイル数。超えたら「10万個以上」と出す。
 /// 確認の窓が出るまで、巨大なフォルダーを数え切るのを待たせないため。索引する件数の上限ではない
@@ -35,33 +35,6 @@ pub(super) const COUNT_LIMIT: usize = 100_000;
 /// ワーカーを長く塞いでも止める人がいないため。手で始めたスキャンは中止できるので掛けない。
 /// `COUNT_LIMIT` より大きくしてあるのは、パターンで絞った場合でも数え上げの上限までは数え切れる余地を残すため。
 pub(super) const SCAN_LIMIT: usize = 500_000;
-
-/// 一覧・数え上げ・索引の対象にするかの判定 (名前と種別だけで決まる部分)。
-///
-/// ドット始まり・シンボリックリンクを除く、という規則を
-/// `read_dirs`・`contents::read_entries`・`scan_files` と配信 (`has_hidden_component`) で
-/// 揃えるために1箇所に置いている。片方だけ変えると、選択UIで数えた件数と実際に
-/// 見える一覧・索引の中身が食い違い、一覧に出ないものが配信だけ通る。
-///
-/// 種別を `Option` で受けるのは、種別を取れないエントリ (`std::fs`) も
-/// 取れることが保証されたエントリ (`walkdir`) も同じ判定に通すため。
-/// 取れない場合は対象から外す。
-///
-/// シンボリックリンクは壊れているかどうかに関わらず除く。呼び出し側はいずれも
-/// リンクを辿らない方法 (`DirEntry::file_type()` の lstat 相当、`walkdir` の
-/// `follow_links(false)`) で種別を得ること。
-///
-/// Windowsの隠し属性はここでは見ない (名前と種別だけで決まる部分ではないため)。
-/// 属性の判定は `is_hidden_by_attribute` で、エントリを持っている呼び出し側が行う。
-pub(super) fn is_visible_entry(name: &str, file_type: Option<FileType>) -> bool {
-    if name.starts_with('.') {
-        return false;
-    }
-    match file_type {
-        Some(file_type) => !file_type.is_symlink(),
-        None => false,
-    }
-}
 
 /// Windowsの隠し属性が付いているか (→ 実機テスト 14)。
 ///
@@ -79,62 +52,6 @@ pub(super) fn is_hidden_by_attribute(metadata: &std::fs::Metadata) -> bool {
     const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
 
     metadata.file_attributes() & FILE_ATTRIBUTE_HIDDEN != 0
-}
-
-/// `root` から `rel` までの途中と末尾に、一覧に出さないもの (ドット始まり・シンボリックリンク・
-/// Windows の隠し属性) が含まれるか。配信の経路で、一覧と同じ規則を掛けるために使う
-/// (→ docs/archive.md「スキャン」・docs/folders.md「共有」)。`root` そのものは見ない (登録先を選んだのは設置者のため)。
-///
-/// `rel` は `Component::Normal` だけであること (→ `contents::reject_traversal_components`)。
-/// リンクを辿らずに調べる (`symlink_metadata`)。調べられない階層は含まれるものとして扱う。
-///
-/// ブロッキングI/Oを行うため、呼び出し側は `spawn_blocking` の中で呼ぶこと。
-pub(super) fn has_hidden_component(root: &FsPath, rel: &FsPath) -> bool {
-    let mut current = root.to_path_buf();
-    for component in rel.components() {
-        current.push(component);
-        let name = component.as_os_str().to_string_lossy();
-        let Ok(metadata) = std::fs::symlink_metadata(&current) else {
-            return true;
-        };
-        if !is_visible_entry(&name, Some(metadata.file_type())) {
-            return true;
-        }
-        #[cfg(windows)]
-        if is_hidden_by_attribute(&metadata) {
-            return true;
-        }
-    }
-    false
-}
-
-/// 実体パス `canonical` の、`canonical_root` から先の名前にドット始まりが含まれるか。
-/// 両方とも canonicalize 済みで、`canonical` が `canonical_root` の中であること。
-pub(super) fn has_dot_component(canonical_root: &FsPath, canonical: &FsPath) -> bool {
-    canonical.strip_prefix(canonical_root).is_ok_and(|rel| {
-        rel.components()
-            .any(|component| component.as_os_str().to_string_lossy().starts_with('.'))
-    })
-}
-
-/// `is_visible_entry` を `std::fs::DirEntry` に適用し、対象なら `(名前, 種別)` を返す。
-/// Windowsでは隠し属性も見る。
-pub(super) fn visible_entry(entry: &DirEntry) -> Option<(String, FileType)> {
-    let name = entry.file_name().to_string_lossy().into_owned();
-    let file_type = entry.file_type().ok();
-    if !is_visible_entry(&name, file_type) {
-        return None;
-    }
-    // 属性が読めないエントリは隠しでないものとして扱う。名前と種別で通った以上、
-    // 一覧から消すより出して開けない方が分かりやすい。
-    #[cfg(windows)]
-    if entry
-        .metadata()
-        .is_ok_and(|metadata| is_hidden_by_attribute(&metadata))
-    {
-        return None;
-    }
-    Some((name, file_type?))
 }
 
 #[derive(Debug, Deserialize, IntoParams)]
@@ -180,7 +97,7 @@ pub(super) struct DirsResponse {
 
 /// `path` が空のときの一覧。登録済みの「共有」を、登録した名前で並べる (→ docs/folders.md「共有」)。
 /// `roots` は実体を辿れたものだけ (→ `roots::load_roots`)。
-fn top_entries(roots: &[Root], own_dirs: &OwnDirs) -> Vec<DirEntryItem> {
+fn top_entries(roots: &[Root], hidden: &Hidden) -> Vec<DirEntryItem> {
     roots
         .iter()
         .filter_map(|root| {
@@ -188,24 +105,24 @@ fn top_entries(roots: &[Root], own_dirs: &OwnDirs) -> Vec<DirEntryItem> {
             Some(DirEntryItem {
                 name: root.name.clone(),
                 path,
-                selectable: super::roots::is_within_roots(roots, &root.path, own_dirs),
+                selectable: super::roots::is_within_roots(roots, &root.path, hidden),
             })
         })
         .collect()
 }
 
 /// `dir` 直下のディレクトリを列挙する。ファイルは返さない
-/// (それ以外の除外規則は `visible_entry` に集約。→ docs/archive.md「スキャン」)。
+/// (それ以外の除外規則は `Hidden::visible_entry` に集約。→ docs/folders.md「表示しないもの」)。
 /// weblav 自身の置き場 (設定とデータ) は、選んでも中身が出ないので並べない (→ docs/folders.md「共有」)。
 fn read_dirs(
     dir: &FsPath,
     roots: &[Root],
-    own_dirs: &OwnDirs,
+    hidden: &Hidden,
 ) -> std::io::Result<Vec<DirEntryItem>> {
     let mut entries = Vec::new();
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
-        let Some((name, file_type)) = visible_entry(&entry) else {
+        let Some((name, file_type)) = hidden.visible_entry(&entry) else {
             continue;
         };
         if !file_type.is_dir() {
@@ -219,12 +136,12 @@ fn read_dirs(
         let canonical = std::fs::canonicalize(&path).ok();
         if canonical
             .as_deref()
-            .is_some_and(|canonical| own_dirs.contains(canonical))
+            .is_some_and(|canonical| hidden.own_dirs().contains(canonical))
         {
             continue;
         }
         let entry_selectable = canonical
-            .map(|canonical| super::roots::is_within_roots(roots, &canonical, own_dirs))
+            .map(|canonical| super::roots::is_within_roots(roots, &canonical, hidden))
             .unwrap_or(false);
         // 表示・次の階層の要求に使う値なので、`path_to_string` と同じ形に揃える。
         let Ok(path) = path_to_string(path) else {
@@ -241,14 +158,14 @@ fn read_dirs(
 }
 
 /// `dir` 直下のファイルを列挙する。除外の規則は `read_dirs` と同じ。
-fn read_files(dir: &FsPath, own_dirs: &OwnDirs) -> std::io::Result<Vec<DirEntryItem>> {
+fn read_files(dir: &FsPath, hidden: &Hidden) -> std::io::Result<Vec<DirEntryItem>> {
     let mut entries = Vec::new();
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
-        let Some((name, file_type)) = visible_entry(&entry) else {
+        let Some((name, file_type)) = hidden.visible_entry(&entry) else {
             continue;
         };
-        if !file_type.is_file() || own_dirs.contains(&entry.path()) {
+        if !file_type.is_file() {
             continue;
         }
         let Ok(path) = path_to_string(entry.path()) else {
@@ -297,13 +214,13 @@ pub(super) fn canonical_dir(path: &str) -> Result<PathBuf, AppError> {
 pub(super) fn canonical_dir_within_roots(
     path: &str,
     roots: &[Root],
-    own_dirs: &OwnDirs,
+    hidden: &Hidden,
 ) -> Result<PathBuf, AppError> {
     let input = require_absolute(path)?;
     let Ok(canonical) = std::fs::canonicalize(&input) else {
         return Err(outside_roots());
     };
-    if !super::roots::is_within_roots(roots, &canonical, own_dirs) {
+    if !super::roots::is_within_roots(roots, &canonical, hidden) {
         return Err(outside_roots());
     }
     require_dir(&canonical)?;
@@ -311,13 +228,13 @@ pub(super) fn canonical_dir_within_roots(
 }
 
 /// ショートカットの先のファイルを検証し、実体のパスを返す。判定の順と理由を寄せる決まりは
-/// `canonical_dir_within_roots` と同じ。一覧に出さないもの (ドット始まり・隠し属性) は、選べないので断る。
+/// `canonical_dir_within_roots` と同じ。表示しないもの (→ `api::hidden`) は、選べないので断る。
 ///
 /// ブロッキングI/Oを行うため、呼び出し側は `spawn_blocking` の中で呼ぶこと。
 pub(super) fn canonical_file_within_roots(
     path: &str,
     roots: &[Root],
-    own_dirs: &OwnDirs,
+    hidden: &Hidden,
 ) -> Result<PathBuf, AppError> {
     let input = require_absolute(path)?;
     let Ok(canonical) = std::fs::canonicalize(&input) else {
@@ -326,13 +243,10 @@ pub(super) fn canonical_file_within_roots(
     let Some(root) = super::roots::containing_root(roots, &canonical) else {
         return Err(outside_roots());
     };
-    if own_dirs.contains(&canonical) || has_dot_component(&root.path, &canonical) {
-        return Err(outside_roots());
-    }
     let rel = canonical
         .strip_prefix(&root.path)
         .map_err(|_| outside_roots())?;
-    if has_hidden_component(&root.path, rel) {
+    if hidden.hides_below(&root.path, rel, &canonical) {
         return Err(outside_roots());
     }
     if !canonical.is_file() {
@@ -436,20 +350,20 @@ async fn list_dirs(
     Query(query): Query<DirsQuery>,
 ) -> Result<Json<DirsResponse>, AppError> {
     let requested = query.path;
-    let own_dirs = state.own_dirs.clone();
     if !requested.is_empty() {
         super::roots::ensure_reachable(&state, &requested).await?;
     }
     // 判定のたびに読む (→ `roots::load_roots`)。`run_blocking` の中ではDBに触れない。
     // 中を見られない共有は、無いものとして扱う。
     let roots = super::roots::load_roots_for(&state, &user).await?;
+    let rules = HiddenRules::load(&state).await?;
 
     run_blocking(move || {
         Ok(Json(listing(
             &requested,
             query.files,
             &roots,
-            &OwnDirs::resolve(&own_dirs),
+            &rules.resolve(),
         )?))
     })
     .await?
@@ -463,7 +377,7 @@ fn listing(
     requested: &str,
     with_files: bool,
     roots: &[Root],
-    own_dirs: &OwnDirs,
+    hidden: &Hidden,
 ) -> Result<DirsResponse, AppError> {
     if requested.is_empty() {
         return Ok(DirsResponse {
@@ -472,16 +386,16 @@ fn listing(
             root: None,
             root_name: None,
             selectable: false,
-            entries: top_entries(roots, own_dirs),
+            entries: top_entries(roots, hidden),
             files: Vec::new(),
         });
     }
 
-    let canonical = canonical_dir_within_roots(requested, roots, own_dirs)?;
-    let entries = read_dirs(&canonical, roots, own_dirs)
+    let canonical = canonical_dir_within_roots(requested, roots, hidden)?;
+    let entries = read_dirs(&canonical, roots, hidden)
         .map_err(|_| AppError::Validation("cannot read this directory".to_string()))?;
     let files = if with_files {
-        read_files(&canonical, own_dirs)
+        read_files(&canonical, hidden)
             .map_err(|_| AppError::Validation("cannot read this directory".to_string()))?
     } else {
         Vec::new()
@@ -500,7 +414,7 @@ fn listing(
     };
 
     Ok(DirsResponse {
-        selectable: super::roots::is_within_roots(roots, &canonical, own_dirs),
+        selectable: super::roots::is_within_roots(roots, &canonical, hidden),
         path: path_to_string(canonical)?,
         parent,
         root_name: anchor.map(|anchor| anchor.name.clone()),
@@ -549,32 +463,6 @@ fn normalize_rel_path(rel: &str) -> String {
     rel.replace('\\', "/")
 }
 
-/// 再帰の走査で辿るエントリか。除外の規則は一覧と揃える (`is_visible_entry`・`own_dirs`・Windows の隠し属性)。
-///
-/// ルート自身は名前で判定しない。登録先そのものがドット始まりでも、選んだのは管理者なので対象にする。
-fn is_walkable(entry: &walkdir::DirEntry, own_dirs: &OwnDirs) -> bool {
-    if entry.depth() == 0 {
-        return true;
-    }
-    let name = entry.file_name().to_string_lossy();
-    if !is_visible_entry(&name, Some(entry.file_type())) {
-        return false;
-    }
-    // リンクを辿らないので、根が実体パスならエントリのパスも実体パスのまま比べられる。
-    if own_dirs.contains(entry.path()) {
-        return false;
-    }
-    // Windowsの隠し属性 (理由は `is_hidden_by_attribute`)。
-    #[cfg(windows)]
-    if entry
-        .metadata()
-        .is_ok_and(|metadata| is_hidden_by_attribute(&metadata))
-    {
-        return false;
-    }
-    true
-}
-
 /// 検索で辿ったエントリ。`rel_path` は `/` 区切りの、登録先からの相対パス。
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct WalkedEntry {
@@ -591,14 +479,14 @@ pub(super) struct WalkedEntry {
 pub(super) fn walk_entries(
     root: &FsPath,
     limit: usize,
-    own_dirs: &OwnDirs,
+    hidden: &Hidden,
 ) -> (Vec<WalkedEntry>, bool) {
     let mut entries = Vec::new();
     let walker = WalkDir::new(root)
         .follow_links(false)
         .min_depth(1)
         .into_iter()
-        .filter_entry(|entry| is_walkable(entry, own_dirs));
+        .filter_entry(|entry| hidden.walkable(entry));
     for entry in walker.flatten() {
         if entries.len() >= limit {
             return (entries, true);
@@ -652,23 +540,20 @@ pub(super) fn modified_ns(metadata: &std::fs::Metadata) -> Option<i64> {
 /// 数え方を分けて持つと、確認では打ち切られなかった件数で再スキャンだけが 422 になる。
 /// 索引はパターンによらないので (→ docs/archive.md「スキャン」)、再スキャンは空の `filter` を渡す。
 ///
-/// ドット始まり・シンボリックリンクの除外は `is_visible_entry` と揃える
-/// (→ docs/archive.md「スキャン」)。`follow_links(false)` は「リンク先のディレクトリへ
-/// 再帰しない」だけで、リンクをエントリとして拾わない意味ではないため、
-/// リンク自体の除外は明示的に行う。
+/// 表示しないものの除外は一覧と揃える (`Hidden::walkable`。→ docs/folders.md「表示しないもの」)。
+/// `follow_links(false)` は「リンク先のディレクトリへ再帰しない」だけで、リンクをエントリとして
+/// 拾わない意味ではないため、リンク自体の除外は明示的に行う。
 ///
 /// 読み取れないディレクトリは読み飛ばし、`unreadable` に残す。
 /// 登録前の確認は欠けたまま数え、再スキャンは同期をやめる (→ docs/archive.md「スキャン」)。
 ///
-/// `own_dirs` (→ `roots::OwnDirs`) の中は索引しない
-/// (→ docs/folders.md「共有」)。
 pub(super) fn scan_files(
     root: &FsPath,
     base_rel: &str,
     filter: &FileFilter,
     scan_limit: usize,
     item_limit: usize,
-    own_dirs: &OwnDirs,
+    hidden: &Hidden,
 ) -> ScanResult {
     scan_files_until(
         root,
@@ -676,7 +561,7 @@ pub(super) fn scan_files(
         filter,
         scan_limit,
         item_limit,
-        own_dirs,
+        hidden,
         &|| false,
     )
 }
@@ -690,7 +575,7 @@ pub(super) fn scan_files_until(
     filter: &FileFilter,
     scan_limit: usize,
     item_limit: usize,
-    own_dirs: &OwnDirs,
+    hidden: &Hidden,
     stop: &dyn Fn() -> bool,
 ) -> ScanResult {
     let mut rel_paths = Vec::new();
@@ -713,7 +598,7 @@ pub(super) fn scan_files_until(
         .follow_links(false)
         .into_iter()
         .filter_entry(|entry| {
-            is_walkable(entry, own_dirs)
+            hidden.walkable(entry)
                 && (entry.depth() == 0
                     || !entry.file_type().is_dir()
                     || full_rel(entry.path()).is_none_or(|rel| filter.allows_dir(&rel)))
@@ -805,7 +690,7 @@ pub(super) fn scan_files_until(
 pub(super) fn list_dir_shallow(
     root: &FsPath,
     dir_rel: &str,
-    own_dirs: &OwnDirs,
+    hidden: &Hidden,
 ) -> std::io::Result<(Vec<String>, Vec<DirStamp>)> {
     let dir = if dir_rel.is_empty() {
         root.to_path_buf()
@@ -819,7 +704,7 @@ pub(super) fn list_dir_shallow(
         .min_depth(1)
         .max_depth(1)
         .into_iter()
-        .filter_entry(|entry| is_walkable(entry, own_dirs));
+        .filter_entry(|entry| hidden.walkable(entry));
     for entry in walker {
         let entry = entry.map_err(std::io::Error::other)?;
         let Some(rel) = entry
@@ -862,14 +747,14 @@ async fn count_target_files(
         query.include_patterns.as_deref(),
         query.exclude_patterns.as_deref(),
     )?;
-    let own_dirs = state.own_dirs.clone();
     super::roots::ensure_reachable(&state, &requested).await?;
     let roots = super::roots::load_roots_for(&state, &user).await?;
+    let rules = HiddenRules::load(&state).await?;
 
     run_blocking(move || {
-        let own_dirs = OwnDirs::resolve(&own_dirs);
-        let canonical = canonical_dir_within_roots(&requested, &roots, &own_dirs)?;
-        let result = scan_files(&canonical, "", &filter, SCAN_LIMIT, COUNT_LIMIT, &own_dirs);
+        let hidden = rules.resolve();
+        let canonical = canonical_dir_within_roots(&requested, &roots, &hidden)?;
+        let result = scan_files(&canonical, "", &filter, SCAN_LIMIT, COUNT_LIMIT, &hidden);
         Ok(Json(CountResponse {
             count: result.rel_paths.len(),
             truncated: result.truncated,
@@ -885,29 +770,22 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(count_target_files))
 }
 
-/// 起点 `canonical_root` (canonicalize 済み) の中の `rel` を実体のパスにする。外へ出るもの・一覧に出さないものは 404。
+/// 起点 `canonical_root` (canonicalize 済み) の中の `rel` を実体のパスにする。外へ出るもの・表示しないものは 404。
 ///
-/// 一覧に出さないもの (ドット始まり・シンボリックリンク・隠し属性) は配信も操作もしない。
-/// 一覧に出ないだけでパスを知っていれば落とせる、という食い違いを残さないため。
-/// weblav 自身の置き場 (設定とデータ) の中も同じ (共有が `C:\` のような祖先でもありうる)。
-/// いずれも存在を伏せるため 404 (→ docs/folders.md「共有」)。
-///
-/// 名前は、要求の名前と実体の名前の両方で見る。Windows の 8.3 短縮名 (`ENV~1`) は
-/// ドットで始まらないまま `.env` に解決されるため。リンクを見分けるには、辿る前の
-/// 要求のパスが要る。`..` は呼び出し側が先に弾く。中のシンボリックリンクで外へ出るものはここで弾く。
+/// 表示しないもの (→ `api::hidden`) は配信も操作もしない。一覧に出ないだけでパスを知っていれば落とせる、
+/// という食い違いを残さないため。存在を伏せるため 404 (→ docs/folders.md「表示しないもの」)。
+/// `..` は呼び出し側が先に弾く。中のシンボリックリンクで外へ出るものはここで弾く。
 ///
 /// ブロッキングI/Oを行うため、呼び出し側は `spawn_blocking` の中で呼ぶこと。
 pub(super) fn resolve_within(
     canonical_root: &FsPath,
     rel: &str,
-    own_dirs: &OwnDirs,
+    hidden: &Hidden,
 ) -> Result<PathBuf, AppError> {
     let canonical =
         std::fs::canonicalize(canonical_root.join(rel)).map_err(|_| AppError::NotFound)?;
     if !canonical.starts_with(canonical_root)
-        || has_hidden_component(canonical_root, FsPath::new(rel))
-        || has_dot_component(canonical_root, &canonical)
-        || own_dirs.contains(&canonical)
+        || hidden.hides_below(canonical_root, FsPath::new(rel), &canonical)
     {
         return Err(AppError::NotFound);
     }
@@ -984,7 +862,7 @@ mod tests {
     #[test]
     fn canonical_dir_within_roots_accepts_only_paths_under_a_root() {
         let data = unrelated_data_dir("within-roots");
-        let own_dirs = OwnDirs::resolve(&[data.path().to_path_buf()]);
+        let own_dirs = Hidden::for_test(&[data.path().to_path_buf()], &[]);
         let base = temp_dir("within-roots");
         let root = base.path().join("materials");
         let inside = root.join("2026");
@@ -1013,7 +891,7 @@ mod tests {
     #[test]
     fn canonical_dir_within_roots_hides_why_outside_a_root() {
         let data = unrelated_data_dir("within-roots-reason");
-        let own_dirs = OwnDirs::resolve(&[data.path().to_path_buf()]);
+        let own_dirs = Hidden::for_test(&[data.path().to_path_buf()], &[]);
         let base = temp_dir("within-roots-reason");
         let root = base.path().join("materials");
         std::fs::create_dir_all(&root).expect("ディレクトリを作れなかった");
@@ -1062,7 +940,7 @@ mod tests {
     #[test]
     fn listing_returns_files_only_on_request_and_without_hidden_ones() {
         let data = unrelated_data_dir("listing-files");
-        let own_dirs = OwnDirs::resolve(&[data.path().to_path_buf()]);
+        let own_dirs = Hidden::for_test(&[data.path().to_path_buf()], &[]);
         let base = temp_dir("listing-files");
         let root = base.path().join("materials");
         std::fs::create_dir_all(&root).expect("ディレクトリを作れなかった");
@@ -1083,7 +961,6 @@ mod tests {
     #[test]
     fn canonical_file_within_roots_accepts_only_listed_files_inside_a_root() {
         let data = unrelated_data_dir("shortcut-file");
-        let own_dirs = OwnDirs::resolve(&[data.path().to_path_buf()]);
         let base = temp_dir("shortcut-file");
         let root = base.path().join("materials");
         std::fs::create_dir_all(root.join(".private")).expect("ディレクトリを作れなかった");
@@ -1091,6 +968,7 @@ mod tests {
         std::fs::write(root.join(".private").join("b.pdf"), b"x").expect("ファイルを作れなかった");
         std::fs::write(base.path().join("outside.pdf"), b"x").expect("ファイルを作れなかった");
         let roots = vec![test_root(&root)];
+        let own_dirs = Hidden::for_test(&[data.path().to_path_buf()], std::slice::from_ref(&root));
         let check = |path: &std::path::Path| {
             canonical_file_within_roots(&path.to_string_lossy(), &roots, &own_dirs)
         };
@@ -1113,7 +991,7 @@ mod tests {
     #[test]
     fn listing_within_roots_returns_the_roots_at_the_top() {
         let data = unrelated_data_dir("listing-roots");
-        let own_dirs = OwnDirs::resolve(&[data.path().to_path_buf()]);
+        let own_dirs = Hidden::for_test(&[data.path().to_path_buf()], &[]);
         let base = temp_dir("listing-roots");
         let root = base.path().join("materials");
         std::fs::create_dir_all(root.join("2026")).expect("ディレクトリを作れなかった");
@@ -1148,7 +1026,7 @@ mod tests {
     #[test]
     fn listing_within_roots_rejects_a_path_outside() {
         let data = unrelated_data_dir("listing-outside");
-        let own_dirs = OwnDirs::resolve(&[data.path().to_path_buf()]);
+        let own_dirs = Hidden::for_test(&[data.path().to_path_buf()], &[]);
         let base = temp_dir("listing-outside");
         let root = base.path().join("materials");
         std::fs::create_dir_all(&root).expect("ディレクトリを作れなかった");
@@ -1200,16 +1078,6 @@ mod tests {
         assert_eq!(normalize_rel_path("listening.mp3"), "listening.mp3");
     }
 
-    /// 起点から先の実体の名前だけを見る。起点そのもののドットは見ない。
-    #[test]
-    fn has_dot_component_looks_below_the_root_only() {
-        let root = FsPath::new("/srv/.shared");
-        assert!(has_dot_component(root, &root.join(".env")));
-        assert!(has_dot_component(root, &root.join(".git").join("config")));
-        assert!(!has_dot_component(root, &root.join("a.mp3")));
-        assert!(!has_dot_component(root, root));
-    }
-
     /// 検索の走査は、ファイルとディレクトリの両方を出し、一覧と同じものを外す。
     #[test]
     fn walk_entries_lists_files_and_directories_like_the_folder_list() {
@@ -1228,7 +1096,7 @@ mod tests {
             .expect("リンクを作れなかった");
 
         let (mut entries, truncated) =
-            walk_entries(&dir, COUNT_LIMIT, &OwnDirs::resolve(&[data_dir]));
+            walk_entries(&dir, COUNT_LIMIT, &Hidden::for_test(&[data_dir], &[]));
         entries.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
 
         assert!(!truncated);
@@ -1255,10 +1123,10 @@ mod tests {
             std::fs::write(dir.join(name), b"").expect("ファイルを作れなかった");
         }
 
-        let (entries, truncated) = walk_entries(&dir, 2, &OwnDirs::default());
+        let (entries, truncated) = walk_entries(&dir, 2, &Hidden::for_test(&[], &[]));
         assert_eq!(entries.len(), 2);
         assert!(truncated);
-        let (entries, truncated) = walk_entries(&dir, 3, &OwnDirs::default());
+        let (entries, truncated) = walk_entries(&dir, 3, &Hidden::for_test(&[], &[]));
         assert_eq!(entries.len(), 3);
         assert!(!truncated, "ちょうど上限なら打ち切らない");
     }
@@ -1279,7 +1147,7 @@ mod tests {
             &FileFilter::default(),
             SCAN_LIMIT,
             COUNT_LIMIT,
-            &OwnDirs::resolve(&[data_dir]),
+            &Hidden::for_test(&[data_dir], &[]),
         );
         assert_eq!(result.rel_paths, vec!["a.mp3".to_string()]);
     }
@@ -1301,7 +1169,7 @@ mod tests {
             &FileFilter::default(),
             SCAN_LIMIT,
             COUNT_LIMIT,
-            &OwnDirs::default(),
+            &Hidden::for_test(&[], &[]),
         );
         drop(locked);
 
@@ -1324,7 +1192,7 @@ mod tests {
                 &filter,
                 scan_limit,
                 item_limit,
-                &OwnDirs::default(),
+                &Hidden::for_test(&[], &[]),
             );
             (result.rel_paths.len(), result.truncated)
         }
@@ -1367,7 +1235,7 @@ mod tests {
             &filter,
             SCAN_LIMIT,
             COUNT_LIMIT,
-            &OwnDirs::default(),
+            &Hidden::for_test(&[], &[]),
         );
         assert_eq!(result.rel_paths, vec!["keep/a.mp3".to_string()]);
         assert_eq!(result.dirs.len(), 2, "除外したフォルダーは覚えないはず");
@@ -1380,7 +1248,7 @@ mod tests {
             &filter,
             SCAN_LIMIT,
             COUNT_LIMIT,
-            &OwnDirs::default(),
+            &Hidden::for_test(&[], &[]),
         );
         assert_eq!(result.rel_paths, vec!["a.mp3".to_string()]);
     }

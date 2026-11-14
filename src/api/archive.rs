@@ -424,12 +424,12 @@ async fn scan_and_sync(
     let roots = super::roots::load_roots(state).await?;
     let known = load_known_files(&state.pool, id).await?;
     let scan_root = archive.path.clone();
-    let own_dirs = state.own_dirs.clone();
+    let rules = super::hidden::HiddenRules::load(state).await?;
     let scan_filter = filter.clone();
     let reader_progress = std::sync::Arc::clone(&progress);
     let items = run_blocking(move || {
         let progress = reader_progress;
-        let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
+        let hidden = rules.resolve();
         // `canonical_dir_within_roots` より先に見分ける (→ docs/archive.md「スキャン」)。
         if super::archive_items::folder_missing(std::path::Path::new(&scan_root)) {
             return Err(AppError::ValidationDetailed {
@@ -438,7 +438,7 @@ async fn scan_and_sync(
             });
         }
         // 「共有」の外は再走査でも拒む (理由は `contents::resolve_path` と同じ)。
-        let root = super::fs::canonical_dir_within_roots(&scan_root, &roots, &own_dirs)?;
+        let root = super::fs::canonical_dir_within_roots(&scan_root, &roots, &hidden)?;
         // 索引する件数では断らない (→ docs/archive.md「件数の上限」)。
         // パターンでは絞らない。見せるかは読むときに決める (→ docs/archive.md「スキャン」)。
         let result = super::fs::scan_files_until(
@@ -447,7 +447,7 @@ async fn scan_and_sync(
             &super::file_filter::FileFilter::default(),
             scan_limit.unwrap_or(usize::MAX),
             usize::MAX,
-            &own_dirs,
+            &hidden,
             &|| progress.is_cancelled(),
         );
         // ファイルを集め終える前の中止は、読んだものが無いので何も書かない。
@@ -913,16 +913,16 @@ async fn try_refresh_changed_dirs(
         return Ok(());
     }
     let roots = super::roots::load_roots(state).await?;
-    let own_dirs = state.own_dirs.clone();
+    let rules = super::hidden::HiddenRules::load(state).await?;
     let filter = super::file_filter::FileFilter::parse(
         archive.include_patterns.as_deref(),
         archive.exclude_patterns.as_deref(),
     )?;
     let scan_root = archive.path.clone();
     let changes = run_blocking(move || {
-        let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
-        let root = super::fs::canonical_dir_within_roots(&scan_root, &roots, &own_dirs)?;
-        Ok::<_, AppError>(find_dir_changes(&root, &known, &filter, &own_dirs))
+        let hidden = rules.resolve();
+        let root = super::fs::canonical_dir_within_roots(&scan_root, &roots, &hidden)?;
+        Ok::<_, AppError>(find_dir_changes(&root, &known, &filter, &hidden))
     })
     .await??;
     if changes.is_empty() {
@@ -965,7 +965,7 @@ fn find_dir_changes(
     root: &FsPath,
     known: &HashMap<String, Option<i64>>,
     filter: &super::file_filter::FileFilter,
-    own_dirs: &super::roots::OwnDirs,
+    hidden: &super::hidden::Hidden,
 ) -> DirChanges {
     let mut changes = DirChanges::default();
     for (rel, modified_ns) in known {
@@ -988,7 +988,7 @@ fn find_dir_changes(
             continue;
         }
         // 読めなければ、次の回か再スキャンに任せる。
-        let Ok((files, subdirs)) = super::fs::list_dir_shallow(root, rel, own_dirs) else {
+        let Ok((files, subdirs)) = super::fs::list_dir_shallow(root, rel, hidden) else {
             continue;
         };
         for (subdir, sub_modified) in subdirs {
@@ -1003,7 +1003,7 @@ fn find_dir_changes(
                 &super::file_filter::FileFilter::default(),
                 super::fs::SCAN_LIMIT,
                 usize::MAX,
-                own_dirs,
+                hidden,
             );
             // 読めない場所が除外の中だけなら、再スキャンと同じく続ける。
             let unreadable_shown = result.unreadable.iter().any(|inner| {

@@ -164,6 +164,7 @@ async fn prepare_transfer(
             TransferOp::Copy => {
                 require(&source, ShareAccess::Read)?;
                 ensure_without_own_dirs(state, &source.canonical).await?;
+                super::paths::ensure_no_share_hidden_inside(state, &source.canonical).await?;
             }
             TransferOp::Move => {
                 require(&source, ShareAccess::All)?;
@@ -202,6 +203,9 @@ async fn prepare_transfer(
             .collect::<Result<Vec<_>, AppError>>()
     })
     .await??;
+    for source in &sources {
+        super::paths::ensure_name_shown(state, &dest.canonical, &source.name, source.is_dir).await?;
+    }
     Ok(PreparedTransfer { sources, dest })
 }
 

@@ -17,7 +17,7 @@ use utoipa_axum::routes;
 
 use crate::api::contents::{self, FolderEntry, ServedFile, Visibility};
 use crate::api::fs::path_to_string;
-use crate::api::roots::OwnDirs;
+use crate::api::hidden::{Hidden, HiddenRules};
 use crate::api::sort::SortOrder;
 use crate::auth::AuthUser;
 use crate::error::{AppError, run_blocking};
@@ -108,7 +108,7 @@ async fn browse_share(
 ) -> Result<Json<ShareBrowseResponse>, AppError> {
     let resolved = resolve_readable(&state, &user, id, &query.path).await?;
     let order = SortOrder::from_query(query.sort.as_deref());
-    let own_dirs = state.own_dirs.clone();
+    let rules = HiddenRules::load(&state).await?;
     let dir = resolved.canonical.clone();
     let rel = resolved.rel.clone();
     let trash_policy = state.share_trash.clone();
@@ -118,7 +118,7 @@ async fn browse_share(
         }
         let trash = trash_policy.available(&dir);
         let entries =
-            contents::read_entries(&dir, &rel, &OwnDirs::resolve(&own_dirs), None, order)?;
+            contents::read_entries(&dir, &rel, &rules.resolve(), None, order)?;
         let entries = entries
             .into_iter()
             .map(|entry| {
@@ -296,14 +296,14 @@ async fn list_share_dirs(
     Query(query): Query<SharePathQuery>,
 ) -> Result<Json<ShareDirsResponse>, AppError> {
     let resolved = resolve_readable(&state, &user, id, &query.path).await?;
-    let own_dirs = state.own_dirs.clone();
+    let rules = HiddenRules::load(&state).await?;
     let dir = resolved.canonical.clone();
     let rel = resolved.rel.clone();
     let entries = run_blocking(move || {
         if !dir.is_dir() {
             return Err(AppError::NotFound);
         }
-        read_subdirs(&dir, &rel, &OwnDirs::resolve(&own_dirs)).map_err(AppError::from)
+        read_subdirs(&dir, &rel, &rules.resolve()).map_err(AppError::from)
     })
     .await??;
     let parent =
@@ -326,15 +326,15 @@ async fn list_share_dirs(
 fn read_subdirs(
     dir: &FsPath,
     dir_rel: &str,
-    own_dirs: &OwnDirs,
+    hidden: &Hidden,
 ) -> std::io::Result<Vec<ShareDirEntry>> {
     let mut entries = Vec::new();
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
-        let Some((name, file_type)) = crate::api::fs::visible_entry(&entry) else {
+        let Some((name, file_type)) = hidden.visible_entry(&entry) else {
             continue;
         };
-        if !file_type.is_dir() || own_dirs.contains(&entry.path()) {
+        if !file_type.is_dir() {
             continue;
         }
         let path = crate::api::fs::join_rel(dir_rel, &name);

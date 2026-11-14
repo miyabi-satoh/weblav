@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id as \"id!\", path as \"path!\" FROM contents\n           WHERE type = 'folder' AND list_view = 1 AND path IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "path!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "contents",
+            "name": "path"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "7f1d68bfc537e7813d883d27a753bc4a613d985684e7e7a3274b2bc27a2cd7bd"
+}

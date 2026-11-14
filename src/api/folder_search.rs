@@ -13,7 +13,6 @@ use super::contents::{self, FolderEntry, GroupAncestor};
 use super::file_filter::FileFilter;
 use super::link_preview::{self, LinkPreview};
 use super::links_file;
-use super::roots::OwnDirs;
 use super::search::{FieldKind, RESULT_LIMIT, Score, Terms, container_places, normalize};
 use super::sort::title_cmp;
 use crate::auth::Viewer;
@@ -151,7 +150,7 @@ pub(super) async fn search(
         .filter_map(|(folder, reachable)| reachable.then_some(folder))
         .collect();
     let roots = super::roots::load_roots(state).await?;
-    let own_dirs = state.own_dirs.clone();
+    let rules = super::hidden::HiddenRules::load(state).await?;
     let mut walk_terms = terms.clone();
 
     // 絞り込みで外れるものは、一覧と同じく検索にも出さない (→ `file_filter`)。
@@ -176,7 +175,7 @@ pub(super) async fn search(
 
     // 辿るのはディスクの I/O で、フォルダーの大きさに比例して重くなる。
     let (mut candidates, incomplete, mut sources) = run_blocking(move || {
-        let own_dirs = OwnDirs::resolve(&own_dirs);
+        let hidden = rules.resolve();
         let mut candidates = Vec::new();
         let mut truncated = false;
         let mut sources = Vec::new();
@@ -185,12 +184,12 @@ pub(super) async fn search(
             let Ok(root) = std::fs::canonicalize(&folder.path) else {
                 continue;
             };
-            if !super::roots::is_within_roots(&roots, &root, &own_dirs) {
+            if !super::roots::is_within_roots(&roots, &root, &hidden) {
                 continue;
             }
             let folder_places = container_places(&folder.title, &folder.ancestors);
             let (entries, cut) =
-                super::fs::walk_entries(&root.join(&folder.sub_path), FOLDER_WALK_LIMIT, &own_dirs);
+                super::fs::walk_entries(&root.join(&folder.sub_path), FOLDER_WALK_LIMIT, &hidden);
             truncated |= cut;
             for mut entry in entries {
                 // 結果のパスは、階層の中からでなく、フォルダーの登録パスからの相対にする。

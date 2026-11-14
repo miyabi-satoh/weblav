@@ -60,6 +60,8 @@ pub struct RootResponse {
     pub editor_access: ShareAccess,
     /// ユーザーごとの例外。ユーザー名の順。
     pub user_access: Vec<RootUserAccess>,
+    /// 除外のパターン (1行に1つ。共有の一番上から見る。→ `api::hidden`)。無ければ空文字列。
+    pub exclude_patterns: String,
 }
 
 /// 共有の、ユーザーごとの例外の1件。
@@ -106,7 +108,7 @@ async fn list_roots(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<RootResponse>>, AppError> {
     let rows = sqlx::query!(
-        r#"SELECT id as "id!", name, path, editor_access as "editor_access: ShareAccess"
+        r#"SELECT id as "id!", name, path, editor_access as "editor_access: ShareAccess", exclude_patterns
            FROM roots WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE"#
     )
     .fetch_all(&state.pool)
@@ -128,6 +130,7 @@ async fn list_roots(
             path: row.path,
             editor_access: row.editor_access,
             user_access: user_access.remove(&row.id).unwrap_or_default(),
+            exclude_patterns: row.exclude_patterns.unwrap_or_default(),
         })
         .collect();
     Ok(Json(roots))
@@ -182,7 +185,8 @@ async fn create_root(
     let row = sqlx::query!(
         r#"INSERT INTO roots (name, path) VALUES (?, ?)
            ON CONFLICT (path) DO UPDATE SET name = excluded.name, deleted_at = NULL
-           RETURNING id as "id!", name, path, editor_access as "editor_access: ShareAccess""#,
+           RETURNING id as "id!", name, path, editor_access as "editor_access: ShareAccess",
+                     exclude_patterns as "exclude_patterns?""#,
         name,
         path
     )
@@ -197,7 +201,7 @@ async fn create_root(
     // 0件とは限らない。削除したフォルダーを登録し直すと、その中のコンテンツが戻る
     // (コンテンツの登録は削除時に消していない)。
     let counts = ContentCounts::load(&state.pool).await?;
-    // 登録し直した共有では、前の権限の設定が残っている。
+    // 登録し直した共有では、前の権限と除外の設定が残っている。
     let user_access = load_user_access(&state.pool)
         .await?
         .remove(&row.id)
@@ -214,6 +218,7 @@ async fn create_root(
             path: row.path,
             editor_access: row.editor_access,
             user_access,
+            exclude_patterns: row.exclude_patterns.unwrap_or_default(),
         }),
     ))
 }
@@ -371,7 +376,7 @@ async fn rename_root(
 /// 1件ぶんの応答を、DB の今の値から組み立てる。名前や権限を変えた後に返す。
 async fn root_response(state: &AppState, id: i64) -> Result<RootResponse, AppError> {
     let row = sqlx::query!(
-        r#"SELECT name, path, editor_access as "editor_access: ShareAccess"
+        r#"SELECT name, path, editor_access as "editor_access: ShareAccess", exclude_patterns
            FROM roots WHERE id = ? AND deleted_at IS NULL"#,
         id
     )
@@ -397,6 +402,7 @@ async fn root_response(state: &AppState, id: i64) -> Result<RootResponse, AppErr
         path: row.path,
         editor_access: row.editor_access,
         user_access,
+        exclude_patterns: row.exclude_patterns.unwrap_or_default(),
     })
 }
 
@@ -565,6 +571,64 @@ async fn update_root_access(
     root_response(&state, id).await.map(Json)
 }
 
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct UpdateRootExcludeRequest {
+    /// 1行に1つ。空なら何も外さない。
+    exclude_patterns: String,
+}
+
+/// 共有の除外のパターンを変える (→ `api::hidden`)。外すと見える範囲が広がるので、共有の追加と同じく
+/// サーバーの PC の前の管理者だけ (→ docs/folders.md「登録と削除」)。
+#[utoipa::path(
+    put,
+    path = "/admin/roots/{id}/exclude",
+    params(("id" = i64, Path)),
+    request_body = UpdateRootExcludeRequest,
+    responses(
+        (status = OK, body = RootResponse, description = "除外を変えた共有"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
+        (status = 404, body = crate::error::ErrorResponse, description = "存在しない・サーバーの PC の外から"),
+        (status = 422, body = crate::error::ErrorResponse, description = "パターンが正しくない"),
+    )
+)]
+async fn update_root_exclude(
+    _: LocalRequest,
+    admin: ConfirmedAdmin,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    AppJson(payload): AppJson<UpdateRootExcludeRequest>,
+) -> Result<Json<RootResponse>, AppError> {
+    let patterns = super::file_filter::normalize_patterns(Some(&payload.exclude_patterns));
+    super::hidden::share_filter(patterns.as_deref())?;
+    let before = sqlx::query!(
+        "SELECT name, path, exclude_patterns FROM roots WHERE id = ? AND deleted_at IS NULL",
+        id
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(AppError::NotFound)?;
+    sqlx::query!(
+        "UPDATE roots SET exclude_patterns = ? WHERE id = ?",
+        patterns,
+        id
+    )
+    .execute(&state.pool)
+    .await?;
+    if before.exclude_patterns != patterns {
+        record_or_warn(
+            &state.pool,
+            &OpRecord::new(Op::ChangeShareExclude, &admin)
+                .target(id, &before.name)
+                .fields(vec![FieldChange::named("excludePatterns")]),
+        )
+        .await;
+        super::hidden::apply_to_indexes(&state, Some(&before.path)).await?;
+    }
+    root_response(&state, id).await.map(Json)
+}
+
 #[utoipa::path(
     delete,
     path = "/admin/roots/{id}",
@@ -651,7 +715,11 @@ pub(super) async fn load_roots_for(
 }
 
 /// フォルダーの様子を並べて確かめる。並びは `paths` のまま。
-async fn check_all(state: &AppState, paths: Vec<String>, wait: Duration) -> Vec<Reach> {
+pub(super) async fn check_all(
+    state: &AppState,
+    paths: Vec<String>,
+    wait: Duration,
+) -> Vec<Reach> {
     let mut checks = tokio::task::JoinSet::new();
     for (index, path) in paths.into_iter().enumerate() {
         let reach = state.folder_reach.clone();
@@ -794,10 +862,14 @@ pub(super) fn default_name(path: &FsPath) -> String {
 /// **パスを使う操作はすべてこれを通す** (→ docs/folders.md「共有」)。登録時の検証だけでは、
 /// 登録後にフォルダーを削除された場合にそのまま配信され続ける。
 ///
-/// weblav 自身の置き場 (設定とデータ) の中も外す。共有がその祖先 (`C:\` など) でも、
-/// その中は登録先にも配信にも使わせない。
-pub(super) fn is_within_roots(roots: &[Root], canonical: &FsPath, own_dirs: &OwnDirs) -> bool {
-    !own_dirs.contains(canonical) && containing_root(roots, canonical).is_some()
+/// 表示しないもの (→ `api::hidden`) の中も外す。WebLAV 自身の置き場 (設定とデータ) は、共有がその祖先
+/// (`C:\` など) でも、登録先にも配信にも使わせない。`canonical` はフォルダーとして見る。
+pub(super) fn is_within_roots(
+    roots: &[Root],
+    canonical: &FsPath,
+    hidden: &super::hidden::Hidden,
+) -> bool {
+    !hidden.hides_path(canonical, true) && containing_root(roots, canonical).is_some()
 }
 
 /// `canonical` を含む登録済みのフォルダー。選択 UI のパンくずを、辿れるところから始めるのにも使う
@@ -1137,6 +1209,7 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(move_root))
         .routes(routes!(rename_root, delete_root))
         .routes(routes!(update_root_access))
+        .routes(routes!(update_root_exclude))
 }
 
 #[cfg(test)]

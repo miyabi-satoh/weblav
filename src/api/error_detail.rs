@@ -66,9 +66,17 @@ pub enum ValidationDetail {
     /// `path` は最初に読めなかった場所の、登録先からの相対パス。登録先そのものなら空文字。
     #[serde(rename_all = "camelCase")]
     ArchiveFolderUnreadable { path: String },
-    /// 共有の中に作るファイル・フォルダーの名前に使えない (空・`/` を含む・ドットで始まる・長すぎる・
+    /// サイトの「表示しないもの」のパターンは名前に当てるので、`/` を末尾にしか書けない (→ `api::hidden`)。
+    #[serde(rename_all = "camelCase")]
+    HiddenPatternNotName { pattern: String },
+    /// 共有の中に作るファイル・フォルダーの名前に使えない (空・`/` を含む・長すぎる・
     /// Windows で使えない名前など。→ `api::shares::paths::validate_name`)。
     EntryNameInvalid,
+    /// 作る・動かす先の名前や場所が、表示しないもの (→ `api::hidden`) に当たる。作っても見えなくなるため。
+    EntryNameHidden,
+    /// 共有の除外で隠したものを中に含むので、名前の変更・移動・コピー・削除・上書きができない (→ `api::hidden`)。
+    /// 見えないものを、知らないうちに消したり、隠していない場所へ出したりしないため。
+    EntryContainsHidden,
     /// 置き先に同じ名前のファイル・フォルダーが既にある。
     #[serde(rename_all = "camelCase")]
     EntryNameTaken { name: String },
