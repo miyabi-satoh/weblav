@@ -27,7 +27,9 @@ use crate::state::AppState;
 use super::browse::ListedAs;
 use super::fsops::{self, TrashPolicy};
 use super::jobs::{Job, JobOp, ShareJobResponse};
-use super::paths::{Resolved, ensure_not_protected, ensure_without_own_dirs, resolve_existing};
+use super::paths::{
+    Resolved, ensure_not_protected, ensure_nothing_hidden_inside, resolve_existing,
+};
 use super::repoint::{self, Change};
 use super::{ShareAccess, require};
 use crate::api::fs::join_rel;
@@ -163,8 +165,7 @@ async fn prepare_transfer(
         match op {
             TransferOp::Copy => {
                 require(&source, ShareAccess::Read)?;
-                ensure_without_own_dirs(state, &source.canonical).await?;
-                super::paths::ensure_no_share_hidden_inside(state, &source.canonical).await?;
+                ensure_nothing_hidden_inside(state, &source.canonical).await?;
             }
             TransferOp::Move => {
                 require(&source, ShareAccess::All)?;

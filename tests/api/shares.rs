@@ -4,24 +4,6 @@ use super::*;
 
 const SHARES_URI: &str = "/api/v1/shares";
 
-fn access_uri(root_id: i64) -> String {
-    format!("{ROOTS_URI}/{root_id}/access")
-}
-
-/// 共有の権限を管理者として置き換える。
-async fn set_access(app: Router, cookie: &str, root_id: i64, json: &str) {
-    let (status, body) = send_json(app, "PUT", &access_uri(root_id), cookie, json).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-}
-
-async fn root_id_of(pool: &SqlitePool, path: &str) -> i64 {
-    sqlx::query_scalar("SELECT id FROM roots WHERE path = ?")
-        .bind(path)
-        .fetch_one(pool)
-        .await
-        .expect("共有の行を引けなかった")
-}
-
 /// テストの土台の共有 (→ `register_content_root`) の id。
 async fn content_root_id(pool: &SqlitePool) -> i64 {
     let path = canonical_path_as_api_returns_it(
@@ -197,38 +179,6 @@ async fn a_folder_keeps_its_location_after_the_share_is_hidden(pool: SqlitePool)
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-}
-
-/// 共有を1つ用意し、`taro` (一般ユーザー) と管理者でログインしておく。
-pub(crate) struct ShareFixture {
-    pub(crate) app: Router,
-    pub(crate) admin: String,
-    pub(crate) taro: String,
-    pub(crate) dir: test_support::TempDir,
-    pub(crate) id: i64,
-}
-
-pub(crate) async fn share_fixture(pool: &SqlitePool, name: &str) -> ShareFixture {
-    let (app, admin) = admin_app(pool).await;
-    insert_user(pool, "taro", "password").await;
-    let dir = root_dir(name);
-    register_root(pool, &dir).await;
-    let id = root_id_of(pool, &canonical_path_as_api_returns_it(&dir)).await;
-    let taro = login(app.clone(), "taro", "password").await;
-    ShareFixture {
-        app,
-        admin,
-        taro,
-        dir,
-        id,
-    }
-}
-
-pub(crate) fn browse_uri(id: i64, path: &str) -> String {
-    format!(
-        "/api/v1/shares/{id}/browse?path={}",
-        utf8_percent_encode(path, NON_ALPHANUMERIC)
-    )
 }
 
 /// 中を一覧でき、ドット始まりは出さない。共有の既定 (「見る」) のできることが返る。
@@ -584,17 +534,6 @@ fn upload_uri(id: i64, path: &str) -> String {
     )
 }
 
-/// 共有の既定を変える。
-pub(crate) async fn set_editor_access(share: &ShareFixture, access: &str) {
-    set_access(
-        share.app.clone(),
-        &share.admin,
-        share.id,
-        &format!(r#"{{"editorAccess":"{access}","users":[]}}"#),
-    )
-    .await;
-}
-
 /// 先頭だけ JPEG の印を持つ中身 (→ `fsops::sniff_image`)。
 const JPEG_BYTES: &[u8] = &[0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, b'J', b'F', b'I', b'F'];
 
@@ -782,10 +721,6 @@ async fn an_uploaded_file_enters_the_list_view_index(pool: SqlitePool) {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
     assert_eq!(indexed, vec!["a.pdf", "b.pdf"]);
-}
-
-pub(crate) fn json_uri(id: i64, action: &str) -> String {
-    format!("/api/v1/shares/{id}/{action}")
 }
 
 /// 新しいフォルダーを作れる。同じ名前があれば 422 (`entryNameTaken`)、使えない名前は `entryNameInvalid`。

@@ -144,9 +144,7 @@
 	"admin_roots_edit_move_confirm_button": "Change",
 	"admin_roots_name_label": "Name",
 	"admin_roots_edit_access_title": "Permissions",
-	"admin_roots_edit_exclude_title": "Hidden items",
 	"admin_roots_exclude_help": "One per line (for example, private/ or *.tmp). Patterns that contain / start at the top of the share.",
-	"admin_roots_exclude_local_only": "To change these, open the admin pages from “Open in browser” in the WebLAV icon menu on the computer running WebLAV.",
 	"admin_roots_table_access": "Standard users",
 	"admin_roots_table_exceptions": "Exceptions",
 	"admin_roots_table_contents": "Content",
@@ -160,7 +158,6 @@
 			}
 		}
 	],
-	"admin_roots_table_no_exceptions": "None",
 	"admin_roots_table_content_count": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],
@@ -266,7 +263,6 @@
 	"admin_operations_field_user_access": "Permission for {user}",
 	"admin_operations_value_on": "On",
 	"admin_operations_value_off": "Off",
-	"admin_operations_value_none": "None",
 	"admin_operations_value_no_exception": "No exception",
 	"admin_operations_value_interval": [
 		{
@@ -329,7 +325,7 @@
 	"admin_settings_log_download": "Download logs",
 	"admin_settings_log_stdout": "Logs are not written to files. They go to the terminal WebLAV was started from.",
 	"admin_settings_log_fetch_failed": "Failed to load the log settings. Please try again later.",
-	"admin_settings_hidden_heading": "Hidden items",
+	"not_shown_title": "Hidden items",
 	"admin_settings_hidden_description": "Matching files and folders don't appear on any page in any share and can't be opened.",
 	"admin_settings_hidden_fixed_label": "Always hidden",
 	"admin_settings_hidden_fixed_links": "Symbolic links",
@@ -337,7 +333,7 @@
 	"admin_settings_hidden_patterns_label": "Name patterns",
 	"admin_settings_hidden_patterns_help": "One per line (for example, .* or @eaDir/). Patterns match names, so / can only go at the end.",
 	"admin_settings_hidden_windows_label": "Windows hidden files",
-	"admin_settings_hidden_local_only": "To change these, open the admin pages from “Open in browser” in the WebLAV icon menu on the computer running WebLAV.",
+	"not_shown_local_only": "To change these, open the admin pages from “Open in browser” in the WebLAV icon menu on the computer running WebLAV.",
 	"admin_settings_hidden_fetch_failed": "Failed to load the hidden item settings. Please try again later.",
 	"admin_settings_about_heading": "About WebLAV",
 	"admin_settings_about_version": "Version {version}",
@@ -445,7 +441,6 @@
 	"action_edit_page": "Edit",
 	"contents_menu_view": "View on site",
 	"contents_form_creator_label": "Creator",
-	"contents_form_creator_none": "None",
 	"contents_type_link": "Link",
 	"contents_type_shortcut": "Shortcut",
 	"contents_type_library": "Library",
@@ -487,8 +482,8 @@
 	"contents_form_include_patterns_empty": "Everything",
 	"contents_form_exclude_patterns_label": "Exclude patterns",
 	"contents_form_exclude_patterns_help": "One per line (e.g. backup/ or *.tmp). Takes priority over include patterns.",
-	"contents_form_exclude_patterns_empty": "None",
-	"contents_form_patterns_apply": "Use these patterns",
+	"common_none": "None",
+	"pattern_field_apply_button": "Use these patterns",
 	"contents_form_parent_label": "Parent group",
 	"contents_form_parent_none": "(Root level)",
 	"contents_form_description_label": "Description",

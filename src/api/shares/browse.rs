@@ -17,10 +17,10 @@ use utoipa_axum::routes;
 
 use crate::api::contents::{self, FolderEntry, ServedFile, Visibility};
 use crate::api::fs::path_to_string;
-use crate::api::hidden::{Hidden, HiddenRules};
+use crate::api::hidden::{Hidden, with_hidden};
 use crate::api::sort::SortOrder;
 use crate::auth::AuthUser;
-use crate::error::{AppError, run_blocking};
+use crate::error::AppError;
 use crate::state::AppState;
 
 use super::ShareAccess;
@@ -108,16 +108,15 @@ async fn browse_share(
 ) -> Result<Json<ShareBrowseResponse>, AppError> {
     let resolved = resolve_readable(&state, &user, id, &query.path).await?;
     let order = SortOrder::from_query(query.sort.as_deref());
-    let rules = HiddenRules::load(&state).await?;
     let dir = resolved.canonical.clone();
     let rel = resolved.rel.clone();
     let trash_policy = state.share_trash.clone();
-    let (entries, trash) = run_blocking(move || {
+    let (entries, trash) = with_hidden(&state, move |hidden| {
         if !dir.is_dir() {
             return Err(AppError::NotFound);
         }
         let trash = trash_policy.available(&dir);
-        let entries = contents::read_entries(&dir, &rel, &rules.resolve(), None, order)?;
+        let entries = contents::read_entries(&dir, &rel, hidden, None, order)?;
         let entries = entries
             .into_iter()
             .map(|entry| {
@@ -127,7 +126,7 @@ async fn browse_share(
             .collect::<Vec<_>>();
         Ok((entries, trash))
     })
-    .await??;
+    .await?;
 
     let listed = ListedPaths::load(&state.pool, &user).await?;
     let listed_as = listed.get(&path_to_string(resolved.canonical.clone())?);
@@ -295,16 +294,15 @@ async fn list_share_dirs(
     Query(query): Query<SharePathQuery>,
 ) -> Result<Json<ShareDirsResponse>, AppError> {
     let resolved = resolve_readable(&state, &user, id, &query.path).await?;
-    let rules = HiddenRules::load(&state).await?;
     let dir = resolved.canonical.clone();
     let rel = resolved.rel.clone();
-    let entries = run_blocking(move || {
+    let entries = with_hidden(&state, move |hidden| {
         if !dir.is_dir() {
             return Err(AppError::NotFound);
         }
-        read_subdirs(&dir, &rel, &rules.resolve()).map_err(AppError::from)
+        read_subdirs(&dir, &rel, hidden).map_err(AppError::from)
     })
-    .await??;
+    .await?;
     let parent =
         (!resolved.rel.is_empty()).then(|| crate::api::fs::parent_rel(&resolved.rel).to_string());
     Ok(Json(ShareDirsResponse {

@@ -12,14 +12,9 @@
 import { untrack } from 'svelte';
 import { pushState, replaceState } from '$app/navigation';
 import { page } from '$app/state';
+import { URL_WRITE_DELAY_MS } from '#lib/href.ts';
 import { previewHref, wantedPreviewKey } from '#lib/preview-query.ts';
 import type { ViewerItem } from '#lib/viewer-items.ts';
-
-/**
- * 前後に移ってから URL に写すまでの間。Safari は短い間に何度も履歴を書き換えると例外を投げ、
- * 左右キーを押し続けると移るたびに書くことになるため、止まってから写す (一覧の絞り込みと同じ間)。
- */
-const MOVE_WRITE_DELAY_MS = 300;
 
 /** 一覧が `key` の行を探す口。見つかれば、行から開いたときと同じ前後の並びと位置を返す。 */
 export type PreviewSource = (
@@ -84,7 +79,7 @@ export function previewShown(key: string | null) {
 	pendingWrite = setTimeout(() => {
 		pendingWrite = undefined;
 		if (open) write(shownKey, false);
-	}, MOVE_WRITE_DELAY_MS);
+	}, URL_WRITE_DELAY_MS);
 }
 
 /** 見ている人がビューアーを閉じた (閉じるボタン・Esc など)。画面の移動や戻るで閉じたときは呼ばない。 */
@@ -155,7 +150,7 @@ export function providePreviewSource(source: PreviewSource) {
 	});
 }
 
-/** 同じ時に作られる一覧 (検索の結果は3つ並ぶ) が揃ってから探すよう、今の描画が終わるまで待つ。 */
+/** 同じ時に作られる一覧 (検索の結果は区画ごとに一覧が並ぶ) が揃ってから探すよう、今の描画が終わるまで待つ。 */
 function scheduleRestore() {
 	if (restoreScheduled) return;
 	restoreScheduled = true;

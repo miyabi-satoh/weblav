@@ -1,16 +1,10 @@
 import { getContext, setContext, untrack } from 'svelte';
 import { beforeNavigate, replaceState } from '$app/navigation';
 import { page } from '$app/state';
-import { queryParams, withQuery } from '#lib/href.ts';
+import { URL_WRITE_DELAY_MS, withQueryParam } from '#lib/href.ts';
 import { LIST_FILTER_QUERY, matchFilter, parseFilterTerms } from '#lib/list-filter.ts';
 
 const CONTEXT_KEY = Symbol('list-filter');
-
-/**
- * 打ち止めてから URL に写すまでの間。Safari は短い間に何度も履歴を書き換えると例外を投げ、
- * IME の変換中も入力が届くため、打つたびには写さない。行はその場で絞る。
- */
-const URL_WRITE_DELAY_MS = 300;
 
 /**
  * 一覧のページ内の絞り込み (→ docs/ui.md「一覧の絞り込み」)。ページが作って context に置き、
@@ -83,11 +77,11 @@ export class ListFilterState {
 		this.#seen = query;
 		// ほかのクエリは、`page.url` でなく今のブラウザーの URL から取る。shallow routing で書いたもの
 		// (開いているものの `preview`。→ #lib/preview-url.svelte.ts) は `page.url` に写らず、外したものも残るため。
-		const params = queryParams(location.search);
-		delete params[LIST_FILTER_QUERY];
-		const href = withQuery(
+		const href = withQueryParam(
 			location.pathname,
-			query === '' ? params : { ...params, [LIST_FILTER_QUERY]: query }
+			location.search,
+			LIST_FILTER_QUERY,
+			query === '' ? null : query
 		);
 		// FIX: 非推奨の replaceState で書く理由は #lib/preview-url.svelte.ts の write() と同じ。
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- 今の URL のパスをそのまま使う (→ AGENTS.md「コードの規約」)

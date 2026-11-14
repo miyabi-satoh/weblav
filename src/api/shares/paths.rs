@@ -7,7 +7,7 @@ use std::path::{Path as FsPath, PathBuf};
 
 use crate::api::error_detail::ValidationDetail;
 use crate::api::hidden::{Hidden, HiddenRules};
-use crate::api::roots::{self, OwnDirs, Root};
+use crate::api::roots::{self, Root};
 use crate::auth::AuthUser;
 use crate::error::{AppError, run_blocking};
 use crate::state::AppState;
@@ -204,8 +204,7 @@ pub(super) async fn ensure_not_protected(
     {
         return Err(protected());
     }
-    ensure_without_own_dirs(state, &resolved.canonical).await?;
-    ensure_no_share_hidden_inside(state, &resolved.canonical).await
+    ensure_nothing_hidden_inside(state, &resolved.canonical).await
 }
 
 /// フォルダー `dir` (実体のパス) に `name` を作る・置くとき、表示しないもの (→ `api::hidden`) にならないか。
@@ -251,34 +250,24 @@ fn contains_hidden_error() -> AppError {
     }
 }
 
-/// `canonical` の中に、共有の除外で隠したものが無いか。あれば 422 (`entryContainsHidden`。→ `Hidden::has_share_hidden_inside`)。
-pub(super) async fn ensure_no_share_hidden_inside(
+/// `canonical` の中に、動かす・写すと困るものが無いか。
+/// - WebLAV のデータがあれば 422 (`entryProtected`)。コピーで、データ (DB・セッション鍵) を共有の中へ写し出さないため。
+/// - 共有の除外で隠したものがあれば 422 (`entryContainsHidden`。→ `Hidden::has_share_hidden_inside`)。
+pub(super) async fn ensure_nothing_hidden_inside(
     state: &AppState,
     canonical: &FsPath,
 ) -> Result<(), AppError> {
     let canonical = canonical.to_path_buf();
-    let inside = crate::api::hidden::with_hidden(state, move |hidden| {
-        Ok(hidden.has_share_hidden_inside(&canonical))
+    crate::api::hidden::with_hidden(state, move |hidden| {
+        if hidden.own_dirs().any_within(&canonical) {
+            return Err(protected_error());
+        }
+        if hidden.has_share_hidden_inside(&canonical) {
+            return Err(contains_hidden_error());
+        }
+        Ok(())
     })
-    .await?;
-    if inside {
-        return Err(contains_hidden_error());
-    }
-    Ok(())
-}
-
-/// `canonical` の中に WebLAV のデータが無いか。あれば 422 (`entryProtected`)。
-/// コピーで、データ (DB・セッション鍵) を共有の中へ写し出さないため。
-pub(super) async fn ensure_without_own_dirs(
-    state: &AppState,
-    canonical: &FsPath,
-) -> Result<(), AppError> {
-    let own_dirs = state.own_dirs.clone();
-    let canonical = canonical.to_path_buf();
-    if run_blocking(move || OwnDirs::resolve(&own_dirs).any_within(&canonical)).await? {
-        return Err(protected_error());
-    }
-    Ok(())
+    .await
 }
 
 fn protected_error() -> AppError {

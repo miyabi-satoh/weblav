@@ -1,7 +1,6 @@
 //! 表示しないもの (→ `api::hidden`)。判定の場合分けは単体テストで確かめ、ここでは設定の口と、判定が共有の中の
 //! 操作と索引につながっていることを見る。
 
-use super::shares::{ShareFixture, browse_uri, json_uri, set_editor_access, share_fixture};
 use super::*;
 
 const HIDDEN_URI: &str = "/api/v1/admin/hidden-settings";

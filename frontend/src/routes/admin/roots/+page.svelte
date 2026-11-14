@@ -151,7 +151,7 @@
 							<Table.Cell class={[columnFromSmClass, fitColumnClass, 'text-muted-foreground']}>
 								{root.userAccess.length > 0
 									? m.admin_roots_table_exceptions_count({ count: root.userAccess.length })
-									: m.admin_roots_table_no_exceptions()}
+									: m.common_none()}
 							</Table.Cell>
 							<Table.Cell class={[columnFromSmClass, fitColumnClass, 'text-muted-foreground']}>
 								{contentCount}

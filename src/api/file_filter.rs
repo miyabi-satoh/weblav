@@ -272,10 +272,9 @@ async fn preview_visibility(
         return Ok(Json(preview));
     }
     super::roots::ensure_reachable(&state, &root).await?;
-    let rules = super::hidden::HiddenRules::load(&state).await?;
-    let preview = run_blocking(move || {
+    let preview = super::hidden::with_hidden(&state, move |hidden| {
         let root = std::fs::canonicalize(&root).map_err(|_| AppError::NotFound)?;
-        let (entries, truncated) = walk_entries(&root, COUNT_LIMIT, &rules.resolve());
+        let (entries, truncated) = walk_entries(&root, COUNT_LIMIT, hidden);
         let files = entries
             .iter()
             .filter(|entry| !entry.is_dir)
@@ -287,7 +286,7 @@ async fn preview_visibility(
             truncated,
         })
     })
-    .await??;
+    .await?;
     Ok(Json(preview))
 }
 

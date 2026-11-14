@@ -807,3 +807,70 @@ async fn insert_fresh_preview(pool: &SqlitePool, url: &str, image_file: Option<&
     .await
     .expect("カードの情報を入れられるはず");
 }
+
+// 共有のテストの補助。
+
+fn access_uri(root_id: i64) -> String {
+    format!("{ROOTS_URI}/{root_id}/access")
+}
+
+/// 共有の権限を管理者として置き換える。
+async fn set_access(app: Router, cookie: &str, root_id: i64, json: &str) {
+    let (status, body) = send_json(app, "PUT", &access_uri(root_id), cookie, json).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+}
+
+async fn root_id_of(pool: &SqlitePool, path: &str) -> i64 {
+    sqlx::query_scalar("SELECT id FROM roots WHERE path = ?")
+        .bind(path)
+        .fetch_one(pool)
+        .await
+        .expect("共有の行を引けなかった")
+}
+
+/// 共有を1つ用意し、`taro` (一般ユーザー) と管理者でログインしておく。
+struct ShareFixture {
+    app: Router,
+    admin: String,
+    taro: String,
+    dir: test_support::TempDir,
+    id: i64,
+}
+
+async fn share_fixture(pool: &SqlitePool, name: &str) -> ShareFixture {
+    let (app, admin) = admin_app(pool).await;
+    insert_user(pool, "taro", "password").await;
+    let dir = root_dir(name);
+    register_root(pool, &dir).await;
+    let id = root_id_of(pool, &canonical_path_as_api_returns_it(&dir)).await;
+    let taro = login(app.clone(), "taro", "password").await;
+    ShareFixture {
+        app,
+        admin,
+        taro,
+        dir,
+        id,
+    }
+}
+
+fn browse_uri(id: i64, path: &str) -> String {
+    format!(
+        "/api/v1/shares/{id}/browse?path={}",
+        utf8_percent_encode(path, NON_ALPHANUMERIC)
+    )
+}
+
+/// 共有の既定を変える。
+async fn set_editor_access(share: &ShareFixture, access: &str) {
+    set_access(
+        share.app.clone(),
+        &share.admin,
+        share.id,
+        &format!(r#"{{"editorAccess":"{access}","users":[]}}"#),
+    )
+    .await;
+}
+
+fn json_uri(id: i64, action: &str) -> String {
+    format!("/api/v1/shares/{id}/{action}")
+}

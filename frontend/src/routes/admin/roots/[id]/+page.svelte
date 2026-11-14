@@ -55,8 +55,9 @@
 	let { data }: PageProps = $props();
 
 	let root = $derived(data.root);
-	// 場所を選び直すのは OS のフォルダー選択の窓なので、サーバーの PC から開いたときだけ出す (→ docs/folders.md「選び方」)。
-	let canPick = $derived(canAddRoots(page.url.hostname));
+	// サーバーの PC から開いたときだけ、場所を選び直せ (OS のフォルダー選択の窓を使うため。→ docs/folders.md「選び方」)、
+	// 表示しないものを変えられる (見える範囲を広げられるため。→ docs/folders.md「登録と削除」)。
+	let onServerPc = $derived(canAddRoots(page.url.hostname));
 
 	// 区画ごとに保存する (→ docs/ui.md「編集ページの区画」)。保存した後は応答の値で入れ直すので、読み込みは初回だけでよい。
 	let name = $state(untrack(() => data.root.name));
@@ -140,7 +141,7 @@
 
 	async function handleExcludeSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		await sections.save('exclude', m.admin_roots_edit_exclude_title(), async () => {
+		await sections.save('exclude', m.not_shown_title(), async () => {
 			const result = await errorDialog.attempt(() =>
 				client.PUT('/api/v1/admin/roots/{id}/exclude', {
 					params: { path: { id: root.id } },
@@ -216,7 +217,7 @@
 </div>
 
 <div class={adminPageClass}>
-	<!-- 場所・名前・権限・除外を区画に分け、コンテンツの編集ページと同じ石垣に並べる (→ docs/ui.md「編集ページの区画」)。 -->
+	<!-- 場所・名前・権限・表示しないものを区画に分け、コンテンツの編集ページと同じ石垣に並べる (→ docs/ui.md「編集ページの区画」)。 -->
 	<div class={sectionGridClass} {@attach masonry}>
 		<section aria-labelledby="location-section-heading" class={sectionCardClass}>
 			<h2 id="location-section-heading" class="text-base font-semibold">
@@ -224,7 +225,7 @@
 			</h2>
 			<!-- パスは区切り以外に折り返せる場所が無いので、どこでも折り返す。 -->
 			<p class="text-sm wrap-anywhere" data-testid="root-path">{root.path}</p>
-			{#if canPick}
+			{#if onServerPc}
 				<div class="flex flex-col items-start gap-2">
 					<LoadingButton variant="outline" loading={picking} disabled={moving} onclick={handlePick}
 						>{m.admin_roots_edit_repick_button()}</LoadingButton
@@ -373,13 +374,13 @@
 			<!-- 区画の欄はパターンだけなので、欄の名前を見出しにして同じ語を2度出さない。 -->
 			<PatternField
 				headingId="exclude-section-heading"
-				label={m.admin_roots_edit_exclude_title()}
+				label={m.not_shown_title()}
 				help={m.admin_roots_exclude_help()}
-				emptyText={m.contents_form_exclude_patterns_empty()}
-				readonly={!canPick}
+				emptyText={m.common_none()}
+				readonly={!onServerPc}
 				bind:value={excludePatterns}
 			/>
-			{#if canPick}
+			{#if onServerPc}
 				<div>
 					<LoadingButton
 						type="submit"
@@ -388,7 +389,7 @@
 					>
 				</div>
 			{:else}
-				<p class="text-sm text-muted-foreground">{m.admin_roots_exclude_local_only()}</p>
+				<p class="text-sm text-muted-foreground">{m.not_shown_local_only()}</p>
 			{/if}
 		</form>
 	</div>

@@ -216,7 +216,7 @@
 		<PatternField
 			label={m.contents_form_exclude_patterns_label()}
 			help={m.contents_form_exclude_patterns_help()}
-			emptyText={m.contents_form_exclude_patterns_empty()}
+			emptyText={m.common_none()}
 			bind:value={form.excludePatterns}
 		/>
 		<Field.Field orientation="horizontal">

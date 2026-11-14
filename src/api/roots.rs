@@ -602,20 +602,22 @@ async fn update_root_exclude(
 ) -> Result<Json<RootResponse>, AppError> {
     let patterns = super::file_filter::normalize_patterns(Some(&payload.exclude_patterns));
     super::hidden::share_filter(patterns.as_deref())?;
+    let mut tx = crate::db::begin_write(&state.pool).await?;
     let before = sqlx::query!(
         "SELECT name, path, exclude_patterns FROM roots WHERE id = ? AND deleted_at IS NULL",
         id
     )
-    .fetch_optional(&state.pool)
+    .fetch_optional(&mut *tx)
     .await?
     .ok_or(AppError::NotFound)?;
     sqlx::query!(
-        "UPDATE roots SET exclude_patterns = ? WHERE id = ?",
+        "UPDATE roots SET exclude_patterns = ? WHERE id = ? AND deleted_at IS NULL",
         patterns,
         id
     )
-    .execute(&state.pool)
+    .execute(&mut *tx)
     .await?;
+    tx.commit().await?;
     if before.exclude_patterns != patterns {
         record_or_warn(
             &state.pool,

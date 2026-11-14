@@ -462,28 +462,27 @@ async fn covered_paths(state: &AppState, side: &ContentSide) -> HashSet<PathBuf>
         .iter()
         .filter_map(|hit| hit.absolute.clone())
         .collect();
-    let mut checks = tokio::task::JoinSet::new();
-    for path in &side.hit_paths {
-        // 確かめるのは親のフォルダー。`folder_reach` はフォルダーを読んで確かめるので、ショートカットの指すファイルでは通らないため。
-        let path = std::path::Path::new(path);
-        let (Some(parent), Some(name)) = (
-            path.parent().and_then(|parent| parent.to_str()),
-            path.file_name(),
-        ) else {
-            continue;
-        };
-        let (parent, name) = (parent.to_owned(), name.to_owned());
-        let reach = state.folder_reach.clone();
-        let pool = state.pool.clone();
-        checks.spawn(async move {
-            match reach.check(&pool, &parent, OTHERS_WAIT).await {
+    // 確かめるのは親のフォルダー。`folder_reach` はフォルダーを読んで確かめるので、ショートカットの指すファイルでは通らないため。
+    let (parents, names): (Vec<String>, Vec<_>) = side
+        .hit_paths
+        .iter()
+        .filter_map(|path| {
+            let path = std::path::Path::new(path);
+            let parent = path.parent()?.to_str()?;
+            Some((parent.to_owned(), path.file_name()?.to_owned()))
+        })
+        .unzip();
+    let reaches = super::roots::check_all(state, parents, OTHERS_WAIT).await;
+    // 確かめられなかったものは外さない。重なっても、出さないよりよいため。
+    covered.extend(
+        reaches
+            .into_iter()
+            .zip(names)
+            .filter_map(|(reach, name)| match reach {
                 Reach::Ready(parent) => Some(parent.join(name)),
                 Reach::Gone | Reach::Unreachable => None,
-            }
-        });
-    }
-    // 確かめられなかったものは外さない。重なっても、出さないよりよいため。
-    covered.extend(checks.join_all().await.into_iter().flatten());
+            }),
+    );
     covered
 }
 

@@ -166,18 +166,31 @@
 		};
 	}
 
-	/** フォルダーと、その中の `path` にあるものまでの階層。`path` は、そのもの自身の名前まで含む。 */
-	function folderLevels(id: number, title: string, path: string): RowLocationLevel[] {
-		const href = resolve('/folders/[id]', { id: String(id) });
+	/**
+	 * `top` (フォルダー・共有) と、その中の `path` にあるものまでの階層。`path` は、そのもの自身の名前まで含む。
+	 * `hrefFor` は、中のフォルダー (`top` からの相対パス) への href。
+	 */
+	function pathLevels(
+		top: RowLocationLevel,
+		path: string,
+		hrefFor: (dirPath: string) => string
+	): RowLocationLevel[] {
 		const dirs = path.split('/').slice(0, -1);
 		return [
-			{ label: title, href, icon: contentTypeIcon('folder') },
+			top,
 			...dirs.map((label, index) => ({
 				label,
-				href: withQuery(href, { path: dirs.slice(0, index + 1).join('/') }),
+				href: hrefFor(dirs.slice(0, index + 1).join('/')),
 				icon: FolderIcon
 			}))
 		];
+	}
+
+	function folderLevels(id: number, title: string, path: string): RowLocationLevel[] {
+		const href = resolve('/folders/[id]', { id: String(id) });
+		return pathLevels({ label: title, href, icon: contentTypeIcon('folder') }, path, (dirPath) =>
+			withQuery(href, { path: dirPath })
+		);
 	}
 
 	let placements = $derived(new Map(contentHits.map((hit) => [hit.content.id, hit])));
@@ -221,15 +234,11 @@
 	/** 共有の中の行。場所は共有と、その中の階層。共有の中を範囲にしているときは、範囲から下だけを出す。 */
 	let shareRows = $derived<FolderEntryRow[]>(
 		shareHits.map((hit) => {
-			const dirs = hit.path.split('/').slice(0, -1);
-			const levels: RowLocationLevel[] = [
+			const levels = pathLevels(
 				{ label: hit.shareName, href: shareHref(hit.shareId, ''), icon: HardDriveIcon },
-				...dirs.map((label, index) => ({
-					label,
-					href: shareHref(hit.shareId, dirs.slice(0, index + 1).join('/')),
-					icon: FolderIcon
-				}))
-			];
+				hit.path,
+				(dirPath) => shareHref(hit.shareId, dirPath)
+			);
 			return {
 				source: { kind: 'share', id: hit.shareId },
 				path: hit.path,

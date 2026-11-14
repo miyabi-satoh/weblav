@@ -114,6 +114,7 @@
   - `account_` — 自分のアカウントのページの文言。ほかの画面からも同じ語で指すものを含む (ユーザーメニューの `account_title`・パスワードを確かめ直す窓の `account_current_password_label`)
   - `media_` — 音声のプレイヤーと動画のビューアーで共有する再生の操作 (`media_play_button`)
   - `schedule_` — 自動で回す処理の時刻の選択肢 (一覧の表示を使うフォルダーの自動の再スキャンで使う。`schedule_off`)
+  - `not_shown_` — 表示しないもの (サイト設定と共有の編集ページの区画で共有する。`not_shown_title`)
   - `shares_` — 共有 (ホームの「共有」の区画・共有の一覧・共有の中の画面で共有する。`shares_heading`)
 - **API エラーの表示文言は `error_<code>` に統一**し、`AppError::status_and_code()` が返す `code` 文字列とそのまま対応させる。
   例: `code: "not_found"` → キー `error_not_found`。

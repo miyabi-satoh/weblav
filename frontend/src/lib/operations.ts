@@ -168,7 +168,7 @@ function valueLabel(name: string, value: unknown): string {
 		if (name === 'userAccess') return m.admin_operations_value_no_exception();
 		if (name === 'parentId') return m.breadcrumb_home();
 		if (name === 'uploadMaxSizeMb') return m.admin_settings_upload_unlimited();
-		return m.admin_operations_value_none();
+		return m.common_none();
 	}
 	if (typeof value === 'boolean') {
 		return value ? m.admin_operations_value_on() : m.admin_operations_value_off();
