@@ -133,19 +133,22 @@ export async function openImageViewer(
 	// FIX: PhotoSwipe は作った時点のフォーカスを覚え、閉じたらそこへ戻す。ファイルのビューアーから移ってきたときは、
 	// 消えるビューアーのボタンを覚えないよう、先に閉じ切っておく。
 	beforeOpen?.();
+	const slides = images.map((image, i) => ({
+		src: image.src,
+		width: image.width,
+		height: image.height,
+		// PhotoSwipe は開くアニメーションが終わるまで元の画像を出さず、仮の表示 (msrc) を
+		// 引き伸ばして見せる。読み終えていれば仮の表示にも元の画像を使い、粗い縮小画像から
+		// 切り替わって見えないようにする。仮の表示を使うのは開いた1枚目だけ。
+		msrc: i === at && preloaded ? image.src : image.thumbnailSrc,
+		alt: image.title,
+		// 行の縮小画像は中央を正方形に切り抜いてあるので、切り抜きを戻しながら開く。
+		thumbCropped: true,
+		/** 見ている間だけ回した角度 (度)。閉じたら `slides` ごと捨てる (→ docs/ui.md「画像のプレビュー」)。 */
+		rotation: 0
+	}));
 	const viewer = new PhotoSwipe({
-		dataSource: images.map((image, i) => ({
-			src: image.src,
-			width: image.width,
-			height: image.height,
-			// PhotoSwipe は開くアニメーションが終わるまで元の画像を出さず、仮の表示 (msrc) を
-			// 引き伸ばして見せる。読み終えていれば仮の表示にも元の画像を使い、粗い縮小画像から
-			// 切り替わって見えないようにする。仮の表示を使うのは開いた1枚目だけ。
-			msrc: i === at && preloaded ? image.src : image.thumbnailSrc,
-			alt: image.title,
-			// 行の縮小画像は中央を正方形に切り抜いてあるので、切り抜きを戻しながら開く。
-			thumbCropped: true
-		})),
+		dataSource: slides,
 		index: at,
 		// 連なりの端は、ループせずに隣のファイルへ渡す。
 		loop: false,
@@ -180,6 +183,36 @@ export async function openImageViewer(
 		return (rowThumbnail ?? thumbnail) as HTMLElement;
 	});
 
+	/**
+	 * 今の画像を右へ 90 度回す。PhotoSwipe は回転を持たないので、縦横を入れ替えた大きさで並べ直させ、
+	 * 画像の要素だけを下の `imageSizeChange` で回して描く。拡大・パンは入れ替えた大きさのまま PhotoSwipe に任せられる。
+	 */
+	const rotate = () => {
+		// 開くアニメーションは今の中身 (仮の表示) を動かしているので、その間は作り直さない。
+		if (viewer.opener.isOpening) return;
+		const index = viewer.currIndex;
+		const slide = slides[index];
+		slide.rotation = (slide.rotation + 90) % 360;
+		[slide.width, slide.height] = [slide.height, slide.width];
+		// 縮小画像は回していないので、並べ直す間の仮の表示に使うと向きが合わない。
+		slide.msrc = '';
+		viewer.refreshSlideContent(index);
+	};
+	viewer.on('imageSizeChange', ({ content, width, height }) => {
+		const rotation = slides[content.index]?.rotation ?? 0;
+		const image = content.element;
+		if (!rotation || !image) return;
+		// PhotoSwipe が置いた枠 (縦横を入れ替えた `width`×`height`) に、元の向きの画像を回して収める。
+		// 回すと左上の角が枠の外へ出るので、その分を戻す。
+		const sideways = rotation !== 180;
+		image.style.width = `${sideways ? height : width}px`;
+		image.style.height = `${sideways ? width : height}px`;
+		image.style.transformOrigin = '0 0';
+		const x = rotation === 270 ? 0 : width;
+		const y = rotation === 90 ? 0 : height;
+		image.style.transform = `translate(${x}px, ${y}px) rotate(${rotation}deg)`;
+	});
+
 	/** 見ている人が閉じたのでない (隣のファイルへ移る・外から閉じる)。`destroy()` も中で `close` を流すため。 */
 	let closingFromCode = false;
 	const handle = {
@@ -196,6 +229,11 @@ export async function openImageViewer(
 	});
 	viewer.on('change', () => onShow?.(start + viewer.currIndex));
 	viewer.on('close', () => {
+		// 行の縮小画像は回していないので、回した画像をそこへ縮めると向きが食い違う。
+		// FIX: PhotoSwipe (5.4.4) は 'close' を流した後に閉じ方の設定を読むので、ここで替えれば効く。
+		if (slides[viewer.currIndex]?.rotation && viewer.options.showHideAnimationType === 'zoom') {
+			viewer.options.showHideAnimationType = 'fade';
+		}
 		if (!closingFromCode) onClose?.();
 	});
 
@@ -223,6 +261,18 @@ export async function openImageViewer(
 	viewer.on('uiRegister', () => {
 		const ui = viewer.ui;
 		if (!ui) return;
+		ui.registerElement({
+			name: 'rotate',
+			title: m.image_viewer_rotate_button(),
+			isButton: true,
+			// 矢印の輪 (rotate-cw) はプレイヤーの「10秒進む」と同じ絵なので、写真を回すと読める四角の付いた絵にする。
+			html: icon(
+				'<path d="M12 5H6a2 2 0 0 0-2 2v3"/><path d="m9 8 3-3-3-3"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>'
+			),
+			// 拡大 (10) の手前。
+			order: 9,
+			onClick: rotate
+		});
 		ui.registerElement({
 			name: 'position',
 			// PhotoSwipe の数字 (`.pswp__counter`) と同じ見た目。画像が1枚でも、並びにファイルがあれば出す。
