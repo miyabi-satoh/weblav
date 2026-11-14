@@ -478,6 +478,29 @@ test('管理画面: サーバーの設定は、既定から変えると印が付
 	await expect(input).toBeFocused();
 });
 
+test('管理画面: 表示しないもののパターンを既定に戻すと、フォーカスは「編集...」へ移る', async ({
+	page
+}) => {
+	// 保存はしない。ほかのテストの見え方を変えないため。
+	await page.goto('/admin/settings');
+	const section = page.getByRole('form', { name: /^表示しないもの$|^Hidden items$/ });
+	const edit = section.getByRole('button', {
+		name: /^編集\.\.\. 名前のパターン$|^Edit\.\.\. Name patterns$/
+	});
+	await edit.click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('textbox').fill('e2e-reset-*');
+	await dialog.getByRole('button', { name: /^このパターンにする$|^Use these patterns$/ }).click();
+
+	const reset = section.getByRole('button', {
+		name: /^既定値に戻す: 名前のパターン$|^Reset to default: Name patterns$/
+	});
+	await reset.click();
+	await expect(reset).toBeHidden();
+	// 押したボタンは消えるので、フォーカスは欄の「編集...」へ移る。
+	await expect(edit).toBeFocused();
+});
+
 test('管理画面: コンテンツ一覧の行を押すと編集ページへ移る', async ({ page }) => {
 	const title = uniqueId('E2E行を押す');
 	try {

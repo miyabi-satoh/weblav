@@ -18,6 +18,8 @@
 		readonly?: boolean;
 		/** 区画の欄がこれだけのとき、名前を区画の見出し (h2) にして同じ語を2度出さない。その見出しの id。 */
 		headingId?: string;
+		/** 「編集...」ボタンの id。欄の外の操作 (既定値に戻すなど) の後に、フォーカスを置くのに使う。 */
+		editButtonId?: string;
 	};
 
 	let {
@@ -26,7 +28,8 @@
 		emptyText,
 		value = $bindable(),
 		readonly = false,
-		headingId
+		headingId,
+		editButtonId
 	}: Props = $props();
 
 	let open = $state(false);
@@ -64,6 +67,7 @@
 		</span>
 		{#if !readonly}
 			<Button
+				id={editButtonId}
 				type="button"
 				variant="outline"
 				size="sm"
