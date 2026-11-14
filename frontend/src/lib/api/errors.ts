@@ -98,6 +98,8 @@ function detailMessage(detail: ValidationDetail): string | undefined {
 			return m.contents_form_visibility_group_children_error();
 		case 'invalidFilePattern':
 			return m.error_detail_invalid_file_pattern({ pattern: detail.pattern });
+		case 'hiddenPatternNotName':
+			return m.error_detail_hidden_pattern_not_name({ pattern: detail.pattern });
 		case 'axisNameHasBraces':
 			return m.error_detail_axis_name_braces();
 		case 'axisNameTaken':
@@ -130,6 +132,10 @@ function detailMessage(detail: ValidationDetail): string | undefined {
 			return m.error_detail_backup_too_new({ appVersion: detail.appVersion });
 		case 'entryNameInvalid':
 			return m.error_detail_entry_name_invalid();
+		case 'entryNameHidden':
+			return m.error_detail_entry_name_hidden();
+		case 'entryContainsHidden':
+			return m.error_detail_entry_contains_hidden();
 		case 'entryNameTaken':
 			return m.error_detail_entry_name_taken({ name: detail.name });
 		case 'transferIntoItself':

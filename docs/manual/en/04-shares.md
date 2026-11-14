@@ -11,7 +11,7 @@ To show something on the viewer's screen (Home), register a folder or file in a 
 >
 > - The “Add share...” button does not appear when you open the admin pages from a phone or another computer.
 > - It also does not appear on the same computer when you use the QR code address, such as `http://my-pc.local:8370`.
-> - The same applies to choosing the location again. You can rename shares, set permissions, and remove shares from the admin pages on any device.
+> - The same applies to choosing the location again and changing exclusions. You can rename shares, set permissions, and remove shares from the admin pages on any device.
 
 ## Open it
 
@@ -63,6 +63,20 @@ The list shows the default for standard users (such as “Read only”) and the 
 A share set to “No access” does not appear for that person when they choose a folder to register content, either.
 
 When a share is inside another share, the stronger of the outer and inner permissions applies. People who can see the outer share can also reach the inner one through it.
+
+## Keep part of a share out of view
+
+To keep part of a share out of view, write patterns in the share's “Exclusions”. Matching files and folders don't appear on anyone's screen, including admins, and can't be opened.
+
+1. On the computer running WebLAV, select the share's row to open its edit page.
+2. Select “Edit...” in the “Exclusions” section, write one pattern per line (for example, `private/`), and select “Use these patterns”.
+3. Select “Save” in that section.
+
+Patterns are written the same way as a content item's exclude patterns (→ [Register content](06-register-content.md)). Patterns that contain `/` start at the top of the share.
+
+A folder that contains excluded items can't be renamed, moved, copied, or deleted on the share screen.
+
+To hide items in every share (names that start with a dot, folders a NAS creates, and so on), use “Hidden items” in Site settings (→ [Maintain WebLAV](10-maintenance.md)).
 
 ## Add a folder on a NAS or an external disk
 

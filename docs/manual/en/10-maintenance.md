@@ -25,6 +25,9 @@ Change these on the “Site settings” tab in the admin pages.
 
   ![The Server section in Site settings](images/settings-server.webp)
 
+- Hidden items: What never appears on any page in any share. By default, names that start with a dot and files and folders that the OS or a NAS creates (`Thumbs.db`, `@eaDir`, and so on) are hidden. Write one “Name pattern” per line; patterns match names. To hide items in a single share, use that share's “Exclusions” (→ [Add shares](04-shares.md)).
+  You can change these only when you open WebLAV with a `localhost` address on the computer running it.
+
 - Logs: Use “Detailed logs” when looking into a problem. It turns off when WebLAV restarts. Use “Download logs” to save up to 14 days of logs in one file.
 
   ![The Logs section in Site settings](images/settings-log.webp)

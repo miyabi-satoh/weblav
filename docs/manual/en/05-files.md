@@ -34,7 +34,7 @@ Progress appears for each file. If you select “Stop” partway, files already 
 1. Select “Add” to the right of the heading, then choose “New folder...”.
 2. Enter a name, then select “Create”.
 
-Names that start with a dot or contain `/` or `\` cannot be used. When WebLAV runs on Windows, characters and names not allowed on Windows cannot be used either.
+Names that contain `/` or `\`, and names that match “Hidden items” in Site settings or the share's “Exclusions” (by default, names that start with a dot), cannot be used. When WebLAV runs on Windows, characters and names not allowed on Windows cannot be used either.
 
 ## Rename
 

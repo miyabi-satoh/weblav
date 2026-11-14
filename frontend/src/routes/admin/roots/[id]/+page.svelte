@@ -37,6 +37,7 @@
 	import LeaveConfirmDialog from '#lib/components/leave-confirm-dialog.svelte';
 	import LoadingButton from '#lib/components/loading-button.svelte';
 	import LoadingLabel from '#lib/components/loading-label.svelte';
+	import PatternField from '#lib/components/pattern-field.svelte';
 	import RootDeleteDialog from '#lib/components/root-delete-dialog.svelte';
 	import DeleteSection from '#lib/components/delete-section.svelte';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -49,7 +50,7 @@
 	type Root = components['schemas']['RootResponse'];
 	type ShareAccess = components['schemas']['ShareAccess'];
 	/** 保存ボタンを持つ区画。場所は窓で選んだらすぐ変えるので、保存ボタンを持たない。 */
-	type Part = 'name' | 'access';
+	type Part = 'name' | 'access' | 'exclude';
 
 	let { data }: PageProps = $props();
 
@@ -69,6 +70,10 @@
 	const accessForm = new FormDirtyState(() => ({ editorAccess, exceptions }));
 	accessForm.markPristine();
 
+	let excludePatterns = $state(untrack(() => data.root.excludePatterns));
+	const excludeForm = new FormDirtyState(() => ({ excludePatterns }));
+	excludeForm.markPristine();
+
 	let picking = $state(false);
 	let deletingRoot = $state<Root | null>(null);
 	/** 確認を出している、選び直した先のパス。 */
@@ -76,7 +81,7 @@
 	let moving = $state(false);
 	const errorDialog = new ErrorDialogState();
 
-	const sections = new SectionSaveState<Part>([nameForm, accessForm], errorDialog);
+	const sections = new SectionSaveState<Part>([nameForm, accessForm, excludeForm], errorDialog);
 
 	function setExceptionAccess(target: AccessException, access: string) {
 		exceptions = exceptions.map((exception) =>
@@ -127,6 +132,25 @@
 				editorAccess = result.data.editorAccess;
 				exceptions = result.data.userAccess;
 				accessForm.markPristine();
+				return true;
+			}
+			return false;
+		});
+	}
+
+	async function handleExcludeSubmit(event: SubmitEvent) {
+		event.preventDefault();
+		await sections.save('exclude', m.admin_roots_edit_exclude_title(), async () => {
+			const result = await errorDialog.attempt(() =>
+				client.PUT('/api/v1/admin/roots/{id}/exclude', {
+					params: { path: { id: root.id } },
+					body: { excludePatterns }
+				})
+			);
+			if (result?.data) {
+				// サーバーが空の行と前後の空白を落とすので、保存された値で入れ直す。
+				excludePatterns = result.data.excludePatterns;
+				excludeForm.markPristine();
 				return true;
 			}
 			return false;
@@ -192,7 +216,7 @@
 </div>
 
 <div class={adminPageClass}>
-	<!-- 場所・名前・権限を区画に分け、コンテンツの編集ページと同じ石垣に並べる (→ docs/ui.md「編集ページの区画」)。 -->
+	<!-- 場所・名前・権限・除外を区画に分け、コンテンツの編集ページと同じ石垣に並べる (→ docs/ui.md「編集ページの区画」)。 -->
 	<div class={sectionGridClass} {@attach masonry}>
 		<section aria-labelledby="location-section-heading" class={sectionCardClass}>
 			<h2 id="location-section-heading" class="text-base font-semibold">
@@ -338,6 +362,35 @@
 					disabled={sections.saving || !accessForm.dirty}>{m.action_save()}</LoadingButton
 				>
 			</div>
+		</form>
+
+		<!-- 見える範囲を広げられるので、共有の追加と同じくサーバーの PC から開いたときだけ変えられる (→ docs/folders.md「登録と削除」)。 -->
+		<form
+			onsubmit={handleExcludeSubmit}
+			aria-labelledby="exclude-section-heading"
+			class={sectionCardClass}
+		>
+			<h2 id="exclude-section-heading" class="text-base font-semibold">
+				{m.admin_roots_edit_exclude_title()}
+			</h2>
+			<PatternField
+				label={m.contents_form_exclude_patterns_label()}
+				help={m.admin_roots_exclude_help()}
+				emptyText={m.contents_form_exclude_patterns_empty()}
+				readonly={!canPick}
+				bind:value={excludePatterns}
+			/>
+			{#if canPick}
+				<div>
+					<LoadingButton
+						type="submit"
+						loading={sections.savingPart === 'exclude'}
+						disabled={sections.saving || !excludeForm.dirty}>{m.action_save()}</LoadingButton
+					>
+				</div>
+			{:else}
+				<p class="text-sm text-muted-foreground">{m.admin_roots_exclude_local_only()}</p>
+			{/if}
 		</form>
 	</div>
 	<DeleteSection

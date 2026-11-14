@@ -13,9 +13,11 @@
 		emptyText: string;
 		/** 1行に1パターン。 */
 		value: string;
+		/** 見せるだけで変えさせない (サーバーの PC の外から開いた管理画面など)。 */
+		readonly?: boolean;
 	};
 
-	let { label, help, emptyText, value = $bindable() }: Props = $props();
+	let { label, help, emptyText, value = $bindable(), readonly = false }: Props = $props();
 
 	let open = $state(false);
 	let draft = $state('');
@@ -52,15 +54,17 @@
 				{summary}
 			{/if}
 		</span>
-		<Button
-			type="button"
-			variant="outline"
-			size="sm"
-			aria-label={`${m.action_edit()} ${label}`}
-			onclick={startEditing}
-		>
-			{m.action_edit()}
-		</Button>
+		{#if !readonly}
+			<Button
+				type="button"
+				variant="outline"
+				size="sm"
+				aria-label={`${m.action_edit()} ${label}`}
+				onclick={startEditing}
+			>
+				{m.action_edit()}
+			</Button>
+		{/if}
 	</div>
 </Field.Field>
 

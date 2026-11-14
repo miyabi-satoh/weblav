@@ -93,7 +93,7 @@ Use “Include patterns” (for example, `*.mp3`) and “Exclude patterns” on 
 
 ### Check the files left out
 
-The “Excluded” tab lists, by path, the files that patterns leave out of the viewer's screen. “Filter by name” matches the path here. The files don't open from this tab; check their contents on the share screen. Files whose names start with a dot and symbolic links are not listed.
+The “Excluded” tab lists, by path, the files that patterns leave out of the viewer's screen. “Filter by name” matches the path here. The files don't open from this tab; check their contents on the share screen. Files that match “Hidden items” in Site settings or the share's “Exclusions”, and symbolic links, are not listed.
 
 A file left out by an exclude pattern comes back when you remove that line on the “Settings” tab. A file that matches no include pattern comes back when you add it to the include patterns.
 
