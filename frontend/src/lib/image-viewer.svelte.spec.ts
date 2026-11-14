@@ -25,7 +25,7 @@ describe('openImageViewer', () => {
 		document.querySelector('.pswp')?.remove();
 	});
 
-	it('rotate button turns the image upright in a portrait box', async () => {
+	it('rotate button turns the image 90 degrees per press, keeping it centered', async () => {
 		const src = await landscapeImage();
 		await openImageViewer(
 			[{ type: 'image', image: { src, thumbnailSrc: src, width: 200, height: 100, title: 'a' } }],
@@ -34,11 +34,26 @@ describe('openImageViewer', () => {
 			{ animate: false, onLeave: () => {} }
 		);
 		await expect.poll(() => shownImage().getBoundingClientRect().width).toBe(200);
+		const center = (box: DOMRect) => [box.x + box.width / 2, box.y + box.height / 2];
+		const start = center(shownImage().getBoundingClientRect());
+		const button = page.getByRole('button', { name: /^(回転|Rotate)$/ });
 
-		await userEvent.click(page.getByRole('button', { name: /^(回転|Rotate)$/ }));
+		for (const [rotation, size] of [
+			[90, [100, 200]],
+			[180, [200, 100]],
+			[270, [100, 200]]
+		] as const) {
+			await userEvent.click(button);
+			await expect.poll(() => shownImage().style.transform).toContain(`rotate(${rotation}deg)`);
+			const box = shownImage().getBoundingClientRect();
+			expect([box.width, box.height]).toEqual(size);
+			// 回した後も、PhotoSwipe が置いた枠 (中央) に収まっている。
+			const [x, y] = center(box);
+			expect(x).toBeCloseTo(start[0]);
+			expect(y).toBeCloseTo(start[1]);
+		}
 
-		await expect.poll(() => shownImage().style.transform).toContain('rotate(90deg)');
-		const box = shownImage().getBoundingClientRect();
-		expect([box.width, box.height]).toEqual([100, 200]);
+		await userEvent.click(button);
+		await expect.poll(() => shownImage().style.transform).toBe('');
 	});
 });
