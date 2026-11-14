@@ -105,6 +105,7 @@
 	// 見える範囲を広げられるので、共有の追加と同じくサーバーの PC から開いたときだけ変えられる (→ docs/folders.md「登録と削除」)。
 	let canEditHidden = $derived(canAddRoots(page.url.hostname));
 	let savingHidden = $state(false);
+	const HIDDEN_PATTERNS_EDIT_ID = 'hidden-patterns-edit';
 
 	/** 空の行と前後の空白を除いた形。「既定値に戻す」を出すかを決めるのに使う。保存の形はサーバーが決める。 */
 	function normalizedPatterns(raw: string): string {
@@ -452,7 +453,7 @@
 							help={m.admin_settings_hidden_patterns_help()}
 							emptyText={m.common_none()}
 							readonly={!canEditHidden}
-							editButtonId="hidden-patterns-edit"
+							editButtonId={HIDDEN_PATTERNS_EDIT_ID}
 							bind:value={hiddenPatterns}
 						/>
 						{#if canEditHidden}
@@ -463,7 +464,7 @@
 									() => {
 										hiddenPatterns = hidden?.defaultPatterns ?? hiddenPatterns;
 										// 押したボタンは消えるので、ほかの項目 (`resetField`) と同じく欄へフォーカスを移す。
-										document.getElementById('hidden-patterns-edit')?.focus();
+										document.getElementById(HIDDEN_PATTERNS_EDIT_ID)?.focus();
 									}
 								)}
 							</div>

@@ -623,7 +623,7 @@ async fn update_root_exclude(
             &state.pool,
             &OpRecord::new(Op::ChangeShareExclude, &admin)
                 .target(id, &before.name)
-                // コンテンツの除外のパターンと分ける。画面での呼び名が違うため (共有の編集ページでは「表示しないもの」)。
+                // 共有の「表示しないもの」。コンテンツの除外のパターンとは画面での呼び名が違うので分ける。
                 .fields(vec![FieldChange::named("shareExcludePatterns")]),
         )
         .await;
