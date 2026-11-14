@@ -33,6 +33,7 @@
 		sectionGridClass
 	} from '#lib/page-layout.ts';
 	import { masonry } from '#lib/masonry.ts';
+	import { patternLines } from '#lib/pattern-candidate.ts';
 
 	let { data }: PageProps = $props();
 
@@ -107,11 +108,7 @@
 
 	/** 空の行と前後の空白を除いた形。「既定値に戻す」を出すかを決めるのに使う。保存の形はサーバーが決める。 */
 	function normalizedPatterns(raw: string): string {
-		return raw
-			.split('\n')
-			.map((line) => line.trim())
-			.filter((line) => line !== '')
-			.join('\n');
+		return patternLines(raw).join('\n');
 	}
 
 	let logSettings = $state(untrack(() => data.logSettings));
@@ -125,7 +122,13 @@
 	// 保存していない変更を、別の画面へ移って失わないようにする (コンテンツの編集ページと同じ)。
 	// 保存中に押した移動は、保存が済んでから続ける。
 	const dirty = () => siteDirty.dirty || serverDirty.dirty || hiddenDirty.dirty;
-	const leaveGuard = new LeaveGuard(dirty, () => savingSite || savingServer || savingHidden);
+	const anySaving = () => savingSite || savingServer || savingHidden;
+	const leaveGuard = new LeaveGuard(dirty, anySaving);
+
+	/** 区画の保存の終わりに呼ぶ。ほかの保存が続いていれば、止めた移動はその保存の後に任せる。 */
+	async function resumeIfIdle() {
+		if (!anySaving()) await leaveGuard.resumeAfterSave(() => dirty() || errorDialog.open);
+	}
 
 	async function handleSiteSubmit(e: SubmitEvent) {
 		e.preventDefault();
@@ -147,9 +150,7 @@
 		} finally {
 			savingSite = false;
 		}
-		// ほかの保存が続いていれば、止めた移動はその保存の後に任せる。
-		if (!savingServer && !savingHidden)
-			await leaveGuard.resumeAfterSave(() => dirty() || errorDialog.open);
+		await resumeIfIdle();
 	}
 
 	async function handleServerSubmit(e: SubmitEvent) {
@@ -173,8 +174,7 @@
 		} finally {
 			savingServer = false;
 		}
-		if (!savingSite && !savingHidden)
-			await leaveGuard.resumeAfterSave(() => dirty() || errorDialog.open);
+		await resumeIfIdle();
 	}
 
 	async function handleHiddenSubmit(e: SubmitEvent) {
@@ -197,13 +197,12 @@
 				hiddenPatterns = saved.patterns;
 				windowsHidden = saved.windowsHidden ?? true;
 				hiddenDirty.markPristine();
-				toast.success(m.common_section_saved_toast({ section: m.admin_settings_hidden_heading() }));
+				toast.success(m.common_section_saved_toast({ section: m.not_shown_title() }));
 			}
 		} finally {
 			savingHidden = false;
 		}
-		if (!savingSite && !savingServer)
-			await leaveGuard.resumeAfterSave(() => dirty() || errorDialog.open);
+		await resumeIfIdle();
 	}
 
 	// 保存ボタンを置かず、切り替えたらすぐ送る。起動し直さずに効く設定なので。
@@ -269,7 +268,7 @@
 	{/if}
 {/snippet}
 
-<!-- 既定の値へ戻すボタン。変えてある項目 (欄を空にしたときも含む) にだけ、入力欄の右に出す。印や既定の値の文を足さず、ボタンが出ていることで変えてあると分かる形にする。
+<!-- 既定の値へ戻すボタン。変えてある項目 (欄を空にしたときも含む) にだけ、入力欄の右か下に出す。印や既定の値の文を足さず、ボタンが出ていることで変えてあると分かる形にする。
      戻すのは入力欄の値だけで、保存は区画の保存ボタンで行う。 -->
 {#snippet defaultValue(name: string, changed: boolean, reset: () => void)}
 	{#if changed}
@@ -434,7 +433,7 @@
 		>
 			<div class="flex flex-col gap-2">
 				<h2 id="hidden-section-heading" class="text-base font-semibold">
-					{m.admin_settings_hidden_heading()}
+					{m.not_shown_title()}
 				</h2>
 				<p class="text-sm text-muted-foreground">{m.admin_settings_hidden_description()}</p>
 			</div>
@@ -451,7 +450,7 @@
 						<PatternField
 							label={m.admin_settings_hidden_patterns_label()}
 							help={m.admin_settings_hidden_patterns_help()}
-							emptyText={m.contents_form_exclude_patterns_empty()}
+							emptyText={m.common_none()}
 							readonly={!canEditHidden}
 							bind:value={hiddenPatterns}
 						/>
@@ -479,7 +478,7 @@
 						<LoadingButton type="submit" loading={savingHidden}>{m.action_save()}</LoadingButton>
 					</div>
 				{:else}
-					<p class="text-sm text-muted-foreground">{m.admin_settings_hidden_local_only()}</p>
+					<p class="text-sm text-muted-foreground">{m.not_shown_local_only()}</p>
 				{/if}
 			{:else}
 				<p class="text-sm text-destructive">{m.admin_settings_hidden_fetch_failed()}</p>

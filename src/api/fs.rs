@@ -4,8 +4,8 @@
 //! 登録先を選ばせるためだけの読み取り専用エンドポイント。
 //!
 //! 登録先に選べるのは「共有」(→ `api::roots`) の配下のうち、そのユーザーが中を
-//! 見られるもの (→ `api::shares`) だけ。判定そのものは
-//! `api::roots` に置き、ここは辿り方 (`listing`) を持つ。
+//! 見られるもの (→ `api::shares`) だけ。共有の中かの判定は `api::roots`、表示しないものの判定は
+//! `api::hidden` に置き、ここは辿り方 (`listing`) を持つ。
 
 use std::path::{Path as FsPath, PathBuf};
 
@@ -18,11 +18,11 @@ use utoipa_axum::routes;
 use walkdir::WalkDir;
 
 use crate::auth::AuthUser;
-use crate::error::{AppError, run_blocking};
+use crate::error::AppError;
 use crate::state::AppState;
 
 use super::file_filter::FileFilter;
-use super::hidden::{Hidden, HiddenRules};
+use super::hidden::{Hidden, with_hidden};
 use super::roots::Root;
 
 /// 登録前の確認で、数え上げを打ち切るファイル数。超えたら「10万個以上」と出す。
@@ -352,17 +352,10 @@ async fn list_dirs(
     // 判定のたびに読む (→ `roots::load_roots`)。`run_blocking` の中ではDBに触れない。
     // 中を見られない共有は、無いものとして扱う。
     let roots = super::roots::load_roots_for(&state, &user).await?;
-    let rules = HiddenRules::load(&state).await?;
-
-    run_blocking(move || {
-        Ok(Json(listing(
-            &requested,
-            query.files,
-            &roots,
-            &rules.resolve(),
-        )?))
+    with_hidden(&state, move |hidden| {
+        Ok(Json(listing(&requested, query.files, &roots, hidden)?))
     })
-    .await?
+    .await
 }
 
 /// ディレクトリ1階層ぶんの一覧を組み立てる。登録済みの「共有」の配下だけを辿る
@@ -745,19 +738,16 @@ async fn count_target_files(
     )?;
     super::roots::ensure_reachable(&state, &requested).await?;
     let roots = super::roots::load_roots_for(&state, &user).await?;
-    let rules = HiddenRules::load(&state).await?;
-
-    run_blocking(move || {
-        let hidden = rules.resolve();
-        let canonical = canonical_dir_within_roots(&requested, &roots, &hidden)?;
-        let result = scan_files(&canonical, "", &filter, SCAN_LIMIT, COUNT_LIMIT, &hidden);
+    with_hidden(&state, move |hidden| {
+        let canonical = canonical_dir_within_roots(&requested, &roots, hidden)?;
+        let result = scan_files(&canonical, "", &filter, SCAN_LIMIT, COUNT_LIMIT, hidden);
         Ok(Json(CountResponse {
             count: result.rel_paths.len(),
             truncated: result.truncated,
             unreadable: result.unreadable.into_iter().next(),
         }))
     })
-    .await?
+    .await
 }
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
@@ -858,7 +848,7 @@ mod tests {
     #[test]
     fn canonical_dir_within_roots_accepts_only_paths_under_a_root() {
         let data = unrelated_data_dir("within-roots");
-        let own_dirs = Hidden::for_test(&[data.path().to_path_buf()], &[]);
+        let hidden = Hidden::for_test(&[data.path().to_path_buf()], &[]);
         let base = temp_dir("within-roots");
         let root = base.path().join("materials");
         let inside = root.join("2026");
@@ -869,15 +859,15 @@ mod tests {
         let roots = vec![test_root(&root)];
         let path = |dir: &std::path::Path| dir.to_string_lossy().into_owned();
 
-        assert!(canonical_dir_within_roots(&path(&root), &roots, &own_dirs).is_ok());
-        assert!(canonical_dir_within_roots(&path(&inside), &roots, &own_dirs).is_ok());
+        assert!(canonical_dir_within_roots(&path(&root), &roots, &hidden).is_ok());
+        assert!(canonical_dir_within_roots(&path(&inside), &roots, &hidden).is_ok());
         assert!(matches!(
-            canonical_dir_within_roots(&path(&outside), &roots, &own_dirs),
+            canonical_dir_within_roots(&path(&outside), &roots, &hidden),
             Err(AppError::Validation(_))
         ));
         // 登録が0件なら、どこも選べない。
         assert!(matches!(
-            canonical_dir_within_roots(&path(&root), &[], &own_dirs),
+            canonical_dir_within_roots(&path(&root), &[], &hidden),
             Err(AppError::Validation(_))
         ));
     }
@@ -887,7 +877,7 @@ mod tests {
     #[test]
     fn canonical_dir_within_roots_hides_why_outside_a_root() {
         let data = unrelated_data_dir("within-roots-reason");
-        let own_dirs = Hidden::for_test(&[data.path().to_path_buf()], &[]);
+        let hidden = Hidden::for_test(&[data.path().to_path_buf()], &[]);
         let base = temp_dir("within-roots-reason");
         let root = base.path().join("materials");
         std::fs::create_dir_all(&root).expect("ディレクトリを作れなかった");
@@ -903,7 +893,7 @@ mod tests {
         let message = |target: &std::path::Path| match canonical_dir_within_roots(
             &path(target),
             &roots,
-            &own_dirs,
+            &hidden,
         ) {
             Err(AppError::Validation(message)) => message,
             other => panic!("422を期待したが {other:?} だった"),
@@ -924,7 +914,7 @@ mod tests {
 
         // 相対パスは入力の文字列だけで決まるので、外の文言に寄せない。
         assert_ne!(
-            match canonical_dir_within_roots("materials", &roots, &own_dirs) {
+            match canonical_dir_within_roots("materials", &roots, &hidden) {
                 Err(AppError::Validation(message)) => message,
                 other => panic!("422を期待したが {other:?} だった"),
             },
@@ -936,7 +926,7 @@ mod tests {
     #[test]
     fn listing_returns_files_only_on_request_and_without_hidden_ones() {
         let data = unrelated_data_dir("listing-files");
-        let own_dirs = Hidden::for_test(&[data.path().to_path_buf()], &[]);
+        let hidden = Hidden::for_test(&[data.path().to_path_buf()], &[]);
         let base = temp_dir("listing-files");
         let root = base.path().join("materials");
         std::fs::create_dir_all(&root).expect("ディレクトリを作れなかった");
@@ -945,10 +935,10 @@ mod tests {
         let roots = vec![test_root(&root)];
 
         let without =
-            listing(&root.to_string_lossy(), false, &roots, &own_dirs).expect("一覧を取れなかった");
+            listing(&root.to_string_lossy(), false, &roots, &hidden).expect("一覧を取れなかった");
         assert!(without.files.is_empty());
         let with =
-            listing(&root.to_string_lossy(), true, &roots, &own_dirs).expect("一覧を取れなかった");
+            listing(&root.to_string_lossy(), true, &roots, &hidden).expect("一覧を取れなかった");
         let names: Vec<&str> = with.files.iter().map(|file| file.name.as_str()).collect();
         assert_eq!(names, ["a.pdf"]);
     }
@@ -964,9 +954,9 @@ mod tests {
         std::fs::write(root.join(".private").join("b.pdf"), b"x").expect("ファイルを作れなかった");
         std::fs::write(base.path().join("outside.pdf"), b"x").expect("ファイルを作れなかった");
         let roots = vec![test_root(&root)];
-        let own_dirs = Hidden::for_test(&[data.path().to_path_buf()], std::slice::from_ref(&root));
+        let hidden = Hidden::for_test(&[data.path().to_path_buf()], std::slice::from_ref(&root));
         let check = |path: &std::path::Path| {
-            canonical_file_within_roots(&path.to_string_lossy(), &roots, &own_dirs)
+            canonical_file_within_roots(&path.to_string_lossy(), &roots, &hidden)
         };
 
         assert!(check(&root.join("a.pdf")).is_ok());
@@ -987,13 +977,13 @@ mod tests {
     #[test]
     fn listing_within_roots_returns_the_roots_at_the_top() {
         let data = unrelated_data_dir("listing-roots");
-        let own_dirs = Hidden::for_test(&[data.path().to_path_buf()], &[]);
+        let hidden = Hidden::for_test(&[data.path().to_path_buf()], &[]);
         let base = temp_dir("listing-roots");
         let root = base.path().join("materials");
         std::fs::create_dir_all(root.join("2026")).expect("ディレクトリを作れなかった");
         let roots = vec![test_root(&root)];
 
-        let top = listing("", false, &roots, &own_dirs).expect("上位の一覧を取れなかった");
+        let top = listing("", false, &roots, &hidden).expect("上位の一覧を取れなかった");
         assert_eq!(top.parent, None);
         assert_eq!(top.entries.len(), 1);
         assert!(top.entries[0].selectable);
@@ -1001,19 +991,14 @@ mod tests {
         assert_eq!(top.entries[0].name, "materials");
 
         let at_root =
-            listing(&root.to_string_lossy(), false, &roots, &own_dirs).expect("一覧を取れなかった");
+            listing(&root.to_string_lossy(), false, &roots, &hidden).expect("一覧を取れなかった");
         assert_eq!(at_root.parent.as_deref(), Some(""));
         assert!(at_root.selectable);
         assert_eq!(at_root.root, path_to_string(root.clone()).ok());
 
         // 配下では、パンくずを始める位置として登録済みのフォルダーを返す。
-        let inside = listing(
-            &root.join("2026").to_string_lossy(),
-            false,
-            &roots,
-            &own_dirs,
-        )
-        .expect("一覧を取れなかった");
+        let inside = listing(&root.join("2026").to_string_lossy(), false, &roots, &hidden)
+            .expect("一覧を取れなかった");
         assert_eq!(inside.root, path_to_string(root.clone()).ok());
         assert_eq!(inside.root_name.as_deref(), Some("materials"));
     }
@@ -1022,14 +1007,14 @@ mod tests {
     #[test]
     fn listing_within_roots_rejects_a_path_outside() {
         let data = unrelated_data_dir("listing-outside");
-        let own_dirs = Hidden::for_test(&[data.path().to_path_buf()], &[]);
+        let hidden = Hidden::for_test(&[data.path().to_path_buf()], &[]);
         let base = temp_dir("listing-outside");
         let root = base.path().join("materials");
         std::fs::create_dir_all(&root).expect("ディレクトリを作れなかった");
         let roots = vec![test_root(&root)];
 
         assert!(matches!(
-            listing(&base.path().to_string_lossy(), false, &roots, &own_dirs),
+            listing(&base.path().to_string_lossy(), false, &roots, &hidden),
             Err(AppError::Validation(_))
         ));
     }

@@ -5,6 +5,7 @@
 	import { Textarea } from '#lib/components/ui/textarea/index.ts';
 	import { dialogFormClass } from '#lib/dialog-form.ts';
 	import * as m from '#lib/paraglide/messages.js';
+	import { patternLines } from '#lib/pattern-candidate.ts';
 
 	type Props = {
 		label: string;
@@ -32,13 +33,7 @@
 	let draft = $state('');
 
 	// 普段は場所を取らないように1行に連結して見せ、行数の要る編集は窓で行う。
-	let summary = $derived(
-		value
-			.split('\n')
-			.map((line) => line.trim())
-			.filter((line) => line !== '')
-			.join(', ')
-	);
+	let summary = $derived(patternLines(value).join(', '));
 
 	function startEditing() {
 		draft = value;
@@ -95,7 +90,7 @@
 				<Button type="button" variant="outline" onclick={() => (open = false)}>
 					{m.action_cancel()}
 				</Button>
-				<Button type="submit">{m.contents_form_patterns_apply()}</Button>
+				<Button type="submit">{m.pattern_field_apply_button()}</Button>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>

@@ -112,12 +112,13 @@ pub(super) async fn resolve_existing(
         .find(|root| root.id == root_id)
         .cloned()
         .ok_or(AppError::NotFound)?;
-    let rules = HiddenRules::load(state).await?;
     let rel = rel.to_string();
     let canonical_root = root.path;
     let root_path = canonical_root.clone();
-    let (canonical, rel) =
-        run_blocking(move || resolve_under(&canonical_root, &rel, &rules.resolve())).await??;
+    let (canonical, rel) = crate::api::hidden::with_hidden(state, move |hidden| {
+        resolve_under(&canonical_root, &rel, hidden)
+    })
+    .await?;
     Ok(Resolved {
         root_path,
         access: effective_access(&access, &all_roots, &canonical),
@@ -204,8 +205,7 @@ pub(super) async fn ensure_not_protected(
     {
         return Err(protected());
     }
-    ensure_without_own_dirs(state, &resolved.canonical).await?;
-    ensure_no_share_hidden_inside(state, &resolved.canonical).await
+    ensure_nothing_hidden_inside(state, &resolved.canonical).await
 }
 
 /// フォルダー `dir` (実体のパス) に `name` を作る・置くとき、表示しないもの (→ `api::hidden`) にならないか。
@@ -251,11 +251,19 @@ fn contains_hidden_error() -> AppError {
     }
 }
 
-/// `canonical` の中に、共有の除外で隠したものが無いか。あれば 422 (`entryContainsHidden`。→ `Hidden::has_share_hidden_inside`)。
-pub(super) async fn ensure_no_share_hidden_inside(
+/// `canonical` の中に、動かす・写すと困るものが無いか。
+/// - WebLAV のデータがあれば 422 (`entryProtected`)。コピーで、データ (DB・セッション鍵) を共有の中へ写し出さないため。
+/// - 共有の除外で隠したものがあれば 422 (`entryContainsHidden`。→ `Hidden::has_share_hidden_inside`)。
+pub(super) async fn ensure_nothing_hidden_inside(
     state: &AppState,
     canonical: &FsPath,
 ) -> Result<(), AppError> {
+    // WebLAV のデータは、共有の様子を確かめる前に見る。共有の除外を読むと、つながらない NAS の共有を待つため。
+    let own_dirs = state.own_dirs.clone();
+    let path = canonical.to_path_buf();
+    if run_blocking(move || OwnDirs::resolve(&own_dirs).any_within(&path)).await? {
+        return Err(protected_error());
+    }
     let canonical = canonical.to_path_buf();
     let inside = crate::api::hidden::with_hidden(state, move |hidden| {
         Ok(hidden.has_share_hidden_inside(&canonical))
@@ -263,20 +271,6 @@ pub(super) async fn ensure_no_share_hidden_inside(
     .await?;
     if inside {
         return Err(contains_hidden_error());
-    }
-    Ok(())
-}
-
-/// `canonical` の中に WebLAV のデータが無いか。あれば 422 (`entryProtected`)。
-/// コピーで、データ (DB・セッション鍵) を共有の中へ写し出さないため。
-pub(super) async fn ensure_without_own_dirs(
-    state: &AppState,
-    canonical: &FsPath,
-) -> Result<(), AppError> {
-    let own_dirs = state.own_dirs.clone();
-    let canonical = canonical.to_path_buf();
-    if run_blocking(move || OwnDirs::resolve(&own_dirs).any_within(&canonical)).await? {
-        return Err(protected_error());
     }
     Ok(())
 }

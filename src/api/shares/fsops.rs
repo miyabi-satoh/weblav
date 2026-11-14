@@ -22,7 +22,7 @@ const SPACE_RESERVE_BYTES: u64 = 100 * 1024 * 1024;
 /// コピーで一度に読み書きする大きさ。大きなファイルでも、中止と進み具合が1秒たたずに効く程度。
 const COPY_CHUNK_BYTES: usize = 1024 * 1024;
 
-/// 作業中のコピーの名前の頭。ドットで始めて一覧に出さない (→ `api::hidden`)。
+/// 作業中のコピーの名前の頭。`hidden::WORK_FILE_PREFIX` で始めて、サイトの設定によらず一覧に出さない。
 const COPY_TEMP_PREFIX: &str = ".weblav-copy-";
 
 /// 上書きで、置く用意ができたものと、ごみ箱を使えない場所で除けた今あるものの名前の頭。一覧には出ない。
@@ -233,7 +233,7 @@ pub(super) fn file_name(path: &Path) -> String {
     crate::api::fs::file_name_lossy(path).unwrap_or_default()
 }
 
-/// アップロードの途中のファイルの名前の頭。ドットで始めて一覧に出さない (→ `api::hidden`)。
+/// アップロードの途中のファイルの名前の頭。`hidden::WORK_FILE_PREFIX` で始めて、サイトの設定によらず一覧に出さない。
 pub(super) const UPLOAD_TEMP_PREFIX: &str = ".weblav-upload-";
 
 /// 作業用のファイルを、途中で止まった残りとみなすまでの時間。今まさに受け取っている大きなファイル

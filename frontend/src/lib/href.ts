@@ -21,3 +21,22 @@ export function withQuery(base: string, params: Record<string, string>): string 
 export function queryParams(search: string): Record<string, string> {
 	return Object.fromEntries(new URLSearchParams(search));
 }
+
+/** `pathname` と `search` (今のブラウザーの URL) の `name` だけを `value` に替えた href。`null` なら外す。ほかのクエリは残す。 */
+export function withQueryParam(
+	pathname: string,
+	search: string,
+	name: string,
+	value: string | null
+): string {
+	const params = queryParams(search);
+	delete params[name];
+	return withQuery(pathname, value === null ? params : { ...params, [name]: value });
+}
+
+/**
+ * 画面の様子を、止まってから URL に写すまでの間 (一覧の絞り込みの語・開いているもの)。
+ * Safari は短い間に何度も履歴を書き換えると例外を投げるため、打つたび (IME の変換中も入力が届く)・
+ * 移るたび (左右キーを押し続けると続けて移る) には写さない。
+ */
+export const URL_WRITE_DELAY_MS = 300;

@@ -145,8 +145,6 @@ async fn contents_create_link_by_regular_user_keeps_requested_visibility(pool: S
     assert!(body.contains(r#""visibility":"authenticated""#), "{body}");
 }
 
-/// 編集者も folder を作れる。選べるのは「共有」の中だけなので、
-/// 誰が選んでも範囲は同じ (→ docs/access.md「ロールと操作」・docs/folders.md「共有」)。
 /// ルート直下のものは、作っても保存し直しても親を持たない (0 の親にならない)。
 /// 作成と更新の応答は `RETURNING` で読み、NULL になりうる列の見立てを明示しないと 0 に化けるため
 /// (→ `contents::ContentRow`)。
@@ -177,6 +175,8 @@ async fn contents_at_the_root_keep_no_parent_on_create_and_update(pool: SqlitePo
     assert!(parse_json(&body)["parentId"].is_null(), "{body}");
 }
 
+/// 編集者も folder を作れる。選べるのは「共有」の中だけなので、
+/// 誰が選んでも範囲は同じ (→ docs/access.md「ロールと操作」・docs/folders.md「共有」)。
 #[sqlx::test]
 async fn contents_create_folder_by_regular_user_succeeds(pool: SqlitePool) {
     insert_user(&pool, "alice", "correct-password").await;

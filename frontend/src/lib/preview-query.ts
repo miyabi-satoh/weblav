@@ -2,7 +2,7 @@
 // (→ docs/ui.md「PDF・動画・テキストのビューアー」)。履歴の書き方は #lib/preview-url.svelte.ts。
 
 import type { ReadonlyURL } from '$app/state';
-import { queryParams, withQuery } from '#lib/href.ts';
+import { withQueryParam } from '#lib/href.ts';
 
 /** 開いているものの key を持つ URL クエリのキー。アーカイブの画面の URL では、軸の絞り込みとして読まない。 */
 export const PREVIEW_QUERY = 'preview';
@@ -16,11 +16,9 @@ export function wantedPreviewKey(state: App.PageState, url: ReadonlyURL): string
 	return url.searchParams.get(PREVIEW_QUERY);
 }
 
-/** `pathname` と `search` (今のブラウザーの URL) の `preview` だけを `key` に替えた href。`null` なら外す。ほかのクエリは残す。 */
+/** 今のブラウザーの URL の `preview` だけを `key` に替えた href。`null` なら外す (→ `withQueryParam`)。 */
 export function previewHref(pathname: string, search: string, key: string | null): string {
-	const params = queryParams(search);
-	delete params[PREVIEW_QUERY];
-	return withQuery(pathname, key === null ? params : { ...params, [PREVIEW_QUERY]: key });
+	return withQueryParam(pathname, search, PREVIEW_QUERY, key);
 }
 
 /**

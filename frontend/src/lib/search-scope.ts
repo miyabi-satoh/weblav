@@ -23,10 +23,8 @@ export function searchScopeOf(
 			return { within: params.id };
 		case '/folders/[id]':
 			return withPath(params.id, url.searchParams.get('path') ?? '');
-		case '/shares/[id]': {
-			const path = url.searchParams.get('path') ?? '';
-			return path === '' ? { share: params.id } : { share: params.id, path };
-		}
+		case '/shares/[id]':
+			return withSharePath(params.id, url.searchParams.get('path') ?? '');
 		case '/links/[id]': {
 			if (url.searchParams.has('item')) return { within: params.id };
 			const path = url.searchParams.get('path');
@@ -61,11 +59,15 @@ export function searchScopeFromQuery(url: ReadonlyURL): SearchScopeQuery | null 
 	if (within !== null) return /^\d+$/.test(within) ? withPath(within, path) : null;
 	const share = url.searchParams.get('share');
 	if (share === null || !/^\d+$/.test(share)) return null;
-	return path === '' ? { share } : { share, path };
+	return withSharePath(share, path);
 }
 
 function withPath(within: string, path: string): SearchScopeQuery {
 	return path === '' ? { within } : { within, path };
+}
+
+function withSharePath(share: string, path: string): SearchScopeQuery {
+	return path === '' ? { share } : { share, path };
 }
 
 /** 検索の画面への href。`all` は、範囲を持ったまま全体を探すときに立てる。 */

@@ -772,11 +772,10 @@ async fn validate_folder_path(
     } else {
         super::roots::load_roots_for(state, user).await?
     };
-    let rules = super::hidden::HiddenRules::load(state).await?;
-    let canonical = run_blocking(move || {
-        super::fs::canonical_dir_within_roots(&path, &roots, &rules.resolve())
+    let canonical = super::hidden::with_hidden(state, move |hidden| {
+        super::fs::canonical_dir_within_roots(&path, &roots, hidden)
     })
-    .await??;
+    .await?;
 
     super::fs::path_to_string(canonical)
 }
@@ -796,11 +795,10 @@ async fn validate_shortcut_path(
     }
     super::roots::ensure_reachable(state, &path).await?;
     let roots = super::roots::load_roots_for(state, user).await?;
-    let rules = super::hidden::HiddenRules::load(state).await?;
-    let canonical = run_blocking(move || {
-        super::fs::canonical_file_within_roots(&path, &roots, &rules.resolve())
+    let canonical = super::hidden::with_hidden(state, move |hidden| {
+        super::fs::canonical_file_within_roots(&path, &roots, hidden)
     })
-    .await??;
+    .await?;
     super::fs::path_to_string(canonical)
 }
 

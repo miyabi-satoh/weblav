@@ -81,28 +81,18 @@ impl HiddenRules {
     /// 今の設定を読む。共有は実体を辿れるものだけ (→ `roots::load_roots`)。辿れない共有の中は配らないので、
     /// その除外が無くても見えるものは増えない。
     pub(super) async fn load(state: &AppState) -> Result<Self, AppError> {
-        let settings = sqlx::query!(
-            r#"SELECT hidden_patterns, hide_windows_hidden as "hide_windows_hidden: bool"
-               FROM site_settings WHERE id = 1"#
-        )
-        .fetch_one(&state.pool)
-        .await?;
-        let rows =
-            sqlx::query!("SELECT path, exclude_patterns FROM roots WHERE deleted_at IS NULL")
-                .fetch_all(&state.pool)
-                .await?;
-        let reaches = super::roots::check_all(
-            state,
-            rows.iter().map(|row| row.path.clone()).collect(),
-            OTHERS_WAIT,
-        )
-        .await;
-        let mut shares = Vec::new();
-        for (row, reach) in rows.into_iter().zip(reaches) {
-            if let Reach::Ready(path) = reach {
-                shares.push((path, share_filter(row.exclude_patterns.as_deref())?));
-            }
-        }
+        let settings = load_site_row(&state.pool).await?;
+        let stored = load_share_filters(&state.pool).await?;
+        let (paths, filters): (Vec<String>, Vec<FileFilter>) = stored.into_iter().unzip();
+        let reaches = super::roots::check_all(state, paths, OTHERS_WAIT).await;
+        let shares = reaches
+            .into_iter()
+            .zip(filters)
+            .filter_map(|(reach, filter)| match reach {
+                Reach::Ready(path) => Some((path, filter)),
+                Reach::Gone | Reach::Unreachable => None,
+            })
+            .collect();
         Ok(Self {
             own_dirs: state.own_dirs.clone(),
             site: site_filter(settings.hidden_patterns.as_deref())?,
@@ -183,26 +173,29 @@ impl Hidden {
         by_site || self.hides_by_share(path, is_dir)
     }
 
+    /// `path` を含むいちばん内側の共有。`include_self` が偽なら、`path` そのものの共有は数えない。
+    fn innermost_share(&self, path: &FsPath, include_self: bool) -> Option<&(PathBuf, FileFilter)> {
+        self.shares
+            .iter()
+            .filter(|(share, _)| path.starts_with(share) && (include_self || path != share))
+            .max_by_key(|(share, _)| share.components().count())
+    }
+
     /// `path` を、それを含むいちばん内側の共有の除外で隠すか。共有そのものは隠さない。
     fn hides_by_share(&self, path: &FsPath, is_dir: bool) -> bool {
         // 走査ではエントリごとに呼ぶので、除外がどこにも無いときは共有を探さない。
         if self.shares.iter().all(|(_, filter)| filter.is_empty()) {
             return false;
         }
-        let Some((share, filter)) = self
-            .shares
-            .iter()
-            .filter(|(share, _)| path.starts_with(share) && path != share)
-            .max_by_key(|(share, _)| share.components().count())
-        else {
-            return false;
-        };
-        let Some(rel) = rel_string(share, path) else {
+        let Some((share, filter)) = self.innermost_share(path, false) else {
             return false;
         };
         if filter.is_empty() {
             return false;
         }
+        let Some(rel) = rel_string(share, path) else {
+            return false;
+        };
         if is_dir {
             !filter.allows_dir(&rel)
         } else {
@@ -218,12 +211,7 @@ impl Hidden {
         if self.own_dirs.contains(path) {
             return true;
         }
-        let Some((base, _)) = self
-            .shares
-            .iter()
-            .filter(|(share, _)| path.starts_with(share))
-            .max_by_key(|(share, _)| share.components().count())
-        else {
+        let Some((base, _)) = self.innermost_share(path, true) else {
             return false;
         };
         let Ok(rest) = path.strip_prefix(base) else {
@@ -329,18 +317,7 @@ impl Hidden {
         if !may_apply {
             return false;
         }
-        // 読めない場所は、隠したものがあるとみなす。分からないまま消したり動かしたりしないため。
-        WalkDir::new(path)
-            .follow_links(false)
-            .min_depth(1)
-            .into_iter()
-            .any(|entry| match entry {
-                Ok(entry) => {
-                    let file_type = entry.file_type();
-                    !file_type.is_symlink() && self.hides_by_share(entry.path(), file_type.is_dir())
-                }
-                Err(_) => true,
-            })
+        self.any_share_hidden_below(path, |entry| Some(entry.to_path_buf()))
     }
 
     /// `src` を `dest` (まだ無くてよい) へ動かす・写すと、中のものが共有の除外で隠れるか。
@@ -356,18 +333,29 @@ impl Hidden {
         if !may_apply || !src.is_dir() {
             return false;
         }
+        self.any_share_hidden_below(src, |entry| {
+            entry.strip_prefix(src).ok().map(|rel| dest.join(rel))
+        })
+    }
+
+    /// `src` の中 (`src` そのものは除く) を辿り、各エントリを `place` で置いた先に、共有の除外で隠れるものがあるか。
+    /// `place` が `None` を返すものと読めない場所は、隠れるものとみなす。分からないまま消したり動かしたりしないため。
+    fn any_share_hidden_below(
+        &self,
+        src: &FsPath,
+        place: impl Fn(&FsPath) -> Option<PathBuf>,
+    ) -> bool {
         WalkDir::new(src)
             .follow_links(false)
             .min_depth(1)
             .into_iter()
             .any(|entry| match entry {
                 Ok(entry) => {
-                    let file_type = entry.file_type();
-                    let Ok(rel) = entry.path().strip_prefix(src) else {
+                    let Some(placed) = place(entry.path()) else {
                         return true;
                     };
-                    !file_type.is_symlink()
-                        && self.hides_by_share(&dest.join(rel), file_type.is_dir())
+                    let file_type = entry.file_type();
+                    !file_type.is_symlink() && self.hides_by_share(&placed, file_type.is_dir())
                 }
                 Err(_) => true,
             })
@@ -399,15 +387,38 @@ struct HiddenSettingsResponse {
     windows_hidden: Option<bool>,
 }
 
-async fn load_settings(
-    executor: impl sqlx::SqliteExecutor<'_>,
-) -> Result<HiddenSettingsResponse, AppError> {
-    let row = sqlx::query!(
+/// サイトの設定の行。
+struct SiteRow {
+    hidden_patterns: Option<String>,
+    hide_windows_hidden: bool,
+}
+
+async fn load_site_row(executor: impl sqlx::SqliteExecutor<'_>) -> Result<SiteRow, AppError> {
+    Ok(sqlx::query_as!(
+        SiteRow,
         r#"SELECT hidden_patterns, hide_windows_hidden as "hide_windows_hidden: bool"
            FROM site_settings WHERE id = 1"#
     )
     .fetch_one(executor)
-    .await?;
+    .await?)
+}
+
+/// 登録中の共有の、保存してある綴りのパスと除外。
+async fn load_share_filters(
+    pool: &sqlx::SqlitePool,
+) -> Result<Vec<(String, FileFilter)>, AppError> {
+    sqlx::query!("SELECT path, exclude_patterns FROM roots WHERE deleted_at IS NULL")
+        .fetch_all(pool)
+        .await?
+        .into_iter()
+        .map(|row| Ok((row.path, share_filter(row.exclude_patterns.as_deref())?)))
+        .collect()
+}
+
+async fn load_settings(
+    executor: impl sqlx::SqliteExecutor<'_>,
+) -> Result<HiddenSettingsResponse, AppError> {
+    let row = load_site_row(executor).await?;
     Ok(HiddenSettingsResponse {
         is_default: row.hidden_patterns.is_none(),
         patterns: row
@@ -545,20 +556,26 @@ pub(super) async fn apply_to_indexes(state: &AppState, share: Option<&str>) {
                 loop {
                     tokio::time::sleep(SCAN_RETRY_INTERVAL).await;
                     if let Ok(guard) = state.archive_scans.acquire(archive.id) {
-                        if let Err(err) =
-                            apply_to_index(&state, archive.id, &archive.path, guard).await
-                        {
-                            tracing::warn!(archive_id = archive.id, error = %crate::error::error_chain(&err), "applying hidden patterns to an index failed");
-                        }
+                        apply_or_warn(&state, archive.id, &archive.path, guard).await;
                         return;
                     }
                 }
             });
             continue;
         };
-        if let Err(err) = apply_to_index(state, archive.id, &archive.path, guard).await {
-            tracing::warn!(archive_id = archive.id, error = %crate::error::error_chain(&err), "applying hidden patterns to an index failed");
-        }
+        apply_or_warn(state, archive.id, &archive.path, guard).await;
+    }
+}
+
+/// `apply_to_index` を流し、失敗はログに出すだけにする (→ `apply_to_indexes`)。
+async fn apply_or_warn(
+    state: &AppState,
+    id: i64,
+    path: &str,
+    guard: crate::state::ArchiveScanGuard,
+) {
+    if let Err(err) = apply_to_index(state, id, path, guard).await {
+        tracing::warn!(archive_id = id, error = %crate::error::error_chain(&err), "applying hidden patterns to an index failed");
     }
 }
 
@@ -576,20 +593,13 @@ async fn apply_to_index(
     path: &str,
     _guard: crate::state::ArchiveScanGuard,
 ) -> Result<(), AppError> {
-    let settings = sqlx::query_scalar!("SELECT hidden_patterns FROM site_settings WHERE id = 1")
-        .fetch_one(&state.pool)
-        .await?;
-    let mut shares = Vec::new();
-    for root in sqlx::query!("SELECT path, exclude_patterns FROM roots WHERE deleted_at IS NULL")
-        .fetch_all(&state.pool)
+    let settings = load_site_row(&state.pool).await?;
+    let shares = load_share_filters(&state.pool)
         .await?
-    {
-        shares.push((
-            PathBuf::from(&root.path),
-            share_filter(root.exclude_patterns.as_deref())?,
-        ));
-    }
-    let hidden = Hidden::from_stored(site_filter(settings.as_deref())?, shares);
+        .into_iter()
+        .map(|(path, filter)| (PathBuf::from(path), filter))
+        .collect();
+    let hidden = Hidden::from_stored(site_filter(settings.hidden_patterns.as_deref())?, shares);
     let items = sqlx::query!(
         "SELECT id, rel_path FROM archive_items WHERE archive_id = ?",
         id

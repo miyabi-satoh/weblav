@@ -102,7 +102,7 @@
 	}
 
 	function creatorSelectLabel(value: string): string {
-		if (value === '') return m.contents_form_creator_none();
+		if (value === '') return m.common_none();
 		return (
 			data.users.find((user) => String(user.id) === value)?.username ??
 			content.createdByUsername ??

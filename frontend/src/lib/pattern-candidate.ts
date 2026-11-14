@@ -21,12 +21,17 @@ export function patternCandidate(filterText: string): string {
 	return `${anyDepth}*${terms.map(escapeGlob).join('*')}*`;
 }
 
-/** 今のパターン (1行に1つ) の末尾に足す。同じものがあれば足さない。 */
-export function appendPattern(existing: string | null | undefined, pattern: string): string {
-	const lines = (existing ?? '')
+/** パターン (1行に1つ) の各行。空の行と前後の空白は除く。 */
+export function patternLines(raw: string | null | undefined): string[] {
+	return (raw ?? '')
 		.split('\n')
 		.map((line) => line.trim())
 		.filter((line) => line !== '');
+}
+
+/** 今のパターン (1行に1つ) の末尾に足す。同じものがあれば足さない。 */
+export function appendPattern(existing: string | null | undefined, pattern: string): string {
+	const lines = patternLines(existing);
 	if (!lines.includes(pattern)) lines.push(pattern);
 	return lines.join('\n');
 }
