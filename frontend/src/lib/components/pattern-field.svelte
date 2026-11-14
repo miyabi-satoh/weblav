@@ -15,9 +15,18 @@
 		value: string;
 		/** 見せるだけで変えさせない (サーバーの PC の外から開いた管理画面など)。 */
 		readonly?: boolean;
+		/** 区画の欄がこれだけのとき、名前を区画の見出し (h2) にして同じ語を2度出さない。その見出しの id。 */
+		headingId?: string;
 	};
 
-	let { label, help, emptyText, value = $bindable(), readonly = false }: Props = $props();
+	let {
+		label,
+		help,
+		emptyText,
+		value = $bindable(),
+		readonly = false,
+		headingId
+	}: Props = $props();
 
 	let open = $state(false);
 	let draft = $state('');
@@ -45,7 +54,11 @@
 
 <Field.Field>
 	<!-- 入力欄ではないので label にしない。 -->
-	<Field.FieldTitle>{label}</Field.FieldTitle>
+	{#if headingId}
+		<h2 id={headingId} class="text-base font-semibold">{label}</h2>
+	{:else}
+		<Field.FieldTitle>{label}</Field.FieldTitle>
+	{/if}
 	<div class="flex items-center gap-3">
 		<span class="min-w-0 flex-1 text-sm wrap-anywhere">
 			{#if summary === ''}

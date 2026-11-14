@@ -117,7 +117,7 @@
 	"admin_roots_edit_move_confirm_button": "変更する",
 	"admin_roots_name_label": "名前",
 	"admin_roots_edit_access_title": "権限",
-	"admin_roots_edit_exclude_title": "除外",
+	"admin_roots_edit_exclude_title": "除外のパターン",
 	"admin_roots_exclude_help": "1行に1つ書きます (例: private/ や *.tmp)。/ を含むものは共有の一番上から見ます。",
 	"admin_roots_exclude_local_only": "変えるには、WebLAV を実行しているコンピューターで、WebLAV のアイコンのメニューにある「ブラウザーで開く」から管理ページを開いてください。",
 	"admin_roots_table_access": "一般ユーザー",

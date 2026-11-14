@@ -238,7 +238,7 @@ WebLAV のどこにも出さないもの (`src/api/hidden.rs`)。一覧・数え
 |---|---|---|
 | 固定 | シンボリックリンク・WebLAV 自身の置き場 (→「WebLAV 自身の置き場」)・作業中のファイル (`.weblav-` で始まる名前) | 変えられない。リンクは共有の外へ出られ、置き場には DB と鍵があるため |
 | サイト | 名前のパターン (`site_settings.hidden_patterns`) と、Windows の隠し属性 (`hide_windows_hidden`) | サイト設定の「表示しないもの」 |
-| 共有 | 除外のパターン (`roots.exclude_patterns`) | 共有の編集ページの「除外」 |
+| 共有 | 除外のパターン (`roots.exclude_patterns`) | 共有の編集ページの「除外のパターン」 |
 
 - サイトのパターンは名前に当てるので、`/` は末尾 (フォルダーだけに当てる印) にだけ書ける。既定 (`DEFAULT_SITE_PATTERNS`) は、ドット始まりと、OS や NAS が作るもの (`@eaDir/`・`#recycle/`・`Thumbs.db` など)。
   既定のままなら DB には NULL で持つ。版を上げて既定を足したときに、変えていない設置にも届けるため。画面は、既定と同じ値で保存したら NULL に戻す。

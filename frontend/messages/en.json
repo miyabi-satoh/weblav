@@ -144,7 +144,7 @@
 	"admin_roots_edit_move_confirm_button": "Change",
 	"admin_roots_name_label": "Name",
 	"admin_roots_edit_access_title": "Permissions",
-	"admin_roots_edit_exclude_title": "Exclusions",
+	"admin_roots_edit_exclude_title": "Exclude patterns",
 	"admin_roots_exclude_help": "One per line (for example, private/ or *.tmp). Patterns that contain / start at the top of the share.",
 	"admin_roots_exclude_local_only": "To change these, open the admin pages from “Open in browser” in the WebLAV icon menu on the computer running WebLAV.",
 	"admin_roots_table_access": "Standard users",

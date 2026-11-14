@@ -370,11 +370,10 @@
 			aria-labelledby="exclude-section-heading"
 			class={sectionCardClass}
 		>
-			<h2 id="exclude-section-heading" class="text-base font-semibold">
-				{m.admin_roots_edit_exclude_title()}
-			</h2>
+			<!-- 区画の欄はパターンだけなので、欄の名前を見出しにして同じ語を2度出さない。 -->
 			<PatternField
-				label={m.contents_form_exclude_patterns_label()}
+				headingId="exclude-section-heading"
+				label={m.admin_roots_edit_exclude_title()}
 				help={m.admin_roots_exclude_help()}
 				emptyText={m.contents_form_exclude_patterns_empty()}
 				readonly={!canPick}

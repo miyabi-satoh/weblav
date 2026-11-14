@@ -66,10 +66,10 @@ When a share is inside another share, the stronger of the outer and inner permis
 
 ## Keep part of a share out of view
 
-To keep part of a share out of view, write patterns in the share's “Exclusions”. Matching files and folders don't appear on anyone's screen, including admins, and can't be opened.
+To keep part of a share out of view, write patterns in the share's “Exclude patterns”. Matching files and folders don't appear on anyone's screen, including admins, and can't be opened.
 
 1. On the computer running WebLAV, select the share's row to open its edit page.
-2. Select “Edit...” in the “Exclusions” section, write one pattern per line (for example, `private/`), and select “Use these patterns”.
+2. Select “Edit...” in the “Exclude patterns” section, write one pattern per line (for example, `private/`), and select “Use these patterns”.
 3. Select “Save” in that section.
 
 Patterns are written the same way as a content item's exclude patterns (→ [Register content](06-register-content.md)). Patterns that contain `/` start at the top of the share.
