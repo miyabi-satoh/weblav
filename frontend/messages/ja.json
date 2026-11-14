@@ -383,8 +383,6 @@
 	"contents_form_include_patterns_empty": "すべて",
 	"contents_form_exclude_patterns_label": "除外のパターン",
 	"contents_form_exclude_patterns_help": "1行に1つ書きます (例: backup/ や *.tmp)。対象より優先します。",
-	"common_none": "なし",
-	"pattern_field_apply_button": "このパターンにする",
 	"contents_form_parent_label": "親のグループ",
 	"contents_form_parent_none": "(ルート直下)",
 	"contents_form_description_label": "説明",
@@ -755,6 +753,8 @@
 	"hidden_fetch_failed": "非表示のコンテンツを読み込めませんでした。しばらくしてからもう一度お試しください。",
 	"common_delete_section_title": "削除",
 	"common_delete_section_irreversible": "削除すると元に戻せません。",
+	"common_none": "なし",
+	"pattern_field_apply_button": "このパターンにする",
 	"contents_delete_section_files_note": "コンピューターの中のフォルダーやファイルは消えません。",
 	"admin_users_delete_section_note": "このユーザーが作成したコンテンツは残ります。「作成者のみ」のものは「非表示」になります。",
 	"admin_roots_delete_section_note": "コンピューターの中のフォルダーは消えません。この中のコンテンツは、同じフォルダーを共有に追加し直すまで表示できなくなります。"

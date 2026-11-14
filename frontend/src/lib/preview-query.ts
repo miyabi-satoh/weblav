@@ -16,7 +16,7 @@ export function wantedPreviewKey(state: App.PageState, url: ReadonlyURL): string
 	return url.searchParams.get(PREVIEW_QUERY);
 }
 
-/** `pathname` と `search` (今のブラウザーの URL) の `preview` だけを `key` に替えた href。`null` なら外す。ほかのクエリは残す。 */
+/** 今のブラウザーの URL の `preview` だけを `key` に替えた href。`null` なら外す (→ `withQueryParam`)。 */
 export function previewHref(pathname: string, search: string, key: string | null): string {
 	return withQueryParam(pathname, search, PREVIEW_QUERY, key);
 }

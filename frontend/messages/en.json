@@ -482,8 +482,6 @@
 	"contents_form_include_patterns_empty": "Everything",
 	"contents_form_exclude_patterns_label": "Exclude patterns",
 	"contents_form_exclude_patterns_help": "One per line (e.g. backup/ or *.tmp). Takes priority over include patterns.",
-	"common_none": "None",
-	"pattern_field_apply_button": "Use these patterns",
 	"contents_form_parent_label": "Parent group",
 	"contents_form_parent_none": "(Root level)",
 	"contents_form_description_label": "Description",
@@ -949,6 +947,8 @@
 	"hidden_fetch_failed": "Failed to load the hidden content. Please try again later.",
 	"common_delete_section_title": "Delete",
 	"common_delete_section_irreversible": "Deleting can't be undone.",
+	"common_none": "None",
+	"pattern_field_apply_button": "Use these patterns",
 	"contents_delete_section_files_note": "Folders and files on your computer are not deleted.",
 	"admin_users_delete_section_note": "Content created by this user is kept. Their “Creator only” content becomes “Hidden”.",
 	"admin_roots_delete_section_note": "The folder on your computer is not deleted. Content inside it can't be shown until you add the same folder as a share again."

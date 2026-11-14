@@ -7,7 +7,7 @@ use std::path::{Path as FsPath, PathBuf};
 
 use crate::api::error_detail::ValidationDetail;
 use crate::api::hidden::{Hidden, HiddenRules};
-use crate::api::roots::{self, Root};
+use crate::api::roots::{self, OwnDirs, Root};
 use crate::auth::AuthUser;
 use crate::error::{AppError, run_blocking};
 use crate::state::AppState;
@@ -112,12 +112,13 @@ pub(super) async fn resolve_existing(
         .find(|root| root.id == root_id)
         .cloned()
         .ok_or(AppError::NotFound)?;
-    let rules = HiddenRules::load(state).await?;
     let rel = rel.to_string();
     let canonical_root = root.path;
     let root_path = canonical_root.clone();
-    let (canonical, rel) =
-        run_blocking(move || resolve_under(&canonical_root, &rel, &rules.resolve())).await??;
+    let (canonical, rel) = crate::api::hidden::with_hidden(state, move |hidden| {
+        resolve_under(&canonical_root, &rel, hidden)
+    })
+    .await?;
     Ok(Resolved {
         root_path,
         access: effective_access(&access, &all_roots, &canonical),
@@ -257,17 +258,21 @@ pub(super) async fn ensure_nothing_hidden_inside(
     state: &AppState,
     canonical: &FsPath,
 ) -> Result<(), AppError> {
+    // WebLAV のデータは、共有の様子を確かめる前に見る。共有の除外を読むと、つながらない NAS の共有を待つため。
+    let own_dirs = state.own_dirs.clone();
+    let path = canonical.to_path_buf();
+    if run_blocking(move || OwnDirs::resolve(&own_dirs).any_within(&path)).await? {
+        return Err(protected_error());
+    }
     let canonical = canonical.to_path_buf();
-    crate::api::hidden::with_hidden(state, move |hidden| {
-        if hidden.own_dirs().any_within(&canonical) {
-            return Err(protected_error());
-        }
-        if hidden.has_share_hidden_inside(&canonical) {
-            return Err(contains_hidden_error());
-        }
-        Ok(())
+    let inside = crate::api::hidden::with_hidden(state, move |hidden| {
+        Ok(hidden.has_share_hidden_inside(&canonical))
     })
-    .await
+    .await?;
+    if inside {
+        return Err(contains_hidden_error());
+    }
+    Ok(())
 }
 
 fn protected_error() -> AppError {
