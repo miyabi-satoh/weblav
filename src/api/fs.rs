@@ -114,11 +114,7 @@ fn top_entries(roots: &[Root], hidden: &Hidden) -> Vec<DirEntryItem> {
 /// `dir` 直下のディレクトリを列挙する。ファイルは返さない
 /// (それ以外の除外規則は `Hidden::visible_entry` に集約。→ docs/folders.md「表示しないもの」)。
 /// weblav 自身の置き場 (設定とデータ) は、選んでも中身が出ないので並べない (→ docs/folders.md「共有」)。
-fn read_dirs(
-    dir: &FsPath,
-    roots: &[Root],
-    hidden: &Hidden,
-) -> std::io::Result<Vec<DirEntryItem>> {
+fn read_dirs(dir: &FsPath, roots: &[Root], hidden: &Hidden) -> std::io::Result<Vec<DirEntryItem>> {
     let mut entries = Vec::new();
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;

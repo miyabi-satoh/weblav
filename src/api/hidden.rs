@@ -87,12 +87,16 @@ impl HiddenRules {
         )
         .fetch_one(&state.pool)
         .await?;
-        let rows = sqlx::query!("SELECT path, exclude_patterns FROM roots WHERE deleted_at IS NULL")
-        .fetch_all(&state.pool)
-        .await?;
-        let reaches =
-            super::roots::check_all(state, rows.iter().map(|row| row.path.clone()).collect(), OTHERS_WAIT)
-                .await;
+        let rows =
+            sqlx::query!("SELECT path, exclude_patterns FROM roots WHERE deleted_at IS NULL")
+                .fetch_all(&state.pool)
+                .await?;
+        let reaches = super::roots::check_all(
+            state,
+            rows.iter().map(|row| row.path.clone()).collect(),
+            OTHERS_WAIT,
+        )
+        .await;
         let mut shares = Vec::new();
         for (row, reach) in rows.into_iter().zip(reaches) {
             if let Reach::Ready(path) = reach {
@@ -329,8 +333,7 @@ impl Hidden {
             .any(|entry| match entry {
                 Ok(entry) => {
                     let file_type = entry.file_type();
-                    !file_type.is_symlink()
-                        && self.hides_by_share(entry.path(), file_type.is_dir())
+                    !file_type.is_symlink() && self.hides_by_share(entry.path(), file_type.is_dir())
                 }
                 Err(_) => true,
             })
@@ -538,7 +541,9 @@ pub(super) async fn apply_to_indexes(state: &AppState, share: Option<&str>) {
                 loop {
                     tokio::time::sleep(SCAN_RETRY_INTERVAL).await;
                     if let Ok(guard) = state.archive_scans.acquire(archive.id) {
-                        if let Err(err) = apply_to_index(&state, archive.id, &archive.path, guard).await {
+                        if let Err(err) =
+                            apply_to_index(&state, archive.id, &archive.path, guard).await
+                        {
                             tracing::warn!(archive_id = archive.id, error = %crate::error::error_chain(&err), "applying hidden patterns to an index failed");
                         }
                         return;
@@ -676,8 +681,14 @@ mod tests {
         assert!(hidden.hides_name(path, ".DS_Store", false));
         assert!(hidden.hides_name(path, ".git", true));
         assert!(hidden.hides_name(path, "@eaDir", true));
-        assert!(hidden.hides_name(path, "thumbs.db", false), "大文字小文字を区別しないはず");
-        assert!(!hidden.hides_name(path, "@eaDir", false), "フォルダーの印はファイルに当てないはず");
+        assert!(
+            hidden.hides_name(path, "thumbs.db", false),
+            "大文字小文字を区別しないはず"
+        );
+        assert!(
+            !hidden.hides_name(path, "@eaDir", false),
+            "フォルダーの印はファイルに当てないはず"
+        );
         assert!(!hidden.hides_name(path, "教材.pdf", false));
     }
 
@@ -715,7 +726,10 @@ mod tests {
     /// 外側の共有で隠した場所の中に作った共有は、設置者が選んだものなので見せる。
     #[test]
     fn the_innermost_share_decides() {
-        let hidden = hidden(Some(""), &[("/nas", "private/"), ("/nas/private/photos", "*.raw")]);
+        let hidden = hidden(
+            Some(""),
+            &[("/nas", "private/"), ("/nas/private/photos", "*.raw")],
+        );
         assert!(!hidden.hides_path(FsPath::new("/nas/private/photos/a.jpg"), false));
         assert!(hidden.hides_path(FsPath::new("/nas/private/photos/a.raw"), false));
         assert!(hidden.hides_path(FsPath::new("/nas/private/memo.txt"), false));
@@ -732,9 +746,15 @@ mod tests {
     #[test]
     fn saving_the_default_patterns_keeps_the_default() {
         assert_eq!(stored_patterns(None), None);
-        assert_eq!(stored_patterns(Some(&format!(" {DEFAULT_SITE_PATTERNS}\n\n"))), None);
+        assert_eq!(
+            stored_patterns(Some(&format!(" {DEFAULT_SITE_PATTERNS}\n\n"))),
+            None
+        );
         assert_eq!(stored_patterns(Some("")), Some(String::new()));
-        assert_eq!(stored_patterns(Some(" *.bak \n")), Some("*.bak".to_string()));
+        assert_eq!(
+            stored_patterns(Some(" *.bak \n")),
+            Some("*.bak".to_string())
+        );
     }
 
     #[test]
@@ -749,7 +769,10 @@ mod tests {
             site,
             vec![
                 (root.join("a"), FileFilter::default()),
-                (root.join("b"), share_filter(Some("*.raw")).expect("正しいはず")),
+                (
+                    root.join("b"),
+                    share_filter(Some("*.raw")).expect("正しいはず"),
+                ),
             ],
         );
         let src = root.join("a/trip");
@@ -771,7 +794,10 @@ mod tests {
 
         let with = Hidden::from_stored(
             site,
-            vec![(share.clone(), share_filter(Some("private/")).expect("正しいはず"))],
+            vec![(
+                share.clone(),
+                share_filter(Some("private/")).expect("正しいはず"),
+            )],
         );
         assert!(with.has_share_hidden_inside(&share.join("album")));
         assert!(!with.has_share_hidden_inside(&share.join("album/private")));

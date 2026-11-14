@@ -169,7 +169,14 @@ pub(super) async fn resolve_parent_for_new(
     if !run_blocking(move || path.is_dir()).await? {
         return Err(AppError::NotFound);
     }
-    ensure_placed_shown(&HiddenRules::load(state).await?, &dir.canonical, &name, true, None).await?;
+    ensure_placed_shown(
+        &HiddenRules::load(state).await?,
+        &dir.canonical,
+        &name,
+        true,
+        None,
+    )
+    .await?;
     let target = dir.canonical.join(&name);
     Ok(NewEntry { dir, name, target })
 }
@@ -395,7 +402,11 @@ mod tests {
         for rel in cases {
             assert!(
                 matches!(
-                    resolve_under(&root, rel, &Hidden::for_test(&[], std::slice::from_ref(&root))),
+                    resolve_under(
+                        &root,
+                        rel,
+                        &Hidden::for_test(&[], std::slice::from_ref(&root))
+                    ),
                     Err(AppError::NotFound)
                 ),
                 "{rel} は 404 のはず"

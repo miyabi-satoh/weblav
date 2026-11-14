@@ -117,8 +117,7 @@ async fn browse_share(
             return Err(AppError::NotFound);
         }
         let trash = trash_policy.available(&dir);
-        let entries =
-            contents::read_entries(&dir, &rel, &rules.resolve(), None, order)?;
+        let entries = contents::read_entries(&dir, &rel, &rules.resolve(), None, order)?;
         let entries = entries
             .into_iter()
             .map(|entry| {

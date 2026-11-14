@@ -715,11 +715,7 @@ pub(super) async fn load_roots_for(
 }
 
 /// フォルダーの様子を並べて確かめる。並びは `paths` のまま。
-pub(super) async fn check_all(
-    state: &AppState,
-    paths: Vec<String>,
-    wait: Duration,
-) -> Vec<Reach> {
+pub(super) async fn check_all(state: &AppState, paths: Vec<String>, wait: Duration) -> Vec<Reach> {
     let mut checks = tokio::task::JoinSet::new();
     for (index, path) in paths.into_iter().enumerate() {
         let reach = state.folder_reach.clone();

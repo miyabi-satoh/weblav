@@ -2026,8 +2026,7 @@ pub(super) async fn resolve_path(
             return Err(AppError::NotFound);
         }
 
-        let canonical_candidate =
-            super::fs::resolve_within(&canonical_root, &rel_owned, &hidden)?;
+        let canonical_candidate = super::fs::resolve_within(&canonical_root, &rel_owned, &hidden)?;
         if let Some(filter) = &filter {
             let rel = super::fs::rel_of(&canonical_root, &canonical_candidate)?;
             let shown = if canonical_candidate.is_dir() {
