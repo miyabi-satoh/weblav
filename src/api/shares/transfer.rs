@@ -203,8 +203,16 @@ async fn prepare_transfer(
             .collect::<Result<Vec<_>, AppError>>()
     })
     .await??;
+    let rules = crate::api::hidden::HiddenRules::load(state).await?;
     for source in &sources {
-        super::paths::ensure_name_shown(state, &dest.canonical, &source.name, source.is_dir).await?;
+        super::paths::ensure_placed_shown(
+            &rules,
+            &dest.canonical,
+            &source.name,
+            source.is_dir,
+            Some(&source.resolved.canonical),
+        )
+        .await?;
     }
     Ok(PreparedTransfer { sources, dest })
 }

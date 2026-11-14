@@ -74,7 +74,7 @@ To keep part of a share out of view, write patterns in the share's “Hidden ite
 
 Patterns are written the same way as a content item's exclude patterns (→ [Register content](06-register-content.md)). Patterns that contain `/` start at the top of the share.
 
-A folder that contains items matching them can't be renamed, moved, copied, or deleted on the share screen.
+A folder that contains items matching them can't be renamed, moved, copied, or deleted on the share screen. A folder can't be moved, copied, or renamed either when items inside would match them at the new place.
 
 To hide items in every share (names that start with a dot, folders a NAS creates, and so on), use “Hidden items” in Site settings (→ [Maintain WebLAV](10-maintenance.md)).
 

@@ -3231,7 +3231,7 @@ export interface components {
             visibility?: components["schemas"]["Visibility"] | null;
         };
         UpdateHiddenSettingsRequest: {
-            /** @description 1行に1つ。`null` なら既定に戻す。 */
+            /** @description 1行に1つ。`null` か、既定と同じ内容なら既定のままにする。 */
             patterns?: string | null;
             /** @description Windows の隠し属性の付いたものを表示しないか。省略したら今のまま。 */
             windowsHidden?: boolean | null;

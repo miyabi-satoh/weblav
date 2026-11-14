@@ -10605,7 +10605,7 @@
               "string",
               "null"
             ],
-            "description": "1行に1つ。`null` なら既定に戻す。"
+            "description": "1行に1つ。`null` か、既定と同じ内容なら既定のままにする。"
           },
           "windowsHidden": {
             "type": [

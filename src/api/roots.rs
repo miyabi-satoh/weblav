@@ -624,7 +624,7 @@ async fn update_root_exclude(
                 .fields(vec![FieldChange::named("excludePatterns")]),
         )
         .await;
-        super::hidden::apply_to_indexes(&state, Some(&before.path)).await?;
+        super::hidden::apply_to_indexes(&state, Some(&before.path)).await;
     }
     root_response(&state, id).await.map(Json)
 }

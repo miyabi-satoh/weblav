@@ -4,7 +4,7 @@
 //! パスはどれも、共有の中であることを確かめ済みの実体のパス (→ `paths::resolve_existing`)。
 //!
 //! シンボリックリンクは辿らない。コピーではリンクを飛ばし、削除ではリンクそのものだけを消す。
-//! 共有の中のリンクは一覧にも出さないので (→ `fs::is_visible_entry`)、リンクの先にある共有の外の
+//! 共有の中のリンクは一覧にも出さないので (→ `api::hidden`)、リンクの先にある共有の外の
 //! ものを、コピー・削除で巻き込まないため。
 
 use std::fs::{self, File};
@@ -22,7 +22,7 @@ const SPACE_RESERVE_BYTES: u64 = 100 * 1024 * 1024;
 /// コピーで一度に読み書きする大きさ。大きなファイルでも、中止と進み具合が1秒たたずに効く程度。
 const COPY_CHUNK_BYTES: usize = 1024 * 1024;
 
-/// 作業中のコピーの名前の頭。ドットで始めて一覧に出さない (→ `fs::is_visible_entry`)。
+/// 作業中のコピーの名前の頭。ドットで始めて一覧に出さない (→ `api::hidden`)。
 const COPY_TEMP_PREFIX: &str = ".weblav-copy-";
 
 /// 上書きで、置く用意ができたものと、ごみ箱を使えない場所で除けた今あるものの名前の頭。一覧には出ない。
@@ -233,7 +233,7 @@ pub(super) fn file_name(path: &Path) -> String {
     crate::api::fs::file_name_lossy(path).unwrap_or_default()
 }
 
-/// アップロードの途中のファイルの名前の頭。ドットで始めて一覧に出さない (→ `fs::is_visible_entry`)。
+/// アップロードの途中のファイルの名前の頭。ドットで始めて一覧に出さない (→ `api::hidden`)。
 pub(super) const UPLOAD_TEMP_PREFIX: &str = ".weblav-upload-";
 
 /// 作業用のファイルを、途中で止まった残りとみなすまでの時間。今まさに受け取っている大きなファイル
@@ -815,6 +815,16 @@ mod tests {
 
     fn temp_dir(name: &str) -> crate::test_support::TempDir {
         crate::test_support::project_temp_dir("shares-fsops", name)
+    }
+
+    /// 作業中のファイルは、サイトの設定によらず隠す頭 (`hidden::WORK_FILE_PREFIX`) で始める。
+    /// 外れると、ドット始まりを見せる設定にしたときに作りかけが見える。
+    #[test]
+    fn work_files_start_with_the_hidden_prefix() {
+        use crate::api::hidden::WORK_FILE_PREFIX;
+        for prefix in [COPY_TEMP_PREFIX, PLACE_TEMP_PREFIX, UPLOAD_TEMP_PREFIX] {
+            assert!(prefix.starts_with(WORK_FILE_PREFIX), "{prefix}");
+        }
     }
 
     #[test]

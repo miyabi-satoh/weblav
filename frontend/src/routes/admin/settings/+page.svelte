@@ -105,7 +105,7 @@
 	let canEditHidden = $derived(canAddRoots(page.url.hostname));
 	let savingHidden = $state(false);
 
-	/** 空の行と前後の空白を除いた形。既定と比べるのに使う (サーバーも同じ形で保存する)。 */
+	/** 空の行と前後の空白を除いた形。「既定値に戻す」を出すかを決めるのに使う。保存の形はサーバーが決める。 */
 	function normalizedPatterns(raw: string): string {
 		return raw
 			.split('\n')
@@ -183,10 +183,9 @@
 		savingHidden = true;
 
 		try {
-			const patterns = normalizedPatterns(hiddenPatterns);
-			// 既定と同じなら既定のままにする。版を上げて既定が増えたときに届くように (→ `src/api/hidden.rs`)。
+			// 既定と同じ内容なら、サーバーが既定のままにする (→ `src/api/hidden.rs` の `stored_patterns`)。
 			const body = {
-				patterns: patterns === hidden.defaultPatterns ? null : patterns,
+				patterns: hiddenPatterns,
 				windowsHidden: hidden.windowsHidden == null ? undefined : windowsHidden
 			};
 			const result = await errorDialog.attempt(() =>

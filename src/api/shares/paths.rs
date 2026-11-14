@@ -22,7 +22,7 @@ const NAME_MAX_BYTES: usize = 255;
 ///
 /// NFC にそろえるのは、macOS から送られる NFD の名前と、ほかの端末から送られる NFC の名前が、
 /// 見た目は同じなのに別のファイルになるのを避けるため。
-/// 表示しないものに当たる名前 (既定ではドット始まり) は、置き場所によるので `ensure_name_shown` で見る。
+/// 表示しないものに当たる名前 (既定ではドット始まり) は、置き場所によるので `ensure_placed_shown` で見る。
 pub(super) fn validate_name(name: &str) -> Result<String, AppError> {
     let name = icu_normalizer::ComposingNormalizerBorrowed::new_nfc()
         .normalize(name)
@@ -169,7 +169,7 @@ pub(super) async fn resolve_parent_for_new(
     if !run_blocking(move || path.is_dir()).await? {
         return Err(AppError::NotFound);
     }
-    ensure_name_shown(state, &dir.canonical, &name, true).await?;
+    ensure_placed_shown(&HiddenRules::load(state).await?, &dir.canonical, &name, true, None).await?;
     let target = dir.canonical.join(&name);
     Ok(NewEntry { dir, name, target })
 }
@@ -201,26 +201,47 @@ pub(super) async fn ensure_not_protected(
     ensure_no_share_hidden_inside(state, &resolved.canonical).await
 }
 
-/// フォルダー `dir` (実体のパス) に `name` を作る・置くとき、それが表示しないもの (→ `api::hidden`) に当たれば
-/// 422 (`entryNameHidden`)。作っても誰にも見えず、消すこともできなくなるため。
-pub(super) async fn ensure_name_shown(
-    state: &AppState,
+/// フォルダー `dir` (実体のパス) に `name` を作る・置くとき、表示しないもの (→ `api::hidden`) にならないか。
+/// 作っても誰にも見えず、消すことも動かすこともできなくなるため。
+/// - `name` が当たれば 422 (`entryNameHidden`)。
+/// - `src` (動かす・写す・名前を変える元) を置くと、中のものが共有の除外に当たるなら 422 (`entryContainsHidden`)。
+///
+/// 1つの要求でいくつも置くときは、`rules` を1回だけ読んで渡す。
+pub(super) async fn ensure_placed_shown(
+    rules: &HiddenRules,
     dir: &FsPath,
     name: &str,
     is_dir: bool,
+    src: Option<&FsPath>,
 ) -> Result<(), AppError> {
     let target = dir.join(name);
-    let hidden = crate::api::hidden::with_hidden(state, move |hidden| {
-        Ok(hidden.hides_path(&target, is_dir))
+    let src = src.map(FsPath::to_path_buf);
+    let rules = rules.clone();
+    let (name_hidden, inside_hidden) = run_blocking(move || {
+        let hidden = rules.resolve();
+        (
+            hidden.hides_path(&target, is_dir),
+            src.is_some_and(|src| hidden.hides_inside_at(&src, &target)),
+        )
     })
     .await?;
-    if hidden {
+    if name_hidden {
         return Err(AppError::ValidationDetailed {
             message: "the name is hidden by the hidden patterns".to_string(),
             detail: ValidationDetail::EntryNameHidden,
         });
     }
+    if inside_hidden {
+        return Err(contains_hidden_error());
+    }
     Ok(())
+}
+
+fn contains_hidden_error() -> AppError {
+    AppError::ValidationDetailed {
+        message: "the entry contains something hidden by the share's exclude patterns".to_string(),
+        detail: ValidationDetail::EntryContainsHidden,
+    }
 }
 
 /// `canonical` の中に、共有の除外で隠したものが無いか。あれば 422 (`entryContainsHidden`。→ `Hidden::has_share_hidden_inside`)。
@@ -234,11 +255,7 @@ pub(super) async fn ensure_no_share_hidden_inside(
     })
     .await?;
     if inside {
-        return Err(AppError::ValidationDetailed {
-            message: "the entry contains something hidden by the share's exclude patterns"
-                .to_string(),
-            detail: ValidationDetail::EntryContainsHidden,
-        });
+        return Err(contains_hidden_error());
     }
     Ok(())
 }

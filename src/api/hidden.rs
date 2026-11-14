@@ -44,7 +44,7 @@ desktop.ini";
 
 /// WebLAV が作業中に置くファイルの名前の頭 (アップロード・コピー・上書きの途中)。サイトの設定によらず出さない。
 /// ドット始まりを外す設定にしても、作りかけのものが見えないようにするため。
-const WORK_FILE_PREFIX: &str = ".weblav-";
+pub(super) const WORK_FILE_PREFIX: &str = ".weblav-";
 
 /// サイトの設定のパターンを読む。名前に当てるので、`/` は末尾 (フォルダーにだけ当てる印) にしか書けない。
 pub(super) fn site_filter(raw: Option<&str>) -> Result<FileFilter, AppError> {
@@ -181,6 +181,10 @@ impl Hidden {
 
     /// `path` を、それを含むいちばん内側の共有の除外で隠すか。共有そのものは隠さない。
     fn hides_by_share(&self, path: &FsPath, is_dir: bool) -> bool {
+        // 走査ではエントリごとに呼ぶので、除外がどこにも無いときは共有を探さない。
+        if self.shares.iter().all(|(_, filter)| filter.is_empty()) {
+            return false;
+        }
         let Some((share, filter)) = self
             .shares
             .iter()
@@ -192,6 +196,9 @@ impl Hidden {
         let Some(rel) = rel_string(share, path) else {
             return false;
         };
+        if filter.is_empty() {
+            return false;
+        }
         if is_dir {
             !filter.allows_dir(&rel)
         } else {
@@ -314,25 +321,60 @@ impl Hidden {
         if !may_apply {
             return false;
         }
+        // 読めない場所は、隠したものがあるとみなす。分からないまま消したり動かしたりしないため。
         WalkDir::new(path)
             .follow_links(false)
             .min_depth(1)
             .into_iter()
-            .flatten()
-            .any(|entry| {
-                let file_type = entry.file_type();
-                !file_type.is_symlink() && self.hides_by_share(entry.path(), file_type.is_dir())
+            .any(|entry| match entry {
+                Ok(entry) => {
+                    let file_type = entry.file_type();
+                    !file_type.is_symlink()
+                        && self.hides_by_share(entry.path(), file_type.is_dir())
+                }
+                Err(_) => true,
+            })
+    }
+
+    /// `src` を `dest` (まだ無くてよい) へ動かす・写すと、中のものが共有の除外で隠れるか。
+    /// 置き先の共有の除外が違うときや、`/` で始まる除外の当たり方が変わるときに起きる。
+    /// 隠れたものは見えず、消すことも動かすこともできなくなるので、操作を断るのに使う。`src` そのものの名前は見ない
+    /// (呼び出し側が `hides_path` で見る)。
+    ///
+    /// ブロッキングI/Oを行うため、呼び出し側は `spawn_blocking` の中で呼ぶこと。
+    pub(super) fn hides_inside_at(&self, src: &FsPath, dest: &FsPath) -> bool {
+        let may_apply = self.shares.iter().any(|(share, filter)| {
+            !filter.is_empty() && (dest.starts_with(share) || share.starts_with(dest))
+        });
+        if !may_apply || !src.is_dir() {
+            return false;
+        }
+        WalkDir::new(src)
+            .follow_links(false)
+            .min_depth(1)
+            .into_iter()
+            .any(|entry| match entry {
+                Ok(entry) => {
+                    let file_type = entry.file_type();
+                    let Ok(rel) = entry.path().strip_prefix(src) else {
+                        return true;
+                    };
+                    !file_type.is_symlink()
+                        && self.hides_by_share(&dest.join(rel), file_type.is_dir())
+                }
+                Err(_) => true,
             })
     }
 }
 
-/// `base` から `path` までの相対パス ('/' 区切り)。UTF-8 でなければ `None`。
+/// `base` から `path` までの相対パス ('/' 区切り)。UTF-8 でない文字は置き換えて照らす
+/// (照らせないからといって除外を素通りさせないため)。
 fn rel_string(base: &FsPath, path: &FsPath) -> Option<String> {
     let rel = path.strip_prefix(base).ok()?;
     Some(
         rel.components()
-            .map(|component| component.as_os_str().to_str())
-            .collect::<Option<Vec<_>>>()?
+            .map(|component| component.as_os_str().to_string_lossy())
+            .collect::<Vec<_>>()
             .join("/"),
     )
 }
@@ -350,12 +392,14 @@ struct HiddenSettingsResponse {
     windows_hidden: Option<bool>,
 }
 
-async fn load_settings(pool: &sqlx::SqlitePool) -> Result<HiddenSettingsResponse, AppError> {
+async fn load_settings(
+    executor: impl sqlx::SqliteExecutor<'_>,
+) -> Result<HiddenSettingsResponse, AppError> {
     let row = sqlx::query!(
         r#"SELECT hidden_patterns, hide_windows_hidden as "hide_windows_hidden: bool"
            FROM site_settings WHERE id = 1"#
     )
-    .fetch_one(pool)
+    .fetch_one(executor)
     .await?;
     Ok(HiddenSettingsResponse {
         is_default: row.hidden_patterns.is_none(),
@@ -387,7 +431,7 @@ async fn get_hidden_settings(
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct UpdateHiddenSettingsRequest {
-    /// 1行に1つ。`null` なら既定に戻す。
+    /// 1行に1つ。`null` か、既定と同じ内容なら既定のままにする。
     patterns: Option<String>,
     /// Windows の隠し属性の付いたものを表示しないか。省略したら今のまま。
     windows_hidden: Option<bool>,
@@ -413,25 +457,21 @@ async fn update_hidden_settings(
     State(state): State<AppState>,
     AppJson(payload): AppJson<UpdateHiddenSettingsRequest>,
 ) -> Result<Json<HiddenSettingsResponse>, AppError> {
-    // 空にしたものは空のまま残す (何も隠さない)。既定に戻すのは `null` だけ。
-    let patterns = payload
-        .patterns
-        .as_deref()
-        .map(|raw| normalize_patterns(Some(raw)).unwrap_or_default());
+    let patterns = stored_patterns(payload.patterns.as_deref());
     site_filter(Some(patterns.as_deref().unwrap_or(DEFAULT_SITE_PATTERNS)))?;
-    let before = load_settings(&state.pool).await?;
-    let windows_hidden = payload
-        .windows_hidden
-        .or(before.windows_hidden)
-        .unwrap_or(true);
+    let mut tx = crate::db::begin_write(&state.pool).await?;
+    let before = load_settings(&mut *tx).await?;
+    // 送られなかった切り替えは今のまま残す。Windows の外では画面に出さないため送られない。
     sqlx::query!(
-        "UPDATE site_settings SET hidden_patterns = ?, hide_windows_hidden = ? WHERE id = 1",
+        "UPDATE site_settings SET hidden_patterns = ?,
+                hide_windows_hidden = COALESCE(?, hide_windows_hidden) WHERE id = 1",
         patterns,
-        windows_hidden
+        payload.windows_hidden
     )
-    .execute(&state.pool)
+    .execute(&mut *tx)
     .await?;
-    let after = load_settings(&state.pool).await?;
+    let after = load_settings(&mut *tx).await?;
+    tx.commit().await?;
 
     let mut fields = Vec::new();
     if before.patterns != after.patterns || before.is_default != after.is_default {
@@ -450,20 +490,39 @@ async fn update_hidden_settings(
             &OpRecord::new(Op::UpdateSiteSettings, &admin).fields(fields),
         )
         .await;
-        apply_to_indexes(&state, None).await?;
+        apply_to_indexes(&state, None).await;
     }
     Ok(Json(after))
 }
 
+/// 保存する形。前後の空白と空の行を落とし、既定と同じなら `None` (既定のまま)。
+/// 既定のままにしておくと、版を上げて既定を足したときに届くため。空は空のまま残す (何も隠さない)。
+fn stored_patterns(raw: Option<&str>) -> Option<String> {
+    let raw = raw?;
+    let normalized = normalize_patterns(Some(raw)).unwrap_or_default();
+    (normalize_patterns(Some(DEFAULT_SITE_PATTERNS)).as_deref() != Some(normalized.as_str()))
+        .then_some(normalized)
+}
+
 /// 表示しないものを変えた後に、一覧の表示の索引を合わせる (→ docs/archive.md「スキャン」)。
 /// `share` があれば、その共有に関わるもの (中にあるか、中に含むもの) だけ。
-pub(super) async fn apply_to_indexes(state: &AppState, share: Option<&str>) -> Result<(), AppError> {
-    let archives = sqlx::query!(
+///
+/// 設定は保存し終えているので、失敗はログに出すだけにして、残りの索引も合わせる。
+/// 合わせ損ねた索引も、次に一覧を開いたときの読み直しかスキャンで直る。
+pub(super) async fn apply_to_indexes(state: &AppState, share: Option<&str>) {
+    let archives = match sqlx::query!(
         r#"SELECT id as "id!", path as "path!" FROM contents
            WHERE type = 'folder' AND list_view = 1 AND path IS NOT NULL"#
     )
     .fetch_all(&state.pool)
-    .await?;
+    .await
+    {
+        Ok(archives) => archives,
+        Err(err) => {
+            tracing::warn!(error = %err, "listing indexes to apply hidden patterns failed");
+            return;
+        }
+    };
     for archive in archives {
         let related = share.is_none_or(|share| {
             super::roots::contains(share, &archive.path)
@@ -488,9 +547,10 @@ pub(super) async fn apply_to_indexes(state: &AppState, share: Option<&str>) -> R
             });
             continue;
         };
-        apply_to_index(state, archive.id, &archive.path, guard).await?;
+        if let Err(err) = apply_to_index(state, archive.id, &archive.path, guard).await {
+            tracing::warn!(archive_id = archive.id, error = %crate::error::error_chain(&err), "applying hidden patterns to an index failed");
+        }
     }
-    Ok(())
 }
 
 /// スキャンの終わりを待つ間に、排他を取り直す間隔。待つのは設定を変えた後の1回だけなので、短くても負荷にならない。
@@ -667,6 +727,34 @@ mod tests {
         assert!(!hidden.hides_path(FsPath::new("/home/.media"), true));
         assert!(!hidden.hides_path(FsPath::new("/home/.media/a.mp3"), false));
         assert!(hidden.hides_path(FsPath::new("/home/.media/.cache/a"), false));
+    }
+
+    #[test]
+    fn saving_the_default_patterns_keeps_the_default() {
+        assert_eq!(stored_patterns(None), None);
+        assert_eq!(stored_patterns(Some(&format!(" {DEFAULT_SITE_PATTERNS}\n\n"))), None);
+        assert_eq!(stored_patterns(Some("")), Some(String::new()));
+        assert_eq!(stored_patterns(Some(" *.bak \n")), Some("*.bak".to_string()));
+    }
+
+    #[test]
+    fn moving_into_a_share_with_other_excludes_is_seen() {
+        let base = crate::test_support::project_temp_dir("hidden-tests", "moving");
+        std::fs::create_dir_all(base.path().join("a/trip")).expect("フォルダーを作れなかった");
+        std::fs::create_dir_all(base.path().join("b")).expect("フォルダーを作れなかった");
+        std::fs::write(base.path().join("a/trip/x.raw"), b"").expect("ファイルを作れなかった");
+        let root = std::fs::canonicalize(base.path()).expect("実体のパスを得られなかった");
+        let site = site_filter(None).expect("既定は正しいはず");
+        let hidden = Hidden::from_stored(
+            site,
+            vec![
+                (root.join("a"), FileFilter::default()),
+                (root.join("b"), share_filter(Some("*.raw")).expect("正しいはず")),
+            ],
+        );
+        let src = root.join("a/trip");
+        assert!(hidden.hides_inside_at(&src, &root.join("b/trip")));
+        assert!(!hidden.hides_inside_at(&src, &root.join("a/trip2")));
     }
 
     #[test]
