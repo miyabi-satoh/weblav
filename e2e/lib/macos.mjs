@@ -82,6 +82,16 @@ const AX = `
 	};
 	const frontPid = () => $.NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier;
 	const dialog = () => { const wins = axGet(app, 'AXWindows'); for (let i = 0; wins && i < wins.count; i++) { const w = wins.objectAtIndex(i); if (axStr(w, 'AXSubrole') === 'AXDialog') return w; } return null; };
+	// 窓がキーを受ける状態か。WebLAV が前面のアプリになっても、窓が前面の窓になるまで少しかかる
+	const dialogReady = () => { const focused = axGet(app, 'AXFocusedWindow'); return frontPid() === args.pid && focused !== null && axStr(focused, 'AXSubrole') === 'AXDialog'; };
+	const bringDialogFront = () => {
+		$.NSRunningApplication.runningApplicationWithProcessIdentifier(args.pid).activateWithOptions($.NSApplicationActivateIgnoringOtherApps);
+		const w = dialog();
+		if (w) $.AXUIElementPerformAction(w, $('AXRaise'));
+		for (let i = 0; i < 50 && !dialogReady(); i++) delay(0.1);
+		// 前面の窓になった直後のキーは落ちることがある
+		delay(0.3);
+	};
 `;
 
 /** メニューバーのアイコンの数 */
@@ -137,13 +147,11 @@ export function chooseInDialog(pid, folder) {
 	return jxa(
 		`${AX}
 	const se = Application('System Events');
-	const w = dialog();
-	if (!w) throw new Error('フォルダー選択の窓が無い');
-	$.NSRunningApplication.runningApplicationWithProcessIdentifier(args.pid).activateWithOptions($.NSApplicationActivateIgnoringOtherApps);
-	$.AXUIElementPerformAction(w, $('AXRaise'));
+	if (!dialog()) throw new Error('フォルダー選択の窓が無い');
+	bringDialogFront();
 	const mine = () => frontPid() === args.pid;
-	for (let i = 0; i < 50 && !mine(); i++) delay(0.1);
 	const guard = (step) => { if (!mine()) throw new Error(step + ': WebLAV が前面でないので打たない'); };
+	if (!dialogReady()) throw new Error('フォルダー選択の窓が前面にならないので打たない');
 	guard('始める前');
 	se.keystroke('g', { using: ['command down', 'shift down'] });
 	delay(1);
@@ -166,14 +174,14 @@ export function chooseInDialog(pid, folder) {
 export function cancelDialog(pid) {
 	return jxa(
 		`${AX}
-	const w = dialog();
-	if (!w) return false;
-	$.NSRunningApplication.runningApplicationWithProcessIdentifier(args.pid).activateWithOptions($.NSApplicationActivateIgnoringOtherApps);
-	$.AXUIElementPerformAction(w, $('AXRaise'));
-	for (let i = 0; i < 50 && frontPid() !== args.pid; i++) delay(0.1);
-	if (frontPid() !== args.pid) throw new Error('WebLAV が前面でないので打たない');
-	Application('System Events').keyCode(53);
-	for (let i = 0; i < 50 && dialog(); i++) delay(0.1);
+	if (!dialog()) return false;
+	for (let attempt = 0; attempt < 3 && dialog(); attempt++) {
+		bringDialogFront();
+		if (!dialogReady()) throw new Error('フォルダー選択の窓が前面にならないので打たない');
+		Application('System Events').keyCode(53);
+		for (let i = 0; i < 30 && dialog(); i++) delay(0.1);
+	}
+	if (dialog()) throw new Error('窓が閉じない');
 	return true;
 `,
 		{ pid }
@@ -287,7 +295,16 @@ async function stopLeftover() {
 	} catch {
 		return;
 	}
-	for (const pid of pids) await quit({ pid });
+	const weblav = await weblavPids();
+	for (const pid of pids.filter((pid) => weblav.includes(pid))) await quit({ pid });
+}
+
+/** 確かめ用の WebLAV を止めて、データを残したまま起動し直し、ログインした状態にする */
+export async function relaunch(running) {
+	await quit(running);
+	const next = await launch({ fresh: false });
+	await next.api.login();
+	return next;
 }
 
 /** 確かめ用の WebLAV を止め、終わるまで待つ */

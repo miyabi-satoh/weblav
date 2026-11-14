@@ -12,6 +12,7 @@ import {
 	launch,
 	pickAndAddRoot,
 	quit,
+	relaunch,
 	trashNames,
 	waitFor,
 	workDir
@@ -27,6 +28,12 @@ test.describe('macOS: 共有のフォルダー', () => {
 	let folder;
 	let share;
 	let ramDisk;
+	// 起動し直しに渡す。起動し直しが落ちたときに、止めたプロセスを後片付けが指したままにしないよう、先に外す
+	const previous = () => {
+		const current = running;
+		running = null;
+		return current;
+	};
 
 	test.before(async () => {
 		folder = await workDir('folders');
@@ -36,10 +43,17 @@ test.describe('macOS: 共有のフォルダー', () => {
 	});
 
 	test.after(async () => {
-		if (running) await cancelDialog(running.pid).catch(() => {});
-		await quit(running);
-		await detachRamDisk(ramDisk);
-		if (folder) await fs.rm(folder, { recursive: true, force: true });
+		// 1つが落ちても残りを片付ける
+		const steps = [
+			() => running && cancelDialog(running.pid),
+			() => quit(running),
+			() => detachRamDisk(ramDisk),
+			() => folder && fs.rm(folder, { recursive: true, force: true })
+		];
+		for (const step of steps)
+			await Promise.resolve()
+				.then(step)
+				.catch((error) => console.error(error));
 	});
 
 	test('窓を取り消すと、何も選ばれない', async () => {
@@ -71,18 +85,18 @@ test.describe('macOS: 共有のフォルダー', () => {
 	});
 
 	test('起動し直しても、選んだフォルダーを読める', async () => {
-		await quit(running);
-		running = await launch({ fresh: false });
-		await running.api.login();
+		running = await relaunch(previous());
 		assert.deepEqual(names(await running.api.browse(share.id)), ['hello.txt']);
 	});
 
-	test('バックアップから戻した後も、選んだフォルダーを読める', async () => {
+	test('バックアップから戻すと、選んだフォルダーの共有が戻り、起動し直しても読める', async () => {
 		const { api } = running;
 		const { ticket } = await api.json('POST', '/admin/backup/ticket');
 		const response = await api.request('GET', `/admin/backup?ticket=${encodeURIComponent(ticket)}`);
 		assert.equal(response.status, 200);
 		const zip = new Blob([await response.arrayBuffer()], { type: 'application/zip' });
+		// 戻したことが分かるよう、バックアップを取った後に共有を外しておく
+		assert.equal(await api.status('DELETE', `/admin/roots/${share.id}`), 204);
 		const form = new FormData();
 		form.append('file', zip, 'backup.zip');
 		const staged = await api.json('POST', '/admin/backup/restore/stage', { form });
@@ -90,10 +104,9 @@ test.describe('macOS: 共有のフォルダー', () => {
 			await api.status('POST', '/admin/backup/restore', { json: { id: staged.id } }),
 			204
 		);
-		// 動いている間は、選んだときの読む許しがプロセスに残っている。戻したブックマークから読めるかは、起動し直して見る
-		await quit(running);
-		running = await launch({ fresh: false });
-		await running.api.login();
+		// 戻すと全員のセッションが消える。動いている間は選んだときの読む許しがプロセスに残っているので、
+		// 戻したブックマークから読めるかは、起動し直して見る
+		running = await relaunch(previous());
 		assert.deepEqual(names(await running.api.browse(share.id)), ['hello.txt']);
 	});
 

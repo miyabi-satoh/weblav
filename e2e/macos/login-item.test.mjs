@@ -45,11 +45,14 @@ test.describe('macOS: ログイン時に起動', () => {
 				await waitFor(item, (m) => m.enabled && m.checked === !original.checked, {
 					label: '押すと切り替わる'
 				});
-			} finally {
-				// 途中で落ちても、常用の WebLAV の登録を元に戻す
-				const now = await waitFor(item, (m) => m.enabled, { label: '押せるようになる' });
-				if (now.checked !== original.checked) await pressMenuItem(running.pid, labels.loginItem);
+			} catch (error) {
+				// 常用の WebLAV の登録を元に戻してから落とす。戻すのに失敗しても、元の失敗を伝える
+				const now = await item().catch(() => null);
+				if (now && now.checked !== original.checked)
+					await pressMenuItem(running.pid, labels.loginItem).catch(() => {});
+				throw error;
 			}
+			await pressMenuItem(running.pid, labels.loginItem);
 			const restored = await waitFor(item, (m) => m.enabled && m.checked === original.checked, {
 				label: 'もう一度押すと戻る'
 			});
