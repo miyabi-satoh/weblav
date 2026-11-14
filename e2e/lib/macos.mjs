@@ -150,6 +150,7 @@ export function chooseInDialog(pid, folder) {
 	guard('場所を打つ前');
 	se.keystroke(args.folder);
 	delay(0.5);
+	guard('移動する前');
 	se.keyCode(36);
 	delay(1);
 	guard('選ぶ前');
@@ -235,11 +236,22 @@ export function openApp() {
  * 返すのは、動いているもの (プロセス番号・実際のポート・API)
  */
 export async function launch({ fresh = true, port = PORT } = {}) {
+	// 前に落ちた回のものが残っていれば、同じデータの置き場を使うので先に止める
+	await stopLeftover();
 	if (fresh) await fs.rm(HOME, { recursive: true, force: true });
 	await fs.mkdir(HOME, { recursive: true });
 	await fs.writeFile(path.join(HOME, 'config.toml'), `[server]\nport = ${port}\n`);
 	await fs.rm(path.join(HOME, 'weblav.addr'), { force: true });
 	await openApp();
+	try {
+		return await waitReady();
+	} catch (error) {
+		await stopLeftover();
+		throw error;
+	}
+}
+
+async function waitReady() {
 	const addr = await waitFor(
 		() => fs.readFile(path.join(HOME, 'weblav.addr'), 'utf8').catch(() => null),
 		(text) => text !== null && text.includes(':'),
@@ -264,6 +276,18 @@ export async function launch({ fresh = true, port = PORT } = {}) {
 		{ label: 'メニューバーのアイコンが出る' }
 	);
 	return { pid, port: actualPort, api };
+}
+
+/** 確かめ用のデータの置き場を使っている WebLAV (二重起動の鍵を持つもの) を止める */
+async function stopLeftover() {
+	let pids = [];
+	try {
+		const { stdout } = await execFileAsync('lsof', ['-t', path.join(HOME, 'weblav.lock')]);
+		pids = stdout.split('\n').filter(Boolean).map(Number);
+	} catch {
+		return;
+	}
+	for (const pid of pids) await quit({ pid });
 }
 
 /** 確かめ用の WebLAV を止め、終わるまで待つ */
@@ -369,14 +393,22 @@ export async function pickAndAddRoot(running, folder) {
 
 /** `ram://` のディスクを作って載せ、載せた場所を返す。別のボリュームへの移動を試すのに使う */
 export async function attachRamDisk(name, megabytes = 32) {
+	const mount = path.join('/Volumes', name);
+	// 前に落ちた回のものが残っていると、新しいほうが別の名前 (`<名前> 1`) で載る
+	await execFileAsync('hdiutil', ['detach', mount, '-force']).catch(() => {});
 	const { stdout } = await execFileAsync('hdiutil', [
 		'attach',
 		'-nomount',
 		`ram://${megabytes * 2048}`
 	]);
 	const device = stdout.trim().split(/\s+/)[0];
-	await execFileAsync('diskutil', ['erasevolume', 'APFS', name, device]);
-	return { device, mount: path.join('/Volumes', name) };
+	try {
+		await execFileAsync('diskutil', ['erasevolume', 'APFS', name, device]);
+	} catch (error) {
+		await execFileAsync('hdiutil', ['detach', device, '-force']).catch(() => {});
+		throw error;
+	}
+	return { device, mount };
 }
 
 export async function detachRamDisk(disk) {

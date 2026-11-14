@@ -36,9 +36,10 @@ test.describe('macOS: 共有のフォルダー', () => {
 	});
 
 	test.after(async () => {
-		await cancelDialog(running.pid).catch(() => {});
+		if (running) await cancelDialog(running.pid).catch(() => {});
 		await quit(running);
 		await detachRamDisk(ramDisk);
+		if (folder) await fs.rm(folder, { recursive: true, force: true });
 	});
 
 	test('窓を取り消すと、何も選ばれない', async () => {
@@ -89,9 +90,11 @@ test.describe('macOS: 共有のフォルダー', () => {
 			await api.status('POST', '/admin/backup/restore', { json: { id: staged.id } }),
 			204
 		);
-		// 戻すと全員のセッションが消える
-		await api.login();
-		assert.deepEqual(names(await api.browse(share.id)), ['hello.txt']);
+		// 動いている間は、選んだときの読む許しがプロセスに残っている。戻したブックマークから読めるかは、起動し直して見る
+		await quit(running);
+		running = await launch({ fresh: false });
+		await running.api.login();
+		assert.deepEqual(names(await running.api.browse(share.id)), ['hello.txt']);
 	});
 
 	test('共有の中で消すと、OS のごみ箱に入る', async () => {

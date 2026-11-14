@@ -36,12 +36,13 @@ test.describe('macOS: 多重起動', () => {
 			(n) => n > logBefore,
 			{ label: '2つ目が、動いているほうがあると気づく' }
 		);
-		const pidsAfter = await waitFor(
-			() => weblavPids(),
-			(pids) => pids.length === pidsBefore.length,
+		// 常用の WebLAV が同じ間に起動・終了しても左右されないよう、新しく増えたプロセスだけを見る
+		await waitFor(
+			async () => (await weblavPids()).filter((pid) => !pidsBefore.includes(pid)),
+			(added) => added.length === 0,
 			{ label: '2つ目が終わる' }
 		);
-		assert.deepEqual(pidsAfter.sort(), pidsBefore.sort());
+		assert.ok((await weblavPids()).includes(running.pid), '動いているほうは止まらない');
 		// 終わったあとにアイコンが残らないことも見る
 		await sleep(1000);
 		assert.equal(await menuBarIconCount(running.pid), 1);

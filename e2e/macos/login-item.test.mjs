@@ -32,6 +32,7 @@ test.describe('macOS: ログイン時に起動', () => {
 			const item = async () =>
 				(await readMenu(running.pid)).find((m) => m.title.startsWith(labels.loginItem));
 			const first = await item();
+			assert.ok(first, 'メニューに「ログイン時に起動」がある');
 			if (first.title === labels.loginItemNeedsApproval) {
 				t.skip('システム設定で許可が要る状態なので、アプリからは切り替えられない');
 				return;
@@ -40,10 +41,15 @@ test.describe('macOS: ログイン時に起動', () => {
 			const original = await waitFor(item, (m) => m.enabled, { label: '押せるようになる' });
 
 			await pressMenuItem(running.pid, labels.loginItem);
-			await waitFor(item, (m) => m.enabled && m.checked === !original.checked, {
-				label: '押すと切り替わる'
-			});
-			await pressMenuItem(running.pid, labels.loginItem);
+			try {
+				await waitFor(item, (m) => m.enabled && m.checked === !original.checked, {
+					label: '押すと切り替わる'
+				});
+			} finally {
+				// 途中で落ちても、常用の WebLAV の登録を元に戻す
+				const now = await waitFor(item, (m) => m.enabled, { label: '押せるようになる' });
+				if (now.checked !== original.checked) await pressMenuItem(running.pid, labels.loginItem);
+			}
 			const restored = await waitFor(item, (m) => m.enabled && m.checked === original.checked, {
 				label: 'もう一度押すと戻る'
 			});
