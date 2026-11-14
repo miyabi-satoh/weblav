@@ -143,10 +143,10 @@ export async function openImageViewer(
 		msrc: i === at && preloaded ? image.src : image.thumbnailSrc,
 		alt: image.title,
 		// 行の縮小画像は中央を正方形に切り抜いてあるので、切り抜きを戻しながら開く。
-		thumbCropped: true
+		thumbCropped: true,
+		/** 見ている間だけ回した角度 (度)。閉じたら `slides` ごと捨てる (→ docs/ui.md「画像のプレビュー」)。 */
+		rotation: 0
 	}));
-	/** 見ている間だけ回した角度 (度)。`slides` の位置ごとに持ち、閉じたら捨てる (→ docs/ui.md「画像のプレビュー」)。 */
-	const rotations = new Map<number, number>();
 	const viewer = new PhotoSwipe({
 		dataSource: slides,
 		index: at,
@@ -188,16 +188,18 @@ export async function openImageViewer(
 	 * 画像の要素だけを下の `imageSizeChange` で回して描く。拡大・パンは入れ替えた大きさのまま PhotoSwipe に任せられる。
 	 */
 	const rotate = () => {
+		// 開くアニメーションは今の中身 (仮の表示) を動かしているので、その間は作り直さない。
+		if (viewer.opener.isOpening) return;
 		const index = viewer.currIndex;
 		const slide = slides[index];
-		rotations.set(index, ((rotations.get(index) ?? 0) + 90) % 360);
+		slide.rotation = (slide.rotation + 90) % 360;
 		[slide.width, slide.height] = [slide.height, slide.width];
 		// 縮小画像は回していないので、並べ直す間の仮の表示に使うと向きが合わない。
 		slide.msrc = '';
 		viewer.refreshSlideContent(index);
 	};
 	viewer.on('imageSizeChange', ({ content, width, height }) => {
-		const rotation = rotations.get(content.index) ?? 0;
+		const rotation = slides[content.index]?.rotation ?? 0;
 		const image = content.element;
 		if (!rotation || !image) return;
 		// PhotoSwipe が置いた枠 (縦横を入れ替えた `width`×`height`) に、元の向きの画像を回して収める。
@@ -229,7 +231,7 @@ export async function openImageViewer(
 	viewer.on('close', () => {
 		// 行の縮小画像は回していないので、回した画像をそこへ縮めると向きが食い違う。
 		// FIX: PhotoSwipe (5.4.4) は 'close' を流した後に閉じ方の設定を読むので、ここで替えれば効く。
-		if (rotations.get(viewer.currIndex)) viewer.options.showHideAnimationType = 'fade';
+		if (slides[viewer.currIndex]?.rotation) viewer.options.showHideAnimationType = 'fade';
 		if (!closingFromCode) onClose?.();
 	});
 
