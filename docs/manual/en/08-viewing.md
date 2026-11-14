@@ -44,6 +44,7 @@ Some content is visible only to logged-in users (→ [Log in and display](03-acc
 - Select an image, PDF, video, text, Word, Excel, or PowerPoint file to open it in place. Use the buttons at the sides or swipe to move between files.
 - If you reload the page while a file is open, the same file stays open. The browser's Back button closes it. If you send the address while a file is open, the same file opens for the person you send it to.
 - To print or save, first open it in a new tab with the arrow button at the top.
+- To turn a sideways photo upright, use the rotate button at the top. Each press turns it 90 degrees clockwise. The rotation isn't saved, so the photo returns to its original orientation when you close it.
 
   ![An open PDF, with zoom and Open in new tab buttons at the top and buttons at the sides to move between files](images/viewing-viewer.webp)
 

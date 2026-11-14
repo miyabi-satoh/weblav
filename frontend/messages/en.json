@@ -727,6 +727,7 @@
 	"media_mute_button": "Mute",
 	"audio_player_error": "This audio could not be played here.",
 	"image_viewer_zoom_button": "Zoom in or out",
+	"image_viewer_rotate_button": "Rotate",
 	"image_viewer_previous_button": "Previous image",
 	"image_viewer_next_button": "Next image",
 	"image_viewer_error": "Failed to load the image.",
