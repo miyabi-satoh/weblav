@@ -231,7 +231,9 @@ export async function openImageViewer(
 	viewer.on('close', () => {
 		// 行の縮小画像は回していないので、回した画像をそこへ縮めると向きが食い違う。
 		// FIX: PhotoSwipe (5.4.4) は 'close' を流した後に閉じ方の設定を読むので、ここで替えれば効く。
-		if (slides[viewer.currIndex]?.rotation) viewer.options.showHideAnimationType = 'fade';
+		if (slides[viewer.currIndex]?.rotation && viewer.options.showHideAnimationType === 'zoom') {
+			viewer.options.showHideAnimationType = 'fade';
+		}
 		if (!closingFromCode) onClose?.();
 	});
 
