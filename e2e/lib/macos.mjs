@@ -84,11 +84,16 @@ const AX = `
 	const dialog = () => { const wins = axGet(app, 'AXWindows'); for (let i = 0; wins && i < wins.count; i++) { const w = wins.objectAtIndex(i); if (axStr(w, 'AXSubrole') === 'AXDialog') return w; } return null; };
 	// 窓がキーを受ける状態か。WebLAV が前面のアプリになっても、窓が前面の窓になるまで少しかかる
 	const dialogReady = () => { const focused = axGet(app, 'AXFocusedWindow'); return frontPid() === args.pid && focused !== null && axStr(focused, 'AXSubrole') === 'AXDialog'; };
+	const focusState = () => { const focused = axGet(app, 'AXFocusedWindow'); return 'front=' + frontPid() + ' focused=' + (focused ? axStr(focused, 'AXSubrole') + '/' + axStr(focused, 'AXTitle') : 'none'); };
 	const bringDialogFront = () => {
-		$.NSRunningApplication.runningApplicationWithProcessIdentifier(args.pid).activateWithOptions($.NSApplicationActivateIgnoringOtherApps);
-		const w = dialog();
-		if (w) $.AXUIElementPerformAction(w, $('AXRaise'));
-		for (let i = 0; i < 50 && !dialogReady(); i++) delay(0.1);
+		for (let i = 0; i < 50 && !dialogReady(); i++) {
+			if (i % 10 === 0) {
+				$.NSRunningApplication.runningApplicationWithProcessIdentifier(args.pid).activateWithOptions($.NSApplicationActivateIgnoringOtherApps);
+				const w = dialog();
+				if (w) $.AXUIElementPerformAction(w, $('AXRaise'));
+			}
+			delay(0.1);
+		}
 		// 前面の窓になった直後のキーは落ちることがある
 		delay(0.3);
 	};
@@ -151,12 +156,15 @@ export function chooseInDialog(pid, folder) {
 	bringDialogFront();
 	const mine = () => frontPid() === args.pid;
 	const guard = (step) => { if (!mine()) throw new Error(step + ': WebLAV が前面でないので打たない'); };
-	if (!dialogReady()) throw new Error('フォルダー選択の窓が前面にならないので打たない');
+	if (!dialogReady()) throw new Error('フォルダー選択の窓が前面にならないので打たない (' + focusState() + ')');
 	guard('始める前');
 	se.keystroke('g', { using: ['command down', 'shift down'] });
 	delay(1);
-	guard('場所を打つ前');
-	se.keystroke(args.folder);
+	// 打つ途中で前面が替わっても残りがほかのアプリへ入らないよう、区切って打ち、そのつど確かめる
+	for (let i = 0; i < args.folder.length; i += 8) {
+		guard('場所を打つ前');
+		se.keystroke(args.folder.slice(i, i + 8));
+	}
 	delay(0.5);
 	guard('移動する前');
 	se.keyCode(36);
@@ -177,7 +185,7 @@ export function cancelDialog(pid) {
 	if (!dialog()) return false;
 	for (let attempt = 0; attempt < 3 && dialog(); attempt++) {
 		bringDialogFront();
-		if (!dialogReady()) throw new Error('フォルダー選択の窓が前面にならないので打たない');
+		if (!dialogReady()) throw new Error('フォルダー選択の窓が前面にならないので打たない (' + focusState() + ')');
 		Application('System Events').keyCode(53);
 		for (let i = 0; i < 30 && dialog(); i++) delay(0.1);
 	}
@@ -303,7 +311,12 @@ async function stopLeftover() {
 export async function relaunch(running) {
 	await quit(running);
 	const next = await launch({ fresh: false });
-	await next.api.login();
+	try {
+		await next.api.login();
+	} catch (error) {
+		await quit(next);
+		throw error;
+	}
 	return next;
 }
 
@@ -314,6 +327,14 @@ export async function quit(running) {
 		process.kill(running.pid, 'SIGTERM');
 	} catch {
 		return;
+	}
+	const gone = () => weblavPids().then((pids) => !pids.includes(running.pid));
+	try {
+		await waitFor(gone, Boolean, { label: 'WebLAV が終わる' });
+		return;
+	} catch {
+		// 止まらなければ (メニューや窓が開いたままなど)、強制終了する。鍵とポートを持ったままだと、次の起動が通らない
+		process.kill(running.pid, 'SIGKILL');
 	}
 	await waitFor(
 		() => weblavPids(),
@@ -454,6 +475,16 @@ export async function assertGuiSession() {
 		throw new Error(
 			`ログインした画面のセッションで動いていません (${stdout.trim()})。Terminal などの端末の新しいウィンドウから回してください`
 		);
+}
+
+/**
+ * 画面がロックされていれば、始める前に落とす。ロックの間は前面が loginwindow になり、窓が前面にならないので、
+ * フォルダー選択の窓の確認が打たずに落ちる
+ */
+export async function assertScreenUnlocked() {
+	const { stdout } = await execFileAsync('ioreg', ['-n', 'Root', '-d1', '-a']);
+	if (/<key>CGSSessionScreenIsLocked<\/key>\s*<true\/>/.test(stdout))
+		throw new Error('画面がロックされています。ロックを解いてから回してください');
 }
 
 /** 回す端末にアクセシビリティの許可があるか。無いと要素の読み取りが黙って失敗し、原因の分からない時間切れになる */

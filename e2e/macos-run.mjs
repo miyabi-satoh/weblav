@@ -2,7 +2,7 @@
 //
 // ビルドはしない。/Applications/WebLAV.app で回す (別のものは環境変数 WEBLAV_APP で指す)。
 // 引数でテストファイルを選べる。`tray` のように名前だけなら `macos/tray.test.mjs`
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,9 +13,11 @@ if (process.platform !== 'darwin') {
 }
 
 const e2eDir = path.dirname(fileURLToPath(import.meta.url));
-const { APP, HOME, assertGuiSession, assertPermissions } = await import('./lib/macos.mjs');
+const { APP, HOME, assertGuiSession, assertPermissions, assertScreenUnlocked } =
+	await import('./lib/macos.mjs');
 try {
 	await assertGuiSession();
+	await assertScreenUnlocked();
 	await assertPermissions();
 	if (!fs.existsSync(APP))
 		throw new Error(`${APP} がありません。先に just install-mac で入れてください`);
@@ -34,10 +36,16 @@ const files = (
 	.sort()
 	.map((name) => path.join(macosDir, name));
 
+// 回している間に画面が眠ってロックされると、窓が前面にならずに落ちる。終わるまで眠らせない
+const awake = spawn('caffeinate', ['-d', '-i', '-u', '-w', String(process.pid)], {
+	stdio: 'ignore'
+});
+
 // 確かめ用の WebLAV は同じデータの置き場を使うので、ファイルを並べて回さない
 const result = spawnSync(process.execPath, ['--test', '--test-concurrency=1', ...files], {
 	cwd: e2eDir,
 	stdio: 'inherit'
 });
+awake.kill();
 fs.rmSync(HOME, { recursive: true, force: true });
 process.exit(result.status ?? 1);

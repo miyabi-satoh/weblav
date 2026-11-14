@@ -97,6 +97,11 @@ test.describe('macOS: 共有のフォルダー', () => {
 		const zip = new Blob([await response.arrayBuffer()], { type: 'application/zip' });
 		// 戻したことが分かるよう、バックアップを取った後に共有を外しておく
 		assert.equal(await api.status('DELETE', `/admin/roots/${share.id}`), 204);
+		assert.equal(
+			await api.status('GET', `/shares/${share.id}/browse`),
+			404,
+			'外した共有は見えない'
+		);
 		const form = new FormData();
 		form.append('file', zip, 'backup.zip');
 		const staged = await api.json('POST', '/admin/backup/restore/stage', { form });

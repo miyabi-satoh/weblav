@@ -40,22 +40,23 @@ test.describe('macOS: ログイン時に起動', () => {
 			// 起動した直後は OS に問い合わせている間押せないので、押せるようになるまで待つ
 			const original = await waitFor(item, (m) => m.enabled, { label: '押せるようになる' });
 
-			await pressMenuItem(running.pid, labels.loginItem);
 			try {
+				await pressMenuItem(running.pid, labels.loginItem);
 				await waitFor(item, (m) => m.enabled && m.checked === !original.checked, {
 					label: '押すと切り替わる'
 				});
-			} catch (error) {
-				// 常用の WebLAV の登録を元に戻してから落とす。戻すのに失敗しても、元の失敗を伝える
-				const now = await item().catch(() => null);
+				await pressMenuItem(running.pid, labels.loginItem);
+				await waitFor(item, (m) => m.enabled && m.checked === original.checked, {
+					label: 'もう一度押すと戻る'
+				});
+			} finally {
+				// 途中で落ちても、常用の WebLAV の登録を元に戻す。OS への問い合わせの間は押せないので、押せるのを待つ。
+				// 戻すのに失敗しても、元の失敗を伝える
+				const now = await waitFor(item, (m) => m.enabled).catch(() => null);
 				if (now && now.checked !== original.checked)
 					await pressMenuItem(running.pid, labels.loginItem).catch(() => {});
-				throw error;
 			}
-			await pressMenuItem(running.pid, labels.loginItem);
-			const restored = await waitFor(item, (m) => m.enabled && m.checked === original.checked, {
-				label: 'もう一度押すと戻る'
-			});
+			const restored = await item();
 			assert.equal(restored.title, labels.loginItem);
 		}
 	);
