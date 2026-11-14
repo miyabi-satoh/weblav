@@ -452,6 +452,7 @@
 							help={m.admin_settings_hidden_patterns_help()}
 							emptyText={m.common_none()}
 							readonly={!canEditHidden}
+							editButtonId="hidden-patterns-edit"
 							bind:value={hiddenPatterns}
 						/>
 						{#if canEditHidden}
@@ -459,7 +460,11 @@
 								{@render defaultValue(
 									m.admin_settings_hidden_patterns_label(),
 									normalizedPatterns(hiddenPatterns) !== hidden.defaultPatterns,
-									() => (hiddenPatterns = hidden?.defaultPatterns ?? hiddenPatterns)
+									() => {
+										hiddenPatterns = hidden?.defaultPatterns ?? hiddenPatterns;
+										// 押したボタンは消えるので、ほかの項目 (`resetField`) と同じく欄へフォーカスを移す。
+										document.getElementById('hidden-patterns-edit')?.focus();
+									}
 								)}
 							</div>
 						{/if}

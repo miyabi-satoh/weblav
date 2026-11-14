@@ -244,7 +244,7 @@
 	"admin_settings_hidden_patterns_help": "1行に1つ書きます (例: .* や @eaDir/)。名前に当てるので、/ は末尾にだけ書けます。",
 	"admin_settings_hidden_windows_label": "Windows の隠しファイル",
 	"not_shown_local_only": "変えるには、WebLAV を実行しているコンピューターで、WebLAV のアイコンのメニューにある「ブラウザーで開く」から管理ページを開いてください。",
-	"admin_settings_hidden_fetch_failed": "表示しないものの設定を読み込めませんでした。時間をおいてもう一度お試しください。",
+	"admin_settings_hidden_fetch_failed": "表示しないものの設定を読み込めませんでした。しばらくしてからもう一度お試しください。",
 	"admin_settings_about_heading": "WebLAV について",
 	"admin_settings_about_version": "バージョン {version}",
 	"admin_settings_about_terms": "利用規約",

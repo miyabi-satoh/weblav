@@ -623,7 +623,8 @@ async fn update_root_exclude(
             &state.pool,
             &OpRecord::new(Op::ChangeShareExclude, &admin)
                 .target(id, &before.name)
-                .fields(vec![FieldChange::named("excludePatterns")]),
+                // コンテンツの除外のパターンと分ける。画面での呼び名が違うため (共有の編集ページでは「表示しないもの」)。
+                .fields(vec![FieldChange::named("shareExcludePatterns")]),
         )
         .await;
         super::hidden::apply_to_indexes(&state, Some(&before.path)).await;

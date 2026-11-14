@@ -138,6 +138,7 @@ function fieldLabel(field: FieldChange): string {
 		visibility: m.contents_form_visibility_label,
 		includePatterns: m.contents_form_include_patterns_label,
 		excludePatterns: m.contents_form_exclude_patterns_label,
+		shareExcludePatterns: m.not_shown_title,
 		hiddenPatterns: m.admin_settings_hidden_patterns_label,
 		windowsHidden: m.admin_settings_hidden_windows_label,
 		titleTemplate: m.archive_axes_template_title,
