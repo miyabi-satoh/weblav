@@ -274,17 +274,21 @@ impl Hidden {
         }
         let name = entry.file_name().to_string_lossy();
         let file_type = entry.file_type();
-        if file_type.is_symlink() || self.hides_name(entry.path(), &name, file_type.is_dir()) {
-            return false;
-        }
-        #[cfg(windows)]
-        if entry
-            .metadata()
-            .is_ok_and(|metadata| self.hides_by_attribute(&metadata))
-        {
-            return false;
-        }
-        true
+        let hidden_by_attribute = {
+            #[cfg(windows)]
+            {
+                entry
+                    .metadata()
+                    .is_ok_and(|metadata| self.hides_by_attribute(&metadata))
+            }
+            #[cfg(not(windows))]
+            {
+                false
+            }
+        };
+        !(file_type.is_symlink()
+            || self.hides_name(entry.path(), &name, file_type.is_dir())
+            || hidden_by_attribute)
     }
 
     /// 起点 `root` (canonicalize 済み) から、要求の相対パス `rel` を辿った先 (実体は `canonical`) を隠すか。
