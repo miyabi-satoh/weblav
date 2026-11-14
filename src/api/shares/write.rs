@@ -115,6 +115,7 @@ async fn upload_to_share(
     })
     .await??;
 
+    let rules = crate::api::hidden::HiddenRules::load(&state).await?;
     let mut files = Vec::new();
     while let Some(mut field) = multipart
         .next_field()
@@ -128,6 +129,7 @@ async fn upload_to_share(
         let sent = field.file_name().unwrap_or_default();
         let sent = sent.rsplit(['/', '\\']).next().unwrap_or_default();
         let name = super::paths::validate_name(sent)?;
+        super::paths::ensure_placed_shown(&rules, &dir.canonical, &name, false, None).await?;
         let received = receive_file(&mut field, &dir.canonical, state.max_upload_bytes).await?;
         let file = place_upload(&state, &dir, &name, received).await?;
         record_or_warn(
@@ -345,6 +347,16 @@ async fn rename_share_entry(
     require(&entry, ShareAccess::All)?;
     ensure_not_protected(&state, &entry).await?;
     let name = super::paths::validate_name(&payload.name)?;
+    let parent_dir = entry
+        .canonical
+        .parent()
+        .ok_or(AppError::NotFound)?
+        .to_path_buf();
+    let entry_path = entry.canonical.clone();
+    let is_dir = run_blocking(move || entry_path.is_dir()).await?;
+    let rules = crate::api::hidden::HiddenRules::load(&state).await?;
+    super::paths::ensure_placed_shown(&rules, &parent_dir, &name, is_dir, Some(&entry.canonical))
+        .await?;
     let from = entry.canonical.clone();
     let to = run_blocking(move || fsops::rename_entry(&from, &name)).await??;
     let parent = parent_rel(&entry.rel);

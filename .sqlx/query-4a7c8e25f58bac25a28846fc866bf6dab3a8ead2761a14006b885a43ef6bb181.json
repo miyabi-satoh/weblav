@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT name, path, editor_access as \"editor_access: ShareAccess\"\n           FROM roots WHERE id = ? AND deleted_at IS NULL",
+  "query": "SELECT name, path, editor_access as \"editor_access: ShareAccess\", exclude_patterns\n           FROM roots WHERE id = ? AND deleted_at IS NULL",
   "describe": {
     "columns": [
       {
@@ -35,6 +35,17 @@
             "name": "editor_access"
           }
         }
+      },
+      {
+        "name": "exclude_patterns",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "roots",
+            "name": "exclude_patterns"
+          }
+        }
       }
     ],
     "parameters": {
@@ -43,8 +54,9 @@
     "nullable": [
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "e2c58c95631a1088d431add5344108bcf1eb66fcf240efd164633fa246ea6342"
+  "hash": "4a7c8e25f58bac25a28846fc866bf6dab3a8ead2761a14006b885a43ef6bb181"
 }

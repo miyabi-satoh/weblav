@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\", name, path, editor_access as \"editor_access: ShareAccess\"\n           FROM roots WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE",
+  "query": "INSERT INTO roots (name, path) VALUES (?, ?)\n           ON CONFLICT (path) DO UPDATE SET name = excluded.name, deleted_at = NULL\n           RETURNING id as \"id!\", name, path, editor_access as \"editor_access: ShareAccess\",\n                     exclude_patterns as \"exclude_patterns?\"",
   "describe": {
     "columns": [
       {
@@ -46,17 +46,29 @@
             "name": "editor_access"
           }
         }
+      },
+      {
+        "name": "exclude_patterns?",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "roots",
+            "name": "exclude_patterns"
+          }
+        }
       }
     ],
     "parameters": {
-      "Right": 0
+      "Right": 2
     },
     "nullable": [
       false,
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "71161bd6b9680c6bf8dc64f75a742ebbe9c40cfa9362142f29b3550788c058c6"
+  "hash": "cbb7a333c85e709b7bb2b064ebef91d309e256931d643accf58fb72cf92acbcd"
 }

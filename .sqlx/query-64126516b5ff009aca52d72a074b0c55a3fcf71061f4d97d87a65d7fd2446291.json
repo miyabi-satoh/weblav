@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT hidden_patterns, hide_windows_hidden as \"hide_windows_hidden: bool\"\n               FROM site_settings WHERE id = 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "hidden_patterns",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "site_settings",
+            "name": "hidden_patterns"
+          }
+        }
+      },
+      {
+        "name": "hide_windows_hidden: bool",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "site_settings",
+            "name": "hide_windows_hidden"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      false
+    ]
+  },
+  "hash": "64126516b5ff009aca52d72a074b0c55a3fcf71061f4d97d87a65d7fd2446291"
+}

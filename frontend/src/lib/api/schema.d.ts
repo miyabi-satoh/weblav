@@ -78,6 +78,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/hidden-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 表示しないものの今の設定。LAN の端末の管理者も見られる (変えられるのはサーバーの PC の前だけ)。 */
+        get: operations["get_hidden_settings"];
+        /**
+         * 表示しないものを変える。外すと見える範囲が広がるので、共有の追加と同じくサーバーの PC の前の管理者だけ
+         *     (→ docs/folders.md「登録と削除」)。
+         */
+        put: operations["update_hidden_settings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/log-settings": {
         parameters: {
             query?: never;
@@ -198,6 +219,26 @@ export interface paths {
          *     管理者の例外を送っても効かない。
          */
         put: operations["update_root_access"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/roots/{id}/exclude": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 共有の除外のパターンを変える (→ `api::hidden`)。外すと見える範囲が広がるので、共有の追加と同じく
+         *     サーバーの PC の前の管理者だけ (→ docs/folders.md「登録と削除」)。
+         */
+        put: operations["update_root_exclude"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2455,6 +2496,16 @@ export interface components {
             slug: string;
             title: string;
         };
+        HiddenSettingsResponse: {
+            /** @description 既定のパターン。「既定に戻す」で入れる。 */
+            defaultPatterns: string;
+            /** @description `patterns` が既定のままか。 */
+            isDefault: boolean;
+            /** @description サイト全体で、名前で表示しないもののパターン (1行に1つ)。既定のままなら既定の値。 */
+            patterns: string;
+            /** @description Windows の隠し属性の付いたものを表示しないか。Windows で動いていなければ `None` (効かないので画面に出さない)。 */
+            windowsHidden?: boolean | null;
+        };
         /** @description 表示するときの画像の縦横 (px)。EXIF の向きを当てた後の値。 */
         ImageSize: {
             /** Format: int32 */
@@ -2638,7 +2689,7 @@ export interface components {
          * @description 操作の種類。
          * @enum {string}
          */
-        Op: "login" | "logout" | "change_password" | "change_username" | "create_recovery_code" | "recover" | "create_content" | "update_content" | "change_creator" | "delete_content" | "create_axis" | "update_axis" | "delete_axis" | "replace_axis_values" | "replace_axes" | "rescan" | "create_user" | "change_role" | "reset_password" | "rename_user" | "delete_user" | "upload" | "mkdir" | "rename" | "move" | "copy" | "delete" | "list_on_home" | "create_share" | "rename_share" | "change_share_access" | "move_share" | "delete_share" | "update_site_settings" | "update_server_settings" | "update_log_settings" | "download_backup" | "restore_backup";
+        Op: "login" | "logout" | "change_password" | "change_username" | "create_recovery_code" | "recover" | "create_content" | "update_content" | "change_creator" | "delete_content" | "create_axis" | "update_axis" | "delete_axis" | "replace_axis_values" | "replace_axes" | "rescan" | "create_user" | "change_role" | "reset_password" | "rename_user" | "delete_user" | "upload" | "mkdir" | "rename" | "move" | "copy" | "delete" | "list_on_home" | "create_share" | "rename_share" | "change_share_access" | "change_share_exclude" | "move_share" | "delete_share" | "update_site_settings" | "update_server_settings" | "update_log_settings" | "download_backup" | "restore_backup";
         /**
          * @description 操作の分類。画面の絞り込みに使う。
          * @enum {string}
@@ -2816,6 +2867,8 @@ export interface components {
             contentCount: number;
             /** @description 一般ユーザーがこの中でできることの既定 (→ `api::shares`)。 */
             editorAccess: components["schemas"]["ShareAccess"];
+            /** @description 除外のパターン (1行に1つ。共有の一番上から見る。→ `api::hidden`)。無ければ空文字列。 */
+            excludePatterns: string;
             /** Format: int64 */
             id: number;
             /** @description 登録側の画面でフルパスの代わりに出す名前。同じ名前は無い (大文字小文字も区別しない)。 */
@@ -3177,6 +3230,12 @@ export interface components {
             url?: string | null;
             visibility?: components["schemas"]["Visibility"] | null;
         };
+        UpdateHiddenSettingsRequest: {
+            /** @description 1行に1つ。`null` か、既定と同じ内容なら既定のままにする。 */
+            patterns?: string | null;
+            /** @description Windows の隠し属性の付いたものを表示しないか。省略したら今のまま。 */
+            windowsHidden?: boolean | null;
+        };
         UpdateLogSettingsRequest: {
             verbose: boolean;
         };
@@ -3188,6 +3247,10 @@ export interface components {
             editorAccess: components["schemas"]["ShareAccess"];
             /** @description ユーザーごとの例外。ここに無いユーザーの例外は消す (送った内容で置き換える)。 */
             users: components["schemas"]["UserAccessRequest"][];
+        };
+        UpdateRootExcludeRequest: {
+            /** @description 1行に1つ。空なら何も外さない。 */
+            excludePatterns: string;
         };
         UpdateSiteSettingsRequest: {
             homeHeading: string;
@@ -3308,7 +3371,17 @@ export interface components {
             path: string;
         } | {
             /** @enum {string} */
+            kind: "hiddenPatternNotName";
+            pattern: string;
+        } | {
+            /** @enum {string} */
             kind: "entryNameInvalid";
+        } | {
+            /** @enum {string} */
+            kind: "entryNameHidden";
+        } | {
+            /** @enum {string} */
+            kind: "entryContainsHidden";
         } | {
             /** @enum {string} */
             kind: "entryNameTaken";
@@ -3546,6 +3619,104 @@ export interface operations {
             };
             /** @description admin以外・パスワードの確かめ直しが要る */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_hidden_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 表示しないものの設定 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HiddenSettingsResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_hidden_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateHiddenSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新後の設定 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HiddenSettingsResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外・パスワードの確かめ直しが要る */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description サーバーの PC の外から */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description パターンが正しくない */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4044,6 +4215,68 @@ export interface operations {
                 };
             };
             /** @description 存在しないユーザーを含む */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_root_exclude: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRootExcludeRequest"];
+            };
+        };
+        responses: {
+            /** @description 除外を変えた共有 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RootResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外・パスワードの確かめ直しが要る */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 存在しない・サーバーの PC の外から */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description パターンが正しくない */
             422: {
                 headers: {
                     [name: string]: unknown;

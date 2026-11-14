@@ -200,15 +200,15 @@ async fn a_folder_keeps_its_location_after_the_share_is_hidden(pool: SqlitePool)
 }
 
 /// 共有を1つ用意し、`taro` (一般ユーザー) と管理者でログインしておく。
-struct ShareFixture {
-    app: Router,
-    admin: String,
-    taro: String,
-    dir: test_support::TempDir,
-    id: i64,
+pub(crate) struct ShareFixture {
+    pub(crate) app: Router,
+    pub(crate) admin: String,
+    pub(crate) taro: String,
+    pub(crate) dir: test_support::TempDir,
+    pub(crate) id: i64,
 }
 
-async fn share_fixture(pool: &SqlitePool, name: &str) -> ShareFixture {
+pub(crate) async fn share_fixture(pool: &SqlitePool, name: &str) -> ShareFixture {
     let (app, admin) = admin_app(pool).await;
     insert_user(pool, "taro", "password").await;
     let dir = root_dir(name);
@@ -224,7 +224,7 @@ async fn share_fixture(pool: &SqlitePool, name: &str) -> ShareFixture {
     }
 }
 
-fn browse_uri(id: i64, path: &str) -> String {
+pub(crate) fn browse_uri(id: i64, path: &str) -> String {
     format!(
         "/api/v1/shares/{id}/browse?path={}",
         utf8_percent_encode(path, NON_ALPHANUMERIC)
@@ -585,7 +585,7 @@ fn upload_uri(id: i64, path: &str) -> String {
 }
 
 /// 共有の既定を変える。
-async fn set_editor_access(share: &ShareFixture, access: &str) {
+pub(crate) async fn set_editor_access(share: &ShareFixture, access: &str) {
     set_access(
         share.app.clone(),
         &share.admin,
@@ -784,7 +784,7 @@ async fn an_uploaded_file_enters_the_list_view_index(pool: SqlitePool) {
     assert_eq!(indexed, vec!["a.pdf", "b.pdf"]);
 }
 
-fn json_uri(id: i64, action: &str) -> String {
+pub(crate) fn json_uri(id: i64, action: &str) -> String {
     format!("/api/v1/shares/{id}/{action}")
 }
 
@@ -821,7 +821,7 @@ async fn a_folder_can_be_created_in_a_share(pool: SqlitePool) {
         "POST",
         &uri,
         &share.taro,
-        r#"{"path":"","name":".git"}"#,
+        r#"{"path":"","name":"a/b"}"#,
     )
     .await;
     assert_error(

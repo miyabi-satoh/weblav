@@ -11,7 +11,7 @@ use utoipa::ToSchema;
 
 use crate::api::contents::{self, FolderEntry};
 use crate::api::folder_search::{FOLDER_WALK_LIMIT, score_walked};
-use crate::api::roots::{self, OwnDirs, Root};
+use crate::api::roots::{self, Root};
 use crate::api::search::{RESULT_LIMIT, Score, Terms, normalize};
 use crate::api::sort::title_cmp;
 use crate::auth::AuthUser;
@@ -118,7 +118,7 @@ pub(in crate::api) async fn walk(
         Some(scope) => vec![scope.root],
         None => outermost(roots::load_roots_for(state, user).await?),
     };
-    let own_dirs = state.own_dirs.clone();
+    let rules = crate::api::hidden::HiddenRules::load(state).await?;
     let mut terms = terms.clone();
     let shares = walk_roots
         .iter()
@@ -127,7 +127,7 @@ pub(in crate::api) async fn walk(
 
     // 辿るのはディスクの I/O で、共有の大きさに比例して重くなる。
     let (candidates, incomplete) = run_blocking(move || {
-        let own_dirs = OwnDirs::resolve(&own_dirs);
+        let hidden = rules.resolve();
         let mut candidates = Vec::new();
         let mut incomplete = false;
         for (index, root) in walk_roots.iter().enumerate() {
@@ -135,7 +135,7 @@ pub(in crate::api) async fn walk(
             let (entries, cut) = crate::api::fs::walk_entries(
                 &root.path.join(&root.sub_path),
                 FOLDER_WALK_LIMIT,
-                &own_dirs,
+                &hidden,
             );
             incomplete |= cut;
             for entry in entries {

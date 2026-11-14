@@ -86,6 +86,11 @@ impl FileFilter {
         })
     }
 
+    /// 何も外さないか (対象も除外も無い)。
+    pub(super) fn is_empty(&self) -> bool {
+        self.include.is_none() && self.exclude.is_empty() && self.exclude_dirs.is_empty()
+    }
+
     /// フォルダー `rel` が除外されていないか。除外したフォルダーの中のフォルダーも除外する。
     pub(super) fn allows_dir(&self, rel: &str) -> bool {
         ancestors_and_self(rel)
@@ -113,7 +118,7 @@ pub(super) fn normalize_patterns(raw: Option<&str>) -> Option<String> {
     (!joined.is_empty()).then_some(joined)
 }
 
-fn lines(raw: Option<&str>) -> impl Iterator<Item = &str> {
+pub(super) fn lines(raw: Option<&str>) -> impl Iterator<Item = &str> {
     raw.unwrap_or_default()
         .lines()
         .map(str::trim)
@@ -267,11 +272,10 @@ async fn preview_visibility(
         return Ok(Json(preview));
     }
     super::roots::ensure_reachable(&state, &root).await?;
-    let own_dirs = state.own_dirs.clone();
+    let rules = super::hidden::HiddenRules::load(&state).await?;
     let preview = run_blocking(move || {
-        let own_dirs = super::roots::OwnDirs::resolve(&own_dirs);
         let root = std::fs::canonicalize(&root).map_err(|_| AppError::NotFound)?;
-        let (entries, truncated) = walk_entries(&root, COUNT_LIMIT, &own_dirs);
+        let (entries, truncated) = walk_entries(&root, COUNT_LIMIT, &rules.resolve());
         let files = entries
             .iter()
             .filter(|entry| !entry.is_dir)

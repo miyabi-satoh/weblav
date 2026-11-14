@@ -2,6 +2,7 @@
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { client } from '#lib/api/client.ts';
 	import { adminBackupHref, adminLogsHref } from '#lib/api/urls.ts';
 	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
@@ -9,6 +10,7 @@
 	import { gotoWithoutLeaveConfirm } from '#lib/leave-confirm.ts';
 	import { LeaveGuard } from '#lib/leave-guard.svelte.ts';
 	import { pageTitle } from '#lib/page-title.ts';
+	import { canAddRoots } from '#lib/root-location.ts';
 	import * as m from '#lib/paraglide/messages.js';
 	import * as Field from '#lib/components/ui/field/index.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
@@ -20,6 +22,7 @@
 	import IntegerInput from '#lib/components/integer-input.svelte';
 	import LoadingButton from '#lib/components/loading-button.svelte';
 	import LeaveConfirmDialog from '#lib/components/leave-confirm-dialog.svelte';
+	import PatternField from '#lib/components/pattern-field.svelte';
 	import type { components } from '#lib/api/schema.js';
 	import type { PageProps } from './$types';
 	import {
@@ -92,6 +95,25 @@
 		document.getElementById(inputId)?.focus();
 	}
 
+	// 表示しないもの。取れなかったとき (null) は、区画に理由だけを出す。
+	let hidden = $state(untrack(() => data.hiddenSettings));
+	let hiddenPatterns = $state(untrack(() => hidden?.patterns ?? ''));
+	let windowsHidden = $state(untrack(() => hidden?.windowsHidden ?? true));
+	const hiddenDirty = new FormDirtyState(() => ({ hiddenPatterns, windowsHidden }));
+	hiddenDirty.markPristine();
+	// 見える範囲を広げられるので、共有の追加と同じくサーバーの PC から開いたときだけ変えられる (→ docs/folders.md「登録と削除」)。
+	let canEditHidden = $derived(canAddRoots(page.url.hostname));
+	let savingHidden = $state(false);
+
+	/** 空の行と前後の空白を除いた形。「既定値に戻す」を出すかを決めるのに使う。保存の形はサーバーが決める。 */
+	function normalizedPatterns(raw: string): string {
+		return raw
+			.split('\n')
+			.map((line) => line.trim())
+			.filter((line) => line !== '')
+			.join('\n');
+	}
+
 	let logSettings = $state(untrack(() => data.logSettings));
 	let switchingLog = $state(false);
 
@@ -102,8 +124,8 @@
 
 	// 保存していない変更を、別の画面へ移って失わないようにする (コンテンツの編集ページと同じ)。
 	// 保存中に押した移動は、保存が済んでから続ける。
-	const dirty = () => siteDirty.dirty || serverDirty.dirty;
-	const leaveGuard = new LeaveGuard(dirty, () => savingSite || savingServer);
+	const dirty = () => siteDirty.dirty || serverDirty.dirty || hiddenDirty.dirty;
+	const leaveGuard = new LeaveGuard(dirty, () => savingSite || savingServer || savingHidden);
 
 	async function handleSiteSubmit(e: SubmitEvent) {
 		e.preventDefault();
@@ -125,8 +147,9 @@
 		} finally {
 			savingSite = false;
 		}
-		// もう一方の保存が続いていれば、止めた移動はその保存の後に任せる。
-		if (!savingServer) await leaveGuard.resumeAfterSave(() => dirty() || errorDialog.open);
+		// ほかの保存が続いていれば、止めた移動はその保存の後に任せる。
+		if (!savingServer && !savingHidden)
+			await leaveGuard.resumeAfterSave(() => dirty() || errorDialog.open);
 	}
 
 	async function handleServerSubmit(e: SubmitEvent) {
@@ -150,7 +173,37 @@
 		} finally {
 			savingServer = false;
 		}
-		if (!savingSite) await leaveGuard.resumeAfterSave(() => dirty() || errorDialog.open);
+		if (!savingSite && !savingHidden)
+			await leaveGuard.resumeAfterSave(() => dirty() || errorDialog.open);
+	}
+
+	async function handleHiddenSubmit(e: SubmitEvent) {
+		e.preventDefault();
+		if (savingHidden || !hidden) return;
+		savingHidden = true;
+
+		try {
+			// 既定と同じ内容なら、サーバーが既定のままにする (→ `src/api/hidden.rs` の `stored_patterns`)。
+			const body = {
+				patterns: hiddenPatterns,
+				windowsHidden: hidden.windowsHidden == null ? undefined : windowsHidden
+			};
+			const result = await errorDialog.attempt(() =>
+				client.PUT('/api/v1/admin/hidden-settings', { body })
+			);
+			const saved = result?.data;
+			if (saved) {
+				hidden = saved;
+				hiddenPatterns = saved.patterns;
+				windowsHidden = saved.windowsHidden ?? true;
+				hiddenDirty.markPristine();
+				toast.success(m.common_section_saved_toast({ section: m.admin_settings_hidden_heading() }));
+			}
+		} finally {
+			savingHidden = false;
+		}
+		if (!savingSite && !savingServer)
+			await leaveGuard.resumeAfterSave(() => dirty() || errorDialog.open);
 	}
 
 	// 保存ボタンを置かず、切り替えたらすぐ送る。起動し直さずに効く設定なので。
@@ -371,6 +424,65 @@
 				</div>
 			{:else}
 				<p class="text-sm text-destructive">{data.serverSettingsError}</p>
+			{/if}
+		</form>
+
+		<form
+			onsubmit={handleHiddenSubmit}
+			aria-labelledby="hidden-section-heading"
+			class={sectionCardClass}
+		>
+			<div class="flex flex-col gap-2">
+				<h2 id="hidden-section-heading" class="text-base font-semibold">
+					{m.admin_settings_hidden_heading()}
+				</h2>
+				<p class="text-sm text-muted-foreground">{m.admin_settings_hidden_description()}</p>
+			</div>
+			{#if hidden}
+				<Field.FieldGroup>
+					<Field.Field>
+						<Field.FieldTitle>{m.admin_settings_hidden_fixed_label()}</Field.FieldTitle>
+						<ul class="list-disc pl-5 text-sm">
+							<li>{m.admin_settings_hidden_fixed_links()}</li>
+							<li>{m.admin_settings_hidden_fixed_own()}</li>
+						</ul>
+					</Field.Field>
+					<div class="flex flex-col gap-2">
+						<PatternField
+							label={m.admin_settings_hidden_patterns_label()}
+							help={m.admin_settings_hidden_patterns_help()}
+							emptyText={m.contents_form_exclude_patterns_empty()}
+							readonly={!canEditHidden}
+							bind:value={hiddenPatterns}
+						/>
+						{#if canEditHidden}
+							<div>
+								{@render defaultValue(
+									m.admin_settings_hidden_patterns_label(),
+									normalizedPatterns(hiddenPatterns) !== hidden.defaultPatterns,
+									() => (hiddenPatterns = hidden?.defaultPatterns ?? hiddenPatterns)
+								)}
+							</div>
+						{/if}
+					</div>
+					{#if hidden.windowsHidden != null}
+						<Field.Field orientation="horizontal" data-disabled={!canEditHidden}>
+							<Field.FieldLabel for="hidden-windows"
+								>{m.admin_settings_hidden_windows_label()}</Field.FieldLabel
+							>
+							<Switch id="hidden-windows" bind:checked={windowsHidden} disabled={!canEditHidden} />
+						</Field.Field>
+					{/if}
+				</Field.FieldGroup>
+				{#if canEditHidden}
+					<div>
+						<LoadingButton type="submit" loading={savingHidden}>{m.action_save()}</LoadingButton>
+					</div>
+				{:else}
+					<p class="text-sm text-muted-foreground">{m.admin_settings_hidden_local_only()}</p>
+				{/if}
+			{:else}
+				<p class="text-sm text-destructive">{m.admin_settings_hidden_fetch_failed()}</p>
 			{/if}
 		</form>
 

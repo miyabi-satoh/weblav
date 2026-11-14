@@ -227,6 +227,110 @@
         }
       }
     },
+    "/api/v1/admin/hidden-settings": {
+      "get": {
+        "summary": "表示しないものの今の設定。LAN の端末の管理者も見られる (変えられるのはサーバーの PC の前だけ)。",
+        "operationId": "get_hidden_settings",
+        "responses": {
+          "200": {
+            "description": "表示しないものの設定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HiddenSettingsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "表示しないものを変える。外すと見える範囲が広がるので、共有の追加と同じくサーバーの PC の前の管理者だけ\n(→ docs/folders.md「登録と削除」)。",
+        "operationId": "update_hidden_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateHiddenSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "更新後の設定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HiddenSettingsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外・パスワードの確かめ直しが要る",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "サーバーの PC の外から",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "パターンが正しくない",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/log-settings": {
       "get": {
         "operationId": "get_log_settings",
@@ -808,6 +912,85 @@
           },
           "422": {
             "description": "存在しないユーザーを含む",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/roots/{id}/exclude": {
+      "put": {
+        "summary": "共有の除外のパターンを変える (→ `api::hidden`)。外すと見える範囲が広がるので、共有の追加と同じく\nサーバーの PC の前の管理者だけ (→ docs/folders.md「登録と削除」)。",
+        "operationId": "update_root_exclude",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRootExcludeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "除外を変えた共有",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RootResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外・パスワードの確かめ直しが要る",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "存在しない・サーバーの PC の外から",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "パターンが正しくない",
             "content": {
               "application/json": {
                 "schema": {
@@ -8326,6 +8509,35 @@
           }
         }
       },
+      "HiddenSettingsResponse": {
+        "type": "object",
+        "required": [
+          "patterns",
+          "isDefault",
+          "defaultPatterns"
+        ],
+        "properties": {
+          "defaultPatterns": {
+            "type": "string",
+            "description": "既定のパターン。「既定に戻す」で入れる。"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "`patterns` が既定のままか。"
+          },
+          "patterns": {
+            "type": "string",
+            "description": "サイト全体で、名前で表示しないもののパターン (1行に1つ)。既定のままなら既定の値。"
+          },
+          "windowsHidden": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Windows の隠し属性の付いたものを表示しないか。Windows で動いていなければ `None` (効かないので画面に出さない)。"
+          }
+        }
+      },
       "ImageSize": {
         "type": "object",
         "description": "表示するときの画像の縦横 (px)。EXIF の向きを当てた後の値。",
@@ -8914,6 +9126,7 @@
           "create_share",
           "rename_share",
           "change_share_access",
+          "change_share_exclude",
           "move_share",
           "delete_share",
           "update_site_settings",
@@ -9416,7 +9629,8 @@
           "removedContentCount",
           "status",
           "editorAccess",
-          "userAccess"
+          "userAccess",
+          "excludePatterns"
         ],
         "properties": {
           "contentCount": {
@@ -9427,6 +9641,10 @@
           "editorAccess": {
             "$ref": "#/components/schemas/ShareAccess",
             "description": "一般ユーザーがこの中でできることの既定 (→ `api::shares`)。"
+          },
+          "excludePatterns": {
+            "type": "string",
+            "description": "除外のパターン (1行に1つ。共有の一番上から見る。→ `api::hidden`)。無ければ空文字列。"
           },
           "id": {
             "type": "integer",
@@ -10379,6 +10597,25 @@
           }
         }
       },
+      "UpdateHiddenSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "patterns": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "1行に1つ。`null` か、既定と同じ内容なら既定のままにする。"
+          },
+          "windowsHidden": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Windows の隠し属性の付いたものを表示しないか。省略したら今のまま。"
+          }
+        }
+      },
       "UpdateLogSettingsRequest": {
         "type": "object",
         "required": [
@@ -10418,6 +10655,18 @@
               "$ref": "#/components/schemas/UserAccessRequest"
             },
             "description": "ユーザーごとの例外。ここに無いユーザーの例外は消す (送った内容で置き換える)。"
+          }
+        }
+      },
+      "UpdateRootExcludeRequest": {
+        "type": "object",
+        "required": [
+          "excludePatterns"
+        ],
+        "properties": {
+          "excludePatterns": {
+            "type": "string",
+            "description": "1行に1つ。空なら何も外さない。"
           }
         }
       },
@@ -10879,7 +11128,26 @@
           },
           {
             "type": "object",
-            "description": "共有の中に作るファイル・フォルダーの名前に使えない (空・`/` を含む・ドットで始まる・長すぎる・\nWindows で使えない名前など。→ `api::shares::paths::validate_name`)。",
+            "description": "サイトの「表示しないもの」のパターンは名前に当てるので、`/` を末尾にしか書けない (→ `api::hidden`)。",
+            "required": [
+              "pattern",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "hiddenPatternNotName"
+                ]
+              },
+              "pattern": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "共有の中に作るファイル・フォルダーの名前に使えない (空・`/` を含む・長すぎる・\nWindows で使えない名前など。→ `api::shares::paths::validate_name`)。",
             "required": [
               "kind"
             ],
@@ -10888,6 +11156,36 @@
                 "type": "string",
                 "enum": [
                   "entryNameInvalid"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "作る・動かす先の名前や場所が、表示しないもの (→ `api::hidden`) に当たる。作っても見えなくなるため。",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "entryNameHidden"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "共有の除外で隠したものを中に含むので、名前の変更・移動・コピー・削除・上書きができない (→ `api::hidden`)。\n見えないものを、知らないうちに消したり、隠していない場所へ出したりしないため。",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "entryContainsHidden"
                 ]
               }
             }

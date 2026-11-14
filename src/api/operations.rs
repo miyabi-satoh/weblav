@@ -138,6 +138,8 @@ pub enum Op {
     CreateShare,
     RenameShare,
     ChangeShareAccess,
+    /// 共有の除外のパターンを変えた。
+    ChangeShareExclude,
     /// 共有の場所を選び直した。
     MoveShare,
     DeleteShare,
@@ -161,7 +163,9 @@ impl Op {
             }
             CreateUser | ChangeRole | ResetPassword | RenameUser | DeleteUser => OpCategory::Users,
             Upload | Mkdir | Rename | Move | Copy | Delete | ListOnHome | CreateShare
-            | RenameShare | ChangeShareAccess | MoveShare | DeleteShare => OpCategory::Shares,
+            | RenameShare | ChangeShareAccess | ChangeShareExclude | MoveShare | DeleteShare => {
+                OpCategory::Shares
+            }
             UpdateSiteSettings | UpdateServerSettings | UpdateLogSettings | DownloadBackup
             | RestoreBackup => OpCategory::Settings,
         }

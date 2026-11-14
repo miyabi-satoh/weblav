@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE site_settings SET hidden_patterns = ?,\n                hide_windows_hidden = COALESCE(?, hide_windows_hidden) WHERE id = 1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "e803dc0f11433362fe141459a0d35fe0d3558931c80b24581289288e4d038c9a"
+}

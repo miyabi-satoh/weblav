@@ -1,11 +1,12 @@
 //! 共有の中の場所を、要求の相対パスから実体のパスに解決する。
 //!
-//! 共有の外・一覧に出さないもの (ドット始まり・シンボリックリンク・隠し属性)・WebLAV 自身の置き場は、
-//! どれも存在を伏せて 404 にする。コンテンツの配信 (`contents::resolve_path`) と同じ規則。
+//! 共有の外・表示しないもの (→ `api::hidden`) は、どれも存在を伏せて 404 にする。
+//! コンテンツの配信 (`contents::resolve_path`) と同じ規則。
 
 use std::path::{Path as FsPath, PathBuf};
 
 use crate::api::error_detail::ValidationDetail;
+use crate::api::hidden::{Hidden, HiddenRules};
 use crate::api::roots::{self, OwnDirs, Root};
 use crate::auth::AuthUser;
 use crate::error::{AppError, run_blocking};
@@ -21,13 +22,14 @@ const NAME_MAX_BYTES: usize = 255;
 ///
 /// NFC にそろえるのは、macOS から送られる NFD の名前と、ほかの端末から送られる NFC の名前が、
 /// 見た目は同じなのに別のファイルになるのを避けるため。
-/// ドットで始まる名前は、作れても一覧に出ないので拒む (→ `fs::is_visible_entry`)。
+/// 表示しないものに当たる名前 (既定ではドット始まり) は、置き場所によるので `ensure_placed_shown` で見る。
 pub(super) fn validate_name(name: &str) -> Result<String, AppError> {
     let name = icu_normalizer::ComposingNormalizerBorrowed::new_nfc()
         .normalize(name)
         .into_owned();
     let invalid = name.trim().is_empty()
-        || name.starts_with('.')
+        || name == "."
+        || name == ".."
         || name.contains(['/', '\\'])
         || name.chars().any(char::is_control)
         || name.len() > NAME_MAX_BYTES
@@ -110,15 +112,12 @@ pub(super) async fn resolve_existing(
         .find(|root| root.id == root_id)
         .cloned()
         .ok_or(AppError::NotFound)?;
-    let own_dirs = state.own_dirs.clone();
+    let rules = HiddenRules::load(state).await?;
     let rel = rel.to_string();
     let canonical_root = root.path;
     let root_path = canonical_root.clone();
-    let (canonical, rel) = run_blocking(move || {
-        let own_dirs = OwnDirs::resolve(&own_dirs);
-        resolve_under(&canonical_root, &rel, &own_dirs)
-    })
-    .await??;
+    let (canonical, rel) =
+        run_blocking(move || resolve_under(&canonical_root, &rel, &rules.resolve())).await??;
     Ok(Resolved {
         root_path,
         access: effective_access(&access, &all_roots, &canonical),
@@ -136,12 +135,12 @@ pub(super) async fn resolve_existing(
 fn resolve_under(
     canonical_root: &FsPath,
     rel: &str,
-    own_dirs: &OwnDirs,
+    hidden: &Hidden,
 ) -> Result<(PathBuf, String), AppError> {
-    if own_dirs.contains(canonical_root) {
+    if hidden.own_dirs().contains(canonical_root) {
         return Err(AppError::NotFound);
     }
-    let canonical = crate::api::fs::resolve_within(canonical_root, rel, own_dirs)?;
+    let canonical = crate::api::fs::resolve_within(canonical_root, rel, hidden)?;
     let rel = crate::api::fs::rel_of(canonical_root, &canonical)?;
     Ok((canonical, rel))
 }
@@ -154,8 +153,8 @@ pub(super) struct NewEntry {
     pub(super) target: PathBuf,
 }
 
-/// 共有 `root_id` の中のフォルダー `dir_rel` に、`name` を作る場所を決める。
-/// フォルダーでなければ 404。名前が使えなければ 422 (`entryNameInvalid`)。
+/// 共有 `root_id` の中のフォルダー `dir_rel` に、フォルダー `name` を作る場所を決める。
+/// フォルダーでなければ 404。名前が使えなければ 422 (`entryNameInvalid`・`entryNameHidden`)。
 /// 名前が既にあるかは見ない。作る側が、作るときに重なりを確かめる (確かめてから作るまでの間に作られうるため)。
 pub(super) async fn resolve_parent_for_new(
     state: &AppState,
@@ -170,12 +169,21 @@ pub(super) async fn resolve_parent_for_new(
     if !run_blocking(move || path.is_dir()).await? {
         return Err(AppError::NotFound);
     }
+    ensure_placed_shown(
+        &HiddenRules::load(state).await?,
+        &dir.canonical,
+        &name,
+        true,
+        None,
+    )
+    .await?;
     let target = dir.canonical.join(&name);
     Ok(NewEntry { dir, name, target })
 }
 
 /// 名前の変更・移動・削除・上書きをしてよい場所か。共有そのもの、中に別の共有か WebLAV のデータを
 /// 含むものは 422 (`entryProtected`)。動かすと、共有の登録や WebLAV 自身がその場所を見失うため。
+/// 中に共有の除外で隠したものを含むものも 422 (`entryContainsHidden`)。
 pub(super) async fn ensure_not_protected(
     state: &AppState,
     resolved: &Resolved,
@@ -196,7 +204,67 @@ pub(super) async fn ensure_not_protected(
     {
         return Err(protected());
     }
-    ensure_without_own_dirs(state, &resolved.canonical).await
+    ensure_without_own_dirs(state, &resolved.canonical).await?;
+    ensure_no_share_hidden_inside(state, &resolved.canonical).await
+}
+
+/// フォルダー `dir` (実体のパス) に `name` を作る・置くとき、表示しないもの (→ `api::hidden`) にならないか。
+/// 作っても誰にも見えず、消すことも動かすこともできなくなるため。
+/// - `name` が当たれば 422 (`entryNameHidden`)。
+/// - `src` (動かす・写す・名前を変える元) を置くと、中のものが共有の除外に当たるなら 422 (`entryContainsHidden`)。
+///
+/// 1つの要求でいくつも置くときは、`rules` を1回だけ読んで渡す。
+pub(super) async fn ensure_placed_shown(
+    rules: &HiddenRules,
+    dir: &FsPath,
+    name: &str,
+    is_dir: bool,
+    src: Option<&FsPath>,
+) -> Result<(), AppError> {
+    let target = dir.join(name);
+    let src = src.map(FsPath::to_path_buf);
+    let rules = rules.clone();
+    let (name_hidden, inside_hidden) = run_blocking(move || {
+        let hidden = rules.resolve();
+        (
+            hidden.hides_path(&target, is_dir),
+            src.is_some_and(|src| hidden.hides_inside_at(&src, &target)),
+        )
+    })
+    .await?;
+    if name_hidden {
+        return Err(AppError::ValidationDetailed {
+            message: "the name is hidden by the hidden patterns".to_string(),
+            detail: ValidationDetail::EntryNameHidden,
+        });
+    }
+    if inside_hidden {
+        return Err(contains_hidden_error());
+    }
+    Ok(())
+}
+
+fn contains_hidden_error() -> AppError {
+    AppError::ValidationDetailed {
+        message: "the entry contains something hidden by the share's exclude patterns".to_string(),
+        detail: ValidationDetail::EntryContainsHidden,
+    }
+}
+
+/// `canonical` の中に、共有の除外で隠したものが無いか。あれば 422 (`entryContainsHidden`。→ `Hidden::has_share_hidden_inside`)。
+pub(super) async fn ensure_no_share_hidden_inside(
+    state: &AppState,
+    canonical: &FsPath,
+) -> Result<(), AppError> {
+    let canonical = canonical.to_path_buf();
+    let inside = crate::api::hidden::with_hidden(state, move |hidden| {
+        Ok(hidden.has_share_hidden_inside(&canonical))
+    })
+    .await?;
+    if inside {
+        return Err(contains_hidden_error());
+    }
+    Ok(())
 }
 
 /// `canonical` の中に WebLAV のデータが無いか。あれば 422 (`entryProtected`)。
@@ -271,7 +339,6 @@ mod tests {
             "   ",
             ".",
             "..",
-            ".env",
             "a/b",
             "a\\b",
             "a\0b",
@@ -308,11 +375,11 @@ mod tests {
         std::fs::create_dir_all(dir.join("教材").join("英検")).expect("フォルダーを作れなかった");
         let root = std::fs::canonicalize(&*dir).expect("canonicalize できなかった");
         let (canonical, rel) =
-            resolve_under(&root, "教材/英検", &OwnDirs::default()).expect("解決できるはず");
+            resolve_under(&root, "教材/英検", &Hidden::for_test(&[], &[])).expect("解決できるはず");
         assert_eq!(canonical, root.join("教材").join("英検"));
         assert_eq!(rel, "教材/英検");
         let (canonical, rel) =
-            resolve_under(&root, "", &OwnDirs::default()).expect("解決できるはず");
+            resolve_under(&root, "", &Hidden::for_test(&[], &[])).expect("解決できるはず");
         assert_eq!(canonical, root);
         assert_eq!(rel, "");
     }
@@ -335,7 +402,11 @@ mod tests {
         for rel in cases {
             assert!(
                 matches!(
-                    resolve_under(&root, rel, &OwnDirs::default()),
+                    resolve_under(
+                        &root,
+                        rel,
+                        &Hidden::for_test(&[], std::slice::from_ref(&root))
+                    ),
                     Err(AppError::NotFound)
                 ),
                 "{rel} は 404 のはず"

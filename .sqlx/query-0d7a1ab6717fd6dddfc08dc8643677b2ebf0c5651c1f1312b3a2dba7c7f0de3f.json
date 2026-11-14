@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT rel_path FROM archive_dirs WHERE archive_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "rel_path",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "archive_dirs",
+            "name": "rel_path"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0d7a1ab6717fd6dddfc08dc8643677b2ebf0c5651c1f1312b3a2dba7c7f0de3f"
+}

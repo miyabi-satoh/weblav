@@ -172,7 +172,8 @@ API のエラーは共通の envelope で返す。
 | `archive_dirs` | 索引したフォルダーとその更新日時 (開いたときに変わった所だけ読み直す手掛かり) |
 | `archive_axes` | 属性軸の定義 (名前・抽出元・階層番号) |
 | `archive_axis_values` | 軸の値の辞書 (生の値・表示名・並び順) |
-| `roots`・`root_user_access` | 共有と、一般ユーザーがその中でできること (既定とユーザーごとの例外。→ shares.md「できること」) |
+| `roots`・`root_user_access` | 共有と、一般ユーザーがその中でできること (既定とユーザーごとの例外。→ shares.md「できること」)、共有の除外 (`exclude_patterns`。→ folders.md「表示しないもの」) |
+| `site_settings` | サイト全体の設定。1行だけ。ホームの表示と、表示しないもの (`hidden_patterns`・`hide_windows_hidden`。→ folders.md「表示しないもの」) |
 | `operations` | 操作の記録 (→ operations.md) |
 
 **アイテムごとの軸の値は保存しない**。`archive_items.rel_path` から読み出し時に

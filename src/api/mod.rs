@@ -15,6 +15,7 @@ mod folder_search;
 mod fs;
 mod health;
 mod help;
+mod hidden;
 pub mod link_preview;
 mod link_title;
 mod links_file;
@@ -118,6 +119,7 @@ fn routes(max_upload_bytes: Option<u64>) -> OpenApiRouter<AppState> {
         .merge(backup::router())
         .merge(server_settings::router())
         .merge(site_settings::router())
+        .merge(hidden::router())
         .merge(users::router())
         .fallback(|| async { AppError::NotFound })
         // 操作の記録に、操作した端末の IP アドレスを写すため (→ `operations::with_client_ip`)。
