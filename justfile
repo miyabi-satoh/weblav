@@ -88,7 +88,28 @@ install-linux: build stop-weblav
     install -Dm644 assets/icon.svg ~/.local/share/icons/hicolor/scalable/apps/weblav.svg
     mkdir -p ~/.local/share/applications
     printf '[Desktop Entry]\nType=Application\nName=WebLAV\nExec=%s\nIcon=weblav\nTerminal=false\nCategories=Network;\n' "$HOME/.local/bin/{{ bin_name }}" > ~/.local/share/applications/weblav.desktop
-    setsid -f ~/.local/bin/{{ bin_name }} >/dev/null 2>&1
+    just start-weblav-linux
+
+# トレイが GTK を初期化できないと、起動してすぐ落ちる。端末の多重化ツールの中などでは表示の環境変数が
+# 抜けていることがあるので、Wayland のソケットがあれば補う。落ちたことに気づけるよう、少し待って動いているかを見る。
+[linux]
+[private]
+start-weblav-linux:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -z "${WAYLAND_DISPLAY:-}" ] && [ -z "${DISPLAY:-}" ]; then
+        socket=$(find "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" -maxdepth 1 -type s -name 'wayland-*' -printf '%f\n' 2>/dev/null | sort | head -n 1)
+        if [ -n "$socket" ]; then export WAYLAND_DISPLAY="$socket"; fi
+    fi
+    log=$(mktemp)
+    setsid -f ~/.local/bin/{{ bin_name }} >"$log" 2>&1
+    # 起動の直後の GTK の初期化で落ちるのは1秒もかからないので、3秒待てば見分けられる
+    sleep 3
+    if pgrep -U "$(id -u)" -x {{ bin_name }} >/dev/null; then rm -f "$log"; exit 0; fi
+    echo "WebLAV が起動の直後に終わりました (WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-} DISPLAY=${DISPLAY:-})" >&2
+    cat "$log" >&2
+    rm -f "$log"
+    exit 1
 
 # frontend/build が無ければビルドする (内部用)
 [private]
