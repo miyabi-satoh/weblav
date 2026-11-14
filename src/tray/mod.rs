@@ -3,6 +3,8 @@
 mod embedded;
 mod http;
 mod login_item;
+#[cfg(target_os = "macos")]
+mod press;
 mod setup;
 
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -213,11 +215,14 @@ fn build_tray(menu: Menu, tooltip: &str) -> TrayIcon {
     let builder = builder.with_icon_templated(make_tray_icon());
     #[cfg(not(target_os = "macos"))]
     let builder = builder.with_icon(make_tray_icon());
-    builder
+    let tray = builder
         .with_menu(Box::new(menu))
         .with_tooltip(tooltip)
         .build()
-        .expect("failed to build tray icon")
+        .expect("failed to build tray icon");
+    #[cfg(target_os = "macos")]
+    press::open_menu_on_press(&tray);
+    tray
 }
 
 /// ブラウザーで開くURL用のアドレスを返す。

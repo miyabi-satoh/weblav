@@ -119,12 +119,18 @@ libc = "0.2.189"
 # 「ログイン時に起動」を出せる OS の版の判定 (→ src/tray/login_item.rs)。
 objc2 = "0.6.4"
 # フォルダー選択の窓を前面に出す (→ src/folder_picker.rs)。
+# VoiceOver などから押したメニューバーのアイコンでメニューを開く (→ src/tray/press.rs)。
 objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "std",
     "NSApplication",
+    "NSButton",
+    "NSControl",
     "NSEvent",
     "NSResponder",
     "NSRunningApplication",
+    "NSStatusBarButton",
+    "NSStatusItem",
+    "NSView",
 ] }
 # トレイの表示言語 (→ src/tray/mod.rs の tray_locale)。
 # 共有の security-scoped bookmark (→ src/folder_access.rs)。
