@@ -83,12 +83,11 @@ install-mac: bundle-mac stop-weblav
 # .deb で配るまでの、開発する人の手元の常用版 (→ docs/distribution.md「ビルド・配布の方法」)。
 # Linux 版を ~/.local に入れ直し、起動し直す
 [linux]
-install-linux: build stop-weblav
+install-linux: build stop-weblav && start-weblav-linux
     install -Dm755 target/release/{{ bin_name }} ~/.local/bin/{{ bin_name }}
     install -Dm644 assets/icon.svg ~/.local/share/icons/hicolor/scalable/apps/weblav.svg
     mkdir -p ~/.local/share/applications
     printf '[Desktop Entry]\nType=Application\nName=WebLAV\nExec=%s\nIcon=weblav\nTerminal=false\nCategories=Network;\n' "$HOME/.local/bin/{{ bin_name }}" > ~/.local/share/applications/weblav.desktop
-    just start-weblav-linux
 
 # トレイが GTK を初期化できないと、起動してすぐ落ちる。端末の多重化ツールの中などでは表示の環境変数が
 # 抜けていることがあるので、Wayland のソケットがあれば補う。落ちたことに気づけるよう、少し待って動いているかを見る。
@@ -98,17 +97,17 @@ start-weblav-linux:
     #!/usr/bin/env bash
     set -euo pipefail
     if [ -z "${WAYLAND_DISPLAY:-}" ] && [ -z "${DISPLAY:-}" ]; then
-        socket=$(find "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" -maxdepth 1 -type s -name 'wayland-*' -printf '%f\n' 2>/dev/null | sort | head -n 1)
+        socket=$(find "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" -maxdepth 1 -type s -name 'wayland-*' -printf '%f\n' 2>/dev/null | sort -V | head -n 1 || true)
         if [ -n "$socket" ]; then export WAYLAND_DISPLAY="$socket"; fi
     fi
     log=$(mktemp)
+    trap 'rm -f "$log"' EXIT
     setsid -f ~/.local/bin/{{ bin_name }} >"$log" 2>&1
     # 起動の直後の GTK の初期化で落ちるのは1秒もかからないので、3秒待てば見分けられる
     sleep 3
-    if pgrep -U "$(id -u)" -x {{ bin_name }} >/dev/null; then rm -f "$log"; exit 0; fi
+    if pgrep -U "$(id -u)" -x {{ bin_name }} >/dev/null; then exit 0; fi
     echo "WebLAV が起動の直後に終わりました (WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-} DISPLAY=${DISPLAY:-})" >&2
     cat "$log" >&2
-    rm -f "$log"
     exit 1
 
 # frontend/build が無ければビルドする (内部用)
