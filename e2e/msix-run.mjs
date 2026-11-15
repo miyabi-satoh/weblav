@@ -124,7 +124,7 @@ try {
 		}
 	]).catch((error) => {
 		code = code || 1;
-		for (const failure of error.errors ?? [error])
+		for (const failure of error.errors)
 			console.error(`[msix-check] 後片付けが落ちました: ${failure.message}`);
 	});
 	release();

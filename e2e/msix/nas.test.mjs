@@ -28,7 +28,7 @@ const SMB = process.env.WEBLAV_E2E_SMB;
  * NAS の確かめ用フォルダーを消す。SMB を止めた回は、開いたままのファイルが NAS に残って消せないことがある
  * (何が開いたままにしているかは掴めていない)。そのときは警告に留め、次の回の始めに消す。ほかの失敗は投げる
  */
-async function removeIfUnlocked(dir) {
+async function removeIfUnlocked(dir, leftover = false) {
 	try {
 		await fs.rm(dir, { recursive: true, force: true });
 	} catch (error) {
@@ -62,7 +62,8 @@ test.describe('MSIX 版: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無�
 		await connectSmb(SMB);
 		// 前の回に消せなかった確かめ用フォルダー (mkdtemp の名前の形のものだけ) を、消せれば消す
 		for (const name of await fs.readdir(SMB)) {
-			if (/^weblav-e2e-[A-Za-z0-9]{6}$/.test(name)) await removeIfUnlocked(path.join(SMB, name));
+			if (/^weblav-e2e-[A-Za-z0-9]{6}$/.test(name))
+				await removeIfUnlocked(path.join(SMB, name), true);
 		}
 		// 前からあるものを後片付けで消さないよう、作れた新しいフォルダーの名前だけを持つ
 		folderName = path.basename(await fs.mkdtemp(path.join(SMB, 'weblav-e2e-')));
