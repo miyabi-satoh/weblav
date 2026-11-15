@@ -8,7 +8,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { send } from './api-helpers';
 import { ADMIN_PASSWORD, ADMIN_USERNAME } from './auth';
-import { EMPTY_STORAGE_STATE, logIn, PASSWORD_HASH_TIMEOUT } from './helpers';
+import { EMPTY_STORAGE_STATE, logIn, PASSWORD_HASH_TIMEOUT, uniqueId } from './helpers';
 
 const RESTORE_BASE_URL = process.env.E2E_RESTORE_BASE_URL;
 const RESTORE_SETUP_BASE_URL = process.env.E2E_RESTORE_SETUP_BASE_URL;
@@ -59,7 +59,7 @@ test.describe('管理者のいるサーバー', () => {
 	test('サイト設定でダウンロードしたバックアップから戻すと、入れたものが戻り、ログインし直しになる', async ({
 		page
 	}, testInfo) => {
-		keptTitle = `e2e-バックアップに入るリンク-${Date.now()}`;
+		keptTitle = uniqueId('e2e-バックアップに入るリンク');
 		await logInAsAdmin(page);
 		const kept = (await send(page.request, 'post', '/contents', {
 			type: 'link',
@@ -77,7 +77,7 @@ test.describe('管理者のいるサーバー', () => {
 		expect(await contentTitles(page)).not.toContain(keptTitle);
 
 		await restoreFrom(page, backupPath);
-		await expect(page).toHaveURL(/\/login$/, { timeout: PASSWORD_HASH_TIMEOUT });
+		await expect(page).toHaveURL(/\/login$/);
 		expect((await page.request.get('/api/v1/auth/me')).status(), 'ログインが切れている').toBe(401);
 
 		await logInAsAdmin(page);
@@ -97,7 +97,7 @@ test.describe('管理者のいないサーバー', () => {
 
 		await page.goto(`/setup?token=${encodeURIComponent(token)}`);
 		await restoreFrom(page, backupPath);
-		await expect(page).toHaveURL(/\/login$/, { timeout: PASSWORD_HASH_TIMEOUT });
+		await expect(page).toHaveURL(/\/login$/);
 
 		// 戻したデータの管理者でログインする
 		await logInAsAdmin(page);
