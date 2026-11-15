@@ -13,7 +13,9 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 
-export const APP = process.env.WEBLAV_APP ?? '/Applications/WebLAV.app';
+/** 常用の WebLAV の束。ほかの束で回すときは環境変数 `WEBLAV_APP` で指す */
+export const REGULAR_APP = '/Applications/WebLAV.app';
+export const APP = process.env.WEBLAV_APP ?? REGULAR_APP;
 const EXECUTABLE = path.join(APP, 'Contents', 'MacOS', 'weblav');
 // サンドボックスで動くので、書ける場所はコンテナの中に限られる。コンテナは署名の識別子で決まり、常用のものと同じ
 const CONTAINER = path.join(os.homedir(), 'Library', 'Containers', 'com.amiiby.weblav', 'Data');
@@ -42,6 +44,29 @@ export async function waitFor(read, ok, { label, timeout = 10_000, interval = 20
 }
 
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** 後片付けの手順を順に流す。1つが落ちても残りを片付け、落ちたものは出す */
+export async function cleanUp(steps) {
+	for (const step of steps) {
+		try {
+			await step();
+		} catch (error) {
+			console.error(error);
+		}
+	}
+}
+
+/** ファイルやフォルダーが無いことを確かめる */
+export async function assertMissing(file, message) {
+	const exists = await fs.access(file).then(
+		() => true,
+		() => false
+	);
+	if (exists) throw new Error(message);
+}
+
+/** 共有の中の一覧 (`Api.browse`) の名前を、並べて返す */
+export const entryNames = (browse) => browse.entries.map((entry) => entry.name).sort();
 
 /** JXA を流して、返した値 (JSON にできるもの) を受け取る。`args` は台本の中で `args` として読める */
 export async function jxa(body, args = {}) {
@@ -173,20 +198,29 @@ export function chooseInDialog(pid, folder) {
 	const mine = () => frontPid() === args.pid;
 	const guard = (step) => { if (!mine()) throw new Error(step + ': WebLAV が前面でないので打たない'); };
 	if (!dialogReady()) throw new Error('フォルダー選択の窓が前面にならないので打たない (' + focusState() + ')');
-	guard('始める前');
-	se.keystroke('g', { using: ['command down', 'shift down'] });
-	delay(1);
-	// 打つ途中で前面が替わっても残りがほかのアプリへ入らないよう、区切って打ち、そのつど確かめる
-	for (let i = 0; i < args.folder.length; i += 8) {
-		guard('場所を打つ前');
-		se.keystroke(args.folder.slice(i, i + 8));
+	// 日本語の入力ソースのままだと、打った場所が変換に入って移れない。打つ間だけ英字にして、落ちても戻す
+	ObjC.import('Carbon');
+	const inputSource = $.TISCopyCurrentKeyboardInputSource();
+	try {
+		$.TISSelectInputSource($.TISCopyCurrentASCIICapableKeyboardInputSource());
+		delay(0.3);
+		guard('始める前');
+		se.keystroke('g', { using: ['command down', 'shift down'] });
+		delay(1);
+		// 打つ途中で前面が替わっても残りがほかのアプリへ入らないよう、区切って打ち、そのつど確かめる
+		for (let i = 0; i < args.folder.length; i += 8) {
+			guard('場所を打つ前');
+			se.keystroke(args.folder.slice(i, i + 8));
+		}
+		delay(0.5);
+		guard('移動する前');
+		se.keyCode(36);
+		delay(1);
+		guard('選ぶ前');
+		se.keyCode(36);
+	} finally {
+		$.TISSelectInputSource(inputSource);
 	}
-	delay(0.5);
-	guard('移動する前');
-	se.keyCode(36);
-	delay(1);
-	guard('選ぶ前');
-	se.keyCode(36);
 	for (let i = 0; i < 50 && dialog(); i++) delay(0.1);
 	if (dialog()) throw new Error('窓が閉じない');
 `,
@@ -464,17 +498,22 @@ export class Api {
 	}
 }
 
+/** フォルダー選択の窓が出るまで待つ */
+export function waitDialog(running) {
+	return waitFor(
+		() => frontState(running.pid),
+		(state) => state.dialog,
+		{ label: 'フォルダー選択の窓が出る' }
+	);
+}
+
 /**
  * フォルダー選択の窓で `folder` を選んで共有に足す。返すのは足した共有。
  * 窓を出させる要求は窓が閉じるまで返らないので、待つ間に窓を操作する
  */
 export async function pickAndAddRoot(running, folder) {
 	const picked = running.api.pick();
-	await waitFor(
-		() => frontState(running.pid),
-		(state) => state.dialog,
-		{ label: 'フォルダー選択の窓が出る' }
-	);
+	await waitDialog(running);
 	await chooseInDialog(running.pid, folder);
 	const chosen = await picked;
 	return running.api.addRoot(chosen);

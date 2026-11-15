@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
 	APP,
+	REGULAR_APP,
 	launch,
 	preferredLanguage,
 	pressIcon,
@@ -16,7 +17,6 @@ import { labelsFor } from '../lib/tray-labels.mjs';
 // 「ログイン時に起動」(src/tray/login_item.rs)。登録はアプリの束 (.app) ごとなので、常用の WebLAV の登録を
 // 切り替えて元に戻す。/Applications 以外の束で回すと、戻したときに登録がその束を指してしまうので回さない
 
-const REGULAR_APP = '/Applications/WebLAV.app';
 const skip = APP !== REGULAR_APP && `${REGULAR_APP} 以外の束 (${APP}) では回さない`;
 
 test.describe('macOS: ログイン時に起動', () => {

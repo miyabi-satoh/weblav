@@ -15,7 +15,7 @@ import {
 	PASSWORD_HASH_TIMEOUT,
 	USERNAME_LABEL,
 	anonymousContext,
-	fillLogInForm,
+	logInToHome,
 	requiredLabel,
 	uniqueId
 } from './helpers';
@@ -45,9 +45,7 @@ test('管理者はリカバリコードを作り、パスワードを忘れた�
 	const context = await anonymousContext(browser);
 	const own = await context.newPage();
 	try {
-		await own.goto('/login');
-		await fillLogInForm(own, username, 'old-password');
-		await own.waitForURL('/', { timeout: PASSWORD_HASH_TIMEOUT });
+		await logInToHome(own, username, 'old-password');
 
 		// まだ作っていない管理者には、管理画面に帯を出す。帯から作ると帯は消える。
 		// ログインしたばかりなので、パスワードは聞き直さずに作る (→ docs/access.md「操作の前のパスワードの確認」)。
@@ -106,9 +104,7 @@ test('編集者も、アカウントのページで作ったリカバリコー�
 	const context = await anonymousContext(browser);
 	const own = await context.newPage();
 	try {
-		await own.goto('/login');
-		await fillLogInForm(own, username, 'old-password');
-		await own.waitForURL('/', { timeout: PASSWORD_HASH_TIMEOUT });
+		await logInToHome(own, username, 'old-password');
 
 		// 作るよう促す帯は管理画面にだけ出し、管理画面は編集者に開かない。編集者はアカウントのページで作る。
 		await own.getByRole('button', { name: username, exact: true }).click();

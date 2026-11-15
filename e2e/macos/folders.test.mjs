@@ -4,24 +4,26 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
 	activateFinder,
+	assertMissing,
 	attachRamDisk,
 	cancelDialog,
 	chooseInDialog,
+	cleanUp,
 	detachRamDisk,
+	entryNames as names,
 	frontState,
 	launch,
 	pickAndAddRoot,
 	quit,
 	relaunch,
 	trashNames,
+	waitDialog,
 	waitFor,
 	workDir
 } from '../lib/macos.mjs';
 
 // 共有のフォルダーと OS のつながり: フォルダー選択の窓 (src/folder_picker.rs)、サンドボックスの外のフォルダーを
 // 次の起動でも読むためのブックマーク (src/folder_access.rs)、OS のごみ箱と、別のボリュームへの移動 (src/api/shares/fsops.rs)
-
-const names = (browse) => browse.entries.map((entry) => entry.name).sort();
 
 test.describe('macOS: 共有のフォルダー', () => {
 	let running;
@@ -43,28 +45,17 @@ test.describe('macOS: 共有のフォルダー', () => {
 	});
 
 	test.after(async () => {
-		// 1つが落ちても残りを片付ける
-		const steps = [
+		await cleanUp([
 			() => running && cancelDialog(running.pid),
 			() => quit(running),
 			() => detachRamDisk(ramDisk),
 			() => folder && fs.rm(folder, { recursive: true, force: true })
-		];
-		for (const step of steps)
-			await Promise.resolve()
-				.then(step)
-				.catch((error) => console.error(error));
+		]);
 	});
 
 	test('窓を取り消すと、何も選ばれない', async () => {
 		const picked = running.api.pick();
-		await waitFor(
-			() => frontState(running.pid),
-			(state) => state.dialog,
-			{
-				label: 'フォルダー選択の窓が出る'
-			}
-		);
+		await waitDialog(running);
 		await cancelDialog(running.pid);
 		assert.equal(await picked, null);
 	});
@@ -123,10 +114,7 @@ test.describe('macOS: 共有のフォルダー', () => {
 		});
 		const job = await running.api.waitJob(jobId);
 		assert.equal(job.state, 'succeeded', JSON.stringify(job));
-		await fs.access(path.join(folder, name)).then(
-			() => assert.fail('消したファイルが残っている'),
-			() => {}
-		);
+		await assertMissing(path.join(folder, name), '消したファイルが残っている');
 		assert.ok((await trashNames()).includes(name), 'ごみ箱に入っている');
 	});
 
@@ -168,9 +156,6 @@ test.describe('macOS: 共有のフォルダー', () => {
 		const job = await running.api.waitJob(jobId);
 		assert.equal(job.state, 'succeeded', JSON.stringify(job));
 		assert.deepEqual(await fs.readdir(path.join(ramDisk.mount, 'move-me')), ['new.txt']);
-		await fs.access(path.join(folder, 'move-me')).then(
-			() => assert.fail('移動した元が残っている'),
-			() => {}
-		);
+		await assertMissing(path.join(folder, 'move-me'), '移動した元が残っている');
 	});
 });

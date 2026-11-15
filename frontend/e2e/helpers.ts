@@ -257,6 +257,12 @@ export async function logIn(page: Page, username: string, password: string): Pro
 	await fillLogInForm(page, username, password);
 }
 
+/** ログイン画面を開いて送信し、ホームへ移るまで待つ。 */
+export async function logInToHome(page: Page, username: string, password: string): Promise<void> {
+	await logIn(page, username, password);
+	await page.waitForURL('/', { timeout: PASSWORD_HASH_TIMEOUT });
+}
+
 /**
  * ダイアログが開き、**autofocus が落ち着く**まで待つ。
  *
