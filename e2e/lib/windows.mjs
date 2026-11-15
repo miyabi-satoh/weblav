@@ -475,3 +475,93 @@ export async function workDir(name) {
 	await fs.mkdir(base, { recursive: true });
 	return fs.mkdtemp(path.join(base, `${name}-`));
 }
+
+/**
+ * 共有の登録のパスを、DB で書き換える。止めている間に呼ぶ。登録の口は、今つながるフォルダーしか受け付けないので、
+ * 返事をしない NAS の共有を作るのに使う
+ */
+export async function setRootPath(pkg, rootId, rootPath) {
+	const { DatabaseSync } = await import('node:sqlite');
+	const db = new DatabaseSync(path.join(appDirs(pkg).data, 'weblav.db'));
+	try {
+		db.prepare('UPDATE roots SET path = ? WHERE id = ?').run(rootPath, rootId);
+	} finally {
+		db.close();
+	}
+}
+
+/**
+ * `net use` で張った SMB の共有 (`\\<ホスト>\<共有>`) への接続を切る。開いたままのファイル (閉じても手元で少し
+ * 開いたままにしておく分を含む) は、つながっているうちに切ると NAS の側でも閉じる。規則で止めた後に切れずに残した回では、
+ * NAS の側に開いたままのファイルが残り、しばらく消せなかった。
+ * UNC で開いただけの接続は `net use` から切れず、接続の一覧 (`Get-SmbConnection`) は管理者でないと読めないので、
+ * 確かめの始めに `connectSmb` で張っておく
+ */
+export async function disconnectSmb(root) {
+	await runPowerShell("$ErrorActionPreference = 'Continue'; net use $args[0] /delete /y *> $null", [
+		root
+	]);
+}
+
+/** `net use` で SMB の共有に接続を張る。以後の UNC の読み書きは、この接続を通る */
+export async function connectSmb(root) {
+	await runPowerShell('net use $args[0] /persistent:no | Out-Null', [root]);
+}
+
+const recordDir = path.join(repoRoot, 'target', 'e2e-msix');
+
+/**
+ * この PC から共有 `root` (`\\<ホスト>\<共有>`) のホストへの SMB (TCP 445・139) を、ファイアウォールの送信の規則で止める。返ってきた `release` で外す。
+ * 規則を足すには管理者の権限が要るので、UAC の確かめの窓を出して、管理者の PowerShell で足して外す。
+ * 外し忘れても、管理者の PowerShell が3分で外す。
+ * 止めると、つなぐのはすぐに失敗する (電源を切った NAS のように、返事を待たされはしない)
+ */
+export async function blockSmb(root) {
+	const host = root.split('\\').filter(Boolean)[0];
+	await fs.mkdir(recordDir, { recursive: true });
+	const releaseFlag = path.join(recordDir, 'smb-block.release');
+	const log = path.join(recordDir, 'smb-block.log');
+	await fs.rm(releaseFlag, { force: true });
+	await fs.rm(log, { force: true });
+	await disconnectSmb(root);
+	const script = `
+$name = 'WebLAV-E2E-SMB-block'
+try {
+    New-NetFirewallRule -Name $name -DisplayName $name -Direction Outbound -Action Block -Protocol TCP -RemotePort 445,139 -RemoteAddress '${host}' | Out-Null
+    'added' | Out-File -LiteralPath '${log}' -Append -Encoding ascii
+    $deadline = (Get-Date).AddMinutes(3)
+    while (-not (Test-Path -LiteralPath '${releaseFlag}') -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 300 }
+} finally {
+    Remove-NetFirewallRule -Name $name -ErrorAction SilentlyContinue
+    'removed' | Out-File -LiteralPath '${log}' -Append -Encoding ascii
+}
+`;
+	await runPowerShell(
+		`
+$encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($args[0]))
+Start-Process -FilePath powershell -ArgumentList @('-NoProfile', '-EncodedCommand', $encoded) -Verb RunAs -WindowStyle Hidden
+`,
+		[script]
+	);
+	const readLogText = () => fs.readFile(log, 'utf8').catch(() => '');
+	await waitFor(readLogText, (text) => text.includes('added'), {
+		label: 'SMB を止める規則が入る (UAC の確かめの窓で「はい」を押す)',
+		timeout: 120_000,
+		interval: 500
+	});
+	const release = async () => {
+		await fs.writeFile(releaseFlag, '');
+		await waitFor(readLogText, (text) => text.includes('removed'), {
+			label: 'SMB を止める規則が外れる',
+			timeout: 30_000,
+			interval: 300
+		});
+	};
+	try {
+		await disconnectSmb(root);
+	} catch (error) {
+		await release();
+		throw error;
+	}
+	return { release };
+}
