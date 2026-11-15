@@ -47,11 +47,6 @@ function signalTree(child: ChildProcess, force: boolean): void {
 	}
 }
 
-/**
- * Playwright を、使い捨ての backend と管理者で流し、終了コードを返す。中断されたら 130 を返す。
- * `pnpm run test:e2e` を使わないのは、あちらが毎回 `playwright install` (全ブラウザー) を走らせるため。
- * ブラウザーは前もって入れておく (手元では `just install`、CI では workflow の手順で chromium だけを入れる)。
- */
 type PlaywrightTargets = {
 	baseURL: string;
 	setupBaseURL: string;
@@ -60,6 +55,11 @@ type PlaywrightTargets = {
 	storageState: string;
 };
 
+/**
+ * Playwright を、使い捨ての backend と管理者で流し、終了コードを返す。中断されたら 130 を返す。
+ * `pnpm run test:e2e` を使わないのは、あちらが毎回 `playwright install` (全ブラウザー) を走らせるため。
+ * ブラウザーは前もって入れておく (手元では `just install`、CI では workflow の手順で chromium だけを入れる)。
+ */
 function runPlaywright(targets: PlaywrightTargets): Promise<number> {
 	return new Promise((resolve, reject) => {
 		const options: SpawnOptions = {

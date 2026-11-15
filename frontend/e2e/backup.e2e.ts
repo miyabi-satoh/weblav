@@ -53,7 +53,7 @@ test.beforeEach(() => {
 	);
 });
 
-test.describe('サイト設定', () => {
+test.describe('管理者のいるサーバー', () => {
 	test.use({ baseURL: RESTORE_BASE_URL });
 
 	test('サイト設定でダウンロードしたバックアップから戻すと、入れたものが戻り、ログインし直しになる', async ({
@@ -77,7 +77,7 @@ test.describe('サイト設定', () => {
 		expect(await contentTitles(page)).not.toContain(keptTitle);
 
 		await restoreFrom(page, backupPath);
-		await expect(page).toHaveURL(/\/login$/);
+		await expect(page).toHaveURL(/\/login$/, { timeout: PASSWORD_HASH_TIMEOUT });
 		expect((await page.request.get('/api/v1/auth/me')).status(), 'ログインが切れている').toBe(401);
 
 		await logInAsAdmin(page);
@@ -85,13 +85,10 @@ test.describe('サイト設定', () => {
 	});
 });
 
-test.describe('セットアップ', () => {
+test.describe('管理者のいないサーバー', () => {
 	test.use({ baseURL: RESTORE_SETUP_BASE_URL });
 
-	test('管理者のいないセットアップの画面からも、バックアップから戻せる', async ({
-		page,
-		request
-	}) => {
+	test('セットアップの画面から、バックアップで戻せる', async ({ page, request }) => {
 		expect(backupPath, '前のテストでバックアップを取っている').not.toBe('');
 		// トレイの「セットアップ」と同じ口でトークンを受け取る。この PC の中からの要求だけが通る。
 		const issued = await request.post('/api/v1/setup/token');
@@ -100,7 +97,7 @@ test.describe('セットアップ', () => {
 
 		await page.goto(`/setup?token=${encodeURIComponent(token)}`);
 		await restoreFrom(page, backupPath);
-		await expect(page).toHaveURL(/\/login$/);
+		await expect(page).toHaveURL(/\/login$/, { timeout: PASSWORD_HASH_TIMEOUT });
 
 		// 戻したデータの管理者でログインする
 		await logInAsAdmin(page);
