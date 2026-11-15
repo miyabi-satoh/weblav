@@ -16,6 +16,8 @@ use tray_icon::TrayIcon;
 
 struct Ivars {
     tray: TrayIcon,
+    // メニューを開く前に呼ぶ。マウスなら載せたときに済ませる読み直しを、ここで済ませる。
+    before_open: Box<dyn Fn()>,
     // メニューを開く処理 (`show_menu`) がもう一度ボタンを押すので、その間に届いた action では開き直さない。
     pressing: Cell<bool>,
 }
@@ -34,14 +36,15 @@ define_class!(
             if ivars.pressing.replace(true) {
                 return;
             }
+            (ivars.before_open)();
             show_menu(&ivars.tray, self.mtm());
             ivars.pressing.set(false);
         }
     }
 );
 
-/// アイコンのボタンが action を送ったときに、メニューを開くようにする。メインスレッドで呼ぶ。
-pub fn open_menu_on_press(tray: &TrayIcon) {
+/// アイコンのボタンが action を送ったときに、`before_open` を呼んでからメニューを開くようにする。メインスレッドで呼ぶ。
+pub fn open_menu_on_press(tray: &TrayIcon, before_open: Box<dyn Fn()>) {
     let Some(mtm) = MainThreadMarker::new() else {
         tracing::error!("tray press: not on the main thread");
         return;
@@ -52,6 +55,7 @@ pub fn open_menu_on_press(tray: &TrayIcon) {
     };
     let target = PressTarget::alloc(mtm).set_ivars(Ivars {
         tray: tray.clone(),
+        before_open,
         pressing: Cell::new(false),
     });
     // SAFETY: NSObject の init は引数を取らず、初期化した自分を返す。

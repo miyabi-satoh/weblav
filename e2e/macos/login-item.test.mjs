@@ -4,6 +4,7 @@ import {
 	APP,
 	launch,
 	preferredLanguage,
+	pressIcon,
 	pressMenuItem,
 	quit,
 	readMenu,
@@ -91,7 +92,7 @@ test.describe('macOS: ログイン時に起動', () => {
 	// この macOS では、利用者が止められるのは「ログイン時に開く」の一覧から外すことだけで、外すとオフになる
 	// (許可が要る状態にはならない)
 	test(
-		'システム設定の一覧から外すと、次に起動したときはオフで出て、押すと登録し直す',
+		'システム設定の一覧から外すと、次にメニューを開いたときはオフで出て、押すと登録し直す',
 		{ skip },
 		(t) =>
 			keepingRegistration(t, async (original) => {
@@ -100,10 +101,8 @@ test.describe('macOS: ログイン時に起動', () => {
 					await settled((m) => m.checked);
 				}
 				await removeFromLoginItems('WebLAV.app');
-				// 動いている間は、メニューバーのアイコンにポインタを載せたときに読み直す。アクセシビリティからは
-				// 載せられないので、起動し直して読ませる
-				await quit(running);
-				running = await launch();
+				// 動いている間は、メニューを開く前に OS の状態を読み直す。VoiceOver で開くのと同じく、アクセシビリティから押す
+				await pressIcon(running.pid);
 				const off = await settled();
 				assert.equal(off.checked, false);
 				assert.equal(off.title, labels.loginItem);
