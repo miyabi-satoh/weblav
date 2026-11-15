@@ -69,7 +69,7 @@ test.describe('macOS: ログイン時に起動', () => {
 			} catch (error) {
 				throw new AggregateError(
 					[failure, pressError, error].filter(Boolean),
-					'常用の WebLAV の「ログイン時に起動」の登録が戻っていない'
+					'常用の WebLAV の「ログイン時に起動」の登録が、元に戻ったと確かめられない'
 				);
 			}
 			if (failure) throw failure;
