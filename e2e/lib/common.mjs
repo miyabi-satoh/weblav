@@ -19,15 +19,20 @@ export async function waitFor(read, ok, { label, timeout = 10_000, interval = 20
 
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** 後片付けの手順を順に流す。1つが落ちても残りを片付け、落ちたものは出す */
+/**
+ * 後片付けの手順を順に流す。1つが落ちても残りを片付け、落ちたものはまとめて投げる
+ * (黙って流すと、マシンの状態が変わったまま確認が通るため)
+ */
 export async function cleanUp(steps) {
+	const failures = [];
 	for (const step of steps) {
 		try {
 			await step();
 		} catch (error) {
-			console.error(error);
+			failures.push(error);
 		}
 	}
+	if (failures.length > 0) throw new AggregateError(failures, '後片付けの一部が落ちました');
 }
 
 /** ファイルやフォルダーが無いことを確かめる */

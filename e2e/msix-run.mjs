@@ -107,17 +107,18 @@ try {
 	code = 1;
 	console.error(`[msix-check] ${error.message}`);
 } finally {
-	try {
-		await stopAll();
-		await removePackage();
-	} catch (error) {
-		console.error(`[msix-check] 確かめ用のパッケージを外せませんでした: ${error.message}`);
-	}
-	if (dailyWasRunning) {
+	// 1つが落ちても残りを試し、落ちたら確認が通っていても失敗で終える
+	const steps = [
+		['確かめ用の WebLAV を止める', () => stopAll()],
+		['確かめ用のパッケージを外す', () => removePackage()],
+		['常用の WebLAV を起動し直す', () => dailyWasRunning && openApp(daily)]
+	];
+	for (const [label, step] of steps) {
 		try {
-			await openApp(daily);
+			await step();
 		} catch (error) {
-			console.error(`[msix-check] 常用の WebLAV を起動し直せませんでした: ${error.message}`);
+			code = code || 1;
+			console.error(`[msix-check] ${label}ことができませんでした: ${error.message}`);
 		}
 	}
 	release();

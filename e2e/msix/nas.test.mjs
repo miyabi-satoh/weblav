@@ -68,7 +68,14 @@ test.describe('MSIX 版: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無�
 			() => quit(running),
 			() => removePackage(),
 			() => drive && runPowerShell('net use $args[0] /delete /y | Out-Null', [drive]),
-			() => folderName && fs.rm(path.join(SMB, folderName), { recursive: true, force: true }),
+			// SMB を止めた回は、開いたままのファイルが NAS に残って消せないことがある。次の回の始めに消すので、警告に留める
+			() =>
+				folderName &&
+				fs.rm(path.join(SMB, folderName), { recursive: true, force: true }).catch(() => {
+					console.warn(
+						`[msix-check] ${path.join(SMB, folderName)} を消せませんでした (次の回の始めに消す)`
+					);
+				}),
 			() => disconnectSmb(SMB)
 		]);
 	});
