@@ -38,28 +38,34 @@ test.describe('macOS: ログイン時に起動', () => {
 				return;
 			}
 			// 起動した直後は OS に問い合わせている間押せないので、押せるようになるまで待つ
-			const original = await waitFor(item, (m) => m.enabled, { label: '押せるようになる' });
+			const original = await waitFor(item, (m) => m?.enabled, { label: '押せるようになる' });
 
+			let failure;
 			try {
 				await pressMenuItem(running.pid, labels.loginItem);
-				await waitFor(item, (m) => m.enabled && m.checked === !original.checked, {
+				await waitFor(item, (m) => m?.enabled && m.checked === !original.checked, {
 					label: '押すと切り替わる'
 				});
 				await pressMenuItem(running.pid, labels.loginItem);
-				await waitFor(item, (m) => m.enabled && m.checked === original.checked, {
+				await waitFor(item, (m) => m?.enabled && m.checked === original.checked, {
 					label: 'もう一度押すと戻る'
 				});
-			} finally {
-				// 途中で落ちても、常用の WebLAV の登録を元に戻す。OS への問い合わせの間は押せないので、押せるのを待つ。
-				// 戻すのに失敗しても、元の失敗を伝える
-				const now = await waitFor(item, (m) => m.enabled).catch(() => null);
-				if (now && now.checked !== original.checked)
-					await pressMenuItem(running.pid, labels.loginItem).catch(() => {});
+			} catch (error) {
+				failure = error;
 			}
-			// 戻したことを確かめる。戻らなければ、常用の WebLAV の登録が変わったままなので落とす
-			const restored = await waitFor(item, (m) => m.enabled && m.checked === original.checked, {
+			// 途中で落ちても、常用の WebLAV の登録を元に戻し、戻ったことを確かめる。OS への問い合わせの間は押せないので、
+			// 押せるのを待つ。戻らなければ、登録が変わったままだと分かるよう、元の失敗と一緒に伝える
+			const now = await waitFor(item, (m) => m?.enabled).catch(() => null);
+			if (now && now.checked !== original.checked)
+				await pressMenuItem(running.pid, labels.loginItem).catch(() => {});
+			const restored = await waitFor(item, (m) => m?.enabled && m.checked === original.checked, {
 				label: '元の登録に戻っている'
+			}).catch((error) => {
+				throw failure
+					? new AggregateError([failure, error], '常用の WebLAV の登録が戻っていない')
+					: error;
 			});
+			if (failure) throw failure;
 			assert.equal(restored.title, labels.loginItem);
 		}
 	);
