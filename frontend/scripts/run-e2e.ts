@@ -4,7 +4,8 @@
 // 後片付けするが、途中で落ちたときに開発用 DB を汚さないで済む。
 // 管理者は1人だけ入れる。コンテンツは各テストが自分で作る前提 (→ frontend/e2e/api-helpers.ts)。
 // 初回セットアップ (管理者が0人のときだけ通る) を試すために、管理者を入れない backend をもう1つ立てる
-// (→ frontend/e2e/setup.e2e.ts)。
+// (→ frontend/e2e/setup.e2e.ts)。バックアップから戻すとデータが丸ごと置き換わるので、それを試す backend も、
+// 管理者を入れたものと入れないものの2つを別に立てる (→ frontend/e2e/backup.e2e.ts)。
 
 import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
 import path from 'node:path';
@@ -51,11 +52,15 @@ function signalTree(child: ChildProcess, force: boolean): void {
  * `pnpm run test:e2e` を使わないのは、あちらが毎回 `playwright install` (全ブラウザー) を走らせるため。
  * ブラウザーは前もって入れておく (手元では `just install`、CI では workflow の手順で chromium だけを入れる)。
  */
-function runPlaywright(
-	baseURL: string,
-	setupBaseURL: string,
-	storageState: string
-): Promise<number> {
+type PlaywrightTargets = {
+	baseURL: string;
+	setupBaseURL: string;
+	restoreBaseURL: string;
+	restoreSetupBaseURL: string;
+	storageState: string;
+};
+
+function runPlaywright(targets: PlaywrightTargets): Promise<number> {
 	return new Promise((resolve, reject) => {
 		const options: SpawnOptions = {
 			stdio: 'inherit',
@@ -64,12 +69,14 @@ function runPlaywright(
 			detached: !IS_WINDOWS,
 			env: {
 				...process.env,
-				E2E_BASE_URL: baseURL,
-				E2E_SETUP_BASE_URL: setupBaseURL,
+				E2E_BASE_URL: targets.baseURL,
+				E2E_SETUP_BASE_URL: targets.setupBaseURL,
+				E2E_RESTORE_BASE_URL: targets.restoreBaseURL,
+				E2E_RESTORE_SETUP_BASE_URL: targets.restoreSetupBaseURL,
 				E2E_ADMIN_USER: TEST_ADMIN.username,
 				E2E_ADMIN_PASSWORD: TEST_ADMIN.password,
 				// 起動済みのサーバーに手で当てるときとログイン状態のファイルを取り合わないよう、使い捨ての場所に置く。
-				E2E_ADMIN_STORAGE_STATE: storageState
+				E2E_ADMIN_STORAGE_STATE: targets.storageState
 			}
 		};
 		// Windows の pnpm は pnpm.cmd なので、shell を通さないと解決できない。shell を通すときに
@@ -115,18 +122,30 @@ async function main(): Promise<number> {
 		stopRunningPlaywright?.();
 	});
 
-	const backend = await startBackend('weblav-e2e-');
-	let setupBackend: Backend | undefined;
+	const started: Backend[] = [];
+	const start = async (prefix: string) => {
+		const backend = await startBackend(prefix);
+		started.push(backend);
+		return backend;
+	};
 	try {
-		setupBackend = await startBackend('weblav-e2e-setup-');
+		const backend = await start('weblav-e2e-');
+		const setupBackend = await start('weblav-e2e-setup-');
+		const restoreBackend = await start('weblav-e2e-restore-');
+		const restoreSetupBackend = await start('weblav-e2e-restore-setup-');
 		insertTestAdmin(backend.dbPath);
+		insertTestAdmin(restoreBackend.dbPath);
 		// 準備の途中で中断されたら、テストを始めずに片付ける。
 		if (interrupted) return INTERRUPTED_EXIT_CODE;
-		const storageState = path.join(path.dirname(backend.dbPath), 'e2e-admin.json');
-		return await runPlaywright(backend.baseURL, setupBackend.baseURL, storageState);
+		return await runPlaywright({
+			baseURL: backend.baseURL,
+			setupBaseURL: setupBackend.baseURL,
+			restoreBaseURL: restoreBackend.baseURL,
+			restoreSetupBaseURL: restoreSetupBackend.baseURL,
+			storageState: path.join(path.dirname(backend.dbPath), 'e2e-admin.json')
+		});
 	} finally {
-		await setupBackend?.stop();
-		await backend.stop();
+		for (const backend of started.reverse()) await backend.stop();
 	}
 }
 

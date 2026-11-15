@@ -130,6 +130,25 @@ test.describe('macOS: 共有のフォルダー', () => {
 		assert.ok((await trashNames()).includes(name), 'ごみ箱に入っている');
 	});
 
+	test('共有の中で上書きすると、今あったものが OS のごみ箱に入る', async () => {
+		const name = `weblav-e2e-overwritten-${Date.now()}.txt`;
+		await fs.writeFile(path.join(folder, name), 'new');
+		await fs.mkdir(path.join(folder, 'overwrite'), { recursive: true });
+		await fs.writeFile(path.join(folder, 'overwrite', name), 'old');
+		const { jobId } = await running.api.json('POST', '/shares/transfer', {
+			json: {
+				op: 'copy',
+				from: { shareId: share.id, paths: [name] },
+				to: { shareId: share.id, path: 'overwrite' },
+				onConflict: 'overwrite'
+			}
+		});
+		const job = await running.api.waitJob(jobId);
+		assert.equal(job.state, 'succeeded', JSON.stringify(job));
+		assert.equal(await fs.readFile(path.join(folder, 'overwrite', name), 'utf8'), 'new');
+		assert.ok((await trashNames()).includes(name), '上書きで消えたものがごみ箱に入っている');
+	});
+
 	test('別のボリュームの共有へフォルダーを上書きで移動すると、置き先が新しいものに替わり、元が消える', async () => {
 		ramDisk = await attachRamDisk('WeblavE2E');
 		await fs.mkdir(path.join(folder, 'move-me'));
