@@ -85,6 +85,13 @@ install-mac: bundle-mac stop-weblav
 macos-check *tests:
     cd e2e && node macos-run.mjs {{ tests }}
 
+# MSIX 版で、OS とつながる所 (トレイ・サインイン時に起動・ファイアウォール・フォルダー選択の窓・ごみ箱・更新とアンインストール・WACK) を見る。
+# 確かめ用の別のパッケージを入れて動かし、回している間は常用の WebLAV を止める。WACK で UAC の確かめの窓が出る。
+# --no-build で作り直さない。引数でテストファイルを選べる (例: just msix-check tray)。詳細は e2e/README.md の「MSIX 版の確認」
+[windows]
+msix-check *args:
+    cd e2e && node msix-run.mjs {{ args }}
+
 # ログイン時の起動 (XDG Autostart) は今の実行ファイルのパスを書くので、置き場所は毎回同じにする。
 # .deb で配るまでの、開発する人の手元の常用版 (→ docs/distribution.md「ビルド・配布の方法」)。
 # Linux 版を ~/.local に入れ直し、起動し直す

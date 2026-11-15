@@ -2,10 +2,12 @@
 // dist/weblav-v<version>.msix を作り、試しに入れるための自己署名の証明書で署名する (→ docs/distribution.md「MSIX (Windows)」)。
 // `--store` を付けると、Store に上げる dist/weblav-v<version>-store.msix を、Store の発行元で署名せずに作る。
 // `--install` を付けると、作った試しの版をこの PC に入れ直して起動し直す (`just install-windows`)。
+// `--e2e --revision=<n>` は、MSIX 版の確認 (`just msix-check`) が入れる版を target/msix-e2e/ に作る。
+// 常用の版と並べて入れられるよう、パッケージの名前と表示名だけを替える (→ e2e/README.md「MSIX 版の確認」)。
 // 中身と宣言は installer/msix/AppxManifest.xml に書いてある。
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { readVersion } from './cargo-version.mjs';
 
 // 試しに入れるときの発行元。installer/msix/new-test-cert.ps1 が作る証明書の Subject と揃える。
@@ -22,14 +24,14 @@ const SDK_BIN = 'C:\\Program Files (x86)\\Windows Kits\\10\\bin';
 
 // MSIX のバージョンは4つ組で、Store は最後を 0 に限る。
 // 試しの版は最後をコミットの数にする。同じ版番号のままでは上から入れられず、外すとデータが消えるため。
-function msixVersion(version, store) {
+function msixVersion(version, store, revisionOverride) {
 	const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
 	if (!match) {
 		throw new Error(`MSIX にできないバージョンです (${version})。x.y.z の形にしてください`);
 	}
-	const revision = store
-		? '0'
-		: execFileSync('git', ['rev-list', '--count', 'HEAD'], { encoding: 'utf8' }).trim();
+	const revision =
+		revisionOverride ??
+		(store ? '0' : execFileSync('git', ['rev-list', '--count', 'HEAD'], { encoding: 'utf8' }).trim());
 	return `${match[1]}.${match[2]}.${match[3]}.${revision}`;
 }
 
@@ -56,7 +58,12 @@ function findSdkTool(name, envName) {
 	);
 }
 
-function layout(version, store) {
+// 確かめ用の版のパッケージの名前と表示名。常用の版 (amiiby.WebLAV) と別のパッケージにして、データ・ログイン時の起動・
+// ファイアウォールの規則を常用の版と分ける。e2e/lib/windows.mjs の PACKAGE_NAME と揃える。
+const E2E_NAME = 'amiiby.WebLAV.E2E';
+const E2E_DISPLAY_NAME = 'WebLAV E2E';
+
+function layout(version, store, { e2e = false, revision } = {}) {
 	rmSync(LAYOUT_DIR, { recursive: true, force: true });
 	mkdirSync(join(LAYOUT_DIR, 'Assets'), { recursive: true });
 	for (const exe of EXES) {
@@ -65,20 +72,33 @@ function layout(version, store) {
 	for (const logo of readdirSync(LOGO_DIR).filter((name) => name.endsWith('.png'))) {
 		copyFileSync(join(LOGO_DIR, logo), join(LAYOUT_DIR, 'Assets', logo));
 	}
-	const manifest = readFileSync(MANIFEST, 'utf8')
-		.replaceAll('{{VERSION}}', msixVersion(version, store))
+	let manifest = readFileSync(MANIFEST, 'utf8')
+		.replaceAll('{{VERSION}}', msixVersion(version, store, revision))
 		.replaceAll('{{PUBLISHER}}', store ? STORE_PUBLISHER : TEST_PUBLISHER);
+	if (e2e) {
+		manifest = manifest
+			.replace('Name="amiiby.WebLAV"', `Name="${E2E_NAME}"`)
+			.replaceAll('DisplayName="WebLAV"', `DisplayName="${E2E_DISPLAY_NAME}"`)
+			.replace('<DisplayName>WebLAV</DisplayName>', `<DisplayName>${E2E_DISPLAY_NAME}</DisplayName>`);
+	}
 	writeFileSync(join(LAYOUT_DIR, 'AppxManifest.xml'), manifest);
 }
 
 function main() {
 	const store = process.argv.includes('--store');
+	const e2e = process.argv.includes('--e2e');
+	const revision = process.argv.find((arg) => arg.startsWith('--revision='))?.slice('--revision='.length);
+	if (e2e && (store || !/^\d+$/.test(revision ?? ''))) {
+		throw new Error('--e2e には --revision=<数字> を付け、--store とは一緒に使わないでください');
+	}
 	const version = readVersion();
 	const makeappx = findSdkTool('makeappx.exe', 'MAKEAPPX');
-	const output = `dist/weblav-v${version}${store ? '-store' : ''}.msix`;
+	const output = e2e
+		? `target/msix-e2e/weblav-e2e-${revision}.msix`
+		: `dist/weblav-v${version}${store ? '-store' : ''}.msix`;
 
-	layout(version, store);
-	mkdirSync('dist', { recursive: true });
+	layout(version, store, { e2e, revision });
+	mkdirSync(dirname(output), { recursive: true });
 	execFileSync(makeappx, ['pack', '/o', '/h', 'SHA256', '/d', LAYOUT_DIR, '/p', output], {
 		stdio: 'inherit',
 	});
