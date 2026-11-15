@@ -334,15 +334,13 @@ export async function quit(running) {
 		return;
 	} catch {
 		// 止まらなければ (メニューや窓が開いたままなど)、強制終了する。鍵とポートを持ったままだと、次の起動が通らない
-		process.kill(running.pid, 'SIGKILL');
 	}
-	await waitFor(
-		() => weblavPids(),
-		(pids) => !pids.includes(running.pid),
-		{
-			label: 'WebLAV が終わる'
-		}
-	);
+	try {
+		process.kill(running.pid, 'SIGKILL');
+	} catch {
+		return; // 待ちの切れた直後に終わった
+	}
+	await waitFor(gone, Boolean, { label: 'WebLAV が強制終了で終わる' });
 }
 
 /** クッキーを持ち回る、確かめ用の WebLAV の API */
