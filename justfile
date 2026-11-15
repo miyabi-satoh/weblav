@@ -79,6 +79,12 @@ install-mac: bundle-mac stop-weblav
     cp -R target/release/bundle/WebLAV.app /Applications/
     open /Applications/WebLAV.app
 
+# OS とつながる所 (メニューバー・フォルダー選択の窓・ログイン項目・ごみ箱・mDNS) を、/Applications/WebLAV.app で見る。
+# ログインした画面のセッションの端末で流す。引数でテストファイルを選べる (例: just macos-check tray)。詳細は e2e/README.md の「macOS の確認」
+[macos]
+macos-check *tests:
+    cd e2e && node macos-run.mjs {{ tests }}
+
 # ログイン時の起動 (XDG Autostart) は今の実行ファイルのパスを書くので、置き場所は毎回同じにする。
 # .deb で配るまでの、開発する人の手元の常用版 (→ docs/distribution.md「ビルド・配布の方法」)。
 # Linux 版を ~/.local に入れ直し、起動し直す
