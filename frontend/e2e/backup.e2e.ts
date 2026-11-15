@@ -16,12 +16,13 @@ const RESTORE_SETUP_BASE_URL = process.env.E2E_RESTORE_SETUP_BASE_URL;
 const DOWNLOAD_BUTTON_NAME = /^バックアップをダウンロード$|^Download a backup$/;
 const RESTORE_BUTTON_NAME = /^バックアップから復元\.\.\.$|^Restore from a backup\.\.\.$/;
 const RESTORE_CONFIRM_BUTTON_NAME = /^復元する$|^Restore$/;
-const KEPT_TITLE = 'e2e-バックアップに入るリンク';
 
 test.use({ storageState: EMPTY_STORAGE_STATE, baseURL: RESTORE_BASE_URL });
 test.describe.configure({ mode: 'serial' });
 
 let backupPath = '';
+// 流し直しても前の回のものと混ざらないよう、回ごとに名前を変える。戻すと前の回のものも戻るため
+let keptTitle = '';
 
 async function logInAsAdmin(page: Page) {
 	await logIn(page, ADMIN_USERNAME, ADMIN_PASSWORD);
@@ -54,10 +55,11 @@ test.beforeEach(() => {
 test('サイト設定でダウンロードしたバックアップから戻すと、取った時の中身に戻り、ログインし直しになる', async ({
 	page
 }, testInfo) => {
+	keptTitle = `e2e-バックアップに入るリンク-${Date.now()}`;
 	await logInAsAdmin(page);
 	const kept = (await send(page.request, 'post', '/contents', {
 		type: 'link',
-		title: KEPT_TITLE,
+		title: keptTitle,
 		url: 'https://example.com/e2e'
 	})) as { id: number };
 
@@ -68,13 +70,14 @@ test('サイト設定でダウンロードしたバックアップから戻す�
 	await (await download).saveAs(backupPath);
 
 	await send(page.request, 'delete', `/contents/${kept.id}`);
-	expect(await contentTitles(page)).not.toContain(KEPT_TITLE);
+	expect(await contentTitles(page)).not.toContain(keptTitle);
 
 	await restoreFrom(page, backupPath);
 	await expect(page).toHaveURL(/\/login$/);
+	expect((await page.request.get('/api/v1/auth/me')).status(), 'ログインが切れている').toBe(401);
 
 	await logInAsAdmin(page);
-	expect(await contentTitles(page)).toContain(KEPT_TITLE);
+	expect(await contentTitles(page)).toContain(keptTitle);
 });
 
 test('管理者のいないセットアップの画面からも、バックアップから戻せる', async ({
@@ -97,5 +100,5 @@ test('管理者のいないセットアップの画面からも、バックア�
 	const contents = (await (
 		await page.request.get(`${RESTORE_SETUP_BASE_URL}/api/v1/contents`)
 	).json()) as { title: string }[];
-	expect(contents.map((content) => content.title)).toContain(KEPT_TITLE);
+	expect(contents.map((content) => content.title)).toContain(keptTitle);
 });
