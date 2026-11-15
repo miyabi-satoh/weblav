@@ -82,7 +82,13 @@ test.describe('MSIX 版: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無�
 			() => quit(running),
 			() => removePackage(),
 			() => drive && runPowerShell('net use $args[0] /delete /y | Out-Null', [drive]),
-			() => folderName && fs.rm(path.join(SMB, folderName), { recursive: true, force: true }),
+			() =>
+				folderName &&
+				fs.rm(path.join(SMB, folderName), { recursive: true, force: true }).catch((error) => {
+					throw new Error(
+						`確かめ用フォルダーを消せません (止める前に ${FILE_NAME} の中が読まれた疑い): ${error.message}`
+					);
+				}),
 			() => disconnectSmb(SMB)
 		]);
 	});
