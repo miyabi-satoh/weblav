@@ -227,7 +227,8 @@ export function removeFromLoginItems(appName) {
 		for (let i = 0; i < 25 && row(root); i++) delay(0.2);
 		if (row(root)) throw new Error('一覧から外れない');
 	} finally {
-		if (!wasOpen && settingsPid()) Application('System Settings').quit();
+		// 閉じられなくても、元の失敗を伝える
+		try { if (!wasOpen && settingsPid()) Application('System Settings').quit(); } catch (e) {}
 	}`,
 		{ appName }
 	);

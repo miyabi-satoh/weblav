@@ -46,7 +46,10 @@ test.describe('macOS: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無い'
 				if (!folderName) return;
 				const mount = await mountSmb(SMB);
 				await fs.rm(path.join(mount, folderName), { recursive: true, force: true });
-				if (!wasMounted) await unmount(mount);
+			},
+			async () => {
+				const mount = wasMounted === false && (await smbMountPoint(SMB));
+				if (mount) await unmount(mount);
 			}
 		];
 		for (const step of steps)
