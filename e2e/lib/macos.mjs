@@ -100,6 +100,21 @@ const AX = `${AX_READ}
 	};
 `;
 
+/**
+ * メニューバーのアイコンをアクセシビリティから押す (VoiceOver で開くのと同じ)。出たメニューはすぐ取り消して閉じる。
+ * メニューの要素は閉じている間も残るので、出たかは閉じた後の項目で見る
+ */
+export function pressIcon(pid) {
+	return jxa(
+		`${AX}
+	$.AXUIElementPerformAction(icon(), $('AXPress'));
+	delay(1);
+	const menu = axKids(icon())[0];
+	if (menu) $.AXUIElementPerformAction(menu, $('AXCancel'));`,
+		{ pid }
+	);
+}
+
 /** メニューバーのアイコンの数 */
 export function menuBarIconCount(pid) {
 	return jxa(`${AX} return axKids(axGet(app, 'AXExtrasMenuBar')).length;`, { pid });

@@ -5,6 +5,7 @@
 //! アクセシビリティの押す操作 (AXPress) はマウスのイベントを通らず、ボタンの action を送るだけなので、
 //! メニューの付いていないアイコンでは何も起きない。VoiceOver で状況メニューを開く操作 (VO-M-M → VO-Space) は
 //! macOS の標準なので、ボタンの action でメニューを開く。
+//! ポインタを載せたときの知らせも来ないので、その代わりに、開く前に呼ぶ処理を受け取る。
 
 use std::cell::Cell;
 
@@ -16,6 +17,8 @@ use tray_icon::TrayIcon;
 
 struct Ivars {
     tray: TrayIcon,
+    // メニューを開く前に呼ぶ。マウスなら載せたときに読む状態を、ここで読む。
+    before_open: Box<dyn Fn()>,
     // メニューを開く処理 (`show_menu`) がもう一度ボタンを押すので、その間に届いた action では開き直さない。
     pressing: Cell<bool>,
 }
@@ -34,14 +37,15 @@ define_class!(
             if ivars.pressing.replace(true) {
                 return;
             }
+            (ivars.before_open)();
             show_menu(&ivars.tray, self.mtm());
             ivars.pressing.set(false);
         }
     }
 );
 
-/// アイコンのボタンが action を送ったときに、メニューを開くようにする。メインスレッドで呼ぶ。
-pub fn open_menu_on_press(tray: &TrayIcon) {
+/// アイコンのボタンが action を送ったときに、`before_open` を呼んでからメニューを開くようにする。メインスレッドで呼ぶ。
+pub fn open_menu_on_press(tray: &TrayIcon, before_open: Box<dyn Fn()>) {
     let Some(mtm) = MainThreadMarker::new() else {
         tracing::error!("tray press: not on the main thread");
         return;
@@ -52,6 +56,7 @@ pub fn open_menu_on_press(tray: &TrayIcon) {
     };
     let target = PressTarget::alloc(mtm).set_ivars(Ivars {
         tray: tray.clone(),
+        before_open,
         pressing: Cell::new(false),
     });
     // SAFETY: NSObject の init は引数を取らず、初期化した自分を返す。
