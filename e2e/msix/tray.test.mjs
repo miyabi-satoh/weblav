@@ -174,7 +174,7 @@ test.describe('MSIX 版: トレイ', () => {
 		);
 		// 管理者がいるので、セットアップでなくホームを開く
 		const opened = log.split(/\r?\n/).findLast((line) => line.includes(OPENED));
-		assert.match(opened, new RegExp(`url="?http://localhost:${running.port}(?![\d/])`));
+		assert.match(opened, new RegExp(`url="?http://localhost:${running.port}(?![\\d/])`));
 		await waitFor(
 			() => packagePids(pkg),
 			(pids) => pids.length === 1 && pids[0] === running.pid,

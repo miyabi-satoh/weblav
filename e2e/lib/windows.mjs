@@ -517,7 +517,11 @@ const recordDir = path.join(repoRoot, 'target', 'e2e-msix');
  * 止めると、つなぐのはすぐに失敗する (電源を切った NAS のように、返事を待たされはしない)
  */
 export async function blockSmb(root) {
-	const host = root.split('\\').filter(Boolean)[0];
+	// 規則の宛先は IP アドレスでしか書けないので、名前 (`\\nas\share`) なら引いておく
+	const { lookup } = await import('node:dns/promises');
+	const addresses = (await lookup(root.split('\\').filter(Boolean)[0], { all: true }))
+		.map((entry) => entry.address)
+		.join("','");
 	await fs.mkdir(recordDir, { recursive: true });
 	const releaseFlag = path.join(recordDir, 'smb-block.release');
 	const log = path.join(recordDir, 'smb-block.log');
@@ -525,9 +529,10 @@ export async function blockSmb(root) {
 	await fs.rm(log, { force: true });
 	await disconnectSmb(root);
 	const script = `
+$ErrorActionPreference = 'Stop'
 $name = 'WebLAV-E2E-SMB-block'
 try {
-    New-NetFirewallRule -Name $name -DisplayName $name -Direction Outbound -Action Block -Protocol TCP -RemotePort 445,139 -RemoteAddress '${host}' | Out-Null
+    New-NetFirewallRule -Name $name -DisplayName $name -Direction Outbound -Action Block -Protocol TCP -RemotePort 445,139 -RemoteAddress @('${addresses}') | Out-Null
     'added' | Out-File -LiteralPath '${log}' -Append -Encoding ascii
     $deadline = (Get-Date).AddMinutes(3)
     while (-not (Test-Path -LiteralPath '${releaseFlag}') -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 300 }

@@ -85,7 +85,7 @@ install-mac: bundle-mac stop-weblav
 macos-check *tests:
     cd e2e && node macos-run.mjs {{ tests }}
 
-# MSIX 版で、OS とつながる所 (トレイ・サインイン時に起動・ファイアウォール・フォルダー選択の窓・ごみ箱・更新とアンインストール・WACK) を見る。
+# MSIX 版で、OS とつながる所 (トレイ・サインイン時に起動・ファイアウォール・フォルダー選択の窓・ごみ箱・NAS・mDNS・更新とアンインストール・WACK) を見る。
 # 確かめ用の別のパッケージを入れて動かし、回している間は常用の WebLAV を止める。WACK で UAC の確かめの窓が出る。
 # --no-build で作り直さない。引数でテストファイルを選べる (例: just msix-check tray)。詳細は e2e/README.md の「MSIX 版の確認」
 [windows]

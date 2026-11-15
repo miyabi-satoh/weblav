@@ -104,6 +104,7 @@ try {
 	// 確かめ用の WebLAV は同じパッケージを入れ替えるので、ファイルを並べて回さない
 	code = await run(process.execPath, ['--test', '--test-concurrency=1', ...files], { cwd: e2eDir });
 } catch (error) {
+	code = 1;
 	console.error(`[msix-check] ${error.message}`);
 } finally {
 	try {
