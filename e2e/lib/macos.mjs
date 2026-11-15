@@ -193,6 +193,40 @@ export function cancelDialog(pid) {
 	);
 }
 
+/**
+ * システム設定の「ログイン項目」の「ログイン時に開く」の一覧から、アプリを外す (利用者が「−」で外すのと同じ)。
+ * 終わったらシステム設定を閉じる
+ */
+export function removeFromLoginItems(appName) {
+	return jxa(
+		`ObjC.import('AppKit');
+	ObjC.import('ApplicationServices');
+	const ws = $.NSWorkspace.sharedWorkspace;
+	ws.openURL($.NSURL.URLWithString('x-apple.systempreferences:com.apple.LoginItems-Settings.extension'));
+	const settings = () => { const apps = ws.runningApplications; for (let i = 0; i < apps.count; i++) { const a = apps.objectAtIndex(i); if (a.bundleIdentifier.js === 'com.apple.systempreferences') return a; } return null; };
+	const axGet = (el, name) => { const ref = Ref(); return el && $.AXUIElementCopyAttributeValue(el, $(name), ref) === 0 ? ObjC.castRefToObject(ref[0]) : null; };
+	const axStr = (el, name) => { const v = axGet(el, name); return v && v.isKindOfClass($.NSString) ? v.js : ''; };
+	const axKids = (el) => { const v = axGet(el, 'AXChildren'); const out = []; for (let i = 0; v && i < v.count; i++) out.push(v.objectAtIndex(i)); return out; };
+	const find = (el, ok, depth = 0) => { if (!el || depth > 25) return null; if (ok(el)) return el; for (const k of axKids(el)) { const f = find(k, ok, depth + 1); if (f) return f; } return null; };
+	const names = (el) => ['AXTitle', 'AXDescription', 'AXValue'].map((n) => axStr(el, n));
+	const row = (root) => find(root, (e) => axStr(e, 'AXRole') === 'AXRow' && find(e, (c) => names(c).includes(args.appName)));
+	let root = null;
+	for (let i = 0; i < 50 && !(root && row(root)); i++) { delay(0.2); const a = settings(); root = a && $.AXUIElementCreateApplication(a.processIdentifier); }
+	const target = root && row(root);
+	if (!target) throw new Error('ログイン時に開く一覧に ' + args.appName + ' が無い');
+	$.AXUIElementSetAttributeValue(target, $('AXSelected'), $.NSNumber.numberWithBool(true));
+	delay(0.5);
+	const remove = find(root, (e) => axStr(e, 'AXRole') === 'AXButton' && ['削除', 'Remove'].includes(axStr(e, 'AXDescription')));
+	if (!remove) throw new Error('一覧の「−」のボタンが無い');
+	$.AXUIElementPerformAction(remove, $('AXPress'));
+	for (let i = 0; i < 25 && row(root); i++) delay(0.2);
+	const removed = !row(root);
+	settings().terminate;
+	if (!removed) throw new Error('一覧から外れない');`,
+		{ appName }
+	);
+}
+
 /** Finder のごみ箱の中の名前 */
 export function trashNames() {
 	return jxa(`return Application('Finder').trash.items.name();`);
@@ -446,6 +480,30 @@ export async function attachRamDisk(name, megabytes = 32) {
 
 export async function detachRamDisk(disk) {
 	if (disk) await execFileAsync('hdiutil', ['detach', disk.device, '-force']).catch(() => {});
+}
+
+/** SMB の共有 (`smb://<ユーザー>@<ホスト>/<共有>`) を載せている場所。載っていなければ null */
+export async function smbMountPoint(url) {
+	const { stdout } = await execFileAsync('mount');
+	const prefix = `${url.replace(/^smb:/, '')} on `;
+	const line = stdout.split('\n').find((l) => l.startsWith(prefix));
+	return line ? line.slice(prefix.length).replace(/ \([^)]*\)$/, '') : null;
+}
+
+/** SMB の共有を載せ、載せた場所を返す。パスワードはキーチェーンから読ませる (無ければ OS が尋ねる) */
+export async function mountSmb(url) {
+	const mounted = await smbMountPoint(url);
+	if (mounted) return mounted;
+	await jxa(
+		`const app = Application.currentApplication(); app.includeStandardAdditions = true; app.mountVolume(args.url);`,
+		{ url }
+	);
+	return waitFor(() => smbMountPoint(url), Boolean, { label: 'SMB の共有が載る', timeout: 30_000 });
+}
+
+/** 載せた共有を取り出す (Finder の「取り出す」と同じ) */
+export async function unmount(mount) {
+	await execFileAsync('diskutil', ['unmount', mount]);
 }
 
 /** 待ち受けているだけのサーバーで、ポートを先に取る */
