@@ -30,14 +30,16 @@ test.describe('macOS: 多重起動', () => {
 		await running.api.createAdmin();
 		const pidsBefore = await weblavPids();
 		const logBefore = await readLog();
+		const noticedBefore = count(logBefore, ALREADY_RUNNING);
+		const openedBefore = count(logBefore, OPENED);
 
 		await openApp();
 		await waitFor(
 			async () => count(await readLog(), ALREADY_RUNNING),
-			(n) => n > count(logBefore, ALREADY_RUNNING),
+			(n) => n > noticedBefore,
 			{ label: '2つ目が、動いているほうがあると気づく' }
 		);
-		const log = await waitFor(readLog, (text) => count(text, OPENED) > count(logBefore, OPENED), {
+		const log = await waitFor(readLog, (text) => count(text, OPENED) > openedBefore, {
 			label: '2つ目が、動いているほうの画面を開く'
 		});
 		// 管理者がいるので、セットアップでなくホームを開く

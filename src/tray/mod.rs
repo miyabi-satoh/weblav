@@ -283,6 +283,8 @@ pub fn open_in_browser(running: AlreadyRunning) {
         Ok(()) => tracing::info!(url = shown, "opened the running instance in the browser"),
         Err(err) => tracing::warn!(url = shown, error = %err, "failed to open the browser"),
     }
+    // 書いたログを書き出して閉じる。
+    drop(running);
 }
 
 /// タスクトレイのツールチップの内容。アドレスは出さない (→ docs/architecture.md「LAN からの到達性」)。
