@@ -8,7 +8,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { send } from './api-helpers';
 import { ADMIN_PASSWORD, ADMIN_USERNAME } from './auth';
-import { EMPTY_STORAGE_STATE, logIn, PASSWORD_HASH_TIMEOUT, uniqueId } from './helpers';
+import { EMPTY_STORAGE_STATE, logInToHome, uniqueId } from './helpers';
 
 const RESTORE_BASE_URL = process.env.E2E_RESTORE_BASE_URL;
 const RESTORE_SETUP_BASE_URL = process.env.E2E_RESTORE_SETUP_BASE_URL;
@@ -25,9 +25,8 @@ test.describe.configure({ mode: 'serial' });
 let backupPath = '';
 let keptTitle = '';
 
-async function logInAsAdmin(page: Page) {
-	await logIn(page, ADMIN_USERNAME, ADMIN_PASSWORD);
-	await page.waitForURL('/', { timeout: PASSWORD_HASH_TIMEOUT });
+function logInAsAdmin(page: Page) {
+	return logInToHome(page, ADMIN_USERNAME, ADMIN_PASSWORD);
 }
 
 async function contentTitles(page: Page): Promise<string[]> {

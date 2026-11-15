@@ -1,11 +1,10 @@
 import { test as setup } from '@playwright/test';
 import { ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_STORAGE_STATE } from './auth';
 import { registerContentRoot } from './fixture-helpers';
-import { logIn, PASSWORD_HASH_TIMEOUT } from './helpers';
+import { logInToHome } from './helpers';
 
 setup('管理者としてログインする', async ({ page }) => {
-	await logIn(page, ADMIN_USERNAME, ADMIN_PASSWORD);
-	await page.waitForURL('/', { timeout: PASSWORD_HASH_TIMEOUT });
+	await logInToHome(page, ADMIN_USERNAME, ADMIN_PASSWORD);
 	await page.context().storageState({ path: ADMIN_STORAGE_STATE });
 	// フィクスチャの置き場を「共有」に入れておく。これが無いと
 	// folder / archive を1つも登録できない (→ docs/folders.md「共有」)。

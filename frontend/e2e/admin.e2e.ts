@@ -31,7 +31,7 @@ import {
 	dragContentRowOnto,
 	dragContentRowToRoot,
 	startDraggingContentRow,
-	logIn,
+	logInToHome,
 	LOGIN_USERNAME_LABEL,
 	SAVE_BUTTON_NAME,
 	saveForm,
@@ -287,8 +287,7 @@ test('作成者のみ: 作成者の一覧にだけ印付きで並び、作成者
 	try {
 		await createUser(page, username, password);
 		const ownerPage = await ownerContext.newPage();
-		await logIn(ownerPage, username, password);
-		await ownerPage.waitForURL('/');
+		await logInToHome(ownerPage, username, password);
 		await createLinkContent(ownerPage, title, {
 			visibility: VISIBILITY_PRIVATE_OPTION_NAME,
 			fromHome: true

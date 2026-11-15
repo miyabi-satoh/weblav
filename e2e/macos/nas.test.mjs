@@ -4,6 +4,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
 	cancelDialog,
+	cleanUp,
+	entryNames as names,
 	launch,
 	mountSmb,
 	pickAndAddRoot,
@@ -19,7 +21,6 @@ import {
 // 確かめ用のフォルダーを作って消す。途中で共有を取り出すので、ほかで使っている最中には回さない
 
 const SMB = process.env.WEBLAV_E2E_SMB;
-const names = (browse) => browse.entries.map((entry) => entry.name).sort();
 
 test.describe('macOS: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無い' }, () => {
 	let running;
@@ -39,7 +40,7 @@ test.describe('macOS: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無い'
 	});
 
 	test.after(async () => {
-		const steps = [
+		await cleanUp([
 			() => running && cancelDialog(running.pid),
 			() => quit(running),
 			async () => {
@@ -51,11 +52,7 @@ test.describe('macOS: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無い'
 				const mount = wasMounted === false && (await smbMountPoint(SMB));
 				if (mount) await unmount(mount);
 			}
-		];
-		for (const step of steps)
-			await Promise.resolve()
-				.then(step)
-				.catch((error) => console.error(error));
+		]);
 	});
 
 	test('NAS の中のフォルダーを窓で選ぶと共有になり、中を見られる。ごみ箱は使えないと伝える', async () => {
