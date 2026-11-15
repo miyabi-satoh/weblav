@@ -736,10 +736,35 @@ fn trash_error(err: trash::Error) -> AppError {
     match err {
         #[cfg(all(unix, not(target_os = "macos")))]
         trash::Error::FileSystem { source, .. } => map_io_error(source),
-        trash::Error::Os { code, .. } => map_io_error(io::Error::from_raw_os_error(code)),
+        trash::Error::Os { code, .. } => trash_os_error(code),
         trash::Error::CouldNotAccess { .. } => AppError::NotFound,
         err => AppError::Io(io::Error::other(err.to_string())),
     }
+}
+
+/// Windows の trash は、シェルのファイル操作 (`IFileOperation`) の HRESULT を返す。Win32 のエラー番号ではないので、
+/// そのまま読むと、ほかのアプリが開いているファイルを上書きしたときに「使用中」と見分けられない。
+#[cfg(windows)]
+fn trash_os_error(code: i32) -> AppError {
+    /// `FACILITY_WIN32` の HRESULT (`0x8007xxxx`)。下の16ビットが Win32 のエラー番号。
+    const FACILITY_WIN32: u32 = 7;
+    /// `COPYENGINE_E_SHARING_VIOLATION_SRC`・`_DEST` (sherrors.h)。この定数のためだけに Win32_UI_Shell を足さない。
+    const COPYENGINE_SHARING_VIOLATIONS: [u32; 2] = [0x8027_0027, 0x8027_0028];
+
+    let hresult = code as u32;
+    if COPYENGINE_SHARING_VIOLATIONS.contains(&hresult) {
+        AppError::EntryInUse
+    } else if (hresult >> 16) & 0x1FFF == FACILITY_WIN32 {
+        map_io_error(io::Error::from_raw_os_error((hresult & 0xFFFF) as i32))
+    } else {
+        AppError::Io(io::Error::other(format!("windows error {hresult:#010x}")))
+    }
+}
+
+/// Windows 以外の trash は、errno を返す。
+#[cfg(not(windows))]
+fn trash_os_error(code: i32) -> AppError {
+    map_io_error(io::Error::from_raw_os_error(code))
 }
 
 /// `path` のある場所で、ごみ箱へ送れるか。確かに送れると分かる場所だけ真にする。
@@ -812,6 +837,22 @@ fn platform_trash_available(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[cfg(windows)]
+    fn a_trash_failure_on_a_file_in_use_reports_it_in_use() {
+        // シェルのファイル操作の「使用中」と、Win32 の ERROR_SHARING_VIOLATION を包んだ HRESULT
+        for code in [0x8027_0027_u32, 0x8027_0028, 0x8007_0020] {
+            assert!(
+                matches!(trash_os_error(code as i32), AppError::EntryInUse),
+                "{code:#010x}"
+            );
+        }
+        assert!(matches!(
+            trash_os_error(0x8007_0005_u32 as i32),
+            AppError::ShareReadOnly
+        ));
+    }
 
     fn temp_dir(name: &str) -> crate::test_support::TempDir {
         crate::test_support::project_temp_dir("shares-fsops", name)
