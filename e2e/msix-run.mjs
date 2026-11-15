@@ -26,7 +26,9 @@ const {
 	packagePids,
 	readPackage,
 	removePackage,
-	stopAll
+	stopAll,
+	cleanUp,
+	waitFor
 } = await import('./lib/windows.mjs');
 const { runPowerShell, stopPowerShell } = await import('./lib/powershell.mjs');
 
@@ -108,19 +110,23 @@ try {
 	console.error(`[msix-check] ${error.message}`);
 } finally {
 	// 1つが落ちても残りを試し、落ちたら確認が通っていても失敗で終える
-	const steps = [
-		['確かめ用の WebLAV を止める', () => stopAll()],
-		['確かめ用のパッケージを外す', () => removePackage()],
-		['常用の WebLAV を起動し直す', () => dailyWasRunning && openApp(daily)]
-	];
-	for (const [label, step] of steps) {
-		try {
-			await step();
-		} catch (error) {
-			code = code || 1;
-			console.error(`[msix-check] ${label}ことができませんでした: ${error.message}`);
+	await cleanUp([
+		() => stopAll(),
+		() => removePackage(),
+		async () => {
+			if (!dailyWasRunning) return;
+			await openApp(daily);
+			await waitFor(
+				() => packagePids(daily),
+				(pids) => pids.length > 0,
+				{ label: '常用の WebLAV が起動し直す', timeout: 30_000 }
+			);
 		}
-	}
+	]).catch((error) => {
+		code = code || 1;
+		for (const failure of error.errors ?? [error])
+			console.error(`[msix-check] 後片付けが落ちました: ${failure.message}`);
+	});
 	release();
 	await stopPowerShell();
 }

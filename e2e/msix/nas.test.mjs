@@ -24,6 +24,21 @@ import { runPowerShell } from '../lib/powershell.mjs';
 
 const SMB = process.env.WEBLAV_E2E_SMB;
 
+/**
+ * NAS の確かめ用フォルダーを消す。SMB を止めた回は、開いたままのファイルが NAS に残って消せないことがある
+ * (何が開いたままにしているかは掴めていない)。そのときは警告に留め、次の回の始めに消す。ほかの失敗は投げる
+ */
+async function removeIfUnlocked(dir) {
+	try {
+		await fs.rm(dir, { recursive: true, force: true });
+	} catch (error) {
+		if (!['EPERM', 'EBUSY', 'ENOTEMPTY', 'EACCES'].includes(error.code)) throw error;
+		console.warn(
+			`[msix-check] ${dir} を開いたままのファイルがあって消せません (次の回の始めに消す)`
+		);
+	}
+}
+
 /** 使われていないドライブの文字 (Z から逆に探す) */
 async function freeDriveLetter() {
 	const stdout = await runPowerShell(`
@@ -45,13 +60,9 @@ test.describe('MSIX 版: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無�
 
 	test.before(async () => {
 		await connectSmb(SMB);
-		// SMB を止めた回は、NAS の側にファイルが開いたまま残り、後片付けで消せないことがある (何が開いたままに
-		// しているかは掴めていない)。前の回の確かめ用フォルダー (mkdtemp の名前の形のものだけ) を、消せれば消す
+		// 前の回に消せなかった確かめ用フォルダー (mkdtemp の名前の形のものだけ) を、消せれば消す
 		for (const name of await fs.readdir(SMB)) {
-			if (/^weblav-e2e-[A-Za-z0-9]{6}$/.test(name))
-				await fs.rm(path.join(SMB, name), { recursive: true, force: true }).catch(() => {
-					console.warn(`[msix-check] 前の回の ${path.join(SMB, name)} をまだ消せません`);
-				});
+			if (/^weblav-e2e-[A-Za-z0-9]{6}$/.test(name)) await removeIfUnlocked(path.join(SMB, name));
 		}
 		// 前からあるものを後片付けで消さないよう、作れた新しいフォルダーの名前だけを持つ
 		folderName = path.basename(await fs.mkdtemp(path.join(SMB, 'weblav-e2e-')));
@@ -68,14 +79,7 @@ test.describe('MSIX 版: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無�
 			() => quit(running),
 			() => removePackage(),
 			() => drive && runPowerShell('net use $args[0] /delete /y | Out-Null', [drive]),
-			// SMB を止めた回は、開いたままのファイルが NAS に残って消せないことがある。次の回の始めに消すので、警告に留める
-			() =>
-				folderName &&
-				fs.rm(path.join(SMB, folderName), { recursive: true, force: true }).catch(() => {
-					console.warn(
-						`[msix-check] ${path.join(SMB, folderName)} を消せませんでした (次の回の始めに消す)`
-					);
-				}),
+			() => folderName && removeIfUnlocked(path.join(SMB, folderName)),
 			() => disconnectSmb(SMB)
 		]);
 	});

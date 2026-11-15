@@ -749,10 +749,10 @@ fn trash_os_error(code: i32) -> AppError {
     /// `FACILITY_WIN32` の HRESULT (`0x8007xxxx`)。下の16ビットが Win32 のエラー番号。
     const FACILITY_WIN32: u32 = 7;
     /// `COPYENGINE_E_SHARING_VIOLATION_SRC`・`_DEST` (sherrors.h)。この定数のためだけに Win32_UI_Shell を足さない。
-    const SHARING_VIOLATIONS: [u32; 2] = [0x8027_0027, 0x8027_0028];
+    const COPYENGINE_SHARING_VIOLATIONS: [u32; 2] = [0x8027_0027, 0x8027_0028];
 
     let hresult = code as u32;
-    if SHARING_VIOLATIONS.contains(&hresult) {
+    if COPYENGINE_SHARING_VIOLATIONS.contains(&hresult) {
         AppError::EntryInUse
     } else if (hresult >> 16) & 0x1FFF == FACILITY_WIN32 {
         map_io_error(io::Error::from_raw_os_error((hresult & 0xFFFF) as i32))

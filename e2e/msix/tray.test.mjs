@@ -65,12 +65,13 @@ test.describe('MSIX 版: トレイ', () => {
 	});
 
 	test.afterEach(async () => {
-		await cleanUp([
-			() => running && closeLeftoverTrayMenu(running.pid),
-			() => closeTrayOverflow(),
-			() => quit(running)
-		]);
+		const current = running;
 		running = null;
+		await cleanUp([
+			() => current && closeLeftoverTrayMenu(current.pid),
+			() => closeTrayOverflow(),
+			() => quit(current)
+		]);
 	});
 
 	test.after(async () => {

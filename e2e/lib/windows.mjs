@@ -549,15 +549,22 @@ Start-Process -FilePath powershell -ArgumentList @('-NoProfile', '-EncodedComman
 		[script]
 	);
 	const readLogText = () => fs.readFile(log, 'utf8').catch(() => '');
-	const started = await waitFor(
-		readLogText,
-		(text) => text.includes('added') || text.includes('removed'),
-		{
-			label: 'SMB を止める規則が入る (UAC の確かめの窓で「はい」を押す)',
-			timeout: 120_000,
-			interval: 500
-		}
-	);
+	// 待ちが切れた後に「はい」が押されても、規則を入れたまま残さないよう、外す印を先に置いてから投げる
+	let started;
+	try {
+		started = await waitFor(
+			readLogText,
+			(text) => text.includes('added') || text.includes('removed'),
+			{
+				label: 'SMB を止める規則が入る (UAC の確かめの窓で「はい」を押す)',
+				timeout: 120_000,
+				interval: 500
+			}
+		);
+	} catch (error) {
+		await fs.writeFile(releaseFlag, '');
+		throw error;
+	}
 	if (!started.includes('added'))
 		throw new Error('SMB を止めるファイアウォールの規則を足せませんでした');
 	const release = async () => {
