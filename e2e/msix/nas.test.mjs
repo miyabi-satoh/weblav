@@ -27,10 +27,10 @@ const SMB = process.env.WEBLAV_E2E_SMB;
 /**
  * 確かめ用のファイル。中を読んだ直後 (閉じてから十数秒のうち) に SMB を止めると、NAS の側にそのファイルを開いたままの
  * 古い接続が残り、消しても消し待ちのまま確かめ用フォルダーを消せなくなる (Nano と LinkStation の SMB 1 で、WebLAV を
- * 使わずに読んでも起きた)。WebLAV の一覧は、拡張子で種類の決まらないファイルの先頭を読んでテキストかを見るので、
- * 中を読まない拡張子にする
+ * 使わずに読んでも起きた)。WebLAV の一覧は、拡張子で種類の決まらないファイルの先頭を読んでテキストかを見るので
+ * (src/api/text_files.rs の `is_text_file`)、種類が拡張子で決まり、OS の縮小画像 (src/os_thumbnail) の対象でもない拡張子にする
  */
-const FILE_NAME = 'hello.pdf';
+const FILE_NAME = 'hello.mp3';
 
 /** 前の回が残した確かめ用フォルダーを消す。消し待ちのファイルが残っていれば、警告に留めて次の回に回す */
 async function removeLeftover(dir) {
