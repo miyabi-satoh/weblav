@@ -57,13 +57,17 @@ export async function jxa(body, args = {}) {
 }
 
 // アクセシビリティの API の読み書き。値の型ごとに読み分ける
-const AX = `
+const AX_READ = `
 	ObjC.import('AppKit');
 	ObjC.import('ApplicationServices');
 	const axGet = (el, name) => { const ref = Ref(); return el && $.AXUIElementCopyAttributeValue(el, $(name), ref) === 0 ? ObjC.castRefToObject(ref[0]) : null; };
 	const axStr = (el, name) => { const v = axGet(el, name); return v && v.isKindOfClass($.NSString) ? v.js : null; };
 	const axBool = (el, name) => { const v = axGet(el, name); return v && v.isKindOfClass($.NSNumber) ? v.boolValue : null; };
 	const axKids = (el) => { const v = axGet(el, 'AXChildren'); const out = []; for (let i = 0; v && i < v.count; i++) out.push(v.objectAtIndex(i)); return out; };
+`;
+
+// 確かめ用の WebLAV (args.pid) を読み書きする
+const AX = `${AX_READ}
 	const app = $.AXUIElementCreateApplication(args.pid);
 	const icon = () => axKids(axGet(app, 'AXExtrasMenuBar'))[0] ?? null;
 	// メニューの要素は、アイコンを一度押すまでできない。押して出たメニューは、すぐ取り消して閉じる
@@ -190,6 +194,43 @@ export function cancelDialog(pid) {
 	return true;
 `,
 		{ pid }
+	);
+}
+
+/**
+ * システム設定の「ログイン項目」の「ログイン時に開く」の一覧から、アプリを外す (利用者が「−」で外すのと同じ)。
+ * 終わったらシステム設定を閉じる
+ */
+export function removeFromLoginItems(appName) {
+	return jxa(
+		`${AX_READ}
+	// NSWorkspace の動いているアプリの一覧は、この中では新しく開いたものに追いつかないので、pgrep で引く
+	const sa = Application.currentApplication();
+	sa.includeStandardAdditions = true;
+	const settingsPid = () => { try { return Number(sa.doShellScript('pgrep -x "System Settings"').split('\\r')[0]); } catch (e) { return 0; } };
+	// 前から開いていたら、利用者のものなので閉じない
+	const wasOpen = settingsPid() !== 0;
+	$.NSWorkspace.sharedWorkspace.openURL($.NSURL.URLWithString('x-apple.systempreferences:com.apple.LoginItems-Settings.extension'));
+	const find = (el, ok, depth = 0) => { if (!el || depth > 25) return null; if (ok(el)) return el; for (const k of axKids(el)) { const f = find(k, ok, depth + 1); if (f) return f; } return null; };
+	const names = (el) => ['AXTitle', 'AXDescription', 'AXValue'].map((n) => axStr(el, n));
+	const row = (root) => find(root, (e) => axStr(e, 'AXRole') === 'AXRow' && find(e, (c) => names(c).includes(args.appName)));
+	try {
+		let root = null;
+		for (let i = 0; i < 75 && !(root && row(root)); i++) { delay(0.2); const pid = settingsPid(); root = pid ? $.AXUIElementCreateApplication(pid) : null; }
+		const target = root && row(root);
+		if (!target) throw new Error('ログイン時に開く一覧に ' + args.appName + ' が無い');
+		$.AXUIElementSetAttributeValue(target, $('AXSelected'), $.NSNumber.numberWithBool(true));
+		delay(0.5);
+		const remove = find(root, (e) => axStr(e, 'AXRole') === 'AXButton' && ['削除', 'Remove'].includes(axStr(e, 'AXDescription')));
+		if (!remove) throw new Error('一覧の「−」のボタンが無い');
+		$.AXUIElementPerformAction(remove, $('AXPress'));
+		for (let i = 0; i < 25 && row(root); i++) delay(0.2);
+		if (row(root)) throw new Error('一覧から外れない');
+	} finally {
+		// 閉じられなくても、元の失敗を伝える
+		try { if (!wasOpen && settingsPid()) Application('System Settings').quit(); } catch (e) {}
+	}`,
+		{ appName }
 	);
 }
 
@@ -446,6 +487,30 @@ export async function attachRamDisk(name, megabytes = 32) {
 
 export async function detachRamDisk(disk) {
 	if (disk) await execFileAsync('hdiutil', ['detach', disk.device, '-force']).catch(() => {});
+}
+
+/** SMB の共有 (`smb://<ユーザー>@<ホスト>/<共有>`) を載せている場所。載っていなければ null */
+export async function smbMountPoint(url) {
+	const { stdout } = await execFileAsync('mount');
+	const prefix = `${url.replace(/^smb:/, '')} on `;
+	const line = stdout.split('\n').find((l) => l.startsWith(prefix));
+	return line ? line.slice(prefix.length).replace(/ \([^)]*\)$/, '') : null;
+}
+
+/** SMB の共有を載せ、載せた場所を返す。パスワードはキーチェーンから読ませる (無ければ OS が尋ねる) */
+export async function mountSmb(url) {
+	const mounted = await smbMountPoint(url);
+	if (mounted) return mounted;
+	await jxa(
+		`const app = Application.currentApplication(); app.includeStandardAdditions = true; app.mountVolume(args.url);`,
+		{ url }
+	);
+	return waitFor(() => smbMountPoint(url), Boolean, { label: 'SMB の共有が載る', timeout: 30_000 });
+}
+
+/** 載せた共有を取り出す (Finder の「取り出す」と同じ) */
+export async function unmount(mount) {
+	await execFileAsync('diskutil', ['unmount', mount]);
 }
 
 /** 待ち受けているだけのサーバーで、ポートを先に取る */

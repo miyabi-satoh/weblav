@@ -7,6 +7,7 @@ import {
 	pressMenuItem,
 	quit,
 	readMenu,
+	removeFromLoginItems,
 	waitFor
 } from '../lib/macos.mjs';
 import { labelsFor } from '../lib/tray-labels.mjs';
@@ -15,65 +16,99 @@ import { labelsFor } from '../lib/tray-labels.mjs';
 // 切り替えて元に戻す。/Applications 以外の束で回すと、戻したときに登録がその束を指してしまうので回さない
 
 const REGULAR_APP = '/Applications/WebLAV.app';
+const skip = APP !== REGULAR_APP && `${REGULAR_APP} 以外の束 (${APP}) では回さない`;
 
 test.describe('macOS: ログイン時に起動', () => {
 	let running;
+	let labels;
+	const item = async () =>
+		(await readMenu(running.pid)).find((m) => m.title.startsWith(labels.loginItem));
+	// 起動した直後と押した後は、OS に問い合わせている間押せないので、押せるようになるまで待って読む
+	const settled = (ok = () => true) =>
+		waitFor(item, (m) => m?.enabled && ok(m), { label: '押せるようになる' });
 
-	test.after(async () => {
+	/**
+	 * 起動して今の登録を読み、`body` を流してから、途中で落ちても常用の WebLAV の登録を元に戻して確かめる。
+	 * 戻らなければ、登録が変わったままだと分かるよう、元の失敗と一緒に伝える
+	 */
+	const keepingRegistration = async (t, body) => {
+		labels = labelsFor(await preferredLanguage());
+		running = await launch();
+		const first = await item();
+		assert.ok(first, 'メニューに「ログイン時に起動」がある');
+		if (first.title === labels.loginItemNeedsApproval) {
+			t.skip('システム設定で許可が要る状態なので、アプリからは切り替えられない');
+			return;
+		}
+		const original = await settled();
+
+		let failure;
+		try {
+			await body(original);
+		} catch (error) {
+			failure = error;
+		}
+		// 動いているほうのメニューは、システム設定で変えた分を読んでいないことがあるので、起動し直して読む
+		let restoreError;
+		const now = await (async () => {
+			await quit(running);
+			running = await launch();
+			return settled();
+		})().catch((error) => {
+			restoreError = error;
+			return null;
+		});
+		if (now && now.checked !== original.checked)
+			await pressMenuItem(running.pid, labels.loginItem).catch((error) => {
+				restoreError = error;
+			});
+		let restored;
+		try {
+			restored = await settled((m) => m.checked === original.checked);
+		} catch (error) {
+			throw new AggregateError(
+				[failure, restoreError, error].filter(Boolean),
+				'常用の WebLAV の「ログイン時に起動」の登録が、元に戻ったと確かめられない。メニューで確かめて戻す'
+			);
+		}
+		if (failure) throw failure;
+		assert.equal(restored.title, labels.loginItem);
+	};
+
+	test.afterEach(async () => {
 		await quit(running);
 	});
 
-	test(
-		'押すと OS の登録が切り替わり、もう一度押すと元に戻る',
-		{ skip: APP !== REGULAR_APP && `${REGULAR_APP} 以外の束 (${APP}) では回さない` },
-		async (t) => {
-			const labels = labelsFor(await preferredLanguage());
-			running = await launch();
-			const item = async () =>
-				(await readMenu(running.pid)).find((m) => m.title.startsWith(labels.loginItem));
-			const first = await item();
-			assert.ok(first, 'メニューに「ログイン時に起動」がある');
-			if (first.title === labels.loginItemNeedsApproval) {
-				t.skip('システム設定で許可が要る状態なので、アプリからは切り替えられない');
-				return;
-			}
-			// 起動した直後は OS に問い合わせている間押せないので、押せるようになるまで待つ
-			const original = await waitFor(item, (m) => m?.enabled, { label: '押せるようになる' });
+	test('押すと OS の登録が切り替わり、もう一度押すと元に戻る', { skip }, (t) =>
+		keepingRegistration(t, async (original) => {
+			await pressMenuItem(running.pid, labels.loginItem);
+			await settled((m) => m.checked === !original.checked);
+			await pressMenuItem(running.pid, labels.loginItem);
+			await settled((m) => m.checked === original.checked);
+		})
+	);
 
-			let failure;
-			try {
+	// この macOS では、利用者が止められるのは「ログイン時に開く」の一覧から外すことだけで、外すとオフになる
+	// (許可が要る状態にはならない)
+	test(
+		'システム設定の一覧から外すと、次に起動したときはオフで出て、押すと登録し直す',
+		{ skip },
+		(t) =>
+			keepingRegistration(t, async (original) => {
+				if (!original.checked) {
+					await pressMenuItem(running.pid, labels.loginItem);
+					await settled((m) => m.checked);
+				}
+				await removeFromLoginItems('WebLAV.app');
+				// 動いている間は、メニューバーのアイコンにポインタを載せたときに読み直す。アクセシビリティからは
+				// 載せられないので、起動し直して読ませる
+				await quit(running);
+				running = await launch();
+				const off = await settled();
+				assert.equal(off.checked, false);
+				assert.equal(off.title, labels.loginItem);
 				await pressMenuItem(running.pid, labels.loginItem);
-				await waitFor(item, (m) => m?.enabled && m.checked === !original.checked, {
-					label: '押すと切り替わる'
-				});
-				await pressMenuItem(running.pid, labels.loginItem);
-				await waitFor(item, (m) => m?.enabled && m.checked === original.checked, {
-					label: 'もう一度押すと戻る'
-				});
-			} catch (error) {
-				failure = error;
-			}
-			// 途中で落ちても、常用の WebLAV の登録を元に戻し、戻ったことを確かめる。OS への問い合わせの間は押せないので、
-			// 押せるのを待つ。戻らなければ、登録が変わったままだと分かるよう、元の失敗と一緒に伝える
-			let pressError;
-			const now = await waitFor(item, (m) => m?.enabled).catch(() => null);
-			if (now && now.checked !== original.checked)
-				await pressMenuItem(running.pid, labels.loginItem).catch((error) => {
-					pressError = error;
-				});
-			let restored;
-			try {
-				restored = await waitFor(item, (m) => m?.enabled && m.checked === original.checked, {
-					label: '元の登録に戻っている'
-				});
-			} catch (error) {
-				throw new AggregateError(
-					[failure, pressError, error].filter(Boolean),
-					'常用の WebLAV の「ログイン時に起動」の登録が、元に戻ったと確かめられない'
-				);
-			}
-			if (failure) throw failure;
-			assert.equal(restored.title, labels.loginItem);
-		}
+				await settled((m) => m.checked);
+			})
 	);
 });
