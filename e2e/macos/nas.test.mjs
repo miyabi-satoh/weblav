@@ -31,8 +31,8 @@ test.describe('macOS: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無い'
 	test.before(async () => {
 		wasMounted = (await smbMountPoint(SMB)) !== null;
 		const mount = await mountSmb(SMB);
-		folderName = `weblav-e2e-${Date.now()}`;
-		await fs.mkdir(path.join(mount, folderName));
+		// 前からあるものを後片付けで消さないよう、作れた新しいフォルダーの名前だけを持つ
+		folderName = path.basename(await fs.mkdtemp(path.join(mount, 'weblav-e2e-')));
 		await fs.writeFile(path.join(mount, folderName, 'hello.txt'), 'hello');
 		running = await launch();
 		await running.api.createAdmin();
