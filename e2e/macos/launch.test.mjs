@@ -42,7 +42,7 @@ test.describe('macOS: 多重起動', () => {
 		});
 		// 管理者がいるので、セットアップでなくホームを開く
 		const opened = log.split('\n').findLast((line) => line.includes(OPENED));
-		assert.match(opened, new RegExp(`url="?http://localhost:${running.port}"?$`));
+		assert.match(opened, new RegExp(`url="?http://localhost:${running.port}(?![\\d/])`));
 		// 常用の WebLAV が同じ間に起動・終了しても左右されないよう、新しく増えたプロセスだけを見る
 		await waitFor(
 			async () => (await weblavPids()).filter((pid) => !pidsBefore.includes(pid)),

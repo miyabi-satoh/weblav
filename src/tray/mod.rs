@@ -278,7 +278,7 @@ pub fn open_in_browser(running: AlreadyRunning) {
     } else {
         browser_origin(addr)
     };
-    let shown = url.split('?').next().unwrap_or_default();
+    let shown = url.split_once('?').map_or(url.as_str(), |(path, _)| path);
     match open::that_detached(&url) {
         Ok(()) => tracing::info!(url = shown, "opened the running instance in the browser"),
         Err(err) => tracing::warn!(url = shown, error = %err, "failed to open the browser"),

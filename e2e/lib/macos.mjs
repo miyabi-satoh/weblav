@@ -47,10 +47,13 @@ export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** 後片付けの手順を順に流す。1つが落ちても残りを片付け、落ちたものは出す */
 export async function cleanUp(steps) {
-	for (const step of steps)
-		await Promise.resolve()
-			.then(step)
-			.catch((error) => console.error(error));
+	for (const step of steps) {
+		try {
+			await step();
+		} catch (error) {
+			console.error(error);
+		}
+	}
 }
 
 /** ファイルやフォルダーが無いことを確かめる */
@@ -195,13 +198,13 @@ export function chooseInDialog(pid, folder) {
 	const mine = () => frontPid() === args.pid;
 	const guard = (step) => { if (!mine()) throw new Error(step + ': WebLAV が前面でないので打たない'); };
 	if (!dialogReady()) throw new Error('フォルダー選択の窓が前面にならないので打たない (' + focusState() + ')');
-	guard('始める前');
-	// 日本語の入力ソースのままだと、打った場所が変換に入って移れない。打つ間だけ英字にして、終わったら戻す
+	// 日本語の入力ソースのままだと、打った場所が変換に入って移れない。打つ間だけ英字にして、落ちても戻す
 	ObjC.import('Carbon');
 	const inputSource = $.TISCopyCurrentKeyboardInputSource();
-	$.TISSelectInputSource($.TISCopyCurrentASCIICapableKeyboardInputSource());
-	delay(0.3);
 	try {
+		$.TISSelectInputSource($.TISCopyCurrentASCIICapableKeyboardInputSource());
+		delay(0.3);
+		guard('始める前');
 		se.keystroke('g', { using: ['command down', 'shift down'] });
 		delay(1);
 		// 打つ途中で前面が替わっても残りがほかのアプリへ入らないよう、区切って打ち、そのつど確かめる

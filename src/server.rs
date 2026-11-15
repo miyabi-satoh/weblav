@@ -53,7 +53,8 @@ pub struct AlreadyRunning {
     addr_path: PathBuf,
     /// 設定の待ち受けのアドレス。動いているほうが実際のアドレスをまだ書いていないときに使う。
     pub configured: SocketAddr,
-    // 動いているほうの画面を開いた先も、ログに残すため。drop すると書き出してログを閉じる。
+    /// ログの書き出しを止めずに持つ。2つ目の起動は、動いているほうの画面を開いた先をログに残してから、これを drop して書き出す。
+    /// テストで作るときは `None`。
     _log_guard: Option<WorkerGuard>,
 }
 
