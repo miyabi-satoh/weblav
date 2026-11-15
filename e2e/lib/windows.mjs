@@ -549,7 +549,7 @@ Start-Process -FilePath powershell -ArgumentList @('-NoProfile', '-EncodedComman
 		[script]
 	);
 	const readLogText = () => fs.readFile(log, 'utf8').catch(() => '');
-	// 待ちが切れた後に「はい」が押されても規則を入れたまま残さないよう、待ちが切れたら外す印を置いてから投げる
+	// 遅れて「はい」が押されても規則を残さないよう、外す印を置いてから投げる
 	let started;
 	try {
 		started = await waitFor(
@@ -562,7 +562,9 @@ Start-Process -FilePath powershell -ArgumentList @('-NoProfile', '-EncodedComman
 			}
 		);
 	} catch (error) {
-		await fs.writeFile(releaseFlag, '').catch(() => {});
+		await fs.writeFile(releaseFlag, '').catch(() => {
+			console.warn('[msix-check] SMB を止める規則を外す印を置けませんでした (規則は3分で外れる)');
+		});
 		throw error;
 	}
 	if (!started.includes('added'))

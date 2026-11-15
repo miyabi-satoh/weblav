@@ -34,7 +34,7 @@ async function removeIfUnlocked(dir, leftover = false) {
 	} catch (error) {
 		if (!['EPERM', 'EBUSY', 'ENOTEMPTY', 'EACCES'].includes(error.code)) throw error;
 		console.warn(
-			`[msix-check] ${dir} を開いたままのファイルがあって消せません (次の回の始めに消す)`
+			`[msix-check] ${dir} を開いたままのファイルがあって消せません${leftover ? '' : ' (次の回の始めに消す)'}`
 		);
 	}
 }
