@@ -1296,9 +1296,9 @@ async fn deleting_reports_listed_folders_and_sends_entries_to_the_trash(pool: Sq
     );
 }
 
-/// ごみ箱の無い場所では、ごみ箱へ送る削除を断り、完全に消す削除だけを受ける。
+/// ごみ箱の無い場所では、消す前と上書きの前の確かめがそう伝え、ごみ箱へ送る削除を断り、完全に消す削除だけを受ける。
 #[sqlx::test]
-async fn without_a_trash_only_a_permanent_delete_is_accepted(pool: SqlitePool) {
+async fn without_a_trash_checks_say_so_and_only_a_permanent_delete_is_accepted(pool: SqlitePool) {
     register_content_root(&pool).await;
     let data_dir = next_app_dir();
     let app = build_app(
@@ -1329,6 +1329,12 @@ async fn without_a_trash_only_a_permanent_delete_is_accepted(pool: SqlitePool) {
         r#"{"paths":["a.pdf"]}"#,
     )
     .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(parse_json(&body)["trash"], false);
+    // 上書きの確認も同じ判定を出す。画面はこれで「元に戻せません」と出す。
+    std::fs::create_dir_all(dir.join("控え")).expect("フォルダーを作れなかった");
+    let check = transfer_json("copy", id, &["a.pdf"], id, "控え", None);
+    let (status, body) = send_json(app.clone(), "POST", TRANSFER_CHECK_URI, &admin, &check).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(parse_json(&body)["trash"], false);
     let (status, body) = send_json(
