@@ -498,9 +498,7 @@ export async function setRootPath(pkg, rootId, rootPath) {
 }
 
 /**
- * `net use` で張った SMB の共有 (`\\<ホスト>\<共有>`) への接続を切る。開いたままのファイル (閉じても手元で少し
- * 開いたままにしておく分を含む) は、つながっているうちに切ると NAS の側でも閉じる。規則で止めた後に切れずに残した回では、
- * NAS の側に開いたままのファイルが残り、しばらく消せなかった。
+ * `net use` で張った SMB の共有 (`\\<ホスト>\<共有>`) への接続を切る。
  * UNC で開いただけの接続は `net use` から切れず、接続の一覧 (`Get-SmbConnection`) は管理者でないと読めないので、
  * 確かめの始めに `connectSmb` で張っておく
  */
@@ -537,7 +535,6 @@ export async function blockSmb(root) {
 	const run = `${Date.now()}-${process.pid}`;
 	const releaseFlag = path.join(recordDir, `smb-block-${run}.release`);
 	const log = path.join(recordDir, `smb-block-${run}.log`);
-	await disconnectSmb(root);
 	const script = `
 $ErrorActionPreference = 'Stop'
 $name = 'WebLAV-E2E-SMB-block-${run}'

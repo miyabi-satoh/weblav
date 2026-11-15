@@ -25,17 +25,20 @@ import { runPowerShell } from '../lib/powershell.mjs';
 const SMB = process.env.WEBLAV_E2E_SMB;
 
 /**
- * NAS の確かめ用フォルダーを消す。SMB を止めた回は、開いたままのファイルが NAS に残って消せないことがある
- * (何が開いたままにしているかは掴めていない)。そのときは警告に留め、次の回の始めに消す。ほかの失敗は投げる
+ * 確かめ用のファイル。中を読んだ直後 (閉じてから十数秒のうち) に SMB を止めると、NAS の側にそのファイルを開いたままの
+ * 古い接続が残り、消しても消し待ちのまま確かめ用フォルダーを消せなくなる (Nano と LinkStation の SMB 1 で、WebLAV を
+ * 使わずに読んでも起きた)。WebLAV の一覧は、拡張子で種類の決まらないファイルの先頭を読んでテキストかを見るので
+ * (src/api/text_files.rs の `is_text_file`)、種類が拡張子で決まり、OS の縮小画像 (src/os_thumbnail) の対象でもない拡張子にする
  */
-async function removeIfUnlocked(dir, leftover = false) {
+const FILE_NAME = 'hello.mp3';
+
+/** 前の回が残した確かめ用フォルダーを消す。消し待ちのファイルが残っていれば、警告に留めて次の回に回す */
+async function removeLeftover(dir) {
 	try {
 		await fs.rm(dir, { recursive: true, force: true });
 	} catch (error) {
 		if (!['EPERM', 'EBUSY', 'ENOTEMPTY', 'EACCES'].includes(error.code)) throw error;
-		console.warn(
-			`[msix-check] ${dir} を開いたままのファイルがあって消せません${leftover ? '' : ' (次の回の始めに消す)'}`
-		);
+		console.warn(`[msix-check] 前の回の ${dir} を、消し待ちのファイルがあって消せません`);
 	}
 }
 
@@ -60,14 +63,13 @@ test.describe('MSIX 版: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無�
 
 	test.before(async () => {
 		await connectSmb(SMB);
-		// 前の回に消せなかった確かめ用フォルダー (mkdtemp の名前の形のものだけ) を、消せれば消す
+		// 前の回が途中で止まって残した確かめ用フォルダー (mkdtemp の名前の形のものだけ) を消す
 		for (const name of await fs.readdir(SMB)) {
-			if (/^weblav-e2e-[A-Za-z0-9]{6}$/.test(name))
-				await removeIfUnlocked(path.join(SMB, name), true);
+			if (/^weblav-e2e-[A-Za-z0-9]{6}$/.test(name)) await removeLeftover(path.join(SMB, name));
 		}
 		// 前からあるものを後片付けで消さないよう、作れた新しいフォルダーの名前だけを持つ
 		folderName = path.basename(await fs.mkdtemp(path.join(SMB, 'weblav-e2e-')));
-		await fs.writeFile(path.join(SMB, folderName, 'hello'), 'hello');
+		await fs.writeFile(path.join(SMB, folderName, FILE_NAME), 'hello');
 		drive = `${await freeDriveLetter()}:`;
 		await runPowerShell('net use $args[0] $args[1] /persistent:no | Out-Null', [drive, SMB]);
 		running = await launch(await installFresh());
@@ -80,7 +82,13 @@ test.describe('MSIX 版: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無�
 			() => quit(running),
 			() => removePackage(),
 			() => drive && runPowerShell('net use $args[0] /delete /y | Out-Null', [drive]),
-			() => folderName && removeIfUnlocked(path.join(SMB, folderName)),
+			() =>
+				folderName &&
+				fs.rm(path.join(SMB, folderName), { recursive: true, force: true }).catch((error) => {
+					throw new Error(
+						`確かめ用フォルダーを消せません: ${error.message} (中に ${FILE_NAME} が消し待ちで残っていれば、SMB を止める前に中が読まれた疑い)`
+					);
+				}),
 			() => disconnectSmb(SMB)
 		]);
 	});
@@ -88,13 +96,12 @@ test.describe('MSIX 版: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無�
 	test('割り当てたドライブのフォルダーを登録すると UNC のパスになり、中を見られる。ごみ箱は使えないと伝える', async () => {
 		share = await running.api.addRoot(`${drive}\\${folderName}`);
 		assert.equal(share.path.toLowerCase(), path.join(SMB, folderName).toLowerCase());
-		assert.deepEqual(entryNames(await running.api.browse(share.id)), ['hello']);
+		assert.deepEqual(entryNames(await running.api.browse(share.id)), [FILE_NAME]);
 		const check = await running.api.json('POST', `/shares/${share.id}/delete/check`, {
-			json: { paths: ['hello'] }
+			json: { paths: [FILE_NAME] }
 		});
 		assert.equal(check.trash, false, '消すと元に戻せない');
-		// 割り当てたまま次の確認で NAS への SMB を止めると、NAS の側に開いたままのファイルが残り、後片付けで消せなかった。
-		// 登録は UNC のパスなので、割り当てはここで外す
+		// 登録は UNC のパスで、この先は割り当てを使わないので、ここで外す
 		await runPowerShell('net use $args[0] /delete /y | Out-Null', [drive]);
 		drive = null;
 	});
@@ -117,6 +124,6 @@ test.describe('MSIX 版: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無�
 			timeout: 60_000,
 			interval: 1000
 		});
-		assert.deepEqual(entryNames(browse), ['hello']);
+		assert.deepEqual(entryNames(browse), [FILE_NAME]);
 	});
 });
