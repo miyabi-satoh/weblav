@@ -25,8 +25,11 @@ test.describe('macOS: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無い'
 	let running;
 	let folderName;
 	let share;
+	// 回す前に載っていなければ、終わったら取り出して元に戻す
+	let wasMounted;
 
 	test.before(async () => {
+		wasMounted = (await smbMountPoint(SMB)) !== null;
 		const mount = await mountSmb(SMB);
 		folderName = `weblav-e2e-${Date.now()}`;
 		await fs.mkdir(path.join(mount, folderName));
@@ -43,6 +46,7 @@ test.describe('macOS: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無い'
 				if (!folderName) return;
 				const mount = await mountSmb(SMB);
 				await fs.rm(path.join(mount, folderName), { recursive: true, force: true });
+				if (!wasMounted) await unmount(mount);
 			}
 		];
 		for (const step of steps)
@@ -61,14 +65,9 @@ test.describe('macOS: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無い'
 	});
 
 	test('共有を取り出しても、開くとつなぎ直して見られる', async () => {
+		assert.ok(share, '前のテストで共有にしている');
 		await unmount(await smbMountPoint(SMB));
-		await waitFor(
-			() => smbMountPoint(SMB),
-			(mount) => mount === null,
-			{
-				label: '取り出される'
-			}
-		);
+		assert.equal(await smbMountPoint(SMB), null, '取り出されている');
 		// つなぎ直しは開いたときに頼む。載るまでの間は、つながっていないと返ることがある
 		const browse = await waitFor(() => running.api.browse(share.id).catch(() => null), Boolean, {
 			label: 'つなぎ直して見られる',

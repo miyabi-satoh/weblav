@@ -48,18 +48,26 @@ test.describe('macOS: ログイン時に起動', () => {
 		} catch (error) {
 			failure = error;
 		}
-		let pressError;
-		const now = await settled().catch(() => null);
+		// 動いているほうのメニューは、システム設定で変えた分を読んでいないことがあるので、起動し直して読む
+		let restoreError;
+		const now = await (async () => {
+			await quit(running);
+			running = await launch();
+			return settled();
+		})().catch((error) => {
+			restoreError = error;
+			return null;
+		});
 		if (now && now.checked !== original.checked)
 			await pressMenuItem(running.pid, labels.loginItem).catch((error) => {
-				pressError = error;
+				restoreError = error;
 			});
 		let restored;
 		try {
 			restored = await settled((m) => m.checked === original.checked);
 		} catch (error) {
 			throw new AggregateError(
-				[failure, pressError, error].filter(Boolean),
+				[failure, restoreError, error].filter(Boolean),
 				'常用の WebLAV の「ログイン時に起動」の登録が、元に戻ったと確かめられない'
 			);
 		}

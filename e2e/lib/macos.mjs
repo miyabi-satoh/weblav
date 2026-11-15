@@ -57,13 +57,17 @@ export async function jxa(body, args = {}) {
 }
 
 // アクセシビリティの API の読み書き。値の型ごとに読み分ける
-const AX = `
+const AX_READ = `
 	ObjC.import('AppKit');
 	ObjC.import('ApplicationServices');
 	const axGet = (el, name) => { const ref = Ref(); return el && $.AXUIElementCopyAttributeValue(el, $(name), ref) === 0 ? ObjC.castRefToObject(ref[0]) : null; };
 	const axStr = (el, name) => { const v = axGet(el, name); return v && v.isKindOfClass($.NSString) ? v.js : null; };
 	const axBool = (el, name) => { const v = axGet(el, name); return v && v.isKindOfClass($.NSNumber) ? v.boolValue : null; };
 	const axKids = (el) => { const v = axGet(el, 'AXChildren'); const out = []; for (let i = 0; v && i < v.count; i++) out.push(v.objectAtIndex(i)); return out; };
+`;
+
+// 確かめ用の WebLAV (args.pid) を読み書きする
+const AX = `${AX_READ}
 	const app = $.AXUIElementCreateApplication(args.pid);
 	const icon = () => axKids(axGet(app, 'AXExtrasMenuBar'))[0] ?? null;
 	// メニューの要素は、アイコンを一度押すまでできない。押して出たメニューは、すぐ取り消して閉じる
@@ -199,30 +203,32 @@ export function cancelDialog(pid) {
  */
 export function removeFromLoginItems(appName) {
 	return jxa(
-		`ObjC.import('AppKit');
-	ObjC.import('ApplicationServices');
-	const ws = $.NSWorkspace.sharedWorkspace;
-	ws.openURL($.NSURL.URLWithString('x-apple.systempreferences:com.apple.LoginItems-Settings.extension'));
-	const settings = () => { const apps = ws.runningApplications; for (let i = 0; i < apps.count; i++) { const a = apps.objectAtIndex(i); if (a.bundleIdentifier.js === 'com.apple.systempreferences') return a; } return null; };
-	const axGet = (el, name) => { const ref = Ref(); return el && $.AXUIElementCopyAttributeValue(el, $(name), ref) === 0 ? ObjC.castRefToObject(ref[0]) : null; };
-	const axStr = (el, name) => { const v = axGet(el, name); return v && v.isKindOfClass($.NSString) ? v.js : ''; };
-	const axKids = (el) => { const v = axGet(el, 'AXChildren'); const out = []; for (let i = 0; v && i < v.count; i++) out.push(v.objectAtIndex(i)); return out; };
+		`${AX_READ}
+	// NSWorkspace の動いているアプリの一覧は、この中では新しく開いたものに追いつかないので、pgrep で引く
+	const sa = Application.currentApplication();
+	sa.includeStandardAdditions = true;
+	const settingsPid = () => { try { return Number(sa.doShellScript('pgrep -x "System Settings"').split('\\r')[0]); } catch (e) { return 0; } };
+	// 前から開いていたら、利用者のものなので閉じない
+	const wasOpen = settingsPid() !== 0;
+	$.NSWorkspace.sharedWorkspace.openURL($.NSURL.URLWithString('x-apple.systempreferences:com.apple.LoginItems-Settings.extension'));
 	const find = (el, ok, depth = 0) => { if (!el || depth > 25) return null; if (ok(el)) return el; for (const k of axKids(el)) { const f = find(k, ok, depth + 1); if (f) return f; } return null; };
 	const names = (el) => ['AXTitle', 'AXDescription', 'AXValue'].map((n) => axStr(el, n));
 	const row = (root) => find(root, (e) => axStr(e, 'AXRole') === 'AXRow' && find(e, (c) => names(c).includes(args.appName)));
-	let root = null;
-	for (let i = 0; i < 50 && !(root && row(root)); i++) { delay(0.2); const a = settings(); root = a && $.AXUIElementCreateApplication(a.processIdentifier); }
-	const target = root && row(root);
-	if (!target) throw new Error('ログイン時に開く一覧に ' + args.appName + ' が無い');
-	$.AXUIElementSetAttributeValue(target, $('AXSelected'), $.NSNumber.numberWithBool(true));
-	delay(0.5);
-	const remove = find(root, (e) => axStr(e, 'AXRole') === 'AXButton' && ['削除', 'Remove'].includes(axStr(e, 'AXDescription')));
-	if (!remove) throw new Error('一覧の「−」のボタンが無い');
-	$.AXUIElementPerformAction(remove, $('AXPress'));
-	for (let i = 0; i < 25 && row(root); i++) delay(0.2);
-	const removed = !row(root);
-	settings().terminate;
-	if (!removed) throw new Error('一覧から外れない');`,
+	try {
+		let root = null;
+		for (let i = 0; i < 75 && !(root && row(root)); i++) { delay(0.2); const pid = settingsPid(); root = pid ? $.AXUIElementCreateApplication(pid) : null; }
+		const target = root && row(root);
+		if (!target) throw new Error('ログイン時に開く一覧に ' + args.appName + ' が無い');
+		$.AXUIElementSetAttributeValue(target, $('AXSelected'), $.NSNumber.numberWithBool(true));
+		delay(0.5);
+		const remove = find(root, (e) => axStr(e, 'AXRole') === 'AXButton' && ['削除', 'Remove'].includes(axStr(e, 'AXDescription')));
+		if (!remove) throw new Error('一覧の「−」のボタンが無い');
+		$.AXUIElementPerformAction(remove, $('AXPress'));
+		for (let i = 0; i < 25 && row(root); i++) delay(0.2);
+		if (row(root)) throw new Error('一覧から外れない');
+	} finally {
+		if (!wasOpen && settingsPid()) Application('System Settings').quit();
+	}`,
 		{ appName }
 	);
 }
