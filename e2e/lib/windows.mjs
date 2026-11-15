@@ -126,11 +126,15 @@ export async function launch(pkg, { fresh = true, port = PORT } = {}) {
 	await fs.mkdir(dirs.config, { recursive: true });
 	await fs.writeFile(path.join(dirs.config, 'config.toml'), `[server]\nport = ${port}\n`);
 	await fs.rm(path.join(dirs.data, 'weblav.addr'), { force: true });
+	// パッケージに入れない版 (開発中の exe) が前に書いたものと見分けるため、起動の前からあるものを除いて見る
+	const existedBefore = new Set();
+	for (const dir of UNREDIRECTED_DIRS)
+		if (await fs.stat(dir).catch(() => null)) existedBefore.add(dir);
 	await openApp(pkg);
 	const addr = await waitFor(
 		async () => {
 			for (const dir of UNREDIRECTED_DIRS)
-				if (await fs.stat(dir).catch(() => null))
+				if (!existedBefore.has(dir) && (await fs.stat(dir).catch(() => null)))
 					throw new Error(`データがパッケージごとの場所に回されず、${dir} に書かれた`);
 			return fs.readFile(path.join(dirs.data, 'weblav.addr'), 'utf8').catch(() => null);
 		},
@@ -463,6 +467,9 @@ export function occupyPort(port) {
 		]);
 		child.stdout.once('data', () => resolve(child));
 		child.once('error', reject);
+		child.once('exit', (code) =>
+			reject(new Error(`ポート ${port} を先に取れませんでした (code=${code})`))
+		);
 	});
 }
 
@@ -510,10 +517,13 @@ export async function connectSmb(root) {
 
 const recordDir = path.join(repoRoot, 'target', 'e2e-msix');
 
+/** SMB を止める規則を、外し忘れても外すまでの分。確かめ (NAS が戻るのを待つまで1分半ほど) が終わるより長くする */
+const SMB_BLOCK_MINUTES = 3;
+
 /**
  * この PC から共有 `root` (`\\<ホスト>\<共有>`) のホストへの SMB (TCP 445・139) を、ファイアウォールの送信の規則で止める。返ってきた `release` で外す。
  * 規則を足すには管理者の権限が要るので、UAC の確かめの窓を出して、管理者の PowerShell で足して外す。
- * 外し忘れても、管理者の PowerShell が3分で外す。
+ * 外し忘れても、管理者の PowerShell が `SMB_BLOCK_MINUTES` 分で外す。
  * 止めると、つなぐのはすぐに失敗する (電源を切った NAS のように、返事を待たされはしない)
  */
 export async function blockSmb(root) {
@@ -523,10 +533,10 @@ export async function blockSmb(root) {
 		.map((entry) => entry.address)
 		.join("','");
 	await fs.mkdir(recordDir, { recursive: true });
-	const releaseFlag = path.join(recordDir, 'smb-block.release');
-	const log = path.join(recordDir, 'smb-block.log');
-	await fs.rm(releaseFlag, { force: true });
-	await fs.rm(log, { force: true });
+	// 前の回の UAC の窓が遅れて押されても、この回の印と記録に混ざらないよう、回ごとに名前を変える
+	const run = `${Date.now()}-${process.pid}`;
+	const releaseFlag = path.join(recordDir, `smb-block-${run}.release`);
+	const log = path.join(recordDir, `smb-block-${run}.log`);
 	await disconnectSmb(root);
 	const script = `
 $ErrorActionPreference = 'Stop'
@@ -534,7 +544,7 @@ $name = 'WebLAV-E2E-SMB-block'
 try {
     New-NetFirewallRule -Name $name -DisplayName $name -Direction Outbound -Action Block -Protocol TCP -RemotePort 445,139 -RemoteAddress @('${addresses}') | Out-Null
     'added' | Out-File -LiteralPath '${log}' -Append -Encoding ascii
-    $deadline = (Get-Date).AddMinutes(3)
+    $deadline = (Get-Date).AddMinutes(${SMB_BLOCK_MINUTES})
     while (-not (Test-Path -LiteralPath '${releaseFlag}') -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 300 }
 } finally {
     Remove-NetFirewallRule -Name $name -ErrorAction SilentlyContinue
@@ -563,7 +573,9 @@ Start-Process -FilePath powershell -ArgumentList @('-NoProfile', '-EncodedComman
 		);
 	} catch (error) {
 		await fs.writeFile(releaseFlag, '').catch(() => {
-			console.warn('[msix-check] SMB を止める規則を外す印を置けませんでした (規則は3分で外れる)');
+			console.warn(
+				`[msix-check] SMB を止める規則を外す印を置けませんでした (規則は${SMB_BLOCK_MINUTES}分で外れる)`
+			);
 		});
 		throw error;
 	}
