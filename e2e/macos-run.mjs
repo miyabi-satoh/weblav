@@ -36,8 +36,8 @@ const files = (
 	.sort()
 	.map((name) => path.join(macosDir, name));
 
-// 回している間に画面が眠ってロックされると、窓が前面にならずに落ちる。終わるまで眠らせない
-const awake = spawn('caffeinate', ['-d', '-i', '-w', String(process.pid)], {
+// 回している間に画面が眠ってロックされると、窓が前面にならずに落ちる。眠りかけていれば起こし (-u)、終わるまで眠らせない
+const awake = spawn('caffeinate', ['-d', '-i', '-u', '-w', String(process.pid)], {
 	stdio: 'ignore'
 });
 
