@@ -22,12 +22,9 @@ export const HOME = path.join(CONTAINER, 'weblav-e2e');
 export const PORT = 18370;
 export const PASSWORD = 'e2e-password-1';
 
-/** 共有にするフォルダーを作る置き場。窓で選んだ場所はサンドボックスの外でも読み書きできる */
+/** 共有にするフォルダーを、毎回新しく作る。窓で選んだ場所はサンドボックスの外でも読み書きできる */
 export async function workDir(name) {
-	const dir = path.join(await fs.realpath(os.tmpdir()), `weblav-e2e-${name}`);
-	await fs.rm(dir, { recursive: true, force: true });
-	await fs.mkdir(dir, { recursive: true });
-	return dir;
+	return fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), `weblav-e2e-${name}-`));
 }
 
 export async function waitFor(read, ok, { label, timeout = 10_000, interval = 200 } = {}) {

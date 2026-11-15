@@ -56,7 +56,10 @@ test.describe('macOS: ログイン時に起動', () => {
 				if (now && now.checked !== original.checked)
 					await pressMenuItem(running.pid, labels.loginItem).catch(() => {});
 			}
-			const restored = await item();
+			// 戻したことを確かめる。戻らなければ、常用の WebLAV の登録が変わったままなので落とす
+			const restored = await waitFor(item, (m) => m.enabled && m.checked === original.checked, {
+				label: '元の登録に戻っている'
+			});
 			assert.equal(restored.title, labels.loginItem);
 		}
 	);
