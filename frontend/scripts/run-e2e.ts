@@ -145,8 +145,12 @@ async function main(): Promise<number> {
 			storageState: path.join(path.dirname(backend.dbPath), 'e2e-admin.json')
 		});
 	} finally {
-		// 1つが止められなくても、ほかは止めて片付ける。
-		await Promise.allSettled(started.map((backend) => backend.stop()));
+		// 1つが止められなくても、ほかは止めて片付ける。止められなかったものは出す。
+		for (const backend of started.reverse()) {
+			await backend
+				.stop()
+				.catch((err: unknown) => console.error('backend を止められませんでした', err));
+		}
 	}
 }
 
