@@ -266,6 +266,7 @@ const PRESS_READ_WAIT: std::time::Duration = std::time::Duration::from_millis(50
 /// 間に合わなければ前の状態のまま開き、結果は捨てる。メニューを開いている間に届いた結果で項目を変えると、
 /// 利用者が押して変わったチェックを上書きするため。
 /// 切り替えの途中 (押せない間) は、途中の状態を見せないよう読まない。
+/// 変えるのは項目の見た目だけで、イベントループの `login_state` は次の読み直しで揃う。
 #[cfg(target_os = "macos")]
 fn reread_before_press(item: Option<CheckMenuItem>, locale: TrayLocale) -> Box<dyn Fn()> {
     Box::new(move || {
