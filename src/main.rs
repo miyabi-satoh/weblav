@@ -28,7 +28,7 @@ fn main() {
         Err(weblav::server::StartupError {
             already_running: Some(running),
             ..
-        }) => tray::open_in_browser(&running),
+        }) => tray::open_in_browser(*running),
         Err(err) => fatal_startup_error(&err.message),
     }
 }

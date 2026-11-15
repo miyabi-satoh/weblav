@@ -43,7 +43,8 @@ pub struct StartupError {
     pub message: String,
     /// 同じ置き場所を使うサーバーが既に動いていたとき。
     /// トレイは、これがあればエラーを出す代わりに、動いているほうの画面をブラウザーで開く。
-    pub already_running: Option<AlreadyRunning>,
+    /// ログを閉じる手綱を持つので大きい。`Result` の `Err` を小さく保つよう箱に入れる。
+    pub already_running: Option<Box<AlreadyRunning>>,
 }
 
 /// 既に動いているサーバーの待ち受けのアドレスを知る手掛かり。
@@ -52,6 +53,8 @@ pub struct AlreadyRunning {
     addr_path: PathBuf,
     /// 設定の待ち受けのアドレス。動いているほうが実際のアドレスをまだ書いていないときに使う。
     pub configured: SocketAddr,
+    // 動いているほうの画面を開いた先も、ログに残すため。drop すると書き出してログを閉じる。
+    _log_guard: Option<WorkerGuard>,
 }
 
 impl AlreadyRunning {
@@ -152,13 +155,13 @@ pub fn start(
         Ok(Some(lock)) => lock,
         Ok(None) => {
             tracing::info!("another instance is already running");
-            drop(log_guard);
             return Err(StartupError {
                 message: "another instance is already running".into(),
-                already_running: Some(AlreadyRunning {
+                already_running: Some(Box::new(AlreadyRunning {
                     addr_path: dirs.addr_path(),
                     configured: addr,
-                }),
+                    _log_guard: Some(log_guard),
+                })),
             });
         }
         Err(err) => {
@@ -588,6 +591,7 @@ mod tests {
             configured: "0.0.0.0:8370"
                 .parse()
                 .expect("アドレスの書き方が正しくない"),
+            _log_guard: None,
         };
         assert_eq!(running.addr(), None, "書かれる前は None のはず");
 

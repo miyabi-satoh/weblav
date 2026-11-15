@@ -196,19 +196,28 @@ export function chooseInDialog(pid, folder) {
 	const guard = (step) => { if (!mine()) throw new Error(step + ': WebLAV が前面でないので打たない'); };
 	if (!dialogReady()) throw new Error('フォルダー選択の窓が前面にならないので打たない (' + focusState() + ')');
 	guard('始める前');
-	se.keystroke('g', { using: ['command down', 'shift down'] });
-	delay(1);
-	// 打つ途中で前面が替わっても残りがほかのアプリへ入らないよう、区切って打ち、そのつど確かめる
-	for (let i = 0; i < args.folder.length; i += 8) {
-		guard('場所を打つ前');
-		se.keystroke(args.folder.slice(i, i + 8));
+	// 日本語の入力ソースのままだと、打った場所が変換に入って移れない。打つ間だけ英字にして、終わったら戻す
+	ObjC.import('Carbon');
+	const inputSource = $.TISCopyCurrentKeyboardInputSource();
+	$.TISSelectInputSource($.TISCopyCurrentASCIICapableKeyboardInputSource());
+	delay(0.3);
+	try {
+		se.keystroke('g', { using: ['command down', 'shift down'] });
+		delay(1);
+		// 打つ途中で前面が替わっても残りがほかのアプリへ入らないよう、区切って打ち、そのつど確かめる
+		for (let i = 0; i < args.folder.length; i += 8) {
+			guard('場所を打つ前');
+			se.keystroke(args.folder.slice(i, i + 8));
+		}
+		delay(0.5);
+		guard('移動する前');
+		se.keyCode(36);
+		delay(1);
+		guard('選ぶ前');
+		se.keyCode(36);
+	} finally {
+		$.TISSelectInputSource(inputSource);
 	}
-	delay(0.5);
-	guard('移動する前');
-	se.keyCode(36);
-	delay(1);
-	guard('選ぶ前');
-	se.keyCode(36);
 	for (let i = 0; i < 50 && dialog(); i++) delay(0.1);
 	if (dialog()) throw new Error('窓が閉じない');
 `,

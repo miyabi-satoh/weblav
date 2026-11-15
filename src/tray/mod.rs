@@ -257,8 +257,8 @@ fn browser_origin(addr: SocketAddr) -> String {
 }
 
 /// 既に動いているサーバーの画面を、ブラウザーで開く。管理者がまだいなければセットアップの画面を開く
-/// (トレイの「セットアップ」と同じ)。
-pub fn open_in_browser(running: &AlreadyRunning) {
+/// (トレイの「セットアップ」と同じ)。開いた先はログに残す。セットアップのトークンは残さない。
+pub fn open_in_browser(running: AlreadyRunning) {
     // 動いているほうがまだ起動の途中 (初回のマイグレーションなど) なら、応答できるようになるまで少し待つ。
     // 待たずに問い合わせると「セットアップは要らない」と取り違え、つながらない画面を開いてしまう。
     // 実際のアドレスは応答できるようになってから書かれるので、それが現れるのを待つ。
@@ -278,7 +278,11 @@ pub fn open_in_browser(running: &AlreadyRunning) {
     } else {
         browser_origin(addr)
     };
-    let _ = open::that_detached(url);
+    let shown = url.split('?').next().unwrap_or_default();
+    match open::that_detached(&url) {
+        Ok(()) => tracing::info!(url = shown, "opened the running instance in the browser"),
+        Err(err) => tracing::warn!(url = shown, error = %err, "failed to open the browser"),
+    }
 }
 
 /// タスクトレイのツールチップの内容。アドレスは出さない (→ docs/architecture.md「LAN からの到達性」)。
