@@ -86,7 +86,7 @@ test.describe('MSIX 版: NAS の共有', { skip: !SMB && 'WEBLAV_E2E_SMB が無�
 				folderName &&
 				fs.rm(path.join(SMB, folderName), { recursive: true, force: true }).catch((error) => {
 					throw new Error(
-						`確かめ用フォルダーを消せません (止める前に ${FILE_NAME} の中が読まれた疑い): ${error.message}`
+						`確かめ用フォルダーを消せません: ${error.message} (中に ${FILE_NAME} が消し待ちで残っていれば、SMB を止める前に中が読まれた疑い)`
 					);
 				}),
 			() => disconnectSmb(SMB)
