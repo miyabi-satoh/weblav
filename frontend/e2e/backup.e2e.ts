@@ -8,7 +8,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { send } from './api-helpers';
 import { ADMIN_PASSWORD, ADMIN_USERNAME } from './auth';
-import { EMPTY_STORAGE_STATE, fillLogInForm, logIn, PASSWORD_HASH_TIMEOUT } from './helpers';
+import { EMPTY_STORAGE_STATE, logIn, PASSWORD_HASH_TIMEOUT } from './helpers';
 
 const RESTORE_BASE_URL = process.env.E2E_RESTORE_BASE_URL;
 const RESTORE_SETUP_BASE_URL = process.env.E2E_RESTORE_SETUP_BASE_URL;
@@ -17,11 +17,12 @@ const DOWNLOAD_BUTTON_NAME = /^バックアップをダウンロード$|^Downloa
 const RESTORE_BUTTON_NAME = /^バックアップから復元\.\.\.$|^Restore from a backup\.\.\.$/;
 const RESTORE_CONFIRM_BUTTON_NAME = /^復元する$|^Restore$/;
 
-test.use({ storageState: EMPTY_STORAGE_STATE, baseURL: RESTORE_BASE_URL });
+test.use({ storageState: EMPTY_STORAGE_STATE });
 test.describe.configure({ mode: 'serial' });
 
+// 前のテストが取ったバックアップと、それに入れたリンクの名前。後のテストが使う。
+// 名前は回ごとに変える。流し直すと、戻したときに前の回のリンクも戻り、混ざるため
 let backupPath = '';
-// 流し直しても前の回のものと混ざらないよう、回ごとに名前を変える。戻すと前の回のものも戻るため
 let keptTitle = '';
 
 async function logInAsAdmin(page: Page) {
@@ -52,53 +53,57 @@ test.beforeEach(() => {
 	);
 });
 
-test('サイト設定でダウンロードしたバックアップから戻すと、取った時の中身に戻り、ログインし直しになる', async ({
-	page
-}, testInfo) => {
-	keptTitle = `e2e-バックアップに入るリンク-${Date.now()}`;
-	await logInAsAdmin(page);
-	const kept = (await send(page.request, 'post', '/contents', {
-		type: 'link',
-		title: keptTitle,
-		url: 'https://example.com/e2e'
-	})) as { id: number };
+test.describe('サイト設定', () => {
+	test.use({ baseURL: RESTORE_BASE_URL });
 
-	await page.goto('/admin/settings');
-	const download = page.waitForEvent('download');
-	await page.getByRole('button', { name: DOWNLOAD_BUTTON_NAME }).click();
-	backupPath = testInfo.outputPath('backup.zip');
-	await (await download).saveAs(backupPath);
+	test('サイト設定でダウンロードしたバックアップから戻すと、入れたものが戻り、ログインし直しになる', async ({
+		page
+	}, testInfo) => {
+		keptTitle = `e2e-バックアップに入るリンク-${Date.now()}`;
+		await logInAsAdmin(page);
+		const kept = (await send(page.request, 'post', '/contents', {
+			type: 'link',
+			title: keptTitle,
+			url: 'https://example.com/e2e'
+		})) as { id: number };
 
-	await send(page.request, 'delete', `/contents/${kept.id}`);
-	expect(await contentTitles(page)).not.toContain(keptTitle);
+		await page.goto('/admin/settings');
+		const download = page.waitForEvent('download');
+		await page.getByRole('button', { name: DOWNLOAD_BUTTON_NAME }).click();
+		backupPath = testInfo.outputPath('backup.zip');
+		await (await download).saveAs(backupPath);
 
-	await restoreFrom(page, backupPath);
-	await expect(page).toHaveURL(/\/login$/);
-	expect((await page.request.get('/api/v1/auth/me')).status(), 'ログインが切れている').toBe(401);
+		await send(page.request, 'delete', `/contents/${kept.id}`);
+		expect(await contentTitles(page)).not.toContain(keptTitle);
 
-	await logInAsAdmin(page);
-	expect(await contentTitles(page)).toContain(keptTitle);
+		await restoreFrom(page, backupPath);
+		await expect(page).toHaveURL(/\/login$/);
+		expect((await page.request.get('/api/v1/auth/me')).status(), 'ログインが切れている').toBe(401);
+
+		await logInAsAdmin(page);
+		expect(await contentTitles(page)).toContain(keptTitle);
+	});
 });
 
-test('管理者のいないセットアップの画面からも、バックアップから戻せる', async ({
-	page,
-	request
-}) => {
-	expect(backupPath, '前のテストでバックアップを取っている').not.toBe('');
-	// トレイの「セットアップ」と同じ口でトークンを受け取る。この PC の中からの要求だけが通る。
-	const issued = await request.post(`${RESTORE_SETUP_BASE_URL}/api/v1/setup/token`);
-	expect(issued.ok()).toBe(true);
-	const token = await issued.text();
+test.describe('セットアップ', () => {
+	test.use({ baseURL: RESTORE_SETUP_BASE_URL });
 
-	await page.goto(`${RESTORE_SETUP_BASE_URL}/setup?token=${encodeURIComponent(token)}`);
-	await restoreFrom(page, backupPath);
-	await expect(page).toHaveURL(`${RESTORE_SETUP_BASE_URL}/login`);
+	test('管理者のいないセットアップの画面からも、バックアップから戻せる', async ({
+		page,
+		request
+	}) => {
+		expect(backupPath, '前のテストでバックアップを取っている').not.toBe('');
+		// トレイの「セットアップ」と同じ口でトークンを受け取る。この PC の中からの要求だけが通る。
+		const issued = await request.post('/api/v1/setup/token');
+		expect(issued.ok()).toBe(true);
+		const token = await issued.text();
 
-	// 戻したデータの管理者でログインする
-	await fillLogInForm(page, ADMIN_USERNAME, ADMIN_PASSWORD);
-	await page.waitForURL(`${RESTORE_SETUP_BASE_URL}/`, { timeout: PASSWORD_HASH_TIMEOUT });
-	const contents = (await (
-		await page.request.get(`${RESTORE_SETUP_BASE_URL}/api/v1/contents`)
-	).json()) as { title: string }[];
-	expect(contents.map((content) => content.title)).toContain(keptTitle);
+		await page.goto(`/setup?token=${encodeURIComponent(token)}`);
+		await restoreFrom(page, backupPath);
+		await expect(page).toHaveURL(/\/login$/);
+
+		// 戻したデータの管理者でログインする
+		await logInAsAdmin(page);
+		expect(await contentTitles(page)).toContain(keptTitle);
+	});
 });

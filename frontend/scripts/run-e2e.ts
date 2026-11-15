@@ -146,7 +146,7 @@ async function main(): Promise<number> {
 		});
 	} finally {
 		// 1つが止められなくても、ほかは止めて片付ける。止められなかったものは出す。
-		for (const backend of started.reverse()) {
+		for (const backend of [...started].reverse()) {
 			await backend
 				.stop()
 				.catch((err: unknown) => console.error('backend を止められませんでした', err));
