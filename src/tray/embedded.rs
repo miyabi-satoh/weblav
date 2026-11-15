@@ -141,13 +141,14 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
                 #[cfg(target_os = "macos")]
                 super::press::open_menu_on_press(
                     &tray,
-                    reread_before_press(login_item.clone(), locale),
+                    reread_before_press(login_item.clone(), locale, login_proxy.clone()),
                 );
                 _tray_icon = Some(tray);
                 menu = Some(root);
             }
             // OS の設定で変えられていることがあるので、メニューを開く前 (ポインタを載せた・押した) に読み直す。
             // 押したときの知らせはメニューが出た後に届くこともあるので、載せたときにも読む。
+            // アクセシビリティから押されたときは、`reread_before_press` が読む。
             Event::UserEvent(UserEvent::Tray(
                 TrayIconEvent::Enter { .. } | TrayIconEvent::Click { .. },
             )) if login_item.is_some() && !login_busy => {
@@ -257,31 +258,42 @@ fn spawn_login_task(proxy: EventLoopProxy<UserEvent>, change: Option<bool>) {
     });
 }
 
-/// アクセシビリティから押されたときに、メニューを開く前に「ログイン時に起動」を読み直して見せる。
-/// マウスなら載せたときに読み直すが、アクセシビリティの押す操作はポインタを通らないため。
-/// メニューを開いている間はイベントループが止まるので、読み直した結果は、ここで待って項目に入れる。
-/// 待つのは `PRESS_READ_WAIT` までで、間に合わなければ前の状態のまま開く。
-/// 切り替えの途中 (押せない間) は、途中の状態を見せないよう読み直さない。
+/// アクセシビリティから押されたとき (VoiceOver で開くとき) に、メニューを開くまで待つ上限。
+/// 間に合わないのは OS が詰まっているときだけで、そのときに開くのを長く待たせない。
 #[cfg(target_os = "macos")]
-fn reread_before_press(item: Option<CheckMenuItem>, locale: TrayLocale) -> Box<dyn Fn()> {
+const PRESS_READ_WAIT: std::time::Duration = std::time::Duration::from_millis(500);
+
+/// アクセシビリティから押されたときに、メニューを開く前に「ログイン時に起動」を OS から読んで見せる。
+/// 押す操作はポインタを通らず、載せたときの読み直しが起きないため。
+/// メニューを開いている間はイベントループが止まるので、`PRESS_READ_WAIT` まではここで待って項目に入れる。
+/// 間に合わなければ前の状態のまま開き、結果はイベントループへ送ってメニューを閉じた後に入れる。
+/// 切り替えの途中 (押せない間) は、途中の状態を見せないよう読まない。
+#[cfg(target_os = "macos")]
+fn reread_before_press(
+    item: Option<CheckMenuItem>,
+    locale: TrayLocale,
+    proxy: EventLoopProxy<UserEvent>,
+) -> Box<dyn Fn()> {
     Box::new(move || {
         let Some(item) = item.as_ref().filter(|item| item.is_enabled()) else {
             return;
         };
         let (sender, receiver) = std::sync::mpsc::channel();
+        let proxy = proxy.clone();
         std::thread::spawn(move || {
-            let _ = sender.send(login_item::state());
+            let read = login_item::state()
+                .inspect_err(|err| tracing::warn!(error = %err, "failed to read the login item"))
+                .ok();
+            // 待つのをやめた後なら、受け手がいない。
+            if sender.send(read).is_err() {
+                let _ = proxy.send_event(UserEvent::LoginState(read));
+            }
         });
-        if let Ok(Ok(state)) = receiver.recv_timeout(PRESS_READ_WAIT) {
+        if let Ok(Some(state)) = receiver.recv_timeout(PRESS_READ_WAIT) {
             show_login_state(item, state, locale);
         }
     })
 }
-
-/// アクセシビリティから押してからメニューが開くまでに、読み直しを待つ長さ。OS への問い合わせはふだん
-/// すぐ返るので、読み上げを待たせたと感じない短さにする。
-#[cfg(target_os = "macos")]
-const PRESS_READ_WAIT: std::time::Duration = std::time::Duration::from_millis(500);
 
 /// 状態を、メニューの項目に反映する。
 fn show_login_state(item: &CheckMenuItem, state: login_item::State, locale: TrayLocale) {
