@@ -533,14 +533,14 @@ export async function blockSmb(root) {
 		.map((entry) => entry.address)
 		.join("','");
 	await fs.mkdir(recordDir, { recursive: true });
-	// 前の回の UAC の窓が遅れて押されても、この回の印と記録に混ざらないよう、回ごとに名前を変える
+	// 前の回の UAC の窓が遅れて押されても、この回の規則・印・記録に混ざらないよう、回ごとに名前を変える
 	const run = `${Date.now()}-${process.pid}`;
 	const releaseFlag = path.join(recordDir, `smb-block-${run}.release`);
 	const log = path.join(recordDir, `smb-block-${run}.log`);
 	await disconnectSmb(root);
 	const script = `
 $ErrorActionPreference = 'Stop'
-$name = 'WebLAV-E2E-SMB-block'
+$name = 'WebLAV-E2E-SMB-block-${run}'
 try {
     New-NetFirewallRule -Name $name -DisplayName $name -Direction Outbound -Action Block -Protocol TCP -RemotePort 445,139 -RemoteAddress @('${addresses}') | Out-Null
     'added' | Out-File -LiteralPath '${log}' -Append -Encoding ascii
@@ -588,6 +588,8 @@ Start-Process -FilePath powershell -ArgumentList @('-NoProfile', '-EncodedComman
 			timeout: 30_000,
 			interval: 300
 		});
+		await fs.rm(releaseFlag, { force: true });
+		await fs.rm(log, { force: true });
 	};
 	try {
 		await disconnectSmb(root);
