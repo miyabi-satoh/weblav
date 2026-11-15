@@ -141,7 +141,7 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
                 #[cfg(target_os = "macos")]
                 super::press::open_menu_on_press(
                     &tray,
-                    reread_before_press(login_item.clone(), locale, login_proxy.clone()),
+                    reread_before_press(login_item.clone(), locale),
                 );
                 _tray_icon = Some(tray);
                 menu = Some(root);
@@ -251,48 +251,42 @@ fn spawn_login_task(proxy: EventLoopProxy<UserEvent>, change: Option<bool>) {
         {
             tracing::warn!(error = %err, "failed to change the login item");
         }
-        let read = login_item::state()
-            .inspect_err(|err| tracing::warn!(error = %err, "failed to read the login item"))
-            .ok();
-        let _ = proxy.send_event(UserEvent::LoginState(read));
+        let _ = proxy.send_event(UserEvent::LoginState(read_login_state()));
     });
 }
 
-/// アクセシビリティから押されたとき (VoiceOver で開くとき) に、メニューを開くまで待つ上限。
-/// 間に合わないのは OS が詰まっているときだけで、そのときに開くのを長く待たせない。
+/// アクセシビリティから押されたときに、読み終わるのを待ってメインスレッドを止めておく上限。
+/// 間に合わないのは OS が詰まっているときだけで、そのときにメニューを長く待たせない。
 #[cfg(target_os = "macos")]
 const PRESS_READ_WAIT: std::time::Duration = std::time::Duration::from_millis(500);
 
 /// アクセシビリティから押されたときに、メニューを開く前に「ログイン時に起動」を OS から読んで見せる。
 /// 押す操作はポインタを通らず、載せたときの読み直しが起きないため。
 /// メニューを開いている間はイベントループが止まるので、`PRESS_READ_WAIT` まではここで待って項目に入れる。
-/// 間に合わなければ前の状態のまま開き、結果はイベントループへ送ってメニューを閉じた後に入れる。
+/// 間に合わなければ前の状態のまま開き、結果は捨てる。メニューを開いている間に届いた結果で項目を変えると、
+/// 利用者が押して変わったチェックを上書きするため。
 /// 切り替えの途中 (押せない間) は、途中の状態を見せないよう読まない。
 #[cfg(target_os = "macos")]
-fn reread_before_press(
-    item: Option<CheckMenuItem>,
-    locale: TrayLocale,
-    proxy: EventLoopProxy<UserEvent>,
-) -> Box<dyn Fn()> {
+fn reread_before_press(item: Option<CheckMenuItem>, locale: TrayLocale) -> Box<dyn Fn()> {
     Box::new(move || {
         let Some(item) = item.as_ref().filter(|item| item.is_enabled()) else {
             return;
         };
         let (sender, receiver) = std::sync::mpsc::channel();
-        let proxy = proxy.clone();
         std::thread::spawn(move || {
-            let read = login_item::state()
-                .inspect_err(|err| tracing::warn!(error = %err, "failed to read the login item"))
-                .ok();
-            // 待つのをやめた後なら、受け手がいない。
-            if sender.send(read).is_err() {
-                let _ = proxy.send_event(UserEvent::LoginState(read));
-            }
+            let _ = sender.send(read_login_state());
         });
         if let Ok(Some(state)) = receiver.recv_timeout(PRESS_READ_WAIT) {
             show_login_state(item, state, locale);
         }
     })
+}
+
+/// OS から「ログイン時に起動」を読む。読めなければ `None`。
+fn read_login_state() -> Option<login_item::State> {
+    login_item::state()
+        .inspect_err(|err| tracing::warn!(error = %err, "failed to read the login item"))
+        .ok()
 }
 
 /// 状態を、メニューの項目に反映する。
