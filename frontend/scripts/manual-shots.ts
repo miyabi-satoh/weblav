@@ -1,5 +1,5 @@
 // `just manual-shots` から呼ばれる。マニュアルの画像 (docs/manual/ja/images) のうち、
-// 管理画面・音声のプレイヤーと仕組みの図を、使い捨ての backend で撮り直して WebP で書き出す (→ docs/help.md)。
+// 管理画面・セットアップの画面・閲覧側の一部の画面 (ホーム・音声のプレイヤーなど) と仕組みの図を、使い捨ての backend で撮り直して WebP で書き出す (→ docs/help.md)。
 // 画面の文言や見た目を変えたら流し直す。名前を渡すと、その画像だけを撮る (`just manual-shots roots-page`)。
 //
 // ここに無い画像 (タスクトレイ・OS の窓・ほかの閲覧側の画面など) は手で撮っている。
@@ -21,16 +21,20 @@ import {
 	DIR_PICKER_NAME,
 	PASSWORD_CONFIRM_LABEL,
 	PASSWORD_LABEL,
+	RESET_PASSWORD_MENU_ITEM_NAME,
 	ROOT_ADD_BUTTON_NAME,
 	ROW_ACTIONS_BUTTON_NAME,
 	USERNAME_LABEL,
 	USER_ADD_BUTTON_NAME,
 	USE_THIS_FOLDER_BUTTON_NAME,
+	browseLink,
 	chooseContentType,
+	deleteSectionButton,
 	openAddDialog,
 	waitForDialog
 } from '../e2e/helpers.ts';
 import { insertTestAdmin, startBackend, type Backend } from './backend-process.ts';
+import { withQuery } from '../src/lib/href.ts';
 import { gotoReady, waitForPageReady } from './shots.ts';
 import { silentWav } from './silent-wav.ts';
 import { TEST_ADMIN } from './test-account.ts';
@@ -47,17 +51,22 @@ const ADMIN_SHOTS = [
 	'user-menu',
 	'user-add',
 	'user-edit',
+	'user-password',
+	'user-delete',
 	'header-user-menu',
 	'setup-admin-menu',
 	'account-page',
 	'settings-page',
+	'settings-home',
 	'settings-server',
 	'settings-port',
 	'maintenance-backup',
+	'settings-log',
 	'contents-page',
 	'add-menu',
 	'row-edit-pen',
 	'delete-section',
+	'content-delete',
 	'register-group-menu',
 	'quickstart-add-folder',
 	'add-folder-form',
@@ -76,10 +85,16 @@ const ADMIN_SHOTS = [
 	'share-qr',
 	'viewing-player',
 	'viewing-filter',
-	'viewing-sort'
+	'viewing-sort',
+	'edit-link',
+	'edit-visibility',
+	'viewing-home',
+	'archive-values'
 ];
+/** 管理者がまだいない backend で撮るもの。 */
+const SETUP_SHOTS = ['quickstart-setup'];
 const DIAGRAM_SHOTS = ['how-it-works'];
-const ALL_SHOTS = [...ADMIN_SHOTS, ...DIAGRAM_SHOTS];
+const ALL_SHOTS = [...ADMIN_SHOTS, ...SETUP_SHOTS, ...DIAGRAM_SHOTS];
 /** コンテンツを追加の画面を順に進めて撮るもの。 */
 const FOLDER_SHOTS = [
 	'quickstart-add-folder',
@@ -154,8 +169,16 @@ function makeSharedDir(): string {
 	return realpathSync(shared);
 }
 
-/** 管理者でログインしたページを開く。ログイン画面は撮らないので API で入る。 */
-async function newPage(backend: Backend, width: number, sharedPath?: string): Promise<Page> {
+/**
+ * 管理者でログインしたページを開く。ログイン画面は撮らないので API で入る。
+ * `anonymous` なら、ログインしていない人の画面 (編集のペンなどが出ない) にする。
+ */
+async function newPage(
+	backend: Backend,
+	width: number,
+	sharedPath?: string,
+	{ anonymous = false } = {}
+): Promise<Page> {
 	const context = await browser.newContext({
 		viewport: { width, height: VIEWPORT_HEIGHT },
 		deviceScaleFactor: 2, // 画面は2倍で撮る (→ docs/help.md)
@@ -164,6 +187,7 @@ async function newPage(backend: Backend, width: number, sharedPath?: string): Pr
 	});
 	await context.addCookies([{ name: 'WEBLAV_LOCALE', value: 'ja', url: backend.baseURL }]);
 	const page = await context.newPage();
+	if (anonymous) return page;
 	await send(page.request, 'post', '/auth/login', {
 		username: TEST_ADMIN.username,
 		password: TEST_ADMIN.password
@@ -271,13 +295,14 @@ async function shotBetween(
  * 欄 (section) を、左右と下に余白を付けて撮る。上は欄の区切り線を入れないよう、見出しの少し上から。
  * `bottom` を渡すと、その要素を囲む枠の下端までにする (欄の下の区切り線を入れない)。
  * 枠が無く、すぐ下に次の項目が続くときは `bottomGap` を 0 にする。
+ * `top` を渡すと、見出しでなくその要素の少し上から撮る (欄の途中の項目だけを見せる)。
  */
 async function shotSection(
 	page: Page,
 	name: string,
 	heading: Locator,
 	bottom?: Locator,
-	{ bottomGap = 16 } = {}
+	{ bottomGap = 16, top }: { bottomGap?: number; top?: Locator } = {}
 ) {
 	const PAD = 24;
 	await box(name, heading); // 見出しが無ければ、画像の名前を出して止める
@@ -285,7 +310,7 @@ async function shotSection(
 	await page.evaluate(() => window.scrollBy(0, -40));
 	const section = page.locator('section, form').filter({ has: heading }).last();
 	const s = await box(name, section);
-	const h = await box(name, heading);
+	const h = await box(name, top ?? heading);
 	const b = bottom ? await box(name, bottom) : undefined;
 	const end = b ? b.y + b.height + bottomGap : s.y + s.height;
 	const y = h.y - 20;
@@ -363,6 +388,25 @@ async function shootUsers(page: Page) {
 			page.getByRole('button', { name: /^保存する$/ }).last(),
 			{ padBottom: 24 }
 		);
+	}
+	if (want('user-password')) {
+		// 開いたままの欄を写す (開くと最初の欄にフォーカスが移る)。保存はしない。
+		await gotoReady(page, `/admin/users/${editId}`);
+		await page.getByRole('button', { name: RESET_PASSWORD_MENU_ITEM_NAME }).click();
+		await waitForDialog(page);
+		await shotElement(page, 'user-password', dialog(page));
+		await page.keyboard.press('Escape');
+		await dialog(page).waitFor({ state: 'hidden' });
+	}
+	if (want('user-delete')) {
+		// 確かめの窓を開くだけで、消さない。後の画像にも tanaka を写すため。
+		await gotoReady(page, '/admin/users');
+		await row(page, 'tanaka').getByRole('button', { name: ROW_ACTIONS_BUTTON_NAME }).click();
+		await page.getByRole('menuitem', { name: DELETE_MENU_ITEM_NAME }).click();
+		await page.getByRole('alertdialog').waitFor();
+		await shotElement(page, 'user-delete', page.getByRole('alertdialog'));
+		await page.keyboard.press('Escape');
+		await page.getByRole('alertdialog').waitFor({ state: 'hidden' });
 	}
 	// どちらもユーザー名のメニューを写す。セットアップの直後と、ふだんのログインの章で同じものを見せる。
 	for (const name of ['header-user-menu', 'setup-admin-menu']) {
@@ -462,9 +506,11 @@ async function shootAdmin() {
 
 		const SETTINGS_SHOTS = [
 			'settings-page',
+			'settings-home',
 			'settings-server',
 			'settings-port',
-			'maintenance-backup'
+			'maintenance-backup',
+			'settings-log'
 		];
 		if (SETTINGS_SHOTS.some(want)) {
 			// 使い捨ての backend は空きポートで動く。画像には、入れた直後の値 (既定の値) を写す。
@@ -476,6 +522,13 @@ async function shootAdmin() {
 					json: { ...body, saved: body.defaults, running: body.defaults }
 				});
 			});
+			// 使い捨ての backend はログを標準出力に出すので、ダウンロードのボタンが出ない。
+			// 入れた直後と同じく、ファイルに書いている答えにする。
+			await page.route('**/api/v1/admin/log-settings', async (route) => {
+				if (route.request().method() !== 'GET') return route.continue();
+				const res = await route.fetch();
+				await route.fulfill({ response: res, json: { ...(await res.json()), fileOutput: true } });
+			});
 			await gotoReady(page, '/admin/settings');
 			if (want('settings-page'))
 				await shotBetween(
@@ -484,6 +537,12 @@ async function shootAdmin() {
 					adminNav(page),
 					page.getByRole('heading', { name: 'サイト設定', level: 1 }),
 					{ padBottom: 24 }
+				);
+			if (want('settings-home'))
+				await shotSection(
+					page,
+					'settings-home',
+					page.getByRole('heading', { name: 'ホームの表示' })
 				);
 			const serverHeading = page.getByRole('heading', { name: 'サーバー' });
 			if (want('settings-server')) await shotSection(page, 'settings-server', serverHeading);
@@ -505,6 +564,12 @@ async function shootAdmin() {
 					page,
 					'maintenance-backup',
 					page.getByRole('heading', { name: 'バックアップ' })
+				);
+			if (want('settings-log'))
+				await shotSection(
+					page,
+					'settings-log',
+					page.getByRole('heading', { name: 'ログ', exact: true })
 				);
 		}
 
@@ -537,6 +602,18 @@ async function shootAdmin() {
 			await page.waitForURL(/\/contents\/\d+$/);
 			await waitForPageReady(page);
 			await shotSection(page, 'delete-section', page.getByRole('heading', { name: /^削除$/ }));
+		}
+		if (want('content-delete')) {
+			// 確かめの窓を開くだけで、消さない。
+			await gotoReady(page, '/');
+			await editPen(page).click();
+			await page.waitForURL(/\/contents\/\d+$/);
+			await waitForPageReady(page);
+			await deleteSectionButton(page).click();
+			await page.getByRole('alertdialog').waitFor();
+			await shotElement(page, 'content-delete', page.getByRole('alertdialog'));
+			await page.keyboard.press('Escape');
+			await page.getByRole('alertdialog').waitFor({ state: 'hidden' });
 		}
 		if (want('register-group-menu')) {
 			await row(page, '旅行の思い出')
@@ -743,6 +820,154 @@ async function shootAdmin() {
 			await page.getByRole('menuitem', { name: 'QR コードを表示...' }).click();
 			await shotElement(page, 'share-qr', dialog(page));
 		}
+
+		// ここからは、上の画像に写さないコンテンツを足して撮る。
+		if (['edit-link', 'edit-visibility', 'viewing-home'].some(want)) {
+			const created = (await send(page.request, 'post', '/contents', {
+				type: 'link',
+				url: 'https://www.jma.go.jp/bosai/forecast/',
+				title: '天気予報',
+				// 説明が空だと、サーバーがリンク先へ取りに行く。入れて足してから空に戻す (更新では取りに行かない)。
+				description: '天気予報',
+				visibility: 'public'
+			})) as { id: number };
+			// 完全上書き型の PUT なので、作成時の応答をそのまま送り直す。
+			const link = (await send(page.request, 'put', `/contents/${created.id}`, {
+				...created,
+				description: null
+			})) as { id: number };
+			const notice = path.join(shared, '書類/今月の予定.pdf');
+			writeFileSync(notice, '');
+			await send(page.request, 'post', '/contents', {
+				type: 'shortcut',
+				title: '今月の予定',
+				path: notice,
+				visibility: 'public'
+			});
+
+			const basic = page.getByRole('heading', { name: '基本情報', exact: true });
+			if (want('edit-link')) {
+				await gotoReady(page, `/contents/${link.id}`);
+				await shotSection(page, 'edit-link', basic);
+			}
+			if (want('edit-visibility')) {
+				await gotoReady(page, `/contents/${link.id}`);
+				await shotSection(
+					page,
+					'edit-visibility',
+					basic,
+					page.getByRole('form', { name: '基本情報' }).getByRole('button', { name: '保存する' }),
+					{ top: page.getByText('親のグループ', { exact: true }) }
+				);
+			}
+			if (want('viewing-home')) {
+				// 見る人の画面なので、ログインしていない人で撮る (編集のペンが出ない)。
+				const phone = await newPage(backend, PLAYER_WIDTH, undefined, { anonymous: true });
+				// リンクのサイトのアイコンと更新日は、サーバーがリンク先から取ってくる。撮るたびに変わらないよう、
+				// 取れていないときの形 (ホスト名だけ) にする。
+				await phone.route(
+					(url) => url.pathname === '/api/v1/contents',
+					async (route) => {
+						const res = await route.fetch();
+						const body = JSON.parse(await res.text(), (key, value) =>
+							key === 'preview' ? null : value
+						);
+						await route.fulfill({ response: res, json: body });
+					}
+				);
+				await gotoReady(phone, '/');
+				await shotBetween(
+					phone,
+					'viewing-home',
+					phone.getByRole('combobox', { name: /^並べ替え/ }),
+					browseLink(phone, '書類'),
+					{ padTop: 16, padBottom: 16 }
+				);
+				await phone.context().close();
+			}
+		}
+
+		if (want('archive-values')) {
+			// 英語の語 (`main`・`notes`) で分ける例 (→ 07-archive-setup.md)。録音の画像を変えないよう、別のライブラリにする。
+			const english = path.join(shared, '英語');
+			mkdirSync(english);
+			for (let unit = 1; unit <= 5; unit++)
+				for (const word of ['main', 'notes'])
+					writeFileSync(path.join(english, `unit${unit}_${word}.mp3`), '');
+			const created = (await send(page.request, 'post', '/contents', {
+				type: 'folder',
+				title: '英語',
+				path: english,
+				visibility: 'public'
+			})) as { id: number };
+			// 完全上書き型の PUT なので、作成時の応答をそのまま送り直す。
+			const library = (await send(page.request, 'put', `/contents/${created.id}`, {
+				...created,
+				listView: true,
+				includePatterns: '*.mp3'
+			})) as { id: number };
+			await send(page.request, 'post', `/contents/${library.id}/rescan`);
+			const axis = (await send(page.request, 'post', `/contents/${library.id}/axes`, {
+				name: '種類',
+				source: 'filenameWord',
+				position: 0
+			})) as { id: number };
+			await send(page.request, 'put', `/contents/${library.id}/axes/${axis.id}/values`, {
+				values: [
+					{ rawValue: 'main', displayName: '本編' },
+					{ rawValue: 'notes', displayName: '解説' }
+				]
+			});
+			await gotoReady(page, `/contents/${library.id}/axes`);
+			await page.getByRole('button', { name: '種類 ファイル名の単語' }).click();
+			const heading = page.getByRole('heading', { name: '種類 の値' });
+			await heading.waitFor();
+			// 行ごとの件数と、表の下の件数の集計は、表を出した後に問い合わせて出る。
+			for (const word of ['main', 'notes'])
+				await page.getByRole('button', { name: `${word} から値が決まったファイル (5)` }).waitFor();
+			await page.getByText(/^一致: /).waitFor();
+			await shotBetween(
+				page,
+				'archive-values',
+				heading,
+				page.getByRole('button', { name: '値を追加', exact: true }),
+				{ padTop: 20, padBottom: 16 }
+			);
+		}
+	} finally {
+		await closePagesAndStop(backend);
+	}
+}
+
+/** セットアップの画面。管理者がまだいない backend でしか開けないので、別に起動する。 */
+async function shootSetup() {
+	if (!want('quickstart-setup')) return;
+	let backend: Backend;
+	starting = true;
+	try {
+		backend = await startBackend('weblav-manual-shots-setup-');
+	} finally {
+		starting = false;
+	}
+	liveBackends.add(backend);
+	try {
+		const phone = await newPage(backend, PLAYER_WIDTH, undefined, { anonymous: true });
+		// トレイの「セットアップ」と同じ口で、開くためのトークンを受け取る (この PC の中からだけ通る)。
+		const issued = await phone.request.post('/api/v1/setup/token');
+		if (!issued.ok())
+			throw new Error(`quickstart-setup: トークンを受け取れません (${issued.status()})`);
+		await gotoReady(phone, withQuery('/setup', { token: await issued.text() }));
+		// 入れ終えて、作成のボタンを押す前の形にする。
+		await phone.getByLabel(USERNAME_LABEL).fill('admin');
+		await phone.getByLabel(PASSWORD_LABEL).fill('password');
+		await phone.getByLabel(PASSWORD_CONFIRM_LABEL).fill('password');
+		await shotBetween(
+			phone,
+			'quickstart-setup',
+			phone.locator('[data-slot="card"]').first(),
+			phone.getByRole('button', { name: '管理者を作成する' }),
+			{ padBottom: 16 }
+		);
 	} finally {
 		await closePagesAndStop(backend);
 	}
@@ -784,6 +1009,7 @@ process.once('SIGINT', () => {
 
 try {
 	if (ADMIN_SHOTS.some(want)) await shootAdmin();
+	await shootSetup();
 	await shootDiagram();
 } catch (err) {
 	if (!interrupted) throw err;
