@@ -27,7 +27,7 @@ use axum::Router;
 use axum::http::{HeaderValue, header};
 use sqlx::SqlitePool;
 use tower_http::compression::CompressionLayer;
-use tower_http::compression::predicate::{DefaultPredicate, NotForContentType, Predicate};
+use tower_http::compression::predicate::{DefaultPredicate, Predicate};
 use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 use tower_sessions::cookie::Key;
@@ -41,6 +41,58 @@ pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// ビルド番号 (ビルドしたコミットまでのコミットの数。`build.rs` が数える)。
 /// git の無い場所でビルドしたときは無い。
 pub const APP_BUILD: Option<&str> = option_env!("WEBLAV_BUILD");
+
+/// 全ての応答に付ける CSP (→ docs/architecture.md「応答のヘッダー」)。
+/// スクリプトとスタイルの出どころは絞らない。画面の部品 (PDF・Office の表示) が `data:` の Worker や
+/// wasm・差し込みのスタイルを使い、どこまで許せば壊れないかを自動の検査で確かめきれないため。
+const CONTENT_SECURITY_POLICY: &str =
+    "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'";
+
+/// 圧縮しない応答の種類 (`Content-Type` の先頭)。
+/// `ServeFile` で返すファイル (contents.rs) とバックアップの zip は、圧縮すると `Content-Length` と
+/// `Accept-Ranges` が外れ、ダウンロードの残り時間が出ず、途中から再開もできなくなる。
+/// 中身が既に圧縮されているので小さくもならず、CPU を使うだけになる。
+const NOT_COMPRESSED_CONTENT_TYPES: [&str; 17] = [
+    "audio/",
+    "video/",
+    "application/pdf",
+    "application/octet-stream",
+    "application/zip",
+    "application/x-zip-compressed",
+    "application/x-7z-compressed",
+    "application/x-rar-compressed",
+    "application/vnd.rar",
+    "application/gzip",
+    "application/x-gzip",
+    "application/x-bzip2",
+    "application/x-xz",
+    "application/zstd",
+    // Office (docx・xlsx・pptx)・OpenDocument・EPUB は zip の入れ物。
+    "application/epub+zip",
+    "application/vnd.openxmlformats-officedocument.",
+    "application/vnd.oasis.opendocument.",
+];
+
+/// 応答を圧縮してよいか (`CompressionLayer` の条件)。
+fn compressible(
+    _: axum::http::StatusCode,
+    _: axum::http::Version,
+    headers: &axum::http::HeaderMap,
+    _: &axum::http::Extensions,
+) -> bool {
+    let content_type = headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+    is_compressible_content_type(content_type)
+}
+
+fn is_compressible_content_type(content_type: &str) -> bool {
+    let content_type = content_type.to_ascii_lowercase();
+    !NOT_COMPRESSED_CONTENT_TYPES
+        .iter()
+        .any(|prefix| content_type.starts_with(prefix))
+}
 
 /// アプリケーション全体の `Router` を組み立てる。セッションストア用テーブルの作成もここで
 /// 行う。`main.rs` と統合テスト(`tests/api/`)の両方から共通で呼べるように公開している。
@@ -109,22 +161,17 @@ pub async fn build_app(
     let app = router
         .fallback(static_files::handler)
         .layer(TraceLayer::new_for_http())
-        // `ServeFile`で返す音声・動画・PDF・任意バイナリ(contents.rs)は圧縮しない。
-        // Range/Content-Lengthが失われ、圧縮済み形式を再圧縮する分CPUも無駄になるため。
-        // これらは既定の除外(gRPC/image/SSE/32B未満)に含まれないので、既定の除外を
-        // 残したまま`DefaultPredicate`に条件を重ねる。
-        .layer(
-            CompressionLayer::new().compress_when(
-                DefaultPredicate::new()
-                    .and(NotForContentType::const_new("audio/"))
-                    .and(NotForContentType::const_new("video/"))
-                    .and(NotForContentType::const_new("application/pdf"))
-                    .and(NotForContentType::const_new("application/octet-stream")),
-            ),
-        )
+        // 既定の除外 (gRPC・画像・SSE・32B未満) を残したまま、圧縮済みの形式を外す (→ `compressible`)。
+        .layer(CompressionLayer::new().compress_when(DefaultPredicate::new().and(compressible)))
         .layer(SetResponseHeaderLayer::if_not_present(
             header::X_CONTENT_TYPE_OPTIONS,
             HeaderValue::from_static("nosniff"),
+        ))
+        // ほかのサイトの枠 (iframe) に入れて、見えない画面を押させること (クリックジャッキング) を防ぐ
+        // (→ docs/architecture.md「応答のヘッダー」)。
+        .layer(SetResponseHeaderLayer::if_not_present(
+            header::CONTENT_SECURITY_POLICY,
+            HeaderValue::from_static(CONTENT_SECURITY_POLICY),
         ))
         // `route_layer`は登録済みルートにしか掛からず`fallback`には掛からない
         // (axum 0.8 route_layer.md)。静的ファイル配信への不要なDBアクセスを避けるため
@@ -138,7 +185,7 @@ pub async fn build_app(
         link_previews: Arc::new(api::link_preview::LinkPreviews::new(
             dirs.link_previews_dir(),
         )),
-        own_dirs: vec![dirs.config_dir.clone(), dirs.data_dir.clone()],
+        own_dirs: dirs.own_dirs(),
         folder_reach: Arc::default(),
         config_path: dirs.config_path(),
         running_server_settings: api::server_settings::ServerSettings::from_config(config),
@@ -164,4 +211,45 @@ pub async fn build_app(
     let app = app.with_state(state);
 
     Ok(app)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn already_compressed_formats_are_not_compressed() {
+        for content_type in [
+            "application/zip",
+            "application/x-7z-compressed",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "application/epub+zip",
+            "Application/GZIP",
+            "video/mp4",
+            "application/pdf",
+        ] {
+            assert!(
+                !is_compressible_content_type(content_type),
+                "{content_type} は圧縮しないはず"
+            );
+        }
+    }
+
+    #[test]
+    fn text_formats_are_compressed() {
+        for content_type in [
+            "text/html; charset=utf-8",
+            "application/json",
+            "text/javascript",
+            "application/msword",
+            "",
+        ] {
+            assert!(
+                is_compressible_content_type(content_type),
+                "{content_type} は圧縮するはず"
+            );
+        }
+    }
 }

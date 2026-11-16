@@ -526,6 +526,13 @@ async fn folder_download_forces_attachment_for_html(pool: SqlitePool) {
             .and_then(|v| v.to_str().ok()),
         Some("nosniff")
     );
+    // ほかのサイトの枠に入れさせない (→ docs/architecture.md「応答のヘッダー」)。
+    let csp = response
+        .headers()
+        .get(header::CONTENT_SECURITY_POLICY)
+        .and_then(|v| v.to_str().ok())
+        .expect("Content-Security-Policyがあるはず");
+    assert!(csp.contains("frame-ancestors 'none'"), "{csp}");
 }
 
 /// PDFファイルのダウンロードは `Content-Disposition: inline`(ホワイトリスト対象)。
