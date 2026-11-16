@@ -990,16 +990,32 @@ async function shootAdmin() {
 
 		if (want('axis-row-actions')) {
 			await gotoReady(page, `/contents/${archive.id}/axes`);
+			// 行の操作は⋮にまとめてあるので、先頭の行の⋮を開いて項目を見せる。
+			await page
+				.getByRole('button', { name: t('common_row_actions', { name: data().year }) })
+				.click();
+			const menu = page.getByRole('menu');
+			await menu.waitFor();
+			const lastRow = page.getByText(t('archive_axes_source_option_filename_word'));
+			// メニューが一覧の下にはみ出すときは、メニューの下端まで撮る。
+			const bottomOf = async (locator: Locator) => {
+				const b = await box('axis-row-actions', locator);
+				return b.y + b.height;
+			};
+			const menuBottom = await bottomOf(menu);
+			const rowBottom = await bottomOf(lastRow);
 			await shotBetween(
 				page,
 				'axis-row-actions',
 				page.getByRole('heading', { name: t('archive_axes_section_title'), exact: true }),
-				page.getByText(t('archive_axes_source_option_filename_word')),
+				menuBottom > rowBottom ? menu : lastRow,
 				{
 					padTop: 20,
 					padBottom: 18
 				}
 			);
+			await page.keyboard.press('Escape');
+			await menu.waitFor({ state: 'hidden' });
 		}
 
 		if (want('archive-axes-template')) {

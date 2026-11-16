@@ -19,7 +19,7 @@
 	import { LatestRequest } from '#lib/latest-request.ts';
 	import { moveItem } from '#lib/reorder.ts';
 	import { SORTABLE_FLIP_DURATION_MS, SortableZone } from '#lib/sortable-zone.svelte.ts';
-	import { columnFromSmClass, dragHandleClass } from '#lib/table-columns.ts';
+	import { actionColumnClass, columnFromSmClass, dragHandleClass } from '#lib/table-columns.ts';
 	import { byPosition } from '#lib/sort.ts';
 	import { axisSourceLabel } from '#lib/axis-labels.ts';
 	import * as m from '#lib/paraglide/messages.js';
@@ -35,15 +35,13 @@
 	import * as Select from '#lib/components/ui/select/index.ts';
 	import * as Table from '#lib/components/ui/table/index.ts';
 	import ConfirmDialog from '#lib/components/confirm-dialog.svelte';
+	import RowActionsMenu from '#lib/components/row-actions-menu.svelte';
 	import ErrorDialog from '#lib/components/error-dialog.svelte';
 	import WarningBand from '#lib/components/warning-band.svelte';
 	import AxesAiDialog from '#lib/components/axes-ai-dialog.svelte';
 	import LoadingButton from '#lib/components/loading-button.svelte';
 	import { toast } from 'svelte-sonner';
-	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
-	import XIcon from '@lucide/svelte/icons/x';
 	import type { Attachment } from 'svelte/attachments';
 	import type { PageProps } from './$types';
 	import { FormDirtyState } from '#lib/form-dirty.svelte.ts';
@@ -288,7 +286,7 @@
 	}
 
 	// 軸の並べ替え。並べ直した順に position を 0 から振り直し、値が変わった軸だけを PUT する。
-	// マウス・タッチは行頭のつまみのドラッグ、キーボードは各行の上下ボタンで行う。
+	// マウス・タッチは行頭のつまみのドラッグ、キーボードは各行の⋮の「上へ移動」「下へ移動」で行う。
 	let axisOrderSaving = $state(false);
 	let axisList = $state<HTMLElement | null>(null);
 
@@ -359,13 +357,12 @@
 		if (target < 0 || target >= sortedAxes.length) return;
 		const axisId = sortedAxes[index].id;
 		await saveAxisOrder(moveItem(sortedAxes, index, target));
-		// 保存中は上下ボタンが disabled になりフォーカスが外れるので、保存を終えてから戻す。
+		// 行が動くとフォーカスが外れるので、保存を終えてから戻す。
 		// 失敗して元の並びに戻ることがあるので、位置は動かした軸から引き直す。
 		await tick();
-		focusMoveButton(
+		focusRowActions(
 			axisList,
-			sortedAxes.findIndex((axis) => axis.id === axisId),
-			direction
+			sortedAxes.findIndex((axis) => axis.id === axisId)
 		);
 	}
 
@@ -543,7 +540,7 @@
 
 	// 行の並べ替え。表の行の順がそのまま並び順 (照合語なら照合の順) になり、
 	// 表全体の保存で送る (→ docs/archive.md「軸の値の辞書と導出」)。
-	// マウス・タッチは行頭のつまみのドラッグ、キーボードは各行の上下ボタンで行う。
+	// マウス・タッチは行頭のつまみのドラッグ、キーボードは各行の⋮の「上へ移動」「下へ移動」で行う。
 	let axisValuesBody = $state<HTMLTableSectionElement | null>(null);
 
 	let templateSaving = $state(false);
@@ -567,7 +564,7 @@
 		}
 	}
 
-	/** 上下ボタンの読み上げに使う行の名前。追加したばかりで元の値が空の行は行番号にする。 */
+	/** 行の操作の読み上げに使う行の名前。追加したばかりで元の値が空の行は行番号にする。 */
 	function axisValueRowName(row: AxisValueRow, index: number): string {
 		return row.rawValue || m.archive_axes_values_row_number({ number: String(index + 1) });
 	}
@@ -577,7 +574,7 @@
 		if (axisBusy || target < 0 || target >= axisValueRows.length) return;
 		axisValueRows = moveItem(axisValueRows, index, target);
 		await tick();
-		focusMoveButton(axisValuesBody, target, direction);
+		focusRowActions(axisValuesBody, target);
 	}
 
 	const valueZone = new SortableZone<AxisValueRow>({
@@ -588,25 +585,14 @@
 		}
 	});
 
-	// 並べ替えの上下ボタンは、lg より狭い幅ではキーボードで移ってきた間だけ見せる (→ docs/ui.md「UI 全般」)。
-	// 隠す間も読み上げとキーボードからは届くよう、hidden でなく sr-only にする。
-	// 値の辞書の表は列ごと出し入れしないと列がずれるので、表のどこかのボタンにフォーカスがある間は列全体を見せる。
-	const axisMoveButtonsClass =
-		'max-lg:sr-only max-lg:group-has-[[data-move]:focus-visible]/axis-moves:not-sr-only';
-	const valueMoveColumnClass =
-		'max-lg:sr-only max-lg:group-has-[[data-move]:focus-visible]/value-moves:not-sr-only';
+	// 値の辞書の表のセル。狭い幅で元の値のセルが何段にもなるので上に寄せ、つまみ・表示名・⋮を
+	// 1段目の入力欄 (44px) の高さの中で揃える (→ docs/ui.md「UI 全般」)。
+	const valueCellClass = 'py-1.5 align-top';
+	const valueRowLineClass = 'flex h-11 items-center';
 
-	/**
-	 * 上下ボタンで行を動かした後のフォーカス。端に着くと押したボタンが disabled になり
-	 * フォーカスが外れるので、動かした行の同じ向きのボタン、押せなければ逆向きのボタンへ戻す。
-	 */
-	function focusMoveButton(rows: HTMLElement | null, index: number, direction: -1 | 1) {
-		const row = rows?.children[index];
-		const button =
-			row?.querySelector<HTMLButtonElement>(
-				`[data-move="${direction === -1 ? 'up' : 'down'}"]:not(:disabled)`
-			) ?? row?.querySelector<HTMLButtonElement>('[data-move]:not(:disabled)');
-		button?.focus();
+	/** ⋮で行を動かした後、動いた行の⋮へフォーカスを戻す。行の DOM を動かすとフォーカスが外れるため。 */
+	function focusRowActions(rows: HTMLElement | null, index: number) {
+		rows?.children[index]?.querySelector<HTMLElement>('[data-row-actions]')?.focus();
 	}
 
 	function handleAxisValuesSubmit(e: SubmitEvent) {
@@ -922,7 +908,7 @@
 	}
 </script>
 
-<!-- ドラッグで並べ替えるつまみ (軸の一覧と値の辞書の表で共通)。キーボードでは各行の上下ボタンを使うので、
+<!-- ドラッグで並べ替えるつまみ (軸の一覧と値の辞書の表で共通)。キーボードでは各行の⋮から動かすので、
      フォーカスを受けず読み上げもしない。 -->
 {#snippet dragHandle(handle: Attachment<HTMLElement>, extraClass?: string)}
 	<span
@@ -1052,7 +1038,7 @@
 			     横にはみ出す (→ docs/ui.md「UI 全般」の「管理画面の表は横スクロールさせない」)。 -->
 	<!-- 区画の間は 48px 空け、その中ほどに罫線を引く (→ docs/ui.md「UI 全般」の「余白と区切り」)。 -->
 	<div class="flex flex-col lg:flex-row">
-		<!-- 左カラムの幅は、つまみ・上下ボタン・編集・削除を並べても抽出元
+		<!-- 左カラムの幅は、つまみと⋮を並べても抽出元
 				     (「ファイル名に含まれる語」) が1行に収まるように取る。 -->
 		<div
 			class="flex flex-col gap-2 border-b pb-6 lg:w-108 lg:shrink-0 lg:border-r lg:border-b-0 lg:pr-6 lg:pb-0"
@@ -1080,16 +1066,10 @@
 			{#if sortedAxes.length === 0}
 				<p class="text-sm text-muted-foreground">{m.archive_axes_empty()}</p>
 			{:else}
-				<div
-					bind:this={axisList}
-					{@attach axisZone.zone}
-					class="group/axis-moves flex flex-col gap-2"
-				>
+				<div bind:this={axisList} {@attach axisZone.zone} class="flex flex-col gap-2">
 					{#each axisZone.entries as entry, index (entry.id)}
 						{@const axis = entry.item}
-						<!-- 上下のアイコンボタンは押せる範囲を四方に 6px 広げているので、隣と重ならないよう
-								     間隔を 12px 取る (→ docs/ui.md「UI 全般」)。
-								     ドラッグで運ぶ複製にも地の色が要るので、選択していない行にも背景を付ける。 -->
+						<!-- ドラッグで運ぶ複製にも地の色が要るので、選択していない行にも背景を付ける。 -->
 						<div
 							animate:flip={{ duration: SORTABLE_FLIP_DURATION_MS }}
 							class={[
@@ -1105,60 +1085,36 @@
 								onclick={() => selectAxis(axis.id)}
 							>
 								<p class="truncate text-sm font-medium">{axis.name}</p>
-								<!-- 「フォルダーの第1階層」が「第1階 / 層」と割れないようにする。
-								     狭い幅で上下ボタンを見せると語ごとでも収まらないので、その間だけ軸名と同じく「…」で切り、隣のボタンに重ねない。
-								     折り返すと行が高くなり、フォーカスが外れてボタンが消えたときに行が縮んで、押した所がずれるため。 -->
-								<p
-									class="text-xs break-keep text-muted-foreground max-lg:group-has-[[data-move]:focus-visible]/axis-moves:truncate"
-								>
-									{axisRowSourceLabel(axis)}
-								</p>
+								<!-- 「フォルダーの第1階層」が「第1階 / 層」と割れないようにする。 -->
+								<p class="text-xs break-keep text-muted-foreground">{axisRowSourceLabel(axis)}</p>
 								{#if !axis.filterable}
 									<p class="text-xs text-muted-foreground">{m.archive_axes_not_filterable()}</p>
 								{/if}
 							</button>
-							<!-- 上下ボタンは、lg より狭い幅ではキーボードで移ってきたときだけ見せる。狭い幅は行の幅をつまみに譲る
-								     (→ docs/ui.md「UI 全般」)。 -->
-							<div class={['flex gap-3', axisMoveButtonsClass]}>
-								<Button
-									variant="ghost"
-									size="icon"
-									data-move="up"
+							<RowActionsMenu name={axis.name}>
+								<DropdownMenu.Item disabled={axisBusy} onSelect={() => openEditAxisDialog(axis)}>
+									{m.action_edit()}
+								</DropdownMenu.Item>
+								<DropdownMenu.Item
 									disabled={index === 0 || axisBusy}
-									aria-label={m.archive_axes_move_up({ name: axis.name })}
-									onclick={() => moveAxis(index, -1)}
+									onSelect={() => moveAxis(index, -1)}
 								>
-									<ChevronUpIcon class="size-4" />
-								</Button>
-								<Button
-									variant="ghost"
-									size="icon"
-									data-move="down"
+									{m.archive_axes_move_up()}
+								</DropdownMenu.Item>
+								<DropdownMenu.Item
 									disabled={index === sortedAxes.length - 1 || axisBusy}
-									aria-label={m.archive_axes_move_down({ name: axis.name })}
-									onclick={() => moveAxis(index, 1)}
+									onSelect={() => moveAxis(index, 1)}
 								>
-									<ChevronDownIcon class="size-4" />
-								</Button>
-							</div>
-							<Button
-								variant="outline"
-								size="sm"
-								disabled={axisBusy}
-								aria-label={m.archive_axes_edit_label({ name: axis.name })}
-								onclick={() => openEditAxisDialog(axis)}
-							>
-								{m.action_edit()}
-							</Button>
-							<Button
-								variant="destructive"
-								size="sm"
-								disabled={axisBusy}
-								aria-label={m.archive_axes_delete_label({ name: axis.name })}
-								onclick={() => startDeleteAxis(axis)}
-							>
-								{m.action_delete()}
-							</Button>
+									{m.archive_axes_move_down()}
+								</DropdownMenu.Item>
+								<DropdownMenu.Item
+									variant="destructive"
+									disabled={axisBusy}
+									onSelect={() => startDeleteAxis(axis)}
+								>
+									{m.action_delete()}
+								</DropdownMenu.Item>
+							</RowActionsMenu>
 						</div>
 					{/each}
 				</div>
@@ -1282,7 +1238,7 @@
 							{:else if axisValueRows.length === 0}
 								<p class="text-sm text-muted-foreground">{m.archive_axes_values_empty()}</p>
 							{:else}
-								<Table.Root class="group/value-moves">
+								<Table.Root>
 									<Table.Header>
 										<Table.Row>
 											<Table.Head class="w-10"></Table.Head>
@@ -1299,10 +1255,7 @@
 												>
 											{/if}
 											<Table.Head>{m.archive_axes_values_column_display()}</Table.Head>
-											<Table.Head class={['w-24', valueMoveColumnClass]}></Table.Head>
-											{#if axis.source === 'filenameWord'}
-												<Table.Head class="w-10"></Table.Head>
-											{/if}
+											<Table.Head class={actionColumnClass}></Table.Head>
 										</Table.Row>
 									</Table.Header>
 									<Table.Body bind:ref={axisValuesBody} {@attach valueZone.zone}>
@@ -1319,13 +1272,20 @@
 													valueZone.isPressed(entry) && 'opacity-60 [&>td]:bg-accent'
 												]}
 											>
-												<Table.Cell class="py-0">
-													{@render dragHandle(valueZone.handle(entry.id))}
+												<Table.Cell class={valueCellClass}>
+													<div class={valueRowLineClass}>
+														{@render dragHandle(valueZone.handle(entry.id))}
+													</div>
 												</Table.Cell>
-												<Table.Cell class="py-1.5">
+												<Table.Cell class={valueCellClass}>
 													<!-- 階層と日付の軸は、値がアイテムから決まるので、生の値は打たせない。 -->
 													{#if axis.source !== 'filenameWord'}
-														<span class="text-sm">{row.rawValue}</span>
+														<!-- 長いフォルダー名でも表を横にはみ出させず、表示名と⋮を画面に残すよう折り返す。 -->
+														<div class="flex min-h-11 items-center">
+															<span class="text-sm wrap-anywhere whitespace-normal"
+																>{row.rawValue}</span
+															>
+														</div>
 													{:else}
 														<!-- スマートフォン幅では横に並べると入力欄が潰れるので、件数を下に回す。
 														     件数のボタンは押せる範囲を上に 8px 広げているので、入力欄と重ならないよう 8px 空ける。 -->
@@ -1350,11 +1310,11 @@
 													{/if}
 												</Table.Cell>
 												{#if axis.source === 'filenameWord'}
-													<Table.Cell class={['py-1.5', columnFromSmClass]}>
+													<Table.Cell class={[valueCellClass, columnFromSmClass]}>
 														{@render matchPositionSelect(row, index)}
 													</Table.Cell>
 												{/if}
-												<Table.Cell class="py-1.5">
+												<Table.Cell class={valueCellClass}>
 													<Input
 														bind:value={row.displayName}
 														aria-label={m.archive_axes_values_display_label({
@@ -1363,54 +1323,34 @@
 														disabled={axisStructureBusy}
 													/>
 												</Table.Cell>
-												<Table.Cell class={['py-0', valueMoveColumnClass]}>
-													<!-- 押せる範囲を四方に 6px 広げているので、隣と重ならないよう間隔を 12px 取る
-														     (→ docs/ui.md「UI 全般」。軸の一覧の上下ボタンと同じ)。 -->
-													<div class="flex justify-end gap-3">
-														<Button
-															type="button"
-															variant="ghost"
-															size="icon"
-															data-move="up"
-															disabled={index === 0 || axisBusy}
-															aria-label={m.archive_axes_values_move_up({
-																value: axisValueRowName(row, index)
-															})}
-															onclick={() => moveAxisValueRow(index, -1)}
-														>
-															<ChevronUpIcon class="size-4" />
-														</Button>
-														<Button
-															type="button"
-															variant="ghost"
-															size="icon"
-															data-move="down"
-															disabled={index === axisValueRows.length - 1 || axisBusy}
-															aria-label={m.archive_axes_values_move_down({
-																value: axisValueRowName(row, index)
-															})}
-															onclick={() => moveAxisValueRow(index, 1)}
-														>
-															<ChevronDownIcon class="size-4" />
-														</Button>
+												<Table.Cell class={[valueCellClass, actionColumnClass]}>
+													<div class={[valueRowLineClass, 'justify-end']}>
+														<RowActionsMenu name={axisValueRowName(row, index)}>
+															<DropdownMenu.Item
+																disabled={index === 0 || axisBusy}
+																onSelect={() => moveAxisValueRow(index, -1)}
+															>
+																{m.archive_axes_move_up()}
+															</DropdownMenu.Item>
+															<DropdownMenu.Item
+																disabled={index === axisValueRows.length - 1 || axisBusy}
+																onSelect={() => moveAxisValueRow(index, 1)}
+															>
+																{m.archive_axes_move_down()}
+															</DropdownMenu.Item>
+															<!-- 階層と日付の軸は、値がアイテムから決まるので行を消させない。 -->
+															{#if axis.source === 'filenameWord'}
+																<DropdownMenu.Item
+																	variant="destructive"
+																	disabled={axisStructureBusy}
+																	onSelect={() => removeAxisValueRow(index)}
+																>
+																	{m.archive_axes_values_remove_row()}
+																</DropdownMenu.Item>
+															{/if}
+														</RowActionsMenu>
 													</div>
 												</Table.Cell>
-												{#if axis.source === 'filenameWord'}
-													<Table.Cell>
-														<Button
-															type="button"
-															variant="ghost"
-															size="icon-sm"
-															disabled={axisStructureBusy}
-															aria-label={m.archive_axes_values_remove_row({
-																value: axisValueRowName(row, index)
-															})}
-															onclick={() => removeAxisValueRow(index)}
-														>
-															<XIcon class="size-4" />
-														</Button>
-													</Table.Cell>
-												{/if}
 											</tr>
 										{/each}
 									</Table.Body>
