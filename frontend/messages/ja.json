@@ -477,6 +477,8 @@
 	"archive_axes_dialog_optional_in_title_help": "オフの場合、値のないファイルでは、表示タイトルのこの分類の部分が空白になります。",
 	"archive_axes_not_filterable": "絞り込みに表示しない",
 	"archive_axes_values_heading": "{name} の値",
+	"archive_axes_switch_discard_description": "保存していない値の変更は失われます。",
+	"archive_axes_switch_discard_confirm": "破棄して切り替える",
 	"archive_axes_values_saved_toast": "「{name}」の値を保存しました。",
 	"archive_axes_values_hint_dir_level": "スキャンで収集された値です。表示名と順序を変更できます。",
 	"archive_axes_values_hint_filename_word": "値はファイル名の単語によって決まります。複数の単語が一致した場合は、最も長いものが優先されます。",
