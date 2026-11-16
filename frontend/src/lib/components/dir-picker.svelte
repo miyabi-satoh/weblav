@@ -87,8 +87,9 @@
 			if (!response.ok || !data) {
 				// 開いた位置が辿れる範囲の外だと 422 になる。既存コンテンツのパスを初期位置に
 				// 渡しているので、「共有」を消した後などに起こる
-				// (→ docs/folders.md「共有」)。行き止まりにせず、上位の一覧から選び直させる。
-				if (response.status === 422 && path !== '') {
+				// (→ docs/folders.md「共有」)。NAS が落ちていて届かないとき (503) も同じ。
+				// 行き止まりにせず、上位の一覧から選び直させる。
+				if ((response.status === 422 || response.status === 503) && path !== '') {
 					await load('');
 					return;
 				}

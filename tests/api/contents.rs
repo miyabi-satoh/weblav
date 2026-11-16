@@ -500,3 +500,28 @@ async fn create_content_with_the_removed_archive_type_is_rejected(pool: SqlitePo
         "invalid_request_body",
     );
 }
+
+/// フォルダーが無くなっても、場所を変えなければ題を直せる (ショートカットと同じ)。
+/// NAS が落ちている間やフォルダーを消した後に、非表示にもできなくなるため。
+#[sqlx::test]
+async fn a_folder_content_can_be_edited_after_its_folder_is_gone(pool: SqlitePool) {
+    let dir = temp_test_dir("folder-missing");
+    std::fs::create_dir_all(&dir).expect("フォルダーを作れなかった");
+    let (app, cookie) = admin_app(&pool).await;
+    let id = insert_folder_by(&pool, "教材", &dir, "public", None, None).await;
+    let stored = canonical_path_as_api_returns_it(&dir);
+    std::fs::remove_dir_all(&dir).expect("フォルダーを消せなかった");
+
+    let (status, body) = send_json(
+        app,
+        "PUT",
+        &format!("/api/v1/contents/{id}"),
+        &cookie,
+        &format!(
+            r#"{{"title":"題","path":{}}}"#,
+            serde_json::to_string(&stored).expect("JSON にできなかった")
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+}

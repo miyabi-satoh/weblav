@@ -752,7 +752,9 @@ fn has_no_scheme(url: &str) -> bool {
 /// `std::fs::canonicalize` はブロッキングI/Oのため `spawn_blocking` に載せる。
 ///
 /// 選べるのは `user` が中を見られる共有の中だけ (→ `api::shares`)。ただし今の登録先 (`current`) の
-/// ままなら、見られなくなった後でも通す。ほかの項目を直すたびに登録先を選び直させないため。
+/// ままなら、確かめずに通す (ショートカットと同じ)。ほかの項目を直すたびに登録先を選び直させないためと、
+/// NAS が落ちている間やフォルダーを消した後でも、題や公開範囲を直したり非表示にしたりできるようにするため。
+/// 開くときは、そのつど共有の中かを確かめる (→ `resolve_path`)。
 async fn validate_folder_path(
     state: &AppState,
     user: &AuthUser,
@@ -763,15 +765,14 @@ async fn validate_folder_path(
     // 前後に空白を含むディレクトリ名が有効で、落とすと別のパスとして扱われる。
     let path = path.unwrap_or_default().to_string();
     super::validate::non_empty(&path, "path is required")?;
+    if current == Some(path.as_str()) {
+        return Ok(path);
+    }
 
     // 検証は全てブロッキングI/Oなので1つの `spawn_blocking` にまとめる。
     // 「共有」はその前に読む (`run_blocking` の中ではDBに触れない)。
     super::roots::ensure_input_reachable(state, &path).await?;
-    let roots = if current == Some(path.as_str()) {
-        super::roots::load_roots(state).await?
-    } else {
-        super::roots::load_roots_for(state, user).await?
-    };
+    let roots = super::roots::load_roots_for(state, user).await?;
     let canonical = super::hidden::with_hidden(state, move |hidden| {
         super::fs::canonical_dir_within_roots(&path, &roots, hidden)
     })
