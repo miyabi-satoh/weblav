@@ -874,7 +874,24 @@ fn numeric_reference(after: &str) -> Option<(char, &str)> {
     // 先頭の 0 を落としてから読む。残りが長すぎるものは u32 に収まらず、parse が断る。
     let digits = body[..len].trim_start_matches('0');
     let code = u32::from_str_radix(if digits.is_empty() { "0" } else { digits }, radix).ok()?;
-    Some((char::from_u32(code)?, tail))
+    Some((referenced_char(code), tail))
+}
+
+/// HTML の決まりどおりに、数値参照の番号を文字にする。0・サロゲート・範囲の外は U+FFFD、
+/// 0x80〜0x9F は windows-1252 の文字に読み替える (古いページが `&#150;` でダッシュを書くため)。
+fn referenced_char(code: u32) -> char {
+    if let Ok(byte @ 0x80..=0x9F) = u8::try_from(code) {
+        let bytes = [byte];
+        let (decoded, _) = encoding_rs::WINDOWS_1252.decode_without_bom_handling(&bytes);
+        return decoded
+            .chars()
+            .next()
+            .unwrap_or(char::REPLACEMENT_CHARACTER);
+    }
+    match code {
+        0 => char::REPLACEMENT_CHARACTER,
+        _ => char::from_u32(code).unwrap_or(char::REPLACEMENT_CHARACTER),
+    }
 }
 
 /// URL のホスト名。タイトルを取れなかったときの代わりに使う。
@@ -1149,6 +1166,14 @@ mod tests {
     #[test]
     fn numeric_references_with_leading_zeros_are_decoded() {
         assert_eq!(decode_numeric_references("&#000065;&#x0001F600;"), "A😀");
+    }
+
+    #[test]
+    fn numeric_references_follow_the_html_replacements() {
+        assert_eq!(
+            decode_numeric_references("A&#150;B&#0;&#xD800;&#x110000;"),
+            "A\u{2013}B\u{FFFD}\u{FFFD}\u{FFFD}"
+        );
     }
 
     #[test]
