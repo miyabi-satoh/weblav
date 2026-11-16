@@ -472,6 +472,11 @@ async fn scan_and_sync(
             });
         }
         let (items, complete) = read_items(&root, result.rel_paths, &known, &progress);
+        // 走査と読み取りは「見つからない」を消えたものとして扱う。途中で NAS やディスクが外れても同じに見えるので、
+        // 登録先がまだ見えるかを確かめ、見えなければ同期しない (残りのファイルを全部外してしまうため)。
+        if !root.is_dir() {
+            return Err(AppError::FolderUnreachable);
+        }
         Ok(Some((items, complete, result.dirs, result.unreadable)))
     })
     .await??;
@@ -922,7 +927,12 @@ async fn try_refresh_changed_dirs(
     let changes = run_blocking(move || {
         let hidden = rules.resolve();
         let root = super::fs::canonical_dir_within_roots(&scan_root, &roots, &hidden)?;
-        Ok::<_, AppError>(find_dir_changes(&root, &known, &filter, &hidden))
+        let changes = find_dir_changes(&root, &known, &filter, &hidden);
+        // 読み直しの途中で外れたなら、消えたと見たフォルダーも当てにならない (→ `scan_and_sync`)。
+        if !root.is_dir() {
+            return Ok(DirChanges::default());
+        }
+        Ok::<_, AppError>(changes)
     })
     .await??;
     if changes.is_empty() {
