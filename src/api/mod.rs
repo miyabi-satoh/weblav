@@ -6,6 +6,7 @@ mod archive_items;
 mod auth;
 pub mod backup;
 mod browser;
+mod cloud_files;
 mod completed_reader;
 mod connection_info;
 mod contents;

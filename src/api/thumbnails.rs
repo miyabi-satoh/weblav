@@ -86,6 +86,9 @@ pub(super) struct FilePreview {
 /// 種類は `name` の拡張子で決める。
 /// ブロッキング I/O なので `run_blocking` の中から呼ぶ。
 pub(super) fn file_preview(name: &str, path: &Path, size: u64) -> FilePreview {
+    if super::cloud_files::is_online_only(path) {
+        return unread_preview(name);
+    }
     let image = is_image_file_name(name)
         .then(|| read_image_size(path))
         .flatten();
@@ -100,6 +103,9 @@ pub(super) fn file_preview(name: &str, path: &Path, size: u64) -> FilePreview {
 /// (→ docs/archive.md「軸の定義」)。大きさと同じ先頭のバイトから読み、ファイルを二度読まない。
 /// ブロッキング I/O なので `run_blocking` の中から呼ぶ。
 pub(super) fn scan_preview(name: &str, path: &Path, size: u64) -> (FilePreview, Option<i64>) {
+    if super::cloud_files::is_online_only(path) {
+        return (unread_preview(name), None);
+    }
     let (image, taken_at) = if is_image_file_name(name) {
         read_image_header(path)
     } else {
@@ -111,6 +117,17 @@ pub(super) fn scan_preview(name: &str, path: &Path, size: u64) -> (FilePreview, 
         thumbnail: shows_thumbnail(name, image),
     };
     (preview, taken_at)
+}
+
+/// 中身が手元に無いファイル (OneDrive の「オンラインのみ」など) のプレビューの情報。読むとダウンロードが
+/// 始まるので、中身は読まず、大きさの分からない画像・テキストでないファイルとして扱う。
+/// OS の縮小画像は、OS が中身を取りに行かずに返せる分だけ出るので、そのまま頼む。
+fn unread_preview(name: &str) -> FilePreview {
+    FilePreview {
+        image: None,
+        is_text: false,
+        thumbnail: shows_thumbnail(name, None),
+    }
 }
 
 /// 前に `file_preview` で読んで残しておいた値から、プレビューの情報を組み立てる。ファイルは開かない。
@@ -660,6 +677,39 @@ mod tests {
         let pdf = dir.join("doc.pdf");
         std::fs::write(&pdf, b"%PDF-1.4").expect("failed to write file");
         assert_eq!(file_preview("doc.pdf", &pdf, 8).image, None);
+    }
+
+    /// OneDrive の「オンラインのみ」のファイルは、一覧のプレビューのために読むと全部ダウンロードされるので読まない。
+    #[cfg(windows)]
+    #[test]
+    fn previews_of_online_only_files_do_not_download_them() {
+        let mut png = Vec::new();
+        RgbImage::new(300, 100)
+            .write_to(&mut Cursor::new(&mut png), image::ImageFormat::Png)
+            .expect("failed to encode png");
+        let root = super::super::cloud_files::placeholders::SyncRoot::new(
+            "thumbnails-online-only",
+            &[
+                ("wide.png", &png),
+                ("notes.txt", b"hello"),
+                ("clip.mp4", &png),
+            ],
+        );
+        let path = |name: &str| root.path().join(name);
+
+        let image = file_preview("wide.png", &path("wide.png"), png.len() as u64);
+        assert_eq!(image.image, None);
+        assert!(!image.thumbnail);
+        let (scanned, taken_at) = scan_preview("wide.png", &path("wide.png"), png.len() as u64);
+        assert_eq!(scanned.image, None);
+        assert_eq!(taken_at, None);
+        assert!(!file_preview("notes.txt", &path("notes.txt"), 5).is_text);
+        // OS の縮小画像の候補は残す。OS は中身を取りに行かずに返せる分だけ返す。
+        let video = file_preview("clip.mp4", &path("clip.mp4"), png.len() as u64);
+        assert_eq!(video.thumbnail, crate::os_thumbnail::SUPPORTED);
+        let _ = crate::os_thumbnail::thumbnail(&path("clip.mp4"), "clip.mp4", 128);
+
+        assert_eq!(root.fetches(), 0, "プレビューのために中身を取りに来た");
     }
 
     #[test]
