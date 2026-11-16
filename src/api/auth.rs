@@ -267,21 +267,21 @@ async fn change_password(
     user.require_confirmation().await?;
 
     let new_hash = auth::hash_password_blocking(&payload.new_password).await?;
-    sqlx::query!(
-        "UPDATE users SET password_hash = ? WHERE id = ?",
+    // 世代を進めて、ほかの端末のログインを切る (→ docs/access.md「ロールと操作」)。
+    let generation = sqlx::query_scalar!(
+        "UPDATE users SET password_hash = ?, session_generation = session_generation + 1
+         WHERE id = ? RETURNING session_generation",
         new_hash,
         user.id
     )
-    .execute(&state.pool)
-    .await?;
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(AppError::Unauthorized)?;
     record_or_warn(&state.pool, &OpRecord::new(Op::ChangePassword, &user)).await;
-    // 新しいパスワードを決めたばかりなので、このセッションは確かめた内のままにする
-    // (ほかのセッションは、古いパスワードで確かめた記録なので通らなくなる)。
-    auth::mark_password_confirmed(
-        &user.user_session()?.session,
-        &auth::credential_fingerprint(&new_hash),
-    )
-    .await?;
+    // 変えたこの端末はログインしたままにし、新しいパスワードを決めたばかりなので確かめた内にもする。
+    let session = &user.user_session()?.session;
+    auth::mark_session_generation(session, generation).await?;
+    auth::mark_password_confirmed(session, &auth::credential_fingerprint(&new_hash)).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -443,9 +443,11 @@ async fn recover(
     let password_hash = auth::hash_password_blocking(&payload.new_password).await?;
     let (recovery_code, recovery_hash) = auth::new_recovery_code().await?;
     // 照合に使ったコードのままの行だけ書く。同じコードで同時に2回戻されても、通るのは1回だけ。
+    // 世代を進めて、ほかの端末のログインを切る (→ docs/access.md「ロールと操作」)。
     let user = sqlx::query!(
         r#"UPDATE users SET password_hash = ?, recovery_code_hash = ?,
-                  recovery_code_created_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                  recovery_code_created_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                  session_generation = session_generation + 1
            WHERE id = ? AND recovery_code_hash = ?
            RETURNING username, role as "role: Role", session_generation"#,
         password_hash,

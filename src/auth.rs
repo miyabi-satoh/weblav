@@ -256,12 +256,12 @@ pub const SESSION_USER_ID_KEY: &str = "user_id";
 /// 最後にパスワードを確かめた記録 (→ docs/access.md「操作の前のパスワードの確認」)。ログインでも入る。
 const SESSION_PASSWORD_CONFIRMATION_KEY: &str = "password_confirmation";
 
-/// ログインしたときの利用者の世代 (`users.session_generation`)。管理者がパスワードを再設定すると
+/// ログインしたときの利用者の世代 (`users.session_generation`)。パスワードが変わると
 /// 世代が進み、それより前に始めたセッションは通らなくなる (→ docs/access.md「ロールと操作」)。
 const SESSION_GENERATION_KEY: &str = "session_generation";
 
 /// セッションが残した世代 (`stored`) が、利用者の今の世代と合うか。世代を残す前に始まったセッションは
-/// 0 と見なす。世代の列の既定が 0 なので、再設定されていない人のログインを、版を上げただけで切らないため。
+/// 0 と見なす。世代の列の既定が 0 なので、パスワードを変えていない人のログインを、版を上げただけで切らないため。
 fn session_generation_is_current(stored: Option<i64>, current: i64) -> bool {
     stored.unwrap_or(0) == current
 }
@@ -663,7 +663,7 @@ impl FromRequestParts<AppState> for AuthUser {
             session.flush().await.map_err(Error::Session)?;
             return Err(AppError::Unauthorized);
         };
-        // 管理者がパスワードを再設定する前に始めたセッション。削除と同じく破棄して未ログインにする。
+        // パスワードが変わる前に始めたセッション。削除と同じく破棄して未ログインにする。
         let stored: Option<i64> = session
             .get(SESSION_GENERATION_KEY)
             .await

@@ -44,9 +44,9 @@ async fn admin_reset_stops_the_old_session_from_changing_the_account(pool: Sqlit
     assert_error(status, &body, StatusCode::UNAUTHORIZED, "unauthorized");
 }
 
-/// 自分でパスワードを変えたセッションは確かめた内のままで、同じ人のほかのセッションは通らなくなる。
+/// 自分でパスワードを変えたセッションは、ログインしたまま確かめた内にもなる。同じ人のほかのセッションは切れる。
 #[sqlx::test]
-async fn changing_the_own_password_keeps_only_this_session_confirmed(pool: SqlitePool) {
+async fn changing_the_own_password_keeps_only_this_session_logged_in(pool: SqlitePool) {
     insert_user(&pool, "alice", "old-password").await;
     let app = test_app(pool).await;
     let here = login(app.clone(), "alice", "old-password").await;
@@ -71,12 +71,7 @@ async fn changing_the_own_password_keeps_only_this_session_confirmed(pool: Sqlit
         rename,
     )
     .await;
-    assert_error(
-        status,
-        &body,
-        StatusCode::FORBIDDEN,
-        "password_confirmation_required",
-    );
+    assert_error(status, &body, StatusCode::UNAUTHORIZED, "unauthorized");
     let (status, body) = send_json(app, "PUT", "/api/v1/auth/username", &here, rename).await;
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
 }
