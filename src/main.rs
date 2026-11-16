@@ -34,7 +34,8 @@ fn main() {
 }
 
 /// タスクトレイを出す前の起動失敗を報告して終了する。
-/// ダブルクリック起動ではコンソールが無いため、stderrに加えてメッセージボックスでも伝える
+/// ダブルクリック起動ではコンソールが無いため、stderrに加えてメッセージボックス (Windows) か
+/// ダイアログ (macOS・Linux) でも伝える
 /// (→ docs/distribution.md「コンソールの扱い」)。
 fn fatal_startup_error(message: &str) -> ! {
     // `eprintln!`は書き込み失敗でパニックする(GUIサブシステムでstderrが無効な場合等)。
@@ -44,7 +45,22 @@ fn fatal_startup_error(message: &str) -> ! {
     let _ = writeln!(std::io::stderr(), "{message}");
     #[cfg(windows)]
     show_message_box(message);
+    #[cfg(not(windows))]
+    show_message_dialog(message);
     std::process::exit(1);
+}
+
+/// macOS・Linux は rfd の窓で伝える。メッセージボックスと同じく、まだトレイの
+/// イベントループを回していないメインスレッドから呼ぶ。Linux は zenity を使い、
+/// 入っていなければ何も出ない (stderr には書いてある)。
+#[cfg(not(windows))]
+fn show_message_dialog(message: &str) {
+    rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Error)
+        .set_title("WebLAV")
+        .set_description(message)
+        .set_buttons(rfd::MessageButtons::Ok)
+        .show();
 }
 
 #[cfg(windows)]
