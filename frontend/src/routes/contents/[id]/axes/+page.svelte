@@ -1238,15 +1238,14 @@
 							{:else if axisValueRows.length === 0}
 								<p class="text-sm text-muted-foreground">{m.archive_axes_values_empty()}</p>
 							{:else}
-								<Table.Root>
+								<!-- sm 以上は列の幅を固定の表にし、つまみ・一致位置・⋮の列の幅だけを決めて、残りを元の値と表示名で等分する
+								     (→ docs/ui.md「UI 全般」)。狭い幅では中身に任せる。 -->
+								<Table.Root class="sm:table-fixed">
 									<Table.Header>
 										<Table.Row>
-											<Table.Head class="w-10"></Table.Head>
-											<!-- 元の値は短い語なので幅を固定し、余りを表示名に回す。狭い幅では中身に任せる。
-											     語の軸では、行ごとの件数のボタンを並べる分だけ広げる。 -->
-											<Table.Head class={axis.source === 'filenameWord' ? 'sm:w-44' : 'sm:w-32'}
-												>{m.archive_axes_values_column_raw()}</Table.Head
-											>
+											<!-- つまみ (32px) とセルの左右の余白が収まる幅。 -->
+											<Table.Head class="w-12"></Table.Head>
+											<Table.Head>{m.archive_axes_values_column_raw()}</Table.Head>
 											{#if axis.source === 'filenameWord'}
 												<!-- 選んだ位置で幅が変わらないよう、いちばん長い選択肢に合わせて固定する。
 											     狭い幅では列ごと隠し、元の値の欄の下に回す。 -->
@@ -1323,7 +1322,9 @@
 														disabled={axisStructureBusy}
 													/>
 												</Table.Cell>
-												<Table.Cell class={[valueCellClass, actionColumnClass]}>
+												<!-- ⋮の押せる範囲は右の画面の端まで広げる作りだが、この表は画面の端まで届かないので、
+												     セルの中で切って表を横にはみ出させない。 -->
+												<Table.Cell class={[valueCellClass, actionColumnClass, 'overflow-hidden']}>
 													<div class={[valueRowLineClass, 'justify-end']}>
 														<RowActionsMenu name={axisValueRowName(row, index)}>
 															<DropdownMenu.Item
