@@ -991,10 +991,10 @@ pub(super) fn contains(parent: &str, child: &str) -> bool {
 }
 
 /// `path` が、文字の上で `root` の中にあるか。利用者が渡したパスを、ファイルシステムに触る前に足切りするのに使う。
-/// 大文字小文字・区切り文字・Windows の `\\?\` の有無は区別しない。この後で実体のパスで確かめ直すので、広めに通してよい。
+/// Windows と macOS では大文字小文字を、Windows では区切り文字と `\\?\` の有無を区別しない。この後で実体のパスで確かめ直すので、広めに通してよい。
 pub(super) fn lexically_contains(root: &FsPath, path: &FsPath) -> bool {
     fn normalized(path: &FsPath) -> String {
-        let text = path.to_string_lossy();
+        let text = path.to_string_lossy().into_owned();
         #[cfg(windows)]
         let text = {
             let text = text.replace('/', "\\");
@@ -1006,7 +1006,11 @@ pub(super) fn lexically_contains(root: &FsPath, path: &FsPath) -> bool {
                 text
             }
         };
-        text.to_lowercase()
+        // 大文字小文字を区別しないのは、既定でそう扱うファイルシステムの OS だけ。Linux で揃えると、
+        // 共有の外の綴りの違うパスを中と見て、確かめに行ってしまう。
+        #[cfg(any(windows, target_os = "macos"))]
+        let text = text.to_lowercase();
+        text
     }
     // `..` は文字の上では中に見えても外へ出られるので、中とは見なさない。画面は `..` を含むパスを送らない。
     // Windows の `\\?\` の付いたパスでは、`..` が `ParentDir` でなくふつうの名前として返るので、綴りで見る。
@@ -1288,7 +1292,10 @@ mod tests {
         for (path, expected) in [
             (format!("{sep}srv{sep}教材"), true),
             (format!("{sep}srv{sep}教材{sep}英検"), true),
-            (format!("{sep}SRV{sep}教材{sep}英検"), true),
+            (
+                format!("{sep}SRV{sep}教材{sep}英検"),
+                cfg!(any(windows, target_os = "macos")),
+            ),
             (format!("{sep}srv{sep}教材2"), false),
             (format!("{sep}srv"), false),
             (format!("{sep}{sep}192.168.1.66{sep}x"), false),
