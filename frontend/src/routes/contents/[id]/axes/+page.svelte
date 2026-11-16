@@ -1106,8 +1106,11 @@
 							>
 								<p class="truncate text-sm font-medium">{axis.name}</p>
 								<!-- 「フォルダーの第1階層」が「第1階 / 層」と割れないようにする。
-								     狭い幅で上下ボタンを見せると語ごとでも収まらないので、そのときだけ語の途中で折り、隣のボタンに重ねない。 -->
-								<p class="text-xs wrap-anywhere break-keep text-muted-foreground">
+								     狭い幅で上下ボタンを見せると語ごとでも収まらないので、その間だけ軸名と同じく「…」で切り、隣のボタンに重ねない。
+								     折り返すと行が高くなり、フォーカスが外れてボタンが消えたときに行が縮んで、押した所がずれるため。 -->
+								<p
+									class="text-xs break-keep text-muted-foreground max-lg:group-has-[[data-move]:focus-visible]/axis-moves:truncate"
+								>
 									{axisRowSourceLabel(axis)}
 								</p>
 								{#if !axis.filterable}
