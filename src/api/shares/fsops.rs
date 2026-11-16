@@ -760,10 +760,20 @@ fn trash_os_error(code: i32) -> AppError {
     const FACILITY_WIN32: u32 = 7;
     /// `COPYENGINE_E_SHARING_VIOLATION_SRC`・`_DEST` (sherrors.h)。この定数のためだけに Win32_UI_Shell を足さない。
     const COPYENGINE_SHARING_VIOLATIONS: [u32; 2] = [0x8027_0027, 0x8027_0028];
+    /// `COPYENGINE_E_RECYCLE_FORCE_NUKE`・`_SIZE_TOO_BIG`・`_PATH_TOO_LONG`・`_BIN_NOT_FOUND`。
+    /// ごみ箱へは送れないので、画面は「元に戻せません」の確かめに切り替える。
+    const COPYENGINE_RECYCLE_UNAVAILABLE: [u32; 4] =
+        [0x8027_0036, 0x8027_0037, 0x8027_0038, 0x8027_003A];
+    /// `COPYENGINE_E_ACCESS_DENIED_SRC`・`_DEST`・`COPYENGINE_E_ACCESSDENIED_READONLY`。
+    const COPYENGINE_ACCESS_DENIED: [u32; 3] = [0x8027_0021, 0x8027_0022, 0x8027_003F];
 
     let hresult = code as u32;
     if COPYENGINE_SHARING_VIOLATIONS.contains(&hresult) {
         AppError::EntryInUse
+    } else if COPYENGINE_RECYCLE_UNAVAILABLE.contains(&hresult) {
+        AppError::TrashUnavailable
+    } else if COPYENGINE_ACCESS_DENIED.contains(&hresult) {
+        AppError::ShareReadOnly
     } else if (hresult >> 16) & 0x1FFF == FACILITY_WIN32 {
         map_io_error(io::Error::from_raw_os_error((hresult & 0xFFFF) as i32))
     } else {
@@ -780,7 +790,8 @@ fn trash_os_error(code: i32) -> AppError {
 /// `path` のある場所で、ごみ箱へ送れるか。確かに送れると分かる場所だけ真にする。
 /// 送れない場所で送ろうとすると、OS によっては黙って完全に消すため (Windows のネットワークのドライブなど)。
 ///
-/// - Windows: ネットワーク上の場所 (UNC・ネットワークのドライブ) でなければ送れる
+/// - Windows: この PC に据え付けたドライブ (`DRIVE_FIXED`) なら送れる。USB メモリーや SD カード (`DRIVE_REMOVABLE`)・
+///   ネットワーク上の場所 (UNC・ネットワークのドライブ) は、ごみ箱を持たないことがある
 /// - macOS: この Mac のディスク (`MNT_LOCAL`) なら送れる
 /// - そのほか (Linux など): ホームフォルダーと同じディスクなら送れる。ほかのディスクのごみ箱
 ///   (`.Trash-<uid>`) は、作れるか・デスクトップから見えるかがディスクによって違うため
@@ -795,8 +806,8 @@ fn platform_trash_available(path: &Path) -> bool {
     use windows::Win32::Storage::FileSystem::GetDriveTypeW;
     use windows::core::PCWSTR;
 
-    /// `DRIVE_REMOTE` (winbase.h)。この定数のためだけに Win32_System_WindowsProgramming を足さない。
-    const DRIVE_REMOTE: u32 = 4;
+    /// `DRIVE_FIXED` (winbase.h)。この定数のためだけに Win32_System_WindowsProgramming を足さない。
+    const DRIVE_FIXED: u32 = 3;
 
     let Some(Component::Prefix(prefix)) = path.components().next() else {
         return false;
@@ -811,7 +822,7 @@ fn platform_trash_available(path: &Path) -> bool {
         .chain([0])
         .collect();
     let drive_type = unsafe { GetDriveTypeW(PCWSTR(root.as_ptr())) };
-    drive_type != DRIVE_REMOTE
+    drive_type == DRIVE_FIXED
 }
 
 #[cfg(target_os = "macos")]
