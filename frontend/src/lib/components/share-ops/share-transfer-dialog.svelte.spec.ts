@@ -66,4 +66,37 @@ describe('ShareTransferDialog', () => {
 		await expect.element(page.getByText('英検の音声')).not.toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: '上書きする' })).not.toBeInTheDocument();
 	});
+
+	it('does not run the transfer when the destination changes while checking', async () => {
+		get.mockResolvedValue(
+			json({
+				share: { id: 2, name: '教材' },
+				path: '控え',
+				parent: '',
+				access: 'all',
+				entries: [{ name: '下', path: '控え/下' }]
+			})
+		);
+		let finishCheck: (value: unknown) => void = () => {};
+		post.mockReturnValueOnce(new Promise((resolve) => (finishCheck = resolve)));
+		await render(ShareTransferDialog, {
+			props: {
+				open: true,
+				op: 'copy',
+				shareId: 2,
+				dirPath: '控え',
+				target: { name: '英検', path: '新/英検', isDir: true, listed: false },
+				shares: [{ id: 2, name: '教材', access: 'all' } as components['schemas']['ShareResponse']],
+				ondone: () => {}
+			}
+		});
+		await page.getByRole('button', { name: 'ここにコピーする' }).click();
+		await expect.element(page.getByRole('button', { name: 'キャンセル' })).toBeDisabled();
+
+		await page.getByRole('button', { name: '下' }).click();
+		finishCheck(json({ conflicts: [], totalBytes: 1, availableBytes: 2, trash: false, listed: [] }));
+
+		await expect.element(page.getByRole('button', { name: 'キャンセル' })).toBeEnabled();
+		expect(post).toHaveBeenCalledTimes(1);
+	});
 });

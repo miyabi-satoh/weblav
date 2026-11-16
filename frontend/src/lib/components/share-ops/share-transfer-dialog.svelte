@@ -91,20 +91,22 @@
 		}
 	});
 
-	function body(onConflict?: OnConflict) {
-		const to = { shareId: picked!.shareId, path: picked!.path };
+	function body(dest: PickedDir, onConflict?: OnConflict) {
+		const to = { shareId: dest.shareId, path: dest.path };
 		const from = { shareId, paths: [target.path] };
 		return onConflict === undefined ? { op, from, to } : { op, from, to, onConflict };
 	}
 
 	async function check() {
 		if (!placeable || busy !== null || picked === null) return;
+		const dest = picked;
 		busy = 'check';
 		try {
 			const result = await errorDialog.attempt(() =>
-				client.POST('/api/v1/shares/transfer/check', { body: body() })
+				client.POST('/api/v1/shares/transfer/check', { body: body(dest) })
 			);
-			if (result?.data == null) return;
+			// 確かめている間に窓を閉じた・行き先を選び直したなら、実行しない。
+			if (result?.data == null || !open || picked !== dest) return;
 			const checked = result.data;
 			// 移動は同じディスクの中なら場所を変えるだけなので、空きはコピーでだけ見る (サーバーと同じ)。
 			if (op === 'copy' && checked.totalBytes > checked.availableBytes) {
@@ -123,12 +125,13 @@
 	}
 
 	async function begin(onConflict: OnConflict) {
-		if (busy !== null && busy !== 'check') return;
+		if ((busy !== null && busy !== 'check') || picked === null) return;
+		const dest = picked;
 		busy = onConflict;
 		try {
 			const result = await errorDialog.attempt(() =>
 				client.POST('/api/v1/shares/transfer', {
-					body: body(onConflict) as components['schemas']['TransferRequest']
+					body: body(dest, onConflict) as components['schemas']['TransferRequest']
 				})
 			);
 			if (result?.data == null) return;
@@ -143,6 +146,7 @@
 <Dialog.Root bind:open>
 	<Dialog.Content
 		class={conflict === null ? 'flex max-h-4/5 flex-col gap-0 p-0 sm:max-w-lg' : 'sm:max-w-lg'}
+		showCloseButton={busy === null}
 		escapeKeydownBehavior={busy !== null ? 'ignore' : 'close'}
 		interactOutsideBehavior={busy !== null ? 'ignore' : 'close'}
 	>
@@ -167,7 +171,12 @@
 			{/if}
 			<!-- 中身に余白 (p-0) を持たせていないので、Dialog.Footer の負の余白を打ち消す (dir-picker.svelte と同じ)。 -->
 			<Dialog.Footer class="mx-0 mb-0 bg-muted/40">
-				<Button type="button" variant="outline" onclick={() => (open = false)}>
+				<Button
+					type="button"
+					variant="outline"
+					disabled={busy !== null}
+					onclick={() => (open = false)}
+				>
 					{m.action_cancel()}
 				</Button>
 				<LoadingButton type="button" loading={busy !== null} disabled={!placeable} onclick={check}>
