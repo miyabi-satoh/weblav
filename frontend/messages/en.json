@@ -846,7 +846,7 @@
 	"error_trash_unavailable": "The trash is not available here. Choose to delete permanently instead.",
 	"error_entry_in_use": "Another app is using this item. Close it and try again.",
 	"error_share_read_only": "This share cannot be written to. Ask an administrator to check the write permission.",
-	"error_move_source_left": "Some moved items are still in the original location too. Close any apps using them, then delete what is left there.",
+	"error_move_source_left": "Items were placed at the destination, but some could not be removed from the original location. Close any apps using them, then delete them there.",
 	"archive_axes_ai_prompt_show": "Show the prompt",
 	"archive_axes_ai_back_button": "Back",
 	"action_retry": "Retry",
