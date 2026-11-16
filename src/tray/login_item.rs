@@ -36,6 +36,8 @@ impl State {
     }
 }
 
+#[cfg(windows)]
+pub use platform::register_restart_after_update;
 pub use platform::{open_settings, set, state, supported};
 
 #[cfg(target_os = "macos")]
@@ -121,6 +123,30 @@ mod platform {
 
     /// Windows では `NeedsApproval` にならないので呼ばれない。
     pub fn open_settings() {}
+
+    /// Store の更新で閉じられたら、更新の後に起動し直してもらう (→ docs/distribution.md「MSIX (Windows)」)。
+    /// 頼むのは更新される側の版なので、最初に出す版から入れておく。
+    /// 落ちた・応答しない・OS の再起動では起動し直さない (ログイン時の起動は `StartupTask` が受け持つ)。
+    /// 本体は引数を断るので、起動し直すときの引数は空にする。
+    pub fn register_restart_after_update() {
+        use windows::Win32::System::Recovery::{
+            RESTART_NO_CRASH, RESTART_NO_HANG, RESTART_NO_REBOOT, RegisterApplicationRestart,
+        };
+        use windows::core::PCWSTR;
+
+        if !packaged() {
+            return;
+        }
+        let result = unsafe {
+            RegisterApplicationRestart(
+                PCWSTR::null(),
+                RESTART_NO_CRASH | RESTART_NO_HANG | RESTART_NO_REBOOT,
+            )
+        };
+        if let Err(err) = result {
+            tracing::warn!(error = %err, "failed to register the restart after a Store update");
+        }
+    }
 
     /// MSIX のパッケージの中で動いているか (→ docs/distribution.md「常駐 (Windows)」)。
     fn packaged() -> bool {

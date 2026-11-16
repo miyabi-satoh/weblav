@@ -766,7 +766,7 @@ async fn validate_folder_path(
 
     // 検証は全てブロッキングI/Oなので1つの `spawn_blocking` にまとめる。
     // 「共有」はその前に読む (`run_blocking` の中ではDBに触れない)。
-    super::roots::ensure_reachable(state, &path).await?;
+    super::roots::ensure_input_reachable(state, &path).await?;
     let roots = if current == Some(path.as_str()) {
         super::roots::load_roots(state).await?
     } else {
@@ -793,7 +793,7 @@ async fn validate_shortcut_path(
     if current == Some(path.as_str()) {
         return Ok(path);
     }
-    super::roots::ensure_reachable(state, &path).await?;
+    super::roots::ensure_input_reachable(state, &path).await?;
     let roots = super::roots::load_roots_for(state, user).await?;
     let canonical = super::hidden::with_hidden(state, move |hidden| {
         super::fs::canonical_file_within_roots(&path, &roots, hidden)
@@ -2020,7 +2020,7 @@ pub(super) async fn resolve_path(
         // **候補パスに触る前に判定する**。触ってから弾くと、候補が実在するかどうかで
         // 応答までの時間が変わり、存在を推し量る手がかりになる。
         // 存在を伏せるため 422 ではなく 404 を返す (閲覧者に見せる経路のため)。
-        if !super::roots::is_within_roots(&roots, &canonical_root, &hidden) {
+        if !super::roots::is_shown_within_roots(&roots, &canonical_root, &hidden) {
             return Err(AppError::NotFound);
         }
 

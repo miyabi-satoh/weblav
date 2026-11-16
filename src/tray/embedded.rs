@@ -34,9 +34,12 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
     // タスクトレイ常駐モード。ターミナルから起動された場合でもそのターミナルは
     // 巻き込まず、このプロセスだけをコンソールから切り離す。
     detach_console();
+    #[cfg(windows)]
+    login_item::register_restart_after_update();
 
     let addr = server.addr;
     let configured = server.configured;
+    let open_setup_on_launch = server.open_setup_on_launch;
     let mut server = Some(server);
 
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
@@ -56,8 +59,15 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
     let poll_addr = open_addr(addr);
     let proxy = event_loop.create_proxy();
     std::thread::spawn(move || {
+        let mut open_setup_now = open_setup_on_launch;
         loop {
             let required = setup::required(poll_addr, POLL_TIMEOUT);
+            // 入れた直後に起動しても窓は出ず、Windows 11 は新しいアイコンを「^」の中に隠すので、
+            // 何も起きないように見える。起動したときに管理者がまだいなければ、セットアップの画面を開く。
+            if open_setup_now && required {
+                let _ = open::that_detached(setup::url(poll_addr, POLL_TIMEOUT));
+            }
+            open_setup_now = false;
             // イベントループが終わっていれば送れない。そのときはこのスレッドも終える。
             if proxy.send_event(UserEvent::Setup(required)).is_err() {
                 break;

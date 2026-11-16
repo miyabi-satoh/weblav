@@ -444,6 +444,8 @@ async fn transfer_all(
 ) -> Result<(), AppError> {
     let mut progress_items = 0;
     let mut progress_bytes = 0;
+    // 元が残ったもの。後で止まったときに、ログから辿れるようにする。
+    let mut source_left: Vec<&str> = Vec::new();
     for source in &prepared.sources {
         if job.progress.is_cancelled() {
             break;
@@ -472,7 +474,22 @@ async fn transfer_all(
             log_overwritten(state, user, &prepared.dest, &source.name).await;
         }
         applied.changes.extend(step_changes);
-        if result? {
+        // 置き先は完全なので、済んだものとして数え、残りも続けて移す。元に残ったことは最後に伝える。
+        let placed = match result {
+            Err(AppError::MoveSourceLeft) => {
+                source_left.push(&source.name);
+                true
+            }
+            Err(err) => {
+                // 先に元が残ったものがあっても、ここで止まった理由を伝える。止まったものは元が残っている (写し終えるまで消さない)。
+                if !source_left.is_empty() {
+                    tracing::warn!(job = %job.id, left = ?source_left, "a share job stopped after leaving part of moved sources");
+                }
+                return Err(err);
+            }
+            Ok(placed) => placed,
+        };
+        if placed {
             applied.items += source.items;
             applied.bytes += source.bytes;
         }
@@ -487,6 +504,10 @@ async fn transfer_all(
                 .bytes
                 .fetch_max(progress_bytes, Ordering::Relaxed);
         }
+    }
+    // 中止しても、元が残ったことのほうを伝える。元を消してもらわないと、同じものが2か所に残るため。
+    if !source_left.is_empty() {
+        return Err(AppError::MoveSourceLeft);
     }
     Ok(())
 }
@@ -559,12 +580,22 @@ impl Step {
                 Ok(copied.is_some())
             }
             TransferOp::Move => {
-                let moved = fsops::move_entry(&self.src, &self.dest_dir, &name, &job.progress)?;
-                let placed = moved.is_some();
-                if let Some(to) = moved {
-                    changes.push(Change::Moved { from: self.src, to });
+                match fsops::move_entry(&self.src, &self.dest_dir, &name, &job.progress) {
+                    Ok(Some(to)) => {
+                        changes.push(Change::Moved { from: self.src, to });
+                        Ok(true)
+                    }
+                    Ok(None) => Ok(false),
+                    // 置き先は完全なので、コンテンツは置き先へ付け替える。
+                    Err(AppError::MoveSourceLeft) => {
+                        changes.push(Change::Moved {
+                            from: self.src,
+                            to: self.dest_dir.join(&name),
+                        });
+                        Err(AppError::MoveSourceLeft)
+                    }
+                    Err(err) => Err(err),
                 }
-                Ok(placed)
             }
         }
     }
@@ -593,7 +624,8 @@ impl Step {
             // 置けなかったときは、ふつうの削除と同じ。
             changes.push(Change::Deleted(target.clone()));
         }
-        if self.op == TransferOp::Move && matches!(result, Ok(true)) {
+        if self.op == TransferOp::Move && matches!(result, Ok(true) | Err(AppError::MoveSourceLeft))
+        {
             changes.push(Change::Moved {
                 from: self.src,
                 to: target,

@@ -184,7 +184,7 @@ pub(super) async fn search(
             let Ok(root) = std::fs::canonicalize(&folder.path) else {
                 continue;
             };
-            if !super::roots::is_within_roots(&roots, &root, &hidden) {
+            if !super::roots::is_shown_within_roots(&roots, &root, &hidden) {
                 continue;
             }
             let folder_places = container_places(&folder.title, &folder.ancestors);

@@ -25,9 +25,9 @@ Only content registered in the admin pages appears for viewers.
 
 ## Quick start
 
-1. Install and start WebLAV. On Windows, get “WebLAV” from Microsoft Store and open it. On macOS, put `WebLAV.app` in the Applications folder and open it.
+1. Install and start WebLAV. On Windows, get “WebLAV” from Microsoft Store and open it. On macOS, put `WebLAV.app` in the Applications folder and open it. On Windows, set your home or work network to “Private network” (→ [Set up](02-setup.md)).
 
-2. Choose “Setup” from the WebLAV icon in the system tray (menu bar on macOS, top right of the screen on Ubuntu), then create an administrator. Keep the recovery code shown.
+2. On the setup screen that opens in your browser, create an administrator. Keep the recovery code shown. If you closed the screen, choose “Setup” from the WebLAV icon in the system tray (menu bar on macOS, top right of the screen on Ubuntu).
 
    ![WebLAV icon menu in the system tray on Windows](images/quickstart-tray-menu.webp)
 

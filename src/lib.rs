@@ -31,7 +31,6 @@ use tower_http::compression::predicate::{DefaultPredicate, NotForContentType, Pr
 use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 use tower_sessions::cookie::Key;
-use tower_sessions_sqlx_store::SqliteStore;
 
 use config::{AppDirs, Config};
 use state::AppState;
@@ -65,7 +64,7 @@ pub async fn build_app(
     folder_picker: folder_picker::FolderPicker,
     trash: api::TrashPolicy,
 ) -> Result<Router, Box<dyn std::error::Error + Send + Sync>> {
-    let session_store = SqliteStore::new(pool.clone());
+    let session_store = session::Store::new(pool.clone());
     session_store.migrate().await?;
 
     // secure_cookie無効のまま非loopbackで待ち受けると、非HTTPS環境ではCookieが
@@ -95,12 +94,7 @@ pub async fn build_app(
         tracing::warn!(error = %error::error_chain(&err), "cleaning up operations failed");
     }
 
-    let revoked_sessions = Arc::new(session::RevokedSessions::default());
-    let session_layer = session::layer(
-        session::Store::new(session_store, Arc::clone(&revoked_sessions)),
-        session_key,
-        &config.session,
-    );
+    let session_layer = session::layer(session_store, session_key, &config.session);
 
     // ログイン試行のレートリミット: 同一ユーザー名につき1分間に5回まで。
     // 異なるユーザー名を使った回避・CPU枯渇DoSを防ぐため、全体でも1分間に30回までの
@@ -160,7 +154,6 @@ pub async fn build_app(
         setup_tokens: Arc::new(api::setup::SetupTokens::default()),
         backup_work_dir,
         restore_staging: Arc::new(api::backup::RestoreStaging::default()),
-        revoked_sessions,
         max_upload_bytes,
         lan_port,
         folder_picker,

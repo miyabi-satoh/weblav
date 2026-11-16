@@ -559,7 +559,7 @@ pub(super) fn move_over(
             if !copy_over(src, target, progress, trash, outcome)? {
                 return Ok(false);
             }
-            remove_tree(src).map_err(map_io_error)?;
+            remove_source(src)?;
             Ok(true)
         }
         Err(err) => Err(map_io_error(err)),
@@ -644,11 +644,21 @@ pub(super) fn move_entry(
             let Some(target) = copy_tree(src, dest_dir, name, progress)? else {
                 return Ok(None);
             };
-            remove_tree(src).map_err(map_io_error)?;
+            remove_source(src)?;
             Ok(Some(target))
         }
         Err(err) => Err(map_io_error(err)),
     }
+}
+
+/// 別のディスクへ写し終えた後に、元を消す。消し切れなければ `MoveSourceLeft` にする。
+/// 置き先は完全なので、ふつうの失敗と分けて伝え、やり直しの上書きで完全な写しを壊させないため。
+/// 呼び出し側は、置き先の `dest_dir.join(name)` (上書きなら `target`) へ動いたものとして扱う。
+fn remove_source(src: &Path) -> Result<(), AppError> {
+    remove_tree(src).map_err(|err| {
+        tracing::warn!(error = %err, source = %src.display(), "moved to another disk, but the source could not be removed completely");
+        AppError::MoveSourceLeft
+    })
 }
 
 /// リンクを辿らずに消す。フォルダーなら中身ごと (`fs::remove_dir_all` は中のリンクを辿らない)。
@@ -750,10 +760,20 @@ fn trash_os_error(code: i32) -> AppError {
     const FACILITY_WIN32: u32 = 7;
     /// `COPYENGINE_E_SHARING_VIOLATION_SRC`・`_DEST` (sherrors.h)。この定数のためだけに Win32_UI_Shell を足さない。
     const COPYENGINE_SHARING_VIOLATIONS: [u32; 2] = [0x8027_0027, 0x8027_0028];
+    /// `COPYENGINE_E_RECYCLE_FORCE_NUKE`・`_SIZE_TOO_BIG`・`_PATH_TOO_LONG`・`_BIN_NOT_FOUND`。
+    /// ごみ箱へは送れないので、画面は「元に戻せません」の確かめに切り替える。
+    const COPYENGINE_RECYCLE_UNAVAILABLE: [u32; 4] =
+        [0x8027_0036, 0x8027_0037, 0x8027_0038, 0x8027_003A];
+    /// `COPYENGINE_E_ACCESS_DENIED_SRC`・`_DEST`・`COPYENGINE_E_ACCESSDENIED_READONLY`。
+    const COPYENGINE_ACCESS_DENIED: [u32; 3] = [0x8027_0021, 0x8027_0022, 0x8027_003F];
 
     let hresult = code as u32;
     if COPYENGINE_SHARING_VIOLATIONS.contains(&hresult) {
         AppError::EntryInUse
+    } else if COPYENGINE_RECYCLE_UNAVAILABLE.contains(&hresult) {
+        AppError::TrashUnavailable
+    } else if COPYENGINE_ACCESS_DENIED.contains(&hresult) {
+        AppError::ShareReadOnly
     } else if (hresult >> 16) & 0x1FFF == FACILITY_WIN32 {
         map_io_error(io::Error::from_raw_os_error((hresult & 0xFFFF) as i32))
     } else {
@@ -770,7 +790,8 @@ fn trash_os_error(code: i32) -> AppError {
 /// `path` のある場所で、ごみ箱へ送れるか。確かに送れると分かる場所だけ真にする。
 /// 送れない場所で送ろうとすると、OS によっては黙って完全に消すため (Windows のネットワークのドライブなど)。
 ///
-/// - Windows: ネットワーク上の場所 (UNC・ネットワークのドライブ) でなければ送れる
+/// - Windows: この PC に据え付けたドライブ (`DRIVE_FIXED`) なら送れる。USB メモリーや SD カード (`DRIVE_REMOVABLE`)・
+///   ネットワーク上の場所 (UNC・ネットワークのドライブ) は、ごみ箱を持たないことがある
 /// - macOS: この Mac のディスク (`MNT_LOCAL`) なら送れる
 /// - そのほか (Linux など): ホームフォルダーと同じディスクなら送れる。ほかのディスクのごみ箱
 ///   (`.Trash-<uid>`) は、作れるか・デスクトップから見えるかがディスクによって違うため
@@ -785,8 +806,8 @@ fn platform_trash_available(path: &Path) -> bool {
     use windows::Win32::Storage::FileSystem::GetDriveTypeW;
     use windows::core::PCWSTR;
 
-    /// `DRIVE_REMOTE` (winbase.h)。この定数のためだけに Win32_System_WindowsProgramming を足さない。
-    const DRIVE_REMOTE: u32 = 4;
+    /// `DRIVE_FIXED` (winbase.h)。この定数のためだけに Win32_System_WindowsProgramming を足さない。
+    const DRIVE_FIXED: u32 = 3;
 
     let Some(Component::Prefix(prefix)) = path.components().next() else {
         return false;
@@ -801,7 +822,7 @@ fn platform_trash_available(path: &Path) -> bool {
         .chain([0])
         .collect();
     let drive_type = unsafe { GetDriveTypeW(PCWSTR(root.as_ptr())) };
-    drive_type != DRIVE_REMOTE
+    drive_type == DRIVE_FIXED
 }
 
 #[cfg(target_os = "macos")]
@@ -1121,6 +1142,52 @@ mod tests {
             .expect("中止していない");
         assert!(moved.join("英検").is_dir());
         assert!(!src.exists());
+    }
+
+    /// シェルのファイル操作の HRESULT を、画面が次の手を示せる種類に写す。値は windows クレートの
+    /// `Win32::UI::Shell` の `COPYENGINE_E_*` と同じ。
+    #[cfg(windows)]
+    #[test]
+    fn shell_errors_are_mapped_to_what_the_screen_can_act_on() {
+        for code in [0x8027_0036u32, 0x8027_0037, 0x8027_0038, 0x8027_003A] {
+            assert!(
+                matches!(trash_os_error(code as i32), AppError::TrashUnavailable),
+                "{code:#x}"
+            );
+        }
+        for code in [0x8027_0021u32, 0x8027_0022, 0x8027_003F] {
+            assert!(
+                matches!(trash_os_error(code as i32), AppError::ShareReadOnly),
+                "{code:#x}"
+            );
+        }
+        assert!(matches!(
+            trash_os_error(0x8027_0027u32 as i32),
+            AppError::EntryInUse
+        ));
+    }
+
+    /// 写した後に元を消し切れなければ、ふつうの失敗でなく `MoveSourceLeft` にする。
+    #[cfg(unix)]
+    #[test]
+    fn a_source_that_cannot_be_removed_is_reported_as_left() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp_dir("move-source-left");
+        let src = dir.join("教材");
+        let locked = src.join("鍵");
+        fs::create_dir_all(&locked).expect("作れなかった");
+        fs::write(locked.join("a.txt"), b"a").expect("書けなかった");
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o555))
+            .expect("権限を変えられなかった");
+
+        let result = remove_source(&src);
+
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o755))
+            .expect("権限を戻せなかった");
+        assert!(
+            matches!(result, Err(AppError::MoveSourceLeft)),
+            "{result:?}"
+        );
     }
 
     /// 上書きを試す場所。`a.txt` (新) と、置き先に同じ名前の `dest/a.txt` (旧)。

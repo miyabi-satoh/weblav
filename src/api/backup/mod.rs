@@ -370,7 +370,6 @@ pub(super) async fn restore_staged(state: &AppState, id: &str) -> Result<(), App
         &state.backup_work_dir,
         &staged.dir.path().join(UPLOAD_FILE_NAME),
         &staged.manifest,
-        &state.revoked_sessions,
     )
     .await;
     // DB が丸ごと替わるので、版の数も当てにならない。失敗しても途中まで書いたかもしれないので、どちらでも捨てる。

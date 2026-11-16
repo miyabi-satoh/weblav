@@ -307,7 +307,7 @@ export async function launch({ fresh = true, port = PORT } = {}) {
 	await stopLeftover();
 	if (fresh) await fs.rm(HOME, { recursive: true, force: true });
 	await fs.mkdir(HOME, { recursive: true });
-	await fs.writeFile(path.join(HOME, 'config.toml'), `[server]\nport = ${port}\n`);
+	await fs.writeFile(path.join(HOME, 'config.toml'), `[server]\nport = ${port}\n\n[tray]\nopen_setup_on_launch = false\n`);
 	await fs.rm(path.join(HOME, 'weblav.addr'), { force: true });
 	await openApp();
 	try {

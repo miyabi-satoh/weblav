@@ -25,9 +25,9 @@ WebLAV は、コンピューターの中のファイルを、同じネットワ�
 
 ## クイックスタート
 
-1. インストールして起動する。Windows は Microsoft Store で「WebLAV」を入手して開く、macOS は `WebLAV.app` を「アプリケーション」フォルダーに入れて開く
+1. インストールして起動する。Windows は Microsoft Store で「WebLAV」を入手して開く、macOS は `WebLAV.app` を「アプリケーション」フォルダーに入れて開く。Windows では、家や職場のネットワークを「プライベート ネットワーク」にする (→ [設置する](02-setup.md))
 
-2. 通知領域 (macOS はメニューバー、Ubuntu は画面右上) の WebLAV アイコンから「セットアップ」を選び、管理者を作る。表示されたリカバリコードは保管しておく
+2. 開いたブラウザーのセットアップの画面で、管理者を作る。表示されたリカバリコードは保管しておく。画面を閉じてしまったら、通知領域 (macOS はメニューバー、Ubuntu は画面右上) の WebLAV アイコンから「セットアップ」を選ぶ
 
    ![通知領域の WebLAV アイコンのメニュー (Windows)](images/quickstart-tray-menu.webp)
 

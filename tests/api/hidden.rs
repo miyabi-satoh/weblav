@@ -179,3 +179,67 @@ async fn a_new_exclude_drops_matching_rows_from_the_index(pool: SqlitePool) {
             .expect("フォルダーの行を読めなかった");
     assert_eq!(dirs, vec![("album".to_string(), None)]);
 }
+
+/// Windows の隠し属性のフォルダーは、一覧に出ないだけでなく、パスを指定しても辿れず、登録もできない
+/// (→ docs/folders.md「表示しないもの」)。
+#[cfg(windows)]
+#[sqlx::test]
+async fn a_folder_hidden_by_attribute_cannot_be_reached_by_its_path(pool: SqlitePool) {
+    let share = temp_root_dir("hidden-attribute");
+    let share_path = std::fs::canonicalize(share.path()).expect("実体のパスを得られなかった");
+    register_root(&pool, &share_path).await;
+    let inner = share_path.join("AppData").join("Roaming");
+    std::fs::create_dir_all(&inner).expect("フォルダーを作れなかった");
+    // attrib は `\\?\` の付いたパスを見つけられず、それでも 0 で終わるので、付けずに渡し、付いたかを読んで確かめる。
+    let hidden_dir = canonical_path_as_api_returns_it(&share_path.join("AppData"));
+    std::process::Command::new("attrib")
+        .arg("+h")
+        .arg(&hidden_dir)
+        .status()
+        .expect("attrib を動かせなかった");
+    {
+        use std::os::windows::fs::MetadataExt;
+        const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
+        let attributes = std::fs::metadata(&hidden_dir)
+            .expect("属性を読めなかった")
+            .file_attributes();
+        assert_ne!(
+            attributes & FILE_ATTRIBUTE_HIDDEN,
+            0,
+            "隠し属性が付いていない"
+        );
+    }
+    let inner = canonical_path_as_api_returns_it(&inner);
+
+    let app = test_app(pool.clone()).await;
+    let cookie = admin_cookie(app.clone(), &pool).await;
+    let (status, body) = send_empty(
+        app.clone(),
+        "GET",
+        &dirs_uri_with_path("/api/v1/fs/dirs", &inner),
+        &cookie,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+
+    let (status, body) = send_json(
+        app,
+        "POST",
+        "/api/v1/contents",
+        &cookie,
+        &format!(
+            r#"{{"type":"folder","title":"設定","path":{}}}"#,
+            serde_json::to_string(&inner).expect("JSON にできなかった")
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+}
+
+#[cfg(windows)]
+fn dirs_uri_with_path(uri: &str, path: &str) -> String {
+    format!(
+        "{uri}?path={}",
+        percent_encoding::utf8_percent_encode(path, percent_encoding::NON_ALPHANUMERIC)
+    )
+}

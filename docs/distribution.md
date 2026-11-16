@@ -211,6 +211,8 @@ Smart App Control も、Store の署名がある MSIX を許可する範囲に�
     (Windows の実機で確かめたところ、付けると Windows が自動で足す受信規則にパブリックのネットワークまで含まれると分かった。LAN の中だけで使う前提に反する)
   - `windows.startupTask`: ログインしたときに起動する。利用者が一度起動した後に有効になり、「設定」やタスクマネージャーで止められる
   - `windows.firewallRules`: `weblav.exe` への TCP の受信を、プライベートとドメインのネットワークだけで許可する
+- **Store の更新で閉じられたら、更新の後に起動し直す** (`RegisterApplicationRestart`。[Integrate your desktop app with Windows using packaging extensions](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/desktop-to-uwp-extensions) の「Restart automatically after receiving an update from the Microsoft Store」)。
+  常駐していても、更新が入るとアプリは閉じられ、次のログインまで LAN からつながらなくなるため。頼むのは更新される側の版なので、最初に出す版から入れておく。
 - **Windows 11 は新しく接続したネットワークを既定でパブリックにする**。
   家庭の Wi-Fi でもパブリックのままだと他の端末からつながらないので、マニュアルでプライベートへの切り替えを案内する。
   トレイでパブリックであることを知らせる機能は持たない。

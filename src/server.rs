@@ -85,6 +85,8 @@ pub struct Running {
     /// 実際の待ち受けのアドレス。設定のポートが使えずにずらしたときは `configured` と違う。
     pub addr: SocketAddr,
     pub configured: SocketAddr,
+    /// `config.toml` の `[tray] open_setup_on_launch`。
+    pub open_setup_on_launch: bool,
     handle: std::thread::JoinHandle<()>,
     shutdown_tx: tokio::sync::oneshot::Sender<()>,
     log_guard: WorkerGuard,
@@ -127,6 +129,7 @@ pub fn start(
     // ログに残せないので、呼び出し元が伝える。
     let dirs = AppDirs::resolve().map_err(|err| StartupError::new(error_chain(&err)))?;
     let config = Config::load(&dirs).map_err(|err| StartupError::new(error_chain(&err)))?;
+    let open_setup_on_launch = config.tray.open_setup_on_launch;
     let log_guard = logging::init(&config, &dirs)
         .map_err(|err| StartupError::new(format!("failed to initialize logging: {err}")))?;
 
@@ -233,6 +236,7 @@ pub fn start(
                 Running {
                     addr,
                     configured,
+                    open_setup_on_launch,
                     handle,
                     shutdown_tx,
                     log_guard,
