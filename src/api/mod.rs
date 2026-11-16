@@ -25,7 +25,7 @@ mod logs;
 mod operations;
 mod page_dates;
 mod remote_file;
-mod roots;
+pub(crate) mod roots;
 mod schedule;
 mod search;
 pub mod server_settings;

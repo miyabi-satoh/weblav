@@ -14,7 +14,13 @@
 	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
 	import { linksFileHref } from '#lib/links-file.ts';
 	import { ArchivePagedList } from '#lib/archive-paged-list.svelte.ts';
-	import { archiveListInit, manageChunks, manageShuffle } from '#lib/archive-list-request.ts';
+	import {
+		archiveListInit,
+		manageChunks,
+		manageRenew,
+		manageShuffle
+	} from '#lib/archive-list-request.ts';
+	import { untrack } from 'svelte';
 	import ArchiveStaleNotice from '#lib/components/archive-stale-notice.svelte';
 	import ListFilterEmpty from '#lib/components/list-filter-empty.svelte';
 	import { ListFilterState, provideListFilter } from '#lib/list-filter.svelte.ts';
@@ -75,7 +81,9 @@
 		new ArchivePagedList<ManageItem>(
 			view,
 			manageChunks(data.contentId),
-			manageShuffle(data.contentId)
+			manageShuffle(data.contentId),
+			// 結果を作ったときの条件で取り直す。語を打ち直したときは、結果が替わってから一覧を作り直す。
+			untrack(() => manageRenew(data.contentId, data.filters, data.sort, named.applied))
 		)
 	);
 	$effect(() => {

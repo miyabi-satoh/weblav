@@ -257,13 +257,33 @@ async fn picking_a_root_returns_the_chosen_path(pool: SqlitePool) {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
+    let picked = parse_json(&body);
+    let id = picked["id"].as_u64().expect("窓の番号が無い");
+    assert_eq!(picked["open"], serde_json::json!(false), "{body}");
     assert_eq!(
-        body,
-        format!(
-            r#"{{"path":{}}}"#,
-            json_string(&canonical_path_as_api_returns_it(&dir))
-        )
+        picked["path"],
+        serde_json::json!(canonical_path_as_api_returns_it(&dir)),
+        "{body}"
     );
+    // 要求が打ち切られた後に待ち直しても、同じ結果を受け取れる。
+    let (status, again) = send(
+        app.clone(),
+        roots_request("GET", &format!("{ROOTS_PICK_URI}/{id}"), &cookie, None),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{again}");
+    assert_eq!(again, body);
+    let (status, body) = send(
+        app.clone(),
+        roots_request(
+            "GET",
+            &format!("{ROOTS_PICK_URI}/{}", id + 1),
+            &cookie,
+            None,
+        ),
+    )
+    .await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
     let (_, list) = send(app, roots_request("GET", ROOTS_URI, &cookie, None)).await;
     assert!(
         !list.contains(&json_string(&canonical_path_as_api_returns_it(&dir))),
@@ -282,7 +302,9 @@ async fn picking_a_root_returns_the_chosen_path(pool: SqlitePool) {
     let cookie = login(app.clone(), "admin-alice", "correct-password").await;
     let (status, body) = send(app, roots_request("POST", ROOTS_PICK_URI, &cookie, None)).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body, r#"{"path":null}"#);
+    let cancelled = parse_json(&body);
+    assert_eq!(cancelled["open"], serde_json::json!(false), "{body}");
+    assert_eq!(cancelled["path"], serde_json::Value::Null, "{body}");
 }
 
 /// macOS では、窓で選んだフォルダーのブックマークを残す (→ docs/distribution.md「ビルド・配布の方法」)。

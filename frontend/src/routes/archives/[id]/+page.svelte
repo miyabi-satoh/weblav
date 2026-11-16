@@ -17,7 +17,13 @@
 	import { client } from '#lib/api/client.ts';
 	import type { components } from '#lib/api/schema.js';
 	import { ArchivePagedList } from '#lib/archive-paged-list.svelte.ts';
-	import { archiveListInit, viewChunks, viewShuffle } from '#lib/archive-list-request.ts';
+	import {
+		archiveListInit,
+		viewChunks,
+		viewRenew,
+		viewShuffle
+	} from '#lib/archive-list-request.ts';
+	import { untrack } from 'svelte';
 	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
 	import ErrorDialog from '#lib/components/error-dialog.svelte';
 
@@ -44,7 +50,9 @@
 		new ArchivePagedList<ArchiveViewItem>(
 			view,
 			viewChunks(data.contentId),
-			viewShuffle(data.contentId)
+			viewShuffle(data.contentId),
+			// 結果を作ったときの条件で取り直す。語を打ち直したときは、結果が替わってから一覧を作り直すので、語では作り直さない。
+			untrack(() => viewRenew(data.contentId, data.filters, data.sort, appliedName))
 		)
 	);
 	$effect(() => {
