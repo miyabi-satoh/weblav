@@ -18,7 +18,7 @@ You can open this manual at any time from “Manual” on the WebLAV icon in the
 
 Only content registered in the admin pages appears for viewers.
 
-![How folders on the computer relate to the viewer's screen: add "学校" (School) as a share, then register "教材" (Teaching materials) and "英検" (EIKEN) inside it as shortcuts. Only those two appear for viewers. Unregistered "下書き" (Drafts) and "家計簿" (Household accounts) outside the share do not appear.](images/how-it-works.webp)
+![How folders on the computer relate to the viewer's screen: add "School" as a share, then register "Teaching materials" inside it as a shortcut and "EIKEN" as a library. Only those two appear for viewers. Unregistered "Drafts" and "Household accounts" outside the share do not appear.](images/how-it-works.webp)
 
 - **Shares**: Folders that WebLAV may work with. Logged-in users can view, add, or move the files inside, depending on their permissions. Adding one alone does not show anything to people who are not logged in.
 - **Content**: Register folders or files in a share as a “Shortcut” to show them. These are what viewers see.

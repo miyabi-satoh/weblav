@@ -5,7 +5,7 @@ In a share, logged-in users can view, add, or move files (→ [Work with files i
 To show something on the viewer's screen (Home), register a folder or file in a share as a “Shortcut” (→ [Register content](06-register-content.md)).
 **Adding a share alone does not show anything to people who are not logged in.**
 
-![How folders on the computer relate to the viewer's screen: add "学校" (School) as a share, then register "教材" (Teaching materials) and "英検" (EIKEN) inside it as shortcuts. Only those two appear for viewers. Unregistered "下書き" (Drafts) and "家計簿" (Household accounts) outside the share do not appear.](images/how-it-works.webp)
+![How folders on the computer relate to the viewer's screen: add "School" as a share, then register "Teaching materials" inside it as a shortcut and "EIKEN" as a library. Only those two appear for viewers. Unregistered "Drafts" and "Household accounts" outside the share do not appear.](images/how-it-works.webp)
 
 > **You can add shares only on the computer running WebLAV, when it is open at a `localhost` address.**
 >

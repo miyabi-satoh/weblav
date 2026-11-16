@@ -311,7 +311,7 @@
 	"error_detail_root_name_taken": "「{name}」という名前の共有がすでにあります。別の名前を指定してください。",
 	"error_detail_root_already_registered": "このフォルダーはすでに「{name}」として登録されています。",
 	"error_detail_root_inside_own_dirs": "WebLAV が設定とデータを保存しているフォルダーは、共有にできません。",
-	"error_detail_entry_name_invalid": "この名前は使えません。使えない文字を含むか、「.」で始まるか、長すぎます。",
+	"error_detail_entry_name_invalid": "この名前は使えません。使えない文字を含むか、長すぎるか、この OS では付けられない名前です。",
 	"error_detail_entry_name_taken": "「{name}」という名前のものがすでにあります。別の名前にしてください。",
 	"error_detail_transfer_into_itself": "フォルダーを、そのフォルダー自身やその中へは移動・コピーできません。",
 	"error_detail_entry_protected": "共有そのものや、別の共有・WebLAV のデータを含むフォルダーは、変更できません。",

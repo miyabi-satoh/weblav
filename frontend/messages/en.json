@@ -401,7 +401,7 @@
 	"error_detail_root_name_taken": "A share named “{name}” already exists. Choose a different name.",
 	"error_detail_root_already_registered": "This folder is already registered as “{name}”.",
 	"error_detail_root_inside_own_dirs": "The folder where WebLAV keeps its settings and data can't be a share.",
-	"error_detail_entry_name_invalid": "This name can't be used. It contains characters that aren't allowed, starts with “.”, or is too long.",
+	"error_detail_entry_name_invalid": "This name can't be used. It contains characters that aren't allowed, is too long, or isn't allowed on this OS.",
 	"error_detail_entry_name_taken": "An item named “{name}” already exists. Choose a different name.",
 	"error_detail_transfer_into_itself": "A folder can't be moved or copied into itself or one of its subfolders.",
 	"error_detail_entry_protected": "A share itself, or a folder that contains another share or WebLAV's data, can't be changed.",
