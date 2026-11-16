@@ -31,7 +31,7 @@ pub(super) mod placeholders {
     use std::ffi::c_void;
     use std::path::Path;
     use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::sync::{Mutex, MutexGuard, PoisonError};
+    use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
     use windows::Win32::Foundation::NTSTATUS;
     use windows::Win32::Storage::CloudFilters::{
@@ -87,7 +87,8 @@ pub(super) mod placeholders {
     /// 次のテストに登録を譲る。
     pub(in crate::api) struct SyncRoot {
         key: CF_CONNECTION_KEY,
-        provider: Box<Provider>,
+        // OS が呼び出しのたびに生のポインターで読むので、動かしても別名の規則に触れない `Arc` で持つ。
+        provider: Arc<Provider>,
         registered: Registered,
         dir: TempDir,
         _registration: MutexGuard<'static, ()>,
@@ -132,14 +133,14 @@ pub(super) mod placeholders {
             unsafe { CfRegisterSyncRoot(&root, &registration, &policies, CF_REGISTER_FLAG_NONE) }
                 .expect("同期のフォルダーを登録できなかった");
             let registered = Registered(root);
-            let provider = Box::new(Provider {
+            let provider = Arc::new(Provider {
                 files: files
                     .iter()
                     .map(|(name, data)| (name.to_string(), data.to_vec()))
                     .collect(),
                 fetches: AtomicUsize::new(0),
             });
-            let context: *const Provider = &*provider;
+            let context = Arc::as_ptr(&provider);
             let key = unsafe {
                 CfConnectSyncRoot(
                     &registered.0,
