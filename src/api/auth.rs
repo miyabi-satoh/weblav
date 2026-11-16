@@ -100,7 +100,12 @@ async fn login(
     }
 
     let authed = auth::authenticate(&state.pool, &payload.username, &payload.password).await?;
-    let Some(auth::Authenticated { user, credential }) = authed else {
+    let Some(auth::Authenticated {
+        user,
+        credential,
+        session_generation,
+    }) = authed
+    else {
         let err = AppError::InvalidCredentials;
         record_failed_sign_in(&state, Op::Login, &payload.username, &err).await;
         return Err(err);
@@ -112,7 +117,7 @@ async fn login(
         .login_rate_limiter
         .release(client.as_deref(), &payload.username);
 
-    start_session(&session, user.id, &credential).await?;
+    start_session(&session, user.id, &credential, session_generation).await?;
     record_or_warn(&state.pool, &OpRecord::new(Op::Login, &user)).await;
 
     Ok(Json(user.into()))
@@ -148,18 +153,21 @@ async fn record_failed_sign_in(state: &AppState, op: Op, username: &str, err: &A
 
 /// `user_id` でログインした状態にする。ログイン・初回セットアップ・リカバリコードでの戻しで共有する。
 /// `credential` は、入れたパスワードの指紋 (`auth::credential_fingerprint`)。
+/// `session_generation` は、照合した行の世代 (`users.session_generation`)。
 ///
 /// セッション固定化攻撃対策: ログインのたびにセッションIDを振り直す。
 pub(super) async fn start_session(
     session: &Session,
     user_id: i64,
     credential: &str,
+    session_generation: i64,
 ) -> Result<(), AppError> {
     session.cycle_id().await.map_err(auth::Error::Session)?;
     session
         .insert(SESSION_USER_ID_KEY, user_id)
         .await
         .map_err(auth::Error::Session)?;
+    auth::mark_session_generation(session, session_generation).await?;
     // パスワード (かリカバリコード) を入れたばかりなので、確かめ直したことにする
     // (→ docs/access.md「操作の前のパスワードの確認」)。
     auth::mark_password_confirmed(session, credential).await
@@ -439,7 +447,7 @@ async fn recover(
         r#"UPDATE users SET password_hash = ?, recovery_code_hash = ?,
                   recovery_code_created_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
            WHERE id = ? AND recovery_code_hash = ?
-           RETURNING username, role as "role: Role""#,
+           RETURNING username, role as "role: Role", session_generation"#,
         password_hash,
         recovery_hash,
         user_id,
@@ -458,6 +466,7 @@ async fn recover(
         &session,
         user_id,
         &auth::credential_fingerprint(&password_hash),
+        user.session_generation,
     )
     .await?;
     Ok(Json(UserWithRecoveryCodeResponse {

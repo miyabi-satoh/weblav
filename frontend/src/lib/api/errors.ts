@@ -144,6 +144,8 @@ function detailMessage(detail: ValidationDetail): string | undefined {
 			return m.error_detail_transfer_into_itself();
 		case 'entryProtected':
 			return m.error_detail_entry_protected();
+		case 'portBlockedByBrowsers':
+			return m.error_detail_port_blocked_by_browsers({ port: detail.port });
 		default:
 			return undefined;
 	}

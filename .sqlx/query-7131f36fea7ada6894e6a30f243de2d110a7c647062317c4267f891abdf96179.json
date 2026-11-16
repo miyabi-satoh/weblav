@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE users SET password_hash = ?, recovery_code_hash = ?,\n                  recovery_code_created_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')\n           WHERE id = ? AND recovery_code_hash = ?\n           RETURNING username, role as \"role: Role\", session_generation",
+  "describe": {
+    "columns": [
+      {
+        "name": "username",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "username"
+          }
+        }
+      },
+      {
+        "name": "role: Role",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "role"
+          }
+        }
+      },
+      {
+        "name": "session_generation",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "session_generation"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "7131f36fea7ada6894e6a30f243de2d110a7c647062317c4267f891abdf96179"
+}

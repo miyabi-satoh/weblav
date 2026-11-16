@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id!\", username, password_hash, role as \"role: Role\",\n                      recovery_code_hash IS NOT NULL as \"has_recovery_code!: bool\"\n               FROM users WHERE id = ?",
+  "query": "SELECT id as \"id!\", username, password_hash, role as \"role: Role\",\n                  recovery_code_hash IS NOT NULL as \"has_recovery_code!: bool\",\n                  session_generation\n           FROM users WHERE username = ? COLLATE NOCASE",
   "describe": {
     "columns": [
       {
@@ -52,6 +52,17 @@
         "ordinal": 4,
         "type_info": "Integer",
         "origin": "Expression"
+      },
+      {
+        "name": "session_generation",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "session_generation"
+          }
+        }
       }
     ],
     "parameters": {
@@ -62,8 +73,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "5df32de0791b4d33d17866ec8541304596630ce99fcd97bd9c783ccfb373d780"
+  "hash": "b54be0441f8256436d92b05951712c4c6c5b97a2e622a518d9d77918631ef7fb"
 }

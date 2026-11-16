@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "UPDATE users SET password_hash = ?, recovery_code_hash = NULL, recovery_code_created_at = NULL\n         WHERE id = ? RETURNING username",
+  "query": "UPDATE users SET password_hash = ?, recovery_code_hash = NULL, recovery_code_created_at = NULL,\n                session_generation = session_generation + 1\n         WHERE id = ? RETURNING username",
   "describe": {
     "columns": [
       {
@@ -22,5 +22,5 @@
       false
     ]
   },
-  "hash": "5a4ebd156af2dd96e61392bfd2770898e709c0237f8cddaac7b1cf7f9f51c8fe"
+  "hash": "50d0b587fc12646770255f1b8cf493c80eae464d8226d334be5b79d90ddb7ce0"
 }

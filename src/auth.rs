@@ -66,6 +66,8 @@ pub struct CreatedUser {
     pub created_at: String,
     /// 作ったパスワードの指紋 (`credential_fingerprint`)。作ってそのままログインさせるとき (セットアップ) に使う。
     pub credential: String,
+    /// ログインの世代 (`users.session_generation`)。作ってそのままログインさせるときに使う。
+    pub session_generation: i64,
 }
 
 /// ユーザーを作成する。CLI (`--create-user`) とユーザー管理APIの両方から呼ぶ共通処理。
@@ -82,7 +84,7 @@ pub async fn create_user(
     let result = sqlx::query!(
         r#"INSERT INTO users (username, password_hash, role, recovery_code_hash, recovery_code_created_at)
            VALUES (?, ?, ?, ?4, CASE WHEN ?4 IS NULL THEN NULL ELSE strftime('%Y-%m-%dT%H:%M:%fZ', 'now') END)
-           RETURNING id as "id!", created_at"#,
+           RETURNING id as "id!", created_at, session_generation"#,
         username,
         hash,
         role,
@@ -96,6 +98,7 @@ pub async fn create_user(
             id: row.id,
             created_at: row.created_at,
             credential: credential_fingerprint(&hash),
+            session_generation: row.session_generation,
         }),
         Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
             Err(CreateUserError::UsernameTaken(username.to_string()))
@@ -253,6 +256,25 @@ pub const SESSION_USER_ID_KEY: &str = "user_id";
 /// 最後にパスワードを確かめた記録 (→ docs/access.md「操作の前のパスワードの確認」)。ログインでも入る。
 const SESSION_PASSWORD_CONFIRMATION_KEY: &str = "password_confirmation";
 
+/// ログインしたときの利用者の世代 (`users.session_generation`)。管理者がパスワードを再設定すると
+/// 世代が進み、それより前に始めたセッションは通らなくなる (→ docs/access.md「ロールと操作」)。
+const SESSION_GENERATION_KEY: &str = "session_generation";
+
+/// セッションが残した世代 (`stored`) が、利用者の今の世代と合うか。世代を残す前に始まったセッションは
+/// 0 と見なす。世代の列の既定が 0 なので、再設定されていない人のログインを、版を上げただけで切らないため。
+fn session_generation_is_current(stored: Option<i64>, current: i64) -> bool {
+    stored.unwrap_or(0) == current
+}
+
+/// ログインしたときの世代をセッションに残す。
+pub async fn mark_session_generation(session: &Session, generation: i64) -> Result<(), AppError> {
+    session
+        .insert(SESSION_GENERATION_KEY, generation)
+        .await
+        .map_err(Error::Session)?;
+    Ok(())
+}
+
 /// パスワードを確かめてから、聞き直さずに通す長さ。続けて直す1回の作業 (数分) に足り、
 /// 教室の共有 PC で席を立った隙に使われる時間は短くしたいため 10 分にした。
 /// GitHub の sudo mode (2 時間) は自分専用の端末を前提にした長さなので採らない。
@@ -263,7 +285,7 @@ pub const PASSWORD_CONFIRMATION_WINDOW: Duration = Duration::from_secs(10 * 60);
 struct PasswordConfirmation {
     /// 確かめた時刻 (UNIX 秒)。
     at: i64,
-    /// 確かめたときのパスワードの指紋 (`credential_fingerprint`)。管理者の再設定などでパスワードが
+    /// 確かめたときのパスワードの指紋 (`credential_fingerprint`)。ほかの端末での変更などでパスワードが
     /// 変わった後は、古いパスワードで確かめたセッションを通さないために比べる。
     credential: String,
 }
@@ -342,6 +364,7 @@ struct UserRow {
     password_hash: String,
     role: Role,
     has_recovery_code: bool,
+    session_generation: i64,
 }
 
 /// ユーザー名・パスワードを検証する。ユーザーが存在しない場合は `DUMMY_HASH` と照合してから
@@ -359,7 +382,8 @@ pub async fn authenticate(
     let row = sqlx::query_as!(
         UserRow,
         r#"SELECT id as "id!", username, password_hash, role as "role: Role",
-                  recovery_code_hash IS NOT NULL as "has_recovery_code!: bool"
+                  recovery_code_hash IS NOT NULL as "has_recovery_code!: bool",
+                  session_generation
            FROM users WHERE username = ? COLLATE NOCASE"#,
         username
     )
@@ -379,6 +403,8 @@ pub struct Authenticated {
     /// ログインで確かめた記録に使う。照合の後に読み直さないのは、その間に再設定されると、
     /// 古いパスワードで入った人を新しいパスワードで確かめたことにしてしまうため。
     pub credential: String,
+    /// 照合した行の世代 (`users.session_generation`)。読み直さない理由は `credential` と同じ。
+    pub session_generation: i64,
 }
 
 fn verify_row(row: Option<UserRow>, password: &str) -> Result<Option<Authenticated>, Error> {
@@ -387,6 +413,7 @@ fn verify_row(row: Option<UserRow>, password: &str) -> Result<Option<Authenticat
             let ok = verify_password(password, &row.password_hash)?;
             Ok(ok.then(|| Authenticated {
                 credential: credential_fingerprint(&row.password_hash),
+                session_generation: row.session_generation,
                 user: AuthUser {
                     id: row.id,
                     username: row.username,
@@ -623,7 +650,8 @@ impl FromRequestParts<AppState> for AuthUser {
         let user = sqlx::query_as!(
             UserRow,
             r#"SELECT id as "id!", username, password_hash, role as "role: Role",
-                      recovery_code_hash IS NOT NULL as "has_recovery_code!: bool"
+                      recovery_code_hash IS NOT NULL as "has_recovery_code!: bool",
+                      session_generation
                FROM users WHERE id = ?"#,
             user_id
         )
@@ -635,6 +663,15 @@ impl FromRequestParts<AppState> for AuthUser {
             session.flush().await.map_err(Error::Session)?;
             return Err(AppError::Unauthorized);
         };
+        // 管理者がパスワードを再設定する前に始めたセッション。削除と同じく破棄して未ログインにする。
+        let stored: Option<i64> = session
+            .get(SESSION_GENERATION_KEY)
+            .await
+            .map_err(Error::Session)?;
+        if !session_generation_is_current(stored, user.session_generation) {
+            session.flush().await.map_err(Error::Session)?;
+            return Err(AppError::Unauthorized);
+        }
 
         Ok(AuthUser {
             id: user.id,
@@ -772,6 +809,15 @@ mod tests {
             !confirmation_is_fresh(Some(&at(1_000)), "c2", 1_000),
             "確かめた後にパスワードが変わったら通さない"
         );
+    }
+
+    #[test]
+    fn session_generation_is_current_only_for_the_same_generation() {
+        assert!(session_generation_is_current(Some(2), 2));
+        assert!(!session_generation_is_current(Some(1), 2));
+        // 世代を残す前に始まったセッションは 0 と見なす。
+        assert!(session_generation_is_current(None, 0));
+        assert!(!session_generation_is_current(None, 1));
     }
 
     #[test]

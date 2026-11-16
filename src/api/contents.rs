@@ -821,11 +821,15 @@ struct ParentGroup {
 /// (2)は`fetch_lineage`で親から祖先へ辿って判定する。`self_id == parent_id`
 /// (自分自身を親にする)も親自身が含まれるため同じ判定で弾ける。
 ///
+/// `user` から見て他人の `private` なものは、無い親と同じ応答にする。グループでない・中に置けない・
+/// 循環になる、と言い分けると、id を順に試して存在が分かるため (→ docs/access.md「ロールと操作」)。
+///
 /// 検証はSELECTだけで書き込みとアトミックではないため、呼び出し側は
 /// `contents_write_lock`を保持したまま書き込みまでを行うこと
 /// (→ `AppState::contents_write_lock`)。
 async fn validate_parent(
     pool: &sqlx::SqlitePool,
+    user: &AuthUser,
     parent_id: Option<i64>,
     self_id: Option<i64>,
 ) -> Result<Option<ParentGroup>, AppError> {
@@ -841,6 +845,7 @@ async fn validate_parent(
     )
     .fetch_optional(pool)
     .await?
+    .filter(|parent| can_see_in_admin_list(user, parent.visibility, parent.created_by))
     .ok_or_else(|| AppError::Validation("parent group not found".to_string()))?;
 
     if parent.content_type != ContentType::Group {
@@ -1250,7 +1255,7 @@ async fn insert_content(
 ) -> Result<ContentRow, AppError> {
     // 親の検証からINSERTまでを直列化する (→ `AppState::contents_write_lock`)。
     let _write_guard = state.contents_write_lock.lock().await;
-    let parent = validate_parent(&state.pool, new.parent_id, None).await?;
+    let parent = validate_parent(&state.pool, user, new.parent_id, None).await?;
     let visibility = resolve_visibility_for_create(new.visibility, parent.as_ref());
     ensure_fits_parent(parent.as_ref(), visibility, Some(user.id))?;
     let parent_id = parent.map(|parent| parent.id);
@@ -1416,7 +1421,7 @@ async fn update_content(
         .then(|| state.archive_scans.acquire(id))
         .transpose()?;
 
-    let parent = validate_parent(&state.pool, payload.parent_id, Some(id)).await?;
+    let parent = validate_parent(&state.pool, &user, payload.parent_id, Some(id)).await?;
     ensure_fits_parent(parent.as_ref(), visibility, existing.created_by)?;
     // すでに「作成者のみ」のグループの子は、置くときに確かめてあるので、変えるときだけ確かめる。
     if existing_type == ContentType::Group
@@ -1696,7 +1701,7 @@ async fn set_creator(
         ));
     }
     if existing.visibility == Visibility::Private {
-        let parent = validate_parent(&state.pool, existing.parent_id, None).await?;
+        let parent = validate_parent(&state.pool, &admin, existing.parent_id, None).await?;
         ensure_fits_parent(
             parent.as_ref(),
             Visibility::Private,
@@ -2977,7 +2982,7 @@ async fn change_visibility(
     if visibility == existing.visibility {
         return Ok(visibility);
     }
-    let parent = validate_parent(pool, existing.parent_id, None).await?;
+    let parent = validate_parent(pool, user, existing.parent_id, None).await?;
     ensure_fits_parent(parent.as_ref(), visibility, existing.created_by)?;
     if existing.content_type == ContentType::Group && visibility == Visibility::Private {
         ensure_children_fit_private_group(pool, id, existing.created_by).await?;
@@ -3537,16 +3542,17 @@ mod tests {
         let root = chain[0];
         let unrelated = insert_group(&pool, "無関係", None).await;
         let link = insert_link(&pool, "リンク", None).await;
+        let admin = AuthUser::for_test(1, crate::auth::Role::Admin);
 
         assert_eq!(
-            validate_parent(&pool, None, Some(root))
+            validate_parent(&pool, &admin, None, Some(root))
                 .await
                 .expect("通るはず")
                 .map(|parent| parent.id),
             None
         );
         assert_eq!(
-            validate_parent(&pool, Some(unrelated), Some(root))
+            validate_parent(&pool, &admin, Some(unrelated), Some(root))
                 .await
                 .expect("通るはず")
                 .map(|parent| parent.id),
@@ -3554,7 +3560,7 @@ mod tests {
         );
         // 作るときは自分がまだ無いので、循環は調べない。
         assert_eq!(
-            validate_parent(&pool, Some(root), None)
+            validate_parent(&pool, &admin, Some(root), None)
                 .await
                 .expect("通るはず")
                 .map(|parent| parent.id),
@@ -3570,8 +3576,63 @@ mod tests {
             ("50階層より下の子孫", chain[DEPTH - 1], Some(root)),
         ];
         for (label, parent_id, self_id) in cases {
-            let result = validate_parent(&pool, Some(parent_id), self_id).await;
+            let result = validate_parent(&pool, &admin, Some(parent_id), self_id).await;
             assert!(is_validation(&result), "{label}: {result:?}");
+        }
+    }
+
+    /// 他人の「作成者のみ」は、グループでもそうでなくても、無い親と同じ応答にする。
+    /// 作成者と管理者には、ふつうの親として扱う。
+    #[sqlx::test]
+    async fn validate_parent_answers_others_private_like_a_missing_parent(pool: sqlx::SqlitePool) {
+        let owner: i64 = sqlx::query_scalar(
+            "INSERT INTO users (username, password_hash) VALUES ('owner', 'x') RETURNING id",
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("ユーザーを入れられなかった");
+        let mut private = Vec::new();
+        for content_type in ["group", "link"] {
+            let id: i64 = sqlx::query_scalar(
+                "INSERT INTO contents (type, title, url, visibility, created_by) \
+                 VALUES (?, '作成者のみ', 'https://example.com', 'private', ?) RETURNING id",
+            )
+            .bind(content_type)
+            .bind(owner)
+            .fetch_one(&pool)
+            .await
+            .expect("コンテンツを入れられなかった");
+            private.push(id);
+        }
+        let [private_group, private_link] = private[..] else {
+            unreachable!()
+        };
+        let other = AuthUser::for_test(owner + 1, crate::auth::Role::User);
+
+        let message = |result: Result<Option<ParentGroup>, AppError>| match result {
+            Err(AppError::Validation(message)) => message,
+            other => panic!("422 になるはず: {other:?}"),
+        };
+        let missing = message(validate_parent(&pool, &other, Some(99_999), None).await);
+        for id in [private_group, private_link] {
+            assert_eq!(
+                message(validate_parent(&pool, &other, Some(id), None).await),
+                missing,
+                "{id}"
+            );
+        }
+
+        for user in [
+            AuthUser::for_test(owner, crate::auth::Role::User),
+            AuthUser::for_test(owner + 1, crate::auth::Role::Admin),
+        ] {
+            assert_eq!(
+                validate_parent(&pool, &user, Some(private_group), None)
+                    .await
+                    .expect("通るはず")
+                    .map(|parent| parent.id),
+                Some(private_group)
+            );
         }
     }
 }

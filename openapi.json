@@ -11315,6 +11315,27 @@
                 ]
               }
             }
+          },
+          {
+            "type": "object",
+            "description": "ブラウザーが開かないポート (→ `api::server_settings::BROWSER_BLOCKED_PORTS`)。\n保存して起動し直すと、どのブラウザーからも WebLAV を開けなくなるため。",
+            "required": [
+              "port",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "portBlockedByBrowsers"
+                ]
+              },
+              "port": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              }
+            }
           }
         ],
         "description": "422 の内訳。`kind` で場合分けし、文言に差し込む値を併せて渡す。"

@@ -195,6 +195,30 @@ async fn private_group_holds_only_its_creators_private_contents(pool: SqlitePool
         !body.contains("私の関心") && !body.contains("記事"),
         "{body}"
     );
+    // 親に指定しても、無い親と同じ応答にして、あることを悟らせない。
+    let create_under = |parent_id: i64| {
+        format!(
+            r#"{{"type":"link","parentId":{parent_id},"title":"ボブの","url":"https://example.com","visibility":"private"}}"#
+        )
+    };
+    let (status, hidden) = send_json(
+        app.clone(),
+        "POST",
+        "/api/v1/contents",
+        &bob,
+        &create_under(group_id),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{hidden}");
+    let (_, missing) = send_json(
+        app.clone(),
+        "POST",
+        "/api/v1/contents",
+        &bob,
+        &create_under(99_999),
+    )
+    .await;
+    assert_eq!(hidden, missing);
 
     // 管理者は他人の「作成者のみ」のグループを開けて、中身も確かめられる。
     let (status, body) = send_empty(

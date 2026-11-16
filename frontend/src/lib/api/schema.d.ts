@@ -3417,6 +3417,11 @@ export interface components {
         } | {
             /** @enum {string} */
             kind: "entryProtected";
+        } | {
+            /** @enum {string} */
+            kind: "portBlockedByBrowsers";
+            /** Format: int32 */
+            port: number;
         };
         VerifyTokenRequest: {
             token: string;

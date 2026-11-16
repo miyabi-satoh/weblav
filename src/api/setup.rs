@@ -236,7 +236,13 @@ async fn create_admin(
     .await;
 
     // そのままログインさせる (→ docs/access.md「初回セットアップ」)。
-    super::auth::start_session(&session, created.id, &created.credential).await?;
+    super::auth::start_session(
+        &session,
+        created.id,
+        &created.credential,
+        created.session_generation,
+    )
+    .await?;
 
     Ok((
         StatusCode::CREATED,

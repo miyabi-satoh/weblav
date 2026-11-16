@@ -85,4 +85,8 @@ pub enum ValidationDetail {
     /// 共有そのもの・中に別の共有や WebLAV のデータを含むものを、名前の変更・移動・削除・上書きしようとした。
     /// 共有の登録や WebLAV 自身が、その場所を指したまま見失うため。
     EntryProtected,
+    /// ブラウザーが開かないポート (→ `api::server_settings::BROWSER_BLOCKED_PORTS`)。
+    /// 保存して起動し直すと、どのブラウザーからも WebLAV を開けなくなるため。
+    #[serde(rename_all = "camelCase")]
+    PortBlockedByBrowsers { port: u16 },
 }

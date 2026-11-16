@@ -74,11 +74,14 @@
 	// 古い階層に戻る。
 	const requests = new LatestRequest();
 
-	async function load(path: string) {
+	/**
+	 * `initial` は開いたときの初期位置。辿った先が読めないときは、今の階層と選んだファイルを残して
+	 * 理由を出す (読めないことが分からないまま、別の階層へ飛ばないように)。
+	 */
+	async function load(path: string, initial = false) {
 		const isCurrent = requests.begin();
 		loading = true;
 		loadError = '';
-		selectedFile = null;
 		try {
 			const { data, error, response } = await client.GET('/api/v1/fs/dirs', {
 				params: { query: { path, files: mode !== 'dir' } }
@@ -89,7 +92,8 @@
 				// 渡しているので、「共有」を消した後などに起こる
 				// (→ docs/folders.md「共有」)。NAS が落ちていて届かないとき (503) も同じ。
 				// 行き止まりにせず、上位の一覧から選び直させる。
-				if ((response.status === 422 || response.status === 503) && path !== '') {
+				// 初期位置のときだけ。辿った先で上位へ戻すと、押したフォルダーが読めないことが分からない。
+				if (initial && (response.status === 422 || response.status === 503) && path !== '') {
 					await load('');
 					return;
 				}
@@ -97,6 +101,7 @@
 				return;
 			}
 			listing = data;
+			selectedFile = null;
 		} catch {
 			if (isCurrent()) loadError = GENERIC_ERROR_MESSAGE();
 		} finally {
@@ -115,7 +120,8 @@
 			return;
 		}
 		listing = null;
-		load(initialPath);
+		selectedFile = null;
+		load(initialPath, true);
 	});
 
 	function confirmSelection() {
@@ -202,8 +208,9 @@
 
 		<div bind:this={listElement} tabindex="-1" class="min-h-0 flex-1 overflow-y-auto">
 			{#if loadError !== ''}
-				<p class="px-4 py-4 text-sm text-destructive">{loadError}</p>
-			{:else if loading && listing === null}
+				<p role="alert" class="px-4 py-4 text-sm text-destructive">{loadError}</p>
+			{/if}
+			{#if loading && listing === null}
 				<div class="px-4 py-4">
 					<Spinner aria-label={m.common_loading()} />
 				</div>
