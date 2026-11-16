@@ -272,8 +272,10 @@
 	 * (→ docs/archive.md「続けて鳴らす音声とビューアー」)。
 	 */
 	async function viewerListAround(index: number): Promise<ViewerItem[]> {
+		// その行のある区切りも取る。URL から開き直したときは、前後だけ取ると行そのものが無く、ビューアーが開かないため。
 		await Promise.all([
 			list.ensureLoaded(index - ARCHIVE_CHUNK_SIZE),
+			list.ensureLoaded(index),
 			list.ensureLoaded(index + ARCHIVE_CHUNK_SIZE)
 		]);
 		// 手元にある行 (消えた・絞り込みで外れた行を除く) から作る。URL の `preview` に持つ key は位置を含むので、位置と一緒に渡す。
