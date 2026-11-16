@@ -1325,11 +1325,11 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
 
 /// アイテムの並び順・選択肢の並びの比較キー (→ docs/archive.md「軸の値の辞書と導出」)。
 /// 軸1本ぶんの値を表す。宣言順が3段の優先順位そのもの
-/// (表示名が辞書にある → 辞書に無い生の値 → 未設定)。派生 `Ord` に任せることで、
-/// 段の判定と各段内の比較を別々に書かずに済む。
+/// (表示名が辞書にある → 辞書に無い生の値 → 未設定)。
+/// 段の中の名前は、タイトルと同じく数字を数として比べる (`第2回` を `第10回` の前に。→ docs/ui.md)。
 ///
 /// 表示名が同じ値は同じキーになる。選択肢をまとめる単位と並べる単位を揃えるため。
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum ValueKey {
     /// 表示名が一致する辞書の行がある。その行たちの最小 `position`、同値なら表示名の昇順。
     Dict(i64, String),
@@ -1338,6 +1338,39 @@ pub(super) enum ValueKey {
     Raw(String),
     /// 未設定。常に最後。
     Unset,
+}
+
+impl ValueKey {
+    fn rank(&self) -> u8 {
+        match self {
+            Self::Dict(..) => 0,
+            Self::Raw(_) => 1,
+            Self::Unset => 2,
+        }
+    }
+}
+
+/// 名前の比べ方が `Eq` と食い違わないよう、数として同じなら文字の順で決める (`2` と `２`、大文字と小文字)。
+fn name_cmp(a: &str, b: &str) -> std::cmp::Ordering {
+    super::sort::title_cmp(a, b).then_with(|| a.cmp(b))
+}
+
+impl Ord for ValueKey {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (Self::Dict(a_pos, a), Self::Dict(b_pos, b)) => {
+                a_pos.cmp(b_pos).then_with(|| name_cmp(a, b))
+            }
+            (Self::Raw(a), Self::Raw(b)) => name_cmp(a, b),
+            _ => self.rank().cmp(&other.rank()),
+        }
+    }
+}
+
+impl PartialOrd for ValueKey {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 /// 軸1本・アイテム1件ぶんの導出結果。
@@ -1479,12 +1512,16 @@ pub(super) struct FilenameWordEntry {
 fn filename_word_entries(rows: Vec<AxisDictRow>) -> Vec<FilenameWordEntry> {
     let positions = DisplayPositions::new(&rows);
     rows.iter()
-        .map(|row| FilenameWordEntry {
-            word_lower: row.raw_value.to_lowercase(),
-            len: row.raw_value.chars().count(),
-            match_position: row.match_position,
-            display: row.display().to_string(),
-            key: positions.key(row.display()),
+        .map(|row| {
+            // ファイル名と同じく NFC にそろえる (→ `file_filter::nfc`)。
+            let word = super::file_filter::nfc(&row.raw_value);
+            FilenameWordEntry {
+                word_lower: word.to_lowercase(),
+                len: word.chars().count(),
+                match_position: row.match_position,
+                display: row.display().to_string(),
+                key: positions.key(row.display()),
+            }
         })
         .collect()
 }
@@ -1645,8 +1682,8 @@ fn match_filename_word<'a>(
     entries: &'a [FilenameWordEntry],
     rel_path: &str,
 ) -> Option<(usize, &'a FilenameWordEntry)> {
-    let name = super::fs::rel_file_name(rel_path).to_lowercase();
-    let stem = file_stem(rel_path).to_lowercase();
+    let name = super::file_filter::nfc(super::fs::rel_file_name(rel_path)).to_lowercase();
+    let stem = super::file_filter::nfc(file_stem(rel_path)).to_lowercase();
     // 位置で候補を絞ってから最長一致。`min_by_key` は同値なら先の要素を返すので、
     // 同じ長さはリストの上が残る。
     entries
@@ -1801,6 +1838,43 @@ pub(super) fn derive_item<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Mac で付けた名前 (濁点を分けた NFD) にも、画面で打った照合語が当たる。
+    #[test]
+    fn filename_words_match_names_written_on_a_mac() {
+        let entries = filename_word_entries(vec![AxisDictRow {
+            raw_value: "リスニング".to_string(),
+            display_name: None,
+            position: 0,
+            match_position: AxisMatchPosition::Anywhere,
+        }]);
+        assert!(
+            match_filename_word(&entries, "リス\u{30CB}\u{30F3}\u{30AF}\u{3099}_2024.mp3")
+                .is_some()
+        );
+    }
+
+    /// 並び順を付けていない値も、数字を数として並べる (→ docs/ui.md)。段の順は変えない。
+    #[test]
+    fn value_keys_compare_numbers_as_numbers() {
+        let raw = |value: &str| ValueKey::Raw(value.to_string());
+        let mut keys = vec![
+            ValueKey::Unset,
+            raw("2024/第10回"),
+            raw("2024/第2回"),
+            ValueKey::Dict(0, "第1回".to_string()),
+        ];
+        keys.sort();
+        assert_eq!(
+            keys,
+            vec![
+                ValueKey::Dict(0, "第1回".to_string()),
+                raw("2024/第2回"),
+                raw("2024/第10回"),
+                ValueKey::Unset,
+            ]
+        );
+    }
 
     fn read_file() -> Option<ScannedFile> {
         Some(ScannedFile {

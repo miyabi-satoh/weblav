@@ -47,6 +47,8 @@
 	import type { Attachment } from 'svelte/attachments';
 	import type { PageProps } from './$types';
 	import { FormDirtyState } from '#lib/form-dirty.svelte.ts';
+	import { LeaveGuard } from '#lib/leave-guard.svelte.ts';
+	import LeaveConfirmDialog from '#lib/components/leave-confirm-dialog.svelte';
 	import { axisPlaceholder, removeAxisFromTemplate } from '#lib/title-template.ts';
 
 	type Axis = components['schemas']['AxisResponse'];
@@ -249,7 +251,11 @@
 				const created = result?.data;
 				if (!created) return;
 				axes = [...axes, created];
-				selectedAxisId = created.id;
+				// 値の表に保存していない変更があれば、切り替える前に捨ててよいかを確かめる。
+				// 確かめる窓を足す窓に重ねないよう、先に閉じる。
+				axisDialogOpen = false;
+				selectAxis(created.id);
+				return;
 			} else {
 				const result = await errorDialog.attempt(
 					() =>
@@ -444,6 +450,20 @@
 	type AxisValueRow = { rawValue: string; displayName: string; matchPosition: AxisMatchPosition };
 
 	let axisValueRows = $state<AxisValueRow[]>([]);
+	// 値の表の変更。軸を切り替える・ページを離れるときに、保存していない行を黙って捨てないため。
+	const valuesForm = new FormDirtyState(() => ({ rows: axisValueRows }));
+	// 切り替えを確かめている先の軸。
+	let pendingAxisId = $state<number | null>(null);
+
+	/** 軸を選ぶ。値の表に保存していない変更があれば、捨ててよいかを先に確かめる。 */
+	function selectAxis(id: number) {
+		if (id === selectedAxisId) return;
+		if (valuesForm.dirty) {
+			pendingAxisId = id;
+			return;
+		}
+		selectedAxisId = id;
+	}
 
 	function toAxisValueRows(values: components['schemas']['AxisValueResponse'][]): AxisValueRow[] {
 		return values.map((value) => ({
@@ -477,6 +497,7 @@
 	function reloadAxisValues(axisId: number | null) {
 		axisValuesRequests.invalidate();
 		axisValueRows = [];
+		valuesForm.markPristine();
 		axisValuesLoaded = false;
 		axisValuesLoadError = '';
 		if (axisId !== null) loadAxisValues(axisId);
@@ -499,6 +520,7 @@
 				return;
 			}
 			axisValueRows = toAxisValueRows(values);
+			valuesForm.markPristine();
 			axisValuesLoaded = true;
 		} catch {
 			if (isCurrent()) {
@@ -532,6 +554,18 @@
 	// 後から着いた方が、相手の更新前の値を書き戻してしまう。
 	// 値の辞書は、保存の応答で表が作り直され、動かした結果が黙って消えるため。
 	let axisBusy = $derived(axisStructureBusy || axisValuesSaving || templateSaving);
+
+	// 保存していない値の表とテンプレートを、別の画面へ移って失わないようにする (サイト設定と同じ)。
+	// 保存中に押した移動は、保存が済んでから続ける。
+	const unsaved = () => valuesForm.dirty || templateForm.dirty;
+	const leaveGuard = new LeaveGuard(unsaved, () => axisValuesSaving || templateSaving);
+
+	/** 保存の終わりに呼ぶ。ほかの保存が続いていれば、止めた移動はその保存の後に任せる。 */
+	async function resumeIfIdle() {
+		if (!axisValuesSaving && !templateSaving) {
+			await leaveGuard.resumeAfterSave(() => unsaved() || errorDialog.open);
+		}
+	}
 
 	/** 上下ボタンの読み上げに使う行の名前。追加したばかりで元の値が空の行は行番号にする。 */
 	function axisValueRowName(row: AxisValueRow, index: number): string {
@@ -611,8 +645,10 @@
 			// 保存中に別の軸へ切り替えられていたら、その軸の表に古い応答を書き込まない。
 			if (selectedAxisId !== axisId) return;
 			axisValueRows = toAxisValueRows(values);
+			valuesForm.markPristine();
 		} finally {
 			axisValuesSavingId = null;
+			await resumeIfIdle();
 		}
 	}
 
@@ -844,6 +880,7 @@
 			errorDialog.show(GENERIC_ERROR_MESSAGE());
 		} finally {
 			templateSaving = false;
+			await resumeIfIdle();
 		}
 	}
 
@@ -1053,7 +1090,7 @@
 							<button
 								type="button"
 								class="relative min-w-0 flex-1 text-left after:absolute after:inset-x-0 after:-inset-y-1"
-								onclick={() => (selectedAxisId = axis.id)}
+								onclick={() => selectAxis(axis.id)}
 							>
 								<p class="truncate text-sm font-medium">{axis.name}</p>
 								<!-- 「フォルダーの第1階層」が「第1階 / 層」と割れないようにする。 -->
@@ -1670,5 +1707,31 @@
 </ConfirmDialog>
 
 <AxesAiDialog bind:open={aiDialogOpen} contentId={data.contentId} onimported={() => refreshAll()} />
+
+<ConfirmDialog
+	bind:open={
+		() => pendingAxisId !== null,
+		(open) => {
+			if (!open) pendingAxisId = null;
+		}
+	}
+	title={m.common_leave_discard_title()}
+	busy={false}
+	confirmLabel={m.archive_axes_switch_discard_confirm()}
+	onconfirm={() => {
+		selectedAxisId = pendingAxisId;
+		pendingAxisId = null;
+	}}
+>
+	{m.archive_axes_switch_discard_description()}
+</ConfirmDialog>
+
+<LeaveConfirmDialog
+	guard={leaveGuard}
+	ondiscard={() => {
+		valuesForm.markPristine();
+		templateForm.markPristine();
+	}}
+/>
 
 <ErrorDialog bind:open={errorDialog.open} message={errorDialog.message} title={errorDialog.title} />

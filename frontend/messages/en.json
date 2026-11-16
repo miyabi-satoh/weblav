@@ -585,6 +585,8 @@
 	"archive_axes_dialog_optional_in_title_help": "When off, files without a value leave this category's part of the display title blank.",
 	"archive_axes_not_filterable": "Not shown as a filter",
 	"archive_axes_values_heading": "Values for {name}",
+	"archive_axes_switch_discard_description": "Unsaved changes to the values will be lost.",
+	"archive_axes_switch_discard_confirm": "Discard and switch",
 	"archive_axes_values_saved_toast": "Values for “{name}” saved.",
 	"archive_axes_values_hint_dir_level": "Values collected by scanning. You can change the display names and order.",
 	"archive_axes_values_hint_filename_word": "Values are set by words in the file name. When several words match, the longest wins.",

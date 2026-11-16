@@ -327,7 +327,9 @@ fn simplify_verbatim(path: String) -> String {
         return path;
     };
 
-    if simplified.len() > MAX_PATH {
+    // 上限は UTF-16 の単位で数える (Windows の API の文字数)。UTF-8 のバイト数で比べると、日本語は 1 文字が 3 バイトなので、
+    // 90 文字ほどの日本語のパスでも接頭辞を落とさなくなる。
+    if simplified.encode_utf16().count() > MAX_PATH {
         return path;
     }
     simplified
@@ -856,6 +858,15 @@ mod tests {
     /// 後始末でもう片方が消える)。
     fn unrelated_data_dir(name: &str) -> crate::test_support::TempDir {
         crate::test_support::project_temp_dir("fs-tests-data", name)
+    }
+
+    /// 260 の上限は文字の数で比べる。日本語の長いパスでも、上限より短ければ接頭辞を落とす。
+    #[test]
+    fn simplify_verbatim_counts_characters_not_bytes() {
+        let japanese = format!(r"\\?\C:\{}", "教材".repeat(60));
+        assert_eq!(simplify_verbatim(japanese.clone()), &japanese[4..]);
+        let too_long = format!(r"\\?\C:\{}", "a".repeat(300));
+        assert_eq!(simplify_verbatim(too_long.clone()), too_long);
     }
 
     /// 登録済みのフォルダーの配下だけが通る。外は422。

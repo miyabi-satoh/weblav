@@ -75,7 +75,7 @@ pub(super) fn title_cmp(a: &str, b: &str) -> Ordering {
     let (mut i, mut j) = (0, 0);
 
     while i < left.len() && j < right.len() {
-        if left[i].is_ascii_digit() && right[j].is_ascii_digit() {
+        if ascii_digit(left[i]).is_some() && ascii_digit(right[j]).is_some() {
             let (left_digits, next_i) = digit_run(&left, i);
             let (right_digits, next_j) = digit_run(&right, j);
             match compare_digits(left_digits, right_digits) {
@@ -102,23 +102,37 @@ pub(super) fn title_cmp(a: &str, b: &str) -> Ordering {
     (left.len() - i).cmp(&(right.len() - j))
 }
 
+/// 数字なら、それを半角にしたもの。全角の数字 (`１`) も数として読む。日本語のファイル名に多く、
+/// 文字の順で比べると `第１０回` が `第２回` の前に並ぶため。
+fn ascii_digit(c: char) -> Option<char> {
+    match c {
+        '0'..='9' => Some(c),
+        '０'..='９' => char::from_u32(c as u32 - '０' as u32 + '0' as u32),
+        _ => None,
+    }
+}
+
 /// `from` から続く数字の並びを、先頭の0を除いて返す。第2要素は数字の次の位置。
 fn digit_run(chars: &[char], from: usize) -> (&[char], usize) {
     let mut end = from;
-    while end < chars.len() && chars[end].is_ascii_digit() {
+    while end < chars.len() && ascii_digit(chars[end]).is_some() {
         end += 1;
     }
     let mut start = from;
     // 全部が0なら最後の1桁を残す ("000" と "0" を同じ値として扱うため)。
-    while start + 1 < end && chars[start] == '0' {
+    while start + 1 < end && ascii_digit(chars[start]) == Some('0') {
         start += 1;
     }
     (&chars[start..end], end)
 }
 
-/// 先頭の0を除いた数字同士を比べる。桁数が多い方が大きく、同じ桁数なら文字列の順。
+/// 先頭の0を除いた数字同士を比べる。桁数が多い方が大きく、同じ桁数なら半角にした文字の順。
 fn compare_digits(a: &[char], b: &[char]) -> Ordering {
-    a.len().cmp(&b.len()).then_with(|| a.cmp(b))
+    a.len().cmp(&b.len()).then_with(|| {
+        a.iter()
+            .map(|&c| ascii_digit(c))
+            .cmp(b.iter().map(|&c| ascii_digit(c)))
+    })
 }
 
 #[cfg(test)]
@@ -128,6 +142,18 @@ mod tests {
     fn sorted(mut titles: Vec<&str>) -> Vec<&str> {
         titles.sort_by(|a, b| title_cmp(a, b));
         titles
+    }
+
+    #[test]
+    fn full_width_digits_are_compared_as_numbers() {
+        assert_eq!(
+            sorted(vec!["第１０回", "第２回", "第１回"]),
+            vec!["第１回", "第２回", "第１０回"]
+        );
+        assert_eq!(title_cmp("第２回", "第2回"), Ordering::Equal);
+        assert_eq!(sorted(vec!["0010", "009"]), vec!["009", "0010"]);
+        assert_eq!(title_cmp("０００", "0"), Ordering::Equal);
+        assert_eq!(sorted(vec!["第１０回", "第2回"]), vec!["第2回", "第１０回"]);
     }
 
     #[test]

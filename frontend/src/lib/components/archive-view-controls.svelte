@@ -3,7 +3,6 @@
 	import type { Snippet } from 'svelte';
 	import BrowseControls from '#lib/components/browse-controls.svelte';
 	import { goto } from '$app/navigation';
-	import { withQuery } from '#lib/href.ts';
 	import * as m from '#lib/paraglide/messages.js';
 	import { ARCHIVE_SORT_OPTIONS, archiveSortHref, type ArchiveSort } from '#lib/archive-sort.ts';
 	import { listFilter } from '#lib/list-filter.svelte.ts';
@@ -79,18 +78,18 @@
 	}
 
 	function filterHref(axis: ArchiveAxis, value: string): string {
-		// 軸を選び直しても、打った絞り込みは残す。
+		// 軸を選び直しても、打った絞り込みと選んだ並び順は残す。
 		const nextFilters: Record<string, string> = { ...filters, ...list?.query };
 		if (value === allValueFor(axis)) {
 			delete nextFilters[axis.name];
 		} else {
 			nextFilters[axis.name] = value;
 		}
-		return withQuery(path, nextFilters);
+		return archiveSortHref(path, nextFilters, sort);
 	}
 
 	function handleAxisChange(axis: ArchiveAxis, value: string) {
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- withQuery() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」)
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- archiveSortHref() の戻り値で静的に追えない (→ AGENTS.md「コードの規約」)
 		goto(filterHref(axis, value));
 	}
 
@@ -102,8 +101,8 @@
 	// 件数は見出しにあるので、絞り込んでいないときは行ごと出さない。
 	let hideCount = $derived(countOnlyWhenFiltered && !hasFilters && shown === undefined);
 
-	// 軸の絞り込みだけを解除し、名前の絞り込みは残す。別の欄で打ったもので、解除の対象に見えないため。
-	let resetHref = $derived(withQuery(path, list?.query ?? {}));
+	// 軸の絞り込みだけを解除し、名前の絞り込みと並び順は残す。別の欄で選んだもので、解除の対象に見えないため。
+	let resetHref = $derived(archiveSortHref(path, list?.query ?? {}, sort));
 </script>
 
 {#snippet sortSelect()}

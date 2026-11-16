@@ -556,6 +556,7 @@ pub(super) fn move_over(
             Ok(true)
         }
         Err(err) if err.kind() == io::ErrorKind::CrossesDevices => {
+            ensure_space_for(src, dest_dir)?;
             if !copy_over(src, target, progress, trash, outcome)? {
                 return Ok(false);
             }
@@ -641,6 +642,7 @@ pub(super) fn move_entry(
             Ok(Some(target))
         }
         Err(err) if err.kind() == io::ErrorKind::CrossesDevices => {
+            ensure_space_for(src, dest_dir)?;
             let Some(target) = copy_tree(src, dest_dir, name, progress)? else {
                 return Ok(None);
             };
@@ -649,6 +651,14 @@ pub(super) fn move_entry(
         }
         Err(err) => Err(map_io_error(err)),
     }
+}
+
+/// 別のディスクへ写す前に、置き先に `src` の分の空きがあるかを確かめる (コピーと同じ。→ `ensure_space`)。
+/// 同じディスクの中かは名前を付け替えようとして初めて分かるので、移動はここで見る。
+/// 見ないと、置き先のディスクを空きが 0 になるまで書いてから失敗し、その間 OS や WebLAV 自身の DB も書けなくなる。
+fn ensure_space_for(src: &Path, dest_dir: &Path) -> Result<(), AppError> {
+    let (bytes, _) = tree_size(src).map_err(map_io_error)?;
+    ensure_space(dest_dir, bytes)
 }
 
 /// 別のディスクへ写し終えた後に、元を消す。消し切れなければ `MoveSourceLeft` にする。

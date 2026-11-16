@@ -566,6 +566,7 @@
 	ondiscard={() => {
 		siteDirty.markPristine();
 		serverDirty.markPristine();
+		hiddenDirty.markPristine();
 	}}
 />
 

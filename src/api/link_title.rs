@@ -159,14 +159,14 @@ pub(super) fn open_file_blocking(
     request.call().ok()
 }
 
-/// ページを取り、タイトルと説明を返す。相手から応答が無ければ `None`
+/// ページを取り、タイトルと説明を返す。相手から応答が無い・本文を読み切れなければ `None`
 /// (応答があれば、エラーの状態や HTML でないときも中身が空の `Some`)。
 fn fetch_page(url: &str) -> Option<LinkMetadata> {
     let mut response = agent().get(url).call().ok()?;
     if !response.status().is_success() {
         return Some(LinkMetadata::default());
     }
-    let Some(html) = read_html(&mut response) else {
+    let Some(html) = read_html(&mut response).ok()? else {
         return Some(LinkMetadata {
             file_name: response_file_name(&response),
             ..LinkMetadata::default()
@@ -191,15 +191,20 @@ pub(super) fn response_file_name(response: &ureq::http::Response<ureq::Body>) ->
     )
 }
 
-/// HTML の応答の本文を、先頭から `MAX_BODY_BYTES` まで読む。HTML でない・UTF-8 で読めないときは `None`。
-fn read_html(response: &mut ureq::http::Response<ureq::Body>) -> Option<String> {
+/// 本文を読み切れなかった (時間切れ・切断)。HTML でないページと分けるのは、空の情報で前回の情報を上書きしないため。
+struct BodyReadFailed;
+
+/// HTML の応答の本文を、先頭から `MAX_BODY_BYTES` まで読む。HTML でない・UTF-8 で読めないときは `Ok(None)`。
+fn read_html(
+    response: &mut ureq::http::Response<ureq::Body>,
+) -> Result<Option<String>, BodyReadFailed> {
     let is_html = response
         .headers()
         .get("content-type")
         .and_then(|value| value.to_str().ok())
         .is_some_and(|value| value.to_ascii_lowercase().contains("html"));
     if !is_html {
-        return None;
+        return Ok(None);
     }
     // `limit` は超えると読んだ分まで捨ててエラーにするので、先頭から上限までを自分で切り取る。
     // 大きいページ (GitHub など) でも、`<head>` は先頭にある。
@@ -209,8 +214,8 @@ fn read_html(response: &mut ureq::http::Response<ureq::Body>) -> Option<String> 
         .as_reader()
         .take(MAX_BODY_BYTES)
         .read_to_end(&mut body)
-        .ok()?;
-    utf8_prefix(body)
+        .map_err(|_| BodyReadFailed)?;
+    Ok(utf8_prefix(body))
 }
 
 /// UTF-8 として読む。文字コードの変換はしない。UTF-8 として読めなければ、化けた題を作らず諦める。
@@ -300,7 +305,12 @@ pub(super) fn fetch_card_blocking(
     }
     // 相対の URL は、リダイレクトを辿った後のページを基準に解決する。
     let base = url::Url::parse(&response.get_uri().to_string()).ok();
-    let mut card = match (read_html(&mut response), base) {
+    // 本文を読み切れなければ、前回の情報を使い続ける。空のカードで上書きすると、相手の更新の目印も覚えてしまい、
+    // 次からは「変わっていない」と返されて空のまま戻らないため。
+    let Ok(html) = read_html(&mut response) else {
+        return CardFetch::Failed;
+    };
+    let mut card = match (html, base) {
         (Some(html), Some(base)) => extract_card(&html, &base),
         // HTML でないページ (PDF など) は、ホスト名とアイコンだけのカードになる。
         // 開き方の決まる種類なら、ファイルの行で出すための名前を覚える (→ docs/ui.md「URL のファイル」)。
