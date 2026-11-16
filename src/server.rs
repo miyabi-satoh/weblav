@@ -680,8 +680,8 @@ mod tests {
             .expect("待ち受けのアドレスを読めなかった");
         assert_eq!(actual.ip(), addr.ip());
         assert!(
-            actual.port() > addr.port() && actual.port() <= addr.port() + PORT_FALLBACK_ATTEMPTS,
-            "ずらした先が範囲の外: {actual}"
+            fallback_ports(addr.port()).any(|port| port == actual.port()),
+            "ずらした先が試す番号の外: {actual}"
         );
     }
 
