@@ -351,13 +351,13 @@ test('ファイルのビューアー: 開いたものが URL に載り、読み�
 // ここから下は操作の細部。
 
 /**
- * 軸の一覧の行。行に役割が無いので、軸名を名前に持つ「上へ」ボタンの親を取る
- * (上下ボタンは lg 以上だけ出る。e2e は Desktop Chrome の幅で流す)。
+ * 軸の一覧の行。行に役割が無いので、軸名を名前に持つ「上へ」ボタンから、軸名の段を含むいちばん近い祖先を取る
+ * (上下ボタンを囲む枠が挟まっても行に届くため。上下ボタンは lg 以上だけ出る。e2e は Desktop Chrome の幅で流す)。
  */
 function axisRow(page: Page, name: string) {
 	return page
 		.getByRole('button', { name: new RegExp(`^${name} を上へ移動$|^Move ${name} up$`) })
-		.locator('xpath=..');
+		.locator(`xpath=ancestor::div[.//p[normalize-space()="${name}"]][1]`);
 }
 
 /** 閲覧画面の絞り込みの開くボタン (軸名を aria-label に持つ)。 */
