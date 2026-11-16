@@ -93,12 +93,15 @@ impl FileFilter {
 
     /// フォルダー `rel` が除外されていないか。除外したフォルダーの中のフォルダーも除外する。
     pub(super) fn allows_dir(&self, rel: &str) -> bool {
-        ancestors_and_self(rel)
+        let rel = nfc(rel);
+        ancestors_and_self(&rel)
             .all(|dir| !self.exclude.is_match(dir) && !self.exclude_dirs.is_match(dir))
     }
 
     /// ファイル `rel` が対象か。
     pub(super) fn allows_file(&self, rel: &str) -> bool {
+        let rel = nfc(rel);
+        let rel = rel.as_ref();
         if let Some((parent, _)) = rel.rsplit_once('/')
             && !self.allows_dir(parent)
         {
@@ -110,6 +113,12 @@ impl FileFilter {
                 .as_ref()
                 .is_none_or(|include| include.is_match(rel))
     }
+}
+
+/// 名前を NFC にそろえる。macOS は濁点を別の文字にした形 (NFD) で名前を保存するので、そろえないと、
+/// 画面で打った語やパターンが、Mac で付けた名前に当たらない。そろっていれば写さずに返す。
+pub(super) fn nfc(text: &str) -> std::borrow::Cow<'_, str> {
+    icu_normalizer::ComposingNormalizerBorrowed::new_nfc().normalize(text)
 }
 
 /// 保存する形に揃える。前後の空白と空の行を除く。何も無ければ `None`。
@@ -133,9 +142,10 @@ struct Parsed {
 impl Parsed {
     /// `/` を含まないパターンはどの階層の名前にも当て、含むものは登録先の一番上から見る (.gitignore と同じ)。
     fn new(pattern: &str) -> Self {
+        let pattern = nfc(pattern);
         let (body, dir_only) = match pattern.strip_suffix('/') {
             Some(body) => (body, true),
-            None => (pattern, false),
+            None => (pattern.as_ref(), false),
         };
         let glob = match body.strip_prefix('/') {
             Some(anchored) => anchored.to_string(),
@@ -297,6 +307,17 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Mac で付けた名前 (NFD) にも、画面で打ったパターン (NFC) が当たる。逆も同じ。
+    #[test]
+    fn patterns_match_names_in_either_unicode_form() {
+        let nfd_name = "テ\u{3099}ータ"; // 「デ」を「テ」と濁点に分けた形
+        let filter = filter("", "データ/");
+        assert!(!filter.allows_dir(nfd_name));
+        let filter = super::FileFilter::parse(None, Some(&format!("{nfd_name}/")))
+            .expect("パターンを読めるはず");
+        assert!(!filter.allows_dir("データ"));
+    }
 
     fn filter(include: &str, exclude: &str) -> FileFilter {
         FileFilter::parse(Some(include), Some(exclude)).expect("正しいパターンのはず")
