@@ -127,6 +127,10 @@ pub enum AppError {
     /// OS が書き込みを許さない (読み取り専用の共有・権限が無い)。
     #[error("the shared folder is read-only")]
     ShareReadOnly,
+    /// 別のディスクへの移動で、置き先には全部置けたが、元を消し切れなかった (→ `api::shares::fsops::move_entry`)。
+    /// 「途中で止まった」と分けるのは、置き先のほうが完全だと伝え、やり直しの上書きで完全な写しを壊させないため。
+    #[error("moved, but some items were left at the source")]
+    MoveSourceLeft,
 }
 
 /// API エラーの機械可読なコード。frontend はこの値で表示文言を選ぶ。
@@ -152,6 +156,7 @@ pub enum ErrorCode {
     TrashUnavailable,
     EntryInUse,
     ShareReadOnly,
+    MoveSourceLeft,
 }
 
 /// JSON に出る値と同じ文字列 (`not_found` など)。一覧を二重に持たないよう serde から作る。
@@ -261,6 +266,7 @@ impl AppError {
             Self::TrashUnavailable => (StatusCode::CONFLICT, ErrorCode::TrashUnavailable),
             Self::EntryInUse => (StatusCode::CONFLICT, ErrorCode::EntryInUse),
             Self::ShareReadOnly => (StatusCode::CONFLICT, ErrorCode::ShareReadOnly),
+            Self::MoveSourceLeft => (StatusCode::CONFLICT, ErrorCode::MoveSourceLeft),
         }
     }
 }

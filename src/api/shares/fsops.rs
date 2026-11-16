@@ -559,7 +559,7 @@ pub(super) fn move_over(
             if !copy_over(src, target, progress, trash, outcome)? {
                 return Ok(false);
             }
-            remove_tree(src).map_err(map_io_error)?;
+            remove_source(src)?;
             Ok(true)
         }
         Err(err) => Err(map_io_error(err)),
@@ -644,11 +644,21 @@ pub(super) fn move_entry(
             let Some(target) = copy_tree(src, dest_dir, name, progress)? else {
                 return Ok(None);
             };
-            remove_tree(src).map_err(map_io_error)?;
+            remove_source(src)?;
             Ok(Some(target))
         }
         Err(err) => Err(map_io_error(err)),
     }
+}
+
+/// 別のディスクへ写し終えた後に、元を消す。消し切れなければ `MoveSourceLeft` にする。
+/// 置き先は完全なので、ふつうの失敗と分けて伝え、やり直しの上書きで完全な写しを壊させないため。
+/// 呼び出し側は、置き先の `dest_dir.join(name)` (上書きなら `target`) へ動いたものとして扱う。
+fn remove_source(src: &Path) -> Result<(), AppError> {
+    remove_tree(src).map_err(|err| {
+        tracing::warn!(error = %err, source = %src.display(), "moved to another disk, but the source could not be removed completely");
+        AppError::MoveSourceLeft
+    })
 }
 
 /// リンクを辿らずに消す。フォルダーなら中身ごと (`fs::remove_dir_all` は中のリンクを辿らない)。
@@ -1121,6 +1131,29 @@ mod tests {
             .expect("中止していない");
         assert!(moved.join("英検").is_dir());
         assert!(!src.exists());
+    }
+
+    /// 写した後に元を消し切れなければ、ふつうの失敗でなく `MoveSourceLeft` にする。
+    #[cfg(unix)]
+    #[test]
+    fn a_source_that_cannot_be_removed_is_reported_as_left() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp_dir("move-source-left");
+        let src = dir.join("教材");
+        let locked = src.join("鍵");
+        fs::create_dir_all(&locked).expect("作れなかった");
+        fs::write(locked.join("a.txt"), b"a").expect("書けなかった");
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o555))
+            .expect("権限を変えられなかった");
+
+        let result = remove_source(&src);
+
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o755))
+            .expect("権限を戻せなかった");
+        assert!(
+            matches!(result, Err(AppError::MoveSourceLeft)),
+            "{result:?}"
+        );
     }
 
     /// 上書きを試す場所。`a.txt` (新) と、置き先に同じ名前の `dest/a.txt` (旧)。

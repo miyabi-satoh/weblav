@@ -559,12 +559,22 @@ impl Step {
                 Ok(copied.is_some())
             }
             TransferOp::Move => {
-                let moved = fsops::move_entry(&self.src, &self.dest_dir, &name, &job.progress)?;
-                let placed = moved.is_some();
-                if let Some(to) = moved {
-                    changes.push(Change::Moved { from: self.src, to });
+                match fsops::move_entry(&self.src, &self.dest_dir, &name, &job.progress) {
+                    Ok(Some(to)) => {
+                        changes.push(Change::Moved { from: self.src, to });
+                        Ok(true)
+                    }
+                    Ok(None) => Ok(false),
+                    // 置き先は完全なので、コンテンツは置き先へ付け替える。
+                    Err(AppError::MoveSourceLeft) => {
+                        changes.push(Change::Moved {
+                            from: self.src,
+                            to: self.dest_dir.join(&name),
+                        });
+                        Err(AppError::MoveSourceLeft)
+                    }
+                    Err(err) => Err(err),
                 }
-                Ok(placed)
             }
         }
     }
@@ -593,7 +603,8 @@ impl Step {
             // 置けなかったときは、ふつうの削除と同じ。
             changes.push(Change::Deleted(target.clone()));
         }
-        if self.op == TransferOp::Move && matches!(result, Ok(true)) {
+        if self.op == TransferOp::Move && matches!(result, Ok(true) | Err(AppError::MoveSourceLeft))
+        {
             changes.push(Change::Moved {
                 from: self.src,
                 to: target,
