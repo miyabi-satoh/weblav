@@ -1512,13 +1512,16 @@ pub(super) struct FilenameWordEntry {
 fn filename_word_entries(rows: Vec<AxisDictRow>) -> Vec<FilenameWordEntry> {
     let positions = DisplayPositions::new(&rows);
     rows.iter()
-        .map(|row| FilenameWordEntry {
+        .map(|row| {
             // ファイル名と同じく NFC にそろえる (→ `file_filter::nfc`)。
-            word_lower: super::file_filter::nfc(&row.raw_value).to_lowercase(),
-            len: super::file_filter::nfc(&row.raw_value).chars().count(),
-            match_position: row.match_position,
-            display: row.display().to_string(),
-            key: positions.key(row.display()),
+            let word = super::file_filter::nfc(&row.raw_value);
+            FilenameWordEntry {
+                word_lower: word.to_lowercase(),
+                len: word.chars().count(),
+                match_position: row.match_position,
+                display: row.display().to_string(),
+                key: positions.key(row.display()),
+            }
         })
         .collect()
 }

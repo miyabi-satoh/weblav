@@ -78,7 +78,7 @@ pub(super) fn title_cmp(a: &str, b: &str) -> Ordering {
         if ascii_digit(left[i]).is_some() && ascii_digit(right[j]).is_some() {
             let (left_digits, next_i) = digit_run(&left, i);
             let (right_digits, next_j) = digit_run(&right, j);
-            match compare_digits(&left_digits, &right_digits) {
+            match compare_digits(left_digits, right_digits) {
                 Ordering::Equal => {
                     i = next_i;
                     j = next_j;
@@ -112,27 +112,25 @@ fn ascii_digit(c: char) -> Option<char> {
     }
 }
 
-/// `from` から続く数字の並びを、半角にして先頭の0を除いて返す。第2要素は数字の次の位置。
-fn digit_run(chars: &[char], from: usize) -> (Vec<char>, usize) {
-    let mut digits = Vec::new();
+/// `from` から続く数字の並びを、先頭の0を除いて返す。第2要素は数字の次の位置。
+fn digit_run(chars: &[char], from: usize) -> (&[char], usize) {
     let mut end = from;
-    while let Some(digit) = chars.get(end).copied().and_then(ascii_digit) {
-        digits.push(digit);
+    while end < chars.len() && ascii_digit(chars[end]).is_some() {
         end += 1;
     }
+    let mut start = from;
     // 全部が0なら最後の1桁を残す ("000" と "0" を同じ値として扱うため)。
-    let zeros = digits
-        .iter()
-        .take(digits.len() - 1)
-        .take_while(|&&digit| digit == '0')
-        .count();
-    digits.drain(..zeros);
-    (digits, end)
+    while start + 1 < end && ascii_digit(chars[start]) == Some('0') {
+        start += 1;
+    }
+    (&chars[start..end], end)
 }
 
-/// 先頭の0を除いた数字同士を比べる。桁数が多い方が大きく、同じ桁数なら文字列の順。
+/// 先頭の0を除いた数字同士を比べる。桁数が多い方が大きく、同じ桁数なら半角にした文字の順。
 fn compare_digits(a: &[char], b: &[char]) -> Ordering {
-    a.len().cmp(&b.len()).then_with(|| a.cmp(b))
+    a.len()
+        .cmp(&b.len())
+        .then_with(|| a.iter().map(|&c| ascii_digit(c)).cmp(b.iter().map(|&c| ascii_digit(c))))
 }
 
 #[cfg(test)]

@@ -251,8 +251,8 @@
 				const created = result?.data;
 				if (!created) return;
 				axes = [...axes, created];
-				// 値の表に保存していない変更があれば、足した軸へは切り替えない (表の行を黙って捨てないため)。
-				if (!valuesForm.dirty) selectedAxisId = created.id;
+				// 値の表に保存していない変更があれば、切り替える前に捨ててよいかを確かめる。
+				selectAxis(created.id);
 			} else {
 				const result = await errorDialog.attempt(
 					() =>
