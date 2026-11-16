@@ -94,11 +94,7 @@ pub async fn build_app(
         tracing::warn!(error = %error::error_chain(&err), "cleaning up operations failed");
     }
 
-    let session_layer = session::layer(
-        session_store,
-        session_key,
-        &config.session,
-    );
+    let session_layer = session::layer(session_store, session_key, &config.session);
 
     // ログイン試行のレートリミット: 同一ユーザー名につき1分間に5回まで。
     // 異なるユーザー名を使った回避・CPU枯渇DoSを防ぐため、全体でも1分間に30回までの

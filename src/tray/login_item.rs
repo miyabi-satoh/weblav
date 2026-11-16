@@ -36,9 +36,9 @@ impl State {
     }
 }
 
-pub use platform::{open_settings, set, state, supported};
 #[cfg(windows)]
 pub use platform::register_restart_after_update;
+pub use platform::{open_settings, set, state, supported};
 
 #[cfg(target_os = "macos")]
 mod platform {

@@ -1304,7 +1304,10 @@ mod tests {
             FsPath::new(r"\\?\UNC\nas\share"),
             FsPath::new(r"\\nas\share\x")
         ));
-        assert!(lexically_contains(FsPath::new(r"C:\"), FsPath::new(r"C:\x")));
+        assert!(lexically_contains(
+            FsPath::new(r"C:\"),
+            FsPath::new(r"C:\x")
+        ));
     }
     use crate::api::shares::repoint::tests::{content_path, insert_folder, sep_path};
 

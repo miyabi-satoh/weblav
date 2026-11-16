@@ -324,10 +324,7 @@ async fn check_and_migrate(pool: &SqlitePool, manifest: &Manifest) -> Result<(),
 ///
 /// ADR: DB のファイルを差し替えずに、表の中身を入れ替える。接続のプールは `AppState` を通して
 /// 各所に配られていて閉じ直せないため。1つのトランザクションで入れ替えるので、途中で失敗しても今の DB は変わらない。
-async fn replace_tables(
-    pool: &SqlitePool,
-    db_path: &Path,
-) -> Result<(), AppError> {
+async fn replace_tables(pool: &SqlitePool, db_path: &Path) -> Result<(), AppError> {
     let db_path = db_path
         .to_str()
         .ok_or_else(|| io::Error::other("the data directory path is not valid UTF-8"))?;
@@ -346,9 +343,7 @@ async fn replace_tables(
 }
 
 /// 表の名前は実行時に決まるので、この関数の SQL は検査マクロを使えない。
-async fn copy_tables(
-    conn: &mut SqliteConnection,
-) -> Result<(), sqlx::Error> {
+async fn copy_tables(conn: &mut SqliteConnection) -> Result<(), sqlx::Error> {
     let mut tx = conn.begin_with("BEGIN IMMEDIATE").await?;
     // 外部キーの検査を確定の時まで待たせる。表を1つずつ入れる途中では、参照先がまだ無いため。
     sqlx::query("PRAGMA defer_foreign_keys = ON")
