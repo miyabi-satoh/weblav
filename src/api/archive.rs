@@ -111,8 +111,37 @@ impl<'a> From<&'a str> for ItemFacts<'a> {
 
 /// 日付の軸が使う日付。写真の撮影日を先にし、無ければファイルの更新日にする (→ docs/archive.md「軸の定義」)。
 /// 更新日はコピーし直すと変わるが、撮影日を持たないファイル (動画・文書) にも値を出すため。
+///
+/// 返すのは、その土地の暦の日時を UTC として数えた秒 (`date_value` はこれを UTC として年と月を取る)。
+/// 撮影日 (EXIF) は時差を持たないので書かれたまま、更新日は WebLAV を動かす PC の時間帯に直す。
 pub(super) fn dated_at(taken_at: Option<i64>, modified_ns: Option<i64>) -> Option<i64> {
-    taken_at.or_else(|| modified_ns.map(|ns| ns.div_euclid(1_000_000_000)))
+    dated_at_with(taken_at, modified_ns, local_offset_seconds)
+}
+
+/// `dated_at` の本体。時差 (UTC からの秒) の引き方を渡せるようにして、PC の時間帯によらずに確かめる。
+fn dated_at_with(
+    taken_at: Option<i64>,
+    modified_ns: Option<i64>,
+    offset_at: impl Fn(i64) -> i64,
+) -> Option<i64> {
+    taken_at.or_else(|| {
+        modified_ns.map(|ns| {
+            let at = ns.div_euclid(1_000_000_000);
+            at.saturating_add(offset_at(at))
+        })
+    })
+}
+
+/// `at` (Unix 秒) の時点の、PC の時間帯の UTC からの時差 (秒)。夏時間のある土地でも、その時点の時差を返す。
+fn local_offset_seconds(at: i64) -> i64 {
+    use chrono::TimeZone;
+    chrono::DateTime::from_timestamp_secs(at).map_or(0, |utc| {
+        i64::from(
+            chrono::Local
+                .offset_from_utc_datetime(&utc.naive_utc())
+                .local_minus_utc(),
+        )
+    })
 }
 
 /// 日付の軸の生の値。年は `2024`、月は `06` (→ docs/archive.md「軸の定義」)。文字の順に並べると、年は時の順、月は1月から12月の順になる。
@@ -574,7 +603,11 @@ fn read_items(
             Ok(metadata) => {
                 let size = i64::try_from(metadata.len()).unwrap_or(i64::MAX);
                 let modified_ns = super::fs::modified_ns(&metadata);
-                if known.get(&rel_path) == Some(&(size, modified_ns)) {
+                // 中身が手元に無いものは読まず、読んでいないまま残す。読めなかった値で残すと、手元に
+                // 戻っても大きさと更新日時が変わらず、次のファイルの変更までテキストとして開けないため。
+                if known.get(&rel_path) == Some(&(size, modified_ns))
+                    || super::cloud_files::is_online_only(&metadata)
+                {
                     None
                 } else {
                     let name = super::fs::rel_file_name(&rel_path);
@@ -606,6 +639,10 @@ fn read_items(
 /// 走査開始時と `path` が変わっていないことを、DB更新と同じトランザクションで
 /// 確認する。排他 (`archive_scans`) の取り漏らしに対する最終防御
 /// (→ docs/archive.md「スキャン」)。
+///
+/// 行の追加・書き換え・削除は `WRITE_BATCH` 件ずつ別のトランザクションで書く。フォルダーの更新日時と
+/// 最後のスキャンの時刻は、全部を書き終えてから最後にまとめて書く。途中で止まっても、中止したスキャンと
+/// 同じ (読んだ分だけを書いた) 形で残るので、次のスキャンがやり直せる。
 async fn sync_items(
     state: &AppState,
     id: i64,
@@ -615,29 +652,10 @@ async fn sync_items(
     kept_dirs: &[String],
     filter: &super::file_filter::FileFilter,
 ) -> Result<Json<RescanResponse>, AppError> {
-    let mut tx = crate::db::begin_write(&state.pool).await?;
-
-    let current_path = sqlx::query_scalar!("SELECT path FROM contents WHERE id = ?", id)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or(AppError::NotFound)?;
-    if current_path.as_deref() != Some(scanned_path) {
-        return Err(AppError::Conflict(
-            "the target directory changed during the scan".to_string(),
-        ));
-    }
-
-    let existing: HashSet<String> = sqlx::query_scalar!(
-        "SELECT rel_path FROM archive_items WHERE archive_id = ?",
-        id
-    )
-    .fetch_all(&mut *tx)
-    .await?
-    .into_iter()
-    .collect();
+    let existing = load_existing_items(&state.pool, id, scanned_path).await?;
     let found: HashSet<&str> = items.iter().map(|item| item.rel_path.as_str()).collect();
 
-    write_items(&mut tx, id, items, &existing).await?;
+    write_items(&state.pool, id, scanned_path, items, &existing).await?;
 
     let added = visible_count(
         found.iter().copied().filter(|rel| !existing.contains(*rel)),
@@ -649,17 +667,22 @@ async fn sync_items(
         .filter(|rel| !found.contains(rel.as_str()) && !is_inside_any(rel, kept_dirs))
         .collect();
     let removed = visible_count(gone.iter().map(|rel| rel.as_str()), filter);
-    for rel_path in gone {
-        // 墓標は残さない (→ docs/archive.md「スキャン」)。
-        sqlx::query!(
-            "DELETE FROM archive_items WHERE archive_id = ? AND rel_path = ?",
-            id,
-            rel_path
-        )
-        .execute(&mut *tx)
-        .await?;
+    for batch in gone.chunks(WRITE_BATCH) {
+        let mut tx = begin_scan_write(&state.pool, id, scanned_path).await?;
+        for rel_path in batch {
+            // 墓標は残さない (→ docs/archive.md「スキャン」)。
+            sqlx::query!(
+                "DELETE FROM archive_items WHERE archive_id = ? AND rel_path = ?",
+                id,
+                rel_path
+            )
+            .execute(&mut *tx)
+            .await?;
+        }
+        tx.commit().await?;
     }
 
+    let mut tx = begin_scan_write(&state.pool, id, scanned_path).await?;
     replace_dirs(&mut tx, id, dirs).await?;
     sqlx::query!(
         "UPDATE contents SET last_scanned_at = unixepoch('subsec') * 1000 WHERE id = ?",
@@ -667,7 +690,6 @@ async fn sync_items(
     )
     .execute(&mut *tx)
     .await?;
-
     tx.commit().await?;
 
     Ok(Json(RescanResponse {
@@ -676,6 +698,59 @@ async fn sync_items(
         total: visible_count(found.iter().copied(), filter),
         cancelled: false,
     }))
+}
+
+/// 1つのトランザクションで書く索引の行の数。書く間は DB の書き込みの鍵を持ち続け、ほかの書き込み
+/// (ログインした人のセッションの保存など) は `busy_timeout` (5秒) を過ぎると失敗する。数十万件を初めて
+/// 読むときも鍵を手放す間を空けるため、1回を数十ミリ秒に収まる量にする。
+const WRITE_BATCH: usize = 1_000;
+
+/// スキャンの結果を書くトランザクションを始める。走査を始めたときと `path` が変わっていれば断る。
+async fn begin_scan_write(
+    pool: &sqlx::SqlitePool,
+    id: i64,
+    scanned_path: &str,
+) -> Result<sqlx::Transaction<'static, sqlx::Sqlite>, AppError> {
+    let mut tx = crate::db::begin_write(pool).await?;
+    ensure_scanned_path(&mut tx, id, scanned_path).await?;
+    Ok(tx)
+}
+
+/// 走査を始めたときと `path` が変わっていないかを確かめる。
+async fn ensure_scanned_path(
+    conn: &mut SqliteConnection,
+    id: i64,
+    scanned_path: &str,
+) -> Result<(), AppError> {
+    let current_path = sqlx::query_scalar!("SELECT path FROM contents WHERE id = ?", id)
+        .fetch_optional(&mut *conn)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    if current_path.as_deref() != Some(scanned_path) {
+        return Err(AppError::Conflict(
+            "the target directory changed during the scan".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// 今の索引の相対パス。走査を始めたときと `path` が変わっていれば断る。
+async fn load_existing_items(
+    pool: &sqlx::SqlitePool,
+    id: i64,
+    scanned_path: &str,
+) -> Result<HashSet<String>, AppError> {
+    // 読むだけなので書き込みの鍵は取らない。書くときにも、トランザクションごとに `path` を確かめ直す。
+    let mut conn = pool.acquire().await?;
+    ensure_scanned_path(&mut conn, id, scanned_path).await?;
+    Ok(sqlx::query_scalar!(
+        "SELECT rel_path FROM archive_items WHERE archive_id = ?",
+        id
+    )
+    .fetch_all(&mut *conn)
+    .await?
+    .into_iter()
+    .collect())
 }
 
 /// ファイルを集め終える前に中止したスキャンの結果。読んだものが無いので何も書かない。
@@ -707,24 +782,7 @@ async fn save_read_items(
     items: &[ScannedItem],
     filter: &super::file_filter::FileFilter,
 ) -> Result<Json<RescanResponse>, AppError> {
-    let mut tx = crate::db::begin_write(pool).await?;
-    let current_path = sqlx::query_scalar!("SELECT path FROM contents WHERE id = ?", id)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or(AppError::NotFound)?;
-    if current_path.as_deref() != Some(scanned_path) {
-        return Err(AppError::Conflict(
-            "the target directory changed during the scan".to_string(),
-        ));
-    }
-    let existing: HashSet<String> = sqlx::query_scalar!(
-        "SELECT rel_path FROM archive_items WHERE archive_id = ?",
-        id
-    )
-    .fetch_all(&mut *tx)
-    .await?
-    .into_iter()
-    .collect();
+    let existing = load_existing_items(pool, id, scanned_path).await?;
     // 読めなかった新しいファイルは足さない。次のスキャンで読む。
     let read: Vec<&ScannedItem> = items
         .iter()
@@ -736,8 +794,7 @@ async fn save_read_items(
             .filter(|rel| !existing.contains(*rel)),
         filter,
     );
-    write_items(&mut tx, id, read, &existing).await?;
-    tx.commit().await?;
+    write_items(pool, id, scanned_path, read, &existing).await?;
     Ok(Json(RescanResponse {
         added,
         removed: 0,
@@ -747,64 +804,86 @@ async fn save_read_items(
 }
 
 /// 読んだファイルを索引に書く。新しいものは足し、既にあるものは読み直した値で書き換える。
-async fn write_items<'a>(
+/// `WRITE_BATCH` 件ずつ別のトランザクションで書く (→ `sync_items`)。
+async fn write_items<'a, I>(
+    pool: &sqlx::SqlitePool,
+    id: i64,
+    scanned_path: &str,
+    items: I,
+    existing: &HashSet<String>,
+) -> Result<(), AppError>
+where
+    I: IntoIterator<Item = &'a ScannedItem>,
+{
+    // 書き換えの無い既存の行は飛ばし、書く行だけで区切る。
+    let writes: Vec<&ScannedItem> = items
+        .into_iter()
+        .filter(|item| item.file.is_some() || !existing.contains(&item.rel_path))
+        .collect();
+    for batch in writes.chunks(WRITE_BATCH) {
+        let mut tx = begin_scan_write(pool, id, scanned_path).await?;
+        for item in batch {
+            write_item(&mut tx, id, item, existing.contains(&item.rel_path)).await?;
+        }
+        tx.commit().await?;
+    }
+    Ok(())
+}
+
+async fn write_item(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     id: i64,
-    items: impl IntoIterator<Item = &'a ScannedItem>,
-    existing: &HashSet<String>,
+    item: &ScannedItem,
+    exists: bool,
 ) -> Result<(), AppError> {
-    for item in items {
-        let rel_path = item.rel_path.as_str();
-        let file = item.file.as_ref();
-        let size = file.map(|file| file.size);
-        let modified_ns = file.and_then(|file| file.modified_ns);
-        let width = file
-            .and_then(|file| file.image)
-            .map(|image| i64::from(image.width));
-        let height = file
-            .and_then(|file| file.image)
-            .map(|image| i64::from(image.height));
-        let is_text = file.is_some_and(|file| file.is_text);
-        let taken_at = file.and_then(|file| file.taken_at);
-        if existing.contains(rel_path) {
-            if file.is_some() {
-                sqlx::query!(
-                    "UPDATE archive_items SET file_size = ?, modified_ns = ?, image_width = ?,
-                         image_height = ?, is_text = ?, taken_at = ?, read_version = ?
-                     WHERE archive_id = ? AND rel_path = ?",
-                    size,
-                    modified_ns,
-                    width,
-                    height,
-                    is_text,
-                    taken_at,
-                    READ_VERSION,
-                    id,
-                    rel_path
-                )
-                .execute(&mut **tx)
-                .await?;
-            }
-            continue;
-        }
+    let rel_path = item.rel_path.as_str();
+    let file = item.file.as_ref();
+    let size = file.map(|file| file.size);
+    let modified_ns = file.and_then(|file| file.modified_ns);
+    let width = file
+        .and_then(|file| file.image)
+        .map(|image| i64::from(image.width));
+    let height = file
+        .and_then(|file| file.image)
+        .map(|image| i64::from(image.height));
+    let is_text = file.is_some_and(|file| file.is_text);
+    let taken_at = file.and_then(|file| file.taken_at);
+    if exists {
         sqlx::query!(
-            "INSERT INTO archive_items
-                 (archive_id, rel_path, file_size, modified_ns, image_width, image_height, is_text,
-                  taken_at, read_version)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            id,
-            rel_path,
+            "UPDATE archive_items SET file_size = ?, modified_ns = ?, image_width = ?,
+                 image_height = ?, is_text = ?, taken_at = ?, read_version = ?
+             WHERE archive_id = ? AND rel_path = ?",
             size,
             modified_ns,
             width,
             height,
             is_text,
             taken_at,
-            READ_VERSION
+            READ_VERSION,
+            id,
+            rel_path
         )
         .execute(&mut **tx)
         .await?;
+        return Ok(());
     }
+    sqlx::query!(
+        "INSERT INTO archive_items
+             (archive_id, rel_path, file_size, modified_ns, image_width, image_height, is_text,
+              taken_at, read_version)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        id,
+        rel_path,
+        size,
+        modified_ns,
+        width,
+        height,
+        is_text,
+        taken_at,
+        READ_VERSION
+    )
+    .execute(&mut **tx)
+    .await?;
     Ok(())
 }
 
@@ -859,11 +938,12 @@ async fn run_due_rescans(state: &AppState, tried: &mut HashMap<i64, i64>) -> Res
         if !super::schedule::is_due(&auto, last, now, daily_mark) {
             continue;
         }
-        tried.insert(row.id, now);
-        // 手で始めたスキャンが走っていれば、それに任せる。
+        // ほかの処理 (手で始めたスキャン・一覧を開いたときの読み直し・裏で読む大きさ) が排他を持っていれば、
+        // 試したことにせず次の見回りで試し直す。試したことにすると、毎日の時刻なら次の日まで飛ばすため。
         let Ok(scan_guard) = state.archive_scans.acquire(row.id) else {
             continue;
         };
+        tried.insert(row.id, now);
         let progress = scan_guard.progress();
         progress.start_listing();
         let archive = load_archive(&state.pool, row.id).await?;
@@ -938,7 +1018,7 @@ async fn try_refresh_changed_dirs(
     if changes.is_empty() {
         return Ok(());
     }
-    let added = apply_dir_changes(&state.pool, id, &archive.path, &changes).await?;
+    let added = apply_dir_changes(&state.pool, id, &archive.path, changes).await?;
     if added.is_empty() {
         return Ok(());
     }
@@ -978,6 +1058,14 @@ fn find_dir_changes(
     hidden: &super::hidden::Hidden,
 ) -> DirChanges {
     let mut changes = DirChanges::default();
+    // 索引にあるフォルダーを、親ごとに引けるようにしておく。
+    let mut known_children: HashMap<&str, Vec<&str>> = HashMap::new();
+    for rel in known.keys().filter(|rel| !rel.is_empty()) {
+        known_children
+            .entry(super::fs::parent_rel(rel))
+            .or_default()
+            .push(rel);
+    }
     for (rel, modified_ns) in known {
         let path = if rel.is_empty() {
             root.to_path_buf()
@@ -1001,6 +1089,15 @@ fn find_dir_changes(
         let Ok((files, subdirs)) = super::fs::list_dir_shallow(root, rel, hidden) else {
             continue;
         };
+        // 索引にあるのに、親の中に同じ綴りで並ばなくなったフォルダーは消えたものとする。大文字・小文字を
+        // 区別しないファイルシステム (Windows・macOS) で綴りの大小だけを変えると、古い綴りでも開けてしまい、
+        // 新しい綴りのフォルダーと二重に索引されるため。
+        let listed: HashSet<&str> = subdirs.iter().map(|(subdir, _)| subdir.as_str()).collect();
+        for child in known_children.get(rel.as_str()).into_iter().flatten() {
+            if !listed.contains(child) {
+                changes.removed_dirs.push((*child).to_string());
+            }
+        }
         for (subdir, sub_modified) in subdirs {
             if known.contains_key(&subdir) {
                 continue;
@@ -1043,6 +1140,15 @@ fn find_dir_changes(
         }
         changes.changed_dirs.push((rel.clone(), now, files));
     }
+    // 消えたフォルダーの中を古い綴りで読んだ結果は捨てる。足し直すと、消した行が古い綴りのまま戻るため。
+    if !changes.removed_dirs.is_empty() {
+        let removed = changes.removed_dirs.clone();
+        let outside =
+            |rel: &str| !removed.iter().any(|dir| dir == rel) && !is_inside_any(rel, &removed);
+        changes.changed_dirs.retain(|(rel, _, _)| outside(rel));
+        changes.new_dirs.retain(|(rel, _)| outside(rel));
+        changes.new_dir_files.retain(|rel| outside(rel));
+    }
     changes
 }
 
@@ -1051,7 +1157,7 @@ async fn apply_dir_changes(
     pool: &sqlx::SqlitePool,
     id: i64,
     scanned_path: &str,
-    changes: &DirChanges,
+    changes: DirChanges,
 ) -> Result<Vec<String>, AppError> {
     let mut tx = crate::db::begin_write(pool).await?;
     let current_path = sqlx::query_scalar!("SELECT path FROM contents WHERE id = ?", id)
@@ -1061,40 +1167,32 @@ async fn apply_dir_changes(
     if current_path.as_deref() != Some(scanned_path) {
         return Ok(Vec::new());
     }
-    let existing: HashSet<String> = sqlx::query_scalar!(
+    let existing: Vec<String> = sqlx::query_scalar!(
         "SELECT rel_path FROM archive_items WHERE archive_id = ?",
         id
     )
     .fetch_all(&mut *tx)
-    .await?
-    .into_iter()
-    .collect();
+    .await?;
+    // 既存の全件と照らすので、件数に比例して重い。非同期のワーカーを塞がない。
+    let (changes, gone, added) = run_blocking(move || {
+        let (gone, added) = plan_dir_changes(&existing, &changes);
+        (changes, gone, added)
+    })
+    .await?;
 
     for dir in &changes.removed_dirs {
         delete_index_under(&mut tx, id, dir).await?;
     }
-
-    let mut added = Vec::new();
-    for (dir, modified_ns, files) in &changes.changed_dirs {
-        let found: HashSet<&str> = files.iter().map(String::as_str).collect();
-        for gone in existing
-            .iter()
-            .filter(|rel| super::fs::parent_rel(rel) == dir && !found.contains(rel.as_str()))
-        {
-            sqlx::query!(
-                "DELETE FROM archive_items WHERE archive_id = ? AND rel_path = ?",
-                id,
-                gone
-            )
-            .execute(&mut *tx)
-            .await?;
-        }
-        added.extend(
-            files
-                .iter()
-                .filter(|file| !existing.contains(*file))
-                .cloned(),
-        );
+    for rel_path in &gone {
+        sqlx::query!(
+            "DELETE FROM archive_items WHERE archive_id = ? AND rel_path = ?",
+            id,
+            rel_path
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    for (dir, modified_ns, _) in &changes.changed_dirs {
         sqlx::query!(
             "UPDATE archive_dirs SET modified_ns = ? WHERE archive_id = ? AND rel_path = ?",
             modified_ns,
@@ -1114,13 +1212,6 @@ async fn apply_dir_changes(
         .execute(&mut *tx)
         .await?;
     }
-    added.extend(
-        changes
-            .new_dir_files
-            .iter()
-            .filter(|file| !existing.contains(*file))
-            .cloned(),
-    );
     // 大きさなどはまだ読んでいない (`file_size` が NULL) まま足し、裏で読む (`fill_previews`)。
     for rel_path in &added {
         sqlx::query!(
@@ -1137,6 +1228,45 @@ async fn apply_dir_changes(
     Ok(added)
 }
 
+/// 中身が変わったフォルダーの直下で消えたファイルと、新しく足すファイル。
+fn plan_dir_changes(existing: &[String], changes: &DirChanges) -> (Vec<String>, Vec<String>) {
+    let existing_set: HashSet<&str> = existing.iter().map(String::as_str).collect();
+    let mut by_parent: HashMap<&str, Vec<&str>> = HashMap::new();
+    for rel in existing {
+        by_parent
+            .entry(super::fs::parent_rel(rel))
+            .or_default()
+            .push(rel);
+    }
+    let mut gone = Vec::new();
+    let mut added = Vec::new();
+    for (dir, _, files) in &changes.changed_dirs {
+        let found: HashSet<&str> = files.iter().map(String::as_str).collect();
+        gone.extend(
+            by_parent
+                .get(dir.as_str())
+                .into_iter()
+                .flatten()
+                .filter(|rel| !found.contains(*rel))
+                .map(|rel| (*rel).to_string()),
+        );
+        added.extend(
+            files
+                .iter()
+                .filter(|file| !existing_set.contains(file.as_str()))
+                .cloned(),
+        );
+    }
+    added.extend(
+        changes
+            .new_dir_files
+            .iter()
+            .filter(|file| !existing_set.contains(file.as_str()))
+            .cloned(),
+    );
+    (gone, added)
+}
+
 /// 足したファイルの大きさ・撮影日などを読んで書く。読む間は排他を持ち、進み具合を出す。
 async fn fill_previews(
     state: &AppState,
@@ -1149,31 +1279,15 @@ async fn fill_previews(
     let root = PathBuf::from(scanned_path);
     let items =
         run_blocking(move || read_items(&root, rel_paths, &KnownFiles::new(), &progress).0).await?;
-    let mut tx = crate::db::begin_write(&state.pool).await?;
-    for item in &items {
-        let Some(file) = &item.file else {
-            continue;
-        };
-        let width = file.image.map(|image| i64::from(image.width));
-        let height = file.image.map(|image| i64::from(image.height));
-        sqlx::query!(
-            "UPDATE archive_items SET file_size = ?, modified_ns = ?, image_width = ?,
-                 image_height = ?, is_text = ?, taken_at = ?, read_version = ?
-             WHERE archive_id = ? AND rel_path = ?",
-            file.size,
-            file.modified_ns,
-            width,
-            height,
-            file.is_text,
-            file.taken_at,
-            READ_VERSION,
-            id,
-            item.rel_path
-        )
-        .execute(&mut *tx)
-        .await?;
+    // 書く行が多いと書き込みの鍵を長く持つので、区切って書く (→ `WRITE_BATCH`)。
+    let read: Vec<&ScannedItem> = items.iter().filter(|item| item.file.is_some()).collect();
+    for batch in read.chunks(WRITE_BATCH) {
+        let mut tx = crate::db::begin_write(&state.pool).await?;
+        for item in batch {
+            write_item(&mut tx, id, item, true).await?;
+        }
+        tx.commit().await?;
     }
-    tx.commit().await?;
     drop(scan_guard);
     Ok(())
 }
@@ -1926,6 +2040,75 @@ mod tests {
         assert!(complete, "読み終えたと返すはず");
     }
 
+    /// 中身が手元に無いファイルは、読んでいないまま残す。手元に戻った後のスキャンで読むため。
+    #[cfg(windows)]
+    #[test]
+    fn read_items_leaves_online_only_files_unread() {
+        let root = super::super::cloud_files::placeholders::SyncRoot::new(
+            "archive-online-only",
+            &[("notes.txt", b"hello")],
+        );
+        let scans = std::sync::Arc::new(crate::state::ArchiveScans::default());
+        let guard = scans.acquire(1).expect("走査を始められるはず");
+        let progress = guard.progress();
+        progress.start_listing();
+
+        let (items, _) = read_items(
+            root.path(),
+            vec!["notes.txt".to_string()],
+            &KnownFiles::new(),
+            &progress,
+        );
+        assert_eq!(items.len(), 1);
+        assert!(items[0].file.is_none(), "読んだ値を残した");
+        assert_eq!(root.fetches(), 0, "スキャンで中身を取りに来た");
+    }
+
+    /// フォルダーの綴りの大小だけを変えたら、古い綴りのフォルダーは消えたものとし、新しい綴りで読み直す。
+    /// 大文字・小文字を区別しないファイルシステムでは古い綴りでも開けるので、親の並びで見分ける。
+    #[test]
+    fn find_dir_changes_treats_a_case_only_rename_as_remove_and_add() {
+        let tmp = crate::test_support::project_temp_dir("archive-tests", "case-rename");
+        let root = tmp.path().to_path_buf();
+        std::fs::create_dir_all(root.join("2024/foo")).expect("フォルダーを作れなかった");
+        std::fs::write(root.join("2024/foo/a.mp3"), b"").expect("ファイルを作れなかった");
+        let foo_modified = std::fs::metadata(root.join("2024/foo"))
+            .ok()
+            .as_ref()
+            .and_then(super::super::fs::modified_ns);
+        // 前のスキャンでは `Foo` の綴りだった。親の更新日時は、名前を変えたので前と違う。
+        let known: HashMap<String, Option<i64>> = [
+            (String::new(), None),
+            ("2024".to_string(), Some(0)),
+            ("2024/Foo".to_string(), foo_modified),
+        ]
+        .into_iter()
+        .collect();
+        let hidden = super::super::hidden::Hidden::for_test(&[], &[]);
+
+        let changes = find_dir_changes(
+            &root,
+            &known,
+            &super::super::file_filter::FileFilter::default(),
+            &hidden,
+        );
+
+        assert!(
+            changes.removed_dirs.iter().any(|dir| dir == "2024/Foo"),
+            "古い綴りのフォルダーは消えたものとするはず: {:?}",
+            changes.removed_dirs
+        );
+        assert!(changes.new_dirs.iter().any(|(dir, _)| dir == "2024/foo"));
+        assert_eq!(changes.new_dir_files, vec!["2024/foo/a.mp3".to_string()]);
+        assert!(
+            changes
+                .changed_dirs
+                .iter()
+                .all(|(dir, _, _)| !dir.starts_with("2024/Foo")),
+            "古い綴りで読んだ結果を残さないはず"
+        );
+    }
+
     /// 消したフォルダーの索引を消すとき、大文字・小文字だけが違う隣のフォルダーや、頭が同じ名前のフォルダーは残す。
     #[sqlx::test]
     async fn delete_index_under_keeps_differently_cased_and_longer_siblings(
@@ -2060,6 +2243,28 @@ mod tests {
     }
 
     #[test]
+    fn modified_date_is_read_in_the_time_zone_of_the_pc_but_the_shooting_date_is_not_shifted() {
+        const JST: i64 = 9 * 60 * 60;
+        // 2025-01-01 08:30 (日本時間) = 2024-12-31 23:30 UTC。
+        let new_year_morning = 1_735_687_800;
+        let dated = dated_at_with(None, Some(new_year_morning * 1_000_000_000), |_| JST)
+            .expect("更新日から日付が決まるはず");
+        assert_eq!(date_value(dated, false).as_deref(), Some("2025"));
+        assert_eq!(date_value(dated, true).as_deref(), Some("01"));
+        // 西の時間帯では、UTC の年明けの直後がまだ前の年になる。
+        let utc_new_year = 1_735_689_600; // 2025-01-01 00:00 UTC
+        let dated = dated_at_with(None, Some(utc_new_year * 1_000_000_000), |_| -5 * 60 * 60)
+            .expect("更新日から日付が決まるはず");
+        assert_eq!(date_value(dated, false).as_deref(), Some("2024"));
+        assert_eq!(date_value(dated, true).as_deref(), Some("12"));
+        // 撮影日は書かれた日時のまま数えるので、時差を足さない。
+        assert_eq!(
+            dated_at_with(Some(new_year_morning), Some(0), |_| JST),
+            Some(new_year_morning)
+        );
+    }
+
+    #[test]
     fn date_axis_value_groups_by_year_or_month_of_any_year_and_prefers_the_shooting_date() {
         // 2024-06-15 12:00:00 UTC
         let june = 1_718_452_800;
@@ -2071,7 +2276,7 @@ mod tests {
             "撮影日があれば更新日より先に使うはず"
         );
         assert_eq!(
-            dated_at(None, Some(june * 1_000_000_000)),
+            dated_at_with(None, Some(june * 1_000_000_000), |_| 0),
             Some(june),
             "撮影日が無ければ更新日に落とすはず"
         );

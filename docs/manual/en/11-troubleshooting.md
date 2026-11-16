@@ -56,6 +56,10 @@ The computer running WebLAV cannot read the NAS or external disk that the folder
 
 A NAS that was asleep takes a moment to wake up. Wait a little, then open it again.
 
+## Link titles and cards do not appear
+
+On a network that needs a proxy to reach the internet, WebLAV cannot fetch titles and cards from linked sites, because it connects to them without a proxy. You can fix the title on the edit page (→ [Register content](06-register-content.md)).
+
 ## WebLAV does not start
 
 Send the logs in the `logs` folder at the data location (→ [Maintain WebLAV](10-maintenance.md)) to the person who prepared WebLAV, and ask them for help.

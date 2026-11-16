@@ -414,33 +414,60 @@ fn copy_to_temp(
     copied.map(|()| None).map_err(map_io_error)
 }
 
+/// 置き先に同じ名前があるときの扱い (上書きは `copy_over`・`move_over`)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum TakenName {
+    /// 422 (`entryNameTaken`) にする。
+    Refuse,
+    /// 番号を付けた最初の空き (→ `free_name`) にする。
+    Number,
+}
+
 /// `src` (ファイルかフォルダー) を、`dest_dir` の中に `name` として写す。写した先を返す。中止されたら `None`。
 ///
 /// 一覧に出ない作業用の名前に写してから、最後に名前を付ける。途中で止まったり失敗したりしても、
 /// 半端なものが本来の名前で残らないようにするため (作業用のものは消す)。
-/// 同じ名前が既にあれば 422 (`entryNameTaken`)。上書きは `copy_over`。
+/// 番号を付ける名前は、写し終えて名前を付けるときに選ぶ。始める前に選ぶと、同じ名前を同時に写したとき、
+/// 後に終わったほうが、先に置かれた同じ番号の名前にぶつかって失敗するため。
 pub(super) fn copy_tree(
     src: &Path,
     dest_dir: &Path,
     name: &str,
+    taken: TakenName,
     progress: &TransferProgress,
 ) -> Result<Option<PathBuf>, AppError> {
-    let target = dest_dir.join(name);
-    if exists(&target) {
+    if taken == TakenName::Refuse && exists(&dest_dir.join(name)) {
         return Err(name_taken(name));
     }
+    let is_dir = fs::symlink_metadata(src).map_err(map_io_error)?.is_dir();
     let Some(temp) = copy_to_temp(src, dest_dir, progress)? else {
         return Ok(None);
     };
-    let placed = if exists(&target) {
-        Err(name_taken(name))
-    } else {
-        fs::rename(&temp, &target).map_err(map_io_error)
-    };
+    let placed = place_copied(&temp, dest_dir, name, is_dir, taken);
     if placed.is_err() {
         discard_temp(&temp);
     }
-    placed.map(|()| Some(target))
+    placed.map(Some)
+}
+
+/// 写し終えた `temp` に、`dest_dir` の中の `name` (`taken` が `Number` なら、今の空き) を付ける。
+fn place_copied(
+    temp: &Path,
+    dest_dir: &Path,
+    name: &str,
+    is_dir: bool,
+    taken: TakenName,
+) -> Result<PathBuf, AppError> {
+    let name = match taken {
+        TakenName::Refuse => name.to_string(),
+        TakenName::Number => free_name(dest_dir, name, is_dir),
+    };
+    let target = dest_dir.join(&name);
+    if exists(&target) {
+        return Err(name_taken(&name));
+    }
+    fs::rename(temp, &target).map_err(map_io_error)?;
+    Ok(target)
 }
 
 /// 上書きがどこまで進んだか。
@@ -556,7 +583,7 @@ pub(super) fn move_over(
             Ok(true)
         }
         Err(err) if err.kind() == io::ErrorKind::CrossesDevices => {
-            ensure_space_for(src, dest_dir)?;
+            ensure_movable_across(src, dest_dir)?;
             if !copy_over(src, target, progress, trash, outcome)? {
                 return Ok(false);
             }
@@ -622,7 +649,16 @@ fn copy_file(
     Ok(())
 }
 
-/// `src` を `dest_dir` の中に `name` として動かす。動かした先を返す。中止されたら `None`。
+/// 動かした結果。
+#[derive(Debug)]
+pub(super) struct Moved {
+    /// 動かした先。
+    pub(super) to: PathBuf,
+    /// 別のディスクへ写し終えたが、元を消し切れなかった (→ `remove_source`)。
+    pub(super) source_left: bool,
+}
+
+/// `src` を `dest_dir` の中に `name` として動かす。中止されたら `None`。
 ///
 /// 同じディスクの中なら名前を付け替えるだけで済む。別のディスクへは、写してから元を消す
 /// (写し終えるまでは元を消さないので、途中で止まっても元は残る)。
@@ -630,34 +666,63 @@ pub(super) fn move_entry(
     src: &Path,
     dest_dir: &Path,
     name: &str,
+    taken: TakenName,
     progress: &TransferProgress,
-) -> Result<Option<PathBuf>, AppError> {
-    let target = dest_dir.join(name);
+) -> Result<Option<Moved>, AppError> {
+    let is_dir = fs::symlink_metadata(src).map_err(map_io_error)?.is_dir();
+    let same_disk_name = match taken {
+        TakenName::Refuse => name.to_string(),
+        TakenName::Number => free_name(dest_dir, name, is_dir),
+    };
+    let target = dest_dir.join(&same_disk_name);
     if exists(&target) && !same_entry(src, &target) {
-        return Err(name_taken(name));
+        return Err(name_taken(&same_disk_name));
     }
     match fs::rename(src, &target) {
         Ok(()) => {
             progress.add_item();
-            Ok(Some(target))
+            Ok(Some(Moved {
+                to: target,
+                source_left: false,
+            }))
         }
         Err(err) if err.kind() == io::ErrorKind::CrossesDevices => {
-            ensure_space_for(src, dest_dir)?;
-            let Some(target) = copy_tree(src, dest_dir, name, progress)? else {
+            ensure_movable_across(src, dest_dir)?;
+            let Some(to) = copy_tree(src, dest_dir, name, taken, progress)? else {
                 return Ok(None);
             };
-            remove_source(src)?;
-            Ok(Some(target))
+            let source_left = match remove_source(src) {
+                Ok(()) => false,
+                Err(AppError::MoveSourceLeft) => true,
+                Err(err) => return Err(err),
+            };
+            Ok(Some(Moved { to, source_left }))
         }
         Err(err) => Err(map_io_error(err)),
     }
 }
 
-/// 別のディスクへ写す前に、置き先に `src` の分の空きがあるかを確かめる (コピーと同じ。→ `ensure_space`)。
-/// 同じディスクの中かは名前を付け替えようとして初めて分かるので、移動はここで見る。
-/// 見ないと、置き先のディスクを空きが 0 になるまで書いてから失敗し、その間 OS や WebLAV 自身の DB も書けなくなる。
-fn ensure_space_for(src: &Path, dest_dir: &Path) -> Result<(), AppError> {
-    let (bytes, _) = tree_size(src).map_err(map_io_error)?;
+/// 別のディスクへ写す前に、動かせるものかを確かめる。どちらも、同じディスクの中かは名前を付け替えようとして
+/// 初めて分かるので、移動はここで見る。
+/// - 中にリンク (シンボリックリンク・ジャンクション) があれば `MoveContainsLinks`。写すときはリンクを飛ばすので
+///   (→ モジュールの説明)、元を消すとリンクが黙って無くなるため。同じディスクの中なら、リンクごと名前を付け替えるので失わない。
+/// - 置き先に `src` の分の空きがあるか (コピーと同じ。→ `ensure_space`)。見ないと、置き先のディスクを空きが 0 になるまで
+///   書いてから失敗し、その間 OS や WebLAV 自身の DB も書けなくなる。
+fn ensure_movable_across(src: &Path, dest_dir: &Path) -> Result<(), AppError> {
+    let mut bytes = 0;
+    for entry in walkdir::WalkDir::new(src).follow_links(false) {
+        let entry = entry.map_err(|err| map_io_error(io::Error::from(err)))?;
+        let file_type = entry.file_type();
+        if file_type.is_symlink() {
+            return Err(AppError::MoveContainsLinks);
+        }
+        if file_type.is_file() {
+            bytes += entry
+                .metadata()
+                .map_err(|err| map_io_error(io::Error::from(err)))?
+                .len();
+        }
+    }
     ensure_space(dest_dir, bytes)
 }
 
@@ -673,11 +738,34 @@ fn remove_source(src: &Path) -> Result<(), AppError> {
 
 /// リンクを辿らずに消す。フォルダーなら中身ごと (`fs::remove_dir_all` は中のリンクを辿らない)。
 fn remove_tree(path: &Path) -> io::Result<()> {
+    #[cfg(windows)]
+    clear_read_only(path)?;
     if fs::symlink_metadata(path)?.is_dir() {
         fs::remove_dir_all(path)
     } else {
         fs::remove_file(path)
     }
+}
+
+/// `path` とその中の、読み取り専用の属性を外す (リンクは辿らず、触らない)。
+/// Windows は読み取り専用のファイルを消さない (`DeleteFileW` が断る)。std の `remove_dir_all` は NTFS では
+/// 属性によらず消すが、それができないファイルシステム (exFAT・NAS の共有) では途中で止まるため。
+#[cfg(windows)]
+fn clear_read_only(path: &Path) -> io::Result<()> {
+    for entry in walkdir::WalkDir::new(path).follow_links(false) {
+        let entry = entry?;
+        if entry.file_type().is_symlink() {
+            continue;
+        }
+        let mut permissions = entry.metadata()?.permissions();
+        if permissions.readonly() {
+            // Windows では読み取り専用の属性を外すだけ (Unix のように誰でも書けるようにはならない)。
+            #[allow(clippy::permissions_set_readonly_false)]
+            permissions.set_readonly(false);
+            fs::set_permissions(entry.path(), permissions)?;
+        }
+    }
+    Ok(())
 }
 
 /// 消したものの行き先。動いている WebLAV は OS のごみ箱を使う。
@@ -1044,7 +1132,7 @@ mod tests {
         fs::create_dir(&dest).expect("作れなかった");
 
         let progress = TransferProgress::default();
-        let copied = copy_tree(&src, &dest, "src", &progress)
+        let copied = copy_tree(&src, &dest, "src", TakenName::Refuse, &progress)
             .expect("写せるはず")
             .expect("中止していない");
         assert_eq!(copied, dest.join("src"));
@@ -1063,7 +1151,7 @@ mod tests {
         // 作業用の名前は残らない。
         assert_eq!(fs::read_dir(&dest).expect("読めなかった").count(), 1);
 
-        assert!(copy_tree(&src, &dest, "src", &progress).is_err());
+        assert!(copy_tree(&src, &dest, "src", TakenName::Refuse, &progress).is_err());
     }
 
     #[test]
@@ -1124,9 +1212,15 @@ mod tests {
         let progress = TransferProgress::default();
         progress.cancel();
         assert!(
-            copy_tree(&dir.join("a.txt"), &dest, "a.txt", &progress)
-                .expect("失敗はしない")
-                .is_none()
+            copy_tree(
+                &dir.join("a.txt"),
+                &dest,
+                "a.txt",
+                TakenName::Refuse,
+                &progress
+            )
+            .expect("失敗はしない")
+            .is_none()
         );
         assert_eq!(fs::read_dir(&dest).expect("読めなかった").count(), 0);
     }
@@ -1147,11 +1241,95 @@ mod tests {
             })
         ));
         assert!(ensure_not_into_itself(&src, &dest).is_ok());
-        let moved = move_entry(&src, &dest, "教材", &TransferProgress::default())
-            .expect("動かせるはず")
-            .expect("中止していない");
-        assert!(moved.join("英検").is_dir());
+        let moved = move_entry(
+            &src,
+            &dest,
+            "教材",
+            TakenName::Refuse,
+            &TransferProgress::default(),
+        )
+        .expect("動かせるはず")
+        .expect("中止していない");
+        assert!(moved.to.join("英検").is_dir());
+        assert!(!moved.source_left);
         assert!(!src.exists());
+    }
+
+    /// 番号を付ける名前は、写し終えて置くときの空きで選ぶ。写している間にほかのコピーが同じ番号の名前を置いても、
+    /// ぶつからずに次の番号で置く。
+    #[test]
+    fn a_numbered_copy_takes_the_name_free_when_it_is_placed() {
+        let dir = temp_dir("copy-numbered");
+        let dest = dir.join("dest");
+        fs::create_dir(&dest).expect("作れなかった");
+        fs::write(dest.join("a.txt"), b"old").expect("書けなかった");
+        let temp = dest.join(format!("{COPY_TEMP_PREFIX}test"));
+        fs::write(&temp, b"new").expect("書けなかった");
+        // 始めたときの空きは「a (1).txt」だったが、写している間にほかのコピーが置いた。
+        fs::write(dest.join("a (1).txt"), b"other").expect("書けなかった");
+
+        let placed = place_copied(&temp, &dest, "a.txt", false, TakenName::Number)
+            .expect("次の番号で置けるはず");
+
+        assert_eq!(placed, dest.join("a (2).txt"));
+        assert_eq!(fs::read(&placed).expect("読めなかった"), b"new");
+        assert_eq!(
+            fs::read(dest.join("a (1).txt")).expect("読めなかった"),
+            b"other"
+        );
+        let refused = place_copied(&placed, &dest, "a.txt", false, TakenName::Refuse);
+        assert!(matches!(
+            refused,
+            Err(AppError::ValidationDetailed {
+                detail: ValidationDetail::EntryNameTaken { .. },
+                ..
+            })
+        ));
+    }
+
+    /// 別のディスクへ写すときはリンクを飛ばすので、中にリンクのあるものは動かさない。
+    #[cfg(unix)]
+    #[test]
+    fn a_move_across_disks_is_refused_when_links_are_inside() {
+        let dir = temp_dir("move-links");
+        let src = dir.join("教材");
+        fs::create_dir_all(src.join("sub")).expect("作れなかった");
+        fs::write(src.join("sub").join("a.txt"), b"a").expect("書けなかった");
+        let dest = dir.join("dest");
+        fs::create_dir(&dest).expect("作れなかった");
+        ensure_movable_across(&src, &dest).expect("リンクが無ければ動かせるはず");
+
+        std::os::unix::fs::symlink("/etc", src.join("sub").join("link"))
+            .expect("リンクを作れなかった");
+
+        assert!(matches!(
+            ensure_movable_across(&src, &dest),
+            Err(AppError::MoveContainsLinks)
+        ));
+    }
+
+    /// Windows は読み取り専用のファイルを消さないので、属性を外してから消す。
+    /// NTFS 以外 (exFAT・NAS の共有) では std の `remove_dir_all` も止まるため。
+    #[cfg(windows)]
+    #[test]
+    fn read_only_entries_are_removed_on_windows() {
+        let dir = temp_dir("remove-read-only");
+        let folder = dir.join("教材");
+        fs::create_dir_all(folder.join("sub")).expect("作れなかった");
+        let inner = folder.join("sub").join("a.txt");
+        let single = dir.join("b.txt");
+        for file in [&inner, &single] {
+            fs::write(file, b"a").expect("書けなかった");
+            let mut permissions = fs::metadata(file).expect("読めなかった").permissions();
+            permissions.set_readonly(true);
+            fs::set_permissions(file, permissions).expect("属性を付けられなかった");
+        }
+
+        remove_tree(&folder).expect("フォルダーごと消せるはず");
+        remove_tree(&single).expect("ファイルを消せるはず");
+
+        assert!(!exists(&folder));
+        assert!(!exists(&single));
     }
 
     /// シェルのファイル操作の HRESULT を、画面が次の手を示せる種類に写す。値は windows クレートの

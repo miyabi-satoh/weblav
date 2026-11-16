@@ -37,7 +37,8 @@ export const FILENAME_WORD_VALUES_LIMIT = 1_000;
 /**
  * 保存前の結果を問い合わせられない理由。問い合わせてよければ `null`。
  * 空の行・重複した行・語の軸での上限超えは、サーバーが保存と同じく 422 を返す。
- * 重複の判定はサーバーに合わせて、前後の空白を落とし、大文字小文字は区別する。
+ * 重複の判定はサーバーに合わせて、大文字小文字は区別する。前後の空白は語の軸でだけ落とす
+ * (階層と日付の軸の値はフォルダーの名前とそのまま照らすので、` 2024` と `2024` は別の値)。
  */
 export function axisValuesPreviewBlocker(
 	rawValues: readonly string[],
@@ -46,7 +47,7 @@ export function axisValuesPreviewBlocker(
 	if (source === 'filenameWord' && rawValues.length > FILENAME_WORD_VALUES_LIMIT) return 'tooMany';
 	const seen = new Set<string>();
 	for (const rawValue of rawValues) {
-		const value = rawValue.trim();
+		const value = source === 'filenameWord' ? rawValue.trim() : rawValue;
 		if (value === '' || seen.has(value)) return 'incomplete';
 		seen.add(value);
 	}

@@ -1,42 +1,34 @@
-# sv
+# frontend
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+WebLAV の画面。SvelteKit (Svelte 5) を静的な SPA として `build/` に書き出し、Rust のサーバーがそれをバイナリに埋め込んで配る。画面の言語は日本語と英語 (Paraglide)。
 
-## Creating a project
+## 要るもの
 
-If you're seeing this, you've probably already done this step. Congrats!
+- Node.js 26 以降 (`package.json` の `engines`)
+- pnpm 12 (`package.json` の `packageManager`)
+- 画面を API とつないで動かすときは、リポジトリの直下の Rust のサーバー (→ `../README.md`)
 
-```sh
-# create a new project
-npx sv create my-app
-```
+## 動かす・確かめる
 
-To recreate this project with the same configuration:
+コマンドはリポジトリの直下で `just` から流す (定義は `../justfile`)。
 
-```sh
-# recreate this project
-pnpm dlx sv@0.17.0 create --template minimal --types ts --add prettier eslint vitest="usages:unit,component" playwright tailwindcss="plugins:none" sveltekit-adapter="adapter:static" paraglide="languageTags:en, ja+demo:no" --install pnpm frontend
-```
+| コマンド              | すること                                                                          |
+| --------------------- | --------------------------------------------------------------------------------- |
+| `just install`        | 依存・git の hook・e2e 用の Chromium を入れる                                     |
+| `just dev`            | 開発用のサーバーと画面をまとめて起動する (`/api` はサーバーへ渡す)                |
+| `just frontend-build` | `build/` に書き出す                                                               |
+| `just lint`           | eslint と表記の検査 (Tailwind の任意値・長音・括弧) を流す。Rust の clippy も流す |
+| `just check`          | svelte-check で型を検査する                                                       |
+| `just test`           | vitest を流す。Rust のテストも流す                                                |
+| `just e2e-local`      | 使い捨てのサーバーに対して Playwright の e2e を流す                               |
+| `just api-types`      | サーバーの API から `src/lib/api/schema.d.ts` を作り直す                          |
 
-## Developing
+## 置き場所
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+- `src/routes/`: 画面
+- `src/lib/`: 部品と共通の処理 (`components/ui/` は shadcn-svelte の部品)
+- `messages/`: 画面の文言 (`ja.json`・`en.json`)
+- `e2e/`: Playwright の e2e
+- `scripts/`: e2e の起動、マニュアルの画像の撮り直し (`just manual-shots`) など
 
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+書き方の決まりは `../AGENTS.md` の「コードの規約」、画面の決めごとは `../docs/ui.md` にある。

@@ -55,6 +55,20 @@ describe('IntegerInput', () => {
 		expect(input().value).toBe('7');
 	});
 
+	it('rewrites a readable number in the usual form when its form is submitted with Enter', async () => {
+		const form = document.createElement('form');
+		form.addEventListener('submit', (e) => e.preventDefault());
+		document.body.append(form);
+		const props = $state({ id: 'n', value: 5, min: 1, max: 10 });
+		await render(IntegerInput, { target: form, props });
+		await userEvent.fill(page.getByRole('textbox'), '０７');
+		await userEvent.keyboard('{Enter}');
+
+		expect(props.value).toBe(7);
+		await expect.poll(() => input().value).toBe('7');
+		form.remove();
+	});
+
 	it('ties the unit to the field for screen readers', async () => {
 		await render(IntegerInput, { id: 'n', value: 5, min: 1, max: 10, unit: 'MB' });
 

@@ -121,9 +121,9 @@ Importing replaces the current categories and the display title. After importing
 
 ## Edit or delete categories
 
-On the “Categories” tab, select “Edit...” or “Delete...” on the category row.
+On the “Categories” tab, select “⋮” on the category row, then choose “Edit...” or “Delete...”.
 
-![The categories list, with Edit and Delete buttons on each row](images/axis-row-actions.webp)
+![The categories list with the “⋮” menu of a row open](images/axis-row-actions.webp)
 
 On the page opened by “Edit...”, you can also choose these settings:
 
@@ -134,8 +134,8 @@ Changing the source or level and saving clears that category’s values table.
 
 ## Change the order
 
-- Filter order: On the “Categories” tab, drag the handle at the beginning of the category row.
-- Value order: Drag the handle at the beginning of the row in the values table.
+- Filter order: On the “Categories” tab, drag the handle at the beginning of the category row, or select “⋮” on the row and choose “Move up” or “Move down”.
+- Value order: Drag the handle at the beginning of the row in the values table, or select “⋮” on the row and choose “Move up” or “Move down”.
 
 ## When you add or remove files
 

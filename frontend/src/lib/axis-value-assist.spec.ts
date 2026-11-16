@@ -51,6 +51,11 @@ describe('axisValuesPreviewBlocker', () => {
 		expect(axisValuesPreviewBlocker(['answer', 'Answer'], 'filenameWord')).toBeNull();
 	});
 
+	it('keeps surrounding spaces of folder values, so " 2024" and "2024" are distinct', () => {
+		expect(axisValuesPreviewBlocker(['2024', ' 2024'], 'dirLevel')).toBeNull();
+		expect(axisValuesPreviewBlocker([''], 'dirLevel')).toBe('incomplete');
+	});
+
 	it('limits the number of words only on filename word axes', () => {
 		const words = (count: number) => Array.from({ length: count }, (_, i) => `w${i}`);
 		expect(axisValuesPreviewBlocker(words(FILENAME_WORD_VALUES_LIMIT), 'filenameWord')).toBeNull();

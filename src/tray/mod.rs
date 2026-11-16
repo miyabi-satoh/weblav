@@ -289,7 +289,7 @@ pub fn open_in_browser(running: AlreadyRunning) {
 
 /// タスクトレイのツールチップの内容。アドレスは出さない (→ docs/architecture.md「LAN からの到達性」)。
 /// 言語でも変わらない (→ docs/architecture.md「タスクトレイの表示言語」)。
-const TRAY_TOOLTIP: &str = "weblav";
+const TRAY_TOOLTIP: &str = "WebLAV";
 
 #[cfg(test)]
 mod tests {

@@ -1,6 +1,7 @@
 <!doctype html>
-<!-- マニュアルの仕組みの図 (docs/manual/ja/images/how-it-works.webp)。`just manual-shots` が #fig を2倍で撮る。
-     画面ではなく図なので、色は routes/layout.css の値を写し、書体は画面と同じ BIZ UDPGothic を使う。 -->
+<!-- マニュアルの仕組みの図 (docs/manual/{ロケール}/images/how-it-works.webp)。`just manual-shots` が #fig を2倍で撮る。
+     画面ではなく図なので、色は routes/layout.css の値を写し、書体は画面と同じ BIZ UDPGothic を使う。
+     英語の文言は data-en に持ち、`?lang=en` で開くと差し替える。 -->
 <html lang="ja">
 	<head>
 		<meta charset="utf-8" />
@@ -172,53 +173,94 @@
 			</symbol>
 		</svg>
 		<div id="fig">
-			<div class="abs head" style="left: 12px; top: 22px">コンピューターのフォルダー</div>
-			<div class="abs head" style="left: 496px; top: 22px">見る人の画面</div>
+			<div class="abs head" style="left: 12px; top: 22px" data-en="Folders on the computer">
+				コンピューターのフォルダー
+			</div>
+			<div class="abs head" style="left: 496px; top: 22px" data-en="Viewer's screen">
+				見る人の画面
+			</div>
 
 			<div class="abs faint" style="left: 12px; top: 60px">
-				<svg class="folder"><use href="#f" /></svg>ドキュメント
+				<svg class="folder"><use href="#f" /></svg><span data-en="Documents">ドキュメント</span>
 			</div>
 			<div class="abs faint" style="left: 37px; top: 104px">
-				<svg class="folder"><use href="#f" /></svg>家計簿
+				<svg class="folder"><use href="#f" /></svg><span data-en="Household accounts">家計簿</span>
 			</div>
-			<div class="abs muted" style="left: 252px; top: 104px">範囲の外。WebLAV では選べない</div>
+			<div
+				class="abs muted"
+				style="left: 252px; top: 104px"
+				data-en="Outside the share. Not selectable in WebLAV"
+			>
+				範囲の外。WebLAV では選べない
+			</div>
 
 			<div class="box"></div>
 			<div class="abs" style="left: 37px; top: 148px">
-				<svg class="folder"><use href="#f" /></svg><span class="bold">学校</span
-				><span class="teal bold" style="font-size: 12px; margin-left: 8px">共有</span>
+				<svg class="folder"><use href="#f" /></svg><span class="bold" data-en="School">学校</span
+				><span class="teal bold" style="font-size: 12px; margin-left: 8px" data-en="Share"
+					>共有</span
+				>
 			</div>
-			<div class="abs teal" style="left: 252px; top: 148px">この中から選んで登録する</div>
+			<div class="abs teal" style="left: 252px; top: 148px" data-en="Choose from here to register">
+				この中から選んで登録する
+			</div>
 
 			<div class="abs chip" style="left: 60px; top: 192px">
-				<svg class="folder"><use href="#f" /></svg>教材
+				<svg class="folder"><use href="#f" /></svg><span data-en="Teaching materials">教材</span>
 			</div>
-			<div class="abs teal bold" style="left: 252px; top: 192px">ショートカットとして登録</div>
+			<div class="abs teal bold" style="left: 252px; top: 192px" data-en="As a shortcut">
+				ショートカットとして登録
+			</div>
 			<div class="line" style="left: 425px; width: 62px; top: 191px"></div>
 			<div class="head-arrow" style="left: 488px; top: 192px"></div>
 
 			<div class="abs chip" style="left: 60px; top: 236px">
-				<svg class="folder"><use href="#f" /></svg>英検
+				<svg class="folder"><use href="#f" /></svg><span data-en="EIKEN">英検</span>
 			</div>
-			<div class="abs teal bold" style="left: 252px; top: 236px">ライブラリとして登録</div>
+			<div class="abs teal bold" style="left: 252px; top: 236px" data-en="As a library">
+				ライブラリとして登録
+			</div>
 			<div class="line" style="left: 425px; width: 62px; top: 235px"></div>
 			<div class="head-arrow" style="left: 488px; top: 236px"></div>
 
 			<div class="abs" style="left: 67px; top: 279px">
-				<svg class="folder"><use href="#f" /></svg>下書き
+				<svg class="folder"><use href="#f" /></svg><span data-en="Drafts">下書き</span>
 			</div>
-			<div class="abs muted" style="left: 252px; top: 279px">登録していない</div>
+			<div class="abs muted" style="left: 252px; top: 279px" data-en="Not registered">
+				登録していない
+			</div>
 			<div class="line dash" style="left: 356px; width: 142px; top: 278px"></div>
 
 			<div class="phone">
 				<div class="title">WebLAV</div>
 				<div class="rule"></div>
-				<div class="card" style="top: 55px; height: 35px">教材</div>
+				<div class="card" style="top: 55px; height: 35px" data-en="Teaching materials">教材</div>
 				<div class="card" style="top: 100px; height: 35px; line-height: 1.15">
-					英検<small>年度・回で絞り込み</small>
+					<span data-en="EIKEN">英検</span
+					><small data-en="By year and session">年度・回で絞り込み</small>
 				</div>
-				<div class="abs faint" style="left: 10px; top: 160px; font-size: 13px">出ない</div>
+				<div class="abs faint" style="left: 10px; top: 160px; font-size: 13px" data-en="Not shown">
+					出ない
+				</div>
 			</div>
 		</div>
+		<script>
+			if (new URLSearchParams(location.search).get('lang') === 'en') {
+				document.documentElement.lang = 'en';
+				for (const el of document.querySelectorAll('[data-en]')) el.textContent = el.dataset.en;
+				// 英語の文言は長さが違うので、矢印の線を直前の文言の右端から始める。
+				// 幅は書体を読み終えてから測る。撮る側はこれを待つ (manual-shots.ts の shootDiagram)。
+				window.layoutReady = document.fonts.ready.then(() => {
+					const fig = document.getElementById('fig').getBoundingClientRect();
+					for (const line of document.querySelectorAll('.line')) {
+						const end = line.offsetLeft + line.offsetWidth;
+						const label = line.previousElementSibling.getBoundingClientRect();
+						const start = label.right - fig.left + 8;
+						line.style.left = `${start}px`;
+						line.style.width = `${end - start}px`;
+					}
+				});
+			}
+		</script>
 	</body>
 </html>

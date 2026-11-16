@@ -60,9 +60,21 @@ export function openViewerItem(
 	signal = new AbortController().signal
 ): Promise<void> {
 	cancelRestore();
+	// 前に押した行の画像を読み込んでいる間に別の行を押したら、前の方は開かない。
+	// 両方を読み終えた順に開くと、ビューアーが2つ重なるため。
+	opening?.abort();
+	const current = new AbortController();
+	opening = current;
+	if (signal.aborted) current.abort();
+	else signal.addEventListener('abort', () => current.abort(), { once: true });
 	const at = items.findIndex((candidate) => itemSrc(candidate) === itemSrc(item));
-	return openAt(at < 0 ? [item] : items, Math.max(at, 0), signal);
+	return openAt(at < 0 ? [item] : items, Math.max(at, 0), current.signal).finally(() => {
+		if (opening === current) opening = null;
+	});
 }
+
+/** 行から開いていて、画像を読み込んでいる途中のもの。 */
+let opening: AbortController | null = null;
 
 /**
  * Markdown のプレビューの相対パスのリンクから、同じコンテンツの `path` のファイルを開く。
@@ -104,6 +116,8 @@ function cancelRestore() {
 /** 戻る・画面の移動で、開いているビューアーを閉じる。 */
 export function closeViewers() {
 	cancelRestore();
+	opening?.abort();
+	opening = null;
 	fileViewer.open = false;
 	closeImageViewer();
 }

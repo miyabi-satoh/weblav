@@ -113,6 +113,94 @@ impl AppDirs {
     pub fn addr_path(&self) -> PathBuf {
         self.data_dir.join(ADDR_FILE_NAME)
     }
+
+    /// weblav 自身の置き場 (設定とデータ) として、共有から外すパス (→ docs/folders.md「WebLAV 自身の置き場」)。
+    ///
+    /// Store 版 (MSIX) では、`%APPDATA%`・`%LOCALAPPDATA%` に書いたものはパッケージごとの場所に回され
+    /// (→ docs/distribution.md「設定とデータの置き場所」)、同じ中身が2つのパスから見える。
+    /// `C:\` やユーザーのフォルダーを共有にしたとき、回された先のパスからも出ないよう、そちらも足す。
+    pub fn own_dirs(&self) -> Vec<PathBuf> {
+        let mut dirs = vec![self.config_dir.clone(), self.data_dir.clone()];
+        if let Some(redirect) = PackageRedirect::current() {
+            let redirected: Vec<PathBuf> = dirs
+                .iter()
+                .filter_map(|dir| redirect.redirected(dir))
+                .collect();
+            dirs.extend(redirected);
+        }
+        dirs
+    }
+}
+
+/// MSIX のパッケージの中で動いているときの、`AppData` の書き込みが回される先
+/// (`%LOCALAPPDATA%\Packages\<パッケージファミリー名>\LocalCache\{Roaming,Local}`)。
+// Windows 以外では作られない。回し先の決め方は OS によらないので、テストはどこでも流す。
+#[cfg_attr(not(windows), allow(dead_code))]
+struct PackageRedirect {
+    roaming: PathBuf,
+    local: PathBuf,
+    family_name: String,
+}
+
+impl PackageRedirect {
+    /// パッケージの外 (開発中の exe・Windows 以外) では `None`。
+    #[cfg(windows)]
+    fn current() -> Option<Self> {
+        let family_name = current_package_family_name()?;
+        let base = directories::BaseDirs::new()?;
+        Some(Self {
+            roaming: base.data_dir().to_path_buf(),
+            local: base.data_local_dir().to_path_buf(),
+            family_name,
+        })
+    }
+
+    #[cfg(not(windows))]
+    fn current() -> Option<Self> {
+        None
+    }
+
+    /// `dir` が `%APPDATA%`・`%LOCALAPPDATA%` の中なら、回された先のパス。外なら `None`。
+    fn redirected(&self, dir: &Path) -> Option<PathBuf> {
+        let cache = self
+            .local
+            .join("Packages")
+            .join(&self.family_name)
+            .join("LocalCache");
+        if let Ok(rest) = dir.strip_prefix(&self.roaming) {
+            return Some(cache.join("Roaming").join(rest));
+        }
+        if let Ok(rest) = dir.strip_prefix(&self.local) {
+            // 既に回された先のパスなら、重ねて足さない。
+            if dir.starts_with(&cache) {
+                return None;
+            }
+            return Some(cache.join("Local").join(rest));
+        }
+        None
+    }
+}
+
+/// 今のプロセスのパッケージファミリー名。パッケージの外なら `None`。
+#[cfg(windows)]
+fn current_package_family_name() -> Option<String> {
+    use windows::Win32::Foundation::{ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS};
+    use windows::Win32::Storage::Packaging::Appx::GetCurrentPackageFamilyName;
+    use windows::core::PWSTR;
+
+    // 1回目で要る長さ (終端の NUL を含む) を受け取り、2回目で中身を受け取る。
+    let mut len = 0u32;
+    if unsafe { GetCurrentPackageFamilyName(&mut len, None) } != ERROR_INSUFFICIENT_BUFFER {
+        return None;
+    }
+    let mut buf = vec![0u16; len as usize];
+    if unsafe { GetCurrentPackageFamilyName(&mut len, Some(PWSTR(buf.as_mut_ptr()))) }
+        != ERROR_SUCCESS
+    {
+        return None;
+    }
+    let end = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
+    String::from_utf16(&buf[..end]).ok()
 }
 
 /// ディレクトリを作成する。Unixでは所有者だけが読み書きできる権限(0700)にする
@@ -363,6 +451,31 @@ impl Config {
 mod tests {
     use super::*;
     use crate::test_support::TempDir;
+
+    #[test]
+    fn package_redirect_maps_appdata_to_the_package_local_cache() {
+        let redirect = PackageRedirect {
+            roaming: PathBuf::from("/Users/u/AppData/Roaming"),
+            local: PathBuf::from("/Users/u/AppData/Local"),
+            family_name: "amiiby.WebLAV_tv82n7df3ay6j".into(),
+        };
+        let cache =
+            PathBuf::from("/Users/u/AppData/Local/Packages/amiiby.WebLAV_tv82n7df3ay6j/LocalCache");
+        assert_eq!(
+            redirect.redirected(Path::new("/Users/u/AppData/Roaming/amiiby/weblav/config")),
+            Some(cache.join("Roaming/amiiby/weblav/config"))
+        );
+        assert_eq!(
+            redirect.redirected(Path::new("/Users/u/AppData/Local/amiiby/weblav/data")),
+            Some(cache.join("Local/amiiby/weblav/data"))
+        );
+        // `WEBLAV_HOME` のように `AppData` の外なら回されない。既に回された先なら重ねない。
+        assert_eq!(redirect.redirected(Path::new("/srv/weblav")), None);
+        assert_eq!(
+            redirect.redirected(&cache.join("Local/amiiby/weblav/data")),
+            None
+        );
+    }
 
     #[test]
     fn example_file_parses_to_defaults() {

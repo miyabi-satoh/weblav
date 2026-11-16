@@ -17,18 +17,23 @@
 
 <!-- 閲覧画面の絞り込みと並び順のドロップダウン。上に項目名、下に値の2段 (→ docs/ui.md「UI 全般」)。
      高さは data-size の既定を上書きするため同じ variant で指定する。
-     チェブロンは部品側で色が固定されているので子孫セレクタで塗り替える。 -->
+     チェブロンは部品側で色が固定されているので子孫セレクタで塗り替える。
+     長い値は置き場の幅で切って末尾を省く。部品は中身の幅に合わせて折り返さないので、
+     スマートフォン幅で長い軸の値を選ぶと、画面が横にはみ出すため。選択肢の一覧では全文が読める。 -->
 <Select.Trigger
 	{...restProps}
 	aria-label={label}
 	class={[
-		'min-w-30 gap-3 px-4 data-[size=default]:h-14',
+		'max-w-full min-w-30 gap-3 px-4 data-[size=default]:h-14',
 		highlighted && [activeFieldClass, '[&_svg]:text-primary'],
 		className
 	]}
 >
-	<span class="flex flex-col items-start gap-px">
-		<span class={fieldLabelClass(highlighted)}>{label}</span>
-		<span class="text-base {highlighted ? 'text-primary' : 'text-sub-foreground'}">{value}</span>
+	<span class="flex min-w-0 flex-col items-start gap-px">
+		<span class={['max-w-full truncate', fieldLabelClass(highlighted)]}>{label}</span>
+		<span
+			class="max-w-full truncate text-base {highlighted ? 'text-primary' : 'text-sub-foreground'}"
+			>{value}</span
+		>
 	</span>
 </Select.Trigger>

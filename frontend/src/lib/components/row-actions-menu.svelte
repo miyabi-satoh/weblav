@@ -13,7 +13,12 @@
 </script>
 
 <DropdownMenu.Root>
-	<DropdownMenu.Trigger aria-label={m.common_row_actions({ name })} class={actionMenuTriggerClass}>
+	<!-- data-row-actions は、行を動かした後にこのボタンへフォーカスを戻すための目印 (分類のページ)。 -->
+	<DropdownMenu.Trigger
+		data-row-actions
+		aria-label={m.common_row_actions({ name })}
+		class={actionMenuTriggerClass}
+	>
 		<EllipsisVerticalIcon class="size-4" />
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content align="end">

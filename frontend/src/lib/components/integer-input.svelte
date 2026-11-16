@@ -71,6 +71,15 @@
 		if (parsed.kind === 'ok') draft = null;
 	}
 
+	// Enter で送ると欄を離れないので、送る時点でも揃える。揃えないと、保存した後に欄を離れたときに
+	// 文字が変わり、使う側が保存していない変更と見なす。送れるのは読めた値のときだけ。
+	$effect(() => {
+		const form = ref?.form;
+		if (!form) return;
+		form.addEventListener('submit', settle);
+		return () => form.removeEventListener('submit', settle);
+	});
+
 	const unitId = $derived(`${id}-unit`);
 </script>
 

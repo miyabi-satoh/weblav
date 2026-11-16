@@ -164,7 +164,7 @@ export class SortableZone<T extends object> {
 			dropTargetStyle: {},
 			transformDraggedElement: this.#fitDraggedRow,
 			// 表として読み上げさせるため、role="list" などを付けさせない。
-			// キーボードでは各行の上下ボタンで並べ替える。
+			// キーボードでは各行の⋮の「上へ移動」「下へ移動」で並べ替える。
 			autoAriaDisabled: true,
 			zoneTabIndex: -1,
 			zoneItemTabIndex: -1

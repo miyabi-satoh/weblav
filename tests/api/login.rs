@@ -277,7 +277,8 @@ async fn creating_a_recovery_code_records_when_it_was_created(pool: SqlitePool) 
     assert!(me["recoveryCodeCreatedAt"].is_string(), "{body}");
 }
 
-/// 編集者も自分のコードを作り、それでパスワードを再設定できる。
+/// 編集者も自分のコードを作り、それでパスワードを再設定できる。前から入っていたほかの端末のログインは切れ、
+/// 戻した端末はログインしたままになる。
 #[sqlx::test]
 async fn regular_user_resets_the_password_with_their_own_recovery_code(pool: SqlitePool) {
     insert_user(&pool, "alice", "old-password").await;
@@ -287,6 +288,12 @@ async fn regular_user_resets_the_password_with_their_own_recovery_code(pool: Sql
 
     let response = recover(app.clone(), "alice", &code, "new-password").await;
     assert_eq!(response.status(), StatusCode::OK);
+    let recovered = set_cookie(&response);
+
+    let (status, body) = send_empty(app.clone(), "GET", "/api/v1/auth/me", &cookie).await;
+    assert_error(status, &body, StatusCode::UNAUTHORIZED, "unauthorized");
+    let (status, body) = send_empty(app.clone(), "GET", "/api/v1/auth/me", &recovered).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
     login(app, "alice", "new-password").await;
 }
 

@@ -131,6 +131,11 @@ pub enum AppError {
     /// 「途中で止まった」と分けるのは、置き先のほうが完全だと伝え、やり直しの上書きで完全な写しを壊させないため。
     #[error("moved, but some items were left at the source")]
     MoveSourceLeft,
+    /// 別のディスクへ動かすものの中に、リンク (シンボリックリンク・ジャンクション) がある (→ `api::shares::fsops::move_entry`)。
+    /// 別のディスクへは写してから元を消し、写すときはリンクを飛ばすので、動かすとリンクが黙って無くなるため。
+    /// 動かす途中で初めて分かるので、422 の内訳でなく、裏で続く処理の結果にも載る `code` で伝える。
+    #[error("cannot move links to another disk")]
+    MoveContainsLinks,
 }
 
 /// API エラーの機械可読なコード。frontend はこの値で表示文言を選ぶ。
@@ -157,6 +162,7 @@ pub enum ErrorCode {
     EntryInUse,
     ShareReadOnly,
     MoveSourceLeft,
+    MoveContainsLinks,
 }
 
 /// JSON に出る値と同じ文字列 (`not_found` など)。一覧を二重に持たないよう serde から作る。
@@ -267,6 +273,7 @@ impl AppError {
             Self::EntryInUse => (StatusCode::CONFLICT, ErrorCode::EntryInUse),
             Self::ShareReadOnly => (StatusCode::CONFLICT, ErrorCode::ShareReadOnly),
             Self::MoveSourceLeft => (StatusCode::CONFLICT, ErrorCode::MoveSourceLeft),
+            Self::MoveContainsLinks => (StatusCode::CONFLICT, ErrorCode::MoveContainsLinks),
         }
     }
 }

@@ -288,9 +288,11 @@ async fn reset_password(
     let hash = auth::hash_password_blocking(&payload.password).await?;
 
     // パスワードを知られて再設定するときに、知った人が作ったコードで取り戻されないよう、コードも消す
-    // (→ docs/access.md「リカバリコード」)。
+    // (→ docs/access.md「リカバリコード」)。世代を進めて、その人のどの端末のログインも切る
+    // (→ docs/access.md「ロールと操作」)。
     let username = sqlx::query_scalar!(
-        "UPDATE users SET password_hash = ?, recovery_code_hash = NULL, recovery_code_created_at = NULL
+        "UPDATE users SET password_hash = ?, recovery_code_hash = NULL, recovery_code_created_at = NULL,
+                session_generation = session_generation + 1
          WHERE id = ? RETURNING username",
         hash,
         id

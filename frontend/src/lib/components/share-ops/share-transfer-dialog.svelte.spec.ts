@@ -101,4 +101,39 @@ describe('ShareTransferDialog', () => {
 		await expect.element(page.getByRole('button', { name: 'キャンセル' })).toBeEnabled();
 		expect(post).toHaveBeenCalledTimes(1);
 	});
+	it('stays in the folder being browsed when the share list is refreshed', async () => {
+		get.mockImplementation((_url: string, options: { params: { query: { path: string } } }) => {
+			const path = options.params.query.path;
+			return Promise.resolve(
+				json({
+					share: { id: 2, name: '教材' },
+					path,
+					parent: path === '控え' ? '' : '控え',
+					access: 'all',
+					entries: path === '控え' ? [{ name: '下', path: '控え/下' }] : []
+				})
+			);
+		});
+		const share = { id: 2, name: '教材', access: 'all' } as components['schemas']['ShareResponse'];
+		const props = {
+			open: true,
+			op: 'copy' as const,
+			shareId: 2,
+			dirPath: '控え',
+			target: { name: '英検', path: '新/英検', isDir: true, listed: false },
+			shares: [share],
+			ondone: () => {}
+		};
+		const { rerender } = await render(ShareTransferDialog, { props });
+		await page.getByRole('button', { name: '下' }).click();
+		await expect.poll(() => get.mock.calls.length).toBe(2);
+
+		// 裏の処理が終わって画面を取り直すと、同じ中身の新しい一覧が渡ってくる。
+		await rerender({ shares: [{ ...share }] });
+
+		await expect
+			.element(page.getByText('このフォルダーにはサブフォルダーがありません。'))
+			.toBeVisible();
+		expect(get).toHaveBeenCalledTimes(2);
+	});
 });

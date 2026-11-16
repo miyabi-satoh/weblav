@@ -18,7 +18,8 @@ async fn replace_password_hash(pool: &SqlitePool, username: &str, password: &str
         .expect("パスワードを書き換えられるはず");
 }
 
-/// 管理者に再設定されたら、古いパスワードで確かめたセッションは、自分のアカウントの操作を通せない。
+/// 管理者に再設定されたら、古いパスワードで入ったセッションは、自分のアカウントの操作を通せない
+/// (セッションごと切れる。→ `users::users_reset_password_logs_the_user_out_on_every_device`)。
 /// 再設定でリカバリコードを消しても、古いパスワードを知った人に作り直されないため。
 #[sqlx::test]
 async fn admin_reset_stops_the_old_session_from_changing_the_account(pool: SqlitePool) {
@@ -39,31 +40,13 @@ async fn admin_reset_stops_the_old_session_from_changing_the_account(pool: Sqlit
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
 
-    let (status, body) = send_empty(app.clone(), "POST", RECOVERY_CODE_URI, &alice).await;
-    assert_error(
-        status,
-        &body,
-        StatusCode::FORBIDDEN,
-        "password_confirmation_required",
-    );
-
-    // 新しいパスワードで確かめ直せば通る。
-    let (status, body) = send_json(
-        app.clone(),
-        "POST",
-        CONFIRM_PASSWORD_URI,
-        &alice,
-        r#"{"password":"new-password"}"#,
-    )
-    .await;
-    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
     let (status, body) = send_empty(app, "POST", RECOVERY_CODE_URI, &alice).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_error(status, &body, StatusCode::UNAUTHORIZED, "unauthorized");
 }
 
-/// 自分でパスワードを変えたセッションは確かめた内のままで、同じ人のほかのセッションは通らなくなる。
+/// 自分でパスワードを変えたセッションは、ログインしたまま確かめた内にもなる。同じ人のほかのセッションは切れる。
 #[sqlx::test]
-async fn changing_the_own_password_keeps_only_this_session_confirmed(pool: SqlitePool) {
+async fn changing_the_own_password_keeps_only_this_session_logged_in(pool: SqlitePool) {
     insert_user(&pool, "alice", "old-password").await;
     let app = test_app(pool).await;
     let here = login(app.clone(), "alice", "old-password").await;
@@ -88,12 +71,7 @@ async fn changing_the_own_password_keeps_only_this_session_confirmed(pool: Sqlit
         rename,
     )
     .await;
-    assert_error(
-        status,
-        &body,
-        StatusCode::FORBIDDEN,
-        "password_confirmation_required",
-    );
+    assert_error(status, &body, StatusCode::UNAUTHORIZED, "unauthorized");
     let (status, body) = send_json(app, "PUT", "/api/v1/auth/username", &here, rename).await;
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
 }

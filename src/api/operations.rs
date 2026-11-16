@@ -31,6 +31,11 @@ pub(crate) async fn with_client_ip(
     CLIENT_IP.scope(ip, next.run(request)).await
 }
 
+/// 今の要求を送ってきた端末の IP アドレス (→ `client_ip`)。分からなければ `None`。
+pub(crate) fn current_client_ip() -> Option<String> {
+    CLIENT_IP.try_with(Clone::clone).ok().flatten()
+}
+
 /// 今の要求の IP アドレスを引き継いで、裏の処理を始める。裏で作る記録 (コピー・移動の上書きで消した
 /// ものの削除など) にも、操作した端末を残すため。
 pub(crate) fn spawn_with_client_ip<F>(future: F) -> tokio::task::JoinHandle<F::Output>

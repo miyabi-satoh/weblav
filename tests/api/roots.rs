@@ -916,3 +916,42 @@ async fn a_root_access_can_be_set_and_listed(pool: SqlitePool) {
     .await;
     assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
 }
+
+/// フォルダーを選ぶ窓で読めないフォルダーを開くと、そのフォルダーの名前を添えて断る。
+/// 汎用の 422 では、どのフォルダーがなぜ開けないのか利用者に分からないため。
+/// 権限で読めなくするので Unix だけ。
+#[cfg(unix)]
+#[sqlx::test]
+async fn browsing_into_an_unreadable_folder_names_it(pool: SqlitePool) {
+    let (app, cookie) = admin_app(&pool).await;
+    let dir = root_dir("roots-browse-unreadable");
+    std::fs::create_dir_all(dir.join("locked")).expect("フォルダーを作れなかった");
+    let path = canonical_path_as_api_returns_it(&dir);
+    let (status, body) = send(
+        app.clone(),
+        roots_request("POST", ROOTS_URI, &cookie, Some(&json_path(&path))),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+
+    let locked_path = canonical_path_as_api_returns_it(&dir.join("locked"));
+    let locked = test_support::Unreadable::new(dir.join("locked"));
+    let uri = format!(
+        "/api/v1/fs/dirs?path={}",
+        utf8_percent_encode(&locked_path, NON_ALPHANUMERIC)
+    );
+    let (status, body) = send_empty(app, "GET", &uri, &cookie).await;
+    drop(locked);
+
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+    assert_eq!(
+        parse_json(&body)["error"]["detail"],
+        serde_json::json!({"kind": "folderUnreadable", "name": "locked"}),
+        "{body}"
+    );
+}

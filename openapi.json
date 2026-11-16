@@ -8131,7 +8131,8 @@
           "trash_unavailable",
           "entry_in_use",
           "share_read_only",
-          "move_source_left"
+          "move_source_left",
+          "move_contains_links"
         ]
       },
       "ErrorResponse": {
@@ -11204,6 +11205,25 @@
           },
           {
             "type": "object",
+            "description": "フォルダーを選ぶ窓で開いたフォルダーを読めない (権限が無いなど)。どれが読めないかを、\n汎用の「入力内容を確認してください」では利用者が知りようがないため、名前を渡す。",
+            "required": [
+              "name",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "folderUnreadable"
+                ]
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
             "description": "サイトの「表示しないもの」のパターンは名前に当てるので、`/` を末尾にしか書けない (→ `api::hidden`)。",
             "required": [
               "pattern",
@@ -11312,6 +11332,27 @@
                 "enum": [
                   "entryProtected"
                 ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "ブラウザーが開かないポート (→ `api::server_settings::BROWSER_BLOCKED_PORTS`)。\n保存して起動し直すと、どのブラウザーからも WebLAV を開けなくなるため。",
+            "required": [
+              "port",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "portBlockedByBrowsers"
+                ]
+              },
+              "port": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
               }
             }
           }

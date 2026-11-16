@@ -20,6 +20,8 @@ import {
 	specificSaveButton,
 	waitForDialog,
 	CLEANUP_SAFE_TIMEOUTS,
+	clickRowMenuItem,
+	escapeRegExp,
 	RESCAN_BUTTON_NAME
 } from './helpers';
 import { send } from './api-helpers';
@@ -350,14 +352,23 @@ test('ファイルのビューアー: 開いたものが URL に載り、読み�
 
 // ここから下は操作の細部。
 
-/**
- * 軸の一覧の行。行に役割が無いので、軸名を名前に持つ「上へ」ボタンの親を取る
- * (上下ボタンは lg 以上だけ出る。e2e は Desktop Chrome の幅で流す)。
- */
+const MOVE_UP_MENU_ITEM_NAME = /^上へ移動$|^Move up$/;
+const MOVE_DOWN_MENU_ITEM_NAME = /^下へ移動$|^Move down$/;
+const DELETE_MENU_ITEM_NAME = /^削除\.\.\.$|^Delete\.\.\.$/;
+
+/** 軸の一覧・値の辞書の行の⋮のボタン。名前には行の名前が入る (→ docs/ui.md「UI 全般」)。 */
+function rowActions(page: Page, name: string) {
+	const escaped = escapeRegExp(name);
+	return page.getByRole('button', {
+		name: new RegExp(`^${escaped} の操作$|^Actions for ${escaped}$`)
+	});
+}
+
+/** 軸の一覧の行。行に役割が無いので、軸名を名前に持つ⋮から、軸名の段を含むいちばん近い祖先を取る。 */
 function axisRow(page: Page, name: string) {
-	return page
-		.getByRole('button', { name: new RegExp(`^${name} を上へ移動$|^Move ${name} up$`) })
-		.locator('xpath=..');
+	return rowActions(page, name).locator(
+		`xpath=ancestor::div[.//p[normalize-space()="${name}"]][1]`
+	);
 }
 
 /** 閲覧画面の絞り込みの開くボタン (軸名を aria-label に持つ)。 */
@@ -365,7 +376,7 @@ function filterTriggers(page: Page, names: string[]) {
 	return page.getByRole('combobox', { name: new RegExp(`^(${names.join('|')})$`) });
 }
 
-test('軸の並べ替え: 上下ボタンで動かした順が保存され、閲覧の絞り込みの並びに出る', async ({
+test('軸の並べ替え: ⋮の「上へ移動」で動かした順が保存され、閲覧の絞り込みの並びに出る', async ({
 	page
 }) => {
 	await withDirectoryContent(
@@ -381,13 +392,15 @@ test('軸の並べ替え: 上下ボタンで動かした順が保存され、閲
 			await expect(triggers.nth(0)).toHaveAttribute('aria-label', '年度');
 
 			await page.goto(`/contents/${archive.id}/axes`);
-			await axisRow(page, '種類')
-				.getByRole('button', { name: /^種類 を上へ移動$|^Move 種類 up$/ })
-				.click();
-			// 保存中は上下ボタンがすべて止まる。2番目になった年度の「上へ」が押せるようになれば保存を終えている。
-			await expect(
-				page.getByRole('button', { name: /^年度 を上へ移動$|^Move 年度 up$/ })
-			).toBeEnabled();
+			await clickRowMenuItem(page, axisRow(page, '種類'), MOVE_UP_MENU_ITEM_NAME);
+			// 動かした行の⋮へフォーカスが戻り、続けて開ける。
+			await expect(rowActions(page, '種類')).toBeFocused();
+			// 保存中は移動の項目がすべて止まる。先頭になった種類の「下へ移動」が押せれば保存を終えていて、「上へ移動」は押せない。
+			await rowActions(page, '種類').click();
+			const menu = page.getByRole('menu');
+			await expect(menu.getByRole('menuitem', { name: MOVE_DOWN_MENU_ITEM_NAME })).toBeEnabled();
+			await expect(menu.getByRole('menuitem', { name: MOVE_UP_MENU_ITEM_NAME })).toBeDisabled();
+			await page.keyboard.press('Escape');
 
 			await page.goto(`/archives/${archive.id}`);
 			await expect(triggers).toHaveCount(2);
@@ -416,8 +429,9 @@ test('値の辞書: 行を上へ動かして保存するとファイルの並び
 			const rows = axisValuesForm(page).locator('tbody tr');
 			await expect(rows).toHaveCount(2);
 
-			await page.getByRole('button', { name: /^answer を上へ移動$|^Move answer up$/ }).click();
+			await clickRowMenuItem(page, rows.nth(1), MOVE_UP_MENU_ITEM_NAME);
 			await expect(rows.nth(0).getByRole('textbox').nth(0)).toHaveValue('answer');
+			await expect(rowActions(page, 'answer')).toBeFocused();
 			await saveAxisValues(page, '種類');
 
 			await page.goto(`/archives/${archive.id}`);
@@ -429,9 +443,7 @@ test('値の辞書: 行を上へ動かして保存するとファイルの並び
 			await expect(rows).toHaveCount(2);
 			const listeningRow = rows.nth(1);
 			await expect(listeningRow.getByRole('textbox').nth(0)).toHaveValue('listening');
-			await listeningRow
-				.getByRole('button', { name: /^listening を削除$|^Remove listening$/ })
-				.click();
+			await clickRowMenuItem(page, listeningRow, /^削除$|^Remove$/);
 			await expect(rows).toHaveCount(1);
 			await saveAxisValues(page, '種類');
 
@@ -548,9 +560,7 @@ test('軸の削除: 確認して消せる。表示タイトルで使っている
 			});
 
 			await page.goto(`/contents/${archive.id}/axes`);
-			await axisRow(page, '種類')
-				.getByRole('button', { name: /^種類 を削除\.\.\.$|^Delete 種類\.\.\.$/ })
-				.click();
+			await clickRowMenuItem(page, axisRow(page, '種類'), DELETE_MENU_ITEM_NAME);
 			// 種類を外した案が入っている。種類を残したままでは消せない。
 			const confirm = page.getByRole('alertdialog');
 			const templateAfter = confirm.getByRole('textbox', {
@@ -566,9 +576,7 @@ test('軸の削除: 確認して消せる。表示タイトルで使っている
 			await expect(page.getByRole('alertdialog')).toHaveCount(0);
 			await expect(axisRow(page, '種類')).toHaveCount(0);
 
-			await axisRow(page, '未使用')
-				.getByRole('button', { name: /^未使用 を削除\.\.\.$|^Delete 未使用\.\.\.$/ })
-				.click();
+			await clickRowMenuItem(page, axisRow(page, '未使用'), DELETE_MENU_ITEM_NAME);
 			await expect(page.getByRole('alertdialog').getByRole('textbox')).toHaveCount(0);
 			await confirmDelete(page);
 			await expect(page.getByRole('alertdialog')).toHaveCount(0);

@@ -13,7 +13,7 @@ Shortcuts can only point inside “Shares” (→ [Add shares](04-shares.md)).
 They also let you organize things differently in groups without moving the actual files. To show files you have at hand, upload them into a share first (→ [Work with files in shares](05-files.md)).
 Only items registered here appear for viewers.
 
-![How folders on the computer relate to the viewer's screen: add "学校" (School) as a share, then register "教材" (Teaching materials) and "英検" (EIKEN) inside it as shortcuts. Only those two appear for viewers. Unregistered "下書き" (Drafts) and "家計簿" (Household accounts) outside the share do not appear.](images/how-it-works.webp)
+![How folders on the computer relate to the viewer's screen: add "School" as a share, then register "Teaching materials" inside it as a shortcut and "EIKEN" as a library. Only those two appear for viewers. Unregistered "Drafts" and "Household accounts" outside the share do not appear.](images/how-it-works.webp)
 
 Titles are assigned automatically. To change one, use the edit page that opens after registration.
 
@@ -122,6 +122,8 @@ Visibility controls how an item appears as content. Files inside a folder can st
 ## Hide and show again
 
 Set the visibility to “Hidden” on the edit page to remove an item from the lists on Home and in groups.
+
+> “Hidden” only keeps an item out of the lists. Any logged-in user who knows its URL (its number) can still open it. To keep an item from other people, set it to “Creator only”.
 
 Hidden items are listed under “Hidden content” in the username menu at the top right (items you registered; administrators see all). To show one again, select the pen at the right end of its row there to open the edit page, then choose another visibility.
 

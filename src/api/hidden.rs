@@ -78,19 +78,27 @@ pub(super) struct HiddenRules {
 }
 
 impl HiddenRules {
-    /// 今の設定を読む。共有は実体を辿れるものだけ (→ `roots::load_roots`)。辿れない共有の中は配らないので、
-    /// その除外が無くても見えるものは増えない。
+    /// 今の設定を読む。共有は、今か前に読めたことがあるもの。読めない共有の中は配らないので、除外を当てても
+    /// 見えるものは減らない。
+    ///
+    /// 今読めない共有も、前に読めたときの実体のパス (→ `FolderReach::last_ready`) で持つ。配る側 (`resolve_existing`・
+    /// `load_roots`) とは別に確かめるので、NAS の返事が待ち時間 (`OTHERS_WAIT`) を越えたとき、配る側は読めたのに
+    /// ここでは外れて、その共有の除外とサイトのパターンが当たらなくなるため。
     pub(super) async fn load(state: &AppState) -> Result<Self, AppError> {
         let settings = load_site_row(&state.pool).await?;
         let stored = load_share_filters(&state.pool).await?;
         let (paths, filters): (Vec<String>, Vec<FileFilter>) = stored.into_iter().unzip();
-        let reaches = super::roots::check_all(state, paths, OTHERS_WAIT).await;
+        let reaches = super::roots::check_all(state, paths.clone(), OTHERS_WAIT).await;
         let shares = reaches
             .into_iter()
+            .zip(paths)
             .zip(filters)
-            .filter_map(|(reach, filter)| match reach {
-                Reach::Ready(path) => Some((path, filter)),
-                Reach::Gone | Reach::Unreachable => None,
+            .filter_map(|((reach, path), filter)| match reach {
+                Reach::Ready(canonical) => Some((canonical, filter)),
+                Reach::Gone | Reach::Unreachable => state
+                    .folder_reach
+                    .last_ready(&path)
+                    .map(|canonical| (canonical, filter)),
             })
             .collect();
         Ok(Self {
@@ -265,8 +273,10 @@ impl Hidden {
 
     /// 一覧で `std::fs::DirEntry` を並べるか。並べるなら `(名前, 種別)`。
     /// 種別を取れないもの・シンボリックリンクは並べない (呼び出し側はリンクを辿らずに種別を得ること)。
+    /// 名前が UTF-8 でないもの (Linux で別の文字コードのまま置いたファイルなど) も並べない。パスは UTF-8 の
+    /// 文字列でやり取りするので、置き換えた名前で並べても開けないため (走査・検索も同じく落とす)。
     pub(super) fn visible_entry(&self, entry: &std::fs::DirEntry) -> Option<(String, FileType)> {
-        let name = entry.file_name().to_string_lossy().into_owned();
+        let name = entry.file_name().into_string().ok()?;
         let file_type = entry.file_type().ok()?;
         if file_type.is_symlink() || self.hides_name(&entry.path(), &name, file_type.is_dir()) {
             return None;
@@ -714,6 +724,25 @@ mod tests {
                 })
                 .collect(),
         )
+    }
+
+    /// macOS (APFS) と Windows は UTF-8 (UTF-16) でない名前を作れないので、Linux だけで確かめる。
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn visible_entry_leaves_out_names_that_are_not_utf8() {
+        use std::os::unix::ffi::OsStrExt;
+        let dir = crate::test_support::TempDir::new("hidden-not-utf8");
+        // Shift_JIS の「あ」。
+        let name = std::ffi::OsStr::from_bytes(b"\x82\xa0.txt");
+        std::fs::write(dir.path().join(name), b"").expect("ファイルを作れなかった");
+        std::fs::write(dir.path().join("a.txt"), b"").expect("ファイルを作れなかった");
+        let hidden = hidden(None, &[]);
+        let names: Vec<String> = std::fs::read_dir(dir.path())
+            .expect("読めなかった")
+            .filter_map(|entry| hidden.visible_entry(&entry.expect("読めなかった")))
+            .map(|(name, _)| name)
+            .collect();
+        assert_eq!(names, vec!["a.txt".to_string()]);
     }
 
     #[test]

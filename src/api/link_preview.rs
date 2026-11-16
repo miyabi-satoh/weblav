@@ -5,6 +5,7 @@
 use std::collections::{HashMap, HashSet};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::time::UNIX_EPOCH;
 
 use axum::body::Body;
@@ -16,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::SqlitePool;
 use tokio::io::{AsyncWriteExt, DuplexStream};
-use tokio::sync::Semaphore;
+use tokio::sync::{OwnedMutexGuard, Semaphore};
 use tokio_util::io::ReaderStream;
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
@@ -62,6 +63,8 @@ pub struct LinkPreviews {
     dir: PathBuf,
     /// 一覧を開いた端末が一斉に取り直しを頼んでも、外への接続とデコードを並べすぎないよう絞る。
     permits: Semaphore,
+    /// 確かめている最中の URL ごとの鍵 (→ `lock_url`)。
+    in_flight: Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
 }
 
 impl LinkPreviews {
@@ -70,12 +73,54 @@ impl LinkPreviews {
         Self {
             dir,
             permits: Semaphore::new(MAX_CONCURRENT_FETCHES),
+            in_flight: Mutex::new(HashMap::new()),
         }
     }
 
     /// 外へ取りに行く枠を1つ取る。
     pub(super) async fn permit(&self) -> tokio::sync::SemaphorePermit<'_> {
         self.permits.acquire().await.expect("閉じないセマフォ")
+    }
+
+    /// 同じ URL を確かめるのを1つずつにする鍵を取る。ほかが確かめている最中なら、終わるまで待つ。
+    /// 一覧のファイルを朝に書き換え、教室の端末が一斉に開いたとき、2台目からが取り終える前の
+    /// 空のカードを受け取らず、1台目が取り終えた情報を受け取るため。
+    pub(super) async fn lock_url(&self, url: &str) -> UrlLock<'_> {
+        let lock = {
+            let mut in_flight = self.in_flight.lock().expect("鍵の表を持ったまま落ちない");
+            Arc::clone(in_flight.entry(url.to_string()).or_default())
+        };
+        let guard = lock.lock_owned().await;
+        UrlLock {
+            previews: self,
+            url: url.to_string(),
+            guard: Some(guard),
+        }
+    }
+}
+
+/// `LinkPreviews::lock_url` の鍵。放すと、待っている者がいなければ表から消す。
+pub(super) struct UrlLock<'a> {
+    previews: &'a LinkPreviews,
+    url: String,
+    guard: Option<OwnedMutexGuard<()>>,
+}
+
+impl Drop for UrlLock<'_> {
+    fn drop(&mut self) {
+        // 鍵の複製は表を持ったまま作るので、表を持ったまま数えれば、待っている者を取りこぼさない。
+        let mut in_flight = self
+            .previews
+            .in_flight
+            .lock()
+            .expect("鍵の表を持ったまま落ちない");
+        drop(self.guard.take());
+        if in_flight
+            .get(&self.url)
+            .is_some_and(|lock| Arc::strong_count(lock) == 1)
+        {
+            in_flight.remove(&self.url);
+        }
     }
 }
 
@@ -318,6 +363,9 @@ async fn stream_refreshed(state: AppState, urls: Vec<String>, mut out: DuplexStr
 
 /// 1件を、期限が切れていて、前回確かめてから間があいていれば取り直す。
 async fn refresh_one(state: &AppState, url: &str, now: i64) -> Result<(), AppError> {
+    // 同じ URL をほかが確かめている最中なら、取り終えるまで待つ。待った後は下の権利を取れないので、
+    // 取り終えた情報をそのまま返す。
+    let _lock = state.link_previews.lock_url(url).await;
     let recheck_before = now - MIN_RECHECK_SECS;
     // 確かめに行く権利を先に取る。同じ URL を同時に頼まれても、取りに行くのは1つだけにするため。
     let claimed = sqlx::query!(
@@ -1114,5 +1162,37 @@ mod tests {
             "残る行が使うアイコンは消さない"
         );
         assert!(dir.join("new.jpg").exists());
+    }
+
+    /// 同じ URL を同時に頼まれたら、後の頼みは先の頼みが取り終えるまで待つ。別の URL は待たない。
+    #[tokio::test]
+    async fn lock_url_makes_a_concurrent_request_for_the_same_url_wait() {
+        let previews = Arc::new(LinkPreviews::new(PathBuf::new()));
+        let first = previews.lock_url("https://a.example/").await;
+
+        let waiting = tokio::spawn({
+            let previews = Arc::clone(&previews);
+            async move {
+                let _lock = previews.lock_url("https://a.example/").await;
+            }
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        assert!(!waiting.is_finished(), "先の頼みが取り終えるまで待つ");
+        tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            previews.lock_url("https://b.example/"),
+        )
+        .await
+        .expect("別の URL は待たない");
+
+        drop(first);
+        tokio::time::timeout(std::time::Duration::from_secs(1), waiting)
+            .await
+            .expect("先の頼みが終われば進む")
+            .expect("待つ側は落ちない");
+        assert!(
+            previews.in_flight.lock().expect("落ちない").is_empty(),
+            "待つ者がいなくなれば表から消す"
+        );
     }
 }

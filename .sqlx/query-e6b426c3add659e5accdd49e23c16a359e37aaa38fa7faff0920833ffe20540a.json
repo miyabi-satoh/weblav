@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE users SET password_hash = ?, session_generation = session_generation + 1\n         WHERE id = ? RETURNING session_generation",
+  "describe": {
+    "columns": [
+      {
+        "name": "session_generation",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "session_generation"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e6b426c3add659e5accdd49e23c16a359e37aaa38fa7faff0920833ffe20540a"
+}

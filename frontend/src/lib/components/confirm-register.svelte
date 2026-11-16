@@ -127,7 +127,7 @@
 			? ''
 			: truncated
 				? m.confirm_register_count_truncated()
-				: m.confirm_register_count()
+				: m.confirm_register_count({ count })
 	);
 
 	/**

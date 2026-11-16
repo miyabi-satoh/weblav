@@ -91,12 +91,21 @@ async fn login(
 ) -> Result<Json<UserResponse>, AppError> {
     // Argon2の検証はCPUバウンドなので、レートリミットは実際の検証(`authenticate`)より前に
     // 掛ける: 制限を超えた試行にはCPUコストを一切払わせない。
-    if !state.login_rate_limiter.try_acquire(&payload.username) {
+    let client = super::operations::current_client_ip();
+    if !state
+        .login_rate_limiter
+        .try_acquire(client.as_deref(), &payload.username)
+    {
         return Err(AppError::TooManyRequests);
     }
 
     let authed = auth::authenticate(&state.pool, &payload.username, &payload.password).await?;
-    let Some(auth::Authenticated { user, credential }) = authed else {
+    let Some(auth::Authenticated {
+        user,
+        credential,
+        session_generation,
+    }) = authed
+    else {
         let err = AppError::InvalidCredentials;
         record_failed_sign_in(&state, Op::Login, &payload.username, &err).await;
         return Err(err);
@@ -104,9 +113,11 @@ async fn login(
 
     // 認証に成功した試行はレートリミットの対象から外す。これが無いと、正しい
     // パスワードで短時間に何度もログインし直しただけの正当な利用者もロックされる。
-    state.login_rate_limiter.release(&payload.username);
+    state
+        .login_rate_limiter
+        .release(client.as_deref(), &payload.username);
 
-    start_session(&session, user.id, &credential).await?;
+    start_session(&session, user.id, &credential, session_generation).await?;
     record_or_warn(&state.pool, &OpRecord::new(Op::Login, &user)).await;
 
     Ok(Json(user.into()))
@@ -116,7 +127,10 @@ async fn login(
 /// 打ち込まれた名前のユーザーがいれば、その人の操作として絞り込めるよう id も残す。
 /// ログインと同じく大文字と小文字を区別せずに探す (`auth::authenticate`)。区別すると、
 /// 大文字と小文字だけ違う名前で試されたものが、その人で絞り込んでも出ない。
+///
+/// 名前は長さを切り詰めて残す。ログインしていない人が長い名前を送り続けると、1 年残る記録とバックアップを太らせられるため。
 async fn record_failed_sign_in(state: &AppState, op: Op, username: &str, err: &AppError) {
+    let username = auth::truncate_username(username);
     let user_id = match sqlx::query_scalar!(
         r#"SELECT id as "id!" FROM users WHERE username = ? COLLATE NOCASE"#,
         username
@@ -139,18 +153,21 @@ async fn record_failed_sign_in(state: &AppState, op: Op, username: &str, err: &A
 
 /// `user_id` でログインした状態にする。ログイン・初回セットアップ・リカバリコードでの戻しで共有する。
 /// `credential` は、入れたパスワードの指紋 (`auth::credential_fingerprint`)。
+/// `session_generation` は、照合した行の世代 (`users.session_generation`)。
 ///
 /// セッション固定化攻撃対策: ログインのたびにセッションIDを振り直す。
 pub(super) async fn start_session(
     session: &Session,
     user_id: i64,
     credential: &str,
+    session_generation: i64,
 ) -> Result<(), AppError> {
     session.cycle_id().await.map_err(auth::Error::Session)?;
     session
         .insert(SESSION_USER_ID_KEY, user_id)
         .await
         .map_err(auth::Error::Session)?;
+    auth::mark_session_generation(session, session_generation).await?;
     // パスワード (かリカバリコード) を入れたばかりなので、確かめ直したことにする
     // (→ docs/access.md「操作の前のパスワードの確認」)。
     auth::mark_password_confirmed(session, credential).await
@@ -250,21 +267,21 @@ async fn change_password(
     user.require_confirmation().await?;
 
     let new_hash = auth::hash_password_blocking(&payload.new_password).await?;
-    sqlx::query!(
-        "UPDATE users SET password_hash = ? WHERE id = ?",
+    // 世代を進めて、ほかの端末のログインを切る (→ docs/access.md「ロールと操作」)。
+    let generation = sqlx::query_scalar!(
+        "UPDATE users SET password_hash = ?, session_generation = session_generation + 1
+         WHERE id = ? RETURNING session_generation",
         new_hash,
         user.id
     )
-    .execute(&state.pool)
-    .await?;
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(AppError::Unauthorized)?;
     record_or_warn(&state.pool, &OpRecord::new(Op::ChangePassword, &user)).await;
-    // 新しいパスワードを決めたばかりなので、このセッションは確かめた内のままにする
-    // (ほかのセッションは、古いパスワードで確かめた記録なので通らなくなる)。
-    auth::mark_password_confirmed(
-        &user.user_session()?.session,
-        &auth::credential_fingerprint(&new_hash),
-    )
-    .await?;
+    // 変えたこの端末はログインしたままにし、新しいパスワードを決めたばかりなので確かめた内にもする。
+    let session = &user.user_session()?.session;
+    auth::mark_session_generation(session, generation).await?;
+    auth::mark_password_confirmed(session, &auth::credential_fingerprint(&new_hash)).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -314,9 +331,13 @@ async fn verify_current_password(
     current_password: String,
 ) -> Result<(), AppError> {
     // ログイン中でも、乗っ取ったセッションからの現在パスワードの総当たりを防ぐため
-    // ログインと同じレートリミッターを流用する(ユーザー名単位のキーが同じなので、
-    // ログイン試行とこのAPIの試行は同じ枠を共有する)。
-    if !state.login_rate_limiter.try_acquire(&user.username) {
+    // ログインと同じレートリミッターを流用する(端末とユーザー名のキーが同じなので、
+    // 同じ端末からのログイン試行とこのAPIの試行は同じ枠を共有する)。
+    let client = super::operations::current_client_ip();
+    if !state
+        .login_rate_limiter
+        .try_acquire(client.as_deref(), &user.username)
+    {
         return Err(AppError::TooManyRequests);
     }
 
@@ -335,7 +356,9 @@ async fn verify_current_password(
     if !ok {
         return Err(AppError::IncorrectCurrentPassword);
     }
-    state.login_rate_limiter.release(&user.username);
+    state
+        .login_rate_limiter
+        .release(client.as_deref(), &user.username);
     Ok(())
 }
 
@@ -399,7 +422,11 @@ async fn recover(
 
     // ログインと同じく、Argon2 の照合より前に絞る。ログインとは別の枠にして、
     // こちらを叩かれても管理者がログインできなくならないようにする。
-    if !state.recovery_rate_limiter.try_acquire(&payload.username) {
+    let client = super::operations::current_client_ip();
+    if !state
+        .recovery_rate_limiter
+        .try_acquire(client.as_deref(), &payload.username)
+    {
         return Err(AppError::TooManyRequests);
     }
     let verified =
@@ -409,16 +436,20 @@ async fn recover(
         record_failed_sign_in(&state, Op::Recover, &payload.username, &err).await;
         return Err(err);
     };
-    state.recovery_rate_limiter.release(&payload.username);
+    state
+        .recovery_rate_limiter
+        .release(client.as_deref(), &payload.username);
 
     let password_hash = auth::hash_password_blocking(&payload.new_password).await?;
     let (recovery_code, recovery_hash) = auth::new_recovery_code().await?;
     // 照合に使ったコードのままの行だけ書く。同じコードで同時に2回戻されても、通るのは1回だけ。
+    // 世代を進めて、ほかの端末のログインを切る (→ docs/access.md「ロールと操作」)。
     let user = sqlx::query!(
         r#"UPDATE users SET password_hash = ?, recovery_code_hash = ?,
-                  recovery_code_created_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                  recovery_code_created_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                  session_generation = session_generation + 1
            WHERE id = ? AND recovery_code_hash = ?
-           RETURNING username, role as "role: Role""#,
+           RETURNING username, role as "role: Role", session_generation"#,
         password_hash,
         recovery_hash,
         user_id,
@@ -437,6 +468,7 @@ async fn recover(
         &session,
         user_id,
         &auth::credential_fingerprint(&password_hash),
+        user.session_generation,
     )
     .await?;
     Ok(Json(UserWithRecoveryCodeResponse {

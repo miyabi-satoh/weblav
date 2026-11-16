@@ -202,6 +202,34 @@ async fn server_settings_reject_out_of_range_values(pool: SqlitePool) {
     assert!(!config_path.exists());
 }
 
+/// ブラウザーが開かないポートは、画面が番号を出せる内訳付きの 422。config.toml は書き換えない。
+#[sqlx::test]
+async fn server_settings_reject_a_port_browsers_refuse(pool: SqlitePool) {
+    let (app, dir) = app_with_temp_dir(pool.clone(), "server-settings-bad-port").await;
+    let config_path = dir.join("config.toml");
+    let cookie = admin_cookie(app.clone(), &pool).await;
+
+    let (status, body) = send_json(
+        app,
+        "PUT",
+        ADMIN_SERVER_SETTINGS_URI,
+        &cookie,
+        r#"{"port":6000,"uploadMaxSizeMb":100,"sessionExpiryDays":30}"#,
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+    assert!(
+        body.contains(r#""kind":"portBlockedByBrowsers","port":6000"#),
+        "{body}"
+    );
+    assert!(!config_path.exists());
+}
+
 /// 読めない config.toml は上書きせず 409 で知らせる。手で書いた内容を消さないため。
 #[sqlx::test]
 async fn server_settings_do_not_overwrite_a_broken_config_file(pool: SqlitePool) {

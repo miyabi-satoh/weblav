@@ -8,7 +8,7 @@
 	/** 選んだ1ファイルの様子。 */
 	export type UploadItem = {
 		file: File;
-		state: 'waiting' | 'uploading' | 'done' | 'failed' | 'tooLarge';
+		state: 'waiting' | 'uploading' | 'done' | 'failed' | 'tooLarge' | 'folder';
 		/** 送ったバイトの割合 (0〜1)。 */
 		progress: number;
 		/** 置いた結果。名前を変えて置いたときに、その名前を出す。 */
@@ -22,6 +22,7 @@
 		if (item.state === 'tooLarge' && maxBytes !== null) {
 			return m.shares_upload_too_large({ size: formatByteSize(maxBytes) });
 		}
+		if (item.state === 'folder') return m.shares_upload_folder();
 		if (item.state === 'failed') return item.message;
 		if (item.state === 'done' && item.result) {
 			if (item.result.extensionFixed) {
@@ -38,9 +39,11 @@
 	 * 共有の中のフォルダーへのアップロード (→ docs/ui.md「共有の中の画面」)。
 	 * いくつも選べ、1ファイルずつ送って、ファイルごとに進み具合を出す。同じ名前があればサーバーが番号を付けて置き、
 	 * 画像の拡張子が中身と合わなければ直すので、そうしたものは置いた名前を添える。
-	 * 上限を超えるファイルは送らずに印を付ける (送ってから断られると、待った分が無駄になるため)。
+	 * 上限を超えるファイルとドロップされたフォルダーは送らずに印を付ける (送ってから断られると、待った分が無駄になるため)。
+	 * 送っている間は、画面を移ろうとしたら確かめる。移った先からは送りかけが見えず、止めようもないため。
 	 */
-	import { untrack } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
 	import FileIcon from '@lucide/svelte/icons/file';
@@ -48,7 +51,8 @@
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import * as Dialog from '#lib/components/ui/dialog/index.ts';
 	import { Progress } from '#lib/components/ui/progress/index.ts';
-	import FileDropzone from '#lib/components/file-dropzone.svelte';
+	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.ts';
+	import FileDropzone, { isDroppedFolder } from '#lib/components/file-dropzone.svelte';
 	import LoadingButton from '#lib/components/loading-button.svelte';
 	import { listItemClass } from '#lib/list-row.ts';
 
@@ -76,6 +80,10 @@
 	let items = $state<UploadItem[]>([]);
 	let uploading = $state(false);
 	let controller: AbortController | null = null;
+	/** 送っている途中の `start()`。止めた後、送り終えたことにしてから移るために待つ。 */
+	let running: Promise<void> | null = null;
+	/** 送っている間に移ろうとした行き先。確かめを出している間だけ `null` でない。 */
+	let leaveTo = $state<URL | null>(null);
 
 	let waiting = $derived(items.filter((item) => item.state === 'waiting').length);
 	// 送ったものがあり、送るものが残っていない。上限を超えて送らなかったものだけなら、選び直せるよう終わりにしない。
@@ -101,14 +109,22 @@
 			if (uploading) return;
 			items = Array.from(list, (file) => ({
 				file,
-				state: maxBytes !== null && file.size > maxBytes ? 'tooLarge' : 'waiting',
+				state: isDroppedFolder(file)
+					? 'folder'
+					: maxBytes !== null && file.size > maxBytes
+						? 'tooLarge'
+						: 'waiting',
 				progress: 0
 			}));
 		});
 	});
 
-	async function start() {
+	function start() {
 		if (uploading || waiting === 0) return;
+		running = upload().finally(() => (running = null));
+	}
+
+	async function upload() {
 		uploading = true;
 		controller = new AbortController();
 		const url = shareUploadUrl(shareId, path);
@@ -145,6 +161,52 @@
 	function stop() {
 		controller?.abort();
 	}
+
+	beforeNavigate((navigation) => {
+		if (!uploading) return;
+		// タブを閉じる・再読み込みは、ブラウザー標準の確認に任せる。
+		if (navigation.type === 'leave') {
+			navigation.cancel();
+			return;
+		}
+		if (!navigation.to) return;
+		navigation.cancel();
+		leaveTo = navigation.to.url;
+	});
+
+	/** 送るのを止めて、止めた移動を続ける。送り終えてから移る (送っている間の移動は、もう一度止まるため)。 */
+	async function stopAndLeave() {
+		const target = leaveTo;
+		leaveTo = null;
+		if (target === null) return;
+		stop();
+		await running;
+		open = false;
+		// 行き先は SvelteKit のナビゲーションが解決済みの URL。
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		await goto(target);
+	}
+
+	// 移る以外で窓ごと無くなっても、見えないまま送り続けない。
+	onDestroy(stop);
+
+	// 窓を開いている間は、ドロップの場所の外に落としたファイルをブラウザーに開かせない。開くと画面ごと移り、送っていれば残りが止まる。
+	// 送っている間はドロップの場所が無いので、窓のどこに落としても受けない。ドロップの場所 (`FileDropzone`) が受けたものは、
+	// そちらが先に止めているので触らない。
+	$effect(() => {
+		if (!open) return;
+		function refuse(event: DragEvent) {
+			if (event.defaultPrevented) return;
+			event.preventDefault();
+			if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
+		}
+		window.addEventListener('dragover', refuse);
+		window.addEventListener('drop', refuse);
+		return () => {
+			window.removeEventListener('dragover', refuse);
+			window.removeEventListener('drop', refuse);
+		};
+	});
 </script>
 
 <Dialog.Root bind:open>
@@ -174,7 +236,7 @@
 						<li class={[listItemClass, 'flex items-start gap-3 py-2']}>
 							{#if item.state === 'done'}
 								<CircleCheckIcon class="mt-0.5 size-4 shrink-0 text-primary" />
-							{:else if item.state === 'failed' || item.state === 'tooLarge'}
+							{:else if item.state === 'failed' || item.state === 'tooLarge' || item.state === 'folder'}
 								<CircleAlertIcon class="mt-0.5 size-4 shrink-0 text-destructive" />
 							{:else}
 								<FileIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
@@ -224,3 +286,25 @@
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
+
+<AlertDialog.Root
+	bind:open={
+		() => leaveTo !== null,
+		(value) => {
+			if (!value) leaveTo = null;
+		}
+	}
+>
+	<AlertDialog.Content>
+		<AlertDialog.Header>
+			<AlertDialog.Title>{m.shares_upload_leave_title()}</AlertDialog.Title>
+			<AlertDialog.Description>{m.shares_upload_leave_description()}</AlertDialog.Description>
+		</AlertDialog.Header>
+		<AlertDialog.Footer>
+			<AlertDialog.Cancel>{m.action_cancel()}</AlertDialog.Cancel>
+			<AlertDialog.Action variant="destructive" onclick={stopAndLeave}
+				>{m.shares_upload_leave_button()}</AlertDialog.Action
+			>
+		</AlertDialog.Footer>
+	</AlertDialog.Content>
+</AlertDialog.Root>

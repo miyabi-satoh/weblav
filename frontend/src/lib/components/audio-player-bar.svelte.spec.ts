@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import AudioPlayerBar from './audio-player-bar.svelte';
+import { videoSession } from '#lib/media-session.svelte.ts';
 import { nowPlaying } from '#lib/now-playing.svelte.ts';
 
 /** 無音の WAV (8kHz・8bit・モノラル) を、指定の秒数で作る。 */
@@ -48,6 +49,22 @@ describe('AudioPlayerBar', () => {
 		nowPlaying.stop();
 		nowPlaying.repeat = 'off';
 		nowPlaying.muted = false;
+	});
+
+	it('leaves the lock screen and earphone buttons to the video while the video viewer is open', async () => {
+		const first = { src: silentWavUrl(8), title: 'first' };
+		await render(AudioPlayerBar);
+		await userEvent.click(document.body);
+		nowPlaying.play(first, [first]);
+		await loadedAudio();
+		await expect.poll(() => navigator.mediaSession.metadata?.title).toBe('first');
+
+		videoSession.open = true;
+		await expect.poll(() => navigator.mediaSession.metadata).toBeNull();
+		expect(navigator.mediaSession.playbackState).toBe('none');
+
+		videoSession.open = false;
+		await expect.poll(() => navigator.mediaSession.metadata?.title).toBe('first');
 	});
 
 	it('mutes after the analyser so the spectrum keeps moving while muted', async () => {

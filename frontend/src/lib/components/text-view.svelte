@@ -17,6 +17,7 @@
 		source = false,
 		location,
 		onopenpath,
+		onpreviewunavailable,
 		onerror
 	}: {
 		src: string;
@@ -27,6 +28,8 @@
 		location?: ContentLocation;
 		/** プレビューの相対パスのリンクが押された。`path` はコンテンツの登録先からの相対パス。 */
 		onopenpath?: (path: string) => void;
+		/** Markdown を組めず (大きすぎるなど)、ソースのまま見せることになった。 */
+		onpreviewunavailable?: () => void;
 		onerror: () => void;
 	} = $props();
 
@@ -84,7 +87,9 @@
 		renderMarkdownPreview(text, m.common_scroll_table_label(), location)
 			.catch(() => undefined)
 			.then((html) => {
-				if (!cancelled) preview = html ?? null;
+				if (cancelled) return;
+				preview = html ?? null;
+				if (preview === null) onpreviewunavailable?.();
 			});
 		return () => (cancelled = true);
 	});

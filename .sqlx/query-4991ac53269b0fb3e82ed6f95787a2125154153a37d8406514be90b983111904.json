@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE contents SET exclude_patterns = 'Report/secret/' WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "4991ac53269b0fb3e82ed6f95787a2125154153a37d8406514be90b983111904"
+}

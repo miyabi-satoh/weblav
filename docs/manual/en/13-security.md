@@ -7,5 +7,6 @@
 - Give “Add only” or “Full access” on a share only to people who need it. People with “Full access” can delete files in the share.
 - Delete accounts you no longer use.
 - Do not use the same password for an administrator as for other services.
+- The computer running WebLAV connects to the internet. It fetches titles and card details from linked sites when links are registered and shown in lists, and relays linked files (such as PDFs and videos) when they are opened. YouTube videos play on the viewer's device directly from YouTube.
 
 To encrypt connections, see “Use HTTPS” in [Advanced settings](14-advanced.md).

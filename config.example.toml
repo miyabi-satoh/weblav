@@ -4,7 +4,9 @@
 #   - 環境変数 WEBLAV_HOME が設定されていれば $WEBLAV_HOME/config.toml
 #     (DB・セッション鍵・ログも同じディレクトリ直下に置かれる。開発・e2e や、配置場所を固定したいとき向け)
 #   - 無ければユーザーのアプリデータディレクトリ (directories::ProjectDirs)
-#     - Windows: %APPDATA%\amiiby\weblav\config\config.toml
+#     - Windows: %LOCALAPPDATA%\Packages\amiiby.WebLAV_tv82n7df3ay6j\LocalCache\Roaming\amiiby\weblav\config\config.toml
+#                (Store 版 (MSIX) は %APPDATA% への書き込みがパッケージごとの場所に回される。
+#                 パッケージの外で動かした exe は %APPDATA%\amiiby\weblav\config\config.toml)
 #     - macOS:   ~/Library/Containers/com.amiiby.weblav/Data/Library/Application Support/com.amiiby.weblav/config.toml
 #                (.app はサンドボックスで動くのでコンテナの中。weblav-service は ~/Library/Application Support/com.amiiby.weblav)
 #     - Linux:   ~/.config/weblav/config.toml
@@ -30,7 +32,8 @@ filter = "info"
 #   - WEBLAV_HOME 設定時: $WEBLAV_HOME/logs/
 #   - macOS:   ~/Library/Containers/com.amiiby.weblav/Data/Library/Application Support/com.amiiby.weblav/logs/
 #   - Linux:   ~/.local/share/weblav/logs/
-#   - Windows: %LOCALAPPDATA%\amiiby\weblav\data\logs\
+#   - Windows: %LOCALAPPDATA%\Packages\amiiby.WebLAV_tv82n7df3ay6j\LocalCache\Local\amiiby\weblav\data\logs\
+#              (パッケージの外で動かした exe は %LOCALAPPDATA%\amiiby\weblav\data\logs\)
 # stdout はターミナルから動かす開発時向け。ダブルクリックで起動したタスクトレイは
 # コンソールを持たないので、出力先が無くログが消える。
 output = "file"
@@ -43,13 +46,13 @@ output = "file"
 secret = ""
 # セッションCookieにSecure属性を付与するか。
 # 既定は LAN 内の HTTP で使うため無効。
-# リバースプロキシ等でHTTPS終端している場合はtrueにする (→ マニュアル「設置する」の「HTTPS で使う」)。
+# リバースプロキシ等でHTTPS終端している場合はtrueにする (→ マニュアル「詳しい設定」の「HTTPS で使う」)。
 secure_cookie = false
-# 最終アクセスからこの日数が経過したセッションを失効させる。1以上の値のみ指定できる。
+# 最終アクセスからこの日数が経過したセッションを失効させる。0 なら期限なし。負の値は指定できない。
 expiry_days = 14
 
 [upload]
-# 共有へアップロードするファイル1つあたりの最大サイズ(MiB)。書かなければ上限なし。
+# 共有へアップロードするファイル1つあたりの最大サイズ(MiB)。書かないか 0 なら上限なし。
 # max_size_mb = 100
 
 [tray]

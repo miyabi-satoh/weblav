@@ -66,6 +66,8 @@ pub struct CreatedUser {
     pub created_at: String,
     /// 作ったパスワードの指紋 (`credential_fingerprint`)。作ってそのままログインさせるとき (セットアップ) に使う。
     pub credential: String,
+    /// ログインの世代 (`users.session_generation`)。作ってそのままログインさせるときに使う。
+    pub session_generation: i64,
 }
 
 /// ユーザーを作成する。CLI (`--create-user`) とユーザー管理APIの両方から呼ぶ共通処理。
@@ -82,7 +84,7 @@ pub async fn create_user(
     let result = sqlx::query!(
         r#"INSERT INTO users (username, password_hash, role, recovery_code_hash, recovery_code_created_at)
            VALUES (?, ?, ?, ?4, CASE WHEN ?4 IS NULL THEN NULL ELSE strftime('%Y-%m-%dT%H:%M:%fZ', 'now') END)
-           RETURNING id as "id!", created_at"#,
+           RETURNING id as "id!", created_at, session_generation"#,
         username,
         hash,
         role,
@@ -96,6 +98,7 @@ pub async fn create_user(
             id: row.id,
             created_at: row.created_at,
             credential: credential_fingerprint(&hash),
+            session_generation: row.session_generation,
         }),
         Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
             Err(CreateUserError::UsernameTaken(username.to_string()))
@@ -253,6 +256,25 @@ pub const SESSION_USER_ID_KEY: &str = "user_id";
 /// 最後にパスワードを確かめた記録 (→ docs/access.md「操作の前のパスワードの確認」)。ログインでも入る。
 const SESSION_PASSWORD_CONFIRMATION_KEY: &str = "password_confirmation";
 
+/// ログインしたときの利用者の世代 (`users.session_generation`)。パスワードが変わると
+/// 世代が進み、それより前に始めたセッションは通らなくなる (→ docs/access.md「ロールと操作」)。
+const SESSION_GENERATION_KEY: &str = "session_generation";
+
+/// セッションが残した世代 (`stored`) が、利用者の今の世代と合うか。世代を残す前に始まったセッションは
+/// 0 と見なす。世代の列の既定が 0 なので、パスワードを変えていない人のログインを、版を上げただけで切らないため。
+fn session_generation_is_current(stored: Option<i64>, current: i64) -> bool {
+    stored.unwrap_or(0) == current
+}
+
+/// ログインしたときの世代をセッションに残す。
+pub async fn mark_session_generation(session: &Session, generation: i64) -> Result<(), AppError> {
+    session
+        .insert(SESSION_GENERATION_KEY, generation)
+        .await
+        .map_err(Error::Session)?;
+    Ok(())
+}
+
 /// パスワードを確かめてから、聞き直さずに通す長さ。続けて直す1回の作業 (数分) に足り、
 /// 教室の共有 PC で席を立った隙に使われる時間は短くしたいため 10 分にした。
 /// GitHub の sudo mode (2 時間) は自分専用の端末を前提にした長さなので採らない。
@@ -263,7 +285,7 @@ pub const PASSWORD_CONFIRMATION_WINDOW: Duration = Duration::from_secs(10 * 60);
 struct PasswordConfirmation {
     /// 確かめた時刻 (UNIX 秒)。
     at: i64,
-    /// 確かめたときのパスワードの指紋 (`credential_fingerprint`)。管理者の再設定などでパスワードが
+    /// 確かめたときのパスワードの指紋 (`credential_fingerprint`)。ほかの端末での変更などでパスワードが
     /// 変わった後は、古いパスワードで確かめたセッションを通さないために比べる。
     credential: String,
 }
@@ -342,6 +364,7 @@ struct UserRow {
     password_hash: String,
     role: Role,
     has_recovery_code: bool,
+    session_generation: i64,
 }
 
 /// ユーザー名・パスワードを検証する。ユーザーが存在しない場合は `DUMMY_HASH` と照合してから
@@ -359,7 +382,8 @@ pub async fn authenticate(
     let row = sqlx::query_as!(
         UserRow,
         r#"SELECT id as "id!", username, password_hash, role as "role: Role",
-                  recovery_code_hash IS NOT NULL as "has_recovery_code!: bool"
+                  recovery_code_hash IS NOT NULL as "has_recovery_code!: bool",
+                  session_generation
            FROM users WHERE username = ? COLLATE NOCASE"#,
         username
     )
@@ -379,6 +403,8 @@ pub struct Authenticated {
     /// ログインで確かめた記録に使う。照合の後に読み直さないのは、その間に再設定されると、
     /// 古いパスワードで入った人を新しいパスワードで確かめたことにしてしまうため。
     pub credential: String,
+    /// 照合した行の世代 (`users.session_generation`)。読み直さない理由は `credential` と同じ。
+    pub session_generation: i64,
 }
 
 fn verify_row(row: Option<UserRow>, password: &str) -> Result<Option<Authenticated>, Error> {
@@ -387,6 +413,7 @@ fn verify_row(row: Option<UserRow>, password: &str) -> Result<Option<Authenticat
             let ok = verify_password(password, &row.password_hash)?;
             Ok(ok.then(|| Authenticated {
                 credential: credential_fingerprint(&row.password_hash),
+                session_generation: row.session_generation,
                 user: AuthUser {
                     id: row.id,
                     username: row.username,
@@ -411,7 +438,7 @@ fn verify_row(row: Option<UserRow>, password: &str) -> Result<Option<Authenticat
 const MAX_TRACKED_USERNAME_LEN: usize = 256;
 
 /// UTF-8の文字境界を壊さずに `MAX_TRACKED_USERNAME_LEN` 以内に切り詰める。
-fn truncate_username(username: &str) -> &str {
+pub(crate) fn truncate_username(username: &str) -> &str {
     if username.len() <= MAX_TRACKED_USERNAME_LEN {
         return username;
     }
@@ -422,27 +449,24 @@ fn truncate_username(username: &str) -> &str {
     &username[..end]
 }
 
-/// ユーザー名単位でログイン試行回数を制限する、プロセス内in-memoryなレートリミッタ。
+/// 接続元の端末ごとに、ユーザー名単位でログイン試行回数を制限する、プロセス内in-memoryなレートリミッタ。
 /// Argon2の検証コストはリクエストごとに発生するため、制限が無いとパスワード総当たりだけ
 /// でなくCPU枯渇DoSの余地もある。
+///
+/// 数えるのは端末 (接続元の IP アドレス。同じ PC のリバースプロキシ越しなら、プロキシが足した
+/// `X-Forwarded-For` の値。→ `api::operations::current_client_ip`) ごと。ユーザー名だけで数えると、
+/// LAN の誰かが管理者の名前で失敗し続けるだけで、本物の管理者がログインも操作の前の確認もできなくなるため。
 ///
 /// ユーザー名単位の制限だけでは、攻撃者が毎回異なるユーザー名を送ることで際限なく
 /// Argon2を実行させられる上、Mapのキーも無制限に増え続けてしまう。これを防ぐため、
 /// 以下の3つを組み合わせている。
 ///
-/// - 全リクエスト共通のグローバル上限も別途課す
-/// - 追跡する distinct ユーザー名数に上限を設け、超過時は新規ユーザー名を拒否する
+/// - 端末ごとに、ユーザー名によらない上限も別途課す
+/// - 追跡するキーの数に上限を設け、超過時は新しいキーを拒否する
 /// - 呼び出しのたびに期限切れの試行を掃除し、空になったキーはMapから削除する
 ///
 /// 単一バイナリで自己ホストする小規模用途を想定した簡易実装であり、プロセス再起動や
-/// マルチインスタンス運用をまたいだ制限は行わない。IPアドレス単位の制限ではないため、
-/// 同一IPからの分散的な試行を個別には識別できない点に注意(グローバル上限が全体としては効く)。
-///
-/// トレードオフとして、存在しないユーザー名を連続送信するだけで第三者がグローバル上限に
-/// 到達させられ、その間は正当なユーザーも含めて全員がログインできなくなる(可用性DoS)。
-/// IPアドレス単位の制限にはリバースプロキシ配下でのX-Forwarded-For解析等の追加設計が要り、
-/// LAN内自己ホスト・少人数利用を前提とする現状ではスコープ外としている。公開ネットワークからの
-/// 到達性を前提にする場合は要再検討。
+/// マルチインスタンス運用をまたいだ制限は行わない。
 pub struct LoginRateLimiter {
     max_attempts: u32,
     global_max_attempts: u32,
@@ -453,17 +477,20 @@ pub struct LoginRateLimiter {
 
 #[derive(Hash, Eq, PartialEq, Clone)]
 enum Key {
-    /// ユーザー名に依存しない、全体の試行回数を数えるためのキー。
-    Global,
-    User(String),
+    /// 端末ごとの、ユーザー名に依存しない試行回数を数えるためのキー。
+    Client(Option<String>),
+    User(Option<String>, String),
 }
 
 /// レートリミット用のユーザーキーを作る。ログイン照合(`COLLATE NOCASE`)と揃えて大文字小文字を
 /// 無視するため、ASCII小文字化してから使う(`NOCASE`自体もASCII範囲のみを無視する仕様)。
 /// これが無いと `alice`/`Alice`/`ALICE` がそれぞれ別バケットとして扱われ、ユーザー単位の
 /// 試行回数制限が大文字小文字を変えるだけで回避できてしまう。
-fn rate_limit_key(username: &str) -> Key {
-    Key::User(truncate_username(username).to_ascii_lowercase())
+fn rate_limit_key(client: Option<&str>, username: &str) -> Key {
+    Key::User(
+        client.map(str::to_string),
+        truncate_username(username).to_ascii_lowercase(),
+    )
 }
 
 impl LoginRateLimiter {
@@ -480,9 +507,10 @@ impl LoginRateLimiter {
     /// `username` について、直近 `window` 以内の試行回数がユーザー単位・全体単位どちらの
     /// 上限も未満なら、この呼び出し自体を1回の試行として記録し `true` を返す。上限に達して
     /// いる場合は記録せず `false` を返す。
-    pub fn try_acquire(&self, username: &str) -> bool {
+    pub fn try_acquire(&self, client: Option<&str>, username: &str) -> bool {
         let now = Instant::now();
-        let user_key = rate_limit_key(username);
+        let user_key = rate_limit_key(client, username);
+        let client_key = Key::Client(client.map(str::to_string));
 
         // 別リクエストのロック中にpanicした場合でも制限機能自体は継続させたいので、
         // poisonした場合は中身を引き継いで使う。
@@ -495,17 +523,17 @@ impl LoginRateLimiter {
             !v.is_empty()
         });
 
-        // 全体の試行回数がグローバル上限に達していれば、ユーザー名に関わらず拒否する
+        // 端末の試行回数が上限に達していれば、ユーザー名に関わらず拒否する
         // (異なるユーザー名を使ったCPU枯渇DoS対策)。
-        if attempts.entry(Key::Global).or_default().len() as u32 >= self.global_max_attempts {
+        if attempts.get(&client_key).map_or(0, Vec::len) as u32 >= self.global_max_attempts {
             return false;
         }
 
-        // 追跡中のdistinctユーザー名数が上限に達しており、かつこのユーザー名が未追跡なら、
-        // Mapをこれ以上増やさないため拒否する(直前で必ず作られるKey::Globalの分を1件除いて
-        // 数える)。
-        let tracked_user_count = attempts.len().saturating_sub(1);
-        if !attempts.contains_key(&user_key) && tracked_user_count >= self.max_tracked_ids {
+        // 追跡中のキーの数が上限に達しており、かつこの端末かユーザー名が未追跡なら、
+        // Mapをこれ以上増やさないため拒否する。
+        let new_keys = usize::from(!attempts.contains_key(&client_key))
+            + usize::from(!attempts.contains_key(&user_key));
+        if new_keys > 0 && attempts.len() + new_keys > self.max_tracked_ids {
             return false;
         }
 
@@ -513,7 +541,7 @@ impl LoginRateLimiter {
             return false;
         }
 
-        attempts.entry(Key::Global).or_default().push(now);
+        attempts.entry(client_key).or_default().push(now);
         attempts.entry(user_key).or_default().push(now);
         true
     }
@@ -525,13 +553,14 @@ impl LoginRateLimiter {
     /// 同一ユーザー名への並行リクエストがある場合、取り消す試行が入れ替わる可能性が
     /// あるが、影響は「別の正当なリクエストの分を1回免除する」程度に留まり、
     /// レートリミットが安全側(緩む方向)にしかズレないため許容する。
-    pub fn release(&self, username: &str) {
-        let user_key = rate_limit_key(username);
+    pub fn release(&self, client: Option<&str>, username: &str) {
+        let user_key = rate_limit_key(client, username);
+        let client_key = Key::Client(client.map(str::to_string));
         let mut attempts = self.attempts.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(v) = attempts.get_mut(&user_key) {
             v.pop();
         }
-        if let Some(v) = attempts.get_mut(&Key::Global) {
+        if let Some(v) = attempts.get_mut(&client_key) {
             v.pop();
         }
     }
@@ -621,7 +650,8 @@ impl FromRequestParts<AppState> for AuthUser {
         let user = sqlx::query_as!(
             UserRow,
             r#"SELECT id as "id!", username, password_hash, role as "role: Role",
-                      recovery_code_hash IS NOT NULL as "has_recovery_code!: bool"
+                      recovery_code_hash IS NOT NULL as "has_recovery_code!: bool",
+                      session_generation
                FROM users WHERE id = ?"#,
             user_id
         )
@@ -633,6 +663,15 @@ impl FromRequestParts<AppState> for AuthUser {
             session.flush().await.map_err(Error::Session)?;
             return Err(AppError::Unauthorized);
         };
+        // パスワードが変わる前に始めたセッション。削除と同じく破棄して未ログインにする。
+        let stored: Option<i64> = session
+            .get(SESSION_GENERATION_KEY)
+            .await
+            .map_err(Error::Session)?;
+        if !session_generation_is_current(stored, user.session_generation) {
+            session.flush().await.map_err(Error::Session)?;
+            return Err(AppError::Unauthorized);
+        }
 
         Ok(AuthUser {
             id: user.id,
@@ -770,6 +809,15 @@ mod tests {
             !confirmation_is_fresh(Some(&at(1_000)), "c2", 1_000),
             "確かめた後にパスワードが変わったら通さない"
         );
+    }
+
+    #[test]
+    fn session_generation_is_current_only_for_the_same_generation() {
+        assert!(session_generation_is_current(Some(2), 2));
+        assert!(!session_generation_is_current(Some(1), 2));
+        // 世代を残す前に始まったセッションは 0 と見なす。
+        assert!(session_generation_is_current(None, 0));
+        assert!(!session_generation_is_current(None, 1));
     }
 
     #[test]
@@ -1053,23 +1101,36 @@ mod tests {
     mod rate_limiter {
         use super::*;
 
+        const CLIENT: Option<&str> = Some("192.0.2.1");
+
+        /// 別の端末の失敗では、同じユーザー名でも締め出されない。
+        #[test]
+        fn another_client_is_not_locked_out_by_failures_elsewhere() {
+            let limiter = LoginRateLimiter::new(1, 1, Duration::from_secs(60));
+
+            assert!(limiter.try_acquire(Some("192.0.2.66"), "admin"));
+            assert!(!limiter.try_acquire(Some("192.0.2.66"), "admin"));
+            assert!(!limiter.try_acquire(Some("192.0.2.66"), "other"));
+            assert!(limiter.try_acquire(CLIENT, "admin"));
+        }
+
         #[test]
         fn allows_up_to_max_attempts_then_blocks() {
             let limiter = LoginRateLimiter::new(3, 100, Duration::from_secs(60));
 
-            assert!(limiter.try_acquire("admin"));
-            assert!(limiter.try_acquire("admin"));
-            assert!(limiter.try_acquire("admin"));
-            assert!(!limiter.try_acquire("admin"));
+            assert!(limiter.try_acquire(CLIENT, "admin"));
+            assert!(limiter.try_acquire(CLIENT, "admin"));
+            assert!(limiter.try_acquire(CLIENT, "admin"));
+            assert!(!limiter.try_acquire(CLIENT, "admin"));
         }
 
         #[test]
         fn tracks_each_username_independently() {
             let limiter = LoginRateLimiter::new(1, 100, Duration::from_secs(60));
 
-            assert!(limiter.try_acquire("admin"));
-            assert!(!limiter.try_acquire("admin"));
-            assert!(limiter.try_acquire("other"));
+            assert!(limiter.try_acquire(CLIENT, "admin"));
+            assert!(!limiter.try_acquire(CLIENT, "admin"));
+            assert!(limiter.try_acquire(CLIENT, "other"));
         }
 
         #[test]
@@ -1078,48 +1139,49 @@ mod tests {
             // 別バケットとして扱われ制限を回避できてしまわないことを確認する。
             let limiter = LoginRateLimiter::new(1, 100, Duration::from_secs(60));
 
-            assert!(limiter.try_acquire("Admin"));
-            assert!(!limiter.try_acquire("admin"));
-            assert!(!limiter.try_acquire("ADMIN"));
+            assert!(limiter.try_acquire(CLIENT, "Admin"));
+            assert!(!limiter.try_acquire(CLIENT, "admin"));
+            assert!(!limiter.try_acquire(CLIENT, "ADMIN"));
         }
 
         #[test]
         fn global_limit_blocks_even_with_distinct_usernames() {
             let limiter = LoginRateLimiter::new(100, 3, Duration::from_secs(60));
 
-            assert!(limiter.try_acquire("user-1"));
-            assert!(limiter.try_acquire("user-2"));
-            assert!(limiter.try_acquire("user-3"));
+            assert!(limiter.try_acquire(CLIENT, "user-1"));
+            assert!(limiter.try_acquire(CLIENT, "user-2"));
+            assert!(limiter.try_acquire(CLIENT, "user-3"));
             // 別のユーザー名でも、グローバル上限を超えていれば拒否される。
-            assert!(!limiter.try_acquire("user-4"));
+            assert!(!limiter.try_acquire(CLIENT, "user-4"));
         }
 
         #[test]
         fn does_not_track_more_than_max_ids() {
             let limiter = LoginRateLimiter {
-                max_tracked_ids: 2,
+                // 端末の分と、ユーザー名 2 つの分。
+                max_tracked_ids: 3,
                 ..LoginRateLimiter::new(100, 100, Duration::from_secs(60))
             };
 
-            assert!(limiter.try_acquire("user-1"));
-            assert!(limiter.try_acquire("user-2"));
+            assert!(limiter.try_acquire(CLIENT, "user-1"));
+            assert!(limiter.try_acquire(CLIENT, "user-2"));
             // 追跡上限に達しているため、3件目の新規ユーザー名は拒否される。
-            assert!(!limiter.try_acquire("user-3"));
+            assert!(!limiter.try_acquire(CLIENT, "user-3"));
             // 既に追跡中のユーザー名は引き続き許可される。
-            assert!(limiter.try_acquire("user-1"));
+            assert!(limiter.try_acquire(CLIENT, "user-1"));
         }
 
         #[test]
         fn release_frees_up_a_slot_for_both_user_and_global() {
             let limiter = LoginRateLimiter::new(1, 1, Duration::from_secs(60));
 
-            assert!(limiter.try_acquire("admin"));
-            assert!(!limiter.try_acquire("admin")); // 上限到達(ユーザー単位・グローバル単位とも1)
+            assert!(limiter.try_acquire(CLIENT, "admin"));
+            assert!(!limiter.try_acquire(CLIENT, "admin")); // 上限到達(ユーザー単位・グローバル単位とも1)
 
-            limiter.release("admin");
+            limiter.release(CLIENT, "admin");
 
             // 解放されているので、成功ログインを繰り返しても再びブロックされない。
-            assert!(limiter.try_acquire("admin"));
+            assert!(limiter.try_acquire(CLIENT, "admin"));
         }
 
         #[test]
@@ -1127,9 +1189,9 @@ mod tests {
             let limiter = LoginRateLimiter::new(1, 100, Duration::from_secs(60));
 
             // 試行を記録していないユーザー名に対して呼んでもpanicしない。
-            limiter.release("never-tried");
+            limiter.release(CLIENT, "never-tried");
 
-            assert!(limiter.try_acquire("never-tried"));
+            assert!(limiter.try_acquire(CLIENT, "never-tried"));
         }
     }
 }

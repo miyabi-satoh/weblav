@@ -325,6 +325,38 @@ async fn users_reset_password_succeeds_and_old_password_stops_working(pool: Sqli
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
+/// 管理者が再設定したら、本人のどの端末のログインも切れ、新しいパスワードで入り直せる。
+/// 再設定した管理者のログインは切れない。
+#[sqlx::test]
+async fn users_reset_password_logs_the_user_out_on_every_device(pool: SqlitePool) {
+    insert_user(&pool, "bob", "old-password").await;
+    let (app, cookie) = admin_app(&pool).await;
+    let bob_id = user_id(app.clone(), &cookie, "bob").await;
+    let bob_here = login(app.clone(), "bob", "old-password").await;
+    let bob_elsewhere = login(app.clone(), "bob", "old-password").await;
+
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        &format!("/api/v1/admin/users/{bob_id}/password"),
+        &cookie,
+        r#"{"password":"new-password"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+
+    for bob in [&bob_here, &bob_elsewhere] {
+        let (status, body) = send_empty(app.clone(), "GET", "/api/v1/auth/me", bob).await;
+        assert_error(status, &body, StatusCode::UNAUTHORIZED, "unauthorized");
+    }
+    let (status, body) = send_empty(app.clone(), "GET", "/api/v1/auth/me", &cookie).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let bob_again = login(app.clone(), "bob", "new-password").await;
+    let (status, body) = send_empty(app, "GET", "/api/v1/auth/me", &bob_again).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+}
+
 #[sqlx::test]
 async fn users_reset_password_with_empty_password_is_validation_error(pool: SqlitePool) {
     insert_user(&pool, "bob", "old-password").await;

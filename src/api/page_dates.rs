@@ -167,8 +167,9 @@ fn normalize(raw: &str) -> Option<String> {
             time::macros::format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]");
         return at.format(&format).ok();
     }
+    // 9999 年の終わりのように、UTC に直すと扱える年を越える日時は読めないものとする (`to_offset` は越えると落ちる)。
     at.assume_offset(parse_offset(zone)?)
-        .to_offset(UtcOffset::UTC)
+        .checked_to_offset(UtcOffset::UTC)?
         .format(&Rfc3339)
         .ok()
 }
@@ -253,6 +254,7 @@ mod tests {
             "2026-13-01",
             "2026-09-28T25:00",
             "2026-09-28Tnoon",
+            "9999-12-31T23:00:00-01:00",
             "yesterday",
             "",
         ] {

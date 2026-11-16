@@ -1,4 +1,5 @@
-//! 中身が手元に無く、読むとクラウドから取ってくるファイル (OneDrive の「オンラインのみ」など) の判定
+//! 中身が手元に無く、読むとクラウドから取ってくるファイル (OneDrive の「オンラインのみ」、
+//! macOS の iCloud Drive で「Mac のストレージを最適化」により中身を外したファイルなど) の判定
 //! (→ docs/ui.md「画像のプレビュー」)。
 
 use std::fs::Metadata;
@@ -19,7 +20,22 @@ pub(super) fn is_online_only(metadata: &Metadata) -> bool {
     metadata.file_attributes() & NOT_LOCAL != 0
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
+pub(super) fn is_online_only(metadata: &Metadata) -> bool {
+    use std::os::macos::fs::MetadataExt;
+    has_dataless_flag(metadata.st_flags())
+}
+
+/// `st_flags` に、中身がクラウドにだけある印 (`SF_DATALESS`) が付いているか。
+/// iCloud Drive などの File Provider が付け、読むと OS が中身を取ってくる。
+#[cfg(target_os = "macos")]
+fn has_dataless_flag(flags: u32) -> bool {
+    // <sys/stat.h> の SF_DATALESS。libc crate には定義が無い。
+    const SF_DATALESS: u32 = 0x4000_0000;
+    flags & SF_DATALESS != 0
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 pub(super) fn is_online_only(_metadata: &Metadata) -> bool {
     false
 }
@@ -282,6 +298,30 @@ mod tests {
             !is_online_only(&std::fs::metadata(&path).expect("メタデータを読めなかった")),
             "読んだ後も手元に無いままになっている"
         );
+    }
+
+    #[test]
+    fn a_local_file_is_not_online_only() {
+        let dir = crate::test_support::TempDir::new("cloud-local");
+        let path = dir.path().join("a.txt");
+        std::fs::write(&path, b"hello").expect("書けなかった");
+        assert!(!is_online_only(
+            &std::fs::metadata(&path).expect("メタデータを読めなかった")
+        ));
+    }
+}
+
+// 中身の無いファイルは iCloud にサインインしないと作れないので、印の読み方だけを確かめる。
+#[cfg(all(test, target_os = "macos"))]
+mod macos_tests {
+    use super::*;
+
+    #[test]
+    fn the_dataless_flag_marks_a_file_as_online_only() {
+        // UF_HIDDEN (0x8000) が一緒に付いていても見分ける。
+        assert!(has_dataless_flag(0x4000_0000 | 0x0000_8000));
+        assert!(!has_dataless_flag(0x0000_8000));
+        assert!(!has_dataless_flag(0));
     }
 
     #[test]

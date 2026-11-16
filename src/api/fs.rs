@@ -296,6 +296,19 @@ pub(super) fn inside_own_dirs() -> AppError {
     }
 }
 
+/// フォルダーを選ぶ窓で開いたフォルダーを読めないときの 422。
+fn unreadable_dir(dir: &FsPath) -> AppError {
+    AppError::ValidationDetailed {
+        message: "cannot read this directory".to_string(),
+        detail: super::error_detail::ValidationDetail::FolderUnreadable {
+            name: dir
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_default(),
+        },
+    }
+}
+
 /// Windowsの `canonicalize` が返す verbatim パス (`\\?\C:\...`) を、人が読める形に戻す。
 ///
 /// この形のまま画面に出すと、パンくず・登録確認・管理一覧のどこでも接頭辞が邪魔になり、
@@ -397,11 +410,10 @@ fn listing(
     }
 
     let canonical = canonical_dir_within_roots(requested, roots, hidden)?;
-    let entries = read_dirs(&canonical, roots, hidden)
-        .map_err(|_| AppError::Validation("cannot read this directory".to_string()))?;
+    let unreadable = |_| unreadable_dir(&canonical);
+    let entries = read_dirs(&canonical, roots, hidden).map_err(unreadable)?;
     let files = if with_files {
-        read_files(&canonical, hidden)
-            .map_err(|_| AppError::Validation("cannot read this directory".to_string()))?
+        read_files(&canonical, hidden).map_err(unreadable)?
     } else {
         Vec::new()
     };
@@ -461,11 +473,19 @@ struct CountResponse {
 
 /// アーカイブの相対パス。区切りを `/` に正規化して保存する
 /// (→ docs/archive.md「スキャン」)。Windows と他プラットフォームで同じ値になるようにするため。
-///
-/// 純粋関数にしてあるのは、Windows 形式の入力を開発機(macOS)でも検査できるように
-/// するため (Windows 実機が無く、固有の経路を実機で踏めない)。
 fn normalize_rel_path(rel: &str) -> String {
-    rel.replace('\\', "/")
+    slash_separated(rel, cfg!(windows))
+}
+
+/// `backslash_separates` のときだけ `\` を区切りとして `/` に替える。macOS・Linux では `\` は名前に使える
+/// 普通の文字で、替えると別のパスを指し、そのファイルを開けなくなる。
+/// OS を引数にしてあるのは、両方の場合をどの OS のテストでも確かめるため。
+fn slash_separated(rel: &str, backslash_separates: bool) -> String {
+    if backslash_separates {
+        rel.replace('\\', "/")
+    } else {
+        rel.to_string()
+    }
 }
 
 /// 検索で辿ったエントリ。`rel_path` は `/` 区切りの、登録先からの相対パス。
@@ -1070,18 +1090,18 @@ mod tests {
     }
 
     #[test]
-    fn normalize_rel_path_converts_windows_separators() {
-        // Windows 経路は実機が無く検証できないため、区切り文字を
-        // 手で組み立てた入力で検査する。
+    fn slash_separated_converts_backslashes_only_where_they_separate() {
         assert_eq!(
-            normalize_rel_path(r"2024\第1回\listening.mp3"),
+            slash_separated(r"2024\第1回\listening.mp3", true),
             "2024/第1回/listening.mp3"
         );
         assert_eq!(
-            normalize_rel_path("2024/第1回/listening.mp3"),
+            slash_separated("2024/第1回/listening.mp3", true),
             "2024/第1回/listening.mp3"
         );
-        assert_eq!(normalize_rel_path("listening.mp3"), "listening.mp3");
+        assert_eq!(slash_separated("listening.mp3", true), "listening.mp3");
+        // macOS・Linux では名前の一部なので残す。
+        assert_eq!(slash_separated(r"2024/a\b.mp3", false), r"2024/a\b.mp3");
     }
 
     /// 検索の走査は、ファイルとディレクトリの両方を出し、一覧と同じものを外す。

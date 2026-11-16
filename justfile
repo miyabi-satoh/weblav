@@ -189,7 +189,7 @@ licenses:
 licenses-check: licenses
     node scripts/check-generated.mjs licenses frontend/static/third-party-licenses/rust.json
 
-# マニュアルの画像のうち、管理画面と仕組みの図を、使い捨ての backend で撮り直す (→ docs/help.md)。名前を渡すと、その画像だけを撮る (例: just manual-shots roots-page settings-page)
+# マニュアルの画像のうち、画面と仕組みの図を、使い捨ての backend で日本語と英語の両方で撮り直す (→ docs/help.md)。名前を渡すとその画像だけ、--lang=en でその言語だけを撮る (例: just manual-shots --lang=en roots-page settings-page)
 manual-shots *names: frontend-build
     cargo build --bin weblav-service
     cd {{ frontend_dir }} && node scripts/manual-shots.ts {{ names }}

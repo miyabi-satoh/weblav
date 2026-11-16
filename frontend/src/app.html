@@ -7,6 +7,9 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 
 		<meta name="text-scale" content="scale" />
+		<!-- スマートフォンのホーム画面に置いたときのアイコン (scripts/generate-icon.mjs が作る)。 -->
+		<link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />
+		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
 		<!-- SPA (ssr=false) のため mode-watcher 本体の初期化は Svelte マウント後になり、
 		     それを待つと初回描画でダークモード利用者に白いフラッシュが見える。
 		     mode-watcher公式の初期化スクリプト(hooks.server.tsで差し込む)で先回りして

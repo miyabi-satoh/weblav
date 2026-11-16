@@ -1,0 +1,125 @@
+<!doctype html>
+<!-- マニュアルの「はじめに」の先頭の画像 (docs/manual/{ロケール}/images/intro-overview.webp)。
+     `just manual-shots` が、スマートフォンの幅で撮った3つの画面を data-screen の img に入れ、#fig を2倍で撮る。
+     画面の上の時刻とアドレスの欄は、スマートフォンのブラウザーに見せるための飾り。 -->
+<html lang="ja">
+	<head>
+		<meta charset="utf-8" />
+		<style>
+			@font-face {
+				font-family: 'BL';
+				font-weight: 400;
+				src: url('../../node_modules/@fontsource/biz-udpgothic/files/biz-udpgothic-latin-400-normal.woff2');
+			}
+			@font-face {
+				font-family: 'BL';
+				font-weight: 700;
+				src: url('../../node_modules/@fontsource/biz-udpgothic/files/biz-udpgothic-latin-700-normal.woff2');
+			}
+			html,
+			body {
+				margin: 0;
+				background: #fff;
+			}
+			body {
+				font-family: 'BL', sans-serif;
+				color: oklch(0.217 0.0038 106.71);
+			}
+			#fig {
+				display: flex;
+				justify-content: space-evenly;
+				align-items: center;
+				width: 717px;
+				height: 440px;
+				background: linear-gradient(180deg, #f6f7f6, #eef0ef);
+			}
+			.phone {
+				width: 195px;
+				border: 6px solid #1f2a2a;
+				border-radius: 28px;
+				background: #fff;
+				overflow: hidden;
+				box-shadow: 0 6px 18px rgb(0 0 0 / 0.12);
+			}
+			.status {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				height: 26px;
+				padding: 0 16px;
+				font-size: 7px;
+				font-weight: 700;
+			}
+			.bars {
+				display: flex;
+				align-items: flex-end;
+				gap: 1.5px;
+			}
+			.bars i {
+				display: block;
+				width: 3px;
+				background: currentColor;
+			}
+			.url {
+				display: flex;
+				align-items: center;
+				gap: 5px;
+				height: 16px;
+				margin: 0 6px 6px;
+				padding: 0 7px;
+				border-radius: 8px;
+				background: #eceeed;
+				font-size: 7px;
+				white-space: nowrap;
+				overflow: hidden;
+			}
+			.url::before {
+				content: '';
+				width: 5px;
+				height: 5px;
+				border: 1px solid currentColor;
+				border-radius: 50%;
+				flex: none;
+			}
+			.screen {
+				display: block;
+				width: 195px;
+				height: 362px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="fig">
+			<div class="phone">
+				<div class="status">
+					<span>9:41</span
+					><span class="bars"
+						><i style="height: 3px"></i><i style="height: 5px"></i><i style="height: 7px"></i
+					></span>
+				</div>
+				<div class="url" data-url></div>
+				<img class="screen" data-screen alt="" />
+			</div>
+			<div class="phone">
+				<div class="status">
+					<span>9:41</span
+					><span class="bars"
+						><i style="height: 3px"></i><i style="height: 5px"></i><i style="height: 7px"></i
+					></span>
+				</div>
+				<div class="url" data-url></div>
+				<img class="screen" data-screen alt="" />
+			</div>
+			<div class="phone">
+				<div class="status">
+					<span>9:41</span
+					><span class="bars"
+						><i style="height: 3px"></i><i style="height: 5px"></i><i style="height: 7px"></i
+					></span>
+				</div>
+				<div class="url" data-url></div>
+				<img class="screen" data-screen alt="" />
+			</div>
+		</div>
+	</body>
+</html>
