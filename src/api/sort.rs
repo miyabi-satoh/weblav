@@ -150,6 +150,8 @@ mod tests {
         );
         assert_eq!(title_cmp("第２回", "第2回"), Ordering::Equal);
         assert_eq!(sorted(vec!["0010", "009"]), vec!["009", "0010"]);
+        assert_eq!(title_cmp("０００", "0"), Ordering::Equal);
+        assert_eq!(sorted(vec!["第１０回", "第2回"]), vec!["第2回", "第１０回"]);
     }
 
     #[test]

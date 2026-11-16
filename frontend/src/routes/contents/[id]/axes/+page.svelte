@@ -252,7 +252,10 @@
 				if (!created) return;
 				axes = [...axes, created];
 				// 値の表に保存していない変更があれば、切り替える前に捨ててよいかを確かめる。
+				// 確かめる窓を足す窓に重ねないよう、先に閉じる。
+				axisDialogOpen = false;
 				selectAxis(created.id);
+				return;
 			} else {
 				const result = await errorDialog.attempt(
 					() =>
