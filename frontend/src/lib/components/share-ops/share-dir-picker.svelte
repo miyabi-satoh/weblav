@@ -14,7 +14,7 @@
 	 * 並べる共有は、見ている人が足せるものだけ。辿った先で足せないときは、呼び出し側が確定を押せなくする。
 	 * `disabledPath` (動かす・写すフォルダー自身) には入れない。それ自身の中へは置けないため。
 	 */
-	import { untrack } from 'svelte';
+	import { onMount } from 'svelte';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import FolderIcon from '@lucide/svelte/icons/folder';
@@ -38,7 +38,7 @@
 	}: {
 		/** 見ている人が使える共有。 */
 		shares: ShareResponse[];
-		/** 開いたときの場所。足せない場所なら共有の一覧から始める。 */
+		/** 開いたときの場所。足せない場所なら共有の一覧から始める。後から変わっても追わない。 */
 		start: { shareId: number; path: string } | null;
 		/** 入れないフォルダー (動かす・写すフォルダー自身)。 */
 		disabledPath: { shareId: number; path: string } | null;
@@ -89,12 +89,12 @@
 		onpick(null);
 	}
 
-	$effect(() => {
+	// 開いたときの場所から1回だけ始める。`start` は共有の一覧から作り直されるので (裏の処理が終わって
+	// 画面を取り直したときなど)、追い続けると、辿っている途中で最初の場所へ戻ってしまう。
+	onMount(() => {
 		const initial = start;
-		untrack(() => {
-			if (initial === null) showShares();
-			else void load(initial.shareId, initial.path);
-		});
+		if (initial === null) showShares();
+		else void load(initial.shareId, initial.path);
 	});
 
 	function isDisabled(shareId: number, path: string): boolean {

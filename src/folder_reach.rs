@@ -66,6 +66,8 @@ struct Entry {
     /// 走っている確かめと、始めた時刻。終わると `Some` が入る。
     running: Option<(Instant, watch::Receiver<Option<Reach>>)>,
     reconnected_at: Option<Instant>,
+    /// 最後に読めたときの実体のパス。読めなくなっても残す (→ `last_ready`)。
+    last_ready: Option<PathBuf>,
 }
 
 enum Begin {
@@ -96,6 +98,15 @@ impl FolderReach {
             // 待ちきれなかった・確かめのタスクが落ちた。
             _ => Reach::Unreachable,
         }
+    }
+
+    /// `path` を最後に読めたときの実体のパス。今は読めない・返事を待ちきれなかったときも返す。
+    ///
+    /// 表示しないものの判定 (→ `api::hidden::HiddenRules::load`) が、配る側と別に確かめて、NAS の返事が遅れた
+    /// 共有の除外を落とさないようにするため。配る側が読めたものは、ここに残っている。
+    pub fn last_ready(&self, path: &str) -> Option<PathBuf> {
+        let entries = self.entries.lock().unwrap_or_else(PoisonError::into_inner);
+        entries.get(path).and_then(|entry| entry.last_ready.clone())
     }
 
     /// 使い回せる結果か、走っている確かめを返す。どちらも無ければ確かめを始める。
@@ -180,6 +191,9 @@ impl Finish {
                 .lock()
                 .unwrap_or_else(PoisonError::into_inner);
             let entry = entries.entry(self.path.clone()).or_default();
+            if let Reach::Ready(canonical) = &reach {
+                entry.last_ready = Some(canonical.clone());
+            }
             entry.checked = Some((Instant::now(), reach.clone()));
             entry.running = None;
             if reconnected {
@@ -428,6 +442,36 @@ mod tests {
             Reach::Ready(PathBuf::from("/nas"))
         );
         assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
+    /// 一度読めた場所は、後で返事を待ちきれなくても、読めたときの実体のパスを覚えている。
+    #[tokio::test]
+    async fn the_last_ready_path_outlives_a_slow_answer() {
+        let slow = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let slowed = Arc::clone(&slow);
+        let reach = Arc::new(FolderReach::with_probe(Arc::new(move |_, _, _| {
+            if slowed.load(std::sync::atomic::Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(300));
+            }
+            (Reach::Ready(PathBuf::from("/Volumes/nas")), false)
+        })));
+        let pool = memory_pool().await;
+        assert_eq!(reach.last_ready("/nas"), None);
+        assert_eq!(
+            reach.check(&pool, "/nas", TARGET_WAIT).await,
+            Reach::Ready(PathBuf::from("/Volumes/nas"))
+        );
+
+        slow.store(true, std::sync::atomic::Ordering::SeqCst);
+        tokio::time::sleep(READY_FRESH).await;
+        assert_eq!(
+            reach.check(&pool, "/nas", Duration::from_millis(50)).await,
+            Reach::Unreachable
+        );
+        assert_eq!(
+            reach.last_ready("/nas"),
+            Some(PathBuf::from("/Volumes/nas"))
+        );
     }
 
     #[tokio::test]

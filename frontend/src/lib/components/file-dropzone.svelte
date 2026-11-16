@@ -1,3 +1,16 @@
+<script lang="ts" module>
+	/** ドロップされたもののうち、フォルダーだったもの。ブラウザーはフォルダーも `File` として渡すため。 */
+	const droppedFolders = new WeakSet<File>();
+
+	/**
+	 * ドロップされたフォルダーか。フォルダーは中身を読めないので、送ると通信の失敗になる。
+	 * 送る側が、送らずに理由を出せるようにする。
+	 */
+	export function isDroppedFolder(file: File): boolean {
+		return droppedFolders.has(file);
+	}
+</script>
+
 <script lang="ts">
 	/**
 	 * ファイル選択のドロップゾーン。`<input type=file>` を透明化して `label` 全体に
@@ -46,11 +59,23 @@
 		dragging = false;
 		const dropped = event.dataTransfer?.files;
 		if (dropped && dropped.length > 0 && inputRef) {
+			markFolders(event.dataTransfer, dropped);
 			// input.files への代入で、input自体もbind:filesと同じ状態になる
 			// (フォーム送信・再選択の見た目を input 側の値と一致させるため)。
 			inputRef.files = dropped;
 			files = dropped;
 		}
+	}
+
+	/**
+	 * フォルダーに印を付ける。`files` だけでは、フォルダーと中身の空のファイルを見分けられないため、
+	 * 同じ並びの `items` の項目に聞く (`webkitGetAsEntry` は drop の中でしか呼べない)。
+	 */
+	function markFolders(transfer: DataTransfer, dropped: FileList) {
+		const entries = Array.from(transfer.items).filter((item) => item.kind === 'file');
+		Array.from(dropped).forEach((file, index) => {
+			if (entries[index]?.webkitGetAsEntry()?.isDirectory) droppedFolders.add(file);
+		});
 	}
 
 	// Escでドラッグをキャンセルされると dragleave/drop が発火せず dragDepth が

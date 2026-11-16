@@ -2355,7 +2355,7 @@ export interface components {
          * @description API エラーの機械可読なコード。frontend はこの値で表示文言を選ぶ。
          * @enum {string}
          */
-        ErrorCode: "not_found" | "database_unavailable" | "unauthorized" | "forbidden" | "invalid_credentials" | "incorrect_current_password" | "password_confirmation_required" | "invalid_recovery_code" | "too_many_requests" | "invalid_request_body" | "file_too_large" | "internal_error" | "conflict" | "config_unreadable" | "folder_unreachable" | "insufficient_storage" | "trash_unavailable" | "entry_in_use" | "share_read_only" | "move_source_left";
+        ErrorCode: "not_found" | "database_unavailable" | "unauthorized" | "forbidden" | "invalid_credentials" | "incorrect_current_password" | "password_confirmation_required" | "invalid_recovery_code" | "too_many_requests" | "invalid_request_body" | "file_too_large" | "internal_error" | "conflict" | "config_unreadable" | "folder_unreachable" | "insufficient_storage" | "trash_unavailable" | "entry_in_use" | "share_read_only" | "move_source_left" | "move_contains_links";
         /**
          * @description レスポンスボディの共通envelope。`code` が機械可読な契約(frontendはこちらでi18nする)、
          *     `message` は英語のデバッグ用の説明文で、画面には出さない。

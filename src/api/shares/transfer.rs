@@ -452,7 +452,6 @@ async fn transfer_all(
         }
         let step = Step {
             src: source.resolved.canonical.clone(),
-            is_dir: source.is_dir,
             dest_dir: prepared.dest.canonical.clone(),
             name: source.name.clone(),
             op,
@@ -531,7 +530,6 @@ async fn log_overwritten(state: &AppState, user: &AuthUser, dest: &Resolved, nam
 /// 1つ分のコピー・移動。
 struct Step {
     src: PathBuf,
-    is_dir: bool,
     dest_dir: PathBuf,
     name: String,
     op: TransferOp,
@@ -548,16 +546,14 @@ impl Step {
         trash: &TrashPolicy,
         changes: &mut Vec<Change>,
     ) -> Result<bool, AppError> {
-        let mut name = self.name.clone();
+        let mut taken = fsops::TakenName::Refuse;
         let target = self.dest_dir.join(&self.name);
         if fsops::exists(&target) {
             if fsops::same_entry(&self.src, &target) {
                 match self.op {
                     // 同じフォルダーの中への移動は、何もしない。
                     TransferOp::Move => return Ok(false),
-                    TransferOp::Copy => {
-                        name = fsops::free_name(&self.dest_dir, &self.name, self.is_dir);
-                    }
+                    TransferOp::Copy => taken = fsops::TakenName::Number,
                 }
             } else {
                 match self.on_conflict {
@@ -565,9 +561,7 @@ impl Step {
                         job.skip();
                         return Ok(false);
                     }
-                    OnConflict::Rename => {
-                        name = fsops::free_name(&self.dest_dir, &self.name, self.is_dir);
-                    }
+                    OnConflict::Rename => taken = fsops::TakenName::Number,
                     OnConflict::Overwrite => {
                         return self.overwrite(target, job, trash, changes);
                     }
@@ -576,25 +570,25 @@ impl Step {
         }
         match self.op {
             TransferOp::Copy => {
-                let copied = fsops::copy_tree(&self.src, &self.dest_dir, &name, &job.progress)?;
+                let copied =
+                    fsops::copy_tree(&self.src, &self.dest_dir, &self.name, taken, &job.progress)?;
                 Ok(copied.is_some())
             }
             TransferOp::Move => {
-                match fsops::move_entry(&self.src, &self.dest_dir, &name, &job.progress) {
-                    Ok(Some(to)) => {
-                        changes.push(Change::Moved { from: self.src, to });
-                        Ok(true)
-                    }
-                    Ok(None) => Ok(false),
-                    // 置き先は完全なので、コンテンツは置き先へ付け替える。
-                    Err(AppError::MoveSourceLeft) => {
-                        changes.push(Change::Moved {
-                            from: self.src,
-                            to: self.dest_dir.join(&name),
-                        });
-                        Err(AppError::MoveSourceLeft)
-                    }
-                    Err(err) => Err(err),
+                let Some(moved) =
+                    fsops::move_entry(&self.src, &self.dest_dir, &self.name, taken, &job.progress)?
+                else {
+                    return Ok(false);
+                };
+                // 元が残っても置き先は完全なので、コンテンツは置き先へ付け替える。
+                changes.push(Change::Moved {
+                    from: self.src,
+                    to: moved.to,
+                });
+                if moved.source_left {
+                    Err(AppError::MoveSourceLeft)
+                } else {
+                    Ok(true)
                 }
             }
         }

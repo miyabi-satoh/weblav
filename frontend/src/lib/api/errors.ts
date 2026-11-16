@@ -32,7 +32,8 @@ export const MESSAGES: Record<ErrorCode, () => string> = {
 	trash_unavailable: m.error_trash_unavailable,
 	entry_in_use: m.error_entry_in_use,
 	share_read_only: m.error_share_read_only,
-	move_source_left: m.error_move_source_left
+	move_source_left: m.error_move_source_left,
+	move_contains_links: m.error_move_contains_links
 };
 
 /** 想定外の形のレスポンスや通信エラーに使う汎用文言。 */

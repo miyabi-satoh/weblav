@@ -78,19 +78,27 @@ pub(super) struct HiddenRules {
 }
 
 impl HiddenRules {
-    /// 今の設定を読む。共有は実体を辿れるものだけ (→ `roots::load_roots`)。辿れない共有の中は配らないので、
-    /// その除外が無くても見えるものは増えない。
+    /// 今の設定を読む。共有は、今か前に読めたことがあるもの。読めない共有の中は配らないので、除外を当てても
+    /// 見えるものは減らない。
+    ///
+    /// 今読めない共有も、前に読めたときの実体のパス (→ `FolderReach::last_ready`) で持つ。配る側 (`resolve_existing`・
+    /// `load_roots`) とは別に確かめるので、NAS の返事が待ち時間 (`OTHERS_WAIT`) を越えたとき、配る側は読めたのに
+    /// ここでは外れて、その共有の除外とサイトのパターンが当たらなくなるため。
     pub(super) async fn load(state: &AppState) -> Result<Self, AppError> {
         let settings = load_site_row(&state.pool).await?;
         let stored = load_share_filters(&state.pool).await?;
         let (paths, filters): (Vec<String>, Vec<FileFilter>) = stored.into_iter().unzip();
-        let reaches = super::roots::check_all(state, paths, OTHERS_WAIT).await;
+        let reaches = super::roots::check_all(state, paths.clone(), OTHERS_WAIT).await;
         let shares = reaches
             .into_iter()
+            .zip(paths)
             .zip(filters)
-            .filter_map(|(reach, filter)| match reach {
-                Reach::Ready(path) => Some((path, filter)),
-                Reach::Gone | Reach::Unreachable => None,
+            .filter_map(|((reach, path), filter)| match reach {
+                Reach::Ready(canonical) => Some((canonical, filter)),
+                Reach::Gone | Reach::Unreachable => state
+                    .folder_reach
+                    .last_ready(&path)
+                    .map(|canonical| (canonical, filter)),
             })
             .collect();
         Ok(Self {

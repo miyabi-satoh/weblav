@@ -8131,7 +8131,8 @@
           "trash_unavailable",
           "entry_in_use",
           "share_read_only",
-          "move_source_left"
+          "move_source_left",
+          "move_contains_links"
         ]
       },
       "ErrorResponse": {
