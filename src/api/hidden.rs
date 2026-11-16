@@ -273,8 +273,10 @@ impl Hidden {
 
     /// 一覧で `std::fs::DirEntry` を並べるか。並べるなら `(名前, 種別)`。
     /// 種別を取れないもの・シンボリックリンクは並べない (呼び出し側はリンクを辿らずに種別を得ること)。
+    /// 名前が UTF-8 でないもの (Linux で別の文字コードのまま置いたファイルなど) も並べない。パスは UTF-8 の
+    /// 文字列でやり取りするので、置き換えた名前で並べても開けないため (走査・検索も同じく落とす)。
     pub(super) fn visible_entry(&self, entry: &std::fs::DirEntry) -> Option<(String, FileType)> {
-        let name = entry.file_name().to_string_lossy().into_owned();
+        let name = entry.file_name().into_string().ok()?;
         let file_type = entry.file_type().ok()?;
         if file_type.is_symlink() || self.hides_name(&entry.path(), &name, file_type.is_dir()) {
             return None;
@@ -722,6 +724,25 @@ mod tests {
                 })
                 .collect(),
         )
+    }
+
+    /// macOS (APFS) と Windows は UTF-8 (UTF-16) でない名前を作れないので、Linux だけで確かめる。
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn visible_entry_leaves_out_names_that_are_not_utf8() {
+        use std::os::unix::ffi::OsStrExt;
+        let dir = crate::test_support::TempDir::new("hidden-not-utf8");
+        // Shift_JIS の「あ」。
+        let name = std::ffi::OsStr::from_bytes(b"\x82\xa0.txt");
+        std::fs::write(dir.path().join(name), b"").expect("ファイルを作れなかった");
+        std::fs::write(dir.path().join("a.txt"), b"").expect("ファイルを作れなかった");
+        let hidden = hidden(None, &[]);
+        let names: Vec<String> = std::fs::read_dir(dir.path())
+            .expect("読めなかった")
+            .filter_map(|entry| hidden.visible_entry(&entry.expect("読めなかった")))
+            .map(|(name, _)| name)
+            .collect();
+        assert_eq!(names, vec!["a.txt".to_string()]);
     }
 
     #[test]
