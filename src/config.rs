@@ -376,6 +376,15 @@ mod tests {
         assert!(!config.session.secure_cookie);
         assert_eq!(config.session.expiry_days, 14);
         assert_eq!(config.upload.max_size_mb, None);
+        assert!(config.tray.open_setup_on_launch);
+    }
+
+    /// e2e が書く設定 (`e2e/lib/*.mjs`) で、起動したときにセットアップを開かなくなる。
+    #[test]
+    fn opening_setup_on_launch_can_be_turned_off() {
+        let config: Config =
+            toml::from_str("[tray]\nopen_setup_on_launch = false\n").expect("設定を読めるはず");
+        assert!(!config.tray.open_setup_on_launch);
     }
 
     #[test]

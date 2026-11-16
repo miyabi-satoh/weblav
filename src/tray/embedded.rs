@@ -59,15 +59,15 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
     let poll_addr = open_addr(addr);
     let proxy = event_loop.create_proxy();
     std::thread::spawn(move || {
-        let mut launched = open_setup_on_launch;
+        let mut open_setup_now = open_setup_on_launch;
         loop {
             let required = setup::required(poll_addr, POLL_TIMEOUT);
             // 入れた直後に起動しても窓は出ず、Windows 11 は新しいアイコンを「^」の中に隠すので、
             // 何も起きないように見える。起動したときに管理者がまだいなければ、セットアップの画面を開く。
-            if launched && required {
+            if open_setup_now && required {
                 let _ = open::that_detached(setup::url(poll_addr, POLL_TIMEOUT));
             }
-            launched = false;
+            open_setup_now = false;
             // イベントループが終わっていれば送れない。そのときはこのスレッドも終える。
             if proxy.send_event(UserEvent::Setup(required)).is_err() {
                 break;
