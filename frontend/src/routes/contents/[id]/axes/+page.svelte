@@ -1105,8 +1105,11 @@
 								onclick={() => selectAxis(axis.id)}
 							>
 								<p class="truncate text-sm font-medium">{axis.name}</p>
-								<!-- 「フォルダーの第1階層」が「第1階 / 層」と割れないようにする。 -->
-								<p class="text-xs break-keep text-muted-foreground">{axisRowSourceLabel(axis)}</p>
+								<!-- 「フォルダーの第1階層」が「第1階 / 層」と割れないようにする。
+								     狭い幅で上下ボタンを見せると語ごとでも収まらないので、そのときだけ語の途中で折り、隣のボタンに重ねない。 -->
+								<p class="text-xs wrap-anywhere break-keep text-muted-foreground">
+									{axisRowSourceLabel(axis)}
+								</p>
 								{#if !axis.filterable}
 									<p class="text-xs text-muted-foreground">{m.archive_axes_not_filterable()}</p>
 								{/if}
