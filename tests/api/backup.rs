@@ -135,6 +135,56 @@ async fn restoring_a_backup_brings_back_the_data(pool: SqlitePool) {
     assert!(body.contains(r#""title":"資料""#), "{body}");
 }
 
+/// ライブラリの項目と分類のあるバックアップも戻せる。
+/// 項目と分類を写すと、版を数えるトリガーが `archive_versions` に行を作るので、その表を写すときにぶつかっていた。
+#[sqlx::test]
+async fn restoring_a_backup_with_library_items_and_axes_succeeds(pool: SqlitePool) {
+    let app = test_app(pool.clone()).await;
+    let cookie = admin_cookie(app.clone(), &pool).await;
+    let dir = temp_test_dir("restore-archive");
+    let archive_id = insert_folder_by(&pool, "教材", &dir, "public", None, None).await;
+    let axis_id: i64 = sqlx::query_scalar(
+        "INSERT INTO archive_axes (archive_id, name, source, position) \
+         VALUES (?, '科目', 'filename_word', 0) RETURNING id",
+    )
+    .bind(archive_id)
+    .fetch_one(&pool)
+    .await
+    .expect("分類を入れられなかった");
+    sqlx::query(
+        "INSERT INTO archive_axis_values (axis_id, raw_value, position) VALUES (?, '国語', 0)",
+    )
+    .bind(axis_id)
+    .execute(&pool)
+    .await
+    .expect("分類の値を入れられなかった");
+    sqlx::query("INSERT INTO archive_items (archive_id, rel_path) VALUES (?, 'a.pdf')")
+        .bind(archive_id)
+        .execute(&pool)
+        .await
+        .expect("項目を入れられなかった");
+
+    let zip = download_backup(app.clone(), &cookie).await;
+    let (status, body) = stage_backup(app.clone(), &cookie, &zip).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, body) = send_json(
+        app,
+        "POST",
+        BACKUP_RESTORE_URI,
+        &cookie,
+        &format!(r#"{{"id":"{}"}}"#, staged_id(&body)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+
+    let items: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM archive_items WHERE archive_id = ?")
+        .bind(archive_id)
+        .fetch_one(&pool)
+        .await
+        .expect("項目を数えられなかった");
+    assert_eq!(items, 1);
+}
+
 /// 戻した後で消えたユーザーの id を、新しいユーザーに使い回さない (AUTOINCREMENT の続きも戻す)。
 #[sqlx::test]
 async fn restoring_keeps_ids_of_deleted_users_retired(pool: SqlitePool) {

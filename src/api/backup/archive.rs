@@ -388,6 +388,12 @@ async fn copy_tables(
             .collect::<Vec<_>>()
             .join(", ");
         let table = quote(table);
+        // 入れる直前にもう一度空にする。先に入れた表のトリガーが、この表に行を作っていることがあるため
+        // (ライブラリの項目や分類を入れると `archive_versions` に版の行ができる)。
+        // そうした行はトリガーが導く写しなので、バックアップの行で置き換えてよい。
+        sqlx::query(AssertSqlSafe(format!("DELETE FROM main.{table}")))
+            .execute(&mut *tx)
+            .await?;
         sqlx::query(AssertSqlSafe(format!(
             "INSERT INTO main.{table} ({columns}) SELECT {columns} FROM backup.{table}"
         )))
