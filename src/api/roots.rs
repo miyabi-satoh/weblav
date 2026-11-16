@@ -1008,6 +1008,13 @@ pub(super) fn lexically_contains(root: &FsPath, path: &FsPath) -> bool {
         };
         text.to_lowercase()
     }
+    // `..` は文字の上では中に見えても外へ出られるので、中とは見なさない。画面は `..` を含むパスを送らない。
+    if path
+        .components()
+        .any(|component| component == std::path::Component::ParentDir)
+    {
+        return false;
+    }
     let root = normalized(root);
     let root = root.trim_end_matches(std::path::MAIN_SEPARATOR);
     let path = normalized(path);
@@ -1284,6 +1291,7 @@ mod tests {
             (format!("{sep}srv{sep}教材2"), false),
             (format!("{sep}srv"), false),
             (format!("{sep}{sep}192.168.1.66{sep}x"), false),
+            (format!("{sep}srv{sep}教材{sep}..{sep}秘密"), false),
         ] {
             assert_eq!(
                 lexically_contains(root, FsPath::new(&path)),

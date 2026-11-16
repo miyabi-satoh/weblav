@@ -444,6 +444,7 @@ async fn transfer_all(
 ) -> Result<(), AppError> {
     let mut progress_items = 0;
     let mut progress_bytes = 0;
+    let mut source_left = false;
     for source in &prepared.sources {
         if job.progress.is_cancelled() {
             break;
@@ -472,7 +473,15 @@ async fn transfer_all(
             log_overwritten(state, user, &prepared.dest, &source.name).await;
         }
         applied.changes.extend(step_changes);
-        if result? {
+        // 置き先は完全なので、済んだものとして数え、残りも続けて移す。元に残ったことは最後に伝える。
+        let placed = match result {
+            Err(AppError::MoveSourceLeft) => {
+                source_left = true;
+                true
+            }
+            result => result?,
+        };
+        if placed {
             applied.items += source.items;
             applied.bytes += source.bytes;
         }
@@ -487,6 +496,9 @@ async fn transfer_all(
                 .bytes
                 .fetch_max(progress_bytes, Ordering::Relaxed);
         }
+    }
+    if source_left {
+        return Err(AppError::MoveSourceLeft);
     }
     Ok(())
 }

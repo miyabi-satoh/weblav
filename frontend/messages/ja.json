@@ -679,7 +679,7 @@
 	"error_trash_unavailable": "この場所ではごみ箱を使えません。元に戻せない削除を選んでください。",
 	"error_entry_in_use": "ほかのアプリが使っているため、操作できません。閉じてからもう一度お試しください。",
 	"error_share_read_only": "この共有には書き込めません。管理者に書き込みの許可を確かめてもらってください。",
-	"error_move_source_left": "移動先には全部置けましたが、元の場所に消せなかったものが残っています。",
+	"error_move_source_left": "移動はできましたが、元の場所に消せなかったものが残っています。",
 	"archive_axes_ai_prompt_show": "プロンプトを表示",
 	"archive_axes_ai_back_button": "戻る",
 	"action_retry": "再試行",

@@ -1144,6 +1144,29 @@ mod tests {
         assert!(!src.exists());
     }
 
+    /// シェルのファイル操作の HRESULT を、画面が次の手を示せる種類に写す。値は windows クレートの
+    /// `Win32::UI::Shell` の `COPYENGINE_E_*` と同じ。
+    #[cfg(windows)]
+    #[test]
+    fn shell_errors_are_mapped_to_what_the_screen_can_act_on() {
+        for code in [0x8027_0036u32, 0x8027_0037, 0x8027_0038, 0x8027_003A] {
+            assert!(
+                matches!(trash_os_error(code as i32), AppError::TrashUnavailable),
+                "{code:#x}"
+            );
+        }
+        for code in [0x8027_0021u32, 0x8027_0022, 0x8027_003F] {
+            assert!(
+                matches!(trash_os_error(code as i32), AppError::ShareReadOnly),
+                "{code:#x}"
+            );
+        }
+        assert!(matches!(
+            trash_os_error(0x8027_0027u32 as i32),
+            AppError::EntryInUse
+        ));
+    }
+
     /// 写した後に元を消し切れなければ、ふつうの失敗でなく `MoveSourceLeft` にする。
     #[cfg(unix)]
     #[test]
