@@ -200,26 +200,25 @@
 		let next = from;
 		// 最後に並べた区切りの、最後の行。取り直した一覧で、どこから続けるかの目印にする。
 		let anchor: T | undefined = (from > 0 ? ref.source.get(from - 1) : undefined) ?? undefined;
-		let renewedAt: number | undefined;
 		return async () => {
+			let renewed = false;
 			while (next < ref.source.total) {
 				const start = next;
 				// 取れなかった区切りも、曲を進めるたびに取り直す。回線が一度切れただけで、続きを止めたままにしないため。
 				await ref.source.ensureLoaded(start, true);
 				// 聴いている間は一覧を使ったことにならないので、長く聴くと結果が捨てられる。同じ条件で取り直して続ける。
 				if (ref.source.expired) {
-					// 取り直した直後にまた捨てられたなら、取り直し続けずに止める。
-					if (renewedAt === start) throw new Error('archive list expired again');
-					const renewed = await ref.source.renewedFrom(start, anchor, (item) => item.id);
-					if (!renewed) throw new Error('archive list expired');
-					ref.source = renewed.list;
-					next = renewed.next;
-					renewedAt = next;
+					// 1回の続きの取得で取り直すのは1回まで。取り直した直後にまた捨てられるなら、取り直し続けずに止める。
+					if (renewed) throw new Error('archive list expired again');
+					renewed = true;
+					const fresh = await ref.source.renewedFrom(start, anchor, (item) => item.id);
+					if (!fresh) throw new Error('archive list expired');
+					ref.source = fresh.list;
+					next = fresh.next;
 					continue;
 				}
 				// 取れなかった区切りは飛ばさない。投げると再生の側が今の並びの終わりで止め、次に曲を替えたときにまた試す。
 				if (ref.source.get(start) === undefined) throw new Error('chunk not loaded');
-				renewedAt = undefined;
 				next = Math.min(
 					(Math.floor(start / ARCHIVE_CHUNK_SIZE) + 1) * ARCHIVE_CHUNK_SIZE,
 					ref.source.total
