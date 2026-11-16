@@ -184,43 +184,64 @@
 		return tracks;
 	}
 
+	/** 続けて鳴らす並びが引く一覧。結果が捨てられたら、同じ条件で取り直したものに差し替える。 */
+	type ListRef = { source: ArchivePagedList<T> };
+
 	/**
-	 * `source` の `from` 行目から先の音声を、区切りごとに返す口。音声の無い区切りが続くこともあるので、
-	 * 曲が見つかるか終わりまで進む。
+	 * `ref` の一覧の `from` 行目から先の音声を、区切りごとに返す口。音声の無い区切りが続くこともあるので、
+	 * 曲が見つかるか終わりまで進む。`positionOf` は、一覧の何行目が並びの中のどの位置か。
 	 */
 	function chunkedTracks(
-		source: ArchivePagedList<T>,
+		ref: ListRef,
 		from: number,
-		positionOf?: (index: number) => number | undefined
+		positionOf: (source: ArchivePagedList<T>, index: number) => number | undefined = (_, index) =>
+			index
 	): () => Promise<Track[]> {
 		let next = from;
 		return async () => {
-			while (next < source.total) {
+			while (next < ref.source.total) {
 				const start = next;
-				await source.ensureLoaded(start);
+				// 取れなかった区切りも、曲を進めるたびに取り直す。回線が一度切れただけで、続きを止めたままにしないため。
+				await ref.source.ensureLoaded(start, true);
+				// 聴いている間は一覧を使ったことにならないので、長く聴くと結果が捨てられる。同じ条件で取り直して続ける。
+				if (ref.source.expired) {
+					next = await renewFrom(ref, start);
+					continue;
+				}
 				// 取れなかった区切りは飛ばさない。投げると再生の側が今の並びの終わりで止め、次に曲を替えたときにまた試す。
-				if (source.get(start) === undefined) throw new Error('chunk not loaded');
+				if (ref.source.get(start) === undefined) throw new Error('chunk not loaded');
 				next = Math.min(
 					(Math.floor(start / ARCHIVE_CHUNK_SIZE) + 1) * ARCHIVE_CHUNK_SIZE,
-					source.total
+					ref.source.total
 				);
-				const tracks = audioTracksBetween(source, start, next, positionOf);
+				const source = ref.source;
+				const tracks = audioTracksBetween(source, start, next, (index) =>
+					positionOf(source, index)
+				);
 				if (tracks.length > 0) return tracks;
 			}
 			return [];
 		};
 	}
 
+	/** 捨てられた一覧を同じ条件で取り直して差し替え、続ける行を返す (→ `ArchivePagedList.renewedFrom`)。 */
+	async function renewFrom(ref: ListRef, start: number): Promise<number> {
+		const renewed = await ref.source.renewedFrom(start, (item) => item.id);
+		if (!renewed) throw new Error('archive list expired');
+		ref.source = renewed.list;
+		return renewed.next;
+	}
+
 	/**
-	 * `source` の並びで `from` 行目から続ける口。曲の位置は再生を始めた一覧のものなので、
+	 * `ref` の並びで `from` 行目から続ける口。曲の位置は再生を始めた一覧のものなので、
 	 * 絞り込みを変えて一覧が替わっても、始めた一覧から続ける。
 	 */
-	function orderedSource(source: ArchivePagedList<T>, from: number): TrackSource {
+	function orderedSource(ref: ListRef, from: number): TrackSource {
 		const after = (track: Track) =>
-			orderedSource(source, track.position === undefined ? source.total : track.position + 1);
+			orderedSource(ref, track.position === undefined ? ref.source.total : track.position + 1);
 		return {
-			more: chunkedTracks(source, from),
-			shuffled: source.canShuffle ? () => shuffledSource(source, after) : undefined,
+			more: chunkedTracks(ref, from),
+			shuffled: ref.source.canShuffle ? () => shuffledSource(ref, after) : undefined,
 			after
 		};
 	}
@@ -229,19 +250,16 @@
 	 * 一覧の音声を、サーバーで混ぜた順に返す口 (→ docs/archive.md「音声のシャッフル」)。
 	 * 手元に全部の行が無いので、全体から混ぜるのはサーバーに任せる。最初に続きを取るときに混ぜた結果を作る。
 	 */
-	function shuffledSource(
-		source: ArchivePagedList<T>,
-		after: (track: Track) => TrackSource
-	): TrackSource {
+	function shuffledSource(ref: ListRef, after: (track: Track) => TrackSource): TrackSource {
 		// 1つの口で作る混ぜた結果は1つ。取り直しのたびに作ると、サーバーに使わない結果が溜まる。
 		let more: Promise<(() => Promise<Track[]>) | null> | undefined;
 		return {
 			more: async () => {
-				more ??= source
-					.shuffled()
-					.then((shuffled) =>
-						shuffled ? chunkedTracks(shuffled, 0, (index) => shuffled.positionOf(index)) : null
-					);
+				more ??= shuffledFrom(ref).then((shuffled) =>
+					shuffled
+						? chunkedTracks({ source: shuffled }, 0, (source, index) => source.positionOf(index))
+						: null
+				);
 				const next = await more.catch((error: unknown) => {
 					// 作れなかったら、次に頼まれたときに作り直す。
 					more = undefined;
@@ -251,6 +269,16 @@
 			},
 			after
 		};
+	}
+
+	/** `ref` の一覧を混ぜた一覧。一覧の結果が捨てられていたら、取り直してから混ぜる。 */
+	async function shuffledFrom(ref: ListRef): Promise<ArchivePagedList<T> | null> {
+		const shuffled = await ref.source.shuffled();
+		if (shuffled) return shuffled;
+		const fresh = await ref.source.renewed();
+		if (!fresh) return null;
+		ref.source = fresh;
+		return fresh.shuffled();
 	}
 
 	/**
@@ -263,7 +291,7 @@
 				const [start, end] = list.loadedRange(index);
 				return audioTracksBetween(list, start, end);
 			},
-			more: orderedSource(list, list.loadedRange(index)[1])
+			more: orderedSource({ source: list }, list.loadedRange(index)[1])
 		};
 	}
 

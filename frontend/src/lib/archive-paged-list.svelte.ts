@@ -35,6 +35,12 @@ type FirstChunk<T> = {
 /** この一覧の音声の行を混ぜた結果を作る (→ docs/archive.md「音声のシャッフル」)。 */
 export type ShuffleFetch<T> = (snapshot: string) => Promise<FirstChunk<T> | { expired: true }>;
 
+/**
+ * 最初の要求を同じ条件で送り直す。結果が捨てられた後も、続けて鳴らす音声を止めずに続きを取るため
+ * (→ docs/archive.md「続けて鳴らす音声とビューアー」)。取れなければ `null`。
+ */
+export type RenewFetch<T> = () => Promise<FirstChunk<T> | null>;
+
 export type ChunkFetch<T> = (
 	snapshot: string,
 	offset: number,
@@ -62,12 +68,19 @@ export class ArchivePagedList<T> {
 	#used: number[] = [];
 	#fetch: ChunkFetch<T>;
 	#shuffle: ShuffleFetch<T> | undefined;
+	#renew: RenewFetch<T> | undefined;
 
-	constructor(first: FirstChunk<T>, fetch: ChunkFetch<T>, shuffle?: ShuffleFetch<T>) {
+	constructor(
+		first: FirstChunk<T>,
+		fetch: ChunkFetch<T>,
+		shuffle?: ShuffleFetch<T>,
+		renew?: RenewFetch<T>
+	) {
 		this.snapshot = first.snapshot;
 		this.total = first.total;
 		this.#fetch = fetch;
 		this.#shuffle = shuffle;
+		this.#renew = renew;
 		this.#store(0, first.items, first.positions);
 		this.#used.push(0);
 	}
@@ -82,10 +95,27 @@ export class ArchivePagedList<T> {
 	 * この一覧の結果が捨てられていたら `null`。
 	 */
 	async shuffled(): Promise<ArchivePagedList<T> | null> {
-		if (!this.#shuffle) return null;
-		const first = await this.#shuffle(this.snapshot);
+		const shuffle = this.#shuffle;
+		if (!shuffle) return null;
+		const first = await shuffle(this.snapshot);
 		if ('expired' in first) return null;
-		return new ArchivePagedList(first, this.#fetch);
+		// 混ぜた結果が捨てられたら、元の一覧を取り直して混ぜ直す。
+		const renew = this.#renew
+			? async () => {
+					const base = await this.renewed();
+					if (!base) return null;
+					const again = await shuffle(base.snapshot);
+					return 'expired' in again ? null : again;
+				}
+			: undefined;
+		return new ArchivePagedList(first, this.#fetch, undefined, renew);
+	}
+
+	/** 同じ条件で最初から取り直した一覧。取り直せない一覧か、取れなければ `null`。 */
+	async renewed(): Promise<ArchivePagedList<T> | null> {
+		if (!this.#renew) return null;
+		const first = await this.#renew();
+		return first ? new ArchivePagedList(first, this.#fetch, this.#shuffle, this.#renew) : null;
 	}
 
 	/** 混ぜた一覧の `index` 行目の、混ぜる前の一覧での位置。まだ取っていないか、混ぜた一覧でなければ `undefined`。 */
@@ -93,6 +123,35 @@ export class ArchivePagedList<T> {
 		return this.#positions.get(Math.floor(index / ARCHIVE_CHUNK_SIZE))?.[
 			index % ARCHIVE_CHUNK_SIZE
 		];
+	}
+
+	/**
+	 * 結果が捨てられた後に、同じ条件で取り直した一覧と、`start` 行目から続けるときの新しい位置。
+	 * `start` の1つ前の行 (最後に並べた辺り) を新しい一覧で探し、その次から続ける。取り直す間にファイルが増えたり
+	 * 減ったりしても、同じ曲を繰り返したり飛ばしたりしないため。見つからなければ同じ位置から。取り直せなければ `null`。
+	 */
+	async renewedFrom(
+		start: number,
+		idOf: (item: T) => unknown
+	): Promise<{ list: ArchivePagedList<T>; next: number } | null> {
+		const fresh = await this.renewed();
+		if (!fresh) return null;
+		const anchor = start > 0 ? this.get(start - 1) : undefined;
+		const near = Math.min(start - 1, fresh.total - 1);
+		if (anchor && near >= 0) {
+			// 前後の区切りも取る。行がずれて、隣の区切りへ移っていることがあるため。
+			await Promise.all([
+				fresh.ensureLoaded(near - ARCHIVE_CHUNK_SIZE),
+				fresh.ensureLoaded(near),
+				fresh.ensureLoaded(near + ARCHIVE_CHUNK_SIZE)
+			]);
+			const [first, last] = fresh.loadedRange(near);
+			for (let i = first; i < last; i++) {
+				const item = fresh.get(i);
+				if (item && idOf(item) === idOf(anchor)) return { list: fresh, next: i + 1 };
+			}
+		}
+		return { list: fresh, next: Math.min(start, fresh.total) };
 	}
 
 	/** `index` 行目。まだ取っていなければ `undefined`、消えた・絞り込みで外れた行は `null`。 */
@@ -105,10 +164,12 @@ export class ArchivePagedList<T> {
 		void this.load(Math.floor(index / ARCHIVE_CHUNK_SIZE));
 	}
 
-	/** `index` 行目を含む区切りを取り終えるまで待つ。 */
-	async ensureLoaded(index: number): Promise<void> {
+	/** `index` 行目を含む区切りを取り終えるまで待つ。`retryFailed` なら、取れなかった区切りも取り直す。 */
+	async ensureLoaded(index: number, retryFailed = false): Promise<void> {
 		if (index < 0 || index >= this.total) return;
-		await this.load(Math.floor(index / ARCHIVE_CHUNK_SIZE));
+		const chunk = Math.floor(index / ARCHIVE_CHUNK_SIZE);
+		if (retryFailed) this.failed.delete(chunk);
+		await this.load(chunk);
 	}
 
 	/** 取れなかった区切りを取り直す。 */

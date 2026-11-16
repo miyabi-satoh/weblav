@@ -5,7 +5,7 @@
 
 import { client } from '#lib/api/client.ts';
 import type { components } from '#lib/api/schema.js';
-import type { ChunkFetch, ShuffleFetch } from '#lib/archive-paged-list.svelte.ts';
+import type { ChunkFetch, RenewFetch, ShuffleFetch } from '#lib/archive-paged-list.svelte.ts';
 import { ARCHIVE_CHUNK_SIZE } from '#lib/archive-paged-list.svelte.ts';
 import { LIST_FILTER_QUERY } from '#lib/list-filter.ts';
 import { PREVIEW_QUERY } from '#lib/preview-query.ts';
@@ -65,6 +65,38 @@ export function viewChunks(id: number): ChunkFetch<ArchiveViewItem> {
 		if (response.status === 409) return { expired: true };
 		if (!data) throw new Error(`archive page failed: ${response.status}`);
 		return data;
+	};
+}
+
+/** 閲覧用の一覧を、同じ条件で最初から取り直す口 (結果が捨てられた後に続けて鳴らすため)。 */
+export function viewRenew(
+	id: number,
+	filters: Record<string, string>,
+	sort: string,
+	nameFilter: string
+): RenewFetch<ArchiveViewItem> {
+	return async () => {
+		const { data } = await client.GET(
+			'/api/v1/contents/{id}/archive',
+			archiveListInit(id, filters, sort, nameFilter)
+		);
+		return data ?? null;
+	};
+}
+
+/** 管理用の一覧を、同じ条件で最初から取り直す口。 */
+export function manageRenew(
+	id: number,
+	filters: Record<string, string>,
+	sort: string,
+	nameFilter: string
+): RenewFetch<ArchiveViewItem> {
+	return async () => {
+		const { data } = await client.GET(
+			'/api/v1/contents/{id}/manage-archive',
+			archiveListInit(id, filters, sort, nameFilter)
+		);
+		return data ?? null;
 	};
 }
 
