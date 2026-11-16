@@ -603,7 +603,11 @@ fn read_items(
             Ok(metadata) => {
                 let size = i64::try_from(metadata.len()).unwrap_or(i64::MAX);
                 let modified_ns = super::fs::modified_ns(&metadata);
-                if known.get(&rel_path) == Some(&(size, modified_ns)) {
+                // 中身が手元に無いものは読まず、読んでいないまま残す。読めなかった値で残すと、手元に
+                // 戻っても大きさと更新日時が変わらず、次のファイルの変更までテキストとして開けないため。
+                if known.get(&rel_path) == Some(&(size, modified_ns))
+                    || super::cloud_files::is_online_only(&metadata)
+                {
                     None
                 } else {
                     let name = super::fs::rel_file_name(&rel_path);
@@ -2034,6 +2038,30 @@ mod tests {
         );
         assert_eq!(items.len(), 1);
         assert!(complete, "読み終えたと返すはず");
+    }
+
+    /// 中身が手元に無いファイルは、読んでいないまま残す。手元に戻った後のスキャンで読むため。
+    #[cfg(windows)]
+    #[test]
+    fn read_items_leaves_online_only_files_unread() {
+        let root = super::super::cloud_files::placeholders::SyncRoot::new(
+            "archive-online-only",
+            &[("notes.txt", b"hello")],
+        );
+        let scans = std::sync::Arc::new(crate::state::ArchiveScans::default());
+        let guard = scans.acquire(1).expect("走査を始められるはず");
+        let progress = guard.progress();
+        progress.start_listing();
+
+        let (items, _) = read_items(
+            root.path(),
+            vec!["notes.txt".to_string()],
+            &KnownFiles::new(),
+            &progress,
+        );
+        assert_eq!(items.len(), 1);
+        assert!(items[0].file.is_none(), "読んだ値を残した");
+        assert_eq!(root.fetches(), 0, "スキャンで中身を取りに来た");
     }
 
     /// フォルダーの綴りの大小だけを変えたら、古い綴りのフォルダーは消えたものとし、新しい綴りで読み直す。
