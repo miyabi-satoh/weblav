@@ -479,7 +479,14 @@ async fn transfer_all(
                 source_left = true;
                 true
             }
-            result => result?,
+            Err(err) => {
+                // 先に元が残ったものがあっても、ここで止まった理由を伝える。止まったものは元が残っている (写し終えるまで消さない)。
+                if source_left {
+                    tracing::warn!(job = %job.id, "a share job stopped after leaving part of a moved source");
+                }
+                return Err(err);
+            }
+            Ok(placed) => placed,
         };
         if placed {
             applied.items += source.items;
@@ -497,7 +504,8 @@ async fn transfer_all(
                 .fetch_max(progress_bytes, Ordering::Relaxed);
         }
     }
-    if source_left {
+    // 中止したなら中止として終える (残りは移していないので、「移動はできました」と言わない)。
+    if source_left && !job.progress.is_cancelled() {
         return Err(AppError::MoveSourceLeft);
     }
     Ok(())

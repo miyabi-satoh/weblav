@@ -1009,9 +1009,10 @@ pub(super) fn lexically_contains(root: &FsPath, path: &FsPath) -> bool {
         text.to_lowercase()
     }
     // `..` は文字の上では中に見えても外へ出られるので、中とは見なさない。画面は `..` を含むパスを送らない。
+    // Windows の `\\?\` の付いたパスでは、`..` が `ParentDir` でなくふつうの名前として返るので、綴りで見る。
     if path
         .components()
-        .any(|component| component == std::path::Component::ParentDir)
+        .any(|component| component.as_os_str() == "..")
     {
         return false;
     }
@@ -1316,7 +1317,12 @@ mod tests {
             FsPath::new(r"C:\"),
             FsPath::new(r"C:\x")
         ));
+        assert!(!lexically_contains(
+            FsPath::new(r"C:\share"),
+            FsPath::new(r"\\?\C:\share\..\secret")
+        ));
     }
+
     use crate::api::shares::repoint::tests::{content_path, insert_folder, sep_path};
 
     #[test]
