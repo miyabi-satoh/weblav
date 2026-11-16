@@ -94,7 +94,9 @@ describe('ShareTransferDialog', () => {
 		await expect.element(page.getByRole('button', { name: 'キャンセル' })).toBeDisabled();
 
 		await page.getByRole('button', { name: '下' }).click();
-		finishCheck(json({ conflicts: [], totalBytes: 1, availableBytes: 2, trash: false, listed: [] }));
+		finishCheck(
+			json({ conflicts: [], totalBytes: 1, availableBytes: 2, trash: false, listed: [] })
+		);
 
 		await expect.element(page.getByRole('button', { name: 'キャンセル' })).toBeEnabled();
 		expect(post).toHaveBeenCalledTimes(1);
