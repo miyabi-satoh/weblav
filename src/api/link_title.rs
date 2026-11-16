@@ -832,30 +832,17 @@ fn decode_entities(text: &str) -> String {
         .replace("&amp;", "&")
 }
 
-/// 数値参照の `&#` の後ろで、`;` を探す長さ (バイト)。いちばん長い `x10FFFF;` が収まる。
-/// 区切らないと、`;` の無い `&#` が並ぶ細工したページで、`&#` ごとに残り全部を探して数十秒かかるため。
-const NUMERIC_REFERENCE_SPAN: usize = 8;
-
 /// `&#N;` と `&#xH;` を文字に戻す。文字にならない値は、そのまま残す。
+/// 数字の並びは HTML の仕様 (WHATWG「numeric character reference」) と同じく、先頭の 0 を含めて長さを問わず、
+/// 数字だけを受ける (`+` は受けない)。数字の並びを1回だけ読むので、`;` の無い `&#` が並ぶ細工したページでも
+/// `&#` ごとに残り全部を探さない。
 fn decode_numeric_references(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(at) = rest.find("&#") {
         out.push_str(&rest[..at]);
         let after = &rest[at + 2..];
-        let decoded = after
-            .bytes()
-            .take(NUMERIC_REFERENCE_SPAN)
-            .position(|byte| byte == b';')
-            .map(|end| (&after[..end], &after[end + 1..]))
-            .and_then(|(digits, tail)| {
-                let code = match digits.strip_prefix(['x', 'X']) {
-                    Some(hex) => u32::from_str_radix(hex, 16).ok()?,
-                    None => digits.parse().ok()?,
-                };
-                Some((char::from_u32(code)?, tail))
-            });
-        match decoded {
+        match numeric_reference(after) {
             Some((ch, tail)) => {
                 out.push(ch);
                 rest = tail;
@@ -868,6 +855,26 @@ fn decode_numeric_references(text: &str) -> String {
     }
     out.push_str(rest);
     out
+}
+
+/// `&#` の後ろの `N;` か `xH;` を読み、文字と残りを返す。
+fn numeric_reference(after: &str) -> Option<(char, &str)> {
+    let (radix, body) = match after.strip_prefix(['x', 'X']) {
+        Some(hex) => (16, hex),
+        None => (10, after),
+    };
+    let len = body
+        .bytes()
+        .take_while(|byte| char::from(*byte).is_digit(radix))
+        .count();
+    if len == 0 {
+        return None;
+    }
+    let tail = body[len..].strip_prefix(';')?;
+    // 先頭の 0 を落としてから読む。残りが長すぎるものは u32 に収まらず、parse が断る。
+    let digits = body[..len].trim_start_matches('0');
+    let code = u32::from_str_radix(if digits.is_empty() { "0" } else { digits }, radix).ok()?;
+    Some((char::from_u32(code)?, tail))
 }
 
 /// URL のホスト名。タイトルを取れなかったときの代わりに使う。
@@ -1137,6 +1144,16 @@ mod tests {
         let started = std::time::Instant::now();
         assert_eq!(decode_numeric_references(&text), text);
         assert!(started.elapsed() < std::time::Duration::from_secs(1));
+    }
+
+    #[test]
+    fn numeric_references_with_leading_zeros_are_decoded() {
+        assert_eq!(decode_numeric_references("&#000065;&#x0001F600;"), "A😀");
+    }
+
+    #[test]
+    fn numeric_references_with_a_sign_are_kept() {
+        assert_eq!(decode_numeric_references("&#+65;&#x+41;"), "&#+65;&#x+41;");
     }
 
     #[test]
