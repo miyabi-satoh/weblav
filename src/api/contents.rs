@@ -766,7 +766,7 @@ async fn validate_folder_path(
 
     // 検証は全てブロッキングI/Oなので1つの `spawn_blocking` にまとめる。
     // 「共有」はその前に読む (`run_blocking` の中ではDBに触れない)。
-    super::roots::ensure_reachable(state, &path).await?;
+    super::roots::ensure_input_reachable(state, &path).await?;
     let roots = if current == Some(path.as_str()) {
         super::roots::load_roots(state).await?
     } else {
@@ -793,7 +793,7 @@ async fn validate_shortcut_path(
     if current == Some(path.as_str()) {
         return Ok(path);
     }
-    super::roots::ensure_reachable(state, &path).await?;
+    super::roots::ensure_input_reachable(state, &path).await?;
     let roots = super::roots::load_roots_for(state, user).await?;
     let canonical = super::hidden::with_hidden(state, move |hidden| {
         super::fs::canonical_file_within_roots(&path, &roots, hidden)

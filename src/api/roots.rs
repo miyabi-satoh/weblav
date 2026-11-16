@@ -976,6 +976,49 @@ pub(super) fn contains(parent: &str, child: &str) -> bool {
     FsPath::new(child).starts_with(FsPath::new(parent))
 }
 
+/// `path` が、文字の上で `root` の中にあるか。利用者が渡したパスを、ファイルシステムに触る前に足切りするのに使う。
+/// 大文字小文字・区切り文字・Windows の `\\?\` の有無は区別しない。この後で実体のパスで確かめ直すので、広めに通してよい。
+pub(super) fn lexically_contains(root: &FsPath, path: &FsPath) -> bool {
+    fn normalized(path: &FsPath) -> String {
+        let text = path.to_string_lossy();
+        #[cfg(windows)]
+        let text = {
+            let text = text.replace('/', "\\");
+            if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+                format!(r"\\{rest}")
+            } else if let Some(rest) = text.strip_prefix(r"\\?\") {
+                rest.to_string()
+            } else {
+                text
+            }
+        };
+        text.to_lowercase()
+    }
+    let root = normalized(root);
+    let root = root.trim_end_matches(std::path::MAIN_SEPARATOR);
+    let path = normalized(path);
+    path == root
+        || path
+            .strip_prefix(root)
+            .is_some_and(|rest| rest.starts_with(std::path::MAIN_SEPARATOR))
+}
+
+/// 利用者が渡したパスの `ensure_reachable`。文字の上でどの共有の中にもないなら、確かめに行かない。
+/// 続く `fs::canonical_*_within_roots` が、ファイルシステムに触らずに共有の外として断る。
+/// 確かめに行くと、渡された任意の場所 (`\\相手の PC\x` など) へこの PC がつなぎに行き、Windows は自動で認証の応答を渡すため。
+pub(super) async fn ensure_input_reachable(state: &AppState, path: &str) -> Result<(), AppError> {
+    let roots = sqlx::query_scalar!("SELECT path FROM roots WHERE deleted_at IS NULL")
+        .fetch_all(&state.pool)
+        .await?;
+    if !roots
+        .iter()
+        .any(|root| lexically_contains(FsPath::new(root), FsPath::new(path)))
+    {
+        return Ok(());
+    }
+    ensure_reachable(state, path).await
+}
+
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct PickRootResponse {
@@ -1214,6 +1257,41 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lexically_contains_accepts_only_paths_under_the_root() {
+        let sep = std::path::MAIN_SEPARATOR;
+        let root = format!("{sep}srv{sep}教材");
+        let root = FsPath::new(&root);
+        for (path, expected) in [
+            (format!("{sep}srv{sep}教材"), true),
+            (format!("{sep}srv{sep}教材{sep}英検"), true),
+            (format!("{sep}SRV{sep}教材{sep}英検"), true),
+            (format!("{sep}srv{sep}教材2"), false),
+            (format!("{sep}srv"), false),
+            (format!("{sep}{sep}192.168.1.66{sep}x"), false),
+        ] {
+            assert_eq!(
+                lexically_contains(root, FsPath::new(&path)),
+                expected,
+                "{path}"
+            );
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn lexically_contains_ignores_the_verbatim_prefix() {
+        assert!(lexically_contains(
+            FsPath::new(r"\\?\C:\Users\taro"),
+            FsPath::new(r"c:\users\taro\Documents")
+        ));
+        assert!(lexically_contains(
+            FsPath::new(r"\\?\UNC\nas\share"),
+            FsPath::new(r"\\nas\share\x")
+        ));
+        assert!(lexically_contains(FsPath::new(r"C:\"), FsPath::new(r"C:\x")));
+    }
     use crate::api::shares::repoint::tests::{content_path, insert_folder, sep_path};
 
     #[test]

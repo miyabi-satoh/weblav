@@ -213,6 +213,13 @@ pub(super) fn canonical_dir_within_roots(
     hidden: &Hidden,
 ) -> Result<PathBuf, AppError> {
     let input = require_absolute(path)?;
+    // 共有の外は、ファイルシステムに触る前に断る (→ `roots::ensure_input_reachable`)。
+    if !roots
+        .iter()
+        .any(|root| super::roots::lexically_contains(&root.path, &input))
+    {
+        return Err(outside_roots());
+    }
     let Ok(canonical) = std::fs::canonicalize(&input) else {
         return Err(outside_roots());
     };
@@ -233,6 +240,13 @@ pub(super) fn canonical_file_within_roots(
     hidden: &Hidden,
 ) -> Result<PathBuf, AppError> {
     let input = require_absolute(path)?;
+    // 共有の外は、ファイルシステムに触る前に断る (→ `roots::ensure_input_reachable`)。
+    if !roots
+        .iter()
+        .any(|root| super::roots::lexically_contains(&root.path, &input))
+    {
+        return Err(outside_roots());
+    }
     let Ok(canonical) = std::fs::canonicalize(&input) else {
         return Err(outside_roots());
     };
@@ -347,7 +361,7 @@ async fn list_dirs(
 ) -> Result<Json<DirsResponse>, AppError> {
     let requested = query.path;
     if !requested.is_empty() {
-        super::roots::ensure_reachable(&state, &requested).await?;
+        super::roots::ensure_input_reachable(&state, &requested).await?;
     }
     // 判定のたびに読む (→ `roots::load_roots`)。`run_blocking` の中ではDBに触れない。
     // 中を見られない共有は、無いものとして扱う。
@@ -736,7 +750,7 @@ async fn count_target_files(
         query.include_patterns.as_deref(),
         query.exclude_patterns.as_deref(),
     )?;
-    super::roots::ensure_reachable(&state, &requested).await?;
+    super::roots::ensure_input_reachable(&state, &requested).await?;
     let roots = super::roots::load_roots_for(&state, &user).await?;
     with_hidden(&state, move |hidden| {
         let canonical = canonical_dir_within_roots(&requested, &roots, hidden)?;
