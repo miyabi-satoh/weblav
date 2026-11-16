@@ -1,8 +1,6 @@
 //! セッションCookieの署名鍵の解決と `SessionManagerLayer` の組み立て。
 
-use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
@@ -18,53 +16,28 @@ const KEY_LEN: usize = 64;
 
 pub type SessionLayer = SessionManagerLayer<Store, SignedCookie>;
 
-/// リストアで消したセッションの id (→ docs/access.md「バックアップとリストア」)。プロセスのメモリにだけ置く。
+/// `SqliteStore` を包み、消したセッションを書き戻させない。
 ///
-/// 起動し直せば、消す前から続いていた要求は残っていないので、覚えておく必要が無い。
-/// `std::sync::Mutex` なのは、持ったまま await しないため (`SetupTokens` と同じ)。
-#[derive(Debug, Default)]
-pub struct RevokedSessions(Mutex<HashSet<String>>);
-
-impl RevokedSessions {
-    pub fn extend(&self, ids: impl IntoIterator<Item = String>) {
-        self.lock().extend(ids);
-    }
-
-    /// 消せなかったものの登録を取り消す。
-    pub fn forget(&self, ids: &[String]) {
-        let mut revoked = self.lock();
-        for id in ids {
-            revoked.remove(id);
-        }
-    }
-
-    fn contains(&self, id: &Id) -> bool {
-        self.lock().contains(&id.to_string())
-    }
-
-    fn lock(&self) -> std::sync::MutexGuard<'_, HashSet<String>> {
-        self.0
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-    }
-}
-
-/// `SqliteStore` を包み、リストアで消したセッションを書き戻させない。
-///
-/// ADR: `with_always_save` なので、リストアの前に始まった要求は、応答を返すときにセッションを
-/// 保存し直す。`SqliteStore::save` は行が無ければ作るので、消したセッションが生き返り、
-/// 戻した DB で同じ利用者 id を持つ別の人として通ってしまう。
-/// 保存した後で消した id かを確かめて消し直す。リストアは消すのと同じトランザクションの中で、
-/// 消す前に id を登録するので、保存と削除がどの順に来ても残らない。
+/// ADR: `with_always_save` なので、ログインしている要求は応答を返すたびにセッションを保存し直す。
+/// `SqliteStore::save` は行が無ければ作るので、ログアウトやリストアで消した後に、その前から続いていた要求が
+/// 終わると、消したセッションが生き返る。tower-sessions は新しいセッションを `create` で作り、
+/// `save` は既にある id にしか呼ばないので、`save` は行があるときだけ書き換える。
 #[derive(Debug, Clone)]
 pub struct Store {
     inner: SqliteStore,
-    revoked: Arc<RevokedSessions>,
+    pool: sqlx::SqlitePool,
 }
 
 impl Store {
-    pub fn new(inner: SqliteStore, revoked: Arc<RevokedSessions>) -> Self {
-        Self { inner, revoked }
+    pub fn new(pool: sqlx::SqlitePool) -> Self {
+        Self {
+            inner: SqliteStore::new(pool.clone()),
+            pool,
+        }
+    }
+
+    pub async fn migrate(&self) -> sqlx::Result<()> {
+        self.inner.migrate().await
     }
 }
 
@@ -74,11 +47,17 @@ impl SessionStore for Store {
         self.inner.create(record).await
     }
 
+    /// 表と列の形と、`data` の符号化 (MessagePack) は `SqliteStore` に揃える。
     async fn save(&self, record: &Record) -> session_store::Result<()> {
-        self.inner.save(record).await?;
-        if self.revoked.contains(&record.id) {
-            self.inner.delete(&record.id).await?;
-        }
+        let data = rmp_serde::to_vec(record)
+            .map_err(|err| session_store::Error::Encode(err.to_string()))?;
+        sqlx::query("UPDATE tower_sessions SET data = ?, expiry_date = ? WHERE id = ?")
+            .bind(data)
+            .bind(record.expiry_date)
+            .bind(record.id.to_string())
+            .execute(&self.pool)
+            .await
+            .map_err(|err| session_store::Error::Backend(err.to_string()))?;
         Ok(())
     }
 
@@ -183,11 +162,10 @@ mod tests {
     use super::*;
     use crate::test_support::TempDir;
 
-    async fn store(pool: sqlx::SqlitePool) -> (Store, Arc<RevokedSessions>) {
-        let inner = SqliteStore::new(pool);
-        inner.migrate().await.expect("セッションの表を作れなかった");
-        let revoked = Arc::new(RevokedSessions::default());
-        (Store::new(inner, Arc::clone(&revoked)), revoked)
+    async fn store(pool: sqlx::SqlitePool) -> Store {
+        let store = Store::new(pool);
+        store.migrate().await.expect("セッションの表を作れなかった");
+        store
     }
 
     fn record() -> Record {
@@ -198,13 +176,12 @@ mod tests {
         }
     }
 
-    /// リストアの前に始まった要求が、消したセッションを応答のときに保存し直しても残らない。
+    /// ログアウトやリストアで消した後に、その前から続いていた要求が応答のときに保存し直しても残らない。
     #[sqlx::test]
-    async fn revoked_session_is_not_brought_back_by_save(pool: sqlx::SqlitePool) {
-        let (store, revoked) = store(pool).await;
+    async fn deleted_session_is_not_brought_back_by_save(pool: sqlx::SqlitePool) {
+        let store = store(pool).await;
         let mut record = record();
         store.create(&mut record).await.expect("作れなかった");
-        revoked.extend([record.id.to_string()]);
         store.delete(&record.id).await.expect("消せなかった");
 
         store.save(&record).await.expect("保存できなかった");
@@ -219,21 +196,22 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn other_sessions_are_saved_as_usual(pool: sqlx::SqlitePool) {
-        let (store, revoked) = store(pool).await;
+    async fn save_updates_an_existing_session(pool: sqlx::SqlitePool) {
+        let store = store(pool).await;
         let mut record = record();
         store.create(&mut record).await.expect("作れなかった");
-        revoked.extend([Id::default().to_string()]);
+        record
+            .data
+            .insert("user_id".to_string(), serde_json::json!(7));
 
         store.save(&record).await.expect("保存できなかった");
 
-        assert!(
-            store
-                .load(&record.id)
-                .await
-                .expect("読めなかった")
-                .is_some()
-        );
+        let loaded = store
+            .load(&record.id)
+            .await
+            .expect("読めなかった")
+            .expect("残っているはず");
+        assert_eq!(loaded.data.get("user_id"), Some(&serde_json::json!(7)));
     }
 
     fn config_with_secret(secret: &str) -> SessionConfig {

@@ -90,8 +90,6 @@ pub struct AppState {
     pub backup_work_dir: PathBuf,
     /// 受け取って、戻すのを待っているバックアップ (→ `api::backup`)。
     pub restore_staging: Arc<crate::api::backup::RestoreStaging>,
-    /// リストアで消したセッション。書き戻させないために覚えておく (→ `session::Store`)。
-    pub revoked_sessions: Arc<crate::session::RevokedSessions>,
     /// サーバーの PC にフォルダー選択の窓を出す手段 (→ `api::roots`、docs/folders.md「選び方」)。
     pub folder_picker: crate::folder_picker::FolderPicker,
     /// 他の端末に mDNS の名前 (→ `crate::mdns`) とあわせて案内するポート。

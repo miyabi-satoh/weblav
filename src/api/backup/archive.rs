@@ -18,7 +18,6 @@ use zip::{CompressionMethod, ZipArchive, ZipWriter};
 use crate::api::error_detail::ValidationDetail;
 use crate::config::create_owner_only_dir;
 use crate::error::{AppError, run_blocking};
-use crate::session::RevokedSessions;
 
 /// zip の形の版。入れるものや目録の項目を変えたら上げる。
 const FORMAT: u32 = 1;
@@ -217,7 +216,7 @@ pub(super) fn read_manifest(path: &Path) -> Result<Manifest, ReadError> {
     Ok(manifest)
 }
 
-/// `zip_path` のバックアップで、今の DB を置き換える。消したセッションは `revoked` に登録する。
+/// `zip_path` のバックアップで、今の DB を置き換える。
 ///
 /// 呼び出し側は `users_write_lock` と `contents_write_lock` を持っていること。
 /// 置き換える途中で、利用者の操作が割り込まないようにするため。
@@ -226,7 +225,6 @@ pub(super) async fn restore(
     work_root: &Path,
     zip_path: &Path,
     manifest: &Manifest,
-    revoked: &RevokedSessions,
 ) -> Result<(), AppError> {
     let root = work_root.to_path_buf();
     let dir = run_blocking(move || WorkDir::create(&root)).await??;
@@ -235,7 +233,7 @@ pub(super) async fn restore(
     let (zip, db) = (zip_path.to_path_buf(), db_path.clone());
     run_blocking(move || extract_db(&zip, &db)).await??;
     prepare_db(&db_path, manifest).await?;
-    replace_tables(pool, &db_path, revoked).await
+    replace_tables(pool, &db_path).await
 }
 
 /// DB を `db_out` へ取り出す。
@@ -322,14 +320,13 @@ async fn check_and_migrate(pool: &SqlitePool, manifest: &Manifest) -> Result<(),
     Ok(())
 }
 
-/// 今の DB の表の中身を、`db_path` の DB のもので置き換える。セッションは戻さずに全部消し、`revoked` に登録する。
+/// 今の DB の表の中身を、`db_path` の DB のもので置き換える。セッションは戻さずに全部消す (消したセッションは書き戻されない。→ `session::Store`)。
 ///
 /// ADR: DB のファイルを差し替えずに、表の中身を入れ替える。接続のプールは `AppState` を通して
 /// 各所に配られていて閉じ直せないため。1つのトランザクションで入れ替えるので、途中で失敗しても今の DB は変わらない。
 async fn replace_tables(
     pool: &SqlitePool,
     db_path: &Path,
-    revoked: &RevokedSessions,
 ) -> Result<(), AppError> {
     let db_path = db_path
         .to_str()
@@ -341,7 +338,7 @@ async fn replace_tables(
             .bind(db_path)
             .execute(&mut conn)
             .await?;
-        copy_tables(&mut conn, revoked).await
+        copy_tables(&mut conn).await
     }
     .await;
     let _ = conn.close().await;
@@ -351,7 +348,6 @@ async fn replace_tables(
 /// 表の名前は実行時に決まるので、この関数の SQL は検査マクロを使えない。
 async fn copy_tables(
     conn: &mut SqliteConnection,
-    revoked: &RevokedSessions,
 ) -> Result<(), sqlx::Error> {
     let mut tx = conn.begin_with("BEGIN IMMEDIATE").await?;
     // 外部キーの検査を確定の時まで待たせる。表を1つずつ入れる途中では、参照先がまだ無いため。
@@ -412,26 +408,10 @@ async fn copy_tables(
     .await?;
 
     let session_table = quote(SESSION_TABLE);
-    let sessions: Vec<String> = sqlx::query_scalar(AssertSqlSafe(format!(
-        "SELECT id FROM main.{session_table}"
-    )))
-    .fetch_all(&mut *tx)
-    .await?;
-    // 消す前に登録する。消した後で、戻す前から続いていた要求がセッションを書き戻しても残らない
-    // (→ `session::Store`)。確定できなければ消えていないので、登録も取り消す。
-    revoked.extend(sessions.iter().cloned());
-    let deleted = async {
-        sqlx::query(AssertSqlSafe(format!("DELETE FROM main.{session_table}")))
-            .execute(&mut *tx)
-            .await?;
-        tx.commit().await
-    }
-    .await;
-    if deleted.is_err() {
-        revoked.forget(&sessions);
-    }
-    deleted?;
-    Ok(())
+    sqlx::query(AssertSqlSafe(format!("DELETE FROM main.{session_table}")))
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await
 }
 
 /// SQLite の識別子として引用する。表と列の名前はこれで引用してから SQL に組むので、
