@@ -223,7 +223,7 @@ pub(super) fn canonical_dir_within_roots(
     let Ok(canonical) = std::fs::canonicalize(&input) else {
         return Err(outside_roots());
     };
-    if !super::roots::is_within_roots(roots, &canonical, hidden) {
+    if !super::roots::is_shown_within_roots(roots, &canonical, hidden) {
         return Err(outside_roots());
     }
     require_dir(&canonical)?;

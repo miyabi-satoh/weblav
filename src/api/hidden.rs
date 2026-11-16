@@ -235,6 +235,34 @@ impl Hidden {
         self.windows_hidden && super::fs::is_hidden_by_attribute(metadata)
     }
 
+    /// `canonical` (実体のパス) の、それを含む共有 `root` から下のどこかの階層を、Windows の隠し属性で隠すか。
+    /// 一覧は共有から1段ずつ辿って隠すので、パスを指定された口と、登録済みのコンテンツを開く口で使う。
+    /// 調べられない階層は隠すものとして扱う (`hides_below` と同じ)。
+    ///
+    /// ブロッキングI/Oを行うため、呼び出し側は `spawn_blocking` の中で呼ぶこと。
+    pub(super) fn hides_by_attribute_below(&self, root: &FsPath, canonical: &FsPath) -> bool {
+        #[cfg(windows)]
+        {
+            if !self.windows_hidden {
+                return false;
+            }
+            let Ok(rel) = canonical.strip_prefix(root) else {
+                return false;
+            };
+            let mut current = root.to_path_buf();
+            for component in rel.components() {
+                current.push(component);
+                match std::fs::symlink_metadata(&current) {
+                    Ok(metadata) if !self.hides_by_attribute(&metadata) => {}
+                    _ => return true,
+                }
+            }
+        }
+        #[cfg(not(windows))]
+        let _ = (root, canonical);
+        false
+    }
+
     /// 一覧で `std::fs::DirEntry` を並べるか。並べるなら `(名前, 種別)`。
     /// 種別を取れないもの・シンボリックリンクは並べない (呼び出し側はリンクを辿らずに種別を得ること)。
     pub(super) fn visible_entry(&self, entry: &std::fs::DirEntry) -> Option<(String, FileType)> {

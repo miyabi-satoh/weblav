@@ -2020,7 +2020,7 @@ pub(super) async fn resolve_path(
         // **候補パスに触る前に判定する**。触ってから弾くと、候補が実在するかどうかで
         // 応答までの時間が変わり、存在を推し量る手がかりになる。
         // 存在を伏せるため 422 ではなく 404 を返す (閲覧者に見せる経路のため)。
-        if !super::roots::is_within_roots(&roots, &canonical_root, &hidden) {
+        if !super::roots::is_shown_within_roots(&roots, &canonical_root, &hidden) {
             return Err(AppError::NotFound);
         }
 

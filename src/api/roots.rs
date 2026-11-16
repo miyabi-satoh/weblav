@@ -871,6 +871,20 @@ pub(super) fn is_within_roots(
     !hidden.hides_path(canonical, true) && containing_root(roots, canonical).is_some()
 }
 
+/// `is_within_roots` に加えて、共有から下のどの階層も Windows の隠し属性で隠していないか。
+/// パスを指定された口と、登録済みのコンテンツを開く口で使う (→ `Hidden::hides_by_attribute_below`)。
+///
+/// ブロッキングI/Oを行うため、呼び出し側は `spawn_blocking` の中で呼ぶこと。
+pub(super) fn is_shown_within_roots(
+    roots: &[Root],
+    canonical: &FsPath,
+    hidden: &super::hidden::Hidden,
+) -> bool {
+    is_within_roots(roots, canonical, hidden)
+        && containing_root(roots, canonical)
+            .is_some_and(|root| !hidden.hides_by_attribute_below(&root.path, canonical))
+}
+
 /// `canonical` を含む登録済みのフォルダー。選択 UI のパンくずを、辿れるところから始めるのにも使う
 /// (→ docs/folders.md「一覧 API」)。入れ子でいくつも当たれば、最も外側を採る。
 /// 内側を採ると、外側から辿って内側へ入ったときに起点が切り替わり、「上へ」で外側へ戻れない。
