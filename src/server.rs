@@ -23,6 +23,11 @@ const SHUTDOWN_GRACE: Duration = Duration::from_secs(10);
 const POOL_CLOSE_GRACE: Duration = Duration::from_secs(5);
 /// 停止のとき、ランタイムに残ったタスクを待つ上限。
 const RUNTIME_SHUTDOWN_GRACE: Duration = Duration::from_secs(1);
+/// 重ねて起動したとき、動いているほうが止まる途中なら、ロックが外れるのを待つ上限。
+/// 止まるまでに掛かりうる長さ (上の3つの合計) に、プロセスが終わるまでの余裕を足した値。
+const STOPPING_WAIT: Duration = Duration::from_secs(20);
+/// ロックが外れたかを確かめ直す間隔。
+const STOPPING_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 
 /// 設定のポートが使えなかったときに、上へずらして試す数。
 const PORT_FALLBACK_ATTEMPTS: u16 = 10;
@@ -90,6 +95,8 @@ pub struct Running {
     handle: std::thread::JoinHandle<()>,
     shutdown_tx: tokio::sync::oneshot::Sender<()>,
     log_guard: WorkerGuard,
+    /// 実際の待ち受けのアドレスを書いたファイル (→ `AlreadyRunning`)。
+    addr_path: PathBuf,
     // 保持しているあいだ二重起動を防ぐ。drop でロックが外れる。
     _instance_lock: File,
 }
@@ -99,6 +106,9 @@ impl Running {
     /// サーバーが既に自分で終わっていても安全に呼べる (停止の通知は無視され、join は即戻る)。
     pub fn stop(self) {
         tracing::info!("stopping server");
+        // 止まる途中に重ねて起動されたとき、止まりかけのほうの画面を開かず、止まるのを待って起動し直すための合図
+        // (→ `acquire_instance_lock`)。
+        remove_addr_file(&self.addr_path);
         let _ = self.shutdown_tx.send(());
         let _ = self.handle.join();
         drop(self.log_guard);
@@ -156,26 +166,27 @@ pub fn start(
     );
 
     // DB へ同時アクセスさせないよう、DB 接続より前に二重起動を検知する。
-    let instance_lock = match single_instance::acquire(&dirs.lock_path()) {
-        Ok(Some(lock)) => lock,
-        Ok(None) => {
-            tracing::info!("another instance is already running");
-            return Err(StartupError {
-                message: "another instance is already running".into(),
-                already_running: Some(Box::new(AlreadyRunning {
-                    addr_path: dirs.addr_path(),
-                    configured: addr,
-                    _log_guard: Some(log_guard),
-                })),
-            });
-        }
-        Err(err) => {
-            return Err(fail(
-                format!("failed to acquire single-instance lock: {err}"),
-                log_guard,
-            ));
-        }
-    };
+    let instance_lock =
+        match acquire_instance_lock(&dirs.lock_path(), &dirs.addr_path(), STOPPING_WAIT) {
+            Ok(Some(lock)) => lock,
+            Ok(None) => {
+                tracing::info!("another instance is already running");
+                return Err(StartupError {
+                    message: "another instance is already running".into(),
+                    already_running: Some(Box::new(AlreadyRunning {
+                        addr_path: dirs.addr_path(),
+                        configured: addr,
+                        _log_guard: Some(log_guard),
+                    })),
+                });
+            }
+            Err(err) => {
+                return Err(fail(
+                    format!("failed to acquire single-instance lock: {err}"),
+                    log_guard,
+                ));
+            }
+        };
 
     // 前に動いていたときのものが残っていれば消す。重ねて起動したほうが、古いアドレスを開かないように。
     remove_addr_file(&dirs.addr_path());
@@ -240,6 +251,7 @@ pub fn start(
                     handle,
                     shutdown_tx,
                     log_guard,
+                    addr_path,
                     _instance_lock: instance_lock,
                 },
                 ServerExited(exited_rx),
@@ -326,6 +338,30 @@ fn port_unavailable(err: &std::io::Error) -> bool {
         err.kind(),
         ErrorKind::AddrInUse | ErrorKind::PermissionDenied
     )
+}
+
+/// 二重起動のロックを取る。ほかのプロセスが持っていれば `Ok(None)`。
+///
+/// 持っているほうが止まる途中 (「終了する」のあと、動画の再生の接続を待っているあいだなど) なら、
+/// 止まるのを `wait` まで待って取り直す。そのまま `None` を返すと、重ねて起動したほうは止まりかけのほうの
+/// 画面を開いて終え、どちらも動いていない状態が残るため。
+/// 止まる途中かは、アドレスのファイルが無いことで見分ける (`Running::stop` が最初に消す)。
+/// 起動の途中でもファイルは無いが、そのときは応答できるようになった時点で書かれるので、そこで待つのをやめる。
+fn acquire_instance_lock(
+    lock_path: &std::path::Path,
+    addr_path: &std::path::Path,
+    wait: Duration,
+) -> std::io::Result<Option<File>> {
+    let deadline = std::time::Instant::now() + wait;
+    loop {
+        if let Some(lock) = single_instance::acquire(lock_path)? {
+            return Ok(Some(lock));
+        }
+        if addr_path.exists() || std::time::Instant::now() >= deadline {
+            return Ok(None);
+        }
+        std::thread::sleep(STOPPING_RETRY_INTERVAL);
+    }
 }
 
 fn remove_addr_file(path: &std::path::Path) {
@@ -511,6 +547,46 @@ mod tests {
         done_rx
             .recv_timeout(timeout)
             .expect("server thread did not shut down in time");
+    }
+
+    #[test]
+    fn acquire_instance_lock_waits_for_a_stopping_instance_to_release_the_lock() {
+        let tmp = TempDir::new("acquire_instance_lock_waits_for_stopping");
+        let lock_path = tmp.path().join("weblav.lock");
+        let addr_path = tmp.path().join("weblav.addr");
+        // 止まる途中のほう: ロックは持ったまま、アドレスのファイルは消してある。
+        let held = single_instance::acquire(&lock_path)
+            .expect("ロックを取れるはず")
+            .expect("最初の取得は成功するはず");
+        let release = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(300));
+            drop(held);
+        });
+
+        let lock = acquire_instance_lock(&lock_path, &addr_path, Duration::from_secs(10))
+            .expect("ロックを取れるはず");
+        assert!(lock.is_some(), "止まったあとにロックを取り直せるはず");
+        release.join().expect("ロックを外すスレッドが終わるはず");
+    }
+
+    #[test]
+    fn acquire_instance_lock_returns_none_at_once_when_the_other_instance_is_running() {
+        let tmp = TempDir::new("acquire_instance_lock_running");
+        let lock_path = tmp.path().join("weblav.lock");
+        let addr_path = tmp.path().join("weblav.addr");
+        let _held = single_instance::acquire(&lock_path)
+            .expect("ロックを取れるはず")
+            .expect("最初の取得は成功するはず");
+        std::fs::write(&addr_path, "127.0.0.1:8370").expect("アドレスを書けるはず");
+
+        let started = std::time::Instant::now();
+        let lock = acquire_instance_lock(&lock_path, &addr_path, Duration::from_secs(10))
+            .expect("ロックを取れるはず");
+        assert!(lock.is_none(), "動いているほうがあればロックは取れないはず");
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "動いているほうがあれば待たずに返るはず"
+        );
     }
 
     #[test]
