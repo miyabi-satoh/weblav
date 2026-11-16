@@ -942,7 +942,7 @@
 {/snippet}
 
 <!-- 語が何を指すかを確かめるため、その行で値が決まるファイルを数件開けるようにする (→ docs/archive.md「軸の設定を助ける表示」)。
-     件数は語の候補と同じく、語の右に淡い文字で「N 件」と出す。 -->
+     件数は語の候補と同じく、淡い文字で「N 件」と出す。 -->
 {#snippet rowFiles(row: AxisValueRow, index: number)}
 	{@const result = previewRows.get(row.rawValue.trim())}
 	<DropdownMenu.Root>
@@ -1286,11 +1286,9 @@
 															>
 														</div>
 													{:else}
-														<!-- スマートフォン幅では横に並べると入力欄が潰れるので、件数を下に回す。
+														<!-- 件数はどの幅でも入力欄の下に回し、入力欄に列の幅を全部渡す。横に並べると入力欄が潰れるため。
 														     件数のボタンは押せる範囲を上に 8px 広げているので、入力欄と重ならないよう 8px 空ける。 -->
-														<div
-															class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-1"
-														>
+														<div class="flex flex-col items-start gap-2">
 															<Input
 																bind:value={row.rawValue}
 																aria-label={m.archive_axes_values_raw_label({
