@@ -444,7 +444,8 @@ async fn transfer_all(
 ) -> Result<(), AppError> {
     let mut progress_items = 0;
     let mut progress_bytes = 0;
-    let mut source_left = false;
+    // 元が残ったもの。後で止まったときに、ログから辿れるようにする。
+    let mut source_left: Vec<&str> = Vec::new();
     for source in &prepared.sources {
         if job.progress.is_cancelled() {
             break;
@@ -476,13 +477,13 @@ async fn transfer_all(
         // 置き先は完全なので、済んだものとして数え、残りも続けて移す。元に残ったことは最後に伝える。
         let placed = match result {
             Err(AppError::MoveSourceLeft) => {
-                source_left = true;
+                source_left.push(&source.name);
                 true
             }
             Err(err) => {
                 // 先に元が残ったものがあっても、ここで止まった理由を伝える。止まったものは元が残っている (写し終えるまで消さない)。
-                if source_left {
-                    tracing::warn!(job = %job.id, "a share job stopped after leaving part of a moved source");
+                if !source_left.is_empty() {
+                    tracing::warn!(job = %job.id, left = ?source_left, "a share job stopped after leaving part of moved sources");
                 }
                 return Err(err);
             }
@@ -504,8 +505,8 @@ async fn transfer_all(
                 .fetch_max(progress_bytes, Ordering::Relaxed);
         }
     }
-    // 中止したなら中止として終える (残りは移していないので、「移動はできました」と言わない)。
-    if source_left && !job.progress.is_cancelled() {
+    // 中止しても、元が残ったことのほうを伝える。元を消してもらわないと、同じものが2か所に残るため。
+    if !source_left.is_empty() {
         return Err(AppError::MoveSourceLeft);
     }
     Ok(())
