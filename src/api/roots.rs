@@ -1105,12 +1105,13 @@ pub struct RootPicks {
 }
 
 impl Default for RootPicks {
-    /// 番号は起動した時刻 (ミリ秒) から振る。起動し直す前の画面が待ち直しても、
-    /// 起動し直した後に開いた別の窓の結果を受け取らないため。
+    /// 番号は乱数から振り始める。起動し直す前の画面が待ち直しても、起動し直した後に開いた
+    /// 別の窓の結果を受け取らないため。画面の数値 (2^53 未満) で正確に扱えるよう、上の桁を落とす。
     fn default() -> Self {
-        let start = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |elapsed| elapsed.as_millis() as u64);
+        let mut seed = [0u8; 8];
+        // 乱数を取れないのは OS がおかしいときだけで、そのときは番号が重なりうるだけなので起動は止めない。
+        let _ = getrandom::fill(&mut seed);
+        let start = u64::from_le_bytes(seed) >> 12;
         Self {
             last: std::sync::Mutex::default(),
             next_id: std::sync::atomic::AtomicU64::new(start),

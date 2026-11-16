@@ -199,7 +199,7 @@
 	): () => Promise<Track[]> {
 		let next = from;
 		// 最後に並べた区切りの、最後の行。取り直した一覧で、どこから続けるかの目印にする。
-		let anchor: T | undefined;
+		let anchor: T | undefined = (from > 0 ? ref.source.get(from - 1) : undefined) ?? undefined;
 		let renewedAt: number | undefined;
 		return async () => {
 			while (next < ref.source.total) {
@@ -219,6 +219,7 @@
 				}
 				// 取れなかった区切りは飛ばさない。投げると再生の側が今の並びの終わりで止め、次に曲を替えたときにまた試す。
 				if (ref.source.get(start) === undefined) throw new Error('chunk not loaded');
+				renewedAt = undefined;
 				next = Math.min(
 					(Math.floor(start / ARCHIVE_CHUNK_SIZE) + 1) * ARCHIVE_CHUNK_SIZE,
 					ref.source.total

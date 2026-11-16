@@ -112,25 +112,21 @@ export class ArchivePagedList<T> {
 		return new ArchivePagedList(first, this.#fetch, undefined, renew);
 	}
 
-	/** 同じ条件で最初から取り直した一覧。取り直せない一覧か、取れなければ `null`。 */
 	/**
 	 * 同じ条件で最初から取り直した一覧。取り直せない一覧か、取れなければ `null`。
-	 * 続けて鳴らす並びがいくつか同時に取り直しても、1つの一覧を使う (サーバーに使わない結果を溜めず、並びどうしの位置もずれない)。
+	 * 取り直している間に別の並びも取り直しを頼んだら、同じ一覧を返す (サーバーに使わない結果を溜めないため)。
+	 * 取り直し終えたら覚えておかない。取り直した一覧もいずれ捨てられ、次はまた取り直すため。
 	 */
 	renewed(): Promise<ArchivePagedList<T> | null> {
 		const renew = this.#renew;
 		if (!renew) return Promise.resolve(null);
-		this.#renewal ??= renew().then(
-			(first) => {
-				// 取れなかったら、次に頼まれたときに取り直す。
-				if (!first) this.#renewal = undefined;
-				return first ? new ArchivePagedList(first, this.#fetch, this.#shuffle, renew) : null;
-			},
-			(error: unknown) => {
+		this.#renewal ??= renew()
+			.then((first) =>
+				first ? new ArchivePagedList(first, this.#fetch, this.#shuffle, renew) : null
+			)
+			.finally(() => {
 				this.#renewal = undefined;
-				throw error;
-			}
-		);
+			});
 		return this.#renewal;
 	}
 
