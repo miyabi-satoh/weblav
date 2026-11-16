@@ -330,10 +330,12 @@ fn bind(
 
 /// 設定のポートが使えないときに試す、上の番号。ブラウザーが断るポートは飛ばす。
 /// 待ち受けられても、トレイの「開く」やほかの端末からは開けないため。
+/// 飛ばした分は数に入れず、試すのは使える番号で `PORT_FALLBACK_ATTEMPTS` 個まで。
 fn fallback_ports(port: u16) -> impl Iterator<Item = u16> {
-    (1..=PORT_FALLBACK_ATTEMPTS)
+    (1..=u16::MAX)
         .map_while(move |offset| port.checked_add(offset))
         .filter(|port| !crate::api::server_settings::BROWSER_BLOCKED_PORTS.contains(port))
+        .take(usize::from(PORT_FALLBACK_ATTEMPTS))
 }
 
 /// ほかの番号なら待ち受けられる見込みのある失敗か。使用中のほか、Windows では
@@ -657,6 +659,11 @@ mod tests {
         let ports: Vec<u16> = fallback_ports(5998).collect();
         assert_eq!(ports.first(), Some(&5999));
         assert!(!ports.contains(&6000), "{ports:?}");
+        assert_eq!(
+            ports.len(),
+            usize::from(PORT_FALLBACK_ATTEMPTS),
+            "{ports:?}"
+        );
         assert_eq!(fallback_ports(u16::MAX - 1).collect::<Vec<_>>(), [u16::MAX]);
     }
 
