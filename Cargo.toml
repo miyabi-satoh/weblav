@@ -33,6 +33,8 @@ base64 = "0.23.1"
 # time の local-offset は新しい依存を足すので、trash が同じ版と同じ機能を既に引いている chrono を使う。
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 directories = "6.0.0"
+# リンクのタイトルとカードを、Shift_JIS・EUC-JP などで書かれたページからも取る (→ src/api/link_title.rs)。multer が既に引いている版。
+encoding_rs = "0.8.44"
 frizbee = "0.13.0"
 # 共有の中へコピー・移動・アップロードする前に、置き先の空きを確かめる (→ src/api/shares/fsops.rs)。
 # rustix・windows-sys は既に引いている。

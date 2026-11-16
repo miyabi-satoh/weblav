@@ -4344,6 +4344,7 @@ dependencies = [
  "block2",
  "chrono",
  "directories",
+ "encoding_rs",
  "frizbee",
  "fs4",
  "gethostname",

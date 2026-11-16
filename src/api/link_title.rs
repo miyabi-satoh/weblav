@@ -194,14 +194,18 @@ pub(super) fn response_file_name(response: &ureq::http::Response<ureq::Body>) ->
 /// 本文を読み切れなかった (時間切れ・切断)。HTML でないページと分けるのは、空の情報で前回の情報を上書きしないため。
 struct BodyReadFailed;
 
-/// HTML の応答の本文を、先頭から `MAX_BODY_BYTES` まで読む。HTML でない・UTF-8 で読めないときは `Ok(None)`。
+/// HTML の応答の本文を、先頭から `MAX_BODY_BYTES` まで読み、文字列にする。
+/// HTML でない・宣言の文字コードで読めないときは `Ok(None)`。
 fn read_html(
     response: &mut ureq::http::Response<ureq::Body>,
 ) -> Result<Option<String>, BodyReadFailed> {
-    let is_html = response
+    let content_type = response
         .headers()
         .get("content-type")
         .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
+    let is_html = content_type
+        .as_deref()
         .is_some_and(|value| value.to_ascii_lowercase().contains("html"));
     if !is_html {
         return Ok(None);
@@ -215,22 +219,121 @@ fn read_html(
         .take(MAX_BODY_BYTES)
         .read_to_end(&mut body)
         .map_err(|_| BodyReadFailed)?;
-    Ok(utf8_prefix(body))
+    Ok(decode_html(&body, content_type.as_deref()))
 }
 
-/// UTF-8 として読む。文字コードの変換はしない。UTF-8 として読めなければ、化けた題を作らず諦める。
+/// `<meta>` から文字コードを探す、本文の先頭の長さ。WHATWG の HTML の決まり (encoding sniffing の prescan) と同じ値。
+const CHARSET_PRESCAN_BYTES: usize = 1024;
+
+/// 本文を、ページが宣言した文字コードで読む。日本語のページには Shift_JIS・EUC-JP のものがまだあるため。
+/// 宣言を探す順は WHATWG の HTML の決まりに倣う (BOM → HTTP の `Content-Type` の `charset` → 先頭の `<meta>`)。
+/// 宣言が無ければ UTF-8 で読む。
+///
+/// 宣言の文字コードで読めない字があれば、化けた題を作らず諦める (呼び出し側がホスト名にする)。
+/// 当て推量で別の文字コードを試すと、読めてしまった化けた題が残るため。
 /// ただし上限で切った末尾の、途中で切れた1文字は落として読む。
-fn utf8_prefix(body: Vec<u8>) -> Option<String> {
-    match String::from_utf8(body) {
-        Ok(text) => Some(text),
-        Err(err) if err.utf8_error().error_len().is_none() => {
-            let valid = err.utf8_error().valid_up_to();
-            let mut bytes = err.into_bytes();
-            bytes.truncate(valid);
-            String::from_utf8(bytes).ok()
-        }
-        Err(_) => None,
+fn decode_html(body: &[u8], content_type: Option<&str>) -> Option<String> {
+    let (encoding, bom_len) = encoding_rs::Encoding::for_bom(body).unwrap_or_else(|| {
+        let declared = content_type
+            .and_then(http_charset)
+            .or_else(|| meta_charset(body));
+        (declared.unwrap_or(encoding_rs::UTF_8), 0)
+    });
+    let body = &body[bom_len..];
+    let mut decoder = encoding.new_decoder_without_bom_handling();
+    let mut text =
+        String::with_capacity(decoder.max_utf8_buffer_length_without_replacement(body.len())?);
+    // `last` を false にすると、末尾で途中まで来た1文字は誤りにせず、読まずに残る。
+    match decoder.decode_to_string_without_replacement(body, &mut text, false) {
+        (encoding_rs::DecoderResult::InputEmpty, _) => Some(text),
+        _ => None,
     }
+}
+
+/// `Content-Type` の `charset` (`text/html; charset=Shift_JIS` など)。知らない名前なら `None`。
+fn http_charset(content_type: &str) -> Option<&'static encoding_rs::Encoding> {
+    content_type.split(';').skip(1).find_map(|param| {
+        let (name, value) = param.split_once('=')?;
+        if !name.trim().eq_ignore_ascii_case("charset") {
+            return None;
+        }
+        encoding_rs::Encoding::for_label(
+            value
+                .trim()
+                .trim_matches(|c| c == '"' || c == '\'')
+                .as_bytes(),
+        )
+    })
+}
+
+/// 本文の先頭の `<meta charset="…">` か `<meta http-equiv="Content-Type" content="…; charset=…">`。
+/// HTML の決まりどおり、ここで UTF-16 とあれば UTF-8 と読み、`x-user-defined` は windows-1252 と読む。
+fn meta_charset(body: &[u8]) -> Option<&'static encoding_rs::Encoding> {
+    let head = body[..body.len().min(CHARSET_PRESCAN_BYTES)].to_ascii_lowercase();
+    let mut rest = head.as_slice();
+    while let Some(start) = find_bytes(rest, b"<meta") {
+        let after = &rest[start + b"<meta".len()..];
+        let end = after.iter().position(|&b| b == b'>').unwrap_or(after.len());
+        let tag = &after[..end];
+        rest = &after[end..];
+        // `<metadata>` のような別の要素を拾わない。
+        if !tag
+            .first()
+            .is_some_and(|&b| b.is_ascii_whitespace() || b == b'/')
+        {
+            continue;
+        }
+        if let Some(encoding) = charset_in_meta(tag) {
+            return Some(match encoding {
+                e if e == encoding_rs::UTF_16LE || e == encoding_rs::UTF_16BE => encoding_rs::UTF_8,
+                e if e == encoding_rs::X_USER_DEFINED => encoding_rs::WINDOWS_1252,
+                e => e,
+            });
+        }
+    }
+    None
+}
+
+/// `<meta` の後ろ (小文字にしたもの) から、文字コードの名前を読む。
+/// `charset` の属性か、`http-equiv="content-type"` があるときの `content` の中の `charset=` を見る。
+fn charset_in_meta(tag: &[u8]) -> Option<&'static encoding_rs::Encoding> {
+    let pragma =
+        find_bytes(tag, b"http-equiv").is_some() && find_bytes(tag, b"content-type").is_some();
+    let mut offset = 0;
+    while let Some(found) = find_bytes(&tag[offset..], b"charset") {
+        let at = offset + found;
+        offset = at + b"charset".len();
+        // `charset` の属性そのものは、前が空白か `/`。`content` の中なら、前は `;` か空白。
+        let is_attribute = tag[..at]
+            .last()
+            .is_some_and(|&b| b.is_ascii_whitespace() || b == b'/');
+        if !is_attribute && !pragma {
+            continue;
+        }
+        let value = tag[offset..].trim_ascii_start();
+        let Some(value) = value.strip_prefix(b"=") else {
+            continue;
+        };
+        let value = value.trim_ascii_start();
+        let value = value
+            .strip_prefix(b"\"")
+            .or_else(|| value.strip_prefix(b"'"))
+            .unwrap_or(value);
+        let len = value
+            .iter()
+            .position(|&b| matches!(b, b'"' | b'\'' | b';' | b'/') || b.is_ascii_whitespace())
+            .unwrap_or(value.len());
+        if let Some(encoding) = encoding_rs::Encoding::for_label(&value[..len]) {
+            return Some(encoding);
+        }
+    }
+    None
+}
+
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
 }
 
 /// リンクのカードに出す、ページの情報。URL は相手のページを基準に解決した、`http`・`https` の絶対 URL。
@@ -804,10 +907,81 @@ mod tests {
 
     /// 上限で切った本文の末尾で、途中で切れた1文字だけを落とす。途中に壊れた字があるものは読まない。
     #[test]
-    fn utf8_prefix_drops_only_a_character_cut_at_the_end() {
-        let cut = "タイトル".as_bytes()[..10].to_vec();
-        assert_eq!(utf8_prefix(cut).as_deref(), Some("タイト"));
-        assert_eq!(utf8_prefix(vec![b'a', 0xff, b'b']), None);
+    fn decode_html_drops_only_a_character_cut_at_the_end() {
+        let cut = &"タイトル".as_bytes()[..10];
+        assert_eq!(
+            decode_html(cut, Some("text/html")).as_deref(),
+            Some("タイト")
+        );
+        assert_eq!(decode_html(&[b'a', 0xff, b'b'], Some("text/html")), None);
+    }
+
+    /// 「日本語」を Shift_JIS・EUC-JP で書いたバイト列。
+    const SHIFT_JIS_NIHONGO: &[u8] = b"\x93\xfa\x96\x7b\x8c\xea";
+    const EUC_JP_NIHONGO: &[u8] = b"\xc6\xfc\xcb\xdc\xb8\xec";
+
+    fn page(head: &str, title: &[u8]) -> Vec<u8> {
+        [head.as_bytes(), b"<title>", title, b"</title></head>"].concat()
+    }
+
+    #[test]
+    fn decode_html_reads_the_charset_of_the_http_header() {
+        let body = page("<html><head>", SHIFT_JIS_NIHONGO);
+        let html = decode_html(&body, Some("text/html; charset=Shift_JIS"))
+            .expect("Shift_JIS で読めるはず");
+        assert_eq!(title_element(&html).as_deref(), Some("日本語"));
+        let body = page("<html><head>", EUC_JP_NIHONGO);
+        let html =
+            decode_html(&body, Some("text/html; charset=\"euc-jp\"")).expect("EUC-JP で読めるはず");
+        assert_eq!(title_element(&html).as_deref(), Some("日本語"));
+    }
+
+    #[test]
+    fn decode_html_reads_the_charset_of_meta_elements() {
+        let body = page(
+            "<html><head><meta charset=\"Shift_JIS\">",
+            SHIFT_JIS_NIHONGO,
+        );
+        let html = decode_html(&body, Some("text/html")).expect("Shift_JIS で読めるはず");
+        assert_eq!(title_element(&html).as_deref(), Some("日本語"));
+        let body = page(
+            "<html><head><META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=EUC-JP\">",
+            EUC_JP_NIHONGO,
+        );
+        let html = decode_html(&body, Some("text/html")).expect("EUC-JP で読めるはず");
+        assert_eq!(title_element(&html).as_deref(), Some("日本語"));
+    }
+
+    /// HTTP の宣言は `<meta>` より優先する (WHATWG の HTML の決まりの順)。
+    #[test]
+    fn decode_html_prefers_the_http_header_over_meta_elements() {
+        let body = page("<html><head><meta charset=\"euc-jp\">", SHIFT_JIS_NIHONGO);
+        let html = decode_html(&body, Some("text/html; charset=shift_jis"))
+            .expect("Shift_JIS で読めるはず");
+        assert_eq!(title_element(&html).as_deref(), Some("日本語"));
+    }
+
+    /// 宣言と中身が違うページ・宣言の無い Shift_JIS のページは、化けた題を作らず諦める。
+    #[test]
+    fn decode_html_gives_up_when_the_declared_charset_does_not_fit() {
+        let body = page("<html><head><meta charset=\"euc-jp\">", "日本語".as_bytes());
+        assert_eq!(decode_html(&body, Some("text/html")), None);
+        let body = page("<html><head>", SHIFT_JIS_NIHONGO);
+        assert_eq!(decode_html(&body, Some("text/html")), None);
+        assert_eq!(decode_html(&body, Some("text/html; charset=utf-8")), None);
+    }
+
+    #[test]
+    fn meta_charset_ignores_other_elements_and_reads_utf16_as_utf8() {
+        assert_eq!(meta_charset(b"<metadata charset=\"shift_jis\">"), None);
+        assert_eq!(
+            meta_charset(b"<meta name=\"x\" content=\"charset=shift_jis\">"),
+            None
+        );
+        assert_eq!(
+            meta_charset(b"<meta charset=utf-16le>"),
+            Some(encoding_rs::UTF_8)
+        );
     }
 
     fn card(html: &str) -> PageCard {
