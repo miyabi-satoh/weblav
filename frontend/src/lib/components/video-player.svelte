@@ -8,6 +8,7 @@
 	import RotateCwIcon from '@lucide/svelte/icons/rotate-cw';
 	import Volume2Icon from '@lucide/svelte/icons/volume-2';
 	import VolumeXIcon from '@lucide/svelte/icons/volume-x';
+	import { videoSession } from '#lib/media-session.svelte.ts';
 	import { nowPlaying } from '#lib/now-playing.svelte.ts';
 	import { videoLoop } from '#lib/video-loop.svelte.ts';
 	import { viewerButtonClass } from '#lib/viewer-button.ts';
@@ -54,6 +55,12 @@
 			doc.webkitFullscreenEnabled === true ||
 			typeof video?.webkitEnterFullscreen === 'function'
 	);
+
+	// 開いている間は、ロック画面・イヤホンのボタンを動画に向ける (→ #lib/media-session.svelte.ts)。
+	$effect(() => {
+		videoSession.open = true;
+		return () => (videoSession.open = false);
+	});
 
 	$effect(() => {
 		const update = () =>

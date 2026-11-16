@@ -30,6 +30,10 @@
 	let failed = $state(false);
 	/** Markdown をソースのまま見せる。開いたときはプレビュー (GitHub のファイルの表示と同じ)。 */
 	let markdownSource = $state(false);
+	/** 大きすぎるなどで組めず、ソースで見せている (→ docs/ui.md「PDF・動画・テキストのビューアー」)。 */
+	let previewUnavailable = $state(false);
+	// 切り替えの選んでいる側を、見せているものに合わせる。組めないのに「プレビュー」を選んだままにしない。
+	let showingSource = $derived(markdownSource || previewUnavailable);
 
 	let current = $derived(fileViewer.current);
 
@@ -54,6 +58,7 @@
 		zoomStep = 0;
 		failed = false;
 		markdownSource = false;
+		previewUnavailable = false;
 	});
 
 	function handleKeydown(event: KeyboardEvent) {
@@ -126,11 +131,12 @@
 										type="button"
 										class={[
 											'h-10 rounded px-2.5 text-sm transition-colors',
-											markdownSource === source
+											showingSource === source
 												? 'bg-white/20 text-white'
-												: 'text-white/80 hover:text-white'
+												: 'text-white/80 hover:text-white disabled:text-white/40'
 										]}
-										aria-pressed={markdownSource === source}
+										aria-pressed={showingSource === source}
+										disabled={!source && previewUnavailable}
 										onclick={() => (markdownSource = source)}
 									>
 										{source ? m.file_viewer_markdown_source() : m.file_viewer_markdown_preview()}
@@ -183,6 +189,7 @@
 								src={current.src}
 								fileName={current.fileName}
 								source={markdownSource}
+								onpreviewunavailable={() => (previewUnavailable = true)}
 								location={current.location}
 								onopenpath={(path) => {
 									if (current?.location) openLinkedPath(current.location, path);

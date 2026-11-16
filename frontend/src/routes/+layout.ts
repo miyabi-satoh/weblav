@@ -15,6 +15,14 @@ export const ssr = false;
 // アプリ起動時・全ページ遷移時に `/auth/me` を呼び、ログイン状態を `user` として配る。
 // 未ログイン(401)はエラーにせず `user: null` として扱い、`/admin` 配下と編集ページだけログインへ
 // 誘導する (→ docs/access.md「フロントエンドのガード反転」)。
+/**
+ * 最後に読めたログイン状態。PC のスリープなどで `/auth/me` に届かなかったときに使う。
+ * ここで error() にすると、レイアウトごと落ちてヘッダーも戻り先も無い SvelteKit の素のエラー画面になり、
+ * 鳴っている音声のプレイヤーも消える。前の状態のまま画面を移れば、届かないのはページの読み込みでも
+ * 起き、レイアウトの中のエラー画面 (+error.svelte) に戻り先と一緒に出る。
+ */
+let lastUser: components['schemas']['MeResponse'] | null | undefined;
+
 export const load: LayoutLoad = async ({ route, url }) => {
 	// **fetch より先に `route.id` と `url` を読む**。SvelteKit は load が実際に触れた
 	// プロパティだけを依存として記録するため、401 のときだけ触る書き方だと、ログイン
@@ -28,7 +36,8 @@ export const load: LayoutLoad = async ({ route, url }) => {
 		({ data, response } = await client.GET('/api/v1/auth/me'));
 	} catch {
 		// DB ダウン等でセッションは有効なままかもしれないため、
-		// 未ログイン扱いにして先へ進めるのは誤り。
+		// 未ログイン扱いにして先へ進めるのは誤り。前に読めた状態があればそれを使う。
+		if (lastUser !== undefined) return { user: lastUser };
 		error(503, GENERIC_ERROR_MESSAGE());
 	}
 
@@ -38,13 +47,16 @@ export const load: LayoutLoad = async ({ route, url }) => {
 		if (isProtectedRoute(routeId)) {
 			redirect(307, loginPathWithRedirect(resolve('login'), currentPath));
 		}
+		lastUser = null;
 		return { user: null };
 	}
 	if (!response.ok || !data) {
+		if (lastUser !== undefined && !response.ok) return { user: lastUser };
 		// error() は 400〜599 の範囲しか受け付けないため、response.ok (200番台) なのに
 		// data が無いという想定外のケースは 500 とする。
 		error(response.ok ? 500 : response.status, m.layout_me_fetch_failed());
 	}
 
+	lastUser = data;
 	return { user: data };
 };

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { videoSession } from '#lib/media-session.svelte.ts';
 	import { nowPlaying, REPEAT_MODES, type RepeatMode } from '#lib/now-playing.svelte.ts';
 	import * as m from '#lib/paraglide/messages.js';
 	import MediaSeekBar from '#lib/components/media-seek-bar.svelte';
@@ -122,7 +123,8 @@
 	$effect(() => {
 		if (!('mediaSession' in navigator)) return;
 		const session = navigator.mediaSession;
-		const track = nowPlaying.current;
+		// 動画を見ている間は受け口を外す (→ #lib/media-session.svelte.ts)。
+		const track = videoSession.open ? undefined : nowPlaying.current;
 		session.metadata = track ? new MediaMetadata({ title: track.title }) : null;
 		const handlers: [MediaSessionAction, MediaSessionActionHandler | null][] = [
 			['play', () => nowPlaying.resume()],
@@ -147,7 +149,7 @@
 
 	$effect(() => {
 		if (!('mediaSession' in navigator)) return;
-		if (!nowPlaying.current) {
+		if (!nowPlaying.current || videoSession.open) {
 			navigator.mediaSession.playbackState = 'none';
 			return;
 		}
