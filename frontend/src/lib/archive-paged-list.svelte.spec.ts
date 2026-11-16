@@ -49,16 +49,36 @@ describe('ArchivePagedList', () => {
 		expect(list.expired).toBe(true);
 
 		// 先頭の区切りの終わりまで並べた後。最後に並べたのは 500 番の行。
-		const renewed = await list.renewedFrom(ARCHIVE_CHUNK_SIZE, (row) => row.id);
+		const renewed = await list.renewedFrom(
+			ARCHIVE_CHUNK_SIZE,
+			{ id: ARCHIVE_CHUNK_SIZE },
+			(row) => row.id
+		);
 		expect(renewed?.list.snapshot).toBe('s2');
 		expect(renewed?.next).toBe(ARCHIVE_CHUNK_SIZE + 2);
 		expect(renewed?.list.get(renewed.next - 1)).toEqual({ id: ARCHIVE_CHUNK_SIZE });
+	});
+
+	it('shares one renewal between callers', async () => {
+		let renewals = 0;
+		const list = new ArchivePagedList<Row>(
+			firstOf(range(3), 's1'),
+			async () => ({ expired: true }),
+			undefined,
+			async () => {
+				renewals += 1;
+				return firstOf(range(3), `s${renewals + 1}`);
+			}
+		);
+		const [a, b] = await Promise.all([list.renewed(), list.renewed()]);
+		expect(renewals).toBe(1);
+		expect(a).toBe(b);
 	});
 
 	it('cannot renew a list without a way to fetch it again', async () => {
 		const list = new ArchivePagedList<Row>(firstOf(range(3), 's1'), async () => ({
 			expired: true
 		}));
-		expect(await list.renewedFrom(1, (row) => row.id)).toBeNull();
+		expect(await list.renewedFrom(1, { id: 1 }, (row) => row.id)).toBeNull();
 	});
 });

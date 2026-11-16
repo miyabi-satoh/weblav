@@ -69,6 +69,7 @@ export class ArchivePagedList<T> {
 	#fetch: ChunkFetch<T>;
 	#shuffle: ShuffleFetch<T> | undefined;
 	#renew: RenewFetch<T> | undefined;
+	#renewal: Promise<ArchivePagedList<T> | null> | undefined;
 
 	constructor(
 		first: FirstChunk<T>,
@@ -112,10 +113,25 @@ export class ArchivePagedList<T> {
 	}
 
 	/** 同じ条件で最初から取り直した一覧。取り直せない一覧か、取れなければ `null`。 */
-	async renewed(): Promise<ArchivePagedList<T> | null> {
-		if (!this.#renew) return null;
-		const first = await this.#renew();
-		return first ? new ArchivePagedList(first, this.#fetch, this.#shuffle, this.#renew) : null;
+	/**
+	 * 同じ条件で最初から取り直した一覧。取り直せない一覧か、取れなければ `null`。
+	 * 続けて鳴らす並びがいくつか同時に取り直しても、1つの一覧を使う (サーバーに使わない結果を溜めず、並びどうしの位置もずれない)。
+	 */
+	renewed(): Promise<ArchivePagedList<T> | null> {
+		const renew = this.#renew;
+		if (!renew) return Promise.resolve(null);
+		this.#renewal ??= renew().then(
+			(first) => {
+				// 取れなかったら、次に頼まれたときに取り直す。
+				if (!first) this.#renewal = undefined;
+				return first ? new ArchivePagedList(first, this.#fetch, this.#shuffle, renew) : null;
+			},
+			(error: unknown) => {
+				this.#renewal = undefined;
+				throw error;
+			}
+		);
+		return this.#renewal;
 	}
 
 	/** 混ぜた一覧の `index` 行目の、混ぜる前の一覧での位置。まだ取っていないか、混ぜた一覧でなければ `undefined`。 */
@@ -127,16 +143,16 @@ export class ArchivePagedList<T> {
 
 	/**
 	 * 結果が捨てられた後に、同じ条件で取り直した一覧と、`start` 行目から続けるときの新しい位置。
-	 * `start` の1つ前の行 (最後に並べた辺り) を新しい一覧で探し、その次から続ける。取り直す間にファイルが増えたり
+	 * 最後に並べた行 `anchor` (`start` より前) を新しい一覧で探し、その次から続ける。取り直す間にファイルが増えたり
 	 * 減ったりしても、同じ曲を繰り返したり飛ばしたりしないため。見つからなければ同じ位置から。取り直せなければ `null`。
 	 */
 	async renewedFrom(
 		start: number,
+		anchor: T | undefined,
 		idOf: (item: T) => unknown
 	): Promise<{ list: ArchivePagedList<T>; next: number } | null> {
 		const fresh = await this.renewed();
 		if (!fresh) return null;
-		const anchor = start > 0 ? this.get(start - 1) : undefined;
 		const near = Math.min(start - 1, fresh.total - 1);
 		if (anchor && near >= 0) {
 			// 前後の区切りも取る。行がずれて、隣の区切りへ移っていることがあるため。

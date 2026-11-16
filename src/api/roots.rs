@@ -1099,10 +1099,23 @@ impl From<PickFailure> for AppError {
 
 /// 開いている (か、最後に開いた) 窓。要求が打ち切られても、窓の結果を待ち直して受け取れるように、
 /// 次の窓を開くまで結果を残す (→ docs/folders.md「選び方」)。
-#[derive(Default)]
 pub struct RootPicks {
     last: std::sync::Mutex<Option<RootPick>>,
     next_id: std::sync::atomic::AtomicU64,
+}
+
+impl Default for RootPicks {
+    /// 番号は起動した時刻 (ミリ秒) から振る。起動し直す前の画面が待ち直しても、
+    /// 起動し直した後に開いた別の窓の結果を受け取らないため。
+    fn default() -> Self {
+        let start = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_millis() as u64);
+        Self {
+            last: std::sync::Mutex::default(),
+            next_id: std::sync::atomic::AtomicU64::new(start),
+        }
+    }
 }
 
 struct RootPick {

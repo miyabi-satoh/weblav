@@ -198,6 +198,9 @@
 			index
 	): () => Promise<Track[]> {
 		let next = from;
+		// 最後に並べた区切りの、最後の行。取り直した一覧で、どこから続けるかの目印にする。
+		let anchor: T | undefined;
+		let renewedAt: number | undefined;
 		return async () => {
 			while (next < ref.source.total) {
 				const start = next;
@@ -205,7 +208,13 @@
 				await ref.source.ensureLoaded(start, true);
 				// 聴いている間は一覧を使ったことにならないので、長く聴くと結果が捨てられる。同じ条件で取り直して続ける。
 				if (ref.source.expired) {
-					next = await renewFrom(ref, start);
+					// 取り直した直後にまた捨てられたなら、取り直し続けずに止める。
+					if (renewedAt === start) throw new Error('archive list expired again');
+					const renewed = await ref.source.renewedFrom(start, anchor, (item) => item.id);
+					if (!renewed) throw new Error('archive list expired');
+					ref.source = renewed.list;
+					next = renewed.next;
+					renewedAt = next;
 					continue;
 				}
 				// 取れなかった区切りは飛ばさない。投げると再生の側が今の並びの終わりで止め、次に曲を替えたときにまた試す。
@@ -215,6 +224,13 @@
 					ref.source.total
 				);
 				const source = ref.source;
+				for (let i = next - 1; i >= start; i--) {
+					const item = source.get(i);
+					if (item) {
+						anchor = item;
+						break;
+					}
+				}
 				const tracks = audioTracksBetween(source, start, next, (index) =>
 					positionOf(source, index)
 				);
@@ -222,14 +238,6 @@
 			}
 			return [];
 		};
-	}
-
-	/** 捨てられた一覧を同じ条件で取り直して差し替え、続ける行を返す (→ `ArchivePagedList.renewedFrom`)。 */
-	async function renewFrom(ref: ListRef, start: number): Promise<number> {
-		const renewed = await ref.source.renewedFrom(start, (item) => item.id);
-		if (!renewed) throw new Error('archive list expired');
-		ref.source = renewed.list;
-		return renewed.next;
 	}
 
 	/**
