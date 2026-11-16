@@ -525,7 +525,16 @@
 	"confirm_register_type_label": "Type",
 	"confirm_register_path_label": "Location",
 	"confirm_register_counting": "Counting files...",
-	"confirm_register_count": "files will be included",
+	"confirm_register_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "file will be included",
+				"countPlural=other": "files will be included"
+			}
+		}
+	],
 	"confirm_register_count_truncated": "or more files will be included",
 	"confirm_register_note_folder": "Check that nothing you want kept private is mixed in. You can leave things out with exclude patterns.",
 	"confirm_register_scope_folder_public": [
