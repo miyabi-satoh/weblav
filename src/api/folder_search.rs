@@ -188,12 +188,19 @@ pub(super) async fn search(
                 continue;
             }
             let folder_places = container_places(&folder.title, &folder.ancestors);
-            let (entries, cut) =
-                super::fs::walk_entries(&root.join(&folder.sub_path), FOLDER_WALK_LIMIT, &hidden);
+            // 範囲の階層は、実物の名前の綴りにしてから使う。渡された綴り (短い別名 `REPORT~1`・大文字小文字の違い) の
+            // まま照らすと、絞り込みのパターンが当たらず、外したフォルダーの中まで出るため。
+            let Ok(scope) = std::fs::canonicalize(root.join(&folder.sub_path)) else {
+                continue;
+            };
+            let Ok(sub_path) = super::fs::rel_of(&root, &scope) else {
+                continue;
+            };
+            let (entries, cut) = super::fs::walk_entries(&scope, FOLDER_WALK_LIMIT, &hidden);
             truncated |= cut;
             for mut entry in entries {
                 // 結果のパスは、階層の中からでなく、フォルダーの登録パスからの相対にする。
-                entry.rel_path = super::fs::join_rel(&folder.sub_path, &entry.rel_path);
+                entry.rel_path = super::fs::join_rel(&sub_path, &entry.rel_path);
                 let shown = if entry.is_dir {
                     filter.allows_dir(&entry.rel_path)
                 } else {

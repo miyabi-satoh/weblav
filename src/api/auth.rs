@@ -91,7 +91,11 @@ async fn login(
 ) -> Result<Json<UserResponse>, AppError> {
     // Argon2の検証はCPUバウンドなので、レートリミットは実際の検証(`authenticate`)より前に
     // 掛ける: 制限を超えた試行にはCPUコストを一切払わせない。
-    if !state.login_rate_limiter.try_acquire(&payload.username) {
+    let client = super::operations::current_client_ip();
+    if !state
+        .login_rate_limiter
+        .try_acquire(client.as_deref(), &payload.username)
+    {
         return Err(AppError::TooManyRequests);
     }
 
@@ -104,7 +108,9 @@ async fn login(
 
     // 認証に成功した試行はレートリミットの対象から外す。これが無いと、正しい
     // パスワードで短時間に何度もログインし直しただけの正当な利用者もロックされる。
-    state.login_rate_limiter.release(&payload.username);
+    state
+        .login_rate_limiter
+        .release(client.as_deref(), &payload.username);
 
     start_session(&session, user.id, &credential).await?;
     record_or_warn(&state.pool, &OpRecord::new(Op::Login, &user)).await;
@@ -116,7 +122,10 @@ async fn login(
 /// 打ち込まれた名前のユーザーがいれば、その人の操作として絞り込めるよう id も残す。
 /// ログインと同じく大文字と小文字を区別せずに探す (`auth::authenticate`)。区別すると、
 /// 大文字と小文字だけ違う名前で試されたものが、その人で絞り込んでも出ない。
+///
+/// 名前は長さを切り詰めて残す。ログインしていない人が長い名前を送り続けると、1 年残る記録とバックアップを太らせられるため。
 async fn record_failed_sign_in(state: &AppState, op: Op, username: &str, err: &AppError) {
+    let username = auth::truncate_username(username);
     let user_id = match sqlx::query_scalar!(
         r#"SELECT id as "id!" FROM users WHERE username = ? COLLATE NOCASE"#,
         username
@@ -314,9 +323,13 @@ async fn verify_current_password(
     current_password: String,
 ) -> Result<(), AppError> {
     // ログイン中でも、乗っ取ったセッションからの現在パスワードの総当たりを防ぐため
-    // ログインと同じレートリミッターを流用する(ユーザー名単位のキーが同じなので、
-    // ログイン試行とこのAPIの試行は同じ枠を共有する)。
-    if !state.login_rate_limiter.try_acquire(&user.username) {
+    // ログインと同じレートリミッターを流用する(端末とユーザー名のキーが同じなので、
+    // 同じ端末からのログイン試行とこのAPIの試行は同じ枠を共有する)。
+    let client = super::operations::current_client_ip();
+    if !state
+        .login_rate_limiter
+        .try_acquire(client.as_deref(), &user.username)
+    {
         return Err(AppError::TooManyRequests);
     }
 
@@ -335,7 +348,9 @@ async fn verify_current_password(
     if !ok {
         return Err(AppError::IncorrectCurrentPassword);
     }
-    state.login_rate_limiter.release(&user.username);
+    state
+        .login_rate_limiter
+        .release(client.as_deref(), &user.username);
     Ok(())
 }
 
@@ -399,7 +414,11 @@ async fn recover(
 
     // ログインと同じく、Argon2 の照合より前に絞る。ログインとは別の枠にして、
     // こちらを叩かれても管理者がログインできなくならないようにする。
-    if !state.recovery_rate_limiter.try_acquire(&payload.username) {
+    let client = super::operations::current_client_ip();
+    if !state
+        .recovery_rate_limiter
+        .try_acquire(client.as_deref(), &payload.username)
+    {
         return Err(AppError::TooManyRequests);
     }
     let verified =
@@ -409,7 +428,9 @@ async fn recover(
         record_failed_sign_in(&state, Op::Recover, &payload.username, &err).await;
         return Err(err);
     };
-    state.recovery_rate_limiter.release(&payload.username);
+    state
+        .recovery_rate_limiter
+        .release(client.as_deref(), &payload.username);
 
     let password_hash = auth::hash_password_blocking(&payload.new_password).await?;
     let (recovery_code, recovery_hash) = auth::new_recovery_code().await?;

@@ -72,6 +72,11 @@ enum Tier {
 /// ADR: あいまいに当てる語の長さの下限 (文字数)。1〜2文字で飛ばし打ちを効かせると、ほとんど何にでも当たるため。
 const FUZZY_MIN_CHARS: usize = 3;
 
+/// 検索語として読む長さの上限 (文字数)。ファイルやフォルダーの名前の上限 (どの OS でも 255 文字) と同じ。
+/// あいまいに当てる照合は語の長さに比例した表を先に確保する (1文字あたり約 4KB) ので、上限が無いと、
+/// ログインしていない人でも長い語 1 つで数百 MB を確保させられる。名前より長い語は、名前に当てても意味が無い。
+const MAX_QUERY_CHARS: usize = 255;
+
 /// ADR: 飛ばし打ちで、当たった文字の間に挟まってよい文字数の、語の長さに対する倍率。
 /// `frizbee` は間の広さを点数で下げるだけで外さないので、長い名前に散った文字 (`mugenp` が `admin_archive_..._desktop` に当たる) を外す。
 const FUZZY_MAX_GAPS_PER_CHAR: usize = 2;
@@ -231,6 +236,14 @@ fn substring_at(term: &[char], text: &[char]) -> Option<bool> {
     found
 }
 
+/// 検索語の、上限 (`MAX_QUERY_CHARS`) までの部分。それより後ろは読まない。
+fn limit_query(q: &str) -> &str {
+    match q.char_indices().nth(MAX_QUERY_CHARS) {
+        Some((end, _)) => &q[..end],
+        None => q,
+    }
+}
+
 #[derive(Debug, Deserialize, IntoParams)]
 struct SearchQuery {
     /// 検索語。空白で区切ると、どの語も含むものに絞る。
@@ -346,7 +359,7 @@ async fn search(
         .or_else(|| share_scope.as_ref().map(|scope| scope.title().to_owned()));
     let scope = scope.filter(|_| !query.all);
     let share_scope = share_scope.filter(|_| !query.all);
-    let Some(terms) = Terms::parse(&query.q) else {
+    let Some(terms) = Terms::parse(limit_query(&query.q)) else {
         return Ok(Json(SearchResponse::empty(scope_title)));
     };
     // 共有の中を範囲にしたときは、共有の中だけを探す。コンテンツの区画は共有の外にもあるため。
@@ -531,6 +544,13 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn limit_query_keeps_only_the_first_255_characters() {
+        let long = "あ".repeat(MAX_QUERY_CHARS + 10);
+        assert_eq!(limit_query(&long).chars().count(), MAX_QUERY_CHARS);
+        assert_eq!(limit_query("英検 2024"), "英検 2024");
+    }
 
     fn score(query: &str, fields: &[(FieldKind, &str)]) -> Option<Match> {
         let fields: Vec<(FieldKind, String)> = fields

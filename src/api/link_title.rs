@@ -729,6 +729,10 @@ fn decode_entities(text: &str) -> String {
         .replace("&amp;", "&")
 }
 
+/// 数値参照の `&#` の後ろで、`;` を探す長さ (バイト)。いちばん長い `x10FFFF;` が収まる。
+/// 区切らないと、`;` の無い `&#` が並ぶ細工したページで、`&#` ごとに残り全部を探して数十秒かかるため。
+const NUMERIC_REFERENCE_SPAN: usize = 8;
+
 /// `&#N;` と `&#xH;` を文字に戻す。文字にならない値は、そのまま残す。
 fn decode_numeric_references(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -736,13 +740,18 @@ fn decode_numeric_references(text: &str) -> String {
     while let Some(at) = rest.find("&#") {
         out.push_str(&rest[..at]);
         let after = &rest[at + 2..];
-        let decoded = after.split_once(';').and_then(|(digits, tail)| {
-            let code = match digits.strip_prefix(['x', 'X']) {
-                Some(hex) => u32::from_str_radix(hex, 16).ok()?,
-                None => digits.parse().ok()?,
-            };
-            Some((char::from_u32(code)?, tail))
-        });
+        let decoded = after
+            .bytes()
+            .take(NUMERIC_REFERENCE_SPAN)
+            .position(|byte| byte == b';')
+            .map(|end| (&after[..end], &after[end + 1..]))
+            .and_then(|(digits, tail)| {
+                let code = match digits.strip_prefix(['x', 'X']) {
+                    Some(hex) => u32::from_str_radix(hex, 16).ok()?,
+                    None => digits.parse().ok()?,
+                };
+                Some((char::from_u32(code)?, tail))
+            });
         match decoded {
             Some((ch, tail)) => {
                 out.push(ch);
@@ -945,6 +954,15 @@ mod tests {
             title_element(html).as_deref(),
             Some("Foo – Bar 「x」 &#xZZ; end")
         );
+    }
+
+    /// `;` の無い `&#` が並んでも、`&#` ごとに残り全部を探さない。探すと 2MB のページで数十秒かかる。
+    #[test]
+    fn many_unterminated_numeric_references_are_decoded_in_linear_time() {
+        let text = "&#1".repeat(500_000);
+        let started = std::time::Instant::now();
+        assert_eq!(decode_numeric_references(&text), text);
+        assert!(started.elapsed() < std::time::Duration::from_secs(1));
     }
 
     #[test]

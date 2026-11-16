@@ -233,6 +233,51 @@ async fn search_within_a_folder_level_walks_only_below_it(pool: SqlitePool) {
     assert_eq!(found["scopeTitle"], "リスニング教材", "{found}");
 }
 
+/// 範囲の階層を大文字小文字の違う綴りで渡しても、外したフォルダーの中は出さない (名前の大文字小文字を区別しない OS)。
+/// 渡された綴りのまま照らすと、絞り込みのパターンが当たらないため。
+#[cfg(any(windows, target_os = "macos"))]
+#[sqlx::test]
+async fn search_within_a_differently_cased_level_still_applies_exclusions(pool: SqlitePool) {
+    let dir = temp_test_dir("search-scope-case");
+    std::fs::create_dir_all(dir.join("Report/secret")).expect("ディレクトリを作れなかった");
+    std::fs::write(dir.join("Report/secret/リスニング.pdf"), b"").expect("ファイルを作れなかった");
+    std::fs::write(dir.join("Report/リスニング.pdf"), b"").expect("ファイルを作れなかった");
+    let folder_id = insert_folder_by(
+        &pool,
+        "リスニング教材",
+        dir.display().to_string(),
+        "public",
+        None,
+        None,
+    )
+    .await;
+    sqlx::query!(
+        "UPDATE contents SET exclude_patterns = 'Report/secret/' WHERE id = ?",
+        folder_id
+    )
+    .execute(&pool)
+    .await
+    .expect("パターンを書けなかった");
+    let app = test_app(pool).await;
+
+    let (status, body) = send_anon(
+        app,
+        "GET",
+        &search_uri("リスニング", &format!("within={folder_id}&path=report")),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let found = parse_json(&body);
+    let paths: Vec<&str> = found["files"]
+        .as_array()
+        .expect("files は配列")
+        .iter()
+        .map(|hit| hit["path"].as_str().expect("path は文字列"))
+        .collect();
+    assert_eq!(paths, vec!["Report/リスニング.pdf"], "{found}");
+}
+
 /// 範囲の場所を開けなければ、その画面と同じく 401/404 にする。
 /// 範囲にできる種類と階層の形は `src/api/contents.rs` の単体テストで場合ごとに見る。
 #[sqlx::test]
