@@ -101,6 +101,8 @@ windows = { version = "0.62.2", features = [
     "Win32_Foundation",
     "Win32_Storage_Packaging_Appx",
     "Win32_System_Console",
+    # Store の更新の後に起動し直してもらう (→ src/tray/login_item.rs)。
+    "Win32_System_Recovery",
     "Win32_Globalization",
     "Win32_UI_WindowsAndMessaging",
     # OS が作る縮小画像 (→ src/os_thumbnail/windows.rs)。

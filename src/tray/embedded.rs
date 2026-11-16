@@ -34,6 +34,8 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
     // タスクトレイ常駐モード。ターミナルから起動された場合でもそのターミナルは
     // 巻き込まず、このプロセスだけをコンソールから切り離す。
     detach_console();
+    #[cfg(windows)]
+    login_item::register_restart_after_update();
 
     let addr = server.addr;
     let configured = server.configured;
