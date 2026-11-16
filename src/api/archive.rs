@@ -608,7 +608,7 @@ fn read_items(
                 } else {
                     let name = super::fs::rel_file_name(&rel_path);
                     let (preview, taken_at) =
-                        super::thumbnails::scan_preview(name, &path, metadata.len());
+                        super::thumbnails::scan_preview(name, &path, &metadata);
                     Some(ScannedFile {
                         size,
                         modified_ns,
