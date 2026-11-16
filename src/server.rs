@@ -309,10 +309,7 @@ fn bind(
         });
     }
     tracing::warn!(%addr, err = %first_err, "the configured port is unavailable; trying the next ports");
-    for offset in 1..=PORT_FALLBACK_ATTEMPTS {
-        let Some(port) = addr.port().checked_add(offset) else {
-            break;
-        };
+    for port in fallback_ports(addr.port()) {
         let next = SocketAddr::new(addr.ip(), port);
         match TcpListener::bind(next) {
             Ok(listener) => return Ok(listener),
@@ -329,6 +326,14 @@ fn bind(
         addr,
         source: first_err,
     })
+}
+
+/// 設定のポートが使えないときに試す、上の番号。ブラウザーが断るポートは飛ばす。
+/// 待ち受けられても、トレイの「開く」やほかの端末からは開けないため。
+fn fallback_ports(port: u16) -> impl Iterator<Item = u16> {
+    (1..=PORT_FALLBACK_ATTEMPTS)
+        .map_while(move |offset| port.checked_add(offset))
+        .filter(|port| !crate::api::server_settings::BROWSER_BLOCKED_PORTS.contains(port))
 }
 
 /// ほかの番号なら待ち受けられる見込みのある失敗か。使用中のほか、Windows では
@@ -645,6 +650,14 @@ mod tests {
             message.contains(&source.to_string()),
             "本文に OS のエラーが無い: {message}"
         );
+    }
+
+    #[test]
+    fn fallback_ports_skip_ports_that_browsers_refuse() {
+        let ports: Vec<u16> = fallback_ports(5998).collect();
+        assert_eq!(ports.first(), Some(&5999));
+        assert!(!ports.contains(&6000), "{ports:?}");
+        assert_eq!(fallback_ports(u16::MAX - 1).collect::<Vec<_>>(), [u16::MAX]);
     }
 
     /// `TryNext` では、設定のポートが使えなければ上の番号で待ち受ける。
