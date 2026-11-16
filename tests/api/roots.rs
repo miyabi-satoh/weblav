@@ -257,13 +257,25 @@ async fn picking_a_root_returns_the_chosen_path(pool: SqlitePool) {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(
-        body,
-        format!(
-            r#"{{"path":{}}}"#,
-            json_string(&canonical_path_as_api_returns_it(&dir))
-        )
+    let picked_body = format!(
+        r#"{{"id":1,"open":false,"path":{}}}"#,
+        json_string(&canonical_path_as_api_returns_it(&dir))
     );
+    assert_eq!(body, picked_body);
+    // 要求が打ち切られた後に待ち直しても、同じ結果を受け取れる。
+    let (status, body) = send(
+        app.clone(),
+        roots_request("GET", &format!("{ROOTS_PICK_URI}/1"), &cookie, None),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body, picked_body);
+    let (status, body) = send(
+        app.clone(),
+        roots_request("GET", &format!("{ROOTS_PICK_URI}/2"), &cookie, None),
+    )
+    .await;
+    assert_error(status, &body, StatusCode::NOT_FOUND, "not_found");
     let (_, list) = send(app, roots_request("GET", ROOTS_URI, &cookie, None)).await;
     assert!(
         !list.contains(&json_string(&canonical_path_as_api_returns_it(&dir))),
@@ -282,7 +294,7 @@ async fn picking_a_root_returns_the_chosen_path(pool: SqlitePool) {
     let cookie = login(app.clone(), "admin-alice", "correct-password").await;
     let (status, body) = send(app, roots_request("POST", ROOTS_PICK_URI, &cookie, None)).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body, r#"{"path":null}"#);
+    assert_eq!(body, r#"{"id":1,"open":false,"path":null}"#);
 }
 
 /// macOS では、窓で選んだフォルダーのブックマークを残す (→ docs/distribution.md「ビルド・配布の方法」)。

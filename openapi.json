@@ -661,11 +661,11 @@
     "/api/v1/admin/roots/pick": {
       "post": {
         "summary": "サーバーの PC に OS 標準のフォルダー選択の窓を出し、選ばれたパスを返す (→ docs/folders.md「選び方」)。",
-        "description": "窓は同時に1つだけ。要求した側が待つのをやめても、窓が閉じるまでは開いている扱いにする\n(番は `run_blocking` の中で持つ。ハンドラが drop されても、ブロッキングの処理は最後まで走る)。",
+        "description": "窓は同時に1つだけ。要求した側が待つのをやめても、窓が閉じるまでは開いている扱いにする\n(番は窓を開いた処理が持つ。ハンドラが drop されても、窓の処理は最後まで走る)。\n窓が閉じるのを待つのは `PICK_WAIT` まで。閉じなければ `open` で返し、続きは `wait_root_pick` で待つ。",
         "operationId": "pick_root",
         "responses": {
           "200": {
-            "description": "選ばれたパス。キャンセルなら null",
+            "description": "選ばれたパス (キャンセルなら null)。窓がまだ開いていれば open",
             "content": {
               "application/json": {
                 "schema": {
@@ -706,6 +706,67 @@
           },
           "409": {
             "description": "窓がもう開いている",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/roots/pick/{id}": {
+      "get": {
+        "summary": "`pick_root` で開いた窓が閉じるのを、続けて待つ。窓が閉じた後に来ても、同じ結果を返す。",
+        "operationId": "wait_root_pick",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "`pick_root` が返した窓の番号",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "選ばれたパス (キャンセルなら null)。窓がまだ開いていれば open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PickRootResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外・パスワードの確かめ直しが要る",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "サーバーのPC以外からの要求・その番号の窓が無い (次の窓を開いた・起動し直した)",
             "content": {
               "application/json": {
                 "schema": {
@@ -9356,7 +9417,21 @@
       },
       "PickRootResponse": {
         "type": "object",
+        "required": [
+          "id",
+          "open"
+        ],
         "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "この窓の番号。`open` のあいだは、`GET /admin/roots/pick/{id}` で続けて待つ。",
+            "minimum": 0
+          },
+          "open": {
+            "type": "boolean",
+            "description": "窓がまだ開いているか。開いていれば `path` は `null`。"
+          },
           "path": {
             "type": [
               "string",

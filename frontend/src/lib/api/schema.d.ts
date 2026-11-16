@@ -181,9 +181,27 @@ export interface paths {
         /**
          * サーバーの PC に OS 標準のフォルダー選択の窓を出し、選ばれたパスを返す (→ docs/folders.md「選び方」)。
          * @description 窓は同時に1つだけ。要求した側が待つのをやめても、窓が閉じるまでは開いている扱いにする
-         *     (番は `run_blocking` の中で持つ。ハンドラが drop されても、ブロッキングの処理は最後まで走る)。
+         *     (番は窓を開いた処理が持つ。ハンドラが drop されても、窓の処理は最後まで走る)。
+         *     窓が閉じるのを待つのは `PICK_WAIT` まで。閉じなければ `open` で返し、続きは `wait_root_pick` で待つ。
          */
         post: operations["pick_root"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/roots/pick/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** `pick_root` で開いた窓が閉じるのを、続けて待つ。窓が閉じた後に来ても、同じ結果を返す。 */
+        get: operations["wait_root_pick"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2777,6 +2795,13 @@ export interface components {
         };
         PickRootResponse: {
             /**
+             * Format: int64
+             * @description この窓の番号。`open` のあいだは、`GET /admin/roots/pick/{id}` で続けて待つ。
+             */
+            id: number;
+            /** @description 窓がまだ開いているか。開いていれば `path` は `null`。 */
+            open: boolean;
+            /**
              * @description 選ばれたフォルダーの絶対パス。キャンセルされたら `null`。登録はしていないので、
              *     登録するには `POST /admin/roots` へそのまま渡す。
              */
@@ -4007,7 +4032,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 選ばれたパス。キャンセルなら null */
+            /** @description 選ばれたパス (キャンセルなら null)。窓がまだ開いていれば open */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -4045,6 +4070,56 @@ export interface operations {
             };
             /** @description 窓がもう開いている */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    wait_root_pick: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description `pick_root` が返した窓の番号 */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 選ばれたパス (キャンセルなら null)。窓がまだ開いていれば open */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PickRootResponse"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外・パスワードの確かめ直しが要る */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description サーバーのPC以外からの要求・その番号の窓が無い (次の窓を開いた・起動し直した) */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
