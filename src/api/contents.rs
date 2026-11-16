@@ -2110,7 +2110,7 @@ pub(super) fn folder_entry(name: String, path: &FsPath) -> Option<FolderEntry> {
     let is_dir = metadata.is_dir();
     let size = (!is_dir).then_some(metadata.len());
     let modified_at = modified_at_millis(&metadata);
-    let preview = size.map(|size| super::thumbnails::file_preview(&name, path, size));
+    let preview = (!is_dir).then(|| super::thumbnails::file_preview(&name, path, &metadata));
     Some(FolderEntry {
         name,
         is_dir,
@@ -2368,10 +2368,12 @@ async fn with_previews(
         targets
             .into_iter()
             .map(|(index, path, file_name)| {
-                let size = std::fs::metadata(&path)
-                    .map(|metadata| metadata.len())
-                    .unwrap_or_default();
-                let preview = super::thumbnails::file_preview(&file_name, &path, size);
+                let metadata = std::fs::metadata(&path).ok();
+                let size = metadata.as_ref().map_or(0, |metadata| metadata.len());
+                let preview = match &metadata {
+                    Some(metadata) => super::thumbnails::file_preview(&file_name, &path, metadata),
+                    None => super::thumbnails::unread_preview(&file_name),
+                };
                 (index, size, preview)
             })
             .collect::<Vec<_>>()
