@@ -51,3 +51,7 @@ expiry_days = 14
 [upload]
 # 共有へアップロードするファイル1つあたりの最大サイズ(MiB)。書かなければ上限なし。
 # max_size_mb = 100
+
+[tray]
+# 管理者がまだいないときに、起動したらブラウザーでセットアップの画面を開く。
+# open_setup_on_launch = true

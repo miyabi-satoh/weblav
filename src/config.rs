@@ -304,6 +304,23 @@ impl UploadConfig {
     }
 }
 
+/// タスクトレイの設定 (→ `tray`)。
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct TrayConfig {
+    /// 管理者がまだいないときに、起動したらセットアップの画面を開くか (→ docs/access.md「初回セットアップ」)。
+    /// 切れるのは、配る形のアプリを何度も起動する自動の確認 (`e2e/`) が、そのたびにブラウザーを開かないようにするため。
+    pub open_setup_on_launch: bool,
+}
+
+impl Default for TrayConfig {
+    fn default() -> Self {
+        Self {
+            open_setup_on_launch: true,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
@@ -311,6 +328,7 @@ pub struct Config {
     pub log: LogConfig,
     pub session: SessionConfig,
     pub upload: UploadConfig,
+    pub tray: TrayConfig,
 }
 
 impl Config {

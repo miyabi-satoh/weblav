@@ -124,7 +124,7 @@ export async function launch(pkg, { fresh = true, port = PORT } = {}) {
 	// 作ると、Local が作られず、データが回されずに実際の %LOCALAPPDATA% に書かれた (Windows 11 の実機で確かめた)。両方を作っておく
 	await fs.mkdir(path.dirname(path.dirname(path.dirname(dirs.data))), { recursive: true });
 	await fs.mkdir(dirs.config, { recursive: true });
-	await fs.writeFile(path.join(dirs.config, 'config.toml'), `[server]\nport = ${port}\n`);
+	await fs.writeFile(path.join(dirs.config, 'config.toml'), `[server]\nport = ${port}\n\n[tray]\nopen_setup_on_launch = false\n`);
 	await fs.rm(path.join(dirs.data, 'weblav.addr'), { force: true });
 	// パッケージに入れない版 (開発中の exe) が前に書いたものと見分けるため、起動の前からあるものを除いて見る
 	const existedBefore = new Set();

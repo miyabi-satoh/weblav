@@ -39,6 +39,7 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
 
     let addr = server.addr;
     let configured = server.configured;
+    let open_setup_on_launch = server.open_setup_on_launch;
     let mut server = Some(server);
 
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
@@ -58,7 +59,7 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
     let poll_addr = open_addr(addr);
     let proxy = event_loop.create_proxy();
     std::thread::spawn(move || {
-        let mut launched = true;
+        let mut launched = open_setup_on_launch;
         loop {
             let required = setup::required(poll_addr, POLL_TIMEOUT);
             // 入れた直後に起動しても窓は出ず、Windows 11 は新しいアイコンを「^」の中に隠すので、

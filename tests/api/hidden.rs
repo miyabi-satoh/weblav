@@ -190,12 +190,25 @@ async fn a_folder_hidden_by_attribute_cannot_be_reached_by_its_path(pool: Sqlite
     register_root(&pool, &share_path).await;
     let inner = share_path.join("AppData").join("Roaming");
     std::fs::create_dir_all(&inner).expect("フォルダーを作れなかった");
-    let status = std::process::Command::new("attrib")
+    // attrib は `\\?\` の付いたパスを見つけられず、それでも 0 で終わるので、付けずに渡し、付いたかを読んで確かめる。
+    let hidden_dir = canonical_path_as_api_returns_it(&share_path.join("AppData"));
+    std::process::Command::new("attrib")
         .arg("+h")
-        .arg(share_path.join("AppData"))
+        .arg(&hidden_dir)
         .status()
         .expect("attrib を動かせなかった");
-    assert!(status.success());
+    {
+        use std::os::windows::fs::MetadataExt;
+        const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
+        let attributes = std::fs::metadata(&hidden_dir)
+            .expect("属性を読めなかった")
+            .file_attributes();
+        assert_ne!(
+            attributes & FILE_ATTRIBUTE_HIDDEN,
+            0,
+            "隠し属性が付いていない"
+        );
+    }
     let inner = canonical_path_as_api_returns_it(&inner);
 
     let app = test_app(pool.clone()).await;
