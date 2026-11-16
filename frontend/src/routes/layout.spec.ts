@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 const { get } = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock('#lib/api/client.ts', () => ({ client: { GET: get } }));
 vi.mock('$app/paths', () => ({ resolve: (path: string) => `/${path}` }));
+// 文言の表は数百のモジュールに分かれていて、ほかのテストと並んで走ると、`vi.resetModules()` の後に
+// 読み直すだけでテストの時間切れを越えることがある。ここで確かめるのは文言でなく戻り方なので、置き換える。
+vi.mock('#lib/paraglide/messages.js', () => ({ layout_me_fetch_failed: () => 'me fetch failed' }));
+vi.mock('#lib/api/errors.ts', () => ({ GENERIC_ERROR_MESSAGE: () => 'generic error' }));
 
 const user = { username: 'alice' };
 
