@@ -128,9 +128,11 @@ fn digit_run(chars: &[char], from: usize) -> (&[char], usize) {
 
 /// 先頭の0を除いた数字同士を比べる。桁数が多い方が大きく、同じ桁数なら半角にした文字の順。
 fn compare_digits(a: &[char], b: &[char]) -> Ordering {
-    a.len()
-        .cmp(&b.len())
-        .then_with(|| a.iter().map(|&c| ascii_digit(c)).cmp(b.iter().map(|&c| ascii_digit(c))))
+    a.len().cmp(&b.len()).then_with(|| {
+        a.iter()
+            .map(|&c| ascii_digit(c))
+            .cmp(b.iter().map(|&c| ascii_digit(c)))
+    })
 }
 
 #[cfg(test)]
