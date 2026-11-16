@@ -1,12 +1,12 @@
 //! 中身が手元に無く、読むとクラウドから取ってくるファイル (OneDrive の「オンラインのみ」など) の判定
 //! (→ docs/ui.md「画像のプレビュー」)。
 
-use std::path::Path;
+use std::fs::Metadata;
 
-/// `path` の中身が手元に無く、読むとクラウドから取ってくるファイルか。属性を見るだけで中身は読まないので、
-/// これを確かめてもダウンロードは始まらない。
+/// `metadata` のファイルの中身が手元に無く、読むとクラウドから取ってくるか。属性を見るだけなので、
+/// メタデータを読んでもダウンロードは始まらない。
 #[cfg(windows)]
-pub(super) fn is_online_only(path: &Path) -> bool {
+pub(super) fn is_online_only(metadata: &Metadata) -> bool {
     use std::os::windows::fs::MetadataExt;
     use windows::Win32::Storage::FileSystem::{
         FILE_ATTRIBUTE_OFFLINE, FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS, FILE_ATTRIBUTE_RECALL_ON_OPEN,
@@ -16,11 +16,11 @@ pub(super) fn is_online_only(path: &Path) -> bool {
     const NOT_LOCAL: u32 = FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS.0
         | FILE_ATTRIBUTE_RECALL_ON_OPEN.0
         | FILE_ATTRIBUTE_OFFLINE.0;
-    std::fs::metadata(path).is_ok_and(|metadata| metadata.file_attributes() & NOT_LOCAL != 0)
+    metadata.file_attributes() & NOT_LOCAL != 0
 }
 
 #[cfg(not(windows))]
-pub(super) fn is_online_only(_path: &Path) -> bool {
+pub(super) fn is_online_only(_metadata: &Metadata) -> bool {
     false
 }
 
@@ -74,13 +74,23 @@ pub(super) mod placeholders {
     /// 同期のフォルダーの登録は、同時に行うと「要素が見つかりません」で失敗することがあるので、1つずつにする。
     static REGISTRATION: Mutex<()> = Mutex::new(());
 
+    /// 登録したフォルダー。途中で失敗して `SyncRoot` ができなかったときも、drop で登録を外す。
+    struct Registered(HSTRING);
+
+    impl Drop for Registered {
+        fn drop(&mut self) {
+            let _ = unsafe { CfUnregisterSyncRoot(&self.0) };
+        }
+    }
+
+    /// フィールドは並び順に drop される。つなぎを切った後に登録を外し、フォルダーを消してから、
+    /// 次のテストに登録を譲る。
     pub(in crate::api) struct SyncRoot {
-        _registration: MutexGuard<'static, ()>,
         key: CF_CONNECTION_KEY,
-        root: HSTRING,
         provider: Box<Provider>,
-        // 登録を外した後に消すので、最後に置く (フィールドは並び順に drop される)。
+        registered: Registered,
         dir: TempDir,
+        _registration: MutexGuard<'static, ()>,
     }
 
     impl SyncRoot {
@@ -121,6 +131,7 @@ pub(super) mod placeholders {
             };
             unsafe { CfRegisterSyncRoot(&root, &registration, &policies, CF_REGISTER_FLAG_NONE) }
                 .expect("同期のフォルダーを登録できなかった");
+            let registered = Registered(root);
             let provider = Box::new(Provider {
                 files: files
                     .iter()
@@ -131,7 +142,7 @@ pub(super) mod placeholders {
             let context: *const Provider = &*provider;
             let key = unsafe {
                 CfConnectSyncRoot(
-                    &root,
+                    &registered.0,
                     CALLBACKS.as_ptr(),
                     Some(context.cast::<c_void>()),
                     CF_CONNECT_FLAG_NONE,
@@ -139,11 +150,11 @@ pub(super) mod placeholders {
             }
             .expect("同期のフォルダーにつなげなかった");
             let sync_root = Self {
-                _registration: registration_lock,
                 key,
-                root,
                 provider,
+                registered,
                 dir,
+                _registration: registration_lock,
             };
             sync_root.create_placeholders();
             sync_root
@@ -177,8 +188,10 @@ pub(super) mod placeholders {
                     ..Default::default()
                 })
                 .collect();
-            unsafe { CfCreatePlaceholders(&self.root, &mut infos, CF_CREATE_FLAG_NONE, None) }
-                .expect("中身の無いファイルを作れなかった");
+            unsafe {
+                CfCreatePlaceholders(&self.registered.0, &mut infos, CF_CREATE_FLAG_NONE, None)
+            }
+            .expect("中身の無いファイルを作れなかった");
             for info in &infos {
                 info.Result.ok().expect("中身の無いファイルを作れなかった");
             }
@@ -196,10 +209,7 @@ pub(super) mod placeholders {
 
     impl Drop for SyncRoot {
         fn drop(&mut self) {
-            unsafe {
-                let _ = CfDisconnectSyncRoot(self.key);
-                let _ = CfUnregisterSyncRoot(&self.root);
-            }
+            let _ = unsafe { CfDisconnectSyncRoot(self.key) };
         }
     }
 
@@ -259,13 +269,15 @@ mod tests {
     fn reading_an_online_only_file_downloads_it() {
         let root = SyncRoot::new("cloud-read", &[("a.txt", b"hello")]);
         let path = root.path().join("a.txt");
-        assert!(is_online_only(&path));
+        assert!(is_online_only(
+            &std::fs::metadata(&path).expect("メタデータを読めなかった")
+        ));
         assert_eq!(root.fetches(), 0, "置いただけで中身を取りに来た");
 
         assert_eq!(std::fs::read(&path).expect("読めなかった"), b"hello");
         assert!(root.fetches() > 0, "読んでも中身を取りに来なかった");
         assert!(
-            !is_online_only(&path),
+            !is_online_only(&std::fs::metadata(&path).expect("メタデータを読めなかった")),
             "読んだ後も手元に無いままになっている"
         );
     }
@@ -275,6 +287,8 @@ mod tests {
         let dir = crate::test_support::TempDir::new("cloud-local");
         let path = dir.path().join("a.txt");
         std::fs::write(&path, b"hello").expect("書けなかった");
-        assert!(!is_online_only(&path));
+        assert!(!is_online_only(
+            &std::fs::metadata(&path).expect("メタデータを読めなかった")
+        ));
     }
 }

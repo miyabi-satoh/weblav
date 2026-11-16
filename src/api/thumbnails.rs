@@ -4,7 +4,7 @@
 //! - 一覧の行に出す縮小画像 (`thumbnail_response`)。作ったものは `Thumbnails::dir` に置いて使い回す。
 //!   画像でないファイル (動画・PDF など) は OS に作らせる (`crate::os_thumbnail`)。
 
-use std::fs::File;
+use std::fs::{File, Metadata};
 use std::io::{BufRead, BufReader, Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -82,13 +82,14 @@ pub(super) struct FilePreview {
     pub(super) thumbnail: bool,
 }
 
-/// ファイル `name` (中身は `path`、大きさは `size`) のプレビューの情報。
+/// ファイル `name` (中身は `path`、メタデータは `metadata`) のプレビューの情報。
 /// 種類は `name` の拡張子で決める。
 /// ブロッキング I/O なので `run_blocking` の中から呼ぶ。
-pub(super) fn file_preview(name: &str, path: &Path, size: u64) -> FilePreview {
-    if super::cloud_files::is_online_only(path) {
+pub(super) fn file_preview(name: &str, path: &Path, metadata: &Metadata) -> FilePreview {
+    if super::cloud_files::is_online_only(metadata) {
         return unread_preview(name);
     }
+    let size = metadata.len();
     let image = is_image_file_name(name)
         .then(|| read_image_size(path))
         .flatten();
@@ -102,10 +103,15 @@ pub(super) fn file_preview(name: &str, path: &Path, size: u64) -> FilePreview {
 /// スキャンで残す、プレビューの情報と写真の撮影日 (EXIF、Unix 秒)。撮影日は日付の軸が使う
 /// (→ docs/archive.md「軸の定義」)。大きさと同じ先頭のバイトから読み、ファイルを二度読まない。
 /// ブロッキング I/O なので `run_blocking` の中から呼ぶ。
-pub(super) fn scan_preview(name: &str, path: &Path, size: u64) -> (FilePreview, Option<i64>) {
-    if super::cloud_files::is_online_only(path) {
+pub(super) fn scan_preview(
+    name: &str,
+    path: &Path,
+    metadata: &Metadata,
+) -> (FilePreview, Option<i64>) {
+    if super::cloud_files::is_online_only(metadata) {
         return (unread_preview(name), None);
     }
+    let size = metadata.len();
     let (image, taken_at) = if is_image_file_name(name) {
         read_image_header(path)
     } else {
@@ -122,7 +128,8 @@ pub(super) fn scan_preview(name: &str, path: &Path, size: u64) -> (FilePreview, 
 /// 中身が手元に無いファイル (OneDrive の「オンラインのみ」など) のプレビューの情報。読むとダウンロードが
 /// 始まるので、中身は読まず、大きさの分からない画像・テキストでないファイルとして扱う。
 /// OS の縮小画像は、OS が中身を取りに行かずに返せる分だけ出るので、そのまま頼む。
-fn unread_preview(name: &str) -> FilePreview {
+/// メタデータを読めなかったファイルも、中身を読まずにこれで扱う。
+pub(super) fn unread_preview(name: &str) -> FilePreview {
     FilePreview {
         image: None,
         is_text: false,
@@ -417,6 +424,15 @@ fn create_and_store(
     source: &Path,
     file_name: &str,
 ) -> Result<Option<(Vec<u8>, ThumbnailFormat)>, AppError> {
+    // 中身が手元に無い画像は、読むとダウンロードが始まるので作らない。作れなかったとは覚えず、
+    // 手元に戻った後に見たときに作る。一覧は大きさを返さないので行に出さないが、前に手元で読んだ
+    // 大きさを残しているアーカイブは、行から頼むことがある。
+    if is_image_file_name(file_name)
+        && std::fs::metadata(source)
+            .is_ok_and(|metadata| super::cloud_files::is_online_only(&metadata))
+    {
+        return Ok(None);
+    }
     match create_thumbnail(source, file_name) {
         Ok((bytes, format)) => {
             store(&cache_path(dir, key, format.extension()), key, &bytes)?;
@@ -646,6 +662,11 @@ mod tests {
         assert!(!is_image_file_name("jpg"));
     }
 
+    fn preview_of(name: &str, path: &Path) -> FilePreview {
+        let metadata = std::fs::metadata(path).expect("failed to stat file");
+        file_preview(name, path, &metadata)
+    }
+
     #[test]
     fn file_preview_reads_png_dimensions_and_shows_a_thumbnail() {
         let dir = temp_dir("thumbnails-size");
@@ -653,8 +674,7 @@ mod tests {
         RgbImage::new(300, 100)
             .save(&path)
             .expect("failed to write png");
-        let size = std::fs::metadata(&path).expect("failed to stat png").len();
-        let preview = file_preview("wide.png", &path, size);
+        let preview = preview_of("wide.png", &path);
         assert_eq!(
             preview.image,
             Some(ImageSize {
@@ -671,12 +691,12 @@ mod tests {
         let dir = temp_dir("thumbnails-not-image");
         let path = dir.join("broken.jpg");
         std::fs::write(&path, b"not an image").expect("failed to write file");
-        let broken = file_preview("broken.jpg", &path, 12);
+        let broken = preview_of("broken.jpg", &path);
         assert_eq!(broken.image, None);
         assert!(!broken.thumbnail);
         let pdf = dir.join("doc.pdf");
         std::fs::write(&pdf, b"%PDF-1.4").expect("failed to write file");
-        assert_eq!(file_preview("doc.pdf", &pdf, 8).image, None);
+        assert_eq!(preview_of("doc.pdf", &pdf).image, None);
     }
 
     /// OneDrive の「オンラインのみ」のファイルは、一覧のプレビューのために読むと全部ダウンロードされるので読まない。
@@ -697,17 +717,24 @@ mod tests {
         );
         let path = |name: &str| root.path().join(name);
 
-        let image = file_preview("wide.png", &path("wide.png"), png.len() as u64);
+        let image = preview_of("wide.png", &path("wide.png"));
         assert_eq!(image.image, None);
         assert!(!image.thumbnail);
-        let (scanned, taken_at) = scan_preview("wide.png", &path("wide.png"), png.len() as u64);
+        let metadata = std::fs::metadata(path("wide.png")).expect("failed to stat file");
+        let (scanned, taken_at) = scan_preview("wide.png", &path("wide.png"), &metadata);
         assert_eq!(scanned.image, None);
         assert_eq!(taken_at, None);
-        assert!(!file_preview("notes.txt", &path("notes.txt"), 5).is_text);
+        assert!(!preview_of("notes.txt", &path("notes.txt")).is_text);
         // OS の縮小画像の候補は残す。OS は中身を取りに行かずに返せる分だけ返す。
-        let video = file_preview("clip.mp4", &path("clip.mp4"), png.len() as u64);
+        let video = preview_of("clip.mp4", &path("clip.mp4"));
         assert_eq!(video.thumbnail, crate::os_thumbnail::SUPPORTED);
         let _ = crate::os_thumbnail::thumbnail(&path("clip.mp4"), "clip.mp4", 128);
+        // 前に手元で読んだ大きさを残すアーカイブは、行から縮小画像を頼むことがある。作らず、作れなかったとも覚えない。
+        let cache = temp_dir("thumbnails-online-only-cache");
+        let created = create_and_store(&cache, "key", &path("wide.png"), "wide.png")
+            .expect("failed to store");
+        assert!(created.is_none());
+        assert!(!cache_path(&cache, "key", UNAVAILABLE_EXTENSION).exists());
 
         assert_eq!(root.fetches(), 0, "プレビューのために中身を取りに来た");
     }
