@@ -767,8 +767,14 @@ fn normalize_axis_values(
     let mut seen = HashSet::new();
     let mut rows = Vec::with_capacity(values.len());
     for (position, entry) in values.into_iter().enumerate() {
-        let raw_value =
-            super::validate::trimmed_non_empty(&entry.raw_value, "value must not be empty")?;
+        // 階層と日付の軸の生の値は、フォルダーの名前・導いた値とそのまま照らすので、前後の空白も落とさない。
+        // 落とすと、前後に空白のある名前のフォルダーに表示名や並び順を付けられないため。
+        let raw_value = if source == AxisSource::FilenameWord {
+            super::validate::trimmed_non_empty(&entry.raw_value, "value must not be empty")?
+        } else {
+            super::validate::non_empty(&entry.raw_value, "value must not be empty")?;
+            entry.raw_value
+        };
         if !seen.insert(raw_value.clone()) {
             return Err(AppError::Validation(format!(
                 "duplicate value '{raw_value}'"
@@ -869,23 +875,24 @@ async fn preview_axis_values(
     )
     .fetch_all(&state.pool)
     .await?;
-    // 導出の例に、パターンで外れるファイルを出さない (→ docs/archive.md「見せるアイテム」)。
-    let mut items: Vec<(AxisValuesPreviewItem, Option<i64>)> = rows
-        .into_iter()
-        .filter(|row| filter.allows_file(&row.rel_path))
-        .map(|row| {
-            let dated_at = super::archive::dated_at(row.taken_at, row.modified_ns);
-            let item = AxisValuesPreviewItem {
-                id: row.id,
-                rel_path: row.rel_path,
-            };
-            (item, dated_at)
-        })
-        .collect();
-    // 例を `rel_path` の昇順で取るため、先に並べておく。
-    items.sort_unstable_by(|a, b| a.0.rel_path.cmp(&b.0.rel_path));
-    // 非同期のワーカーを塞がない (→ docs/archive.md「軸の設定を助ける表示」)。
+    // 絞り込み・導出・並べ替えも含めて件数に比例して重いので、非同期のワーカーを塞がない
+    // (→ docs/archive.md「軸の設定を助ける表示」)。
     let response = run_blocking(move || {
+        // 導出の例に、パターンで外れるファイルを出さない (→ docs/archive.md「見せるアイテム」)。
+        let mut items: Vec<(AxisValuesPreviewItem, Option<i64>)> = rows
+            .into_iter()
+            .filter(|row| filter.allows_file(&row.rel_path))
+            .map(|row| {
+                let dated_at = super::archive::dated_at(row.taken_at, row.modified_ns);
+                let item = AxisValuesPreviewItem {
+                    id: row.id,
+                    rel_path: row.rel_path,
+                };
+                (item, dated_at)
+            })
+            .collect();
+        // 例を `rel_path` の昇順で取るため、先に並べておく。
+        items.sort_unstable_by(|a, b| a.0.rel_path.cmp(&b.0.rel_path));
         let item_count = items.len();
         let mut unset_examples = Vec::new();
         let mut unset = 0;
@@ -1080,10 +1087,10 @@ async fn preview_import_axes(
     .fetch_one(&state.pool)
     .await?;
     let mut rel_paths = super::archive::load_item_facts(&state.pool, id).await?;
-    rel_paths.sort_unstable();
 
-    // 件数に比例して重くなるので、非同期のワーカーを塞がない。
+    // 並べ替えも含めて件数に比例して重くなるので、非同期のワーカーを塞がない。
     let response = run_blocking(move || {
+        rel_paths.sort_unstable();
         let item_count = rel_paths.len();
         let mut counts = vec![0usize; index.len()];
         // 全体から間を空けて、ちょうど上限の件数を選ぶ (画面のプロンプトのパスの選び方と同じ)。
@@ -1333,6 +1340,19 @@ mod tests {
             let result = normalize_axis_values(AxisSource::FilenameWord, values(raw_values));
             assert!(is_validation(&result), "{raw_values:?}");
         }
+    }
+
+    /// 階層の軸の生の値は前後の空白を落とさない。`2024` と ` 2024` の両方のフォルダーがあっても保存できる。
+    #[test]
+    fn normalize_axis_values_keeps_surrounding_spaces_of_dir_level_values() {
+        let rows = normalize_axis_values(AxisSource::DirLevel, values(&["2024", " 2024", "2025 "]))
+            .expect("通るはず");
+        let got: Vec<_> = rows.iter().map(|row| row.raw_value.as_str()).collect();
+        assert_eq!(got, vec!["2024", " 2024", "2025 "]);
+        assert!(is_validation(&normalize_axis_values(
+            AxisSource::DirLevel,
+            values(&[""])
+        )));
     }
 
     /// 照合語の行数の上限はファイル名の語の軸だけに掛ける。

@@ -29,6 +29,9 @@ argon2 = "0.6.0"
 async-trait = "0.1.92"
 axum = { version = "0.8.9", features = ["multipart"] }
 base64 = "0.23.1"
+# 日付の軸で、ファイルの更新日を PC の時間帯の年月にする (→ src/api/archive.rs の `dated_at`)。
+# time の local-offset は新しい依存を足すので、trash が同じ版と同じ機能を既に引いている chrono を使う。
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 directories = "6.0.0"
 frizbee = "0.13.0"
 # 共有の中へコピー・移動・アップロードする前に、置き先の空きを確かめる (→ src/api/shares/fsops.rs)。

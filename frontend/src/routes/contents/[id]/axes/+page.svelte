@@ -19,7 +19,7 @@
 	import { LatestRequest } from '#lib/latest-request.ts';
 	import { moveItem } from '#lib/reorder.ts';
 	import { SORTABLE_FLIP_DURATION_MS, SortableZone } from '#lib/sortable-zone.svelte.ts';
-	import { columnFromLgClass, columnFromSmClass, dragHandleClass } from '#lib/table-columns.ts';
+	import { columnFromSmClass, dragHandleClass } from '#lib/table-columns.ts';
 	import { byPosition } from '#lib/sort.ts';
 	import { axisSourceLabel } from '#lib/axis-labels.ts';
 	import * as m from '#lib/paraglide/messages.js';
@@ -588,6 +588,14 @@
 		}
 	});
 
+	// 並べ替えの上下ボタンは、lg より狭い幅ではキーボードで移ってきた間だけ見せる (→ docs/ui.md「UI 全般」)。
+	// 隠す間も読み上げとキーボードからは届くよう、hidden でなく sr-only にする。
+	// 値の辞書の表は列ごと出し入れしないと列がずれるので、表のどこかのボタンにフォーカスがある間は列全体を見せる。
+	const axisMoveButtonsClass =
+		'max-lg:sr-only max-lg:group-has-[[data-move]:focus-visible]/axis-moves:not-sr-only';
+	const valueMoveColumnClass =
+		'max-lg:sr-only max-lg:group-has-[[data-move]:focus-visible]/value-moves:not-sr-only';
+
 	/**
 	 * 上下ボタンで行を動かした後のフォーカス。端に着くと押したボタンが disabled になり
 	 * フォーカスが外れるので、動かした行の同じ向きのボタン、押せなければ逆向きのボタンへ戻す。
@@ -1072,7 +1080,11 @@
 			{#if sortedAxes.length === 0}
 				<p class="text-sm text-muted-foreground">{m.archive_axes_empty()}</p>
 			{:else}
-				<div bind:this={axisList} {@attach axisZone.zone} class="flex flex-col gap-2">
+				<div
+					bind:this={axisList}
+					{@attach axisZone.zone}
+					class="group/axis-moves flex flex-col gap-2"
+				>
 					{#each axisZone.entries as entry, index (entry.id)}
 						{@const axis = entry.item}
 						<!-- 上下のアイコンボタンは押せる範囲を四方に 6px 広げているので、隣と重ならないよう
@@ -1099,29 +1111,30 @@
 									<p class="text-xs text-muted-foreground">{m.archive_axes_not_filterable()}</p>
 								{/if}
 							</button>
-							<!-- 上下ボタンは lg 以上だけ。狭い幅はつまみに譲る (→ docs/ui.md「UI 全般」)。 -->
-							<Button
-								variant="ghost"
-								size="icon"
-								class="hidden lg:inline-flex"
-								data-move="up"
-								disabled={index === 0 || axisBusy}
-								aria-label={m.archive_axes_move_up({ name: axis.name })}
-								onclick={() => moveAxis(index, -1)}
-							>
-								<ChevronUpIcon class="size-4" />
-							</Button>
-							<Button
-								variant="ghost"
-								size="icon"
-								class="hidden lg:inline-flex"
-								data-move="down"
-								disabled={index === sortedAxes.length - 1 || axisBusy}
-								aria-label={m.archive_axes_move_down({ name: axis.name })}
-								onclick={() => moveAxis(index, 1)}
-							>
-								<ChevronDownIcon class="size-4" />
-							</Button>
+							<!-- 上下ボタンは、lg より狭い幅ではキーボードで移ってきたときだけ見せる。狭い幅は行の幅をつまみに譲る
+								     (→ docs/ui.md「UI 全般」)。 -->
+							<div class={['flex gap-3', axisMoveButtonsClass]}>
+								<Button
+									variant="ghost"
+									size="icon"
+									data-move="up"
+									disabled={index === 0 || axisBusy}
+									aria-label={m.archive_axes_move_up({ name: axis.name })}
+									onclick={() => moveAxis(index, -1)}
+								>
+									<ChevronUpIcon class="size-4" />
+								</Button>
+								<Button
+									variant="ghost"
+									size="icon"
+									data-move="down"
+									disabled={index === sortedAxes.length - 1 || axisBusy}
+									aria-label={m.archive_axes_move_down({ name: axis.name })}
+									onclick={() => moveAxis(index, 1)}
+								>
+									<ChevronDownIcon class="size-4" />
+								</Button>
+							</div>
 							<Button
 								variant="outline"
 								size="sm"
@@ -1263,7 +1276,7 @@
 							{:else if axisValueRows.length === 0}
 								<p class="text-sm text-muted-foreground">{m.archive_axes_values_empty()}</p>
 							{:else}
-								<Table.Root>
+								<Table.Root class="group/value-moves">
 									<Table.Header>
 										<Table.Row>
 											<Table.Head class="w-10"></Table.Head>
@@ -1280,8 +1293,7 @@
 												>
 											{/if}
 											<Table.Head>{m.archive_axes_values_column_display()}</Table.Head>
-											<!-- 上下ボタンの列は lg 以上だけ。狭い幅はつまみに譲る (→ docs/ui.md「UI 全般」)。 -->
-											<Table.Head class={['w-24', columnFromLgClass]}></Table.Head>
+											<Table.Head class={['w-24', valueMoveColumnClass]}></Table.Head>
 											{#if axis.source === 'filenameWord'}
 												<Table.Head class="w-10"></Table.Head>
 											{/if}
@@ -1345,7 +1357,7 @@
 														disabled={axisStructureBusy}
 													/>
 												</Table.Cell>
-												<Table.Cell class={['py-0', columnFromLgClass]}>
+												<Table.Cell class={['py-0', valueMoveColumnClass]}>
 													<!-- 押せる範囲を四方に 6px 広げているので、隣と重ならないよう間隔を 12px 取る
 														     (→ docs/ui.md「UI 全般」。軸の一覧の上下ボタンと同じ)。 -->
 													<div class="flex justify-end gap-3">

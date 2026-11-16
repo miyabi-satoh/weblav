@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { WindowVirtualizer } from 'virtua/svelte';
+	import { tick } from 'svelte';
+	import { WindowVirtualizer, type WindowVirtualizerHandle } from 'virtua/svelte';
 	import { client } from '#lib/api/client.ts';
 	import type { components } from '#lib/api/schema.js';
 	import { excludedChunks } from '#lib/archive-list-request.ts';
@@ -57,7 +58,29 @@
 		const current = list;
 		return () => current.dispose();
 	});
-	let indexes = $derived(Array.from({ length: list.total }, (_, index) => index));
+	// 要素の高さには上限があり (Firefox で約1,790万 px)、40万行ほどで最後まで届かなくなるので、
+	// 一覧の表示と同じく10万行ごとにページを分ける (→ docs/archive.md「画面が見える辺りを取りに行く」)。
+	const PAGE_ROWS = 100_000;
+	let pageCount = $derived(Math.max(1, Math.ceil(list.total / PAGE_ROWS)));
+	let page = $state(0);
+	// 取り直して今のページが無くなったら、最後のページにする。
+	$effect(() => {
+		if (page >= pageCount) page = pageCount - 1;
+	});
+	let indexes = $derived(
+		Array.from(
+			{ length: Math.max(0, Math.min(PAGE_ROWS, list.total - page * PAGE_ROWS)) },
+			(_, i) => page * PAGE_ROWS + i
+		)
+	);
+	let virtualizer = $state<WindowVirtualizerHandle | undefined>();
+
+	/** ページを移り、その先頭から見せる。下のボタンで移ったときに、新しいページの途中から始まらないように。 */
+	async function goToPage(next: number) {
+		page = next;
+		await tick();
+		virtualizer?.scrollToIndex(0);
+	}
 
 	$effect(() => {
 		if (list.expired) void named.refresh();
@@ -103,30 +126,59 @@
 		{:else if view.total === 0}
 			<ListFilterEmpty />
 		{:else}
+			{#if pageCount > 1}{@render pageNav()}{/if}
 			<div role="list" class="border-t border-divider bg-background">
-				<WindowVirtualizer data={indexes} getKey={(index) => index}>
-					{#snippet children(index)}
-						{@const item = list.get(index)}
-						<div
-							role="listitem"
-							aria-setsize={list.total}
-							aria-posinset={index + 1}
-							class="border-b border-divider"
-						>
-							{#if item}
-								<p class="flex min-h-11 items-center px-4 py-2 text-sm wrap-anywhere md:px-6">
-									<span><FilterHighlight text={item.relPath} /></span>
-								</p>
-							{:else}
-								<ArchiveRowPlaceholder {list} {index} missing={item === null} />
-							{/if}
-						</div>
-					{/snippet}
-				</WindowVirtualizer>
+				<!-- ページが変わると行がすべて変わるので、測った高さを捨てて作り直す。 -->
+				{#key page}
+					<WindowVirtualizer bind:this={virtualizer} data={indexes} getKey={(index) => index}>
+						{#snippet children(index)}
+							{@const item = list.get(index)}
+							<div
+								role="listitem"
+								aria-setsize={list.total}
+								aria-posinset={index + 1}
+								class="border-b border-divider"
+							>
+								{#if item}
+									<p class="flex min-h-11 items-center px-4 py-2 text-sm wrap-anywhere md:px-6">
+										<span><FilterHighlight text={item.relPath} /></span>
+									</p>
+								{:else}
+									<ArchiveRowPlaceholder {list} {index} missing={item === null} />
+								{/if}
+							</div>
+						{/snippet}
+					</WindowVirtualizer>
+				{/key}
 			</div>
+			{#if pageCount > 1}{@render pageNav()}{/if}
 		{/if}
 	</div>
 </div>
+
+{#snippet pageNav()}
+	<div class="flex flex-wrap items-center justify-center gap-3 py-4">
+		<Button
+			type="button"
+			variant="outline"
+			disabled={page === 0}
+			onclick={() => void goToPage(page - 1)}
+		>
+			{m.archive_view_previous_page({ count: formatNumber(PAGE_ROWS) })}
+		</Button>
+		<span class="text-sm text-muted-foreground">
+			{m.archive_view_page_position({ page: page + 1, pages: pageCount })}
+		</span>
+		<Button
+			type="button"
+			variant="outline"
+			disabled={page >= pageCount - 1}
+			onclick={() => void goToPage(page + 1)}
+		>
+			{m.archive_view_next_page({ count: formatNumber(PAGE_ROWS) })}
+		</Button>
+	</div>
+{/snippet}
 
 <PatternAddDialog
 	bind:open={patternDialogOpen}
