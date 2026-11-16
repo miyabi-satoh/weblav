@@ -64,7 +64,7 @@ The version appears under “About WebLAV” at the bottom of the “Site settin
 ## Uninstall
 
 - **Windows**: Uninstall WebLAV from Settings > Apps.
-- **macOS**: Turn off “Start at login”, quit WebLAV, then move `WebLAV.app` to the Trash.
+- **macOS**: Turn off “Start at login” (on macOS 12 or earlier, remove WebLAV from Login Items), quit WebLAV, then move `WebLAV.app` to the Trash.
 
 Files inside shares are not deleted.
 

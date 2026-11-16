@@ -21,6 +21,7 @@ After you start WebLAV once, it starts automatically when you sign in. To stop t
 2. When asked whether to allow incoming network connections, select “Allow”.
 
 To start automatically, turn on “Start at login” from the WebLAV icon in the menu bar. If “Start at login (allow it in System Settings)” appears, select it, then turn on WebLAV in “Login Items”.
+“Start at login” appears on macOS 13 or later. On macOS 12 or earlier, add WebLAV in System Preferences > Users & Groups > Login Items.
 
 ### Ubuntu
 
