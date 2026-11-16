@@ -87,7 +87,8 @@ pub(super) mod placeholders {
     /// 次のテストに登録を譲る。
     pub(in crate::api) struct SyncRoot {
         key: CF_CONNECTION_KEY,
-        // OS が呼び出しのたびに生のポインターで読むので、動かしても別名の規則に触れない `Arc` で持つ。
+        // OS に渡したポインターが `SyncRoot` を動かしても変わらないよう、ヒープに置く。持ち主はここだけ。
+        // `Box` は動かすと中を指す生のポインターを無効とみなされうるので、`Arc` にする。
         provider: Arc<Provider>,
         registered: Registered,
         dir: TempDir,
