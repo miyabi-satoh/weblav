@@ -486,11 +486,20 @@ fn decode_image(source: &Path) -> Option<DynamicImage> {
 
 /// メモリの上限を付けて読み、写真の向き (Exif) を直す。
 pub(super) fn decode(source: impl BufRead + Seek) -> Option<DynamicImage> {
+    decode_within(source, DECODE_MAX_ALLOC)
+}
+
+fn decode_within(source: impl BufRead + Seek, max_alloc: u64) -> Option<DynamicImage> {
     let mut reader = ImageReader::new(source).with_guessed_format().ok()?;
     let mut limits = Limits::default();
-    limits.max_alloc = Some(DECODE_MAX_ALLOC);
+    limits.max_alloc = Some(max_alloc);
     reader.limits(limits);
     let mut decoder = reader.into_decoder().ok()?;
+    // FIX: `into_decoder` の後の `from_decoder` は、画像全体のバッファーを確保する前に上限を確かめない
+    // (確かめるのは `ImageReader::decode` だけ。image 0.25.10)。向きを読むためにこの読み方をしているので、ここで断る。
+    if decoder.total_bytes() > max_alloc {
+        return None;
+    }
     let orientation = decoder.orientation().unwrap_or(Orientation::NoTransforms);
     let mut image = DynamicImage::from_decoder(decoder).ok()?;
     image.apply_orientation(orientation);
@@ -533,6 +542,18 @@ fn fill_square(image: &DynamicImage, side: u32, anchor: CropAnchor) -> DynamicIm
 mod tests {
     use super::*;
     use image::{Rgb, RgbImage, Rgba, RgbaImage};
+
+    /// 画像全体が上限を超えるなら、確保する前に断ってアイコンのままにする。
+    #[test]
+    fn decode_refuses_an_image_larger_than_the_limit() {
+        let mut png = Vec::new();
+        RgbaImage::new(100, 100)
+            .write_to(&mut std::io::Cursor::new(&mut png), ImageFormat::Png)
+            .expect("PNG を作れなかった");
+
+        assert!(decode_within(std::io::Cursor::new(&png), 100 * 100 * 4 - 1).is_none());
+        assert!(decode_within(std::io::Cursor::new(&png), 100 * 100 * 4).is_some());
+    }
 
     /// 撮影日時 (`DateTimeOriginal`) だけを持つ EXIF の APP1 を付けた、JPEG の頭。
     fn jpeg_head_with_taken_at(taken_at: &str) -> Vec<u8> {
