@@ -3,12 +3,22 @@
 // 画面の文言や見た目を変えたら流し直す。名前を渡すと、その画像だけを撮る (`just manual-shots roots-page`)。
 // 既定は日本語と英語の両方を撮る。`--lang=en` のように渡すと、その言語だけを撮る。
 //
-// ここに無い画像 (タスクトレイ・OS の窓・ほかの閲覧側の画面など) は手で撮っている。
+// ここに無い画像 (タスクトレイ・OS の窓) は手で撮っている。
 // 撮れるものを足すときは、名前を ADMIN_SHOTS などの一覧に足し、下の撮影の流れに `want('名前')` で足す。
 // 画面の文言は frontend/messages の訳から引き、写すデータ (フォルダー名など) は SAMPLE で言語ごとに持つ。
 // 日本語のデータは元の画像に写っていた名前に合わせてある。
 
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	readdirSync,
+	realpathSync,
+	rmSync,
+	utimesSync,
+	writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -42,7 +52,7 @@ import {
 } from '../e2e/helpers.ts';
 import { insertTestAdmin, startBackend, type Backend } from './backend-process.ts';
 import { withQuery } from '../src/lib/href.ts';
-import { gotoReady, waitForPageReady } from './shots.ts';
+import { gotoReady, waitForPageReady, waitForThumbnails } from './shots.ts';
 import { silentWav } from './silent-wav.ts';
 import { TEST_ADMIN } from './test-account.ts';
 
@@ -82,6 +92,16 @@ const SAMPLE = {
 		notice: '今月の予定',
 		/** ホームの一覧の画像の下端にする行。並びは言語で変わるので、言語ごとに決める。 */
 		homeLastRow: '書類',
+		noticePdf: 'お知らせ.pdf',
+		noticeLines: [
+			'お知らせ',
+			'来月の予定をお知らせします。',
+			'詳しくは担当までお問い合わせください。'
+		],
+		introGroup: 'よく見るサイト',
+		introMaterials: '資料',
+		introTrack: '朝の散歩.wav',
+		introPhotos: ['夕焼けの海', '夜の街', '山の朝', '湖と森', '花畑', '雪の日'],
 		groupExample: '学校の資料',
 		year: '年度',
 		round: '回',
@@ -115,6 +135,23 @@ const SAMPLE = {
 		linkTitle: 'Weather forecast',
 		notice: "This month's schedule",
 		homeLastRow: 'Travel memories',
+		noticePdf: 'Notice.pdf',
+		noticeLines: [
+			'Notice',
+			"Here is next month's schedule.",
+			'For details, contact the person in charge.'
+		],
+		introGroup: 'Favorite sites',
+		introMaterials: 'Materials',
+		introTrack: 'Morning walk.wav',
+		introPhotos: [
+			'Sunset sea',
+			'Night city',
+			'Mountain morning',
+			'Lake and forest',
+			'Flower field',
+			'Snowy day'
+		],
 		groupExample: 'School materials',
 		year: 'Year',
 		round: 'Session',
@@ -214,12 +251,15 @@ const ADMIN_SHOTS = [
 	'header-login',
 	'header-language',
 	'header-theme',
-	'login'
+	'login',
+	'viewing-viewer'
 ];
 /** 管理者がまだいない backend で撮るもの。 */
 const SETUP_SHOTS = ['quickstart-setup'];
 const DIAGRAM_SHOTS = ['how-it-works'];
-const ALL_SHOTS = [...ADMIN_SHOTS, ...SETUP_SHOTS, ...DIAGRAM_SHOTS];
+/** 別のデータで撮る、はじめにの画像 (3つの画面を並べたもの)。 */
+const INTRO_SHOTS = ['intro-overview'];
+const ALL_SHOTS = [...ADMIN_SHOTS, ...SETUP_SHOTS, ...DIAGRAM_SHOTS, ...INTRO_SHOTS];
 /** コンテンツを追加の画面を順に進めて撮るもの。 */
 const FOLDER_SHOTS = [
 	'quickstart-add-folder',
@@ -255,6 +295,15 @@ const MOBILE_WIDTH = 450;
 const PLAYER_WIDTH = 390;
 /** プレイヤーに写す曲の長さ (秒)。元の画像の 6:12 に合わせる。 */
 const PLAYER_TRACK_SECONDS = 372;
+/** スマートフォンの画面の高さ。ブラウザーのアドレスの欄などを除いた、ページが見える高さ。 */
+const PHONE_HEIGHT = 724;
+/** ビューアーの画像に写す高さ。上の操作と、左右の前後のボタンまで。 */
+const VIEWER_SHOT_HEIGHT = 470;
+/** はじめにの画像で鳴らす曲の長さ (秒)。 */
+const INTRO_TRACK_SECONDS = 150;
+/** はじめにの画像の一覧に出る更新日。撮るたびに変わらないよう固定する。 */
+const INTRO_MTIME = new Date('2026-10-21T09:00:00+09:00');
+const INTRO_HTML = path.join(import.meta.dirname, 'manual-shots/intro-overview.html');
 /** 欄が画面の下にはみ出さない高さ。はみ出すと clip の外が切れる。 */
 const VIEWPORT_HEIGHT = 2400;
 /** WebP の品質。1枚あたり数十 KB に収まり、文字が滲まない (→ docs/help.md)。 */
@@ -313,10 +362,10 @@ async function newPage(
 	backend: Backend,
 	width: number,
 	sharedPath?: string,
-	{ anonymous = false } = {}
+	{ anonymous = false, height = VIEWPORT_HEIGHT } = {}
 ): Promise<Page> {
 	const context = await browser.newContext({
-		viewport: { width, height: VIEWPORT_HEIGHT },
+		viewport: { width, height },
 		deviceScaleFactor: 2, // 画面は2倍で撮る (→ docs/help.md)
 		baseURL: backend.baseURL,
 		locale: data().browserLang
@@ -1130,6 +1179,34 @@ async function shootAdmin() {
 			await anon.context().close();
 		}
 
+		if (want('viewing-viewer')) {
+			// PDF のビューアー。前後に移るボタンが出るよう、同じフォルダーにもう1つ置く。
+			const documents = path.join(shared, data().documents);
+			writeFileSync(path.join(documents, data().noticePdf), await makePdf(data().noticeLines));
+			const second = path.join(documents, `${data().notice}.pdf`);
+			if (!existsSync(second)) writeFileSync(second, await makePdf([data().notice]));
+			const phone = await newPage(backend, PLAYER_WIDTH, undefined, { height: PHONE_HEIGHT });
+			await gotoReady(phone, `/folders/${folderIds.get(data().documents)}`);
+			await phone.getByText(data().noticePdf, { exact: true }).click();
+			// PDF.js が1ページ目を描き終えるのを待つ。
+			await phone.waitForFunction(() =>
+				[...document.querySelectorAll('canvas')].some(
+					(canvas) => (canvas as HTMLCanvasElement).width > 0
+				)
+			);
+			await phone.waitForTimeout(500);
+			await phone.mouse.move(1, 1);
+			await save(
+				phone,
+				'viewing-viewer',
+				await phone.screenshot({
+					animations: 'disabled',
+					clip: { x: 0, y: 0, width: PLAYER_WIDTH, height: VIEWER_SHOT_HEIGHT }
+				})
+			);
+			await phone.context().close();
+		}
+
 		if (want('archive-values')) {
 			// 英語の語 (`main`・`notes`) で分ける例 (→ 07-archive-setup.md)。録音の画像を変えないよう、別のライブラリにする。
 			const english = path.join(shared, data().english);
@@ -1228,6 +1305,280 @@ async function shootSetup() {
 	}
 }
 
+/** 文の行を並べた PDF。ブラウザーの印刷で作るので、日本語の書体を埋め込める。 */
+async function makePdf(lines: string[], { scale = 1 } = {}): Promise<Buffer> {
+	const context = await browser.newContext();
+	const page = await context.newPage();
+	const [title, ...body] = lines;
+	await page.setContent(
+		`<html lang="${lang}"><body style="font-family: sans-serif; padding: 24px">` +
+			`<h1 style="font-size: ${28 * scale}px">${title}</h1>` +
+			body.map((line) => `<p style="font-size: ${14 * scale}px">${line}</p>`).join('') +
+			'</body></html>'
+	);
+	const pdf = await page.pdf({ format: 'A4' });
+	await context.close();
+	return pdf;
+}
+
+/** はじめにの画像に写す写真。風景をキャンバスで描き、JPEG にして返す。順は SAMPLE の introPhotos と同じ。 */
+async function makePhotos(): Promise<Buffer[]> {
+	const context = await browser.newContext();
+	const page = await context.newPage();
+	const photos = await page.evaluate(() => {
+		const draw: ((c: CanvasRenderingContext2D, w: number, h: number) => void)[] = [
+			// 夕焼けの海
+			(c, w, h) => {
+				const sky = c.createLinearGradient(0, 0, 0, h / 2);
+				sky.addColorStop(0, '#f6875c');
+				sky.addColorStop(1, '#fbd38a');
+				c.fillStyle = sky;
+				c.fillRect(0, 0, w, h / 2);
+				c.fillStyle = '#fbe7a6';
+				c.beginPath();
+				c.arc(w / 2, h / 2, h / 10, Math.PI, 0);
+				c.fill();
+				const sea = c.createLinearGradient(0, h / 2, 0, h);
+				sea.addColorStop(0, '#6f7fa8');
+				sea.addColorStop(1, '#40557f');
+				c.fillStyle = sea;
+				c.fillRect(0, h / 2, w, h / 2);
+				c.fillStyle = '#fbe7a6';
+				for (let i = 0; i < 14; i++) {
+					const half = (h / 10) * (1 - i / 16);
+					c.fillRect(w / 2 - half, h / 2 + 12 + i * 14, half * 2, 4);
+				}
+			},
+			// 夜の街
+			(c, w, h) => {
+				c.fillStyle = '#141a33';
+				c.fillRect(0, 0, w, h);
+				for (let x = 0; x < w; x += 90) {
+					const top = h * (0.35 + ((x * 7) % 30) / 100);
+					c.fillStyle = '#232a44';
+					c.fillRect(x, top, 80, h - top);
+					c.fillStyle = '#f2d27a';
+					for (let y = top + 16; y < h - 10; y += 28)
+						for (let wx = x + 10; wx < x + 70; wx += 20)
+							if ((wx * 3 + y * 5) % 7 < 3) c.fillRect(wx, y, 8, 12);
+				}
+			},
+			// 山の朝
+			(c, w, h) => {
+				const sky = c.createLinearGradient(0, 0, 0, h);
+				sky.addColorStop(0, '#bfe0f2');
+				sky.addColorStop(1, '#eef6f2');
+				c.fillStyle = sky;
+				c.fillRect(0, 0, w, h);
+				c.fillStyle = '#7f95a3';
+				c.beginPath();
+				c.moveTo(0, h * 0.8);
+				c.lineTo(w * 0.45, h * 0.3);
+				c.lineTo(w, h * 0.75);
+				c.lineTo(w, h);
+				c.lineTo(0, h);
+				c.fill();
+				c.fillStyle = '#6a9a6b';
+				c.fillRect(0, h * 0.82, w, h * 0.18);
+			},
+			// 湖と森
+			(c, w, h) => {
+				c.fillStyle = '#cfe7f1';
+				c.fillRect(0, 0, w, h * 0.45);
+				c.fillStyle = '#2f6a45';
+				for (let x = 0; x < w; x += 40) {
+					c.beginPath();
+					c.moveTo(x, h * 0.6);
+					c.lineTo(x + 20, h * 0.3);
+					c.lineTo(x + 40, h * 0.6);
+					c.fill();
+				}
+				c.fillRect(0, h * 0.55, w, h * 0.1);
+				c.fillStyle = '#4e86a8';
+				c.fillRect(0, h * 0.65, w, h * 0.35);
+			},
+			// 花畑
+			(c, w, h) => {
+				c.fillStyle = '#cde9f7';
+				c.fillRect(0, 0, w, h * 0.4);
+				c.fillStyle = '#6cae5a';
+				c.fillRect(0, h * 0.4, w, h * 0.6);
+				const colors = ['#f2b8c6', '#f6e27a', '#ffffff', '#e98a8a'];
+				for (let i = 0; i < 400; i++) {
+					c.fillStyle = colors[i % colors.length];
+					const x = (i * 97) % w;
+					const y = h * 0.45 + ((i * 53) % (h * 0.55));
+					c.beginPath();
+					c.arc(x, y, 6, 0, Math.PI * 2);
+					c.fill();
+				}
+			},
+			// 雪の日
+			(c, w, h) => {
+				c.fillStyle = '#d9dee3';
+				c.fillRect(0, 0, w, h);
+				c.fillStyle = '#ffffff';
+				c.fillRect(0, h * 0.65, w, h * 0.35);
+				c.fillStyle = '#7b8792';
+				for (let x = 60; x < w; x += 180) {
+					c.beginPath();
+					c.moveTo(x, h * 0.68);
+					c.lineTo(x + 40, h * 0.35);
+					c.lineTo(x + 80, h * 0.68);
+					c.fill();
+				}
+			}
+		];
+		return draw.map((paint) => {
+			const canvas = document.createElement('canvas');
+			canvas.width = 1200;
+			canvas.height = 800;
+			paint(canvas.getContext('2d')!, canvas.width, canvas.height);
+			return canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+		});
+	});
+	await context.close();
+	return photos.map((photo) => Buffer.from(photo, 'base64'));
+}
+
+/** 音の鳴る WAV。プレイヤーの音の形の表示が動くよう、いくつかの高さの音を重ねる。 */
+function toneWav(seconds: number): Buffer {
+	const wav = silentWav(seconds);
+	for (let i = 44; i < wav.length; i++) {
+		const t = (i - 44) / 8000;
+		const v =
+			Math.sin(2 * Math.PI * 220 * t) +
+			0.6 * Math.sin(2 * Math.PI * 440 * t) +
+			0.3 * Math.sin(2 * Math.PI * 660 * t);
+		wav[i] = 128 + Math.round(v * 40);
+	}
+	return wav;
+}
+
+/** `dir` の中の全部の更新日を `mtime` にする。一覧に出る日付を、撮るたびに変えないため。 */
+function setMtimes(dir: string, mtime: Date) {
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		const entryPath = path.join(dir, entry.name);
+		if (entry.isDirectory()) setMtimes(entryPath, mtime);
+		utimesSync(entryPath, mtime, mtime);
+	}
+}
+
+/**
+ * はじめにの画像。ホーム・写真のフォルダー・写真を開いたところの3つを、音声を鳴らしたまま撮り、
+ * スマートフォンの枠に入れて並べる (intro-overview.html)。ほかの画像と混ざらないよう、別のデータで撮る。
+ */
+async function shootIntro() {
+	if (!want('intro-overview')) return;
+	const d = data();
+	const base = mkdtempSync(path.join(tmpdir(), 'weblav-manual-shots-intro-'));
+	tempDirs.push(base);
+	const shared = path.join(base, d.school);
+	const photosDir = path.join(shared, d.photos);
+	mkdirSync(photosDir, { recursive: true });
+	for (const [i, photo] of (await makePhotos()).entries())
+		writeFileSync(path.join(photosDir, `${d.introPhotos[i]}.jpg`), photo);
+	mkdirSync(path.join(shared, d.introMaterials));
+	const notice = path.join(shared, d.introMaterials, `${d.notice}.pdf`);
+	// 一覧の行に縮小画像が出るので、小さくしても文書と分かるよう大きな字で書く。
+	writeFileSync(notice, await makePdf(d.noticeLines, { scale: 4 }));
+	mkdirSync(path.join(shared, d.music));
+	writeFileSync(path.join(shared, d.music, d.introTrack), toneWav(INTRO_TRACK_SECONDS));
+	setMtimes(shared, INTRO_MTIME);
+	const sharedPath = realpathSync(shared);
+
+	const backend = await startWithAdmin();
+	try {
+		const admin = await newPage(backend, DESKTOP_WIDTH);
+		await send(admin.request, 'post', '/admin/roots', { path: sharedPath });
+		const ids = new Map<string, number>();
+		for (const title of [d.photos, d.introMaterials, d.music]) {
+			const folder = (await send(admin.request, 'post', '/contents', {
+				type: 'folder',
+				path: path.join(sharedPath, title),
+				visibility: 'public'
+			})) as { id: number };
+			ids.set(title, folder.id);
+		}
+		await send(admin.request, 'post', '/contents', {
+			type: 'group',
+			title: d.introGroup,
+			visibility: 'public'
+		});
+		await send(admin.request, 'post', '/contents', {
+			type: 'shortcut',
+			title: d.notice,
+			path: path.join(sharedPath, d.introMaterials, `${d.notice}.pdf`),
+			visibility: 'public'
+		});
+		await admin.context().close();
+
+		// 見る人の画面なので、ログインしていない人で撮る。
+		const phone = await newPage(backend, PLAYER_WIDTH, undefined, {
+			anonymous: true,
+			height: PHONE_HEIGHT
+		});
+		const screens: { png: string; url: string }[] = [];
+		const capture = async () => {
+			await phone.mouse.move(1, 1);
+			// 音の形の表示は鳴っている間だけ動くので、止めずに少し待ってから撮る。
+			await phone.waitForTimeout(600);
+			const url = new URL(phone.url());
+			screens.push({
+				png: (await phone.screenshot()).toString('base64'),
+				url: `my-pc.local:8370${url.pathname === '/' ? '' : url.pathname}`
+			});
+		};
+		await gotoReady(phone, `/folders/${ids.get(d.music)}`);
+		await phone.getByRole('button', { name: d.introTrack, exact: true }).click();
+		await phone.waitForFunction(() => (document.querySelector('audio')?.currentTime ?? 0) > 0);
+		await phone.evaluate(() => {
+			document.querySelector('audio')!.currentTime = 7;
+		});
+		// ページを読み込み直すと音が止まるので、画面の中のリンクで移る。
+		await phone.getByRole('link', { name: 'WebLAV' }).click();
+		await browseLink(phone, d.photos).waitFor();
+		// 今月の予定の行には、PDF の縮小画像が出る。
+		await waitForThumbnails(phone, { timeout: 10_000 });
+		await capture();
+		await browseLink(phone, d.photos).click();
+		await phone.waitForURL(/\/folders\/\d+/);
+		await waitForThumbnails(phone, { timeout: 10_000 });
+		await capture();
+		// 一覧の先頭の写真を開く。タイトル順は文字の符号の順なので、同じ順に並べて先頭を選ぶ。
+		const first = [...d.introPhotos].sort()[0];
+		await phone.getByText(`${first}.jpg`, { exact: true }).click();
+		await phone.waitForFunction(() =>
+			[...document.querySelectorAll<HTMLImageElement>('[role=dialog] img')].some(
+				(img) => img.complete && img.naturalWidth > 0
+			)
+		);
+		await capture();
+		await phone.context().close();
+
+		const context = await browser.newContext({
+			viewport: { width: 760, height: 480 },
+			deviceScaleFactor: 2
+		});
+		const page = await context.newPage();
+		await page.goto(pathToFileURL(INTRO_HTML).href);
+		await page.evaluate(async (shots) => {
+			const imgs = [...document.querySelectorAll<HTMLImageElement>('[data-screen]')];
+			const urls = [...document.querySelectorAll<HTMLElement>('[data-url]')];
+			shots.forEach((shot, i) => {
+				imgs[i].src = `data:image/png;base64,${shot.png}`;
+				urls[i].textContent = shot.url;
+			});
+			await Promise.all(imgs.map((img) => img.decode()));
+			await document.fonts.ready;
+		}, screens);
+		await save(page, 'intro-overview', await page.locator('#fig').screenshot());
+		await context.close();
+	} finally {
+		await closePagesAndStop(backend);
+	}
+}
+
 /** 仕組みの図。画面ではないので HTML で描いたものを撮る。 */
 async function shootDiagram() {
 	if (!want('how-it-works')) return;
@@ -1273,6 +1624,7 @@ try {
 		if (ADMIN_SHOTS.some(want)) await shootAdmin();
 		await shootSetup();
 		await shootDiagram();
+		await shootIntro();
 		await browser.close();
 	}
 } catch (err) {
