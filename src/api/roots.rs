@@ -991,7 +991,8 @@ pub(super) fn contains(parent: &str, child: &str) -> bool {
 }
 
 /// `path` が、文字の上で `root` の中にあるか。利用者が渡したパスを、ファイルシステムに触る前に足切りするのに使う。
-/// Windows と macOS では大文字小文字を、Windows では区切り文字と `\\?\` の有無を区別しない。この後で実体のパスで確かめ直すので、広めに通してよい。
+/// Windows と macOS では大文字小文字を、Windows では区切り文字と `\\?\` の有無を区別しない。Unicode の正規化の違いは扱わない。
+/// 中と見誤っても実体のパスで確かめ直すだけで済み、外と見誤ると共有の外として断る。画面は一覧で受け取った実体のパスを送るので、綴りの違いは起きない。
 pub(super) fn lexically_contains(root: &FsPath, path: &FsPath) -> bool {
     fn normalized(path: &FsPath) -> String {
         let text = path.to_string_lossy().into_owned();
