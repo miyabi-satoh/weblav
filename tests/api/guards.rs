@@ -133,6 +133,7 @@ const LOCAL_ONLY_APIS: &[(&str, &str)] = &[
     ("POST", "/api/v1/setup/restore"),
     ("POST", "/api/v1/admin/roots"),
     ("POST", "/api/v1/admin/roots/pick"),
+    ("GET", "/api/v1/admin/roots/pick/9999"),
     ("PUT", "/api/v1/admin/roots/9999/path"),
     ("PUT", "/api/v1/admin/roots/9999/exclude"),
     ("PUT", "/api/v1/admin/hidden-settings"),

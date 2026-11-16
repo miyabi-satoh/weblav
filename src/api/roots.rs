@@ -1049,20 +1049,177 @@ pub(super) async fn ensure_input_reachable(state: &AppState, path: &str) -> Resu
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct PickRootResponse {
+    /// この窓の番号。`open` のあいだは、`GET /admin/roots/pick/{id}` で続けて待つ。
+    id: u64,
+    /// 窓がまだ開いているか。開いていれば `path` は `null`。
+    open: bool,
     /// 選ばれたフォルダーの絶対パス。キャンセルされたら `null`。登録はしていないので、
     /// 登録するには `POST /admin/roots` へそのまま渡す。
     path: Option<String>,
 }
 
+/// 1回の要求で、窓が閉じるのを待つ長さ。窓は何分でも開いていられるが、ブラウザーは返事の無い要求を
+/// いずれ打ち切る。その前に「まだ開いている」と返し、画面に待ち直させる (→ docs/folders.md「選び方」)。
+/// ブラウザーの打ち切りより十分短く、待ち直しの要求が増えすぎない長さ。
+const PICK_WAIT: Duration = Duration::from_secs(20);
+
+/// 窓を閉じた後の結果。待ち直す要求のどれにも同じものを返すので、写せる形で持つ。
+type PickOutcome = Result<Option<String>, PickFailure>;
+
+#[derive(Debug, Clone)]
+enum PickFailure {
+    /// 窓を開けなかった (応える側がもう動いていない)。
+    NotRunning,
+    /// 選ばれたパスを文字列にできない、ブックマークを作れない、など。中身は `AppError` に戻す元。
+    Validation(String),
+    Io(String),
+}
+
+impl From<AppError> for PickFailure {
+    fn from(err: AppError) -> Self {
+        match err {
+            AppError::Validation(message) => Self::Validation(message),
+            AppError::Io(err) => Self::Io(err.to_string()),
+            other => Self::Io(other.to_string()),
+        }
+    }
+}
+
+impl From<PickFailure> for AppError {
+    fn from(failure: PickFailure) -> Self {
+        match failure {
+            PickFailure::NotRunning => {
+                AppError::Io(std::io::Error::other("the folder picker is not running"))
+            }
+            PickFailure::Validation(message) => AppError::Validation(message),
+            PickFailure::Io(message) => AppError::Io(std::io::Error::other(message)),
+        }
+    }
+}
+
+/// 開いている (か、最後に開いた) 窓。要求が打ち切られても、窓の結果を待ち直して受け取れるように、
+/// 次の窓を開くまで結果を残す (→ docs/folders.md「選び方」)。
+pub struct RootPicks {
+    last: std::sync::Mutex<Option<RootPick>>,
+    next_id: std::sync::atomic::AtomicU64,
+}
+
+impl Default for RootPicks {
+    /// 番号は乱数から振り始める。起動し直す前の画面が待ち直しても、起動し直した後に開いた
+    /// 別の窓の結果を受け取らないため。画面の数値 (2^53 未満) で正確に扱えるよう、上の桁を落とす。
+    fn default() -> Self {
+        let mut seed = [0u8; 8];
+        // 乱数を取れないのは OS がおかしいときだけ。起動は止めず、起動した時刻で代える。
+        let start = match getrandom::fill(&mut seed) {
+            Ok(()) => u64::from_le_bytes(seed) >> 12,
+            Err(_) => std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |elapsed| elapsed.as_millis() as u64),
+        };
+        Self {
+            last: std::sync::Mutex::default(),
+            next_id: std::sync::atomic::AtomicU64::new(start),
+        }
+    }
+}
+
+struct RootPick {
+    id: u64,
+    outcome: tokio::sync::watch::Receiver<Option<PickOutcome>>,
+}
+
+impl RootPicks {
+    /// 窓を開く。開いているものがあれば `None`。
+    fn open(
+        &self,
+        state: &AppState,
+    ) -> Option<(u64, tokio::sync::watch::Receiver<Option<PickOutcome>>)> {
+        let mut last = self
+            .last
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let session = state.folder_picker.begin()?;
+        let id = self
+            .next_id
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            + 1;
+        let (tx, rx) = tokio::sync::watch::channel(None);
+        let state = state.clone();
+        tokio::spawn(async move {
+            let picked = run_blocking(move || session.pick()).await;
+            let outcome = match picked {
+                Ok(Ok(picked)) => finish_pick(&state, picked).await,
+                Ok(Err(_)) => Err(PickFailure::NotRunning),
+                Err(err) => Err(err.into()),
+            };
+            let _ = tx.send(Some(outcome));
+        });
+        *last = Some(RootPick {
+            id,
+            outcome: rx.clone(),
+        });
+        Some((id, rx))
+    }
+
+    /// 番号 `id` の窓の結果を待つ受け口。次の窓を開いた後や、起動し直した後は `None`。
+    fn find(&self, id: u64) -> Option<tokio::sync::watch::Receiver<Option<PickOutcome>>> {
+        let last = self
+            .last
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        last.as_ref()
+            .filter(|pick| pick.id == id)
+            .map(|pick| pick.outcome.clone())
+    }
+}
+
+/// 窓が閉じた後、選ばれたパスを画面と登録に渡す形にし、ブックマークを残す。
+async fn finish_pick(state: &AppState, picked: Option<PathBuf>) -> PickOutcome {
+    let Some(picked) = picked else {
+        return Ok(None);
+    };
+    // 画面に出し、そのまま登録に渡す値なので、ほかの口と同じ形に揃える。
+    let path = path_to_string(picked)?;
+    keep_bookmark(state, path.clone()).await?;
+    Ok(Some(path))
+}
+
+/// 窓が閉じるのを `limit` まで待つ。閉じなければ「まだ開いている」を返す。
+async fn wait_pick(
+    id: u64,
+    mut outcome: tokio::sync::watch::Receiver<Option<PickOutcome>>,
+    limit: Duration,
+) -> Result<Json<PickRootResponse>, AppError> {
+    let closed = match tokio::time::timeout(limit, outcome.wait_for(Option::is_some)).await {
+        Ok(Ok(done)) => done.clone(),
+        // 結果を送る側が結果を送らずに終わった (処理が落ちた)。
+        Ok(Err(_)) => Some(Err(PickFailure::NotRunning)),
+        Err(_) => None,
+    };
+    match closed {
+        None => Ok(Json(PickRootResponse {
+            id,
+            open: true,
+            path: None,
+        })),
+        Some(outcome) => Ok(Json(PickRootResponse {
+            id,
+            open: false,
+            path: outcome?,
+        })),
+    }
+}
+
 /// サーバーの PC に OS 標準のフォルダー選択の窓を出し、選ばれたパスを返す (→ docs/folders.md「選び方」)。
 ///
 /// 窓は同時に1つだけ。要求した側が待つのをやめても、窓が閉じるまでは開いている扱いにする
-/// (番は `run_blocking` の中で持つ。ハンドラが drop されても、ブロッキングの処理は最後まで走る)。
+/// (番は窓を開いた処理が持つ。ハンドラが drop されても、窓の処理は最後まで走る)。
+/// 窓が閉じるのを待つのは `PICK_WAIT` まで。閉じなければ `open` で返し、続きは `wait_root_pick` で待つ。
 #[utoipa::path(
     post,
     path = "/admin/roots/pick",
     responses(
-        (status = OK, body = PickRootResponse, description = "選ばれたパス。キャンセルなら null"),
+        (status = OK, body = PickRootResponse, description = "選ばれたパス (キャンセルなら null)。窓がまだ開いていれば open"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "サーバーのPC以外からの要求"),
@@ -1074,23 +1231,33 @@ async fn pick_root(
     _admin: ConfirmedAdmin,
     State(state): State<AppState>,
 ) -> Result<Json<PickRootResponse>, AppError> {
-    let session = state
-        .folder_picker
-        .begin()
+    let (id, outcome) = state
+        .root_picks
+        .open(&state)
         .ok_or_else(|| AppError::Conflict("a folder picker is already open".to_string()))?;
-    let picked = run_blocking(move || {
-        session
-            .pick()
-            .map_err(|_| AppError::Io(std::io::Error::other("the folder picker is not running")))
-    })
-    .await??;
-    let Some(picked) = picked else {
-        return Ok(Json(PickRootResponse { path: None }));
-    };
-    // 画面に出し、そのまま登録に渡す値なので、ほかの口と同じ形に揃える。
-    let path = path_to_string(picked)?;
-    keep_bookmark(&state, path.clone()).await?;
-    Ok(Json(PickRootResponse { path: Some(path) }))
+    wait_pick(id, outcome, PICK_WAIT).await
+}
+
+/// `pick_root` で開いた窓が閉じるのを、続けて待つ。窓が閉じた後に来ても、同じ結果を返す。
+#[utoipa::path(
+    get,
+    path = "/admin/roots/pick/{id}",
+    params(("id" = u64, Path, description = "`pick_root` が返した窓の番号")),
+    responses(
+        (status = OK, body = PickRootResponse, description = "選ばれたパス (キャンセルなら null)。窓がまだ開いていれば open"),
+        (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
+        (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
+        (status = 404, body = crate::error::ErrorResponse, description = "サーバーのPC以外からの要求・その番号の窓が無い (次の窓を開いた・起動し直した)"),
+    )
+)]
+async fn wait_root_pick(
+    _: LocalRequest,
+    _admin: ConfirmedAdmin,
+    State(state): State<AppState>,
+    Path(id): Path<u64>,
+) -> Result<Json<PickRootResponse>, AppError> {
+    let outcome = state.root_picks.find(id).ok_or(AppError::NotFound)?;
+    wait_pick(id, outcome, PICK_WAIT).await
 }
 
 /// 窓で選んだ今のうちに、次の起動でも読み書きできるようにしておく (→ docs/distribution.md「ビルド・配布の方法」)。
@@ -1275,6 +1442,7 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(list_roots, create_root))
         .routes(routes!(pick_root))
+        .routes(routes!(wait_root_pick))
         .routes(routes!(move_root))
         .routes(routes!(rename_root, delete_root))
         .routes(routes!(update_root_access))
@@ -1284,6 +1452,35 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 窓が閉じるまで待ち切れなければ「まだ開いている」を返し、閉じた後は結果を返す。
+    #[tokio::test]
+    async fn wait_pick_reports_an_open_picker_and_then_its_outcome() {
+        let (tx, rx) = tokio::sync::watch::channel(None);
+        let Json(open) = wait_pick(7, rx.clone(), Duration::from_millis(10))
+            .await
+            .expect("待てなかった");
+        assert_eq!((open.id, open.open, open.path), (7, true, None));
+
+        tx.send(Some(Ok(Some("/srv/教材".to_string()))))
+            .expect("結果を送れなかった");
+        let Json(closed) = wait_pick(7, rx, Duration::from_millis(10))
+            .await
+            .expect("待てなかった");
+        assert_eq!(
+            (closed.id, closed.open, closed.path),
+            (7, false, Some("/srv/教材".to_string()))
+        );
+    }
+
+    /// 結果を送らずに窓の処理が終わったら、待ち続けずにエラーにする。
+    #[tokio::test]
+    async fn wait_pick_fails_when_the_picker_ends_without_an_outcome() {
+        let (tx, rx) = tokio::sync::watch::channel(None);
+        drop(tx);
+        let result = wait_pick(1, rx, Duration::from_secs(5)).await;
+        assert!(matches!(result, Err(AppError::Io(_))));
+    }
 
     #[test]
     fn lexically_contains_accepts_only_paths_under_the_root() {

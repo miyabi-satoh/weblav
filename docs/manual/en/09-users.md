@@ -26,7 +26,7 @@ What standard users can do in a share (view, add, move, delete) is set for each 
 When someone forgets their password, an administrator chooses a new password and tells them.
 
 1. In the “Users” list, select the person's row to open their edit page.
-2. Select “⋮” next to the username, then choose “Reset password...”.
+2. Select “Reset password...” next to the username.
 3. Enter a new password, then select “Save”.
 
    ![The Reset password screen](images/user-password.webp)

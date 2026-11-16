@@ -157,6 +157,7 @@ pub async fn build_app(
         max_upload_bytes,
         lan_port,
         folder_picker,
+        root_picks: Arc::default(),
     };
     api::spawn_auto_rescan(state.clone());
     api::spawn_operations_purge(state.pool.clone());

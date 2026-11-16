@@ -92,6 +92,8 @@ pub struct AppState {
     pub restore_staging: Arc<crate::api::backup::RestoreStaging>,
     /// サーバーの PC にフォルダー選択の窓を出す手段 (→ `api::roots`、docs/folders.md「選び方」)。
     pub folder_picker: crate::folder_picker::FolderPicker,
+    /// 開いている (か、最後に開いた) フォルダー選択の窓の結果 (→ `api::roots::RootPicks`)。
+    pub root_picks: Arc<crate::api::roots::RootPicks>,
     /// 他の端末に mDNS の名前 (→ `crate::mdns`) とあわせて案内するポート。
     /// 全インターフェースで待ち受けていないときは`None`。
     pub lan_port: Option<u16>,
