@@ -66,6 +66,10 @@ pub enum ValidationDetail {
     /// `path` は最初に読めなかった場所の、登録先からの相対パス。登録先そのものなら空文字。
     #[serde(rename_all = "camelCase")]
     ArchiveFolderUnreadable { path: String },
+    /// フォルダーを選ぶ窓で開いたフォルダーを読めない (権限が無いなど)。どれが読めないかを、
+    /// 汎用の「入力内容を確認してください」では利用者が知りようがないため、名前を渡す。
+    #[serde(rename_all = "camelCase")]
+    FolderUnreadable { name: String },
     /// サイトの「表示しないもの」のパターンは名前に当てるので、`/` を末尾にしか書けない (→ `api::hidden`)。
     #[serde(rename_all = "camelCase")]
     HiddenPatternNotName { pattern: String },

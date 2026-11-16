@@ -3396,6 +3396,10 @@ export interface components {
             path: string;
         } | {
             /** @enum {string} */
+            kind: "folderUnreadable";
+            name: string;
+        } | {
+            /** @enum {string} */
             kind: "hiddenPatternNotName";
             pattern: string;
         } | {

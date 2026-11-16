@@ -128,6 +128,8 @@ function detailMessage(detail: ValidationDetail): string | undefined {
 			return m.error_detail_archive_folder_missing();
 		case 'archiveFolderUnreadable':
 			return unreadableFolderMessage(detail.path);
+		case 'folderUnreadable':
+			return unreadableFolderMessage(detail.name);
 		case 'backupInvalid':
 			return m.error_detail_backup_invalid();
 		case 'backupTooNew':

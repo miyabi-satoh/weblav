@@ -296,6 +296,19 @@ pub(super) fn inside_own_dirs() -> AppError {
     }
 }
 
+/// フォルダーを選ぶ窓で開いたフォルダーを読めないときの 422。
+fn unreadable_dir(dir: &FsPath) -> AppError {
+    AppError::ValidationDetailed {
+        message: "cannot read this directory".to_string(),
+        detail: super::error_detail::ValidationDetail::FolderUnreadable {
+            name: dir
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_default(),
+        },
+    }
+}
+
 /// Windowsの `canonicalize` が返す verbatim パス (`\\?\C:\...`) を、人が読める形に戻す。
 ///
 /// この形のまま画面に出すと、パンくず・登録確認・管理一覧のどこでも接頭辞が邪魔になり、
@@ -397,11 +410,10 @@ fn listing(
     }
 
     let canonical = canonical_dir_within_roots(requested, roots, hidden)?;
-    let entries = read_dirs(&canonical, roots, hidden)
-        .map_err(|_| AppError::Validation("cannot read this directory".to_string()))?;
+    let unreadable = |_| unreadable_dir(&canonical);
+    let entries = read_dirs(&canonical, roots, hidden).map_err(unreadable)?;
     let files = if with_files {
-        read_files(&canonical, hidden)
-            .map_err(|_| AppError::Validation("cannot read this directory".to_string()))?
+        read_files(&canonical, hidden).map_err(unreadable)?
     } else {
         Vec::new()
     };
