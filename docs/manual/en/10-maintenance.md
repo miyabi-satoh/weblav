@@ -55,7 +55,8 @@ Files inside shares are not included.
 ## Update
 
 - **Windows**: Microsoft Store updates WebLAV automatically.
-- **macOS**: Quit WebLAV and replace `WebLAV.app` with the new one.
+- **macOS**: The App Store updates WebLAV automatically.
+- **Ubuntu**: Updates arrive with your other apps in Software Updater.
 
 Settings and data are kept.
 

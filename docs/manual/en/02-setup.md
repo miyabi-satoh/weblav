@@ -2,13 +2,11 @@
 
 Follow these steps on the computer that will run the server.
 
-## 1. Install
+## 1. After starting
 
 ### Windows
 
-1. Search for “WebLAV” in Microsoft Store and select “Get”.
-2. When installation finishes, select “Open”. The setup screen opens in your browser.
-3. On a home or work network, in Settings > Network & internet > the network you use, set “Network profile type” to “Private network”.
+1. On a home or work network, in Settings > Network & internet > the network you use, set “Network profile type” to “Private network”.
 
 While the network is “Public network”, other devices can't open WebLAV. Don't change this on public Wi-Fi.
 
@@ -17,8 +15,7 @@ After you start WebLAV once, it starts automatically when you sign in. To stop t
 
 ### macOS
 
-1. Put `WebLAV.app` in the Applications folder and open it.
-2. When asked whether to allow incoming network connections, select “Allow”.
+1. When asked whether to allow incoming network connections, select “Allow”.
 
 To start automatically, turn on “Start at login” from the WebLAV icon in the menu bar. If “Start at login (allow it in System Settings)” appears, select it, then turn on WebLAV in “Login Items”.
 “Start at login” appears on macOS 13 or later. On macOS 12 or earlier, add WebLAV in System Preferences > Users & Groups > Login Items.
