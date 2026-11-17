@@ -50,6 +50,7 @@ pub(crate) use operations::{
     on_startup as operations_on_startup, spawn_purge as spawn_operations_purge,
 };
 pub use shares::{ShareJobs, TrashPolicy};
+pub(crate) use thumbnails::spawn_sweep as spawn_thumbnails_sweep;
 
 /// `N` バイトの乱数を16進の文字列にする。トークンや作業用の名前に使う。
 /// 乱数を取れないのは OS 側の異常で、クライアント起因ではないため、呼び出し側では 5xx にする。
