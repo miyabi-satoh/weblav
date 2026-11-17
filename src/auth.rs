@@ -49,6 +49,11 @@ pub enum Error {
     Random(#[source] getrandom::Error),
 }
 
+/// 新しいパスワードの下限 (文字数) の既定。最初のセットアップはこの値で固定する
+/// (→ docs/access.md「パスワードの下限」)。下限を持つ類似のアプリの多くと同じ値。
+/// サイトの設定の既定 (`site_settings.password_min_length`) もこれに揃える。
+pub const DEFAULT_PASSWORD_MIN_LENGTH: u32 = 8;
+
 #[derive(Debug, thiserror::Error)]
 pub enum CreateUserError {
     /// 大文字小文字だけが違う名前も、同じ名前として扱う (`users_username_nocase`)。

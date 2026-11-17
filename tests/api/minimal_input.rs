@@ -68,7 +68,7 @@ async fn a_user_created_without_a_role_is_a_regular_user(pool: SqlitePool) {
         "POST",
         "/api/v1/admin/users",
         &cookie,
-        r#"{"username":"carol","password":"pw"}"#,
+        r#"{"username":"carol","password":"new-password"}"#,
     )
     .await;
 

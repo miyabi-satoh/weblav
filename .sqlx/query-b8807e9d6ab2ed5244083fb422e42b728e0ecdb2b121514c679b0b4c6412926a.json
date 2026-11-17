@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT password_min_length FROM site_settings WHERE id = 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "password_min_length",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "site_settings",
+            "name": "password_min_length"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b8807e9d6ab2ed5244083fb422e42b728e0ecdb2b121514c679b0b4c6412926a"
+}

@@ -350,3 +350,64 @@ async fn logs_cannot_be_downloaded_when_written_to_stdout(pool: SqlitePool) {
     let (status, body) = send_empty(app, "GET", ADMIN_LOGS_URI, &cookie).await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 }
+
+const PASSWORD_POLICY_URI: &str = "/api/v1/password-policy";
+const ADMIN_PASSWORD_POLICY_URI: &str = "/api/v1/admin/password-policy";
+
+/// 下限は未ログインでも読め、既定は 8 文字 (→ docs/access.md「パスワードの下限」)。
+#[sqlx::test]
+async fn password_policy_is_8_by_default_and_readable_anonymously(pool: SqlitePool) {
+    let app = test_app(pool).await;
+
+    let (status, body) = send_anon(app, "GET", PASSWORD_POLICY_URI).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body, r#"{"passwordMinLength":8}"#);
+}
+
+/// admin が緩めた下限が、新しいパスワードの確かめに効く。
+#[sqlx::test]
+async fn a_lowered_password_minimum_applies_to_new_passwords(pool: SqlitePool) {
+    let (app, cookie) = admin_app(&pool).await;
+
+    let (status, body) = send_json(
+        app.clone(),
+        "PUT",
+        ADMIN_PASSWORD_POLICY_URI,
+        &cookie,
+        r#"{"passwordMinLength":4}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let (status, body) = send_json(
+        app.clone(),
+        "POST",
+        "/api/v1/admin/users",
+        &cookie,
+        r#"{"username":"newbie","password":"1234","role":"user"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    login(app, "newbie", "1234").await;
+}
+
+/// 0 にすると空のパスワードが通るので断る。
+#[sqlx::test]
+async fn password_minimum_of_zero_is_validation_error(pool: SqlitePool) {
+    let (app, cookie) = admin_app(&pool).await;
+
+    let (status, body) = send_json(
+        app,
+        "PUT",
+        ADMIN_PASSWORD_POLICY_URI,
+        &cookie,
+        r#"{"passwordMinLength":0}"#,
+    )
+    .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_request_body",
+    );
+}

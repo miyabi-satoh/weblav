@@ -148,6 +148,8 @@ function detailMessage(detail: ValidationDetail): string | undefined {
 			return m.error_detail_entry_protected();
 		case 'portBlockedByBrowsers':
 			return m.error_detail_port_blocked_by_browsers({ port: detail.port });
+		case 'passwordTooShort':
+			return m.error_detail_password_too_short({ minLength: detail.minLength });
 		default:
 			return undefined;
 	}

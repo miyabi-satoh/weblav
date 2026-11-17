@@ -89,7 +89,7 @@ async fn admin_only_writes_require_a_fresh_confirmation(pool: SqlitePool) {
         "POST",
         "/api/v1/admin/users",
         &cookie,
-        r#"{"username":"newbie","password":"pw","role":"user"}"#,
+        r#"{"username":"newbie","password":"new-password","role":"user"}"#,
     )
     .await;
     assert_error(

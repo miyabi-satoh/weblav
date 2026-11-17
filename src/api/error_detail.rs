@@ -93,4 +93,7 @@ pub enum ValidationDetail {
     /// 保存して起動し直すと、どのブラウザーからも WebLAV を開けなくなるため。
     #[serde(rename_all = "camelCase")]
     PortBlockedByBrowsers { port: u16 },
+    /// 新しいパスワードが下限より短い (→ `api::password_policy`)。
+    #[serde(rename_all = "camelCase")]
+    PasswordTooShort { min_length: u32 },
 }

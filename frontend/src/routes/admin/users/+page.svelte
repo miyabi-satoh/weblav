@@ -20,6 +20,7 @@
 	import * as Field from '#lib/components/ui/field/index.ts';
 	import { Input } from '#lib/components/ui/input/index.ts';
 	import PasswordInput from '#lib/components/password-input.svelte';
+	import PasswordMinLengthHint from '#lib/components/password-min-length-hint.svelte';
 	import * as Table from '#lib/components/ui/table/index.ts';
 	import ErrorDialog from '#lib/components/error-dialog.svelte';
 	import LoadingButton from '#lib/components/loading-button.svelte';
@@ -203,6 +204,7 @@
 							bind:value={createPassword}
 							required
 						/>
+						<PasswordMinLengthHint />
 					</Field.Field>
 					<Field.Field data-invalid={createPasswordMismatch}>
 						<Field.FieldLabel for="user-password-confirm" required

@@ -21,6 +21,8 @@ Change these on the “Site settings” tab in the admin pages.
 
   ![The Home page section in Site settings](images/settings-home.webp)
 
+- Passwords: The minimum length for new passwords. The default is 8 characters. It applies when you add a user, reset a password, change your password on the account page, or reset it with a recovery code. The administrator password chosen during the first setup is always at least 8 characters. Existing passwords that are shorter still work for logging in.
+
 - Server: The port, upload limit, and how long to stay logged in (days). Changes take effect the next time WebLAV starts.
   The upload limit is the maximum size of each file uploaded to a share. The default is 0 (no limit). If you enter a number of MB, larger files cannot be uploaded. If you set how long to stay logged in to 0, you stay logged in with no time limit.
   A setting you changed shows “Reset to default”. Select it, then save, to go back to the original value.

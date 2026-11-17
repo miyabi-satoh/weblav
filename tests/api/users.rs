@@ -103,7 +103,9 @@ async fn users_create_trims_surrounding_whitespace_from_username(pool: SqlitePoo
 }
 
 #[sqlx::test]
-async fn users_create_with_empty_password_is_validation_error(pool: SqlitePool) {
+async fn users_create_with_a_password_shorter_than_the_minimum_is_validation_error(
+    pool: SqlitePool,
+) {
     let (app, cookie) = admin_app(&pool).await;
 
     let (status, body) = send_json(
@@ -111,7 +113,7 @@ async fn users_create_with_empty_password_is_validation_error(pool: SqlitePool) 
         "POST",
         "/api/v1/admin/users",
         &cookie,
-        r#"{"username":"newbie","password":"","role":"user"}"#,
+        r#"{"username":"newbie","password":"1234567","role":"user"}"#,
     )
     .await;
     assert_error(
@@ -120,6 +122,12 @@ async fn users_create_with_empty_password_is_validation_error(pool: SqlitePool) 
         StatusCode::UNPROCESSABLE_ENTITY,
         "invalid_request_body",
     );
+    let json = parse_json(&body);
+    assert_eq!(
+        json["error"]["detail"]["kind"], "passwordTooShort",
+        "{json}"
+    );
+    assert_eq!(json["error"]["detail"]["minLength"], 8, "{json}");
 }
 
 #[sqlx::test]
@@ -358,7 +366,7 @@ async fn users_reset_password_logs_the_user_out_on_every_device(pool: SqlitePool
 }
 
 #[sqlx::test]
-async fn users_reset_password_with_empty_password_is_validation_error(pool: SqlitePool) {
+async fn users_reset_password_shorter_than_the_minimum_is_validation_error(pool: SqlitePool) {
     insert_user(&pool, "bob", "old-password").await;
     let (app, cookie) = admin_app(&pool).await;
     let bob_id = user_id(app.clone(), &cookie, "bob").await;
@@ -368,7 +376,7 @@ async fn users_reset_password_with_empty_password_is_validation_error(pool: Sqli
         "PUT",
         &format!("/api/v1/admin/users/{bob_id}/password"),
         &cookie,
-        r#"{"password":""}"#,
+        r#"{"password":"1234567"}"#,
     )
     .await;
     assert_error(

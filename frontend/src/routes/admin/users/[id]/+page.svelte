@@ -28,6 +28,7 @@
 	import LeaveConfirmDialog from '#lib/components/leave-confirm-dialog.svelte';
 	import LoadingButton from '#lib/components/loading-button.svelte';
 	import PasswordInput from '#lib/components/password-input.svelte';
+	import PasswordMinLengthHint from '#lib/components/password-min-length-hint.svelte';
 	import DeleteSection from '#lib/components/delete-section.svelte';
 	import UserDeleteDialog from '#lib/components/user-delete-dialog.svelte';
 	import BackLink from '#lib/components/back-link.svelte';
@@ -256,6 +257,7 @@
 							bind:value={resetPassword}
 							required
 						/>
+						<PasswordMinLengthHint />
 					</Field.Field>
 					<Field.Field data-invalid={resetPasswordMismatch}>
 						<Field.FieldLabel for="reset-password-confirm" required

@@ -14,6 +14,9 @@ use crate::config::{SessionConfig, create_owner_only_dir, replace_owner_only_fil
 
 const KEY_LEN: usize = 64;
 
+/// セッションの Cookie の名前。
+pub const SESSION_COOKIE_NAME: &str = "weblav_session";
+
 pub type SessionLayer = SessionManagerLayer<Store, SignedCookie>;
 
 /// `SqliteStore` を包み、消したセッションを書き戻させない。
@@ -152,6 +155,9 @@ pub fn layer(store: Store, key: Key, config: &SessionConfig) -> SessionLayer {
         days => days,
     };
     SessionManagerLayer::new(store)
+        // 既定の名前 `id` は、同じコンピューターの別のポートで動く別のアプリと取り合う。
+        // ブラウザーは Cookie をポートで分けないため (RFC 6265 8.5)。
+        .with_name(SESSION_COOKIE_NAME)
         .with_secure(config.secure_cookie)
         .with_expiry(Expiry::OnInactivity(time::Duration::days(days)))
         .with_always_save(true)

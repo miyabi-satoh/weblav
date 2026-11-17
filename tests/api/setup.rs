@@ -171,14 +171,14 @@ async fn setup_verify_rejects_a_token_that_was_not_issued(pool: SqlitePool) {
 }
 
 #[sqlx::test]
-async fn setup_rejects_an_empty_username_or_password(pool: SqlitePool) {
+async fn setup_rejects_an_empty_username_or_a_password_shorter_than_8(pool: SqlitePool) {
     let app = test_app(pool).await;
     let token = issue_setup_token(app.clone()).await;
 
     let (status, body) = send(app.clone(), setup_admin_request(&token, " ", "password")).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
 
-    let (status, body) = send(app, setup_admin_request(&token, "satoh", "")).await;
+    let (status, body) = send(app, setup_admin_request(&token, "satoh", "1234567")).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
 }
 

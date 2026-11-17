@@ -249,7 +249,7 @@ struct ChangePasswordRequest {
         (status = 204, description = "変更した"),
         (status = 401, description = "未ログイン", body = crate::error::ErrorResponse),
         (status = 403, description = "パスワードの確かめ直しが要る", body = crate::error::ErrorResponse),
-        (status = 422, description = "新しいパスワード未入力", body = crate::error::ErrorResponse),
+        (status = 422, description = "新しいパスワードが下限より短い", body = crate::error::ErrorResponse),
     )
 )]
 async fn change_password(
@@ -257,7 +257,7 @@ async fn change_password(
     State(state): State<AppState>,
     AppJson(payload): AppJson<ChangePasswordRequest>,
 ) -> Result<StatusCode, AppError> {
-    validate::non_empty(&payload.new_password, "new password is required")?;
+    super::password_policy::check_new_password(&state.pool, &payload.new_password).await?;
     user.require_confirmation().await?;
 
     let new_hash = auth::hash_password_blocking(&payload.new_password).await?;
@@ -410,7 +410,7 @@ struct RecoverRequest {
         (status = OK, description = "再設定した利用者 (このセッションでログイン済み) と新しいリカバリコード", body = UserWithRecoveryCodeResponse),
         (status = 401, description = "ユーザー名かリカバリコードが違う (理由は区別しない)", body = crate::error::ErrorResponse),
         (status = 409, description = "照合の後に、ほかの操作でコードが変わった", body = crate::error::ErrorResponse),
-        (status = 422, description = "新しいパスワード未入力", body = crate::error::ErrorResponse),
+        (status = 422, description = "新しいパスワードが下限より短い", body = crate::error::ErrorResponse),
         (status = 429, description = "リカバリコードの試行が多すぎる", body = crate::error::ErrorResponse),
     )
 )]
@@ -419,7 +419,7 @@ async fn recover(
     State(state): State<AppState>,
     AppJson(payload): AppJson<RecoverRequest>,
 ) -> Result<Json<UserWithRecoveryCodeResponse>, AppError> {
-    validate::non_empty(&payload.new_password, "new password is required")?;
+    super::password_policy::check_new_password(&state.pool, &payload.new_password).await?;
 
     // ログインと同じく、Argon2 の照合より前に絞る。ログインとは別の枠にして、
     // こちらを叩かれても管理者がログインできなくならないようにする。

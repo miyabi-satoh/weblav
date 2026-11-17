@@ -25,6 +25,7 @@ mod local;
 mod logs;
 mod operations;
 mod page_dates;
+mod password_policy;
 mod remote_file;
 pub(crate) mod roots;
 mod schedule;
@@ -49,6 +50,7 @@ pub(crate) use archive::spawn_auto_rescan;
 pub(crate) use operations::{
     on_startup as operations_on_startup, spawn_purge as spawn_operations_purge,
 };
+pub(crate) use password_policy::min_length as password_min_length;
 pub use shares::{ShareJobs, TrashPolicy};
 pub(crate) use thumbnails::spawn_sweep as spawn_thumbnails_sweep;
 
@@ -121,6 +123,7 @@ fn routes(max_upload_bytes: Option<u64>) -> OpenApiRouter<AppState> {
         .merge(backup::router())
         .merge(server_settings::router())
         .merge(site_settings::router())
+        .merge(password_policy::router())
         .merge(hidden::router())
         .merge(users::router())
         .fallback(|| async { AppError::NotFound })
