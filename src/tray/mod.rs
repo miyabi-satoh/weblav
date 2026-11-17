@@ -236,6 +236,11 @@ fn make_tray_icon() -> Icon {
     Icon::from_rgba(TRAY_ICON_RGBA.to_vec(), side, side).expect("failed to build tray icon")
 }
 
+/// Windows で、トレイのアイコンを見分ける GUID (→ docs/distribution.md「タスクトレイ」)。
+/// 変えると、利用者がタスクバーに出しておいたアイコンが「^」の中へ戻るので、変えない。
+/// ほかの OS では使われない。
+const TRAY_ICON_GUID: u128 = 0xf5151fce_d3bc_457a_bb6b_3f873015be9b;
+
 /// 組み立てたメニューとツールチップからトレイアイコンを作る。
 /// tray-icon はメインスレッドかつイベントループ稼働中に作る必要があるため、
 /// `NewEvents(Init)` を受けてから呼ぶこと。
@@ -249,6 +254,7 @@ fn build_tray(menu: Menu, tooltip: &str) -> TrayIcon {
     builder
         .with_menu(Box::new(menu))
         .with_tooltip(tooltip)
+        .with_guid(TRAY_ICON_GUID)
         .build()
         .expect("failed to build tray icon")
 }
