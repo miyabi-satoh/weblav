@@ -268,13 +268,11 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
                                     .port_moved_label(configured.port(), addr.port()),
                             );
                         }
-                        if let (Some(item), Some(state)) = (&login_item, login_state) {
-                            item.set_text(locale.get().login_item_label(state));
-                        }
                         if let Some(saver) = &saver {
                             saver.save(chosen);
                         }
-                        // 「ログイン時に起動」の文言は状態でも変わる。持っている状態が古いことがあるので読み直す。
+                        // 「ログイン時に起動」は、読み直した状態で今の言語の文言にする。持っている状態が古いことがあるため。
+                        // 読み直しの途中なら、その結果が今の言語で出す。
                         if login_item.is_some() && !login_busy {
                             login_busy = true;
                             spawn_login_task(login_proxy.clone(), None);
@@ -421,7 +419,7 @@ fn reread_before_press(item: Option<CheckMenuItem>, locale: Rc<Cell<TrayLocale>>
         let Some(item) = item.as_ref().filter(|item| item.is_enabled()) else {
             return;
         };
-        let (sender, receiver) = std::sync::mpsc::channel();
+        let (sender, receiver) = mpsc::channel();
         std::thread::spawn(move || {
             let _ = sender.send(read_login_state());
         });
@@ -443,4 +441,30 @@ fn show_login_state(item: &CheckMenuItem, state: login_item::State, locale: Tray
     item.set_text(locale.login_item_label(state));
     item.set_enabled(state.changeable());
     item.set_checked(state.checked());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 続けて選んでも最後に選んだものが残り、`finish` は書き終えるまで待つ。
+    #[test]
+    fn language_saver_writes_the_last_choice_before_finishing() {
+        let dir =
+            std::env::temp_dir().join(format!("weblav-language-saver-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("一時フォルダーを作れなかった");
+        let path = dir.join("config.toml");
+
+        let saver = LanguageSaver::spawn(path.clone());
+        saver.save(TrayLanguage::En);
+        saver.save(TrayLanguage::System);
+        saver.save(TrayLanguage::Ja);
+        saver.finish();
+
+        let text = std::fs::read_to_string(&path).expect("書かれているはず");
+        let config: weblav::config::Config = toml::from_str(&text).expect("設定を読めるはず");
+        assert_eq!(config.tray.language, TrayLanguage::Ja);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

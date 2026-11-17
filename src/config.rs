@@ -500,6 +500,10 @@ pub fn edit_file(
         .map_err(|err| EditError::Broken(format!("{err}")))?;
     edit(&mut doc).map_err(EditError::Broken)?;
     let updated = doc.to_string();
+    // 変わらなければ書かない。無いファイルは、空のままでも作らない。
+    if updated == text {
+        return Ok(());
+    }
     toml::from_str::<Config>(&updated).map_err(|err| EditError::Broken(format!("{err}")))?;
 
     if let Some(dir) = path.parent() {
