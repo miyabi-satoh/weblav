@@ -23,7 +23,8 @@ const LAYOUT_DIR = 'target/msix';
 const SDK_BIN = 'C:\\Program Files (x86)\\Windows Kits\\10\\bin';
 
 // MSIX のバージョンは4つ組で、Store は最後を 0 に限る。
-// 試しの版は最後をコミットの数にする。同じ版番号のままでは上から入れられず、外すとデータが消えるため。
+// 試しの版は最後をコミットの数にする。同じ版番号のままでは上から入れられず、外すとデータが消えるため
+// (この PC に入れるときは installRevision)。
 function msixVersion(version, store, revisionOverride) {
 	const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
 	if (!match) {
@@ -97,7 +98,10 @@ function main() {
 		? `target/msix-e2e/weblav-e2e-${revision}.msix`
 		: `dist/weblav-v${version}${store ? '-store' : ''}.msix`;
 
-	layout(version, store, { e2e, revision });
+	layout(version, store, {
+		e2e,
+		revision: revision ?? (process.argv.includes('--install') ? installRevision() : undefined),
+	});
 	mkdirSync(dirname(output), { recursive: true });
 	execFileSync(makeappx, ['pack', '/o', '/h', 'SHA256', '/d', LAYOUT_DIR, '/p', output], {
 		stdio: 'inherit',
@@ -118,10 +122,33 @@ function main() {
 	}
 }
 
+// この PC に入れる版の最後の番号。ふだんはコミットの数で、今入っている版と同じならその次にする。
+// Windows は、同じ版の番号で中身の違うパッケージを上から入れるのを断る (コミット前の直しを入れ直すときに起きる)。
+function installRevision() {
+	const commits = Number(
+		execFileSync('git', ['rev-list', '--count', 'HEAD'], { encoding: 'utf8' }).trim(),
+	);
+	const installed = execFileSync(
+		'pwsh',
+		[
+			'-NoProfile',
+			'-Command',
+			`(Get-AppxPackage -Name amiiby.WebLAV | Where-Object Publisher -eq '${TEST_PUBLISHER}').Version`,
+		],
+		{ encoding: 'utf8' },
+	).trim();
+	const installedRevision = installed ? Number(installed.split('.')[3]) : undefined;
+	return String(commits === installedRevision ? commits + 1 : commits);
+}
+
 // 上から入れる (外さないので、データとログイン時の起動の設定が残る)。動いている WebLAV は止め、入れた後に起動し直す。
+// 版の最後の番号はコミットの数なので、作業中のブランチの版を入れた後にスカッシュマージした main を入れると番号が下がる。
+// Windows は番号の下がる入れ直しを断るので、-ForceUpdateFromAnyVersion で下がる向きも許す。
+// 入れられなかったときに、前から入っている版を「入れた」と出して成功で終わらないよう、失敗で止める。
 function install(output) {
 	const script = [
-		`Add-AppxPackage -Path '${output}' -ForceApplicationShutdown`,
+		"$ErrorActionPreference = 'Stop'",
+		`Add-AppxPackage -Path '${output}' -ForceApplicationShutdown -ForceUpdateFromAnyVersion`,
 		"$p = Get-AppxPackage -Name amiiby.WebLAV | Where-Object Publisher -eq 'CN=WebLAV Test'",
 		'$id = ($p | Get-AppxPackageManifest).Package.Applications.Application.Id',
 		'Start-Process "shell:AppsFolder\\$($p.PackageFamilyName)!$id"',
