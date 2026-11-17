@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 
 use tray_icon::menu::Menu;
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
+use weblav::config::TrayLanguage;
 use weblav::server::AlreadyRunning;
 
 pub use embedded::run;
@@ -39,7 +40,7 @@ const STARTUP_WAIT: Duration = Duration::from_secs(15);
 const STARTUP_RETRY_INTERVAL: Duration = Duration::from_millis(500);
 
 /// タスクトレイのメニューの表示言語 (→ docs/architecture.md「タスクトレイの表示言語」)。ツールチップは言語で変えない。
-/// フロントエンドの言語トグルとは独立の、日本語/英語の二択。
+/// フロントエンドの言語の選択とは独立の、日本語/英語の二択。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TrayLocale {
     Ja,
@@ -110,6 +111,36 @@ impl TrayLocale {
             TrayLocale::En => "Quit",
         }
     }
+
+    /// 表示言語を選ぶ項目。日本語のメニューでは英語を添える。日本語を読めない人が、OS の表示言語が
+    /// 日本語の PC でメニューを英語にしようとしたとき、見つけられるように。英語は日本語の利用者も読める。
+    fn language_label(self) -> &'static str {
+        match self {
+            TrayLocale::Ja => "表示言語 (Language)",
+            TrayLocale::En => "Language",
+        }
+    }
+
+    /// OS の表示言語に合わせる選択肢。呼び名は画面のテーマの選択肢と同じ。
+    fn system_language_label(self) -> &'static str {
+        match self {
+            TrayLocale::Ja => "システム",
+            TrayLocale::En => "System",
+        }
+    }
+}
+
+/// 言語の選択肢の名前。その言語の利用者が読めるよう、メニューの表示言語によらずその言語で書く。
+const JAPANESE_LABEL: &str = "日本語";
+const ENGLISH_LABEL: &str = "English";
+
+/// 選んだ表示言語から、メニューの表示言語を決める。
+fn resolve_locale(language: TrayLanguage) -> TrayLocale {
+    match language {
+        TrayLanguage::System => tray_locale(),
+        TrayLanguage::Ja => TrayLocale::Ja,
+        TrayLanguage::En => TrayLocale::En,
+    }
 }
 
 /// Win32 の `LANGID` (`GetUserDefaultUILanguage` の戻り値) から表示言語を判定する。
@@ -131,7 +162,7 @@ fn locale_from_langid(langid: u16) -> TrayLocale {
     }
 }
 
-/// OS の表示言語を判定する。
+/// OS の表示言語を判定する (Windows)。
 #[cfg(windows)]
 fn tray_locale() -> TrayLocale {
     use windows::Win32::Globalization::GetUserDefaultUILanguage;
@@ -297,6 +328,14 @@ mod tests {
 
     /// 日本語の`LANGID`はプライマリ言語部分(下位10bit)だけで判定する。
     /// 地域(サブ言語)が変わっても日本語のままであることを含めて確認する。
+    /// 言語を選んであれば、OS の表示言語によらずその言語にする。
+    #[test]
+    fn chosen_language_overrides_the_os() {
+        assert_eq!(resolve_locale(TrayLanguage::Ja), TrayLocale::Ja);
+        assert_eq!(resolve_locale(TrayLanguage::En), TrayLocale::En);
+        assert_eq!(resolve_locale(TrayLanguage::System), tray_locale());
+    }
+
     #[test]
     fn locale_from_langid_recognizes_japanese() {
         assert_eq!(locale_from_langid(0x0411), TrayLocale::Ja); // ja-JP

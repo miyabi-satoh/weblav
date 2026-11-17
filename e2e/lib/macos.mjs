@@ -135,6 +135,34 @@ export function pressMenuItem(pid, title) {
 	);
 }
 
+/** メニューの `parent` の下の階層を読む (`readMenu` と同じ形) */
+export function readSubmenu(pid, parent) {
+	return jxa(
+		`${AX}
+	const item = menuItems().find((m) => axStr(m, 'AXTitle') === args.parent);
+	if (!item) throw new Error('メニューに項目が無い: ' + args.parent);
+	const sub = axKids(item)[0];
+	return sub ? axKids(sub).map((m) => ({ title: axStr(m, 'AXTitle') ?? '', enabled: axBool(m, 'AXEnabled'), checked: (axStr(m, 'AXMenuItemMarkChar') ?? '') !== '' })) : [];
+`,
+		{ pid, parent }
+	);
+}
+
+/** メニューの `parent` の下の階層の `title` の項目を押す。メニューは開いたままにしない (`readMenu`) */
+export function pressSubmenuItem(pid, parent, title) {
+	return jxa(
+		`${AX}
+	const item = menuItems().find((m) => axStr(m, 'AXTitle') === args.parent);
+	if (!item) throw new Error('メニューに項目が無い: ' + args.parent);
+	const sub = axKids(item)[0];
+	const target = sub ? axKids(sub).find((m) => axStr(m, 'AXTitle') === args.title) : null;
+	if (!target) throw new Error('下の階層に項目が無い: ' + args.title);
+	$.AXUIElementPerformAction(target, $('AXPress'));
+`,
+		{ pid, parent, title }
+	);
+}
+
 /** 前面のアプリのプロセス番号と、WebLAV のフォルダー選択の窓が前面の窓か */
 export function frontState(pid) {
 	return jxa(
@@ -302,12 +330,16 @@ export function openApp() {
  * 確かめ用の WebLAV を起動し、応答できるまで待つ。`fresh` ならデータを消してから始める。
  * 返すのは、動いているもの (プロセス番号・実際のポート・API)
  */
-export async function launch({ fresh = true, port = PORT } = {}) {
+export async function launch({ fresh = true, port = PORT, trayLanguage } = {}) {
 	// 前に落ちた回のものが残っていれば、同じデータの置き場を使うので先に止める
 	await stopLeftover();
 	if (fresh) await fs.rm(HOME, { recursive: true, force: true });
 	await fs.mkdir(HOME, { recursive: true });
-	await fs.writeFile(path.join(HOME, 'config.toml'), `[server]\nport = ${port}\n\n[tray]\nopen_setup_on_launch = false\n`);
+	const language = trayLanguage ? `language = "${trayLanguage}"\n` : '';
+	await fs.writeFile(
+		path.join(HOME, 'config.toml'),
+		`[server]\nport = ${port}\n\n[tray]\nopen_setup_on_launch = false\n${language}`
+	);
 	await fs.rm(path.join(HOME, 'weblav.addr'), { force: true });
 	await openApp();
 	try {

@@ -90,6 +90,7 @@ test.describe('MSIX 版: トレイ', () => {
 			labels.open,
 			labels.manual,
 			'',
+			labels.language,
 			labels.signInItem,
 			'',
 			labels.quit

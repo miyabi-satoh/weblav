@@ -9,6 +9,8 @@ export const TRAY_LABELS = {
 		signInItem: 'サインイン時に起動',
 		signInItemLocked: 'サインイン時に起動 (Windows の設定で止められています)',
 		quit: '終了する',
+		language: '表示言語 (Language)',
+		systemLanguage: 'システム',
 		portMoved: (configured, actual) =>
 			`ポート ${configured} を使えないため、${actual} で動いています`
 	},
@@ -21,9 +23,14 @@ export const TRAY_LABELS = {
 		signInItem: 'Start at sign-in',
 		signInItemLocked: 'Start at sign-in (turned off in Windows Settings)',
 		quit: 'Quit',
+		language: 'Language',
+		systemLanguage: 'System',
 		portMoved: (configured, actual) => `Port ${configured} was unavailable; running on ${actual}`
 	}
 };
+
+/** 言語の選択肢の名前 (src/tray/mod.rs の JAPANESE_LABEL・ENGLISH_LABEL と同じ)。メニューの言語によらない */
+export const LANGUAGE_NAMES = { ja: '日本語', en: 'English' };
 
 /** OS の優先する言語 (`ja-JP` など) から、トレイの表示言語を決める (src/tray/mod.rs の locale_from_name と同じ) */
 export function labelsFor(languageTag) {

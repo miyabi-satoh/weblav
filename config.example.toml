@@ -58,3 +58,5 @@ expiry_days = 14
 [tray]
 # 管理者がまだいないときに、起動したらブラウザーでセットアップの画面を開く。
 # open_setup_on_launch = true
+# トレイのメニューの表示言語。"system" (OS の表示言語に合わせる)・"ja"・"en"。トレイのメニューの「表示言語」で選べる。
+# language = "system"

@@ -399,14 +399,112 @@ pub struct TrayConfig {
     /// 管理者がまだいないときに、起動したらセットアップの画面を開くか (→ docs/access.md「初回セットアップ」)。
     /// 切れるのは、配る形のアプリを何度も起動する自動の確認 (`e2e/`) が、そのたびにブラウザーを開かないようにするため。
     pub open_setup_on_launch: bool,
+    /// トレイのメニューの表示言語 (→ docs/architecture.md「タスクトレイの表示言語」)。トレイのメニューで選ぶ。
+    pub language: TrayLanguage,
 }
 
 impl Default for TrayConfig {
     fn default() -> Self {
         Self {
             open_setup_on_launch: true,
+            language: TrayLanguage::System,
         }
     }
+}
+
+/// トレイのメニューの表示言語の選び方。`System` は OS の表示言語に合わせる。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TrayLanguage {
+    System,
+    Ja,
+    En,
+}
+
+impl TrayLanguage {
+    /// `config.toml` に書く値。
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TrayLanguage::System => "system",
+            TrayLanguage::Ja => "ja",
+            TrayLanguage::En => "en",
+        }
+    }
+}
+
+/// `config.toml` の `[tray] language` を書き換える。既定 (`system`) は項目を消して既定に任せる。
+pub fn write_tray_language(path: &Path, language: TrayLanguage) -> Result<(), EditError> {
+    edit_file(path, |doc| {
+        if language == TrayLanguage::System {
+            if let Some(table) = doc
+                .get_mut("tray")
+                .and_then(|item| item.as_table_like_mut())
+            {
+                table.remove("language");
+            }
+        } else {
+            doc.entry("tray")
+                .or_insert(toml_edit::table())
+                .as_table_like_mut()
+                .ok_or("tray is not a table")?
+                .insert("language", toml_edit::value(language.as_str()));
+        }
+        Ok(())
+    })
+}
+
+/// `edit_file` の失敗。
+#[derive(Debug, thiserror::Error)]
+pub enum EditError {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    /// 今の内容か、書き換えた後の内容を、設定として読めない。
+    #[error("config.toml cannot be read: {0}")]
+    Broken(String),
+}
+
+/// `config.toml` を `edit` で書き換える。手で書いたほかの項目やコメントは残す。
+/// 書き換えた結果を起動のときと同じ読み方で確かめてから置き換える。読めない形を書くと、次に起動できなくなるため。
+/// 今の内容が読めない (起動した後に手で書き換えた等) ときは書き換えない。手で書いた内容を消さないため。
+pub fn edit_file(
+    path: &Path,
+    edit: impl FnOnce(&mut toml_edit::DocumentMut) -> Result<(), String>,
+) -> Result<(), EditError> {
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(err) => return Err(EditError::Io(err)),
+    };
+    let mut doc: toml_edit::DocumentMut = text
+        .parse()
+        .map_err(|err| EditError::Broken(format!("{err}")))?;
+    edit(&mut doc).map_err(EditError::Broken)?;
+    let updated = doc.to_string();
+    toml::from_str::<Config>(&updated).map_err(|err| EditError::Broken(format!("{err}")))?;
+
+    if let Some(dir) = path.parent() {
+        create_owner_only_dir(dir)?;
+    }
+    // シンボリックリンクなら、リンクを普通のファイルに置き換えず、リンク先を書き換える。
+    let target = match std::fs::canonicalize(path) {
+        Ok(target) => target,
+        // リンク先がまだ無いリンクは辿れないので、リンクが指す先を読んでそこに作る。
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => match std::fs::read_link(path) {
+            Ok(link) => path.parent().map_or(link.clone(), |dir| dir.join(&link)),
+            Err(_) => path.to_path_buf(),
+        },
+        Err(err) => return Err(EditError::Io(err)),
+    };
+    // 途中で落ちても壊れた config.toml を残さないよう、隣に書いてから置き換える。
+    // `session.secret` を書けるファイルなので、新しく作るときは所有者だけが読めるようにし、
+    // 元があればその権限を引き継ぐ。
+    replace_owner_only_file(
+        &target.with_extension("toml.tmp"),
+        &target,
+        updated.as_bytes(),
+        true,
+    )?;
+    Ok(())
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -498,6 +596,43 @@ mod tests {
         let config: Config =
             toml::from_str("[tray]\nopen_setup_on_launch = false\n").expect("設定を読めるはず");
         assert!(!config.tray.open_setup_on_launch);
+    }
+
+    /// トレイで選んだ表示言語を書き、手で書いたほかの項目とコメントは残す。「システム」に戻したら項目を消す。
+    #[test]
+    fn tray_language_is_written_and_removed() {
+        let tmp = TempDir::new("tray_language_is_written_and_removed");
+        let path = tmp.path().join("config.toml");
+        std::fs::write(
+            &path,
+            "# 手で書いたコメント\n[tray]\nopen_setup_on_launch = false\n",
+        )
+        .expect("ファイルを書けなかった");
+
+        write_tray_language(&path, TrayLanguage::En).expect("書けなかった");
+        let text = std::fs::read_to_string(&path).expect("読めなかった");
+        assert!(text.contains("# 手で書いたコメント"), "{text}");
+        let config = Config::load_from(&path).expect("設定を読めるはず");
+        assert_eq!(config.tray.language, TrayLanguage::En);
+        assert!(!config.tray.open_setup_on_launch);
+
+        write_tray_language(&path, TrayLanguage::System).expect("書けなかった");
+        let text = std::fs::read_to_string(&path).expect("読めなかった");
+        assert!(!text.contains("language"), "{text}");
+        assert!(text.contains("open_setup_on_launch = false"), "{text}");
+    }
+
+    /// 読めない `config.toml` は書き換えない。手で書いた内容を消さないため。
+    #[test]
+    fn tray_language_is_not_written_into_a_broken_file() {
+        let tmp = TempDir::new("tray_language_is_not_written_into_a_broken_file");
+        let path = tmp.path().join("config.toml");
+        std::fs::write(&path, "[server]\nport = \"abc\"\n").expect("ファイルを書けなかった");
+
+        let err = write_tray_language(&path, TrayLanguage::Ja).expect_err("書けてはいけない");
+        assert!(matches!(err, EditError::Broken(_)), "{err:?}");
+        let text = std::fs::read_to_string(&path).expect("読めなかった");
+        assert_eq!(text, "[server]\nport = \"abc\"\n");
     }
 
     #[test]
