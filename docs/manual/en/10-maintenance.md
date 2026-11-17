@@ -7,6 +7,8 @@
 
   ![WebLAV icon menu in the system tray on Windows](images/quickstart-tray-menu.webp)
 
+- Menu language: Choose it under “Language” in the WebLAV icon menu. “System” follows the OS display language. The language of the browser screens is chosen separately with the globe icon at the top right of the screen.
+
 WebLAV runs only while you are signed in to the computer.
 
 ## Change site settings

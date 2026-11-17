@@ -197,72 +197,21 @@ fn read_saved(path: &Path) -> Result<ServerSettings, AppError> {
 }
 
 fn write_saved(path: &Path, settings: &ServerSettings) -> Result<(), AppError> {
-    let text = match std::fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => String::new(),
-        Err(err) => return Err(AppError::Io(err)),
-    };
-    let updated = apply(&text, settings).map_err(broken_config)?;
-    // 書いた結果を起動のときと同じ読み方で確かめる。読めない形を書くと、次に起動できなくなる。
-    toml::from_str::<Config>(&updated).map_err(broken_config)?;
-
-    if let Some(dir) = path.parent() {
-        config::create_owner_only_dir(dir)?;
-    }
-    // シンボリックリンクなら、リンクを普通のファイルに置き換えず、リンク先を書き換える。
-    let target = match std::fs::canonicalize(path) {
-        Ok(target) => target,
-        // リンク先がまだ無いリンクは辿れないので、リンクが指す先を読んでそこに作る。
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => match std::fs::read_link(path) {
-            Ok(link) => path.parent().map_or(link.clone(), |dir| dir.join(&link)),
-            Err(_) => path.to_path_buf(),
-        },
-        Err(err) => return Err(AppError::Io(err)),
-    };
-    // 途中で落ちても壊れた config.toml を残さないよう、隣に書いてから置き換える。
-    // `session.secret` を書けるファイルなので、新しく作るときは所有者だけが読めるようにし、
-    // 元があればその権限を引き継ぐ。
-    config::replace_owner_only_file(
-        &target.with_extension("toml.tmp"),
-        &target,
-        updated.as_bytes(),
-        true,
-    )
-    .map_err(AppError::Io)
+    config::edit_file(path, |doc| apply(doc, settings)).map_err(|err| match err {
+        config::EditError::Io(err) => AppError::Io(err),
+        config::EditError::Broken(err) => broken_config(err),
+    })
 }
 
-/// `text` の該当する項目だけを書き換える。表 (`[server]` など) が無ければ足す。
-fn apply(text: &str, settings: &ServerSettings) -> Result<String, String> {
-    let mut doc: toml_edit::DocumentMut = text.parse().map_err(|err| format!("{err}"))?;
-    set(&mut doc, "server", "port", i64::from(settings.port))?;
+/// 該当する項目だけを書き換える。表 (`[server]` など) が無ければ足す。
+fn apply(doc: &mut toml_edit::DocumentMut, settings: &ServerSettings) -> Result<(), String> {
+    config::set_value(doc, "server", "port", i64::from(settings.port))?;
     // 上限は `validate` で i64 に収まる範囲に絞ってある。上限なしは、項目を消して既定 (上限なし) に任せる。
     match settings.upload_max_size_mb {
-        Some(mb) => set(&mut doc, "upload", "max_size_mb", mb as i64)?,
-        None => remove(&mut doc, "upload", "max_size_mb"),
+        Some(mb) => config::set_value(doc, "upload", "max_size_mb", mb as i64)?,
+        None => config::remove_value(doc, "upload", "max_size_mb"),
     }
-    set(
-        &mut doc,
-        "session",
-        "expiry_days",
-        settings.session_expiry_days,
-    )?;
-    Ok(doc.to_string())
-}
-
-fn set(doc: &mut toml_edit::DocumentMut, table: &str, key: &str, value: i64) -> Result<(), String> {
-    doc.entry(table)
-        .or_insert(toml_edit::table())
-        .as_table_like_mut()
-        .ok_or_else(|| format!("{table} is not a table"))?
-        .insert(key, toml_edit::value(value));
-    Ok(())
-}
-
-/// 表 (`[upload]` など) に項目があれば消す。表が無ければ何もしない (空の表を足さない)。
-fn remove(doc: &mut toml_edit::DocumentMut, table: &str, key: &str) {
-    if let Some(table) = doc.get_mut(table).and_then(|item| item.as_table_like_mut()) {
-        table.remove(key);
-    }
+    config::set_value(doc, "session", "expiry_days", settings.session_expiry_days)
 }
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
@@ -279,10 +228,17 @@ mod tests {
         session_expiry_days: 30,
     };
 
+    /// `text` を読み、`settings` を書き込んだ結果の文字列。
+    fn apply_to(text: &str, settings: &ServerSettings) -> Result<String, String> {
+        let mut doc: toml_edit::DocumentMut = text.parse().map_err(|err| format!("{err}"))?;
+        apply(&mut doc, settings)?;
+        Ok(doc.to_string())
+    }
+
     #[test]
     fn apply_keeps_other_items_and_comments() {
         let text = "# 手で書いたコメント\n[server]\nbind = \"127.0.0.1\" # 右のコメント\nport = 8370\n\n[log]\nfilter = \"debug\"\n";
-        let updated = apply(text, &SETTINGS).expect("書き換えられなかった");
+        let updated = apply_to(text, &SETTINGS).expect("書き換えられなかった");
         assert!(updated.contains("# 手で書いたコメント"), "{updated}");
         assert!(
             updated.contains("bind = \"127.0.0.1\" # 右のコメント"),
@@ -297,7 +253,7 @@ mod tests {
 
     #[test]
     fn apply_to_empty_file_adds_tables() {
-        let updated = apply("", &SETTINGS).expect("書き換えられなかった");
+        let updated = apply_to("", &SETTINGS).expect("書き換えられなかった");
         let config: Config = toml::from_str(&updated).expect("書き換えた結果が読めない");
         assert_eq!(ServerSettings::from_config(&config), SETTINGS);
     }
@@ -309,7 +265,7 @@ mod tests {
             upload_max_size_mb: None,
             ..SETTINGS
         };
-        let updated = apply(text, &unlimited).expect("書き換えられなかった");
+        let updated = apply_to(text, &unlimited).expect("書き換えられなかった");
         assert!(!updated.contains("max_size_mb"), "{updated}");
         let config: Config = toml::from_str(&updated).expect("書き換えた結果が読めない");
         assert_eq!(ServerSettings::from_config(&config), unlimited);
@@ -318,7 +274,7 @@ mod tests {
 
     #[test]
     fn apply_rejects_a_non_table_section() {
-        assert!(apply("server = 1\n", &SETTINGS).is_err());
+        assert!(apply_to("server = 1\n", &SETTINGS).is_err());
     }
 
     #[test]

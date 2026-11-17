@@ -5,13 +5,18 @@ import {
 	launch,
 	occupyPort,
 	preferredLanguage,
+	HOME,
 	pressMenuItem,
+	pressSubmenuItem,
 	quit,
 	readMenu,
+	readSubmenu,
 	waitFor,
 	weblavPids
 } from '../lib/macos.mjs';
-import { labelsFor } from '../lib/tray-labels.mjs';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { LANGUAGE_NAMES, TRAY_LABELS, labelsFor } from '../lib/tray-labels.mjs';
 
 // メニューバーのアイコンのメニュー (src/tray/)。文言は OS の優先する言語で出る
 
@@ -47,6 +52,7 @@ test.describe('macOS: メニューバー', () => {
 			labels.open,
 			labels.manual,
 			'',
+			labels.language,
 			labels.loginItem,
 			'',
 			labels.quit
@@ -73,6 +79,44 @@ test.describe('macOS: メニューバー', () => {
 		} finally {
 			blocker.kill();
 		}
+	});
+
+	test('「表示言語」で選んだ言語にメニューが変わり、config.toml に残る', async () => {
+		running = await launch();
+		assert.deepEqual(
+			(await readSubmenu(running.pid, labels.language)).map(({ title, checked }) => ({ title, checked })),
+			[
+				{ title: labels.systemLanguage, checked: true },
+				{ title: LANGUAGE_NAMES.ja, checked: false },
+				{ title: LANGUAGE_NAMES.en, checked: false }
+			]
+		);
+		// OS の表示言語と違うほうを選ぶ
+		const other = labels === TRAY_LABELS.ja ? 'en' : 'ja';
+		await pressSubmenuItem(running.pid, labels.language, LANGUAGE_NAMES[other]);
+		const chosen = TRAY_LABELS[other];
+		await waitFor(
+			() => readMenu(running.pid),
+			(items) => titles(items).includes(chosen.quit),
+			{ label: '選んだ言語でメニューが出る' }
+		);
+		const sub = await readSubmenu(running.pid, chosen.language);
+		assert.deepEqual(
+			sub.filter((item) => item.checked).map((item) => item.title),
+			[LANGUAGE_NAMES[other]]
+		);
+		await waitFor(
+			() => fs.readFile(path.join(HOME, 'config.toml'), 'utf8'),
+			(text) => text.includes(`language = "${other}"`) && text.includes('open_setup_on_launch = false'),
+			{ label: 'config.toml に選んだ言語が書かれる' }
+		);
+	});
+
+	test('config.toml で決めた言語で、OS の表示言語によらずメニューが出る', async () => {
+		const other = labels === TRAY_LABELS.ja ? 'en' : 'ja';
+		running = await launch({ trayLanguage: other });
+		const items = await readMenu(running.pid);
+		assert.ok(titles(items).includes(TRAY_LABELS[other].quit), JSON.stringify(titles(items)));
 	});
 
 	test('「終了する」でプロセスが終わる', async () => {

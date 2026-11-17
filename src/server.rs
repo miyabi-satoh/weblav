@@ -12,7 +12,7 @@ use tower_sessions::session_store::ExpiredDeletion;
 use tower_sessions_sqlx_store::SqliteStore;
 use tracing_appender::non_blocking::WorkerGuard;
 
-use crate::config::{self, AppDirs, Config};
+use crate::config::{self, AppDirs, Config, TrayLanguage};
 use crate::error::error_chain;
 use crate::folder_picker::FolderPicker;
 use crate::{build_app, db, logging, session, single_instance};
@@ -92,6 +92,10 @@ pub struct Running {
     pub configured: SocketAddr,
     /// `config.toml` の `[tray] open_setup_on_launch`。
     pub open_setup_on_launch: bool,
+    /// `config.toml` の `[tray] language`。
+    pub tray_language: TrayLanguage,
+    /// `config.toml` の置き場所。トレイで選んだ表示言語を書く。
+    pub config_path: PathBuf,
     handle: std::thread::JoinHandle<()>,
     shutdown_tx: tokio::sync::oneshot::Sender<()>,
     log_guard: WorkerGuard,
@@ -140,6 +144,8 @@ pub fn start(
     let dirs = AppDirs::resolve().map_err(|err| StartupError::new(error_chain(&err)))?;
     let config = Config::load(&dirs).map_err(|err| StartupError::new(error_chain(&err)))?;
     let open_setup_on_launch = config.tray.open_setup_on_launch;
+    let tray_language = config.tray.language;
+    let config_path = dirs.config_path();
     let log_guard = logging::init(&config, &dirs)
         .map_err(|err| StartupError::new(format!("failed to initialize logging: {err}")))?;
 
@@ -248,6 +254,8 @@ pub fn start(
                     addr,
                     configured,
                     open_setup_on_launch,
+                    tray_language,
+                    config_path,
                     handle,
                     shutdown_tx,
                     log_guard,
