@@ -56,7 +56,8 @@
 ## アップデートする
 
 - **Windows**: Microsoft Store が自動でアップデートする
-- **macOS**: WebLAV を終了し、`WebLAV.app` を新しいものに置き換える
+- **macOS**: App Store が自動でアップデートする
+- **Ubuntu**: ほかのアプリと一緒に「ソフトウェアの更新」で届く
 
 設定とデータは引き継がれます。
 
