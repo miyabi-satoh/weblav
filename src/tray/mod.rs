@@ -326,8 +326,6 @@ const TRAY_TOOLTIP: &str = "WebLAV";
 mod tests {
     use super::*;
 
-    /// 日本語の`LANGID`はプライマリ言語部分(下位10bit)だけで判定する。
-    /// 地域(サブ言語)が変わっても日本語のままであることを含めて確認する。
     /// 言語を選んであれば、OS の表示言語によらずその言語にする。
     #[test]
     fn chosen_language_overrides_the_os() {
@@ -336,6 +334,8 @@ mod tests {
         assert_eq!(resolve_locale(TrayLanguage::System), tray_locale());
     }
 
+    /// 日本語の`LANGID`はプライマリ言語部分(下位10bit)だけで判定する。
+    /// 地域(サブ言語)が変わっても日本語のままであることを含めて確認する。
     #[test]
     fn locale_from_langid_recognizes_japanese() {
         assert_eq!(locale_from_langid(0x0411), TrayLocale::Ja); // ja-JP

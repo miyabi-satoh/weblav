@@ -3,6 +3,8 @@
 use std::cell::Cell;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 use tao::event::{Event, StartCause};
 use tao::event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy};
 use tray_icon::TrayIconEvent;
@@ -48,6 +50,8 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
     let configured = server.configured;
     let open_setup_on_launch = server.open_setup_on_launch;
     let mut language = server.tray_language;
+    // 書く側のスレッドは、書く時点で最後に選んだものを読む。続けて選んだときに、古いほうが後から書かれないため。
+    let latest_language = Arc::new(AtomicU8::new(language as u8));
     let config_path = server.config_path.clone();
     let mut server = Some(server);
 
@@ -260,7 +264,7 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
                         if let (Some(item), Some(state)) = (&login_item, login_state) {
                             item.set_text(locale.get().login_item_label(state));
                         }
-                        save_language(config_path.clone(), chosen);
+                        save_language(config_path.clone(), &latest_language, chosen);
                     }
                 } else if event.id == items.setup.id() {
                     // トークンの発行はサーバーへの問い合わせなので、イベントループ
@@ -340,8 +344,16 @@ fn show_language(
 
 /// 選んだ表示言語を `config.toml` に書く。ファイルの読み書きでイベントループ (メインスレッド) を止めないよう、
 /// 別スレッドで行う。書けなくても、今動いている間のメニューは選んだ言語のままにする。
-fn save_language(path: PathBuf, language: TrayLanguage) {
+///
+/// 続けて選ぶと書くスレッドが重なり、どれが先に書くかは決まらない。そこで値はスレッドに渡さず、
+/// 書く番が来たときに最後に選んだもの (`latest`) を読む。最後に書くスレッドは、最後に選んだものを書く。
+fn save_language(path: PathBuf, latest: &Arc<AtomicU8>, language: TrayLanguage) {
+    static SAVING: Mutex<()> = Mutex::new(());
+    latest.store(language as u8, Ordering::SeqCst);
+    let latest = Arc::clone(latest);
     std::thread::spawn(move || {
+        let _turn = SAVING.lock().unwrap_or_else(PoisonError::into_inner);
+        let language = TrayLanguage::from_u8(latest.load(Ordering::SeqCst));
         if let Err(err) = config::write_tray_language(&path, language) {
             tracing::warn!(error = %err, "failed to save the tray language");
         }

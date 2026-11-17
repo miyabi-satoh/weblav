@@ -422,6 +422,15 @@ pub enum TrayLanguage {
 }
 
 impl TrayLanguage {
+    /// `TrayLanguage as u8` から戻す。知らない値は `System` にする。
+    pub fn from_u8(value: u8) -> Self {
+        match value {
+            v if v == TrayLanguage::Ja as u8 => TrayLanguage::Ja,
+            v if v == TrayLanguage::En as u8 => TrayLanguage::En,
+            _ => TrayLanguage::System,
+        }
+    }
+
     /// `config.toml` に書く値。
     pub fn as_str(self) -> &'static str {
         match self {
@@ -466,10 +475,17 @@ pub enum EditError {
 /// `config.toml` を `edit` で書き換える。手で書いたほかの項目やコメントは残す。
 /// 書き換えた結果を起動のときと同じ読み方で確かめてから置き換える。読めない形を書くと、次に起動できなくなるため。
 /// 今の内容が読めない (起動した後に手で書き換えた等) ときは書き換えない。手で書いた内容を消さないため。
+/// 同じプロセスの中で、書き換えを1つずつにする。トレイとサイト設定の保存が重なると、
+/// 片方の書き換えが消え、隣の一時ファイルも取り合うため。
 pub fn edit_file(
     path: &Path,
     edit: impl FnOnce(&mut toml_edit::DocumentMut) -> Result<(), String>,
 ) -> Result<(), EditError> {
+    static EDIT_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    // 前の書き換えが途中で panic しても、ファイルは置き換えの前か後のどちらかなので続けてよい。
+    let _guard = EDIT_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => String::new(),
@@ -620,6 +636,13 @@ mod tests {
         let text = std::fs::read_to_string(&path).expect("読めなかった");
         assert!(!text.contains("language"), "{text}");
         assert!(text.contains("open_setup_on_launch = false"), "{text}");
+    }
+
+    #[test]
+    fn tray_language_round_trips_through_u8() {
+        for language in [TrayLanguage::System, TrayLanguage::Ja, TrayLanguage::En] {
+            assert_eq!(TrayLanguage::from_u8(language as u8), language);
+        }
     }
 
     /// 読めない `config.toml` は書き換えない。手で書いた内容を消さないため。
