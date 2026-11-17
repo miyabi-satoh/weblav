@@ -50,7 +50,9 @@ pub(crate) use archive::spawn_auto_rescan;
 pub(crate) use operations::{
     on_startup as operations_on_startup, spawn_purge as spawn_operations_purge,
 };
-pub(crate) use password_policy::min_length as password_min_length;
+pub(crate) use password_policy::{
+    meets_min_length as password_meets_min_length, min_length as password_min_length,
+};
 pub use shares::{ShareJobs, TrashPolicy};
 pub(crate) use thumbnails::spawn_sweep as spawn_thumbnails_sweep;
 

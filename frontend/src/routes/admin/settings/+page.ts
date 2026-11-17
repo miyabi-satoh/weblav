@@ -13,9 +13,7 @@ export const load: PageLoad = async ({ parent, url }) => {
 			fetchOrError(client.GET('/api/v1/site-settings'), m.site_settings_fetch_failed(), {
 				loginRedirectFrom: url
 			}),
-			fetchOrError(client.GET('/api/v1/password-policy'), m.site_settings_fetch_failed(), {
-				loginRedirectFrom: url
-			}),
+			fetchOrNull(client.GET('/api/v1/password-policy')),
 			loadServerSettings(),
 			fetchOrNull(client.GET('/api/v1/admin/log-settings')),
 			fetchOrNull(client.GET('/api/v1/admin/hidden-settings')),

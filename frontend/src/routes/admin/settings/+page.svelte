@@ -34,7 +34,6 @@
 	} from '#lib/page-layout.ts';
 	import { masonry } from '#lib/masonry.ts';
 	import { patternLines } from '#lib/pattern-candidate.ts';
-	import { DEFAULT_PASSWORD_MIN_LENGTH } from '#lib/password-policy.ts';
 
 	let { data }: PageProps = $props();
 
@@ -44,8 +43,7 @@
 	const MAX_PORT = 65535;
 	const MAX_UPLOAD_MAX_SIZE_MB = 100 * 1024;
 	const MAX_SESSION_EXPIRY_DAYS = 3650;
-	// 長さで守りたいものが無いので、サーバーの型 (u32) の上限まで受ける。
-	const MAX_PASSWORD_MIN_LENGTH = 4294967295;
+	const MAX_PASSWORD_MIN_LENGTH = 64;
 	// 3つの欄を、いちばん長い上限 (6 桁) と単位が収まる幅に揃える (→ docs/ui.md「見た目の決めごと」)。
 	const serverNumberWidthClass = 'w-36';
 	// 「既定値に戻す」を入力欄の右に並べる。狭い幅で収まらなければ下へ回す。
@@ -57,7 +55,9 @@
 	const siteDirty = new FormDirtyState(() => ({ siteName, homeHeading }));
 	siteDirty.markPristine();
 
-	let passwordMinLength = $state(untrack(() => data.passwordPolicy.passwordMinLength));
+	// 取れなかったとき (null) は、区画に理由だけを出す。下の 0 は使われない。
+	let passwordPolicy = $state(untrack(() => data.passwordPolicy));
+	let passwordMinLength = $state(untrack(() => passwordPolicy?.passwordMinLength ?? 0));
 	let passwordMinLengthInput = $state<IntegerInput>();
 	const passwordDirty = new FormDirtyState(() => ({
 		passwordMinLength,
@@ -165,7 +165,7 @@
 
 	async function handlePasswordSubmit(e: SubmitEvent) {
 		e.preventDefault();
-		if (savingPassword) return;
+		if (savingPassword || !passwordPolicy) return;
 		savingPassword = true;
 
 		try {
@@ -354,39 +354,44 @@
 			<h2 id="password-section-heading" class="text-base font-semibold">
 				{m.admin_settings_password_heading()}
 			</h2>
-			<Field.FieldGroup>
-				<Field.Field>
-					<Field.FieldLabel for="password-min-length" required
-						>{m.admin_settings_password_min_length_label()}</Field.FieldLabel
-					>
-					<div class={serverInputRowClass}>
-						<IntegerInput
-							id="password-min-length"
-							class={serverNumberWidthClass}
-							min={1}
-							max={MAX_PASSWORD_MIN_LENGTH}
-							unit={m.admin_settings_password_min_length_unit({ count: passwordMinLength })}
-							bind:value={passwordMinLength}
-							bind:this={passwordMinLengthInput}
-							required
-						/>
-						{@render defaultValue(
-							m.admin_settings_password_min_length_label(),
-							passwordMinLength !== DEFAULT_PASSWORD_MIN_LENGTH ||
-								(passwordMinLengthInput?.isUnsettled() ?? false),
-							() =>
-								resetField(
-									passwordMinLengthInput,
-									'password-min-length',
-									DEFAULT_PASSWORD_MIN_LENGTH
-								)
-						)}
-					</div>
-				</Field.Field>
-			</Field.FieldGroup>
-			<div>
-				<LoadingButton type="submit" loading={savingPassword}>{m.action_save()}</LoadingButton>
-			</div>
+			{#if passwordPolicy}
+				<Field.FieldGroup>
+					<Field.Field>
+						<Field.FieldLabel for="password-min-length" required
+							>{m.admin_settings_password_min_length_label()}</Field.FieldLabel
+						>
+						<div class={serverInputRowClass}>
+							<IntegerInput
+								id="password-min-length"
+								class={serverNumberWidthClass}
+								min={1}
+								max={MAX_PASSWORD_MIN_LENGTH}
+								unit={m.admin_settings_password_min_length_unit({ count: passwordMinLength })}
+								bind:value={passwordMinLength}
+								bind:this={passwordMinLengthInput}
+								required
+							/>
+							{@render defaultValue(
+								m.admin_settings_password_min_length_label(),
+								passwordMinLength !==
+									(passwordPolicy?.defaultPasswordMinLength ?? passwordMinLength) ||
+									(passwordMinLengthInput?.isUnsettled() ?? false),
+								() =>
+									resetField(
+										passwordMinLengthInput,
+										'password-min-length',
+										passwordPolicy?.defaultPasswordMinLength ?? passwordMinLength
+									)
+							)}
+						</div>
+					</Field.Field>
+				</Field.FieldGroup>
+				<div>
+					<LoadingButton type="submit" loading={savingPassword}>{m.action_save()}</LoadingButton>
+				</div>
+			{:else}
+				<p class="text-sm text-destructive">{m.admin_settings_password_fetch_failed()}</p>
+			{/if}
 		</form>
 
 		<form

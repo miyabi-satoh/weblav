@@ -228,6 +228,7 @@
 	"admin_settings_password_heading": "パスワード",
 	"admin_settings_password_min_length_label": "最小文字数",
 	"admin_settings_password_min_length_unit": "文字",
+	"admin_settings_password_fetch_failed": "パスワードの設定を読み込めませんでした。しばらくしてからもう一度お試しください。",
 	"admin_settings_reset_button": "既定値に戻す",
 	"admin_settings_reset_button_label": "既定値に戻す: {name}",
 	"admin_settings_server_unsaved": "保存されていない変更があります。",

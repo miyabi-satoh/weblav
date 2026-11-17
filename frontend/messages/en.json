@@ -336,6 +336,7 @@
 			}
 		}
 	],
+	"admin_settings_password_fetch_failed": "Failed to load the password settings. Please try again later.",
 	"admin_settings_reset_button": "Reset to default",
 	"admin_settings_reset_button_label": "Reset to default: {name}",
 	"admin_settings_server_unsaved": "You have unsaved changes.",

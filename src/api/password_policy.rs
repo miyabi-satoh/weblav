@@ -13,12 +13,25 @@ use crate::auth::ConfirmedAdmin;
 use crate::error::{AppError, AppJson};
 use crate::state::AppState;
 
+/// 下限の上限。パスワードの長さの上限を設けるサービスでも、少なくとも 64 文字は受けるよう求められる
+/// (NIST SP 800-63B-4 3.1.1.2)。これを超える下限は、打ち間違いでだれも新しいパスワードを決められなくなるだけのため。
+pub(crate) const MAX_PASSWORD_MIN_LENGTH: u32 = 64;
+
 #[derive(Debug, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PasswordPolicy {
-    /// 新しいパスワードの最小の文字数。1 以上。
-    #[schema(minimum = 1)]
+    /// 新しいパスワードの最小の文字数。1〜64。
+    #[schema(minimum = 1, maximum = 64)]
     pub password_min_length: u32,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PasswordPolicyResponse {
+    /// 新しいパスワードの最小の文字数。
+    pub password_min_length: u32,
+    /// 既定の最小の文字数。最初のセットアップはこの値で固定する。画面が、セットアップの案内と「既定値に戻す」に使う。
+    pub default_password_min_length: u32,
 }
 
 // 未ログインでも読める。リカバリコードでの再設定とセットアップの画面が、下限を欄の下に出すため。
@@ -26,14 +39,15 @@ pub struct PasswordPolicy {
     get,
     path = "/password-policy",
     responses(
-        (status = OK, body = PasswordPolicy, description = "新しいパスワードの下限"),
+        (status = OK, body = PasswordPolicyResponse, description = "新しいパスワードの下限と既定"),
     )
 )]
 async fn get_password_policy(
     State(state): State<AppState>,
-) -> Result<Json<PasswordPolicy>, AppError> {
-    Ok(Json(PasswordPolicy {
+) -> Result<Json<PasswordPolicyResponse>, AppError> {
+    Ok(Json(PasswordPolicyResponse {
         password_min_length: min_length(&state.pool).await?,
+        default_password_min_length: crate::auth::DEFAULT_PASSWORD_MIN_LENGTH,
     }))
 }
 
@@ -45,7 +59,7 @@ async fn get_password_policy(
         (status = OK, body = PasswordPolicy, description = "更新後の下限"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
-        (status = 422, body = crate::error::ErrorResponse, description = "下限が 0"),
+        (status = 422, body = crate::error::ErrorResponse, description = "下限が 1〜64 の外"),
     )
 )]
 async fn update_password_policy(
@@ -54,9 +68,9 @@ async fn update_password_policy(
     AppJson(payload): AppJson<PasswordPolicy>,
 ) -> Result<Json<PasswordPolicy>, AppError> {
     // 0 を許すと空のパスワードが通る。空を断るのは下限によらない決まり。
-    if payload.password_min_length == 0 {
+    if !(1..=MAX_PASSWORD_MIN_LENGTH).contains(&payload.password_min_length) {
         return Err(AppError::Validation(
-            "passwordMinLength must be at least 1".to_string(),
+            "passwordMinLength must be between 1 and 64".to_string(),
         ));
     }
     let before = PasswordPolicy {
@@ -87,8 +101,10 @@ pub(crate) async fn min_length(
     let stored = sqlx::query_scalar!("SELECT password_min_length FROM site_settings WHERE id = 1")
         .fetch_one(executor)
         .await?;
-    // 1 以上で保存するので外れないが、手で書き換えられた DB でも空のパスワードを通さない。
-    Ok(u32::try_from(stored).unwrap_or(u32::MAX).max(1))
+    // 範囲の中で保存するので外れないが、手で書き換えられた DB でも空のパスワードを通さない。
+    Ok(u32::try_from(stored)
+        .unwrap_or(MAX_PASSWORD_MIN_LENGTH)
+        .clamp(1, MAX_PASSWORD_MIN_LENGTH))
 }
 
 /// 新しいパスワードが、今の下限に届いているかを確かめる。
@@ -100,8 +116,13 @@ pub(crate) async fn check_new_password(
 }
 
 /// 文字で数える (日本語の 8 文字が通る)。前後の空白も、パスワードの一部として数える。
+pub(crate) fn meets_min_length(password: &str, min_length: u32) -> bool {
+    password.chars().count() >= min_length as usize
+}
+
+/// `meets_min_length` を満たさなければ、画面が下限を出せる 422 にする。
 pub(crate) fn check_length(password: &str, min_length: u32) -> Result<(), AppError> {
-    if password.chars().count() < min_length as usize {
+    if !meets_min_length(password, min_length) {
         return Err(AppError::ValidationDetailed {
             message: format!("password must be at least {min_length} characters"),
             detail: ValidationDetail::PasswordTooShort { min_length },

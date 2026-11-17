@@ -2822,7 +2822,19 @@ export interface components {
         PasswordPolicy: {
             /**
              * Format: int32
-             * @description 新しいパスワードの最小の文字数。1 以上。
+             * @description 新しいパスワードの最小の文字数。1〜64。
+             */
+            passwordMinLength: number;
+        };
+        PasswordPolicyResponse: {
+            /**
+             * Format: int32
+             * @description 既定の最小の文字数。最初のセットアップはこの値で固定する。画面が、セットアップの案内と「既定値に戻す」に使う。
+             */
+            defaultPasswordMinLength: number;
+            /**
+             * Format: int32
+             * @description 新しいパスワードの最小の文字数。
              */
             passwordMinLength: number;
         };
@@ -4018,7 +4030,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 下限が 0 */
+            /** @description 下限が 1〜64 の外 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -7930,13 +7942,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 新しいパスワードの下限 */
+            /** @description 新しいパスワードの下限と既定 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PasswordPolicy"];
+                    "application/json": components["schemas"]["PasswordPolicyResponse"];
                 };
             };
         };

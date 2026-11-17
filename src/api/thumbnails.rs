@@ -319,7 +319,10 @@ pub(super) async fn thumbnail_response(
         // ブラウザーは毎回問い合わせ、置き場は読まずに 304 を返すので、ここでも使った印を付ける。
         // 付けないと、毎日見ている縮小画像も消える。
         let dir = thumbnails.dir.clone();
-        run_blocking(move || mark_cached(&dir, &key)).await?;
+        // 印は付けられなくても 304 は返す (`mark_used` と同じ扱い)。
+        if let Err(err) = run_blocking(move || mark_cached(&dir, &key)).await {
+            tracing::debug!(error = %crate::error::error_chain(&err), "marking a thumbnail as used failed");
+        }
         return Ok(with_cache_headers(
             StatusCode::NOT_MODIFIED.into_response(),
             etag,
@@ -486,19 +489,29 @@ fn sweep_unused(dir: &Path, now: SystemTime) -> std::io::Result<u64> {
     };
     let mut removed = 0;
     for entry in entries {
-        let entry = entry?;
-        let metadata = entry.metadata()?;
-        if metadata.is_dir() {
-            removed += sweep_unused(&entry.path(), now)?;
-        } else if metadata.is_file() && is_unused(metadata.modified()?, now) {
-            match std::fs::remove_file(entry.path()) {
-                Ok(()) => removed += 1,
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
-                Err(err) => return Err(err),
+        // 1件で止めると、その先の古いものが毎日残る。作っている最中に名前が変わったものなどは飛ばして続ける。
+        match sweep_entry(entry, now) {
+            Ok(count) => removed += count,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => {
+                tracing::warn!(dir = %dir.display(), error = %err, "removing an unused thumbnail failed")
             }
         }
     }
     Ok(removed)
+}
+
+fn sweep_entry(entry: std::io::Result<std::fs::DirEntry>, now: SystemTime) -> std::io::Result<u64> {
+    let entry = entry?;
+    let metadata = entry.metadata()?;
+    if metadata.is_dir() {
+        return sweep_unused(&entry.path(), now);
+    }
+    if metadata.is_file() && is_unused(metadata.modified()?, now) {
+        std::fs::remove_file(entry.path())?;
+        return Ok(1);
+    }
+    Ok(0)
 }
 
 /// 起動したときと1日ごとに、使われていない縮小画像を消す。

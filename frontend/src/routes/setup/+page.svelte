@@ -11,7 +11,6 @@
 	import { Input } from '#lib/components/ui/input/index.ts';
 	import PasswordInput from '#lib/components/password-input.svelte';
 	import PasswordMinLengthHint from '#lib/components/password-min-length-hint.svelte';
-	import { DEFAULT_PASSWORD_MIN_LENGTH } from '#lib/password-policy.ts';
 	import type { components } from '#lib/api/schema.js';
 	import BackupRestore from '#lib/components/backup-restore.svelte';
 	import ErrorDialog from '#lib/components/error-dialog.svelte';
@@ -147,7 +146,7 @@
 									bind:value={password}
 									required
 								/>
-								<PasswordMinLengthHint minLength={DEFAULT_PASSWORD_MIN_LENGTH} />
+								<PasswordMinLengthHint useDefault />
 							</Field.Field>
 							<Field.Field data-invalid={passwordMismatch}>
 								<Field.FieldLabel for="password-confirm" required
