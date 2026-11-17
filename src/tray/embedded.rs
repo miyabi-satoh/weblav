@@ -226,22 +226,19 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
                 *control_flow = ControlFlow::Exit;
             }
             Event::UserEvent(UserEvent::Menu(event)) => {
+                let choices = language_choices(&items.system_language, &ja_item, &en_item);
                 if event.id == items.quit.id() {
                     tracing::info!("quit menu item selected");
                     // `tao`は`ControlFlow::Exit`をセットすると事実上即座にプロセスを終了させる
                     // ため、先にサーバーを止めきっておかないと graceful shutdown が完走しない。
                     shut_down(&mut saver, &mut server);
                     *control_flow = ControlFlow::Exit;
-                } else if let Some(chosen) =
-                    language_choices(&items.system_language, &ja_item, &en_item)
-                        .into_iter()
-                        .find_map(|(item, value)| (event.id == item.id()).then_some(value))
+                } else if let Some(chosen) = choices
+                    .into_iter()
+                    .find_map(|(item, value)| (event.id == item.id()).then_some(value))
                 {
                     // muda は押された時点でチェックを反転させているので、選んだものだけに付け直す。
-                    show_language(
-                        chosen,
-                        language_choices(&items.system_language, &ja_item, &en_item),
-                    );
+                    show_language(chosen, choices);
                     if chosen != language {
                         language = chosen;
                         locale.set(resolve_locale(chosen));
