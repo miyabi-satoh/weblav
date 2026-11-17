@@ -3304,6 +3304,16 @@ mod tests {
         }
     }
 
+    async fn insert_user(pool: &sqlx::SqlitePool, username: &str) -> i64 {
+        sqlx::query_scalar(
+            "INSERT INTO users (username, password_hash) VALUES (?, 'x') RETURNING id",
+        )
+        .bind(username)
+        .fetch_one(pool)
+        .await
+        .expect("ユーザーを入れられなかった")
+    }
+
     async fn insert_group(pool: &sqlx::SqlitePool, title: &str, parent_id: Option<i64>) -> i64 {
         sqlx::query_scalar(
             "INSERT INTO contents (type, parent_id, title, visibility) \
@@ -3420,12 +3430,7 @@ mod tests {
     /// 子が無いときも通す。
     #[sqlx::test]
     async fn children_fit_private_group_only_when_all_are_creators_private(pool: sqlx::SqlitePool) {
-        let owner: i64 = sqlx::query_scalar(
-            "INSERT INTO users (username, password_hash) VALUES ('alice', 'x') RETURNING id",
-        )
-        .fetch_one(&pool)
-        .await
-        .expect("ユーザーを入れられなかった");
+        let owner = insert_user(&pool, "alice").await;
         let group = insert_group(&pool, "私の関心", None).await;
         ensure_children_fit_private_group(&pool, group, Some(owner))
             .await
@@ -3587,28 +3592,17 @@ mod tests {
     /// 作成者と管理者には、ふつうの親として扱う。
     #[sqlx::test]
     async fn validate_parent_answers_others_private_like_a_missing_parent(pool: sqlx::SqlitePool) {
-        let owner: i64 = sqlx::query_scalar(
-            "INSERT INTO users (username, password_hash) VALUES ('owner', 'x') RETURNING id",
-        )
-        .fetch_one(&pool)
-        .await
-        .expect("ユーザーを入れられなかった");
-        let mut private = Vec::new();
-        for content_type in ["group", "link"] {
-            let id: i64 = sqlx::query_scalar(
-                "INSERT INTO contents (type, title, url, visibility, created_by) \
-                 VALUES (?, '作成者のみ', 'https://example.com', 'private', ?) RETURNING id",
-            )
-            .bind(content_type)
-            .bind(owner)
-            .fetch_one(&pool)
-            .await
-            .expect("コンテンツを入れられなかった");
-            private.push(id);
+        let owner = insert_user(&pool, "owner").await;
+        let private_group = insert_group(&pool, "作成者のみ", None).await;
+        let private_link = insert_link(&pool, "作成者のみ", None).await;
+        for id in [private_group, private_link] {
+            sqlx::query("UPDATE contents SET visibility = 'private', created_by = ? WHERE id = ?")
+                .bind(owner)
+                .bind(id)
+                .execute(&pool)
+                .await
+                .expect("「作成者のみ」にできなかった");
         }
-        let [private_group, private_link] = private[..] else {
-            unreachable!()
-        };
         let other = AuthUser::for_test(owner + 1, crate::auth::Role::User);
 
         let message = |result: Result<Option<ParentGroup>, AppError>| match result {

@@ -666,10 +666,7 @@ async fn browsing_into_a_nested_root_keeps_the_outer_one_as_the_start(pool: Sqli
         assert_eq!(status, StatusCode::CREATED, "{body}");
     }
 
-    let uri = format!(
-        "/api/v1/fs/dirs?path={}",
-        utf8_percent_encode(&inner_path, NON_ALPHANUMERIC)
-    );
+    let uri = fs_dirs_uri(&inner_path);
     let (status, body) = send_empty(app, "GET", &uri, &cookie).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let listing = parse_json(&body);
@@ -936,10 +933,7 @@ async fn browsing_into_an_unreadable_folder_names_it(pool: SqlitePool) {
 
     let locked_path = canonical_path_as_api_returns_it(&dir.join("locked"));
     let locked = test_support::Unreadable::new(dir.join("locked"));
-    let uri = format!(
-        "/api/v1/fs/dirs?path={}",
-        utf8_percent_encode(&locked_path, NON_ALPHANUMERIC)
-    );
+    let uri = fs_dirs_uri(&locked_path);
     let (status, body) = send_empty(app, "GET", &uri, &cookie).await;
     drop(locked);
 

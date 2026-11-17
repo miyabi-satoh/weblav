@@ -63,7 +63,9 @@ function findSdkTool(name, envName) {
 	);
 }
 
-// 確かめ用の版のパッケージの名前と表示名。常用の版 (amiiby.WebLAV) と別のパッケージにして、データ・ログイン時の起動・
+// 常用の版のパッケージの名前 (installer/msix/AppxManifest.xml の Identity の Name)。e2e/lib/windows.mjs の DAILY_PACKAGE_NAME と揃える。
+const DAILY_PACKAGE_NAME = 'amiiby.WebLAV';
+// 確かめ用の版のパッケージの名前と表示名。常用の版と別のパッケージにして、データ・ログイン時の起動・
 // ファイアウォールの規則を常用の版と分ける。e2e/lib/windows.mjs の PACKAGE_NAME と揃える。
 const E2E_NAME = 'amiiby.WebLAV.E2E';
 const E2E_DISPLAY_NAME = 'WebLAV E2E';
@@ -82,7 +84,7 @@ function layout(version, store, { e2e = false, revision } = {}) {
 		.replaceAll('{{PUBLISHER}}', store ? STORE_PUBLISHER : TEST_PUBLISHER);
 	if (e2e) {
 		manifest = manifest
-			.replace('Name="amiiby.WebLAV"', `Name="${E2E_NAME}"`)
+			.replace(`Name="${DAILY_PACKAGE_NAME}"`, `Name="${E2E_NAME}"`)
 			.replaceAll('DisplayName="WebLAV"', `DisplayName="${E2E_DISPLAY_NAME}"`)
 			.replace('<DisplayName>WebLAV</DisplayName>', `<DisplayName>${E2E_DISPLAY_NAME}</DisplayName>`);
 	}
@@ -135,7 +137,7 @@ function installRevision() {
 		[
 			'-NoProfile',
 			'-Command',
-			`(Get-AppxPackage -Name amiiby.WebLAV | Where-Object Publisher -eq '${TEST_PUBLISHER}').Version`,
+			`(Get-AppxPackage -Name ${DAILY_PACKAGE_NAME} | Where-Object Publisher -eq '${TEST_PUBLISHER}').Version`,
 		],
 		{ encoding: 'utf8' },
 	).trim();
@@ -151,7 +153,7 @@ function install(output) {
 	const script = [
 		"$ErrorActionPreference = 'Stop'",
 		`Add-AppxPackage -Path '${output}' -ForceApplicationShutdown -ForceUpdateFromAnyVersion`,
-		`$p = Get-AppxPackage -Name amiiby.WebLAV | Where-Object Publisher -eq '${TEST_PUBLISHER}'`,
+		`$p = Get-AppxPackage -Name ${DAILY_PACKAGE_NAME} | Where-Object Publisher -eq '${TEST_PUBLISHER}'`,
 		'$id = ($p | Get-AppxPackageManifest).Package.Applications.Application.Id',
 		'Start-Process "shell:AppsFolder\\$($p.PackageFamilyName)!$id"',
 		'Write-Output "installed $($p.Version)"',

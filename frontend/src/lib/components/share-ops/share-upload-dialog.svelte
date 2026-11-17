@@ -43,7 +43,6 @@
 	 * 送っている間は、画面を移ろうとしたら確かめる。移った先からは送りかけが見えず、止めようもないため。
 	 */
 	import { onDestroy, untrack } from 'svelte';
-	import { beforeNavigate, goto } from '$app/navigation';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
 	import FileIcon from '@lucide/svelte/icons/file';
@@ -51,7 +50,8 @@
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import * as Dialog from '#lib/components/ui/dialog/index.ts';
 	import { Progress } from '#lib/components/ui/progress/index.ts';
-	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.ts';
+	import LeaveConfirmDialog from '#lib/components/leave-confirm-dialog.svelte';
+	import { LeaveGuard } from '#lib/leave-guard.svelte.ts';
 	import FileDropzone, { isDroppedFolder } from '#lib/components/file-dropzone.svelte';
 	import LoadingButton from '#lib/components/loading-button.svelte';
 	import { listItemClass } from '#lib/list-row.ts';
@@ -82,8 +82,7 @@
 	let controller: AbortController | null = null;
 	/** 送っている途中の `start()`。止めた後、送り終えたことにしてから移るために待つ。 */
 	let running: Promise<void> | null = null;
-	/** 送っている間に移ろうとした行き先。確かめを出している間だけ `null` でない。 */
-	let leaveTo = $state<URL | null>(null);
+	const leaveGuard = new LeaveGuard(() => uploading);
 
 	let waiting = $derived(items.filter((item) => item.state === 'waiting').length);
 	// 送ったものがあり、送るものが残っていない。上限を超えて送らなかったものだけなら、選び直せるよう終わりにしない。
@@ -162,29 +161,11 @@
 		controller?.abort();
 	}
 
-	beforeNavigate((navigation) => {
-		if (!uploading) return;
-		// タブを閉じる・再読み込みは、ブラウザー標準の確認に任せる。
-		if (navigation.type === 'leave') {
-			navigation.cancel();
-			return;
-		}
-		if (!navigation.to) return;
-		navigation.cancel();
-		leaveTo = navigation.to.url;
-	});
-
-	/** 送るのを止めて、止めた移動を続ける。送り終えてから移る (送っている間の移動は、もう一度止まるため)。 */
-	async function stopAndLeave() {
-		const target = leaveTo;
-		leaveTo = null;
-		if (target === null) return;
+	/** 離れるときの確認で移るのを選んだとき。送るのを止め、送り終えるまで待つ (送っている間の移動は、もう一度止まるため)。 */
+	async function stopAndWait() {
 		stop();
 		await running;
 		open = false;
-		// 行き先は SvelteKit のナビゲーションが解決済みの URL。
-		// eslint-disable-next-line svelte/no-navigation-without-resolve
-		await goto(target);
 	}
 
 	// 移る以外で窓ごと無くなっても、見えないまま送り続けない。
@@ -287,24 +268,10 @@
 	</Dialog.Content>
 </Dialog.Root>
 
-<AlertDialog.Root
-	bind:open={
-		() => leaveTo !== null,
-		(value) => {
-			if (!value) leaveTo = null;
-		}
-	}
->
-	<AlertDialog.Content>
-		<AlertDialog.Header>
-			<AlertDialog.Title>{m.shares_upload_leave_title()}</AlertDialog.Title>
-			<AlertDialog.Description>{m.shares_upload_leave_description()}</AlertDialog.Description>
-		</AlertDialog.Header>
-		<AlertDialog.Footer>
-			<AlertDialog.Cancel>{m.action_cancel()}</AlertDialog.Cancel>
-			<AlertDialog.Action variant="destructive" onclick={stopAndLeave}
-				>{m.shares_upload_leave_button()}</AlertDialog.Action
-			>
-		</AlertDialog.Footer>
-	</AlertDialog.Content>
-</AlertDialog.Root>
+<LeaveConfirmDialog
+	guard={leaveGuard}
+	ondiscard={stopAndWait}
+	title={m.shares_upload_leave_title()}
+	description={m.shares_upload_leave_description()}
+	action={m.shares_upload_leave_button()}
+/>

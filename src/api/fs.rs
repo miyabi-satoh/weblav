@@ -213,13 +213,7 @@ pub(super) fn canonical_dir_within_roots(
     hidden: &Hidden,
 ) -> Result<PathBuf, AppError> {
     let input = require_absolute(path)?;
-    // 共有の外は、ファイルシステムに触る前に断る (→ `roots::ensure_input_reachable`)。
-    if !roots
-        .iter()
-        .any(|root| super::roots::lexically_contains(&root.path, &input))
-    {
-        return Err(outside_roots());
-    }
+    reject_lexically_outside(&input, roots)?;
     let Ok(canonical) = std::fs::canonicalize(&input) else {
         return Err(outside_roots());
     };
@@ -228,6 +222,18 @@ pub(super) fn canonical_dir_within_roots(
     }
     require_dir(&canonical)?;
     Ok(canonical)
+}
+
+/// 文字の上でどの共有の中にもないパスを、ファイルシステムに触る前に断る (→ `roots::ensure_input_reachable`)。
+fn reject_lexically_outside(input: &FsPath, roots: &[Root]) -> Result<(), AppError> {
+    if roots
+        .iter()
+        .any(|root| super::roots::lexically_contains(&root.path, input))
+    {
+        Ok(())
+    } else {
+        Err(outside_roots())
+    }
 }
 
 /// ショートカットの先のファイルを検証し、実体のパスを返す。判定の順と理由を寄せる決まりは
@@ -240,13 +246,7 @@ pub(super) fn canonical_file_within_roots(
     hidden: &Hidden,
 ) -> Result<PathBuf, AppError> {
     let input = require_absolute(path)?;
-    // 共有の外は、ファイルシステムに触る前に断る (→ `roots::ensure_input_reachable`)。
-    if !roots
-        .iter()
-        .any(|root| super::roots::lexically_contains(&root.path, &input))
-    {
-        return Err(outside_roots());
-    }
+    reject_lexically_outside(&input, roots)?;
     let Ok(canonical) = std::fs::canonicalize(&input) else {
         return Err(outside_roots());
     };

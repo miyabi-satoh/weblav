@@ -469,7 +469,7 @@ pub(crate) fn truncate_username(username: &str) -> &str {
 /// マルチインスタンス運用をまたいだ制限は行わない。
 pub struct LoginRateLimiter {
     max_attempts: u32,
-    global_max_attempts: u32,
+    client_max_attempts: u32,
     max_tracked_ids: usize,
     window: Duration,
     attempts: Mutex<HashMap<Key, Vec<Instant>>>,
@@ -494,17 +494,17 @@ fn rate_limit_key(client: Option<&str>, username: &str) -> Key {
 }
 
 impl LoginRateLimiter {
-    pub fn new(max_attempts: u32, global_max_attempts: u32, window: Duration) -> Self {
+    pub fn new(max_attempts: u32, client_max_attempts: u32, window: Duration) -> Self {
         Self {
             max_attempts,
-            global_max_attempts,
+            client_max_attempts,
             max_tracked_ids: 10_000,
             window,
             attempts: Mutex::new(HashMap::new()),
         }
     }
 
-    /// `username` について、直近 `window` 以内の試行回数がユーザー単位・全体単位どちらの
+    /// `client` からの `username` について、直近 `window` 以内の試行回数がユーザー単位・端末単位どちらの
     /// 上限も未満なら、この呼び出し自体を1回の試行として記録し `true` を返す。上限に達して
     /// いる場合は記録せず `false` を返す。
     pub fn try_acquire(&self, client: Option<&str>, username: &str) -> bool {
@@ -514,7 +514,10 @@ impl LoginRateLimiter {
 
         // 別リクエストのロック中にpanicした場合でも制限機能自体は継続させたいので、
         // poisonした場合は中身を引き継いで使う。
-        let mut attempts = self.attempts.lock().unwrap_or_else(|e| e.into_inner());
+        let mut attempts = self
+            .attempts
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         // 期限切れの試行を掃除し、空になったキーはMapから削除する。これによりdistinctな
         // ユーザー名を送り続けられてもMapが際限なく肥大化しないようにする。
@@ -525,7 +528,7 @@ impl LoginRateLimiter {
 
         // 端末の試行回数が上限に達していれば、ユーザー名に関わらず拒否する
         // (異なるユーザー名を使ったCPU枯渇DoS対策)。
-        if attempts.get(&client_key).map_or(0, Vec::len) as u32 >= self.global_max_attempts {
+        if attempts.get(&client_key).map_or(0, Vec::len) as u32 >= self.client_max_attempts {
             return false;
         }
 
@@ -547,7 +550,7 @@ impl LoginRateLimiter {
     }
 
     /// ログイン成功時に呼ぶ。直前の `try_acquire` で記録した1回分の試行を、
-    /// ユーザー単位・グローバル単位の両方から取り消す。これにより、正しい
+    /// ユーザー単位・端末単位の両方から取り消す。これにより、正しい
     /// パスワードでの連続ログインがレートリミットを消費し続けることはない。
     ///
     /// 同一ユーザー名への並行リクエストがある場合、取り消す試行が入れ替わる可能性が
@@ -556,7 +559,10 @@ impl LoginRateLimiter {
     pub fn release(&self, client: Option<&str>, username: &str) {
         let user_key = rate_limit_key(client, username);
         let client_key = Key::Client(client.map(str::to_string));
-        let mut attempts = self.attempts.lock().unwrap_or_else(|e| e.into_inner());
+        let mut attempts = self
+            .attempts
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(v) = attempts.get_mut(&user_key) {
             v.pop();
         }
@@ -1145,13 +1151,13 @@ mod tests {
         }
 
         #[test]
-        fn global_limit_blocks_even_with_distinct_usernames() {
+        fn client_limit_blocks_even_with_distinct_usernames() {
             let limiter = LoginRateLimiter::new(100, 3, Duration::from_secs(60));
 
             assert!(limiter.try_acquire(CLIENT, "user-1"));
             assert!(limiter.try_acquire(CLIENT, "user-2"));
             assert!(limiter.try_acquire(CLIENT, "user-3"));
-            // 別のユーザー名でも、グローバル上限を超えていれば拒否される。
+            // 別のユーザー名でも、端末の上限を超えていれば拒否される。
             assert!(!limiter.try_acquire(CLIENT, "user-4"));
         }
 
@@ -1172,11 +1178,11 @@ mod tests {
         }
 
         #[test]
-        fn release_frees_up_a_slot_for_both_user_and_global() {
+        fn release_frees_up_a_slot_for_both_user_and_client() {
             let limiter = LoginRateLimiter::new(1, 1, Duration::from_secs(60));
 
             assert!(limiter.try_acquire(CLIENT, "admin"));
-            assert!(!limiter.try_acquire(CLIENT, "admin")); // 上限到達(ユーザー単位・グローバル単位とも1)
+            assert!(!limiter.try_acquire(CLIENT, "admin")); // 上限到達(ユーザー単位・端末単位とも1)
 
             limiter.release(CLIENT, "admin");
 

@@ -7,7 +7,7 @@ use super::*;
 
 const CONFIRM_PASSWORD_URI: &str = "/api/v1/auth/confirm-password";
 
-/// 確かめた後にパスワードが変わった状態を作る (ほかの管理者の再設定と同じ書き換え)。
+/// 確かめた後にパスワードが変わった状態を作る。パスワードの指紋だけを変え、ログインの世代は進めない (セッションを切らないため)。
 async fn replace_password_hash(pool: &SqlitePool, username: &str, password: &str) {
     let hash = auth::hash_password(password).expect("ハッシュを作れるはず");
     sqlx::query("UPDATE users SET password_hash = ? WHERE username = ?")
@@ -16,32 +16,6 @@ async fn replace_password_hash(pool: &SqlitePool, username: &str, password: &str
         .execute(pool)
         .await
         .expect("パスワードを書き換えられるはず");
-}
-
-/// 管理者に再設定されたら、古いパスワードで入ったセッションは、自分のアカウントの操作を通せない
-/// (セッションごと切れる。→ `users::users_reset_password_logs_the_user_out_on_every_device`)。
-/// 再設定でリカバリコードを消しても、古いパスワードを知った人に作り直されないため。
-#[sqlx::test]
-async fn admin_reset_stops_the_old_session_from_changing_the_account(pool: SqlitePool) {
-    insert_admin(&pool, "admin", "admin-password").await;
-    insert_user(&pool, "alice", "old-password").await;
-    let app = test_app(pool.clone()).await;
-    let admin = login(app.clone(), "admin", "admin-password").await;
-    let alice = login(app.clone(), "alice", "old-password").await;
-    let alice_id = db_user_id(&pool, "alice").await;
-
-    let (status, body) = send_json(
-        app.clone(),
-        "PUT",
-        &format!("/api/v1/admin/users/{alice_id}/password"),
-        &admin,
-        r#"{"password":"new-password"}"#,
-    )
-    .await;
-    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
-
-    let (status, body) = send_empty(app, "POST", RECOVERY_CODE_URI, &alice).await;
-    assert_error(status, &body, StatusCode::UNAUTHORIZED, "unauthorized");
 }
 
 /// 自分でパスワードを変えたセッションは、ログインしたまま確かめた内にもなる。同じ人のほかのセッションは切れる。

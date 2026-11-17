@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tick } from 'svelte';
 	import { WindowVirtualizer, type WindowVirtualizerHandle } from 'virtua/svelte';
 	import { client } from '#lib/api/client.ts';
 	import type { components } from '#lib/api/schema.js';
@@ -15,6 +14,8 @@
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import { ErrorDialogState } from '#lib/error-dialog-state.svelte.ts';
 	import { formatNumber } from '#lib/format.ts';
+	import { PAGE_LINES, VirtualPages } from '#lib/virtual-pages.svelte.ts';
+	import VirtualPageNav from '#lib/components/virtual-page-nav.svelte';
 	import { ListFilterState, provideListFilter } from '#lib/list-filter.svelte.ts';
 	import { NameFilteredView } from '#lib/name-filtered-view.svelte.ts';
 	import {
@@ -58,29 +59,9 @@
 		const current = list;
 		return () => current.dispose();
 	});
-	// 要素の高さには上限があり (Firefox で約1,790万 px)、40万行ほどで最後まで届かなくなるので、
-	// 一覧の表示と同じく10万行ごとにページを分ける (→ docs/archive.md「画面が見える辺りを取りに行く」)。
-	const PAGE_ROWS = 100_000;
-	let pageCount = $derived(Math.max(1, Math.ceil(list.total / PAGE_ROWS)));
-	let page = $state(0);
-	// 取り直して今のページが無くなったら、最後のページにする。
-	$effect(() => {
-		if (page >= pageCount) page = pageCount - 1;
-	});
-	let indexes = $derived(
-		Array.from(
-			{ length: Math.max(0, Math.min(PAGE_ROWS, list.total - page * PAGE_ROWS)) },
-			(_, i) => page * PAGE_ROWS + i
-		)
-	);
+	// 1行を1段に並べる。
+	const pages = new VirtualPages(() => list.total);
 	let virtualizer = $state<WindowVirtualizerHandle | undefined>();
-
-	/** ページを移り、その先頭から見せる。下のボタンで移ったときに、新しいページの途中から始まらないように。 */
-	async function goToPage(next: number) {
-		page = next;
-		await tick();
-		virtualizer?.scrollToIndex(0);
-	}
 
 	$effect(() => {
 		if (list.expired) void named.refresh();
@@ -126,11 +107,11 @@
 		{:else if view.total === 0}
 			<ListFilterEmpty />
 		{:else}
-			{#if pageCount > 1}{@render pageNav()}{/if}
+			{#if pages.pageCount > 1}{@render pageNav()}{/if}
 			<div role="list" class="border-t border-divider bg-background">
 				<!-- ページが変わると行がすべて変わるので、測った高さを捨てて作り直す。 -->
-				{#key page}
-					<WindowVirtualizer bind:this={virtualizer} data={indexes} getKey={(index) => index}>
+				{#key pages.page}
+					<WindowVirtualizer bind:this={virtualizer} data={pages.lines} getKey={(index) => index}>
 						{#snippet children(index)}
 							{@const item = list.get(index)}
 							<div
@@ -151,33 +132,13 @@
 					</WindowVirtualizer>
 				{/key}
 			</div>
-			{#if pageCount > 1}{@render pageNav()}{/if}
+			{#if pages.pageCount > 1}{@render pageNav()}{/if}
 		{/if}
 	</div>
 </div>
 
 {#snippet pageNav()}
-	<div class="flex flex-wrap items-center justify-center gap-3 py-4">
-		<Button
-			type="button"
-			variant="outline"
-			disabled={page === 0}
-			onclick={() => void goToPage(page - 1)}
-		>
-			{m.archive_view_previous_page({ count: formatNumber(PAGE_ROWS) })}
-		</Button>
-		<span class="text-sm text-muted-foreground">
-			{m.archive_view_page_position({ page: page + 1, pages: pageCount })}
-		</span>
-		<Button
-			type="button"
-			variant="outline"
-			disabled={page >= pageCount - 1}
-			onclick={() => void goToPage(page + 1)}
-		>
-			{m.archive_view_next_page({ count: formatNumber(PAGE_ROWS) })}
-		</Button>
-	</div>
+	<VirtualPageNav {pages} count={PAGE_LINES} ongo={(next) => void pages.goTo(next, virtualizer)} />
 {/snippet}
 
 <PatternAddDialog

@@ -24,9 +24,7 @@ const NAME_MAX_BYTES: usize = 255;
 /// 見た目は同じなのに別のファイルになるのを避けるため。
 /// 表示しないものに当たる名前 (既定ではドット始まり) は、置き場所によるので `ensure_placed_shown` で見る。
 pub(super) fn validate_name(name: &str) -> Result<String, AppError> {
-    let name = icu_normalizer::ComposingNormalizerBorrowed::new_nfc()
-        .normalize(name)
-        .into_owned();
+    let name = crate::api::file_filter::nfc(name).into_owned();
     let invalid = name.trim().is_empty()
         || name == "."
         || name == ".."
@@ -196,9 +194,7 @@ pub(super) async fn ensure_not_protected(
     // 共有は登録したときの実体のパスで照らす。つながらない NAS の共有も見落とさないよう、
     // ファイルシステムには聞かない。
     let stored = crate::api::fs::stored_path(&resolved.canonical)?;
-    let roots = sqlx::query_scalar!("SELECT path FROM roots WHERE deleted_at IS NULL")
-        .fetch_all(&state.pool)
-        .await?;
+    let roots = crate::api::roots::active_root_paths(&state.pool).await?;
     if roots
         .iter()
         .any(|root| FsPath::new(root).starts_with(&stored))

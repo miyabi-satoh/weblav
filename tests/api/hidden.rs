@@ -213,13 +213,7 @@ async fn a_folder_hidden_by_attribute_cannot_be_reached_by_its_path(pool: Sqlite
 
     let app = test_app(pool.clone()).await;
     let cookie = admin_cookie(app.clone(), &pool).await;
-    let (status, body) = send_empty(
-        app.clone(),
-        "GET",
-        &dirs_uri_with_path("/api/v1/fs/dirs", &inner),
-        &cookie,
-    )
-    .await;
+    let (status, body) = send_empty(app.clone(), "GET", &fs_dirs_uri(&inner), &cookie).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
 
     let (status, body) = send_json(
@@ -234,12 +228,4 @@ async fn a_folder_hidden_by_attribute_cannot_be_reached_by_its_path(pool: Sqlite
     )
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-}
-
-#[cfg(windows)]
-fn dirs_uri_with_path(uri: &str, path: &str) -> String {
-    format!(
-        "{uri}?path={}",
-        percent_encoding::utf8_percent_encode(path, percent_encoding::NON_ALPHANUMERIC)
-    )
 }

@@ -136,7 +136,7 @@ async fn restoring_a_backup_brings_back_the_data(pool: SqlitePool) {
 }
 
 /// ライブラリの項目と分類のあるバックアップも戻せる。
-/// 項目と分類を写すと、版を数えるトリガーが `archive_versions` に行を作るので、その表を写すときにぶつかっていた。
+/// 項目と分類を写すと、版を数えるトリガーが `archive_versions` に行を作るので、その表を写すときに行が重ならないことを確かめる。
 #[sqlx::test]
 async fn restoring_a_backup_with_library_items_and_axes_succeeds(pool: SqlitePool) {
     let app = test_app(pool.clone()).await;

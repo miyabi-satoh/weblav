@@ -53,12 +53,23 @@ export class LeaveGuard {
 		await goto(target);
 	}
 
-	/** 変更を捨てて、止めた移動を続ける。`discard` で区画の変更を無かったことにする (移動をもう一度止めないため)。 */
-	async discardAndLeave(discard: () => void): Promise<void> {
+	/**
+	 * 区画ごとに保存する画面で、区画の保存の終わりに呼ぶ。ほかの区画の保存が続いていれば、止めた移動はその保存の後に任せる。
+	 * @param stay `resumeAfterSave` と同じ。
+	 */
+	async resumeIfIdle(stay: () => boolean = () => this.#dirty()): Promise<void> {
+		if (!this.#saving()) await this.resumeAfterSave(stay);
+	}
+
+	/**
+	 * 変更を捨てて、止めた移動を続ける。`discard` で区画の変更を無かったことにする (移動をもう一度止めないため)。
+	 * 止めるのに時間がかかるもの (送っている途中のファイル) は、止め終えるまで待ってから移る。
+	 */
+	async discardAndLeave(discard: () => void | Promise<void>): Promise<void> {
 		const target = this.pending;
 		this.pending = null;
 		if (target === null) return;
-		discard();
+		await discard();
 		// eslint-disable-next-line svelte/no-navigation-without-resolve
 		await goto(target);
 	}

@@ -556,13 +556,7 @@
 	// 保存中に押した移動は、保存が済んでから続ける。
 	const unsaved = () => valuesForm.dirty || templateForm.dirty;
 	const leaveGuard = new LeaveGuard(unsaved, () => axisValuesSaving || templateSaving);
-
-	/** 保存の終わりに呼ぶ。ほかの保存が続いていれば、止めた移動はその保存の後に任せる。 */
-	async function resumeIfIdle() {
-		if (!axisValuesSaving && !templateSaving) {
-			await leaveGuard.resumeAfterSave(() => unsaved() || errorDialog.open);
-		}
-	}
+	const resumeIfIdle = () => leaveGuard.resumeIfIdle(() => unsaved() || errorDialog.open);
 
 	/** 行の操作の読み上げに使う行の名前。追加したばかりで元の値が空の行は行番号にする。 */
 	function axisValueRowName(row: AxisValueRow, index: number): string {
