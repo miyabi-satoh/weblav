@@ -32,8 +32,12 @@ function msixVersion(version, store, revisionOverride) {
 	}
 	const revision =
 		revisionOverride ??
-		(store ? '0' : execFileSync('git', ['rev-list', '--count', 'HEAD'], { encoding: 'utf8' }).trim());
+		(store ? '0' : String(commitCount()));
 	return `${match[1]}.${match[2]}.${match[3]}.${revision}`;
+}
+
+function commitCount() {
+	return Number(execFileSync('git', ['rev-list', '--count', 'HEAD'], { encoding: 'utf8' }).trim());
 }
 
 // Windows SDK の中で、いちばん新しい版の x64 のツールを探す。別の場所なら環境変数 (MAKEAPPX・SIGNTOOL) で指定する。
@@ -100,7 +104,7 @@ function main() {
 
 	layout(version, store, {
 		e2e,
-		revision: revision ?? (process.argv.includes('--install') ? installRevision() : undefined),
+		revision: revision ?? (!store && process.argv.includes('--install') ? installRevision() : undefined),
 	});
 	mkdirSync(dirname(output), { recursive: true });
 	execFileSync(makeappx, ['pack', '/o', '/h', 'SHA256', '/d', LAYOUT_DIR, '/p', output], {
@@ -125,9 +129,7 @@ function main() {
 // この PC に入れる版の最後の番号。ふだんはコミットの数で、今入っている版と同じならその次にする。
 // Windows は、同じ版の番号で中身の違うパッケージを上から入れるのを断る (コミット前の直しを入れ直すときに起きる)。
 function installRevision() {
-	const commits = Number(
-		execFileSync('git', ['rev-list', '--count', 'HEAD'], { encoding: 'utf8' }).trim(),
-	);
+	const commits = commitCount();
 	const installed = execFileSync(
 		'pwsh',
 		[
