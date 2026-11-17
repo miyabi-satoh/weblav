@@ -236,8 +236,7 @@ fn make_tray_icon() -> Icon {
     Icon::from_rgba(TRAY_ICON_RGBA.to_vec(), side, side).expect("failed to build tray icon")
 }
 
-/// Windows で、トレイのアイコンを見分ける GUID (→ docs/distribution.md「タスクトレイ」)。
-/// 変えると、利用者がタスクバーに出しておいたアイコンが「^」の中へ戻るので、変えない。
+/// Windows で、トレイのアイコンを見分ける GUID。変えない (→ docs/distribution.md「タスクトレイ」)。
 /// ほかの OS では使われない。
 const TRAY_ICON_GUID: u128 = 0xf5151fce_d3bc_457a_bb6b_3f873015be9b;
 
