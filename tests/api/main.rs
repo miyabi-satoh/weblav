@@ -853,6 +853,14 @@ async fn share_fixture(pool: &SqlitePool, name: &str) -> ShareFixture {
     }
 }
 
+/// フォルダー選択の一覧 (`/api/v1/fs/dirs`) の、`path` を符号化した URI。
+fn fs_dirs_uri(path: &str) -> String {
+    format!(
+        "/api/v1/fs/dirs?path={}",
+        utf8_percent_encode(path, NON_ALPHANUMERIC)
+    )
+}
+
 fn browse_uri(id: i64, path: &str) -> String {
     format!(
         "/api/v1/shares/{id}/browse?path={}",

@@ -11,10 +11,6 @@ import type { LayoutLoad } from './$types';
 // サーバーサイドレンダリングは行わず SPA として動かす。
 export const ssr = false;
 
-// ssr = false のため、これはブラウザーでのみ実行される。
-// アプリ起動時・全ページ遷移時に `/auth/me` を呼び、ログイン状態を `user` として配る。
-// 未ログイン(401)はエラーにせず `user: null` として扱い、`/admin` 配下と編集ページだけログインへ
-// 誘導する (→ docs/access.md「フロントエンドのガード反転」)。
 /**
  * 最後に読めたログイン状態。PC のスリープなどで `/auth/me` に届かなかったときに使う。
  * ここで error() にすると、レイアウトごと落ちてヘッダーも戻り先も無い SvelteKit の素のエラー画面になり、
@@ -23,6 +19,10 @@ export const ssr = false;
  */
 let lastUser: components['schemas']['MeResponse'] | null | undefined;
 
+// ssr = false のため、これはブラウザーでのみ実行される。
+// アプリ起動時・全ページ遷移時に `/auth/me` を呼び、ログイン状態を `user` として配る。
+// 未ログイン(401)はエラーにせず `user: null` として扱い、`/admin` 配下と編集ページだけログインへ
+// 誘導する (→ docs/access.md「フロントエンドのガード反転」)。
 export const load: LayoutLoad = async ({ route, url }) => {
 	// **fetch より先に `route.id` と `url` を読む**。SvelteKit は load が実際に触れた
 	// プロパティだけを依存として記録するため、401 のときだけ触る書き方だと、ログイン

@@ -69,7 +69,7 @@ impl LogControl {
             .inner
             .verbose
             .lock()
-            .unwrap_or_else(|err| err.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// 詳しいログに切り替える (`false` なら起動時のフィルタに戻す)。
@@ -81,7 +81,7 @@ impl LogControl {
             .inner
             .verbose
             .lock()
-            .unwrap_or_else(|err| err.into_inner());
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(handle) = &self.inner.reload {
             let filter = env_filter(&self.inner.config_filter);
             let filter = if verbose {

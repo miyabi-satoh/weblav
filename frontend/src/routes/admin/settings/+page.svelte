@@ -125,11 +125,7 @@
 	const dirty = () => siteDirty.dirty || serverDirty.dirty || hiddenDirty.dirty;
 	const anySaving = () => savingSite || savingServer || savingHidden;
 	const leaveGuard = new LeaveGuard(dirty, anySaving);
-
-	/** 区画の保存の終わりに呼ぶ。ほかの保存が続いていれば、止めた移動はその保存の後に任せる。 */
-	async function resumeIfIdle() {
-		if (!anySaving()) await leaveGuard.resumeAfterSave(() => dirty() || errorDialog.open);
-	}
+	const resumeIfIdle = () => leaveGuard.resumeIfIdle(() => dirty() || errorDialog.open);
 
 	async function handleSiteSubmit(e: SubmitEvent) {
 		e.preventDefault();

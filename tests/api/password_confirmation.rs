@@ -7,7 +7,7 @@ use super::*;
 
 const CONFIRM_PASSWORD_URI: &str = "/api/v1/auth/confirm-password";
 
-/// 確かめた後にパスワードが変わった状態を作る (ほかの管理者の再設定と同じ書き換え)。
+/// 確かめた後にパスワードが変わった状態を作る。パスワードの指紋だけを変え、ログインの世代は進めない (セッションを切らないため)。
 async fn replace_password_hash(pool: &SqlitePool, username: &str, password: &str) {
     let hash = auth::hash_password(password).expect("ハッシュを作れるはず");
     sqlx::query("UPDATE users SET password_hash = ? WHERE username = ?")

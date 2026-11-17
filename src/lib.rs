@@ -52,7 +52,7 @@ const CONTENT_SECURITY_POLICY: &str =
 /// `ServeFile` で返すファイル (contents.rs) とバックアップの zip は、圧縮すると `Content-Length` と
 /// `Accept-Ranges` が外れ、ダウンロードの残り時間が出ず、途中から再開もできなくなる。
 /// 中身が既に圧縮されているので小さくもならず、CPU を使うだけになる。
-const NOT_COMPRESSED_CONTENT_TYPES: [&str; 17] = [
+const NOT_COMPRESSED_CONTENT_TYPES: &[&str] = &[
     "audio/",
     "video/",
     "application/pdf",
@@ -148,9 +148,9 @@ pub async fn build_app(
 
     let session_layer = session::layer(session_store, session_key, &config.session);
 
-    // ログイン試行のレートリミット: 同一ユーザー名につき1分間に5回まで。
-    // 異なるユーザー名を使った回避・CPU枯渇DoSを防ぐため、全体でも1分間に30回までの
-    // グローバル上限を課す。
+    // ログイン試行のレートリミット: 端末とユーザー名の組ごとに1分間に5回まで。
+    // 異なるユーザー名を使った回避・CPU枯渇DoSを防ぐため、端末ごとにもユーザー名によらず
+    // 1分間に30回までの上限を課す。
     let login_rate_limiter = Arc::new(auth::LoginRateLimiter::new(5, 30, Duration::from_secs(60)));
     // リカバリコードでの再設定も同じ回数で絞る。枠はログインと分ける (→ docs/access.md「リカバリコード」)。
     let recovery_rate_limiter =

@@ -752,9 +752,7 @@ pub(super) async fn reachable_all(
     paths: &[&str],
     wait: Duration,
 ) -> Result<Vec<bool>, AppError> {
-    let roots = sqlx::query_scalar!("SELECT path FROM roots WHERE deleted_at IS NULL")
-        .fetch_all(&state.pool)
-        .await?;
+    let roots = active_root_paths(&state.pool).await?;
     let targets: Vec<Vec<String>> = paths
         .iter()
         .map(|path| {
@@ -880,7 +878,7 @@ pub(super) fn is_shown_within_roots(
     canonical: &FsPath,
     hidden: &super::hidden::Hidden,
 ) -> bool {
-    is_within_roots(roots, canonical, hidden)
+    !hidden.hides_path(canonical, true)
         && containing_root(roots, canonical)
             .is_some_and(|root| !hidden.hides_by_attribute_below(&root.path, canonical))
 }
@@ -947,9 +945,7 @@ impl ContentCounts {
             .into_iter()
             .flatten()
             .collect();
-        let root_paths = sqlx::query_scalar!("SELECT path FROM roots WHERE deleted_at IS NULL")
-            .fetch_all(pool)
-            .await?;
+        let root_paths = active_root_paths(pool).await?;
         Ok(Self {
             content_paths,
             root_paths,
@@ -1030,13 +1026,18 @@ pub(super) fn lexically_contains(root: &FsPath, path: &FsPath) -> bool {
             .is_some_and(|rest| rest.starts_with(std::path::MAIN_SEPARATOR))
 }
 
+/// 登録中の共有のパス (保存してある文字列のまま)。
+pub(super) async fn active_root_paths(pool: &sqlx::SqlitePool) -> Result<Vec<String>, sqlx::Error> {
+    sqlx::query_scalar!("SELECT path FROM roots WHERE deleted_at IS NULL")
+        .fetch_all(pool)
+        .await
+}
+
 /// 利用者が渡したパスの `ensure_reachable`。文字の上でどの共有の中にもないなら、確かめに行かない。
 /// 続く `fs::canonical_*_within_roots` が、ファイルシステムに触らずに共有の外として断る。
 /// 確かめに行くと、渡された任意の場所 (`\\相手の PC\x` など) へこの PC がつなぎに行き、Windows は自動で認証の応答を渡すため。
 pub(super) async fn ensure_input_reachable(state: &AppState, path: &str) -> Result<(), AppError> {
-    let roots = sqlx::query_scalar!("SELECT path FROM roots WHERE deleted_at IS NULL")
-        .fetch_all(&state.pool)
-        .await?;
+    let roots = active_root_paths(&state.pool).await?;
     if !roots
         .iter()
         .any(|root| lexically_contains(FsPath::new(root), FsPath::new(path)))
@@ -1137,7 +1138,7 @@ impl RootPicks {
         let mut last = self
             .last
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let session = state.folder_picker.begin()?;
         let id = self
             .next_id
@@ -1166,7 +1167,7 @@ impl RootPicks {
         let last = self
             .last
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         last.as_ref()
             .filter(|pick| pick.id == id)
             .map(|pick| pick.outcome.clone())

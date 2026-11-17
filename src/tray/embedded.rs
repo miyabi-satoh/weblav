@@ -113,7 +113,10 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
         .append_items(&[&items.system_language, &ja_item, &en_item])
         .expect("failed to append tray menu item");
     items.show(locale.get());
-    show_language(language, &items.system_language, &ja_item, &en_item);
+    show_language(
+        language,
+        language_choices(&items.system_language, &ja_item, &en_item),
+    );
     // 設定のポートが使えずにずらしたときだけ、メニューの先頭に出したままにする。
     // ほかの端末のブックマークが開けない理由に、気づけるように。
     let port_moved_item = (addr.port() != configured.port()).then(|| {
@@ -214,49 +217,28 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
             }
             // Windows のサインアウト・シャットダウンのとき。
             // tao はこのイベントを送った直後にプロセスを終えるので、ここでサーバーを止めきる。
-            Event::LoopDestroyed => {
-                if let Some(saver) = saver.take() {
-                    saver.finish();
-                }
-                if let Some(server) = server.take() {
-                    server.stop();
-                }
-            }
+            Event::LoopDestroyed => shut_down(&mut saver, &mut server),
             // 窓を閉じるまでイベントループは止まる。窓はモーダルで、閉じるまでほかの操作を受けないため。
             Event::UserEvent(UserEvent::PickFolder(request)) => request.serve(),
             Event::UserEvent(UserEvent::ServerExited) => {
                 tracing::error!("the server stopped unexpectedly");
-                if let Some(saver) = saver.take() {
-                    saver.finish();
-                }
-                if let Some(server) = server.take() {
-                    server.stop();
-                }
+                shut_down(&mut saver, &mut server);
                 *control_flow = ControlFlow::Exit;
             }
             Event::UserEvent(UserEvent::Menu(event)) => {
+                let choices = language_choices(&items.system_language, &ja_item, &en_item);
                 if event.id == items.quit.id() {
                     tracing::info!("quit menu item selected");
-                    // 選んだ直後に終了しても、選んだ表示言語を書き終えてから終わる。
-                    if let Some(saver) = saver.take() {
-                        saver.finish();
-                    }
                     // `tao`は`ControlFlow::Exit`をセットすると事実上即座にプロセスを終了させる
                     // ため、先にサーバーを止めきっておかないと graceful shutdown が完走しない。
-                    if let Some(server) = server.take() {
-                        server.stop();
-                    }
+                    shut_down(&mut saver, &mut server);
                     *control_flow = ControlFlow::Exit;
-                } else if let Some(chosen) = [
-                    (&items.system_language, TrayLanguage::System),
-                    (&ja_item, TrayLanguage::Ja),
-                    (&en_item, TrayLanguage::En),
-                ]
-                .into_iter()
-                .find_map(|(item, value)| (event.id == item.id()).then_some(value))
+                } else if let Some(chosen) = choices
+                    .into_iter()
+                    .find_map(|(item, value)| (event.id == item.id()).then_some(value))
                 {
                     // muda は押された時点でチェックを反転させているので、選んだものだけに付け直す。
-                    show_language(chosen, &items.system_language, &ja_item, &en_item);
+                    show_language(chosen, choices);
                     if chosen != language {
                         language = chosen;
                         locale.set(resolve_locale(chosen));
@@ -345,16 +327,34 @@ impl LabeledItems {
     }
 }
 
+/// 表示言語のメニューの項目と、それぞれで選ぶ言語。
+fn language_choices<'a>(
+    system: &'a CheckMenuItem,
+    ja: &'a CheckMenuItem,
+    en: &'a CheckMenuItem,
+) -> [(&'a CheckMenuItem, TrayLanguage); 3] {
+    [
+        (system, TrayLanguage::System),
+        (ja, TrayLanguage::Ja),
+        (en, TrayLanguage::En),
+    ]
+}
+
 /// 選んでいる表示言語にだけチェックを付ける。
-fn show_language(
-    language: TrayLanguage,
-    system: &CheckMenuItem,
-    ja: &CheckMenuItem,
-    en: &CheckMenuItem,
-) {
-    system.set_checked(language == TrayLanguage::System);
-    ja.set_checked(language == TrayLanguage::Ja);
-    en.set_checked(language == TrayLanguage::En);
+fn show_language(language: TrayLanguage, choices: [(&CheckMenuItem, TrayLanguage); 3]) {
+    for (item, value) in choices {
+        item.set_checked(value == language);
+    }
+}
+
+/// 終わる前に、選んだ表示言語を書き終え、サーバーを止めきる。選んだ直後に終わっても、選んだものを残すため。
+fn shut_down(saver: &mut Option<LanguageSaver>, server: &mut Option<Running>) {
+    if let Some(saver) = saver.take() {
+        saver.finish();
+    }
+    if let Some(server) = server.take() {
+        server.stop();
+    }
 }
 
 /// 選んだ表示言語を `config.toml` に書くスレッド。ファイルの読み書きでイベントループ (メインスレッド) を
@@ -453,10 +453,7 @@ mod tests {
     /// 続けて選んでも最後に選んだものが残り、`finish` は書き終えるまで待つ。
     #[test]
     fn language_saver_writes_the_last_choice_before_finishing() {
-        let dir =
-            std::env::temp_dir().join(format!("weblav-language-saver-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).expect("一時フォルダーを作れなかった");
+        let dir = crate::test_support::TempDir::new("language-saver");
         let path = dir.join("config.toml");
 
         let saver = LanguageSaver::spawn(path.clone());
@@ -468,6 +465,5 @@ mod tests {
         let text = std::fs::read_to_string(&path).expect("書かれているはず");
         let config: weblav::config::Config = toml::from_str(&text).expect("設定を読めるはず");
         assert_eq!(config.tray.language, TrayLanguage::Ja);
-        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -48,6 +48,7 @@ impl SessionStore for Store {
     }
 
     /// 表と列の形と、`data` の符号化 (MessagePack) は `SqliteStore` に揃える。
+    /// 表は `migrations/` でなく `SqliteStore::migrate` が起動のときに作るので、この SQL は検査マクロを使えない。
     async fn save(&self, record: &Record) -> session_store::Result<()> {
         let data = rmp_serde::to_vec(record)
             .map_err(|err| session_store::Error::Encode(err.to_string()))?;

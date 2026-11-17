@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
 	 * 保存していない変更があるまま別の画面へ移ろうとしたときの確認 (`LeaveGuard`)。
-	 * 失うものが変更でない画面 (一度だけ見せるリカバリコード) は、題・本文・ボタンを差し替える。
+	 * 失うものが変更でない画面 (一度だけ見せるリカバリコード・送っている途中のファイル) は、題・本文・ボタンを差し替える。
 	 */
 	import type { LeaveGuard } from '#lib/leave-guard.svelte.ts';
 	import * as m from '#lib/paraglide/messages.js';
@@ -16,7 +16,7 @@
 	}: {
 		guard: LeaveGuard;
 		/** 区画の変更を無かったことにする。 */
-		ondiscard: () => void;
+		ondiscard: () => void | Promise<void>;
 		title?: string;
 		description?: string;
 		action?: string;

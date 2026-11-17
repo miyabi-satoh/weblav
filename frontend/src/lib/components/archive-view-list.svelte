@@ -27,12 +27,6 @@
 		thumbnail: archiveItemThumbnailHref,
 		file: archiveFileHref
 	};
-
-	/**
-	 * 1ページに並べる段の数。要素の高さには上限があり (Firefox で約1,790万 px)、1段 72px で約25万段を超えると
-	 * 最後まで届かないので、10万段ごとにページを分ける (→ docs/archive.md「画面が見える辺りを取りに行く」)。
-	 */
-	const PAGE_LINES = 100_000;
 </script>
 
 <script lang="ts" generics="T extends ArchiveViewItem">
@@ -49,6 +43,8 @@
 	import { providePreviewSource } from '#lib/preview-url.svelte.ts';
 	import { ARCHIVE_CHUNK_SIZE, type ArchivePagedList } from '#lib/archive-paged-list.svelte.ts';
 	import { WindowVirtualizer, type WindowVirtualizerHandle } from 'virtua/svelte';
+	import { PAGE_LINES, VirtualPages } from '#lib/virtual-pages.svelte.ts';
+	import VirtualPageNav from '#lib/components/virtual-page-nav.svelte';
 	import {
 		browseItemClass,
 		browseRowClass,
@@ -60,9 +56,6 @@
 		browseVirtualLineStyle,
 		browseVirtualListClass
 	} from '#lib/list-row.ts';
-	import { formatNumber } from '#lib/format.ts';
-	import * as m from '#lib/paraglide/messages.js';
-	import { Button } from '#lib/components/ui/button/index.ts';
 	import ArchiveRowPlaceholder from '#lib/components/archive-row-placeholder.svelte';
 	import ListRowSubtitle from '#lib/components/list-row-subtitle.svelte';
 	import ListRowIcon from '#lib/components/list-row-icon.svelte';
@@ -92,19 +85,7 @@
 	// 見えている所だけを描くので、行を1段ずつに分けて渡す。タイルは1段に何枚も並ぶ。
 	let rowsPerLine = $derived(browseRowsPerLine());
 	let totalLines = $derived(Math.ceil(list.total / rowsPerLine));
-	let pageCount = $derived(Math.max(1, Math.ceil(totalLines / PAGE_LINES)));
-	let page = $state(0);
-	// 一覧を取り直したり段の組み方が変わったりして、今のページが無くなったら最後のページにする。
-	$effect(() => {
-		if (page >= pageCount) page = pageCount - 1;
-	});
-	let pageStart = $derived(page * PAGE_LINES);
-	let lines = $derived(
-		Array.from(
-			{ length: Math.max(0, Math.min(PAGE_LINES, totalLines - pageStart)) },
-			(_, i) => pageStart + i
-		)
-	);
+	const pages = new VirtualPages(() => totalLines);
 
 	function lineIndexes(line: number): number[] {
 		const start = line * rowsPerLine;
@@ -119,13 +100,13 @@
 		const top = virtualizer.getScrollOffset();
 		const first = virtualizer.findItemIndex(top);
 		const last = virtualizer.findItemIndex(top + virtualizer.getViewportSize());
-		list.cancelOutside(lines[first] * rowsPerLine, (lines[last] + 1) * rowsPerLine);
+		list.cancelOutside(pages.lines[first] * rowsPerLine, (pages.lines[last] + 1) * rowsPerLine);
 	}
 
 	/** 見えている先頭の行の位置。戻ったときに同じ所から出すため、画面が snapshot に残す。 */
 	export function firstVisibleIndex(): number {
 		if (!virtualizer) return 0;
-		const line = lines[virtualizer.findItemIndex(virtualizer.getScrollOffset())] ?? 0;
+		const line = pages.lines[virtualizer.findItemIndex(virtualizer.getScrollOffset())] ?? 0;
 		return line * rowsPerLine;
 	}
 
@@ -133,18 +114,11 @@
 	export async function scrollToIndex(index: number): Promise<void> {
 		if (index <= 0 || index >= list.total) return;
 		const line = Math.floor(index / rowsPerLine);
-		page = Math.floor(line / PAGE_LINES);
+		pages.page = Math.floor(line / PAGE_LINES);
 		await list.ensureLoaded(index);
 		// ページが替わると一覧を作り直すので、作り直した後の一覧で動かす。
 		await tick();
-		virtualizer?.scrollToIndex(line - page * PAGE_LINES);
-	}
-
-	/** ページを移り、その先頭から見せる。下のボタンで移ったときに、新しいページの途中から始まらないように。 */
-	async function goToPage(next: number) {
-		page = next;
-		await tick();
-		virtualizer?.scrollToIndex(0);
+		virtualizer?.scrollToIndex(line - pages.start);
 	}
 
 	function rowAt(index: number): ArchiveViewRow<T> | null | undefined {
@@ -430,44 +404,28 @@
 {/snippet}
 
 {#snippet pageNav()}
-	<div class="flex flex-wrap items-center justify-center gap-3 py-4">
-		<Button
-			type="button"
-			variant="outline"
-			disabled={page === 0}
-			onclick={() => void goToPage(page - 1)}
-		>
-			{m.archive_view_previous_page({ count: formatNumber(PAGE_LINES * rowsPerLine) })}
-		</Button>
-		<span class="text-sm text-muted-foreground">
-			{m.archive_view_page_position({ page: page + 1, pages: pageCount })}
-		</span>
-		<Button
-			type="button"
-			variant="outline"
-			disabled={page >= pageCount - 1}
-			onclick={() => void goToPage(page + 1)}
-		>
-			{m.archive_view_next_page({ count: formatNumber(PAGE_LINES * rowsPerLine) })}
-		</Button>
-	</div>
+	<VirtualPageNav
+		{pages}
+		count={PAGE_LINES * rowsPerLine}
+		ongo={(next) => void pages.goTo(next, virtualizer)}
+	/>
 {/snippet}
 
-{#if pageCount > 1}{@render pageNav()}{/if}
+{#if pages.pageCount > 1}{@render pageNav()}{/if}
 <!-- 見えている所だけを描く。アーカイブは数万件になり、全部の行を描くとブラウザーのメモリが尽きて画面が落ちるため。 -->
 <div role="list" class={browseVirtualListClass()}>
 	<!-- 1段の枚数・ページが変わると段の組み方がすべて変わるので、測った高さを捨てて作り直す。 -->
-	{#key `${rowsPerLine}-${page}`}
+	{#key `${rowsPerLine}-${pages.page}`}
 		<WindowVirtualizer
 			bind:this={virtualizer}
-			data={lines}
+			data={pages.lines}
 			getKey={(line) => line}
 			onscrollend={handleScrollEnd}
 		>
 			{#snippet children(line, position)}
 				<!-- 総数と位置を読み上げに渡す。描いている行しか無いので、無いと一覧が数十件に聞こえる。 -->
 				<div
-					class={browseVirtualLineClass(position === lines.length - 1)}
+					class={browseVirtualLineClass(position === pages.lines.length - 1)}
 					style={browseVirtualLineStyle(rowsPerLine)}
 				>
 					{#each lineIndexes(line) as index (index)}
@@ -490,4 +448,4 @@
 		</WindowVirtualizer>
 	{/key}
 </div>
-{#if pageCount > 1}{@render pageNav()}{/if}
+{#if pages.pageCount > 1}{@render pageNav()}{/if}

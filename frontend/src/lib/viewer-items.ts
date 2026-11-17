@@ -50,6 +50,9 @@ function itemSrc(item: ViewerItem): string {
 	return item.type === 'image' ? item.image.src : item.file.src;
 }
 
+/** 行から開いていて、画像を読み込んでいる途中のもの。 */
+let opening: AbortController | null = null;
+
 /**
  * 行から開く。`item` は `items` と同じ組み立て方で作る (押した行を `items` の中から `src` で探すため)。
  * `signal` は画像の行が渡す (→ `openImageViewer`)。ファイルはすぐ開くので要らない。
@@ -72,9 +75,6 @@ export function openViewerItem(
 		if (opening === current) opening = null;
 	});
 }
-
-/** 行から開いていて、画像を読み込んでいる途中のもの。 */
-let opening: AbortController | null = null;
 
 /**
  * Markdown のプレビューの相対パスのリンクから、同じコンテンツの `path` のファイルを開く。

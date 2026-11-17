@@ -13,7 +13,7 @@
 </script>
 
 <DropdownMenu.Root>
-	<!-- data-row-actions は、行を動かした後にこのボタンへフォーカスを戻すための目印 (分類のページ)。 -->
+	<!-- data-row-actions は、行を動かした後にこのボタンへフォーカスを戻すための目印。 -->
 	<DropdownMenu.Trigger
 		data-row-actions
 		aria-label={m.common_row_actions({ name })}

@@ -423,6 +423,16 @@ pub(super) enum TakenName {
     Number,
 }
 
+impl TakenName {
+    /// `dest_dir` に置く名前。`Refuse` は `name` のまま (ぶつかるかは置くときに見る)。
+    fn resolve(self, dest_dir: &Path, name: &str, is_dir: bool) -> String {
+        match self {
+            Self::Refuse => name.to_string(),
+            Self::Number => free_name(dest_dir, name, is_dir),
+        }
+    }
+}
+
 /// `src` (ファイルかフォルダー) を、`dest_dir` の中に `name` として写す。写した先を返す。中止されたら `None`。
 ///
 /// 一覧に出ない作業用の名前に写してから、最後に名前を付ける。途中で止まったり失敗したりしても、
@@ -458,10 +468,7 @@ fn place_copied(
     is_dir: bool,
     taken: TakenName,
 ) -> Result<PathBuf, AppError> {
-    let name = match taken {
-        TakenName::Refuse => name.to_string(),
-        TakenName::Number => free_name(dest_dir, name, is_dir),
-    };
+    let name = taken.resolve(dest_dir, name, is_dir);
     let target = dest_dir.join(&name);
     if exists(&target) {
         return Err(name_taken(&name));
@@ -670,10 +677,7 @@ pub(super) fn move_entry(
     progress: &TransferProgress,
 ) -> Result<Option<Moved>, AppError> {
     let is_dir = fs::symlink_metadata(src).map_err(map_io_error)?.is_dir();
-    let same_disk_name = match taken {
-        TakenName::Refuse => name.to_string(),
-        TakenName::Number => free_name(dest_dir, name, is_dir),
-    };
+    let same_disk_name = taken.resolve(dest_dir, name, is_dir);
     let target = dest_dir.join(&same_disk_name);
     if exists(&target) && !same_entry(src, &target) {
         return Err(name_taken(&same_disk_name));
@@ -956,22 +960,6 @@ fn platform_trash_available(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    #[cfg(windows)]
-    fn a_trash_failure_on_a_file_in_use_reports_it_in_use() {
-        // シェルのファイル操作の「使用中」と、Win32 の ERROR_SHARING_VIOLATION を包んだ HRESULT
-        for code in [0x8027_0027_u32, 0x8027_0028, 0x8007_0020] {
-            assert!(
-                matches!(trash_os_error(code as i32), AppError::EntryInUse),
-                "{code:#010x}"
-            );
-        }
-        assert!(matches!(
-            trash_os_error(0x8007_0005_u32 as i32),
-            AppError::ShareReadOnly
-        ));
-    }
 
     fn temp_dir(name: &str) -> crate::test_support::TempDir {
         crate::test_support::project_temp_dir("shares-fsops", name)
@@ -1343,16 +1331,20 @@ mod tests {
                 "{code:#x}"
             );
         }
-        for code in [0x8027_0021u32, 0x8027_0022, 0x8027_003F] {
+        // 0x8007_0005 は、Win32 の ERROR_ACCESS_DENIED を包んだ HRESULT。
+        for code in [0x8027_0021u32, 0x8027_0022, 0x8027_003F, 0x8007_0005] {
             assert!(
                 matches!(trash_os_error(code as i32), AppError::ShareReadOnly),
                 "{code:#x}"
             );
         }
-        assert!(matches!(
-            trash_os_error(0x8027_0027u32 as i32),
-            AppError::EntryInUse
-        ));
+        // シェルのファイル操作の「使用中」と、Win32 の ERROR_SHARING_VIOLATION を包んだ HRESULT。
+        for code in [0x8027_0027u32, 0x8027_0028, 0x8007_0020] {
+            assert!(
+                matches!(trash_os_error(code as i32), AppError::EntryInUse),
+                "{code:#x}"
+            );
+        }
     }
 
     /// 写した後に元を消し切れなければ、ふつうの失敗でなく `MoveSourceLeft` にする。

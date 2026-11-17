@@ -91,13 +91,7 @@ async fn login(
 ) -> Result<Json<UserResponse>, AppError> {
     // Argon2の検証はCPUバウンドなので、レートリミットは実際の検証(`authenticate`)より前に
     // 掛ける: 制限を超えた試行にはCPUコストを一切払わせない。
-    let client = super::operations::current_client_ip();
-    if !state
-        .login_rate_limiter
-        .try_acquire(client.as_deref(), &payload.username)
-    {
-        return Err(AppError::TooManyRequests);
-    }
+    let client = acquire_attempt(&state.login_rate_limiter, &payload.username)?;
 
     let authed = auth::authenticate(&state.pool, &payload.username, &payload.password).await?;
     let Some(auth::Authenticated {
@@ -324,6 +318,19 @@ async fn change_username(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// 要求を送った端末とユーザー名の枠で、試行を1回数える。上限を超えていれば 429。
+/// 返す端末は、照合に通ったときに `release` へ渡す。
+fn acquire_attempt(
+    limiter: &crate::auth::LoginRateLimiter,
+    username: &str,
+) -> Result<Option<String>, AppError> {
+    let client = super::operations::current_client_ip();
+    if !limiter.try_acquire(client.as_deref(), username) {
+        return Err(AppError::TooManyRequests);
+    }
+    Ok(client)
+}
+
 /// ログイン中の利用者の今のパスワードを確かめる。
 async fn verify_current_password(
     state: &AppState,
@@ -333,13 +340,7 @@ async fn verify_current_password(
     // ログイン中でも、乗っ取ったセッションからの現在パスワードの総当たりを防ぐため
     // ログインと同じレートリミッターを流用する(端末とユーザー名のキーが同じなので、
     // 同じ端末からのログイン試行とこのAPIの試行は同じ枠を共有する)。
-    let client = super::operations::current_client_ip();
-    if !state
-        .login_rate_limiter
-        .try_acquire(client.as_deref(), &user.username)
-    {
-        return Err(AppError::TooManyRequests);
-    }
+    let client = acquire_attempt(&state.login_rate_limiter, &user.username)?;
 
     // `AuthUser` はDBから引き直した最新の情報だが、パスワードハッシュは持たない
     // (→ crate::auth::AuthUser)。検証のためだけに再取得する。
@@ -422,13 +423,7 @@ async fn recover(
 
     // ログインと同じく、Argon2 の照合より前に絞る。ログインとは別の枠にして、
     // こちらを叩かれても管理者がログインできなくならないようにする。
-    let client = super::operations::current_client_ip();
-    if !state
-        .recovery_rate_limiter
-        .try_acquire(client.as_deref(), &payload.username)
-    {
-        return Err(AppError::TooManyRequests);
-    }
+    let client = acquire_attempt(&state.recovery_rate_limiter, &payload.username)?;
     let verified =
         auth::verify_recovery_code(&state.pool, &payload.username, &payload.recovery_code).await?;
     let Some((user_id, used_hash)) = verified else {

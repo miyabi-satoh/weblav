@@ -175,14 +175,14 @@ fn fetch_page(url: &str) -> Option<LinkMetadata> {
     Some(extract_metadata(&html))
 }
 
+/// ヘッダーの値。無い・文字列として読めないときは `None`。
+fn header_str<'a>(headers: &'a ureq::http::HeaderMap, name: &str) -> Option<&'a str> {
+    headers.get(name).and_then(|value| value.to_str().ok())
+}
+
 /// HTML でない応答の、ファイルとして開くときの名前 (→ `remote_file::file_name_from_response`)。
 pub(super) fn response_file_name(response: &ureq::http::Response<ureq::Body>) -> Option<String> {
-    let header = |name: &str| {
-        response
-            .headers()
-            .get(name)
-            .and_then(|value| value.to_str().ok())
-    };
+    let header = |name: &str| header_str(response.headers(), name);
     super::remote_file::file_name_from_response(
         &response.get_uri().to_string(),
         header("content-type"),
@@ -199,11 +199,7 @@ struct BodyReadFailed;
 fn read_html(
     response: &mut ureq::http::Response<ureq::Body>,
 ) -> Result<Option<String>, BodyReadFailed> {
-    let content_type = response
-        .headers()
-        .get("content-type")
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_owned);
+    let content_type = header_str(response.headers(), "content-type").map(str::to_owned);
     let is_html = content_type
         .as_deref()
         .is_some_and(|value| value.to_ascii_lowercase().contains("html"));
@@ -433,12 +429,7 @@ pub(super) fn fetch_card_blocking(
 }
 
 fn cache_headers(headers: &ureq::http::HeaderMap) -> CacheHeaders {
-    let get = |name: &str| {
-        headers
-            .get(name)
-            .and_then(|value| value.to_str().ok())
-            .map(str::to_string)
-    };
+    let get = |name: &str| header_str(headers, name).map(str::to_string);
     CacheHeaders {
         cache_control: get("cache-control"),
         expires: get("expires"),
@@ -457,10 +448,7 @@ pub(super) fn fetch_image_blocking(url: &str, max_bytes: u64) -> Option<Vec<u8>>
     }
     // `image/*` と言わないものも、中身で画像と分かれば使う (favicon.ico を別の型で返すサーバーがある)。
     // HTML などの明らかに画像でないものだけを弾く。
-    let is_text = response
-        .headers()
-        .get("content-type")
-        .and_then(|value| value.to_str().ok())
+    let is_text = header_str(response.headers(), "content-type")
         .is_some_and(|value| value.to_ascii_lowercase().starts_with("text/"));
     if is_text {
         return None;

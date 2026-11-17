@@ -670,14 +670,7 @@ async fn sync_items(
     for batch in gone.chunks(WRITE_BATCH) {
         let mut tx = begin_scan_write(&state.pool, id, scanned_path).await?;
         for rel_path in batch {
-            // 墓標は残さない (→ docs/archive.md「スキャン」)。
-            sqlx::query!(
-                "DELETE FROM archive_items WHERE archive_id = ? AND rel_path = ?",
-                id,
-                rel_path
-            )
-            .execute(&mut *tx)
-            .await?;
+            delete_item(&mut tx, id, rel_path).await?;
         }
         tx.commit().await?;
     }
@@ -827,6 +820,22 @@ where
         }
         tx.commit().await?;
     }
+    Ok(())
+}
+
+/// 消えたファイルを索引から消す。墓標は残さない (→ docs/archive.md「スキャン」)。
+async fn delete_item(
+    conn: &mut SqliteConnection,
+    id: i64,
+    rel_path: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "DELETE FROM archive_items WHERE archive_id = ? AND rel_path = ?",
+        id,
+        rel_path
+    )
+    .execute(&mut *conn)
+    .await?;
     Ok(())
 }
 
@@ -1051,6 +1060,18 @@ impl DirChanges {
     }
 }
 
+/// 相対パスを、親のフォルダーの相対パスごとに分ける。
+fn group_by_parent<'a>(rels: impl Iterator<Item = &'a str>) -> HashMap<&'a str, Vec<&'a str>> {
+    let mut by_parent: HashMap<&str, Vec<&str>> = HashMap::new();
+    for rel in rels {
+        by_parent
+            .entry(super::fs::parent_rel(rel))
+            .or_default()
+            .push(rel);
+    }
+    by_parent
+}
+
 fn find_dir_changes(
     root: &FsPath,
     known: &HashMap<String, Option<i64>>,
@@ -1059,13 +1080,12 @@ fn find_dir_changes(
 ) -> DirChanges {
     let mut changes = DirChanges::default();
     // 索引にあるフォルダーを、親ごとに引けるようにしておく。
-    let mut known_children: HashMap<&str, Vec<&str>> = HashMap::new();
-    for rel in known.keys().filter(|rel| !rel.is_empty()) {
-        known_children
-            .entry(super::fs::parent_rel(rel))
-            .or_default()
-            .push(rel);
-    }
+    let known_children = group_by_parent(
+        known
+            .keys()
+            .map(String::as_str)
+            .filter(|rel| !rel.is_empty()),
+    );
     for (rel, modified_ns) in known {
         let path = if rel.is_empty() {
             root.to_path_buf()
@@ -1184,13 +1204,7 @@ async fn apply_dir_changes(
         delete_index_under(&mut tx, id, dir).await?;
     }
     for rel_path in &gone {
-        sqlx::query!(
-            "DELETE FROM archive_items WHERE archive_id = ? AND rel_path = ?",
-            id,
-            rel_path
-        )
-        .execute(&mut *tx)
-        .await?;
+        delete_item(&mut tx, id, rel_path).await?;
     }
     for (dir, modified_ns, _) in &changes.changed_dirs {
         sqlx::query!(
@@ -1231,13 +1245,7 @@ async fn apply_dir_changes(
 /// 中身が変わったフォルダーの直下で消えたファイルと、新しく足すファイル。
 fn plan_dir_changes(existing: &[String], changes: &DirChanges) -> (Vec<String>, Vec<String>) {
     let existing_set: HashSet<&str> = existing.iter().map(String::as_str).collect();
-    let mut by_parent: HashMap<&str, Vec<&str>> = HashMap::new();
-    for rel in existing {
-        by_parent
-            .entry(super::fs::parent_rel(rel))
-            .or_default()
-            .push(rel);
-    }
+    let by_parent = group_by_parent(existing.iter().map(String::as_str));
     let mut gone = Vec::new();
     let mut added = Vec::new();
     for (dir, _, files) in &changes.changed_dirs {

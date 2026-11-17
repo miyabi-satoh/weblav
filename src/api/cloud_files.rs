@@ -299,16 +299,6 @@ mod tests {
             "読んだ後も手元に無いままになっている"
         );
     }
-
-    #[test]
-    fn a_local_file_is_not_online_only() {
-        let dir = crate::test_support::TempDir::new("cloud-local");
-        let path = dir.path().join("a.txt");
-        std::fs::write(&path, b"hello").expect("書けなかった");
-        assert!(!is_online_only(
-            &std::fs::metadata(&path).expect("メタデータを読めなかった")
-        ));
-    }
 }
 
 // 中身の無いファイルは iCloud にサインインしないと作れないので、印の読み方だけを確かめる。
@@ -323,6 +313,12 @@ mod macos_tests {
         assert!(!has_dataless_flag(0x0000_8000));
         assert!(!has_dataless_flag(0));
     }
+}
+
+// 手元のファイルの判定は、印を読む OS で同じ。
+#[cfg(all(test, any(windows, target_os = "macos")))]
+mod local_tests {
+    use super::*;
 
     #[test]
     fn a_local_file_is_not_online_only() {

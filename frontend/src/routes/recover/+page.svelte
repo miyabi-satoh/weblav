@@ -11,9 +11,8 @@
 	import { Input } from '#lib/components/ui/input/index.ts';
 	import PasswordInput from '#lib/components/password-input.svelte';
 	import ErrorDialog from '#lib/components/error-dialog.svelte';
-	import LeaveConfirmDialog from '#lib/components/leave-confirm-dialog.svelte';
-	import { LeaveGuard } from '#lib/leave-guard.svelte.ts';
 	import LoadingButton from '#lib/components/loading-button.svelte';
+	import RecoveryCodeLeaveConfirm from '#lib/components/recovery-code-leave-confirm.svelte';
 	import RecoveryCodePanel from '#lib/components/recovery-code-panel.svelte';
 	import { pageTitle } from '#lib/page-title.ts';
 	import {
@@ -34,10 +33,7 @@
 	/** 控えに書くユーザー名。入力の大文字・小文字でなく、アカウントの表記に合わせる。 */
 	let accountName = $state('');
 	const errorDialog = new ErrorDialogState();
-	// コードは二度と見せられず、サーバーはもう「コードがある」と覚えている (作るよう促す帯も出ない) ので、
-	// 「保管しました」を押す前に離れるときは確かめる。
-	let codeKept = false;
-	const leaveGuard = new LeaveGuard(() => newCode !== null && !codeKept);
+	let codeKept = $state(false);
 	const passwordMismatch = $derived(passwordConfirm !== '' && password !== passwordConfirm);
 
 	async function handleSubmit(e: SubmitEvent) {
@@ -150,12 +146,9 @@
 		</Card.Root>
 	</div>
 
-	<LeaveConfirmDialog
-		guard={leaveGuard}
+	<RecoveryCodeLeaveConfirm
+		active={newCode !== null && !codeKept}
 		ondiscard={() => (codeKept = true)}
-		title={m.recovery_code_leave_title()}
-		description={m.recovery_code_leave_description()}
-		action={m.recovery_code_leave_button()}
 	/>
 	<ErrorDialog
 		bind:open={errorDialog.open}
