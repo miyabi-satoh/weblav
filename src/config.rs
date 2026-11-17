@@ -422,15 +422,6 @@ pub enum TrayLanguage {
 }
 
 impl TrayLanguage {
-    /// `TrayLanguage as u8` から戻す。知らない値は `System` にする。
-    pub fn from_u8(value: u8) -> Self {
-        match value {
-            v if v == TrayLanguage::Ja as u8 => TrayLanguage::Ja,
-            v if v == TrayLanguage::En as u8 => TrayLanguage::En,
-            _ => TrayLanguage::System,
-        }
-    }
-
     /// `config.toml` に書く値。
     pub fn as_str(self) -> &'static str {
         match self {
@@ -445,21 +436,34 @@ impl TrayLanguage {
 pub fn write_tray_language(path: &Path, language: TrayLanguage) -> Result<(), EditError> {
     edit_file(path, |doc| {
         if language == TrayLanguage::System {
-            if let Some(table) = doc
-                .get_mut("tray")
-                .and_then(|item| item.as_table_like_mut())
-            {
-                table.remove("language");
-            }
+            remove_value(doc, "tray", "language");
+            Ok(())
         } else {
-            doc.entry("tray")
-                .or_insert(toml_edit::table())
-                .as_table_like_mut()
-                .ok_or("tray is not a table")?
-                .insert("language", toml_edit::value(language.as_str()));
+            set_value(doc, "tray", "language", language.as_str())
         }
-        Ok(())
     })
+}
+
+/// `edit_file` の中で、表 (`[server]` など) の項目を書く。表が無ければ足す。
+pub fn set_value(
+    doc: &mut toml_edit::DocumentMut,
+    table: &str,
+    key: &str,
+    value: impl Into<toml_edit::Value>,
+) -> Result<(), String> {
+    doc.entry(table)
+        .or_insert(toml_edit::table())
+        .as_table_like_mut()
+        .ok_or_else(|| format!("{table} is not a table"))?
+        .insert(key, toml_edit::value(value));
+    Ok(())
+}
+
+/// `edit_file` の中で、表 (`[upload]` など) に項目があれば消す。表が無ければ何もしない (空の表を足さない)。
+pub fn remove_value(doc: &mut toml_edit::DocumentMut, table: &str, key: &str) {
+    if let Some(table) = doc.get_mut(table).and_then(|item| item.as_table_like_mut()) {
+        table.remove(key);
+    }
 }
 
 /// `edit_file` の失敗。
@@ -636,13 +640,6 @@ mod tests {
         let text = std::fs::read_to_string(&path).expect("読めなかった");
         assert!(!text.contains("language"), "{text}");
         assert!(text.contains("open_setup_on_launch = false"), "{text}");
-    }
-
-    #[test]
-    fn tray_language_round_trips_through_u8() {
-        for language in [TrayLanguage::System, TrayLanguage::Ja, TrayLanguage::En] {
-            assert_eq!(TrayLanguage::from_u8(language as u8), language);
-        }
     }
 
     /// 読めない `config.toml` は書き換えない。手で書いた内容を消さないため。

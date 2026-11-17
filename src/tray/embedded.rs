@@ -3,8 +3,7 @@
 use std::cell::Cell;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicU8, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::mpsc;
 use tao::event::{Event, StartCause};
 use tao::event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy};
 use tray_icon::TrayIconEvent;
@@ -50,9 +49,7 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
     let configured = server.configured;
     let open_setup_on_launch = server.open_setup_on_launch;
     let mut language = server.tray_language;
-    // 書く側のスレッドは、書く時点で最後に選んだものを読む。続けて選んだときに、古いほうが後から書かれないため。
-    let latest_language = Arc::new(AtomicU8::new(language as u8));
-    let config_path = server.config_path.clone();
+    let mut saver = Some(LanguageSaver::spawn(server.config_path.clone()));
     let mut server = Some(server);
 
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
@@ -218,6 +215,9 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
             // Windows のサインアウト・シャットダウンのとき。
             // tao はこのイベントを送った直後にプロセスを終えるので、ここでサーバーを止めきる。
             Event::LoopDestroyed => {
+                if let Some(saver) = saver.take() {
+                    saver.finish();
+                }
                 if let Some(server) = server.take() {
                     server.stop();
                 }
@@ -226,6 +226,9 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
             Event::UserEvent(UserEvent::PickFolder(request)) => request.serve(),
             Event::UserEvent(UserEvent::ServerExited) => {
                 tracing::error!("the server stopped unexpectedly");
+                if let Some(saver) = saver.take() {
+                    saver.finish();
+                }
                 if let Some(server) = server.take() {
                     server.stop();
                 }
@@ -234,6 +237,10 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
             Event::UserEvent(UserEvent::Menu(event)) => {
                 if event.id == items.quit.id() {
                     tracing::info!("quit menu item selected");
+                    // 選んだ直後に終了しても、選んだ表示言語を書き終えてから終わる。
+                    if let Some(saver) = saver.take() {
+                        saver.finish();
+                    }
                     // `tao`は`ControlFlow::Exit`をセットすると事実上即座にプロセスを終了させる
                     // ため、先にサーバーを止めきっておかないと graceful shutdown が完走しない。
                     if let Some(server) = server.take() {
@@ -264,7 +271,14 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
                         if let (Some(item), Some(state)) = (&login_item, login_state) {
                             item.set_text(locale.get().login_item_label(state));
                         }
-                        save_language(config_path.clone(), &latest_language, chosen);
+                        if let Some(saver) = &saver {
+                            saver.save(chosen);
+                        }
+                        // 「ログイン時に起動」の文言は状態でも変わる。持っている状態が古いことがあるので読み直す。
+                        if login_item.is_some() && !login_busy {
+                            login_busy = true;
+                            spawn_login_task(login_proxy.clone(), None);
+                        }
                     }
                 } else if event.id == items.setup.id() {
                     // トークンの発行はサーバーへの問い合わせなので、イベントループ
@@ -342,22 +356,39 @@ fn show_language(
     en.set_checked(language == TrayLanguage::En);
 }
 
-/// 選んだ表示言語を `config.toml` に書く。ファイルの読み書きでイベントループ (メインスレッド) を止めないよう、
-/// 別スレッドで行う。書けなくても、今動いている間のメニューは選んだ言語のままにする。
-///
-/// 続けて選ぶと書くスレッドが重なり、どれが先に書くかは決まらない。そこで値はスレッドに渡さず、
-/// 書く番が来たときに最後に選んだもの (`latest`) を読む。最後に書くスレッドは、最後に選んだものを書く。
-fn save_language(path: PathBuf, latest: &Arc<AtomicU8>, language: TrayLanguage) {
-    static SAVING: Mutex<()> = Mutex::new(());
-    latest.store(language as u8, Ordering::SeqCst);
-    let latest = Arc::clone(latest);
-    std::thread::spawn(move || {
-        let _turn = SAVING.lock().unwrap_or_else(PoisonError::into_inner);
-        let language = TrayLanguage::from_u8(latest.load(Ordering::SeqCst));
-        if let Err(err) = config::write_tray_language(&path, language) {
-            tracing::warn!(error = %err, "failed to save the tray language");
-        }
-    });
+/// 選んだ表示言語を `config.toml` に書くスレッド。ファイルの読み書きでイベントループ (メインスレッド) を
+/// 止めないよう、別スレッドで書く。書けなくても、今動いている間のメニューは選んだ言語のままにする。
+/// 1つのスレッドが届いた順に書き、溜まっていれば最後のものだけを書くので、ファイルは最後に選んだものになる。
+struct LanguageSaver {
+    sender: mpsc::Sender<TrayLanguage>,
+    handle: std::thread::JoinHandle<()>,
+}
+
+impl LanguageSaver {
+    fn spawn(path: PathBuf) -> Self {
+        let (sender, receiver) = mpsc::channel::<TrayLanguage>();
+        let handle = std::thread::spawn(move || {
+            while let Ok(mut language) = receiver.recv() {
+                while let Ok(next) = receiver.try_recv() {
+                    language = next;
+                }
+                if let Err(err) = config::write_tray_language(&path, language) {
+                    tracing::warn!(error = %err, "failed to save the tray language");
+                }
+            }
+        });
+        Self { sender, handle }
+    }
+
+    fn save(&self, language: TrayLanguage) {
+        let _ = self.sender.send(language);
+    }
+
+    /// 頼んだ分を書き終えるまで待つ。
+    fn finish(self) {
+        drop(self.sender);
+        let _ = self.handle.join();
+    }
 }
 
 /// 別スレッドで、`change` があれば OS に反映してから状態を読み直し、結果をイベントループへ送る。

@@ -205,29 +205,13 @@ fn write_saved(path: &Path, settings: &ServerSettings) -> Result<(), AppError> {
 
 /// 該当する項目だけを書き換える。表 (`[server]` など) が無ければ足す。
 fn apply(doc: &mut toml_edit::DocumentMut, settings: &ServerSettings) -> Result<(), String> {
-    set(doc, "server", "port", i64::from(settings.port))?;
+    config::set_value(doc, "server", "port", i64::from(settings.port))?;
     // 上限は `validate` で i64 に収まる範囲に絞ってある。上限なしは、項目を消して既定 (上限なし) に任せる。
     match settings.upload_max_size_mb {
-        Some(mb) => set(doc, "upload", "max_size_mb", mb as i64)?,
-        None => remove(doc, "upload", "max_size_mb"),
+        Some(mb) => config::set_value(doc, "upload", "max_size_mb", mb as i64)?,
+        None => config::remove_value(doc, "upload", "max_size_mb"),
     }
-    set(doc, "session", "expiry_days", settings.session_expiry_days)
-}
-
-fn set(doc: &mut toml_edit::DocumentMut, table: &str, key: &str, value: i64) -> Result<(), String> {
-    doc.entry(table)
-        .or_insert(toml_edit::table())
-        .as_table_like_mut()
-        .ok_or_else(|| format!("{table} is not a table"))?
-        .insert(key, toml_edit::value(value));
-    Ok(())
-}
-
-/// 表 (`[upload]` など) に項目があれば消す。表が無ければ何もしない (空の表を足さない)。
-fn remove(doc: &mut toml_edit::DocumentMut, table: &str, key: &str) {
-    if let Some(table) = doc.get_mut(table).and_then(|item| item.as_table_like_mut()) {
-        table.remove(key);
-    }
+    config::set_value(doc, "session", "expiry_days", settings.session_expiry_days)
 }
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
