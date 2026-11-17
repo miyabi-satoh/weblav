@@ -373,8 +373,7 @@
 							/>
 							{@render defaultValue(
 								m.admin_settings_password_min_length_label(),
-								passwordMinLength !==
-									(passwordPolicy?.defaultPasswordMinLength ?? passwordMinLength) ||
+								passwordMinLength !== passwordPolicy.defaultPasswordMinLength ||
 									(passwordMinLengthInput?.isUnsettled() ?? false),
 								() =>
 									resetField(
