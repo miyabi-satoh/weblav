@@ -155,6 +155,7 @@ function fieldLabel(field: FieldChange): string {
 		position: m.admin_operations_field_position,
 		siteName: m.admin_settings_site_name_label,
 		homeHeading: m.admin_settings_home_heading_label,
+		passwordMinLength: m.admin_settings_password_min_length_label,
 		port: m.admin_settings_port_label,
 		uploadMaxSizeMb: m.admin_settings_upload_label,
 		sessionExpiryDays: m.admin_settings_session_label,

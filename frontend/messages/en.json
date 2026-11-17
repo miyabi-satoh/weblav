@@ -18,6 +18,16 @@
 	"common_table_actions": "Actions",
 	"common_password_mismatch": "Passwords do not match",
 	"common_new_password_label": "New password",
+	"common_password_min_length_description": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "At least {count} character",
+				"countPlural=other": "At least {count} characters"
+			}
+		}
+	],
 	"common_new_password_confirm_label": "New password (confirm)",
 	"common_username_label": "Username",
 	"common_password_label": "Password",
@@ -314,6 +324,19 @@
 		}
 	],
 	"admin_settings_running_value": "Currently running with {value}.",
+	"admin_settings_password_heading": "Passwords",
+	"admin_settings_password_min_length_label": "Minimum length",
+	"admin_settings_password_min_length_unit": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "character",
+				"countPlural=other": "characters"
+			}
+		}
+	],
+	"admin_settings_password_fetch_failed": "Failed to load the password settings. Please try again later.",
 	"admin_settings_reset_button": "Reset to default",
 	"admin_settings_reset_button_label": "Reset to default: {name}",
 	"admin_settings_server_unsaved": "You have unsaved changes.",
@@ -406,6 +429,7 @@
 	"error_detail_transfer_into_itself": "A folder can't be moved or copied into itself or one of its subfolders.",
 	"error_detail_entry_protected": "A share itself, or a folder that contains another share or WebLAV's data, can't be changed.",
 	"error_detail_port_blocked_by_browsers": "Port {port} can't be used because browsers refuse to open it.",
+	"error_detail_password_too_short": "Use a password with at least {minLength} characters.",
 	"error_detail_archive_folder_missing": "The folder was not found.",
 	"error_detail_archive_folder_unreadable": "Could not read “{path}”.",
 	"error_detail_archive_folder_unreadable_root": "The folder could not be read.",

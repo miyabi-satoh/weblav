@@ -153,6 +153,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/password-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["update_password_policy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/roots": {
         parameters: {
             query?: never;
@@ -1442,6 +1458,22 @@ export interface paths {
          *     取れたカードから差し替えられるようにするため。
          */
         post: operations["refresh_link_previews"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/password-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_password_policy"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2787,6 +2819,25 @@ export interface components {
              */
             nextBefore?: number | null;
         };
+        PasswordPolicy: {
+            /**
+             * Format: int32
+             * @description 新しいパスワードの最小の文字数。1〜64。
+             */
+            passwordMinLength: number;
+        };
+        PasswordPolicyResponse: {
+            /**
+             * Format: int32
+             * @description 既定の最小の文字数。最初のセットアップはこの値で固定する。画面が、セットアップの案内と「既定値に戻す」に使う。
+             */
+            defaultPasswordMinLength: number;
+            /**
+             * Format: int32
+             * @description 新しいパスワードの最小の文字数。
+             */
+            passwordMinLength: number;
+        };
         PathSamplesResponse: {
             /** @description 見えるアイテムの数。 */
             itemCount: number;
@@ -3426,6 +3477,11 @@ export interface components {
             kind: "portBlockedByBrowsers";
             /** Format: int32 */
             port: number;
+        } | {
+            /** @enum {string} */
+            kind: "passwordTooShort";
+            /** Format: int32 */
+            minLength: number;
         };
         VerifyTokenRequest: {
             token: string;
@@ -3925,6 +3981,57 @@ export interface operations {
             };
             /** @description admin以外 */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_password_policy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordPolicy"];
+            };
+        };
+        responses: {
+            /** @description 更新後の下限 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordPolicy"];
+                };
+            };
+            /** @description 未ログイン */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description admin以外・パスワードの確かめ直しが要る */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 下限が 1〜64 の外 */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4678,7 +4785,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description ユーザー名重複・パスワード未入力 */
+            /** @description ユーザー名重複・パスワードが下限より短い */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -4794,7 +4901,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description パスワード未入力 */
+            /** @description パスワードが下限より短い */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -5123,7 +5230,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 新しいパスワード未入力 */
+            /** @description 新しいパスワードが下限より短い */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -5174,7 +5281,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 新しいパスワード未入力 */
+            /** @description 新しいパスワードが下限より短い */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -7826,6 +7933,26 @@ export interface operations {
             };
         };
     };
+    get_password_policy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 新しいパスワードの下限と既定 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordPolicyResponse"];
+                };
+            };
+        };
+    };
     search: {
         parameters: {
             query?: {
@@ -7915,7 +8042,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description ユーザー名重複・ユーザー名/パスワード未入力 */
+            /** @description ユーザー名重複・ユーザー名未入力・パスワードが下限より短い */
             422: {
                 headers: {
                     [name: string]: unknown;

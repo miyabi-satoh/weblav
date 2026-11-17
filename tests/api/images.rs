@@ -108,6 +108,70 @@ async fn folder_images_get_sizes_and_thumbnails(pool: SqlitePool) {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
+/// 置き場の下のファイル (縮小画像) を全部返す。
+fn files_under(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(dir).expect("置き場を読めなかった") {
+        let path = entry.expect("置き場の項目を読めなかった").path();
+        if path.is_dir() {
+            files.extend(files_under(&path));
+        } else {
+            files.push(path);
+        }
+    }
+    files
+}
+
+/// 304 で答えるときも、置いてある縮小画像に使った印 (更新日時) を付け直す。
+/// ブラウザーは毎回問い合わせるので、付けないと毎日見ている縮小画像も古いものとして消える。
+#[sqlx::test]
+async fn not_modified_thumbnail_is_marked_as_used(pool: SqlitePool) {
+    let dir = temp_test_dir("thumbnail-mark");
+    std::fs::write(dir.join("photo.png"), png_bytes(300, 200)).expect("画像を作れなかった");
+    let content_id = insert_folder_by(
+        &pool,
+        "写真",
+        dir.display().to_string(),
+        "public",
+        None,
+        None,
+    )
+    .await;
+    let data_dir = next_app_dir();
+    register_content_root(&pool).await;
+    let app = app_in(pool, &Config::default(), &data_dir).await;
+
+    let uri = format!("/api/v1/contents/{content_id}/thumbnail?path=photo.png");
+    let response = get_with_headers(app.clone(), &uri, &[]).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let etag = response.headers()[header::ETAG]
+        .to_str()
+        .expect("ETagが文字列でなかった")
+        .to_string();
+    let [cached] = &files_under(&data_dir.join("thumbnails"))[..] else {
+        panic!("縮小画像が1つだけ置かれるはず");
+    };
+    // 印を付け直す間隔 (1日) より古く、消す長さ (30日) より新しくする。
+    let day = std::time::Duration::from_secs(24 * 60 * 60);
+    std::fs::File::options()
+        .write(true)
+        .open(cached)
+        .expect("縮小画像を開けなかった")
+        .set_modified(std::time::SystemTime::now() - 2 * day)
+        .expect("更新日時を変えられなかった");
+
+    let response = get_with_headers(app, &uri, &[(header::IF_NONE_MATCH, &etag)]).await;
+    assert_eq!(response.status(), StatusCode::NOT_MODIFIED);
+    let modified = std::fs::metadata(cached)
+        .expect("縮小画像が消えた")
+        .modified()
+        .expect("更新日時を読めなかった");
+    let age = std::time::SystemTime::now()
+        .duration_since(modified)
+        .unwrap_or_default();
+    assert!(age < day, "更新日時が付け直されていない: {age:?}");
+}
+
 /// 縮小画像も、ダウンロードと同じ公開範囲の判定を通る。
 #[sqlx::test]
 async fn folder_thumbnail_anonymous_on_authenticated_folder_is_unauthorized(pool: SqlitePool) {

@@ -199,7 +199,7 @@ struct CreateAdminRequest {
     responses(
         (status = 201, body = UserWithRecoveryCodeResponse, description = "作成した管理者 (このセッションでログイン済み) とリカバリコード"),
         (status = 404, body = crate::error::ErrorResponse, description = "セットアップ済み・トークンが違う・期限切れ・この PC の外からの要求"),
-        (status = 422, body = crate::error::ErrorResponse, description = "ユーザー名重複・ユーザー名/パスワード未入力"),
+        (status = 422, body = crate::error::ErrorResponse, description = "ユーザー名重複・ユーザー名未入力・パスワードが下限より短い"),
     )
 )]
 async fn create_admin(
@@ -215,7 +215,11 @@ async fn create_admin(
 
     let username = validate::trimmed_non_empty(&payload.username, "username is required")?;
     // 二重入力の一致は画面側の責務 (`POST /admin/users` と同じ)。
-    validate::non_empty(&payload.password, "password is required")?;
+    // 管理者がまだいないので、サイトの設定でなく既定の下限で固定する (→ docs/access.md「パスワードの下限」)。
+    super::password_policy::check_length(
+        &payload.password,
+        crate::auth::DEFAULT_PASSWORD_MIN_LENGTH,
+    )?;
 
     // 最初の管理者には、作った直後にリカバリコードを見せる (→ docs/access.md「リカバリコード」)。
     // 作成と同じ INSERT で持たせる。別に書き込むと、その失敗でコードの無い管理者が残る。

@@ -43,6 +43,7 @@
 	const MAX_PORT = 65535;
 	const MAX_UPLOAD_MAX_SIZE_MB = 100 * 1024;
 	const MAX_SESSION_EXPIRY_DAYS = 3650;
+	const MAX_PASSWORD_MIN_LENGTH = 64;
 	// 3つの欄を、いちばん長い上限 (6 桁) と単位が収まる幅に揃える (→ docs/ui.md「見た目の決めごと」)。
 	const serverNumberWidthClass = 'w-36';
 	// 「既定値に戻す」を入力欄の右に並べる。狭い幅で収まらなければ下へ回す。
@@ -53,6 +54,16 @@
 	let homeHeading = $state(untrack(() => data.settings.homeHeading));
 	const siteDirty = new FormDirtyState(() => ({ siteName, homeHeading }));
 	siteDirty.markPristine();
+
+	// 取れなかったとき (null) は、区画に理由だけを出す。下の 0 は使われない。
+	let passwordPolicy = $state(untrack(() => data.passwordPolicy));
+	let passwordMinLength = $state(untrack(() => passwordPolicy?.passwordMinLength ?? 0));
+	let passwordMinLengthInput = $state<IntegerInput>();
+	const passwordDirty = new FormDirtyState(() => ({
+		passwordMinLength,
+		unsettled: passwordMinLengthInput?.isUnsettled() ?? false
+	}));
+	passwordDirty.markPristine();
 
 	// 取れなかったとき (null) は、区画に理由だけを出して入力欄を出さない。下の 0 は使われない。
 	let server = $state(untrack(() => data.serverSettings));
@@ -116,14 +127,16 @@
 	let switchingLog = $state(false);
 
 	let savingSite = $state(false);
+	let savingPassword = $state(false);
 	let savingServer = $state(false);
 
 	const errorDialog = new ErrorDialogState();
 
 	// 保存していない変更を、別の画面へ移って失わないようにする (コンテンツの編集ページと同じ)。
 	// 保存中に押した移動は、保存が済んでから続ける。
-	const dirty = () => siteDirty.dirty || serverDirty.dirty || hiddenDirty.dirty;
-	const anySaving = () => savingSite || savingServer || savingHidden;
+	const dirty = () =>
+		siteDirty.dirty || passwordDirty.dirty || serverDirty.dirty || hiddenDirty.dirty;
+	const anySaving = () => savingSite || savingPassword || savingServer || savingHidden;
 	const leaveGuard = new LeaveGuard(dirty, anySaving);
 	const resumeIfIdle = () => leaveGuard.resumeIfIdle(() => dirty() || errorDialog.open);
 
@@ -146,6 +159,27 @@
 			}
 		} finally {
 			savingSite = false;
+		}
+		await resumeIfIdle();
+	}
+
+	async function handlePasswordSubmit(e: SubmitEvent) {
+		e.preventDefault();
+		if (savingPassword || !passwordPolicy) return;
+		savingPassword = true;
+
+		try {
+			const result = await errorDialog.attempt(() =>
+				client.PUT('/api/v1/admin/password-policy', { body: { passwordMinLength } })
+			);
+			if (result?.data) {
+				passwordDirty.markPristine();
+				toast.success(
+					m.common_section_saved_toast({ section: m.admin_settings_password_heading() })
+				);
+			}
+		} finally {
+			savingPassword = false;
 		}
 		await resumeIfIdle();
 	}
@@ -310,6 +344,53 @@
 			<div>
 				<LoadingButton type="submit" loading={savingSite}>{m.action_save()}</LoadingButton>
 			</div>
+		</form>
+
+		<form
+			onsubmit={handlePasswordSubmit}
+			aria-labelledby="password-section-heading"
+			class={sectionCardClass}
+		>
+			<h2 id="password-section-heading" class="text-base font-semibold">
+				{m.admin_settings_password_heading()}
+			</h2>
+			{#if passwordPolicy}
+				<Field.FieldGroup>
+					<Field.Field>
+						<Field.FieldLabel for="password-min-length" required
+							>{m.admin_settings_password_min_length_label()}</Field.FieldLabel
+						>
+						<div class={serverInputRowClass}>
+							<IntegerInput
+								id="password-min-length"
+								class={serverNumberWidthClass}
+								min={1}
+								max={MAX_PASSWORD_MIN_LENGTH}
+								unit={m.admin_settings_password_min_length_unit({ count: passwordMinLength })}
+								bind:value={passwordMinLength}
+								bind:this={passwordMinLengthInput}
+								required
+							/>
+							{@render defaultValue(
+								m.admin_settings_password_min_length_label(),
+								passwordMinLength !== passwordPolicy.defaultPasswordMinLength ||
+									(passwordMinLengthInput?.isUnsettled() ?? false),
+								() =>
+									resetField(
+										passwordMinLengthInput,
+										'password-min-length',
+										passwordPolicy?.defaultPasswordMinLength ?? passwordMinLength
+									)
+							)}
+						</div>
+					</Field.Field>
+				</Field.FieldGroup>
+				<div>
+					<LoadingButton type="submit" loading={savingPassword}>{m.action_save()}</LoadingButton>
+				</div>
+			{:else}
+				<p class="text-sm text-destructive">{m.admin_settings_password_fetch_failed()}</p>
+			{/if}
 		</form>
 
 		<form
@@ -561,6 +642,7 @@
 	guard={leaveGuard}
 	ondiscard={() => {
 		siteDirty.markPristine();
+		passwordDirty.markPristine();
 		serverDirty.markPristine();
 		hiddenDirty.markPristine();
 	}}

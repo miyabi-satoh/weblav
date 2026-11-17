@@ -24,6 +24,7 @@
 	import LeaveConfirmDialog from '#lib/components/leave-confirm-dialog.svelte';
 	import LoadingButton from '#lib/components/loading-button.svelte';
 	import PasswordInput from '#lib/components/password-input.svelte';
+	import PasswordMinLengthHint from '#lib/components/password-min-length-hint.svelte';
 	import RecoveryCodeDialog from '#lib/components/recovery-code-dialog.svelte';
 	import type { PageProps } from './$types';
 
@@ -157,6 +158,7 @@
 						bind:value={newPassword}
 						required
 					/>
+					<PasswordMinLengthHint />
 				</Field.Field>
 				<Field.Field data-invalid={mismatch}>
 					<Field.FieldLabel for="account-new-password-confirm" required

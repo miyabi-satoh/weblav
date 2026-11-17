@@ -108,17 +108,6 @@ fn create_user(username: Option<&str>, is_admin: bool) {
         crate::auth::Role::User
     };
 
-    let password = rpassword::prompt_password("Password: ")
-        .unwrap_or_else(|err| fail(format_args!("failed to read password: {err}")));
-    if password.is_empty() {
-        fail("password must not be empty");
-    }
-    let confirm = rpassword::prompt_password("Password (confirm): ")
-        .unwrap_or_else(|err| fail(format_args!("failed to read password: {err}")));
-    if confirm != password {
-        fail("passwords do not match");
-    }
-
     let dirs = AppDirs::resolve().unwrap_or_else(|err| fail(error_chain(&err)));
     let db_path = dirs.db_path();
 
@@ -132,6 +121,24 @@ fn create_user(username: Option<&str>, is_admin: bool) {
             Ok::<_, crate::db::Error>(pool)
         })
         .unwrap_or_else(|err| fail(format_args!("failed to create user: {}", error_chain(&err))));
+
+    // 管理画面から作るときと同じ下限 (→ docs/access.md「パスワードの下限」)。2回打たせる前に断るため、先に読む。
+    let min_length = rt
+        .block_on(crate::api::password_min_length(&pool))
+        .unwrap_or_else(|err| fail(format_args!("failed to create user: {}", error_chain(&err))));
+
+    let password = rpassword::prompt_password("Password: ")
+        .unwrap_or_else(|err| fail(format_args!("failed to read password: {err}")));
+    if !crate::api::password_meets_min_length(&password, min_length) {
+        fail(format_args!(
+            "password must be at least {min_length} characters"
+        ));
+    }
+    let confirm = rpassword::prompt_password("Password (confirm): ")
+        .unwrap_or_else(|err| fail(format_args!("failed to read password: {err}")));
+    if confirm != password {
+        fail("passwords do not match");
+    }
 
     match rt.block_on(crate::auth::create_user(
         &pool, username, &password, role, None,

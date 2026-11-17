@@ -318,9 +318,9 @@ async fn recovery_code_resets_the_password_and_is_replaced(pool: SqlitePool) {
     login(app.clone(), "admin", "new-password").await;
 
     // 使ったコードは使えない。新しいコードは使える。
-    let response = recover(app.clone(), "admin", &code, "another").await;
+    let response = recover(app.clone(), "admin", &code, "another-password").await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    let response = recover(app, "admin", &new_code, "another").await;
+    let response = recover(app, "admin", &new_code, "another-password").await;
     assert_eq!(response.status(), StatusCode::OK);
 }
 
@@ -410,10 +410,22 @@ async fn recovery_is_rate_limited_separately_from_login(pool: SqlitePool) {
     let app = test_app(pool).await;
 
     for _ in 0..5 {
-        let response = recover(app.clone(), "admin", "00000-00000-00000-00000", "x").await;
+        let response = recover(
+            app.clone(),
+            "admin",
+            "00000-00000-00000-00000",
+            "new-password",
+        )
+        .await;
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     }
-    let response = recover(app.clone(), "admin", "00000-00000-00000-00000", "x").await;
+    let response = recover(
+        app.clone(),
+        "admin",
+        "00000-00000-00000-00000",
+        "new-password",
+    )
+    .await;
     assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
 
     login(app, "admin", "password").await;

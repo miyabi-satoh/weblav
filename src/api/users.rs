@@ -129,7 +129,7 @@ struct CreateUserRequest {
         (status = 201, body = UserListItem, description = "作成したユーザー"),
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 403, body = crate::error::ErrorResponse, description = "admin以外・パスワードの確かめ直しが要る"),
-        (status = 422, body = crate::error::ErrorResponse, description = "ユーザー名重複・パスワード未入力"),
+        (status = 422, body = crate::error::ErrorResponse, description = "ユーザー名重複・パスワードが下限より短い"),
     )
 )]
 async fn create_user(
@@ -138,9 +138,9 @@ async fn create_user(
     AppJson(payload): AppJson<CreateUserRequest>,
 ) -> Result<(StatusCode, Json<UserListItem>), AppError> {
     let username = validate::trimmed_non_empty(&payload.username, "username is required")?;
-    // CLIの`--create-user`と同じ制約(空パスワードは拒否)。こちらはプロンプトの
+    // CLIの`--create-user`と同じ制約(下限)。こちらはプロンプトの
     // 確認入力が無いため、二重入力の一致はフロント側の責務とする。
-    validate::non_empty(&payload.password, "password is required")?;
+    super::password_policy::check_new_password(&state.pool, &payload.password).await?;
 
     let role = payload.role.unwrap_or(Role::User);
     let created = auth::create_user(&state.pool, &username, &payload.password, role, None).await?;
@@ -273,7 +273,7 @@ struct ResetPasswordRequest {
         (status = 401, body = crate::error::ErrorResponse, description = "未ログイン"),
         (status = 403, body = crate::error::ErrorResponse, description = "admin以外・自分自身・パスワードの確かめ直しが要る"),
         (status = 404, body = crate::error::ErrorResponse, description = "存在しないユーザー"),
-        (status = 422, body = crate::error::ErrorResponse, description = "パスワード未入力"),
+        (status = 422, body = crate::error::ErrorResponse, description = "パスワードが下限より短い"),
     )
 )]
 async fn reset_password(
@@ -283,7 +283,7 @@ async fn reset_password(
     AppJson(payload): AppJson<ResetPasswordRequest>,
 ) -> Result<StatusCode, AppError> {
     reject_self_then_confirm(&admin, id).await?;
-    validate::non_empty(&payload.password, "password is required")?;
+    super::password_policy::check_new_password(&state.pool, &payload.password).await?;
 
     let hash = auth::hash_password_blocking(&payload.password).await?;
 

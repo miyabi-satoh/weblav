@@ -208,6 +208,7 @@ pub async fn build_app(
     };
     api::spawn_auto_rescan(state.clone());
     api::spawn_operations_purge(state.pool.clone());
+    api::spawn_thumbnails_sweep(state.thumbnails.clone());
     let app = app.with_state(state);
 
     Ok(app)

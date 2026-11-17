@@ -7,7 +7,9 @@
 use std::fs::{File, Metadata};
 use std::io::{BufRead, BufReader, Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, SystemTime};
 
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
@@ -228,6 +230,17 @@ fn oriented_size(width: u32, height: u32, orientation: Orientation) -> ImageSize
     }
 }
 
+/// この日数より使われていない縮小画像を消す。Jellyfin・Plex の画像のキャッシュの既定と同じ長さ。
+/// 元のファイルが変わると古いキーのものは二度と使われないので、消さないと溜まり続ける。
+const UNUSED_RETENTION: Duration = Duration::from_secs(30 * 24 * 60 * 60);
+
+/// 使った印 (更新日時) を付け直す間隔。見るたびに書かないため。
+/// `UNUSED_RETENTION` よりずっと短いので、使っているものを消すことはない。
+const MARK_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
+
+/// 使われていない縮小画像を消しに行く間隔。日単位で残す長さを決めているので、1日ごとで足りる。
+const SWEEP_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
+
 /// 縮小画像の置き場と、同時に作る数の上限。
 pub struct Thumbnails {
     dir: PathBuf,
@@ -303,6 +316,13 @@ pub(super) async fn thumbnail_response(
         .map_err(|_| AppError::DataIntegrity("thumbnail key is not a valid header value"))?;
 
     if if_none_match_contains(request_headers, &etag) {
+        // ブラウザーは毎回問い合わせ、置き場は読まずに 304 を返すので、ここでも使った印を付ける。
+        // 付けないと、毎日見ている縮小画像も消える。
+        let dir = thumbnails.dir.clone();
+        // 印は付けられなくても 304 は返す (`mark_used` と同じ扱い)。
+        if let Err(err) = run_blocking(move || mark_cached(&dir, &key)).await {
+            tracing::debug!(error = %crate::error::error_chain(&err), "marking a thumbnail as used failed");
+        }
         return Ok(with_cache_headers(
             StatusCode::NOT_MODIFIED.into_response(),
             etag,
@@ -403,18 +423,116 @@ fn cache_path(dir: &Path, key: &str, extension: &str) -> PathBuf {
 /// 作れなかった印の拡張子。中身は空。
 const UNAVAILABLE_EXTENSION: &str = "none";
 
+/// 読めたものには使った印を付ける。
 fn read_cached(dir: &Path, key: &str) -> Option<Cached> {
-    ThumbnailFormat::ALL
+    for format in ThumbnailFormat::ALL {
+        let path = cache_path(dir, key, format.extension());
+        if let Ok(bytes) = std::fs::read(&path) {
+            mark_used(&path, SystemTime::now());
+            return Some(Cached::Thumbnail(bytes, format));
+        }
+    }
+    let marker = cache_path(dir, key, UNAVAILABLE_EXTENSION);
+    marker.is_file().then(|| {
+        mark_used(&marker, SystemTime::now());
+        Cached::Unavailable
+    })
+}
+
+/// 304 を返すときに、置いてある縮小画像に使った印を付ける。
+/// 作れなかった印は 404 で返し ETag を渡していないので、304 にはならない。
+fn mark_cached(dir: &Path, key: &str) {
+    if let Some(path) = ThumbnailFormat::ALL
         .into_iter()
-        .find_map(|format| {
-            let bytes = std::fs::read(cache_path(dir, key, format.extension())).ok()?;
-            Some(Cached::Thumbnail(bytes, format))
-        })
-        .or_else(|| {
-            cache_path(dir, key, UNAVAILABLE_EXTENSION)
-                .is_file()
-                .then_some(Cached::Unavailable)
-        })
+        .map(|format| cache_path(dir, key, format.extension()))
+        .find(|path| path.is_file())
+    {
+        mark_used(&path, SystemTime::now());
+    }
+}
+
+/// 更新日時を使った印にする。OS の最終アクセス日時は記録しない設定が多いので使わない。
+/// 印が `MARK_INTERVAL` より新しければ書かない。付けられなくても配信は続ける。
+fn mark_used(path: &Path, now: SystemTime) {
+    let result = (|| {
+        let modified = std::fs::metadata(path)?.modified()?;
+        if needs_mark(modified, now) {
+            File::options().write(true).open(path)?.set_modified(now)?;
+        }
+        Ok::<_, std::io::Error>(())
+    })();
+    if let Err(err) = result {
+        tracing::debug!(path = %path.display(), error = %err, "marking a thumbnail as used failed");
+    }
+}
+
+/// 更新日時が未来 (時計が戻った) のときは付け直さない。
+fn needs_mark(modified: SystemTime, now: SystemTime) -> bool {
+    now.duration_since(modified)
+        .is_ok_and(|age| age >= MARK_INTERVAL)
+}
+
+/// 更新日時が未来 (時計が戻った) のものは、いつ使ったか分からないので消さない。
+fn is_unused(modified: SystemTime, now: SystemTime) -> bool {
+    now.duration_since(modified)
+        .is_ok_and(|age| age > UNUSED_RETENTION)
+}
+
+/// `dir` の下の、`UNUSED_RETENTION` より使われていないファイルを消し、消した数を返す。
+/// 作れなかった印 (`.none`) と書きかけの一時ファイル (`.tmp`) も同じに扱う。
+fn sweep_unused(dir: &Path, now: SystemTime) -> std::io::Result<u64> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        // まだ1枚も作っていない。
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+        Err(err) => return Err(err),
+    };
+    let mut removed = 0;
+    for entry in entries {
+        // 1件で止めると、その先の古いものが毎日残る。作っている最中に名前が変わったものなどは飛ばして続ける。
+        match sweep_entry(entry, now) {
+            Ok(count) => removed += count,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => {
+                tracing::warn!(dir = %dir.display(), error = %err, "removing an unused thumbnail failed")
+            }
+        }
+    }
+    Ok(removed)
+}
+
+fn sweep_entry(entry: std::io::Result<std::fs::DirEntry>, now: SystemTime) -> std::io::Result<u64> {
+    let entry = entry?;
+    let metadata = entry.metadata()?;
+    if metadata.is_dir() {
+        return sweep_unused(&entry.path(), now);
+    }
+    if metadata.is_file() && is_unused(metadata.modified()?, now) {
+        std::fs::remove_file(entry.path())?;
+        return Ok(1);
+    }
+    Ok(0)
+}
+
+/// 起動したときと1日ごとに、使われていない縮小画像を消す。
+pub(crate) fn spawn_sweep(thumbnails: Arc<Thumbnails>) {
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(SWEEP_INTERVAL);
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            // 1回目はすぐに来るので、起動したときの分になる。
+            ticker.tick().await;
+            let dir = thumbnails.dir.clone();
+            match run_blocking(move || sweep_unused(&dir, SystemTime::now())).await {
+                Ok(Ok(0)) => {}
+                Ok(Ok(removed)) => tracing::info!(removed, "removed unused thumbnails"),
+                Ok(Err(err)) => tracing::warn!(error = %err, "removing unused thumbnails failed"),
+                Err(err) => {
+                    tracing::warn!(error = %crate::error::error_chain(&err), "removing unused thumbnails failed")
+                }
+            }
+        }
+    });
 }
 
 /// 縮小画像を作って置く。作れなければ `Ok(None)`。
@@ -863,6 +981,88 @@ mod tests {
             read_cached(&cache, &key),
             Some(Cached::Unavailable)
         ));
+    }
+
+    const DAY: Duration = Duration::from_secs(24 * 60 * 60);
+
+    fn set_modified(path: &Path, time: SystemTime) {
+        File::options()
+            .write(true)
+            .open(path)
+            .expect("failed to open file")
+            .set_modified(time)
+            .expect("failed to set modified time");
+    }
+
+    fn modified(path: &Path) -> SystemTime {
+        std::fs::metadata(path)
+            .expect("failed to read metadata")
+            .modified()
+            .expect("failed to read modified time")
+    }
+
+    /// ファイルシステムによって更新日時の細かさが違うので、秒の単位で比べる。
+    fn assert_near(actual: SystemTime, expected: SystemTime) {
+        let diff = actual
+            .duration_since(expected)
+            .unwrap_or_else(|err| err.duration());
+        assert!(diff < Duration::from_secs(2), "{actual:?} != {expected:?}");
+    }
+
+    #[test]
+    fn sweep_removes_only_files_unused_for_more_than_30_days() {
+        let dir = temp_dir("thumbnails-sweep");
+        let now = SystemTime::now();
+        let sub = dir.join("ab");
+        std::fs::create_dir_all(&sub).expect("failed to create dir");
+        let files = [
+            ("old.jpg", now - 31 * DAY, false),
+            ("old.none", now - 31 * DAY, false),
+            ("old.1.0.tmp", now - 31 * DAY, false),
+            ("recent.png", now - 29 * DAY, true),
+            ("future.jpg", now + 10 * DAY, true),
+        ];
+        for (name, time, _) in files {
+            let path = sub.join(name);
+            std::fs::write(&path, b"x").expect("failed to write file");
+            set_modified(&path, time);
+        }
+
+        assert_eq!(sweep_unused(&dir, now).expect("sweep"), 3);
+        for (name, _, kept) in files {
+            assert_eq!(sub.join(name).exists(), kept, "{name}");
+        }
+    }
+
+    #[test]
+    fn sweep_does_nothing_before_the_first_thumbnail() {
+        let dir = temp_dir("thumbnails-sweep-missing");
+        assert_eq!(
+            sweep_unused(&dir.join("thumbnails"), SystemTime::now()).expect("sweep"),
+            0
+        );
+    }
+
+    #[test]
+    fn mark_used_rewrites_the_mark_only_after_a_day() {
+        let dir = temp_dir("thumbnails-mark");
+        let path = dir.join("photo.jpg");
+        std::fs::write(&path, b"x").expect("failed to write file");
+        let now = SystemTime::now();
+
+        let recent = now - Duration::from_secs(60 * 60);
+        set_modified(&path, recent);
+        mark_used(&path, now);
+        assert_near(modified(&path), recent);
+
+        set_modified(&path, now - DAY);
+        mark_used(&path, now);
+        assert_near(modified(&path), now);
+
+        let future = now + DAY;
+        set_modified(&path, future);
+        mark_used(&path, now);
+        assert_near(modified(&path), future);
     }
 
     #[test]

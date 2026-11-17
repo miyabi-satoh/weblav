@@ -553,6 +553,63 @@
         }
       }
     },
+    "/api/v1/admin/password-policy": {
+      "put": {
+        "operationId": "update_password_policy",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordPolicy"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "更新後の下限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordPolicy"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未ログイン",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "admin以外・パスワードの確かめ直しが要る",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "下限が 1〜64 の外",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/roots": {
       "get": {
         "operationId": "list_roots",
@@ -1405,7 +1462,7 @@
             }
           },
           "422": {
-            "description": "ユーザー名重複・パスワード未入力",
+            "description": "ユーザー名重複・パスワードが下限より短い",
             "content": {
               "application/json": {
                 "schema": {
@@ -1537,7 +1594,7 @@
             }
           },
           "422": {
-            "description": "パスワード未入力",
+            "description": "パスワードが下限より短い",
             "content": {
               "application/json": {
                 "schema": {
@@ -1900,7 +1957,7 @@
             }
           },
           "422": {
-            "description": "新しいパスワード未入力",
+            "description": "新しいパスワードが下限より短い",
             "content": {
               "application/json": {
                 "schema": {
@@ -1958,7 +2015,7 @@
             }
           },
           "422": {
-            "description": "新しいパスワード未入力",
+            "description": "新しいパスワードが下限より短い",
             "content": {
               "application/json": {
                 "schema": {
@@ -5367,6 +5424,23 @@
         }
       }
     },
+    "/api/v1/password-policy": {
+      "get": {
+        "operationId": "get_password_policy",
+        "responses": {
+          "200": {
+            "description": "新しいパスワードの下限と既定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordPolicyResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/search": {
       "get": {
         "summary": "閲覧者がホームからたどって一覧で見られるコンテンツ・アーカイブの公開アイテム・フォルダーの中・\nリンクの一覧のファイルの中のリンクと、ログインした人が見られる共有の中を、タイトルの文字列で探す (→ docs/search.md)。\n語が空なら空の結果を返す。`within`・`share` を渡すと、その場所の中だけを探す (→ docs/search.md「範囲」)。",
@@ -5505,7 +5579,7 @@
             }
           },
           "422": {
-            "description": "ユーザー名重複・ユーザー名/パスワード未入力",
+            "description": "ユーザー名重複・ユーザー名未入力・パスワードが下限より短い",
             "content": {
               "application/json": {
                 "schema": {
@@ -9395,6 +9469,42 @@
           }
         }
       },
+      "PasswordPolicy": {
+        "type": "object",
+        "required": [
+          "passwordMinLength"
+        ],
+        "properties": {
+          "passwordMinLength": {
+            "type": "integer",
+            "format": "int32",
+            "description": "新しいパスワードの最小の文字数。1〜64。",
+            "maximum": 64,
+            "minimum": 1
+          }
+        }
+      },
+      "PasswordPolicyResponse": {
+        "type": "object",
+        "required": [
+          "passwordMinLength",
+          "defaultPasswordMinLength"
+        ],
+        "properties": {
+          "defaultPasswordMinLength": {
+            "type": "integer",
+            "format": "int32",
+            "description": "既定の最小の文字数。最初のセットアップはこの値で固定する。画面が、セットアップの案内と「既定値に戻す」に使う。",
+            "minimum": 0
+          },
+          "passwordMinLength": {
+            "type": "integer",
+            "format": "int32",
+            "description": "新しいパスワードの最小の文字数。",
+            "minimum": 0
+          }
+        }
+      },
       "PathSamplesResponse": {
         "type": "object",
         "required": [
@@ -11350,6 +11460,27 @@
                 ]
               },
               "port": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "新しいパスワードが下限より短い (→ `api::password_policy`)。",
+            "required": [
+              "minLength",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "passwordTooShort"
+                ]
+              },
+              "minLength": {
                 "type": "integer",
                 "format": "int32",
                 "minimum": 0
