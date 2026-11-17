@@ -271,8 +271,11 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
                         if let Some(saver) = &saver {
                             saver.save(chosen);
                         }
-                        // 「ログイン時に起動」は、読み直した状態で今の言語の文言にする。持っている状態が古いことがあるため。
-                        // 読み直しの途中なら、その結果が今の言語で出す。
+                        // 「ログイン時に起動」は、持っている状態ですぐ今の言語にし、古いことがあるので読み直して合わせる。
+                        // 読み直しや切り替えの途中なら、その結果が今の言語で出す。
+                        if let (Some(item), Some(state)) = (&login_item, login_state) {
+                            item.set_text(locale.get().login_item_label(state));
+                        }
                         if login_item.is_some() && !login_busy {
                             login_busy = true;
                             spawn_login_task(login_proxy.clone(), None);
