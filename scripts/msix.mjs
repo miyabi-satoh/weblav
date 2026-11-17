@@ -151,7 +151,7 @@ function install(output) {
 	const script = [
 		"$ErrorActionPreference = 'Stop'",
 		`Add-AppxPackage -Path '${output}' -ForceApplicationShutdown -ForceUpdateFromAnyVersion`,
-		"$p = Get-AppxPackage -Name amiiby.WebLAV | Where-Object Publisher -eq 'CN=WebLAV Test'",
+		`$p = Get-AppxPackage -Name amiiby.WebLAV | Where-Object Publisher -eq '${TEST_PUBLISHER}'`,
 		'$id = ($p | Get-AppxPackageManifest).Package.Applications.Application.Id',
 		'Start-Process "shell:AppsFolder\\$($p.PackageFamilyName)!$id"',
 		'Write-Output "installed $($p.Version)"',
