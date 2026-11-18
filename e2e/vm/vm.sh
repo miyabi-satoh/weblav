@@ -65,10 +65,12 @@ download_image() {
 	*ubuntu.com*) sums="$(dirname "$IMAGE")/SHA256SUMS" ;;
 	*) sums="$IMAGE.SHA256" ;;
 	esac
-	curl -fSL -o "$VM_DIR/base.img" "$IMAGE"
+	# 確かめてから置く。落とし損ねたものが残ると、次の create が確かめずに使うため
+	curl -fSL -o "$VM_DIR/base.img.part" "$IMAGE"
 	local expected
 	expected=$(curl -fsSL "$sums" | grep -E "[ *]$(basename "$IMAGE")\$|^[0-9a-f]{64}\$" | head -1 | awk '{print $1}')
-	echo "$expected  $VM_DIR/base.img" | sha256sum -c
+	echo "$expected  $VM_DIR/base.img.part" | sha256sum -c
+	mv "$VM_DIR/base.img.part" "$VM_DIR/base.img"
 }
 
 create() {
@@ -124,9 +126,9 @@ start() {
 	else
 		qemu_base -display gtk,gl=on -device virtio-vga-gl -pidfile "$VM_DIR/qemu.pid" &
 	fi
-	# ssh が通り、ログインしたセッションが立つまで待つ
+	# ssh が通り、ログインしたデスクトップ (GNOME か Hyprland) と ydotool の常駐が立つまで待つ
 	for _ in $(seq 1 60); do
-		if "${SSH[@]}" 'test -S /run/user/1000/bus' </dev/null 2>/dev/null; then
+		if "${SSH[@]}" 'test -S /run/user/1000/bus && test -S /run/user/1000/.ydotool_socket && { pgrep -x gnome-shell || ls /run/user/1000/hypr/*/.socket.sock; } >/dev/null 2>&1' </dev/null 2>/dev/null; then
 			echo "$NAME を起動しました (ssh -p $SSH_PORT e2e@localhost)"
 			return
 		fi

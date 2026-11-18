@@ -457,6 +457,8 @@ export function occupyPort(port) {
 		]);
 		child.stdout.once('data', () => resolve(child));
 		child.once('error', reject);
+		// 取れなければ (前の回のものが残っているなど) 終わるので、待ち続けない
+		child.once('exit', (code) => reject(new Error(`ポート ${port} を取れなかった (code=${code})`)));
 	});
 }
 
@@ -513,6 +515,8 @@ export function cancelDialog() {
 export async function pickAndAddRoot(running, folder) {
 	const before = await activeWindow();
 	const picked = running.api.pick();
+	// 窓の操作が先に落ちたときも、後で落ちる要求を未処理のまま残さない
+	picked.catch(() => {});
 	const dialog = await waitDialog(before ?? { app: null, title: null });
 	await chooseInDialog(folder, dialog);
 	const chosen = await picked;

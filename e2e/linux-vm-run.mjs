@@ -31,8 +31,10 @@ let debArg = null;
 const positional = [];
 for (let i = 0; i < args.length; i++) {
 	if (args[i] === '--keep') keep = true;
-	else if (args[i] === '--deb') debArg = args[++i];
-	else if (args[i].startsWith('-'))
+	else if (args[i] === '--deb') {
+		debArg = args[++i];
+		if (!debArg) fail('--deb には .deb のファイルを続けてください');
+	} else if (args[i].startsWith('-'))
 		fail(`知らない引数です: ${args[i]} (使えるのは --deb <ファイル>・--keep)`);
 	else positional.push(args[i]);
 }
@@ -158,10 +160,22 @@ function installCommand() {
 	].join('; ');
 }
 
-/** tar の出力 (標準出力) を返す */
-function tar(tarArgs, cwd) {
-	return spawn('tar', tarArgs, { cwd, stdio: ['ignore', 'pipe', 'inherit'] }).stdout;
+/**
+ * 手元で tar に固めて、VM の中の `command` (標準入力から展開する) に流す。どちらかが落ちたら投げる。
+ * 手元の tar が途中で落ちても、VM の側は短い入力を受けて正常に終わることがあるので、両方の終わり方を見る
+ */
+async function sendTar(tarArgs, command, what) {
+	const child = spawn('tar', tarArgs, { cwd: repoRoot, stdio: ['ignore', 'pipe', 'inherit'] });
+	const packed = new Promise((resolve) => {
+		child.once('error', () => resolve(1));
+		child.once('exit', (code) => resolve(code ?? 1));
+	});
+	const [remote, local] = await Promise.all([ssh(command, child.stdout), packed]);
+	if (remote !== 0 || local !== 0) throw new Error(`${what}を VM に写せませんでした`);
 }
+
+/** VM の中のシェルに渡す引数を引用する */
+const quote = (arg) => `'${arg.replaceAll("'", "'\\''")}'`;
 
 const wasRunning = await execFileAsync(VM_SH, [vm, 'ssh', 'true']).then(
 	() => true,
@@ -178,7 +192,7 @@ if (!wasRunning && (await vmSh('start', '--headless')) !== 0) {
 let code = 1;
 try {
 	log(`配る .deb を入れます: ${deb}`);
-	const files = tar(
+	await sendTar(
 		[
 			'-c',
 			'-C',
@@ -188,27 +202,17 @@ try {
 			path.join(repoRoot, 'packaging', 'aur'),
 			'PKGBUILD.in'
 		],
-		repoRoot
+		'rm -rf /tmp/weblav-deb && mkdir -p /tmp/weblav-deb && tar -x -C /tmp/weblav-deb',
+		'.deb '
 	);
-	if (
-		(await ssh(
-			'rm -rf /tmp/weblav-deb && mkdir -p /tmp/weblav-deb && tar -x -C /tmp/weblav-deb',
-			files
-		)) !== 0
-	) {
-		throw new Error('.deb を VM に写せませんでした');
-	}
 	if ((await ssh(installCommand())) !== 0) throw new Error('.deb を VM に入れられませんでした');
-	// 確かめの仕組みを写す
-	if (
-		(await ssh(
-			'rm -rf ~/weblav && mkdir -p ~/weblav && tar -x -C ~/weblav',
-			tar(['-c', 'e2e'], repoRoot)
-		)) !== 0
-	) {
-		throw new Error('確かめの仕組みを VM に写せませんでした');
-	}
-	code = await ssh(`cd ~/weblav/e2e && node linux-run.mjs ${tests.join(' ')}`);
+	// 確かめの仕組みを写す。手元で作られるもの (依存・ログ) は写さない
+	await sendTar(
+		['-c', '--exclude=node_modules', '--exclude=screenshots', 'e2e'],
+		'rm -rf ~/weblav && mkdir -p ~/weblav && tar -x -C ~/weblav',
+		'確かめの仕組み'
+	);
+	code = await ssh(`cd ~/weblav/e2e && node linux-run.mjs ${tests.map(quote).join(' ')}`);
 } catch (error) {
 	console.error(`[linux-check-vm] ${error.message}`);
 } finally {

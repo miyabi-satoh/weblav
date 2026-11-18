@@ -23,6 +23,7 @@ packages:
   - xdg-desktop-portal-gtk
   - waybar
   - foot
+  - xdg-utils
   - ydotool
   - grim
   - mesa

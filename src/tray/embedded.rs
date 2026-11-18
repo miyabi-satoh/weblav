@@ -98,6 +98,8 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
 
     // macOS でアクセシビリティから押されたときの読み直し (`reread_before_press`) からも、今の言語を引く。
     let locale = Rc::new(Cell::new(resolve_locale(language)));
+    // 書き換えるのは Linux だけ (サブメニューの差し替え。`replace_submenu`)。
+    #[cfg_attr(not(target_os = "linux"), allow(unused_mut))]
     let mut items = LabeledItems {
         setup: MenuItem::new("", true, None),
         open: MenuItem::new("", true, None),
@@ -352,8 +354,12 @@ fn replace_submenu(
 ) -> Option<Submenu> {
     let position = menu.items().iter().position(|item| item.id() == old.id())?;
     let new = Submenu::with_items(text, true, children).ok()?;
-    menu.remove(old).ok()?;
+    // 先に新しいものを入れてから古いものを外す。途中で失敗しても、言語の項目がメニューから消えないように。
     menu.insert(&new, position).ok()?;
+    if menu.remove(old).is_err() {
+        let _ = menu.remove(&new);
+        return None;
+    }
     Some(new)
 }
 

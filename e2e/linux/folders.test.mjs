@@ -47,6 +47,8 @@ test.describe('Linux: 共有のフォルダー', () => {
 		other = await launchOtherWindow();
 		const before = await activeWindow();
 		const picked = running.api.pick();
+		// 窓の操作が先に落ちたときも、後で落ちる要求を未処理のまま残さない
+		picked.catch(() => {});
 		const dialog = await waitDialog(before);
 		assert.notEqual(dialog.app, other.app, 'フォルダー選択の窓が前面にある');
 		// 打った場所が窓に届いて選ばれることで、窓がキーを受ける前面にあることも見る
@@ -59,6 +61,7 @@ test.describe('Linux: 共有のフォルダー', () => {
 	test('窓を取り消すと、何も選ばれない', async () => {
 		const before = await activeWindow();
 		const picked = running.api.pick();
+		picked.catch(() => {});
 		await waitDialog(before ?? { app: null, title: null });
 		await cancelDialog();
 		assert.equal(await picked, null);
