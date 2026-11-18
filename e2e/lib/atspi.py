@@ -58,15 +58,19 @@ def find_button(node, name, depth=0):
 if sys.argv[1] == "windows":
     windows = []
     for app, win in top_windows():
-        states = win.get_state_set()
-        windows.append(
-            {
-                "app": app.get_name(),
-                "title": win.get_name(),
-                "showing": states.contains(Atspi.StateType.SHOWING),
-                "active": states.contains(Atspi.StateType.ACTIVE),
-            }
-        )
+        try:
+            states = win.get_state_set()
+            windows.append(
+                {
+                    "app": app.get_name(),
+                    "title": win.get_name(),
+                    "showing": states.contains(Atspi.StateType.SHOWING),
+                    "active": states.contains(Atspi.StateType.ACTIVE),
+                }
+            )
+        except Exception:
+            # 読んでいる間に閉じた窓は飛ばす
+            continue
     print(json.dumps(windows, ensure_ascii=False))
 elif sys.argv[1] == "press":
     for _, win in top_windows():

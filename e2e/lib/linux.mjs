@@ -250,11 +250,14 @@ async function trayItem(pid) {
 	return item;
 }
 
+/** dbusmenu の文言から、ショートカットの印を除く。`_x` は x に下線を引く印、`__` は `_` そのもの (dbusmenu の決まり) */
+const mnemonicless = (label) => label.replace(/_(.)/g, '$1');
+
 /** dbusmenu の (id, { 項目 }, [子]) の入れ子を、項目の並びにする。区切りは `title: ''` (macOS の確認と同じ形) */
 function menuItems(children) {
 	return children.map(({ data: [id, props, sub] }) => ({
 		id,
-		title: props.type?.data === 'separator' ? '' : (props.label?.data ?? '').replaceAll('_', ''),
+		title: props.type?.data === 'separator' ? '' : mnemonicless(props.label?.data ?? ''),
 		enabled: props.enabled?.data ?? true,
 		checked: props['toggle-state']?.data === 1,
 		children: menuItems(sub ?? [])

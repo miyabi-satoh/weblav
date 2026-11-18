@@ -49,7 +49,11 @@ function run(command, commandArgs, input) {
 		});
 		child.once('error', reject);
 		child.once('exit', (code) => resolve(code ?? 1));
-		if (input) input.pipe(child.stdin);
+		if (input) {
+			// 相手が読み切る前に終わると書き込みが落ちる。その落ち方は終了コードで見るので、ここでは拾うだけにする
+			child.stdin.on('error', () => {});
+			input.pipe(child.stdin);
+		}
 	});
 }
 
@@ -138,7 +142,8 @@ async function ciDeb() {
 	return path.join(dir, name);
 }
 
-const deb = debArg ? path.resolve(debArg) : await ciDeb();
+// just は e2e/ に移ってから動かすので、相対パスはリポジトリから読む
+const deb = debArg ? path.resolve(repoRoot, debArg) : await ciDeb();
 const debName = path.basename(deb);
 const version = debName.match(/^weblav_(.+)_amd64\.deb$/)?.[1];
 if (!version) fail(`.deb の名前が weblav_<版>_amd64.deb ではありません: ${debName}`);

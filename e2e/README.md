@@ -46,7 +46,7 @@ just msix-check --no-build   # 作り直さずに、前に作った MSIX で回�
 ```
 just linux-check-vm arch-hyprland          # VM の Hyprland で linux/*.test.mjs を全部
 just linux-check-vm ubuntu-2604 tray       # VM の GNOME 50 で linux/tray.test.mjs だけ
-just linux-check-vm ubuntu-2404 --deb <ファイル>   # 指した .deb で回す
+just linux-check-vm ubuntu-2404 --deb <ファイル>   # 指した .deb (リポジトリからのパス) で回す
 ```
 
 見るもの: トレイのメニュー (`tray`)、多重起動 (`launch`)、ログイン時に起動と、デスクトップの設定で止めたとき (`login-item`)、フォルダー選択の窓とごみ箱 (消す・上書き) (`folders`)、NAS の共有と取り外した後のつなぎ直し (`nas`)。
@@ -58,14 +58,13 @@ just linux-check-vm ubuntu-2404 --deb <ファイル>   # 指した .deb で回�
   - VM が止まっていれば画面なしで起動し、回し終えたら止める (`--keep` で動かしたまま)。画面つきで見るときは `e2e/vm/vm.sh <名前> start`。
 - **配る .deb を入れて回す**。`release-linux` の workflow が作った .deb のうち、.deb に入るファイル (`e2e/`・`justfile`・文書のほか) が今のコミットと同じ回のものを `gh` で落として (`target/linux-vm/<コミット>/`)、Ubuntu は apt で、Arch は AUR と同じ PKGBUILD (`packaging/aur/PKGBUILD.in`) で作ったパッケージを pacman で入れる。どちらも依存を引いて入れ、実行ファイルが読む共有ライブラリが揃っているかも見る。
   - 当たる回が無ければ、push してから `gh workflow run release-linux.yml --ref <ブランチ>` で作る (PR で workflow や `packaging/` を変えたときは、PR の回が作る)。
-  - .deb に入る変更 (`e2e/` と文書のほかの変更) をコミットしていなければ、.deb と食い違うので止まる。
+  - .deb に入る変更 (`e2e/`・`justfile`・文書のほかの変更) をコミットしていなければ、.deb と食い違うので止まる。
 - **確かめ用の WebLAV はデータの置き場を分ける**。データの置き場 (`WEBLAV_HOME`) を `~/weblav-e2e` に、ポートを 18370 にして動かす。トレイの文言は、起動するときの `LANG` で日本語と英語を出し分けて見る。
 - **トレイ**は D-Bus の StatusNotifierItem と dbusmenu で、メニューを読んで項目を押す。
-- **フォルダー選択の窓**は portal が出すので、ほかのアプリの窓 (Hyprland は foot、GNOME はテキストエディター) を前面にしてから窓を出させ、前面が替わることと、ydotool で場所の欄 (Ctrl+L) に打ったパスが選ばれることで見る。前面の窓は、Hyprland は hyprctl、GNOME はアクセシビリティ (AT-SPI。`lib/atspi.py`) で読む。
+- **フォルダー選択の窓**は portal が出すので、ほかのアプリの窓 (Hyprland は foot、GNOME はテキストエディター) を前面にしてから窓を出させ、前面がそこから外れることと、ydotool で場所の欄 (Ctrl+L) に打ったパスが選ばれることで、窓がキーを受ける前面に出たことを見る。前面の窓は、Hyprland は hyprctl、GNOME はアクセシビリティ (AT-SPI。`lib/atspi.py`) で読む (GNOME 46 の窓は前面と読めず、前面の窓が読めなくなる)。
+  - 窓の操作はデスクトップで違う。GTK の窓 (Arch) は、場所の欄に打って Enter で決まる。GNOME 47 からの Nautilus の窓 (ubuntu-2604) は、Enter でそのフォルダーへ移るので、選ぶ要求がまだ終わっていなければ、続けて「Select」を押す。窓は「最近使用したもの」で開くことがあり、そこでは打った場所へ移らないので、先にホーム (Alt+Home) へ移る。
 - **多重起動**で2つ目が開くブラウザーは、開いた URL をファイルに書くだけの代わりにする (`x-scheme-handler/http` の既定を書き換える)。VM の中に窓が残り、続くテストの前面を乱さないため。
 - **NAS の共有**は、VM の中の samba が出す `smb://localhost/e2e` を、gio (gvfs) でつなぐ。取り外した共有をパスワードを聞かずにつなぎ直せるのは、利用者がパスワードを保存したときなので、Ubuntu の VM は合言葉の無い鍵束にパスワードを保存してある (Arch の gvfs は、保存したものが無くても guest でつなぐ)。
 - **GNOME の画面を消さない**。VM は手で触らないので、回す前に、使われていないときに画面を消す・ロックする設定を切る (`gsettings`)。消えてロックされると、トレイも窓も読めない。
-- **フォルダー選択の窓が前に出たか**は、ほかのアプリの窓を前面にしてから窓を出させ、前面がそこから外れること (GNOME 46 の窓はアクセシビリティで前面と読めず、前面の窓が読めなくなる) と、打った場所が窓に届いて選ばれることで見る。
-- **フォルダー選択の窓**の操作はデスクトップで違う。GTK の窓 (Arch) は、場所の欄に打って Enter で決まる。GNOME 47 からの Nautilus の窓 (ubuntu-2604) は、Enter でそのフォルダーへ移るので、選ぶ要求がまだ終わっていなければ、続けて「Select」を押す。窓は「最近使用したもの」で開くことがあり、そこでは打った場所へ移らないので、先にホーム (Alt+Home) へ移る。
 - **画面を撮る**: `e2e/vm/vm.sh <名前> screenshot <ファイル>` で、QEMU の外から VM の画面を撮れる (GNOME は中から撮らせない)。
 - **残るもの** (VM の中): ごみ箱に、消したものと上書きしたものが入る。`http`・`https` の既定のブラウザーは代わりのままになり、GNOME は画面を消さない・ロックしない設定のままになる。ログイン時に起動の .desktop は、回す前の状態に戻す。
