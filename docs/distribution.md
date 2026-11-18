@@ -209,7 +209,7 @@ Windows の実機で次を確かめた。
 Mac App Store に出す版を `just release-mas` で作って上げる。審査が通らないときに Store の外で配る版は `just release-mac` で作る。
 どちらも手元の Mac で、CI を通った main から流す (`scripts/release-mac.mjs`。署名の鍵を手元に置いたままにするため)。
 - コミットしていない変更があるときと、浅い履歴 (ビルド番号を数えられない) のときは、いつも止まる。
-- main でないときは、上げずに pkg までを作る `just release-mas --no-upload` を除いて止まる。
+- main でないときと、手元の main が GitHub の main と違うときは、上げずに pkg までを作る `just release-mas --no-upload` を除いて止まる。
 - ビルド番号はコミットの数なので、同じコミットからは2度上げられない。上げ直すときはコミットを進める。
 
 両方の CPU 向けに `cargo build --target` で作った実行ファイルを `lipo` でまとめたユニバーサル版にし、`.app` の組み立ては `just bundle-mac` と同じもの (`scripts/mac-app.mjs`) を使う。

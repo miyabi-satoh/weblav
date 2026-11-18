@@ -30,11 +30,13 @@
 	<!-- Mac App Store が求める分類。Microsoft Store の主のカテゴリ (ユーティリティ & ツール) と揃える。 -->
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
-	<!-- 暗号は、HTTPS で外のページを読むときの OS の標準のもの (ureq の native-tls、macOS では Security.framework) だけで、
-	     輸出規制の申告が要らない。暗号を自前で同梱する形 (rustls など) に替えたら見直す。
+	<!-- 暗号化は、HTTPS で外のページを読むときの OS の標準のもの (ureq の native-tls、macOS では Security.framework) だけ。
+	     同梱する argon2・sha2 はパスワードと中身のハッシュで、暗号化ではない。どちらも輸出規制の申告が要らない。
+	     暗号化の部品を同梱する形 (rustls など) を足したら見直す。
 	     書いておくと、App Store Connect で版を上げるたびに出る輸出規制の問いを省ける。 -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- scripts/release-mac.mjs の MINIMUM_MACOS と揃える。 -->
 	<key>LSMinimumSystemVersion</key>
 	<string>11.0</string>
 	<key>LSUIElement</key>

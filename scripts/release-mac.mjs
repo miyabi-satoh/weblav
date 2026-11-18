@@ -13,6 +13,8 @@ import { ENTITLEMENTS, EXECUTABLE, assembleApp, readBuildNumber } from './mac-ap
 const TEAM_ID = 'V6W6CVP93A';
 const BUNDLE_ID = 'com.amiiby.weblav';
 const RUST_TARGETS = ['aarch64-apple-darwin', 'x86_64-apple-darwin'];
+// installer/macos/Info.plist の LSMinimumSystemVersion と同じ値にする
+const MINIMUM_MACOS = '11.0';
 // Store の版と Store の外の版を、同じ版でも互いに消さないよう分けて置く
 const APP_STORE_OUT_ROOT = 'target/release-mas';
 const DEVELOPER_ID_OUT_ROOT = 'target/release-mac';
@@ -94,13 +96,21 @@ function checkSource({ requireMain }) {
 	if (read('git', ['rev-parse', '--is-shallow-repository']) === 'true') {
 		fail('履歴が浅い clone です。ビルド番号を数えられないので、git fetch --unshallow してから流してください');
 	}
+	if (!requireMain) {
+		return;
+	}
 	const branch = read('git', ['branch', '--show-current']);
-	if (requireMain && branch !== 'main') {
+	if (branch !== 'main') {
 		fail(`main でない (${branch}) ので止めました。上げずに試すときは --no-upload を付けます`);
+	}
+	// 手元の main が GitHub の main と違うと、CI を通っていないコミットや、遅れた版から作ることになる
+	run('git', ['fetch', '--quiet', 'origin', 'main']);
+	if (read('git', ['rev-parse', 'HEAD']) !== read('git', ['rev-parse', 'origin/main'])) {
+		fail('手元の main が GitHub の main と違います。git pull --ff-only で揃えてから流してください');
 	}
 }
 
-// plist の1つの値を読む。鍵の名前の「.」は階層の区切りと読まれるので、名前の中の「.」は `\\.` と書く
+// plist の1つの値を読む。-extract は鍵の名前の「.」を階層の区切りと読むので、名前の中の「.」は `\.` と逃がす
 function plistValue(xml, keyPath) {
 	return read('plutil', ['-extract', keyPath, 'raw', '-o', '-', '-'], { input: xml });
 }
@@ -120,8 +130,10 @@ function buildUniversalBinary(outDir) {
 		run('rustup', ['target', 'add', ...missing]);
 	}
 	run('just', ['frontend-build']);
+	// 動かせる最も古い macOS を Info.plist の LSMinimumSystemVersion と揃える (C で書かれた依存のビルドにも効く)
+	const env = { ...process.env, MACOSX_DEPLOYMENT_TARGET: MINIMUM_MACOS };
 	for (const target of RUST_TARGETS) {
-		run('cargo', ['build', '--release', '--bin', EXECUTABLE, '--target', target]);
+		run('cargo', ['build', '--release', '--bin', EXECUTABLE, '--target', target], { env });
 	}
 	const universal = join(outDir, EXECUTABLE);
 	run('lipo', [
@@ -189,7 +201,7 @@ async function buildAppStore({ upload }) {
 	// Store の版のときだけ、ほかの版と同じ権限に足して使う
 	const entitlements = resolve(outDir, 'Entitlements.plist');
 	copyFileSync(ENTITLEMENTS, entitlements);
-	// plutil は鍵の名前の「.」を階層の区切りと読むので、「:」で区切る PlistBuddy で足す
+	// 鍵の名前に「.」を含むので、「:」で階層を区切る PlistBuddy で足す
 	run('/usr/libexec/PlistBuddy', [
 		'-c',
 		`Add :com.apple.application-identifier string ${TEAM_ID}.${BUNDLE_ID}`,
