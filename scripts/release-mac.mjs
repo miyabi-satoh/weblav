@@ -3,7 +3,7 @@
 // `just release-mac`: ユニバーサル版を Developer ID で署名・公証し、DMG を target/release-mac/<版>/ に置く。
 //   Mac App Store の審査が通らないときだけ使う。
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { readVersion } from './cargo-version.mjs';
@@ -85,6 +85,21 @@ function requireAppleId(purpose) {
 	return appleId;
 }
 
+// ビルド番号はコミットの数なので、手元の変更が入っていたり履歴が浅かったりすると、どのコミットの版か分からなくなる。
+// 配る版は CI を通った main から作る (just msix と同じ。→ docs/distribution.md「Mac 版の配る版」)
+function checkSource({ requireMain }) {
+	if (read('git', ['status', '--porcelain']) !== '') {
+		fail('コミットしていない変更があります。配る版はコミットした状態から作ります');
+	}
+	if (read('git', ['rev-parse', '--is-shallow-repository']) === 'true') {
+		fail('履歴が浅い clone です。ビルド番号を数えられないので、git fetch --unshallow してから流してください');
+	}
+	const branch = read('git', ['branch', '--show-current']);
+	if (requireMain && branch !== 'main') {
+		fail(`main でない (${branch}) ので止めました。上げずに試すときは --no-upload を付けます`);
+	}
+}
+
 function freshOutDir(root, version) {
 	const outDir = join(root, version);
 	rmSync(outDir, { recursive: true, force: true });
@@ -127,6 +142,11 @@ function checkProfile(profile) {
 	if (platform !== 'OSX') {
 		fail(`プロビジョニングプロファイルが ${platform} 用です (Mac App Store Connect のものが要ります)`);
 	}
+	// 期限が切れたプロファイルは上げた後に断られる。作り直し方は docs/distribution.md「Mac 版の配る版」
+	const expires = new Date(value('ExpirationDate'));
+	if (!(expires > new Date())) {
+		fail(`プロビジョニングプロファイルの期限が切れています (${value('ExpirationDate')})`);
+	}
 	const appId = value('Entitlements:com.apple.application-identifier');
 	if (appId !== `${TEAM_ID}.${BUNDLE_ID}`) {
 		fail(
@@ -149,6 +169,7 @@ async function buildAppStore({ upload }) {
 		);
 	}
 	checkProfile(profile);
+	checkSource({ requireMain: upload });
 	// ビルドの後でなく前に聞く。端末が無いと分かるのが、数分のビルドの後にならないため
 	const credentials = upload
 		? {
@@ -174,6 +195,8 @@ async function buildAppStore({ upload }) {
 	]);
 	copyFileSync(profile, join(app, 'Contents/embedded.provisionprofile'));
 	run('codesign', ['--force', '--sign', signing, '--entitlements', entitlements, app]);
+	rmSync(entitlements);
+	rmSync(join(outDir, EXECUTABLE));
 
 	const signed = read('codesign', ['-d', '--entitlements', '-', '--xml', app]);
 	for (const key of [
@@ -221,6 +244,7 @@ async function buildDeveloperId() {
 	const build = readBuildNumber();
 	const signing = identity(['Developer ID Application'], 'codesigning');
 	const appleId = requireAppleId('公証');
+	checkSource({ requireMain: true });
 	const password = await askSecret('公証のアプリ用パスワード');
 	const outDir = freshOutDir(DEVELOPER_ID_OUT_ROOT, version);
 	const app = join(outDir, 'WebLAV.app');
@@ -238,8 +262,13 @@ async function buildDeveloperId() {
 		ENTITLEMENTS,
 		app
 	]);
+	// 開いた DMG の中で、アプリを「アプリケーション」へ引いて入れられるようにする (DMG で配るときの一般的な形)
+	const staging = join(outDir, 'dmg');
+	mkdirSync(staging);
+	run('ditto', [app, join(staging, 'WebLAV.app')]);
+	symlinkSync('/Applications', join(staging, 'Applications'));
 	const dmg = join(outDir, `WebLAV_${version}_universal.dmg`);
-	run('hdiutil', ['create', '-volname', 'WebLAV', '-srcfolder', app, '-ov', '-format', 'UDZO', dmg]);
+	run('hdiutil', ['create', '-volname', 'WebLAV', '-srcfolder', staging, '-ov', '-format', 'UDZO', dmg]);
 	run('codesign', ['--force', '--timestamp', '--sign', signing, dmg]);
 	run(
 		'xcrun',
@@ -261,7 +290,9 @@ async function buildDeveloperId() {
 	// 公証の結果が綴じてあり、Gatekeeper が通すことを確かめる
 	run('xcrun', ['stapler', 'validate', dmg]);
 	run('spctl', ['--assess', '--type', 'open', '--context', 'context:primary-signature', '--verbose=2', dmg]);
-	rmSync(app, { recursive: true, force: true });
+	for (const path of [app, staging, join(outDir, EXECUTABLE)]) {
+		rmSync(path, { recursive: true, force: true });
+	}
 	console.log(`\n${dmg} に置きました。`);
 }
 

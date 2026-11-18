@@ -30,7 +30,8 @@
 	<!-- Mac App Store が求める分類。Microsoft Store の主のカテゴリ (ユーティリティ & ツール) と揃える。 -->
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
-	<!-- 暗号は HTTPS で外のページを読むときの OS・ライブラリの標準のものだけで、輸出規制の申告が要らない。
+	<!-- 暗号は、HTTPS で外のページを読むときの OS の標準のもの (ureq の native-tls、macOS では Security.framework) だけで、
+	     輸出規制の申告が要らない。暗号を自前で同梱する形 (rustls など) に替えたら見直す。
 	     書いておくと、App Store Connect で版を上げるたびに出る輸出規制の問いを省ける。 -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
