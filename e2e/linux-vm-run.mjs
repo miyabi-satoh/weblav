@@ -150,6 +150,7 @@ if (!version) fail(`.deb の名前が weblav_<版>_amd64.deb ではありませ�
 function installCommand() {
 	const ldd = `if ldd /usr/bin/weblav | grep 'not found'; then echo '共有ライブラリが足りません' >&2; exit 1; fi`;
 	if (vm.startsWith('ubuntu')) {
+		// 一覧を新しくできなくても (一時的につながらないなど)、手元の一覧で入るならそのまま入れる。入らなければ install が落ちる
 		return `set -e; sudo apt-get update -qq || true; sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --reinstall /tmp/weblav-deb/${debName}; ${ldd}`;
 	}
 	// AUR に出す PKGBUILD を、この .deb を指すように埋めて作る (release-linux.yml の aur と同じ)
