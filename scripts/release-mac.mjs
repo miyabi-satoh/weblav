@@ -129,9 +129,10 @@ function buildUniversalBinary(outDir) {
 	if (missing.length > 0) {
 		run('rustup', ['target', 'add', ...missing]);
 	}
-	run('just', ['frontend-build']);
-	// 動かせる最も古い macOS を Info.plist の LSMinimumSystemVersion と揃える (C で書かれた依存のビルドにも効く)
+	// 動かせる最も古い macOS を Info.plist の LSMinimumSystemVersion と揃える (C で書かれた依存のビルドにも効く)。
+	// 時間のかかるビルドの前に読み、読めなければすぐ止める
 	const minimum = plistValue(readFileSync(INFO_PLIST), 'LSMinimumSystemVersion');
+	run('just', ['frontend-build']);
 	const env = { ...process.env, MACOSX_DEPLOYMENT_TARGET: minimum };
 	for (const target of RUST_TARGETS) {
 		run('cargo', ['build', '--release', '--bin', EXECUTABLE, '--target', target], { env });
