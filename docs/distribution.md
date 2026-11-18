@@ -228,7 +228,7 @@ Mac App Store に出す版を `just release-mas` で作って上げる。審査�
 
 - 配るのは amd64 の .deb だけ。Ubuntu には自前の apt リポジトリで、Arch Linux には .deb を展開するだけの AUR の `weblav-bin` で届ける。どちらも、更新は OS のふつうの更新で届く。
 - 入れるのはトレイの `weblav` と、ランチャーの項目 (`installer/linux/weblav.desktop`) とアイコン。.deb は cargo-deb が `Cargo.toml` の `[package.metadata.deb]` から作る。依存は cargo-deb が実行ファイルから書き出すものに、実行時に読み込むので書き出されないトレイの `libayatana-appindicator3-1` を足す。
-- `.github/workflows/release-linux.yml` が、版のタグの push で .deb を作り、GitHub Releases に上げ、apt リポジトリと AUR を新しい版にする。PR でこの workflow か `packaging/` か `installer/linux/` を変えたときは、使い捨ての鍵で公開の手前まで流し、apt と pacman で実際に入れて、実行ファイルが読む共有ライブラリが揃うかまで確かめる。`Cargo.toml` は依存の更新でも変わるので条件に入れず、`[package.metadata.deb]` を変えたときは手で流す。
+- `.github/workflows/release-linux.yml` が、版のタグの push で .deb を作り、GitHub Releases に上げ、apt リポジトリと AUR を新しい版にする。PR でこの workflow か `packaging/` か `installer/linux/` か `Cargo.toml` を変えたときは、使い捨ての鍵で公開の手前まで流し、apt と pacman で実際に入れて、実行ファイルが読む共有ライブラリが揃うかまで確かめる。
 - .deb は、支える中でいちばん古い Ubuntu (24.04) で作る。glibc などのライブラリは、古い版に合わせて作れば新しい版でも動くため。
 - apt リポジトリは GitHub Pages (`https://miyabi-satoh.github.io/weblav`) に置く (`packaging/apt/build-repo.sh`)。apt は Packages の `Filename` をリポジトリの URL からの相対で引くので、GitHub Releases の .deb は指せず、.deb も Pages に置く。置くのは今の版だけにし、前の版は GitHub Releases に残す。apt が更新に使うのは最新の版だけで、版を重ねると Pages の容量の上限 (1 GB) に近づくため。
 - 初めてタグを打つ前に、Pages の公開元を GitHub Actions にし、`github-pages` の環境の配備の決まりに `v*` のタグを足す (既定では main からしか配備できず、タグの push からの配備が止められる)。

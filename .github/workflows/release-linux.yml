@@ -1,17 +1,16 @@
 name: Release (Linux)
 
 # 版のタグ (v<版>) を push すると、.deb を作って GitHub Releases に上げ、apt リポジトリ (GitHub Pages) と AUR の weblav-bin を新しい版にする (docs/distribution.md「Linux の配る版」)。
-# PR でこのファイルか packaging/ か installer/linux/ を変えたときは、使い捨ての鍵で公開の手前まで流し、apt と pacman で入れられるかを確かめる。
-# Cargo.toml は依存の更新でも変わるので含めない。[package.metadata.deb] を変えたら、この workflow を手で流す (workflow_dispatch)。
+# PR でこのファイルか packaging/ か installer/linux/ か Cargo.toml (.deb の作りと依存) を変えたときは、使い捨ての鍵で公開の手前まで流し、apt と pacman で入れられるかを確かめる。
 on:
   push:
     tags: ['v*']
-  workflow_dispatch:
   pull_request:
     paths:
       - .github/workflows/release-linux.yml
       - packaging/**
       - installer/linux/**
+      - Cargo.toml
 
 permissions:
   contents: read
@@ -213,7 +212,7 @@ jobs:
           pacman -U --noconfirm aur/weblav-bin-*.pkg.tar.zst
           pacman -Qi weblav-bin
           test -x /usr/bin/weblav
-          # PKGBUILD の depends は手で書くので、実行時に読む共有ライブラリが揃っているかを見る
+          # PKGBUILD の depends は手で書くので、それで入る依存で、実行ファイルが読む共有ライブラリが揃っているかを見る
           if ldd /usr/bin/weblav | grep 'not found'; then exit 1; fi
 
       - name: Push to the AUR
