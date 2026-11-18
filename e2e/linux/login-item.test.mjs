@@ -6,6 +6,7 @@ import {
 	APP,
 	AUTOSTART_FILE,
 	cleanUp,
+	fileExists,
 	launch,
 	pressMenuItem,
 	quit,
@@ -19,11 +20,12 @@ import { TRAY_LABELS } from '../lib/tray-labels.mjs';
 
 const labels = TRAY_LABELS.ja;
 
+/** 「ログイン時に起動」の項目。起動の直後と押した後は、今の状態を読み終えるまで押せないので、押せるようになるまで待つ */
 async function loginItem(pid) {
 	return waitFor(
 		async () => (await readMenu(pid)).find((item) => item.title === labels.loginItem),
-		Boolean,
-		{ label: '「ログイン時に起動」が出る' }
+		(item) => item?.enabled,
+		{ label: '「ログイン時に起動」が押せる' }
 	);
 }
 
@@ -69,11 +71,7 @@ test.describe('Linux: ログイン時に起動', () => {
 
 		await pressMenuItem(running.pid, labels.loginItem);
 		await waitFor(
-			() =>
-				fs.access(AUTOSTART_FILE).then(
-					() => true,
-					() => false
-				),
+			() => fileExists(AUTOSTART_FILE),
 			(exists) => !exists,
 			{ label: '.desktop が消える' }
 		);

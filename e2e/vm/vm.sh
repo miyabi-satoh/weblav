@@ -78,6 +78,10 @@ create() {
 		echo "$VM_DIR/disk.qcow2 があります。作り直すなら先に消してください。" >&2
 		exit 1
 	fi
+	if [[ ! -f ~/.ssh/id_ed25519.pub ]]; then
+		echo "~/.ssh/id_ed25519.pub がありません。VM に ssh でつなぐ鍵なので、ssh-keygen -t ed25519 で作ってください" >&2
+		exit 1
+	fi
 	# 前の回の配り口が残っていると、新しい配り口が起動できず、cloud-init が設定を受け取れないまま進む
 	if (exec 3<>"/dev/tcp/127.0.0.1/$HTTP_PORT") 2>/dev/null; then
 		echo "ポート $HTTP_PORT が使われています。前の回の python3 -m http.server が残っていれば止めてください" >&2
