@@ -87,5 +87,6 @@ export async function launchOtherWindow() {
  */
 export async function confirmFolder(isOpen) {
 	await sleep(1500);
-	if (isOpen()) await atspi('press', 'Select');
+	// 押す間に決まって閉じることもあるので、押せなくても落とさない (決まらずに残れば、選ぶ要求の上限で落ちる)
+	if (isOpen()) await atspi('press', 'Select').catch(() => {});
 }
