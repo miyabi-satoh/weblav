@@ -447,8 +447,11 @@ export async function pickAndAddRoot(running, folder) {
 	return running.api.addRoot(chosen);
 }
 
-/** `ram://` のディスクを作って載せ、載せた場所を返す。別のボリュームへの移動を試すのに使う */
-export async function attachRamDisk(name, megabytes = 32) {
+/**
+ * `ram://` のディスクを作って載せ、載せた場所を返す。別のボリュームへの移動を試すのに使う。
+ * 既定の 256MB は、置き先に残す空き (src/api/shares/fsops.rs の SPACE_RESERVE_BYTES、100MB) と APFS の取り分を引いても、置く分が残る大きさ。
+ */
+export async function attachRamDisk(name, megabytes = 256) {
 	const mount = path.join('/Volumes', name);
 	// 前に落ちた回のものが残っていると、新しいほうが別の名前 (`<名前> 1`) で載る
 	await execFileAsync('hdiutil', ['detach', mount, '-force']).catch(() => {});
