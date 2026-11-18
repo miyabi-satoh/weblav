@@ -1,0 +1,92 @@
+#cloud-config
+# Arch に Hyprland・その portal・トレイを受ける waybar を入れ、e2e で tty1 に自動ログインして Hyprland を立ち上げる。
+# Linux の確認 (just linux-check-vm) を、手元の画面と入力を使わずに回すため。WebLAV とその依存のライブラリは入れず、
+# 確かめるたびに linux-vm-run.mjs が配る .deb から AUR と同じ PKGBUILD でパッケージを作って pacman で入れる
+# (PKGBUILD の depends だけで動くかも見るため)
+users:
+  - name: e2e
+    groups: [wheel]
+    shell: /bin/bash
+    sudo: 'ALL=(ALL) NOPASSWD:ALL'
+    lock_passwd: false
+    plain_text_passwd: e2e
+    ssh_authorized_keys:
+      - '@SSH_KEY@'
+ssh_pwauth: true
+package_update: true
+package_upgrade: true
+packages:
+  - base-devel
+  - hyprland
+  - xdg-desktop-portal-hyprland
+  # xdg-desktop-portal-hyprland はフォルダー選択の窓 (FileChooser) を持たず、gtk のものに任せる
+  - xdg-desktop-portal-gtk
+  - waybar
+  - foot
+  - ydotool
+  - grim
+  - mesa
+  - gvfs-smb
+  - samba
+  - nodejs
+  - python
+  - noto-fonts-cjk
+write_files:
+  - path: /etc/systemd/system/getty@tty1.service.d/autologin.conf
+    content: |
+      [Service]
+      ExecStart=
+      ExecStart=-/sbin/agetty -o '-p -f -- \\u' --noclear --autologin e2e %I $TERM
+  # ydotool のキーを送る常駐。uinput は root が要る。ソケットはログインした e2e の /run/user/1000 に置くので、ログインを待つ
+  - path: /etc/systemd/system/ydotoold.service
+    content: |
+      [Unit]
+      Description=ydotool daemon for the WebLAV checks
+      [Service]
+      ExecStartPre=/bin/sh -c "until [ -d /run/user/1000 ]; do sleep 1; done"
+      ExecStart=/usr/bin/ydotoold --socket-path=/run/user/1000/.ydotool_socket --socket-own=1000:1000
+      Restart=always
+      RestartSec=2
+      [Install]
+      WantedBy=multi-user.target
+  # NAS の確認 (linux/nas.test.mjs) が gio でつなぐ、この VM の中の SMB の共有。パスワードを聞かせないよう guest で入れる
+  - path: /etc/samba/smb.conf
+    content: |
+      [global]
+      map to guest = Bad User
+      server min protocol = SMB2
+      [e2e]
+      path = /srv/e2e-smb
+      read only = no
+      guest ok = yes
+      force user = e2e
+  - path: /home/e2e/.bash_profile
+    defer: true
+    owner: e2e:e2e
+    content: |
+      [ -f ~/.bashrc ] && . ~/.bashrc
+      if [ "$(tty)" = /dev/tty1 ] && [ -z "$WAYLAND_DISPLAY" ]; then
+        exec Hyprland >~/.hyprland.log 2>&1
+      fi
+  - path: /home/e2e/.config/hypr/hyprland.lua
+    defer: true
+    owner: e2e:e2e
+    content: |
+      hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })
+      hl.on("hyprland.start", function()
+        -- portal と waybar の D-Bus の起動に、この画面の環境を渡す
+        hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE")
+        hl.exec_cmd("waybar")
+      end)
+# 1つのスクリプトにして、どれか1つでも失敗したら止める。最後まで通ったら WEBLAV_VM_READY を出し、vm.sh はそれで出来上がりを見る
+runcmd:
+  - - bash
+    - -euxc
+    - |
+      install -d -o e2e -g e2e /srv/e2e-smb
+      chown -R e2e:e2e /home/e2e/.config
+      systemctl enable ydotoold.service smb.service
+      echo WEBLAV_VM_READY
+power_state:
+  mode: poweroff
+  condition: true
