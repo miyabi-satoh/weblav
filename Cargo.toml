@@ -29,7 +29,7 @@ LegalCopyright = "Copyright © 2026 amiiby"
 name = "weblav"
 maintainer = "amiiby"
 copyright = "2026, amiiby"
-extended-description = "WebLAV lets phones and tablets on the same local network view audio, video, PDFs, and images stored on this computer, in their web browser. It stays in the tray and starts at login."
+extended-description = "WebLAV lets phones and tablets on the same local network view audio, video, PDFs, and images stored on this computer, in their web browser. It stays in the tray and can start at login."
 section = "net"
 # 版の後ろに Debian の改版の番号を付けない (ファイル名を weblav_<版>_amd64.deb に揃える)
 revision = ""
