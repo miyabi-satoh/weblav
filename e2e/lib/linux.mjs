@@ -34,7 +34,7 @@ const YDOTOOL_SOCKET =
 	process.env.YDOTOOL_SOCKET ?? `/run/user/${process.getuid()}/.ydotool_socket`;
 
 /** Linux の入力のキーコード (linux/input-event-codes.h) */
-export const KEY = { esc: 1, enter: 28, ctrl: 29, l: 38 };
+export const KEY = { esc: 1, enter: 28, ctrl: 29, l: 38, alt: 56, home: 102, delete: 111 };
 
 // 2つ目の起動が開くブラウザーの代わり。開いた URL をファイルに書くだけにする。本物のブラウザーを開くと、
 // VM の中に窓が残り、続くテストの前面を乱すため。xdg-open (と GNOME の gio open) は mimeapps.list の既定を使う
@@ -108,6 +108,7 @@ export async function preflight() {
 	if (!(await fileExists(YDOTOOL_SOCKET))) {
 		throw new Error(`ydotoold が動いていません (${YDOTOOL_SOCKET} がありません)`);
 	}
+	await desktop.preflight();
 	await installBrowserStandIn();
 }
 
@@ -474,21 +475,30 @@ export function waitDialog(before) {
 	return waitFor(
 		activeWindow,
 		(w) => w !== null && (w.app !== before.app || w.title !== before.title),
-		{ label: 'フォルダー選択の窓が前面に出る', timeout: 15_000 }
+		// GNOME 47 からの Nautilus の窓は、冷えた状態から出ると、アクセシビリティに出るまで 15 秒より長くかかることがある
+		{ label: 'フォルダー選択の窓が前面に出る', timeout: 45_000 }
 	);
 }
 
 /**
- * 前面のフォルダー選択の窓 (portal の GTK の窓) の場所の欄 (Ctrl+L) にフォルダーのパスを打って選ぶ。
- * 末尾の `/` を付けずに打つと、Enter でそのフォルダーに決まる
+ * 前面のフォルダー選択の窓 (portal の GTK の窓) で、場所の欄 (Ctrl+L) にフォルダーのパスを打って選ぶ。
+ * 窓は「最近使用したもの」の一覧で開くことがあり、その一覧では打った場所へ移らないので、先にホーム (Alt+Home) へ移る。
+ * 打つと、続きが1つに決まる分 (末尾の `/` や、子のフォルダーが1つならその名前) を補完が選んだ状態で足すので、
+ * Delete で消してから Enter で決める。Enter で中へ移るだけの窓 (GNOME の Nautilus) は、続けて「選択」を押す。
+ * `dialog` は waitDialog が返した窓
  */
-export async function chooseInDialog(folder) {
+export async function chooseInDialog(folder, dialog) {
+	await pressKeys(KEY.alt, KEY.home);
+	await sleep(500);
 	await pressKeys(KEY.ctrl, KEY.l);
 	await sleep(300);
 	await typeText(folder);
-	// 打ち終えてすぐの Enter は、GTK が場所の欄の補完を作り直している間に落ちて決まらない
-	await sleep(500);
+	// 打ち終えてすぐは、GTK が補完を作り直している最中で、Delete と Enter が落ちる
+	await sleep(800);
+	await pressKeys(KEY.delete);
+	await sleep(300);
 	await pressKeys(KEY.enter);
+	await (await ensureSessionEnv()).confirmFolder(dialog);
 }
 
 /** 前面のフォルダー選択の窓を取り消す */
@@ -503,8 +513,8 @@ export function cancelDialog() {
 export async function pickAndAddRoot(running, folder) {
 	const before = await activeWindow();
 	const picked = running.api.pick();
-	await waitDialog(before ?? { app: null, title: null });
-	await chooseInDialog(folder);
+	const dialog = await waitDialog(before ?? { app: null, title: null });
+	await chooseInDialog(folder, dialog);
 	const chosen = await picked;
 	return running.api.addRoot(chosen);
 }

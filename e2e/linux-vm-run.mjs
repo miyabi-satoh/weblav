@@ -3,7 +3,7 @@
 // 手元の画面・キーボード・フォーカスを使わず、Hyprland (arch-hyprland) と GNOME (ubuntu-2404・ubuntu-2604) を回せる。
 // 回す前に、配る .deb を VM に入れる。Ubuntu は apt で、Arch は AUR と同じ PKGBUILD (packaging/aur/PKGBUILD.in) で
 // パッケージを作って pacman で入れる。どちらも依存を引いて入れるので、配る形の依存だけで動くかも見る。
-// .deb は、今のコミットで release-linux の workflow が作ったもの (`--deb <ファイル>` で別のものを指せる)。
+// .deb は、今のコミットと同じ中身で release-linux の workflow が作ったもの (`--deb <ファイル>` で別のものを指せる)。
 // VM が止まっていれば画面なしで起動し、回し終えたら止める (`--keep` で動かしたまま)
 import { execFile, spawn } from 'node:child_process';
 import { createReadStream } from 'node:fs';
@@ -58,50 +58,70 @@ async function git(...a) {
 	return (await execFileAsync('git', a, { cwd: repoRoot })).stdout.trim();
 }
 
+/** .deb に入らないファイル。変えても .deb を作り直さずに回せる */
+const NOT_BUILT = [':!e2e', ':!.claude', ':!*.md', ':!justfile'];
+
 /**
- * 今のコミットで release-linux の workflow が作った .deb を落として、そのパスを返す。作った回が無ければ、作り方を書いて止まる。
- * .deb に入らない変更 (e2e/・文書) を除いて、コミットしていない変更があれば、.deb と食い違うので止まる
+ * release-linux の workflow が作った .deb のうち、.deb に入るファイルが今のコミットと同じ回の、いちばん新しいものを落として、
+ * そのパスを返す (e2e/ と文書だけを変えたコミットでは、作り直さずに前の回の .deb を使える)。当たる回が無ければ、作り方を書いて止まる。
+ * .deb に入る変更をコミットしていなければ、.deb と食い違うので止まる
  */
 async function ciDeb() {
-	const dirty = (await git('status', '--porcelain'))
+	const dirty = (await git('status', '--porcelain', '--', '.', ...NOT_BUILT))
 		.split('\n')
 		.filter(Boolean)
-		.map((line) => line.slice(3))
-		.filter((file) => !/^(e2e|\.claude)\//.test(file) && !file.endsWith('.md'));
+		.map((line) => line.slice(3));
 	if (dirty.length > 0) {
 		fail(
 			`コミットしていない変更があります (${dirty.slice(0, 3).join('、')}${dirty.length > 3 ? ' など' : ''})。` +
-				'.deb は今のコミットから CI が作るので、コミットして push してから回してください'
+				'.deb はコミットから CI が作るので、コミットして push してから回してください'
 		);
 	}
-	const sha = await git('rev-parse', 'HEAD');
-	const dir = path.join(repoRoot, 'target', 'linux-vm', sha);
-	const cached = (await fs.readdir(dir).catch(() => [])).find((name) => name.endsWith('.deb'));
-	if (cached) return path.join(dir, cached);
 	const { stdout } = await execFileAsync('gh', [
 		'run',
 		'list',
 		'--workflow',
 		WORKFLOW,
-		'--commit',
-		sha,
 		'--status',
 		'success',
 		'--json',
-		'databaseId',
+		'databaseId,headSha',
 		'--limit',
-		'1'
+		'50'
 	]);
-	const [found] = JSON.parse(stdout);
+	let found = null;
+	for (const candidate of JSON.parse(stdout)) {
+		// 手元に無いコミット (ほかのブランチの回など) は比べられない
+		const known = await git('cat-file', '-e', `${candidate.headSha}^{commit}`).then(
+			() => true,
+			() => false
+		);
+		if (!known) continue;
+		const same = await execFileAsync(
+			'git',
+			['diff', '--quiet', candidate.headSha, 'HEAD', '--', '.', ...NOT_BUILT],
+			{ cwd: repoRoot }
+		).then(
+			() => true,
+			() => false
+		);
+		if (same) {
+			found = candidate;
+			break;
+		}
+	}
 	if (!found) {
 		const branch = await git('rev-parse', '--abbrev-ref', 'HEAD');
 		fail(
-			`今のコミット (${sha.slice(0, 8)}) の .deb を作った ${WORKFLOW} の回がありません。push してから ` +
+			`今のコミットと同じ中身の .deb を作った ${WORKFLOW} の回がありません。push してから ` +
 				`gh workflow run ${WORKFLOW} --ref ${branch} で作り、終わってから回してください (作っている途中なら、終わるのを待つ)`
 		);
 	}
+	const dir = path.join(repoRoot, 'target', 'linux-vm', found.headSha);
+	const cached = (await fs.readdir(dir).catch(() => [])).find((name) => name.endsWith('.deb'));
+	if (cached) return path.join(dir, cached);
 	await fs.mkdir(dir, { recursive: true });
-	log(`${WORKFLOW} の回 ${found.databaseId} の .deb を落とします`);
+	log(`${WORKFLOW} の回 ${found.databaseId} (${found.headSha.slice(0, 8)}) の .deb を落とします`);
 	await execFileAsync('gh', [
 		'run',
 		'download',

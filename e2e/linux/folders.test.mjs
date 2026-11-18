@@ -50,7 +50,7 @@ test.describe('Linux: 共有のフォルダー', () => {
 		const dialog = await waitDialog(before);
 		assert.notEqual(dialog.app, other.app, 'フォルダー選択の窓が前面にある');
 		// 打った場所が窓に届いて選ばれることで、窓がキーを受ける前面にあることも見る
-		await chooseInDialog(folder);
+		await chooseInDialog(folder, dialog);
 		assert.equal(await picked, folder);
 		share = await running.api.addRoot(folder);
 		assert.deepEqual(names(await running.api.browse(share.id)), ['hello.txt']);

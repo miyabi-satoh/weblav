@@ -69,3 +69,9 @@ export async function launchOtherWindow() {
 		}
 	};
 }
+
+/** GTK の窓 (xdg-desktop-portal-gtk) は、場所を打った Enter で決まって閉じるので、続けて押すものは無い */
+export async function confirmFolder() {}
+
+/** Hyprland の VM は画面を消す仕組みを入れていないので、整えるものは無い */
+export async function preflight() {}

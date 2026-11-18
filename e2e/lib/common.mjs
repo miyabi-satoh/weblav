@@ -92,9 +92,19 @@ export class Api {
 		return this.json('POST', '/auth/login', { json: { username: 'admin', password: PASSWORD } });
 	}
 
-	/** フォルダー選択の窓を出させる。窓が閉じると、選ばれたパス (取り消しは null) で解決する */
-	pick() {
-		return this.json('POST', '/admin/roots/pick').then((body) => body.path);
+	/**
+	 * フォルダー選択の窓を出させる。窓が閉じると、選ばれたパス (取り消しは null) で解決する。
+	 * 1回の要求は窓が閉じるのを 20 秒までしか待たないので、開いたままなら画面と同じく待ち直す (docs/folders.md「選び方」)
+	 */
+	async pick() {
+		let body = await this.json('POST', '/admin/roots/pick');
+		// 窓を操作できずに開いたままのとき、確認が止まり続けないよう打ち切る
+		const deadline = Date.now() + 120_000;
+		while (body.open) {
+			if (Date.now() > deadline) throw new Error('フォルダー選択の窓が2分たっても閉じない');
+			body = await this.json('GET', `/admin/roots/pick/${body.id}`);
+		}
+		return body.path;
 	}
 
 	addRoot(folderPath) {

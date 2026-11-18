@@ -36,6 +36,57 @@ write_files:
       read only = no
       guest ok = yes
       force user = e2e
+  # NAS の確認で、取り外した共有を WebLAV がパスワードを聞かずにつなぎ直すのは、利用者が保存したパスワードがあるとき。
+  # 合言葉の無い (平文の) 鍵束に、共有のパスワードを保存しておく。合言葉があると、自動ログインでは鍵束が開かない。
+  # Ubuntu の gvfs は、保存したものが無いと guest の共有でもパスワードを聞いて止まる
+  - path: /home/e2e/.local/share/keyrings/default
+    defer: true
+    owner: e2e:e2e
+    content: |
+      Default_keyring
+  - path: /home/e2e/.local/share/keyrings/Default_keyring.keyring
+    defer: true
+    owner: e2e:e2e
+    permissions: '0600'
+    content: |
+      [keyring]
+      display-name=Default keyring
+      ctime=0
+      mtime=0
+      lock-on-idle=false
+      lock-after=false
+
+      [1]
+      item-type=1
+      display-name=WebLAV e2e SMB
+      secret=e2e
+      mtime=0
+      ctime=0
+
+      [1:attribute0]
+      name=domain
+      type=string
+      value=WORKGROUP
+
+      [1:attribute1]
+      name=protocol
+      type=string
+      value=smb
+
+      [1:attribute2]
+      name=server
+      type=string
+      value=localhost
+
+      [1:attribute3]
+      name=user
+      type=string
+      value=e2e
+
+      [1:attribute4]
+      name=xdg:schema
+      type=string
+      value=org.gnome.keyring.NetworkPassword
 # 1つのスクリプトにして、どれか1つでも失敗したら止める。最後まで通ったら WEBLAV_VM_READY を出し、vm.sh はそれで出来上がりを見る
 runcmd:
   - - bash
@@ -62,8 +113,13 @@ runcmd:
       apt_get install ubuntu-desktop-minimal
       printf '[daemon]\nAutomaticLoginEnable=true\nAutomaticLogin=e2e\n' > /etc/gdm3/custom.conf
       systemctl set-default graphical.target
-      # GNOME の初回の案内 (Initial Setup) を出さない。確かめの窓の前に出て、フォーカスを取るため
+      # GNOME の初回の案内 (Initial Setup) を出さない。確かめの窓の後ろに大きな窓が残り、前面を乱すため。
+      # 自動で起動する .desktop を消すだけでは、26.04 は systemd のユーザーのサービスから立ち上げる
       rm -f /etc/xdg/autostart/gnome-initial-setup-first-login.desktop
+      install -d /home/e2e/.config
+      echo yes > /home/e2e/.config/gnome-initial-setup-done
+      # write_files が作った途中のフォルダー (.local など) は root のものになるので、ホームの中をまとめて e2e に渡す
+      chown -R e2e:e2e /home/e2e
       echo WEBLAV_VM_READY
 power_state:
   mode: poweroff

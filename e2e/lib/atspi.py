@@ -41,12 +41,17 @@ def find_button(node, name, depth=0):
     try:
         if node.get_role() == Atspi.Role.BUTTON and node.get_name() == name:
             return node
-        for k in range(node.get_child_count()):
-            found = find_button(node.get_child_at_index(k), name, depth + 1)
-            if found is not None:
-                return found
+        count = node.get_child_count()
     except Exception:
         return None
+    for k in range(count):
+        # 読めない子 (読んでいる間に消えたものなど) があっても、ほかの子は探す
+        try:
+            found = find_button(node.get_child_at_index(k), name, depth + 1)
+        except Exception:
+            continue
+        if found is not None:
+            return found
     return None
 
 

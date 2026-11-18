@@ -3,7 +3,7 @@
 import { execFile, spawn } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { waitFor } from './common.mjs';
+import { sleep, waitFor } from './common.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -37,6 +37,21 @@ export const tools = [
 	['gnome-text-editor', 'sudo apt install gnome-text-editor']
 ];
 
+/**
+ * 回す前に、画面を消さない・ロックしない設定にして、ロックされていれば解く。VM は手で触らないので、
+ * 5 分たつと GNOME が画面を消してロックし、トレイも窓も読めなくなるため
+ */
+export async function preflight() {
+	await execFileAsync('gsettings', ['set', 'org.gnome.desktop.session', 'idle-delay', '0']);
+	await execFileAsync('gsettings', [
+		'set',
+		'org.gnome.desktop.screensaver',
+		'lock-enabled',
+		'false'
+	]);
+	await execFileAsync('loginctl', ['unlock-sessions']).catch(() => {});
+}
+
 /** 見えている窓。`app` は AT-SPI のアプリ名 */
 async function windows() {
 	return JSON.parse(await atspi('windows')).filter((w) => w.showing);
@@ -64,4 +79,15 @@ export async function launchOtherWindow() {
 			await execFileAsync('pkill', ['-x', 'gnome-text-edit']).catch(() => {});
 		}
 	};
+}
+
+/**
+ * GNOME 47 からの窓 (Nautilus) は、場所を打った Enter でそのフォルダーの中へ移るだけなので、続けて「Select」を押して
+ * 今いるフォルダーに決める。押すのは、Enter の後も窓が前面に残っているときだけ (決まって閉じる窓もあるため)
+ */
+export async function confirmFolder(dialog) {
+	await sleep(1500);
+	// 中へ移ると窓の題がフォルダーの名前に変わるので、アプリで見る
+	if ((await activeWindow())?.app !== dialog.app) return;
+	await atspi('press', 'Select');
 }

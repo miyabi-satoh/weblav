@@ -105,7 +105,7 @@ msix-check *args:
     cd e2e && node msix-run.mjs {{ args }}
 
 # 配る .deb を VM (e2e/vm/vm.sh) に入れて、OS とつながる所 (トレイ・ログイン時に起動・多重起動・フォルダー選択の窓・ごみ箱・NAS) を見る。
-# .deb は今のコミットで release-linux の workflow が作ったもの (--deb で別のものを指せる)。手元の画面と入力は使わない。
+# .deb は、今のコミットと同じ中身で release-linux の workflow が作ったもの (--deb で別のものを指せる)。手元の画面と入力は使わない。
 # 例: just linux-check-vm arch-hyprland tray。詳細は e2e/README.md の「Linux の確認」
 [linux]
 linux-check-vm vm *args:

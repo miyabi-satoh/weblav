@@ -5,6 +5,7 @@
 #   vm.sh <名前> start [--headless] 起動する (既定は画面つき。--headless は画面なしで裏で動かす)
 #   vm.sh <名前> stop              電源を切る
 #   vm.sh <名前> ssh [コマンド]     ssh でつなぐ (ユーザーとパスワードは e2e)
+#   vm.sh <名前> screenshot <ファイル> 画面を PNG で撮る (中の OS が撮らせないデスクトップでも、外から撮れる)
 #
 # 名前: ubuntu-2404 (GNOME 46)・ubuntu-2604 (GNOME 50)・arch-hyprland (Hyprland)。
 # ディスクは $WEBLAV_VM_DIR/<名前> (既定は ~/VMs/weblav) に置く。リポジトリの外に置くのは、大きく、git に入れないため
@@ -53,6 +54,7 @@ qemu_base() {
 		-drive file="$VM_DIR/disk.qcow2",if=virtio,format=qcow2 \
 		-nic user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:"$SSH_PORT"-:22 \
 		-device virtio-tablet-pci -device virtio-keyboard-pci \
+		-qmp unix:"$VM_DIR/qmp.sock",server=on,wait=off \
 		-name "weblav-$NAME" "$@"
 }
 
@@ -157,8 +159,29 @@ stop() {
 	kill "$(cat "$VM_DIR/qemu.pid")"
 }
 
+# QEMU の監視の口 (QMP) から画面を撮る
+screenshot() {
+	local file=${1:?"書き出す PNG のファイル"}
+	python3 - "$VM_DIR/qmp.sock" "$(realpath -m "$file")" <<'PY'
+import json, socket, sys
+s = socket.socket(socket.AF_UNIX)
+s.connect(sys.argv[1])
+f = s.makefile("rw")
+f.readline()
+for cmd in ({"execute": "qmp_capabilities"}, {"execute": "screendump", "arguments": {"filename": sys.argv[2], "format": "png"}}):
+    f.write(json.dumps(cmd) + "\n")
+    f.flush()
+    reply = json.loads(f.readline())
+    while "event" in reply:
+        reply = json.loads(f.readline())
+    if "error" in reply:
+        sys.exit(reply["error"]["desc"])
+PY
+}
+
 case "$ACTION" in
 create) create ;;
+screenshot) screenshot "$@" ;;
 start) start "$@" ;;
 stop) stop ;;
 ssh) exec "${SSH[@]}" "$@" ;;
