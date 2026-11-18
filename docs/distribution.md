@@ -34,7 +34,7 @@ Windows 版の配布物を作る手段。
   ビルドする PC には Visual Studio が入っているので、動的リンクのままでは確かめても気づけない。
   再頒布可能パッケージを同梱するより、配布物も手順も増えない。
 - macOS は `just bundle-mac` で `target/release/bundle/WebLAV.app` を作る (`scripts/bundle-mac.mjs`、`installer/macos/Info.plist`)。
-  証明書なしの署名 (ad-hoc) で、開発する人の手元で常用するためのもの。配る版は `just release-mas` で作る (→ 「Mac 版の配る版」)。
+  証明書なしの署名 (ad-hoc) で、開発する人の手元で常用するためのもの。配る版は `just release-mas`・`just release-mac` で作る (→ 「Mac 版の配る版」)。
   `just install-mac` は、それを `/Applications` に入れ直して起動し直す。
 - Linux はまだ配っていない (.deb は作っていない)。手元で常用するときは `just install-linux` で、release の `weblav` を `~/.local/bin` に入れ、ランチャーの項目 (`~/.local/share/applications/weblav.desktop`) とアイコンを置いて起動し直す。
   データは `~/.local/share/weblav` (`ProjectDirs`)。
@@ -207,7 +207,11 @@ Windows の実機で次を確かめた。
 ## Mac 版の配る版
 
 Mac App Store に出す版を `just release-mas` で作って上げる。審査が通らないときに Store の外で配る版は `just release-mac` で作る。
-どちらも手元の Mac で、CI を通った main から流す (`scripts/release-mac.mjs`。署名の鍵を手元に置いたままにするため)。コミットしていない変更・浅い履歴 (ビルド番号を数えられない)・main でないとき (上げない `--no-upload` は除く) は止まる。
+どちらも手元の Mac で、CI を通った main から流す (`scripts/release-mac.mjs`。署名の鍵を手元に置いたままにするため)。
+- コミットしていない変更があるときと、浅い履歴 (ビルド番号を数えられない) のときは、いつも止まる。
+- main でないときは、上げずに pkg までを作る `just release-mas --no-upload` を除いて止まる。
+- ビルド番号はコミットの数なので、同じコミットからは2度上げられない。上げ直すときはコミットを進める。
+
 両方の CPU 向けに `cargo build --target` で作った実行ファイルを `lipo` でまとめたユニバーサル版にし、`.app` の組み立ては `just bundle-mac` と同じもの (`scripts/mac-app.mjs`) を使う。
 
 - `just release-mas`: プロファイルを `Contents/embedded.provisionprofile` に埋め込み、Apple Distribution で署名し、Mac Installer Distribution で署名した pkg にして、`altool` で App Store Connect に上げる。上げた版は、処理が済むと TestFlight に出る。

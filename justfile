@@ -60,7 +60,7 @@ msix *args: build
 [windows]
 install-windows: (msix "--install")
 
-# macOS 版の .app を作る (target/release/bundle/WebLAV.app)。証明書なしの署名で、手元で常用するためのもの。配る版は release-mas (→ docs/distribution.md「ビルド・配布の方法」)
+# macOS 版の .app を作る (target/release/bundle/WebLAV.app)。証明書なしの署名で、手元で常用するためのもの。配る版は release-mas・release-mac (→ docs/distribution.md「ビルド・配布の方法」)
 [macos]
 bundle-mac: build
     node scripts/bundle-mac.mjs

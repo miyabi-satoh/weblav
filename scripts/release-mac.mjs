@@ -100,6 +100,11 @@ function checkSource({ requireMain }) {
 	}
 }
 
+// plist の1つの値を読む。鍵の名前の「.」は階層の区切りと読まれるので、名前の中の「.」は `\\.` と書く
+function plistValue(xml, keyPath) {
+	return read('plutil', ['-extract', keyPath, 'raw', '-o', '-', '-'], { input: xml });
+}
+
 function freshOutDir(root, version) {
 	const outDir = join(root, version);
 	rmSync(outDir, { recursive: true, force: true });
@@ -136,9 +141,8 @@ function buildUniversalBinary(outDir) {
 // developer.apple.com では iPhone 用の「App Store Connect」と Mac 用の「Mac App Store Connect」が並び、取り違えやすい
 function checkProfile(profile) {
 	const plist = execFileSync('security', ['cms', '-D', '-i', profile]);
-	const value = (key) =>
-		read('/usr/libexec/PlistBuddy', ['-c', `Print :${key}`, '/dev/stdin'], { input: plist });
-	const platform = value('Platform:0');
+	const value = (keyPath) => plistValue(plist, keyPath);
+	const platform = value('Platform.0');
 	if (platform !== 'OSX') {
 		fail(`プロビジョニングプロファイルが ${platform} 用です (Mac App Store Connect のものが要ります)`);
 	}
@@ -147,7 +151,7 @@ function checkProfile(profile) {
 	if (!(expires > new Date())) {
 		fail(`プロビジョニングプロファイルの期限が切れています (${value('ExpirationDate')})`);
 	}
-	const appId = value('Entitlements:com.apple.application-identifier');
+	const appId = value('Entitlements.com\\.apple\\.application-identifier');
 	if (appId !== `${TEAM_ID}.${BUNDLE_ID}`) {
 		fail(
 			`プロビジョニングプロファイルの App ID が ${appId} です (${TEAM_ID}.${BUNDLE_ID} のものが要ります)`
@@ -198,14 +202,23 @@ async function buildAppStore({ upload }) {
 	rmSync(entitlements);
 	rmSync(join(outDir, EXECUTABLE));
 
+	// 署名に入った権限を、鍵の有無だけでなく値まで見る。サンドボックスが外れた版は App Store Connect に断られる
 	const signed = read('codesign', ['-d', '--entitlements', '-', '--xml', app]);
-	for (const key of [
-		'com.apple.security.app-sandbox',
-		'com.apple.application-identifier',
-		'com.apple.developer.team-identifier'
-	]) {
-		if (!signed.includes(key)) {
-			fail(`App Store 向けの権限で署名されていません (${key} がありません)`);
+	const entitlement = (key) => plistValue(signed, key.replaceAll('.', '\\.'));
+	const expected = {
+		'com.apple.security.app-sandbox': 'true',
+		'com.apple.application-identifier': `${TEAM_ID}.${BUNDLE_ID}`,
+		'com.apple.developer.team-identifier': TEAM_ID
+	};
+	for (const [key, value] of Object.entries(expected)) {
+		let actual;
+		try {
+			actual = entitlement(key);
+		} catch {
+			actual = '(無い)';
+		}
+		if (actual !== value) {
+			fail(`App Store 向けの権限で署名されていません (${key} が ${actual})`);
 		}
 	}
 	run('codesign', ['--verify', '--strict', '--deep', app]);
