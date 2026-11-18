@@ -458,6 +458,7 @@ export async function attachRamDisk(name, megabytes = 256) {
 	const { stdout } = await execFileAsync('hdiutil', [
 		'attach',
 		'-nomount',
+		// ram:// は 512 バイトのセクターの数で指す (1MB = 2048)
 		`ram://${megabytes * 2048}`
 	]);
 	const device = stdout.trim().split(/\s+/)[0];
