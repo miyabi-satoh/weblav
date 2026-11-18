@@ -3,18 +3,16 @@
 // `just release-mac`: ユニバーサル版を Developer ID で署名・公証し、DMG を target/release-mac/<版>/ に置く。
 //   Mac App Store の審査が通らないときだけ使う。
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { readVersion } from './cargo-version.mjs';
-import { ENTITLEMENTS, EXECUTABLE, assembleApp, readBuildNumber } from './mac-app.mjs';
+import { ENTITLEMENTS, EXECUTABLE, INFO_PLIST, assembleApp, readBuildNumber } from './mac-app.mjs';
 
 // 証明書とプロファイルの Team ID (developer.apple.com/account の Membership details)
 const TEAM_ID = 'V6W6CVP93A';
 const BUNDLE_ID = 'com.amiiby.weblav';
 const RUST_TARGETS = ['aarch64-apple-darwin', 'x86_64-apple-darwin'];
-// installer/macos/Info.plist の LSMinimumSystemVersion と同じ値にする
-const MINIMUM_MACOS = '11.0';
 // Store の版と Store の外の版を、同じ版でも互いに消さないよう分けて置く
 const APP_STORE_OUT_ROOT = 'target/release-mas';
 const DEVELOPER_ID_OUT_ROOT = 'target/release-mac';
@@ -106,7 +104,9 @@ function checkSource({ requireMain }) {
 	// 手元の main が GitHub の main と違うと、CI を通っていないコミットや、遅れた版から作ることになる
 	run('git', ['fetch', '--quiet', 'origin', 'main']);
 	if (read('git', ['rev-parse', 'HEAD']) !== read('git', ['rev-parse', 'origin/main'])) {
-		fail('手元の main が GitHub の main と違います。git pull --ff-only で揃えてから流してください');
+		fail(
+			'手元の main が GitHub の main と違います。遅れていれば git pull --ff-only、push していないコミットがあれば PR で main に入れてから流してください'
+		);
 	}
 }
 
@@ -131,7 +131,8 @@ function buildUniversalBinary(outDir) {
 	}
 	run('just', ['frontend-build']);
 	// 動かせる最も古い macOS を Info.plist の LSMinimumSystemVersion と揃える (C で書かれた依存のビルドにも効く)
-	const env = { ...process.env, MACOSX_DEPLOYMENT_TARGET: MINIMUM_MACOS };
+	const minimum = plistValue(readFileSync(INFO_PLIST), 'LSMinimumSystemVersion');
+	const env = { ...process.env, MACOSX_DEPLOYMENT_TARGET: minimum };
 	for (const target of RUST_TARGETS) {
 		run('cargo', ['build', '--release', '--bin', EXECUTABLE, '--target', target], { env });
 	}

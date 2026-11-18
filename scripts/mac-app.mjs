@@ -5,7 +5,7 @@ import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path';
 import sharp from 'sharp';
 
-const INFO_PLIST = 'installer/macos/Info.plist';
+export const INFO_PLIST = 'installer/macos/Info.plist';
 const SVG_PATH = 'assets/icon.svg';
 // iconutil が求める名前とサイズ (icon_<size>x<size>[@2x].png)。
 const ICON_SIZES = [16, 32, 128, 256, 512];

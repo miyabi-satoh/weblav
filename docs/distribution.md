@@ -212,7 +212,7 @@ Mac App Store に出す版を `just release-mas` で作って上げる。審査�
 - main でないときと、手元の main が GitHub の main と違うときは、上げずに pkg までを作る `just release-mas --no-upload` を除いて止まる。
 - ビルド番号はコミットの数なので、同じコミットからは2度上げられない。上げ直すときはコミットを進める。
 
-両方の CPU 向けに `cargo build --target` で作った実行ファイルを `lipo` でまとめたユニバーサル版にし、`.app` の組み立ては `just bundle-mac` と同じもの (`scripts/mac-app.mjs`) を使う。
+両方の CPU 向けに `cargo build --target` で作った実行ファイルを `lipo` でまとめたユニバーサル版にし (動かせる最も古い macOS は、Info.plist の `LSMinimumSystemVersion` をビルドの `MACOSX_DEPLOYMENT_TARGET` にも使って揃える)、`.app` の組み立ては `just bundle-mac` と同じもの (`scripts/mac-app.mjs`) を使う。
 
 - `just release-mas`: プロファイルを `Contents/embedded.provisionprofile` に埋め込み、Apple Distribution で署名し、Mac Installer Distribution で署名した pkg にして、`altool` で App Store Connect に上げる。上げた版は、処理が済むと TestFlight に出る。
   - 署名の権限は `installer/macos/weblav.entitlements` に、プロファイルと結ぶ権限 (`com.apple.application-identifier`・`com.apple.developer.team-identifier`) を足したもの。この2つをプロファイルの無い版に付けると起動できないので、ファイルには書かず、script が流すたびに足す。

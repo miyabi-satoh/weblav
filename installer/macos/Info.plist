@@ -36,7 +36,7 @@
 	     書いておくと、App Store Connect で版を上げるたびに出る輸出規制の問いを省ける。 -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<!-- scripts/release-mac.mjs の MINIMUM_MACOS と揃える。 -->
+	<!-- 配る版は、この値をビルドの MACOSX_DEPLOYMENT_TARGET にも使う (scripts/release-mac.mjs)。 -->
 	<key>LSMinimumSystemVersion</key>
 	<string>11.0</string>
 	<key>LSUIElement</key>
