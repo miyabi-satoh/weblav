@@ -11,6 +11,8 @@ license=('LicenseRef-WebLAV-Terms')
 depends=('gtk3' 'libayatana-appindicator')
 provides=('weblav')
 conflicts=('weblav')
+# 中身は作り済みの .deb なので、makepkg の既定 (debug) が中身の無い weblav-bin-debug を作らないようにする。strip も作るときに済んでいる
+options=('!debug' '!strip')
 source=("https://github.com/miyabi-satoh/weblav/releases/download/v${pkgver}/weblav_${pkgver}_amd64.deb")
 sha256sums=('@SHA256_DEB@')
 
