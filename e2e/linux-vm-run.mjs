@@ -150,7 +150,7 @@ if (!version) fail(`.deb の名前が weblav_<版>_amd64.deb ではありませ�
 function installCommand() {
 	const ldd = `if ldd /usr/bin/weblav | grep 'not found'; then echo '共有ライブラリが足りません' >&2; exit 1; fi`;
 	if (vm.startsWith('ubuntu')) {
-		return `set -e; sudo apt-get update -qq; sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --reinstall /tmp/weblav-deb/${debName}; ${ldd}`;
+		return `set -e; sudo apt-get update -qq || true; sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --reinstall /tmp/weblav-deb/${debName}; ${ldd}`;
 	}
 	// AUR に出す PKGBUILD を、この .deb を指すように埋めて作る (release-linux.yml の aur と同じ)
 	return [
@@ -158,9 +158,9 @@ function installCommand() {
 		'cd /tmp/weblav-deb',
 		`sed -e "s/@VERSION@/${version}/" -e "s/@SHA256_DEB@/$(sha256sum ${debName} | cut -d' ' -f1)/" PKGBUILD.in > PKGBUILD`,
 		'makepkg --force --nodeps',
-		// 依存は今のリポジトリから引く。Arch は一覧だけを新しくする入れ方 (-Sy) を許さないので、全体を上げる
-		'sudo pacman -Syu --noconfirm',
-		'sudo pacman -U --noconfirm weblav-bin-*.pkg.tar.zst',
+		// 依存を引けなければ (一覧が古く、落とす先が消えているなど)、全体を上げてから入れ直す。Arch は一覧だけを
+		// 新しくする入れ方 (-Sy) を許さない。毎回は上げない。動いているデスクトップの部品が入れ替わり、確認を乱すため
+		'sudo pacman -U --noconfirm weblav-bin-*.pkg.tar.zst || { sudo pacman -Syu --noconfirm && sudo pacman -U --noconfirm weblav-bin-*.pkg.tar.zst; }',
 		ldd
 	].join('; ');
 }
