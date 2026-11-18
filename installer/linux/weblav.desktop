@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=WebLAV
+Comment=View files on this computer from phones and tablets on the same network
+Comment[ja]=このコンピューターのファイルを、同じネットワークのスマホやタブレットで見る
+Exec=weblav
+Icon=weblav
+Terminal=false
+Categories=Network;FileTransfer;
