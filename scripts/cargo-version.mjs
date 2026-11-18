@@ -1,4 +1,4 @@
-// weblav パッケージのバージョンを cargo から読む (scripts/msix.mjs・scripts/bundle-mac.mjs)。
+// weblav パッケージのバージョンを cargo から読む (scripts/msix.mjs・scripts/bundle-mac.mjs・scripts/release-mac.mjs)。
 import { execFileSync } from 'node:child_process';
 
 // 手書きの正規表現でCargo.tomlを読まず、cargo自身にバージョンを解決させる

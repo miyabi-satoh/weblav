@@ -34,7 +34,7 @@ Windows 版の配布物を作る手段。
   ビルドする PC には Visual Studio が入っているので、動的リンクのままでは確かめても気づけない。
   再頒布可能パッケージを同梱するより、配布物も手順も増えない。
 - macOS は `just bundle-mac` で `target/release/bundle/WebLAV.app` を作る (`scripts/bundle-mac.mjs`、`installer/macos/Info.plist`)。
-  証明書なしの署名 (ad-hoc) だけで、公証はしていない。
+  証明書なしの署名 (ad-hoc) で、開発する人の手元で常用するためのもの。配る版は `just release-mas`・`just release-mac` で作る (→ 「Mac 版の配る版」)。
   `just install-mac` は、それを `/Applications` に入れ直して起動し直す。
 - Linux はまだ配っていない (.deb は作っていない)。手元で常用するときは `just install-linux` で、release の `weblav` を `~/.local/bin` に入れ、ランチャーの項目 (`~/.local/share/applications/weblav.desktop`) とアイコンを置いて起動し直す。
   データは `~/.local/share/weblav` (`ProjectDirs`)。
@@ -75,6 +75,7 @@ Windows 版の配布物を作る手段。
 - ビルド番号は、ビルドしたコミットまでのコミットの数 (`git rev-list --count HEAD`)。`build.rs` が数えて実行ファイルに入れ (`WEBLAV_BUILD`)、サイト設定の「このアプリについて」に版の後ろに括弧で添えて出す (`1.0.0 (123)`)。
   - 版を上げずに作り直したものも見分けられ、問い合わせで読み上げてもらえばどのコミットから作ったかが分かる。
   - 試しの MSIX の版番号の4つ目と同じ数え方 (→「MSIX (Windows)」)。git の無い場所でビルドしたときは版だけを出す。
+  - macOS の `.app` は、同じ数を `CFBundleVersion` に入れる (`scripts/mac-app.mjs`)。App Store Connect は同じビルド番号を2度受け付けないが、コミットが進めば増えるので、審査に落ちて直したときも版を上げずに上げ直せる。
 
 ## コンソールの扱い
 
@@ -202,6 +203,26 @@ Windows の実機で次を確かめた。
 - macOS は Windows と同じく、トレイがサーバーを同じプロセスで動かす (`tray::run`)。
   ログイン項目でメニューバーに常駐させる。登録はトレイの「ログイン時に起動」で行う (→ タスクトレイ)。サービス (LaunchDaemon) にすると、プライバシー保護 (TCC) のため、書類や外付け・ネットワークのボリュームを読むのに事前にフルディスクアクセスの許可が要る。
 - Ubuntu も同じく、トレイがサーバーを同じプロセスで動かす (`tray::run`)。ログイン時の起動は XDG Autostart で行う (→ タスクトレイ)。
+
+## Mac 版の配る版
+
+Mac App Store に出す版を `just release-mas` で作って上げる。審査が通らないときに Store の外で配る版は `just release-mac` で作る。
+どちらも手元の Mac で、CI を通った main から流す (`scripts/release-mac.mjs`。署名の鍵を手元に置いたままにするため)。
+- コミットしていない変更があるときと、浅い履歴 (ビルド番号を数えられない) のときは、いつも止まる。
+- main でないときと、手元の main が GitHub の main と違うときは、上げずに pkg までを作る `just release-mas --no-upload` を除いて止まる。
+- ビルド番号はコミットの数なので、同じコミットからは2度上げられない。上げ直すときはコミットを進める。
+
+両方の CPU 向けに `cargo build --target` で作った実行ファイルを `lipo` でまとめたユニバーサル版にし (動かせる最も古い macOS は、Info.plist の `LSMinimumSystemVersion` をビルドの `MACOSX_DEPLOYMENT_TARGET` にも使って揃える)、`.app` の組み立ては `just bundle-mac` と同じもの (`scripts/mac-app.mjs`) を使う。
+
+- `just release-mas`: プロファイルを `Contents/embedded.provisionprofile` に埋め込み、Apple Distribution で署名し、Mac Installer Distribution で署名した pkg にして、`altool` で App Store Connect に上げる。上げた版は、処理が済むと TestFlight に出る。
+  - 署名の権限は `installer/macos/weblav.entitlements` に、プロファイルと結ぶ権限 (`com.apple.application-identifier`・`com.apple.developer.team-identifier`) を足したもの。この2つをプロファイルの無い版に付けると起動できないので、ファイルには書かず、script が流すたびに足す。
+  - プロファイルの OS・App ID・期限は、ビルドの前に確かめる。developer.apple.com では iPhone 用の「App Store Connect」と Mac 用の「Mac App Store Connect」が並び、取り違えやすいため。
+  - pkg は `target/release-mas/<版>/` に置く。`just release-mas --no-upload` は、上げずに pkg までを作る (作り方を変えたときに試す)。
+- `just release-mac`: hardened runtime を付けて Developer ID で署名し、「アプリケーション」へのリンクと一緒に DMG にして署名・公証し、公証の結果を綴じて Gatekeeper が通すことを確かめて、`target/release-mac/<版>/` に置く。
+- 要るもの:
+  - キーチェーンの証明書。Store の版は Apple Distribution と Mac Installer Distribution (キーチェーンでは 3rd Party Mac Developer Installer と出ることがある。Xcode の「Manage Certificates…」で作れる)。Store の外の版は Developer ID Application (作れるのは Apple Developer の Account Holder だけ。[Create Developer ID certificates](https://developer.apple.com/help/account/certificates/create-developer-id-certificates/))。
+  - `APPLE_PROVISIONING_PROFILE` (Store の版だけ): Mac App Store Connect のプロビジョニングプロファイル (App ID `com.amiiby.weblav`、Apple Distribution の証明書と結ぶ) のパス。期限 (1年) が来たら developer.apple.com の Profiles で作り直す。
+  - `APPLE_ID`: 公証とアップロードに使う Apple Account のメールアドレス (`--no-upload` では要らない)。パスワードは、そのアカウントのアプリ用パスワード (https://account.apple.com の「サインインとセキュリティ」で作る) を流すときに聞く。公証では `notarytool` の引数で渡すので、公証を待つ間は同じ Mac のほかのプロセスから見える。アップロードでは環境変数で渡す。
 
 ## MSIX (Windows)
 
