@@ -477,10 +477,16 @@ export function workDir(name) {
  * 窓は WebLAV でなく portal のプロセスが出すので、前面がほかの窓に変わったことで見る。GNOME 46 の portal の窓 (GTK 4) は
  * アクセシビリティで前面と読めず、前面が無い (null) に変わる。前面に出てキーを受けることは、続けて打った場所で選べることで見る
  */
-export function waitDialog(before) {
+export async function waitDialog(before) {
+	if (before === null) {
+		// 前面が読めない状態から始めると、GNOME 46 の窓は出ても前面が読めないままで、変わったことを見られない。
+		// 読めるようになるのを待ち、読めないまま (GNOME 46) なら先へ進める。前面に出たことは、続けて打った場所で選べることで見る。
+		// 待つ長さは、冷えた状態の Nautilus の窓が出るまで (16 秒ほど) に足りるもの
+		return waitFor(activeWindow, (w) => w !== null, { timeout: 20_000 }).catch(() => null);
+	}
 	return waitFor(
 		activeWindow,
-		(w) => (before === null ? w !== null : w?.app !== before.app || w?.title !== before.title),
+		(w) => w?.app !== before.app || w?.title !== before.title,
 		// GNOME 47 からの Nautilus の窓は、冷えた状態から出ると、アクセシビリティに出るまで 15 秒より長くかかることがある
 		{ label: 'フォルダー選択の窓が前面に出る', timeout: 45_000 }
 	);
