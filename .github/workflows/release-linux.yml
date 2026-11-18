@@ -2,9 +2,11 @@ name: Release (Linux)
 
 # 版のタグ (v<版>) を push すると、.deb を作って GitHub Releases に上げ、apt リポジトリ (GitHub Pages) と AUR の weblav-bin を新しい版にする (docs/distribution.md「Linux の配る版」)。
 # PR でこのファイルか packaging/ か installer/linux/ か Cargo.toml (.deb の作りと依存) を変えたときは、使い捨ての鍵で公開の手前まで流し、apt と pacman で入れられるかを確かめる。
+# 手で流す (workflow_dispatch) と、PR と同じく公開の手前まで流す。Linux の確認 (just linux-check-vm) が、その回の .deb を VM に入れて使う。
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
   pull_request:
     paths:
       - .github/workflows/release-linux.yml

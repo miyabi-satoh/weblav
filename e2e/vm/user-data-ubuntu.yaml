@@ -1,0 +1,128 @@
+#cloud-config
+# Ubuntu に GNOME の素の構成 (ubuntu-desktop-minimal) を入れ、e2e で自動ログインする。Linux の確認 (just linux-check-vm) を
+# 中で回すための道具も入れる。WebLAV とその依存のライブラリは入れず、確かめるたびに linux-vm-run.mjs が配る .deb を apt で入れる
+# (入れた依存だけで動くかも見るため)
+users:
+  - name: e2e
+    groups: [sudo, adm]
+    shell: /bin/bash
+    sudo: 'ALL=(ALL) NOPASSWD:ALL'
+    lock_passwd: false
+    plain_text_passwd: e2e
+    ssh_authorized_keys:
+      - '@SSH_KEY@'
+ssh_pwauth: true
+write_files:
+  # ydotool のキーを送る常駐。uinput は root が要る。ソケットはログインした e2e の /run/user/1000 に置くので、ログインを待つ
+  - path: /etc/systemd/system/ydotoold.service
+    content: |
+      [Unit]
+      Description=ydotool daemon for the WebLAV checks
+      [Service]
+      ExecStartPre=/bin/sh -c "until [ -d /run/user/1000 ]; do sleep 1; done"
+      ExecStart=/usr/bin/ydotoold --socket-path=/run/user/1000/.ydotool_socket --socket-own=1000:1000
+      Restart=always
+      RestartSec=2
+      [Install]
+      WantedBy=multi-user.target
+  # NAS の確認 (linux/nas.test.mjs) が gio でつなぐ、この VM の中の SMB の共有。パスワードを聞かせないよう guest で入れる
+  - path: /etc/samba/smb.conf
+    content: |
+      [global]
+      map to guest = Bad User
+      server min protocol = SMB2
+      [e2e]
+      path = /srv/e2e-smb
+      read only = no
+      guest ok = yes
+      force user = e2e
+  # NAS の確認で、取り外した共有を WebLAV がパスワードを聞かずにつなぎ直すのは、利用者が保存したパスワードがあるとき。
+  # 合言葉の無い (平文の) 鍵束に、共有のパスワードを保存しておく。合言葉があると、自動ログインでは鍵束が開かない。
+  # Ubuntu の gvfs は、保存したものが無いと guest の共有でもパスワードを聞いて止まる
+  - path: /home/e2e/.local/share/keyrings/default
+    defer: true
+    owner: e2e:e2e
+    content: |
+      Default_keyring
+  - path: /home/e2e/.local/share/keyrings/Default_keyring.keyring
+    defer: true
+    owner: e2e:e2e
+    permissions: '0600'
+    content: |
+      [keyring]
+      display-name=Default keyring
+      ctime=0
+      mtime=0
+      lock-on-idle=false
+      lock-after=false
+
+      [1]
+      item-type=1
+      display-name=WebLAV e2e SMB
+      secret=e2e
+      mtime=0
+      ctime=0
+
+      [1:attribute0]
+      name=domain
+      type=string
+      value=WORKGROUP
+
+      [1:attribute1]
+      name=protocol
+      type=string
+      value=smb
+
+      [1:attribute2]
+      name=server
+      type=string
+      value=localhost
+
+      [1:attribute3]
+      name=user
+      type=string
+      value=e2e
+
+      [1:attribute4]
+      name=xdg:schema
+      type=string
+      value=org.gnome.keyring.NetworkPassword
+# 1つのスクリプトにして、どれか1つでも失敗したら止める。最後まで通ったら WEBLAV_VM_READY を出し、vm.sh はそれで出来上がりを見る
+runcmd:
+  - - bash
+    - -euxc
+    - |
+      export DEBIAN_FRONTEND=noninteractive
+      apt_get() { apt-get -o Acquire::Retries=5 -y "$@"; }
+      apt_get update
+      # smb.conf は先に置いてあるので、パッケージの既定で上書きさせない
+      apt_get -o Dpkg::Options::=--force-confold install samba gvfs-backends python3-gi gir1.2-atspi-2.0 cmake build-essential
+      install -d -o e2e -g e2e /srv/e2e-smb
+      # ydotool は 24.04 の版 (0.1.8) が古く書き方も違うので、1.0.4 をソースから組む (マニュアルは組まない)
+      curl -fsSL --retry 5 https://github.com/ReimuNotMoe/ydotool/archive/refs/tags/v1.0.4.tar.gz | tar -xz -C /tmp
+      # 26.04 の cmake (4 系) は、ydotool の古い cmake_minimum_required を断るので、その下限で読ませる
+      cmake -S /tmp/ydotool-1.0.4 -B /tmp/ydotool-1.0.4/build -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+      make -C /tmp/ydotool-1.0.4/build -j4 ydotool ydotoold
+      install -m755 /tmp/ydotool-1.0.4/build/ydotool /tmp/ydotool-1.0.4/build/ydotoold /usr/bin/
+      systemctl enable ydotoold.service
+      # Node は 24.04 の版 (18) が古いので、公式の配布物の LTS を置く
+      V=$(curl -fsS --retry 5 https://nodejs.org/dist/index.json | python3 -c 'import json,sys; print([r["version"] for r in json.load(sys.stdin) if r["lts"]][0])')
+      curl -fsS --retry 5 "https://nodejs.org/dist/$V/node-$V-linux-x64.tar.xz" | tar -xJ -C /opt
+      ln -sf "/opt/node-$V-linux-x64/bin/node" /usr/local/bin/node
+      # デスクトップは最後に入れる。入れるとネットワークの管理が NetworkManager に移り、その間は外につながらないため
+      apt_get install ubuntu-desktop-minimal
+      printf '[daemon]\nAutomaticLoginEnable=true\nAutomaticLogin=e2e\n' > /etc/gdm3/custom.conf
+      systemctl set-default graphical.target
+      # GNOME の初回の案内 (Initial Setup) を出さない。確かめの窓の後ろに大きな窓が残り、前面を乱すため。
+      # 自動で起動する .desktop を消すだけでは、26.04 は systemd のユーザーのサービスから立ち上げる
+      rm -f /etc/xdg/autostart/gnome-initial-setup-first-login.desktop
+      # 更新の知らせ (Software Updater) も、確かめの途中に出て前面を取るので、自動では立ち上げない
+      rm -f /etc/xdg/autostart/update-notifier.desktop
+      install -d /home/e2e/.config
+      echo yes > /home/e2e/.config/gnome-initial-setup-done
+      # write_files が作った途中のフォルダー (.local など) は root のものになるので、ホームの中をまとめて e2e に渡す
+      chown -R e2e:e2e /home/e2e
+      echo WEBLAV_VM_READY
+power_state:
+  mode: poweroff
+  condition: true

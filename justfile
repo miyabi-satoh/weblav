@@ -104,6 +104,13 @@ macos-check *tests:
 msix-check *args:
     cd e2e && node msix-run.mjs {{ args }}
 
+# 配る .deb を VM (e2e/vm/vm.sh) に入れて、OS とつながる所 (トレイ・ログイン時に起動・多重起動・フォルダー選択の窓・ごみ箱・NAS) を見る。
+# .deb は、今のコミットと同じ中身で release-linux の workflow が作ったもの (--deb で別のものを指せる)。手元の画面と入力は使わない。
+# 例: just linux-check-vm arch-hyprland tray。詳細は e2e/README.md の「Linux の確認」
+[linux]
+linux-check-vm vm *args:
+    cd e2e && node linux-vm-run.mjs {{ vm }} {{ args }}
+
 # ログイン時の起動 (XDG Autostart) は今の実行ファイルのパスを書くので、置き場所は毎回同じにする。
 # .deb で配るまでの、開発する人の手元の常用版 (→ docs/distribution.md「ビルド・配布の方法」)。
 # Linux 版を ~/.local に入れ直し、起動し直す
