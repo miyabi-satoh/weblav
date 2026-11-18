@@ -60,10 +60,22 @@ msix *args: build
 [windows]
 install-windows: (msix "--install")
 
-# macOS 版の .app を作る (target/release/bundle/WebLAV.app)。公証していないため、まだ配らない (→ docs/distribution.md「ビルド・配布の方法」)
+# macOS 版の .app を作る (target/release/bundle/WebLAV.app)。証明書なしの署名で、手元で常用するためのもの。配る版は release-mas (→ docs/distribution.md「ビルド・配布の方法」)
 [macos]
 bundle-mac: build
     node scripts/bundle-mac.mjs
+
+# 要: Apple Distribution と Mac Installer Distribution の証明書、環境変数 APPLE_PROVISIONING_PROFILE と (上げるとき) APPLE_ID (→ docs/distribution.md「Mac 版の配る版」)
+# ユニバーサル版を Mac App Store 向けに署名して pkg にし、App Store Connect に上げる。--no-upload で上げずに pkg までにする
+[macos]
+release-mas *args:
+    node scripts/release-mac.mjs --app-store {{ args }}
+
+# 要: Developer ID Application の証明書と環境変数 APPLE_ID (→ docs/distribution.md「Mac 版の配る版」)
+# ユニバーサル版を Developer ID で署名・公証し、DMG を target/release-mac/<版>/ に置く。Mac App Store の審査が通らないときだけ使う
+[macos]
+release-mac:
+    node scripts/release-mac.mjs
 
 # 動いている WebLAV を SIGTERM で止め、終わるまで待つ (トレイは受けて片付けないので、処理中のリクエストは切れる)
 [private]
