@@ -161,17 +161,17 @@ function installCommand() {
 }
 
 /**
- * 手元で tar に固めて、VM の中の `command` (標準入力から展開する) に流す。どちらかが落ちたら投げる。
+ * 手元で tar に固めて、VM の中の `command` (標準入力から展開する) に流す。どちらかが落ちたら `failure` で投げる。
  * 手元の tar が途中で落ちても、VM の側は短い入力を受けて正常に終わることがあるので、両方の終わり方を見る
  */
-async function sendTar(tarArgs, command, what) {
+async function sendTar(tarArgs, command, failure) {
 	const child = spawn('tar', tarArgs, { cwd: repoRoot, stdio: ['ignore', 'pipe', 'inherit'] });
 	const packed = new Promise((resolve) => {
 		child.once('error', () => resolve(1));
 		child.once('exit', (code) => resolve(code ?? 1));
 	});
 	const [remote, local] = await Promise.all([ssh(command, child.stdout), packed]);
-	if (remote !== 0 || local !== 0) throw new Error(`${what}を VM に写せませんでした`);
+	if (remote !== 0 || local !== 0) throw new Error(failure);
 }
 
 /** VM の中のシェルに渡す引数を引用する */
@@ -203,14 +203,14 @@ try {
 			'PKGBUILD.in'
 		],
 		'rm -rf /tmp/weblav-deb && mkdir -p /tmp/weblav-deb && tar -x -C /tmp/weblav-deb',
-		'.deb '
+		'.deb を VM に写せませんでした'
 	);
 	if ((await ssh(installCommand())) !== 0) throw new Error('.deb を VM に入れられませんでした');
 	// 確かめの仕組みを写す。手元で作られるもの (依存・ログ) は写さない
 	await sendTar(
-		['-c', '--exclude=node_modules', '--exclude=screenshots', 'e2e'],
+		['-c', '--exclude=e2e/node_modules', '--exclude=e2e/screenshots', 'e2e'],
 		'rm -rf ~/weblav && mkdir -p ~/weblav && tar -x -C ~/weblav',
-		'確かめの仕組み'
+		'確かめの仕組みを VM に写せませんでした'
 	);
 	code = await ssh(`cd ~/weblav/e2e && node linux-run.mjs ${tests.map(quote).join(' ')}`);
 } catch (error) {
