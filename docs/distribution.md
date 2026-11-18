@@ -36,7 +36,7 @@ Windows 版の配布物を作る手段。
 - macOS は `just bundle-mac` で `target/release/bundle/WebLAV.app` を作る (`scripts/bundle-mac.mjs`、`installer/macos/Info.plist`)。
   証明書なしの署名 (ad-hoc) で、開発する人の手元で常用するためのもの。配る版は `just release-mas`・`just release-mac` で作る (→ 「Mac 版の配る版」)。
   `just install-mac` は、それを `/Applications` に入れ直して起動し直す。
-- Linux はまだ配っていない (.deb は作っていない)。手元で常用するときは `just install-linux` で、release の `weblav` を `~/.local/bin` に入れ、ランチャーの項目 (`~/.local/share/applications/weblav.desktop`) とアイコンを置いて起動し直す。
+- Linux は amd64 の .deb を配る (→「Linux の配る版」)。手元で常用するときは `just install-linux` で、release の `weblav` を `~/.local/bin` に入れ、ランチャーの項目 (`~/.local/share/applications/weblav.desktop`) とアイコンを置いて起動し直す。
   データは `~/.local/share/weblav` (`ProjectDirs`)。
 
 ## バージョン・アイコンの埋め込み
@@ -223,6 +223,17 @@ Mac App Store に出す版を `just release-mas` で作って上げる。審査�
   - キーチェーンの証明書。Store の版は Apple Distribution と Mac Installer Distribution (キーチェーンでは 3rd Party Mac Developer Installer と出ることがある。Xcode の「Manage Certificates…」で作れる)。Store の外の版は Developer ID Application (作れるのは Apple Developer の Account Holder だけ。[Create Developer ID certificates](https://developer.apple.com/help/account/certificates/create-developer-id-certificates/))。
   - `APPLE_PROVISIONING_PROFILE` (Store の版だけ): Mac App Store Connect のプロビジョニングプロファイル (App ID `com.amiiby.weblav`、Apple Distribution の証明書と結ぶ) のパス。期限 (1年) が来たら developer.apple.com の Profiles で作り直す。
   - `APPLE_ID`: 公証とアップロードに使う Apple Account のメールアドレス (`--no-upload` では要らない)。パスワードは、そのアカウントのアプリ用パスワード (https://account.apple.com の「サインインとセキュリティ」で作る) を流すときに聞く。公証では `notarytool` の引数で渡すので、公証を待つ間は同じ Mac のほかのプロセスから見える。アップロードでは環境変数で渡す。
+
+## Linux の配る版
+
+- 配るのは amd64 の .deb だけ。Ubuntu には自前の apt リポジトリで、Arch Linux には .deb を展開するだけの AUR の `weblav-bin` で届ける。どちらも、更新は OS のふつうの更新で届く。
+- 入れるのはトレイの `weblav` と、ランチャーの項目 (`installer/linux/weblav.desktop`) とアイコン。.deb は cargo-deb が `Cargo.toml` の `[package.metadata.deb]` から作る。依存は cargo-deb が実行ファイルから書き出すものに、実行時に読み込むので書き出されないトレイの `libayatana-appindicator3-1` を足す。
+- `.github/workflows/release-linux.yml` が、版のタグの push で .deb を作り、GitHub Releases に上げ、apt リポジトリと AUR を新しい版にする。PR でこの workflow か `packaging/` か `installer/linux/` を変えたときは、使い捨ての鍵で公開の手前まで流し、apt と pacman で実際に入れて確かめる。
+- .deb は、支える中でいちばん古い Ubuntu (24.04) で作る。glibc などのライブラリは、古い版に合わせて作れば新しい版でも動くため。
+- apt リポジトリは GitHub Pages (`https://miyabi-satoh.github.io/weblav`) に置く (`packaging/apt/build-repo.sh`)。apt は Packages の `Filename` をリポジトリの URL からの相対で引くので、GitHub Releases の .deb は指せず、.deb も Pages に置く。置くのは今の版だけにし、前の版は GitHub Releases に残す。apt が更新に使うのは最新の版だけで、版を重ねると Pages の容量の上限 (1 GB) に近づくため。
+- 初めてタグを打つ前に、Pages の公開元を GitHub Actions にし、`github-pages` の環境の配備の決まりに `v*` のタグを足す (既定では main からしか配備できず、タグの push からの配備が止められる)。
+- apt リポジトリの署名の鍵は GitHub の secret (`APT_SIGNING_KEY`) に置く。公開鍵は workflow がその鍵から書き出して `weblav.gpg` として Pages に置き、利用者は `signed-by` でこのリポジトリにだけ結ぶ。
+- AUR へは、`packaging/aur/PKGBUILD.in` に版とハッシュを埋め、`.SRCINFO` を作って、secret (`AUR_SSH_PRIVATE_KEY`) の鍵で push する。secret が無ければ、警告を出して AUR だけを飛ばす。配るアプリはソースの `LICENSE` でなく利用規約で扱うので、ライセンスには利用規約の URL を書いたファイルを入れる。
 
 ## MSIX (Windows)
 

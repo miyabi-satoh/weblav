@@ -23,6 +23,24 @@ FileDescription = "WebLAV"
 OriginalFilename = "weblav.exe"
 LegalCopyright = "Copyright © 2026 amiiby"
 
+# Linux の配る版の .deb (cargo-deb。→ docs/distribution.md「Linux の配る版」)。
+# 入れるのはトレイの weblav だけ。weblav-cli・weblav-service は開発・テスト用 (→ docs/distribution.md「コンソールの扱い」)。
+[package.metadata.deb]
+name = "weblav"
+maintainer = "amiiby"
+copyright = "2026, amiiby"
+extended-description = "WebLAV lets phones and tablets on the same local network view audio, video, PDFs, and images stored on this computer, in their web browser. It stays in the tray and starts at login."
+section = "net"
+# 版の後ろに Debian の改版の番号を付けない (ファイル名を weblav_<版>_amd64.deb に揃える)
+revision = ""
+# トレイの部品 (tray-icon) は AppIndicator を実行時に読み込むので、$auto の自動の検出に出ない
+depends = "$auto, libayatana-appindicator3-1"
+assets = [
+    ["target/release/weblav", "usr/bin/", "755"],
+    ["installer/linux/weblav.desktop", "usr/share/applications/", "644"],
+    ["assets/icon.svg", "usr/share/icons/hicolor/scalable/apps/weblav.svg", "644"],
+]
+
 [dependencies]
 argon2 = "0.6.0"
 # セッションストアを包むため (→ src/session.rs)。tower-sessions の `SessionStore` がこの形。既に引いている。

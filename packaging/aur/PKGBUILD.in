@@ -1,0 +1,22 @@
+# Maintainer: amiiby
+# AUR の weblav-bin の元。@VERSION@ と @SHA256_DEB@ は .github/workflows/release-linux.yml が埋める。
+pkgname=weblav-bin
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='Let phones and tablets on the same network view files on this computer in their browser'
+arch=('x86_64')
+url='https://amiiby.com/apps/weblav/'
+# 配るアプリは、ソースの LICENSE (PolyForm Strict) でなく利用規約で扱う (README.md「ライセンス」)
+license=('LicenseRef-WebLAV-Terms')
+depends=('gtk3' 'libayatana-appindicator')
+provides=('weblav')
+conflicts=('weblav')
+source=("https://github.com/miyabi-satoh/weblav/releases/download/v${pkgver}/weblav_${pkgver}_amd64.deb")
+sha256sums=('@SHA256_DEB@')
+
+package() {
+  # makepkg が .deb を展開した data.tar.* の中身が、そのまま入れる先の形になっている
+  bsdtar -xf data.tar.* -C "$pkgdir"
+  install -d "$pkgdir/usr/share/licenses/$pkgname"
+  echo 'WebLAV is provided under the Terms of Use: https://amiiby.com/apps/weblav/terms/' > "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
