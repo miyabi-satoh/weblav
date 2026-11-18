@@ -98,7 +98,7 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
 
     // macOS でアクセシビリティから押されたときの読み直し (`reread_before_press`) からも、今の言語を引く。
     let locale = Rc::new(Cell::new(resolve_locale(language)));
-    let items = LabeledItems {
+    let mut items = LabeledItems {
         setup: MenuItem::new("", true, None),
         open: MenuItem::new("", true, None),
         manual: MenuItem::new("", true, None),
@@ -243,6 +243,17 @@ pub fn run(server: Running, exited: ServerExited, pick_requests: PickRequests) {
                         language = chosen;
                         locale.set(resolve_locale(chosen));
                         items.show(locale.get());
+                        #[cfg(target_os = "linux")]
+                        if let Some(menu) = &menu
+                            && let Some(replaced) = replace_submenu(
+                                menu,
+                                &items.language,
+                                locale.get().language_label(),
+                                &[&items.system_language, &ja_item, &en_item],
+                            )
+                        {
+                            items.language = replaced;
+                        }
                         if let Some(item) = &port_moved_item {
                             item.set_text(
                                 locale
@@ -325,6 +336,25 @@ impl LabeledItems {
         self.system_language
             .set_text(locale.system_language_label());
     }
+}
+
+/// `old` のサブメニューを、文言を `text` にした同じ中身のものに差し替える。差し替えられなければ None (古いまま残る)。
+///
+/// FIX: muda の GTK 版は、サブメニューの文言を `set_text` で書き換えない (muda 0.21.2)。サブメニューの項目は、
+/// アイコンを並べる箱の中にラベルを持ち、`set_text` は項目自身のラベルしか書き換えないため。
+/// 作ってから付けると、その時の文言で出る。
+#[cfg(target_os = "linux")]
+fn replace_submenu(
+    menu: &Menu,
+    old: &Submenu,
+    text: &str,
+    children: &[&dyn IsMenuItem],
+) -> Option<Submenu> {
+    let position = menu.items().iter().position(|item| item.id() == old.id())?;
+    let new = Submenu::with_items(text, true, children).ok()?;
+    menu.remove(old).ok()?;
+    menu.insert(&new, position).ok()?;
+    Some(new)
 }
 
 /// 表示言語のメニューの項目と、それぞれで選ぶ言語。

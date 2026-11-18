@@ -251,13 +251,13 @@ async fn search_within_a_differently_cased_level_still_applies_exclusions(pool: 
         None,
     )
     .await;
-    sqlx::query!(
-        "UPDATE contents SET exclude_patterns = 'Report/secret/' WHERE id = ?",
-        folder_id
-    )
-    .execute(&pool)
-    .await
-    .expect("パターンを書けなかった");
+    // 検査のマクロ (`query!`) にしない。Windows・macOS でしか組まないテストなので、Linux で `.sqlx/` を作り直すと
+    // このクエリの分が消え、Windows・macOS のオフラインのビルドが通らなくなるため。
+    sqlx::query("UPDATE contents SET exclude_patterns = 'Report/secret/' WHERE id = ?")
+        .bind(folder_id)
+        .execute(&pool)
+        .await
+        .expect("パターンを書けなかった");
     let app = test_app(pool).await;
 
     let (status, body) = send_anon(

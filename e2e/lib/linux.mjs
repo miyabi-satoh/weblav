@@ -160,16 +160,16 @@ export function fileExists(file) {
 // ── 窓とフォーカス (デスクトップごと) ──
 
 /** フォーカスのある窓 (`{ app, title }`)。無ければ null */
-export function activeWindow() {
-	return desktop.activeWindow();
+export async function activeWindow() {
+	return (await ensureSessionEnv()).activeWindow();
 }
 
 /**
  * フォルダー選択の窓が手前に出る前に前面にあった窓として、ほかのアプリの窓を1つ開いて前面にする。
  * 返すものの `app` は activeWindow の `app` と比べる名前、`close` で閉じる
  */
-export function launchOtherWindow() {
-	return desktop.launchOtherWindow();
+export async function launchOtherWindow() {
+	return (await ensureSessionEnv()).launchOtherWindow();
 }
 
 // ── ydotool ──
@@ -528,9 +528,12 @@ export function gvfsSmbPath(host, share) {
 
 /** SMB の共有をつなぐ (ファイルの窓の「他の場所」からつなぐのと同じ gvfs)。guest で入れる共有だけを相手にする */
 export async function mountSmb(url) {
-	await execFileAsync('gio', ['mount', '--anonymous', url], {
-		timeout: 30_000
-	});
+	try {
+		await execFileAsync('gio', ['mount', '--anonymous', url], { timeout: 30_000 });
+	} catch (error) {
+		// 前のテストやつなぎ直しで載っていれば、そのまま使う
+		if (!String(error.stderr).includes('already mounted')) throw error;
+	}
 }
 
 /** つないだ共有を外す (ファイルの窓の「取り外す」と同じ) */
