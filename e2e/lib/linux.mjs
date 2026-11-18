@@ -470,13 +470,14 @@ export function workDir(name) {
 }
 
 /**
- * フォルダー選択の窓が出て前面になるまで待ち、その窓を返す。`before` は窓を出させる前に前面にあった窓。
- * 窓は WebLAV でなく portal のプロセスが出すので、前面がほかの窓に変わったことで見る
+ * フォルダー選択の窓が出て前面になるまで待つ。`before` は窓を出させる前に前面にあった窓 (無ければ null)。
+ * 窓は WebLAV でなく portal のプロセスが出すので、前面がほかの窓に変わったことで見る。GNOME 46 の portal の窓 (GTK 4) は
+ * アクセシビリティで前面と読めず、前面が無い (null) に変わる。前面に出てキーを受けることは、続けて打った場所で選べることで見る
  */
 export function waitDialog(before) {
 	return waitFor(
 		activeWindow,
-		(w) => w !== null && (w.app !== before.app || w.title !== before.title),
+		(w) => (before === null ? w !== null : w?.app !== before.app || w?.title !== before.title),
 		// GNOME 47 からの Nautilus の窓は、冷えた状態から出ると、アクセシビリティに出るまで 15 秒より長くかかることがある
 		{ label: 'フォルダー選択の窓が前面に出る', timeout: 45_000 }
 	);
@@ -486,10 +487,12 @@ export function waitDialog(before) {
  * 前面のフォルダー選択の窓 (portal の GTK の窓) で、場所の欄 (Ctrl+L) にフォルダーのパスを打って選ぶ。
  * 窓は「最近使用したもの」の一覧で開くことがあり、その一覧では打った場所へ移らないので、先にホーム (Alt+Home) へ移る。
  * 打つと、続きが1つに決まる分 (末尾の `/` や、子のフォルダーが1つならその名前) を補完が選んだ状態で足すので、
- * Delete で消してから Enter で決める。Enter で中へ移るだけの窓 (GNOME の Nautilus) は、続けて「選択」を押す。
- * `dialog` は waitDialog が返した窓
+ * Delete で消してから Enter で決める。Enter で中へ移るだけの窓 (GNOME の Nautilus) は、続けて「Select」を押す。
+ * `isOpen` は、窓を出させた要求がまだ終わっていないか
  */
-export async function chooseInDialog(folder, dialog) {
+export async function chooseInDialog(folder, isOpen) {
+	// 前面に出た直後は、中身ができる前でキーが落ちることがある
+	await sleep(1000);
 	await pressKeys(KEY.alt, KEY.home);
 	await sleep(500);
 	await pressKeys(KEY.ctrl, KEY.l);
@@ -500,7 +503,7 @@ export async function chooseInDialog(folder, dialog) {
 	await pressKeys(KEY.delete);
 	await sleep(300);
 	await pressKeys(KEY.enter);
-	await (await ensureSessionEnv()).confirmFolder(dialog);
+	await (await ensureSessionEnv()).confirmFolder(isOpen);
 }
 
 /** 前面のフォルダー選択の窓を取り消す */
@@ -509,18 +512,26 @@ export function cancelDialog() {
 }
 
 /**
- * フォルダー選択の窓で `folder` を選んで共有に足す。返すのは足した共有。
- * 窓を出させる要求は窓が閉じるまで返らないので、待つ間に窓を操作する
+ * フォルダー選択の窓を出させる。窓を出させる要求は窓が閉じるまで返らないので、返り (`picked`) と、
+ * まだ終わっていないか (`isOpen`) を返し、待つ間に窓を操作する
  */
-export async function pickAndAddRoot(running, folder) {
-	const before = await activeWindow();
-	const picked = running.api.pick();
+export function startPick(running) {
+	let open = true;
+	const picked = running.api.pick().finally(() => {
+		open = false;
+	});
 	// 窓の操作が先に落ちたときも、後で落ちる要求を未処理のまま残さない
 	picked.catch(() => {});
-	const dialog = await waitDialog(before ?? { app: null, title: null });
-	await chooseInDialog(folder, dialog);
-	const chosen = await picked;
-	return running.api.addRoot(chosen);
+	return { picked, isOpen: () => open };
+}
+
+/** フォルダー選択の窓で `folder` を選んで共有に足す。返すのは足した共有 */
+export async function pickAndAddRoot(running, folder) {
+	const before = await activeWindow();
+	const { picked, isOpen } = startPick(running);
+	await waitDialog(before);
+	await chooseInDialog(folder, isOpen);
+	return running.api.addRoot(await picked);
 }
 
 // ── ごみ箱と SMB の共有 (gio) ──

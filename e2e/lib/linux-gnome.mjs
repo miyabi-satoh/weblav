@@ -83,11 +83,9 @@ export async function launchOtherWindow() {
 
 /**
  * GNOME 47 からの窓 (Nautilus) は、場所を打った Enter でそのフォルダーの中へ移るだけなので、続けて「Select」を押して
- * 今いるフォルダーに決める。押すのは、Enter の後も窓が前面に残っているときだけ (決まって閉じる窓もあるため)
+ * 今いるフォルダーに決める。押すのは、Enter の後も窓を出させた要求が終わっていないときだけ (Enter で決まる窓もあるため)
  */
-export async function confirmFolder(dialog) {
+export async function confirmFolder(isOpen) {
 	await sleep(1500);
-	// 中へ移ると窓の題がフォルダーの名前に変わるので、アプリで見る
-	if ((await activeWindow())?.app !== dialog.app) return;
-	await atspi('press', 'Select');
+	if (isOpen()) await atspi('press', 'Select');
 }

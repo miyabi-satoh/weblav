@@ -11,6 +11,8 @@ import {
 	entryNames as names,
 	launch,
 	launchOtherWindow,
+	sleep,
+	startPick,
 	quit,
 	trashedPaths,
 	waitDialog,
@@ -46,13 +48,11 @@ test.describe('Linux: 共有のフォルダー', () => {
 		// 管理画面を開いているブラウザーの代わりに、ほかのアプリの窓を前面にしておく
 		other = await launchOtherWindow();
 		const before = await activeWindow();
-		const picked = running.api.pick();
-		// 窓の操作が先に落ちたときも、後で落ちる要求を未処理のまま残さない
-		picked.catch(() => {});
-		const dialog = await waitDialog(before);
-		assert.notEqual(dialog.app, other.app, 'フォルダー選択の窓が前面にある');
-		// 打った場所が窓に届いて選ばれることで、窓がキーを受ける前面にあることも見る
-		await chooseInDialog(folder, dialog);
+		assert.equal(before?.app, other.app, 'ほかのアプリの窓が前面にある');
+		const { picked, isOpen } = startPick(running);
+		// 前面がほかのアプリの窓から外れ、打った場所が窓に届いて選ばれることで、窓がキーを受ける前面に出たことを見る
+		await waitDialog(before);
+		await chooseInDialog(folder, isOpen);
 		assert.equal(await picked, folder);
 		share = await running.api.addRoot(folder);
 		assert.deepEqual(names(await running.api.browse(share.id)), ['hello.txt']);
@@ -60,9 +60,9 @@ test.describe('Linux: 共有のフォルダー', () => {
 
 	test('窓を取り消すと、何も選ばれない', async () => {
 		const before = await activeWindow();
-		const picked = running.api.pick();
-		picked.catch(() => {});
-		await waitDialog(before ?? { app: null, title: null });
+		const { picked } = startPick(running);
+		await waitDialog(before);
+		await sleep(1000);
 		await cancelDialog();
 		assert.equal(await picked, null);
 	});
