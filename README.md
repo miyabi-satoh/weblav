@@ -23,7 +23,8 @@
 
 ## 入れ方・使い方
 
-- まだどの OS にも配っていない。
+- Windows: [Microsoft Store](https://apps.microsoft.com/detail/9N56ZV7G3N8S) から入れる。
+- macOS・Linux は、まだ配っていない。
 - 使い方は、アプリの中のマニュアル (通知領域のアイコンの「マニュアル」) にある。原稿は `docs/manual/`。
 
 ## ライセンス
